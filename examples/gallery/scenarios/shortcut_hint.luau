@@ -1,207 +1,275 @@
 --!strict
--- Passive hints, a bound Label and a caller-owned link share ordinary controls.
+
 return {
 	title = "Keys and labels",
 	build = function(ctx)
 		local Facet, UI, Compose = ctx.Facet, ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local rung, separator, title = Compose.cell("regular"), Compose.cell("or"), Compose.cell("Saved")
 		local guide = Compose.cell(false)
-		local rootPath, controller, customContext, customAction, customBinding
-		local liveRecord, customRecord
-		local function refresh()
-			if controller then
-				ctx.presenter.refresh()
-			end
-		end
-		local function text(path)
-			local facts = if controller and rootPath then controller.textAt(rootPath .. path) else nil
-			return if facts then facts.text else nil
-		end
-		local function rect(path)
-			return if controller and rootPath then controller.rectOf(rootPath .. path) else nil
-		end
-		local function live(id, record)
-			local letter = text("/" .. id .. "/Live/then/Chord1/Key1/Label")
-			local glyph = rect("/" .. id .. "/LiveGlyph/then/Chord1/Key1/Glyph")
-			return { text = letter, glyph = if glyph and record then record.dump().glyph else nil }
-		end
+		local key = Compose.cell(nil)
+		local liveAction = Host.InputAction({
+			Name = "Activate",
+			Type = Enum.InputActionType.Bool,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.Return }),
+			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonA }),
+		})
+		local customAction = Host.InputAction({
+			Name = "RecipeCommand",
+			Type = Enum.InputActionType.Bool,
+			Compose.show(key, function()
+				return Host.InputBinding({
+					KeyCode = function(use)
+						return Enum.KeyCode[use(key)]
+					end,
+				})
+			end),
+		})
+		Host.InputContext({
+			Name = "ShortcutRecipe",
+			Parent = ctx.inputTarget,
+			Enabled = true,
+			liveAction,
+			customAction,
+		})
 		local function report()
-			refresh()
-			local cap = rect("/Explicit/Chord1/Key1")
-			return {
-				live = live("Live", liveRecord),
-				custom = live("Custom", customRecord),
-				separator = text("/Explicit/Or2"),
-				title = text("/BoundLabel/Title"),
-				capHeight = if cap then cap.h else nil,
-				guideVisible = rect("/Guide/then/GuideText") ~= nil,
-			}
+			return { binding = key:peek(), title = title:peek(), guideVisible = guide:peek(), controlSize = rung:peek() }
 		end
-		local function class(value)
-			ctx.env:set("capabilities", { keyboard = true, mouse = true, gamepad = true, touch = true })
-			ctx.env:set("preferredInput", value)
-			return report()
-		end
-		local function binding(key)
-			if not rootPath then
-				return report()
-			end
-			if not customContext then
-				customContext = ctx.actionSystem.createContext({ name = "ShortcutRecipe" })
-				customAction = customContext.createAction("RecipeCommand", "Bool")
-			end
-			if customBinding then
-				customBinding.remove()
-				customBinding = nil
-			end
-			if key then
-				customBinding = customAction.bind({ keyCode = key })
-			end
+		local function binding(value)
+			key:set(value)
 			return report()
 		end
 		local function section()
-			Compose.cleanup(function()
-				if customContext then
-					customContext.destroy()
-				end
-				customContext, customAction, customBinding = nil, nil, nil
-				rootPath, controller, liveRecord, customRecord = nil, nil, nil, nil
-			end)
-			local root = UI.VStack("HintRecipe")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("Title")({ text = "Keys and labels", textSize = "heading", width = UI.fill() }),
-				UI.Text("Note")({
-					text = "Hints describe a shortcut. They do not take focus or claim its key.",
-					width = UI.fill(),
+			local root = Host.Frame({
+				Name = "HintRecipe",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
 				}),
-				UI.HStack("Size")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Compact")({
+				UI.Label({
+					LayoutOrder = 1,
+					Name = "Title",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Keys and labels",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+					LayoutOrder = 2,
+					Name = "Note",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Hints describe a shortcut. They do not take focus or claim its key.",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				Host.Frame({
+					LayoutOrder = 3,
+					Name = "Size",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Compact",
 						label = "Compact",
 						onActivate = function()
 							rung:set("compact")
 						end,
 					}),
-					UI.Button("Large")({
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Large",
 						label = "Large",
 						onActivate = function()
 							rung:set("large")
 						end,
 					}),
-					UI.Button("Rename")({
+					UI.Button({
+						LayoutOrder = 3,
+						Name = "Rename",
 						label = "Update label",
 						onActivate = function()
 							title:set("Lap saved")
 						end,
 					}),
 				}),
-				UI.Text("LiveHeading")({ text = "This surface's action", textSize = "label" }),
-				UI.ShortcutHint("Live")({
-					action = "Activate",
+				UI.Label({
+					LayoutOrder = 4,
+					Name = "LiveHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "This surface's action",
+					TextSize = 16,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.ShortcutHint({
+					LayoutOrder = 5,
+					Name = "Live",
+					action = liveAction,
 					controlSize = rung,
-					env = ctx.env,
-					ref = function(record)
-						liveRecord = record
-					end,
 				}),
-				UI.Text("ExplicitHeading")({
-					text = "Alternatives, with a localized joining word",
-					textSize = "label",
-					width = UI.fill(),
+				UI.Label({
+					LayoutOrder = 6,
+					Name = "ExplicitHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Alternatives, with a localized joining word",
+					TextSize = 16,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.ShortcutHint("Explicit")({
+				UI.ShortcutHint({
+					LayoutOrder = 7,
+					Name = "Explicit",
 					keys = { { "K" }, { "F1" } },
 					separator = separator,
 					controlSize = rung,
-					over = "media",
 				}),
-				UI.Label("BoundLabel")({ title = title, icon = "checkmark" }),
-				UI.Text("CustomHeading")({
-					text = "A binding can arrive after its hint",
-					textSize = "label",
-					width = UI.fill(),
+				UI.Label({ LayoutOrder = 8, Name = "BoundLabel", label = title, icon = "checkmark" }),
+				UI.Label({
+					LayoutOrder = 9,
+					Name = "CustomHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "A binding can arrive after its hint",
+					TextSize = 16,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.ShortcutHint("Custom")({
-					action = "RecipeCommand",
+				UI.ShortcutHint({
+					LayoutOrder = 10,
+					Name = "Custom",
+					action = customAction,
 					controlSize = rung,
-					env = ctx.env,
-					ref = function(record)
-						customRecord = record
-					end,
 				}),
-				UI.HStack("Bindings")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Bind")({
+				Host.Frame({
+					LayoutOrder = 11,
+					Name = "Bindings",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Bind",
 						label = "Bind Enter",
 						onActivate = function()
 							binding("Return")
 						end,
 					}),
-					UI.Button("Rebind")({
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Rebind",
 						label = "Rebind R",
 						onActivate = function()
 							binding("R")
 						end,
 					}),
-					UI.Button("Unbind")({
+					UI.Button({
+						LayoutOrder = 3,
+						Name = "Unbind",
 						label = "Remove binding",
 						onActivate = function()
 							binding(nil)
 						end,
 					}),
 				}),
-				-- Link is a Button appearance; this screen owns the navigation state.
-				UI.Button("OpenGuide")({
+				UI.Button({
+					LayoutOrder = 12,
+					Name = "OpenGuide",
 					label = "Open shortcut guide",
 					appearance = "link",
 					onActivate = function()
 						guide:set(true)
 					end,
 				}),
-				UI.When("Guide")({
-					condition = guide,
-					thenView = function()
-						return UI.Text("GuideText")({
-							text = "The guide is open. Your screen decides what a link opens.",
-							width = UI.fill(),
+				Host.Frame({
+					LayoutOrder = 13,
+					Name = "Guide",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Compose.show(guide, function()
+						return UI.Label({
+							Name = "GuideText",
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = "The guide is open. Your screen decides what a link opens.",
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
 						})
-					end,
+					end),
 				}),
 			})
-			return Facet.contribution.attach(root, {
-				bindController = function(value)
-					controller = value
-				end,
-				syncGeometry = function(_, node)
-					if node then
-						rootPath = node.path
-					end
-				end,
-			})
+			return root
 		end
 		return {
 			section = section,
 			screen = function()
-				return UI.Screen("ShortcutHint")({
-					surface = "base",
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
+				return Host.Frame({
+					Name = "ShortcutHint",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					Host.ScrollingFrame({
+						Name = "Content",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						section(),
+					}),
 				})
 			end,
 			report = report,
 			steps = {
-				keyboard = function()
-					return class("KeyboardAndMouse")
-				end,
-				pad = function()
-					return class("Gamepad")
-				end,
-				touch = function()
-					return class("Touch")
-				end,
 				compact = function()
 					rung:set("compact")
 					return report()

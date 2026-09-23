@@ -1,10 +1,4 @@
 --!strict
--- Foyer proof fake services (RA-P4, responsibility ledger): FeedService,
--- FriendsService, SearchService. Pure and deterministic — injectable clock and
--- seed page, commands run idle → pending → confirmed | rejected with scripted
--- rejection fixtures, no wall clock, no math.random, no network. The command
--- pending window resolves on an explicit `settle()` tick (the scenario/step
--- layer owns time), so a headless test can observe the pending face.
 
 local seed = require("./content/seed")
 
@@ -17,7 +11,6 @@ function services.new(deps: { Compose: any })
 
 	local self = {} :: any
 
-	-- ── FeedService ────────────────────────────────────────────────────────
 	local page = 0
 	self.sections = Compose.cell(seed.sections(page))
 	self.charted = seed.charted()
@@ -30,14 +23,11 @@ function services.new(deps: { Compose: any })
 	self.visitStatus = Compose.cell("idle" :: CommandStatus)
 	self.visitPendingId = Compose.cell(nil :: string?)
 
-	-- scripted rejection fixtures: the NEXT command of that name rejects once
 	local rejectNext: { [string]: string? } = {}
 	function self.scriptRejection(command: string, reason: string?)
 		rejectNext[command] = reason or "err.generic"
 	end
 
-	-- pending commands resolve on settle(), never inline — pending must be an
-	-- observable state on every input class
 	local settleQueue: { () -> () } = {}
 	function self.settle()
 		local q = settleQueue
@@ -100,13 +90,9 @@ function services.new(deps: { Compose: any })
 		return page
 	end
 
-	-- ── FriendsService ─────────────────────────────────────────────────────
 	self.friends = seed.friends
 	self.inviteCount = Compose.cell(seed.inviteCount)
 
-	-- ── SearchService ──────────────────────────────────────────────────────
-	-- filter(queryReadable) -> memo of matching tiles (title OR creator,
-	-- case-folded substring), deterministic order = seed order
 	function self.filterMemo(query: any)
 		return Compose.formula(function(use)
 			local q = string.lower(use(query))
@@ -133,7 +119,6 @@ function services.new(deps: { Compose: any })
 		end)
 	end
 
-	-- lookup for the detail surface
 	function self.tileById(id: string): seed.Tile?
 		for _, section in self.sections:peek() :: { any } do
 			for _, tile in section.tiles do

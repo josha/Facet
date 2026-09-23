@@ -1,19 +1,4 @@
 --!strict
--- RecipeUnlockService (spec §3, §10): the non-consumable-shaped `blend-book`
--- product and its purchase command.
---
--- Production is a `MarketplaceService` non-consumable and a host purchase sheet
--- (responsibility ledger). The proof imitates NO purchase chrome: the card
--- shows the product's own facts, the button says what it costs, and the
--- lifecycle is the ledger's `idle → pending → confirmed | rejected`.
---
--- TWO fixtures, both scripted rather than random:
---   * availability is `pending` for the first second, so the "price is not
---     known yet" state is a real state a screen has to render (no buy button is
---     mounted while it holds);
---   * the FIRST purchase attempt is declined. That is what makes the rejection
---     path reachable through the on-screen button alone — no test seam, no
---     fixture toggle, and the second attempt confirms.
 
 local unlock = {}
 
@@ -22,7 +7,7 @@ unlock.RESOLVE_AFTER = 0.6
 
 function unlock.new(opts: any)
 	local Compose = opts.Compose
-	-- groups several writes into one update
+
 	local batch = opts.batch
 	local clock = opts.clock
 
@@ -42,7 +27,7 @@ function unlock.new(opts: any)
 		descriptionKey = "unlock.description",
 		price = "149 Credits",
 	})
-	-- the scripted rejection fixture: attempt indexes that come back declined
+
 	self.rejectAt = opts.rejectAt or { 1 }
 
 	local function armAvailability()
@@ -100,7 +85,6 @@ function unlock.new(opts: any)
 		return true
 	end
 
-	-- the card returns to idle after a rejection has been read
 	function self.acknowledge()
 		if status:peek() == "rejected" then
 			status:set("idle")

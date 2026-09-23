@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0 — Compose and native engine cutover
+
+- Facet now exports `Compose`, `Roblox`, `controls(runtime, options)`, and `themes`. Applications create the Compose Roblox runtime and native `Host` tree directly. This is a breaking cutover with no compatibility APIs.
+- Deleted Facet's application shell, scene tree, blueprint schema, layout solver, renderer, presenter, environment, focus graph, input transport, replication and animation facades. Compose owns composition, lifetime, keyed retention, portals, pools and ordered collections. Roblox owns native layout, text, scrolling, selection, drag and styling.
+- Controls retain their task behavior through native Instances and Compose owners. Native properties, events and attributes pass through; control refs receive the actual Instance.
+- Gallery, virtual monitors, reference apps, consumer and performance lab use the same native authoring model. Themes compile to native StyleSheets linked by the caller.
+- Verification records which old mechanism tests were retired and which control behaviors have replacement evidence. The generated Compose vendor remains unchanged.
+- Removed first-party explanatory code comments. Compiler directives and legal notices remain.
+
 ## Unreleased — interaction and theme hardening
 
 - Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
@@ -17,8 +26,8 @@ All notable changes to Facet are recorded here. The format follows
 numbers follow the policy in
 [`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation): while the
 library is pre-1.0, a minor bump may change public behavior, and every retiring
-surface is listed in `Facet.DEPRECATIONS` with its replacement and the earliest
-version that may remove it.
+surface is documented in its breaking release. The 0.12.0 cutover removes old
+surfaces immediately.
 
 The version string lives in exactly one place, `src/init.luau`, and is readable at
 runtime as `Facet.VERSION`.

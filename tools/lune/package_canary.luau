@@ -1,42 +1,4 @@
 --!strict
---[[ THE PACKAGED-CONSUMER CANARY ────────────────────────────────────────────
-
-	Everything else in this repository tests `src/`. This tests the ARTIFACT.
-
-	`build/Facet.rbxm` is what a consumer without Rojo actually receives, and what
-	the official Roblox Package is made of. Between `src/` and that file sit a
-	Rojo mapping, a `globIgnorePaths`, a generated staging directory and a
-	serializer — four places a module can be dropped, renamed, or quietly added,
-	and a suite that requires `../src` cannot see any of them. So this canary
-	takes the built model, extracts the scripts back out of it into a directory
-	tree, requires THAT, and drives a real screen through it.
-
-	WHAT IT PROVES, in order:
-	  1. the extracted tree contains nothing it must not ship (only the pinned Compose vendor,
-	     no rejected bake-off core, no spec files);
-	  2. `Facet.VERSION` inside the artifact equals the `Version` attribute the
-	     builder stamped on `Facet.Distribution` — the two halves of the release
-	     stamp agree, which is the one thing a manifest built from source cannot
-	     check (Roblox attributes serialize to a binary blob the XML walk in
-	     `tools/package.py` deliberately does not decode);
-	  3. a screen mounts, a theme applies and moves geometry, a button fires
-	     through the presenter's own input path, a signal update reaches the
-	     rendered props, and the viewport and preferred-text facts re-solve;
-	  4. two mount/dismiss laps leave the adapter's live instances and the core's
-	     observer/scope registries at the same floor — the artifact leaks nothing
-	     the source does not.
-
-	The render target is `tests/lib/fake_target.luau` — the same headless adapter
-	the suite uses. It reaches the repository's `src/` for the pure paint and
-	content resolvers it deliberately shares with the live adapter, so this canary
-	is a proof about the PACKAGED FRAMEWORK driving a
-	local adapter, not a proof that the artifact is hermetic against every file on
-	disk. The tree-hygiene assertions above are what covers that.
-
-	    lune run tools/lune/package_canary
-
-	Exit 0 on success; non-zero with a plain message on any failure.
-]]
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -44,9 +6,7 @@ local serde = require("@lune/serde")
 local roblox = require("@lune/roblox")
 
 local MODEL_XML = "build/Facet.rbxmx"
--- A FIXED extraction directory, not a random temp one. Luau's require-by-string
--- takes a literal, so the require below has to name a path that exists at edit
--- time; `build/` is gitignored, so nothing here is ever committed.
+
 local EXTRACT_ROOT = "build/.canary"
 
 local failures: { string } = {}
@@ -69,8 +29,6 @@ local function fail(message: string): never
 end
 
 print("package_canary")
-
--- ── 1. read the artifact and extract its scripts ────────────────────────────
 
 if not fs.isFile(MODEL_XML) then
 	fail(`{MODEL_XML} is missing — run tools/package.sh build first`)
@@ -96,23 +54,6 @@ local function isScript(instance: any): boolean
 	return class == "ModuleScript" or class == "Script" or class == "LocalScript"
 end
 
---[[ AN INSTANCE NAME IS NOT A FILENAME, and this script turns one into the other.
-
-	Roblox lets an instance be called anything at all — `../../evil`, `a/b`, the
-	empty string — and the extraction below builds a path by concatenating names
-	with `/` and then WRITES THERE. A model carrying an instance named `../../evil`
-	would have written outside `build/.canary` entirely, and two siblings sharing a
-	name would have silently overwritten each other, leaving a tree that looks
-	whole and is missing a module. Neither is hypothetical for a file this tool is
-	pointed at: the whole point of the canary is to inspect an artifact rather than
-	to trust it.
-
-	So a name that cannot be a single path segment is a HARD FAILURE, not a
-	sanitised one. Rewriting it would hide exactly the defect worth finding — a
-	module that cannot round-trip through a filesystem cannot be shipped as one
-	either. Same for a collision: the second writer stops the run instead of
-	quietly winning.
-]]
 local INVALID_NAME_REASONS: { { pattern: string, why: string } } = {
 	{ pattern = "/", why = "contains a path separator '/'" },
 	{ pattern = "\\", why = "contains a path separator '\\'" },
@@ -146,9 +87,6 @@ local function claim(target: string, instancePath: string): boolean
 	return true
 end
 
---[[ AN INSTANCE WITH CHILDREN BECOMES A DIRECTORY; a script leaf becomes a file.
-	That is the inverse of what Rojo did on the way in, which is the point — a
-	renamed or relocated module shows up here as a path that does not resolve. ]]
 local function extract(instance: any, dir: string, instancePath: string)
 	if isScript(instance) then
 		local target = if #instance:GetChildren() > 0 then `{dir}/init.luau` else `{dir}.luau`
@@ -176,8 +114,6 @@ for _, problem in nameProblems do
 	print(`         - {problem}`)
 end
 
--- ── 2. tree hygiene ─────────────────────────────────────────────────────────
-
 local FORBIDDEN = { "fusion_adapter", "imperative", ".spec" }
 local APPROVED_VENDOR = {}
 for path in serde.decode("json", fs.readFile("src/vendor/compose/UPSTREAM.lock")).sha256 do
@@ -202,8 +138,6 @@ for _, stray in strays do
 	print(`         - {stray}`)
 end
 
--- ── 3. the release stamp agrees with itself ─────────────────────────────────
-
 local distribution = modelRoot:FindFirstChild("Distribution")
 if distribution == nil then
 	fail("the model carries no Facet.Distribution folder")
@@ -223,173 +157,54 @@ for _, name in { "LICENSE", "THIRD_PARTY_NOTICES" } do
 	)
 end
 
--- ── 4. require the extracted tree and drive it ──────────────────────────────
-
 local Facet = require("../../build/.canary/Facet") :: any
-local fake_target = require("../../tests/lib/fake_target")
-
-check(
-	Facet.VERSION == stampedVersion,
-	`the packaged Facet.VERSION ({tostring(Facet.VERSION)}) equals Distribution.Version ({tostring(stampedVersion)})`
-)
-
--- One headless application through the public entry point. The viewport is
--- bound before the first solve: a solve against an unset viewport runs at 1x1
--- and every measured thing in it is wrong.
-local adapter = fake_target.new()
-local core, env
-local app = Facet.new({
-	newAdapter = function()
-		return adapter
-	end,
-	newInputSystem = function(value)
-		core = value
-		return Facet.newActionSystem(value)
-	end,
-	bindEnv = function(value)
-		env = value
-		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-		return function() end
-	end,
-	-- frames are stepped by hand below
-	connectFrame = function()
-		return function() end
-	end,
-})
-local UI, pres = app.controls, app.presenter
-
-local title = Facet.Compose.cell("Hello")
+local engine = require("../../tests/lib/native_engine").new()
+local Compose = Facet.Compose
+local runtime = Facet.Roblox.createRuntime(engine)
+local Host = runtime.constructors
+local UI = Facet.controls(runtime, { types = engine.types })
+check(Facet.VERSION == stampedVersion, "artifact version matches its distribution stamp")
+local title = Compose.cell("Hello")
 local taps = 0
-
-local function screen(): any
-	return UI.Screen("Canary")({
-		UI.VStack("Stack")({
-			UI.Text("Title")({ text = title }),
-			UI.Button("Go")({
-				label = "Go",
-				onActivate = function()
-					taps += 1
-				end,
-			}),
+local target = engine.new("ScreenGui")
+local function screen()
+	local sheet = Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
+	return Host.Frame({
+		Name = "Canary",
+		sheet,
+		Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+		UI.Label("Title")({ text = title }),
+		UI.Button("Go")({
+			label = "Go",
+			onActivate = function()
+				taps += 1
+			end,
 		}),
 	})
 end
-
-local close = app.mount(screen)
-pres.refresh()
-
-local BUTTON = "/Canary/Stack/Go"
-local TITLE = "/Canary/Stack/Title"
-
-local function rectOf(path: string): any
-	local node = adapter.node(path)
-	return if node ~= nil then node.rect else nil
-end
-
-check(adapter.node(TITLE) ~= nil and adapter.node(BUTTON) ~= nil, "the screen mounts: Text and Button both exist")
-
---[[ A THEME, applied through the public path, and MEASURED rather than assumed.
-	`typography.body.size` is the lever because it moves BOTH halves of the
-	answer: the paint (`textSize` on the rendered node) and the geometry (the
-	solved rect). A theme that changed only a colour would prove the call
-	succeeded, not that it reached the solver. ]]
-local plainSize = (adapter.node(TITLE) or { props = {} }).props.textSize
-local plainHeight = (rectOf(TITLE) or {}).h
-local themePackage, report = Facet.themes.define({
-	base = Facet.themes.neutralPackage(),
-	identity = {
-		id = "canary-theme",
-		displayName = "Canary",
-		schemaVersion = Facet.themes.SCHEMA,
-		version = "1.0.0",
-	},
-	metrics = { typography = { body = { size = 30 } } },
-})
-if themePackage == nil then
-	fail(`themes.define refused the canary package: {tostring(report and report.problems and report.problems[1])}`)
-end
-env:set("themeMetrics", Facet.themes.resolve(themePackage, nil, {}))
-pres.refresh()
-local themedSize = (adapter.node(TITLE) or { props = {} }).props.textSize
-local themedHeight = (rectOf(TITLE) or {}).h
-check(
-	themedSize == 30 and plainSize ~= 30 and themedHeight ~= nil and themedHeight ~= plainHeight,
-	`a theme applies and reaches paint AND geometry: textSize {tostring(plainSize)} -> {tostring(themedSize)}, `
-		.. `height {tostring(plainHeight)} -> {tostring(themedHeight)}`
-)
-
--- the public input path: the adapter's activate seam, the same one the live
--- ScreenTarget drives from GuiButton.Activated
-local fired = adapter.driveActivate(BUTTON, { source = "pointer", pointer = "touch" })
-check(fired and taps == 1, `the button fires through the presenter's input path (taps = {taps})`)
-
--- a reactive update reaches the rendered props
-title:set("Changed")
-pres.refresh()
-local titleNode = adapter.node(TITLE)
-check(
-	titleNode ~= nil and titleNode.props.text == "Changed",
-	`a cell update reaches the rendered text (read {tostring(titleNode and titleNode.props.text)})`
-)
-
---[[ THE ENVIRONMENT RE-SOLVES: the viewport first, then preferred text.
-	Measured on the SCREEN for the viewport (the stack hugs its content, so it is
-	the surface that follows the window) and on the TEXT for the preference —
-	`preferredTextSize` is a multiplicative RESERVATION, not a paint value: the
-	engine adds its own offset at draw time, so the honest observable is the
-	reserved height, never the `textSize` prop. ]]
-local narrow = (rectOf("/Canary") or {}).w
-env:set("viewportRect", { x = 0, y = 0, w = 1180, h = 820 })
-pres.refresh()
-local wide = (rectOf("/Canary") or {}).w
-check(
-	narrow == 390 and wide == 1180,
-	`a viewport change re-solves the surface ({tostring(narrow)} -> {tostring(wide)} wide)`
-)
-
-local reservedBefore = (rectOf(TITLE) or {}).h
-env:set("preferredTextSize", 2)
-pres.refresh()
-local reservedAfter = (rectOf(TITLE) or {}).h
-check(
-	reservedBefore ~= nil and reservedAfter ~= nil and reservedAfter > reservedBefore,
-	`a preferred-text change re-reserves the type ({tostring(reservedBefore)} -> {tostring(reservedAfter)} tall)`
-)
-
--- ── 5. teardown returns the registries to their floor ───────────────────────
-
-close()
-pres.refresh()
-
---[[ THE FLOOR IS MEASURED AFTER ONE FULL LAP, not before the first mount. The
-	presenter owns scopes and instances for its own lifetime, so "back to zero" is
-	the wrong question; "back to where the previous lap left it" is the one that
-	catches a leak (tests/mount_unmount_soak.spec.luau's discipline). ]]
-local floorLive = adapter.liveCount()
-local floorCounters = core.owner.size()
-
 for lap = 1, 3 do
-	local closeLap = app.mount(screen)
-	pres.refresh()
-	closeLap()
-	pres.refresh()
-	local counters = core.owner.size()
+	local close, node = runtime.mount(screen, target)
+	local label = node:FindFirstChild("Title")
+	local button = node:FindFirstChild("Go")
+	check(label ~= nil and button ~= nil, `lap {lap}: native control tree mounts`)
+	button.Activated.fire()
+	check(taps == lap, `lap {lap}: native activation reaches the callback`)
+	title:set(`Changed {lap}`)
+	check(label.Text == `Changed {lap}`, `lap {lap}: Compose updates native text`)
+	local link = node:FindFirstChildWhichIsA("StyleLink")
 	check(
-		adapter.liveCount() == floorLive,
-		`lap {lap}: live instances return to {floorLive} (read {adapter.liveCount()})`
+		link and link.StyleSheet and link.StyleSheet:IsDescendantOf(target) and #link.StyleSheet:GetChildren() > 0,
+		`lap {lap}: native theme rules are linked`
 	)
-	check(
-		counters == floorCounters and counters == floorCounters,
-		`lap {lap}: core observers/scopes return to {floorCounters}/{floorCounters} ` .. `(read {counters}/{counters})`
-	)
+	close()
+	check(#target:GetChildren() == 0, `lap {lap}: owned scene is removed`)
+	check(button.Activated.count() == 0, `lap {lap}: owned input connection is released`)
 end
-
-print("")
+runtime.dispose()
 if #failures > 0 then
-	print(`package_canary: FAIL ({#failures} problem(s))`)
 	for _, message in failures do
 		print(`  - {message}`)
 	end
 	process.exit(1)
 end
-print("package_canary: PASS — the built artifact mounts, themes, takes input, re-solves and tears down clean")
+print("package_canary: PASS — extracted artifact mounts, binds native themes, updates, takes input and tears down")

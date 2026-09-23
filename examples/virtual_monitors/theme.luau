@@ -22,7 +22,7 @@ function theme.create(Facet: any, name: string)
 				onDanger = if dark then rgb(42, 15, 15) else rgb(255, 255, 255),
 			},
 			extra = {
-				-- Paint feedback keeps labels at their authored size.
+
 				pressedScale = 1,
 				control = if dark then rgb(58, 54, 80) else rgb(232, 230, 223),
 				controlHover = if dark then rgb(74, 68, 100) else rgb(222, 221, 212),
@@ -41,12 +41,11 @@ function theme.create(Facet: any, name: string)
 	end
 	typography.title.font.weight = "Bold"
 	typography.heading.font.weight = "SemiBold"
-	return Facet.themes.define({
-		base = Facet.themes.neutralPackage(),
+	return {
 		identity = {
 			id = "virtual-monitors-" .. string.lower(name),
 			displayName = "Virtual Monitors / " .. name,
-			schemaVersion = Facet.themes.SCHEMA,
+			schemaVersion = 1,
 			version = "1.0.0",
 		},
 		style = { defaultTheme = "Dark", themes = { palette(false), palette(true) } },
@@ -56,35 +55,7 @@ function theme.create(Facet: any, name: string)
 			space = { xs = 4, s = 8, m = 14, l = 22, xl = 32 },
 			radii = { control = 12, panel = 18, pill = 999 },
 		},
-	})
+	}
 end
 
--- Theme changes animate paint only. Layout, focus and content stay live, and
--- the host disables these native transitions for reduced motion.
-function theme.sheet(controller: any, package: any, displaySize: string)
-	local model = controller.sheetModelFor(package, displaySize)
-	for _, rule in model.rules do
-		-- Panels here wear `surfaceStrong`, which is also the slider thumb's
-		-- stock colour; the thumb takes the strong content colour so it reads.
-		if
-			type(rule.selector) == "string"
-			and string.find(rule.selector, "facet-slot-sliderThumb", 1, true)
-			and rule.props.BackgroundColor3 ~= nil
-		then
-			rule.props.BackgroundColor3 = "$ContentStrong"
-		end
-		for property in rule.props do
-			if
-				property == "BackgroundColor3"
-				or property == "TextColor3"
-				or property == "ImageColor3"
-				or property == "Color"
-			then
-				rule.transitions = rule.transitions or {}
-				rule.transitions[property] = rule.transitions[property] or "normal"
-			end
-		end
-	end
-	return model
-end
 return theme

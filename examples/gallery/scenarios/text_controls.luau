@@ -4,14 +4,11 @@ return {
 	ledgerRows = { "CONTROL-TEXT" },
 	build = function(ctx)
 		local UI, Compose = ctx.UI, ctx.Compose
-		-- The host may expose a control's record for drivers and reports.
-		local function record(id: string): any
-			return if ctx.controlRecord ~= nil then ctx.controlRecord(id) else nil
-		end
-		local function dumpOf(id: string): any
-			local control = record(id)
-			return if control ~= nil then control.dump() else nil
-		end
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local text = Compose.cell("Write your race notes here.")
 		local query = Compose.cell("")
 		local draft = Compose.cell("3")
@@ -38,12 +35,31 @@ return {
 			saved:set("No notes saved yet.")
 		end
 		local function body()
-			return UI.VStack("Body")({
-				width = UI.fill(),
-				gap = "m",
+			return Host.Frame({
+				Name = "Body",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				UI.Label({
 
-				UI.Text({ text = "Writing and search", textSize = "title", width = UI.fill() }),
-				UI.Button("Enable")({
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Writing and search",
+					TextSize = 28,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Button({
+
+					Name = "Enable",
 					label = function(use)
 						return if use(enabled) then "Disable fields" else "Enable fields"
 					end,
@@ -51,14 +67,33 @@ return {
 						enabled:set(not enabled:peek())
 					end,
 				}),
-				UI.Button("Reset")({ label = "Reset", onActivate = reset }),
-				UI.Text({ text = "Race notes", textSize = "heading", width = UI.fill() }),
-				UI.Text({
-					text = "Enter starts a new line. Save notes commits your text.",
-					role = "secondary",
-					width = UI.fill(),
+				UI.Button({ Name = "Reset", label = "Reset", onActivate = reset }),
+				UI.Label({
+
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Race notes",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.TextInput("Editor")({
+				UI.Label({
+
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Enter starts a new line. Save notes commits your text.",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.TextInput({
+
+					Name = "Editor",
 					value = text,
 					multiline = true,
 					enabled = enabled,
@@ -66,34 +101,81 @@ return {
 						saved:set(v)
 					end,
 				}),
-				UI.Button("Save")({
+				UI.Button({
+
+					Name = "Save",
 					label = "Save notes",
 					enabled = enabled,
 					onActivate = function()
 						saved:set(text:peek())
 					end,
 				}),
-				UI.Text("Saved")({ text = saved, width = UI.fill() }),
-				UI.Text({ text = "Find a track", textSize = "heading", width = UI.fill() }),
-				UI.TextInput("Search")({ value = query, presentation = "search", enabled = enabled }),
-				UI.ForEach("Matches")({
-					Compose.keyed({
-						from = matches,
-						key = function(name)
-							return name
-						end,
-						render = function(name)
-							return UI.Text({
-								text = function(use)
-									return use(name)
-								end,
-								width = UI.fill(),
-							})
-						end,
-					}),
+				UI.Label({
+
+					Name = "Saved",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = saved,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Text({ text = "Lap count · 1 to 99", textSize = "heading", width = UI.fill() }),
-				UI.TextInput("Laps")({
+				UI.Label({
+
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Find a track",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.TextInput({
+
+					Name = "Search",
+					value = query,
+					presentation = "search",
+					enabled = enabled,
+				}),
+				Compose.OrderedCollection({
+					from = matches,
+					key = function(name)
+						return name
+					end,
+					render = function(name)
+						return UI.Label({
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = function(use)
+								return use(name)
+							end,
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						})
+					end,
+				}),
+				UI.Label({
+
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Lap count · 1 to 99",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.TextInput({
+
+					Name = "Laps",
 					value = draft,
 					presentation = "number",
 					numericValue = laps,
@@ -101,42 +183,46 @@ return {
 					max = 99,
 					enabled = enabled,
 				}),
-				UI.Text("Committed")({
-					text = function(use)
+				UI.Label({
+
+					Name = "Committed",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = function(use)
 						return "Committed laps: " .. tostring(use(laps))
 					end,
-					width = UI.fill(),
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 			})
 		end
 		return {
 			screen = function()
-				return UI.Screen("TextControls")({
-					surface = "base",
-					padding = "m",
-
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), body() }),
+				return Host.Frame({
+					Name = "TextControls",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					Host.ScrollingFrame({
+						Name = "Content",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						body(),
+					}),
 				})
 			end,
 
-			states = function()
-				return {
-					{
-						id = "numeric-error",
-						kind = "validation",
-						open = function()
-							local number = record("Laps")
-							if number == nil then
-								return false
-							end
-							draft:set("-")
-							number.api.handleActivate("/TextControls/Content/Body/Laps/Input/Field")
-							number.api.submit()
-							return true
-						end,
-					},
-				}
-			end,
 			steps = {
 				disable = function()
 					enabled:set(false)
@@ -154,12 +240,12 @@ return {
 					query = query:peek(),
 					laps = laps:peek(),
 					enabled = enabled:peek(),
-					editor = dumpOf("Editor"),
-					number = dumpOf("Laps"),
+					editor = text:peek(),
+					number = draft:peek(),
 					saved = saved:peek(),
 				}
 			end,
-			-- nothing outlives the screen
+
 			dispose = function() end,
 		}
 	end,

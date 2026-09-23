@@ -1,0 +1,23 @@
+--!strict
+local t = require("./lib/testkit")
+local Roblox = require("@lune/roblox")
+local engineModule = require("./lib/native_engine")
+
+t.describe("native enum fixture", function()
+	t.it("resolves names and values while preserving native enum items", function()
+		local engine = engineModule.new()
+		local keyCodes = engine.types.Enum.KeyCode
+		t.expect(keyCodes:FromName("Space")).toBe(Roblox.Enum.KeyCode.Space)
+		t.expect(keyCodes:FromValue(Roblox.Enum.KeyCode.Space.Value)).toBe(Roblox.Enum.KeyCode.Space)
+		t.expect(keyCodes:FromValue(0)).toBe(Roblox.Enum.KeyCode.Unknown)
+		t.expect(keyCodes:FromName("MissingKey")).toBe(nil)
+		t.expect(keyCodes:FromValue(-100)).toBe(nil)
+		t.expect(keyCodes.Space).toBe(Roblox.Enum.KeyCode.Space)
+		t.expect(#keyCodes:GetEnumItems()).toBe(#Roblox.Enum.KeyCode:GetEnumItems())
+		t.expect(engine.types.Enum.KeyCode).toBe(keyCodes)
+		local items = keyCodes:GetEnumItems()
+		table.clear(items)
+		t.expect(#keyCodes:GetEnumItems() > 0).toBe(true)
+		t.expect(engine.types.Enum.UserInputType:FromName("Touch")).toBe(Roblox.Enum.UserInputType.Touch)
+	end)
+end)

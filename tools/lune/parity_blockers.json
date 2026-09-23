@@ -1,0 +1,202 @@
+{
+  "schema": "facet-product-parity-blockers/1",
+  "baselineCommit": "a8c8895673c0745506908b66dc89f8cead6b66f3",
+  "note": "Concrete original-source comparison findings. Existing mounted native tests do not establish full product parity. These behaviors are not mechanism retirements.",
+  "items": [
+    {
+      "id": "G01",
+      "sourceReference": "`scenarios/component_motion.luau:121`",
+      "remaining": [],
+      "requiredEvidence": "Reverse twice; assert native row `LayoutOrder` changes, row identities remain stable, and selected item/balance persist.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::reverses automatic equipment rows without changing their instances or balance"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G02",
+      "sourceReference": "`scenarios/collection_demo.luau:140`",
+      "remaining": [],
+      "requiredEvidence": "Activate Jump through the actual button; assert native scroll offset/window changes and status reflects the same window.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows",
+        "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G03",
+      "sourceReference": "`scenarios/collection_demo.luau:270`",
+      "remaining": [],
+      "requiredEvidence": "Every displayed action must change the promised visible state; remove irrelevant actions or bind the actual control inputs.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows",
+        "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion",
+        "native_gallery_collections::native gallery collections::changes grid columns and rendered text through relevant native toolbar actions"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G04",
+      "sourceReference": "`scenarios/row_actions.luau:64`, `scenarios/collection_demo.luau:36`",
+      "remaining": [],
+      "requiredEvidence": "Seed read and flagged messages must be visibly distinct; mark-read is idempotent, flag updates visibly, deletion still affects only the chosen row. Main already used independent models per surface; that independence is not a regression.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G05",
+      "sourceReference": "`scenarios/demo_tabs.luau:24`",
+      "remaining": [],
+      "requiredEvidence": "A\u2192B\u2192A must report A and its current model without remounting A.",
+      "cases": [
+        "native_gallery_shell::native gallery shell parity::reports the selected retained leaf and propagates ancestor page visibility"
+      ],
+      "resolution": "Root restored workflow and verified targeted native gallery shell regression case."
+    },
+    {
+      "id": "G06",
+      "sourceReference": "`scenarios/world_markers.luau:6`, `src/ui/nav_pages.luau:435`",
+      "remaining": [],
+      "requiredEvidence": "Visit and leave the page while retaining state; assert world visibility/background follow active-page visibility, then verify final disposal removes all external nodes.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::clamps the objective separates crowded markers respects the HUD band and only occludes supplies"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G07",
+      "sourceReference": "`scenarios/motion_demo.luau:34`",
+      "remaining": [],
+      "requiredEvidence": "Native child order follows the authored sequence; endpoint 0 and endpoint 1 both fit the lane.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::runs shared color size rotation fade order and detail changes while charge remains informational",
+        "native_gallery_parity::restored native gallery parity::keeps cooldown curve race and panel duration independent with real easing and readable endpoints"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G08",
+      "sourceReference": "`client/init.client.luau:112`, `client/screen.luau:12`",
+      "remaining": [],
+      "requiredEvidence": "API-driven theme and picker-driven theme produce identical package/name/palette state; invalid demo IDs preserve the current valid screen and return a failure.",
+      "cases": [
+        "native_gallery_shell::native gallery shell parity::keeps API theme and palette choices consistent and rejects invalid demos"
+      ],
+      "resolution": "Root restored workflow and verified targeted native gallery shell regression case."
+    },
+    {
+      "id": "G09",
+      "sourceReference": "`table_virtualized` \u2192 `collection_demo`",
+      "remaining": [],
+      "requiredEvidence": "Open Large table and attempt each named main task. Preserve native table virtualization and selection; replace the removed imperative facade with current control/model APIs.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G10",
+      "sourceReference": "`row_actions`",
+      "remaining": [],
+      "requiredEvidence": "Exercise the three mail surfaces with the original message content, read/flag/delete plus table edit/reorder. Do not count list deletion alone as full mail parity.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::uses mail table activation editing and native row reorder with independent state"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G11",
+      "sourceReference": "`variable_extents`, `measured_extents`, `card_rail`",
+      "remaining": [],
+      "requiredEvidence": "Restore the distinct tasks/content, then change text/extent modes while scrolled and verify anchor retention and bounded mounting.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::keeps variable and native measured posts anchored across all text offsets",
+        "native_gallery_collections::native gallery collections::renders three racing shelves with measured widths track art and native selection"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G12",
+      "sourceReference": "`with_animation`, `time_curves` \u2192 `motion_demo`",
+      "remaining": [],
+      "requiredEvidence": "Keep Compose motion ownership; restore each page's distinct tasks. Test intermediate motion, synchronized completion, reversal, state identity and reduced-motion/informational distinction.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::runs shared color size rotation fade order and detail changes while charge remains informational",
+        "native_gallery_parity::restored native gallery parity::keeps cooldown curve race and panel duration independent with real easing and readable endpoints"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G13",
+      "sourceReference": "`container_grid`",
+      "remaining": [],
+      "requiredEvidence": "Resize one container without changing the viewport; other containers keep their own columns. Toggle guides and replay span/visibility. Native geometry remains the mechanism.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::measures three independent containers and preserves native cards across guides and replay changes"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G14",
+      "sourceReference": "`sponsor_toast`",
+      "remaining": [],
+      "requiredEvidence": "Reproduce send-burst, urgent arrival while reading, subject replacement, edge/width choice and interaction passthrough. Retiring presenter methods does not establish equivalent behavior.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
+        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G15",
+      "sourceReference": "`world_markers`",
+      "remaining": [],
+      "requiredEvidence": "The native billboard example does not prove the former offscreen/collision tasks. Restore equivalent player tasks using the agreed native architecture or explicitly resolve the product scope; do not mark their former behavior assertions replaced by move/hide smoke checks.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::clamps the objective separates crowded markers respects the HUD band and only occludes supplies"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G16",
+      "sourceReference": "`inherited_subtree`",
+      "remaining": [],
+      "requiredEvidence": "Verify the remaining power/tint tasks, and distinguish an intentional native-compositing example from a claim that the original override/focus workflow was preserved.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::retains nested color overrides and control paint while disabling focus and activation together"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G17",
+      "sourceReference": "`client/settings_panel` replacement in `client/screen`",
+      "remaining": [],
+      "requiredEvidence": "At minimum record these removed user-facing capabilities explicitly. If replaced by native Studio/device settings, document and prove that route rather than counting the old preview assertions as exercised.",
+      "cases": [
+        "native_gallery_shell::native gallery shell parity::keeps gallery motion preview synchronized with native accessibility preferences",
+        "native_gallery_shell::native gallery shell parity::keeps API theme and palette choices consistent and rejects invalid demos"
+      ],
+      "resolution": "Settings restores Automatic/Near/Distant TV preview with native UIScale and inverse root size; TV previews 150% and preserves mounted state. This is a visual preview, not a synthetic device/input report. Native accessibility preferences remain active. Native SheetContent now scrolls overflowing settings. At 0fdeab native wheel scrolled 261px, pointer selected Distant TV, tabs remained operable, and Automatic restored 100% with selection retained. Studio device/controller emulators remain the actual input/device verification route."
+    },
+    {
+      "id": "G18",
+      "sourceReference": "Native nested TabView after retained gallery page reveal",
+      "remaining": [],
+      "requiredEvidence": "Repair the retained-page rendering and pointer routing issue, then repeat the actual native tab interaction and capture the visible selected result. Headless property assertions alone do not close this live defect.",
+      "cases": [
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup"
+      ],
+      "resolution": "Tab chrome now has explicit native ZIndex 2 above page content; fixed-height tab buttons only auto-size horizontally. Fresh native HD720 run e9b715 passed 12 pointer selections across three collections/all-controls remounts. Neutral and fantasy_ornate screenshots show the strip; native pointer selection switches the actual page. At 0fdeab repeated at 150% viewing-distance scale. See artifacts/compose-simplification/gap-closure-live.json."
+    }
+  ],
+  "audit": "artifacts/compose-simplification/gallery-parity-audit.md",
+  "pendingLiveRisks": [
+    "Collection toolbar under phone/largest-text and compact landscape",
+    "Shell measured reservation and Settings reachability under themes/largest text",
+    "Actual native PreferredTransparency hot-swap",
+    "Retained A\u2192B\u2192A transient/haptic/motion visibility and lifetime"
+  ]
+}

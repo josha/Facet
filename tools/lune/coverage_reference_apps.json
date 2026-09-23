@@ -1,0 +1,253 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "reference/glade": {
+      "specs": [
+        "native_reference_apps"
+      ],
+      "cases": [
+        "native_reference_apps::native reference applications::keeps Glade care, inventory consumption and task completion"
+      ],
+      "behaviors": [
+        "Glade care/refill, bramble task completion, premium inventory consumption, all destinations and native teardown.",
+        "Original application catalogs, translations and pure service models remain in examples/reference."
+      ],
+      "retiredAssertions": {
+        "Presenter paths, solved rectangles, alternate fake target dumps and synthetic focus rings": "Deleted scene/presenter/solver mechanisms are replaced by native Instances and native control behavior. These workflow tests do not claim pixel or device-input parity.",
+        "Application/core/environment dependency injection": "References receive the caller runtime, Host, controls and native types directly; domain state and services remain application code."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Gallery/reference live device checks remain separate evidence for layout, themed appearance and actual input reachability."
+      ]
+    },
+    "reference/cartwheel": {
+      "specs": [
+        "native_reference_apps"
+      ],
+      "cases": [
+        "native_reference_apps::native reference applications::keeps Cartwheel brew commands, rejected purchase retry and guild validation"
+      ],
+      "behaviors": [
+        "Cartwheel brew completion/statistics, first purchase rejection and accepted retry, guild validation, all destinations and brew-detail modal.",
+        "Original application catalogs, translations and pure service models remain in examples/reference."
+      ],
+      "retiredAssertions": {
+        "Presenter paths, solved rectangles, alternate fake target dumps and synthetic focus rings": "Deleted scene/presenter/solver mechanisms are replaced by native Instances and native control behavior. These workflow tests do not claim pixel or device-input parity.",
+        "Application/core/environment dependency injection": "References receive the caller runtime, Host, controls and native types directly; domain state and services remain application code."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Gallery/reference live device checks remain separate evidence for layout, themed appearance and actual input reachability."
+      ]
+    },
+    "reference/sipworks": {
+      "specs": [
+        "native_reference_apps"
+      ],
+      "cases": [
+        "native_reference_apps::native reference applications::keeps Sipworks rejection, stamp earning, free pour and Blend Book unlock"
+      ],
+      "behaviors": [
+        "Sipworks first order rejection, accepted order earning a stamp, free-pour redemption, rejected/accepted Blend Book unlock, all destinations and blend details.",
+        "Original application catalogs, translations and pure service models remain in examples/reference."
+      ],
+      "retiredAssertions": {
+        "Presenter paths, solved rectangles, alternate fake target dumps and synthetic focus rings": "Deleted scene/presenter/solver mechanisms are replaced by native Instances and native control behavior. These workflow tests do not claim pixel or device-input parity.",
+        "Application/core/environment dependency injection": "References receive the caller runtime, Host, controls and native types directly; domain state and services remain application code."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Gallery/reference live device checks remain separate evidence for layout, themed appearance and actual input reachability."
+      ]
+    },
+    "reference/foyer": {
+      "specs": [
+        "native_reference_apps"
+      ],
+      "cases": [
+        "native_reference_apps::native reference applications::keeps Foyer search, pending/rejected refresh, visit history and navigation"
+      ],
+      "behaviors": [
+        "Foyer search, pending/rejected/accepted feed refresh, visit history and all destinations.",
+        "Original application catalogs, translations and pure service models remain in examples/reference."
+      ],
+      "retiredAssertions": {
+        "Presenter paths, solved rectangles, alternate fake target dumps and synthetic focus rings": "Deleted scene/presenter/solver mechanisms are replaced by native Instances and native control behavior. These workflow tests do not claim pixel or device-input parity.",
+        "Application/core/environment dependency injection": "References receive the caller runtime, Host, controls and native types directly; domain state and services remain application code."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Gallery/reference live device checks remain separate evidence for layout, themed appearance and actual input reachability."
+      ]
+    },
+    "outpost_terminal": {
+      "specs": [
+        "native_outpost_terminal",
+        "native_outpost_rules"
+      ],
+      "cases": [
+        "native_outpost_terminal::native outpost terminal::keeps draft separate until the matching server verdict and ignores stale replies",
+        "native_outpost_terminal::native outpost terminal::refuses over-budget drafts locally and preserves authority guards",
+        "native_outpost_terminal::native outpost terminal::mounts a real SurfaceGui on the caller runtime and owns cleanup",
+        "native_outpost_terminal::native outpost terminal::carries native remote verdicts and retires the surface when the console disappears",
+        "native_outpost_terminal::native outpost terminal::converges full snapshots across skipped revisions without losing independent drafts",
+        "native_outpost_terminal::native outpost terminal::recovers rejected or failed sends and cancels an unanswered request before reengagement",
+        "native_outpost_rules::outpost rules: the ranges, walked rather than sampled::every value inside 0..capacity is legal, and capacity+1 and -1 are not",
+        "native_outpost_rules::outpost rules: the ranges, walked rather than sampled::the three declared ranges are the design's, and the goal is reachable inside them",
+        "native_outpost_rules::outpost rules: the ranges, walked rather than sampled::THE TRADE-OFF IS REAL: a fully-lit workshop can never leave all three running",
+        "native_outpost_rules::outpost rules: the ranges, walked rather than sampled::the total bound is exactly six, over the whole product",
+        "native_outpost_rules::outpost rules: the ranges, walked rather than sampled::WHAT RUNNING MEANS is `at least what it needs`, over the whole product",
+        "native_outpost_rules::outpost rules: the ranges, walked rather than sampled::the starting allocation is legal, and is a problem with an obvious first move",
+        "native_outpost_rules::outpost rules: every refusal, and the exact sentence it uses::a fraction is refused as `whole`, naming the consumer and the value",
+        "native_outpost_rules::outpost rules: every refusal, and the exact sentence it uses::a missing consumer is refused as `missing`, and an extra one as `unknown`",
+        "native_outpost_rules::outpost rules: every refusal, and the exact sentence it uses::THE ORDER IS PART OF THE CONTRACT: a fraction that is also over budget says `whole`",
+        "native_outpost_rules::outpost rules: every refusal, and the exact sentence it uses::every declared refusal code has a sentence, and an undeclared one is loud",
+        "native_outpost_rules::outpost rules: every refusal, and the exact sentence it uses::the three server-only sentences are the ones the design specifies",
+        "native_outpost_rules::outpost rules: what changed, which is what the terminal reports::only a CROSSING is news; a number that moved without crossing is not",
+        "native_outpost_rules::outpost rules: what changed, which is what the terminal reports::the outcome sentence has three cases and picks the player's one first",
+        "native_outpost_rules::outpost authority: every refusal the server can make::the happy path: the holder, a fresh token, in range, with a legal allocation",
+        "native_outpost_rules::outpost authority: every refusal the server can make::REFUSAL 1 \u2014 nobody holds the console, or somebody else does",
+        "native_outpost_rules::outpost authority: every refusal the server can make::REFUSAL 2 \u2014 a stale session token, or no token at all",
+        "native_outpost_rules::outpost authority: every refusal the server can make::REFUSAL 3 \u2014 faster than a hand can press",
+        "native_outpost_rules::outpost authority: every refusal the server can make::REFUSAL 4 \u2014 too far, MEASURED, and an unmeasurable distance is not a pass",
+        "native_outpost_rules::outpost authority: every refusal the server can make::REFUSAL 5 \u2014 the allocation itself, through the same rules the terminal ran",
+        "native_outpost_rules::outpost authority: every refusal the server can make::THE ORDER IS PART OF THE CONTRACT: who you are beats how far, beats what you asked"
+      ],
+      "behaviors": [
+        "The original20 pure rule/authority tests are preserved unchanged, including the complete60-allocation product, all refusals, threshold crossings and authority-check order.",
+        "Native tests cover draft/confirmed separation, matching request ids, late replies, revision ordering, rejected/throwing send recovery, unanswered cancellation, full-snapshot convergence across revision gaps, remote session/verdict flow and destroyed-console teardown."
+      ],
+      "retiredAssertions": {
+        "Presenter paths, solved rectangles, alternate fake target dumps and synthetic focus rings": "Deleted scene/presenter/solver mechanisms are replaced by native Instances and native control behavior. These workflow tests do not claim pixel or device-input parity.",
+        "Application/core/environment dependency injection": "References receive the caller runtime, Host, controls and native types directly; domain state and services remain application code.",
+        "Passive presenter responder, synthetic viewport/text preference and scene-based canvas checks": "Native SurfaceGui Active/Adornee/Face/CanvasSize and InputContext replace the removed surface target/presenter contract."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Live Roblox walk-up ProximityPrompt, line-of-sight/range release and SurfaceGui pointer/gamepad fit require live engine evidence."
+      ]
+    },
+    "replication": {
+      "specs": [
+        "native_outpost_terminal"
+      ],
+      "cases": [
+        "native_outpost_terminal::native outpost terminal::keeps draft separate until the matching server verdict and ignores stale replies",
+        "native_outpost_terminal::native outpost terminal::converges full snapshots across skipped revisions without losing independent drafts",
+        "native_outpost_terminal::native outpost terminal::recovers rejected or failed sends and cancels an unanswered request before reengagement"
+      ],
+      "behaviors": [
+        "Stale and duplicate revisions, skipped-revision convergence, request identity, confirmed/draft isolation, one request in flight, cancellation and throwing send recovery are exercised in the actual caller protocol."
+      ],
+      "retiredAssertions": {
+        "Facet.replication snapshot/collection/mutation constructors and generic patch.remove transport": "Removed from Facet. The Outpost caller owns a small domain request protocol and receives complete authoritative allocation snapshots. It has no generic patch application, delta-gap latch or retry/backoff subsystem.",
+        "Resnapshot gap/retry/backoff counters and current-revision patch rebase": "Full snapshots can jump directly to a newer authoritative revision, avoiding a missing-delta gap. Two independently edited callers converge from revision1 to7 to12; stale/duplicate snapshots and superseded request replies are ignored.",
+        "Optimistic apply/restore hook exception quarantine": "Game code owns optimistic state. Outpost deliberately keeps its draft distinct and grants shared world state only after authority replies; failed transports clear pending and permit retry.",
+        "Independent Facet environments and fake targets": "Independent callers use native Compose owners and model cells. Their local drafts remain independent while confirmed snapshots converge."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "fuzz_replication": {
+      "specs": [
+        "native_outpost_terminal"
+      ],
+      "cases": [
+        "native_outpost_terminal::native outpost terminal::keeps draft separate until the matching server verdict and ignores stale replies",
+        "native_outpost_terminal::native outpost terminal::converges full snapshots across skipped revisions without losing independent drafts",
+        "native_outpost_terminal::native outpost terminal::recovers rejected or failed sends and cancels an unanswered request before reengagement"
+      ],
+      "behaviors": [
+        "Stale and duplicate revisions, skipped-revision convergence, request identity, confirmed/draft isolation, one request in flight, cancellation and throwing send recovery are exercised in the actual caller protocol."
+      ],
+      "retiredAssertions": {
+        "Facet.replication snapshot/collection/mutation constructors and generic patch.remove transport": "Removed from Facet. The Outpost caller owns a small domain request protocol and receives complete authoritative allocation snapshots. It has no generic patch application, delta-gap latch or retry/backoff subsystem.",
+        "Resnapshot gap/retry/backoff counters and current-revision patch rebase": "Full snapshots can jump directly to a newer authoritative revision, avoiding a missing-delta gap. Two independently edited callers converge from revision1 to7 to12; stale/duplicate snapshots and superseded request replies are ignored.",
+        "Optimistic apply/restore hook exception quarantine": "Game code owns optimistic state. Outpost deliberately keeps its draft distinct and grants shared world state only after authority replies; failed transports clear pending and permit retry.",
+        "Independent Facet environments and fake targets": "Independent callers use native Compose owners and model cells. Their local drafts remain independent while confirmed snapshots converge."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "platform_adapters_recovery": {
+      "specs": [
+        "native_outpost_terminal",
+        "native_themes_media",
+        "native_inputs"
+      ],
+      "cases": [
+        "native_outpost_terminal::native outpost terminal::keeps draft separate until the matching server verdict and ignores stale replies",
+        "native_outpost_terminal::native outpost terminal::converges full snapshots across skipped revisions without losing independent drafts",
+        "native_outpost_terminal::native outpost terminal::recovers rejected or failed sends and cancels an unanswered request before reengagement",
+        "native_themes_media::native themes and media::preloads the Compose owned ImageLabel after its source binding settles",
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner"
+      ],
+      "behaviors": [
+        "Caller protocol recovers full snapshots across missing revisions without latching a delta gap, retries failed commands and ignores superseded replies.",
+        "ContentProvider receives the actual retained ImageLabel after its source binding settles; theme rules react to package changes and leave with Compose ownership."
+      ],
+      "retiredAssertions": {
+        "Facet.replication snapshot/collection/mutation constructors and generic patch.remove transport": "Removed from Facet. The Outpost caller owns a small domain request protocol and receives complete authoritative allocation snapshots. It has no generic patch application, delta-gap latch or retry/backoff subsystem.",
+        "Resnapshot gap/retry/backoff counters and current-revision patch rebase": "Full snapshots can jump directly to a newer authoritative revision, avoiding a missing-delta gap. Two independently edited callers converge from revision1 to7 to12; stale/duplicate snapshots and superseded request replies are ignored.",
+        "Optimistic apply/restore hook exception quarantine": "Game code owns optimistic state. Outpost deliberately keeps its draft distinct and grants shared world state only after authority replies; failed transports clear pending and permit retry.",
+        "Independent Facet environments and fake targets": "Independent callers use native Compose owners and model cells. Their local drafts remain independent while confirmed snapshots converge.",
+        "Legacy ControlModule/CAS unbind probes, TouchControlsEnabled shared suppression and PlayerScripts waits": "Deleted Facet input adapter is not replaced with suppression or a polling shim. Native InputContexts/InputActions own routing; the caller does not disable PlayerModule or wait for PlayerScripts.",
+        "Global stylesheet scans, stamps, deleted Theme child repair and schema cleanup in two containers": "The caller explicitly constructs, parents and links a Compose-owned StyleSheet. No installer discovers, stamps, repairs or removes unrelated global sheets."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "spatial": {
+      "specs": [
+        "native_outpost_terminal",
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_outpost_terminal::native outpost terminal::mounts a real SurfaceGui on the caller runtime and owns cleanup",
+        "native_outpost_terminal::native outpost terminal::carries native remote verdicts and retires the surface when the console disappears",
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime"
+      ],
+      "behaviors": [
+        "The SurfaceGui mounts with native Back face,640\u00d7480 fixed canvas, explicit Adornee and active state; destroyed-console removal releases its events and surface.",
+        "Current guides and API describe flat world-fixed UI and explicitly withhold VR/ray/hand/gaze support."
+      ],
+      "retiredAssertions": {
+        "Presentation-space enums, spatial-event normalization and surface_target adapter source assertions": "Deleted generic Facet environment/event/target facades have no replacement API. The game uses native SurfaceGui and game-owned world facts.",
+        "Hard-coded AlwaysOnTop and restricted pointer/drag capabilities": "Native SurfaceGui properties and engine-supported input replace a Facet-specific target restriction."
+      },
+      "engineOwned": [
+        "Compose owns native nodes, reactive bindings and disposal; Roblox owns layout, text measurement, scrolling and native input."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Native world interaction requires live Roblox evidence; headless native properties do not prove physical input."
+      ]
+    }
+  }
+}

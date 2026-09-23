@@ -4,18 +4,15 @@ return {
 	ledgerRows = {},
 	build = function(ctx: any)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local status, rung = Compose.cell("neutral"), Compose.cell("compact")
 		local rootPath, controller, record
 		local function report()
-			if not rootPath or not controller or not record then
-				return nil
-			end
-			ctx.presenter.refresh()
-			return {
-				badge = record.dump(),
-				rect = controller.rectOf(rootPath .. "/Forms/Standard+background"),
-				icon = controller.rectOf(rootPath .. "/Forms/Standard+background/Standard/Icon"),
-			}
+			return { status = status:peek(), controlSize = rung:peek() }
 		end
 		local function choose(word)
 			status:set(word)
@@ -29,19 +26,56 @@ return {
 			Compose.cleanup(function()
 				rootPath, controller, record = nil, nil, nil
 			end)
-			local root = UI.VStack("BadgeRecipe")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("Title")({ text = "Small labels", textSize = "heading", width = UI.fill() }),
-				UI.Text("Guide")({
-					text = "Badges identify something. They do not take focus or run actions.",
-					width = UI.fill(),
+			local root = Host.Frame({
+				Name = "BadgeRecipe",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
 				}),
-				UI.HStack("Forms")({
-					gap = "m",
-					wrap = true,
-					align = "center",
-					UI.Badge("Standard")({
+				UI.Label({
+					LayoutOrder = 1,
+					Name = "Title",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Small labels",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+					LayoutOrder = 2,
+					Name = "Guide",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Badges identify something. They do not take focus or run actions.",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				Host.Frame({
+					LayoutOrder = 3,
+					Name = "Forms",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+						Wraps = true,
+					}),
+					UI.Badge({
+						LayoutOrder = 1,
+						Name = "Standard",
 						label = "Ready",
 						icon = "status.info",
 						status = status,
@@ -50,43 +84,71 @@ return {
 							record = value
 						end,
 					}),
-					UI.Badge("Marked")({ label = "Server", appearance = "status", status = status, controlSize = rung }),
-					UI.Badge("Utility")({
+					UI.Badge({
+						LayoutOrder = 2,
+						Name = "Marked",
+						label = "Server",
+						appearance = "status",
+						status = status,
+						controlSize = rung,
+					}),
+					UI.Badge({
+						LayoutOrder = 3,
+						Name = "Utility",
 						label = "Beta",
 						appearance = "utility",
 						icon = "status.info",
 						controlSize = rung,
 					}),
-					UI.Badge("Media")({
+					UI.Badge({
+						LayoutOrder = 4,
+						Name = "Media",
 						label = "Featured",
 						icon = "status.success",
-						over = "media",
+
 						status = status,
 						controlSize = rung,
 					}),
 				}),
-				UI.HStack("Commands")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Neutral")({
+				Host.Frame({
+					LayoutOrder = 4,
+					Name = "Commands",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Neutral",
 						label = "Neutral",
 						onActivate = function()
 							choose("neutral")
 						end,
 					}),
-					UI.Button("Warning")({
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Warning",
 						label = "Warning",
 						onActivate = function()
 							choose("warning")
 						end,
 					}),
-					UI.Button("Error")({
+					UI.Button({
+						LayoutOrder = 3,
+						Name = "Error",
 						label = "Error",
 						onActivate = function()
 							choose("error")
 						end,
 					}),
-					UI.Button("Size")({
+					UI.Button({
+						LayoutOrder = 4,
+						Name = "Size",
 						label = "Change size",
 						onActivate = function()
 							rung:set(if rung:peek() == "compact" then "large" else "compact")
@@ -94,26 +156,32 @@ return {
 					}),
 				}),
 			})
-			return ctx.Facet.contribution.attach(root, {
-				bindController = function(value)
-					controller = value
-				end,
-				syncGeometry = function(_, node)
-					if node then
-						rootPath = node.path
-					end
-				end,
-			})
+			return root
 		end
 		return {
 			section = section,
 			reset = reset,
 			report = report,
 			screen = function()
-				return UI.Screen("Badge")({
-					surface = "base",
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
+				return Host.Frame({
+					Name = "Badge",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					Host.ScrollingFrame({
+						Name = "Content",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						section(),
+					}),
 				})
 			end,
 			steps = {

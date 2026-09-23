@@ -1,0 +1,151 @@
+{
+  "schema": "facet-native-verification/1",
+  "tier": "full",
+  "completeTier": true,
+  "ok": true,
+  "coverage": "coverage.json",
+  "producers": [
+    {
+      "id": "architecture",
+      "exitCode": 0,
+      "findings": []
+    },
+    {
+      "id": "coverage",
+      "exitCode": 0,
+      "findings": []
+    },
+    {
+      "id": "vendor",
+      "exitCode": 0,
+      "seconds": 0.06484850000000009,
+      "log": "artifacts/verify/native/vendor.log"
+    },
+    {
+      "id": "verification-selftest",
+      "exitCode": 0,
+      "seconds": 0.10772475000000004,
+      "log": "artifacts/verify/native/verification-selftest.log"
+    },
+    {
+      "id": "comments",
+      "exitCode": 0,
+      "seconds": 1.6589927500000003,
+      "log": "artifacts/verify/native/comments.log"
+    },
+    {
+      "id": "comments-selftest",
+      "exitCode": 0,
+      "seconds": 0.3763537499999998,
+      "log": "artifacts/verify/native/comments-selftest.log"
+    },
+    {
+      "id": "format",
+      "exitCode": 0,
+      "seconds": 1.6598143749999998,
+      "log": "artifacts/verify/native/format.log"
+    },
+    {
+      "id": "suite",
+      "exitCode": 0,
+      "seconds": 9.265378540999997,
+      "log": "artifacts/verify/native/suite.log"
+    },
+    {
+      "id": "types",
+      "exitCode": 0,
+      "seconds": 4.029395375,
+      "log": "artifacts/verify/native/types.log"
+    },
+    {
+      "id": "word-data",
+      "exitCode": 0,
+      "seconds": 0.0592277079999981,
+      "log": "artifacts/verify/native/word-data.log"
+    },
+    {
+      "id": "word-data-selftest",
+      "exitCode": 0,
+      "seconds": 0.08272691699999868,
+      "log": "artifacts/verify/native/word-data-selftest.log"
+    },
+    {
+      "id": "perf-budgets",
+      "exitCode": 0,
+      "seconds": 0.03501899999999836,
+      "log": "artifacts/verify/native/perf-budgets.log"
+    },
+    {
+      "id": "gallery-build",
+      "exitCode": 0,
+      "seconds": 0.059670541999999216,
+      "log": "artifacts/verify/native/gallery-build.log"
+    },
+    {
+      "id": "monitors-build",
+      "exitCode": 0,
+      "seconds": 0.02235383400000046,
+      "log": "artifacts/verify/native/monitors-build.log"
+    },
+    {
+      "id": "performance-build",
+      "exitCode": 0,
+      "seconds": 0.022241874999998856,
+      "log": "artifacts/verify/native/performance-build.log"
+    },
+    {
+      "id": "package-build",
+      "exitCode": 0,
+      "seconds": 0.5113160000000008,
+      "log": "artifacts/verify/native/package-build.log"
+    },
+    {
+      "id": "package-status",
+      "exitCode": 0,
+      "seconds": 0.5581006250000016,
+      "log": "artifacts/verify/native/package-status.log"
+    },
+    {
+      "id": "package-canary",
+      "exitCode": 0,
+      "seconds": 0.26150712499999784,
+      "log": "artifacts/verify/native/package-canary.log"
+    },
+    {
+      "id": "package-purity",
+      "exitCode": 0,
+      "seconds": 2.186223000000002,
+      "log": "artifacts/verify/native/package-purity.log"
+    },
+    {
+      "id": "theme-artifacts",
+      "exitCode": 0,
+      "seconds": 4.892777459000001,
+      "log": "artifacts/verify/native/theme-artifacts.log"
+    },
+    {
+      "id": "bench",
+      "exitCode": 0,
+      "seconds": 16.674458917000003,
+      "log": "artifacts/verify/native/bench.log"
+    },
+    {
+      "id": "perf",
+      "exitCode": 0,
+      "seconds": 10.224147125000002,
+      "log": "artifacts/verify/native/perf.log"
+    },
+    {
+      "id": "perf-metrics",
+      "exitCode": 0,
+      "seconds": 0.03350454100000633,
+      "log": "artifacts/verify/native/perf-metrics.log"
+    },
+    {
+      "id": "replacement-cases",
+      "exitCode": 0,
+      "findings": []
+    }
+  ],
+  "studioEvidence": "External live Studio gallery and virtual monitors checks are required; these builds do not assert visual parity."
+}

@@ -1,56 +1,45 @@
 --!strict
--- Screen mode owns presentation; application models survive page disposal.
 local desktop = {}
-function desktop.create(Compose: any, app: any, apps: any, mode: any, selectedTab: any, modeProgress: any?)
-	local UI = app.controls
-	local function progress(use)
-		return if modeProgress then use(modeProgress) else (if use(mode) == "Screen" then 1 else 0)
-	end
-	local tabs = {}
-	for _, name in { "Discover", "Avatar", "Chat" } do
-		table.insert(tabs, { id = name, label = name, content = apps[name] })
-	end
+function desktop.create(Facet: any, runtime: any, views: any, model: any, progress: any, options: any?)
+	local Host, Compose = runtime.constructors, Facet.Compose
+	options = options or {}
+	local types = options.types or getfenv(0)
+	local UDim2 = types.UDim2
+	local UI = Facet.controls(runtime, options)
 	return function()
-		return UI.Screen("Desktop")({
-			surface = function(use)
-				return "plain"
-			end,
-			hidden = function(use)
-				return progress(use) <= 0
-			end,
-			padding = 0,
-			gap = "m",
+		local tabs = {}
+		for _, name in { "Discover", "Avatar", "Chat" } do
+			table.insert(tabs, { id = name, label = name, content = views[name] })
+		end
+		return Host.Frame({
+			Name = "Desktop",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.TabView({
+				Name = "Apps",
+				selection = model.selectedTab,
+				tabs = tabs,
+				style = "sidebarAdaptable",
+				sidebarPreference = "topBar",
+				restoreScroll = false,
+				transition = { seconds = 0.18 },
+				retention = "top",
+				Size = UDim2.fromScale(1, 1),
+			}),
 			Compose.show(function(use)
-				return progress(use) > 0
+				return use(progress) < 1
 			end, function()
-				return UI.ZStack("Presentation")({
-					width = { type = "fill" },
-					height = { type = "fill" },
-					surface = "base",
-					UI.TabView("Apps")({
-						style = "sidebarAdaptable",
-						sidebarPreference = "topBar",
-						selection = selectedTab,
-						restoreScroll = false,
-						transition = { fade = true },
-						tabs = tabs,
-					}),
-					-- The flat presentation fades IN under a veil that unmounts when the
-					-- switch settles. Fading the page itself would keep the whole screen
-					-- in a fade group for as long as it is shown.
-					Compose.show(function(use)
-						return progress(use) < 1
-					end, function()
-						return UI.Box("Veil")({
-							width = { type = "fill" },
-							height = { type = "fill" },
-							surface = "base",
-							opacity = function(use)
-								return 1 - math.clamp((progress(use) - 0.45) / 0.55, 0, 1)
-							end,
-						})
-					end),
+				local veil = Host.Frame({
+					Name = "PresentationVeil",
+					Size = UDim2.fromScale(1, 1),
+					ZIndex = 100,
+					BorderSizePixel = 0,
+					BackgroundTransparency = function(use)
+						return math.clamp((use(progress) - 0.45) / 0.55, 0, 1)
+					end,
 				})
+				veil:AddTag("facet-surface")
+				return veil
 			end),
 		})
 	end

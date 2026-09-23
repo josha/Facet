@@ -1,86 +1,39 @@
 --!strict
--- Glade (RA-P1) — the seeded world. Original content, fixed at authoring time,
--- read by every fake service. Nothing here reads a clock or a random number:
--- the whole world is a function of these tables plus the injected `now`, which
--- is what makes "same seed + same steps ⇒ identical dump" mechanical rather
--- than careful.
---
--- COLOURS IN THIS FILE ARE SCENE ART DATA, NOT UI TOKENS (spec §2). The sky
--- ramp, the silhouette wash and each wisp's/nectar's identity hue describe a
--- PICTURE — the same authority a texture has — and they reach the tree only
--- through `UI.gradient` stops and the `tint` channel's declared `direct` form,
--- never through a surface, a role, or a state. Every UI surface, every piece of
--- chrome and every state in this proof is a theme role. They are stored as
--- `{ r, g, b }` ARRAYS (0..1) and converted at the call site, so no line here or
--- downstream reads as a colour literal in a role's place.
 
 local seed = {}
 
--- The world seed. It is a NUMBER rather than a comment because the scenario's
--- reset re-derives from it and the report publishes it, so "which world is this"
--- is answerable from a dump.
 seed.WORLD = 20260808
 
--- ---- demo-scale time --------------------------------------------------------
--- Drain constants (spec §1). Deliberately demo scale: a player watching the
--- overview must SEE a ring move inside a session, which is the whole point of
--- the row. Production would read these from the server.
 seed.DRAIN = {
-	nectar = { empty = 540, low = 450 }, -- 9 min to empty, "Low" from 7.5 min
-	dew = { empty = 960, low = 780 }, -- 16 min to empty, "Low" from 13 min
+	nectar = { empty = 540, low = 450 },
+	dew = { empty = 960, low = 780 },
 }
 
--- A demo day is five minutes, split into the five phase buckets, so the sky
--- ramp visibly moves during a played slice and each glade's fixed offset puts
--- it in a different bucket at t = 0.
 seed.DAY_SECONDS = 300
 seed.PHASES = { "night", "dawn", "day", "dusk", "eve" }
 
--- how long a scripted commerce command takes to resolve, in injected seconds.
--- Short, because the loop's subject is the STATES, not the wait.
 seed.COMMAND_SECONDS = 0.75
 
--- ---- structural metrics -----------------------------------------------------
--- These are STRUCTURAL numbers (breakpoint-shaped), not style values: they say
--- how much room a thing needs before the layout has to change shape, which is
--- the same class of decision `adaptive.BREAKPOINTS` is. Everything a theme owns
--- — spacing, radii, type, control sizes, hit floors — is named, never numbered,
--- everywhere in this proof.
 seed.METRICS = {
-	shellContentMin = 320, -- the content lane's floor; below it the shell re-lanes
-	gladeCardMin = 236, -- overview grid column floor
-	nectarCardMin = 168, -- picker shelf card
-	packCardMin = 176, -- shop shelf card
-	detailPaneMin = 320, -- the shell's detail lane
-	ringSmall = 34, -- glance ring on a card
-	ringLarge = 56, -- supply-row ring
-	portrait = 48, -- wisp portrait well
-	heroPortrait = 96, -- S5/S6 portrait
-	sceneShort = 132, -- hero scene, three declared steps
+	shellContentMin = 320,
+	gladeCardMin = 236,
+	nectarCardMin = 168,
+	packCardMin = 176,
+	detailPaneMin = 320,
+	ringSmall = 34,
+	ringLarge = 56,
+	portrait = 48,
+	heroPortrait = 96,
+	sceneShort = 132,
 	sceneMedium = 190,
 	sceneTall = 244,
-	wispSize = 26, -- the wisp's own box at natural scale
-	offerActionsMax = 360, -- the offer card's action row: full width, and no wider
-	-- the supply row's trailing verb: a floor that keeps it legible and a cap
-	-- past which it truncates through its declared disclose — because lineLimit
-	-- caps LINES, never the width a text asks for, and under the 1.4x locale
-	-- the verb's natural ask set the row minimum past the detail lane.
-	--
-	-- THE CAP WAS 132 AND IS MEASURED AT 96. In the 320px detail lane the row is
-	-- 248px of content: a 56px ring, the verb, and two 12px gaps. At 132 the
-	-- expansion locale spent 122 of them on the verb and left the copy column 38px
-	-- — less than the "Low"/"Empty" chip alone, which never truncates by contract
-	-- (spec §13), so the chip painted 8px outside its own TitleRow at every width
-	-- from 678 up. The verb is the row's most redundant element (the Button it
-	-- sits in already carries the same word as its accessible name), so it is the
-	-- one that yields.
+	wispSize = 26,
+	offerActionsMax = 360,
+
 	affordanceMin = 64,
 	affordanceMax = 96,
 }
 
--- ---- the sky ramp (scene art) ----------------------------------------------
--- Two-to-three stop gradients per phase bucket, plus the silhouette wash the
--- tree line takes in that phase. Interpolated by a memo and fed to UI.gradient.
 seed.SKY = {
 	night = { high = { 0.04, 0.05, 0.13 }, low = { 0.10, 0.11, 0.22 }, silhouette = { 0.02, 0.03, 0.07 } },
 	dawn = { high = { 0.28, 0.24, 0.42 }, low = { 0.86, 0.60, 0.44 }, silhouette = { 0.10, 0.09, 0.16 } },
@@ -89,8 +42,6 @@ seed.SKY = {
 	eve = { high = { 0.09, 0.10, 0.24 }, low = { 0.38, 0.24, 0.38 }, silhouette = { 0.05, 0.05, 0.11 } },
 }
 
--- the identity base a gradient multiplies (a UIGradient multiplies the node's own
--- fill, so a wash needs something to act on)
 seed.WHITE = { 1, 1, 1 }
 
 seed.MOSS = { 0.20, 0.34, 0.20 }
@@ -99,19 +50,8 @@ seed.FERN = { 0.17, 0.31, 0.19 }
 seed.DEWSTONE = { 0.52, 0.56, 0.58 }
 seed.DEWWATER = { 0.62, 0.82, 0.88 }
 
--- ---- glades -----------------------------------------------------------------
--- `nectarAge` / `dewAge` are the seeded elapsed seconds at t = 0, chosen so the
--- overview shows all three supply states — full, low, empty — on the first
--- frame, without any step having to be driven first.
 seed.GLADES = {
-	--[[ MOSSHOLM'S DEW STARTS DRY, and that is the played task's opening move.
-		It was seeded 120s in — visibly full — which made the task's first row
-		("Refill Mossholm's dew") arrive already ticked, i.e. a checklist whose
-		first item is done before the player has done anything. 820s is inside the
-		"Low" band (780) and short of "Empty" (960), so the ring reads as needing
-		attention on the first frame and one press answers it. The overview still
-		shows all three supply states at t = 0 — Lantern Dell's dew is the "full"
-		one — which is what the state-coverage case above this comment asserts. ]]
+
 	{ id = "mossholm", favourite = true, nectar = "clover", phaseOffset = 180, nectarAge = 0, dewAge = 820 },
 	{ id = "fernhollow", favourite = false, nectar = "meadow", phaseOffset = 0, nectarAge = 460, dewAge = 800 },
 	{ id = "lanternDell", favourite = false, nectar = "fern", phaseOffset = 60, nectarAge = 600, dewAge = 300 },
@@ -119,9 +59,6 @@ seed.GLADES = {
 	{ id = "stillpond", favourite = false, nectar = "heather", phaseOffset = 240, nectarAge = 470, dewAge = 790 },
 }
 
--- ---- wisps ------------------------------------------------------------------
--- `scale` is the species' natural size in the scene; `lumenOnly` gates the early
--- arrival on the top charm tier (spec §1).
 seed.WISPS = {
 	{
 		id = "emberwisp",
@@ -175,10 +112,6 @@ seed.WISPS = {
 	},
 }
 
--- ---- nectars ----------------------------------------------------------------
--- Six standard (free) in shelf order, three premium in priority order. `art` is
--- the jar's identity hue — game data, so it rides the tint channel's declared
--- `direct` form and is deliberately theme-exempt (a variety is not a state).
 seed.NECTARS = {
 	{ id = "clover", premium = false, art = { 0.72, 0.80, 0.46 } },
 	{ id = "meadow", premium = false, art = { 0.84, 0.78, 0.38 } },
@@ -191,10 +124,6 @@ seed.NECTARS = {
 	{ id = "gilded", premium = true, priority = 1, art = { 0.92, 0.72, 0.30 } },
 }
 
--- ---- packs (the provision shop's shelves) -----------------------------------
--- One single and one bundle-of-five per premium nectar; the Starlight bundle is
--- the declared "best value" hero. `price` is a number here and NEVER composed in
--- UI copy — CommerceService publishes the string (spec §1).
 seed.PACKS = {
 	{ id = "starlightSingle", nectar = "starlight", quantity = 1, price = 79, art = { 0.80, 0.86, 1.00 } },
 	{
@@ -211,10 +140,8 @@ seed.PACKS = {
 	{ id = "gildedBundle", nectar = "gilded", quantity = 5, price = 219, art = { 0.82, 0.58, 0.20 } },
 }
 
--- the satchel a fresh keeper starts with (spec §1)
 seed.SATCHEL = { starlight = 3 }
 
--- ---- the Keeper's Charm -----------------------------------------------------
 seed.CHARM_TIERS = {
 	{ id = "ember", rank = 1, price = 99 },
 	{ id = "grove", rank = 2, price = 199 },
@@ -222,14 +149,8 @@ seed.CHARM_TIERS = {
 }
 seed.CHARM_RANK = { none = 0, ember = 1, grove = 2, lumen = 3 }
 
--- ---- the keeper -------------------------------------------------------------
 seed.KEEPER = { displayName = "Wren of the Low Fen", contact = "wren@glade", joined = "the third thaw" }
 
--- ---- visit windows ----------------------------------------------------------
--- Seconds relative to t = 0 (session start). A negative window is in the past, a
--- window containing 0 is a CURRENT visit, positive is scheduled. `earlyStart` is
--- the Lumen-only early arrival: VisitScheduler reads it instead of `start` while
--- the charm tier is Lumen, which is the entitlement gate made of data.
 seed.VISITS = {
 	{ id = "v1", glade = "mossholm", wisp = "emberwisp", start = -900, finish = -720 },
 	{ id = "v2", glade = "mossholm", wisp = "emberwisp", start = -60, finish = 240 },
@@ -240,10 +161,8 @@ seed.VISITS = {
 	{ id = "v7", glade = "lanternDell", wisp = "frostwisp", start = 480, finish = 760, earlyStart = 60 },
 	{ id = "v8", glade = "stillpond", wisp = "duskwisp", start = -2000, finish = -1800 },
 	{ id = "v9", glade = "stillpond", wisp = "tidewisp", start = -30, finish = 300 },
-	-- brambleRest deliberately has NO visits: its detail must show the empty state
 }
 
--- ---- flora (browse-only section) --------------------------------------------
 seed.FLORA = {
 	{ id = "mosscap", art = { 0.28, 0.44, 0.26 } },
 	{ id = "lanternvine", art = { 0.74, 0.66, 0.32 } },
@@ -252,38 +171,13 @@ seed.FLORA = {
 	{ id = "stillreed", art = { 0.46, 0.62, 0.56 } },
 }
 
--- ---- scripted commerce outcomes ---------------------------------------------
--- The rejection FIXTURES (responsibility ledger: "scripted rejection
--- fixtures"). Indexed by attempt ordinal within each command family and cycling,
--- so the played slice reaches every rejection reason through on-screen controls
--- alone and a headless test can pin which attempt produces which verdict.
 seed.OUTCOMES = {
 	pack = { "confirmed", "declined", "confirmed", "offline" },
 	charm = { "confirmed", "owned", "confirmed" },
 	restore = { "confirmed", "offline" },
 }
 
--- ---- the played task --------------------------------------------------------
---[[ "Prepare this glade" (docs/plans/example-games-and-standalones.md, "Glade:
-	prepare a home for a visiting wisp"). ONE named glade and ONE named wisp, fixed
-	at authoring time, because a task chosen at runtime is a task a test cannot pin
-	and a player cannot be told about in one sentence.
-
-	WHY THESE TWO. Mossholm is the first card and the base surface's initial focus,
-	so the named first action is where the player already is. Emberwisp is its
-	seeded visitor at t = 0 (`v2`, the window -60..240), and its favourite nectar is
-	`bramble` — a STANDARD variety, so finishing the task never requires the shop
-	and the commerce fixtures stay what they are meant to be: secondary
-	exploration. The pairing is the one this content already tells: "Dark and
-	syrupy. Emberwisps queue for it." is `summary.bramble`, authored long before
-	there was a task.
-
-	THE NECTAR IS DERIVED, NEVER RESTATED: it is `WISP_BY_ID[wisp].favourite`, so
-	editing the wisp's taste moves the task with it instead of leaving two answers
-	to one question. ]]
 seed.TASK = { glade = "mossholm", wisp = "emberwisp" }
-
--- ---- lookups ----------------------------------------------------------------
 
 local function index(list: { any }): { [string]: any }
 	local out: { [string]: any } = {}
@@ -300,10 +194,8 @@ seed.PACK_BY_ID = index(seed.PACKS)
 seed.CHARM_BY_ID = index(seed.CHARM_TIERS)
 seed.FLORA_BY_ID = index(seed.FLORA)
 
--- the task's nectar, derived from the named wisp's own taste (see seed.TASK)
 seed.TASK_NECTAR = seed.WISP_BY_ID[seed.TASK.wisp].favourite
 
--- premium nectars in priority order (highest first): the shop's shelf order
 seed.PREMIUM = {}
 for _, nectar in seed.NECTARS do
 	if nectar.premium then
@@ -321,7 +213,6 @@ for _, nectar in seed.NECTARS do
 	end
 end
 
--- packs of one premium nectar, ascending by quantity
 function seed.packsFor(nectarId: string): { any }
 	local out: { any } = {}
 	for _, pack in seed.PACKS do
@@ -335,7 +226,6 @@ function seed.packsFor(nectarId: string): { any }
 	return out
 end
 
--- phaseAt(offset, now) — which of the five buckets this glade's sky is in.
 function seed.phaseAt(offset: number, now: number): string
 	local span = seed.DAY_SECONDS / #seed.PHASES
 	local t = (now + offset) % seed.DAY_SECONDS

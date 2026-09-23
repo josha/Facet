@@ -1,6 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
-local g = require("../src/controls/radial_geometry")
+local g = require("../src/ui/nav_radial_geometry")
 local it, expect = t.it, t.expect
 t.describe("radial geometry", function()
 	it("radial sectors exclude the hole, preserve compass gaps, and bound overshoot", function()

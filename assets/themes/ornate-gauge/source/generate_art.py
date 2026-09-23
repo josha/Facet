@@ -1,43 +1,5 @@
 #!/usr/bin/env python3
-"""OrnateGauge art generator (rich-skinning-v2 stage, ADR-0020 R8 rung 3).
 
-Original, repository-owned art: every texture below is generated procedurally by
-this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, no trade dress. Re-running reproduces the PNGs byte-for-byte on the same
-Pillow/numpy versions (recorded in ../provenance.md).
-
-WHOSE ART THIS IS. Unlike every other folder under assets/themes/, this art does
-NOT belong to a theme package. It belongs to a CONTROL — the rung-3 worked
-example `examples/themes/ornate_gauge.luau` — which ships its own pictures the
-way a third-party control would. A theme package contributes the gauge's SIZE
-(`metrics.controlSizes["gauge:dial"]`), its GLOW colour
-(`style.themes[].extra["gauge:needle"]`) and its corner radius
-(`metrics.radii["gauge:ring"]`); the pictures come with the control. That split
-is the whole point of the example, so the art lives beside the control's
-provenance rather than inside a package's.
-
-The three files are shaped by what a PUBLIC `UI.Image` can do — it paints its
-content stretched into the box the solver gave it, with no slice geometry and no
-tint, because `sliceCenter` and `ImageColor3` are theme-recipe authority and a
-control may not reach them:
-
-  * `gauge_face.png`    is HORIZONTALLY INVARIANT — every column is identical —
-    so stretching it to any width is lossless. That is the only honest way to
-    stretch whole art.
-  * `gauge_needle.png`  and `gauge_endcap.png` are drawn at a FIXED px box, so
-    they are never stretched at all.
-  * `gauge_endcap.png`  is drawn ONCE and used at BOTH ends unflipped, because a
-    control cannot mirror an image (`Rotation` and `ImageRect*` are presentation
-    and theme authority). Its light comes from above rather than from a side, so
-    the same file reads correctly at either end.
-
-Outputs go to the parent directory (the art folder); a contact sheet that shows
-the face stretched to three widths with the needle at three values lands in
-./preview/ so a lead can judge it without opening Studio.
-
-Run with the repo-root shared venv python (any CWD works):
-  <repo-root>/.venv/bin/python generate_art.py
-"""
 
 from __future__ import annotations
 
@@ -49,14 +11,14 @@ from PIL import Image, ImageDraw, ImageFilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.dirname(HERE)
 PREVIEW_DIR = os.path.join(HERE, "preview")
-SEED = 0x9A17  # fixed: determinism is the provenance claim
+SEED = 0x9A17
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tiny drawing toolkit. Duplicated verbatim from the sibling theme generators on
-# purpose: an art folder must be copyable on its own, with no shared-module
-# dependency.
-# ─────────────────────────────────────────────────────────────────────────────
-SS = 4  # supersample factor for anti-aliased shape masks
+
+
+
+
+
+SS = 4
 
 
 def _f(im: Image.Image) -> np.ndarray:
@@ -72,7 +34,7 @@ def rgb(r: int, g: int, b: int) -> np.ndarray:
 
 
 class Mask:
-    """Supersampled single-channel shape accumulator -> float HxW in [0,1]."""
+
 
     def __init__(self, w: int, h: int, ss: int = SS):
         self.w, self.h, self.ss = w, h, ss
@@ -115,7 +77,7 @@ def shift(a: np.ndarray, dx: int, dy: int) -> np.ndarray:
 
 
 def emboss(mask: np.ndarray, blur_r: float = 1.0, dist: int = 1):
-    """Top-left-lit emboss: returns (highlight, shadow) masks for a shape."""
+
     m = blur(mask, blur_r)
     hi = np.clip(m - shift(m, dist, dist), 0, 1)
     lo = np.clip(m - shift(m, -dist, -dist), 0, 1)
@@ -133,7 +95,7 @@ def vgrad(w: int, h: int, stops) -> np.ndarray:
 
 
 class Canvas:
-    """Straight-alpha RGBA compositor in float space."""
+
 
     def __init__(self, w: int, h: int):
         self.w, self.h = w, h
@@ -153,11 +115,11 @@ class Canvas:
         return Image.fromarray(np.dstack([_u8(self.rgb), _u8(self.a)]), "RGBA")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# The palette: aged brass, iron and a single ruby, chosen to sit beside the
-# Fantasy Ornate package without being it (this art belongs to a control, so it
-# has to read on a parchment package AND a pixel one).
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
 IRON_D = rgb(0x14, 0x11, 0x0E)
 IRON = rgb(0x2A, 0x24, 0x1D)
 IRON_L = rgb(0x46, 0x3C, 0x2F)
@@ -174,13 +136,7 @@ CAP_W, CAP_H = 28, 64
 
 
 def face() -> Image.Image:
-    """The channel the needle rides in. HORIZONTALLY INVARIANT by construction —
-    it is authored as a COLUMN of 64 colours and then repeated across the width,
-    so column 0 and column 63 are byte-identical and any horizontal stretch is
-    lossless. (A mask-and-emboss build cannot make that promise: an anti-aliased
-    edge and a 1px light shift both differ at the first and last column, which is
-    exactly the kind of near-miss that reads as a seam when the art is stretched
-    to 900 px.)"""
+
     w, h = FACE_W, FACE_H
     col = np.zeros((h, 3), dtype=np.float64)
 
@@ -191,15 +147,15 @@ def face() -> Image.Image:
             t = 0.0 if n == 1 else i / (n - 1)
             col[y0 + i] = np.asarray(top) * (1 - t) + np.asarray(bottom) * t
 
-    band(0, 1, IRON_D)                     # outer rim
-    band(2, 4, IRON_L, IRON)               # top bevel, lit
-    band(5, 8, BRASS_L, BRASS_D)           # upper brass rail
-    band(9, 11, IRON, IRON_D * 0.9)        # shoulder into the groove
-    band(12, 13, IRON_D * 0.45)            # the groove's shadowed top lip
-    band(14, h - 15, IRON_D * 0.55, IRON * 0.85)  # the carved floor
-    band(h - 14, h - 13, BRASS_D * 0.75)   # bounce light off the lower rail
+    band(0, 1, IRON_D)
+    band(2, 4, IRON_L, IRON)
+    band(5, 8, BRASS_L, BRASS_D)
+    band(9, 11, IRON, IRON_D * 0.9)
+    band(12, 13, IRON_D * 0.45)
+    band(14, h - 15, IRON_D * 0.55, IRON * 0.85)
+    band(h - 14, h - 13, BRASS_D * 0.75)
     band(h - 12, h - 10, IRON_D * 0.9, IRON)
-    band(h - 9, h - 6, BRASS, BRASS_D)     # lower brass rail (darker: lit from above)
+    band(h - 9, h - 6, BRASS, BRASS_D)
     band(h - 5, h - 3, IRON, IRON_L * 0.7)
     band(h - 2, h - 1, IRON_D)
 
@@ -209,8 +165,7 @@ def face() -> Image.Image:
 
 
 def needle() -> Image.Image:
-    """The value token. Fixed size, never stretched: a tapered brass blade with
-    a ruby boss at its waist, dark-outlined so it reads on any package."""
+
     w, h = NEEDLE_W, NEEDLE_H
     c = Canvas(w, h)
     cx = w / 2.0
@@ -228,12 +183,12 @@ def needle() -> Image.Image:
     c.paint(BRASS_L, bhi * 0.7)
     c.paint(IRON_D, blo * 0.55)
 
-    # the bright spine: what the eye actually tracks at a glance
+
     spine = Mask(w, h)
     spine.rect([cx - 1, 6, cx, h - 7])
     c.paint(BRASS_L, spine.arr() * 0.85)
 
-    # the ruby boss
+
     ring = Mask(w, h)
     ring.ellipse([cx - 7, h * 0.5 - 7, cx + 6, h * 0.5 + 6])
     c.paint(BRASS_D, ring.arr())
@@ -252,9 +207,7 @@ def needle() -> Image.Image:
 
 
 def endcap() -> Image.Image:
-    """The ornament at BOTH ends of the channel. Left-right symmetric by
-    construction (every shape is mirrored about the centre column), because a
-    control cannot flip an image."""
+
     w, h = CAP_W, CAP_H
     c = Canvas(w, h)
     cx = w / 2.0
@@ -267,7 +220,7 @@ def endcap() -> Image.Image:
     c.paint(BRASS_L, hi * 0.75)
     c.paint(IRON_D, lo * 0.7)
 
-    # a symmetric pair of flutes
+
     for dx in (-6, 6):
         flute = Mask(w, h)
         flute.rrect([cx + dx - 1, 10, cx + dx + 1, h - 11], 1)
@@ -275,7 +228,7 @@ def endcap() -> Image.Image:
         c.paint(IRON_D, f * 0.55)
         c.paint(BRASS_L, shift(f, 1, 0) * 0.35)
 
-    # centre boss + two rivets, all on the centre column or mirrored about it
+
     boss = Mask(w, h)
     boss.ellipse([cx - 5, h * 0.5 - 5, cx + 4, h * 0.5 + 4])
     c.paint(IRON, boss.arr())
@@ -293,9 +246,7 @@ def endcap() -> Image.Image:
 
 
 def contact_sheet(images: dict) -> Image.Image:
-    """The face stretched to three widths with the needle at three values, over
-    a checker, so slice-free stretching and end-cap alignment are judgeable
-    without Studio."""
+
     rows = [(320, 0.08), (520, 0.5), (760, 0.94)]
     pad, gap = 24, 20
     dial_h = 56
@@ -327,7 +278,7 @@ def contact_sheet(images: dict) -> Image.Image:
 
 
 def main() -> None:
-    np.random.default_rng(SEED)  # reserved: no stochastic pass in this set
+    np.random.default_rng(SEED)
     os.makedirs(PREVIEW_DIR, exist_ok=True)
     images = {"face": face(), "needle": needle(), "endcap": endcap()}
     for name, im in images.items():
@@ -339,8 +290,8 @@ def main() -> None:
     sheet.save(sheet_path, "PNG", optimize=True)
     print(f"wrote {sheet_path} ({sheet.size[0]}x{sheet.size[1]})")
 
-    # the invariance CLAIM, checked rather than asserted: the face must be
-    # column-identical or "stretching is lossless" is a lie in the provenance.
+
+
     arr = np.asarray(images["face"])
     assert np.array_equal(arr[:, :1, :].repeat(arr.shape[1], axis=1), arr), (
         "gauge_face.png is not horizontally invariant — a stretch would distort it"

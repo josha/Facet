@@ -1,27 +1,5 @@
 #!/usr/bin/env python3
-"""Sample the PLATE COLOUR of the art that backs a theme package's SELECTED state.
 
-Why this exists (director round 12, 2026-07-26). A theme declares
-`extra.controlSelected` — the colour the framework paints for a selected row when
-it has no art — and `sheet_model.selectedContentColor` resolves the SELECTED
-LABEL's colour by contrast against exactly that number. When the package skins
-selection with a picture, the declared colour stops being what a player sees and
-the pairing is computed against a fiction: fantasy-ornate declared a burnished
-gold `rgb(118, 90, 44)` while `ornate_selection_selected.png` paints a dark
-emerald field. No runtime check can see a PNG, so the truth is sampled HERE, at
-build time, and the headless sweep (`tests/theme_reference_packages.spec.luau`)
-compares the declaration against it.
-
-What is sampled: the alpha-weighted mean of the nine-slice CENTRE rect — the
-region that stretches under a label, i.e. the pixels a lifted label is read
-against. Whole-image art samples the whole image. The file's sha256 rides with
-the sample so a re-cut of the art that was never re-sampled is a FAILING test
-rather than a silently stale number.
-
-Run from the Facet root with the repo-root shared venv python:
-    ../../../.venv/bin/python tools/sample_plates.py            # write the file
-    ../../../.venv/bin/python tools/sample_plates.py --check    # verify, exit 1 on drift
-"""
 
 from __future__ import annotations
 
@@ -38,17 +16,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "assets", "themes", "plate-samples.json")
 
-# (package id, package module, asset directory, { slot -> art asset name }).
-#
-# `selected` is the asset the package's `chrome.selection` recipe names for its
-# `selected` state — the plate a SELECTED label is read against, and the plate
-# `extra.controlSelected` claims to be.
-# `control` is the asset its `chrome.control` recipe names for `default` — the
-# plate a PRIMARY (`surface = "accent"`) label is read against once the skin has
-# replaced the accent fill, and the plate `extra.control` claims to be.
-#
-# The slice rect is parsed out of the module, so this table can never drift from
-# the package's own geometry.
+
+
+
+
+
+
+
+
+
+
+
 TARGETS = [
     (
         "fantasy-ornate",
@@ -84,7 +62,7 @@ TARGETS = [
 
 
 def slice_center(module: str, asset: str):
-    """Parse `<asset> = { ... sliceCenter = { x0 =, y0 =, x1 =, y1 = } ... }`."""
+
     path = os.path.join(ROOT, "examples", "themes", f"{module}.luau")
     with open(path, "r", encoding="utf-8") as fh:
         src = fh.read()

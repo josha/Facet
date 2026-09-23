@@ -1,17 +1,8 @@
 # Facet examples
 
-Start with [component authoring](../docs/guide/15-components.md). A maintained
-example is a plain Luau function that returns a node built from `app.controls`,
-with ordered numeric children and named properties. Setup runs once per mount;
-property functions update individual properties. Callbacks command the model.
+Facet supplies UI controls. Compose owns state, composition, collection identity, animation and lifetime. Roblox owns layout, input routing, focus, scrolling, styling and the scene.
 
-State is Compose's. `Compose.cell` holds a value, `Compose.formula` derives one,
-`Compose.watch` runs a reactive external effect, and `Compose.cleanup` ties an
-external subscription to the component's lifetime. A cell created inside the
-component dies with it. A shared model's cells are created outside the component
-so they survive the screen being replaced, and the same cells are passed to each
-presentation of that model. See the [runtime contract](../src/core/README.md) for
-ownership, containment and settling.
+Create a runtime with `Facet.Roblox.createRuntime()`, bind `Host = runtime.constructors`, and get controls with `Facet.controls(runtime)`. A component returns native instances. Mount it with `runtime.mount`, and stop the mount before disposing the runtime. Install a theme through `Facet.themes.createStyleSheet` and a native `Host.StyleLink`.
 
 | Task | Example |
 |---|---|
@@ -27,22 +18,7 @@ ownership, containment and settling.
 | A shared model on a world surface | [Outpost terminal](gallery/examples/outpost_terminal/init.luau) |
 | Every public control and modifier at once | [Virtual monitors](virtual_monitors/README.md) |
 
-Read durable application state through `use` in a property function. Keep
-view-only calculations in `Compose.formula` or in the property function itself.
-Key collections by stable identity and read the row's current item readable in
-handlers. Use `app.runtime.spring` / `.tween` when a calculation needs an
-animated number, container `animation` for layout changes, and `transition` for
-insertion and removal. Arrays guarantee child order; hash-table order does not.
 
-The gallery also contains diagnostic fixtures. A composite control whose `api` or
-`dump` is under test receives them through `ref`, which is called once while the
-control is built with a frozen `{ api, dump }`. Shared reference-app models,
-scenario drivers and performance measurements keep their Compose cells and owners
-outside any one screen, because their state must survive screen replacement.
-Those are integration boundaries, not a requirement to own ordinary controls by
-hand. A custom primitive must explain the behavior its composite counterpart
-cannot express.
+Keep durable state in Compose cells. Read current values in property functions through `use`. Use `Compose.OrderedCollection` for keyed children and the virtual controls for large collections. Use `runtime.spring` and `runtime.tween` for animation. Native `UIListLayout`, `UIGridLayout`, `UIPadding`, `CanvasGroup` and `StyleRule` express the presentation directly.
 
-For a new feature, update its reference entry, its mounted scenario and the guide
-together. Follow [AGENTS.md](../AGENTS.md) and the
-[extension playbooks](../docs/extending/new-control.md).
+The gallery keeps ten main demos with nested control, collection and motion pages. `tests/native_gallery.spec.luau` mounts those pages and exercises the games, settings, playlist and standalone consumer. Reference applications and virtual monitors have separate native tests and Studio evidence.

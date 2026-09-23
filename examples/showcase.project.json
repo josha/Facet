@@ -78,6 +78,9 @@
       },
       "Gallery": {
         "$path": "gallery/client"
+      },
+      "FacetReference": {
+        "$path": "reference"
       }
     },
     "StarterGui": {

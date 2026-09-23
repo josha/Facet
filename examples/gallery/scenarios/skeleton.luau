@@ -1,125 +1,198 @@
 --!strict
--- The pending branch owns its silhouettes. Loading state survives a remount.
+
 return {
 	title = "Loading silhouettes",
 	ledgerRows = {},
 	build = function(ctx)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local loading, first = Compose.cell(true), Compose.cell(true)
 		local rootPath, controller
 		local records = {}
 		local function report()
-			if not rootPath or not controller then
-				return nil
-			end
-			ctx.presenter.refresh()
-			local function rect(suffix)
-				return controller.rectOf(rootPath .. suffix)
-			end
-			return {
-				loading = rect("/Pending/then/Placeholders") ~= nil,
-				box = rect("/Pending/then/Placeholders/First/then/Card"),
-				circle = rect("/Pending/then/Placeholders/Face"),
-				paragraph = rect("/Pending/then/Placeholders/Copy"),
-				animating = records.face and records.face.dump().animating or false,
-				reduced = ctx.presenter.motionClock:isReduced(),
-			}
+			return { loading = loading:peek(), first = first:peek() }
 		end
 		local function command(cell, value)
 			cell:set(value)
 			return report()
 		end
-		local function motion(value)
-			ctx.env:set("reducedMotion", value)
-			return report()
-		end
+
 		local function section()
 			Compose.cleanup(function()
 				rootPath, controller = nil, nil
 				table.clear(records)
 			end)
-			local root = UI.VStack("SkeletonRecipe")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("Title")({ text = "Loading silhouettes", textSize = "heading", width = UI.fill() }),
-				UI.Text("Note")({
-					text = "Reserve a place for content while it loads. Reduced motion keeps the shapes still.",
-					width = UI.fill(),
+			local root = Host.Frame({
+				Name = "SkeletonRecipe",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
 				}),
-				UI.HStack("Commands")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Load")({
+				UI.Label({
+					LayoutOrder = 1,
+					Name = "Title",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Loading silhouettes",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+					LayoutOrder = 2,
+					Name = "Note",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Reserve a place for content while it loads. Reduced motion keeps the shapes still.",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				Host.Frame({
+					LayoutOrder = 3,
+					Name = "Commands",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Load",
 						label = "Loading",
 						onActivate = function()
 							loading:set(true)
 						end,
 					}),
-					UI.Button("Ready")({
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Ready",
 						label = "Loaded",
 						onActivate = function()
 							loading:set(false)
 						end,
 					}),
-					UI.Button("Reduce")({
+					UI.Button({
+						LayoutOrder = 3,
+						Name = "Reduce",
 						label = "Reduce motion",
 						onActivate = function()
 							motion(true)
 						end,
 					}),
-					UI.Button("Animate")({
+					UI.Button({
+						LayoutOrder = 4,
+						Name = "Animate",
 						label = "Full motion",
 						onActivate = function()
 							motion(false)
 						end,
 					}),
 				}),
-				UI.When("Pending")({
-					condition = loading,
-					thenView = function()
+				Host.Frame({
+					LayoutOrder = 4,
+					Name = "Pending",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Compose.show(loading, function()
 						Compose.cleanup(function()
 							table.clear(records)
 						end)
-						return UI.VStack("Placeholders")({
-							width = UI.fill(),
-							gap = "m",
-							UI.When("First")({
-								condition = first,
-								thenView = function()
-									return UI.Skeleton("Card")({ form = "box" })
-								end,
+						return Host.Frame({
+							Name = "Placeholders",
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 16),
 							}),
-							UI.Skeleton("Face")({
+							Host.Frame({
+								LayoutOrder = 1,
+								Name = "First",
+								BackgroundTransparency = 1,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Compose.show(first, function()
+									return UI.Skeleton({
+										Name = "Card",
+										form = "box",
+									})
+								end),
+							}),
+							UI.Skeleton({
+								LayoutOrder = 2,
+								Name = "Face",
 								form = "circle",
 								ref = function(record)
 									records.face = record
 								end,
 							}),
-							UI.Skeleton("Copy")({ form = "line", lines = 3 }),
+							UI.Skeleton({
+								LayoutOrder = 3,
+								Name = "Copy",
+								form = "line",
+								lines = 3,
+							}),
 						})
-					end,
-					elseView = function()
-						return UI.Text("ReadyCopy")({ text = "Your next race is ready.", width = UI.fill() })
-					end,
+					end, function()
+						return UI.Label({
+							Name = "ReadyCopy",
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = "Your next race is ready.",
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						})
+					end),
 				}),
 			})
-			return ctx.Facet.contribution.attach(root, {
-				bindController = function(value)
-					controller = value
-				end,
-				syncGeometry = function(_, node)
-					if node then
-						rootPath = node.path
-					end
-				end,
-			})
+			return root
 		end
 		return {
 			section = section,
 			screen = function()
-				return UI.Screen("Skeleton")({
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
+				return Host.Frame({
+					Name = "Skeleton",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					Host.ScrollingFrame({
+						Name = "Content",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						section(),
+					}),
 				})
 			end,
 			report = report,
@@ -135,12 +208,6 @@ return {
 				end,
 				restoreFirst = function()
 					return command(first, true)
-				end,
-				reduced = function()
-					return motion(true)
-				end,
-				full = function()
-					return motion(false)
 				end,
 			},
 			reset = function()

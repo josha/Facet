@@ -1,506 +1,54 @@
-# 15. Adaptive layout recipes
+# Adaptive native composition
 
-Thirteen small problems that come up once a screen has to work on more than one
-device. Every snippet assumes this preamble:
+Make decisions from available space and published engine facts. Native layouts own the resulting geometry; Facet controls own their internal adaptive choices. Observe native bounds when a screen must choose between two genuinely different arrangements.
 
-```luau
-local Facet = require(game.ReplicatedStorage.Facet)
-local Compose = Facet.Compose
-local app = Facet.new()
-local UI = app.controls
-```
-
-A component is a plain Luau function that returns a node. State is a Compose
-cell. See [component authoring](15-components.md).
-
-This chapter is a reference, not a lesson. Read
-[chapter 1 §1.9](01-concepts.md#19-adapting-a-whole-screen-you-declare-the-content-not-the-layout)
-first: it explains how adaptation works and which of the three primitives to
-reach for. Come here when you have a specific problem from the list below.
-
-| Problem | Recipe |
-|---|---|
-| a row is tight and something has to give | [§15.1](#151-deciding-who-gives-way-when-a-row-is-too-tight-layoutpriority-shrinkweight) |
-| a card should be a fraction of the visible width | [§15.2](#152-sizing-against-the-container-not-the-parent-containerrelativeframe) |
-| columns should line up across rows | [§15.3](#153-lining-columns-up-across-rows-uigridrow-and-gridspan) |
-| a state change should animate | [§15.4](#154-animating-a-state-change-layout-animation) |
-| a row is simply too long | [§15.5](#155-when-a-row-is-simply-too-long-wrap) |
-| the data is a dictionary, not an array | [§15.6](#156-listing-a-dictionary-uisortedentries) |
-| a long list needs to scroll cheaply | [§15.7](#157-promising-a-rows-height-uivirtuallist-and-itemextent) |
-| one card per swipe on a phone, a row on a desktop | [§15.8](#158-cards-and-rails-one-card-per-swipe-on-a-phone-a-row-of-them-on-a-desktop) |
-| something should disappear without moving its neighbours | [§15.9](#159-hiding-something-without-moving-everything-else-hidden) |
-| code should run when a node arrives or leaves | [§15.10](#1510-knowing-when-something-arrives-and-leaves-onappear--ondisappear) |
-| swapping text should read as an event, not a snap | [§15.11](#1511-swapping-text-without-a-jump-cut-keyed-uiforeach) |
-| one icon should hand off to another | [§15.12](#1512-icon-swap-a-uiwhen-pair) |
-| a card growing should not shove its neighbours instantly | [§15.13](#1513-growing-a-card-without-its-neighbours-jumping-layout-animation) |
-
-## 15.1 Deciding who gives way when a row is too tight: `layoutPriority`, `shrinkWeight`
-
-Before a row is *too long*, it is merely *tight*. Something has to give. By
-default Facet shrinks nothing — a child keeps its natural size — so a row that
-does not fit simply overflows and the solver complains. Two props say what should
-happen instead:
-
-- **`layoutPriority`** is a **tier**: the lowest tier gives way first, the highest
-  gives way last. Default `0`. Put the value on the thing that must survive
-  ("keep the score, drop the subtitle").
-- **`shrinkWeight`** is the **share within a tier**: `0` (the default) means "never
-  shrinks", and a bigger number means "takes more of the squeeze than its
-  neighbours". Two children at weight 1 and 3 give up a quarter and three quarters
-  of the shortfall.
-
-They compose: Facet checks the tiers first, then the weights inside the tier
-that is currently giving way.
+## A wrapping action band
 
 ```luau
-UI.HStack("Row")({
-    UI.Text("Name")({ text = playerName, shrinkWeight = 3 }),  -- squeezes most
-    UI.Text("Note")({ text = subtitle, shrinkWeight = 1 }),
-    UI.Text("Score")({ text = score, layoutPriority = 1 }),    -- survives longest
-})
-```
-
-A constructor name is optional. Use one where a stable path helps, as here.
-
-## 15.2 Sizing against the container, not the parent: `containerRelativeFrame`
-
-`width = { type = "percent", fraction = 0.5 }` is half of *the immediate parent's
-offer*. That is rarely what a carousel wants. `UI.containerRelativeFrame(bp, …)`
-measures against the nearest ancestor that owns a **viewport** — a `ScrollView`'s
-content window, or the surface root. So a card can be "half the visible width"
-however deeply it is nested:
-
-```luau
-UI.containerRelativeFrame(card, { axis = "horizontal", count = 2, span = 1, spacing = 8 })
-```
-
-That is the **paging** form: divide the container into `count` slots, take `span`
-of them, and leave `spacing` px between. Two-up cards on a phone, four-up on a
-desktop, from one declaration. The other form is **fractional** —
-`{ axis, fraction }`. Use exactly one of the two per call. Declaring both, or
-neither, is an error at the call site. Sizing is all it does: to make the
-scroller **land** on those slots, declare `snap = "item"` on the collection
-([§15.8](#158-cards-and-rails-one-card-per-swipe-on-a-phone-a-row-of-them-on-a-desktop)).
-
-## 15.3 Lining columns up across rows: `UI.GridRow` and `gridSpan`
-
-`UI.Grid` sizes each column to its widest cell across the whole grid. That makes
-a table of stats line up without hand-picked widths. `UI.GridRow` is one row of
-it. `gridSpan` on a cell lets it cover more than one column — a title band above
-a three-column stat block, for example:
-
-```luau
-UI.Grid("Stats")({
-    UI.GridRow("Head")({ UI.Text("T")({ text = "Lap times", gridSpan = 3 }) }),
-    UI.GridRow("R1")({ lapCell, timeCell, deltaCell }),
-})
-```
-
-## 15.4 Animating a state change: layout animation
-
-Declare ordinary coordination on the layout that owns it:
-
-```luau
-local expanded = Compose.cell(false)
-
-UI.VStack {
-    animation = { layout = "container" },
-    UI.Toggle { label = "Details", value = expanded },
-    UI.When("Details")({
-        condition = expanded,
-        thenView = Details,
-    }),
-    Footer {},
+return Host.Frame {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    Host.UIListLayout {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Wraps = true,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    },
+    UI.Button { LayoutOrder = 1, label = "Save", onActivate = save },
+    UI.Button { LayoutOrder = 2, label = "Preview", onActivate = preview },
 }
 ```
 
-Changing `expanded` moves surviving nodes toward their new solved rectangles.
-Insertion and removal are a separate `transition` declaration. A local paint
-policy, such as `animation = { scale = "object" }`, animates that node's scale
-property. Use `app.runtime.spring` or `app.runtime.tween` only when another
-calculation needs an animated number. See
-[motion policy](15-components.md#animate-values-with-the-compose-runtime).
+Wrapping handles geometry; it does not change what an action means. Keep LayoutOrder explicit when order matters.
 
-## 15.5 When a row is simply too long: `wrap`
-
-The three primitives above all *choose*: a different axis, a different candidate,
-a different arrangement. Sometimes there is nothing to choose. You have fourteen
-tags, or nine filter chips. They do not fit across the screen. For that there is
-one word:
+## Read native bounds
 
 ```luau
-local row = { wrap = true, gap = 6 }
-for i, tag in tags do
-    row[i] = UI.Text { text = tag }
-end
-UI.HStack("Tags")(row)
-```
-
-Numeric entries are children. Named fields are properties.
-
-**In plain terms:** a normal `UI.HStack` is one line. It puts its children side
-by side, across the row. If they run past the edge, they run past the edge: the
-row paints outside its own box, and the solver complains. With `wrap = true` it
-behaves like a paragraph of text instead: it fills a line. When the next child
-does not fit, it starts a **new line** underneath, and repeats as many times as
-needed. A `UI.VStack{ wrap = true }` does the same thing sideways — it fills a
-column, then starts a new column beside it.
-
-Three things follow, and none of them is a new idea to learn:
-
-- **it adds no new words.** `align` still says where things sit on the cross axis
-  — it just now moves the whole *block* of lines rather than one line. `lineAlign`
-  on a child still says where that child sits inside its own line. `distribute`
-  still spreads the leftover along the main axis, now per line. And one `gap`
-  spaces both the children and the lines, exactly as Roblox's own `UIListLayout`
-  does;
-- **each line is as tall as its tallest child**, so a ragged row of chips does not
-  reserve the tallest chip's height for every line;
-- **it is a prop, not a class.** So you can *bind* it. `wrap = conditions.isCompact`
-  (from `Facet.adaptive.conditions(app.environment)`)
-  wraps the row on a phone and keeps it on one line on a desktop. The flip
-  re-arranges the same nodes rather than rebuilding them. Nothing loses its focus,
-  its scroll position or its in-flight animation.
-
-One rule to know before you meet it: `align = "stretch"` is **refused** on a
-wrapping stack. On a one-line stack it means "each child fills the line's cross
-axis". On a wrapping one it could just as easily mean "the lines grow to fill the
-container". A word that means two things is a bug waiting to be written. Put
-`lineAlign = "stretch"` on the children that should fill their line instead.
-
-If a single child is wider than the whole line, it gets a line to itself and is
-clamped to the line. The solver reports this on `handle.controller.diagnostics()`, along
-with the case where you have more lines than the box is tall. Wrapping removes
-the main-axis overflow; it does not remove the need to have room.
-
-## 15.6 Listing a dictionary: `UI.sortedEntries`
-
-`UI.ForEach` takes an array, so a map — player id → score, a settings table — has
-to be flattened first. Write that flatten by hand and it is three obvious lines
-that are quietly wrong:
-
-```lua
-local rows = {}
-for id, score in scores do            -- DON'T: `pairs` order is not an order
-    table.insert(rows, { key = id, value = score })
-end
-```
-
-Luau's iteration order comes from the table's hash layout. The hash layout comes
-from **how the table was built**: what was inserted, in what order, and what was
-deleted along the way. Two maps with identical contents iterate differently.
-Your leaderboard ends up sorted by the order the players happened to join. It
-will look completely stable while you test it, because building the same table
-the same way twice really does iterate the same way twice. The instant a player
-leaves and rejoins, the rows move.
-
-```luau
-local rows = Compose.formula(function(use)
-    return UI.sortedEntries(use(scores))
+local frame = Host.Frame { Size = UDim2.fromScale(1, 1) }
+local bounds = Compose.cell(frame.AbsoluteSize)
+local connection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    bounds:set(frame.AbsoluteSize)
 end)
+Compose.cleanup(function() connection:Disconnect() end)
+local stop = runtime.mount(function()
+    return UI.VirtualGrid {
+        from = rows,
+        key = function(row) return row.id end,
+        columns = function(use) return math.max(1, math.floor(use(bounds).X / 240)) end,
+        itemSize = 180,
+        render = renderCard,
+        Size = UDim2.fromScale(1, 1),
+    }
+end, frame)
+Compose.cleanup(stop)
+return frame
 ```
 
-That is the same list, in the same order, whatever built the map. Keys sort
-naturally (numbers before strings). Pass a second argument to order them
-yourself: `UI.sortedEntries(dict, function(a, b) return RANK[a] < RANK[b] end)`.
-The comparator gets **keys**, not entries. That is what makes the ordering
-deterministic no matter what you pass. To rank by *value*, sort the array it
-returns and break ties on the key.
+The initial native bounds may be zero. Use safe minimums and let later engine observations update the policy. Do not run a second settle loop to force synchronous measurements.
 
-## 15.7 Promising a row's height: `UI.VirtualList` and `itemExtent`
+## Text and safe areas
 
-A long list only builds the rows you can see. To do that it has to know, without
-building anything, where row 700 will be — so it multiplies: row *i* sits at
-`i × itemExtent`. That one number is what makes scrolling ten thousand rows cost
-the same as scrolling ten. It means **you** are promising how tall your row is,
-for every player, on every screen.
+Use TextWrapped, AutomaticSize, native constraints and appropriate flex behavior. Let the engine calculate text bounds; do not estimate glyph widths in a screen. ScreenGui inset and safe-area properties configure the target. TabView's adaptable presentation should be preferred over recreating a sidebar switch in every screen.
 
-The promise is easy to get wrong. A row's real height moves with things you did
-not type:
-
-- how wide the window is
-- the player's text-size setting
-- the theme's borders and padding
-- a display scale on a TV
-
-Get it wrong by 8px and nothing looks wrong on your machine. Every row on
-somebody else's paints 8px over the row beneath it, further down the list
-every time.
-
-So the framework checks the promise. Every solve, it measures what you actually
-put in the row and compares it with the extent you declared. If your content is
-**taller** than its slot, `handle.controller.diagnostics()` says so, in those words:
-
-> newVirtualList 'Racers' declares itemExtent = 56, but this row's content
-> measures 74px on the list's y axis — 18px taller than the slot it is windowed
-> into…
-
-Both numbers, and the row it happened on. The diagnostic says nothing when your
-row is *shorter* than its slot. Reserving a few px too many is the safe
-direction, and plenty of lists do it on purpose. It says nothing either for a
-cell that scrolls or clips its own content, because that content is not going
-anywhere.
-
-The fix is always to recompute `itemExtent` from the same facts your cell reads —
-not to give the row a flexible height. A windowed list cannot use one: it has to
-know where row 700 is without building it.
-
-**When your rows are not all the same height** — a feed of posts with different
-body lengths, a settings list with wrapped explanations — `itemExtent` also
-takes a function:
-
-```luau
-itemExtent = function(item, index, use)
-    return HEADER + item.lines * lineHeight(use(preferredTextOffset))
-end,
-```
-
-Each item declares its own size, and the list adds them up once instead of
-multiplying. It is still lazy in the way that matters: adding up numbers builds
-nothing and measures nothing, so only the rows you can see are ever created.
-
-The one thing to get right is `use`. It is the third argument. It is how the
-list learns that your extents depend on the player's text size: read the
-setting through it, and every row re-derives when the setting moves. Read it
-with `:peek()` instead and you get the right answer once and never again. The
-list then quietly windows against heights that are no longer true. When the
-extents do move, the list keeps the post that was under the top edge under the
-top edge. Changing text size does not lose the player's place.
-
-## 15.8 Cards and rails: one card per swipe on a phone, a row of them on a desktop
-
-A set of cards is the most-reached-for thing in a game menu — liveries, tracks,
-loadouts — and it is the one arrangement whose *right answer changes with the
-screen*. On a phone you want one card filling the view, with a sliver of the next
-one showing so the player knows to swipe. On a tablet or a desktop you want four
-of them side by side, because there is room and because scrolling past one card
-at a time would be tedious. Written by hand, that is a size branch in every
-screen that shows cards, and the branch is where it goes stale.
-
-Declare the *arrangement* instead of the width:
-
-```luau
-local rail = UI.VirtualList("Liveries")({
-    axis = "x",                 -- a rail runs sideways
-    rows = liveries,
-    key = "id",
-    itemExtent = "cards",       -- how many belong in view, not how wide one is
-    viewportExtent = "auto",    -- measure the width the solver gave the rail
-    rowGap = 8,
-    cell = function(item) return LiveryCard { item = item } end,
-})
-```
-
-That is the whole difference. On a compact, touch-driven surface the rail
-resolves **one card per view with a peek of the next**, and turns snapping on,
-because a one-card view is a page. On anything larger it resolves a **multi-up
-rail** with snapping off. Nothing above mentions a width, a breakpoint or a
-device. The same control changes its mind in place when the space does. A
-rotation re-arranges it with no remount and no lost scroll position.
-
-If you want to pin part of it, `cards` is the options table:
-
-- `perView` fixes the count.
-- `minWidth` moves the width at which a lane is dropped.
-- `peek` overrides the sliver (`0` removes it).
-
-Anything you write there wins.
-
-**A rail that adapts needs the facts, and says so if it cannot find them.** An
-application built with `Facet.new` publishes its environment, so the snippet
-above is all you write there. A rail on a core that carries no environment, or
-more than one, supplies the facts itself:
-
-- pass `env = app.environment` to the rail
-- or pin `cards = { perView = n }`, which asks for no facts at all
-
-Leave both out on such a core and the rail refuses to construct. It names which
-of them to add. Adaptation never fails silently.
-
-**Snapping is its own key, and it works without cards.** `snap = "item"` works on
-any scrolling collection — a list, a rail, a grid on its scroll axis. It means
-the offset settles onto an item boundary when the gesture stops, instead of
-resting wherever the momentum ran out:
-
-```luau
-snap = "item",  -- "none" is the default
-```
-
-A quick flick always advances at least one item in the direction it went. So a
-short swipe cannot undo itself. A slow drag that did not clear an item's
-midpoint falls back where it came from. So a half-swipe is a way to change your
-mind. The end of the list is a resting place of its own, so the last card can
-sit flush against the edge. Keyboard and gamepad traversal land on boundaries
-too, and so does a programmatic `scrollTo`. If a player has turned reduced
-motion on, the offset is *placed* rather than travelled — same landing place, no
-flight.
-
-Two things snapping deliberately does **not** do. It never snaps while an item
-is taller than the viewport. You cannot align something the player is still
-reading past. Alignment gives way to content, the same way a long label
-reflows before it truncates. And it costs nothing when nothing is happening —
-a snapping list sitting still runs no per-frame work at all.
-
-## 15.9 Hiding something without moving everything else: `hidden`
-
-There are two different meanings of "make this go away". Mixing them up causes
-a whole family of jumpy screens.
-
-`UI.When` **removes** the node. It stops existing, so everything below it
-slides up to fill the space. Use it for:
-
-- a panel that appears.
-- a row that is added.
-- a warning that only shows sometimes.
-
-`hidden = true` **keeps the node's box and stops drawing it**. The space is
-still reserved; nothing else moves. Use it for:
-
-- a value that has not arrived yet.
-- a locked item you still want to leave a gap for.
-- a badge that comes and goes on a row whose height must never change.
-
-```luau
-UI.Button("Badge")({ label = "New", hidden = notEarnedYet })
-```
-
-It is a normal prop, so you can bind it to a Compose cell and flip it live. When it
-flips, nothing is destroyed and nothing is rebuilt — the same button is there the
-whole time, keeping its focus, its animation and its place.
-
-A hidden node is genuinely inert, not just invisible. Tab and gamepad
-navigation skip it, and it does not respond to taps. That is deliberate — an
-invisible thing you can still accidentally click is worse than either state on
-its own.
-
-## 15.10 Knowing when something arrives and leaves: `onAppear` / `onDisappear`
-
-Sometimes you need to *do* something the moment a piece of UI shows up or goes
-away. For example: start a countdown, log that a screen was opened, play a
-sound, or stop a sound. Every rendered node takes two optional callbacks for
-exactly that:
-
-```luau
-UI.Box("Card")({
-    onAppear = function(path) startPreviewAnimation() end,
-    onDisappear = function(path) stopPreviewAnimation() end,
-})
-```
-
-**In plain terms:** `onAppear` runs once, the first time this node is actually
-drawn. `onDisappear` runs once, right after it stops being drawn. Both are handed
-the node's path, so one shared function can serve many nodes.
-
-Three details worth knowing, because they are what make the pair safe to rely on:
-
-- **`onAppear` runs after layout finishes.** By the time your code runs, the
-  node already has its real size and position. You can ask
-  `handle.controller.rectOf(path)` and get an answer. Nothing has reached the player's
-  screen yet either way;
-- **`onDisappear` runs after the node is gone.** The path is no longer mounted:
-  do not try to read or write it. This hook is for *your* cleanup, not for a
-  last look at the node;
-- **closing the screen still fires `onDisappear`** for everything on it. That is
-  the usual way a panel goes away. A cleanup that only ran when a row scrolled
-  out of view would be a leak waiting to happen.
-
-`hidden` and these two are unrelated on purpose. Hiding a node fires nothing —
-it never left. If you want an event, use `UI.When`, which really does remove it.
-
-## 15.11 Swapping text without a jump-cut: keyed `UI.ForEach`
-
-An ordinary reactive `UI.Text` overwrites its string on the frame the cell
-changes — no transition, because nothing structural happened. Wrap the value in
-a one-row `ForEach` keyed by the text itself, and a *different string* becomes a
-different row instead:
-
-```luau
-local rows = Compose.formula(function(use)
-    return { { id = use(status) } }  -- one row; its key is the text
-end)
-UI.ForEach("Status")({
-    items = rows,
-    key = function(row) return row.id end,
-    row = function(_, _, row)
-        return UI.ZStack("Row")({
-            canvasGroup = true,
-            UI.Text("Line")({ text = function(use) return use(row).id end }),
-        })
-    end,
-    transition = { enter = "slide-up", fade = true, distance = 8 },
-})
-```
-
-`UI.ForEach` needs a constructor name to take this schema-shaped spec, and its
-`key` is a function of the item. `row` receives the item's current value and,
-as its third argument, the item readable.
-
-**In plain terms:** each distinct string mounts and unmounts its own row. The
-old one exits on the mirrored form (`slide-down`, since only `enter` is
-declared), the new one rises 8px into place, and both fade — a status line
-reads as an event instead of a snap. `fade = true` needs a fade group, so the
-row's own top node is a `canvasGroup`, the same requirement §15.12's icons meet
-— a bare `UI.Text` refuses `canvasGroup` and a fading transition on one throws
-the moment the row mounts.
-
-## 15.12 Icon swap: a `UI.When` pair
-
-Two `UI.When` branches on the same boolean, each fading in, briefly overlap
-while the outgoing one retires:
-
-```luau
-local function icon(image)
-    return UI.ZStack("Icon")({ canvasGroup = true, UI.Image("Art")({ image = image }) })
-end
-
-UI.ZStack {
-    UI.When("Muted")({
-        condition = muted,
-        transition = { enter = "fade" },
-        thenView = function() return icon(mutedIcon) end,
-    }),
-    UI.When("Unmuted")({
-        condition = function(use) return not use(muted) end,
-        transition = { enter = "fade" },
-        thenView = function() return icon(speakerIcon) end,
-    }),
-}
-```
-
-**In plain terms:** `fade` needs a fade group, so each branch's icon is wrapped
-in its own `canvasGroup`. Flipping `muted` opens one branch and closes the
-other; the closing one keeps painting through its structural default exit
-(`dismiss`) instead of vanishing, so the two icons overlap for one `dismiss`
-beat rather than popping straight across.
-
-## 15.13 Growing a card without its neighbours jumping: layout animation
-
-Put `animation = { layout = "container" }` on the common ancestor of the
-expanding card and its siblings, as in [§15.4](#154-animating-a-state-change-layout-animation).
-Then call `expanded:set(true)` normally. All surviving nodes whose positions
-change share the policy. New and removed branches keep their own transition.
-The preset and reduced-motion behavior come from the host's motion authority.
-
-## 15.14 A grid inside its own container
-
-The [container-grid recipe](../../examples/gallery/scenarios/container_grid.luau)
-uses the existing `contribution.syncGeometry(rectOf, node)` seam. The panel's
-solved outer width selects 3, 6 or 12 columns with `Facet.adaptive.sizeClass`.
-The solved `Cells` row supplies the track width; subtracting padding from the outer
-box would miss theme frame insets. Both measured widths write Compose cells only
-when they change.
-
-Read theme spacing in a tracked formula, then divide the inner row after gutters.
-Clamp each cell's requested span to the current column count. A span of zero uses
-`UI.When` to remove the cell; positive spans share a wrapping HStack. No viewport
-or device name decides a panel's columns. Debug bands use a keyed collection, so
-resizing with guides already visible changes their number too. The caption stays
-unmounted until the first positive measurement.
-
-The recipe is also in the existing Adaptive gallery page. Its buttons resize the
-sidebar, toggle guide bands and remove/restore the replay cell. Scenario reports
-read the committed geometry and mounted caption; requested sizes alone are not
-proof of what the container received.
-
-Next: [chapter 2](02-architecture.md) shows how the modules fit together, and
-[chapter 3](03-getting-started.md) builds a working screen.
+Keep structural ownership stable when only a size changes. Use a property binding for dimensions; use Compose.show or keyed only when the composition itself changes.

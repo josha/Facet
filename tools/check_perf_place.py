@@ -1,29 +1,5 @@
 #!/usr/bin/env python3
-"""Place doctor for the performance lab (roadmap Step 9, acceptance PL-1/PL-16).
 
-WHY THIS EXISTS. `rojo build` cheerfully emits a file when a `$path` is wrong or a
-module has been renamed: the place is the right size, opens without error, and is
-missing the thing the whole lab depends on. "The build succeeded" is not evidence
-that the build contains anything.
-
-So this rebuilds the place FROM A CLEAN SOURCE STATE and inspects the resulting
-tree for the scripts, modules, scenario registry and version markers the lab
-needs, plus the properties that make the file safe for the user to publish by
-hand — no universe/place id, no developer filesystem path, no plugin dependency.
-
-TWO SERIALIZATIONS, ON PURPOSE. The checked-in artifact is the binary `.rbxl`,
-which is chunked and LZ4-compressed, so instance names are not reliably greppable
-in it. Reading the tree therefore uses an `.rbxlx` built from THE SAME project
-file in THE SAME run, and the binary artifact is verified separately: it exists,
-it is a real Roblox binary (magic header), and it is the same order of size. A
-divergence between the two is impossible without Rojo emitting different trees
-for the same project, which is not a failure mode this check can create.
-
-Run:  python3 tools/check_perf_place.py            (exit 0 = PASS)
-      python3 tools/check_perf_place.py --no-build (inspect the checked-in build)
-
-Writes artifacts/performance-stress-places/place.json.
-"""
 
 import json
 import os
@@ -36,15 +12,15 @@ PROJECT = "examples/performance.project.json"
 BUILT = "examples/places/Facet-PerformanceLab.rbxl"
 ARTIFACT = "artifacts/performance-stress-places/place.json"
 
-# Everything the lab cannot run without. A name here is a promise the built place
-# keeps, and each one has broken in some other stage's build at least once.
+
+
 REQUIRED = [
-    # the library itself, and the profiler phases the capture reads
+
     ("ReplicatedStorage/Facet", "ModuleScript"),
     ("ReplicatedStorage/Facet/core/profile", "ModuleScript"),
     ("ReplicatedStorage/Facet/client/screen_target", "ModuleScript"),
     ("ReplicatedStorage/Facet/controls/virtual_list", "ModuleScript"),
-    # the scenario registry, the reused gallery runner, and the lab modules
+
     ("ReplicatedStorage/FacetScenarios", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/runner", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/perf_lab", "ModuleScript"),
@@ -52,25 +28,25 @@ REQUIRED = [
     ("ReplicatedStorage/FacetScenarios/rows", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/capture", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/overlay", "ModuleScript"),
-    # the two named levers of device-capture-2026-08-15 §7 (`arrange-shapes`,
-    # `edit-locality`). NOT optional: `perf_lab` asserts `ctx.lab.levers` at build,
-    # so a place that dropped this module cannot mount ANY workload — which is the
-    # failure this list exists to catch at the gate instead of at the phone.
+
+
+
+
     ("ReplicatedStorage/FacetScenarios/levers", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/navigation_inventory", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/transient_surfaces", "ModuleScript"),
-    # the ornate reference package the flat-vs-ornate comparison needs
+
     ("ReplicatedStorage/FacetThemes/fantasy_ornate", "ModuleScript"),
-    # the bootstrap and the matched raw-Roblox reference
+
     ("StarterPlayer/StarterPlayerScripts/PerfLab", "Script"),
     ("StarterPlayer/StarterPlayerScripts/PerfLab/native_list", "ModuleScript"),
-    # something to stand on, so the place opens as a usable session
+
     ("Workspace/Baseplate", "Part"),
     ("Workspace/SpawnLocation", "SpawnLocation"),
 ]
 
-# Version markers a capture cites. If one of these strings is not in the built
-# source, a capture claiming it is citing a version the place does not carry.
+
+
 VERSION_MARKERS = [
     ("ReplicatedStorage/FacetScenarios/dataset", 'dataset.VERSION = "perf-dataset/'),
     ("ReplicatedStorage/FacetScenarios/rows", 'rows.VERSION = "perf-row/'),
@@ -98,7 +74,7 @@ def _source(item):
 
 
 def index(root):
-    """path -> (class, source) for every Instance in the tree."""
+
     out = {}
 
     def walk(node, prefix):
@@ -122,17 +98,17 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         xml_path = os.path.join(tmp, "perflab.rbxlx")
-        # NO HARDCODED DEVELOPER PATH (phase-gate review F-5): a tool that refuses a
-        # place for containing `/Users/...` had one in its own PATH. Rojo is found the
-        # way every other developer finds it — through the toolchain manager's shim
-        # directory relative to $HOME, or whatever is already on PATH.
+
+
+
+
         env = dict(os.environ)
         extra = [os.path.expanduser("~/.rokit/bin"), "/opt/homebrew/bin", "/usr/local/bin"]
         env["PATH"] = os.pathsep.join([p for p in extra if os.path.isdir(p)] + [env.get("PATH", "")])
         if build:
-            # THE CLEAN-SOURCE REBUILD. Both artifacts come from one invocation of
-            # the same project file, so "the checked-in .rbxl matches these sources"
-            # is a property of this run rather than of whenever it was last built.
+
+
+
             r1 = subprocess.run(
                 ["rojo", "build", PROJECT, "-o", BUILT], capture_output=True, text=True, env=env
             )
@@ -158,14 +134,14 @@ def main():
         for path, marker in VERSION_MARKERS:
             got = tree.get(path)
             if got is None:
-                continue  # already reported above
+                continue
             if marker not in got[1]:
                 problems.append(f"{path} does not carry the version marker {marker!r}")
 
-        # PUBLISH SAFETY. The user is told to open this file and choose "Publish to
-        # Roblox" themselves; a place that arrived with an id attached would publish
-        # somewhere they did not choose, and one carrying a developer path leaks the
-        # build machine into a file meant to be shared.
+
+
+
+
         joined_sources = "\n".join(src for (_k, src) in tree.values())
         for needle, why in (
             ("/Users/", "an absolute developer filesystem path"),
@@ -176,15 +152,15 @@ def main():
             if needle in joined_sources:
                 problems.append(f"the built place source contains {needle!r} — {why}")
 
-        # the runner is REUSED, not copied: the lab's registry and the gallery's must
-        # be the same file, or the Studio surface this stage claims to extend is a
-        # second implementation wearing the same name
-        # REUSED, NOT FORKED — asserted on the PROJECT MAPPING, not on the built source.
-        # The first version compared the built runner against the repo file it was built
-        # from, so the two could never differ and the check could not fail (phase-gate
-        # review F-6, confirmed by a mutation that passed). What actually matters is
-        # that the project points at the gallery's file rather than at a copy under
-        # examples/performance/.
+
+
+
+
+
+
+
+
+
         runner = tree.get("ReplicatedStorage/FacetScenarios/runner")
         if runner is None:
             problems.append("the built place has no scenario runner")
@@ -209,7 +185,7 @@ def main():
             else:
                 notes.append("scenario runner is mapped from the gallery (reused, not forked)")
 
-    # the binary artifact the user actually opens
+
     if not os.path.isfile(BUILT):
         problems.append(f"missing built place {BUILT}")
     else:

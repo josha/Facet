@@ -1,1455 +1,499 @@
 --!strict
--- ============================================================================
--- Reference proof "Glade" (RA-P1, reference-app-validation).
--- ============================================================================
---
--- A clean-room reinterpretation of the behavioral reference as an original
--- Facet product, built to `artifacts/swiftui-reference-app-validation/specs/
--- p1-glade.md`. Keepers tend moss gardens — GLADES — that glowing sprites —
--- WISPS — visit while the supplies are kept up. Two supplies per glade: Dew
--- (instant refill) and Nectar (chosen from varieties, some premium).
---
--- WHAT THIS PROOF IS FOR. It is the whole RA-P1 loop, drivable end to end
--- through on-screen controls on every input class: an overview of five glades
--- with visibly draining supply rings → a glade's detail → an instant dew refill
--- → the nectar picker (Use 1 / Shop / Choose) → the provision shop with a real
--- purchase command (idle → pending → confirmed | rejected, with the rejection's
--- copy at the point of action) → the Keeper's Charm tiers with upgrade-only mode
--- → wisp info → the keeper screen, its edit form, and a Fresh Start that reseeds
--- the world byte-identically.
---
--- WHAT IT OWNS AND WHAT IT DOES NOT. Facet owns layout, adaptation, focus,
--- presentation, motion, text and theming. This proof owns its content, its
--- domain signals, and three deterministic fake services (SupplyService,
--- CommerceService, VisitScheduler). It reads no wall clock, calls no
--- `math.random`, touches no network and writes no player data: the ONLY time in
--- the proof is an injected `now` signal, advanced by the presenter's own tick in
--- Studio and by a scripted step headlessly, which is what makes "same seed +
--- same steps ⇒ identical dump" mechanical.
---
--- DELIVERED SUBSTITUTIONS (each recorded, none silent):
---   * the spec proposes two `extra.*` glow tokens for supply identity. No theme
---     tokens land this stage, so nectar takes the `accent` role and dew takes
---     `contentStrong` through the public `tint` channel — themable and
---     contrast-checkable at both ends, which is what the proposal was for.
---   * the spec names PALETTE roles where `surface` takes the framework's
---     eight-value SURFACE vocabulary: `surfaceStrong` reads as `"raised"` here.
---   * three compact-label icons the spec names ("check", "cart", "hourglass")
---     are not in the framework's semantic icon vocabulary; the proof uses
---     "checkmark" and one-word compact text instead of inventing icon names that
---     would resolve to nothing.
---   * scene layers are tinted shapes rather than uploaded art (no assets ship
---     this stage); the structure — ZStack, anchors, fractional offsets, per-layer
---     identity tints — is the spec's, and each layer is one prop away from art.
-
-local seedData = require("@self/content/seed")
+local seed = require("@self/content/seed")
 local strings = require("@self/content/strings")
 local supplyService = require("@self/services/supply")
 local commerceService = require("@self/services/commerce")
-local visitService = require("@self/services/visits")
-local overviewUI = require("@self/ui/overview")
-local detailUI = require("@self/ui/detail")
-local shopUI = require("@self/ui/shop")
-local keeperUI = require("@self/ui/keeper")
-local taskUI = require("@self/ui/task")
-local parts = require("@self/ui/parts")
-
-local Glade = {}
-
-local SECTIONS = { "glades", "wisps", "flora", "keeper" }
-local METRICS = seedData.METRICS
-
--- the wisp's rest perch and its entry point at the trailing edge, as fractions
--- of the scene's inner box (spec §11's beats)
-local WISP_REST = { x = 0.46, y = 0.44 }
-local WISP_ENTRY = { x = 0.92, y = 0.24 }
-local GLOW_REST = 0.45
-local GLOW_SWELL = 0.12
-
--- ---- a deterministic serializer for the proof's own dump --------------------
--- Sorted keys, stable number formatting, no addresses: two runs that reached the
--- same state produce the same bytes, which is what the reset pin compares.
-local function serialize(value: any): string
-	local kind = type(value)
-	if kind == "table" then
-		local isArray = #value > 0
-		local out: { string } = {}
-		if isArray then
-			for _, item in value do
-				table.insert(out, serialize(item))
-			end
-			return "[" .. table.concat(out, ",") .. "]"
-		end
-		local keys: { string } = {}
-		for key in value do
-			table.insert(keys, tostring(key))
-		end
-		table.sort(keys)
-		for _, key in keys do
-			table.insert(out, key .. "=" .. serialize((value :: any)[key]))
-		end
-		return "{" .. table.concat(out, ",") .. "}"
-	elseif kind == "number" then
-		return string.format("%.4f", value)
-	elseif kind == "nil" then
-		return "nil"
+local visitsService = require("@self/services/visits")
+local referenceView = require("./view")
+local Glade = { title = "Glade" }
+function Glade.build(ctx)
+	local Compose, Host, UI, runtime = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
+	local D2, V2, C3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
+	local view = referenceView(ctx)
+	local owner = Compose.currentOwner()
+	local now, locale = Compose.cell(0), Compose.cell("en")
+	local function rooted(body)
+		return Compose.withOwner(owner, body)
 	end
-	return tostring(value)
-end
-
--- Services, state and the screen live under `appOwner`; a presented surface
--- lives under its own mount and is released when that mount closes.
-local function construct(Facet: any, deps: any, appOwner: any): any
-	local host = deps.app
-	local UI = host.controls
-	local Compose = Facet.Compose
-	local env = host.environment
-	local presenter = host.presenter
-	local actionSystem = deps.actionSystem
-
-	local conditions = Facet.adaptive.conditions(env)
-	local clock = presenter.motionClock
-
-	-- Runs `onChange` when `source` changes; the current owner releases it.
-	local function observe(source: any, onChange: (any) -> ()): () -> ()
-		local first = true
-		return Compose.watch(function(use)
-			local value = use(source)
-			if first then
-				first = false
-				return
-			end
-			onChange(value)
-		end)
+	local supply = supplyService.new({ Compose = Compose, now = now, rooted = rooted })
+	local commerce = commerceService.new({ Compose = Compose, now = now })
+	local visits =
+		visitsService.new({ Compose = Compose, now = now, rooted = rooted, charmTier = commerce.charmTier() })
+	local section, search = Compose.cell("glades"), Compose.cell("")
+	local selected, detailOpen, shopOpen, wisp, wispOpen =
+		Compose.cell("mossholm"), Compose.cell(false), Compose.cell(false), Compose.cell(nil), Compose.cell(false)
+	local notice, complete = Compose.cell(""), Compose.cell(false)
+	local keeperName, keeperContact = Compose.cell(seed.KEEPER.displayName), Compose.cell(seed.KEEPER.contact)
+	local draftName, draftContact = Compose.cell(seed.KEEPER.displayName), Compose.cell(seed.KEEPER.contact)
+	local editOpen, resetOpen = Compose.cell(false), Compose.cell(false)
+	local reducedMotion = Compose.cell(false)
+	local guiService = ctx.guiService
+	if guiService then
+		reducedMotion:set(guiService.ReducedMotionEnabled)
+		Compose.cleanup(guiService:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
+			reducedMotion:set(guiService.ReducedMotionEnabled)
+		end))
 	end
-	-- Runs `build` under the app's owner, for values that outlive the surface that
-	-- first asks for them.
-	local function rooted(build: () -> any): any
-		return Compose.withOwner(appOwner, build)
+	local favorites = {}
+	for _, glade in seed.GLADES do
+		favorites[glade.id] = Compose.cell(glade.favourite)
 	end
-	-- A motion value is released with the owner that made it.
-	local function ownMotion(value: any): any
-		Compose.cleanup(function()
-			value:dispose()
-		end)
-		return value
-	end
-
-	-- ---- injected time ------------------------------------------------------
-	local now = Compose.cell(0)
-	local commerce: any
-
-	local function advance(dt: number)
-		if dt <= 0 then
-			return
-		end
-		now:set(now:peek() + dt)
-		commerce.update(now:peek())
-	end
-
-	-- ---- locale + copy ------------------------------------------------------
-	local locale = Compose.cell(strings.DEFAULT_LOCALE)
-	local copyMemos: { [string]: any } = {}
-	local function L(key: string): any
-		local memo = copyMemos[key]
-		if memo == nil then
-			-- cached across surfaces, so it lives under the app owner
-			memo = Compose.withOwner(appOwner, function()
-				return Compose.formula(function(use)
-					return strings.get(use(locale), key)
-				end)
-			end)
-			copyMemos[key] = memo
-		end
-		return memo
-	end
-	local function Lnow(key: string, subs: { [string]: string }?): string
+	local function L(key, subs)
 		return strings.get(locale:peek(), key, subs)
 	end
-
-	-- ---- proof-owned formatting (the framework has no date/locale formatter) --
-	local fmt = {}
-	function fmt.duration(seconds: number): string
-		if seconds >= 3600 then
-			return Lnow("time.hour", { n = tostring(math.floor(seconds / 3600)) })
-		elseif seconds >= 60 then
-			return Lnow("time.minute", { n = tostring(math.floor(seconds / 60)) })
+	local function text(key, subs)
+		return function(use)
+			return strings.get(use(locale), key, subs)
 		end
-		return Lnow("time.second", { n = tostring(math.max(0, math.floor(seconds))) })
 	end
-	function fmt.relative(secondsAgo: number): string
-		if secondsAgo < 45 then
-			return Lnow("time.now")
-		end
-		return Lnow("time.ago", { when = fmt.duration(secondsAgo) })
+	local function advance(dt)
+		now:update(function(value)
+			return value + math.max(0, dt)
+		end)
+		commerce.update(now:peek())
 	end
-
-	-- ---- colour helpers -----------------------------------------------------
-	local function rgb(triple: { number }): any
-		return { r = triple[1], g = triple[2], b = triple[3] }
+	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	if heartbeat then
+		Compose.cleanup(heartbeat:Connect(advance))
 	end
-	-- scene art rides the tint channel's DECLARED theming-exempt form: a species'
-	-- hue and a nectar's jar are game data, the same class the `direct` form
-	-- exists for. Every UI surface, state and affordance in this proof is a role.
-	local function tint(triple: { number }, transparency: number?): any
-		if transparency ~= nil then
-			return { direct = rgb(triple), transparency = transparency }
-		end
-		return { direct = rgb(triple) }
-	end
-	-- THE TOKEN SUBSTITUTION (package brief): the spec's `extra.nectarGlow` /
-	-- `extra.dewGlow` become the nearest existing palette roles, so both stay
-	-- themable and contrast-gated and a package swap moves them.
-	local SUPPLY_ROLE = { nectar = "accent", dew = "contentStrong" }
-	local function supplyTint(kind: string): any
-		return { role = SUPPLY_ROLE[kind], blend = 1 }
-	end
-
-	-- ---- services -----------------------------------------------------------
-	local supply = supplyService.new({ Compose = Compose, rooted = rooted, now = now })
-	commerce = commerceService.new({ Compose = Compose, now = now })
-	local visits = visitService.new({
-		Compose = Compose,
-		rooted = rooted,
-		now = now,
-		charmTier = commerce.charmTier(),
-	})
-
-	-- ---- semantic + presentation state --------------------------------------
-	local state = {
-		locale = locale,
-		section = Compose.cell("glades"),
-		selectedGlade = Compose.cell(nil :: string?),
-		search = Compose.cell(""),
-		offerDismissed = Compose.cell(false),
-		keeperName = Compose.cell(seedData.KEEPER.displayName),
-		keeperContact = Compose.cell(seedData.KEEPER.contact),
-		draftName = Compose.cell(seedData.KEEPER.displayName),
-		draftContact = Compose.cell(seedData.KEEPER.contact),
-		keeperPath = Compose.cell({}),
-		detailPath = Compose.cell({}),
-		favourites = {} :: { [string]: any },
-	}
-	for _, glade in seedData.GLADES do
-		state.favourites[glade.id] = Compose.cell(glade.favourite == true)
-	end
-	state.filtered = Compose.formula(function(use)
-		local term = string.lower(use(state.search))
-		local loc = use(state.locale)
-		local out: { any } = {}
-		for _, glade in seedData.GLADES do
-			if term == "" then
-				table.insert(out, glade)
-			else
-				local name = string.lower(strings.get(loc, "glade." .. glade.id))
-				if string.find(name, term, 1, true) ~= nil then
-					table.insert(out, glade)
-				end
+	local ready = Compose.formula(function(use)
+		return use(supply.state(seed.TASK.glade, "dew")) == "full"
+			and use(supply.nectarOf(seed.TASK.glade)) == seed.TASK_NECTAR
+			and use(supply.state(seed.TASK.glade, "nectar")) == "full"
+	end)
+	Compose.watch(function(use)
+		if use(ready) and not complete:peek() then
+			complete:set(true)
+			local visitor = visits.current(seed.TASK.glade):peek()
+			if visitor and visitor.wisp == seed.TASK.wisp then
+				visits.markPresented(visitor.id)
 			end
-		end
-		return out
-	end)
-
-	--[[ ---- the played task ---------------------------------------------------
-
-		"Prepare this glade": one named glade, one named wisp, two plain rows and a
-		clear first action (`docs/plans/example-games-and-standalones.md`). Everything
-		it reads is a service that already existed — SupplyService's state memos and
-		its assigned nectar — so the task is a DERIVATION, not a second model of the
-		world, and it can never disagree with the rings the player is looking at.
-
-		`complete` is the one latched fact, and it is latched on purpose: the two
-		conditions are live (supplies drain), so a finished task that un-finished
-		itself a minute later would take the reward back for nothing the player did.
-		Before it latches, a supply falling back below full DOES un-tick its row —
-		which is the recovery path, and the task line says so in as many words. ]]
-	local taskGlade = seedData.TASK.glade
-	local taskWisp = seedData.TASK.wisp
-	local taskNectar = seedData.TASK_NECTAR
-	local taskModel: any = {
-		glade = taskGlade,
-		wisp = taskWisp,
-		nectar = taskNectar,
-		complete = Compose.cell(false),
-	}
-	taskModel.dewReady = Compose.formula(function(use)
-		return use(supply.state(taskGlade, "dew")) == "full"
-	end)
-	taskModel.nectarReady = Compose.formula(function(use)
-		return use(supply.nectarOf(taskGlade)) == taskNectar and use(supply.state(taskGlade, "nectar")) == "full"
-	end)
-	taskModel.ready = Compose.formula(function(use)
-		return use(taskModel.dewReady) and use(taskModel.nectarReady)
-	end)
-	--[[ `touched` is the one thing a derivation cannot recover: whether a row has
-		EVER been true in this attempt. Without it a supply that drains back to
-		empty returns the task line to its opening sentence, which reads as "you
-		have not started" to a player who just did two things — and the clock can
-		put them there without touching anything at all. With it the line says what
-		CHANGED. Cleared by the reset, like every other task fact. ]]
-	taskModel.touched = Compose.cell(false)
-	observe(taskModel.dewReady, function(ready: boolean)
-		if ready then
-			taskModel.touched:set(true)
+			notice:set(L("task.toast", { wisp = L("wisp." .. seed.TASK.wisp), glade = L("glade." .. seed.TASK.glade) }))
 		end
 	end)
-	observe(taskModel.nectarReady, function(ready: boolean)
-		if ready then
-			taskModel.touched:set(true)
-		end
-	end)
-	--[[ start | nectar | dew | resume | done.
-
-		`dew` and `resume` are the two DEPLETED paths, and they are the reason this
-		task cannot silently become unsatisfiable: supplies drain on a clock, so a
-		row that was ticked can come back untocked with nothing the player did. Both
-		phases name the changed condition and both leave the same two verbs one press
-		away — refill, and choose. ]]
-	taskModel.phase = Compose.formula(function(use)
-		if use(taskModel.complete) then
-			return "done"
-		end
-		local dew = use(taskModel.dewReady)
-		local nectar = use(taskModel.nectarReady)
-		if dew and nectar then
-			return "done"
-		end
-		if dew then
-			return "nectar"
-		end
-		if nectar then
-			return "dew"
-		end
-		return if use(taskModel.touched) then "resume" else "start"
-	end)
-	function taskModel.rows(): { { id: string, done: boolean } }
-		return {
-			{ id = "dew", done = taskModel.dewReady:peek() },
-			{ id = "nectar", done = taskModel.nectarReady:peek() },
-		}
+	local function reset()
+		runtime:batch(function()
+			supply.reset()
+			commerce.reset()
+			visits.reset()
+			now:set(0)
+			complete:set(false)
+			keeperName:set(seed.KEEPER.displayName)
+			keeperContact:set(seed.KEEPER.contact)
+			for _, item in seed.GLADES do
+				favorites[item.id]:set(item.favourite)
+			end
+			search:set("")
+			notice:set("")
+			detailOpen:set(false)
+			shopOpen:set(false)
+			section:set("glades")
+		end)
 	end
-	function taskModel.dump(): any
-		return {
-			glade = taskGlade,
-			wisp = taskWisp,
-			nectar = taskNectar,
-			phase = taskModel.phase:peek(),
-			dewReady = taskModel.dewReady:peek(),
-			nectarReady = taskModel.nectarReady:peek(),
-			touched = taskModel.touched:peek(),
-			complete = taskModel.complete:peek(),
-		}
+	local function saveKeeper()
+		keeperName:set(draftName:peek())
+		keeperContact:set(draftContact:peek())
+		editOpen:set(false)
 	end
-
-	-- ---- wisp motion --------------------------------------------------------
-	-- Two scalar springs for the flight (never one spring on a 2-D distance) plus
-	-- a scale spring and the decay-class delight glow. One record per scene form,
-	-- created on demand and shared by the scene that binds it and the timeline
-	-- that drives it.
-	local wispRecords: { [string]: any } = {}
-	local function wispMotion(gladeId: string, form: string): any
-		local key = gladeId .. "/" .. form
-		local record = wispRecords[key]
-		if record == nil then
-			record = {
-				x = ownMotion(clock:spring(WISP_REST.x, "object")),
-				y = ownMotion(clock:spring(WISP_REST.y, "object")),
-				scale = ownMotion(clock:spring(1, "reward")),
-				glow = ownMotion(clock:spring(GLOW_REST, "decay")),
-				timeline = nil :: any,
-			}
-			wispRecords[key] = record
-		end
-		return record
+	local function refill(id)
+		supply.refill(id, "dew")
+		notice:set(L("toast.refill", { glade = L("glade." .. id) }))
 	end
-
-	-- ---- feedback log (the bus is the game's seam; the proof plays nothing) ---
-	local feedbackLog: { string } = {}
-	Compose.cleanup(presenter.onFeedback(function(event: any)
-		table.insert(feedbackLog, tostring(event.type))
-		if #feedbackLog > 64 then
-			table.remove(feedbackLog, 1)
-		end
-	end))
-
-	-- ---- the context every surface module reads -----------------------------
-	local nav = {}
-	local ctx = {
-		Facet = Facet,
-		UI = UI,
-		Compose = Compose,
-		runtime = host.runtime,
-		observe = observe,
-		ownMotion = ownMotion,
-		env = env,
-		actionSystem = actionSystem,
-		presenter = presenter,
-		conditions = conditions,
-		clock = clock,
-		now = now,
-		L = L,
-		Lnow = Lnow,
-		fmt = fmt,
-		rgb = rgb,
-		tint = tint,
-		supplyTint = supplyTint,
-		supply = supply,
-		commerce = commerce,
-		visits = visits,
-		state = state,
-		nav = nav,
-		task = taskModel,
-		wispMotion = wispMotion,
-	}
-
-	-- ---- toasts -------------------------------------------------------------
-	local toastLog: { string } = {}
-	local function toast(key: string, copy: any)
-		table.insert(toastLog, key)
-		if #toastLog > 16 then
-			table.remove(toastLog, 1)
-		end
-		-- a toast owns its body: the component runs inside the toast
-		local function body()
-			return UI.VStack("GladeToast")({
-				surface = "raised",
-				padding = "m",
-				UI.Text("Line")({ text = copy, textSize = "label" }),
-			})
-		end
-		presenter.presentToast(body, { key = key, duration = 4, position = "top" })
-	end
-
-	-- A conditional region: `/<id>/then/...` or `/<id>/else/...`.
-	function ctx.when(id: string)
-		return function(spec: any)
-			return UI.When(id)({
-				Compose.show(
-					spec.condition,
-					function()
-						return UI.When("then")({ spec.thenView() })
-					end,
-					if spec.elseView
-						then function()
-							return UI.When("else")({ spec.elseView() })
-						end
-						else nil
-				),
-			})
-		end
-	end
-	-- A keyed collection: each row lives at `/<id>/[key]/...`.
-	function ctx.forEach(id: string)
-		return function(spec: any)
-			return UI.ForEach(id)({
-				Compose.keyed({
-					from = spec.items,
-					-- a string key names the field that identifies a row
-					key = if type(spec.key) == "string"
-						then function(item: any)
-							return item[spec.key]
-						end
-						else spec.key,
-					render = function(item: any, _, key: any)
-						local node = spec.row(item:peek())
-						node.collectionKey = `[{key}]`
-						return node
-					end,
-				}),
-			})
-		end
-	end
-	-- Appends a generated child list to a property table.
-	function ctx.withChildren(props: any, children: { any }): any
-		for _, child in children do
-			table.insert(props, child)
-		end
-		return props
-	end
-	-- Presents a modal component and answers its handle; dismissing the handle
-	-- releases the component.
-	function ctx.presentModal(component: () -> any, options: any?): any
-		local _, _, handle = host.presentModal(component, options)
-		return handle
-	end
-
-	-- ---- the modal stack ----------------------------------------------------
-	-- One list, one dismiss verb. A dismissed surface's scope is retired rather
-	-- than disposed on the spot: the exit transition is still painting the tree
-	-- that reads it, so the scope dies when the next surface opens (or at
-	-- teardown), which bounds the retirement to exactly one surface.
-	local keeperFlow: any
-	local detailFlow: any
-	-- A flow's depth is its caller-owned path: Back drops the last entry.
-	local function popPath(path: any): boolean
-		local entries = path:peek()
-		if #entries == 0 then
+	local function choose(id, nectarId)
+		local nectar = seed.NECTAR_BY_ID[nectarId]
+		if not nectar then
 			return false
-		end
-		local rest = table.clone(entries)
-		table.remove(rest)
-		path:set(rest)
-		return true
-	end
-	local stack: { any } = {}
-
-	-- `build` runs inside the surface's own mount, which owns what it makes.
-	local function pushSurface(kind: string, build: () -> any, opts: any)
-		local handle = ctx.presentModal(build, opts)
-		table.insert(stack, { kind = kind, handle = handle })
-	end
-
-	function nav.dismissTop(): boolean
-		local top = table.remove(stack)
-		if top == nil then
-			return popPath(state.keeperPath) or popPath(state.detailPath)
-		end
-		presenter.dismiss(top.handle)
-		if top.kind == "shop" or top.kind == "charm" then
-			commerce.clearAll()
-		end
-		return true
-	end
-
-	local function topKind(): string?
-		local top = stack[#stack]
-		return if top ~= nil then top.kind else nil
-	end
-
-	local function dismissAll()
-		while #stack > 0 do
-			nav.dismissTop()
-		end
-		state.keeperPath:set({})
-		state.detailPath:set({})
-	end
-
-	-- ---- the wisp fly-in ceremony -------------------------------------------
-	local flyInLog: { string } = {}
-	local function startFlyIn(gladeId: string)
-		local visit = visits.needsPresent(gladeId)
-		if visit == nil then
-			return
-		end
-		visits.markPresented(visit.id)
-		table.insert(flyInLog, visit.id)
-		local motion = wispMotion(gladeId, "hero")
-		if motion.timeline ~= nil then
-			motion.timeline:interrupt()
-			motion.timeline = nil
-		end
-		local function rest()
-			motion.x:snap(WISP_REST.x)
-			motion.y:snap(WISP_REST.y)
-			motion.scale:snap(1)
-		end
-		motion.x:snap(WISP_ENTRY.x)
-		motion.y:snap(WISP_ENTRY.y)
-		motion.scale:snap(0.35)
-		motion.timeline = clock:timeline({
-			beats = {
-				-- 0s: appear at the trailing edge, small
-				{ at = 0, run = function() end, terminal = rest },
-				-- 0.15s: glide toward the basin
-				{
-					at = 0.15,
-					run = function()
-						motion.x:setTarget(WISP_REST.x)
-						motion.y:setTarget(WISP_REST.y + 0.08)
-					end,
-					terminal = rest,
-				},
-				-- 1.1s: overshoot hover, scale to natural (the one `reward` beat)
-				{
-					at = 1.1,
-					run = function()
-						motion.scale:setTarget(1.08)
-					end,
-					terminal = rest,
-				},
-				-- 1.8s: settle above the dewstone
-				{
-					at = 1.8,
-					run = function()
-						motion.y:setTarget(WISP_REST.y)
-						motion.scale:setTarget(1)
-					end,
-					terminal = rest,
-				},
-				-- ~2.8s: done
-				{ at = 2.8, run = function() end, terminal = rest },
-			},
-			onDone = function(reason: string)
-				table.insert(flyInLog, tostring(reason))
-				if #flyInLog > 32 then
-					table.remove(flyInLog, 1)
-				end
-			end,
-		})
-	end
-
-	local function interruptFlyIns()
-		for _, record in wispRecords do
-			if record.timeline ~= nil then
-				record.timeline:interrupt()
-				record.timeline = nil
-			end
-		end
-	end
-
-	-- the post-refill delight glow: one swell, then back (class `decay`).
-	-- Decorative — the toast carries the information, which is what lets reduced
-	-- motion skip it entirely.
-	local function delight(gladeId: string)
-		for _, form in { "card", "hero" } do
-			local motion = wispMotion(gladeId, form)
-			motion.glow:setTarget(GLOW_SWELL)
-			motion.glow:onSettle(function()
-				motion.glow:setTarget(GLOW_REST)
-			end)
-		end
-	end
-
-	-- ---- the verbs ----------------------------------------------------------
-
-	function nav.selectSection(id: string)
-		for _, known in SECTIONS do
-			if known == id then
-				state.section:set(id)
-				return
-			end
-		end
-	end
-
-	function nav.search(term: string)
-		state.search:set(term)
-	end
-
-	function nav.toggleFavourite(gladeId: string)
-		local signal = state.favourites[gladeId]
-		if signal == nil then
-			return
-		end
-		signal:set(not signal:peek())
-		presenter.emitFeedback({ type = "select", context = { verb = "favourite", glade = gladeId } })
-	end
-
-	function nav.openGlade(gladeId: string)
-		state.selectedGlade:set(gladeId)
-		if conditions.isCompact:peek() then
-			state.detailPath:set({ { id = "detail", value = gladeId } })
-		end
-		--[[ THE TASK'S WISP WAITS FOR ITS GLADE. Every other glade presents its
-			visitor the moment it is opened, exactly as before. The one named glade
-			the task is about holds the arrival back until the glade is READY, because
-			that arrival is the whole payoff of "prepare a home for a visiting wisp" —
-			a ceremony that already played before the player did anything is a
-			ceremony that belongs to nobody. `settleTask` is what fires it. ]]
-		if gladeId ~= taskGlade or taskModel.complete:peek() then
-			startFlyIn(gladeId)
-		end
-	end
-
-	function nav.closeDetail()
-		if #state.detailPath:peek() > 0 then
-			state.detailPath:set({})
-		else
-			state.selectedGlade:set(nil)
-		end
-		interruptFlyIns()
-	end
-
-	function nav.refillDew(gladeId: string)
-		supply.refill(gladeId, "dew")
-		presenter.emitFeedback({ type = "commit", context = { verb = "refillDew", glade = gladeId } })
-		delight(gladeId)
-		toast(
-			"refill:" .. gladeId,
-			Compose.formula(function(use)
-				local _ = use(state.locale)
-				return Lnow("toast.refill", { glade = Lnow("glade." .. gladeId) })
-			end)
-		)
-	end
-
-	-- THE ARRIVAL. The moment both rows are true, the wisp is presented — its
-	-- fly-in if the seeded visit window is still open, its delight glow either way
-	-- — and the completion state latches. One causal moment, on the frame the
-	-- second condition became true, rather than a poll.
-	local function settleTask()
-		if taskModel.complete:peek() then
-			return
-		end
-		taskModel.complete:set(true)
-		-- the fly-in only if the wisp standing at the edge is the one the task
-		-- NAMED: the seeded window closes after a while, and a task that announced
-		-- Emberwisp must not fly a Tidewisp in and call it the same thing
-		local live = visits.current(taskGlade):peek()
-		if live ~= nil and live.wisp == taskWisp then
-			startFlyIn(taskGlade)
-		end
-		delight(taskGlade)
-		presenter.emitFeedback({
-			type = "celebrate",
-			context = { verb = "wispSettled", glade = taskGlade, wisp = taskWisp },
-		})
-		toast(
-			"task",
-			Compose.formula(function(use)
-				local _ = use(state.locale)
-				return Lnow("task.toast", { wisp = Lnow("wisp." .. taskWisp), glade = Lnow("glade." .. taskGlade) })
-			end)
-		)
-	end
-	observe(taskModel.ready, function(ready: boolean)
-		if ready then
-			settleTask()
-		end
-	end)
-
-	function nav.openPicker(gladeId: string)
-		pushSurface("picker", function()
-			return shopUI.picker(ctx, gladeId)
-		end, {
-			scrim = "scrim",
-			outsideTapCancel = true,
-			transition = { enter = "slide-up", fade = true, class = "container" },
-			initialFocus = "Act_starlight",
-		})
-	end
-
-	function nav.chooseNectar(gladeId: string, nectarId: string)
-		local nectar = seedData.NECTAR_BY_ID[nectarId]
-		if nectar == nil then
-			return
 		end
 		if nectar.premium then
 			local held = commerce.satchelOf(nectarId)
 			if held:peek() <= 0 then
-				nav.openShop()
-				return
+				shopOpen:set(true)
+				return false
 			end
-			-- the proof FIXES the reference's untracked consumption: using a
-			-- premium jar decrements the satchel. A design decision, recorded.
-			held:set(held:peek() - 1)
-		end
-		supply.assign(gladeId, nectarId)
-		presenter.emitFeedback({ type = "commit", context = { verb = "chooseNectar", nectar = nectarId } })
-		if topKind() == "picker" then
-			nav.dismissTop()
-		end
-		delight(gladeId)
-		toast(
-			"refill:" .. gladeId,
-			Compose.formula(function(use)
-				local _ = use(state.locale)
-				return Lnow("toast.refill", { glade = Lnow("glade." .. gladeId) })
+			held:update(function(count)
+				return count - 1
 			end)
-		)
+		end
+		supply.assign(id, nectarId)
+		return true
 	end
-
-	function nav.openShop()
-		pushSurface("shop", function()
-			return shopUI.provisions(ctx)
-		end, {
-			scrim = "scrim",
-			outsideTapCancel = true,
-			transition = { enter = "slide-up", fade = true, class = "container" },
-			initialFocus = "Buy_starlightBundle",
-		})
+	local function open(id)
+		selected:set(id)
+		detailOpen:set(true)
 	end
-
-	function nav.buyPack(packId: string)
-		commerce.buyPack(packId)
-	end
-
-	function nav.openCharm()
-		-- the recommended tier is the lowest one still on offer, which is what
-		-- upgrade-only mode leaves at the top of the list. It is computed rather
-		-- than named because a fixed id would be refused at present time the
-		-- moment that tier is owned and its card stops rendering.
-		local recommended: string? = nil
-		local held = commerce.charmRank()
-		for _, tier in seedData.CHARM_TIERS do
-			if recommended == nil and tier.rank > held then
-				recommended = "BuyCharm_" .. tier.id
+	local filtered = Compose.formula(function(use)
+		local query, which = string.lower(use(search)), use(section)
+		local result = {}
+		for _, glade in seed.GLADES do
+			local favorite = use(favorites[glade.id])
+			if
+				(which ~= "favorites" or favorite)
+				and string.find(string.lower(strings.get(use(locale), "glade." .. glade.id)), query, 1, true)
+			then
+				table.insert(result, glade)
 			end
 		end
-		pushSurface("charm", function()
-			return shopUI.charm(ctx)
-		end, {
-			scrim = "scrim",
-			outsideTapCancel = true,
-			transition = { enter = "materialize", class = "container" },
-			initialFocus = recommended or "first",
-		})
-	end
-
-	function nav.buyCharm(tierId: string)
-		commerce.buyCharm(tierId)
-	end
-
-	function nav.openWisp(wispId: string)
-		pushSurface("wisp", function()
-			return shopUI.wisp(ctx, wispId)
-		end, {
-			scrim = "scrim",
-			outsideTapCancel = true,
-			transition = { enter = "materialize", class = "container" },
-			initialFocus = "Close",
-		})
-	end
-
-	function nav.restore()
-		commerce.restore()
-	end
-
-	function nav.openEdit()
-		state.draftName:set(state.keeperName:peek())
-		state.draftContact:set(state.keeperContact:peek())
-		state.section:set("keeper")
-		state.keeperPath:set({ { id = "edit" } })
-	end
-
-	function nav.saveKeeper()
-		state.keeperName:set(state.draftName:peek())
-		state.keeperContact:set(state.draftContact:peek())
-		presenter.emitFeedback({ type = "commit", context = { verb = "saveKeeper" } })
-		state.keeperPath:set({})
-	end
-
-	function nav.openFreshStart()
-		pushSurface("freshStart", function()
-			return keeperUI.confirmReset(ctx)
-		end, {
-			scrim = "scrim",
-			outsideTapCancel = false,
-			transition = { enter = "materialize", class = "container" },
-			initialFocus = "KeepGlades",
-		})
-	end
-
-	-- THE RESET. Every service reseeds from the same seed the session started
-	-- from and every surface dismisses to S1, so a dump taken after it is the
-	-- dump taken before anything happened.
-	local function resetWorld()
-		dismissAll()
-		interruptFlyIns()
-		supply.reset()
-		commerce.reset()
-		visits.reset()
-		now:set(0)
-		state.section:set("glades")
-		state.selectedGlade:set(nil)
-		state.search:set("")
-		state.offerDismissed:set(false)
-		taskModel.complete:set(false)
-		taskModel.touched:set(false)
-		state.keeperName:set(seedData.KEEPER.displayName)
-		state.keeperContact:set(seedData.KEEPER.contact)
-		state.draftName:set(seedData.KEEPER.displayName)
-		state.draftContact:set(seedData.KEEPER.contact)
-		for _, glade in seedData.GLADES do
-			state.favourites[glade.id]:set(glade.favourite == true)
-		end
-		for _, record in wispRecords do
-			record.x:snap(WISP_REST.x)
-			record.y:snap(WISP_REST.y)
-			record.scale:snap(1)
-			record.glow:snap(GLOW_REST)
-		end
-		table.clear(toastLog)
-		table.clear(flyInLog)
-		table.clear(feedbackLog)
-	end
-
-	function nav.confirmFreshStart()
-		presenter.emitFeedback({ type = "commit", context = { verb = "freshStart" } })
-		resetWorld()
-	end
-
-	-- THE TASK'S ONE RESET CONTROL. It is the same `resetWorld` the Keeper's Fresh
-	-- Start confirms into, without the confirmation: a player who just finished the
-	-- loop and pressed "Prepare again" has said what they want, and there is
-	-- nothing to lose that they did not just build.
-	function nav.prepareAgain()
-		presenter.emitFeedback({ type = "commit", context = { verb = "prepareAgain" } })
-		resetWorld()
-	end
-
-	-- ---- toasts the services owe (purchase + restore) ------------------------
-	-- Confirmed commands announce themselves once, on the frame they resolve —
-	-- an observer on the command's own status, so there is one causal moment and
-	-- no polling.
-	for _, pack in seedData.PACKS do
-		observe(commerce.status(pack.id), function(status: string)
-			if status ~= "confirmed" then
-				if status == "rejected" then
-					presenter.emitFeedback({ type = "reject", context = { verb = "buyPack", pack = pack.id } })
-				end
-				return
-			end
-			presenter.emitFeedback({ type = "celebrate", context = { verb = "buyPack", pack = pack.id } })
-			toast(
-				"purchase",
-				Compose.formula(function(use)
-					local _ = use(state.locale)
-					return Lnow("toast.purchase", {
-						count = tostring(pack.quantity),
-						nectar = Lnow("nectar." .. pack.nectar),
-					})
-				end)
-			)
-		end)
-	end
-	for _, tier in seedData.CHARM_TIERS do
-		observe(commerce.status(tier.id), function(status: string)
-			if status == "rejected" then
-				presenter.emitFeedback({ type = "reject", context = { verb = "buyCharm", tier = tier.id } })
-				return
-			end
-			if status ~= "confirmed" then
-				return
-			end
-			presenter.emitFeedback({ type = "celebrate", context = { verb = "buyCharm", tier = tier.id } })
-			toast(
-				"purchase",
-				Compose.formula(function(use)
-					local _ = use(state.locale)
-					return Lnow("charm.toast", { tier = Lnow("charm.tier." .. tier.id) })
-				end)
-			)
-		end)
-	end
-	observe(commerce.status("restore"), function(status: string)
-		if status == "rejected" then
-			presenter.emitFeedback({ type = "reject", context = { verb = "restore" } })
-			return
-		end
-		if status ~= "confirmed" then
-			return
-		end
-		toast("restore", L("keeper.restoreToast"))
+		return result
 	end)
-
-	-- Keeper -> Edit is a data flow. The shared stack owns page lifetime, Back,
-	-- Cancel ordering and focus restoration; drafts remain in the app's model.
-	-- Purchase sheets and the destructive Fresh Start choice remain modals.
-	keeperFlow = UI.NavigationStack("KeeperFlow")({
-		path = state.keeperPath,
-		backLabel = Lnow("keeper.cancel"),
-		env = env,
-		root = {
-			title = L("section.keeper"),
-			content = function()
-				return keeperUI.section(ctx)
+	local function scene(gladeId)
+		local visitor = visits.current(gladeId)
+		return Host.Frame({
+			Name = "LivingGlade",
+			Size = D2.new(1, 0, 0, 190),
+			ClipsDescendants = true,
+			BorderSizePixel = 0,
+			BackgroundColor3 = function(use)
+				local definition = seed.GLADE_BY_ID[gladeId]
+				local index = math.floor(
+					((use(now) + definition.phaseOffset) % seed.DAY_SECONDS) / seed.DAY_SECONDS * #seed.PHASES
+				) + 1
+				local sky = seed.SKY[seed.PHASES[index]].high
+				return C3.new(sky[1], sky[2], sky[3])
 			end,
-		},
-		destinations = {
-			edit = {
-				title = L("keeper.editTitle"),
-				content = function()
-					return keeperUI.editForm(ctx)
-				end,
-			},
-		},
-	})
-	observe(state.section, function(section)
-		if section ~= "keeper" then
-			state.keeperPath:set({})
-		end
-	end)
-
-	-- ---- the shell ----------------------------------------------------------
-	-- ONE construct, and it is the framework's. `Facet.Controls.TabView` owns the
-	-- four homes `adaptive.navPlacement` chooses between (director ruling
-	-- 2026-08-09, the same policy the Sipworks proof adopts):
-	--
-	--   sidebar          desktop shape — the vertical rail, WORDMARK AT ITS HEAD
-	--   topBar           tablet / ten-foot shape — centre-aligned, hugging its tabs
-	--   bottomBar        phone portrait — the thumb-zone band
-	--   bottomBarCompact phone landscape — the same band, centred and tighter
-	--
-	-- WHAT THIS PROOF STOPPED CARRYING (framework-gaps-phase2 §6). The wordmark was
-	-- the reason this file could not adopt the construct: four placement memos,
-	-- four hand-built bars, two `ViewThatFits` ladders and a per-section selection
-	-- memo, all so one brand mark could sit at the top of ONE of the four homes.
-	-- `accessories.head` is that slot, and everything else here became the
-	-- control's own policy — which is the point of migrating. A ruling about a tab
-	-- bar now lands in one place instead of five, and the examples directory stops
-	-- teaching the same thing two contradictory ways.
-	--
-	-- THE TERSE VOCABULARY SURVIVES AS A BOUND LABEL rather than a second bar
-	-- (director refinement 2026-08-09: "I see a lot of cutoff text"). A thumb-zone
-	-- tab takes the short localized string and every roomier home takes the full
-	-- one; because `Option.label` is a Readable, the flip follows a live rotation
-	-- and a live locale change alike, which a construction-time `compactLabel`
-	-- could not.
-	-- GAP 7a (framework-gaps-phase2 §7): the two thumb-zone homes, off the
-	-- promoted predicates rather than a hand-rolled `== "bottomBar"` string
-	-- compare.
-	local terse = Compose.formula(function(use)
-		return use(conditions.navBottomBar) or use(conditions.navBottomBarCompact)
-	end)
-	--[[ ...AND THE TERSE FORM COMES WITH THE TERSE TREATMENT, which is the other
-		half of the same director call: a thumb-zone tab is caption-sized, which is
-		what a tab bar is everywhere and what keeps four names off the ellipsis on a
-		320px phone. MEASURED, not assumed — at body size the band truncated three of
-		its four tabs at 320px, which is the very report ("I see a lot of cutoff
-		text") this vocabulary answers. The sidebar and the top bar keep the body
-		size, so this rides the same `terse` fact the words do. ]]
-	local navTextSize = Compose.formula(function(use)
-		return if use(terse) then "caption" else "body"
-	end)
-
-	--[[ THE TWO CONTENT PANES still adapt by MEASUREMENT, which is what a
-		Composition is for: the detail lane sits beside the section when both clear
-		their floors, folds under it when they do not, and drops entirely when even
-		that will not fit. It is now the SELECTED TAB's content rather than a ZStack
-		of four `When`s, so exactly one section subtree exists at a time.
-
-		THE LANE IS BUILT ONCE AND CAPTURED, never rebuilt per tab: `detail.lane`
-		owns a memo on this screen's scope, and a factory that rebuilt it would hand
-		that scope a fresh one on every switch (the wings' disposer lesson). The
-		section BODY is still built per entry, exactly as the old `When` built it. ]]
-	local detailLane = detailUI.lane(ctx)
-
-	local function sectionPane(id: string, build: (any) -> any): any
-		--[[ THE PANE IS THE TAB'S FADE GROUP, and it is the SAME canvasGroup budget
-			this proof always spent — it moved OUT of the section plate rather than
-			joining it. A fade is `GroupTransparency`, which needs a group at the node
-			the transition applies to, and under the construct that node is the tab's
-			whole content rather than one section body. The plate below keeps its
-			clip through `overflow = "clip"`, which is a clip host in its own right
-			(blueprint F-19) and costs no second buffer. ]]
-		local pane = UI.Composition("Panes")({
-			arrangements = {
-				{ name = "detailBeside", lanes = { { "main" }, { "trail" } } },
-				{ name = "detailBelow", lanes = { { "main", "trail" } } },
-			},
-			laneGap = "m",
-			groupGap = "m",
-			width = UI.fill(),
-			height = UI.fill(),
-			groups = {
-				{ id = "content", lane = "main", sizing = "fill", minWidth = METRICS.shellContentMin },
-				{ id = "detail", lane = "trail", sizing = "hug" },
-			},
-			-- DECLARATION ORDER IS FOCUS ORDER, and it is the same in every
-			-- arrangement: search → cards → detail (spec §4's tab order). The nav is
-			-- not one of these regions, so it reads in the ring where it is PAINTED —
-			-- the leading rail before the content, the bottom bar after it — and that
-			-- rule is now the construct's rather than this file's.
-
-			UI.Region("Section")({
-				group = "content",
-				rank = 1,
-				sizing = "fill",
-				mayScroll = true,
-				floor = { lines = 3 },
-
-				UI.ZStack("Body_" .. id)({
-					-- A SECTION PLATE CLIPS, AND SAYS SO — and `overflow = "clip"` is
-					-- itself a clip host, so the plate keeps clipping while the one
-					-- canvasGroup this pane spends sits where the fade needs it.
-					overflow = "clip",
-					width = UI.fill(),
-					height = UI.fill(),
-					build(ctx),
-				}),
+			Host.Frame({
+				Name = "Meadow",
+				Position = D2.fromScale(0, 0.7),
+				Size = D2.fromScale(1, 0.3),
+				BackgroundColor3 = C3.new(seed.MOSS[1], seed.MOSS[2], seed.MOSS[3]),
+				BorderSizePixel = 0,
 			}),
-			UI.Region("Detail")({
-				group = "detail",
-				rank = 2,
-				detailLane,
-			}),
-		})
-		return UI.ZStack("Pane_" .. id)({
-			canvasGroup = true,
-			width = UI.fill(),
-			height = UI.fill(),
-			pane,
-		})
-	end
-
-	local SECTION_BUILD: { [string]: (any) -> any } = {
-		glades = overviewUI.glades,
-		wisps = overviewUI.wisps,
-		flora = overviewUI.flora,
-		keeper = function()
-			return keeperFlow
-		end,
-	}
-	local navTabs: { any } = {}
-	for _, id in SECTIONS do
-		local section = id
-		table.insert(navTabs, {
-			id = section,
-			label = Compose.formula(function(use)
-				local _ = use(locale)
-				return Lnow("section." .. section .. (if use(terse) then ".short" else ""))
+			Compose.show(function(use)
+				return use(visitor) ~= nil
+			end, function()
+				local id = visitor:peek().wisp
+				local definition = seed.WISP_BY_ID[id]
+				return Host.Frame({
+					Name = id,
+					Size = D2.fromOffset(36, 36),
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = function(use)
+						local at = if use(reducedMotion) then 0 else use(now)
+						return D2.fromScale(0.5 + math.sin(at * 0.25) * 0.2, 0.45 + math.sin(at) * 0.04)
+					end,
+					BackgroundColor3 = C3.new(definition.core[1], definition.core[2], definition.core[3]),
+					BorderSizePixel = 0,
+					Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
+				})
 			end),
-			content = function()
-				return sectionPane(section, SECTION_BUILD[section])
-			end,
 		})
 	end
-
-	local navBar = UI.TabView("Nav")({
-		-- the proof's own section Signal, unchanged: everything that must survive a
-		-- tab switch is owned OUTSIDE the construct, and this is the first one
-		selection = state.section,
-		-- the conditions this screen already built, passed in rather than rebuilt:
-		-- `adaptive.conditions` creates its own set of memos and two copies would be two
-		-- answers to one question
-		conditions = conditions,
-		env = env,
-		--[[ NATURAL-WIDTH SEGMENTS IN EVERY HOME, which is the shape this proof's
-			bars have always taken: a centred cluster that hugs its four words, never
-			a full-width row of equal targets. It is a LOCALIZATION decision rather
-			than a taste one — four localized names divided equally across a 320px
-			phone truncate three of the four at the +4 text preference (measured),
-			and this proof's whole nav vocabulary exists to answer exactly that
-			report. A hugging band centres, and scrolls when it cannot fit. ]]
-		sizing = "hug",
-		textSize = navTextSize,
-		-- the enter fade the four hand-built section hosts each declared
-		transition = { enter = "fade", class = "container" },
-		tabs = navTabs,
-		accessories = {
-			--[[ THE WORDMARK, and the reason this proof could not adopt the construct
-				before §6. It belongs to the RAIL FORM ALONE — a brand mark beside a
-				centred cluster is the one thing that pushes the cluster off centre at
-				the expansion locale — and `head` is hosted by exactly that home, so
-				the placement decides it instead of a fifth memo in this file. ]]
-			head = function()
-				return UI.Text("Wordmark")({ text = L("app.title"), textSize = "title", lineLimit = 1 })
-			end,
-		},
-	})
-
-	--[[ THE TASK STRIP SITS ABOVE THE NAV, and it is ONE LINE by construction —
-		both of its texts declare `lineLimit = 1` with `disclose`, so it costs one
-		line box at every text preference and in both locales and the construct's
-		own `height = FILL` root takes everything else. The task's full copy is the
-		CARD, and the card leads the Glades page inside that page's own scroller
-		where it can be as tall as its words. `ui/task.luau` records the measurement
-		that decided the split. ]]
-	local shell = UI.VStack("Shell")({
-		gap = 0,
-		width = UI.fill(),
-		height = UI.fill(),
-		taskUI.strip(ctx),
-		navBar,
-	})
-	local detailTitle = Compose.formula(function(use)
-		local _ = use(locale)
-		local selected = use(state.selectedGlade)
-		return if selected then Lnow("glade." .. selected) else Lnow("section.glades")
-	end)
-	detailFlow = UI.NavigationStack("GladeFlow")({
-		path = state.detailPath,
-		backLabel = Lnow("detail.back"),
-		env = env,
-		transition = {
-			enter = "slide-left",
-			exit = "slide-right",
-			class = "container",
-			distance = env:get("viewportRect"):peek().w,
-		},
-		root = {
-			content = function()
-				return shell
-			end,
-		},
-		destinations = {
-			detail = {
-				title = detailTitle,
-				content = function(_, entry)
-					return detailUI.body(ctx, {
-						id = "DetailBody",
-						glade = entry.value,
-						compact = true,
-						navigationHosted = true,
-					})
+	local function detail()
+		local id = selected:peek()
+		local options = {}
+		for _, nectar in seed.NECTARS do
+			table.insert(options, { value = nectar.id, label = L("nectar." .. nectar.id) })
+		end
+		local choice = Compose.cell(supply.nectarOf(id):peek())
+		return view.page("GladeDetail", {
+			view.text(text("glade." .. id), 28),
+			scene(id),
+			UI.Toggle({ Name = "Favorite", label = "Favorite glade", value = favorites[id] }),
+			view.text(function(use)
+				return "Dew: " .. use(supply.state(id, "dew"))
+			end),
+			UI.ProgressView({ value = supply.level(id, "dew"), label = "Dew" }),
+			view.action("Refill", "Refill dew", function()
+				refill(id)
+			end),
+			view.text(function(use)
+				return "Nectar: " .. use(supply.state(id, "nectar"))
+			end),
+			UI.ProgressView({ value = supply.level(id, "nectar"), label = "Nectar" }),
+			UI.Picker({
+				Name = "Nectar",
+				selected = choice,
+				options = options,
+				onChange = function(value)
+					if choose(id, value) then
+						choice:set(value)
+					end
 				end,
-			},
-		},
-	})
-	-- One selection survives rotations: compact pushes the detail; wider layouts
-	-- return it to the existing split lane. Back on compact clears the selection.
-	observe(state.detailPath, function(path)
-		if #path == 0 and conditions.isCompact:peek() then
-			state.selectedGlade:set(nil)
-			interruptFlyIns()
+			}),
+			view.text("Recent visitors", 22),
+			view.column("Visits", {
+				view.list(visits.recent(id), function(current)
+					local visit = current:peek()
+					return view.action(visit.id, text("wisp." .. visit.wisp), function()
+						wisp:set(visit.wisp)
+						wispOpen:set(true)
+					end)
+				end),
+			}),
+		})
+	end
+	local function overview()
+		return view.page("Glades", {
+			view.text("Glade", 30),
+			view.text("Prepare a home for a visiting wisp."),
+			view.text(function(use)
+				return if use(complete)
+					then "Mossholm is ready. Your visiting wisp has a home."
+					else "Refill Mossholm's dew and offer " .. strings.get(
+						use(locale),
+						"nectar." .. seed.TASK_NECTAR
+					) .. "."
+			end),
+			view.action("Task", text("task.open", { glade = L("glade." .. seed.TASK.glade) }), function()
+				open(seed.TASK.glade)
+			end),
+			UI.TextInput({ Name = "Search", value = search, placeholder = "Search glades" }),
+			view.column("Glades", {
+				view.list(filtered, function(current)
+					local glade = current:peek()
+					return view.column(glade.id, {
+						scene(glade.id),
+						view.action("Open", text("glade." .. glade.id), function()
+							open(glade.id)
+						end),
+						view.text(function(use)
+							return "Dew "
+								.. use(supply.state(glade.id, "dew"))
+								.. " · Nectar "
+								.. use(supply.state(glade.id, "nectar"))
+						end),
+					})
+				end),
+			}),
+		})
+	end
+	local function wisps()
+		return view.page("Wisps", {
+			view.text("Wisps", 28),
+			view.column("Visitors", {
+				view.list(seed.WISPS, function(current)
+					local item = current:peek()
+					return view.column(item.id, {
+						view.action("Open", text("wisp." .. item.id), function()
+							wisp:set(item.id)
+							wispOpen:set(true)
+						end),
+						view.text("Favorite nectar: " .. L("nectar." .. item.favourite)),
+						view.text("Visits at " .. item.phase),
+					})
+				end),
+			}),
+		})
+	end
+	local function shop()
+		local children = { view.text("Provisions", 28) }
+		for _, pack in seed.PACKS do
+			table.insert(
+				children,
+				view.column(pack.id, {
+					view.text(`{L("nectar." .. pack.nectar)} × {pack.quantity}`),
+					view.action("Buy", function(use)
+						return if use(commerce.status(pack.id)) == "pending"
+							then "Confirming…"
+							else commerce.priceOf(pack.id)
+					end, function()
+						commerce.buyPack(pack.id)
+					end, function(use)
+						return use(commerce.status(pack.id)) ~= "pending"
+					end),
+					view.text(function(use)
+						return use(commerce.status(pack.id))
+							.. (if use(commerce.reason(pack.id)) then ": " .. use(commerce.reason(pack.id)) else "")
+					end),
+				})
+			)
 		end
-	end)
-	observe(conditions.isCompact, function(compact)
-		local selected = state.selectedGlade:peek()
-		if compact and selected ~= nil then
-			state.detailPath:set({ { id = "detail", value = selected } })
-		elseif not compact then
-			state.detailPath:set({})
+		return view.page("Shop", children)
+	end
+	local function keeper()
+		local children = {
+			view.text("Keeper", 28),
+			view.text(keeperName, 22),
+			view.text(keeperContact),
+			view.action("EditKeeper", text("keeper.edit"), function()
+				draftName:set(keeperName:peek())
+				draftContact:set(keeperContact:peek())
+				editOpen:set(true)
+			end),
+			view.action("FreshStart", text("keeper.freshStart"), function()
+				resetOpen:set(true)
+			end),
+			view.text(function(use)
+				return "Charm: " .. use(commerce.charmTier())
+			end),
+			view.action("Shop", "Browse provisions", function()
+				shopOpen:set(true)
+			end),
+		}
+		for _, tier in seed.CHARM_TIERS do
+			table.insert(
+				children,
+				view.action(tier.id, `Keeper's Charm: {tier.id} · {commerce.charmPriceOf(tier.id)}`, function()
+					commerce.buyCharm(tier.id)
+				end, function(use)
+					return use(commerce.status(tier.id)) ~= "pending"
+				end)
+			)
+			table.insert(children, view.text(commerce.status(tier.id)))
 		end
-	end)
-	local screen = UI.Screen("Glade")({ surface = "base", detailFlow })
-
-	-- ---- the frame tick -----------------------------------------------------
-	-- The proof's ONE frame source, and it is the presenter's own: no second
-	-- RunService connection, no wall clock. In Studio this advances the world at
-	-- real speed; headlessly the suite hands `presenter.tick(dt)` a scripted dt
-	-- and gets the identical arithmetic.
-	Compose.cleanup(presenter.onTick(function(dt: number)
-		advance(dt)
-	end))
-
-	-- ---- report + dump ------------------------------------------------------
-	local function favouriteList(): { string }
-		local out: { string } = {}
-		for id, signal in state.favourites do
-			if signal:peek() then
-				table.insert(out, id)
+		for _, nectar in seed.NECTARS do
+			if nectar.premium then
+				table.insert(
+					children,
+					view.text(function(use)
+						return L("nectar." .. nectar.id) .. ": " .. tostring(use(commerce.satchelOf(nectar.id)))
+					end)
+				)
 			end
 		end
-		table.sort(out)
-		return out
+		table.insert(children, view.action("Restore", "Restore provisions", commerce.restore))
+		table.insert(
+			children,
+			UI.Picker({
+				Name = "Locale",
+				selected = locale,
+				options = { { value = "en", label = "English" }, { value = "xa", label = "Expanded" } },
+			})
+		)
+		return view.page("Keeper", children)
 	end
-
-	local function surfaceList(): { string }
-		local out: { string } = {}
-		for _, entry in stack do
-			table.insert(out, entry.kind)
-		end
-		return out
+	local function screen()
+		return Host.Frame({
+			Name = "Glade",
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
+			UI.TabView({
+				Name = "Destinations",
+				selection = section,
+				style = "sidebarAdaptable",
+				Size = D2.new(1, 0, 1, -64),
+				tabs = {
+					{ id = "glades", label = "Glades", content = overview },
+					{ id = "favorites", label = "Favorites", content = overview },
+					{ id = "wisps", label = "Wisps", content = wisps },
+					{
+						id = "flora",
+						label = "Flora",
+						content = function()
+							return view.page("Flora", {
+								view.list(seed.FLORA, function(current)
+									local item = current:peek()
+									return view.column(item.id, {
+										view.text(text("flora." .. item.id), 24),
+										view.text(text("flora.species." .. item.id)),
+										Host.Frame({
+											Size = D2.new(1, 0, 0, 80),
+											BorderSizePixel = 0,
+											BackgroundColor3 = C3.new(item.art[1], item.art[2], item.art[3]),
+										}),
+									})
+								end),
+							})
+						end,
+					},
+					{ id = "keeper", label = "Keeper", content = keeper },
+				},
+			}),
+			UI.Label({
+				label = notice,
+				Position = D2.new(0, 16, 1, -60),
+				Size = D2.new(1, -32, 0, 56),
+				TextWrapped = true,
+			}),
+			UI.Sheet({
+				Name = "KeeperEdit",
+				title = text("keeper.editTitle"),
+				isPresented = editOpen,
+				detent = Compose.cell("medium"),
+				content = function()
+					return view.column("Fields", {
+						UI.TextInput({
+							Name = "DisplayName",
+							value = draftName,
+							placeholder = text("keeper.displayName"),
+						}),
+						UI.TextInput({
+							Name = "Contact",
+							value = draftContact,
+							placeholder = text("keeper.contact"),
+						}),
+						view.action("SaveKeeper", text("keeper.save"), saveKeeper),
+						view.action("CancelKeeper", text("keeper.cancel"), function()
+							editOpen:set(false)
+						end),
+					})
+				end,
+			}),
+			UI.Alert({
+				Name = "Reset",
+				isPresented = resetOpen,
+				title = text("keeper.confirmTitle"),
+				message = text("keeper.confirmBody"),
+				actions = {
+					{ id = "cancel", label = text("keeper.keep"), role = "cancel" },
+					{ id = "reset", label = text("keeper.startOver"), role = "destructive", onActivate = reset },
+				},
+			}),
+			UI.Sheet({
+				Name = "Detail",
+				title = "Glade",
+				isPresented = detailOpen,
+				detent = Compose.cell("large"),
+				content = detail,
+			}),
+			UI.Sheet({
+				Name = "Provisions",
+				title = "Provisions",
+				isPresented = shopOpen,
+				detent = Compose.cell("large"),
+				content = shop,
+			}),
+			UI.Sheet({
+				Name = "Wisp",
+				title = "Wisp",
+				isPresented = wispOpen,
+				detent = Compose.cell("medium"),
+				content = function()
+					local id = wisp:peek()
+					local item = seed.WISP_BY_ID[id]
+					local last = visits.lastSeen(id)
+					return view.column("Wisp", {
+						view.text(text("wisp." .. id), 28),
+						view.text("Favorite nectar: " .. L("nectar." .. item.favourite)),
+						view.text(if last then "Last seen in " .. L("glade." .. last.glade) else "Not seen yet"),
+					})
+				end,
+			}),
+		})
 	end
-
-	local function reportTable(): any
-		return {
-			proof = "p1_glade",
-			seed = seedData.WORLD,
-			now = now:peek(),
-			locale = locale:peek(),
-			section = state.section:peek(),
-			selectedGlade = state.selectedGlade:peek(),
-			search = state.search:peek(),
-			offerDismissed = state.offerDismissed:peek(),
-			favourites = favouriteList(),
-			keeper = { name = state.keeperName:peek(), contact = state.keeperContact:peek() },
-			keeperNavigation = table.clone(state.keeperPath:peek()),
-			detailNavigation = table.clone(state.detailPath:peek()),
-			-- the played task, published so a drive reads the same phase the card
-			-- paints rather than re-deriving it from the supply service
-			task = taskModel.dump(),
-			supply = supply.dump(),
-			commerce = commerce.dump(),
-			visits = visits.dump(),
-			surfaces = surfaceList(),
-			toasts = table.clone(toastLog),
-			flyIns = table.clone(flyInLog),
-			feedback = table.clone(feedbackLog),
-			-- the substitutions this package made against the spec, published so
-			-- the audit reads them from the artifact rather than from a comment
-			substitutions = {
-				supplyGlow = "extra.nectarGlow -> tint role accent; extra.dewGlow -> tint role contentStrong",
-				surfaceVocabulary = 'spec palette role surfaceStrong -> surface "raised"',
-				compactIcons = "check -> checkmark; cart -> compact text; hourglass -> reactive label only",
-				sceneArt = "tinted shape layers (no uploaded assets ship this stage)",
-			},
-		}
-	end
-
-	local handleRef: any = nil
-
-	local built
-	built = {
-		-- the screen is built once under the app owner; the mount presents it
-		screen = function()
-			return screen
-		end,
-		present = {
-			keyboardNavigation = true,
-			rootPolicy = "coreSafeContent",
-			cancelPolicy = "none",
-			-- spec §3: the base surface opens on the first glade card, not on the
-			-- search field — a gamepad landing in a text field is a keyboard
-			-- nobody asked for.
-			initialFocus = "GladeCard_" .. seedData.GLADES[1].id,
-		},
-		report = reportTable,
-		dump = function(): string
-			return serialize(reportTable())
-		end,
-		steps = {
-			-- TIME. Every other step is a verb a player has on screen; this one is
-			-- the injected clock, which is the only thing a headless run cannot
-			-- get by pressing something.
-			advanceClock = function(_built: any, payload: any): any
-				local seconds = tonumber(payload) or 60
-				advance(seconds)
-				presenter.tick(0)
-				return { now = now:peek() }
-			end,
-			settleCommerce = function(): any
-				advance(seedData.COMMAND_SECONDS + 0.01)
-				presenter.tick(0)
-				return commerce.dump()
-			end,
-			selectSection = function(_built: any, payload: any): any
-				nav.selectSection(tostring(payload))
-				return { section = state.section:peek() }
-			end,
-			selectGlade = function(_built: any, payload: any): any
-				nav.openGlade(tostring(payload or seedData.GLADES[1].id))
-				return { selected = state.selectedGlade:peek(), surfaces = surfaceList() }
-			end,
-			closeDetail = function(): any
-				nav.closeDetail()
-				return { selected = state.selectedGlade:peek(), surfaces = surfaceList() }
-			end,
-			refillDew = function(_built: any, payload: any): any
-				local gladeId = tostring(payload or state.selectedGlade:peek() or seedData.GLADES[1].id)
-				nav.refillDew(gladeId)
-				return { glade = gladeId, state = supply.state(gladeId, "dew"):peek() }
-			end,
-			openPicker = function(_built: any, payload: any): any
-				nav.openPicker(tostring(payload or state.selectedGlade:peek() or seedData.GLADES[1].id))
-				return { surfaces = surfaceList() }
-			end,
-			chooseNectar = function(_built: any, payload: any): any
-				local gladeId = state.selectedGlade:peek() or seedData.GLADES[1].id
-				nav.chooseNectar(gladeId, tostring(payload or "clover"))
-				return { glade = gladeId, nectar = supply.nectarOf(gladeId):peek() }
-			end,
-			openShop = function(): any
-				nav.openShop()
-				return { surfaces = surfaceList() }
-			end,
-			buyPack = function(_built: any, payload: any): any
-				nav.buyPack(tostring(payload or "starlightBundle"))
-				return commerce.dump()
-			end,
-			openCharm = function(): any
-				nav.openCharm()
-				return { surfaces = surfaceList() }
-			end,
-			buyCharm = function(_built: any, payload: any): any
-				nav.buyCharm(tostring(payload or "ember"))
-				return commerce.dump()
-			end,
-			openWisp = function(_built: any, payload: any): any
-				nav.openWisp(tostring(payload or "tidewisp"))
-				return { surfaces = surfaceList() }
-			end,
-			restore = function(): any
-				nav.restore()
-				return commerce.dump()
-			end,
-			openEdit = function(): any
-				nav.openEdit()
-				return { surfaces = surfaceList() }
-			end,
-			saveKeeper = function(_built: any, payload: any): any
-				if payload ~= nil and payload ~= "" then
-					state.draftName:set(tostring(payload))
-				end
-				nav.saveKeeper()
-				return { keeper = { name = state.keeperName:peek(), contact = state.keeperContact:peek() } }
-			end,
-			freshStart = function(): any
-				nav.openFreshStart()
-				return { surfaces = surfaceList() }
-			end,
-			confirmFreshStart = function(): any
-				nav.confirmFreshStart()
-				return reportTable()
-			end,
-			dismissTop = function(): any
-				local dismissed = nav.dismissTop()
-				return { dismissed = dismissed, surfaces = surfaceList() }
-			end,
-			search = function(_built: any, payload: any): any
-				nav.search(if payload == nil then "" else tostring(payload))
-				return { search = state.search:peek(), matches = #state.filtered:peek() }
-			end,
-			toggleFavourite = function(_built: any, payload: any): any
-				nav.toggleFavourite(tostring(payload or seedData.GLADES[1].id))
-				return { favourites = favouriteList() }
-			end,
-			setLocale = function(_built: any, payload: any): any
-				local next_ = tostring(payload or "en")
-				if strings.TABLES[next_] ~= nil then
-					locale:set(next_)
-				end
-				return { locale = locale:peek() }
-			end,
-			dismissOffer = function(): any
-				state.offerDismissed:set(true)
-				return { offerDismissed = true }
-			end,
-			-- THE TASK'S TWO VERBS, the same commands its two on-screen controls call
-			openTask = function(): any
-				nav.openGlade(taskModel.glade)
-				return { selected = state.selectedGlade:peek(), task = taskModel.dump() }
-			end,
-			prepareAgain = function(): any
-				nav.prepareAgain()
-				return reportTable()
-			end,
-			reset = function(): any
-				resetWorld()
-				return reportTable()
-			end,
-			dump = function(): any
-				return serialize(reportTable())
-			end,
-		},
-		-- the proof's own verbs, for a test that would rather call than drive
-		api = {
-			nav = nav,
-			state = state,
-			task = taskModel,
+	return {
+		screen = screen,
+		model = {
 			supply = supply,
 			commerce = commerce,
 			visits = visits,
-			advance = advance,
-			reset = resetWorld,
 			now = now,
-			locale = locale,
-			conditions = conditions,
-			fmt = fmt,
-			serialize = serialize,
-			sections = SECTIONS,
-			surfaces = surfaceList,
-			topKind = topKind,
+			complete = complete,
+			keeperName = keeperName,
+			keeperContact = keeperContact,
+			draftName = draftName,
+			draftContact = draftContact,
+			section = section,
+			selected = selected,
 		},
-		dispose = function()
-			dismissAll()
-			interruptFlyIns()
-			if handleRef ~= nil then
-				pcall(function()
-					presenter.dismiss(handleRef)
-				end)
-				handleRef = nil
-			end
-			appOwner.dispose()
+		steps = {
+			advance = advance,
+			open = open,
+			refill = refill,
+			choose = choose,
+			buy = commerce.buyPack,
+			charm = commerce.buyCharm,
+			restore = commerce.restore,
+			reset = reset,
+			saveKeeper = saveKeeper,
+		},
+		report = function()
+			return {
+				supplies = supply.dump(),
+				commerce = commerce.dump(),
+				visits = visits.dump(),
+				complete = complete:peek(),
+			}
 		end,
 	}
-
-	built.api.bindHandle = function(handle: any)
-		handleRef = handle
-	end
-
-	local _ = parts
-	return built
 end
-
--- `deps.app` is the application the caller mounts `built.screen` into.
-function Glade.build(Facet: any, _core: any, deps: any): any
-	local Compose = Facet.Compose
-	local appOwner = Compose.createOwner(deps.app.runtime.reactor)
-	return Compose.withOwner(appOwner, function()
-		return construct(Facet, deps, appOwner)
-	end)
-end
-
 return Glade

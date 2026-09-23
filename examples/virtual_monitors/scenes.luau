@@ -2,7 +2,6 @@
 local Compose = require(game:GetService("ReplicatedStorage").Facet).Compose
 local scenes = {}
 
--- Each mounted card owns one clock and a small procedural world.
 function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: any, active: any)
 	local Host = runtime.constructors
 	return runtime.mount(function()
@@ -91,7 +90,6 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: an
 			end
 		end
 		if variant ~= 1 then
-			-- Geometry also works in ViewportFrames that do not render particle effects.
 			part("Beacon", Vector3.new(0.45, 0.45, 0.45), function(use)
 				local angle = phase(use)
 				return CFrame.new(math.cos(angle) * 2.4, 4.2 + math.sin(angle * 2) * 0.3, math.sin(angle) * 2)
@@ -141,7 +139,7 @@ function scenes.discovery(runtime: any, target: Instance)
 		island(Vector3.new(-6, 1, 3), 2)
 		island(Vector3.new(6, 2, 5), 2.7)
 		island(Vector3.new(1, 3, 10), 1.7)
-		-- An ancient gate, built from individually articulated scene geometry.
+
 		for index = 0, 12 do
 			local angle = index / 12 * math.pi
 			local position = Vector3.new(math.cos(angle) * 2.1, 1.5 + math.sin(angle) * 2.1, 1)
@@ -247,8 +245,7 @@ function scenes.staticAvatar(runtime: any, target: Instance, angle: any, palette
 		end, { period = 0.55, damping = 0.9 })
 		return Host.Model({
 			Name = "Explorer",
-			-- Clothing details are game-owned geometry; Compose owns their lifetime
-			-- and keeps every piece on the same interrupted rotation spring.
+
 			piece("Shirt", Vector3.new(0.62, 1.55, 0.12), Vector3.new(0, 2.52, -0.49), Color3.fromRGB(238, 226, 202)),
 			piece("JacketZip", Vector3.new(0.045, 1.52, 0.04), Vector3.new(0, 2.50, -0.58), Color3.fromRGB(79, 80, 67)),
 			piece("LeftPocket", Vector3.new(0.49, 0.46, 0.10), Vector3.new(-0.54, 2.55, -0.51), outfit),
@@ -341,7 +338,7 @@ function scenes.prepareAvatar()
 	if avatarTemplate then
 		return
 	end
-	-- Roblox supplies the standard R15 joints and default animation choices.
+
 	local description = Instance.new("HumanoidDescription")
 	local ok, rig = pcall(function()
 		return game:GetService("Players"):CreateHumanoidModelFromDescriptionAsync(description, Enum.HumanoidRigType.R15)

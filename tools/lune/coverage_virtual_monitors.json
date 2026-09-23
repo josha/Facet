@@ -1,0 +1,472 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "virtual_monitors": {
+      "specs": [
+        "native_virtual_monitors",
+        "native_navigation",
+        "native_collections",
+        "native_radial_controls"
+      ],
+      "cases": [
+        "native_virtual_monitors::native virtual monitors::filters and sorts the full catalog with stable tie order",
+        "native_virtual_monitors::native virtual monitors::preserves saved order notes ratings and settings across mode changes",
+        "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
+        "native_virtual_monitors::native virtual monitors::streams replies and preserves the conversation through presentation changes",
+        "native_virtual_monitors::native virtual monitors::mounts the actual three screens and drives their controls through native events",
+        "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+        "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+        "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+        "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines",
+        "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
+        "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+        "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable",
+        "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions",
+        "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+        "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away",
+        "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount",
+        "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
+        "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners",
+        "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence",
+        "native_virtual_monitors::native virtual monitors::NVM-Avatar restores the shared preset ladder slider increment and zeroable spin control",
+        "native_virtual_monitors::native virtual monitors::restores editable streaming drafts and fresh sends with persistent responsive chat prompts",
+        "native_virtual_monitors::native virtual monitors::NVM-19 grows a game card into the screen and returns to its retained card and scroll",
+        "native_virtual_monitors::native virtual monitors::NVM-14 keeps the selected app and shared avatar state across presentation round trips",
+        "native_virtual_monitors::native virtual monitors::NVM-15 keeps six recommendations and the original per-game trend values",
+        "native_virtual_monitors::native virtual monitors::NVM-16 permits only the active presentation to publish native scrolling",
+        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until native long press and saves only the held contact on release",
+        "native_virtual_monitors::native virtual monitors::opens from the entire catalog card while preserving preview save drag and native identity",
+        "native_virtual_monitors::native virtual monitors::starts filtered results at the top without retaining the previous collection anchor"
+      ],
+      "caseMappings": {
+        "crossfades tabs, reclaims an interrupted page, and releases departing owners": [
+          "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "reflows the avatar split layout without replacing its controls or selection": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "keeps every avatar control reachable at {view.w}x{view.h}": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "steps the turn increment and drives the Turn buttons by that amount": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "holds every Avatar settings control inside the panel at 393, 360 and 320 wide": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "auto-spins the preview at the chosen speed and holds still under reduced motion": "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
+        "presents a Look summary sheet with the live palette, hat, rotation, turn step and auto-spin": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "opens and collapses the Advanced Tips disclosure without leaving a mounted overlay": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "expands the selected card from measured geometry and reverses without a jump": [
+          "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "presents and dismisses the About modal from the shell actions": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional"
+        ],
+        "collapses the shell actions into a Menu once the header can't fit the full row": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional"
+        ],
+        "pages the discovery feed as its tail approaches and keeps the mounted window bounded": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "draws a deterministic players-this-week sparkline for the selected game": [
+          "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines"
+        ],
+        "shows a placeholder creator avatar, then the loaded image, and releases it on selection change": [
+          "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines"
+        ],
+        "pushes More like this, opens a match, and pops back to the game's own info": [
+          "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving"
+        ],
+        "shows a Featured carousel that opens a game, and hides on a short viewport or the Saved shelf": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional"
+        ],
+        "saves a game by dragging its card onto the Browse|Saved switch": [
+          "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving"
+        ],
+        "filters the feed by genre chip and orders it from the sort menu": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "filters the feed by search text, opens the chosen game, and clears back to the full feed": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "lists saved games in a table and opens one from its row": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "persists Saved table order across saves and reorders via the table's own move": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "hosts message row actions and clears the conversation from Send's menu": [
+          "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions"
+        ],
+        "lists Suggest and Clear from the Conversation menu and shows a determinate reply progress": [
+          "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions"
+        ],
+        "follows a streaming chat reply at the tail and leaves a reader who scrolled away alone": [
+          "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away"
+        ],
+        "preserves {application} scrolling across presentations at width {screenWidth}": [
+          "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount"
+        ],
+        "the ten-foot tab strip keeps answering arrows after a tab with a coach mark opens": [
+          "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "opens the Avatar's Quick palette radial menu and sets the shared palette": [
+          "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list"
+        ],
+        "the Quick palette's list form stays inside its own box on a 393px phone": [
+          "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list"
+        ],
+        "saves a game from More like this via its RowActions Save action": [
+          "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving"
+        ],
+        "opens an About this rating popover anchored to the rating line and dismisses on an outside tap": [
+          "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines"
+        ],
+        "shows a quiet placeholder when a game's Stage content fails, leaving the rest of the page working": [
+          "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable"
+        ],
+        "lands the Label, styleGroup, padding and containerRelativeFrame props on their nodes": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "lands the styleGroup stroke on the genre chips and the More like this Label": [
+          "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving"
+        ],
+        "degrades the Avatar preview HUD's regions under space pressure and expands a reduced one": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "hosts a UI.Foreign shimmer over the creator avatar while it loads, gone once the image resolves": [
+          "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines"
+        ],
+        "edits a Saved row's Note inline through UI.TextField, surviving a shelf switch": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ]
+      },
+      "behaviors": [
+        "Actual showcase screens are mounted with the native engine boundary and driven through native events. NVM-1 proves repeated spatial waking and blocked sleeping content; NVM-2/3 responsive controls and live modal/settings state; NVM-4 async image cancellation, shimmer and deterministic chart; NVM-5 native drag-save and contextual similar actions; NVM-6 adaptive radial; NVM-7 scene failure containment; NVM-8 conversation menus and destructive touch actions; NVM-9 paging, native filtering, reorder and notes; NVM-10 tail-follow and reader retention; NVM-11 presentation remount scroll; NVM-12 selection trap/restore; NVM-13 interrupted tab animation and owner release.",
+        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells.",
+        "Live closure evidence is recorded in artifacts/compose-simplification/gap-closure-live.json: native emulated touch scrolling, held save and abandonment, spatial hit routing and repeated wake/overview, compact suggestions, largest-text phone/desktop layouts, short Chat, and native keyboard/gamepad activation and modal dismissal. Studio emulation is not a physical-device certification or exhaustive pixel comparison."
+      ],
+      "remaining": [],
+      "liveRequirements": [
+        "Root-owned Studio verification: camera focus A to overview to B to overview to A, SurfaceGui hit routing and first pointer press consumed by WakeMonitor.",
+        "Root-owned Studio screenshots at desktop and narrow phone widths: all controls remain reachable, detail scroll clipping, HUD/radial fallback, creator loaded paint, sparkline, native scene rendering and card expansion.",
+        "Native keyboard/gamepad directional traversal through chrome/feed/settings/composer, hero controls, modal capture/restore and return to tabs; physical touch hit routing and native selection visibility are not simulated by the engine boundary double."
+      ],
+      "retiredAssertions": {
+        "Facet node props, solved rectangles, presenter paths and adapters": "The Facet scene, solver and presenter were deleted. Native Instances, native property/event boundaries and Compose ownership replace those assertions; pixel layout and input routing are verified in Studio.",
+        "UI.Foreign image host and creator provider counters": "Native AsyncImage/Skeleton with injected loader cancellation proves loading, ready, replacement and teardown directly; no Foreign host or provider facade remains.",
+        "Legacy semantic focus ring paths, device fact resolution and post-present groups": "Native engine selection geometry and native InputContexts replace Facet focus graphs and input adapters. Live gamepad/touch routing remains an engine integration check."
+      },
+      "readinessNote": "Native assertions document their specific tested interactions, not complete product parity. These source-comparison defects block readiness until exact behavior is repaired and exercised; they are not removed-mechanism retirements.",
+      "parityAudit": "artifacts/compose-simplification/virtual-monitors-parity-audit.md",
+      "pendingLiveRisks": [
+        "Short/narrow Chat overlap and uncapped wide text",
+        "Competing scroll publishers during mode transition",
+        "Touch scrolling versus immediate SaveDrag",
+        "Theme typography/hero and TV default-to-Screen comparison"
+      ],
+      "resolution": "All eight source-proven regression groups are restored with exact native_virtual_monitors cases and Rojo build evidence; subsequent whole-card, Path2D and touch-hold regressions are also exercised. The suite currently has 27 cases. Remaining live integration checks are separate and unresolved.",
+      "liveEvidence": [
+        {
+          "artifact": "artifacts/compose-simplification/live-comparison.json",
+          "stamp": "0debf5",
+          "observed": "Stationary native pointer opens Afterlight; Done reverses108samples from1279to301width with source, parent and scroll retained. Native8-step drag saves1without openingdetail. Native Circuit suggestionid2opensCircuit and closespopup. Medium restored."
+        }
+      ]
+    },
+    "virtual_monitors_focus": {
+      "specs": [
+        "native_virtual_monitors",
+        "native_navigation",
+        "native_collections",
+        "native_radial_controls"
+      ],
+      "cases": [
+        "native_virtual_monitors::native virtual monitors::filters and sorts the full catalog with stable tie order",
+        "native_virtual_monitors::native virtual monitors::preserves saved order notes ratings and settings across mode changes",
+        "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
+        "native_virtual_monitors::native virtual monitors::streams replies and preserves the conversation through presentation changes",
+        "native_virtual_monitors::native virtual monitors::mounts the actual three screens and drives their controls through native events",
+        "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+        "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+        "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+        "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines",
+        "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
+        "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+        "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable",
+        "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions",
+        "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+        "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away",
+        "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount",
+        "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
+        "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners"
+      ],
+      "caseMappings": {
+        "cycles A -> overview -> B -> overview -> A through real activation": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content"
+        ],
+        "the gate closes again behind a monitor that has already woken once": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content"
+        ],
+        "a press on a SLEEPING monitor is spent waking it, and reaches nothing under it": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content"
+        ],
+        "every monitor's Focus button says which way it will go, at every step": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content"
+        ]
+      },
+      "behaviors": [
+        "Actual showcase screens are mounted with the native engine boundary and driven through native events. NVM-1 proves repeated spatial waking and blocked sleeping content; NVM-2/3 responsive controls and live modal/settings state; NVM-4 async image cancellation, shimmer and deterministic chart; NVM-5 native drag-save and contextual similar actions; NVM-6 adaptive radial; NVM-7 scene failure containment; NVM-8 conversation menus and destructive touch actions; NVM-9 paging, native filtering, reorder and notes; NVM-10 tail-follow and reader retention; NVM-11 presentation remount scroll; NVM-12 selection trap/restore; NVM-13 interrupted tab animation and owner release.",
+        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells."
+      ],
+      "remaining": [],
+      "liveRequirements": [
+        "Root-owned Studio verification: camera focus A to overview to B to overview to A, SurfaceGui hit routing and first pointer press consumed by WakeMonitor.",
+        "Root-owned Studio screenshots at desktop and narrow phone widths: all controls remain reachable, detail scroll clipping, HUD/radial fallback, creator loaded paint, sparkline, native scene rendering and card expansion.",
+        "Native keyboard/gamepad directional traversal through chrome/feed/settings/composer, hero controls, modal capture/restore and return to tabs; physical touch hit routing and native selection visibility are not simulated by the engine boundary double."
+      ],
+      "retiredAssertions": {
+        "Facet node props, solved rectangles, presenter paths and adapters": "The Facet scene, solver and presenter were deleted. Native Instances, native property/event boundaries and Compose ownership replace those assertions; pixel layout and input routing are verified in Studio.",
+        "UI.Foreign image host and creator provider counters": "Native AsyncImage/Skeleton with injected loader cancellation proves loading, ready, replacement and teardown directly; no Foreign host or provider facade remains.",
+        "Legacy semantic focus ring paths, device fact resolution and post-present groups": "Native engine selection geometry and native InputContexts replace Facet focus graphs and input adapters. Live gamepad/touch routing remains an engine integration check."
+      }
+    },
+    "virtual_monitors_input": {
+      "specs": [
+        "native_virtual_monitors",
+        "native_navigation",
+        "native_collections",
+        "native_radial_controls"
+      ],
+      "cases": [
+        "native_virtual_monitors::native virtual monitors::filters and sorts the full catalog with stable tie order",
+        "native_virtual_monitors::native virtual monitors::preserves saved order notes ratings and settings across mode changes",
+        "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
+        "native_virtual_monitors::native virtual monitors::streams replies and preserves the conversation through presentation changes",
+        "native_virtual_monitors::native virtual monitors::mounts the actual three screens and drives their controls through native events",
+        "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+        "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+        "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+        "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines",
+        "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
+        "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+        "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable",
+        "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions",
+        "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+        "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away",
+        "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount",
+        "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
+        "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners"
+      ],
+      "caseMappings": {
+        "reaches every control of the Discover chrome and feed, in source order": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "walks the whole ring without getting stuck on any one stop": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "walks from the header past the hero to the feed in a few presses": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional"
+        ],
+        "Left and Right page the hero rather than walking inside it": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional"
+        ],
+        "opens a card, lands in the detail page, and comes back to the same card": [
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "the Avatar sheet takes focus while it is up and gives it back when it goes": [
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "moves by direction through the Avatar settings without leaving the app": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+          "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "reaches the palette, the toggle, the stepper and the slider by direction": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+          "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "activates through the same dispatch a pad's A button spends": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "the Assistant's whole composer is reachable on a pad": [
+          "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions"
+        ],
+        "every Discover action is tappable without a focus ring being required": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "a message offers its destructive row action to a thumb": [
+          "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions"
+        ],
+        "the phone lays out Avatar and Assistant with their controls on the ring": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+          "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "a tap hides the ring and the next navigation brings it back": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "the resolved input fact follows the device, for the controls that adapt to it": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "groups the ring that arrived after the surface was presented": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "gives that ring the horizontal axis it was presented without": [
+          "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ],
+        "navigates the feed grid in two dimensions on that same surface": [
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+          "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control"
+        ]
+      },
+      "behaviors": [
+        "Actual showcase screens are mounted with the native engine boundary and driven through native events. NVM-1 proves repeated spatial waking and blocked sleeping content; NVM-2/3 responsive controls and live modal/settings state; NVM-4 async image cancellation, shimmer and deterministic chart; NVM-5 native drag-save and contextual similar actions; NVM-6 adaptive radial; NVM-7 scene failure containment; NVM-8 conversation menus and destructive touch actions; NVM-9 paging, native filtering, reorder and notes; NVM-10 tail-follow and reader retention; NVM-11 presentation remount scroll; NVM-12 selection trap/restore; NVM-13 interrupted tab animation and owner release.",
+        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells."
+      ],
+      "remaining": [],
+      "liveRequirements": [
+        "Root-owned Studio verification: camera focus A to overview to B to overview to A, SurfaceGui hit routing and first pointer press consumed by WakeMonitor.",
+        "Root-owned Studio screenshots at desktop and narrow phone widths: all controls remain reachable, detail scroll clipping, HUD/radial fallback, creator loaded paint, sparkline, native scene rendering and card expansion.",
+        "Native keyboard/gamepad directional traversal through chrome/feed/settings/composer, hero controls, modal capture/restore and return to tabs; physical touch hit routing and native selection visibility are not simulated by the engine boundary double."
+      ],
+      "retiredAssertions": {
+        "Facet node props, solved rectangles, presenter paths and adapters": "The Facet scene, solver and presenter were deleted. Native Instances, native property/event boundaries and Compose ownership replace those assertions; pixel layout and input routing are verified in Studio.",
+        "UI.Foreign image host and creator provider counters": "Native AsyncImage/Skeleton with injected loader cancellation proves loading, ready, replacement and teardown directly; no Foreign host or provider facade remains.",
+        "Legacy semantic focus ring paths, device fact resolution and post-present groups": "Native engine selection geometry and native InputContexts replace Facet focus graphs and input adapters. Live gamepad/touch routing remains an engine integration check."
+      }
+    },
+    "virtual_monitors_layout": {
+      "specs": [
+        "native_virtual_monitors",
+        "native_navigation",
+        "native_collections",
+        "native_radial_controls"
+      ],
+      "cases": [
+        "native_virtual_monitors::native virtual monitors::filters and sorts the full catalog with stable tie order",
+        "native_virtual_monitors::native virtual monitors::preserves saved order notes ratings and settings across mode changes",
+        "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
+        "native_virtual_monitors::native virtual monitors::streams replies and preserves the conversation through presentation changes",
+        "native_virtual_monitors::native virtual monitors::mounts the actual three screens and drives their controls through native events",
+        "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+        "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+        "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+        "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines",
+        "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
+        "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+        "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable",
+        "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions",
+        "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+        "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away",
+        "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount",
+        "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
+        "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners"
+      ],
+      "caseMappings": {
+        "{canvas.name}: the info route scrolls inside the panel": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+          "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount"
+        ],
+        "{canvas.name}: the Catalog releases its box instead of hiding in it": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+          "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount"
+        ]
+      },
+      "behaviors": [
+        "Actual showcase screens are mounted with the native engine boundary and driven through native events. NVM-1 proves repeated spatial waking and blocked sleeping content; NVM-2/3 responsive controls and live modal/settings state; NVM-4 async image cancellation, shimmer and deterministic chart; NVM-5 native drag-save and contextual similar actions; NVM-6 adaptive radial; NVM-7 scene failure containment; NVM-8 conversation menus and destructive touch actions; NVM-9 paging, native filtering, reorder and notes; NVM-10 tail-follow and reader retention; NVM-11 presentation remount scroll; NVM-12 selection trap/restore; NVM-13 interrupted tab animation and owner release.",
+        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells."
+      ],
+      "remaining": [],
+      "liveRequirements": [
+        "Root-owned Studio verification: camera focus A to overview to B to overview to A, SurfaceGui hit routing and first pointer press consumed by WakeMonitor.",
+        "Root-owned Studio screenshots at desktop and narrow phone widths: all controls remain reachable, detail scroll clipping, HUD/radial fallback, creator loaded paint, sparkline, native scene rendering and card expansion.",
+        "Native keyboard/gamepad directional traversal through chrome/feed/settings/composer, hero controls, modal capture/restore and return to tabs; physical touch hit routing and native selection visibility are not simulated by the engine boundary double."
+      ],
+      "retiredAssertions": {
+        "Facet node props, solved rectangles, presenter paths and adapters": "The Facet scene, solver and presenter were deleted. Native Instances, native property/event boundaries and Compose ownership replace those assertions; pixel layout and input routing are verified in Studio.",
+        "UI.Foreign image host and creator provider counters": "Native AsyncImage/Skeleton with injected loader cancellation proves loading, ready, replacement and teardown directly; no Foreign host or provider facade remains.",
+        "Legacy semantic focus ring paths, device fact resolution and post-present groups": "Native engine selection geometry and native InputContexts replace Facet focus graphs and input adapters. Live gamepad/touch routing remains an engine integration check."
+      }
+    },
+    "virtual_monitors_diagnostics": {
+      "specs": [
+        "native_virtual_monitors",
+        "native_navigation",
+        "native_collections",
+        "native_radial_controls"
+      ],
+      "cases": [
+        "native_virtual_monitors::native virtual monitors::filters and sorts the full catalog with stable tie order",
+        "native_virtual_monitors::native virtual monitors::preserves saved order notes ratings and settings across mode changes",
+        "native_virtual_monitors::native virtual monitors::has one model spin driver with reduced-motion and reset semantics",
+        "native_virtual_monitors::native virtual monitors::streams replies and preserves the conversation through presentation changes",
+        "native_virtual_monitors::native virtual monitors::mounts the actual three screens and drives their controls through native events",
+        "native_virtual_monitors::native virtual monitors::NVM-1 wakes monitors repeatedly without activating sleeping content",
+        "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD",
+        "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+        "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines",
+        "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
+        "native_virtual_monitors::native virtual monitors::NVM-6 keeps quick palette shared and adapts its button ring to a phone list",
+        "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable",
+        "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions",
+        "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves",
+        "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away",
+        "native_virtual_monitors::native virtual monitors::NVM-11 restores screen scroll from the shared model after presentation remount",
+        "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
+        "native_virtual_monitors::native virtual monitors::NVM-13 desktop tab transitions reclaim interrupted content and release departing owners"
+      ],
+      "caseMappings": {
+        "mounts Discover clean in every shelf, filter and detail state": [
+          "native_virtual_monitors::native virtual monitors::NVM-3 adapts chrome and featured content while keeping menu actions functional",
+          "native_virtual_monitors::native virtual monitors::NVM-4 loads creator thumbnails with owned shimmer and stable native sparklines",
+          "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
+          "native_virtual_monitors::native virtual monitors::NVM-7 contains failed stage content and keeps detail controls usable",
+          "native_virtual_monitors::native virtual monitors::NVM-9 pages a bounded native grid and preserves saved order and notes across shelves"
+        ],
+        "mounts Avatar clean with its sheet, its tips and its settings collapsed": [
+          "native_virtual_monitors::native virtual monitors::NVM-2 retains native avatar controls across narrow layouts and expands live HUD"
+        ],
+        "mounts the Assistant clean empty, mid-reply and with a thread": [
+          "native_virtual_monitors::native virtual monitors::NVM-8 conversation menus stream progress and expose destructive touch actions",
+          "native_virtual_monitors::native virtual monitors::NVM-10 follows growing conversation tails and respects a reader who scrolled away"
+        ]
+      },
+      "behaviors": [
+        "Actual showcase screens are mounted with the native engine boundary and driven through native events. NVM-1 proves repeated spatial waking and blocked sleeping content; NVM-2/3 responsive controls and live modal/settings state; NVM-4 async image cancellation, shimmer and deterministic chart; NVM-5 native drag-save and contextual similar actions; NVM-6 adaptive radial; NVM-7 scene failure containment; NVM-8 conversation menus and destructive touch actions; NVM-9 paging, native filtering, reorder and notes; NVM-10 tail-follow and reader retention; NVM-11 presentation remount scroll; NVM-12 selection trap/restore; NVM-13 interrupted tab animation and owner release.",
+        "Native modal source geometry transition and nested callout eligibility are also tested in native_navigation; native collection directional focus and selection are covered in native_collections. Product state is shared directly through Compose cells."
+      ],
+      "remaining": [],
+      "liveRequirements": [
+        "Root-owned Studio verification: camera focus A to overview to B to overview to A, SurfaceGui hit routing and first pointer press consumed by WakeMonitor.",
+        "Root-owned Studio screenshots at desktop and narrow phone widths: all controls remain reachable, detail scroll clipping, HUD/radial fallback, creator loaded paint, sparkline, native scene rendering and card expansion.",
+        "Native keyboard/gamepad directional traversal through chrome/feed/settings/composer, hero controls, modal capture/restore and return to tabs; physical touch hit routing and native selection visibility are not simulated by the engine boundary double."
+      ],
+      "retiredAssertions": {
+        "Facet node props, solved rectangles, presenter paths and adapters": "The Facet scene, solver and presenter were deleted. Native Instances, native property/event boundaries and Compose ownership replace those assertions; pixel layout and input routing are verified in Studio.",
+        "UI.Foreign image host and creator provider counters": "Native AsyncImage/Skeleton with injected loader cancellation proves loading, ready, replacement and teardown directly; no Foreign host or provider facade remains.",
+        "Legacy semantic focus ring paths, device fact resolution and post-present groups": "Native engine selection geometry and native InputContexts replace Facet focus graphs and input adapters. Live gamepad/touch routing remains an engine integration check."
+      }
+    }
+  }
+}

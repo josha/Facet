@@ -1,6 +1,5 @@
 --!strict
--- Deterministic local discovery pages. Only data grows; VirtualGrid owns which
--- cards are mounted. Requests are drained by the existing host frame callback.
+
 local catalog = {}
 local titles = {
 	"Afterlight",
@@ -68,7 +67,7 @@ function catalog.new(Compose: any)
 					stars = 4 + index % 2,
 					playing = (index * 137) % 24 + 1 + (index % 10) / 10,
 					creator = studios[(index - 1) % #studios + 1],
-					-- a real headshot per studio, so the avatar resolves instead of failing
+
 					creatorImage = `rbxthumb://type=AvatarHeadShot&id={CREATOR_HEADSHOTS[(index - 1) % #CREATOR_HEADSHOTS + 1]}&w=48&h=48`,
 				})
 			end

@@ -1,61 +1,15 @@
 --!strict
--- A gallery page is an ordinary TabView. Each example owns only its active
--- tab's resources: a tab's content runs under its own owner, so leaving the tab
--- releases the example's controls, watchers and subscriptions.
-
-return function(ctx: any, id: string, groups: { any }): any
-	local Facet = ctx.Facet
-	local UI, Compose = ctx.UI, ctx.Compose
-	local selections: { [string]: any } = {}
-	local active: any = nil
+return function(ctx: any, id: string, groups: { any })
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UDim2 = ctx.types.UDim2
+	local selections = {}
 	local preference = Compose.cell("automatic")
-	-- Where the category navigation sits, for the host's "use sidebar / use top
-	-- tabs" choice. The mounted page publishes it.
-	local placement = Compose.cell(nil :: string?)
-
-	-- One example, mounted as a tab's page. Its root keeps its own name, and the
-	-- host's geometry and controller reach the example through its root node.
-	local function examplePage(entry: any)
-		local built = entry.scenario.build(ctx)
-		active = { id = entry.id, built = built }
-		Compose.cleanup(function()
-			if built.dispose then
-				built.dispose()
-			end
-			if active and active.built == built then
-				active = nil
-			end
-		end)
-		local root = if type(built.screen) == "function" then built.screen() else built.screen
-		local contribution = table.clone(Facet.contribution.read(root) or {})
-		local syncGeometry = contribution.syncGeometry
-		contribution.syncGeometry = function(rectOf, rootNode)
-			if syncGeometry then
-				syncGeometry(rectOf, rootNode)
-			end
-			if built.present and built.present.onGeometry then
-				-- the example names paths from its own root
-				local prefix = rootNode.path:sub(1, -#root.id - 2)
-				built.present.onGeometry(function(path)
-					return rectOf(prefix .. path)
-				end)
-			end
-		end
-		local bindController = contribution.bindController
-		contribution.bindController = function(controller)
-			if bindController then
-				bindController(controller)
-			end
-			built.handle = { controller = controller }
-		end
-		return Facet.contribution.attach(root, contribution)
-	end
-
-	local function tabsFor(key: string, entries: { any }, top: boolean)
-		local selection = selections[key]
-		if selection == nil then
-			selection = Compose.cell(entries[1].id)
-			selections[key] = selection
+	local builtById = {}
+	local function tabsFor(key, entries, outer, parentVisible)
+		local selected = selections[key]
+		if not selected then
+			selected = Compose.cell(entries[1].id)
+			selections[key] = selected
 		end
 		local tabs = {}
 		for _, entry in entries do
@@ -63,71 +17,91 @@ return function(ctx: any, id: string, groups: { any }): any
 				id = entry.id,
 				label = entry.label,
 				content = function()
-					if entry.tabs == nil then
-						return examplePage(entry)
+					local visible = Compose.formula(function(use)
+						return (not parentVisible or use(parentVisible)) and use(selected) == entry.id
+					end)
+					if entry.tabs then
+						return tabsFor(entry.id, entry.tabs, false, visible)
 					end
-					-- Scroll the page bar with its content when large type or a short
-					-- viewport leaves too little room under the category bar.
-					return UI.ScrollView("PageScroll")({
-						width = UI.fill(),
-						height = UI.fill(),
-
-						UI.VStack("PageViewport")({
-							width = UI.fill(),
-							height = function(use)
-								return { type = "fixed", px = math.max(1, use(ctx.env:get("viewportRect")).h) }
-							end,
-							tabsFor(entry.id, entry.tabs, false),
-						}),
-					})
+					local pageContext = table.clone(ctx)
+					pageContext.pageVisible = visible
+					local built = entry.scenario.build(pageContext)
+					builtById[entry.id] = built
+					if built.dispose then
+						Compose.cleanup(built.dispose)
+					end
+					return built.screen()
 				end,
 			})
 		end
-		return UI.TabView(key)({
-			env = ctx.env,
-			selection = selection,
-			-- Categories are peer destinations; examples within them are page tabs.
-			-- Automatic placement lets the inner TabView use Facet's nesting rule.
-			style = if top then "sidebarAdaptable" else "automatic",
-			sidebarPreference = if top then preference else nil,
-			shoulderNavigation = "content",
+		return UI.TabView({
+			Name = key,
+			selection = selected,
 			tabs = tabs,
+			style = if outer then "sidebarAdaptable" else "automatic",
+			sidebarPreference = if outer then preference else nil,
+			accessories = if outer
+				then {
+					head = function()
+						return UI.Button({
+							Name = "UseTopTabs",
+							label = "Use top tabs",
+							Size = UDim2.new(1, 0, 0, 40),
+							onActivate = function()
+								preference:set("topBar")
+							end,
+						})
+					end,
+					trailing = function()
+						return UI.Button({
+							Name = "UseSidebar",
+							label = "Use sidebar",
+							Size = UDim2.fromOffset(128, 40),
+							onActivate = function()
+								preference:set("sidebar")
+							end,
+						})
+					end,
+				}
+				else nil,
+			Size = UDim2.fromScale(1, 1),
 		})
 	end
-
-	local function Page()
-		-- The category bar's home: the adaptive policy, then the player's choice
-		-- wherever the policy leaves room for one.
-		local conditions = Facet.adaptive.conditions(ctx.env)
-		Compose.watch(function(use)
-			local home = use(conditions.navPlacement)
-			local chosen = use(preference)
-			local fixed = home == "bottomBar" or home == "bottomBarCompact" or use(conditions.isTenFoot)
-			placement:set(if fixed or chosen == "automatic" then home else chosen)
-		end)
-		return UI.Screen(id)({ tabsFor("Categories", groups, true) })
-	end
-
 	return {
-		navigationLayout = {
-			placement = placement,
-			toggle = function()
-				preference:set(if placement:peek() == "sidebar" then "topBar" else "sidebar")
-			end,
-		},
-		screen = Page,
+		screen = function()
+			return Host.Frame({
+				Name = id,
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				tabsFor("Categories", groups, true, ctx.pageVisible),
+			})
+		end,
 		report = function()
 			local selected = {}
-			for key, selection in selections do
-				selected[key] = selection:peek()
+			for key, value in selections do
+				selected[key] = value:peek()
 			end
+			local entries, key, leaf = groups, "Categories", nil
+			while entries do
+				local current = selected[key] or entries[1].id
+				local found
+				for _, entry in entries do
+					if entry.id == current then
+						found = entry
+						break
+					end
+				end
+				if not found then
+					break
+				end
+				leaf, key, entries = found.id, found.id, found.tabs
+			end
+			local built = leaf and builtById[leaf]
 			return {
 				selected = selected,
-				navigation = { placement = placement:peek(), preference = preference:peek() },
-				active = if active then active.id else nil,
-				example = if active and active.built.report then active.built.report() else nil,
+				active = leaf,
+				example = if built and built.report then built.report() else nil,
 			}
 		end,
-		dispose = function() end,
 	}
 end

@@ -1,0 +1,863 @@
+{
+  "retiredMechanisms": [
+    "backdrop_fade",
+    "nav_bar"
+  ],
+  "replacements": {
+    "alert": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::captures alert payload and closes before invoking its action",
+        "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
+        "native_navigation::native navigation controls::lets Back dismiss a disabled cancel action without invoking it",
+        "native_navigation::native navigation controls::contains failed alert factories and accepts a later valid presentation",
+        "native_navigation::native navigation controls::wraps alert actions and bounds long message scrolling to native measurements",
+        "native_navigation::native navigation controls::clears bound alert errors and turns native page animation off for reduced motion",
+        "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork",
+        "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence"
+      ],
+      "behaviors": [
+        "Native modal selection trap and background shortcut exclusion, payload snapshot, dismissal before callback, disabled-cancel escape, factory failure containment/retry, long-message scrolling and responsive action wrapping, bound error cleanup."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_alert": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::captures alert payload and closes before invoking its action",
+        "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
+        "native_navigation::native navigation controls::lets Back dismiss a disabled cancel action without invoking it",
+        "native_navigation::native navigation controls::contains failed alert factories and accepts a later valid presentation",
+        "native_navigation::native navigation controls::wraps alert actions and bounds long message scrolling to native measurements",
+        "native_navigation::native navigation controls::clears bound alert errors and turns native page animation off for reduced motion",
+        "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork",
+        "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence"
+      ],
+      "behaviors": [
+        "Native modal selection trap and background shortcut exclusion, payload snapshot, dismissal before callback, disabled-cancel escape, factory failure containment/retry, long-message scrolling and responsive action wrapping, bound error cleanup."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "callout": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::queues callouts by priority and retires once without writing model facts",
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::suspends callout plates with hidden anchors and restores their native arrow",
+        "native_navigation::native navigation controls::resets the mounted callout showcase without replacing anchor identities"
+      ],
+      "behaviors": [
+        "Priority queue, eligibility, retirement exactly once, domain model facts never written, nonmodal anchor access and preserved focus, safe viewport fitting and nonconsuming native tap-away."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_callout": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::queues callouts by priority and retires once without writing model facts",
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::suspends callout plates with hidden anchors and restores their native arrow",
+        "native_navigation::native navigation controls::resets the mounted callout showcase without replacing anchor identities"
+      ],
+      "behaviors": [
+        "Priority queue, eligibility, retirement exactly once, domain model facts never written, nonmodal anchor access and preserved focus, safe viewport fitting and nonconsuming native tap-away."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "callout_scenario": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::queues callouts by priority and retires once without writing model facts",
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::suspends callout plates with hidden anchors and restores their native arrow",
+        "native_navigation::native navigation controls::resets the mounted callout showcase without replacing anchor identities"
+      ],
+      "behaviors": [
+        "Priority queue, eligibility, retirement exactly once, domain model facts never written, nonmodal anchor access and preserved focus, safe viewport fitting and nonconsuming native tap-away."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "collapsible_view": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
+        "native_navigation::native navigation controls::renders disclosure appearances and collapsible summaries with native assets and close policy"
+      ],
+      "behaviors": [
+        "Expanded content owns a native modal, Back/trap/focus restoration use the shared native policy."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "disclosure_group": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::owns disclosure content only while expanded",
+        "native_navigation::native navigation controls::returns disclosure focus before unmounting its content",
+        "native_navigation::native navigation controls::renders disclosure appearances and collapsible summaries with native assets and close policy"
+      ],
+      "behaviors": [
+        "Compose-owned expanded branch and cleanup, native disclosure caret motion, focus return before teardown."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "menu": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::mounts menus in the native layer, traverses submenus and closes after action",
+        "native_navigation::native navigation controls::adapts an open menu to a compact sheet without losing its branch",
+        "native_navigation::native navigation controls::keeps checked menu state and required radio values while honoring dismissal",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away"
+      ],
+      "behaviors": [
+        "Native trigger/menu/submenu lifetime and input contexts, compact sheet adaptation preserves path, checked/radio persistence, scroll bounds, removed branch recovery, outside dismissal closes the entire chain."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_menu": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::mounts menus in the native layer, traverses submenus and closes after action",
+        "native_navigation::native navigation controls::adapts an open menu to a compact sheet without losing its branch",
+        "native_navigation::native navigation controls::keeps checked menu state and required radio values while honoring dismissal",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away"
+      ],
+      "behaviors": [
+        "Native trigger/menu/submenu lifetime and input contexts, compact sheet adaptation preserves path, checked/radio persistence, scroll bounds, removed branch recovery, outside dismissal closes the entire chain."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "menu_scenario": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::mounts menus in the native layer, traverses submenus and closes after action",
+        "native_navigation::native navigation controls::adapts an open menu to a compact sheet without losing its branch",
+        "native_navigation::native navigation controls::keeps checked menu state and required radio values while honoring dismissal",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away"
+      ],
+      "behaviors": [
+        "Native trigger/menu/submenu lifetime and input contexts, compact sheet adaptation preserves path, checked/radio persistence, scroll bounds, removed branch recovery, outside dismissal closes the entire chain."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "stateful_menu": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::keeps checked menu state and required radio values while honoring dismissal"
+      ],
+      "behaviors": [
+        "Checked items toggle once, radio selection stays selected on reactivation, stateful items stay presented unless explicit dismissal requests it."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "picker_style": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::retains model values and updates picker font bindings",
+        "native_navigation::native navigation controls::opens searchable picker content only when presented and commits filtered results",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps filtered multiple selections and reactive row descriptions through source replacement"
+      ],
+      "behaviors": [
+        "Writable selection and changing veto, exactly-once change, selected-value native trigger, enabled rows, native font/axis/badge bindings, automatic input adaptation and searchable modal ownership."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "picker_segments": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::retains model values and updates picker font bindings",
+        "native_navigation::native navigation controls::opens searchable picker content only when presented and commits filtered results",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps filtered multiple selections and reactive row descriptions through source replacement"
+      ],
+      "behaviors": [
+        "Writable selection and changing veto, exactly-once change, selected-value native trigger, enabled rows, native font/axis/badge bindings, automatic input adaptation and searchable modal ownership."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "picker_sweep": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::retains model values and updates picker font bindings",
+        "native_navigation::native navigation controls::opens searchable picker content only when presented and commits filtered results",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps filtered multiple selections and reactive row descriptions through source replacement"
+      ],
+      "behaviors": [
+        "Writable selection and changing veto, exactly-once change, selected-value native trigger, enabled rows, native font/axis/badge bindings, automatic input adaptation and searchable modal ownership."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "popup_button": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::retains model values and updates picker font bindings",
+        "native_navigation::native navigation controls::opens searchable picker content only when presented and commits filtered results",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps filtered multiple selections and reactive row descriptions through source replacement"
+      ],
+      "behaviors": [
+        "Writable selection and changing veto, exactly-once change, selected-value native trigger, enabled rows, native font/axis/badge bindings, automatic input adaptation and searchable modal ownership."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "split_button": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::keeps split primary activation separate from touch long-press alternatives"
+      ],
+      "behaviors": [
+        "Native primary action remains distinct from menu alternatives; touch long-press suppresses activation echo and primary input changes form without changing caller state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "combo_box": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::validates combo custom commits and cancels editable text"
+      ],
+      "behaviors": [
+        "Known option commits, custom value validation, invalid edit feedback, and cancel-to-committed-value."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "tab_view": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains visited tab state across selection and declaration reorders",
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup",
+        "native_navigation::native navigation controls::removes dynamically deleted tab owners and preserves the selected survivor",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::renders sidebar sections and collapsed tab destinations through the shared menu"
+      ],
+      "behaviors": [
+        "Compose LayerStack retains visited native pages across declaration reorder, deleted identities dispose, accessories follow measured placement and clean owners, native focus and scroll restoration, Compose fades and selected tab reveal."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "tab_view_scenario": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains visited tab state across selection and declaration reorders",
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup",
+        "native_navigation::native navigation controls::removes dynamically deleted tab owners and preserves the selected survivor",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::renders sidebar sections and collapsed tab destinations through the shared menu"
+      ],
+      "behaviors": [
+        "Compose LayerStack retains visited native pages across declaration reorder, deleted identities dispose, accessories follow measured placement and clean owners, native focus and scroll restoration, Compose fades and selected tab reveal."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "tab_view_accessories": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup"
+      ],
+      "behaviors": [
+        "Placement-specific accessory builders receive native placement, reserve measured head/foot/trailing/above space, and cleanup on branch replacement."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "tab_view_transition": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab"
+      ],
+      "behaviors": [
+        "Compose tween duration/easing controls native CanvasGroup opacity; reduced motion settles visible content and outgoing layers reject input."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "navigation_stack": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains covered navigation destinations and disposes popped pages",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_navigation::native navigation controls::quarantines invalid paths and contains destination faults while preserving Back",
+        "native_navigation::native navigation controls::routes nested Back through the focused native context before its parent"
+      ],
+      "behaviors": [
+        "Compose LayerStack retains covered destination owners and releases popped pages, native focus restoration, invalid external path quarantine and recovery, failed content cleanup with usable Back, focused nested context priority and untitled root full viewport."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_navigation_stack": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains covered navigation destinations and disposes popped pages",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_navigation::native navigation controls::quarantines invalid paths and contains destination faults while preserving Back",
+        "native_navigation::native navigation controls::routes nested Back through the focused native context before its parent"
+      ],
+      "behaviors": [
+        "Compose LayerStack retains covered destination owners and releases popped pages, native focus restoration, invalid external path quarantine and recovery, failed content cleanup with usable Back, focused nested context priority and untitled root full viewport."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "page_view": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::uses native page layout for model navigation and engine swipes",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_navigation::native navigation controls::clears bound alert errors and turns native page animation off for reduced motion"
+      ],
+      "behaviors": [
+        "Native UIPageLayout owns paging and swipe travel, model and CurrentPage synchronize, focus leaves hidden page, reduced motion disables native animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_page_view": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::uses native page layout for model navigation and engine swipes",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_navigation::native navigation controls::clears bound alert errors and turns native page animation off for reduced motion"
+      ],
+      "behaviors": [
+        "Native UIPageLayout owns paging and swipe travel, model and CurrentPage synchronize, focus leaves hidden page, reduced motion disables native animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "sheet": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::snaps native sheet drags to declared detents and respects dismissal policy",
+        "native_navigation::native navigation controls::keeps sheet content in a native flex remainder and explicit close operable",
+        "native_navigation::native navigation controls::retargets native sheet motion and honors live reduced motion without losing content"
+      ],
+      "behaviors": [
+        "Native UIDragDetector snaps detents, controlled dismissal and explicit close, content native flex remainder, Compose height tween retarget/reduced motion."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_sheet": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::snaps native sheet drags to declared detents and respects dismissal policy",
+        "native_navigation::native navigation controls::keeps sheet content in a native flex remainder and explicit close operable",
+        "native_navigation::native navigation controls::retargets native sheet motion and honors live reduced motion without losing content"
+      ],
+      "behaviors": [
+        "Native UIDragDetector snaps detents, controlled dismissal and explicit close, content native flex remainder, Compose height tween retarget/reduced motion."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade dumps, legacy action/focus paths, presenter counts and solver rectangles": "Deleted mechanisms are replaced by native Instance properties, InputContext routing, engine selection and Compose owners.",
+        "Legacy named transition forms and private transition diagnostics": "Control transition options are direct Compose tween options; callers compose other motion with Compose primitives.",
+        "Old view handles and blueprint constructor schema": "Hard cutover exposes native Instances and Compose control composition only."
+      }
+    },
+    "native_combo_box": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::validates combo custom commits and cancels editable text"
+      ],
+      "behaviors": [
+        "Controlled editing, explicit custom-value validation, invalid input feedback and cancel-to-committed-value use native TextBox and shared Menu."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter/solver/focus-graph APIs and geometry dump contracts": "Deleted by the hard cutover; Compose ownership and native engine properties replace these mechanisms."
+      }
+    },
+    "adaptive_presentation": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::adapts an open menu to a compact sheet without losing its branch",
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup",
+        "native_navigation::native navigation controls::keeps split primary activation separate from touch long-press alternatives",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::renders sidebar sections and collapsed tab destinations through the shared menu",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable"
+      ],
+      "behaviors": [
+        "Native PreferredInput and measured viewport relocate menu/split/picker/tab presentations while caller state and retained page owners survive. Image Button behavior is separately covered by native_inputs."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facet environment viewing-distance classification and presenter-generated navigation commands": "Ambient Facet environment/command facade deleted; native input/viewport plus sidebarPreference control current presentation."
+      }
+    },
+    "anchored_surface": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::mounts menus in the native layer, traverses submenus and closes after action",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away",
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::suspends callout plates with hidden anchors and restores their native arrow",
+        "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence"
+      ],
+      "behaviors": [
+        "Menu and Callout native overlays follow measured anchor positions, clamp to viewport, own Compose lifetimes, show optional native arrow and restore modal focus; Alert sources use native geometry."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "General presentAnchored facade, anchor_placement solver and scene rectangle/tail seam diagnostics": "Deleted scaffold. Specific controls use native anchor Instances and engine-measured bounds."
+      }
+    },
+    "distance_gamepad": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::adapts an open menu to a compact sheet without losing its branch",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::routes nested Back through the focused native context before its parent",
+        "native_navigation::native navigation controls::renders sidebar sections and collapsed tab destinations through the shared menu"
+      ],
+      "behaviors": [
+        "Native selection traps, focused nested Back, menu compact presentation and PreferredInput adaptation replace the old geometric focus system."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom focus topology, authored distance facts and private navigation report ordering": "Engine GuiService and native selection properties own navigation; no Facet focus graph or environment distance facade remains."
+      }
+    },
+    "modal_dismissal": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
+        "native_navigation::native navigation controls::lets Back dismiss a disabled cancel action without invoking it",
+        "native_navigation::native navigation controls::forgives near-miss backdrop taps and closes only the top native modal"
+      ],
+      "behaviors": [
+        "Native scrim handles top-modal-only dismissal, near-miss forgiveness, no background activation, trapped focus, surviving focus restoration and disabled cancel escape."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter/solver/focus-graph APIs and geometry dump contracts": "Deleted by the hard cutover; Compose ownership and native engine properties replace these mechanisms."
+      }
+    },
+    "navigation_visuals": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup",
+        "native_navigation::native navigation controls::wraps alert actions and bounds long message scrolling to native measurements",
+        "native_navigation::native navigation controls::renders disclosure appearances and collapsible summaries with native assets and close policy",
+        "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork"
+      ],
+      "behaviors": [
+        "Measured alert rows and long message scroll bounds, live accessory geometry, native image summary and themed panel artwork."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Old showroom/race scene solver geometry and rendered-rung debug counters": "Deleted renderer diagnostics; mounted gallery and virtual-monitors suites cover current product surfaces."
+      }
+    },
+    "popup_catcher_paint": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::mounts menus in the native layer, traverses submenus and closes after action",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away",
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork",
+        "native_navigation::native navigation controls::forgives near-miss backdrop taps and closes only the top native modal"
+      ],
+      "behaviors": [
+        "Portal surfaces use native transparent menu catchers or explicit modal scrims; detach/hidden-parent closes overlays and caller anchors remain interactive for nonmodal Callout."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter/solver/focus-graph APIs and geometry dump contracts": "Deleted by the hard cutover; Compose ownership and native engine properties replace these mechanisms."
+      }
+    },
+    "transient_over_live": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::mounts menus in the native layer, traverses submenus and closes after action",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away",
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork",
+        "native_navigation::native navigation controls::forgives near-miss backdrop taps and closes only the top native modal"
+      ],
+      "behaviors": [
+        "Portal surfaces use native transparent menu catchers or explicit modal scrims; detach/hidden-parent closes overlays and caller anchors remain interactive for nonmodal Callout."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter/solver/focus-graph APIs and geometry dump contracts": "Deleted by the hard cutover; Compose ownership and native engine properties replace these mechanisms."
+      }
+    },
+    "searchable_selection": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::opens searchable picker content only when presented and commits filtered results",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_navigation::native navigation controls::keeps filtered multiple selections and reactive row descriptions through source replacement"
+      ],
+      "behaviors": [
+        "Query filtering preserves model selection; dense option validation, live keyed descriptions, disabled selections, required multiple selections and parent availability cleanup."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter/solver/focus-graph APIs and geometry dump contracts": "Deleted by the hard cutover; Compose ownership and native engine properties replace these mechanisms."
+      }
+    },
+    "tab_customization": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains visited tab state across selection and declaration reorders",
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup",
+        "native_navigation::native navigation controls::removes dynamically deleted tab owners and preserves the selected survivor",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::renders sidebar sections and collapsed tab destinations through the shared menu"
+      ],
+      "behaviors": [
+        "Stable keyed tabs survive declaration and customization changes; section headers only occupy sidebar, required tabs stay visible, source deletion disposes native owners and current destination scrolls into view."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter/solver/focus-graph APIs and geometry dump contracts": "Deleted by the hard cutover; Compose ownership and native engine properties replace these mechanisms."
+      }
+    },
+    "tab_scroll_bookmarks": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains visited tab state across selection and declaration reorders",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab"
+      ],
+      "behaviors": [
+        "Retained Compose destination instances preserve model/native scroll and focus state; restoreScroll=false resets native descendants."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Serialized solver path bookmarks for evicted pages": "Retained native Instances and explicit Compose retention policy replace serialization of deleted scene paths."
+      }
+    },
+    "tab_strip_gap": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup",
+        "native_navigation::native navigation controls::renders sidebar sections and collapsed tab destinations through the shared menu"
+      ],
+      "behaviors": [
+        "Native TabView reserves rail/header/band/accessory extents while nested destination content receives the remaining native box."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Token-rung solver gaps and old custom scrolling track rectangles": "Native layout and authored railWidth/accessory dimensions replace Facet solver math."
+      }
+    },
+    "selection_indicator": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors"
+      ],
+      "behaviors": [
+        "Native Picker/TabView selection marks remain unfocusable, keyed options stay alive, explicit indicator choice and axis update; Compose owns animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Public newSelectionIndicator, presenter frame subscription, solved-rectangle animation and private state snapshots": "Deleted Facet animation/layout scaffold. Native styled selection marks and Compose animation replace the custom shared rectangle renderer."
+      }
+    },
+    "native_selection_indicator": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors"
+      ],
+      "behaviors": [
+        "Native Picker/TabView selection marks remain unfocusable, keyed options stay alive, explicit indicator choice and axis update; Compose owns animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Public newSelectionIndicator, presenter frame subscription, solved-rectangle animation and private state snapshots": "Deleted Facet animation/layout scaffold. Native styled selection marks and Compose animation replace the custom shared rectangle renderer."
+      }
+    },
+    "selection_indicator_options": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors"
+      ],
+      "behaviors": [
+        "Native Picker/TabView selection marks remain unfocusable, keyed options stay alive, explicit indicator choice and axis update; Compose owns animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Public newSelectionIndicator, presenter frame subscription, solved-rectangle animation and private state snapshots": "Deleted Facet animation/layout scaffold. Native styled selection marks and Compose animation replace the custom shared rectangle renderer."
+      }
+    },
+    "selection_indicator_radius": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors"
+      ],
+      "behaviors": [
+        "Native Picker/TabView selection marks remain unfocusable, keyed options stay alive, explicit indicator choice and axis update; Compose owns animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Public newSelectionIndicator, presenter frame subscription, solved-rectangle animation and private state snapshots": "Deleted Facet animation/layout scaffold. Native styled selection marks and Compose animation replace the custom shared rectangle renderer."
+      }
+    },
+    "selection_indicator_shape": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors"
+      ],
+      "behaviors": [
+        "Native Picker/TabView selection marks remain unfocusable, keyed options stay alive, explicit indicator choice and axis update; Compose owns animation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Public newSelectionIndicator, presenter frame subscription, solved-rectangle animation and private state snapshots": "Deleted Facet animation/layout scaffold. Native styled selection marks and Compose animation replace the custom shared rectangle renderer."
+      }
+    }
+  },
+  "retirementReasons": {
+    "backdrop_fade": "Retires the deleted scene/presenter backdrop-opacity diagnostic; native Alert presence, modal scrim ownership and interrupted transitions are exercised by native_navigation source-transition and dismissal cases.",
+    "nav_bar": "Retires the deleted NavigationBar scaffolding constructor and scene geometry assertions; native NavigationStack and TabView own their control chrome, with retained destinations, native Back routing and responsive accessory geometry covered by native_navigation."
+  }
+}

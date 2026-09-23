@@ -1,37 +1,11 @@
 --!strict
--- TEST FIXTURE THEME PACKAGE — "Layered Test" (rich-skinning-v2 package P2).
---
--- NOT a reference package. The shipping **Fantasy Ornate** package — the full
--- art pass, every v2 capability, provenance, the five-view matrix — is P5's, and
--- nothing here should be mistaken for it. This is the minimum LAYERED package
--- the adapter's ladder can be tested against at all: one slot that declares the
--- whole R1 vocabulary in one stack, one slot with per-state art (R2), one
--- selection slot whose SELECTED state is a different picture rather than a tint,
--- and one layered field so the stack-yield rule has a TextBox to yield for.
---
--- It exists so the acceptance rows RS-A1..RS-A4 are falsifiable on a running
--- screen: a census that counts nothing, a suppression that misses a slot, a
--- state that paints the wrong art, or a yield that never flips all show up here
--- rather than in a capture nobody can diff.
---
--- Art is the repository's own `assets/themes/fantasy-ornate/` PNGs (provenance
--- in that folder); content IDs come from its `upload-manifest.json` and are
--- never hardcoded anywhere but this package's `assets` table.
---
--- Variants:
---   build(themes)           the working layered package
---   buildBadLayer(themes)   identical, one bogus content ID on a MIDDLE layer —
---                           the whole stack must fall back as a unit, because a
---                           half-painted ladder reads as broken rather than
---                           degraded
 
 local layered_test = {}
 
 layered_test.id = "layered-test"
 layered_test.displayName = "Layered Test"
 layered_test.themeClasses = table.freeze({ "palette", "metrics", "font", "assets" })
--- said out loud so no reader, and no later package sweep, mistakes this for the
--- Fantasy Ornate reference package
+
 layered_test.testOnly = true
 
 local function rgb(r: number, g: number, b: number)
@@ -49,10 +23,6 @@ local function typography(family: string): any
 	return out
 end
 
--- Slice geometry per assets/themes/fantasy-ornate/upload-manifest.json:
--- SliceCenter = Rect(border, border, W - border, H - border), SliceScale = 1.
--- A tile/ornament/plaque asset declares no slice centre because it is never
--- sliced (guessing one smears the centre pixel across the middle).
 local ASSETS = {
 	ornate_panel_fill = {
 		content = "rbxassetid://81048500362779",
@@ -117,10 +87,7 @@ local ASSETS = {
 		preload = "install",
 		fallback = "native",
 	},
-	-- ===== IMAGE VALUE DISPLAYS (package P3) ==================
-	-- The track and the fill STRETCH, so both are nine-sliced; the caps, the
-	-- crown, the knob and the plates are fixed-size tokens painted whole (a slice
-	-- centre on a 28px jewel smears its one centre pixel across the middle).
+
 	ornate_bar_track = {
 		content = "rbxassetid://92904178783883",
 		sliceCenter = { x0 = 12, y0 = 12, x1 = 84, y1 = 16 },
@@ -180,8 +147,7 @@ local ORNATE = {
 		onAccent = rgb(30, 20, 8),
 		danger = rgb(150, 40, 30),
 		onDanger = rgb(255, 242, 232),
-		-- the two semantic roles, in this palette's own family and gated like the
-		-- destructive pair above (6.16:1 and 6.84:1)
+
 		success = rgb(134, 160, 76),
 		onSuccess = rgb(30, 20, 8),
 		warning = rgb(202, 150, 56),
@@ -211,11 +177,6 @@ local function copy(v: any): any
 	return out
 end
 
--- THE STACK. Every R1 kind in one slot and in a deliberate order, so the ZIndex
--- ladder is visible as a picture rather than as a number: velvet under the
--- parchment fill, the carved frame above both, rails inside it, four DIFFERENT
--- corner ornaments (per-corner overrides — the compound-tag isolation rs-m2
--- measured), and a plaque that overhangs the top edge by half its height.
 local PANEL_LAYERS = {
 	{ kind = "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } },
 	{ kind = "fill", asset = "ornate_panel_fill" },
@@ -230,10 +191,7 @@ local PANEL_LAYERS = {
 		bottomLeft = "ornate_corner_bl",
 		bottomRight = "ornate_corner_br",
 	},
-	-- the NAMEPLATE. `text = true` moves the decorated node's own label onto the
-	-- plaque (the layer stack's sub-slot), and `textInsets` keeps the carved border
-	-- off it: the plate is 176x40 with a ~14px scrolled edge left and right and a
-	-- little more headroom above the baseline than below.
+
 	{
 		kind = "plaque",
 		asset = "ornate_plaque",
@@ -280,15 +238,14 @@ function layered_test.definition(themes: any): any
 			},
 		},
 		chrome = {
-			-- the whole R1 vocabulary, one slot (RS-A2)
+
 			panel = {
 				kind = "layered",
 				contentInsets = { top = 28, right = 28, bottom = 28, left = 28 },
 				fallback = "native",
 				layers = copy(PANEL_LAYERS),
 			},
-			-- PER-STATE ART, not a tint (RS-A3). A two-layer ladder so the state
-			-- swap is proven ON a stack rather than only on a single decoration.
+
 			control = {
 				kind = "layered",
 				contentInsets = { top = 10, right = 14, bottom = 10, left = 14 },
@@ -300,7 +257,7 @@ function layered_test.definition(themes: any): any
 							default = "ornate_button_default",
 							hover = "ornate_button_hover",
 							pressed = "ornate_button_pressed",
-							-- `error` has no engine state: it rides facet-state-error
+
 							error = "ornate_selection_selected",
 						},
 					},
@@ -311,12 +268,7 @@ function layered_test.definition(themes: any): any
 						topLeft = "ornate_corner_tl",
 						topRight = "ornate_corner_tr",
 					},
-					-- THE PLAQUE NAMEPLATE (R1's `text` sub-slot). It rides the
-					-- CONTROL slot rather than the panel because a nameplate needs a
-					-- node that actually has text, and a panel is a Frame — which is
-					-- precisely why the sub-slot could ship "validated, documented
-					-- and read by nothing" (architecture verifier F2). Here a
-					-- Button's own label lifts onto the plate, inset off its border.
+
 					{
 						kind = "plaque",
 						asset = "ornate_plaque",
@@ -328,8 +280,7 @@ function layered_test.definition(themes: any): any
 					},
 				},
 			},
-			-- "selection changes the whole style", the pixel reference's idiom:
-			-- a different PICTURE for `selected`, with the tint rule still on top
+
 			selection = {
 				kind = "layered",
 				contentInsets = { top = 6, right = 8, bottom = 6, left = 8 },
@@ -341,16 +292,14 @@ function layered_test.definition(themes: any): any
 					},
 				},
 			},
-			-- a LAYERED field, so the stack-yield rules have a TextBox to yield for
+
 			field = {
 				kind = "layered",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 				layers = { { kind = "fill", asset = "ornate_field" } },
 			},
-			-- a THEMED slider thumb, so the rung-2 comparison (RS-A4) is
-			-- "the view's art beat the THEME's art on this node", not
-			-- "the view's art appeared where the theme had none"
+
 			sliderThumb = { kind = "nineSlice", asset = "ornate_button_default", sliced = false, fallback = "native" },
 			sliderTrack = {
 				kind = "nineSlice",
@@ -358,13 +307,7 @@ function layered_test.definition(themes: any): any
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
-			-- ===== IMAGE VALUE DISPLAYS (RS-A5, RS-A6) =====================
-			-- THE BAR FAMILY. The track is a carved rail; the fill is a sliced
-			-- gold band revealed through the adapter's clip window at FULL TRACK
-			-- SIZE, so its texture and its slice geometry are byte-stable from 1%
-			-- to 100% (rs-m4). The caps and the crown are anchored to the TRACK, so
-			-- they survive every percent — which is the whole reason they are
-			-- separate ornaments rather than part of the fill art.
+
 			barTrack = {
 				kind = "nineSlice",
 				asset = "ornate_bar_track",
@@ -386,10 +329,7 @@ function layered_test.definition(themes: any): any
 				size = { w = 36, h = 28 },
 				fallback = "native",
 			},
-			-- THE SLIDING SWITCH. Per-state art on BOTH slots: the track's ON state
-			-- is a different PICTURE (not a tint), and the knob has its own pressed
-			-- art. `togglePalette` remains the flat truth — a package that declares
-			-- neither of these renders exactly today's palette-true switch.
+
 			toggleTrack = {
 				kind = "nineSlice",
 				asset = { default = "ornate_toggle_track_off", selected = "ornate_toggle_track_on" },
@@ -400,8 +340,7 @@ function layered_test.definition(themes: any): any
 				asset = { default = "ornate_toggle_knob_default", pressed = "ornate_toggle_knob_pressed" },
 				fallback = "native",
 			},
-			-- THE STEPPER PLATE, per state. The glyph itself stays TEXT: semantic
-			-- icons are the semantic-icon surface and build package P4.
+
 			stepperPlate = {
 				kind = "nineSlice",
 				asset = { default = "ornate_stepper_plate_default", pressed = "ornate_stepper_plate_pressed" },
@@ -420,10 +359,6 @@ function layered_test.build(themes: any): (any, any)
 	return themes.define(layered_test.definition(themes))
 end
 
--- The layer whose art is deliberately broken, and the asset NAME the scenario
--- reports to the adapter's resource seam. A MIDDLE layer on purpose: a stack
--- that fails only at its back would hide the "one broken layer fails the stack"
--- rule behind the layer that happens to carry the native fallback fill.
 layered_test.BOGUS_CONTENT_ID = "rbxassetid://1"
 layered_test.BROKEN_ASSET = "ornate_panel_frame"
 

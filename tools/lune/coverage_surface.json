@@ -1,0 +1,15 @@
+{
+  "replacements": {
+    "ref_contract": {
+      "specs": [
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime"
+      ],
+      "remaining": [],
+      "retiredAssertions": "Old blueprint ref api/dump/frozen-handle shape is deliberately deleted; the ref receives the returned native Instance and Compose owns its removal."
+    }
+  },
+  "retiredMechanisms": []
+}

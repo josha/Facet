@@ -1,28 +1,57 @@
 --!strict
--- Describe once. State, derived values and animation belong to the mounted view.
+
 return {
 	title = "Automatic motion",
 	ledgerRows = {},
 	build = function(ctx: any)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local commands, latest = {}, {}
 		local function Section(props)
 			local rows = { gap = "s" }
 			for _, child in props.children do
 				table.insert(rows, child)
 			end
-			return UI.VStack({
-				gap = "s",
-				width = UI.fill(),
-				UI.Text({ text = props.title, textSize = "control" }),
-				UI.VStack(rows),
+			return Host.Frame({
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 8),
+				}),
+				UI.Label({
+
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = props.title,
+					TextSize = 16,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				Host.Frame({
+
+					Name = "Rows",
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
+					table.unpack(rows),
+				}),
 				props.footer,
 			})
 		end
-		-- An arriving panel fades in: a tween from clear to solid that starts when
-		-- its branch mounts. A host without an application runtime shows it solid.
+
 		local function arrival(): any
-			local runtime = ctx.app and ctx.app.runtime
+			local runtime = ctx.runtime
 			if runtime == nil then
 				return 1
 			end
@@ -42,9 +71,8 @@ return {
 				{ id = "beacon", name = "Beacon", price = 20 },
 			})
 			local balance = Compose.cell(100)
-			-- The displayed balance eases toward the model value. A host without an
-			-- application runtime shows the model value directly.
-			local runtime = ctx.app and ctx.app.runtime
+
+			local runtime = ctx.runtime
 			local displayedBalance = if runtime
 				then runtime.tween(function(use)
 					return use(balance)
@@ -90,14 +118,17 @@ return {
 					first = use(items)[1].id,
 				}
 			end)
-			local function ItemRow(current)
-				return UI.ZStack("Card-" .. current:peek().id)({
-					width = UI.fill(),
-					opacity = function(use)
-						return if use(selected) == use(current).id then 1 else 0.65
+			local function ItemRow(current, placement)
+				return Host.Frame({
+					Name = "Card-" .. current:peek().id,
+					LayoutOrder = function(use)
+						return use(placement).index
 					end,
-					animation = { opacity = "object" },
-					UI.Button("Select")({
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					UI.Button({
+						Name = "Select",
 						label = function(use)
 							return `{use(current).name} · {use(current).price} credits`
 						end,
@@ -107,53 +138,114 @@ return {
 					}),
 				})
 			end
-			return UI.Screen("AutomaticMotion")({
-				padding = "m",
-				gap = "s",
-				UI.ScrollView("Page")({
-					width = UI.fill(),
-					height = UI.fill(),
-					gap = "m",
-					animation = { layout = "container" },
+			return Host.Frame({
+				Name = "AutomaticMotion",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				Host.ScrollingFrame({
+					Name = "Page",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
 					Section({
 						title = "Equipment",
-						footer = UI.Text({
-							text = function(use)
+						footer = UI.Label({
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = function(use)
 								return `Balance: {math.floor(use(displayedBalance) + 0.5)} credits`
 							end,
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 						children = {
-							UI.ForEach("Items")({
-								Compose.keyed({
-									from = items,
-									key = function(entry)
-										return entry.id
-									end,
-									render = ItemRow,
-								}),
+							Compose.OrderedCollection({
+								from = items,
+								key = function(entry)
+									return entry.id
+								end,
+								render = ItemRow,
 							}),
 						},
 					}),
-					UI.Toggle("DetailsToggle")({ label = "Show details", value = expanded }),
-					UI.When("Details")({
+					UI.Toggle({
+
+						Name = "DetailsToggle",
+						label = "Show details",
+						value = expanded,
+					}),
+					Host.Frame({
+
+						Name = "Details",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						Compose.show(expanded, function()
-							return UI.ZStack("Panel")({
-								canvasGroup = true,
-								opacity = arrival(),
-								padding = "s",
-								surface = "raised",
-								width = UI.fill(),
-								UI.Text({
-									text = function(use)
+							local alpha = arrival()
+							return Host.CanvasGroup({
+								GroupTransparency = function(use)
+									return 1 - use(alpha)
+								end,
+								Name = "Panel",
+								BackgroundTransparency = 1,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Host.UIPadding({
+									PaddingTop = UDim.new(0, 8),
+									PaddingBottom = UDim.new(0, 8),
+									PaddingLeft = UDim.new(0, 8),
+									PaddingRight = UDim.new(0, 8),
+								}),
+								UI.Label({
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									Text = function(use)
 										return `{use(item).name} costs {use(item).price} credits. Its row stays the same when reordered.`
 									end,
+									TextWrapped = true,
+									TextYAlignment = Enum.TextYAlignment.Top,
+									TextXAlignment = Enum.TextXAlignment.Left,
 								}),
 							})
 						end),
 					}),
-					UI.Button("Buy")({ label = "Buy selected", enabled = affordable, onActivate = buy }),
-					UI.Button("Reverse")({ label = "Reverse order", onActivate = reverse }),
-					UI.Button("Reset")({ label = "Reset balance", onActivate = commands.reset }),
+					UI.Button({
+
+						Name = "Buy",
+						label = "Buy selected",
+						enabled = affordable,
+						onActivate = buy,
+					}),
+					UI.Button({
+
+						Name = "Reverse",
+						label = "Reverse order",
+						onActivate = reverse,
+					}),
+					UI.Button({
+
+						Name = "Reset",
+						label = "Reset balance",
+						onActivate = commands.reset,
+					}),
 				}),
 			})
 		end

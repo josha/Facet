@@ -1,24 +1,5 @@
 #!/usr/bin/env python3
-"""Gate check: the Step-4 production-shaped perf scenes are present AND alive.
 
-`test -f perf.json` proves nothing — a scene whose pointer path stopped
-resolving, whose virtual list stopped windowing, or whose activate seam stopped
-reaching paint would still emit a (faster) record. So each production scene
-declares proof counters in `extras`, and this check asserts those counters show
-work actually happened.
-
-  python3 tools/check_perf_scenes.py            # the six production shapes
-  python3 tools/check_perf_scenes.py --themes   # the three theme-swap shapes
-
-TIGHTENING A PREDICATE OBLIGES A RE-RECORD (R4). Everything below reads
-`artifacts/phase-4/perf.json`, which is a RUN-PRODUCED artifact: `verify.sh full`
-does not regenerate it, because the `perf` producer is RELEASE-tier. So a change
-that adds a scene or narrows an existing PRODUCTION/THEMES predicate is checking
-the new rule against a record written under the old one, and it fails in exactly
-the shape a genuinely broken scene fails in. Run `tools/perf.sh` to re-record
-BEFORE `verify.sh full`, in the same change that tightened the predicate — the
-failure text below says so too, but by then the gate is already red.
-"""
 import json
 import os
 import sys
@@ -27,7 +8,7 @@ PERF = "artifacts/phase-4/perf.json"
 REFERENCE = "floorAndroid"
 CONSOLE = "consoleTenFoot"
 
-# scene -> (requirement, checker(extras) -> error message or None)
+
 PRODUCTION = {
     "virtual-list-scroll": lambda x: (
         None
@@ -47,17 +28,17 @@ PRODUCTION = {
     "stylesheet-state-churn": lambda x: (
         None if x.get("tagsPerPass", 0) > 0 else f"no state tags classified: {x!r}"
     ),
-    "async-image-grid": lambda x: None,  # proof lives in the async counters below
+    "async-image-grid": lambda x: None,
     "screen-lifecycle-churn": lambda x: None,
-    # the four 2026-09-11 landings: each proof says the surface really opened
-    # (a scene whose api.open stopped reaching the presenter would still emit a
-    # faster record)
-    # `represents == presents` is the part `presents > 0` alone could not
-    # prove (task-2 review, 2026-09-12): `presents` incremented unconditionally
-    # even while a stale `pres.dismiss(handle)` in transient_surfaces.luau kept
-    # every open() past the first returning the SAME handle, silently pricing
-    # nothing for cycles 2+. `represents` only counts a cycle whose open()
-    # handed back a genuinely different handle.
+
+
+
+
+
+
+
+
+
     "alert-present-dismiss": lambda x: (
         None
         if x.get("presents", 0) > 0 and x.get("actions") == 3 and x.get("represents", 0) == x.get("presents", 0)
@@ -74,8 +55,8 @@ PRODUCTION = {
     "radial-menu-open-close": lambda x: (
         None if x.get("opens", 0) > 0 and x.get("sectors", 0) == 6 else f"the radial never opened: {x!r}"
     ),
-    # the dense-motion frame (row SF-M8): every axis has to be doing work, and the
-    # one-transaction-per-stepped-frame contract has to still hold under all of it
+
+
     "dense-motion": lambda x: (
         None
         if x.get("springs", 0) >= 20
@@ -85,24 +66,24 @@ PRODUCTION = {
         and x.get("motionSteps") == x.get("motionTransactions")
         else f"the dense-motion frame did not do its work: {x!r}"
     ),
-    # the transitions round's CONTROL motions (2026-09-12). Every one of the four
-    # is silent when it stops firing — a shake that never books, a pop gated off,
-    # a stagger that stops holding rows — and each absence makes the scene FASTER,
-    # so the counters are the only thing standing between this budget and a scene
-    # that prices nothing.
-    #
-    # HALF OF THEM ANSWER FOR THE FRAMEWORK, and only those half are proof.
-    # `rekeys`, `flips` and `pulses` are incremented by the code that SET the
-    # signal, so they say the scene drove its own mutation and nothing more.
-    # `pops` is counted by the handler the ADAPTER's activate seam reached;
-    # `staggerHeld` is read back off the painted alphas; `flipsSeen` off the
-    # existence of the disclosure's content node in the tree; and `shakesSeen`
-    # off the input root's painted displacement (`presentedPosition` away from
-    # its solved rect) — those four are the tree and the paint answering
-    # (final review item 2, 2026-09-13).
-    # `motionSteps == motionTransactions` is the same one-transaction-per-stepped-
-    # frame contract dense-motion keeps, asserted here over motion the CONTROLS
-    # book rather than motion the scene drives.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     "control-motion": lambda x: (
         None
         if x.get("rekeys", 0) > 0
@@ -119,7 +100,7 @@ PRODUCTION = {
 }
 
 THEMES = {
-    # scene -> (kind, movedRects predicate, description of the invariant)
+
     "theme-swap-flat": (
         "palette-only",
         lambda m: m == 0,
@@ -140,12 +121,12 @@ THEMES = {
 }
 
 
-#[[ RECORDED EVIDENCE THAT IS NOT IN THE CLONE (public-clone honesty round).
-#   `artifacts/phase-4/perf.json` is a run-produced record, git-ignored, and its row
-#   carries a content-hash receipt for exactly that reason. On a public clone it
-#   is simply absent, and `json.load` raised a bare FileNotFoundError traceback --
-#   which reads as a broken checker rather than as an unreachable operand. The
-#   row's receipt is the claim; this file says so and stops. ]]
+
+
+
+
+
+
 def _absent(path):
     print(
         "check_perf_scenes: FAIL_ENVIRONMENT — recorded evidence %s is not in this checkout "
@@ -168,9 +149,9 @@ def main() -> int:
     by_scene = {}
     devices = set()
     for run in report["runs"]:
-        # this checker is about the HEADLESS scene matrix. A report may also
-        # carry ingested device rows, whose `device` is a descriptive table
-        # rather than a profile name — skip them rather than crashing on one.
+
+
+
         if run.get("evidenceClass") != "lune":
             continue
         devices.add(run["device"])
@@ -206,11 +187,11 @@ def main() -> int:
                 errors.append(f"{scene}: {problem}")
 
     if themes_mode:
-        # the E3 half of XP-A3: the live Studio instance census. A flat theme
-        # must genuinely cost nothing, an ornate one must genuinely cost
-        # something, and the ornate package must have COMPILED — the first live
-        # drive handed the adapter a theme module instead of a compiled package
-        # and reported an empty census, which read as "the ornate skin is free".
+
+
+
+
+
         studio_path = "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-studio.json"
         try:
             swaps = {x["package"]: x for x in json.load(open(studio_path))["swaps"]}
@@ -241,10 +222,10 @@ def main() -> int:
     if errors:
         for e in errors:
             print(f"FAIL {e}")
-        # A TIGHTENED PREDICATE FAILS IN THE SHAPE OF A BROKEN SCENE (R4). This
-        # record is run-produced and `verify.sh full` does not regenerate it
-        # (`perf` is release-tier), so say which record was read and how old it
-        # is rather than leaving "did not do its work" to carry both meanings.
+
+
+
+
         stamp = (report.get("environment") or {}).get("timestamp") or "unknown"
         print(
             f"note: read {PERF}, recorded {stamp}. `verify.sh full` does not regenerate it "

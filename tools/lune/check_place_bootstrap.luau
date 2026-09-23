@@ -1,7 +1,5 @@
 --!strict
--- The gallery has one executable bootstrap: a Client-context Script in
--- ReplicatedStorage. Starter containers must not contain another copy.
--- https://create.roblox.com/docs/scripting/locations
+
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local roblox = require("@lune/roblox")

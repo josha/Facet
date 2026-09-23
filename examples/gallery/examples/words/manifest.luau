@@ -1,11 +1,4 @@
 --!strict
--- GENERATED — do not edit by hand. Regenerate with:
---     python3 tools/build_word_lists.py
---
--- What each generated file hashed to when it was produced. The word-data spec
--- re-hashes the files on disk and compares, so data edited by hand — or a
--- partial regeneration that left one length behind — fails the suite rather
--- than quietly changing which words the games accept.
 
 return table.freeze({
 	["schema"] = "facet-word-data/1",
@@ -54,12 +47,12 @@ return table.freeze({
 	},
 	["solutionCount"] = 2095,
 	["files"] = {
-		["len2.luau"] = "ad3b917681bd7226024e73a9b23e23a20b7b8302098e744c007487386aecc56f",
-		["len3.luau"] = "bd1cd30641dc57eb980f56b78a76b58af3d440a205672d2e3ad80b773ecc122d",
-		["len4.luau"] = "4b419826ed64ca3e0ea2b25abd02399233a24c8982fb697b566f21c69eb42aa9",
-		["len5.luau"] = "3b957038cfb3cca85b8ba8ff3d8203e7a428b3c7e57d6fd304d6988fc765320b",
-		["len6.luau"] = "b44eb3c56356419922cb2428a5b81f8d30af45d7200ca72e5ae1091b7cf3bd0a",
-		["len7.luau"] = "0419be11868f4381327dda413495ac95e091c6ebd22c000045a274f1cbc320ba",
-		["solutions.luau"] = "52a4241b25b7cafd743f235507acb50f38d4e96a528b0f5ebb524aaeee9632c7",
+		["len2.luau"] = "e9422b21dd41957734edde588a31552db31d5b81f0edcaf73cc845b08c73386b",
+		["len3.luau"] = "15053f7578af2a144c266829ef02d3e74d7c4ec195921ff6d4363ad1f12523cb",
+		["len4.luau"] = "1053eec74121822dc9e55f8c8ae8face768c11ab7f8b9d3e0f5bd7c1fb423ecd",
+		["len5.luau"] = "295c7558f167cb85ee1446e152b3489dc1ec36dd0a0cdee936da3000ca3a53c9",
+		["len6.luau"] = "2f20608ab7d00128af82877942a346f76c79720e1c2d787c6cddabcc0f3e1f8a",
+		["len7.luau"] = "264c7d3216391f9d86ddcf63f2edb6ef4168f01fe5baaf40acaece6a958546c6",
+		["solutions.luau"] = "77ac85fe390a391d118a61a0ade7546296854f8719ffb0e51e8cde322fc86f02",
 	},
 })

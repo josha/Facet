@@ -1,0 +1,676 @@
+{
+  "retiredMechanisms": [
+    "virtual_extents",
+    "virtual_list_slot_guard",
+    "virtual_list_hosted_seam",
+    "row_actions_dump_seam",
+    "row_actions_state",
+    "table_rows_seam"
+  ],
+  "retirementReasons": {
+    "virtual_extents": "Facet prefix sums, extent indexes and window arithmetic are deleted; Compose.OrderedCollection owns these algorithms.",
+    "virtual_list_slot_guard": "The Facet blueprint/solver fill-slot refusal is removed. Native instances own sizing; measured content is observed through AbsoluteSize.",
+    "virtual_list_hosted_seam": "Removed controller/contribution attachment plumbing; native controls mount directly into the Compose Roblox runtime.",
+    "row_actions_dump_seam": "Dump/dependency-schema source scans described the deleted imperative RowActions engine and its diagnostic facade.",
+    "row_actions_state": "The separate pointer-state machine, probe radius transport and Facet capture arbitration are replaced with engine UIDragDetector plus local control policy.",
+    "table_rows_seam": "Source-level dependency surface checks described the deleted table_rows blueprint builder."
+  },
+  "replacements": {
+    "virtualization": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::follows appended rows only while native viewport stays at the end",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Bounded window, stable keyed row identity/current-item refresh, native viewport anchoring, pool reuse/teardown, offscreen keyed focus and follow-end policy."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_axis": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::observes automatic row sizes without overwriting content geometry"
+      ],
+      "behaviors": [
+        "Native horizontal/vertical placements and measured size-axis observation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_hgrid": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions"
+      ],
+      "behaviors": [
+        "Horizontal grid lanes and native placement offsets use Compose geometry."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_grid": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it",
+        "native_collections::Compose native collections::uses new grid neighbors when responsive columns change without changing total extent"
+      ],
+      "behaviors": [
+        "Grid lane geometry, keyed row lifetime, external measurements and virtual focus restoration."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_grid_input": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it",
+        "native_collections::Compose native collections::uses new grid neighbors when responsive columns change without changing total extent"
+      ],
+      "behaviors": [
+        "Scoped native directional contexts and stable keyed focus; disabled keys excluded by Compose focus scope."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_variable_extents": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::observes automatic row sizes without overwriting content geometry",
+        "native_collections::Compose native collections::follows appended rows only while native viewport stays at the end"
+      ],
+      "behaviors": [
+        "Measured item sizes, changing extents and horizontal/vertical geometry come from Compose."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_measured_extents": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::observes automatic row sizes without overwriting content geometry",
+        "native_collections::Compose native collections::drops removed measurements and refreshes current-item row actions under stable keys"
+      ],
+      "behaviors": [
+        "AutomaticSize content remains engine-owned; native AbsoluteSize observations update Compose measurement map and bounded rows."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_row_gap": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions"
+      ],
+      "behaviors": [
+        "Compose placements and canvas extent include gap once, across measured rows and columns."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_input": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Native input contexts focus offscreen keys, skip disabled rows, suppress text editing, restore remounted focus and preserve actual CanvasPosition."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_focus_policy": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Offscreen focus deferred until native geometry, key identity survives virtual remount and disposal clears native selection."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases.",
+        "Nearest-sibling focus fallback and custom focus-origin flags": "Compose.createFocusScope owns removal/autofocus behavior; engine SelectedObject owns selection origin and visuals."
+      }
+    },
+    "virtual_list_row_actions": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
+        "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation",
+        "native_collections::Compose native collections::drops removed measurements and refreshes current-item row actions under stable keys"
+      ],
+      "behaviors": [
+        "Native action reveal, destructive lifecycle, edit actions, context menu/back/focus behavior; collection render is the explicit row-composition seam."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "virtual_list_row_actions_identity": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::drops removed measurements and refreshes current-item row actions under stable keys"
+      ],
+      "behaviors": [
+        "Keyed containers retain reactive item identity; action ownership dies with its row."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "row_actions": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
+        "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation",
+        "native_collections::Compose native collections::locks vertical gestures, opens short velocity flicks and cancels disabled drags",
+        "native_collections::Compose native collections::measures localized row action labels and reveals truncated visible table values",
+        "native_collections::Compose native collections::cancels native row gestures and keeps destructive opt-outs behind every action route"
+      ],
+      "behaviors": [
+        "Native drag reveal, one-open coordination, destructive departure/once guard, editing delete, per-edge full swipe, focused Delete, shared Menu and focus restoration.",
+        "Native tray clips to the currently painted reveal distance and renders actual icon assets; vertical axis lock, velocity fling and disable-during-drag cancellation are explicit tests.",
+        "Native TextBounds changes enlarge and shrink tray widths and edit gutters; clipping remains tied to painted reveal."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "row_actions_input": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
+        "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation",
+        "native_collections::Compose native collections::locks vertical gestures, opens short velocity flicks and cancels disabled drags",
+        "native_collections::Compose native collections::cancels native row gestures and keeps destructive opt-outs behind every action route"
+      ],
+      "behaviors": [
+        "Pointer/touch detector lifecycle, controlled edge policy, native focus-scoped destructive actions and context menu trap/Back restoration.",
+        "Native tray clips to the currently painted reveal distance and renders actual icon assets; vertical axis lock, velocity fling and disable-during-drag cancellation are explicit tests.",
+        "Native InputObject Cancel and WindowFocusReleased cancel owned gestures; destructive disabled actions refuse swipe/tray/edit/keyboard/menu routes."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      },
+      "evidenceLimits": [
+        "Native engine-double proves control policy; physical device event generation is engine behavior and requires live-device validation."
+      ]
+    },
+    "row_actions_motion": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
+        "native_collections::Compose native collections::locks vertical gestures, opens short velocity flicks and cancels disabled drags"
+      ],
+      "behaviors": [
+        "Compose spring reveal and timeline departure; reduced-motion completion, once-only callback and owner cancellation.",
+        "Native tray clips to the currently painted reveal distance and renders actual icon assets; vertical axis lock, velocity fling and disable-during-drag cancellation are explicit tests."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Hand-sampled spring coefficients, private state dump and renderer paint rectangles": "Compose owns animation scheduling and interpolation; no Facet clock/state facade remains."
+      }
+    },
+    "row_actions_hosted": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
+        "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation"
+      ],
+      "behaviors": [
+        "The same native RowActions control composes in collection rows; no second hosted engine is maintained."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases.",
+        "Hosted blueprint-free onSlide/onCommitHeight and contribution path wiring": "Removed with the old presenter; native instances compose directly as normal row content."
+      }
+    },
+    "row_actions_scenario": {
+      "specs": [
+        "native_collections",
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
+        "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation",
+        "native_gallery_workflows::native gallery workflows::swipes the native mail list and deletes exactly the chosen message"
+      ],
+      "behaviors": [
+        "Underlying actions scenario controls: reveal, editing delete, menu and cancel."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "native_row_actions": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses native drag to reveal and invoke row actions with cancellation and coordination",
+        "native_collections::Compose native collections::commits a destructive action once after Compose departure and cancels on disposal",
+        "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input"
+      ],
+      "behaviors": [
+        "Compose event/observer cleanup and pending departure cancellation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "table": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::lets domain callbacks reject table selection, sorting and resize requests",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input",
+        "native_collections::Compose native collections::measures localized row action labels and reveals truncated visible table values",
+        "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll",
+        "native_collections::Compose native collections::shares list selection and reorder policies and fails closed for protected rows",
+        "native_collections::Compose native collections::snaps native scrolling to Compose measured boundaries and yields animation to input"
+      ],
+      "behaviors": [
+        "Stable cell state under sort/resize, controlled model veto, range selection, multi-row reorder, per-row policies, block mode and priority-collapse disclosure.",
+        "Native reorder marker and selected-block drag label follow Compose placements; header and row height follow observed TextBounds, theme minimum and native preferred input."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "native_table": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::lets domain callbacks reject table selection, sorting and resize requests",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state"
+      ],
+      "behaviors": [
+        "Stable keyed/native cell instances, sort/edit updates, disposal, selection pruning and windowed row model state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "table_virtualized": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state",
+        "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll",
+        "native_collections::Compose native collections::snaps native scrolling to Compose measured boundaries and yields animation to input"
+      ],
+      "behaviors": [
+        "Bounded row construction via Compose, measured offsets, selection range through unmounted rows, source reorder and all-mounted block mode.",
+        "A pointer scrolls beyond the original row lifetime and commits through table-owned native input; keyboard performs 25 offscreen steps then drops. Capture loss cancels."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "table_input": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state"
+      ],
+      "behaviors": [
+        "Native column drag/keyboard resize, selected-block reorder, keyboard cancellation, disabled/selectable/movable rules and collapsed-column disclosure.",
+        "Keyboard/gamepad reorder step-and-drop and native focused column resize have explicit commit assertions."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "table_themed_header": {
+      "specs": [
+        "native_collections",
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input",
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint"
+      ],
+      "behaviors": [
+        "Header/cell identities survive sort, width changes and column collapse using shared native layout/constraint inputs."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases.",
+        "Exact old themed solver line-box numbers and private inheritance inspection": "Native text measurement and StyleSheet inheritance replace the Facet text/layout painter; observed native TextBounds and engine-backed theme rule tests cover the control response."
+      }
+    },
+    "paradigm_table": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input",
+        "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll",
+        "native_collections::Compose native collections::shares list selection and reorder policies and fails closed for protected rows"
+      ],
+      "behaviors": [
+        "Native selection/resize/reorder contexts, disabled-row policies and collapse disclosure."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Custom solver coordinates, renderer op counts, scene paths and debug dump assertions": "These inspect deleted Facet mechanisms; native placement and owner cleanup are checked through actual engine properties and Compose mounts.",
+        "Old closed-schema key names and legacy imperative handles": "Hard API cutover removes these entrypoints rather than maintaining aliases."
+      }
+    },
+    "collection_self_measure": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::observes automatic row sizes without overwriting content geometry",
+        "native_collections::Compose native collections::uses new grid neighbors when responsive columns change without changing total extent"
+      ],
+      "behaviors": [
+        "Native AbsoluteWindowSize drives windowing and cross-lane geometry; automatic content AbsoluteSize supplies measured extents; initial focus waits for native geometry."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "Viewport seed/solved-box diagnostic and crossExtent hug schema": "viewportExtent/crossExtent Facet solver configuration is removed. Native Size/AutomaticSize/AbsoluteWindowSize express sizing directly; zero-size viewports retain no rows until measured."
+      }
+    },
+    "collection_list": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::follows appended rows only while native viewport stays at the end",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it",
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll",
+        "native_collections::Compose native collections::shares list selection and reorder policies and fails closed for protected rows",
+        "native_collections::Compose native collections::snaps native scrolling to Compose measured boundaries and yields animation to input"
+      ],
+      "behaviors": [
+        "Shared key-map selection, pruning and native selected attributes; native pointer and keyboard reorder; Compose measured placement, anchoring, follow-end and input-scoped focus."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "rows as drop targets: accepts/onDrop and registry payload/reject verdicts": "The global drag registry, cross-list payload transport and foreign drop target facade are deleted application scaffolding. Native UIDragDetector DragStart/DragContinue/DragEnd and native GuiObject events are the direct composition seam. Control-local reorder remains provided.",
+        "live follow flip without remount": "Follow is the Compose OrderedCollection static option; callers use Compose.keyed for a configuration remount, retaining durable data outside the owner. Virtual monitors uses this direct Compose pattern.",
+        "re-sort/removal during drag keeps session and verdict": "Native reorder cancels a gesture when source identity/order changes; it never commits a stale insertion slot. Stable keyed row state remains Compose-owned.",
+        "selectionPaint, imperative clearSelection/toggleGrab and dump handles": "Native selected Attributes and theme rules express paint; cells and native control activation replace old controller handles.",
+        "permissive focus-skip-but-still-activate predicate": "disabled is the unified native control opt-out; selectable and movable independently subtract those capabilities."
+      }
+    },
+    "collection_gap_tokens": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions"
+      ],
+      "behaviors": [
+        "Reactive numeric gap/crossGap and columns change Compose geometry without replacing stable row containers."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "Named/dotted metric resolution and ambiguous-core provenance refusal": "Collections accept Compose numeric readables/bodies. Resolve game theme tokens directly in a property body; the Facet environment lookup facade is deleted.",
+        "negative number and unknown metric string diagnostics": "Geometry option validation belongs to Compose.OrderedCollection; the old Facet metric parser and its error strings are removed."
+      }
+    },
+    "native_scroll_autobind": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it",
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::keeps block tables fully mounted and discloses collapsed columns without losing cell state"
+      ],
+      "behaviors": [
+        "Native CanvasPosition/AbsoluteWindowSize are always observed by the actual control; windowed and fully-mounted modes have owner-scoped observers."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "bindNativeScroll path publishing, additional presenter mirror, duplicate-observer and unbind-refresh assertions": "There is no renderer path/mirror/bindNativeScroll API. The actual ScrollingFrame is the control reference and its Compose-owned observers die with that control."
+      }
+    },
+    "row_permutation": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::keeps table cells alive across sort and native column resize and prunes selection",
+        "native_collections::Compose native collections::drops removed measurements and refreshes current-item row actions under stable keys"
+      ],
+      "behaviors": [
+        "Stable keyed row/native cell identity across source permutations and changed items; removed automatic measurements are pruned; native resize/sort preserve cell owners."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "Forced-full oracle, prefix memo reuse/refusal, suffix rebase and failed renderer write recovery": "These assert deleted Facet layout-cache and adapter algorithms. Compose owns keyed reconciliation and OrderedCollection geometry; Roblox owns paint order."
+      }
+    },
+    "row_capability_optouts": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::shares list selection and reorder policies and fails closed for protected rows",
+        "native_collections::Compose native collections::cancels native row gestures and keeps destructive opt-outs behind every action route"
+      ],
+      "behaviors": [
+        "Selection and movement policies fail closed when callbacks throw; pinned rows cannot move or be displaced; disabled destructive actions refuse every native action route."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "rowSelectable/rowMovable/rowDeletable legacy construction refusal vocabulary": "selectable and movable are local control predicates; action.enabled disables deletion. No legacy controller api.select/api.moveRow or schema exists.",
+        "flow-wrap virtual list construction refusal": "Native layouts and Compose collection geometry replace the bespoke Facet flow-wrap layout surface."
+      }
+    },
+    "scroll_snap": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
+        "native_collections::Compose native collections::snaps native scrolling to Compose measured boundaries and yields animation to input"
+      ],
+      "behaviors": [
+        "Native scroll settles to Compose measured item/line boundaries in both axes; decisive flick advances, large items remain free, Compose timeline respects reduced-motion and input interruption."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "Pure snap resolver / custom extent-index numeric parity fixtures": "Facet no longer has a snap index/resolver or scrollTo handle. Snap boundaries come directly from Compose placements; CanvasPosition is the native scroll interface.",
+        "Hand-stepped spring travel constants and old runtime tick idle counters": "Compose owns animation time and interpolation. Native policy subscribes a rest timer only after movement and releases it after settling; idle collections install no snap frame work."
+      }
+    },
+    "autoscroll": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll"
+      ],
+      "behaviors": [
+        "Native reorder edge scrolling uses engine viewport dimensions and Compose extent/placement, survives offscreen origin disposal, commits offscreen placement and stops on capability loss."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "Standalone band/dwell/ramp/coast state-machine probes, ratified tunable dumps and portrait environment overrides": "The exported Facet autoscroll model and tuning facade are deleted. A small control-local edge policy drives native CanvasPosition; Compose owns geometry and no separate drag registry or scrolling model remains."
+      }
+    },
+    "row_capabilities_scenario": {
+      "specs": [
+        "native_collections",
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::selects ranges across unmounted rows while honoring row capability policies",
+        "native_collections::Compose native collections::shares list selection and reorder policies and fails closed for protected rows",
+        "native_collections::Compose native collections::cancels native row gestures and keeps destructive opt-outs behind every action route",
+        "native_gallery_workflows::native gallery workflows::honors locked selection pinned movement and protected deletion in RunSheet"
+      ],
+      "behaviors": [
+        "Underlying native permission behavior is tested through actual row selection, move and destructive action controls."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Blueprint dumps, scene paths, dependency schemas and solver findings": "These inspect deleted Facet renderer/controller/layout mechanisms. Native instances and Compose owners replace those APIs.",
+        "Old scenario controller-entry focus graph, refusal diagnostic counters and pseudo-localized solver findings": "Scenario now uses native control instances and model-owned copy; obsolete solver findings and controller paths are removed."
+      }
+    }
+  }
+}

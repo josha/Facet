@@ -1,781 +1,471 @@
---!strict
--- Scenario 'adaptive_controls': the write-once proof (acceptance row A-AL4) and
--- the live fixture the five-view device matrix drives (rows D-1..D-6).
---
--- ONE semantic tree. There is no per-profile copy and no device-name branch: the
--- layout adapts from `Facet.adaptive.conditions` (space + viewing distance) and
--- from `UI.ViewThatFits` (the container's real measured space). Every Milestone B
--- control appears, so a single matrix sweep covers them all.
---
--- ...AND, SINCE parity round 2, THE LAYOUT VOCABULARY THAT ROUND ADDED
--- (`docs/plans/parity-round2.md` §2.1/2.2/2.4/2.5/2.6, §3.3). The plan
--- names this fixture as the natural home for the ADAPTIVE members of that
--- vocabulary, and the reason is the same one that put the compact-label ladder
--- here: this is the surface the five-view device matrix and the always-on
--- overflow sweep already drive from a 320px phone to a ten-foot console, so a
--- prop whose whole subject is "what happens when the space changes" is under
--- observation at every width for free. The block lives at the bottom of the HUD
--- column and is headed `VocabHeading` on screen. What it carries:
---
---   * `distribute`               (§2.6) — the legend row spreads its three
---                                 markers edge to edge instead of packing left
---   * `layoutPriority` +         (§2.4) — the three bars below it overflow a
---     `shrinkWeight`                     phone and give way in priority order:
---                                        Optional first, then Useful, and
---                                        Essential never (it declares no weight)
---   * `lineAlign`                (§2.1) — Essential is a short bar sitting on
---                                        the BOTTOM of a line its siblings set
---   * `containerRelativeFrame`   (§2.5) — the page card is one third of the
---                                        SCROLLER's viewport, not of its own
---                                        parent column, which is the whole
---                                        distinction from a `percent` dim
---   * `UI.GridRow` + `gridSpan`  (§2.2) — a two-column spec table whose columns
---                                        line up across rows, headed by a cell
---                                        spanning both
---   * `UI.sensoryFeedback`       (§3.3) — the quality picker emits `select` and
---                                        the volume stepper emits `adjust` on
---                                        the presenter's feedback bus. Facet
---                                        still plays nothing; it says what
---                                        happened and a subscriber decides.
-
---[[ THE CARVED BORDER, READ STRAIGHT OFF THE PUBLIC THEME SNAPSHOT.
-
-	`chromeInsets` is documented theme-snapshot data — `docs/reference/api.md`
-	"Art geometry: `chromeInsets`, `chromeOutsets` and `chromeBleed`" and
-	`docs/guide/09-custom-themes.md`: `chromeInsets[slot] = {top, right, bottom,
-	left}`, "Every slot publishes an entry, zero included", to be "read directly
-	only when a caller must predict a decorated node's *content* box". A corner
-	badge that must land INSIDE the tile's carved border is exactly that caller,
-	and it is the only reason this fixture reads the map at all.
-
-	WHAT USED TO BE HERE, AND WHY IT IS GONE. This read went through
-	`src/tokens/chrome_slots.carvedSide`, reached by a two-route pcall (the
-	ENGINE path `ReplicatedStorage.Facet.tokens.chrome_slots` first, the FILE
-	path `require("../../../src/tokens/chrome_slots")` second) — the shape task
-	SHOWCASE2 defect A introduced after a bare relative require resolved under
-	Lune but NOT live in Studio, where `src` and this directory mount as SIBLING
-	trees. Both halves of that dance existed only to reach a framework INTERNAL,
-	which is what `tools/lune/check_boundary`'s `consumer-requires-facet-internal`
-	rule flags an example for. The public field needs no resolution on either
-	tree, so there is nothing left to resolve and no fallback that could fire.
-
-	The local below keeps `carvedSide`'s exact defensiveness and its exact
-	answers: a non-table snapshot, a missing slot, or a non-number side all read
-	`0`, because a flat package legitimately carves nothing and that is not an
-	error. Two call sites, one per axis — deliberately NOT a shared example
-	utility module. ]]
-local function carvedSide(snapshot: any?, slot: string, side: string): number
-	if type(snapshot) ~= "table" then
-		return 0
-	end
-	local insets = (snapshot :: any).chromeInsets
-	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
-	local px = if type(plate) == "table" then (plate :: any)[side] else nil
-	return if type(px) == "number" then px else 0
-end
-
 return {
-	title = "Adaptive controls (write-once)",
-	ledgerRows = {
-		"A-AL4",
-		"A-LV4",
-		"B-BTN2",
-		"B-VAL2",
-		"B-VAL3",
-		"B-DSP1",
-		"B-DSP2",
-		"D-1",
-		"D-2",
-		"D-3",
-		"D-4",
-		"D-5",
-	},
-	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI, Compose = ctx.UI, ctx.Compose
-		-- the mounted screen's adaptive facts, for the report
-		local conditions: any = nil
-		local function noop() end
-
-		-- owner-held state (it must outlive the controls, and it is what a live
-		-- orientation change has to preserve)
-		local volume = Compose.cell(6)
-		local brightness = Compose.cell(40)
-		local quality = Compose.cell("balanced")
-		local advancedOpen = Compose.cell(false)
-		local vsync, telemetry = Compose.cell(true), Compose.cell(false)
-		local progress = Compose.cell(0.35)
-		local navSection = Compose.cell("browse")
-		local function Example()
-			conditions = Facet.adaptive.conditions(ctx.env)
-			Compose.cleanup(function()
-				conditions = nil
-			end)
-
-			local stepper = UI.Stepper("Volume")({
-				label = "Volume",
-				value = volume,
-				min = 0,
-				max = 10,
-				step = 1,
-			})
-			local slider = UI.Slider("Brightness")({
-				label = "Brightness",
-				value = brightness,
-				min = 0,
-				max = 100,
-				step = 5,
-			})
-			local picker = UI.Picker("Quality")({
-				label = "Quality",
-				options = {
-					{ value = "performance", label = "Performance" },
-					{ value = "balanced", label = "Balanced" },
-					{ value = "fidelity", label = "Fidelity" },
-				},
-				selected = quality,
-				sizeClass = conditions.sizeClass,
-			})
-			local progressView = UI.ProgressView("Download")({
-				label = "Download",
-				value = progress,
-				showValue = true,
-			})
-			local saveLabel = UI.Label("SaveLabel")({ title = "Save changes" })
-			local disclosure = UI.DisclosureGroup("Advanced")({
-				label = "Advanced",
-				description = "Optional rendering and privacy settings",
-				icon = "settings",
-				chevronPosition = "trailing",
-				appearance = "divided",
-				controlSize = "regular",
-				expanded = advancedOpen,
-				content = function()
-					return UI.VStack("AdvancedBody")({
-						gap = "tight",
-						width = UI.fill(),
-
-						UI.Toggle("Vsync")({
-							label = "Vertical sync",
-							value = vsync,
-							hint = "Keep frames aligned with the display",
-							controlSize = "regular",
-						}),
-						UI.Toggle("Telemetry")({
-							label = "Share telemetry",
-							value = telemetry,
-							presentation = "checkbox",
-							hint = "Send anonymous play statistics",
-							indicatorPosition = "leading",
-						}),
-					})
-				end,
-			})
-
-			--[[ ONE PICKER, TWO CONTAINERS — `iconOnly` and the VERTICAL PILL (D6).
-
-				Both shipped with spec consumers only, so a device review had nothing to
-				look at: `iconOnly = true` (every segment wears its semantic icon at every
-				width, f1's top pill) and `axis = "y"` (the vertical RAIL, f1's left rail,
-				which is content-sized with a 44px floor and is NOT the `inline` row list —
-				`src/controls/picker.luau`'s D6 header states the distinction and
-				`dump().verticalPill` reports it).
-
-				THE TWO SHARE ONE SIGNAL, which is the claim worth putting on a screen: the
-				difference between the pill and the rail is the CONTAINER and nothing else,
-				so pressing a glyph in either moves both. The options carry both a `label`
-				and an `icon` because `label` stays the semantic name whatever is drawn —
-				it is what `dump().semanticText` announces and the only thing a non-visual
-				consumer has — and the icons are SEMANTIC NAMES from the framework's own
-				set, so a package that ships art for them paints it and one that declines
-				draws the ASCII-safe glyph.
-
-				`style = "segmented"` is DECLARED on both rather than left adaptive:
-				`axis` is inert under the row list, so a strip that was allowed to flip to
-				`inline` on a compact phone would be a rail that is sometimes not a rail —
-				exactly the accepted-and-ignored shape this fixture is here to disprove. ]]
-			local NAV_OPTIONS = {
-				{ value = "browse", label = "Browse", icon = "menu" },
-				{ value = "compose", label = "Compose", icon = "edit" },
-				{ value = "more", label = "More", icon = "more" },
-			}
-			local navPill = UI.Picker("NavPill")({
-				options = NAV_OPTIONS,
-				selected = navSection,
-				style = "segmented",
-				iconOnly = true,
-				env = ctx.env,
-			})
-			local navRail = UI.Picker("NavRail")({
-				options = NAV_OPTIONS,
-				selected = navSection,
-				style = "segmented",
-				axis = "y",
-				iconOnly = true,
-				env = ctx.env,
-			})
-			-- the rail's neighbour is the READOUT, for the same reason the level-picker
-			-- fixture prints `semanticText`: an icon-only control says nothing a bug
-			-- report can quote, so the one string it publishes is printed where a human
-			-- can check it names the segment that is actually lit
-			local navReadout = Compose.formula(function(use)
-				return `Selected: {use(navSection)} — the pill and the rail share this one signal.`
-			end)
-			local navShapes = UI.VStack("NavShapes")({
-				gap = "tight",
-				width = UI.fill(),
-
-				UI.Text("NavHeading")({ text = "Icon segments, and the vertical rail", textSize = "caption" }),
-				navPill,
-				UI.HStack("NavRailRow")({
-					gap = "s",
-					align = "start",
-					width = UI.fill(),
-
-					navRail,
-					UI.Text("NavReadout")({
-						text = navReadout,
-						textSize = "caption",
-						role = "secondary",
-						width = UI.fill(),
-					}),
-				}),
-			})
-
-			-- the ACTION ROW is the ViewThatFits case: side by side when the container
-			-- can hold it, stacked when it cannot. Measured, not guessed.
-			local function actionButton(id: string, label: string, role: string?)
-				return UI.Button(id)({
-					onActivate = noop,
-					label = label,
-					role = role,
-					width = UI.fill(),
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				})
-			end
-			-- The action bar CAPS its width and centres (director review 2026-07-24):
-			-- three fill buttons across a 1200px desktop made each one 400px wide, which
-			-- reads as a mistake rather than a choice. `percent` with a max is the
-			-- "full width, but no wider than this" shape. `align = "stretch"` equalises
-			-- the button heights: the three labels wrap to different line counts, so
-			-- without it the row is visibly ragged (68 / 89 / 68px on phone portrait).
-			local actions = UI.ViewThatFits("Actions")({
-				width = { type = "percent", fraction = 1, max = 620 },
-
-				UI.HStack("ActionsRow")({
-					gap = "s",
-					align = "stretch",
-					width = UI.fill(),
-
-					actionButton("Save", "Save changes"),
-					actionButton("Reset", "Reset to defaults", "cancel"),
-					actionButton("Delete", "Delete profile", "destructive"),
-				}),
-				UI.VStack("ActionsColumn")({
-					gap = "tight",
-					align = "stretch",
-					width = UI.fill(),
-
-					actionButton("Save", "Save changes"),
-					actionButton("Reset", "Reset to defaults", "cancel"),
-					actionButton("Delete", "Delete profile", "destructive"),
-				}),
-			})
-
-			-- the SETTINGS/HUD split is an AdaptiveStack: side by side with room, stacked
-			-- without. A flip is a re-solve, so nothing below remounts.
-			local settingsColumn = UI.VStack("Settings")({
-				gap = 10,
-				width = UI.fill(),
-
-				UI.Text("Heading")({ text = "Settings", textSize = 22 }),
-				UI.Divider({}),
-				-- §3.3: `adjust` is the continuous verb, `select` the discrete one. The
-				-- declaration rides the control's node; Facet plays nothing, and a game
-				-- that subscribes the presenter's feedback bus decides what it means.
-				UI.sensoryFeedback(stepper, { trigger = volume, event = "adjust" }),
-				slider,
-				UI.sensoryFeedback(picker, { trigger = quality, event = "select" }),
-				UI.Divider({}),
-				navShapes,
-				UI.Divider({}),
-				disclosure,
-			})
-			-- A-LV4 shapes that had no fixture: an OVERLAY badge on a tile, a 16:9 media
-			-- box via aspectRatio, and a toolbar row. None uses manual pixel positioning.
-			-- The count is a REAL badge (`surface = "badge"`): under a flat theme it is
-			-- the native circle-with-a-number, and a package with a badge recipe seals
-			-- it and lifts the count centred — the count was unreadable when it was a
-			-- corner-aligned bare Text.
-			--
-			-- BADGE_CORNER_INSET (task THEME2, director item: "the badge has no
-			-- padding and overlaps the edge of the control", i2.png). `UI.padding`/
-			-- `UI.alignment` write straight onto a node's own props, never a
-			-- wrapper — so the `2` below (the seal's own INTERNAL glyph inset; see
-			-- its comment) never moved the badge off the tile's raw corner, and
-			-- under a package that carves a border into `surface = "control"`
-			-- (Pixel Quest's is 8px per side) the badge sat on top of it. Same
-			-- class `src/controls/picker.luau`'s count seal had this round, fixed
-			-- the same way: the `control` slot's own carved chrome, read live off
-			-- the theme snapshot. Zero on every flat package, so shipped geometry
-			-- there is unchanged.
-			local badgeCornerInset = Compose.formula(function(use)
-				-- PER AXIS (review finding T1): a shared four-sided max (the scalar
-				-- `carvedBorder` shape) over-clears the short axis of an asymmetric
-				-- package (fantasy_ornate's `control` is top=10/right=14). A corner
-				-- badge pads two INDEPENDENT sides, so it reads one side per axis.
-				-- Same fix as `src/controls/picker.luau`'s count seal.
-				--
-				-- THE SAME SANITY GUARD `picker.luau`'s `metricsSig` carries (review
-				-- finding T3): a malformed `themeMetrics` fact (any shape without a
-				-- `.controls` table) falls back to nil rather than being read as-is.
-				-- Harmless either way (`carvedSide` above already answers 0 for a
-				-- non-table snapshot), but the two consumers had no stated reason to
-				-- differ on this, so they no longer do.
-				local raw = use(ctx.env:get("themeMetrics"))
-				local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
-				return { top = carvedSide(snap, "control", "top"), right = carvedSide(snap, "control", "right") }
-			end)
-			local function badgedTile(id: string, badge: string)
-				return UI.overlay(
-					UI.Box(id)({
-						surface = "control",
-						width = UI.fill(),
-						height = { type = "fixed", px = 44 },
-					}),
-					UI.ZStack(id .. "BadgeCorner")({
-						alignH = "end",
-						alignV = "start",
-						width = UI.fill(),
-						height = UI.fill(),
-						-- clears the tile's own themed `control` chrome border
-						-- (see badgeCornerInset above); `{top=0,right=0}` on
-						-- every flat package
-						padding = badgeCornerInset,
-
-						UI.padding(
-							-- 28x28, NOT 24: the parchment seal is authored at 28x28 and
-							-- its recipe reserves a 5px contentInset on every side, so the
-							-- lifted count gets 28-10 = 18px of room. At 24 it got 14 —
-							-- less than the ~14.4px line box a 12px glyph needs, which is
-							-- the very clipping this fix round is closing. 28 also paints
-							-- the seal at its native size, so nothing resamples.
-							--
-							-- textAlign is load-bearing too: the lift centres a badge's
-							-- value only when a package actually skins it. On a FLAT theme
-							-- the label draws its own text with the alignment it was
-							-- given, and the default is start — so the unthemed "3" sat
-							-- against the left edge of its circle, which is where the
-							-- director found it.
-							UI.Text(id .. "Badge")({
-								text = badge,
-								textSize = "caption",
-								textAlign = "center",
-								surface = "badge",
-								width = { type = "fixed", px = 28 },
-								height = { type = "fixed", px = 28 },
-							}),
-							2
-						),
-					})
-				)
-			end
-			local toolbar = UI.HStack("Toolbar")({
-				-- Keep the same actions when theme chrome or text needs more room.
-				-- Automatic spatial navigation follows the wrapped rows after solving.
-				wrap = true,
-				gap = "tight",
-				width = UI.fill(),
-
-				UI.Button("TbBack")({
-					onActivate = noop,
-					label = "◀",
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Divider({ axis = "x" }),
-				UI.Button("TbPlay")({
-					onActivate = noop,
-					label = "Play",
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Spacer({}),
-				UI.Button("TbMore")({
-					onActivate = noop,
-					label = "…",
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-			})
-			-- THE COMPACT-LABEL LADDER, on screen (compact-label stage, 2026-07-27).
-			--
-			-- Four buttons with the same full label. The first FILLS, so it says its
-			-- whole label on a desktop and takes its compact form on a phone -- the
-			-- ladder responding to the device, which is what this scenario is for. The
-			-- other three are deliberately narrow so their rung is visible in every
-			-- view at once: a shorter string, an icon, and -- as the control -- one
-			-- that declares nothing and is therefore still where the ellipsis lives.
-			--
-			-- The fixed three are 52px rather than something roomier because the
-			-- theme matrix rejected a wider row: four fixed boxes overflowed a compact
-			-- phone by 2-7px under four packages. A `fill` first child absorbs the
-			-- remainder instead, so the row cannot overrun any viewport.
-			--
-			-- AND 52 IS LESS THAN THE CHROME A BUTTON COSTS under half the shipped
-			-- packages — 52 under Fantasy Ornate and Glossy Touch, 56 under Pixel Quest,
-			-- before a single pixel of content (director report 2026-07-28, defect 3:
-			-- the three buttons rendered BLANK under Glossy Touch). That is kept here
-			-- ON PURPOSE now, because it is the live proof of the rule that report
-			-- produced: a chrome inset is a REQUEST, and on a control too small to
-			-- afford it the inset is given back so the content still draws, and the
-			-- solver says so rather than the control going silently empty. Widening the
-			-- row instead would have removed the only fixture that exercises it — and
-			-- there is no width that works either way, because four skinned buttons and
-			-- their gaps are 242px of pure border under Pixel Quest on a 288px phone.
-			--[[ DELIBERATELY NARROWER THAN THE LABEL NEEDS — that is the demonstration,
-				and it is why this stays a literal (wave TEN-FOOT, 2026-08-20). Spending
-				`targetSizes.minimum` here was tried and measured WORSE: at 44 the
-				fantasy-parchment frame no longer fitted on a compact phone either, so a
-				metric name traded one recorded theme-inset yield for a wider one. A
-				too-narrow button is more too-narrow at three metres; the theme ledger
-				records which packages notice. ]]
-			local compactWidth = { type = "fixed", px = 52 }
-			--
-			-- It rides THIS scenario because the five-view device matrix already drives
-			-- it from phone to desktop under every package, which is the sweep that has
-			-- caught every label-fitting defect so far. The `icon` button is also the
-			-- device proof for the framework's own art: on a package that declines the
-			-- set it must draw "/" and on every other one a pencil.
-			local compactLadder = UI.HStack("CompactRow")({
-				gap = "tight",
-				width = UI.fill(),
-
-				UI.Button("CmpRoomy")({
-					onActivate = noop,
-					label = "Edit item",
-					compactLabel = "Ed",
-					width = UI.fill(),
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Button("CmpText")({
-					onActivate = noop,
-					label = "Edit item",
-					compactLabel = "Ed",
-					width = compactWidth,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Button("CmpIcon")({
-					onActivate = noop,
-					label = "Edit item",
-					compactLabel = { icon = "edit" },
-					width = compactWidth,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Button("CmpNone")({
-					onActivate = noop,
-					label = "Edit item",
-					width = compactWidth,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-			})
-			-- 16:9 media with NO hand arithmetic: the height follows the resolved width
-			local media = UI.aspectRatio(UI.Box("Media")({ surface = "raised", width = UI.fill() }), 16 / 9)
-			-- a DENSE HUD (A-AL4's second required surface): many small live readouts in
-			-- a derived-column grid, not a settings form
-			local hudTiles = {}
-			for i = 1, 12 do
-				table.insert(
-					hudTiles,
-					UI.background(
-						UI.padding(
-							UI.Text(`Stat{i}`)({ text = `S{i}`, textSize = "caption" }),
-							{ top = 4, bottom = 4, left = 6, right = 6 }
-						),
-						UI.Box(`StatPlate{i}`)({ surface = "control" })
-					)
-				)
-			end
-
-			-- ===== THE ROUND-2 LAYOUT VOCABULARY (see the header) ================
-			--
-			-- ONE ROW PER PROP, and each one is chosen so the prop is VISIBLY doing
-			-- something at a phone width AND at a desktop width — a demonstration that
-			-- only fires at one end of the matrix teaches half the rule.
-			--
-			-- §2.6 `distribute`. Three hug-width markers naming the three tiers of the
-			-- shrink row below. `spaceBetween` puts the leftover in the GAPS, so the
-			-- first sits at the row's start edge and the last is flush to its end at
-			-- every viewport — which is exactly the tab-bar case §2.6 was written for,
-			-- and today's only alternative is hand-placed Spacers.
-			local function marker(id: string, text: string)
-				return UI.Text(id)({ text = text, textSize = "caption", role = "secondary" })
-			end
-			-- ...AND IT WRAPS (O-21, 2026-08-15). `spaceBetween` distributes the
-			-- leftover; it has nothing to say when there IS no leftover, and at +10/+14
-			-- these three markers measure past a phone's HUD column — `Essential` was
-			-- painting up to 92px off the right screen edge, which is a label naming a
-			-- tier that a player cannot read. Wrapping costs the demonstration nothing:
-			-- the row still distributes at every width where the three fit, which is
-			-- every viewport at the default preference.
-			local vocabLegend = UI.HStack("Legend")({
-				distribute = "spaceBetween",
-				wrap = true,
-				width = UI.fill(),
-
-				marker("LegendLow", "Optional"),
-				marker("LegendMid", "Useful"),
-				marker("LegendHigh", "Essential"),
-			})
-			-- §2.4 the shrink pass, and §2.1 `lineAlign` riding the same row.
-			--
-			-- 140 x 3 + two 6px gaps = 432, which FITS the HUD column on a desktop and
-			-- does NOT fit it on a phone — deliberately, because "what happens when the
-			-- main axis is short" is the entire feature and a row that always fits
-			-- would never once execute it. When it is short:
-			--   * `Optional` is tier -1, so it gives way FIRST, down to its declared
-			--     24px floor (`minMax.min`, the first rung of the floor stack);
-			--   * `Useful` is tier 0 and only starts giving once tier -1 is spent;
-			--   * `Essential` declares NO `shrinkWeight`, and 0 is the default, so it
-			--     is rigid at every width — Roblox's own `UIFlexMode.None`.
-			-- The narrowest column any swept viewport gives this row is 280px and the
-			-- row's total floor is 24 + 0 + 140 + 12 = 176, so it absorbs its deficit
-			-- everywhere rather than falling through to the overflow diagnostic.
-			--
-			-- `align = "start"` on the row is what makes `lineAlign = "end"` legible:
-			-- the line is 24px tall (the two full-height bars set it) and Essential is
-			-- 16px, so without the per-child override it would sit at the top with its
-			-- siblings. `lineAlign` is the shared BOX prop §2.1 promoted out of the
-			-- overloaded word `align`, and a stack is the only parent that reads it.
-			local function bar(id: string, extra: { [string]: any })
-				local props: { [string]: any } = {
-					surface = "control",
-					width = { type = "fixed", px = 140 },
-					height = { type = "fixed", px = 24 },
-				}
-				for key, value in extra do
-					props[key] = value
-				end
-				return UI.Box(id)(props)
-			end
-			local vocabShrink = UI.HStack("Shrink")({
-				gap = "tight",
-				align = "start",
-				width = UI.fill(),
-
-				bar("VocabOptional", {
-					width = { type = "minMax", min = 24, preferred = 140 },
-					shrinkWeight = 1,
-					layoutPriority = -1,
-				}),
-				bar("VocabUseful", { shrinkWeight = 1 }),
-				bar("VocabEssential", { height = { type = "fixed", px = 16 }, lineAlign = "end" }),
-			})
-			-- §2.5 `containerRelativeFrame`. A paging card: one of three across the
-			-- SCROLLER's viewport, gutters included. The card is a child of this HUD
-			-- column, and on a desktop the column is about half the scroller wide — so
-			-- a `percent` dim would have measured against the column and produced a
-			-- different number. That difference IS the feature, and it is the thing the
-			-- headless case in tests/examples_gallery.spec.luau asserts.
-			local vocabPage = UI.containerRelativeFrame(
-				UI.Box("Page")({ surface = "control", height = { type = "fixed", px = 28 } }),
-				{ axis = "horizontal", count = 3, span = 1, spacing = 8 }
-			)
-			-- §2.2 `UI.GridRow` + `gridSpan`. Row mode is selected by the CHILDREN, not
-			-- by a mode prop: this Grid declares GridRows, so its columns are the widest
-			-- natural cell per column across every row rather than one shared width, and
-			-- the two `Spec*Key` cells line up under each other however long their values
-			-- are. The header cell spans both columns and contributes to neither
-			-- column's maximum.
-			local function specCell(id: string, text: string, extra: { [string]: any }?)
-				local props: { [string]: any } = { text = text, textSize = "caption" }
-				for key, value in extra or {} do
-					props[key] = value
-				end
-				return UI.Text(id)(props)
-			end
-			local vocabSpecs = UI.Grid("Specs")({
-				gap = "tight",
-				width = UI.fill(),
-
-				UI.GridRow("SpecHead")({
-					-- `fill` IS LOAD-BEARING, not decoration: a hug cell would be its own
-					-- 60px natural whether it spanned one column or two, so the span
-					-- would be accepted and invisible — the exact "assertion its own
-					-- starting value already satisfies" shape. Filling makes the cell
-					-- take the two columns AND the gap between them, which is the
-					-- arithmetic §2.2 specifies and the headless case asserts.
-
-					specCell("SpecTitle", "Row grid", {
-						gridSpan = 2,
-						width = UI.fill(),
-					}),
-				}),
-				UI.GridRow("SpecA")({
-					specCell("SpecAKey", "Columns", { role = "secondary" }),
-					specCell("SpecAVal", "align"),
-				}),
-				UI.GridRow("SpecB")({
-					specCell("SpecBKey", "Span", { role = "secondary" }),
-					specCell("SpecBVal", "the header"),
-				}),
-			})
-
-			local hudColumn = UI.VStack("Hud")({
-				gap = "s",
-				width = UI.fill(),
-
-				UI.Text("HudHeading")({ text = "Status", textSize = "control" }),
-				UI.Divider({}),
-				toolbar,
-				compactLadder,
-				progressView,
-				saveLabel,
-				media,
-				-- the dense readout field
-				UI.Grid("Stats")({
-					-- A DENSITY FLOOR for the readout field, measured and kept 2026-08-21:
-					-- `"intrinsic"` sizes these to the widest `S12` glyph run, which re-columns the
-					-- field so short that the page stops overflowing its scroller at all — and this
-					-- fixture's §2.5 case is about what a scroller's viewport measures.
-					-- wide enough for "S12" at the largest text preference under the
-					-- ten-foot scale (the theme x text-size sweep of 2026-09-11 found
-					-- the caption 14px past a 48px cell); a tile that cannot hold its
-					-- own caption is not a smaller tile, it is a broken one
-					minColumnWidth = 72,
-					gap = "xs",
-					width = UI.fill(),
-					table.unpack(hudTiles),
-				}),
-				-- a dense tile grid: fill cells occupy their derived columns (A-LV1)
-				UI.Grid("Tiles")({
-					-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
-					-- express an intrinsic minimum (it measures to whatever it is offered), so the
-					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
-					-- fill cells occupying their derived columns — would have nothing to show.
-					minColumnWidth = 72,
-					gap = "tight",
-					width = UI.fill(),
-
-					badgedTile("t1", "3"),
-					badgedTile("t2", "9"),
-					badgedTile("t3", "1"),
-					badgedTile("t4", "7"),
-				}),
-				-- the round-2 layout vocabulary, built above
-				UI.Divider({}),
-				UI.Text("VocabHeading")({ text = "Layout vocabulary", textSize = "control" }),
-				vocabLegend,
-				vocabShrink,
-				vocabPage,
-				vocabSpecs,
-			})
-
-			-- The body SCROLLS and the action bar stays PINNED — the standard settings
-			-- shape, and the reason this fixture now fits on one screen.
-			--
-			-- It did not, before 2026-07-24. The Toolbar, 16:9 Media and 12-tile Stats
-			-- surfaces were added to the Hud column after the five-view matrix had been
-			-- driven, and nothing bounded the result: on compact-phone-portrait the body
-			-- ran 115px past an 800px screen AT REST, painting the action row inside the
-			-- Media box and dropping the stat grid and tile row off the bottom entirely.
-			-- A stack does not compress to fit — it paints past its own box — so the
-			-- content that exceeds a screen has to be given somewhere to go. The solver
-			-- now REPORTS that condition (a-al4-preferred-text-sweep.json, PT-2); this
-			-- is the fixture holding up its end.
-			--
-			-- The ScrollView takes `fill` so it absorbs whatever the pinned action bar
-			-- leaves, at every viewport and every text scale, without arithmetic.
-			return UI.Screen("AdaptiveScreen")({
-				-- THEME-OPT-OUT: this gutter decides the usable width of every control row
-				-- below it. MEASURED with `padding = "m"`: on a 320x640 phone under glossy-mobile
-				-- and glossy-touch the theme's larger step narrows the body to 242px and the
-				-- Slider row overflows by 4px AT +0 — a default-text-size regression on a shipped
-				-- package. The gutter waits on a control row that can give way at that width.
-				padding = 16,
-				gap = 12,
-				-- centres the width-capped action bar; the scroll region is fill-width
-				-- so it is unaffected
-				align = "center",
-
-				UI.ScrollView("BodyScroll")({
-					axis = "y",
-					width = UI.fill(),
-					height = UI.fill(),
-
-					UI.AdaptiveStack("Body")({
-						axis = conditions.axis,
-						gap = "m",
-						width = UI.fill(),
-						settingsColumn,
-						hudColumn,
-					}),
-				}),
-				actions,
+	title = "Adaptive controls",
+	build = function(ctx)
+		local UI, Host, Compose = ctx.UI, ctx.Host, ctx.Compose
+		local UDim, UDim2, Vector2, Color3, Enum =
+			ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
+		local volume, brightness, quality = Compose.cell(6), Compose.cell(40), Compose.cell("balanced")
+		local advanced, vsync, telemetry = Compose.cell(false), Compose.cell(true), Compose.cell(false)
+		local progress, section, saved = Compose.cell(0.35), Compose.cell("browse"), Compose.cell(false)
+		local function wide(use)
+			return use(ctx.viewport).width >= 900
+		end
+		local function columnSize(use)
+			return if wide(use) then UDim2.new(0.5, -12, 0, 0) else UDim2.new(1, 0, 0, 0)
+		end
+		local function divider()
+			return Host.Frame({
+				Name = "Divider",
+				Size = UDim2.new(1, 0, 0, 1),
+				BackgroundColor3 = Color3.fromRGB(112, 120, 135),
+				BackgroundTransparency = 0.6,
+				BorderSizePixel = 0,
 			})
 		end
+		local function label(name, text, role)
+			return UI.Label({
+				Name = name,
+				label = text,
+				textRole = role or "body",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextWrapped = true,
+			})
+		end
+		local function reset()
+			volume:set(6)
+			brightness:set(40)
+			quality:set("balanced")
+			advanced:set(false)
+			vsync:set(true)
+			telemetry:set(false)
+			progress:set(0.35)
+			saved:set(false)
+		end
+		local function noop() end
+		local navOptions = {
+			{ value = "browse", label = "Browse", icon = "menu" },
+			{ value = "compose", label = "Compose", icon = "edit" },
+			{ value = "more", label = "More", icon = "more" },
+		}
+		local function screen()
+			local stats, tiles = {}, {}
+			for i = 1, 12 do
+				local stat = label("Stat" .. i, "S" .. i, "caption")
+				ctx.runtime.decorate(stat, {
+					Size = UDim2.fromOffset(72, 30),
+					LayoutOrder = i,
+					AutomaticSize = Enum.AutomaticSize.None,
+					TextXAlignment = Enum.TextXAlignment.Center,
+				})
+				stat:AddTag("facet-control")
+				table.insert(stats, stat)
+			end
+			for i, count in { "3", "9", "1", "7" } do
+				local tile = Host.Frame({
+					Name = "Tile" .. i,
+					LayoutOrder = i,
+					Size = UDim2.new(0.25, -6, 0, 44),
+					UI.Badge({
+						Name = "Count",
+						label = count,
+						Size = UDim2.fromOffset(28, 28),
+						AnchorPoint = Vector2.new(1, 0),
+						Position = UDim2.new(1, -6, 0, 6),
+					}),
+				})
+				tile:AddTag("facet-control")
+				table.insert(tiles, tile)
+			end
+			local media = Host.Frame({
+				Name = "Media",
+				Size = UDim2.new(1, 0, 0, 0),
+				Host.UIAspectRatioConstraint({ AspectRatio = 16 / 9, DominantAxis = Enum.DominantAxis.Width }),
+			})
+			media:AddTag("facet-panel")
+			return Host.Frame({
+				Name = "AdaptiveScreen",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				Host.ScrollingFrame({
+					Name = "BodyScroll",
+					Size = UDim2.new(1, 0, 1, -60),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					Host.Frame({
+						Name = "Body",
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						BackgroundTransparency = 1,
+						Host.UIListLayout({
+							Name = "Columns",
+							FillDirection = function(use)
+								return if wide(use) then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
+							end,
+							Padding = UDim.new(0, 24),
+							SortOrder = Enum.SortOrder.LayoutOrder,
+						}),
+						Host.Frame({
+							Name = "Settings",
+							Size = columnSize,
+							AutomaticSize = Enum.AutomaticSize.Y,
+							BackgroundTransparency = 1,
+							LayoutOrder = 1,
+							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+							label("Heading", "Settings", "heading"),
+							divider(),
+							UI.Stepper({
 
+								Name = "Volume",
+								label = "Volume",
+								value = volume,
+								min = 0,
+								max = 10,
+								step = 1,
+							}),
+							UI.Slider({
+
+								Name = "Brightness",
+								label = "Brightness",
+								value = brightness,
+								min = 0,
+								max = 100,
+								step = 5,
+							}),
+							UI.Picker({
+
+								Name = "Quality",
+								label = "Quality",
+								selected = quality,
+								options = {
+									{ value = "performance", label = "Performance" },
+									{ value = "balanced", label = "Balanced" },
+									{ value = "fidelity", label = "Fidelity" },
+								},
+							}),
+							divider(),
+							label("NavHeading", "Icon segments, and the vertical rail", "caption"),
+							UI.Picker({
+
+								Name = "NavPill",
+								selected = section,
+								options = navOptions,
+								style = "segmented",
+								iconOnly = true,
+							}),
+							Host.Frame({
+
+								Name = "NavRailRow",
+								Size = UDim2.new(1, 0, 0, 132),
+								BackgroundTransparency = 1,
+								UI.Picker({
+									Name = "NavRail",
+									selected = section,
+									options = navOptions,
+									style = "segmented",
+									axis = "y",
+									iconOnly = true,
+									Size = UDim2.fromOffset(52, 132),
+								}),
+								UI.Label({
+									Name = "NavReadout",
+									label = function(use)
+										return `Selected: {use(section)} — the pill and the rail share this selection.`
+									end,
+									textRole = "caption",
+									role = "secondary",
+									TextWrapped = true,
+									Position = UDim2.fromOffset(64, 0),
+									Size = UDim2.new(1, -64, 1, 0),
+								}),
+							}),
+							divider(),
+							UI.DisclosureGroup({
+
+								Name = "Advanced",
+								label = "Advanced",
+								description = "Optional rendering and privacy settings",
+								icon = "settings",
+								chevronPosition = "trailing",
+								appearance = "divided",
+								expanded = advanced,
+								content = function()
+									return Host.Frame({
+										Name = "AdvancedBody",
+										Size = UDim2.new(1, 0, 0, 0),
+										AutomaticSize = Enum.AutomaticSize.Y,
+										BackgroundTransparency = 1,
+										Host.UIListLayout({
+											SortOrder = Enum.SortOrder.LayoutOrder,
+											Padding = UDim.new(0, 8),
+										}),
+										UI.Toggle({
+											LayoutOrder = 1,
+											Name = "Vsync",
+											label = "Vertical sync",
+											value = vsync,
+											hint = "Keep frames aligned with the display",
+										}),
+										UI.Toggle({
+											LayoutOrder = 2,
+											Name = "Telemetry",
+											label = "Share telemetry",
+											value = telemetry,
+											presentation = "checkbox",
+											hint = "Send anonymous play statistics",
+											indicatorPosition = "leading",
+										}),
+									})
+								end,
+							}),
+						}),
+						Host.Frame({
+							Name = "Hud",
+							Size = columnSize,
+							AutomaticSize = Enum.AutomaticSize.Y,
+							BackgroundTransparency = 1,
+							LayoutOrder = 2,
+							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+							label("HudHeading", "Status", "heading"),
+							divider(),
+							Host.Frame({
+
+								Name = "Toolbar",
+								Size = UDim2.new(1, 0, 0, 40),
+								BackgroundTransparency = 1,
+								UI.Button({
+									Name = "TbBack",
+									label = "Back",
+									Size = UDim2.fromOffset(76, 40),
+									onActivate = noop,
+								}),
+								UI.Button({
+									Name = "TbPlay",
+									label = "Play",
+									Position = UDim2.fromOffset(84, 0),
+									Size = UDim2.fromOffset(80, 40),
+									onActivate = function()
+										progress:set(math.min(1, progress:peek() + 0.1))
+									end,
+								}),
+								UI.Button({
+									Name = "TbMore",
+									label = "More",
+									icon = "more",
+									AnchorPoint = Vector2.new(1, 0),
+									Position = UDim2.fromScale(1, 0),
+									Size = UDim2.fromOffset(80, 40),
+									onActivate = noop,
+								}),
+							}),
+							Host.Frame({
+
+								Name = "CompactRow",
+								Size = UDim2.new(1, 0, 0, 40),
+								BackgroundTransparency = 1,
+								Host.UIListLayout({
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									FillDirection = Enum.FillDirection.Horizontal,
+									Padding = UDim.new(0, 6),
+								}),
+								UI.Button({
+									LayoutOrder = 1,
+									Name = "CmpRoomy",
+									label = "Edit item",
+									Size = UDim2.new(1, -174, 0, 40),
+									onActivate = noop,
+								}),
+								UI.Button({
+									LayoutOrder = 2,
+									Name = "CmpText",
+									label = "Ed",
+									Size = UDim2.fromOffset(52, 40),
+									onActivate = noop,
+								}),
+								UI.Button({
+									LayoutOrder = 3,
+									Name = "CmpIcon",
+									label = "Edit",
+									icon = "edit",
+									Size = UDim2.fromOffset(52, 40),
+									onActivate = noop,
+								}),
+								UI.Button({
+									LayoutOrder = 4,
+									Name = "CmpNone",
+									label = "Edit item",
+									TextTruncate = Enum.TextTruncate.AtEnd,
+									Size = UDim2.fromOffset(52, 40),
+									onActivate = noop,
+								}),
+							}),
+							UI.ProgressView({
+
+								Name = "Download",
+								label = "Download",
+								value = progress,
+								showValue = true,
+							}),
+							label("SaveLabel", function(use)
+								return if use(saved) then "Settings saved." else "Save changes"
+							end),
+							media,
+							Host.Frame({
+
+								Name = "Stats",
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								BackgroundTransparency = 1,
+								Host.UIGridLayout({
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									CellSize = UDim2.fromOffset(72, 30),
+									LayoutOrder = i,
+									CellPadding = UDim2.fromOffset(4, 4),
+								}),
+								table.unpack(stats),
+							}),
+							Host.Frame({
+
+								Name = "Tiles",
+								Size = UDim2.new(1, 0, 0, 44),
+								BackgroundTransparency = 1,
+								Host.UIListLayout({
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									FillDirection = Enum.FillDirection.Horizontal,
+									Padding = UDim.new(0, 8),
+								}),
+								table.unpack(tiles),
+							}),
+							divider(),
+							label("VocabHeading", "Layout vocabulary", "heading"),
+							Host.Frame({
+
+								Name = "Legend",
+								Size = UDim2.new(1, 0, 0, 24),
+								BackgroundTransparency = 1,
+								Host.UIGridLayout({
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									CellSize = UDim2.new(1 / 3, -4, 1, 0),
+									CellPadding = UDim2.fromOffset(6, 0),
+								}),
+								label("LegendLow", "Optional", "caption"),
+								label("LegendMid", "Useful", "caption"),
+								label("LegendHigh", "Essential", "caption"),
+							}),
+							Host.Frame({
+
+								Name = "Shrink",
+								Size = UDim2.new(1, 0, 0, 24),
+								BackgroundTransparency = 1,
+								Host.UIListLayout({
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									FillDirection = Enum.FillDirection.Horizontal,
+									HorizontalFlex = Enum.UIFlexAlignment.Fill,
+									Padding = UDim.new(0, 6),
+								}),
+								Host.Frame({
+									LayoutOrder = 1,
+									Name = "Optional",
+									Size = UDim2.fromOffset(140, 24),
+									BackgroundColor3 = Color3.fromRGB(55, 75, 115),
+									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 2 }),
+								}),
+								Host.Frame({
+									LayoutOrder = 2,
+									Name = "Useful",
+									Size = UDim2.fromOffset(140, 24),
+									BackgroundColor3 = Color3.fromRGB(70, 90, 130),
+									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 1 }),
+								}),
+								Host.Frame({
+									LayoutOrder = 3,
+									Name = "Essential",
+									Size = UDim2.fromOffset(140, 16),
+									BackgroundColor3 = Color3.fromRGB(85, 110, 155),
+									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.None }),
+								}),
+							}),
+							label("SpecTitle", "Row grid", "caption"),
+							Host.Frame({
+
+								Name = "Specs",
+								Size = UDim2.new(1, 0, 0, 48),
+								BackgroundTransparency = 1,
+								Host.UIGridLayout({
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									CellSize = UDim2.new(0.5, -4, 0, 24),
+									CellPadding = UDim2.fromOffset(8, 0),
+								}),
+								label("SpecAKey", "Columns", "caption"),
+								label("SpecAVal", "align", "caption"),
+								label("SpecBKey", "Span", "caption"),
+								label("SpecBVal", "the header", "caption"),
+							}),
+						}),
+					}),
+				}),
+				Host.Frame({
+					Name = "Actions",
+					AnchorPoint = Vector2.new(0.5, 1),
+					Position = UDim2.fromScale(0.5, 1),
+					Size = UDim2.new(1, 0, 0, 44),
+					BackgroundTransparency = 1,
+					Host.UISizeConstraint({ MaxSize = Vector2.new(620, 44) }),
+					Host.UIGridLayout({
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						CellSize = UDim2.new(1 / 3, -6, 1, 0),
+						CellPadding = UDim2.fromOffset(8, 0),
+					}),
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Save",
+						label = "Save changes",
+						onActivate = function()
+							saved:set(true)
+						end,
+					}),
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Reset",
+						label = "Reset to defaults",
+						role = "cancel",
+						onActivate = reset,
+					}),
+					UI.Button({
+						LayoutOrder = 3,
+						Name = "Delete",
+						label = "Delete profile",
+						role = "destructive",
+						onActivate = function()
+							reset()
+						end,
+					}),
+				}),
+			})
+		end
 		return {
-			screen = Example,
-			dispose = function() end,
-			steps = {
-				-- state/action drivers (labeled: NOT hardware-input evidence)
-				bumpVolume = function()
-					volume:set(volume:peek() + 1)
-					return volume:peek()
-				end,
-				openAdvanced = function()
-					advancedOpen:set(true)
-					return advancedOpen:peek()
-				end,
-				closeAdvanced = function()
-					advancedOpen:set(false)
-					return advancedOpen:peek()
-				end,
-				setProgress = function()
-					progress:set(0.8)
-					return progress:peek()
-				end,
-				-- the `select` half of §3.3's declaration, drivable without a pointer:
-				-- moving `quality` is what the picker's own press moves, so the
-				-- scripted step and the player's press take the identical route
-				cycleQuality = function()
-					quality:set(if quality:peek() == "fidelity" then "balanced" else "fidelity")
-					return quality:peek()
-				end,
-				-- the D6 pair moves through the ONE signal they share, which is the
-				-- whole claim: a step that drove the pill would prove nothing about
-				-- the rail, and this drives neither control — it drives the value
-				cycleNav = function()
-					navSection:set(if navSection:peek() == "browse" then "more" else "browse")
-					return navSection:peek()
-				end,
-				-- the STATE SNAPSHOT a live orientation change must preserve (D-2)
-				snapshot = function()
-					return {
-						volume = volume:peek(),
-						brightness = brightness:peek(),
-						quality = quality:peek(),
-						advancedOpen = advancedOpen:peek(),
-						progress = progress:peek(),
-					}
-				end,
-			},
+			screen = screen,
+			reset = reset,
 			report = function()
-				if conditions == nil then
-					return nil
-				end
 				return {
-					sizeClass = conditions and conditions.sizeClass:peek(),
-					axis = conditions and conditions.axis:peek(),
-					isTenFoot = conditions and conditions.isTenFoot:peek(),
-					contentWidth = conditions and conditions.contentWidth:peek(),
-					settings = { vsync = vsync:peek(), telemetry = telemetry:peek() },
-					state = {
-						volume = volume:peek(),
-						brightness = brightness:peek(),
-						quality = quality:peek(),
-						navSection = navSection:peek(),
-						advancedOpen = advancedOpen:peek(),
-						progress = progress:peek(),
-					},
+					volume = volume:peek(),
+					brightness = brightness:peek(),
+					quality = quality:peek(),
+					progress = progress:peek(),
+					advanced = advanced:peek(),
+					vsync = vsync:peek(),
+					telemetry = telemetry:peek(),
+					saved = saved:peek(),
+					nav = section:peek(),
 				}
 			end,
 		}

@@ -1,37 +1,9 @@
 --!strict
--- testkit — a tiny, dependency-free test framework for pure Luau modules.
--- Runs under Lune from the terminal (fast CI loop, no Play Solo needed).
--- Specs register with describe()/it(); tests/run.luau executes the registry.
--- Chosen over TestEZ because TestEZ needs the Roblox runtime; our deterministic
--- modules are plain Luau, so a native Lune runner gives a single-command loop.
--- (See /docs/DECISIONS.md.)
 
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 
 local testkit = {}
-
---[[ RESULT IDENTITY (distribution-readiness D7/D8, 2026-08-30).
-
-	Every case carries a STABLE ID — `<spec path under tests/, without the
-	.spec suffix>::<describe name>::<it name>` — and `testkit.run{ jsonOut = … }`
-	writes the whole run out as structured JSON. That is what the verification
-	graph queries: `tools/lune/verify/*` looks a case up by id instead of
-	grepping the human transcript for `✓.*<sentence>`, which is how 233 gate rows
-	used to spend one cached transcript and how a renamed case used to break a
-	gate that had nothing to do with it.
-
-	The spec half of the id is taken from `debug.info` at describe() time rather
-	than passed in, because there is exactly one list of specs in this repo (the
-	require() calls in tests/run.luau) and a second hand-kept list of names would
-	be wrong the first time a file moved. `it(name, fn, { id = "…" })` overrides
-	the derived id, so a human name may still improve without moving the id a
-	gate row pins.
-
-	THE TRANSCRIPT IS UNCHANGED. The `✓`/`✗` lines and the `N passed` summary are
-	byte-for-byte what they were: tools/test.sh re-derives its verdict from them,
-	tools/suite_transcript.sh serves them, and several recorded lessons read them.
-	The JSON is an ADDITION, written only when a caller asks for it. ]]
 
 type Case = { name: string, fn: () -> (), id: string? }
 type Suite = { name: string, spec: string, cases: { Case } }
@@ -46,11 +18,6 @@ export type RunOptions = {
 local suites: { Suite } = {}
 local currentSuite: Suite? = nil
 
---[[ Which spec file is calling? `debug.info(level, "s")` returns the chunk's
-	source — under Lune an absolute path with the extension already stripped
-	(`/…/Facet/tests/layout.spec`). Walk out of testkit until the first frame
-	that lives under `tests/`, so a describe() issued from a shared fixture
-	helper is still attributed to the spec that pulled the helper in. ]]
 local function callerSpec(): string
 	for level = 2, 16 do
 		local ok, src = pcall(debug.info, level, "s")
@@ -59,8 +26,6 @@ local function callerSpec(): string
 		end
 		local rel = string.match(src, "/tests/(.+)$") or string.match(src, "^tests/(.+)$")
 		if rel ~= nil and string.find(rel, "^lib/") == nil then
-			-- `tests/layout.spec.luau` -> `layout`; `tests/reference/x_spec.luau`
-			-- keeps its name, exactly as tests/lib/tiers.luau lists it.
 			return string.match(rel, "^(.*)%.spec$") or rel
 		end
 	end
@@ -76,9 +41,6 @@ function testkit.describe(name: string, body: () -> ())
 	currentSuite = prev
 end
 
--- Shared fixtures use these boundaries to own the complete case lifetime.
--- A spec's own setup and teardown stay in its body. Hook failures fail the
--- case, and teardown still runs after a setup or case failure.
 local beforeEachHooks: { () -> () } = {}
 local afterEachHooks: { () -> () } = {}
 
@@ -94,11 +56,6 @@ function testkit.it(name: string, fn: () -> (), options: CaseOptions?)
 	assert(currentSuite, "it() must be called inside describe()")
 	table.insert((currentSuite :: Suite).cases, { name = name, fn = fn, id = if options then options.id else nil })
 end
-
--- ---- assertions --------------------------------------------------------------
--- Fluent, dot-call API: expect(x).toBe(y), expect(x).never().toBe(y).
--- Each expect() returns a fresh table of closures bound to `value`, so dot
--- calls work (a metatable/colon approach would mis-bind `self`).
 
 local function deepEq(a: any, b: any): boolean
 	if type(a) ~= type(b) then
@@ -189,17 +146,6 @@ function testkit.expect(value: any)
 	return exp
 end
 
--- ---- runner ------------------------------------------------------------------
-
---[[ How many spec modules does a runner register? The require() list in
-	tests/run.luau is the single source of truth for which specs exist (see
-	tests/lib/tiers.luau), and the structured result records the count so a
-	reader can refuse a run that reported fewer specs than were registered —
-	the truncated-suite shape, where a main-thread yield ends the run early AND
-	STILL EXITS 0.
-
-	Parsed here rather than in the runner so that tests/run.luau's require list
-	stays exactly one list of require lines and nothing else. ]]
 function testkit.registeredSpecCount(runnerPath: string): number
 	local ok, source = pcall(fs.readFile, runnerPath)
 	if not ok or type(source) ~= "string" then
@@ -234,18 +180,14 @@ function testkit.run(options: RunOptions?): boolean
 				end
 				case.fn()
 			end)
-			-- the teardown runs whatever the case did, and its own failure is the
-			-- case's failure when the body itself had none
+
 			for _, hook in afterEachHooks do
 				local hookOk, hookErr = pcall(hook)
 				if not hookOk and ok then
 					ok, err = false, hookErr
 				end
 			end
-			-- ROUNDED, because a raw double here is a hash's problem later: the
-			-- structured result is hashed, and a value whose shortest decimal
-			-- form does not parse back to the same double makes that hash a coin
-			-- toss. Microseconds are more precision than a case timing has.
+
 			local ms = math.floor((os.clock() - caseStart) * 1000000 + 0.5) / 1000
 			local record = {
 				id = case.id or `{suite.spec}::{suite.name}::{case.name}`,

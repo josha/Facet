@@ -1,110 +1,72 @@
 --!strict
--- One component runs unchanged in Studio and the headless consumer spec.
--- Local state and subscriptions retire when the presented screen is dismissed.
 local screen = {}
-
-screen.PATHS = table.freeze({
-	root = "/Consumer",
-	title = "/Consumer/Panel/Title",
-	blurb = "/Consumer/Panel/Blurb",
-	count = "/Consumer/Panel/Readout/Count",
-	sound = "/Consumer/Panel/Readout/Sound",
-	buttons = "/Consumer/Panel/Buttons",
-	bump = "/Consumer/Panel/Buttons/Bump",
-	close = "/Consumer/Panel/Buttons/Close",
-})
-
-function screen.session(Facet: any, h: any, opts: { closeAfterSeconds: number? }?)
-	local UI, Compose = h.controls, Facet.Compose
-	local closeAfterSeconds = (opts and opts.closeAfterSeconds) or 120
-	local torn = false
-	local close, node
-	local built: any = {} -- Commands/readbacks for the example's headless driver.
-	local function dismiss()
-		if close then
-			close()
-		end
-	end
-	local function teardown()
-		if torn then
-			return
-		end
-		torn = true
-		dismiss()
-		h.dispose()
-	end
-	local function Consumer()
-		local count = Compose.cell(0)
-		local soundOn = Compose.cell(true)
-		local viewport = h.environment:get("viewportRect")
-		built.count, built.setCount = function()
-			return count:peek()
-		end, function(value)
-			count:set(value)
-		end
-		built.soundOn, built.setSoundOn =
-			function()
-				return soundOn:peek()
-			end, function(value)
-				soundOn:set(value)
-			end
-		-- External subscriptions use the same component lifetime. No second
-		-- RunService connection: the host already drives the presenter's clock.
-		local elapsed = 0
-		Compose.cleanup(h.onFrame(function(dt)
-			elapsed += dt
-			if elapsed >= closeAfterSeconds then
-				teardown()
-			end
-		end))
-		return UI.Screen("Consumer")({
-			padding = "l",
-			UI.VStack("Panel")({
-				surface = "raised",
-				padding = "m",
-				gap = "s",
-				UI.Text("Title")({ text = "Facet consumer", textSize = "title" }),
-				UI.Text("Blurb")({
-					text = "One component, local state, one theme. Press Bump and watch the count follow.",
+function screen.build(Facet: any, runtime: any, options: any?)
+	local Compose = Facet.Compose
+	local types = options and options.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
+	local Host = runtime.constructors
+	local UI = Facet.controls(runtime, options)
+	local count = Compose.cell(0)
+	local sound = Compose.cell(true)
+	local visible = Compose.cell(true)
+	return Host.Frame({
+		Name = "Consumer",
+		Size = types.UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Compose.show(visible, function()
+			return Host.Frame({
+				Name = "Panel",
+				Size = types.UDim2.new(1, -32, 0, 0),
+				Position = types.UDim2.fromOffset(16, 16),
+				AutomaticSize = types.Enum.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = types.Enum.SortOrder.LayoutOrder, Padding = types.UDim.new(0, 12) }),
+				UI.Label({
+					LayoutOrder = 1,
+					Name = "Title",
+					Text = "Facet consumer",
+					TextSize = 28,
+					Size = types.UDim2.new(1, 0, 0, 36),
+					BackgroundTransparency = 1,
 				}),
-				UI.VStack("Readout")({
-					gap = "xs",
-					UI.Text("Count")({
-						tint = { role = "accent", blend = 1 },
-						text = function(use)
-							return if use(count) == 1 then "1 tap" else `{use(count)} taps`
-						end,
-					}),
-					UI.Toggle("Sound")({ label = "Sound", value = soundOn }),
+				UI.Label({
+					LayoutOrder = 2,
+					Name = "Blurb",
+					Text = "One component, local state, one theme. Press Bump and watch the count follow.",
+					TextWrapped = true,
+					Size = types.UDim2.new(1, 0, 0, 0),
+					AutomaticSize = types.Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
 				}),
-				UI.AdaptiveStack("Buttons")({
-					gap = "s",
-					axis = function(use)
-						return Facet.adaptive.axisFor(use(viewport).w)
+				UI.Label({
+					LayoutOrder = 3,
+					Name = "Count",
+					Text = function(use)
+						return if use(count) == 1 then "1 tap" else `{use(count)} taps`
 					end,
-					UI.Button("Bump")({
-						label = "Bump",
-						onActivate = function()
-							count:update(function(n)
-								return n + 1
-							end)
-						end,
-					}),
-					UI.Button("Close")({ label = "Close", onActivate = teardown }),
+					Size = types.UDim2.new(1, 0, 0, 32),
+					BackgroundTransparency = 1,
 				}),
-			}),
-		})
-	end
-	close, node = h.mount(Consumer)
-	built.dispose = dismiss
-	return {
-		built = built,
-		node = node,
-		teardown = teardown,
-		isTorn = function()
-			return torn
-		end,
-	}
+				UI.Toggle({ LayoutOrder = 4, Name = "Sound", label = "Sound", value = sound }),
+				UI.Button({
+					LayoutOrder = 5,
+					Name = "Bump",
+					label = "Bump",
+					onActivate = function()
+						count:update(function(value)
+							return value + 1
+						end)
+					end,
+				}),
+				UI.Button({
+					LayoutOrder = 6,
+					Name = "Close",
+					label = "Close",
+					onActivate = function()
+						visible:set(false)
+					end,
+				}),
+			})
+		end),
+	})
 end
-
 return screen

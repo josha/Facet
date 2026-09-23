@@ -1,26 +1,5 @@
 #!/usr/bin/env python3
-"""Pixel Quest art generator (rich-skinning-v2 stage, ADR-0020 R5 pixel mode).
 
-Original, repository-owned art: every texture below is generated procedurally by
-this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, no trade dress. Re-running reproduces the PNGs byte-for-byte.
-
-PIXEL DISCIPLINE (the whole point of this set):
-  * The art is authored on a hard grid of DESIGN PIXELS and saved at
-    `PIXEL_UNIT` (= 4) image px per design pixel, upscaled with NEAREST.
-    There is no anti-aliasing anywhere: every PNG contains only flat blocks of
-    palette colours, so `ResampleMode = Pixelated` renders it exactly.
-  * Every nine-slice source is `2*border + 1` DESIGN pixels on each sliced axis.
-    That makes the stretched centre exactly ONE design pixel wide/tall, so any
-    target size replicates a single uniform colour — a pixel nine-slice can
-    never produce the "sharp but unevenly sized pixels" failure R5 warns about.
-  * The slice borders below are therefore always `4 * border_dp`.
-
-Palette: 6 chrome values + two 3-step accent ramps = 12 colours, NES-ish.
-
-Run with the repo-root shared venv python (any CWD works):
-  <repo-root>/.venv/bin/python generate_art.py
-"""
 
 from __future__ import annotations
 
@@ -32,10 +11,10 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.dirname(HERE)
 PREVIEW_DIR = os.path.join(HERE, "preview")
-SEED = 0x8B17  # fixed: determinism is the provenance claim ("8-bit")
-PIXEL_UNIT = 4  # image px per design px == the package's identity.pixelUnit
+SEED = 0x8B17
+PIXEL_UNIT = 4
 
-# ── palette ──────────────────────────────────────────────────────────────────
+
 INK = (0x16, 0x12, 0x1F)
 SHADE = (0x3A, 0x2C, 0x4F)
 WOOD_D = (0x6B, 0x43, 0x26)
@@ -48,7 +27,7 @@ RED_L = (0xE8, 0x73, 0x5A)
 GRN_D = (0x2F, 0x6B, 0x2A)
 GRN = (0x4F, 0xA8, 0x3F)
 GRN_L = (0x8E, 0xDE, 0x6A)
-GLYPH = (0xF0, 0xF0, 0xF0)  # icons are near-white; the theme role supplies tint
+GLYPH = (0xF0, 0xF0, 0xF0)
 
 PALETTE = {
     "INK": INK, "SHADE": SHADE, "WOOD_D": WOOD_D, "WOOD": WOOD, "TAN": TAN,
@@ -57,11 +36,11 @@ PALETTE = {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Design-pixel canvas. Duplicated per theme on purpose (self-contained folder).
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 class PC:
-    """A grid of design pixels. Nothing here can produce a partial alpha."""
+
 
     def __init__(self, w: int, h: int):
         self.w, self.h = w, h
@@ -104,7 +83,7 @@ class PC:
 
 
 def dilate(rows, ch="#"):
-    """Return the 1-cell ring around the cells marked `ch` (for INK outlines)."""
+
     h, w = len(rows), len(rows[0])
     out = set()
     for y in range(h):
@@ -120,7 +99,7 @@ def dilate(rows, ch="#"):
 
 
 def nine_slice(img: Image.Image, border: int, w: int, h: int) -> Image.Image:
-    """Reference nine-slice render, NEAREST (matches Pixelated + SliceScale 1)."""
+
     sw, sh = img.size
     b = border
     dst = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -188,38 +167,38 @@ class Sheet:
         print(f"wrote {path}  (contact sheet)")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Assets — every sliced source is 2*b+1 design px on each sliced axis.
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 def plate(state: str) -> PC:
-    """9x9 dp (36x36 px), slice border 4 dp (16 px). Menu/button plate."""
+
     p = PC(9, 9)
     if state == "default":
-        p.rect(0, 0, 8, 8, WOOD)              # face
-        p.outline(0, 0, 8, 8, INK)            # hard outline
-        p.hline(1, 7, 1, TAN)                 # lit top / left bevel
+        p.rect(0, 0, 8, 8, WOOD)
+        p.outline(0, 0, 8, 8, INK)
+        p.hline(1, 7, 1, TAN)
         p.vline(1, 1, 7, TAN)
-        p.hline(1, 7, 7, WOOD_D)              # shaded bottom / right bevel
+        p.hline(1, 7, 7, WOOD_D)
         p.vline(7, 1, 7, WOOD_D)
         for rx, ry in ((2, 2), (6, 2), (2, 6), (6, 6)):
-            p.set(rx, ry, TAN)                # corner rivets (inside the corners)
-    else:  # selected — a DIFFERENT construction, not a tint
-        p.rect(0, 0, 8, 8, TAN)               # light gilt face
+            p.set(rx, ry, TAN)
+    else:
+        p.rect(0, 0, 8, 8, TAN)
         p.outline(0, 0, 8, 8, INK)
-        p.outline(1, 1, 7, 7, CREAM)          # second, brighter frame ring
+        p.outline(1, 1, 7, 7, CREAM)
         p.hline(2, 6, 2, CREAM)
         p.vline(2, 2, 6, CREAM)
         p.hline(2, 6, 6, WOOD)
         p.vline(6, 2, 6, WOOD)
         for rx, ry in ((2, 2), (6, 2), (2, 6), (6, 6)):
-            p.set(rx, ry, RED)                # ruby studs
+            p.set(rx, ry, RED)
         for cx, cy in ((0, 0), (8, 0), (0, 8), (8, 8)):
-            p.set(cx, cy, None)               # chamfered (notched) corners
+            p.set(cx, cy, None)
     return p
 
 
 def plate_ornament() -> PC:
-    """6x6 dp (24x24 px) whole image — the selected plate's side/corner jewel."""
+
     p = PC(6, 6)
     rows = [
         "..##..",
@@ -234,18 +213,12 @@ def plate_ornament() -> PC:
 
 
 def blank() -> PC:
-    """6x6 dp (24x24 px) of nothing at all — deliberately, entirely transparent.
 
-    The per-state asset grammar requires a `default`, so a layer that must paint
-    ONLY in one state (the selected plate's jewels) needs something to name in
-    the others. This is that something: the package's explicit way of saying "no
-    ornament here", rather than an ornament dimmed by a tint and hoped over.
-    """
     return PC(6, 6)
 
 
 def panel() -> PC:
-    """13x13 dp (52x52 px), slice border 6 dp (24 px). Window chrome."""
+
     p = PC(13, 13)
     p.rect(0, 0, 12, 12, SHADE)
     p.outline(0, 0, 12, 12, INK)
@@ -255,16 +228,16 @@ def panel() -> PC:
     p.outline(4, 4, 8, 8, INK)
     p.rect(5, 5, 7, 7, SHADE)
     for rx, ry in ((2, 2), (10, 2), (2, 10), (10, 10)):
-        p.set(rx, ry, CREAM)                  # corner rivets
+        p.set(rx, ry, CREAM)
     return p
 
 
 def field() -> PC:
-    """9x9 dp (36x36 px), slice border 4 dp (16 px). Inset text well."""
+
     p = PC(9, 9)
     p.rect(0, 0, 8, 8, SHADE)
     p.outline(0, 0, 8, 8, INK)
-    p.hline(1, 7, 1, WOOD_D)                  # inset: dark on the lit side
+    p.hline(1, 7, 1, WOOD_D)
     p.vline(1, 1, 7, WOOD_D)
     p.hline(1, 7, 7, TAN)
     p.vline(7, 1, 7, TAN)
@@ -273,7 +246,7 @@ def field() -> PC:
 
 
 def bar_track() -> PC:
-    """5x8 dp (20x32 px), slice border 2 dp (8 px). Carved HP rail."""
+
     p = PC(5, 8)
     rowcols = [INK, WOOD_D, SHADE, SHADE, SHADE, SHADE, TAN, INK]
     for y, col in enumerate(rowcols):
@@ -284,10 +257,7 @@ def bar_track() -> PC:
 
 
 def bar_fill() -> PC:
-    """3x4 dp (12x16 px), slice border 1 dp (4 px). Full-width HP fill.
 
-    Uniform along X by construction, so any reveal percent looks identical.
-    """
     p = PC(3, 4)
     for y, col in enumerate([RED_L, RED, RED, RED_D]):
         p.hline(0, 2, y, col)
@@ -295,7 +265,7 @@ def bar_fill() -> PC:
 
 
 def bar_cap_heart() -> PC:
-    """10x10 dp (40x40 px) whole image — the HP bar's heart end-cap."""
+
     body = [
         "..........",
         "..##..##..",
@@ -321,13 +291,13 @@ def bar_cap_heart() -> PC:
             elif y >= 6:
                 col = RED_D
             p.set(x, y, col)
-    p.set(2, 2, CREAM)                        # specular pip
+    p.set(2, 2, CREAM)
     p.set(3, 2, CREAM)
     return p
 
 
 def toggle_track(state: str) -> PC:
-    """7x8 dp (28x32 px), slice border 3 dp (12 px)."""
+
     p = PC(7, 8)
     if state == "on":
         rows = [INK, GRN_L, GRN, GRN, GRN, GRN, GRN_D, INK]
@@ -338,12 +308,12 @@ def toggle_track(state: str) -> PC:
     p.vline(0, 0, 7, INK)
     p.vline(6, 0, 7, INK)
     for cx, cy in ((0, 0), (6, 0), (0, 7), (6, 7)):
-        p.set(cx, cy, None)                   # chamfer
+        p.set(cx, cy, None)
     return p
 
 
 def toggle_knob() -> PC:
-    """6x6 dp (24x24 px) whole image."""
+
     p = PC(6, 6)
     p.rect(0, 0, 5, 5, CREAM)
     p.outline(0, 0, 5, 5, INK)
@@ -356,7 +326,7 @@ def toggle_knob() -> PC:
 
 
 def stepper_plate(state: str) -> PC:
-    """7x7 dp (28x28 px), slice border 3 dp (12 px)."""
+
     p = PC(7, 7)
     if state == "default":
         p.rect(0, 0, 6, 6, WOOD)
@@ -369,7 +339,7 @@ def stepper_plate(state: str) -> PC:
     else:
         p.rect(0, 0, 6, 6, WOOD_D)
         p.outline(0, 0, 6, 6, INK)
-        p.hline(1, 5, 1, SHADE)               # inverted bevel = pressed
+        p.hline(1, 5, 1, SHADE)
         p.vline(1, 1, 5, SHADE)
         p.hline(1, 5, 5, WOOD)
         p.vline(5, 1, 5, WOOD)
@@ -438,13 +408,13 @@ ICON_BITMAPS = {
         ".##..##.",
         "##....##",
     ],
-    # ── the rest of the framework's icon vocabulary, 2026-09-11 ──────────────
-    # This package DECLINES the framework's smooth icon rung (`standardIcons =
-    # false`) because a 128 px anti-aliased silhouette rendered under
-    # `ResampleMode = Pixelated` is nearest-neighbour mush on a 4 px grid. That
-    # opt-out is only honest while the package answers for every name a control
-    # asks for -- otherwise it is not "our own art", it is a text character
-    # standing where a picture belongs. These eight complete the set.
+
+
+
+
+
+
+
     "chevron_left": [
         ".....##.",
         "....##..",
@@ -465,8 +435,8 @@ ICON_BITMAPS = {
         "#......#",
         "........",
     ],
-    # the pop-up button's stacked pair: one chevron up, one down, two design
-    # pixels of clear ground between them so the pair never reads as a diamond
+
+
     "chevron_up_down": [
         "...##...",
         "..####..",
@@ -487,7 +457,7 @@ ICON_BITMAPS = {
         "........",
         "........",
     ],
-    # a pencil on the grid's own diagonal, tapering to a one-pixel tip
+
     "edit": [
         "......##",
         ".....###",
@@ -498,8 +468,8 @@ ICON_BITMAPS = {
         "##......",
         "#.......",
     ],
-    # the SELECTION MARKS. A radio group and a menu row paint a resting shape
-    # and a chosen shape into the same reserved slot, so both are icon names.
+
+
     "radio_off": [
         "..####..",
         ".##..##.",
@@ -534,17 +504,17 @@ ICON_BITMAPS = {
 
 
 def icon(name: str) -> PC:
-    """8x8 dp (32x32 px) near-white glyph on transparency (R4 tints by role)."""
+
     p = PC(8, 8)
     p.bitmap(ICON_BITMAPS[name], {"#": GLYPH})
     return p
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 def main() -> None:
-    np.random.default_rng(SEED)  # seed is recorded even though the art is exact
+    np.random.default_rng(SEED)
     u = PIXEL_UNIT
-    items = []  # (filename, PIL image, slice border px, preview sizes)
+    items = []
 
     items.append(("pixel_plate_default.png", plate("default").image(), 4 * u,
                   [(160, 48), (240, 48), (128, 96)]))
@@ -586,7 +556,7 @@ def main() -> None:
         b = f"slice {border}" if border else "whole image"
         print(f"wrote {path}  ({img.width}x{img.height}, {b})")
 
-    # ── contact sheet ────────────────────────────────────────────────────────
+
     sheet = Sheet("pixel-quest — pixelUnit 4, nine-slice stretch test (NEAREST everywhere)")
     by = {n: (i, b, p) for n, i, b, p in items}
 
@@ -603,7 +573,7 @@ def main() -> None:
 
     row("plate default @160x48 / 240x48 / 128x96 (36x36 b16)", ["pixel_plate_default.png"])
     row("plate SELECTED — different construction, same 4dp insets", ["pixel_plate_selected.png"])
-    # selected plate with the ornament anchored at all four corners (a `corners` layer)
+
     orn = by["pixel_plate_ornament.png"][0]
     comp = Image.new("RGBA", (240, 48), (0, 0, 0, 0))
     comp.alpha_composite(nine_slice(by["pixel_plate_selected.png"][0], 16, 240, 48))
@@ -637,7 +607,7 @@ def main() -> None:
                ("chevron_right", "chevron_down", "plus", "minus", "check", "cross",
                 "chevron_left", "chevron_up", "chevron_up_down", "more", "edit",
                 "radio_off", "radio_on", "check_off")])
-    # palette strip
+
     strip = Image.new("RGBA", (len(PALETTE) * 40, 40), (0, 0, 0, 255))
     dstrip = ImageDraw.Draw(strip)
     for i, (_, col) in enumerate(PALETTE.items()):

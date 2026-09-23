@@ -1,16 +1,4 @@
 --!strict
--- The injected clock every Sipworks service shares (responsibility ledger:
--- "pure Luau, injectable clock/seed ... no wall-clock in domain logic").
---
--- It reads no time and owns no connection: something outside advances it, and
--- in this proof that something is `presenter.onTick` — the framework's own
--- sanctioned frame source — so the SAME code path runs a scripted `dt` in the
--- headless suite and a real frame delta in Studio, and neither one ever calls
--- `os.clock`.
---
--- Due callbacks fire in time order, and a callback may schedule another (an
--- order's confirm schedules its ready flip): `advance` drains until nothing is
--- due, so one long frame delivers the whole chain in the right order.
 
 local fakeclock = {}
 
@@ -26,7 +14,6 @@ function fakeclock.new(startAt: number?)
 		return t
 	end
 
-	-- after(seconds, run, tag) -> a handle whose `cancel()` is idempotent
 	function self.after(seconds: number, run: () -> (), tag: string?): { cancel: () -> () }
 		seq += 1
 		local entry: Entry = { at = t + math.max(0, seconds), run = run, tag = tag or ("t" .. seq), cancelled = false }
@@ -57,8 +44,7 @@ function fakeclock.new(startAt: number?)
 
 	function self.advance(dt: number)
 		t += math.max(0, dt or 0)
-		-- a bounded drain: a callback may schedule the next beat, and a runaway
-		-- scheduler must not wedge a frame
+
 		for _ = 1, 64 do
 			local entry = takeDue()
 			if entry == nil then
@@ -66,7 +52,7 @@ function fakeclock.new(startAt: number?)
 			end
 			entry.run()
 		end
-		-- drop anything cancelled while we were draining
+
 		for i = #entries, 1, -1 do
 			if entries[i].cancelled then
 				table.remove(entries, i)

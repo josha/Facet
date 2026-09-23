@@ -1,368 +1,140 @@
 --!strict
--- ============================================================================
--- Example 3 of the Facet tutorial: a settings form that syncs to a server.
--- ============================================================================
---
--- WHAT THE PLAYER SEES  —  the client/server boundary, made watchable
---   Two read-outs, side by side and labelled, are the whole lesson:
---     "What you see now (your optimistic draft)"  — the UI's own state
---     "What the server has confirmed"             — authoritative truth
---   plus a status line, a one-line hint naming the next action, and a short
---   history of what happened.
---
---   Every state is reached from a control on the screen:
---     Music / – / +          send a change the server will ACCEPT
---     "Ask for volume 99"    send a change the server will REFUSE
---     "Deliver server reply" deliver the response — this is the moment the two
---                            read-outs reconcile, or the draft rolls back
---     "Reset demo"           return to the documented start state
---
--- WHAT IT TEACHES
---   * optimistic apply — the draft changes IMMEDIATELY, before the server has
---                        agreed, and the server read-out proves it has not
---   * validated mutation — the change travels as a request the server may
---                        accept or reject; pending NEVER means success
---   * reconcile        — on accept, draft and server converge on the new
---                        revision; on reject the draft ROLLS BACK to server
---                        truth and the refusal states its reason
---
--- The "server" here is an ordinary Lua table in this same file (a loopback),
--- exactly as a single-place gallery does. Its reply is queued and delivered by
--- the player, because *when the answer lands* is the thing this example is
--- about. In a real game you would send the mutation envelope over your
--- replication layer and deliver the response from your remote handler instead.
---
--- ctx used: core (the replication snapshot and mutation). `build(ctx)` is the
--- shape every example shares.
-
-local example = {}
-example.title = "Settings Sync"
-
-local VOLUME_MIN = 0
-local VOLUME_MAX = 10 -- the server's validation rule; the UI does not clamp
--- the documented start state, and what "Reset demo" restores
-local START_MUSIC = false
-local START_VOLUME = 10
--- a value the server is guaranteed to refuse, so the rejection path is one tap
-local INVALID_VOLUME = 99
--- how many past events the screen shows (it has exactly this many rows)
-local HISTORY_ROWS = 3
-
-local function describeSettings(music: boolean, volume: number): string
-	return `Music {if music then "on" else "off"}, volume {volume}`
-end
-
+local example = { title = "Settings Sync" }
 function example.build(ctx: any)
-	local UI, Compose, core = ctx.UI, ctx.Compose, ctx.core
-	local replication = ctx.Facet.replication
-
-	-- AUTHORITATIVE STATE (what the server has confirmed). A snapshot is the
-	-- replicated truth; we start it at revision 1.
-	local snapshot = replication.snapshot(core, 1, { music = START_MUSIC, volume = START_VOLUME })
-
-	-- OPTIMISTIC DRAFT STATE (what the UI shows right now). These may run ahead
-	-- of the server between send and confirm.
-	local draftMusic = Compose.cell(snapshot.binding:peek().music)
-	local draftVolume = Compose.cell(snapshot.binding:peek().volume)
-
-	-- THE VISIBLE EVENT LOG, newest first and capped at the rows the screen has.
-	-- A tutorial about a state machine has to show the transitions, not only the
-	-- current state: a player who taps twice quickly needs to read what happened.
+	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
+	local server = Compose.cell({ music = false, volume = 10, revision = 1 })
+	local draft = Compose.cell({ music = false, volume = 10 })
+	local status = Compose.cell("idle")
 	local history = Compose.cell({ "Ready. Nothing sent yet." })
-	local function log(line: string)
-		local next = { line }
-		for _, older in history:peek() do
-			if #next < HISTORY_ROWS then
-				table.insert(next, older)
+	local pending = nil
+	local function log(message)
+		local lines = { message }
+		for _, old in history:peek() do
+			if #lines < 3 then
+				table.insert(lines, old)
 			end
 		end
-		history:set(next)
+		history:set(lines)
 	end
-
-	-- THE MUTATION: a validated request with a lifecycle idle -> pending ->
-	-- confirmed | rejected. `optimistic.apply` runs the moment we send (so the
-	-- UI updates instantly); `optimistic.restore` re-syncs the draft to server
-	-- truth on either confirm (reconcile) or reject (roll back).
-	local mutation = replication.mutation(core, {
-		optimistic = {
-			apply = function(payload)
-				draftMusic:set(payload.music)
-				draftVolume:set(payload.volume)
-			end,
-			restore = function()
-				local truth = snapshot.binding:peek()
-				draftMusic:set(truth.music)
-				draftVolume:set(truth.volume)
-			end,
-		},
-	})
-
-	-- THE LOOPBACK "SERVER". It holds one queued request (matching the single
-	-- in-flight mutation) and answers it only when asked, the way a real server
-	-- answers whenever it gets round to it: validate, and on success bump the
-	-- revision + replicate the new snapshot before confirming; on failure,
-	-- reject with a reason.
-	--
-	-- `deliver` is deliberately NOT called `flush`: the gallery host auto-flushes
-	-- a `server.flush` every frame, which would answer before a player could ever
-	-- watch a request be pending — and the pending state is the lesson.
-	local server = {}
-	server.queued = nil :: any
-	function server.submit(envelope: any)
-		server.queued = envelope
-	end
-	-- returns "accepted" | "rejected" | "empty"
-	function server.deliver(): string
-		local envelope = server.queued
-		if envelope == nil then
-			log("Nothing to deliver. Send a change first.")
-			return "empty"
-		end
-		server.queued = nil
-		local payload = envelope.payload
-		if payload.volume >= VOLUME_MIN and payload.volume <= VOLUME_MAX then
-			-- replicate the new authoritative state, THEN confirm — so the
-			-- reconcile step reads the fresh truth
-			snapshot.ingest(snapshot.revision() + 1, { music = payload.music, volume = payload.volume })
-			mutation.confirm(envelope.requestId, "accepted")
-			log(`Server accepted. Revision {snapshot.revision()}.`)
-			return "accepted"
-		end
-		mutation.reject(envelope.requestId, `volume must be {VOLUME_MIN}..{VOLUME_MAX}`)
-		log("Server rejected it. The draft rolled back.")
-		return "rejected"
-	end
-
-	-- Send the current draft as a mutation. `send` runs optimistic.apply and
-	-- moves the status to pending; we hand the envelope to the loopback server.
-	--
-	-- ONE REQUEST AT A TIME, REFUSED IN THE EXAMPLE. `mutation.send` THROWS while
-	-- a request is in flight (that is the adapter's contract), and on a device
-	-- that read as "I can toggle music on but not off" — the control worked once
-	-- and then errored. A tutorial must not throw at a player for pressing a
-	-- button twice, so the second press explains itself instead.
-	local function requestChange(nextMusic: boolean, nextVolume: number, what: string)
-		if mutation.status:peek() == "pending" then
+	local function request(music, volume)
+		if pending then
 			log("Already waiting for a reply. Deliver it first.")
 			return
 		end
-		local envelope = mutation.send({ music = nextMusic, volume = nextVolume }, snapshot.revision())
-		server.submit(envelope)
-		log(`Sent {what}. Waiting for the server.`)
+		pending = { music = music, volume = volume }
+		draft:set(pending)
+		status:set("pending")
+		log("Sent settings. Waiting for the server.")
 	end
-
-	-- APP SEMANTICS (settings mutation) as node handlers referenced below;
-	-- activating a control commits the change, dispatched by the presenter with
-	-- no consumer routing. The toggle's flip rides commit's apply.
-	-- A pending request leaves the draft alone; the mutation owns acceptance.
-	local function toggleMusic(nextMusic: boolean)
-		requestChange(nextMusic, draftVolume:peek(), `music {if nextMusic then "on" else "off"}`)
+	local function deliver()
+		if not pending then
+			log("Nothing to deliver. Send a change first.")
+			return "empty"
+		end
+		local proposed = pending
+		pending = nil
+		if proposed.volume >= 0 and proposed.volume <= 10 then
+			server:set({ music = proposed.music, volume = proposed.volume, revision = server:peek().revision + 1 })
+			status:set("confirmed")
+			log("Server accepted. Both readouts agree.")
+		else
+			status:set("rejected")
+			log("Server rejected volume outside 0..10. The draft rolled back.")
+		end
+		local truth = server:peek()
+		draft:set({ music = truth.music, volume = truth.volume })
+		return status:peek()
 	end
-	local function volDown()
-		local nextVolume = draftVolume:peek() - 1
-		requestChange(draftMusic:peek(), nextVolume, `volume {nextVolume}`)
+	local function reset()
+		pending = nil
+		server:set({ music = false, volume = 10, revision = server:peek().revision + 1 })
+		draft:set({ music = false, volume = 10 })
+		status:set("idle")
+		history:set({ "Reset. Nothing sent yet." })
 	end
-	local function volUp()
-		local nextVolume = draftVolume:peek() + 1
-		requestChange(draftMusic:peek(), nextVolume, `volume {nextVolume}`)
-	end
-	local function askInvalid()
-		requestChange(draftMusic:peek(), INVALID_VOLUME, `volume {INVALID_VOLUME}`)
-	end
-	local function deliverReply()
-		server.deliver()
-	end
-
-	-- RESET. A revision only ever moves FORWARD (a snapshot refuses an older
-	-- one), so the honest reset is the server writing the start values again at
-	-- a new revision — not the client pretending the history never happened.
-	-- `mutation.reset` is what abandons a request the server never answered, and
-	-- it rolls that request's optimistic presentation back on the way out.
-	local function resetDemo()
-		server.queued = nil
-		snapshot.ingest(snapshot.revision() + 1, { music = START_MUSIC, volume = START_VOLUME })
-		mutation.reset()
-		draftMusic:set(START_MUSIC)
-		draftVolume:set(START_VOLUME)
-		history:set({ `Reset. The server rewrote the start values. Revision {snapshot.revision()}.` })
-	end
-
-	local function screen()
-		local draftLabel = function(use)
-			return describeSettings(use(draftMusic), use(draftVolume))
-		end
-		local serverLabel = function(use)
-			local truth = use(snapshot.binding)
-			return `{describeSettings(truth.music, truth.volume)} (revision {snapshot.revision()})`
-		end
-		local volumeLabel = function(use)
-			return `Volume: {use(draftVolume)}`
-		end
-		local statusLabel = function(use)
-			local status = use(mutation.status)
-			local result = use(mutation.lastResult)
-			if status == "pending" then
-				return "Status: pending (no reply yet)"
-			elseif status == "confirmed" then
-				return "Status: accepted"
-			elseif status == "rejected" then
-				return `Status: rejected ({tostring(result)})`
-			end
-			return "Status: idle"
-		end
-		-- the status line says WHAT happened; this one says what to do next, which is
-		-- what a player who has never read the source is missing
-		local hintLabel = function(use)
-			local status = use(mutation.status)
-			if status == "pending" then
-				return 'Your screen already shows it. Press "Deliver server reply".'
-			elseif status == "confirmed" then
-				return "Draft and server agree."
-			elseif status == "rejected" then
-				return "The server refused it, so the draft rolled back."
-			end
-			return "1. Change Music or volume. 2. Compare the two states. 3. Deliver the reply. Then try volume 99: only 0–10 is allowed."
-		end
-		-- STATE COLOUR IS SEMANTIC, never a literal: `danger` for a refusal, `accent`
-		-- for an agreement, the resting content role otherwise.
-		local statusTint = function(use)
-			local status = use(mutation.status)
-			if status == "rejected" then
-				return { role = "danger", blend = 1 }
-			elseif status == "confirmed" then
-				return { role = "accent", blend = 1 }
-			end
-			return { role = "content", blend = 1 }
-		end
-		-- One recipe per visible history row: a fixed row count keeps the panel's
-		-- geometry still while the text inside it changes
-		local function eventRow(index: number)
-			return function(use)
-				return use(history)[index] or ""
-			end
-		end
-
-		-- The page scrolls: at the largest preferred-text setting on a compact phone
-		-- this content is taller than the viewport, and a settings screen whose Reset
-		-- button is off the bottom edge is not operable.
-		return UI.Screen("Settings")({
-			surface = "base",
-			padding = "m",
-			UI.ScrollView("Page")({
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-				-- EVERY LONG LINE ON THIS PAGE DECLARES ITS FULL-VALUE PATH (director
-				-- ruling 5, 2026-08-13). On a 360px phone at the +14px preference
-				-- under fantasy-parchment the theme's chrome leaves this box 294px
-				-- and the word "Settings" alone measures 336px — so wrapping cannot
-				-- succeed here (the engine would break the word) and the line
-				-- ellipsizes instead. `disclose` is what the framework owes a reader
-				-- when that happens; the compact-phone sweep re-proves it every run.
-				UI.Text("Title")({ text = "Settings sync", textSize = "title", disclose = true }),
-				UI.Text("Lesson")({
-					text = "See an instant change while a save is pending, then accept or reject it. Replies are paused in this local simulation so you can compare both states.",
-					textSize = "caption",
-					role = "secondary",
-				}),
-
-				-- THE TWO STATES, ADJACENT AND NAMED. Everything else on this
-				-- screen exists to move these two lines apart and back together.
-				UI.VStack("State")({
-					surface = "raised",
-					padding = "m",
-					gap = "xs",
-					UI.Text("DraftHeading")({
-						text = "On your screen — changes immediately",
-						textSize = "caption",
-						role = "secondary",
-						disclose = true,
-					}),
-					UI.Text("Draft")({ text = draftLabel, textSize = "body" }),
-					UI.Divider("StateRule")({}),
-					UI.Text("ServerHeading")({
-						text = "Saved on the simulated server",
-						textSize = "caption",
-						role = "secondary",
-						disclose = true,
-					}),
-					UI.Text("Server")({ text = serverLabel, textSize = "body", disclose = true }),
-				}),
-
-				UI.Text("Status")({ text = statusLabel, textSize = "label", tint = statusTint }),
-				UI.Text("Hint")({ text = hintLabel, textSize = "caption", role = "secondary" }),
-
-				-- A Toggle bound to the optimistic draft (see the node handlers
-				-- above): it flips the instant you press it, and flips back if
-				-- the server refuses.
-				UI.Toggle("Music")({ label = "Music", value = draftMusic, onChange = toggleMusic }),
-				-- A +/- volume stepper; the server validates 0..10. `align`
-				-- centres the read-out against the buttons — `alignV` is a
-				-- ZStack-child property and is silently ignored here.
-				UI.HStack("VolumeRow")({
-					gap = "s",
-					align = "center",
-					-- THE ROW HAS TO CLAIM THE WIDTH BEFORE THE READ-OUT CAN FILL
-					-- IT. Content-sized, the row was only as wide as its two
-					-- buttons, so the `fill` read-out between them solved to 0x44
-					-- and the volume was invisible — measured, not guessed.
-					width = UI.fill(),
-					-- a one-glyph button is narrower than a finger: the floor
-					-- is the theme's own minimum target, never a px literal
-					UI.Button("VolMinus")({
-						label = "–",
-						width = { type = "minMax", min = "targetSizes.minimum" },
-						onActivate = volDown,
-					}),
-					UI.Text("VolValue")({
-						text = volumeLabel,
-						textSize = "control",
-						textAlign = "center",
-						width = UI.fill(),
-						disclose = true,
-					}),
-					UI.Button("VolPlus")({
-						label = "+",
-						width = { type = "minMax", min = "targetSizes.minimum" },
-						onActivate = volUp,
-					}),
-				}),
-				-- the rejection path in ONE tap, so it needs no explaining: the
-				-- Lesson line above already says which volumes the server takes
-				UI.Button("AskInvalid")({ label = `Ask for volume {INVALID_VOLUME}`, onActivate = askInvalid }),
-				UI.Button("Deliver")({ label = "Deliver server reply", onActivate = deliverReply }),
-				UI.Button("Reset")({ label = "Reset demo", onActivate = resetDemo }),
-
-				UI.VStack("History")({
-					surface = "raised",
-					padding = "m",
-					gap = "xs",
-					UI.Text("HistoryHeading")({
-						text = "What happened (newest first)",
-						textSize = "caption",
-						role = "secondary",
-					}),
-					UI.Text("Event1")({ text = eventRow(1), textSize = "caption" }),
-					UI.Text("Event2")({ text = eventRow(2), textSize = "caption" }),
-					UI.Text("Event3")({ text = eventRow(3), textSize = "caption" }),
-				}),
-			}),
+	local function text(name, value, size)
+		return UI.Label({
+			Name = name,
+			Text = value,
+			TextSize = size or 16,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
 		})
 	end
-
 	return {
-		screen = screen,
-		-- handles for the tutorial / tests. Every one of them is ALSO reachable
-		-- from a control on the screen — none of them is the only route.
-		snapshot = snapshot, -- authoritative (server-confirmed) state
-		draftMusic = draftMusic, -- optimistic UI state
-		draftVolume = draftVolume,
-		mutation = mutation, -- .status is idle|pending|confirmed|rejected
-		server = server, -- server.deliver() == the "Deliver server reply" button
-		history = history, -- the visible event log, newest first
-		reset = resetDemo, -- == the "Reset demo" button
+		screen = function()
+			return Host.ScrollingFrame({
+				Name = "SettingsSync",
+				Size = UDim2.fromScale(1, 1),
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				CanvasSize = UDim2.new(),
+				BackgroundTransparency = 1,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
+				Host.UIPadding({
+					PaddingLeft = UDim.new(0, 16),
+					PaddingTop = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				text("Title", "Settings sync", 28),
+				text("Explanation", "Send a change, inspect the optimistic draft, then deliver the server reply."),
+				text("Draft", function(use)
+					local value = use(draft)
+					return `What you see now: music {if value.music then "on" else "off"}, volume {value.volume}`
+				end),
+				text("Confirmed", function(use)
+					local value = use(server)
+					return `Server confirmed: music {if value.music then "on" else "off"}, volume {value.volume} (revision {value.revision})`
+				end),
+				UI.Toggle({
+
+					Name = "Music",
+					label = "Music",
+					value = function(use)
+						return use(draft).music
+					end,
+					onChange = function(value)
+						request(value, draft:peek().volume)
+					end,
+				}),
+				UI.Stepper({
+
+					Name = "Volume",
+					label = "Volume",
+					min = 0,
+					max = 10,
+					value = function(use)
+						return use(draft).volume
+					end,
+					onChange = function(value)
+						request(draft:peek().music, value)
+					end,
+				}),
+				UI.Button({
+
+					Name = "Invalid",
+					label = "Ask for volume 99",
+					onActivate = function()
+						request(draft:peek().music, 99)
+					end,
+				}),
+				UI.Button({ Name = "Deliver", label = "Deliver server reply", onActivate = deliver }),
+				UI.Button({ Name = "Reset", label = "Reset demo", onActivate = reset }),
+				text("Status", status),
+				text("History", function(use)
+					return table.concat(use(history), "\n")
+				end),
+			})
+		end,
+		request = request,
+		deliver = deliver,
+		reset = reset,
+		report = function()
+			return { draft = draft:peek(), server = server:peek(), status = status:peek(), history = history:peek() }
+		end,
 	}
 end
-
 return example

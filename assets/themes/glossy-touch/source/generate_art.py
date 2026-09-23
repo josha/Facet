@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
-"""Glossy Touch art generator (rich-skinning-v2 stage, ADR-0020 / charter cap 8).
 
-Original, repository-owned art: every texture below is generated procedurally by
-this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, and NO trade dress. The brief's reference ("glossy touch-era") names a
-*category* of chrome — glossy skeuomorphic touch controls, vertical gradients,
-gel highlights, 44px rows — not any vendor's pixels: the palette, geometry,
-gradient stops and highlight construction below are all invented here.
-
-Authored at TOUCH scale: a 44 px control row is the unit, so slice borders are
-sized so that 2*border always fits inside 44 px.
-
-Run with the repo-root shared venv python (any CWD works):
-  <repo-root>/.venv/bin/python generate_art.py
-"""
 
 from __future__ import annotations
 
@@ -26,16 +12,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.dirname(HERE)
 PREVIEW_DIR = os.path.join(HERE, "preview")
-SEED = 0x6E43  # fixed: determinism is the provenance claim ("gel"). Bumped twice:
-# 0x6E11 -> 0x6E27 in the director art round 2026-07-25 (the bar trough, the bar
-# fill and the stripe tile) and 0x6E27 -> 0x6E43 in the director round 2026-07-26
-# (the ON toggle track, re-cut from green into the package's own blue). Every
-# other texture is unchanged and re-generates byte-identically at either seed.
+SEED = 0x6E43
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tiny drawing toolkit. Duplicated verbatim in every theme generator on purpose:
-# a theme folder must be copyable on its own, with no shared-module dependency.
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
 SS = 4
 
 
@@ -203,9 +189,9 @@ class Sheet:
         print(f"wrote {path}  (contact sheet)")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Palette — cool neutral chrome with a saturated blue action colour.
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 WHITE = rgb(255, 255, 255)
 PANEL_TOP = rgb(250, 251, 253)
 PANEL_BOT = rgb(222, 227, 236)
@@ -215,17 +201,17 @@ SHADOW = rgb(52, 60, 76)
 WELL_TOP = rgb(198, 205, 217)
 WELL_BOT = rgb(252, 253, 255)
 
-# Gel ramps: (top, mid) is the glossy upper segment, (low, bot) the matte lower
-# segment. The hard VALUE STEP between mid and low is the whole look, and it is
-# a function of y only — which is what keeps it nine-slice safe.
+
+
+
 CHROME = (rgb(253, 253, 255), rgb(224, 230, 240), rgb(186, 195, 212), rgb(233, 237, 244))
 CHROME_DOWN = (rgb(178, 187, 204), rgb(160, 170, 189), rgb(140, 151, 172), rgb(168, 178, 196))
 BLUE = (rgb(146, 202, 255), rgb(56, 142, 242), rgb(20, 92, 206), rgb(66, 152, 240))
 BLUE_DEEP = (rgb(66, 150, 238), rgb(32, 108, 216), rgb(14, 72, 172), rgb(34, 110, 208))
 GREEN = (rgb(172, 238, 152), rgb(78, 194, 80), rgb(38, 144, 50), rgb(94, 202, 94))
 KNOB = (rgb(255, 255, 255), rgb(246, 248, 252), rgb(206, 213, 226), rgb(238, 242, 248))
-# the BAR's own gel ramp (director art round): deeper than the button BLUE so a
-# 24px fill still reads domed at desktop scale
+
+
 BLUE_GEL = (rgb(150, 208, 255), rgb(48, 136, 240), rgb(14, 78, 190), rgb(48, 132, 226))
 BLUE_MID = rgb(46, 128, 232)
 BLUE_BOT = rgb(20, 84, 188)
@@ -233,8 +219,7 @@ GREEN_BOT = rgb(34, 132, 44)
 
 
 def gel(c: Canvas, mask, ramp, *, split=0.48, sheen=0.30, rim=True):
-    """The house gel: a two-segment vertical gradient with a HARD value step at
-    `split` (the gloss line) plus a white sheen over the upper segment."""
+
     top, mid, low, bot = ramp
     h, w = mask.shape
     e = 1.0 / max(2, h)
@@ -250,13 +235,13 @@ def gel(c: Canvas, mask, ramp, *, split=0.48, sheen=0.30, rim=True):
 
 
 def panel(rng) -> Image.Image:
-    """96x96, slice border 28 — rounded card, soft vertical gradient, hairline."""
+
     w = h = 96
     c = Canvas(w, h)
     body = Mask(w, h)
     body.rrect([2, 2, w - 3, h - 4], 14)
     bm = body.arr()
-    c.paint(SHADOW, blur(shift(bm, 0, 2), 2.2) * 0.28)  # soft drop shadow
+    c.paint(SHADOW, blur(shift(bm, 0, 2), 2.2) * 0.28)
     c.paint(vgrad(w, h, [(0.0, PANEL_TOP), (1.0, PANEL_BOT)]), bm)
     ring = Mask(w, h)
     ring.rring([2, 2, w - 3, h - 4], 14, 1)
@@ -268,12 +253,7 @@ def panel(rng) -> Image.Image:
 
 
 def button(rng, state: str) -> Image.Image:
-    """64x44, slice border 16 — gel button.
 
-    Authored AT the 44 px touch-row height so the gel's hard gloss step maps 1:1
-    onto a real row (a 64x64 source would squeeze the step into the 12 px
-    stretched centre band and the gloss would read as a soft gradient).
-    """
     w, h = 64, 44
     c = Canvas(w, h)
     body = Mask(w, h)
@@ -282,7 +262,7 @@ def button(rng, state: str) -> Image.Image:
     if state == "default":
         c.paint(SHADOW, blur(shift(bm, 0, 2), 1.8) * 0.30)
         gel(c, bm, CHROME, sheen=0.34)
-    else:  # pressed — darker, gradient flipped, gloss killed, inner shade
+    else:
         c.paint(SHADOW, blur(bm, 1.2) * 0.18)
         gel(c, bm, CHROME_DOWN, split=0.34, sheen=0.06, rim=False)
         inner = np.clip(bm - shift(bm, 0, 3), 0, 1)
@@ -294,7 +274,7 @@ def button(rng, state: str) -> Image.Image:
 
 
 def field(rng) -> Image.Image:
-    """64x44, slice border 16 — inset well with a top inner shadow."""
+
     w, h = 64, 44
     c = Canvas(w, h)
     body = Mask(w, h)
@@ -312,36 +292,23 @@ def field(rng) -> Image.Image:
 
 
 def bar_track(rng) -> Image.Image:
-    """96x24, slice border 10 — rounded inset trough.
 
-    RE-CUT in the director art round (seed 0x6E27): the first cut read muddy at
-    the 24 px desktop bar height. Three things were wrong and all three are
-    geometry, not taste. (1) The well was drawn between y=2 and y=h-3, so only
-    20 of the 24 authored pixels carried any art and the trough looked like a
-    hairline on a light plate. It now uses the full height. (2) Its ramp ran
-    196 -> 248 — a 52-level spread that is invisible next to a near-white page,
-    so there was no WELL, only a pale band; the new ramp starts at 138 and the
-    dark end is the TOP, which is what makes an inset read as inset. (3) There
-    was no crisp boundary at all: one soft EDGE_SOFT ring at 0.95. It now carries
-    a hard 1 px EDGE rim plus a 1 px white bevel on the bottom inside lip, which
-    is the classic two-line inset and the thing that survives downscaling.
-    """
     w, h = 96, 24
     c = Canvas(w, h)
     body = Mask(w, h)
     body.rrect([0, 0, w - 1, h - 1], 10)
     bm = body.arr()
-    # a REAL well: dark at the top, opening to near-white at the bottom lip
+
     c.paint(vgrad(w, h, [
         (0.0, rgb(138, 148, 166)),
         (0.30, rgb(180, 189, 205)),
         (0.72, rgb(219, 225, 236)),
         (1.0, rgb(245, 248, 252)),
     ]), bm)
-    # top inner shadow, deeper and tighter than the first cut
+
     inner = np.clip(bm - shift(bm, 0, 4), 0, 1)
     c.paint(SHADOW, blur(inner, 1.5) * 0.55)
-    # the bottom inside lip catches light — the second line of the inset idiom
+
     lip = np.clip(bm - shift(bm, 0, -2), 0, 1)
     c.paint(WHITE, lip * 0.72)
     ring = Mask(w, h)
@@ -351,28 +318,14 @@ def bar_track(rng) -> Image.Image:
 
 
 def bar_fill(rng) -> Image.Image:
-    """96x24, slice border 8 — blue gel fill.
 
-    The centre band is forced X-UNIFORM so a partially revealed fill and a
-    stretched fill are the same picture.
-
-    RE-CUT in the director art round (seed 0x6E27), and the height is the fix.
-    The first cut was authored 20 px tall and DRAWN 24 (the package's
-    `controls.progress.trackHeight`), so the middle 4 rows stretched to 8 and
-    the gel's hard gloss step — the whole look — landed inside the stretched
-    band and smeared into a soft gradient. This is provenance note 1 exactly, one
-    control down from the button it was written for. Authored at 24 it is 1:1
-    vertically at every width, so the step stays a step. The gloss is also
-    deeper (a lower split, more sheen, a darker lower segment) because a 24 px
-    bar shows a quarter of the pixels a 44 px button does.
-    """
     w, h = 96, 24
     c = Canvas(w, h)
     body = Mask(w, h)
     body.rrect([0, 0, w - 1, h - 1], 9)
     bm = body.arr()
     gel(c, bm, BLUE_GEL, split=0.44, sheen=0.40)
-    # a darker seat under the gloss so the fill reads domed rather than flat
+
     seat = np.clip(bm - shift(bm, 0, -3), 0, 1)
     c.paint(BLUE_BOT, seat * 0.45)
     ring = Mask(w, h)
@@ -385,21 +338,7 @@ def bar_fill(rng) -> Image.Image:
 
 
 def stripe_tile(rng) -> Image.Image:
-    """24x24 SEAMLESS diagonal stripe tile (period 24 on both axes).
 
-    White-on-transparency so it overlays any fill; this is the barber-pole /
-    pinstripe demo asset for the `tile` layer kind (TileSize = 24,24).
-    Diagonal art cannot live in a SLICED fill (the stretched centre would smear
-    it), which is exactly why it ships as a tile.
-
-    RE-CUT in the director art round (seed 0x6E27). The first cut ran a 12 px
-    period at 0.55 white: over a 24 px bar that is ONE cycle of a low-contrast
-    hatch, which is exactly the "muddy" read. The period is now 8 (three cycles
-    per tile, still an exact divisor of the 24 px tile so both axes still seam),
-    the white is brighter and narrower, and each stripe carries a thin dark
-    leading edge — contrast between two marks survives downscaling in a way a
-    single translucent mark does not.
-    """
     s = 24
     c = Canvas(s, s)
     period = 8
@@ -407,11 +346,11 @@ def stripe_tile(rng) -> Image.Image:
     shade = Mask(s, s)
     for k in range(-4, 7):
         off = k * period
-        # the lit band: 3 of every 8 px
+
         bright.poly([(off, 0), (off + 3, 0), (off + 3 + s, s), (off + s, s)])
-        # its 2 px leading edge, in shadow — the PAIR is what reads at 24 px, and
-        # the shade half is what keeps the trough recessed instead of turning it
-        # into a band brighter than the page behind it
+
+
+
         shade.poly([(off - 2, 0), (off, 0), (off + s, s), (off - 2 + s, s)])
     c.paint(SHADOW, shade.arr() * 0.30)
     c.paint(WHITE, bright.arr() * 0.55)
@@ -419,19 +358,7 @@ def stripe_tile(rng) -> Image.Image:
 
 
 def toggle_track(rng, state: str) -> Image.Image:
-    """72x32, slice border 14 — capsule track.
 
-    RE-CUT in the director round of 2026-07-26 (seed 0x6E43): the ON track was
-    GREEN, and this package's action colour is BLUE. Every other "this is
-    active" surface it paints — the selection plate, the pressed stepper plate,
-    the progress fill — is the house blue, and the palette's `accent` is
-    rgb(18, 92, 190); a green switch was the one piece of chrome that belonged
-    to no theme. It now uses the same `BLUE` ramp and `BLUE_BOT` rim the
-    selection plate does, so ON reads as "the accent colour" rather than as a
-    borrowed traffic light. Geometry, slice border and the OFF state are
-    untouched, and the knob is unchanged: a chrome gel knob reads on blue for
-    the same reason it read on green.
-    """
     w, h = 72, 32
     c = Canvas(w, h)
     body = Mask(w, h)
@@ -453,7 +380,7 @@ def toggle_track(rng, state: str) -> Image.Image:
 
 
 def toggle_knob(rng) -> Image.Image:
-    """30x30 whole image — chrome gel knob."""
+
     s = 30
     c = Canvas(s, s)
     body = Mask(s, s)
@@ -470,7 +397,7 @@ def toggle_knob(rng) -> Image.Image:
 
 
 def stepper_plate(rng, state: str) -> Image.Image:
-    """44x44, slice border 14 — glyph plate."""
+
     w = h = 44
     c = Canvas(w, h)
     body = Mask(w, h)
@@ -490,7 +417,7 @@ def stepper_plate(rng, state: str) -> Image.Image:
 
 
 def selection(rng, state: str) -> Image.Image:
-    """72x44, slice border 18 — the selection plate (default vs selected glow)."""
+
     w, h = 72, 44
     c = Canvas(w, h)
     if state == "default":
@@ -505,7 +432,7 @@ def selection(rng, state: str) -> Image.Image:
     body = Mask(w, h)
     body.rrect([2, 2, w - 3, h - 3], 12)
     bm = body.arr()
-    c.paint(BLUE_MID, blur(bm, 4.0) * 0.55)          # the glow, outside the plate
+    c.paint(BLUE_MID, blur(bm, 4.0) * 0.55)
     gel(c, bm, BLUE, sheen=0.26)
     ring = Mask(w, h)
     ring.rring([2, 2, w - 3, h - 3], 12, 1)
@@ -516,7 +443,7 @@ def selection(rng, state: str) -> Image.Image:
     return c.image()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 def main() -> None:
     def r(k):
         return np.random.default_rng(SEED + k)
@@ -565,11 +492,11 @@ def main() -> None:
     row("field (64x44 b16) stretched", ["glossy_field.png"])
     row("bar track (96x24 b10) stretched", ["glossy_bar_track.png"])
     row("bar fill (96x24 b8) stretched — X-uniform centre", ["glossy_bar_fill.png"])
-    # STRIPED PROGRESS, composed exactly as the package composes it (director art
-    # round 2026-07-25 — the first sheet put the stripe layer over the FILL,
-    # while `glossy_touch.luau` declares it as `barTrack`'s second layer). So the
-    # trough is striped, the gel fill draws OVER it, and the preview finally shows
-    # what a player sees: a solid gel head against a hatched trough.
+
+
+
+
+
     trk = by["glossy_bar_track.png"][0]
     fil = by["glossy_bar_fill.png"][0]
     stripe = by["glossy_stripe_tile.png"][0]
@@ -596,7 +523,7 @@ def main() -> None:
     sheet.add("stripe tile 24x24 — TILED 10x3 on transparency (seam check)", [tiled], backdrop=(46, 128, 232))
     row("toggle track off / on (72x32 b14) + knob (30x30)",
         ["glossy_toggle_track_off.png", "glossy_toggle_track_on.png", "glossy_toggle_knob.png"])
-    # assembled switch
+
     switches = []
     for st in ("off", "on"):
         comp = Image.new("RGBA", (84, 32), (0, 0, 0, 0))

@@ -1,75 +1,139 @@
 --!strict
--- Compare displayed rich text, end/middle fitting, tile/slice art and an xy canvas.
--- Mounted reports read geometry and offsets; controls also work inside All controls.
 
 return {
 	title = "Leaf capabilities",
 	build = function(ctx: any)
 		local Facet = ctx.Facet
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
 		local TRACK = "Coastal circuit reverse night lap 14"
-		-- a name the app did not author: escaped ONCE, at the composition site
+
 		local GUEST = "Racer <Nightfall> & Co."
-		-- Existing 64×64 framework art; both Image modes use the same loaded source.
+
 		local ART = "rbxassetid://133513168894379"
 
 		local frozen = Compose.cell(false)
 		local narrow = Compose.cell(true)
 
-		local rootPath: string? = nil
-		local function controllerOf(built: any): any
-			return if rootPath and built and built.handle then built.handle.controller else nil
+		local nodes = {}
+		local function solvedNameWidth(_built, name)
+			local node = nodes[name or "CutMiddle"]
+			return if node then node.AbsoluteSize.X else nil
 		end
-		local function solvedNameWidth(built: any, name: string?): number?
-			local controller = controllerOf(built)
-			if controller == nil then
-				return nil
-			end
-			controller.refresh()
-			local rect = controller.rectOf(rootPath .. "/Content/Body/" .. (name or "CutMiddle"))
-			return if rect then rect.w else nil
-		end
-		local function boardOffset(built: any): any
-			local controller = controllerOf(built)
-			return if controller then controller.scrollPosition(rootPath .. "/Content/Body/Board") else nil
+		local function boardOffset(_built)
+			return if nodes.Board then nodes.Board.CanvasPosition else nil
 		end
 
-		-- Setup builds once; the recipes read state on every reactive update.
 		local function Page()
 			local function nameWidth(use)
-				return { type = "fixed", px = if use(narrow) then 160 else 320 }
+				return if use(narrow) then 160 else 320
 			end
 
-			local board = { UI.Text("BoardNote")({ text = "Touch-drag or scroll in both directions" }) }
+			local board = {
+				UI.Label({
+					Name = "BoardNote",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Touch-drag or scroll in both directions",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+			}
 			for row = 1, 3 do
 				local tiles = {}
 				for col = 1, 4 do
 					table.insert(
 						tiles,
-						-- a ZStack, not a Box: a Box is a LEAF, and a tile has to hold
-						-- the label that makes the scroll visible
-						UI.ZStack(`Tile{row}{col}`)({
-							surface = "control",
-							width = { type = "fixed", px = 140 },
-							height = { type = "minMax", min = 56 },
 
-							UI.Text("Label")({ text = `sector {row}-{col}`, textSize = "label", padding = "xs" }),
+						Host.Frame({
+							Name = `Tile{row}{col}`,
+							BackgroundTransparency = 1,
+							Size = UDim2.new(0, 140, 0, 56),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							UI.Label({
+								Name = "Label",
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Text = `sector {row}-{col}`,
+								TextSize = 16,
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
+								Host.UIPadding({
+									PaddingTop = UDim.new(0, 4),
+									PaddingBottom = UDim.new(0, 4),
+									PaddingLeft = UDim.new(0, 4),
+									PaddingRight = UDim.new(0, 4),
+								}),
+							}),
 						})
 					)
 				end
-				table.insert(board, UI.HStack(`BoardRow{row}`)({ gap = "s", table.unpack(tiles) }))
+				table.insert(
+					board,
+					Host.Frame({
+						Name = `BoardRow{row}`,
+						BackgroundTransparency = 1,
+						Size = UDim2.new(0, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.XY,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Horizontal,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 8),
+						}),
+						table.unpack(tiles),
+					})
+				)
 			end
 
-			return UI.VStack("Body")({
-				width = UI.fill(),
-				gap = "m",
+			return Host.Frame({
+				Name = "Body",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				UI.Label({
 
-				UI.Text("Title")({ text = "Leaf capabilities", textSize = "title" }),
-				UI.HStack("Actions")({
-					wrap = true,
-					gap = "s",
-					UI.Button("Width")({
+					Name = "Title",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Leaf capabilities",
+					TextSize = 28,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				Host.Frame({
+
+					Name = "Actions",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Width",
 						label = function(use)
 							return if use(narrow) then "Widen" else "Narrow"
 						end,
@@ -77,7 +141,9 @@ return {
 							narrow:set(not narrow:peek())
 						end,
 					}),
-					UI.Button("Freeze")({
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Freeze",
 						label = function(use)
 							return if use(frozen) then "Thaw" else "Freeze"
 						end,
@@ -86,105 +152,282 @@ return {
 						end,
 					}),
 				}),
+				UI.Label({
 
-				UI.Text("MarkupHeading")({ text = "Markup, and the box it reserves", textSize = "heading" }),
-				--[[ HUGGING, so the plate IS the reserved box. A fill-width label
-						cannot show that a tag did not widen anything, which is what the
-						first Studio pass of this fixture could not judge. ]]
-				UI.Text("Plain")({ text = "Lap record", surface = "chip", padding = "xs" }),
-				--[[ PAINT-ONLY MARKUP, AND A READABLE PAIR. `<mark>` with no colour
-						paints the engine's own bright yellow behind whatever the text
-						colour is, which on a dark theme is an unreadable band (found on a
-						device, 2026-09-18) — so the demo names both halves of the pair.
-						The point of the row is that neither of them widens the box. ]]
-				UI.Text("Marked")({
-					rich = true,
-					text = '<mark color="#20304a" transparency="0.2"><font color="#cfe4ff">Lap record</font></mark>',
-					surface = "chip",
-					padding = "xs",
+					Name = "MarkupHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Markup, and the box it reserves",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Text("Bold")({ rich = true, text = "<b>Lap record</b>", surface = "chip", padding = "xs" }),
-				UI.Text("Heavy")({
-					rich = true,
-					text = '<font weight="heavy">Lap record</font>',
-					surface = "chip",
-					padding = "xs",
-				}),
-				UI.Text("Escaped")({ rich = true, text = "<b>" .. Facet.richText.escape(GUEST) .. "</b> joined" }),
-				UI.Text("Rtl")({ direction = "rtl", text = "Direction: right to left" }),
+				UI.Label({
 
-				UI.Text("CutHeading")({ text = "Where the cut goes", textSize = "heading" }),
-				UI.Text("CutEnd")({ text = TRACK, lineLimit = 1, disclose = true, width = nameWidth }),
-				UI.Text("CutMiddle")({
-					text = TRACK,
-					truncate = "middle",
-					lineLimit = 1,
-					disclose = true,
-					width = nameWidth,
-				}),
-
-				UI.Text("PictureHeading")({ text = "One picture, two modes", textSize = "heading" }),
-				UI.HStack("Pictures")({
-					gap = "s",
-
-					UI.Image("Tiled")({
-						image = ART,
-						scaleMode = "tile",
-						tileSize = { width = 24, height = 24 },
-						resample = "pixelated",
-						width = { type = "fixed", px = 96 },
-						height = { type = "fixed", px = 64 },
-					}),
-					UI.Image("Sliced")({
-						image = ART,
-						scaleMode = "slice",
-						sliceCenter = { x0 = 8, y0 = 8, x1 = 56, y1 = 56 },
-						width = { type = "fixed", px = 96 },
-						height = { type = "fixed", px = 64 },
+					Name = "Plain",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Lap record",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 4),
+						PaddingBottom = UDim.new(0, 4),
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
 					}),
 				}),
+				UI.Label({
 
-				UI.Text("BoardHeading")({ text = "A canvas with two axes", textSize = "heading" }),
-				--[[ A WINDOW NARROWER THAN ITS OWN CANVAS, which is what makes the
-						horizontal axis reachable at all: 320 across a 640 extent, 140 down
-						a 480 one. The first cut of this fixture was fill-width over a 640
-						canvas, so there was nothing to scroll to. ]]
-				UI.ScrollView("Board")({
-					axis = "xy",
-					scrollEnabled = function(use)
-						return not use(frozen)
+					Name = "Marked",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = '<mark color="#20304a" transparency="0.2"><font color="#cfe4ff">Lap record</font></mark>',
+					RichText = true,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 4),
+						PaddingBottom = UDim.new(0, 4),
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
+					}),
+				}),
+				UI.Label({
+
+					Name = "Bold",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "<b>Lap record</b>",
+					RichText = true,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 4),
+						PaddingBottom = UDim.new(0, 4),
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
+					}),
+				}),
+				UI.Label({
+
+					Name = "Heavy",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = '<font weight="heavy">Lap record</font>',
+					RichText = true,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 4),
+						PaddingBottom = UDim.new(0, 4),
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
+					}),
+				}),
+				UI.Label({
+
+					Name = "Escaped",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "<b>" .. (GUEST:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")) .. "</b> joined",
+					RichText = true,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+
+					Name = "Rtl",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Direction: right to left",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+
+					Name = "CutHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Where the cut goes",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+
+					Name = "CutEnd",
+					ref = function(node)
+						nodes.CutEnd = node
 					end,
-					extent = { width = 640, height = 480 },
-					width = { type = "fixed", px = 320 },
-					height = { type = "fixed", px = 140 },
-					padding = "s",
-					gap = "s",
-					table.unpack(board),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = function(use)
+						return UDim2.new(0, nameWidth(use), 0, 0)
+					end,
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = TRACK,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
+				UI.Label({
+
+					Name = "CutMiddle",
+					ref = function(node)
+						nodes.CutMiddle = node
+					end,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = function(use)
+						return UDim2.new(0, nameWidth(use), 0, 0)
+					end,
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = TRACK,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+
+					Name = "PictureHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "One picture, two modes",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				Host.Frame({
+
+					Name = "Pictures",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+					}),
+					Host.ImageLabel({
+						LayoutOrder = 1,
+						Name = "Tiled",
+						ScaleType = Enum.ScaleType.Tile,
+						TileSize = UDim2.fromOffset(32, 32),
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(0, 96, 0, 64),
+						Image = ART,
+					}),
+					Host.ImageLabel({
+						LayoutOrder = 2,
+						Name = "Sliced",
+						ScaleType = Enum.ScaleType.Slice,
+						SliceCenter = ctx.types.Rect.new(16, 16, 48, 48),
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(0, 96, 0, 64),
+						Image = ART,
+					}),
+				}),
+				UI.Label({
+
+					Name = "BoardHeading",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "A canvas with two axes",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				(function()
+					local node = Host.ScrollingFrame({
+						LayoutOrder = 16,
+						Name = "Board",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(0, 320, 0, 140),
+						AutomaticCanvasSize = Enum.AutomaticSize.XY,
+						CanvasSize = UDim2.new(),
+						ScrollingDirection = Enum.ScrollingDirection.XY,
+						ScrollingEnabled = function(use)
+							return not use(frozen)
+						end,
+						ScrollBarThickness = 6,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Vertical,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 8),
+						}),
+						Host.UIPadding({
+							PaddingTop = UDim.new(0, 8),
+							PaddingBottom = UDim.new(0, 8),
+							PaddingLeft = UDim.new(0, 8),
+							PaddingRight = UDim.new(0, 8),
+						}),
+						table.unpack(board),
+					})
+					nodes.Board = node
+					return node
+				end)(),
 			})
 		end
 
 		local built: any
 		built = {
 			screen = function()
-				return UI.Screen("LeafCapabilities")({
-					surface = "base",
-					onAppear = function(path)
-						rootPath = path
-					end,
-					onDisappear = function()
-						rootPath = nil
-					end,
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), Page() }),
+				return Host.Frame({
+					Name = "LeafCapabilities",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					Host.ScrollingFrame({
+						Name = "Content",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						Page(),
+					}),
 				})
 			end,
 			steps = {
-				--[[ THE TWO WIDTH STOPS THE MIDDLE CUT IS LEGIBLE BETWEEN, and each
-					reports the width the SCREEN has rather than the one it asked for.
-					Returning its own request is how this step agreed with itself for
-					three rounds while the row it names never moved: an instrument that
-					echoes its input can only ever confirm it. ]]
+
 				widen = function(built: any)
 					narrow:set(false)
 					return { width = solvedNameWidth(built) }
@@ -193,7 +436,7 @@ return {
 					narrow:set(true)
 					return { width = solvedNameWidth(built) }
 				end,
-				-- the one thing here no still frame holds: the canvas does not move
+
 				freeze = function(built: any)
 					local before = boardOffset(built)
 					frozen:set(true)
@@ -210,7 +453,7 @@ return {
 					narrow = narrow:peek(),
 					track = TRACK,
 					guest = GUEST,
-					escaped = Facet.richText.escape(GUEST),
+					escaped = (GUEST:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")),
 					art = ART,
 					width = solvedNameWidth(built),
 					endWidth = solvedNameWidth(built, "CutEnd"),

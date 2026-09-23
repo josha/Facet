@@ -1,48 +1,5 @@
 #!/usr/bin/env python3
-"""archive_private — the private archive for material that leaves the public tree.
 
-Some files must stop shipping without ceasing to exist. A rejected bake-off arm,
-the vendored copy of another framework, the deep comparison written against it,
-the benchmark JSON that decided a design: each is the EVIDENCE for a decision
-this repository still records, and deleting it would leave the decision record
-citing nothing. Git history is not that home either — the point of the removal is
-that the material is not in the distribution, and a tag away is still in the
-distribution's repository.
-
-So the archive lives OUTSIDE git, beside the repository:
-
-    <repo>/../Facet-private-archive/
-        MANIFEST.json     one entry per file: path, sha256, bytes, originCommit,
-                          archivedAt — sorted by path, merged on re-archive
-        SHA256SUMS        the same checksums in `sha256sum` format, rewritten
-                          whole from the manifest on every archive run
-        <repo-relative paths…>
-
-Layout mirrors repo paths exactly, so an archived file is found where it used to
-live, and a decision record can cite `Facet-private-archive/<its old path>`.
-
-    python3 tools/archive_private.py archive <repo-path> [<repo-path> …]
-    python3 tools/archive_private.py verify
-    python3 tools/archive_private.py list
-    python3 tools/archive_private.py --selftest
-
-`archive` is idempotent: archiving a path twice replaces its bytes and its entry
-rather than appending a second one. A directory is archived file by file, so the
-manifest never has an entry that is not a checksummable file.
-
-`verify` recomputes every checksum and exits non-zero on any missing file, any
-size or digest mismatch, and any disagreement between MANIFEST.json and
-SHA256SUMS. An archive nobody can verify is a copy, not an archive. A file in the
-archive root that this manifest does not record is COUNTED, not failed: the root
-is shared with other workstreams that write into it by other means, and verify
-can only speak for what it recorded.
-
-`--selftest` builds a throwaway source tree and a throwaway archive root, proves
-a clean archive verifies, then plants a one-byte corruption and a deletion and
-proves verify FAILS on each. Nothing is written inside this repository.
-
-Plain Python 3, no dependencies, no network.
-"""
 
 import argparse
 import datetime
@@ -62,7 +19,7 @@ MANIFEST_NAME = "MANIFEST.json"
 SUMS_NAME = "SHA256SUMS"
 SCHEMA = "facet-private-archive/1"
 
-# the archive's own bookkeeping never appears in its own manifest
+
 BOOKKEEPING = {MANIFEST_NAME, SUMS_NAME}
 
 
@@ -97,16 +54,16 @@ def write_manifest(root, data):
     with open(os.path.join(root, MANIFEST_NAME), "w") as handle:
         json.dump(data, handle, indent=2, sort_keys=True)
         handle.write("\n")
-    # SHA256SUMS is rewritten WHOLE from the manifest rather than appended to:
-    # an append-only sums file and a merged manifest drift apart the first time a
-    # path is re-archived, and the drift is exactly what verify exists to catch.
+
+
+
     with open(os.path.join(root, SUMS_NAME), "w") as handle:
         for entry in data["files"]:
             handle.write(f"{entry['sha256']}  {entry['path']}\n")
 
 
 def files_under(source, rel):
-    """Every FILE at or under a repo-relative path, as repo-relative paths."""
+
     absolute = os.path.join(source, rel)
     if os.path.isfile(absolute):
         return [rel]
@@ -183,7 +140,7 @@ def verify(root=DEFAULT_ROOT, quiet=False):
         if digest != entry["sha256"]:
             problems.append(f"CHECKSUM  {entry['path']}: manifest {entry['sha256'][:16]}…, on disk {digest[:16]}…")
 
-    # the two records must also agree with each other
+
     sums_path = os.path.join(root, SUMS_NAME)
     if not os.path.isfile(sums_path):
         problems.append(f"MISSING   {SUMS_NAME}")
@@ -201,13 +158,13 @@ def verify(root=DEFAULT_ROOT, quiet=False):
             if expected.get(name) != sums.get(name):
                 problems.append(f"SUMS      {name}: MANIFEST.json and {SUMS_NAME} disagree")
 
-    #[[ A FILE THIS MANIFEST DOES NOT RECORD IS REPORTED, NEVER FAILED, and the
-    #   distinction is a measurement rather than a preference. The first shape of
-    #   this rule failed the run on any unrecorded file, and it went red on 5671
-    #   of them within the hour: the archive ROOT is shared, and a second
-    #   workstream had written a whole history-rewrite candidate into it by other
-    #   means. `verify`'s job is that what THIS manifest records is intact and
-    #   unaltered — a claim about someone else's files it cannot make. ]]
+
+
+
+
+
+
+
     recorded = {entry["path"] for entry in data["files"]}
     unrecorded = 0
     for base, dirs, names in os.walk(root):
@@ -238,11 +195,11 @@ def show(root=DEFAULT_ROOT):
     return 0
 
 
-# ── the negative controls ────────────────────────────────────────────────────
-#
-# An archive is only worth having if `verify` can fail. Both plants are real
-# accidents: a byte flipped by a bad copy or a syncing filesystem, and a file
-# removed by a tidy-up. Neither is planted anywhere near this repository.
+
+
+
+
+
 def selftest():
     work = tempfile.mkdtemp(prefix="facet-archive-selftest-")
     ok = True
@@ -267,7 +224,7 @@ def selftest():
         print(f"  [{'OK' if good else 'WRONG'}] a clean archive verifies")
         ok = ok and good
 
-        # idempotence: the same paths again must not grow the manifest
+
         archive(["vendor", "docs/one.md"], root=root, source=source, quiet=True)
         entries = len(load_manifest(root)["files"])
         good = entries == 3

@@ -3,8 +3,31 @@ return {
 	title = "Actions and menus",
 	ledgerRows = { "CONTROL-ACTIONS" },
 	build = function(ctx)
-		local Facet = ctx.Facet
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
+		local function frame(properties)
+			local index = 0
+			for _, child in ipairs(properties) do
+				if
+					(typeof(child) == "Instance" or type(child) == "table")
+					and type(child.IsA) == "function"
+					and child:IsA("GuiObject")
+				then
+					index += 1
+					ctx.runtime.decorate(child, { LayoutOrder = index })
+				end
+			end
+			return Host.Frame(properties)
+		end
+		local function wide(use)
+			return use(ctx.viewport).width >= 1000
+		end
+		local function sectionWidth(use)
+			return if wide(use) then UDim2.new(0.5, -12, 0, 0) else UDim2.new(1, 0, 0, 0)
+		end
 		local signal = Compose.cell
 		local busy = signal(false)
 		local enabled = signal(true)
@@ -43,7 +66,8 @@ return {
 			for _, step in { "compact", "regular", "large" } do
 				table.insert(
 					ladder,
-					UI.Button("Rung" .. step:sub(1, 1):upper() .. step:sub(2))({
+					UI.Button({
+						Name = "Rung" .. step:sub(1, 1):upper() .. step:sub(2),
 						label = step,
 						controlSize = step,
 						appearance = if step == "large" then "emphasis" else "standard",
@@ -58,7 +82,8 @@ return {
 			for _, word in { "standard", "emphasis", "soft", "utility", "link" } do
 				table.insert(
 					looks,
-					UI.Button("Look" .. word:sub(1, 1):upper() .. word:sub(2))({
+					UI.Button({
+						Name = "Look" .. word:sub(1, 1):upper() .. word:sub(2),
 						label = word,
 						appearance = word,
 						controlSize = function(use)
@@ -74,7 +99,8 @@ return {
 			for _, entry in { { "Dry", "compact" }, { "Wet", "regular" }, { "Snow", "large" } } do
 				table.insert(
 					chips,
-					UI.Chip("Chip" .. entry[1])({
+					UI.Chip({
+						Name = "Chip" .. entry[1],
 						label = entry[1],
 						selected = Compose.cell(entry[1] == "Dry"),
 						controlSize = entry[2],
@@ -82,35 +108,94 @@ return {
 					})
 				)
 			end
-			return UI.VStack("Vocabulary")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("CapVocabulary")({
-					text = function(use)
+			return frame({
+				Name = "Vocabulary",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				UI.Label({
+					Name = "CapVocabulary",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = function(use)
 						return `The appearance row uses the {use(rung)} size. Compact plates keep full-size tap targets.`
 					end,
-					textSize = "caption",
-					role = "secondary",
-					width = UI.fill(),
+					TextSize = 12,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.HStack("SizeLadder")({ gap = "s", wrap = true, width = UI.fill(), table.unpack(ladder) }),
-				UI.HStack("Appearances")({ gap = "s", wrap = true, width = UI.fill(), table.unpack(looks) }),
-				UI.HStack("SizedChips")({ gap = "s", wrap = true, width = UI.fill(), table.unpack(chips) }),
-				UI.Button("IconLabelled")({
+				frame({
+					Name = "SizeLadder",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					table.unpack(ladder),
+				}),
+				frame({
+					Name = "Appearances",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					table.unpack(looks),
+				}),
+				frame({
+					Name = "SizedChips",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					table.unpack(chips),
+				}),
+				UI.Button({
+					Name = "IconLabelled",
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
 					label = "Go",
 					icon = "facet:search",
-					width = UI.fill(),
 					controlSize = rung,
 					enabled = enabled,
 					onActivate = function()
 						status:set("Race search opened.")
 					end,
 				}),
-				UI.HStack("IconForms")({
-					gap = "s",
-					wrap = true,
-					width = UI.fill(),
-					UI.Button("IconOnly")({
+				frame({
+					Name = "IconForms",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						Name = "IconOnly",
 						icon = "close",
 						name = "Dismiss the race card",
 						corners = "pill",
@@ -120,7 +205,8 @@ return {
 							status:set("Race card dismissed.")
 						end,
 					}),
-					UI.Button("SquareAction")({
+					UI.Button({
+						Name = "SquareAction",
 						label = "Square",
 						corners = "square",
 						controlSize = rung,
@@ -131,29 +217,24 @@ return {
 						end,
 					}),
 				}),
-				UI.background(
-					UI.VStack("OverMedia")({
-						width = UI.fill(),
-						height = { type = "minMax", min = 96 },
-						padding = "m",
-						align = "center",
-						UI.Button("OverMediaAction")({
-							label = "Play this replay",
-							over = "media",
-							controlSize = "large",
-							enabled = enabled,
-							onActivate = function()
-								status:set("Replay opened.")
-							end,
-						}),
+				Host.ImageLabel({
+					Name = "OverMedia",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 96),
+					Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+					ScaleType = Enum.ScaleType.Crop,
+					UI.Button({
+						Name = "OverMediaAction",
+						label = "Play this replay",
+						controlSize = "large",
+						enabled = enabled,
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.fromScale(0.5, 0.5),
+						onActivate = function()
+							status:set("Replay opened.")
+						end,
 					}),
-					UI.Image("OverMediaArt")({
-						width = UI.fill(),
-						height = UI.fill(),
-						image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-						scaleMode = "crop",
-					})
-				),
+				}),
 			})
 		end
 
@@ -177,13 +258,14 @@ return {
 			Compose.cleanup(function()
 				mounted = false
 			end)
-			local conditions = Facet.adaptive.conditions(ctx.env)
-			local rowToggle = UI.Toggle("Assist")({
+			local rowToggle = UI.Toggle({
+				Name = "Assist",
 				label = "Driving assistance",
 				value = assist,
 				row = { description = "Keep the car stable on rough terrain", icon = "settings" },
 			})
-			local rowSlider = UI.Slider("Music")({
+			local rowSlider = UI.Slider({
+				Name = "Music",
 				label = "Music volume",
 				value = rowVolume,
 				min = 0,
@@ -191,7 +273,8 @@ return {
 				step = 5,
 				row = { description = "Balance music against race sounds", icon = "settings" },
 			})
-			local rowAction = UI.Button("Equipment")({
+			local rowAction = UI.Button({
+				Name = "Equipment",
 				label = "Manage equipment",
 				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "search" },
 				onActivate = function()
@@ -199,7 +282,8 @@ return {
 					scrollTarget:set("Drivers")
 				end,
 			})
-			local save = UI.Button("Save")({
+			local save = UI.Button({
+				Name = "Save",
 				label = "Prepare race",
 				busy = busy,
 				enabled = enabled,
@@ -209,8 +293,8 @@ return {
 					status:set("Preparing your race…")
 				end,
 			})
-			if ctx.presenter then
-				Compose.cleanup(ctx.presenter.onTick(function(dt)
+			if ctx.runService then
+				local connection = ctx.runService.Heartbeat:Connect(function(dt)
 					if busy:peek() then
 						seconds -= dt
 						if seconds <= 0 then
@@ -218,9 +302,13 @@ return {
 							status:set("Your race is ready.")
 						end
 					end
-				end))
+				end)
+				Compose.cleanup(function()
+					connection:Disconnect()
+				end)
 			end
-			local repeatButton = UI.Button("Repeat")({
+			local repeatButton = UI.Button({
+				Name = "Repeat",
 				label = "Add a lap · hold to repeat",
 				enabled = enabled,
 				repeatDelay = 0.4,
@@ -229,7 +317,8 @@ return {
 					count:set(count:peek() + 1)
 				end,
 			})
-			local shortcut = UI.Button("Shortcut")({
+			local shortcut = UI.Button({
+				Name = "Shortcut",
 				label = "Restart count · F6",
 				shortcut = { keyCode = "F6" },
 				enabled = enabled,
@@ -260,11 +349,13 @@ return {
 					end,
 				},
 			}
-			local menu = UI.Menu("Filters")({
+			local menu = UI.Menu({
+				Name = "Filters",
 				label = "Race filters",
 				items = items,
 			})
-			local split = UI.SplitButton("Split")({
+			local split = UI.SplitButton({
+				Name = "Split",
 				label = "Start race",
 				enabled = enabled,
 				onActivate = function()
@@ -287,7 +378,8 @@ return {
 					},
 				},
 			})
-			local dialog = UI.Alert("RaceConfirmation")({
+			local dialog = UI.Alert({
+				Name = "RaceConfirmation",
 				isPresented = confirming,
 				title = "Start this race?",
 				message = "Your selected driver is ready.",
@@ -311,17 +403,31 @@ return {
 				},
 			})
 			local function heading(text)
-				return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
+				return UI.Label({
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = text,
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				})
 			end
 
-			local drivers: { [any]: any } = { minColumnWidth = 180, gap = "m", width = UI.fill() }
+			local drivers: { [any]: any } = {}
 			for i, name in { "Classic driver", "Trailblazer" } do
-				local card = UI.Button("Driver" .. i)({
+				local card = UI.Button({
+					Name = "Driver" .. i,
+					Size = UDim2.fromScale(1, 1),
+					AutomaticSize = Enum.AutomaticSize.None,
+					LayoutOrder = i,
 					label = name,
 					subtitle = "Choose for the next race",
 					image = `rbxthumb://type=AvatarHeadShot&id={i}&w=420&h=420`,
 					imageAspectRatio = 1,
-					imageFraming = { width = 420, height = 420, focusY = 0.25 },
+					imageFraming = "crop",
 					enabled = enabled,
 					onActivate = function()
 						status:set(name .. " selected.")
@@ -329,123 +435,201 @@ return {
 				})
 				table.insert(drivers, card)
 			end
-			local driverGrid =
-				UI.focusSection(UI.Grid("Drivers")(drivers), { entry = "restore", preferred = "Driver1" })
+			local driverGrid = frame({
+				Name = "Drivers",
+				Size = UDim2.new(1, 0, 0, 0),
+				BackgroundTransparency = 1,
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIGridLayout({
+					CellSize = function(use)
+						local columns = if use(ctx.viewport).width < 650 then 1 else 2
+						return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 240)
+					end,
+					CellPadding = UDim2.fromOffset(16, 16),
+				}),
+				table.unpack(drivers),
+			})
 
-			local previews: { [any]: any } = { minColumnWidth = 240, width = UI.fill(), gap = "m" }
+			local previews: { [any]: any } = {}
 			for _, mode in { "crop", "none" } do
 				table.insert(
 					previews,
-					UI.VStack("Backdrop" .. mode)({
-						width = UI.fill(),
-						gap = "s",
-						padding = "m",
-						surface = "raised",
-
-						UI.background(
-							UI.Box("Preview")({ width = UI.fill(), height = { type = "fixed", px = 180 } }),
-							UI.Image("Artwork")({
-								image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-								imageFraming = { width = 420, height = 420, mode = mode, focusX = 0.5, focusY = 0.25 },
-							})
-						),
-						UI.Text({
-							text = if mode == "crop"
+					frame({
+						Name = "Backdrop" .. mode,
+						BackgroundTransparency = 1,
+						Size = UDim2.fromScale(1, 1),
+						AutomaticSize = Enum.AutomaticSize.None,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Vertical,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 8),
+						}),
+						Host.UIPadding({
+							PaddingTop = UDim.new(0, 16),
+							PaddingBottom = UDim.new(0, 16),
+							PaddingLeft = UDim.new(0, 16),
+							PaddingRight = UDim.new(0, 16),
+						}),
+						Host.ImageLabel({
+							Name = "Preview",
+							Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+							ScaleType = if mode == "crop" then Enum.ScaleType.Crop else Enum.ScaleType.Fit,
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 180),
+						}),
+						UI.Label({
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = if mode == "crop"
 								then "Focal crop · keeps the face in view"
 								else "Natural pixels · crop as the view shrinks",
-							width = UI.fill(),
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					})
 				)
 			end
 
-			local hero = UI.background(
-				UI.focusSection(
-					UI.VStack("Hero")({
-						width = UI.fill(),
-						height = { type = "minMax", min = 240 },
-						padding = "m",
-						gap = "m",
+			local hero = Host.ImageLabel({
+				Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+				ImageColor3 = Color3.fromRGB(90, 95, 108),
+				ScaleType = Enum.ScaleType.Crop,
+				Name = "Hero",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 240),
+				AutomaticSize = Enum.AutomaticSize.None,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				UI.Label({
+					Name = "HeroTitle",
+					LayoutOrder = 1,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Your next race starts here",
+					TextSize = 28,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Label({
+					LayoutOrder = 2,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Choose your driver. Tune your ride. Find your next challenge.",
+					TextSize = 16,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Button({
+					Name = "ChooseDriver",
+					LayoutOrder = 3,
+					label = "Choose a driver",
+					onActivate = function()
+						scrollTarget:set(nil)
+						scrollTarget:set("Drivers")
+					end,
+				}),
+			})
 
-						UI.Text("HeroTitle")({
-							text = "Your next race starts here",
-							textSize = "title",
-							width = UI.fill(),
-						}),
-						UI.Text({
-							text = "Choose your driver. Tune your ride. Find your next challenge.",
-							textSize = "body",
-							width = UI.fill(),
-						}),
-						UI.Button("ChooseDriver")({
-							label = "Choose a driver",
-							onActivate = function()
-								scrollTarget:set(nil)
-								scrollTarget:set("Drivers")
-							end,
-						}),
-					}),
-					{ preferred = "ChooseDriver" }
-				),
-				UI.ZStack("HeroScene")({
-					clipChildren = true,
-
-					UI.Image("HeroArt")({
-						width = UI.fill(),
-						height = UI.fill(),
-						image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-						imageFraming = Compose.formula(function(use)
-							local reduced = ctx.env and use(ctx.env:get("motionPolicy")) == "reduced"
-							return {
-								width = 420,
-								height = 420,
-								focusY = 0.25,
-								scale = if reduced then 1 else 1.04 - 0.04 * use(scrollProgress),
-							}
-						end),
-					}),
-					UI.gradient(
-						UI.Box("Readability")({ surface = "base", width = UI.fill(), height = UI.fill() }),
-						{ colors = { "surface", "surfaceStrong" }, rotation = 90, transparency = { 0.55, 0.08 } }
-					),
-				})
-			)
-
-			local showroom = UI.VStack("Showroom")({
-				width = UI.fill(),
-				gap = "m",
-
+			local showroom = frame({
+				Name = "Showroom",
+				BackgroundTransparency = 1,
+				Size = sectionWidth,
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
 				hero,
 				heading("Choose your driver"),
 				driverGrid,
 				heading("Image backgrounds"),
-				UI.Grid("Backgrounds")(previews),
+				frame({
+					Name = "Backgrounds",
+					Size = UDim2.new(1, 0, 0, 0),
+					BackgroundTransparency = 1,
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIGridLayout({
+						CellSize = function(use)
+							local width = use(ctx.viewport).width
+							local columns = if width < 650 or (wide(use) and width < 1080) then 1 else 2
+							return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 260)
+						end,
+						CellPadding = UDim2.fromOffset(16, 16),
+					}),
+					table.unpack(previews),
+				}),
 			})
-			local raceSetup = UI.VStack("RaceSetup")({
-				width = UI.fill(),
-				gap = "m",
-
-				UI.focusSection(UI.VStack("SettingsRows")({
-					width = UI.fill(),
-					gap = "m",
+			local raceSetup = frame({
+				Name = "RaceSetup",
+				BackgroundTransparency = 1,
+				Size = sectionWidth,
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				frame({
+					Name = "SettingsRows",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
 					rowAction,
 					rowToggle,
 					rowSlider,
-				})),
+				}),
 				heading("Race tags"),
-				UI.ScrollView("Tokens")({
-					axis = "x",
-					height = UI.hug(),
-					width = UI.fill(),
-					UI.HStack("Row")({
-						gap = "s",
-						UI.ForEach("Items")({
-							items = tokens,
+				Host.ScrollingFrame({
+					Name = "Tokens",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 44),
+					AutomaticSize = Enum.AutomaticSize.None,
+					AutomaticCanvasSize = Enum.AutomaticSize.X,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					frame({
+						Name = "Row",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(0, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.XY,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Horizontal,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 8),
+						}),
+						Compose.OrderedCollection({
+							from = tokens,
 							key = function(item)
 								return item
 							end,
-							row = function(item)
-								return UI.Chip("Token")({
+							render = function(current, placement, key)
+								local item = current:peek()
+								return UI.Chip({
+									Name = "Token",
 									label = item,
 									controlSize = "compact",
 									onRemove = function()
@@ -464,79 +648,185 @@ return {
 				}),
 				heading("Prepare a race"),
 				save,
-				UI.Text("Status")({ text = status, width = UI.fill() }),
+				UI.Label({
+					Name = "Status",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = status,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
 				heading("Set the lap count"),
 				repeatButton,
-				UI.Text("Count")({
-					text = Compose.formula(function(use)
+				UI.Label({
+					Name = "Count",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = Compose.formula(function(use)
 						return tostring(use(count)) .. " laps"
 					end),
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				shortcut,
 				heading("Filter the grid"),
 				menu,
-				UI.Text({
-					text = Compose.formula(function(use)
+				UI.Label({
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = Compose.formula(function(use)
 						return (if use(favorites) then "Favorites" else "All races")
 							.. " · "
 							.. use(weather)
 							.. " weather"
 					end),
-					width = UI.fill(),
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				heading("Start or choose a mode"),
-				UI.Text("CapSplit")({
-					text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
-					textSize = "caption",
-					role = "secondary",
-					width = UI.fill(),
+				UI.Label({
+					Name = "CapSplit",
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
+					TextSize = 12,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				split,
-				UI.Button("Confirm")({ label = "Confirm race…", enabled = enabled, onActivate = openDialog }),
+				UI.Button({
+					Name = "Confirm",
+					label = "Confirm race…",
+					enabled = enabled,
+					onActivate = openDialog,
+				}),
 			})
-			local body = UI.AdaptiveStack("Sections")({
-				width = UI.fill(),
-				gap = "l",
-				align = "start",
-				axis = Compose.formula(function(use)
-					return if use(conditions.isWide) then "x" else "y"
-				end),
+			local body = frame({
+				Name = "Sections",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = function(use)
+						return if wide(use) then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
+					end,
+					VerticalAlignment = Enum.VerticalAlignment.Top,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 24),
+				}),
 				showroom,
 				raceSetup,
 			})
-			local page = UI.VStack({
-				width = UI.fill(),
-				gap = "m",
-
-				UI.Text({ text = "Actions and menus", textSize = "title", width = UI.fill() }),
-				UI.Button("Reset")({ label = "Reset", onActivate = reset }),
-				UI.Button("Enable")({
-					label = "Toggle enabled",
-					onActivate = function()
-						enabled:set(not enabled:peek())
-					end,
+			local page = frame({
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				UI.Label({
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Actions and menus",
+					TextSize = 28,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				frame({
+					Name = "Toolbar",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
+					}),
+					UI.Button({
+						Name = "Reset",
+						label = "Reset",
+						onActivate = reset,
+					}),
+					UI.Button({
+						Name = "Enable",
+						label = "Toggle enabled",
+						onActivate = function()
+							enabled:set(not enabled:peek())
+						end,
+					}),
 				}),
 				body,
-				UI.Text({ text = "Size and emphasis", textSize = "heading", width = UI.fill() }),
+				UI.Label({
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Size and emphasis",
+					TextSize = 22,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
 				VocabularySection(),
 			})
-			local scroller = UI.ScrollView("Content")({
-				width = UI.fill(),
-				height = UI.fill(),
-				navigation = {
-					focus = "target",
-					targets = { "Hero", "SettingsRows", "Drivers" },
-					target = scrollTarget,
-					progress = scrollProgress,
-					onVisibilityChanged = function(id, visible)
-						if id == "Hero" then
-							heroVisible:set(visible)
-						end
-					end,
-				},
+			local scroller = Host.ScrollingFrame({
+				Name = "Content",
+				BorderSizePixel = 0,
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				CanvasSize = UDim2.new(),
+				ScrollBarThickness = 6,
 				page,
 			})
-			return UI.Screen("ActionControls")({ surface = "base", padding = "m", scroller })
+			Compose.watch(function(use)
+				local selected = use(scrollTarget)
+				local node = selected and scroller:FindFirstChild(selected, true)
+				if node then
+					scroller.CanvasPosition = Vector2.new(
+						0,
+						node.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
+					)
+				end
+			end)
+			local connection = scroller:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+				local span = math.max(1, scroller.AbsoluteCanvasSize.Y - scroller.AbsoluteWindowSize.Y)
+				scrollProgress:set(math.clamp(scroller.CanvasPosition.Y / span, 0, 1))
+			end)
+			Compose.cleanup(function()
+				connection:Disconnect()
+			end)
+			return frame({
+				Name = "ActionControls",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				scroller,
+				dialog,
+			})
 		end
 
 		return {

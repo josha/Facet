@@ -1,8 +1,4 @@
 --!strict
--- Foyer proof seed data (RA-P4). Original clean-room content universe —
--- worlds, creators and friends invented for this proof; nothing references a
--- real experience, creator, or platform identity. Deterministic: the seed page
--- selects a rotation, never an RNG at read time.
 
 export type Tile = {
 	id: string,
@@ -177,9 +173,6 @@ local FRIENDS: { Friend } = {
 
 export type Notice = { id: string, bodyKeyless: string, timeKey: string, timeParam: string? }
 
--- Notice bodies are seeded English-independent proof copy (they are DATA the
--- fake service returns, like world titles — not UI chrome), while the relative
--- time caption is an i18n key so the locale swap visibly reaches the modal.
 local NOTICES: { Notice } = {
 	{ id = "n1", bodyKeyless = "Tibbs sent you a spark", timeKey = "time.now" },
 	{ id = "n2", bodyKeyless = "Moss Kingdom added new stones", timeKey = "time.h", timeParam = "2" },
@@ -188,17 +181,11 @@ local NOTICES: { Notice } = {
 	{ id = "n5", bodyKeyless = "Ferry Tales left the dock without you", timeKey = "time.d", timeParam = "3" },
 }
 
--- Two thumbKeys that the transport SCRIPTS as failures (spec §3): visible in
--- the first seed page so the failed-image placeholder behavior is in every run.
 local FAILED_KEYS: { [string]: boolean } = {
 	["thumb:signal-lost"] = true,
 	["face:vess"] = true,
 }
 
--- The engine-shipped generic placeholder texture: a deterministic, unbranded
--- stand-in so async-ready images render offline. Original art is an art-pass
--- follow-up recorded in the stage report; behavior (pending/ready/failed) is
--- what this proof exercises.
 local STAND_IN_ASSET = "rbxasset://textures/ui/GuiImagePlaceholder.png"
 
 local seed = {}
@@ -215,8 +202,6 @@ function seed.assetFor(key: string): (boolean, string?)
 	return true, STAND_IN_ASSET
 end
 
--- Deterministic section builder for a seed page: rotates the world list by the
--- page index so refresh() visibly reorders with zero randomness.
 function seed.sections(page: number): { { id: string, titleKey: string, layout: string, tiles: { Tile } } }
 	local n = #WORLDS
 	local function pick(offset: number, count: number): { Tile }
@@ -234,8 +219,6 @@ function seed.sections(page: number): { { id: string, titleKey: string, layout: 
 	}
 end
 
--- The Charts tab: the same tiles ranked by approval, descending — real content
--- through the same Section blueprint, not a stub.
 function seed.charted(): { { id: string, titleKey: string, layout: string, tiles: { Tile } } }
 	local ranked = table.clone(WORLDS)
 	table.sort(ranked, function(a, b)

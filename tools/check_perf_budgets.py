@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
-"""Gate check: budgets come from a measured baseline AND a frame target, and no
-device budget is ever satisfied by non-device data.
 
-Three things must hold:
-
-  1. every scene budget records both halves — the measured `observed_p95_ms`
-     the trend budget derives from, and the `frameTargetHz`/`ceilingMs` the
-     product target derives from. A budget with only one half cannot be
-     argued with.
-  2. the frame ceiling declares its one-way directionality in words, because
-     the whole point is that passing it proves nothing.
-  3. every declared device budget is `measured: false` while no hardware run
-     exists, and the last perf run RECORDED that it skipped them. A silently
-     omitted device budget reads as a passed one.
-"""
 import json
 import os
 import sys
@@ -25,7 +11,7 @@ DEVICE_CLASSES = {"phone-physical", "console-physical", "desktop-retail"}
 
 
 def device_capture_rows(cls: str) -> int:
-    """How many rows of `cls` exist in a stored capture. Zero means no evidence."""
+
     if not os.path.isdir(DEVICE_DIR):
         return 0
     total = 0
@@ -79,11 +65,11 @@ def main() -> int:
     if missing:
         errors.append(f"device budgets missing for {sorted(missing)}")
     for cls, b in device.items():
-        # CONDITIONAL ON THE EVIDENCE, not on the calendar. The first version
-        # hard-failed on any measured:true, which meant the review packet's own
-        # closing procedure for the physical rows would have broken this gate the
-        # moment someone followed it. A device budget may be marked measured the
-        # day a capture of that class exists, and not one minute before.
+
+
+
+
+
         if b.get("measured") is True:
             if not device_capture_rows(cls):
                 errors.append(
@@ -101,10 +87,10 @@ def main() -> int:
     budget_block = report.get("budget") or {}
     if budget_block.get("checked"):
         skipped = {s["class"] for s in budget_block.get("skippedDeviceBudgets") or []}
-        # only the UNMEASURED budgets should appear as skipped. A measured one is
-        # skipped by nobody — it was checked — so demanding that every declared
-        # budget appear in the skip list failed the moment a reviewer followed
-        # the packet and flipped one to measured.
+
+
+
+
         expected_skips = {cls for cls, b in device.items() if b.get("measured") is not True}
         if skipped != expected_skips:
             errors.append(
@@ -116,10 +102,10 @@ def main() -> int:
         for e in errors:
             print(f"FAIL {e}")
         return 1
-    # COUNT, DO NOT ASSUME. This line used to say "all unmeasured" unconditionally
-    # and printed it unchanged while a device budget was measured and being
-    # enforced — a summary that describes the expected state rather than the
-    # observed one is the same defect this stage exists to catch, one layer up.
+
+
+
+
     measured = sorted(k for k, v in device.items() if v.get("measured"))
     unmeasured = sorted(k for k, v in device.items() if not v.get("measured"))
     device_note = (

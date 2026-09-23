@@ -4,23 +4,12 @@ return {
 	ledgerRows = { "CONTROL-SELECTION" },
 	build = function(ctx)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local signal = Compose.cell
-		-- The host may expose a control's record for drivers and reports.
-		local function record(id: string): any
-			return if ctx.controlRecord ~= nil then ctx.controlRecord(id) else nil
-		end
-		local function open(id: string): boolean
-			local control = record(id)
-			if control == nil then
-				return false
-			end
-			control.api.open()
-			return true
-		end
-		local function dumpOf(id: string): any
-			local control = record(id)
-			return if control ~= nil then control.dump() else nil
-		end
 		local enabled = signal(true)
 		local checked = signal(false)
 		local mixed = signal(true)
@@ -54,10 +43,15 @@ return {
 			})
 		end
 		local function switch()
-			return UI.Toggle("Switch")({ label = "Enable choices", value = enabled })
+			return UI.Toggle({
+				Name = "Switch",
+				label = "Enable choices",
+				value = enabled,
+			})
 		end
 		local function checkbox()
-			return UI.Toggle("Checkbox")({
+			return UI.Toggle({
+				Name = "Checkbox",
 				label = "Include night races and their full race results",
 				value = checked,
 				mixed = mixed,
@@ -66,22 +60,18 @@ return {
 			})
 		end
 		local function toggle()
-			return UI.Toggle("Boost")({
+			return UI.Toggle({
+				Name = "Boost",
 				label = "Boost mode",
 				value = boost,
 				presentation = "button",
 				enabled = enabled,
 			})
 		end
-		--[[ ONE SELECTION CONTROL, FOUR STYLES (picker round, 2026-09-11). The
-			same `selected` signal drives a radio group, a segmented strip and the
-			DEFAULT — `style = "automatic"`, which is the menu on this phone and on
-			a desktop (a form row: title leading, value and chevron trailing, the
-			options anchored to it) and a focus-navigable strip on a television. A
-			searchable list is the navigation link; a set of independent checks is
-			a `Menu` with `checked` items, because a picker holds ONE value. ]]
+
 		local function radio()
-			return UI.Picker("Radio")({
+			return UI.Picker({
+				Name = "Radio",
 				selected = selected,
 				options = choices,
 				style = "radioGroup",
@@ -89,7 +79,8 @@ return {
 			})
 		end
 		local function segmented()
-			return UI.Picker("Segments")({
+			return UI.Picker({
+				Name = "Segments",
 				selected = selected,
 				options = { { value = "open", label = "Open" }, { value = "club", label = "Club", enabled = club } },
 				style = "segmented",
@@ -97,7 +88,8 @@ return {
 			})
 		end
 		local function popup()
-			return UI.Picker("Popup")({
+			return UI.Picker({
+				Name = "Popup",
 				label = "Race group",
 				selected = selected,
 				options = {
@@ -112,7 +104,8 @@ return {
 			table.insert(trackOptions, { value = item.id, label = item.label })
 		end
 		local function search()
-			return UI.Picker("Tracks")({
+			return UI.Picker({
+				Name = "Tracks",
 				label = "Track",
 				selected = track,
 				options = trackOptions,
@@ -121,8 +114,10 @@ return {
 			})
 		end
 		local function multi()
-			return UI.Menu("Tags")({
-				trigger = UI.Button("Trigger")({
+			return UI.Menu({
+				Name = "Tags",
+				trigger = UI.Button({
+					Name = "Trigger",
 					label = "Scenery filters",
 					enabled = enabled,
 					onActivate = function() end,
@@ -141,7 +136,8 @@ return {
 			})
 		end
 		local function combo()
-			return UI.ComboBox("Vehicle")({
+			return UI.ComboBox({
+				Name = "Vehicle",
 				value = comboValue,
 				text = comboText,
 				options = { { id = "road", label = "Road" }, { id = "rally", label = "Rally" } },
@@ -167,23 +163,58 @@ return {
 			comboText:set("Road")
 		end
 		local function heading(text)
-			return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
+			return UI.Label({
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Text = text,
+				TextSize = 22,
+				TextWrapped = true,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			})
 		end
-		--[[ THE DEMO SAYS WHAT EACH CONTROL IS (user review 2026-09-12): a
-			capture of this page could not be read without the source beside it.
-			One caption above every control — the control and the style it was
-			asked for — so a screenshot names its own subjects. ]]
+
 		local function caption(id: string, text: string)
-			return UI.Text(id)({ text = text, textSize = "caption", role = "secondary", width = UI.fill() })
+			return UI.Label({
+				Name = id,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Text = text,
+				TextSize = 12,
+				TextWrapped = true,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			})
 		end
 
 		local function body()
-			return UI.VStack("Body")({
-				width = UI.fill(),
-				gap = "m",
+			return Host.Frame({
+				Name = "Body",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
+				}),
+				UI.Label({
 
-				UI.Text({ text = "Choices and filters", textSize = "title", width = UI.fill() }),
-				UI.Button("Reset")({ label = "Reset", onActivate = reset }),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Text = "Choices and filters",
+					TextSize = 28,
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Button({ Name = "Reset", label = "Reset", onActivate = reset }),
 				caption("CapSwitch", "Toggle · switch"),
 				switch(),
 				heading("Check and toggle"),
@@ -198,7 +229,9 @@ return {
 				segmented(),
 				caption("CapPopup", "Picker · automatic (menu on touch and pointer; rows on a television)"),
 				popup(),
-				UI.Button("Join")({
+				UI.Button({
+
+					Name = "Join",
 					label = "Toggle club membership",
 					onActivate = function()
 						club:set(not club:peek())
@@ -216,49 +249,29 @@ return {
 			})
 		end
 		local function screen()
-			return UI.Screen("SelectionControls")({
-				surface = "base",
-				padding = "m",
-				gap = "s",
-
-				UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), body() }),
+			return Host.Frame({
+				Name = "SelectionControls",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				Host.ScrollingFrame({
+					Name = "Content",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					body(),
+				}),
 			})
 		end
 		return {
 			screen = screen,
-			states = function()
-				return {
-					{
-						id = "search",
-						kind = "popup",
-						open = function()
-							return open("Tracks")
-						end,
-					},
-					{
-						id = "no-results",
-						kind = "popup",
-						open = function()
-							query:set("unlisted")
-							return open("Tracks")
-						end,
-					},
-					{
-						id = "multiple",
-						kind = "popup",
-						open = function()
-							return open("Tags")
-						end,
-					},
-					{
-						id = "race-group",
-						kind = "popup",
-						open = function()
-							return open("Popup")
-						end,
-					},
-				}
-			end,
 			steps = {
 				reset = reset,
 				disable = function()
@@ -276,15 +289,16 @@ return {
 			},
 			report = function()
 				return {
-					checkbox = dumpOf("Checkbox"),
-					radio = dumpOf("Radio"),
-					popup = dumpOf("Popup"),
-					search = dumpOf("Tracks"),
-					multiple = dumpOf("Tags"),
-					combo = dumpOf("Vehicle"),
+					checked = checked:peek(),
+					mixed = mixed:peek(),
+					selection = selected:peek(),
+					track = track:peek(),
+					query = query:peek(),
+					tags = { coastal = tagCoastal:peek(), forest = tagForest:peek(), snow = tagSnow:peek() },
+					vehicle = comboValue:peek(),
 				}
 			end,
-			-- nothing outlives the screen
+
 			dispose = function() end,
 		}
 	end,

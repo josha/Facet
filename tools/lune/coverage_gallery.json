@@ -1,0 +1,1030 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "example_word_game": {
+      "specs": [
+        "native_games",
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_games::examples/05 word game \u2014 the pure scoring rules::scores a plain guess with no repeated letters",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::a guess with a DOUBLED letter against a solution holding ONE spends the budget once",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::BOTH doubled: two exact matches and one misplaced, all from a budget of two",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::three copies against two: the excess is absent",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::the whole solution scores correct",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a guess shorter than five letters",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a five-letter non-word",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::accepts every solution AND the wider guess list",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::the answer set is a SUBSET of the accepted set, and strictly smaller",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::accepts ordinary words the old hand-typed list refused",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::takes a guess in whatever case it arrives in",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::ranks correct above present above absent",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::never downgrades on later, weaker evidence",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::an unknown key takes whatever the first evidence says",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::mergeKeys returns a NEW table and keeps the strongest per letter",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::a later guess that re-tests a solved letter cannot downgrade it",
+        "native_games::examples/05 word game \u2014 the deterministic seed::the same seed always yields the same word",
+        "native_games::examples/05 word game \u2014 the deterministic seed::every seed lands on a real answer, and a seed past the end wraps",
+        "native_games::examples/05 word game \u2014 the deterministic seed::the game plays in UPPERCASE even though the data is lowercase",
+        "native_games::examples/05 word game \u2014 the deterministic seed::REACT is reachable, and it is the seed the rest of this file plays",
+        "native_games::examples/05 word game \u2014 the state machine::starts on a visible six-by-five board with a caret in the first cell",
+        "native_games::examples/05 word game \u2014 the state machine::every tile paints a REAL tint \u2014 the plate is never invisible",
+        "native_games::examples/05 word game \u2014 the state machine::letters land in the ACTIVE row only",
+        "native_games::examples/05 word game \u2014 the state machine::a SHORT guess is refused with a message and does not consume a row",
+        "native_games::examples/05 word game \u2014 the state machine::an INVALID guess is refused with a different message and does not consume a row",
+        "native_games::examples/05 word game \u2014 the state machine::a rejected guess consumes NO row, and an ordinary word the old list refused plays on",
+        "native_games::examples/05 word game \u2014 the state machine::four words the old thirty-four-word list rejected now play end to end",
+        "native_games::examples/05 word game \u2014 the state machine::backspace deletes from the active row and stops at empty",
+        "native_games::examples/05 word game \u2014 the state machine::a scored row keeps its verdict AND its marks while the next row becomes active",
+        "native_games::examples/05 word game \u2014 the state machine::the duplicate-letter rule reaches the board, not just the scorer",
+        "native_games::examples/05 word game \u2014 the state machine::key state accumulates monotonically and never downgrades",
+        "native_games::examples/05 word game \u2014 the state machine::wins when the solution is submitted, and opens the results card",
+        "native_games::examples/05 word game \u2014 the state machine::loses after SIX accepted wrong guesses and reveals the word",
+        "native_games::examples/05 word game \u2014 the state machine::a refused guess does NOT count toward the six",
+        "native_games::examples/05 word game \u2014 the state machine::input is dead after the game ends, except restart",
+        "native_games::examples/05 word game \u2014 the state machine::restart is deterministic: the same seed replays the same word",
+        "native_games::examples/05 word game \u2014 the state machine::restart after a loss closes the results card and re-enables the keyboard",
+        "native_games::examples/05 word game \u2014 the state machine::the results card's Close button actually closes it",
+        "native_games::examples/05 word game \u2014 the state machine::the results card's New game button restarts from inside the card",
+        "native_games::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose",
+        "native_gallery_workflows::native gallery workflows::fits every word keyboard key and crossword rack slot in a narrow row"
+      ],
+      "behaviors": [
+        "Original pure rules and mounted game state-machine assertions retain their cases, including refusals, determinism, endings, reset, native controls and complete owner teardown.",
+        "Native proportional Wordle keyboard and crossword rack stay within narrow row budgets while O/P/Delete/Enter and the last rack slot remain functional; crossword readouts/actions size to their content."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter depth/adapter props/token-resolver geometry": "Deleted Facet presenter, fake target and private token resolver assertions now use the native result dialog, native properties and owned Instance teardown."
+      },
+      "caseMappings": {
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::scores a plain guess with no repeated letters": "native_games::examples/05 word game \u2014 the pure scoring rules::scores a plain guess with no repeated letters",
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::a guess with a DOUBLED letter against a solution holding ONE spends the budget once": "native_games::examples/05 word game \u2014 the pure scoring rules::a guess with a DOUBLED letter against a solution holding ONE spends the budget once",
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left": "native_games::examples/05 word game \u2014 the pure scoring rules::a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left",
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::BOTH doubled: two exact matches and one misplaced, all from a budget of two": "native_games::examples/05 word game \u2014 the pure scoring rules::BOTH doubled: two exact matches and one misplaced, all from a budget of two",
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter": "native_games::examples/05 word game \u2014 the pure scoring rules::an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter",
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::three copies against two: the excess is absent": "native_games::examples/05 word game \u2014 the pure scoring rules::three copies against two: the excess is absent",
+        "example_word_game::examples/05 word game \u2014 the pure scoring rules::the whole solution scores correct": "native_games::examples/05 word game \u2014 the pure scoring rules::the whole solution scores correct",
+        "example_word_game::examples/05 word game \u2014 validation and the two generated sets::refuses a guess shorter than five letters": "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a guess shorter than five letters",
+        "example_word_game::examples/05 word game \u2014 validation and the two generated sets::refuses a five-letter non-word": "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a five-letter non-word",
+        "example_word_game::examples/05 word game \u2014 validation and the two generated sets::accepts every solution AND the wider guess list": "native_games::examples/05 word game \u2014 validation and the two generated sets::accepts every solution AND the wider guess list",
+        "example_word_game::examples/05 word game \u2014 validation and the two generated sets::the answer set is a SUBSET of the accepted set, and strictly smaller": "native_games::examples/05 word game \u2014 validation and the two generated sets::the answer set is a SUBSET of the accepted set, and strictly smaller",
+        "example_word_game::examples/05 word game \u2014 validation and the two generated sets::accepts ordinary words the old hand-typed list refused": "native_games::examples/05 word game \u2014 validation and the two generated sets::accepts ordinary words the old hand-typed list refused",
+        "example_word_game::examples/05 word game \u2014 validation and the two generated sets::takes a guess in whatever case it arrives in": "native_games::examples/05 word game \u2014 validation and the two generated sets::takes a guess in whatever case it arrives in",
+        "example_word_game::examples/05 word game \u2014 the key ladder is monotonic::ranks correct above present above absent": "native_games::examples/05 word game \u2014 the key ladder is monotonic::ranks correct above present above absent",
+        "example_word_game::examples/05 word game \u2014 the key ladder is monotonic::never downgrades on later, weaker evidence": "native_games::examples/05 word game \u2014 the key ladder is monotonic::never downgrades on later, weaker evidence",
+        "example_word_game::examples/05 word game \u2014 the key ladder is monotonic::an unknown key takes whatever the first evidence says": "native_games::examples/05 word game \u2014 the key ladder is monotonic::an unknown key takes whatever the first evidence says",
+        "example_word_game::examples/05 word game \u2014 the key ladder is monotonic::mergeKeys returns a NEW table and keeps the strongest per letter": "native_games::examples/05 word game \u2014 the key ladder is monotonic::mergeKeys returns a NEW table and keeps the strongest per letter",
+        "example_word_game::examples/05 word game \u2014 the key ladder is monotonic::a later guess that re-tests a solved letter cannot downgrade it": "native_games::examples/05 word game \u2014 the key ladder is monotonic::a later guess that re-tests a solved letter cannot downgrade it",
+        "example_word_game::examples/05 word game \u2014 the deterministic seed::the same seed always yields the same word": "native_games::examples/05 word game \u2014 the deterministic seed::the same seed always yields the same word",
+        "example_word_game::examples/05 word game \u2014 the deterministic seed::every seed lands on a real answer, and a seed past the end wraps": "native_games::examples/05 word game \u2014 the deterministic seed::every seed lands on a real answer, and a seed past the end wraps",
+        "example_word_game::examples/05 word game \u2014 the deterministic seed::the game plays in UPPERCASE even though the data is lowercase": "native_games::examples/05 word game \u2014 the deterministic seed::the game plays in UPPERCASE even though the data is lowercase",
+        "example_word_game::examples/05 word game \u2014 the deterministic seed::REACT is reachable, and it is the seed the rest of this file plays": "native_games::examples/05 word game \u2014 the deterministic seed::REACT is reachable, and it is the seed the rest of this file plays",
+        "example_word_game::examples/05 word game \u2014 the state machine::starts on a visible six-by-five board with a caret in the first cell": "native_games::examples/05 word game \u2014 the state machine::starts on a visible six-by-five board with a caret in the first cell",
+        "example_word_game::examples/05 word game \u2014 the state machine::every tile paints a REAL tint \u2014 the plate is never invisible": "native_games::examples/05 word game \u2014 the state machine::every tile paints a REAL tint \u2014 the plate is never invisible",
+        "example_word_game::examples/05 word game \u2014 the state machine::letters land in the ACTIVE row only": "native_games::examples/05 word game \u2014 the state machine::letters land in the ACTIVE row only",
+        "example_word_game::examples/05 word game \u2014 the state machine::a SHORT guess is refused with a message and does not consume a row": "native_games::examples/05 word game \u2014 the state machine::a SHORT guess is refused with a message and does not consume a row",
+        "example_word_game::examples/05 word game \u2014 the state machine::an INVALID guess is refused with a different message and does not consume a row": "native_games::examples/05 word game \u2014 the state machine::an INVALID guess is refused with a different message and does not consume a row",
+        "example_word_game::examples/05 word game \u2014 the state machine::a rejected guess consumes NO row, and an ordinary word the old list refused plays on": "native_games::examples/05 word game \u2014 the state machine::a rejected guess consumes NO row, and an ordinary word the old list refused plays on",
+        "example_word_game::examples/05 word game \u2014 the state machine::four words the old thirty-four-word list rejected now play end to end": "native_games::examples/05 word game \u2014 the state machine::four words the old thirty-four-word list rejected now play end to end",
+        "example_word_game::examples/05 word game \u2014 the state machine::backspace deletes from the active row and stops at empty": "native_games::examples/05 word game \u2014 the state machine::backspace deletes from the active row and stops at empty",
+        "example_word_game::examples/05 word game \u2014 the state machine::a scored row keeps its verdict AND its marks while the next row becomes active": "native_games::examples/05 word game \u2014 the state machine::a scored row keeps its verdict AND its marks while the next row becomes active",
+        "example_word_game::examples/05 word game \u2014 the state machine::the duplicate-letter rule reaches the board, not just the scorer": "native_games::examples/05 word game \u2014 the state machine::the duplicate-letter rule reaches the board, not just the scorer",
+        "example_word_game::examples/05 word game \u2014 the state machine::key state accumulates monotonically and never downgrades": "native_games::examples/05 word game \u2014 the state machine::key state accumulates monotonically and never downgrades",
+        "example_word_game::examples/05 word game \u2014 the state machine::wins when the solution is submitted, and opens the results card": "native_games::examples/05 word game \u2014 the state machine::wins when the solution is submitted, and opens the results card",
+        "example_word_game::examples/05 word game \u2014 the state machine::loses after SIX accepted wrong guesses and reveals the word": "native_games::examples/05 word game \u2014 the state machine::loses after SIX accepted wrong guesses and reveals the word",
+        "example_word_game::examples/05 word game \u2014 the state machine::a refused guess does NOT count toward the six": "native_games::examples/05 word game \u2014 the state machine::a refused guess does NOT count toward the six",
+        "example_word_game::examples/05 word game \u2014 the state machine::input is dead after the game ends, except restart": "native_games::examples/05 word game \u2014 the state machine::input is dead after the game ends, except restart",
+        "example_word_game::examples/05 word game \u2014 the state machine::restart is deterministic: the same seed replays the same word": "native_games::examples/05 word game \u2014 the state machine::restart is deterministic: the same seed replays the same word",
+        "example_word_game::examples/05 word game \u2014 the state machine::restart after a loss closes the results card and re-enables the keyboard": "native_games::examples/05 word game \u2014 the state machine::restart after a loss closes the results card and re-enables the keyboard",
+        "example_word_game::examples/05 word game \u2014 the state machine::the results card's Close button actually closes it": "native_games::examples/05 word game \u2014 the state machine::the results card's Close button actually closes it",
+        "example_word_game::examples/05 word game \u2014 the state machine::the results card's New game button restarts from inside the card": "native_games::examples/05 word game \u2014 the state machine::the results card's New game button restarts from inside the card",
+        "example_word_game::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose": "native_games::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose"
+      },
+      "manualEvidence": [
+        "Live Studio phone Largest at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8: all 28 keyboard keys have TextFits true and stay inside the keyboard across Neutral, fantasy_parchment, pixel_quest and classic_desktop. Read-only CUA screenshots reviewed by root; no screenshot file or physical-device claim. Details in artifacts/compose-simplification/live-comparison.json."
+      ]
+    },
+    "example_tile_game": {
+      "specs": [
+        "native_games",
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_games::examples/06 crossword \u2014 the rules are pure::the board, the rack, the budget and the goal are the design's numbers",
+        "native_games::examples/06 crossword \u2014 the rules are pure::the letter values are the familiar English ones",
+        "native_games::examples/06 crossword \u2014 the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::a turn's tiles lie in one row or one column, and scattered tiles are refused",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::ONE tile does not fix an axis \u2014 the board does",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::a gap in the run is refused, and a gap CLOSED by a committed letter is not",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::the main word is read THROUGH committed letters at both ends",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::the first turn must cover the starred centre, and later turns must not",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::every perpendicular word a placed tile now sits inside is extracted and validated",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::a crossing word the dictionary does not know refuses the whole turn, BY NAME",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::the score counts every letter in every word, once per word it appears in",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::using five or more rack tiles in one turn adds ten",
+        "native_games::examples/06 crossword \u2014 the dictionary is the shared module::accepts and rejects through `words`, not through a list this game keeps",
+        "native_games::examples/06 crossword \u2014 the dictionary is the shared module::a run the dictionary CANNOT judge is refused by name, not called unknown",
+        "native_games::examples/06 crossword \u2014 the deal guarantees an opening::the shipped seed deals a rack that spells something across the centre",
+        "native_games::examples/06 crossword \u2014 the deal guarantees an opening::...and so does every seed in a wide sweep, inside the attempt bound",
+        "native_games::examples/06 crossword \u2014 the deal guarantees an opening::openingWord finds a word from a SUBSET in any order, and nil when there is none",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::1 \u2014 the first turn misses the centre",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::2 \u2014 the tiles are not in one line",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::3 \u2014 a gap in the run",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::4 \u2014 a later turn touches nothing",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::5 \u2014 the main word is unknown, and the sentence names it",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::6 \u2014 a crossing word is unknown, and the sentence names it AND its direction",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::7 \u2014 submit with nothing placed",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8 \u2014 placing on an occupied square",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8b \u2014 an off-board square takes nothing, so a stray call cannot beach a tile",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::9 \u2014 picking up a letter from an earlier turn",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::the instruction line names the held tile, and clears on a placement",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::a committed turn scores, banks the letters, and refills the rack to seven",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::undo with nothing placed says so instead of doing nothing",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING \u2014 every tile stays where the player put it",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::the turn budget decrements only on a commit",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::the legal-next-cell cue follows the rules, and locks with the axis",
+        "native_games::examples/06 crossword \u2014 both endings, and the way back::reaching the goal wins, and the screen says which ending it was",
+        "native_games::examples/06 crossword \u2014 both endings, and the way back::spending the budget without reaching the goal loses, and says so",
+        "native_games::examples/06 crossword \u2014 both endings, and the way back::restart returns EVERY observable to its seeded start",
+        "native_games::examples/06 crossword \u2014 determinism::the same seed deals the same rack and the same bag",
+        "native_games::examples/06 crossword \u2014 determinism::a fixed script on a fixed seed lands on the same board, score and dump",
+        "native_games::examples/06 crossword \u2014 robustness::rapid alternating input leaves no stale selection or held tile",
+        "native_games::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose",
+        "native_gallery_workflows::native gallery workflows::fits every word keyboard key and crossword rack slot in a narrow row"
+      ],
+      "behaviors": [
+        "Original pure rules and mounted game state-machine assertions retain their cases, including refusals, determinism, endings, reset, native controls and complete owner teardown.",
+        "Native proportional Wordle keyboard and crossword rack stay within narrow row budgets while O/P/Delete/Enter and the last rack slot remain functional; crossword readouts/actions size to their content."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Presenter depth/adapter props/token-resolver geometry": "Deleted Facet presenter, fake target and private token resolver assertions now use the native result dialog, native properties and owned Instance teardown."
+      },
+      "caseMappings": {
+        "example_tile_game::examples/06 crossword \u2014 the rules are pure::the board, the rack, the budget and the goal are the design's numbers": "native_games::examples/06 crossword \u2014 the rules are pure::the board, the rack, the budget and the goal are the design's numbers",
+        "example_tile_game::examples/06 crossword \u2014 the rules are pure::the letter values are the familiar English ones": "native_games::examples/06 crossword \u2014 the rules are pure::the letter values are the familiar English ones",
+        "example_tile_game::examples/06 crossword \u2014 the rules are pure::the bag is the 98-tile familiar multiset, with no blanks": "native_games::examples/06 crossword \u2014 the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
+        "example_tile_game::examples/06 crossword \u2014 axis, run and connection::a turn's tiles lie in one row or one column, and scattered tiles are refused": "native_games::examples/06 crossword \u2014 axis, run and connection::a turn's tiles lie in one row or one column, and scattered tiles are refused",
+        "example_tile_game::examples/06 crossword \u2014 axis, run and connection::ONE tile does not fix an axis \u2014 the board does": "native_games::examples/06 crossword \u2014 axis, run and connection::ONE tile does not fix an axis \u2014 the board does",
+        "example_tile_game::examples/06 crossword \u2014 axis, run and connection::a gap in the run is refused, and a gap CLOSED by a committed letter is not": "native_games::examples/06 crossword \u2014 axis, run and connection::a gap in the run is refused, and a gap CLOSED by a committed letter is not",
+        "example_tile_game::examples/06 crossword \u2014 axis, run and connection::the main word is read THROUGH committed letters at both ends": "native_games::examples/06 crossword \u2014 axis, run and connection::the main word is read THROUGH committed letters at both ends",
+        "example_tile_game::examples/06 crossword \u2014 axis, run and connection::the first turn must cover the starred centre, and later turns must not": "native_games::examples/06 crossword \u2014 axis, run and connection::the first turn must cover the starred centre, and later turns must not",
+        "example_tile_game::examples/06 crossword \u2014 axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching": "native_games::examples/06 crossword \u2014 axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
+        "example_tile_game::examples/06 crossword \u2014 every word a turn creates::every perpendicular word a placed tile now sits inside is extracted and validated": "native_games::examples/06 crossword \u2014 every word a turn creates::every perpendicular word a placed tile now sits inside is extracted and validated",
+        "example_tile_game::examples/06 crossword \u2014 every word a turn creates::a crossing word the dictionary does not know refuses the whole turn, BY NAME": "native_games::examples/06 crossword \u2014 every word a turn creates::a crossing word the dictionary does not know refuses the whole turn, BY NAME",
+        "example_tile_game::examples/06 crossword \u2014 every word a turn creates::the score counts every letter in every word, once per word it appears in": "native_games::examples/06 crossword \u2014 every word a turn creates::the score counts every letter in every word, once per word it appears in",
+        "example_tile_game::examples/06 crossword \u2014 every word a turn creates::using five or more rack tiles in one turn adds ten": "native_games::examples/06 crossword \u2014 every word a turn creates::using five or more rack tiles in one turn adds ten",
+        "example_tile_game::examples/06 crossword \u2014 the dictionary is the shared module::accepts and rejects through `words`, not through a list this game keeps": "native_games::examples/06 crossword \u2014 the dictionary is the shared module::accepts and rejects through `words`, not through a list this game keeps",
+        "example_tile_game::examples/06 crossword \u2014 the dictionary is the shared module::a run the dictionary CANNOT judge is refused by name, not called unknown": "native_games::examples/06 crossword \u2014 the dictionary is the shared module::a run the dictionary CANNOT judge is refused by name, not called unknown",
+        "example_tile_game::examples/06 crossword \u2014 the deal guarantees an opening::the shipped seed deals a rack that spells something across the centre": "native_games::examples/06 crossword \u2014 the deal guarantees an opening::the shipped seed deals a rack that spells something across the centre",
+        "example_tile_game::examples/06 crossword \u2014 the deal guarantees an opening::...and so does every seed in a wide sweep, inside the attempt bound": "native_games::examples/06 crossword \u2014 the deal guarantees an opening::...and so does every seed in a wide sweep, inside the attempt bound",
+        "example_tile_game::examples/06 crossword \u2014 the deal guarantees an opening::openingWord finds a word from a SUBSET in any order, and nil when there is none": "native_games::examples/06 crossword \u2014 the deal guarantees an opening::openingWord finds a word from a SUBSET in any order, and nil when there is none",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::1 \u2014 the first turn misses the centre": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::1 \u2014 the first turn misses the centre",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::2 \u2014 the tiles are not in one line": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::2 \u2014 the tiles are not in one line",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::3 \u2014 a gap in the run": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::3 \u2014 a gap in the run",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::4 \u2014 a later turn touches nothing": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::4 \u2014 a later turn touches nothing",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::5 \u2014 the main word is unknown, and the sentence names it": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::5 \u2014 the main word is unknown, and the sentence names it",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::6 \u2014 a crossing word is unknown, and the sentence names it AND its direction": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::6 \u2014 a crossing word is unknown, and the sentence names it AND its direction",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::7 \u2014 submit with nothing placed": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::7 \u2014 submit with nothing placed",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8 \u2014 placing on an occupied square": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8 \u2014 placing on an occupied square",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8b \u2014 an off-board square takes nothing, so a stray call cannot beach a tile": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8b \u2014 an off-board square takes nothing, so a stray call cannot beach a tile",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::9 \u2014 picking up a letter from an earlier turn": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::9 \u2014 picking up a letter from an earlier turn",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
+        "example_tile_game::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::the instruction line names the held tile, and clears on a placement": "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::the instruction line names the held tile, and clears on a placement",
+        "example_tile_game::examples/06 crossword \u2014 commit, refill, undo, budget::a committed turn scores, banks the letters, and refills the rack to seven": "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::a committed turn scores, banks the letters, and refills the rack to seven",
+        "example_tile_game::examples/06 crossword \u2014 commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from": "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from",
+        "example_tile_game::examples/06 crossword \u2014 commit, refill, undo, budget::undo with nothing placed says so instead of doing nothing": "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::undo with nothing placed says so instead of doing nothing",
+        "example_tile_game::examples/06 crossword \u2014 commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING \u2014 every tile stays where the player put it": "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING \u2014 every tile stays where the player put it",
+        "example_tile_game::examples/06 crossword \u2014 commit, refill, undo, budget::the turn budget decrements only on a commit": "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::the turn budget decrements only on a commit",
+        "example_tile_game::examples/06 crossword \u2014 commit, refill, undo, budget::the legal-next-cell cue follows the rules, and locks with the axis": "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::the legal-next-cell cue follows the rules, and locks with the axis",
+        "example_tile_game::examples/06 crossword \u2014 both endings, and the way back::reaching the goal wins, and the screen says which ending it was": "native_games::examples/06 crossword \u2014 both endings, and the way back::reaching the goal wins, and the screen says which ending it was",
+        "example_tile_game::examples/06 crossword \u2014 both endings, and the way back::spending the budget without reaching the goal loses, and says so": "native_games::examples/06 crossword \u2014 both endings, and the way back::spending the budget without reaching the goal loses, and says so",
+        "example_tile_game::examples/06 crossword \u2014 both endings, and the way back::restart returns EVERY observable to its seeded start": "native_games::examples/06 crossword \u2014 both endings, and the way back::restart returns EVERY observable to its seeded start",
+        "example_tile_game::examples/06 crossword \u2014 determinism::the same seed deals the same rack and the same bag": "native_games::examples/06 crossword \u2014 determinism::the same seed deals the same rack and the same bag",
+        "example_tile_game::examples/06 crossword \u2014 determinism::a fixed script on a fixed seed lands on the same board, score and dump": "native_games::examples/06 crossword \u2014 determinism::a fixed script on a fixed seed lands on the same board, score and dump",
+        "example_tile_game::examples/06 crossword \u2014 robustness::rapid alternating input leaves no stale selection or held tile": "native_games::examples/06 crossword \u2014 robustness::rapid alternating input leaves no stale selection or held tile",
+        "example_tile_game::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose": "native_games::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose"
+      },
+      "manualEvidence": [
+        "Live Studio phone Largest at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8: neutral and parchment screenshots confirm seven rack letters and Submit/Undo/StartOver visible and reachable through native CanvasPosition scrolling. Development simulator evidence only; details in artifacts/compose-simplification/live-comparison.json."
+      ]
+    },
+    "consumer_standalone": {
+      "specs": [
+        "native_gallery"
+      ],
+      "cases": [
+        "native_gallery::native gallery::updates and removes the standalone consumer through its controls"
+      ],
+      "behaviors": [
+        "Standalone consumer mounts native controls, updates local state through activation, and removes its panel through Compose ownership."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facet.new/app.controls/app.mount/static README vocabulary checks": "The old application facade has been deleted; the standalone consumer uses Facet.controls with the caller Compose runtime."
+      }
+    },
+    "examples_gallery": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::retains optimistic settings and rolls back rejected server data",
+        "native_gallery_workflows::native gallery workflows::sorts filters reorders and restores playlist model and width bindings",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "The ten retained gallery demos and every nested published control page build and tear down on the native runtime; optimistic settings, playlist mutation and standalone tutorial commands remain exercised."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Fake target paths, presenter registry counts, solver coordinates and core.lastError": "These removed Facet internals are replaced by actual native instances, thrown runtime failures and native owner cleanup."
+      }
+    },
+    "examples_games": {
+      "specs": [
+        "native_gallery",
+        "native_games"
+      ],
+      "cases": [
+        "native_gallery::native gallery::types, submits and restarts the retained word game through native input",
+        "native_gallery::native gallery::places and undoes a crossword rack tile without losing the rack",
+        "native_gallery::native gallery::runs a match-three drag and releases its native frame subscription",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::scores a plain guess with no repeated letters",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::a guess with a DOUBLED letter against a solution holding ONE spends the budget once",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::BOTH doubled: two exact matches and one misplaced, all from a budget of two",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::three copies against two: the excess is absent",
+        "native_games::examples/05 word game \u2014 the pure scoring rules::the whole solution scores correct",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a guess shorter than five letters",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::refuses a five-letter non-word",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::accepts every solution AND the wider guess list",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::the answer set is a SUBSET of the accepted set, and strictly smaller",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::accepts ordinary words the old hand-typed list refused",
+        "native_games::examples/05 word game \u2014 validation and the two generated sets::takes a guess in whatever case it arrives in",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::ranks correct above present above absent",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::never downgrades on later, weaker evidence",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::an unknown key takes whatever the first evidence says",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::mergeKeys returns a NEW table and keeps the strongest per letter",
+        "native_games::examples/05 word game \u2014 the key ladder is monotonic::a later guess that re-tests a solved letter cannot downgrade it",
+        "native_games::examples/05 word game \u2014 the deterministic seed::the same seed always yields the same word",
+        "native_games::examples/05 word game \u2014 the deterministic seed::every seed lands on a real answer, and a seed past the end wraps",
+        "native_games::examples/05 word game \u2014 the deterministic seed::the game plays in UPPERCASE even though the data is lowercase",
+        "native_games::examples/05 word game \u2014 the deterministic seed::REACT is reachable, and it is the seed the rest of this file plays",
+        "native_games::examples/05 word game \u2014 the state machine::starts on a visible six-by-five board with a caret in the first cell",
+        "native_games::examples/05 word game \u2014 the state machine::every tile paints a REAL tint \u2014 the plate is never invisible",
+        "native_games::examples/05 word game \u2014 the state machine::letters land in the ACTIVE row only",
+        "native_games::examples/05 word game \u2014 the state machine::a SHORT guess is refused with a message and does not consume a row",
+        "native_games::examples/05 word game \u2014 the state machine::an INVALID guess is refused with a different message and does not consume a row",
+        "native_games::examples/05 word game \u2014 the state machine::a rejected guess consumes NO row, and an ordinary word the old list refused plays on",
+        "native_games::examples/05 word game \u2014 the state machine::four words the old thirty-four-word list rejected now play end to end",
+        "native_games::examples/05 word game \u2014 the state machine::backspace deletes from the active row and stops at empty",
+        "native_games::examples/05 word game \u2014 the state machine::a scored row keeps its verdict AND its marks while the next row becomes active",
+        "native_games::examples/05 word game \u2014 the state machine::the duplicate-letter rule reaches the board, not just the scorer",
+        "native_games::examples/05 word game \u2014 the state machine::key state accumulates monotonically and never downgrades",
+        "native_games::examples/05 word game \u2014 the state machine::wins when the solution is submitted, and opens the results card",
+        "native_games::examples/05 word game \u2014 the state machine::loses after SIX accepted wrong guesses and reveals the word",
+        "native_games::examples/05 word game \u2014 the state machine::a refused guess does NOT count toward the six",
+        "native_games::examples/05 word game \u2014 the state machine::input is dead after the game ends, except restart",
+        "native_games::examples/05 word game \u2014 the state machine::restart is deterministic: the same seed replays the same word",
+        "native_games::examples/05 word game \u2014 the state machine::restart after a loss closes the results card and re-enables the keyboard",
+        "native_games::examples/05 word game \u2014 the state machine::the results card's Close button actually closes it",
+        "native_games::examples/05 word game \u2014 the state machine::the results card's New game button restarts from inside the card",
+        "native_games::examples/05 word game \u2014 the state machine::tears down to a registry baseline after dispose",
+        "native_games::examples/06 crossword \u2014 the rules are pure::the board, the rack, the budget and the goal are the design's numbers",
+        "native_games::examples/06 crossword \u2014 the rules are pure::the letter values are the familiar English ones",
+        "native_games::examples/06 crossword \u2014 the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::a turn's tiles lie in one row or one column, and scattered tiles are refused",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::ONE tile does not fix an axis \u2014 the board does",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::a gap in the run is refused, and a gap CLOSED by a committed letter is not",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::the main word is read THROUGH committed letters at both ends",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::the first turn must cover the starred centre, and later turns must not",
+        "native_games::examples/06 crossword \u2014 axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::every perpendicular word a placed tile now sits inside is extracted and validated",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::a crossing word the dictionary does not know refuses the whole turn, BY NAME",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::the score counts every letter in every word, once per word it appears in",
+        "native_games::examples/06 crossword \u2014 every word a turn creates::using five or more rack tiles in one turn adds ten",
+        "native_games::examples/06 crossword \u2014 the dictionary is the shared module::accepts and rejects through `words`, not through a list this game keeps",
+        "native_games::examples/06 crossword \u2014 the dictionary is the shared module::a run the dictionary CANNOT judge is refused by name, not called unknown",
+        "native_games::examples/06 crossword \u2014 the deal guarantees an opening::the shipped seed deals a rack that spells something across the centre",
+        "native_games::examples/06 crossword \u2014 the deal guarantees an opening::...and so does every seed in a wide sweep, inside the attempt bound",
+        "native_games::examples/06 crossword \u2014 the deal guarantees an opening::openingWord finds a word from a SUBSET in any order, and nil when there is none",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::1 \u2014 the first turn misses the centre",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::2 \u2014 the tiles are not in one line",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::3 \u2014 a gap in the run",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::4 \u2014 a later turn touches nothing",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::5 \u2014 the main word is unknown, and the sentence names it",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::6 \u2014 a crossing word is unknown, and the sentence names it AND its direction",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::7 \u2014 submit with nothing placed",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8 \u2014 placing on an occupied square",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::8b \u2014 an off-board square takes nothing, so a stray call cannot beach a tile",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::9 \u2014 picking up a letter from an earlier turn",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
+        "native_games::examples/06 crossword \u2014 nine refusals, nine sentences, on screen::the instruction line names the held tile, and clears on a placement",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::a committed turn scores, banks the letters, and refills the rack to seven",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::undo with nothing placed says so instead of doing nothing",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING \u2014 every tile stays where the player put it",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::the turn budget decrements only on a commit",
+        "native_games::examples/06 crossword \u2014 commit, refill, undo, budget::the legal-next-cell cue follows the rules, and locks with the axis",
+        "native_games::examples/06 crossword \u2014 both endings, and the way back::reaching the goal wins, and the screen says which ending it was",
+        "native_games::examples/06 crossword \u2014 both endings, and the way back::spending the budget without reaching the goal loses, and says so",
+        "native_games::examples/06 crossword \u2014 both endings, and the way back::restart returns EVERY observable to its seeded start",
+        "native_games::examples/06 crossword \u2014 determinism::the same seed deals the same rack and the same bag",
+        "native_games::examples/06 crossword \u2014 determinism::a fixed script on a fixed seed lands on the same board, score and dump",
+        "native_games::examples/06 crossword \u2014 robustness::rapid alternating input leaves no stale selection or held tile",
+        "native_games::examples/06 crossword \u2014 robustness::tears down to a registry baseline after dispose",
+        "native_games::examples/07 native Match3 parity::keeps tile identity while a valid swap travels between endpoints",
+        "native_games::examples/07 native Match3 parity::fades retiring tiles then drops survivors and introduces new tiles above the board",
+        "native_games::examples/07 native Match3 parity::reverts a refused swap and keeps the board and move budget unchanged",
+        "native_games::examples/07 native Match3 parity::keeps deterministic results under native reduced motion and changes paint immediately",
+        "native_games::examples/07 native Match3 parity::retries failed artwork through native controls without replacing tile identity",
+        "native_games::examples/07 native Match3 parity::selects with native keyboard and gamepad events and keeps grid neighbors current",
+        "native_games::examples/07 native Match3 parity::selects detector taps once and swaps adjacent tiles with mouse and touch",
+        "native_games::examples/07 native Match3 parity::uses detector release position and preserves the next keyboard activation after dragging",
+        "native_games::examples/07 native Match3 parity::cancels uncaptured releases, outside taps and drags that return to their start"
+      ],
+      "behaviors": [
+        "Native keyboard word entry, crossword rack activation/undo, match-three UIDragDetector interaction and all retained word/crossword game rules/state machines.",
+        "Match3 retains keyed tile identity during intermediate native spring travel, refused swaps reverse without spending a move, retiring CanvasGroups fade before destruction, survivors drop and refills enter above the board. ReducedMotionEnabled gives instant target paint with identical seeded board/score/phase outcomes. Native artwork failure/reload/delivery and keyboard/gamepad activation routes are exercised."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facet focus graph arrow routes and fake touch hit-test dispatch": "Native Roblox GUI selection and input dispatch own those engine routes; no Facet focus graph remains.",
+        "No private animation records under reduced motion": "Compose owns animation internals. Tests assert instantaneous native paint and deterministic model parity rather than inspecting a deleted Facet animation registry."
+      },
+      "manualEvidence": [
+        "Real Studio keyboard/gamepad selection and physical rendering remain live engine checks; headless assertions drive the actual native event subscriptions and inspect native neighbor links."
+      ]
+    },
+    "example_match3_motion": {
+      "specs": [
+        "native_gallery",
+        "native_games"
+      ],
+      "cases": [
+        "native_gallery::native gallery::runs a match-three drag and releases its native frame subscription",
+        "native_games::examples/07 native Match3 parity::keeps tile identity while a valid swap travels between endpoints",
+        "native_games::examples/07 native Match3 parity::fades retiring tiles then drops survivors and introduces new tiles above the board",
+        "native_games::examples/07 native Match3 parity::reverts a refused swap and keeps the board and move budget unchanged",
+        "native_games::examples/07 native Match3 parity::keeps deterministic results under native reduced motion and changes paint immediately",
+        "native_games::examples/07 native Match3 parity::retries failed artwork through native controls without replacing tile identity",
+        "native_games::examples/07 native Match3 parity::selects with native keyboard and gamepad events and keeps grid neighbors current",
+        "native_games::examples/07 native Match3 parity::selects detector taps once and swaps adjacent tiles with mouse and touch",
+        "native_games::examples/07 native Match3 parity::uses detector release position and preserves the next keyboard activation after dragging",
+        "native_games::examples/07 native Match3 parity::cancels uncaptured releases, outside taps and drags that return to their start"
+      ],
+      "behaviors": [
+        "Native drag drives the retained phase machine to settle and stopping mid-cascade releases the Heartbeat connection.",
+        "Match3 retains keyed tile identity during intermediate native spring travel, refused swaps reverse without spending a move, retiring CanvasGroups fade before destruction, survivors drop and refills enter above the board. ReducedMotionEnabled gives instant target paint with identical seeded board/score/phase outcomes. Native artwork failure/reload/delivery and keyboard/gamepad activation routes are exercised."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Private animation records and presenter tick registry": "Compose owns tween/spring records and native RunService owns frame scheduling.",
+        "No private animation records under reduced motion": "Compose owns animation internals. Tests assert instantaneous native paint and deterministic model parity rather than inspecting a deleted Facet animation registry."
+      },
+      "manualEvidence": [
+        "Real Studio keyboard/gamepad selection and physical rendering remain live engine checks; headless assertions drive the actual native event subscriptions and inspect native neighbor links."
+      ]
+    },
+    "playlist_columns": {
+      "specs": [
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_gallery_workflows::native gallery workflows::sorts filters reorders and restores playlist model and width bindings"
+      ],
+      "behaviors": [
+        "Playlist sorting remains live with filtering, blocked filtered reorder preserves sort, accepted reorder bakes order and clears sort, width readout follows the caller width cell and restore resets ratings."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Old solver column rects, internal separator hit rectangles and focusGraph resize paths": "Native layouts, UIDragDetector and InputAction now own those mechanisms; direct table behavioral tests exercise native column interaction."
+      },
+      "manualEvidence": [
+        "Root live Studio proof at gallery source stamp 35a16ed7: native center resize handle dragged +72px, Name width220\u2192292. Header/body x/width pairs matched Name72/292, Artist364/220, Rating584/144. This is real engine geometry evidence, not inferred from headless model bindings."
+      ]
+    },
+    "gallery_demo_picker": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All ten demos and published nested pages retain content, switch through a single native ScreenGui, parent their native theme sheet, open settings, retain controls across responsive Basics changes and tear down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "application registry, host disposal facade, presenter reservation and chrome exclusion geometry": "The scene belongs solely to the caller Compose runtime and Roblox ScreenGui; old host/presenter and custom solver chrome implementations are deleted.",
+        "legacy theme-picker controller/compiled blueprint and catalogue alias helpers": "Native UI.Picker controls bind package and appearance cells directly; legacy controller and blueprint vocabulary is gone."
+      }
+    },
+    "gallery_demo_host": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All ten demos and published nested pages retain content, switch through a single native ScreenGui, parent their native theme sheet, open settings, retain controls across responsive Basics changes and tear down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "application registry, host disposal facade, presenter reservation and chrome exclusion geometry": "The scene belongs solely to the caller Compose runtime and Roblox ScreenGui; old host/presenter and custom solver chrome implementations are deleted.",
+        "legacy theme-picker controller/compiled blueprint and catalogue alias helpers": "Native UI.Picker controls bind package and appearance cells directly; legacy controller and blueprint vocabulary is gone."
+      }
+    },
+    "gallery_boot_mode": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All ten demos and published nested pages retain content, switch through a single native ScreenGui, parent their native theme sheet, open settings, retain controls across responsive Basics changes and tear down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "application registry, host disposal facade, presenter reservation and chrome exclusion geometry": "The scene belongs solely to the caller Compose runtime and Roblox ScreenGui; old host/presenter and custom solver chrome implementations are deleted.",
+        "legacy theme-picker controller/compiled blueprint and catalogue alias helpers": "Native UI.Picker controls bind package and appearance cells directly; legacy controller and blueprint vocabulary is gone."
+      }
+    },
+    "gallery_chrome": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All ten demos and published nested pages retain content, switch through a single native ScreenGui, parent their native theme sheet, open settings, retain controls across responsive Basics changes and tear down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "application registry, host disposal facade, presenter reservation and chrome exclusion geometry": "The scene belongs solely to the caller Compose runtime and Roblox ScreenGui; old host/presenter and custom solver chrome implementations are deleted.",
+        "legacy theme-picker controller/compiled blueprint and catalogue alias helpers": "Native UI.Picker controls bind package and appearance cells directly; legacy controller and blueprint vocabulary is gone."
+      }
+    },
+    "gallery_theme_picker": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All ten demos and published nested pages retain content, switch through a single native ScreenGui, parent their native theme sheet, open settings, retain controls across responsive Basics changes and tear down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "application registry, host disposal facade, presenter reservation and chrome exclusion geometry": "The scene belongs solely to the caller Compose runtime and Roblox ScreenGui; old host/presenter and custom solver chrome implementations are deleted.",
+        "legacy theme-picker controller/compiled blueprint and catalogue alias helpers": "Native UI.Picker controls bind package and appearance cells directly; legacy controller and blueprint vocabulary is gone."
+      }
+    },
+    "showcase_tabs": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
+        "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All ten demos and published nested pages retain content, switch through a single native ScreenGui, parent their native theme sheet, open settings, retain controls across responsive Basics changes and tear down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "application registry, host disposal facade, presenter reservation and chrome exclusion geometry": "The scene belongs solely to the caller Compose runtime and Roblox ScreenGui; old host/presenter and custom solver chrome implementations are deleted.",
+        "legacy theme-picker controller/compiled blueprint and catalogue alias helpers": "Native UI.Picker controls bind package and appearance cells directly; legacy controller and blueprint vocabulary is gone."
+      }
+    },
+    "recipes_common": {
+      "specs": [
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_gallery_workflows::native gallery workflows::reflows one recipe action set and preserves controlled checks and keyed chips",
+        "native_gallery_workflows::native gallery workflows::opens one recipe accordion body at a time and restores its header focus"
+      ],
+      "behaviors": [
+        "One retained action set changes native layout direction, controlled checkbox requests can be vetoed/disabled, keyed chips survive reorder and all three empty-state commands activate exactly once.",
+        "Accordion opens exactly one native body, preserves each header identity, disposes the previous body, returns focus to its header on collapse, resets and tears down fully."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "ViewThatFits candidate rect reports, focusGraph exclusions and custom divider token geometry": "Native UIListLayout direction and native component properties replace removed custom measure/arrange reports."
+      },
+      "caseMappings": {
+        "recipes_common::public composition recipes::keeps only the activated accordion body open and focus on its header": "native_gallery_workflows::native gallery workflows::opens one recipe accordion body at a time and restores its header focus"
+      },
+      "manualEvidence": [
+        "Live Studio phone Largest at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8: neutral actions stack and wrap their complete long labels; parchment has three 337x44 buttons with TextFits true inside the available width. Shared art follows native UIScale 1.25, permits text growth and shrink, and all temporary edits and text preference were restored. Details in artifacts/compose-simplification/live-comparison.json."
+      ]
+    },
+    "nested_compositing_scenario": {
+      "specs": [
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_gallery_workflows::native gallery workflows::applies shared and per-plate CanvasGroup opacity and owns the arrival tween"
+      ],
+      "behaviors": [
+        "The comparison demonstrates one composite fade versus independent overlapping fades and owns its arrival tween."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Private transform inheritance dumps and solver z/paint outputs": "CanvasGroup and native ZIndex own composition and rasterization."
+      }
+    },
+    "sponsor_scenarios": {
+      "specs": [
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
+        "native_gallery_workflows::native gallery workflows::moves and hides native map markers without remounting their controls"
+      ],
+      "behaviors": [
+        "Passive native toast content permits underlying control activation, expires automatically, explicitly clears and tears down; native world markers move and hide without remounting targets."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Unpublished sponsor_drop/list/motion/celebration/billboard/private fixture core and presenter instrumentation": "Those mechanism-only diagnostic fixtures were deleted with the old engine; retained published controls have direct native mechanism suites."
+      }
+    },
+    "world_markers": {
+      "specs": [
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_gallery_workflows::native gallery workflows::moves and hides native map markers without remounting their controls"
+      ],
+      "behaviors": [
+        "Native BillboardGui Adornee identity, target movement, hidden Enabled state, marker selection and owned target/GUI teardown are exercised."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facade world_anchor projection/occlusion/edge-clamp positions": "Native BillboardGui owns projection and depth placement; deleted world_anchor result records are not simulated."
+      }
+    },
+    "example_readouts": {
+      "specs": [
+        "native_gallery",
+        "native_gallery_workflows",
+        "native_gallery_parity"
+      ],
+      "cases": [
+        "native_gallery::native gallery::mounts the additional temperature and confirmation tutorials",
+        "native_gallery::native gallery::mounts all-controls with the native runtime",
+        "native_gallery::native gallery::mounts collections with the native runtime",
+        "native_gallery::native gallery::mounts motion-layout with the native runtime",
+        "native_gallery::native gallery::mounts hud with the native runtime",
+        "native_gallery::native gallery::mounts radial-menu with the native runtime",
+        "native_gallery::native gallery::mounts ex02 with the native runtime",
+        "native_gallery::native gallery::mounts ex03 with the native runtime",
+        "native_gallery::native gallery::mounts ex05 with the native runtime",
+        "native_gallery::native gallery::mounts ex06 with the native runtime",
+        "native_gallery::native gallery::mounts ex07 with the native runtime",
+        "native_gallery::native gallery::mounts all_controls/basics",
+        "native_gallery::native gallery::mounts all_controls/writing",
+        "native_gallery::native gallery::mounts all_controls/leaves",
+        "native_gallery::native gallery::mounts all_controls/choices",
+        "native_gallery::native gallery::mounts all_controls/buttons",
+        "native_gallery::native gallery::mounts all_controls/shortcuts",
+        "native_gallery::native gallery::mounts all_controls/recipes",
+        "native_gallery::native gallery::mounts all_controls/menus",
+        "native_gallery::native gallery::mounts all_controls/alerts",
+        "native_gallery::native gallery::mounts all_controls/sheets",
+        "native_gallery::native gallery::mounts all_controls/help",
+        "native_gallery::native gallery::mounts all_controls/progress",
+        "native_gallery::native gallery::mounts all_controls/identity",
+        "native_gallery::native gallery::mounts all_controls/status",
+        "native_gallery::native gallery::mounts all_controls/toasts",
+        "native_gallery::native gallery::mounts all_controls/levels",
+        "native_gallery::native gallery::mounts all_controls/feedback",
+        "native_gallery::native gallery::mounts all_controls/journey",
+        "native_gallery::native gallery::mounts all_controls/pages",
+        "native_gallery::native gallery::mounts all_controls/disclosure",
+        "native_gallery::native gallery::mounts collections/swipe",
+        "native_gallery::native gallery::mounts collections/permissions",
+        "native_gallery::native gallery::mounts collections/measured",
+        "native_gallery::native gallery::mounts collections/declared",
+        "native_gallery::native gallery::mounts collections/vertical",
+        "native_gallery::native gallery::mounts collections/horizontal",
+        "native_gallery::native gallery::mounts collections/cards",
+        "native_gallery::native gallery::mounts collections/table",
+        "native_gallery::native gallery::mounts motion_layout/automatic",
+        "native_gallery::native gallery::mounts motion_layout/animation",
+        "native_gallery::native gallery::mounts motion_layout/curves",
+        "native_gallery::native gallery::mounts motion_layout/opacity",
+        "native_gallery::native gallery::mounts motion_layout/compositing",
+        "native_gallery::native gallery::mounts motion_layout/wrap",
+        "native_gallery::native gallery::mounts motion_layout/grid",
+        "native_gallery::native gallery::mounts motion_layout/labels",
+        "native_gallery::native gallery::mounts motion_layout/inheritance",
+        "native_gallery::native gallery::mounts motion_layout/markers",
+        "native_gallery::native gallery::types, submits and restarts the retained word game through native input",
+        "native_gallery::native gallery::places and undoes a crossword rack tile without losing the rack",
+        "native_gallery_workflows::native gallery workflows::sorts filters reorders and restores playlist model and width bindings",
+        "native_gallery::native gallery::retains optimistic settings and rolls back rejected server data",
+        "native_gallery_workflows::native gallery workflows::fits every word keyboard key and crossword rack slot in a narrow row",
+        "native_gallery_parity::restored native gallery parity::reports and navigates Journey across measured widths native edits and declared steps"
+      ],
+      "behaviors": [
+        "All tutorial screens mount their native content; actual readouts update during the corresponding native workflows.",
+        "Native proportional Wordle keyboard and crossword rack stay within narrow row budgets while O/P/Delete/Enter and the last rack slot remain functional; crossword readouts/actions size to their content."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Adapter arrangement reports and Facet preferredTextOffset matrix": "Custom text geometry and environment offsets have been removed in favor of native properties and engine text preferences."
+      },
+      "manualEvidence": [
+        "Live Studio phone Largest: native Path2D progress track and quarter accent arc render with centered unclipped 25% plus visible animated arc/spinner at source 35a16ed7e68ece1b49697a3757ad294780036e66201c2889cd7d7010c6329931. Word/Crossword readouts and actions remain reachable at source 96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8. Development simulator evidence only; artifacts/compose-simplification/live-comparison.json records the observations and restored Medium preference."
+      ]
+    }
+  }
+}

@@ -1,15 +1,12 @@
 --!strict
--- Local conversation data. A host supplies frame time; there are no network
--- requests, independent timers, or UI objects in this model.
+
 local chat = {}
 
 function chat.new(Compose: any)
 	local messages = Compose.cell({})
 	local draft = Compose.cell("")
 	local streaming = Compose.cell(false)
-	-- Streamed vs. total characters of the in-flight reply, for a determinate
-	-- ProgressView; `total` stays 0 (not 1) when nothing is streaming so a
-	-- fresh determinate control never divides by an old reply's length.
+
 	local streamedChars, totalChars = Compose.cell(0), Compose.cell(0)
 	local serial, elapsed, cursor = 0, 0, 0
 	local response, activeId = "", nil

@@ -1,0 +1,376 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "async_completeness": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps async completions stale after a source change or disposal",
+        "native_themes_media::native themes and media::exposes failure content and retries when the source changes",
+        "native_themes_media::native themes and media::shares caller resources directly through Compose and releases the final reference"
+      ],
+      "behaviors": [
+        "keeps async completions stale after a source change or disposal",
+        "exposes failure content and retries when the source changes",
+        "shares caller resources directly through Compose and releases the final reference"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "badge_centering": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing",
+        "native_themes_media::native themes and media::keeps badges and status shapes reactive without creating focus targets"
+      ],
+      "behaviors": [
+        "preserves accessible media names native constraints and caller resource sharing",
+        "keeps badges and status shapes reactive without creating focus targets"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "control_content": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
+        "native_themes_media::native themes and media::uses Button interaction state for semantic icon variants"
+      ],
+      "behaviors": [
+        "keeps native theme rules reactive without writing instance paint",
+        "uses Button interaction state for semantic icon variants"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "display_controls": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::clamps progress, counts badges and releases stage scenes with Compose",
+        "native_themes_media::native themes and media::keeps badges and status shapes reactive without creating focus targets"
+      ],
+      "behaviors": [
+        "clamps progress, counts badges and releases stage scenes with Compose",
+        "keeps badges and status shapes reactive without creating focus targets"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "icon_box": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps native semantic icons reactive with pixel resampling and metric sizing",
+        "native_themes_media::native themes and media::uses native image framing and rounded avatar images"
+      ],
+      "behaviors": [
+        "keeps native semantic icons reactive with pixel resampling and metric sizing",
+        "uses native image framing and rounded avatar images"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "icon_coverage": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::rejects unreadable semantic color pairs and reports contributed theme coverage",
+        "native_themes_media::native themes and media::keeps native semantic icons reactive with pixel resampling and metric sizing"
+      ],
+      "behaviors": [
+        "rejects unreadable semantic color pairs and reports contributed theme coverage",
+        "keeps native semantic icons reactive with pixel resampling and metric sizing"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "native_style_scenario": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "keeps native theme rules reactive without writing instance paint",
+        "preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "paint_extensions": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native"
+      ],
+      "behaviors": [
+        "uses native shadows with reactive theme parameters and Compose disposal",
+        "keeps plaques edges tiling pixel resampling and chrome insets native"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "preferred_transparency": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint"
+      ],
+      "behaviors": [
+        "keeps native theme rules reactive without writing instance paint"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "review_theme_corners": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::uses native image framing and rounded avatar images"
+      ],
+      "behaviors": [
+        "keeps plaques edges tiling pixel resampling and chrome insets native",
+        "uses native image framing and rounded avatar images"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "selection_contrast": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::rejects unreadable semantic color pairs and reports contributed theme coverage",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "rejects unreadable semantic color pairs and reports contributed theme coverage",
+        "preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "styling": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership"
+      ],
+      "behaviors": [
+        "uses native shadows with reactive theme parameters and Compose disposal",
+        "keeps theme skin layers and state asset swaps inside native Compose ownership"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "sheet_model": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
+        "native_themes_media::native themes and media::keeps compiled theme data immutable and rejects callbacks or malformed values",
+        "native_themes_media::native themes and media::rejects unreadable semantic color pairs and reports contributed theme coverage"
+      ],
+      "behaviors": [
+        "keeps native theme rules reactive without writing instance paint",
+        "keeps compiled theme data immutable and rejects callbacks or malformed values",
+        "rejects unreadable semantic color pairs and reports contributed theme coverage"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "native_regions_feedback": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint"
+      ],
+      "behaviors": [
+        "keeps native theme rules reactive without writing instance paint"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "path": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps circular progress endpoints bounded and theme metrics reactive"
+      ],
+      "behaviors": [
+        "keeps circular progress endpoints bounded and theme metrics reactive"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "path_stroke_authority": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps circular progress endpoints bounded and theme metrics reactive"
+      ],
+      "behaviors": [
+        "keeps circular progress endpoints bounded and theme metrics reactive"
+      ],
+      "retiredAssertions": {
+        "deleted mechanisms": "Old blueprint classes, token/sheet snapshot intermediates, Facet renderer paint authority, solved-rect and path write counters, synthetic ASCII glyph/font boxes, application provider/retry cache and automatic user-preference adapter APIs are absent. Current native theme/control contracts are tested directly; engine text/path rasterization and style resolution are not simulated in Lune."
+      },
+      "remaining": []
+    },
+    "theme_docs": {
+      "specs": [
+        "native_themes_media",
+        "native_documentation",
+        "native_registration"
+      ],
+      "cases": [
+        "native_registration::native registration and package contract::registers every authored control and documents every public constructor",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "Current native API documentation and executable snippets, all shipped theme package data and StyleSheet ownership."
+      ],
+      "retiredAssertions": {
+        "deleted generator/scanner contracts": "Old generated theme guides, snapshot manifests, authority lint, theme property counters and Facet presenter/solver capture matrices are deleted. Current isolated theme artifacts are checked by theme-artifacts producer and its defect plants."
+      },
+      "remaining": []
+    },
+    "theme_matrix_audit": {
+      "specs": [
+        "native_themes_media",
+        "native_documentation",
+        "native_registration"
+      ],
+      "cases": [
+        "native_registration::native registration and package contract::registers every authored control and documents every public constructor",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "Current native API documentation and executable snippets, all shipped theme package data and StyleSheet ownership."
+      ],
+      "retiredAssertions": {
+        "deleted generator/scanner contracts": "Old generated theme guides, snapshot manifests, authority lint, theme property counters and Facet presenter/solver capture matrices are deleted. Current isolated theme artifacts are checked by theme-artifacts producer and its defect plants."
+      },
+      "remaining": []
+    },
+    "theme_authoring_scenario": {
+      "specs": [
+        "native_themes_media",
+        "native_documentation",
+        "native_registration"
+      ],
+      "cases": [
+        "native_registration::native registration and package contract::registers every authored control and documents every public constructor",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "Current native API documentation and executable snippets, all shipped theme package data and StyleSheet ownership."
+      ],
+      "retiredAssertions": {
+        "deleted generator/scanner contracts": "Old generated theme guides, snapshot manifests, authority lint, theme property counters and Facet presenter/solver capture matrices are deleted. Current isolated theme artifacts are checked by theme-artifacts producer and its defect plants."
+      },
+      "remaining": []
+    },
+    "themed_containment": {
+      "specs": [
+        "native_themes_media",
+        "native_documentation",
+        "native_registration"
+      ],
+      "cases": [
+        "native_registration::native registration and package contract::registers every authored control and documents every public constructor",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "Current native API documentation and executable snippets, all shipped theme package data and StyleSheet ownership."
+      ],
+      "retiredAssertions": {
+        "deleted generator/scanner contracts": "Old generated theme guides, snapshot manifests, authority lint, theme property counters and Facet presenter/solver capture matrices are deleted. Current isolated theme artifacts are checked by theme-artifacts producer and its defect plants."
+      },
+      "remaining": []
+    },
+    "control_vocabulary": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+        "native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes"
+      ],
+      "behaviors": [
+        "Native control size rungs and semantic appearance updates."
+      ],
+      "retiredAssertions": {
+        "deleted metric path helper": "Old control_vocabulary module returns deferred solver metric paths; native controls resolve metrics directly into native properties."
+      },
+      "remaining": []
+    },
+    "typography_weight_roles": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs"
+      ],
+      "behaviors": [
+        "Shipped package typography preserved as native StyleRule/Font inputs."
+      ],
+      "retiredAssertions": {
+        "deleted text solver": "Old environment typography-scale weights and text-metrics caching path assertions removed; Roblox owns font measurement."
+      },
+      "remaining": []
+    }
+  }
+}

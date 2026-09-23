@@ -1,19 +1,4 @@
 --!strict
--- Studio sync server (native-substrate verification surface, contract §5).
--- Serves the library + gallery sources over local HTTP so the Studio MCP can
--- inject/patch the running place deterministically (tools/studio/inject.luau).
---
---   lune run tools/lune/studio_sync            -- build manifest + serve on :8642
---   lune run tools/lune/studio_sync manifest   -- write build/studio_manifest.json and exit
---
--- Manifest maps repository files onto the gallery Rojo tree
--- (examples/gallery.project.json): src -> ReplicatedStorage.Facet,
--- examples/gallery/examples -> ReplicatedStorage.FacetExamples,
--- examples/gallery/client -> ReplicatedStorage.Gallery.
--- Rojo folding: <dir>/init.luau => ModuleScript named <dir> whose Source is the
--- init file; sibling .luau files => child ModuleScripts. *.spec.luau excluded.
--- The manifest carries a content stamp so a Studio session can prove exactly
--- which source state it runs (contract §4 preflight step 2).
 
 local fs = require("@lune/fs")
 local net = require("@lune/net")
@@ -25,30 +10,10 @@ local PORT = 8642
 
 type FileEntry = studio_tree.FileEntry
 
--- TWO TREES, ONE AT A TIME (roadmap Step 9). The gallery and the performance lab
--- both mount at `ReplicatedStorage.FacetScenarios`, because the lab REUSES the
--- gallery's scenario runner rather than forking it — so serving both at once
--- would put two different `init.luau` files at the same path and the last writer
--- would win silently. The mode is explicit instead:
---
---   lune run tools/lune/studio_sync            -- the gallery tree (default)
---   lune run tools/lune/studio_sync perf       -- the performance lab tree
---   lune run tools/lune/studio_sync perf manifest
---
--- The perf mapping mirrors examples/performance.project.json exactly, including
--- the gallery runner mapped in as a child of the lab registry.
 local mode = if process.args[1] == "perf" then "perf" else "gallery"
 
 local entries: { FileEntry } = studio_tree.entries(mode)
 
--- content stamp: order-stable concatenated sizes+paths hashed cheaply.
---
--- RECOMPUTED PER REQUEST (2026-07-26). It used to be computed once at server
--- start, so a source file edited while the server ran was SERVED fresh while
--- the stamp still described the old tree — and the stamp is exactly what the
--- Studio preflight uses to certify "the running place carries the source state
--- just built". A stamp that can certify a state it does not describe is worse
--- than no stamp. 123 files is nothing to re-read.
 local function buildManifest(): any
 	entries = studio_tree.entries(mode)
 	local stampParts: { string } = {}
@@ -60,7 +25,7 @@ local function buildManifest(): any
 			table.insert(stampParts, e.path .. ":" .. tostring(#src))
 		end
 	end
-	-- djb2 over the parts string (Lune has no crypto in std; determinism is enough)
+
 	local stampInput = table.concat(stampParts, ";")
 	local hash = 5381
 	for i = 1, #stampInput do
@@ -91,22 +56,11 @@ net.serve(PORT, function(request)
 		fs.writeFile("build/studio_manifest.json", serde.encode("json", manifest, true))
 		return { status = 200, body = serde.encode("json", manifest) }
 	elseif path == "/save" then
-		-- EVIDENCE DROP. A Studio client cannot write files and cannot make HTTP
-		-- requests during Play (those are server-only), so a driver row otherwise
-		-- has to be copied out by hand — which is slow and, worse, a step where a
-		-- record can be edited between the instrument and the artifact. The
-		-- client fires a RemoteEvent, the server POSTs here, and the row lands on
-		-- disk byte-for-byte as the driver emitted it.
-		--
-		-- Development-only, bound to 127.0.0.1, and it refuses to write anywhere
-		-- but the stage's own row directory.
 		local name = request.query.name or ""
 		if not string.match(name, "^[%w%-_]+$") then
 			return { status = 400, body = "bad name" }
 		end
-		-- The stage directory is an ALLOWLIST, not a free path: this route exists so
-		-- a driver row lands byte-for-byte as the instrument emitted it, and a route
-		-- that could write anywhere would be a different kind of tool.
+
 		local DIRS: { [string]: string } = {
 			matrix = "artifacts/cross-platform-proof/rows/matrix",
 			perf = "artifacts/performance-stress-places/studio",
@@ -120,16 +74,6 @@ net.serve(PORT, function(request)
 		fs.writeFile(target, request.body)
 		print(`studio_sync: saved {target} ({#request.body} bytes)`)
 		return { status = 200, body = target }
-	elseif path == "/driver" then
-		-- the Studio device-matrix driver, served verbatim so the copy installed
-		-- in the open place cannot drift from the repository copy. Deliberately
-		-- NOT in the manifest: it is development tooling, not library source and
-		-- not a shipped example (studio-device-verification.md).
-		return { status = 200, body = fs.readFile("tools/studio/device_matrix.luau") }
-	elseif path == "/visual_diff" then
-		-- the visual-regression harness, served the same way and for the same reason:
-		-- the copy running in the open place must not drift from the repository copy
-		return { status = 200, body = fs.readFile("tools/studio/visual_diff.luau") }
 	elseif path:sub(1, 6) == "/file/" then
 		local idx = tonumber(path:sub(7))
 		local entry = idx and manifest.files[idx]
@@ -141,4 +85,3 @@ net.serve(PORT, function(request)
 	return { status = 404, body = "unknown route" }
 end)
 print(`studio_sync: serving on http://127.0.0.1:{PORT} (manifest at /manifest, sources at /file/<index>)`)
--- net.serve keeps the process alive until killed

@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
-"""Artifact assertions for the `performance-stress-places` gate (roadmap Step 9).
 
-WHY THIS IS A FILE AND NOT INLINE IN THE MANIFEST. The gate manifest's `run` strings
-are single-quoted Luau strings; an inline `python3 -c "..."` with real newlines in it
-collapses the string and silently corrupts the manifest (it did, once, while this
-stage was being built — the same trap a Luau interpolated string carrying a real
-newline sets for a neighbouring shape). Putting the assertions here keeps every check a
-one-liner, makes them readable, and lets them be mutation-tested directly.
-
-Each section is one gate check. A section that finds nothing to assert is a bug in
-this file, not a pass — every section must make at least one assertion.
-
-Usage:  python3 tools/check_perf_gate_evidence.py <section>
-Sections: native-reference | theme-cost | large-text | scopes | headless-linkage
-          | studio | device-matrix | falsifiable | perf-gate | budgets | prior-gates
-"""
 
 import json
 import os
@@ -36,12 +21,12 @@ def studio():
 def native_reference():
     c = studio()["denseScrollVsNativeReference"]
     assert c["cleanCapture"] is True, "the comparison must be taken with the overlay dismissed"
-    # `luauui` is the key the pre-rename Studio capture recorded; the artifact is
-    # immutable evidence and is read under the name it was written with.
+
+
     assert len(c["luauui"]["repeats"]) == 3, "three identical repeats per side"
     assert len(c["nativeReference"]["repeats"]) == 3
     assert c["luauui"]["ownGuiObjects"] > 0 and c["nativeReference"]["guiObjects"] > 0
-    # the honest denominator: the floor's omissions travel with the ratio
+
     assert len(c["whatTheReferenceLacks"]) >= 6, "the reference's capability gaps must be recorded"
     assert c["settings"]["seed"] == 1 and c["settings"]["rows"] == 2000
     return "native reference: 3+3 repeats, clean capture, capability ledger present"
@@ -55,7 +40,7 @@ def theme_cost():
         assert k in legs, f"missing leg {k}"
     assert legs["install-ornate"]["packageCompiled"] is True, "the ornate package must actually compile"
     assert legs["install-ornate"]["instancesAfter"] > legs["install-ornate"]["instancesBefore"]
-    # install and steady state are captured APART, and the ornate skin really is dearer
+
     assert legs["steady-ornate"]["steadyP50"] > legs["steady-flat"]["steadyP50"]
     return "theme cost: install/steady/teardown isolated, ornate steady > flat steady"
 
@@ -69,12 +54,12 @@ def large_text():
 
 
 def scopes():
-    # READ THE DECLARED SET OUT OF THE SOURCE, never a hardcoded count. The first
-    # version asserted `len(timers) == 8` against an artifact that claimed eight names
-    # were "the whole closed set" — while the module declared nine. That froze a wrong
-    # number into the gate: appending the truthful ninth timer would have REDDENED it.
-    # (Phase-gate review F-2.) The ninth, `Facet/reset`, was simply not exercised in
-    # that capture; a scope enters the timer table only once it has run.
+
+
+
+
+
+
     declared = set()
     for line in open("src/core/profile.luau"):
         line = line.strip()
@@ -86,10 +71,10 @@ def scopes():
     assert len(declared) >= 8, f"could not read the scope set from src/core/profile.luau (got {declared})"
 
     d = studio()["microprofilerScopes"]
-    # The capture is IMMUTABLE EVIDENCE recorded before the Facet rename, so its bar
-    # names still carry the pre-rename prefix. Normalise the SPELLING of the prefix
-    # before comparing; the claim — every declared scope was observed live and no
-    # undeclared timer appeared — is exactly the one it always made.
+
+
+
+
     seen = {re.sub(r"^LuauUI/", "Facet/", t["name"]) for t in d["timers"]}
     for name in seen:
         assert name.startswith("Facet/"), name
@@ -112,7 +97,7 @@ def headless_linkage():
     assert "lab-dense-scroll" in names and "lab-collection-churn" in names
     assert d["status"] == "PASS", d["status"]
     assert d.get("injectedRegression") is None, "a falsification artifact is not a committed baseline"
-    # and no headless row may wear a device class
+
     for r in d["runs"]:
         assert r.get("evidenceClass") != "phone-physical", r.get("scene")
     return "headless linkage: shared dataset/rows, both lab scenes in a clean PASS artifact"
@@ -138,9 +123,9 @@ def studio_section():
 def device_matrix():
     d = load(f"{ART}/studio/device-matrix.json")
     assert d["evidenceClass"] == "emulator", "these rows are emulation and must say so"
-    # the boundary has to DENY the device claim in words, not merely omit it. Asserted
-    # on substance rather than on a single word — the first version looked for "never"
-    # and failed against a boundary paragraph that said the same thing differently.
+
+
+
     boundary = d["honestBoundary"]
     assert "EMULATION" in boundary, "the boundary must name what this evidence class is"
     assert "PENDING_PHYSICAL" in boundary, "the boundary must point at the rows it cannot close"
@@ -194,17 +179,7 @@ def budgets():
 
 
 def prior_gates():
-    """Every red check must carry a recorded standalone verdict.
 
-    This replaced an inherited rule that allowed a FAIL line to carry only four
-    hardcoded bench check NAMES. That trusted a name instead of demanding evidence and
-    would have excused a genuinely broken check called one of the four. The rule here is
-    per-check: whatever came back red, the supplement must state what it does on its own.
-
-    It is not a formality. It caught a real regression in this very stage —
-    `performance-unregressed` was red in the sweep AND red standalone, which is the
-    discriminator between load noise and a defect. See optimization-log.md L-6.
-    """
     lines = open(f"{ART}/prior-gates.txt").read().splitlines()
     assert "DONE" in lines, "roll-up truncated — a sweep that did not finish cannot read as complete"
     passes = sum(1 for l in lines if l.startswith("PASS "))
@@ -218,8 +193,8 @@ def prior_gates():
             j = i + 1
             while j < len(lines) and lines[j].startswith("      "):
                 parts = lines[j].split()
-                # FAIL_ENVIRONMENT / PENDING* are the physical and human rows this
-                # repository leaves open by design; they are not regressions.
+
+
                 if parts[0] == "FAIL_RECOVERABLE":
                     reds.append((gate, parts[1]))
                 j += 1

@@ -15,6 +15,11 @@ return {
 	copy = COPY,
 	build = function(ctx)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local copy = ctx.copy or COPY
 		local detent = Compose.cell("medium")
 		local membership = Compose.cell(false)
@@ -37,39 +42,133 @@ return {
 			status:set(copy.status)
 		end
 		local function Briefing()
-			return UI.Screen("Sheet")({
-				padding = "m",
-				UI.ScrollView("Page")({
-					width = UI.fill(),
-					height = UI.fill(),
-					gap = "m",
-					UI.Text({ text = copy.title, textSize = "title" }),
-					UI.Text({ text = copy.intro, width = UI.fill() }),
-					UI.Text("Status")({ text = status, width = UI.fill() }),
-					UI.Button("Open")({ label = copy.open, onActivate = open }),
+			return Host.Frame({
+				Name = "Sheet",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
 				}),
-				UI.Sheet("Briefing")({
+				Host.ScrollingFrame({
+					Name = "Page",
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
+					UI.Label({
+						LayoutOrder = 1,
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Text = copy.title,
+						TextSize = 28,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Label({
+						LayoutOrder = 2,
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Text = copy.intro,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Label({
+						LayoutOrder = 3,
+						Name = "Status",
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Text = status,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Button({
+						LayoutOrder = 4,
+						Name = "Open",
+						label = copy.open,
+						onActivate = open,
+					}),
+				}),
+				UI.Sheet({
+					Name = "Briefing",
 					title = copy.briefing,
 					isPresented = presented,
 					detent = detent,
 					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" },
 					content = function()
-						return UI.VStack("Details")({
-							width = UI.fill(),
-							gap = "m",
-							UI.Text("Description")({ text = copy.description, width = UI.fill() }),
-							UI.Text({
-								text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
-								width = UI.fill(),
+						return Host.Frame({
+							Name = "Details",
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 16),
 							}),
-							UI.Toggle("Membership")({ label = copy.join, value = membership }),
-							UI.Text({
-								text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
-								width = UI.fill(),
+							UI.Label({
+								LayoutOrder = 1,
+								Name = "Description",
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Text = copy.description,
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Button("Start")({
+							UI.Label({
+								LayoutOrder = 2,
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+							UI.Toggle({
+								LayoutOrder = 3,
+								Name = "Membership",
+								label = copy.join,
+								value = membership,
+							}),
+							UI.Label({
+								LayoutOrder = 4,
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+							UI.Button({
+								LayoutOrder = 5,
+								Name = "Start",
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								label = copy.start,
-								width = UI.fill(),
 								onActivate = function()
 									status:set("Practice started.")
 									close()
@@ -113,7 +212,7 @@ return {
 					status = status:peek(),
 				}
 			end,
-			-- nothing outlives the screen
+
 			dispose = function() end,
 		}
 	end,

@@ -1,0 +1,12 @@
+{
+  "fullTierPassed": true,
+  "completeTier": true,
+  "suitePassed": 593,
+  "suiteFailed": 0,
+  "producers": 24,
+  "controlledStatus": "PASS",
+  "controlledRecords": 135,
+  "microStatus": "PASS",
+  "comparison": "final-performance.json",
+  "live": "gap-closure-live.json"
+}

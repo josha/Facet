@@ -1,12 +1,4 @@
 --!strict
--- FavoritesService (spec §3): a `Set<blendId>` and one toggle command.
--- Production is a DataStore write per the responsibility ledger; here it is a
--- signal holding an immutable snapshot, so a toggle is a real change the core
--- can see rather than a mutation nothing observes.
---
--- The starting set comes from the SEED, not from a hardcoded list, so a reset
--- reproduces it byte for byte and the empty state is reachable by unfavoriting
--- through the on-screen hearts alone.
 
 local favorites = {}
 
@@ -17,9 +9,7 @@ function favorites.new(opts: any)
 
 	local function seeded(): { [string]: boolean }
 		local out: { [string]: boolean } = {}
-		-- every (seed)th blend in declaration order starts favorited; seed 1 is
-		-- "all of them", which is never what a fixture wants, so the stride
-		-- starts at two
+
 		local stride = 2 + (seed - 1) % 3
 		for i, id in ids do
 			if i % stride == 1 then
@@ -54,7 +44,6 @@ function favorites.new(opts: any)
 		return n
 	end
 
-	-- sorted, so a dump is stable
 	function self.ids(): { string }
 		local out: { string } = {}
 		for id in set:peek() do

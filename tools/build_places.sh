@@ -1,39 +1,39 @@
 #!/usr/bin/env bash
-# Facet example place builder: emits one ready-to-open .rbxl per tutorial
-# example (docs/guide/04-tutorial-examples.md) plus the plain settings demo.
-# Each place maps src -> ReplicatedStorage.Facet, the example modules ->
-# ReplicatedStorage.FacetExamples, the gallery bootstrap ->
-# ReplicatedStorage, adds a baseplate + spawn, and pre-sets the Workspace
-# attribute Facet_Example so the place boots straight into its example.
-# Usage: tools/build_places.sh          (from the library root)
-# Output: examples/places/*.rbxl
+
+
+
+
+
+
+
+
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# ROKIT'S rojo, NOT whatever is first on PATH. A stale /usr/local/bin/rojo
-# (7.7.0-rc.1, Nov 2025) shadowed the rokit-managed 7.7.0 for months; its
-# reflection database does not know `Workspace.PlayerScriptsUseInputActionSystem`,
-# so a project declaring it FAILED THE BUILD with "Unknown property" while the
-# pinned toolchain built it fine. Measured 2026-08-15.
+
+
+
+
+
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 mkdir -p examples/places
 
-# THE BUILD STAMP. A place file carries no evidence of WHEN it was built, so a
-# stale .rbxl on a phone is indistinguishable from a fresh one — and on
-# 2026-08-16 that cost a real device session: the showcase was tested 5h41m
-# after the commit it was meant to prove, the tester correctly reported "the
-# playlist columns do not resize", and the playlist in that build simply
-# predated the feature. Nothing on screen could have told them.
-#
-# `git describe`-style identity plus the build time, stamped into a Workspace
-# attribute the showcase renders in its settings panel. The dirty flag matters
-# as much as the sha: most builds during a round are made from a working tree
-# that is ahead of HEAD.
-# THE STAMP IS THE CONTENT, NOT THE CLOCK OR THE COMMIT (2026-08-31).
-# A time-stamped tracked binary made every verification run dirty the tree, and
-# a commit-sha stamp is circular in a tracked file: committing the rebuild
-# advances the sha the file carries. A hash over the sources the place maps is
-# stable when nothing changed, moves when anything did, and still answers the
-# tester's question — "which build am I looking at" — in the settings panel.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 BUILD_STAMP="content $( { find src examples/gallery examples/reference examples/themes -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null; } | shasum -a 256 | cut -c1-12 )"
 
 EXAMPLES=(
@@ -55,7 +55,7 @@ for entry in "${EXAMPLES[@]}"; do
   else
     attributes="\"\$attributes\": { \"Facet_Example\": $index },"
   fi
-  # Client-context Scripts live in ReplicatedStorage, where they run once.
+
   cat >"$project" <<JSON
 {
   "name": "$name",
@@ -118,12 +118,12 @@ JSON
   rm "$project"
   echo "built examples/places/$file.rbxl ($name)"
 done
-# ===== THE SHOWCASE PLACE ===================================================
-# One place to publish and open on a phone, a tablet, a desktop and a console.
-# Everything the eight single-example places need an attribute + a republish to
-# change, this place changes in-game: the demo AND the theme. It therefore maps
-# the scenarios (for the all-controls fixture) and the theme packages too, and
-# sets Facet_Showcase so the bootstrap takes its showcase branch.
+
+
+
+
+
+
 project="examples/.place_build.project.json"
 cat >"$project" <<'JSON'
 {
@@ -192,29 +192,29 @@ cat >"$project" <<'JSON'
   }
 }
 JSON
-# The project heredoc above is single-quoted so JSON's $className/$path keys
-# survive the shell; the stamp is therefore substituted, not interpolated.
-perl -pi -e "s|\\@\\@BUILD_STAMP\\@\\@|$BUILD_STAMP|" "$project" # portable: BSD and GNU sed disagree about -i ''
+
+
+perl -pi -e "s|\\@\\@BUILD_STAMP\\@\\@|$BUILD_STAMP|" "$project"
 rojo build "$project" -o "examples/places/Facet-Showcase.rbxl"
 rm "$project"
 echo "built examples/places/Facet-Showcase.rbxl (Facet-Showcase — in-game demo + theme switching)"
 
-# ===== THE PERFORMANCE LAB ==================================================
-# Roadmap Step 9 (docs/plans/performance-stress-places.md). Unlike every place
-# above, this one is built from a CHECKED-IN Rojo project file rather than a
-# heredoc: the plan requires the place's sources and its project to be
-# reviewable artifacts, and a project that exists only inside a shell script
-# cannot be diffed, opened in Rojo, or reused by the place doctor.
-#
-# The emitted file must open and run with no Rojo session, no filesystem path,
-# no private asset, no secret, no universe id and no plugin — it is safe for the
-# user to open and choose "Publish to Roblox" manually. THIS SCRIPT NEVER
-# PUBLISHES: `rojo build` writes a local file and nothing else.
+
+
+
+
+
+
+
+
+
+
+
 rojo build examples/performance.project.json -o "examples/places/Facet-PerformanceLab.rbxl"
 echo "built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — Step 9 performance lab)"
 
-# THE BOOTSTRAP GUARD (see the emitLegacyScripts note above the first heredoc):
-# a place whose Gallery is not a LocalScript boots two hosts. Refuse to ship it.
+
+
 lune run tools/lune/check_place_bootstrap.luau examples/places/0*.rbxl examples/places/Facet-Showcase.rbxl
 
 echo "done: $(ls examples/places/*.rbxl | wc -l | tr -d ' ') place files in examples/places/"

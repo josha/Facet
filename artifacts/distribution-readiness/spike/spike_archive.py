@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Distribution spike, final step: archive the throwaway asset 83627005624999.
-Reads ROBLOX_API_KEY from env or GameStudio/tools/API_KEYS.txt; never prints it.
-Run from the Facet repository root."""
+
 import json, os, pathlib, urllib.error, urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[3]; os.chdir(ROOT)
 key = os.environ.get("ROBLOX_API_KEY", "")

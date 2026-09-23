@@ -1,14 +1,5 @@
 --!strict
--- IdentityService — the signed-in fact and the sign-up command.
---
--- STATED ON SCREEN, because the responsibility ledger requires it: Roblox
--- identity is ambient (`Players.LocalPlayer`), so a guild sign-up has no
--- production job at all. It is kept as a UI-capability exercise — validation
--- gating, focus autoset, a field-level rejection — and the modal says so in its
--- own header rather than in a comment nobody reads.
---
--- The rejection fixture is a taken-name list (content/data.luau), so both
--- outcomes are one typed word apart on screen.
+
 local data = require("../content/data")
 
 local identity_service = {}

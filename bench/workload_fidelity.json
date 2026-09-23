@@ -1,0 +1,374 @@
+{
+  "schema": "facet-workload-fidelity/1",
+  "baselineCommit": "a8c8895673c0745506908b66dc89f8cead6b66f3",
+  "baselineSource": "bench/perf_scenes.luau",
+  "status": "verified",
+  "priorControlledEvidence": "INVALID for baseline parity: initial native ports changed several workload populations, triggers, cadence and reporting. Raw timings remain observations only.",
+  "scenes": [
+    {
+      "name": "hud-binding-storm",
+      "samples": 240,
+      "warmup": 60,
+      "original": "Text(speed) and Button; 50 unbatched speed writes; refresh",
+      "native": "Native Text property binding plus Button; 50 writes; one runtime step",
+      "boundary": "Native layout/paint and deleted refresh excluded",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload hud-binding-storm",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves binding counts, one-hot style mutation and exact collection records"
+    },
+    {
+      "name": "settings-churn",
+      "samples": 240,
+      "warmup": 60,
+      "original": "Base HUD; mount and dismiss settings screen with six Text+Toggle rows",
+      "native": "Direct Compose mount/dispose of the same six rows",
+      "boundary": "Deleted generic modal manager is native caller scaffolding",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload settings-churn"
+    },
+    {
+      "name": "scroll-focus-traversal",
+      "samples": 240,
+      "warmup": 60,
+      "original": "16 selectable Buttons in ScrollView; 16 sequential focus navigations",
+      "native": "16 native Buttons; native selection delivery",
+      "boundary": "Engine selection routing/auto-scroll cannot run headlessly",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload scroll-focus-traversal",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves native focus and six-move drag delivery with original scroll cadence"
+    },
+    {
+      "name": "collection-mutation",
+      "samples": 240,
+      "warmup": 60,
+      "original": "8 keyed rows; two text cells each;40px; no header; multi-selection; replace1 and toggle cloned selection",
+      "native": "Native Table8rows/two columns",
+      "boundary": "Engine geometry and removed solver refresh excluded",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload collection-mutation",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves binding counts, one-hot style mutation and exact collection records"
+    },
+    {
+      "name": "animation-interruption",
+      "samples": 240,
+      "warmup": 60,
+      "original": "One percentage Text;6 interpolated value writes toward alternating target at .35",
+      "native": "Native percentage Text with Compose state",
+      "boundary": "Original scenario is explicit interpolation, not a spring benchmark",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload animation-interruption",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves binding counts, one-hot style mutation and exact collection records"
+    },
+    {
+      "name": "locale-textsize-change",
+      "samples": 240,
+      "warmup": 60,
+      "original": "8 Menu item labels;en-us/de-de and text scale1/1.3",
+      "native": "8 native text labels",
+      "boundary": "Native locale/preferred text fact setters differ; Engine text geometry blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload locale-textsize-change",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves transient frame cadence and stable text-size workload copy"
+    },
+    {
+      "name": "async-image-burst",
+      "samples": 240,
+      "warmup": 60,
+      "original": "12 Image nodes;12 new ids/sample; deterministic4-completion loader;obsolete pending counted",
+      "native": "12plain nativeImageLabels, exactid cadence and modeled4completion loader",
+      "boundary": "Same modeledload accounting; actualnativeassetfetch/paintunmeasured",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload async-image-burst",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves twelve plain burst images and retained async-grid owners"
+    },
+    {
+      "name": "shadow-storm",
+      "samples": 240,
+      "warmup": 60,
+      "original": "100 unchanged rounded shadows;presenter refresh and style lint",
+      "native": "100 native UIShadow nodes; one ordinary runtime step",
+      "boundary": "Removed presenter/linter cost has no Facet replacement; native shadow paint blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload shadow-storm",
+      "behaviorWitness": "native_perf::native benchmark workload contract::retains one hundred idle native shadows and still applies direct mutations"
+    },
+    {
+      "name": "virtual-list-scroll",
+      "samples": 160,
+      "warmup": 40,
+      "original": "2000rows,Image+twoText+Toggle,56px,61px scroll",
+      "native": "Compose OrderedCollection/native ScrollingFrame; same control shape",
+      "boundary": "Native extent/selection geometry blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload virtual-list-scroll"
+    },
+    {
+      "name": "native-scroll-drag",
+      "samples": 160,
+      "warmup": 40,
+      "original": "30Grip rows48px;scroll37 modulo600;pointer down(10,10),6moves,up(210,90);2drop targets",
+      "native": "30 native draggable rows",
+      "boundary": "Generic Facet drag registry removed; native UIDragDetector supplies input",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload native-scroll-drag",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves native focus and six-move drag delivery with original scroll cadence"
+    },
+    {
+      "name": "dense-hud",
+      "samples": 160,
+      "warmup": 40,
+      "original": "8readouts\u00d73writes;separate Progress1write;12keyed6px markers;4Buttons;1boost activation and readout",
+      "native": "Native controls, committedText timing phase restored",
+      "boundary": "Input-to-property timing excludes actual input/render latency",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload dense-hud",
+      "behaviorWitness": "native_perf::native benchmark workload contract::measures a dense HUD activation through its committed native text"
+    },
+    {
+      "name": "stylesheet-state-churn",
+      "samples": 160,
+      "warmup": 40,
+      "original": "40Toggles;one-hot selection rotates (2changedvalues);40pure classifier passes",
+      "native": "40native Toggles and native tags",
+      "boundary": "Deleted sheet_model classifier becomes native tag state",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload stylesheet-state-churn",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves binding counts, one-hot style mutation and exact collection records"
+    },
+    {
+      "name": "async-image-grid",
+      "samples": 120,
+      "warmup": 30,
+      "original": "12AsyncImage;release previous screen then mount fresh keys;drain4;retain current owner",
+      "native": "Native AsyncImage loader ownership",
+      "boundary": "Deleted resource-provider queue/cache replaced by injected native loader",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload async-image-grid",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves twelve plain burst images and retained async-grid owners"
+    },
+    {
+      "name": "screen-lifecycle-churn",
+      "samples": 120,
+      "warmup": 30,
+      "original": "BaseHUD;Slider50/0..100,Stepper2/0..4,Picker3,Progress.4,Label,12alternatingToggles;mount/dismiss",
+      "native": "Same native control roster direct Compose mount/dispose",
+      "boundary": "Deleted generic modal manager overhead excluded",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload screen-lifecycle-churn"
+    },
+    {
+      "name": "theme-swap-flat",
+      "samples": 160,
+      "warmup": 40,
+      "original": "Fantasy Parchment Daylight\u2194Candlelight;same4control fixture",
+      "native": "Native StyleSheet plus theme controls",
+      "boundary": "Native geometry/paint blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload theme-swap-flat",
+      "behaviorWitness": "native_perf::native benchmark workload contract::uses actual theme packages and preserves mounted fixture identities"
+    },
+    {
+      "name": "theme-swap-metrics",
+      "samples": 160,
+      "warmup": 40,
+      "original": "compact_pointer\u2194glossy_touch;24/44px;same4control fixture",
+      "native": "Native StyleSheet plus theme controls",
+      "boundary": "Native geometry/paint blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload theme-swap-metrics",
+      "behaviorWitness": "native_perf::native benchmark workload contract::uses actual theme packages and preserves mounted fixture identities"
+    },
+    {
+      "name": "dense-motion",
+      "samples": 160,
+      "warmup": 40,
+      "original": "24alternating\u00b112springs;4beats at0/.1/.2/.3;600Text-only44px rows rotate;1clockstep",
+      "native": "Direct Compose springs/timeline/native properties",
+      "boundary": "Presentation transform facade removed",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload dense-motion",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves motion population, scheduled control triggers and native intermediate properties"
+    },
+    {
+      "name": "control-motion",
+      "samples": 160,
+      "warmup": 40,
+      "original": "30keyedCanvasGroup+Text;shared.02stagger/.2fade;rekey30/flip20/invalid15/pop10;oneclockstep;settlewitness",
+      "native": "Direct Compose/native controls",
+      "boundary": "Custom presentation reports replaced by native properties; removed custom-clock one-drain assertion replaced by actual native properties and reported Compose transaction counts, not a fabricated one-drain claim",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload control-motion",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves motion population, scheduled control triggers and native intermediate properties"
+    },
+    {
+      "name": "theme-swap-assets",
+      "samples": 160,
+      "warmup": 40,
+      "original": "Neutral\u2194Fantasy Ornate actual art/chrome;same4control fixture",
+      "native": "Native StyleSheet plus theme controls",
+      "boundary": "Native geometry/paint blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload theme-swap-assets",
+      "behaviorWitness": "native_perf::native benchmark workload contract::uses actual theme packages and preserves mounted fixture identities"
+    },
+    {
+      "name": "lab-dense-scroll",
+      "samples": 120,
+      "warmup": 30,
+      "original": "seed1/2000 original dense rows;AsyncImage+2Text+Ready+Rate+Open;durablemodels;61px scroll",
+      "native": "Shared native rows/version2,measured extents and durable keyedcells",
+      "boundary": "Headless cannot measure native text layout",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload lab-dense-scroll"
+    },
+    {
+      "name": "lab-collection-churn",
+      "samples": 100,
+      "warmup": 25,
+      "original": "seed1/800dense rows;insert25%,remove60%,move(n*7)%count;new inserteddata",
+      "native": "Same800native rows andmutationindices",
+      "boundary": "Engine geometry blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload lab-collection-churn"
+    },
+    {
+      "name": "adaptive-navigation-images",
+      "samples": 120,
+      "warmup": 20,
+      "original": "24framedimage/subtitle Buttons retained in selected page;3TabView destinations;idle/focus/sidebaropen-close;60settleframes",
+      "native": "Native TabView/Engine selection",
+      "boundary": "Old expandSidebar facade removed; native placement changes chrome",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload adaptive-navigation-images",
+      "behaviorWitness": "native_perf::native benchmark workload contract::retains selected image cards across navigation events and sixty-frame settling"
+    },
+    {
+      "name": "navigation-customization",
+      "samples": 120,
+      "warmup": 20,
+      "original": "Same retained24cards;movegarage to1or2;60settleframes",
+      "native": "Native customization ordercell",
+      "boundary": "Native geometry/layout transitions blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload navigation-customization",
+      "behaviorWitness": "native_perf::native benchmark workload contract::retains selected image cards across navigation events and sixty-frame settling"
+    },
+    {
+      "name": "alert-present-dismiss",
+      "samples": 120,
+      "warmup": 30,
+      "original": "Basebutton;Alert exact title/message;3roles(Delete/Keep/Cancel);open1tick/close1tick",
+      "native": "Native Alert controlledcell",
+      "boundary": "Native modal geometry/input hardware blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload alert-present-dismiss",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves transient frame cadence and stable text-size workload copy"
+    },
+    {
+      "name": "picker-menu-open-close",
+      "samples": 120,
+      "warmup": 30,
+      "original": "Basebutton;menuPicker6options;open1tick/close1tick",
+      "native": "Native Picker controlledcell",
+      "boundary": "Native popup geometry/input hardware blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload picker-menu-open-close",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves transient frame cadence and stable text-size workload copy"
+    },
+    {
+      "name": "picker-segmented-textsize",
+      "samples": 120,
+      "warmup": 30,
+      "original": "3difficultyoptions+2stableText;preferred text1/1.3",
+      "native": "Native Picker plus text properties",
+      "boundary": "Headless uses native TextSize surrogate; actual preference provenlive",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload picker-segmented-textsize"
+    },
+    {
+      "name": "radial-menu-open-close",
+      "samples": 120,
+      "warmup": 30,
+      "original": "Basebutton;6donut/compass items;setup3ticks;open2ticks/close2ticks",
+      "native": "Native RadialMenu controlledcell",
+      "boundary": "Native radial geometry/input hardware blind",
+      "remaining": [],
+      "witness": "native_perf::native benchmark workload contract::runs and tears down controlled workload radial-menu-open-close",
+      "behaviorWitness": "native_perf::native benchmark workload contract::preserves transient frame cadence and stable text-size workload copy"
+    }
+  ],
+  "microbenchmarks": [
+    {
+      "name": "hud-binding-storm",
+      "contract": "1speed cell, rounded formula, label formula,1watcher;100unbatched speed writes",
+      "boundary": "Same Compose reactive graph; removed Facet core error boundary no longer wrapped"
+    },
+    {
+      "name": "settings-churn",
+      "contract": "One child owner with2cells,1formula,1watcher;2writes anddispose",
+      "boundary": "Same Compose ownership and signal work"
+    },
+    {
+      "name": "collection-mutation",
+      "contract": "50keyed child owners each1cell;rotate1,replace1,delete/create1owner",
+      "boundary": "Same manual scope workload, not a native collection rendering claim"
+    },
+    {
+      "name": "sparse-update-under-load",
+      "contract": "200cell/formula/watcher chains;mutatefirstonly",
+      "boundary": "Same Compose reactive graph"
+    },
+    {
+      "name": "mounted-slice-update-storm",
+      "contract": "Text18 andBoost Button;50writes and1frame",
+      "boundary": "NativeText property assignment excludes removed Facet solver/renderer cost"
+    },
+    {
+      "name": "mount-ramp",
+      "contract": "Depth7 fanout3:3280tree nodes plusroot=3281logical nodes;mount/dispose+1frame;120samples/5warmup",
+      "boundary": "Native UIListLayouts replace solver stack records; engine geometry unmeasured"
+    },
+    {
+      "name": "mount-ramp-inherited",
+      "contract": "Same depth7tree under disabled/tintednativeCanvasGroup;120/5",
+      "boundary": "Inheritedpaint/interactivity now engine property semantics; no claim solvergeometrytiming"
+    },
+    {
+      "name": "table-mutation",
+      "contract": "8rows2nameText14cells,row40,headerfalse,multiselection;replace1,toggle1,1frame",
+      "boundary": "NativeTable/OrderedCollection replaces old composites, enginegeometry blind"
+    },
+    {
+      "name": "table-resize-drag",
+      "contract": "8rows2nameText14cells,row40,headersvisible,noSelection;8previewmoves+frames,release+frame;alternating40px",
+      "boundary": "NativeUIDragDetector commits livewidths; old separate guidepreview mechanism deleted"
+    },
+    {
+      "name": "billboard-nameplate-storm",
+      "contract": "300x96canvas,Racer18 andhealth14;50writes+1frame",
+      "boundary": "NativeBillboardGui vs originalheadlessscreen surrogate; engineworldprojectionblind"
+    },
+    {
+      "name": "textinput-typing-storm",
+      "contract": "OneTextInput maxLength64;nativefocus,24grapheme assignments,1frame,cancel,1frame;identitycheck",
+      "boundary": "NativeTextBoxevents replace synthetic Facet adapter input; hardwareIMEblind"
+    },
+    {
+      "name": "motion-explicit",
+      "contract": "100nativeboxes common4/6heightcell,explicit source write,100tweens,1frame;intermediatevalue asserted",
+      "boundary": "Old parentcontainer withAnimation API explicitly removed; directCompose sharedstate binding is replacement, mechanism timing not apples-to-apples"
+    },
+    {
+      "name": "motion-declarative",
+      "contract": "100nativeboxes commonboolean source,4/6heightformula,100tweens,1frame;intermediatevalue asserted",
+      "boundary": "Old parentanimation declaration explicitly removed; Compose tweenproperty source is replacement, mechanism timing not apples-to-apples"
+    },
+    {
+      "name": "zz-yardstick-cpu",
+      "contract": "Identical256elementbuffer,200nestedpasses,arithmetic/branch/write operations",
+      "boundary": "No framework calls; original normalization ceiling15% unchanged"
+    }
+  ],
+  "priorMicrobenchmarkEvidence": "INVALID for baseline parity: earlier port omitted some frame steps, changed table fixture and used100explicitcells. Fresh sampling required after corrected audit.",
+  "verification": "54 native_perf behavioral and lifecycle cases pass after correcting all27controlled fixtures and14microbenchmark contracts; no timing conclusion is implied."
+}

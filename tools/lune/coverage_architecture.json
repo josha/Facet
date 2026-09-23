@@ -1,0 +1,589 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "api_surface": {
+      "specs": [
+        "native_registration"
+      ],
+      "cases": [
+        "native_registration::native registration and package contract::registers every authored control and documents every public constructor"
+      ],
+      "behaviors": [
+        "Current VERSION format, unwrapped Compose/Roblox identity, live complete constructor registration and documentation."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Legacy application export inventory, generated blueprint schema and migration/deprecation ledger are intentionally removed by the hard cutover."
+      },
+      "remaining": []
+    },
+    "smoke": {
+      "specs": [
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime"
+      ],
+      "behaviors": [
+        "Headless public native constructor mount, reactive model binding and complete teardown."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Old Facet.new / environment / presenter public shape removed."
+      },
+      "remaining": []
+    },
+    "components": {
+      "specs": [
+        "native_navigation",
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page"
+      ],
+      "behaviors": [
+        "Reactive native component bindings and retained/popped page owner lifetime."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Old view blueprint application facade and quarantined renderer binding-error APIs removed; Compose owns component error/ownership semantics."
+      },
+      "remaining": []
+    },
+    "foreign": {
+      "specs": [
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime"
+      ],
+      "behaviors": [
+        "Actual native instances share the caller Compose runtime and owner cleanup."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Deleted Foreign/ForeignHost blueprint transport, measure callbacks and renderer attachment registry; use Host native children directly."
+      },
+      "remaining": []
+    },
+    "focus": {
+      "specs": [
+        "native_collections",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Native modal selection trapping/restoration, page focus and virtualized keyed focus restoration."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Facet.newFocusGraph, logical string paths, graph navigate/setOrder/push/pop and event bus APIs removed; native GuiService + Compose collection focus own traversal."
+      },
+      "remaining": []
+    },
+    "focus_chrome": {
+      "specs": [
+        "native_navigation",
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_public_surface::native public surface::gates native actions through retained ancestors and detaches observations"
+      ],
+      "behaviors": [
+        "Native target selection and ancestor availability guards."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Facet logical focusChrome/top/bottom group splice ordering removed; native hierarchy/LayoutOrder/selection properties are authored directly."
+      },
+      "remaining": []
+    },
+    "focus_section_appear": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page"
+      ],
+      "behaviors": [
+        "Mounted native modal/page content receives native selection and restores live prior target."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Legacy focusOnAppear/returnFocus blueprint declarations and renderer group registry removed."
+      },
+      "remaining": []
+    },
+    "focus_sections": {
+      "specs": [
+        "native_collections",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::uses new grid neighbors when responsive columns change without changing total extent",
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page"
+      ],
+      "behaviors": [
+        "Native collection responsive neighbor selection and modal/page focus ownership."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Generic Facet group bounds/axis/setGroupOrder/focusSection blueprint API removed; engine selection rules own ordinary native hierarchy traversal."
+      },
+      "remaining": []
+    },
+    "keyboard_navigation": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return",
+        "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation",
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page"
+      ],
+      "behaviors": [
+        "Focused native Return/Space activation is allocated only while selected, value inputs yield navigation at bounds, disabled editors stop, native modals trap and restore."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Old opt-in presenter keyboardNavigation/traversalWrap/firstResponder/initialFocus option machinery, flat string-path focus graph, CAS/default-camera suppression and native echo compensation are removed. Engine owns Tab/directional traversal and native TextBox editing; this mapping does not claim its old per-key internal algorithm."
+      },
+      "remaining": []
+    },
+    "responder": {
+      "specs": [
+        "native_inputs",
+        "native_navigation",
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_public_surface::native public surface::gates native actions through retained ancestors and detaches observations",
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back"
+      ],
+      "behaviors": [
+        "Native action contexts follow selected instance and ancestor availability; native modal selection is trapped."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Presenter engage/resign passive-HUD responder facade and gameplayGuard private binding state removed; caller owns InputContext lifecycle/priority directly."
+      },
+      "remaining": []
+    },
+    "traversal_order": {
+      "specs": [
+        "native_collections",
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_collections::Compose native collections::uses new grid neighbors when responsive columns change without changing total extent"
+      ],
+      "behaviors": [
+        "Native selected-button activation and Compose collection ordering survive responsive changes."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Renderer synthetic adjustment-target append order and flat Facet focus-ring traversal are removed; native hierarchy and selection ordering own traversal."
+      },
+      "remaining": []
+    },
+    "mount_unmount_soak": {
+      "specs": [
+        "native_collections",
+        "native_navigation",
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime",
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Direct owned surface cleanup, native modal restoration and keyed collection instance lifetimes."
+      ],
+      "retiredAssertions": {
+        "removed architecture assertions": "Old renderer/controller/adapter census and token-bus leak counters are absent. Runtime suite and package canary execute repeated native lifecycle checks; this does not claim old counter equivalence."
+      },
+      "remaining": []
+    },
+    "adaptive_defaults": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options"
+      ],
+      "behaviors": [
+        "Native control sizing and presentation react directly to current supplied/native facts."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Global environment-on-core discovery, ambiguous environment registry and automatic preferred-device token path injection were deleted. Control policy reads caller config and native engine facts."
+      },
+      "remaining": []
+    },
+    "focus_structural": {
+      "specs": [
+        "native_collections",
+        "native_public_surface"
+      ],
+      "cases": [
+        "native_public_surface::native public surface::exposes controls over the unwrapped Compose Roblox runtime",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Compose-owned native children mount/unmount and virtualized keyed native focus restores."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old renderer When focus-ring splice and generic optimistic replicated-view protocol were deleted. Authoritative protocol convergence remains covered separately in native_outpost_terminal."
+      },
+      "remaining": []
+    },
+    "native_scroll": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling",
+        "native_collections::Compose native collections::snaps native scrolling to Compose measured boundaries and yields animation to input"
+      ],
+      "behaviors": [
+        "Actual ScrollingFrame CanvasPosition/viewport changes drive Compose collection placement, anchoring and snap interruption."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old Frame-to-ScrollingFrame adapter promotion, Facet ScrollRecord/bindNativeScroll renderer registry and solved CanvasSize transport are removed."
+      },
+      "remaining": []
+    },
+    "scroll_navigation": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it"
+      ],
+      "behaviors": [
+        "Offscreen native collection focus is deferred until geometry and restored through keyed lifetime."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Generic renderer scrollHostFor/scrollToVisible string-path traversal removed; collection controls and native selection own scrolling."
+      },
+      "remaining": []
+    },
+    "scroll_indicators": {
+      "specs": [
+        "native_collections"
+      ],
+      "cases": [
+        "native_collections::Compose native collections::reuses row containers, replaces reactive items and anchors native scrolling"
+      ],
+      "behaviors": [
+        "Native viewport and CanvasPosition changes remain linked to collection placement."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old automatic input-class scrollbar reservation, solved inset reflow and adapter thickness override policies removed; native ScrollingFrame owns scrollbar behavior/properties."
+      },
+      "remaining": []
+    },
+    "navigation_groups": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection"
+      ],
+      "behaviors": [
+        "Native modal/page focus and selected-button activation have direct integration evidence."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old logical graph group splices, synthesized adjustment-target appended ordering and presenter navigate() entry points removed. Native GuiService direction/traversal and InputContext own navigation."
+      },
+      "remaining": []
+    },
+    "review_navigation": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection"
+      ],
+      "behaviors": [
+        "Native modal/page focus and selected-button activation have direct integration evidence."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old logical graph group splices, synthesized adjustment-target appended ordering and presenter navigate() entry points removed. Native GuiService direction/traversal and InputContext own navigation."
+      },
+      "remaining": []
+    },
+    "navigation_showcase": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::retains visited tab state across selection and declaration reorders",
+        "native_navigation::native navigation controls::opens searchable picker content only when presented and commits filtered results",
+        "native_navigation::native navigation controls::restores surviving navigation focus and moves paging focus into the visible page"
+      ],
+      "behaviors": [
+        "Native navigation retains pages/search results and moves/restores selection across page changes."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old gallery scenario step interfaces and blueprint solved-rect/instance census assertions removed; native pages are mounted directly in caller runtime."
+      },
+      "remaining": []
+    },
+    "paradigm_cards": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::uses native page layout for model navigation and engine swipes"
+      ],
+      "behaviors": [
+        "Native PageView model navigation and engine swipe synchronization remain tested."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Facet cards rail blueprint helpers, peek-width solver and adaptive view-count policies removed. Native UIPageLayout owns pages/swipes; caller composes responsive layouts."
+      },
+      "remaining": []
+    },
+    "paradigm_popup": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable"
+      ],
+      "behaviors": [
+        "Native menus retain model selection and dismiss on tap-away/ancestor loss."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old synthetic ZoneB path catcher geometry and presenter layer registry removed."
+      },
+      "remaining": []
+    },
+    "placement_anchor_place": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::suspends callout plates with hidden anchors and restores their native arrow"
+      ],
+      "behaviors": [
+        "Callout placement, hidden-anchor suspension and arrow restoration are exercised directly."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Standalone Facet anchor-placement rectangle utility API and solved source rect registry removed. Native control placement uses actual AbsolutePosition/AbsoluteSize."
+      },
+      "remaining": []
+    },
+    "selection_options": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options"
+      ],
+      "behaviors": [
+        "Native selection controls preserve names, indicator choices, target floors and option identity during presentation changes."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Standalone selection-indicator rect tween helpers, grouped border-corner solver and selection radius snapshot transport removed. Native control styling and Compose motion own paint."
+      },
+      "remaining": []
+    },
+    "selection_radius": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options"
+      ],
+      "behaviors": [
+        "Native selection controls preserve names, indicator choices, target floors and option identity during presentation changes."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Standalone selection-indicator rect tween helpers, grouped border-corner solver and selection radius snapshot transport removed. Native control styling and Compose motion own paint."
+      },
+      "remaining": []
+    },
+    "selection_shape": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
+        "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options"
+      ],
+      "behaviors": [
+        "Native selection controls preserve names, indicator choices, target floors and option identity during presentation changes."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Standalone selection-indicator rect tween helpers, grouped border-corner solver and selection radius snapshot transport removed. Native control styling and Compose motion own paint."
+      },
+      "remaining": []
+    },
+    "semantic_rows": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::keeps mixed checkbox geometry live and validates presentation-specific options",
+        "native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes"
+      ],
+      "behaviors": [
+        "Native composite controls retain a single model/action path and reactive indicator/presentation contracts."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old semantic-row solver line-break, exact natural-width geometry and synthetic hit-record assertions removed. Native layouts determine child placement; controls keep one actual native action root."
+      },
+      "remaining": []
+    },
+    "large_text_hot_swap": {
+      "specs": [
+        "native_collections",
+        "native_inputs",
+        "native_navigation",
+        "native_text_preference"
+      ],
+      "cases": [
+        "native_text_preference::native text preference updates::keeps editing focus row identity and scroll position across text and theme changes",
+        "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+        "native_navigation::native navigation controls::wraps alert actions and bounds long message scrolling to native measurements",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input"
+      ],
+      "behaviors": [
+        "TextSize/theme changes preserve edit focus, typed draft, all instance identities and scroll offset; native compact captions, alert wrapping and table measured-height policies are asserted."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old globally solved Composition/Band/Split layouts, exact solved-rect matrices, locale overlap collector/waivers and renderer hit-expander mirror are deleted APIs. Native TextBounds/AutomaticSize/UIListLayout determine geometry; live engine qualification is separate from these portable assertions."
+      },
+      "remaining": []
+    },
+    "large_text_matrix": {
+      "specs": [
+        "native_collections",
+        "native_inputs",
+        "native_navigation",
+        "native_text_preference"
+      ],
+      "cases": [
+        "native_text_preference::native text preference updates::keeps editing focus row identity and scroll position across text and theme changes",
+        "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+        "native_navigation::native navigation controls::wraps alert actions and bounds long message scrolling to native measurements",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input"
+      ],
+      "behaviors": [
+        "TextSize/theme changes preserve edit focus, typed draft, all instance identities and scroll offset; native compact captions, alert wrapping and table measured-height policies are asserted."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old globally solved Composition/Band/Split layouts, exact solved-rect matrices, locale overlap collector/waivers and renderer hit-expander mirror are deleted APIs. Native TextBounds/AutomaticSize/UIListLayout determine geometry; live engine qualification is separate from these portable assertions."
+      },
+      "remaining": []
+    },
+    "large_text_layout": {
+      "specs": [
+        "native_collections",
+        "native_inputs",
+        "native_navigation",
+        "native_text_preference"
+      ],
+      "cases": [
+        "native_text_preference::native text preference updates::keeps editing focus row identity and scroll position across text and theme changes",
+        "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+        "native_navigation::native navigation controls::wraps alert actions and bounds long message scrolling to native measurements",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input"
+      ],
+      "behaviors": [
+        "TextSize/theme changes preserve edit focus, typed draft, all instance identities and scroll offset; native compact captions, alert wrapping and table measured-height policies are asserted."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Old globally solved Composition/Band/Split layouts, exact solved-rect matrices, locale overlap collector/waivers and renderer hit-expander mirror are deleted APIs. Native TextBounds/AutomaticSize/UIListLayout determine geometry; live engine qualification is separate from these portable assertions."
+      },
+      "remaining": []
+    },
+    "preview": {
+      "specs": [
+        "native_perf_evidence"
+      ],
+      "cases": [
+        "native_perf_evidence::console / ten-foot profile (UI-PARADIGM-003, XP-A1)::is in the headless matrix",
+        "native_perf_evidence::console / ten-foot profile (UI-PARADIGM-003, XP-A1)::declares ten-foot display and gamepad facts",
+        "native_perf_evidence::console / ten-foot profile (UI-PARADIGM-003, XP-A1)::declares a frame target for every profile, so a ceiling can be derived"
+      ],
+      "behaviors": [
+        "All controlled performance profile facts and frame targets remain explicit evidence data."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Facet preview.apply(environment) and solved viewport/safe-inset overlay adapter removed. Device profile data was moved unchanged to bench/profiles_data."
+      },
+      "remaining": []
+    },
+    "shared_element": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::expands a source rectangle into full screen and reverses the same Compose-owned snapshot",
+        "native_navigation::native navigation controls::makes full-screen source transitions immediate under native reduced motion"
+      ],
+      "behaviors": [
+        "Native source-based alert motion, interrupted presence reuse and native tab layer fades are exercised.",
+        "Full-screen source transitions retain the same native snapshot across expansion/reversal, clone native viewport camera content, clean up on interruption and apply native reduced-motion preference immediately."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Facet transition schema/source path registry, renderer layout interpolation and attach/onRetire presenter protocols removed. Compose presence/tweens and actual source instances own motion."
+      },
+      "remaining": []
+    },
+    "transitions": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence",
+        "native_navigation::native navigation controls::fades native tab layers with Compose and reveals an offscreen selected tab",
+        "native_navigation::native navigation controls::expands a source rectangle into full screen and reverses the same Compose-owned snapshot",
+        "native_navigation::native navigation controls::makes full-screen source transitions immediate under native reduced motion"
+      ],
+      "behaviors": [
+        "Native source-based alert motion, interrupted presence reuse and native tab layer fades are exercised.",
+        "Full-screen source transitions retain the same native snapshot across expansion/reversal, clone native viewport camera content, clean up on interruption and apply native reduced-motion preference immediately."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Facet transition schema/source path registry, renderer layout interpolation and attach/onRetire presenter protocols removed. Compose presence/tweens and actual source instances own motion."
+      },
+      "remaining": []
+    },
+    "world_anchor": {
+      "specs": [
+        "native_gallery_workflows"
+      ],
+      "cases": [
+        "native_gallery_workflows::native gallery workflows::moves and hides native map markers without remounting their controls"
+      ],
+      "behaviors": [
+        "Native gallery world targets move/hide while preserving target part identity and caller lifetime."
+      ],
+      "retiredAssertions": {
+        "removed API/mechanism assertions": "Facet client.world_anchor projection/occlusion/character-respawn binding and rectangle-readables facade removed. Roblox BillboardGui/SurfaceGui attachment and Camera APIs own world placement."
+      },
+      "remaining": []
+    }
+  }
+}

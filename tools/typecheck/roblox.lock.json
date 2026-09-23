@@ -1,0 +1,8 @@
+{
+  "tool": "JohnnyMorganz/luau-lsp",
+  "analyzerVersion": "1.69.0",
+  "commit": "578437db0819644efd1cb97ab64551c12fabc192",
+  "url": "https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/578437db0819644efd1cb97ab64551c12fabc192/scripts/globalTypes.None.d.luau",
+  "sha256": "9ad75109b8dc9197f6d1726208bfa0b12de47c3a43672a4fa43227f0cec609ee",
+  "security": "None"
+}

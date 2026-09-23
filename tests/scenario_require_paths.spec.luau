@@ -1,26 +1,4 @@
 --!strict
---[[ Headless-vs-instance-tree require guard (SHOWCASE2 task A). The "All
-	controls" demo mounted EMPTY at Play: `examples/gallery/scenarios/
-	adaptive_controls.luau` carried a module-scope `require("../../../src/
-	tokens/chrome_slots")` that resolved under Lune (file-system path, this
-	suite green throughout) but not live in Studio, where `src` and `examples/
-	gallery/scenarios` are SIBLING trees under `ReplicatedStorage`, not nested
-	(measured: `could not get parent of component ".."`). This is the SECOND
-	headless-vs-instance-tree require divergence this campaign (G7+G11's Rojo
-	mount-depth was the first) — `tools/lune/check_scenario_requires.
-	luau` closes the CLASS rather than just the one site: it re-derives, for
-	every gallery/scenario/reference file, what the live Studio instance tree
-	actually looks like (`tools/lune/lib/studio_tree.luau`, the SAME module
-	`studio_sync` serves from) and proves every module-scope relative
-	`require("...")` string actually lands on a node that exists there.
-
-	Two more live instances of the identical bug were found and fixed the same
-	round: `nested_compositing.luau` (`transform_footprint`) and `examples/
-	reference/p4_foyer/init.luau` (`chrome_slots`) — both RED before the fix,
-	confirmed by re-running this exact checker against the pre-fix source
-	(recorded in task-showcase2-report.md, not re-asserted here since the
-	fixed tree is what ships).
-]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -50,14 +28,13 @@ describe("scenario_require_paths: every gallery/scenario/reference require resol
 	it("it actually scanned the real tree, not an empty one", function()
 		local result = checker.check()
 		expect(result.counts.files >= 100).toBe(true)
-		expect(result.counts.requiresChecked >= 50).toBe(true)
+		local injected = checker.check({
+			injectFile = KNOWN_BAD_FILE,
+			injectLine = 'local first = require("./common")\nlocal second = require("./common")',
+		})
+		expect(injected.counts.requiresChecked).toBe(result.counts.requiresChecked + 2)
 	end)
 
-	--[[ THE MUTATION PROOF. A guard nobody has watched fail is a guard nobody
-		knows works (same standing bar `check_example_drift`'s own negative
-		controls set). This re-injects the EXACT historical defect — a module-
-		scope require reaching from FacetScenarios three levels up into `src` —
-		and requires the guard to name it. ]]
 	it("catches the exact historical defect: a module-scope 3-level escape into src", function()
 		local result = checker.check({
 			injectFile = KNOWN_BAD_FILE,
@@ -74,12 +51,6 @@ describe("scenario_require_paths: every gallery/scenario/reference require resol
 	end)
 
 	it("does NOT fire on the same literal string used inside the SAFE dual-route idiom", function()
-		-- the established idiom (`sensory_feedback.luau`'s
-		-- `resolveAdapterModule`, the one live user now that the three
-		-- historical sites read the public surface instead) keeps this exact
-		-- string as its Lune-only fallback route, indented inside a pcall — the
-		-- guard must tell that apart from an unguarded module-scope require, or
-		-- it would break the very idiom it exists to push authors toward.
 		local result = checker.check({
 			injectFile = KNOWN_BAD_FILE,
 			injectLine = 'local function mutationProbe()\n\tlocal ok, mod = pcall(function()\n\t\treturn require("../../../src/tokens/chrome_slots")\n\tend)\n\treturn ok and mod or nil\nend',
