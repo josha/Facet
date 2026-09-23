@@ -115,6 +115,25 @@ detail and every behaviour or path change.
 - **Input**: a Sink context never swallows the release owed to a binding that
   received the press (a menu opened by ButtonA, closed by ButtonB, reopens on
   the next ButtonA).
+- **`UI.Card` lifts on engagement.** Hover, a painted focus ring, a held press
+  or its open menu raise the card to 1.04x (paint only) with the raised shadow;
+  reduced motion keeps the shadow alone, and at ten feet the focus lift is the
+  only scale. Gutters around a card reserve the lift
+  (`Facet.layout.transformFootprint`).
+- **Menu rows.** A floating menu's rows are at least the target floor tall (44
+  under Facet Neutral, was the compact 36), so stacked rows' hit rects never
+  overlap; a plain row's label leads like a badge or shortcut row's. This
+  includes the legacy PopupButton's floating rows.
+- **`UI.TabView` tab words fit.** The strip's `textSize` defaults to `"fit"`:
+  a label shrinks toward the caption role before it truncates.
+- **Text fit refuses an overlong word.** `textSize = "fit"` and `Facet.text.fit`
+  compare the widest word with the box, so a single word wider than the box
+  shrinks (it used to answer the cap and let the engine truncate it).
+- **`UI.Snackbar`** content sits inside a theme package's panel carve (the row
+  is the plate).
+- **`UI.Picker`** `navigationLink` keeps its one-line row (title leading, value
+  trailing) at every width until the text preference needs a second line.
+- **Skinned selected rows** keep their selection tint while pressed.
 - **Input: one key edge, one delivery.** A `Bool` action armed while one of its
   keys is held (its context enabled, or its binding added, mid-press) no longer
   receives that press or its release; the key's release ends the hold. Game

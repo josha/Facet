@@ -8472,6 +8472,10 @@ every adjacent pair, and a selected row's fill is the row itself — the theme's
 `accent` under an `onAccent` label, the one pair every theme guarantees at
 4.5:1. Under `sheet` the rows are unchanged.
 
+Each floating row is at least the target floor (`targetSizes.minimum`) tall, so
+two rows' hit rects never overlap. A plain row's label leads, exactly as a row
+with a badge or a shortcut does; its `icon` stays the compact form of its words.
+
 It attaches to **any** node. `spec.trigger` is a node you authored; the
 control returns that same node carrying an input contribution, so nothing is
 wrapped and no layout moves. Pass `label` instead and the control builds a plain
@@ -9012,6 +9016,16 @@ More never leaves the envelope it is observed on. `api.revealExtent.body` is
 that envelope's **measured** height, before anything reveals. When engagement
 ends the plate leaves paint, focus and the tap path at once; entry fades in on
 the container class (reduced motion: none).
+
+**Lift.** While engaged, on any input, the card rises to 1.04x on the control
+spring and wears the theme's raised shadow; it lands when engagement ends. The
+scale is paint only: the card's box never changes, so the gutters around it must
+hold what a lifted card paints past its box. Size them with
+`Facet.layout.transformFootprint(w, h, 1.04, 0)`: a gutter at least the
+footprint's growth holds two neighbours lifted toward each other (the Cards
+scenario does this for both VirtualGrid gutters). Under reduced motion the card
+keeps only the shadow. At ten-foot distance the focus visual's own
+`tenFootFocusScale` is the lift, so the card does not scale a second time.
 
 **In a `UI.VirtualGrid`.** The grid's cell Hit stays the one browse stop. Point
 `browseTarget` at it and keep each card's ref by item key (released by the
@@ -10205,8 +10219,10 @@ states its band and lets its labels adapt inside it; a hugging rail at a 1.4x lo
 and the largest text preference otherwise becomes as wide as its longest tab name and
 squeezes the content lane. Refused for a declared placement that has no rail.
 
-**`textSize`** is passed straight through to the strip's segments (see `UI.Picker`), and
-is reactive so it can be bound against the placement: a thumb-zone tab bar is
+**`textSize`** is passed straight through to the strip's segments (see `UI.Picker`). It
+defaults to `"fit"`: a tab's words shrink toward the caption role to fit their slot before
+the engine truncates one (a filling bottom bar gives each tab a fixed share). It is
+reactive so it can be bound against the placement: a thumb-zone tab bar is
 caption-sized in tighter chrome and a rail is not. The construct carries the binding and
 does not pick the ramp — which home takes which role is a design language.
 
