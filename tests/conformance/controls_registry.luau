@@ -2265,6 +2265,21 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- The Sheet's pure release and resistance policy: heights in, a detent id
+		-- (or dismissal) out. The Sheet mounts, reports and owns every input.
+		name = "SheetRelease",
+		kind = "composite",
+		module = "src/controls/sheet_release.luau",
+		export = "UI.Sheet",
+		spec = "tests/sheet_release.spec.luau",
+		conformance = "tests/sheet_gesture.spec.luau",
+		docsAnchor = "UI.Sheet",
+		dump = false,
+		reason = "pure policy module: it returns numbers and ids; the Sheet's own dump reports the outcome",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "Popover",
 		kind = "composite",
 		module = "src/controls/popover.luau",

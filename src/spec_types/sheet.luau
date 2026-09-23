@@ -33,5 +33,10 @@ export type Spec<V = StringCell, P = BooleanCell> = {
 	actions: { Action }?, -- pinned below the body; they never close the sheet
 	actionLayout: ("automatic" | "row" | "stacked")?,
 	contentInset: ("standard" | "none")?, -- the body's own padding only
+	-- construction-only. always (default): the body scrolls at every height and
+	-- never hands its pan to the sheet. atLargestDetent: below the tallest
+	-- detent a body pan resizes the sheet; at it, only a downward pan from the
+	-- top does
+	scrollPolicy: ("always" | "atLargestDetent")?,
 }
 return nil

@@ -9,6 +9,9 @@ local themeSnapshot = require("../themes/snapshot")
 local chromeSlots = require("../tokens/chrome_slots")
 local overlayParts = require("./overlay_parts")
 local alert = require("./alert")
+local sheetRelease = require("./sheet_release")
+local dragVelocity = require("../input/drag_velocity")
+local interactionTokens = require("../input/interaction_tokens")
 local sheet = {}
 local specTypes = require("../spec_types/sheet")
 type StringCell = specTypes.StringCell
@@ -34,6 +37,7 @@ local KEYS = guard.keySet({
 	"actions",
 	"actionLayout",
 	"contentInset",
+	"scrollPolicy",
 })
 local PLACEMENTS = { automatic = true, bottom = true, side = true, center = true }
 -- `request(reason) -> boolean` is the private close-request seam: asked BEFORE
@@ -103,6 +107,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			or spec.actionLayout == "stacked",
 		"UI.Sheet.actionLayout must be automatic | row | stacked"
 	)
+	local scrollPolicy = spec.scrollPolicy or "always"
+	assert(
+		scrollPolicy == "always" or scrollPolicy == "atLargestDetent",
+		"UI.Sheet.scrollPolicy must be always | atLargestDetent"
+	)
 	local where = `UI.Sheet('{id}')`
 	overlayParts.checkHero(where, spec.hero)
 	local hero: any = spec.hero
@@ -170,7 +179,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	local dragging = Compose.cell(false)
 	local presenter = spec.presenter or Facet.presenter
 	local handle, disposed, syncing = nil, false, false
-	local startY, startHeight = 0, 0
 	local vp = env:get("viewportRect")
 	local chrome = env:get("platformChrome")
 	local distance = env:get("distanceProfile")
@@ -185,10 +193,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		end
 		return math.max(0, v.y + v.h - c.insets.bottom - occ.y)
 	end
-	-- ONE safe rectangle: the viewport less the platform insets and the keyboard
 	-- the hug detent's measured height: natural body plus pinned regions, fed
 	-- back from geometry; nil until measured (the floor stands in)
 	local hugHeight = Compose.cell(nil)
+	-- ONE safe rectangle: the viewport less the platform insets and the keyboard
 	local function available(use)
 		local v, c = use(vp), use(chrome)
 		return math.max(1, v.h - c.insets.top - c.insets.bottom - keyboardBelow(use))
@@ -231,10 +239,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		select(sorted[nextIndex].id)
 		return true
 	end
-	local function cancelDrag()
-		dragging:set(false)
-		dragHeight:set(nil)
-	end
+	local cancelDrag: (boolean?) -> ()
 	local function dismiss()
 		cancelDrag()
 		if spec.isPresented then
@@ -271,14 +276,146 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			pcall(action.onActivate)
 		end
 	end
-	local function finishDrag()
-		if not dragging:peek() then
+	--[[ THE DRAG SESSION. One at a time, whichever source starts it: the Grip
+		handle (framework capture, acquires at once), the panel's native drag
+		detector, or the engine's touch-pan stream on the panel or (scrollPolicy =
+		atLargestDetent) the body. Detector and pan sessions stay tentative until
+		the direct-input slop for their class. The session is tied to the class
+		that started it: losing that class cancels, back to the grabbed detent;
+		any other class change carries. An outside detent write wins outright. ]]
+	local paintedHeight: any
+	local session: any = nil
+	local tracker = dragVelocity.new()
+	local motionClock: any, nowFn: (() -> number)? = nil, nil
+	local spring: any = nil
+	local bodyTaken = Compose.cell(false) -- the body yields its scroll to a drag
+	local function now(): number
+		return if nowFn ~= nil then nowFn() else 0
+	end
+	local function stops(): { any }
+		local out = {}
+		for _, d in ordered() do
+			table.insert(out, { id = d.id, height = heightOf(d, read), index = d.index })
+		end
+		return out
+	end
+	local function canDismiss(): boolean
+		return not spec.interactiveDismissDisabled
+	end
+	local function ensureSpring()
+		if spring ~= nil or motionClock == nil then
 			return
 		end
+		spring = motionClock:spring(paintedHeight:peek(), "object")
+		local mine = spring
+		owner.own(function()
+			mine:dispose()
+		end)
+		owner.watchStatic(mine, function()
+			if spring == mine and not dragging:peek() then
+				paintedHeight:set(mine:peek())
+			end
+		end)
+	end
+	-- the spring starts where the panel IS, at the speed it was given
+	local function seed(velocity: number)
+		ensureSpring()
+		if spring ~= nil then
+			spring:snap(paintedHeight:peek())
+			spring:setVelocity(velocity)
+		end
+	end
+	local function endSession()
+		session = nil
+		tracker:reset()
+		bodyTaken:set(false)
+	end
+	-- restore = false when an outside write already decided the detent
+	function cancelDrag(restore: boolean?)
+		local s = session
+		endSession()
+		if s ~= nil and s.acquired then
+			seed(0)
+		end
 		dragging:set(false)
-		local h = dragHeight:peek() or startHeight
-		local sorted = ordered()
-		if h < heightOf(sorted[1], read) * 0.7 and not spec.interactiveDismissDisabled then
+		dragHeight:set(nil)
+		if s ~= nil and restore ~= false and s.acquired and byId[s.detent] ~= nil then
+			spec.detent:set(s.detent)
+		end
+	end
+	local function grab(source: string, class: string?, anchor: number, acquired: boolean): boolean
+		if session ~= nil then
+			return false -- one session: a second source cannot take it over
+		end
+		local c = classes:peek()
+		session = {
+			source = source,
+			class = class,
+			known = class ~= nil and c[class] == true,
+			anchor = anchor,
+			start = paintedHeight:peek(),
+			detent = spec.detent:peek(),
+			acquired = false,
+		}
+		if acquired then
+			session.acquired = true
+			dragging:set(true)
+			dragHeight:set(session.start)
+			tracker:push(0, session.start, now())
+		end
+		return true
+	end
+	local function move(y: number)
+		local s = session
+		if s == nil then
+			return
+		end
+		if not s.acquired then
+			if math.abs(y - s.anchor) < interactionTokens.promotionPx(s.class) then
+				return
+			end
+			-- acquired AT the slop point, so the panel never jumps
+			local slop = interactionTokens.promotionPx(s.class)
+			s.acquired = true
+			s.anchor += if y > s.anchor then slop else -slop
+			if s.source == "body" then
+				bodyTaken:set(true)
+			end
+			dragging:set(true)
+			dragHeight:set(s.start)
+			tracker:push(0, s.start, now())
+		end
+		local sorted = stops()
+		local limit = themeSnapshot.resolveNumber(metrics:peek(), "targetSizes.minimum") or 44
+		local h = sheetRelease.resist(
+			s.start + s.anchor - y,
+			sorted[1].height,
+			sorted[#sorted].height,
+			available(read),
+			canDismiss(),
+			limit
+		)
+		dragHeight:set(h)
+		tracker:push(0, h, now())
+	end
+	local function release()
+		local s = session
+		if s == nil then
+			return
+		end
+		if not s.acquired then
+			endSession()
+			return
+		end
+		-- the terminal sample: a hold after motion reads as no speed
+		local h = dragHeight:peek() or s.start
+		tracker:push(0, h, now())
+		local _, velocity = tracker:velocity()
+		endSession()
+		local choice = sheetRelease.choose(stops(), h, velocity, spec.detent:peek(), canDismiss())
+		seed(velocity)
+		dragging:set(false)
+		if choice == "dismiss" then
 			if allowed("drag") then
 				dismiss()
 			else
@@ -287,27 +424,50 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			end
 			return
 		end
-		-- nearest height; a tie keeps the current id, then the authored order
-		local current = spec.detent:peek()
-		local nearest = byId[current] or sorted[1]
-		local best = math.abs(heightOf(nearest, read) - h)
-		for _, d in sorted do
-			local gap = math.abs(heightOf(d, read) - h)
-			if gap < best or (gap == best and nearest.id ~= current and d.index < nearest.index) then
-				nearest, best = d, gap
-			end
+		select(choice)
+	end
+	local function classOf(pointerType: string?): string
+		return interactionTokens.classForPointerType(pointerType)
+	end
+	-- the detector reports positions only; its class is the one direct class
+	-- present, or unknown (then only losing both direct classes cancels)
+	local function detectorClass(): string?
+		local c = classes:peek()
+		if c.pointer and not c.touch then
+			return "pointer"
+		elseif c.touch and not c.pointer then
+			return "touch"
 		end
-		select(nearest.id)
+		return nil
 	end
 	owner.watchStatic(classes, function(c)
-		if dragging:peek() and not c.pointer and not c.touch then
+		local s = session
+		if s == nil then
+			return
+		end
+		local lost = if s.known then c[s.class] ~= true else not c.pointer and not c.touch
+		if lost then
 			cancelDrag()
 		end
 	end)
+	-- the room changing under a drag makes its geometry stale
+	owner.watchStatic(
+		Compose.formula(function(use)
+			return available(use)
+		end),
+		function()
+			if session ~= nil then
+				cancelDrag()
+			end
+		end
+	)
 	-- a late id the sheet does not declare is refused (the error boundary sees
 	-- it) and geometry stays on the last valid one until a valid id arrives
 	local lastValid = spec.detent:peek()
 	owner.watchStatic(spec.detent, function(key)
+		if session ~= nil then
+			cancelDrag(false)
+		end
 		assert(byId[key] ~= nil, "UI.Sheet.detent must name a declared detent")
 		lastValid = key
 	end)
@@ -315,35 +475,42 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		local d = byId[use(spec.detent)] or byId[lastValid]
 		return math.min(available(use), use(dragHeight) or heightOf(d, use))
 	end)
-	local paintedHeight = Compose.cell(height:peek())
-	do
-		local motionOwner, target
-		owner.watch(function(use)
-			local h = use(height)
-			local immediate = use(dragging) or use(env:get("motionPolicy")) == "reduced"
-			if immediate then
-				if motionOwner then
-					motionOwner.dispose()
-					motionOwner = nil
-				end
-				paintedHeight:set(h)
-				return
+	-- ONE painted-height authority: the drag writes it directly, the clock's
+	-- spring settles it, and with reduced motion or no clock it snaps
+	paintedHeight = Compose.cell(height:peek())
+	owner.watch(function(use)
+		local h = use(height)
+		if use(dragging) or use(env:get("motionPolicy")) == "reduced" or motionClock == nil then
+			if spring ~= nil then
+				spring:snap(h)
 			end
-			if not motionOwner then
-				motionOwner = owner.createChild()
-				target = Compose.cell(paintedHeight:peek())
-				Compose.withOwner(motionOwner, function()
-					local animated = Facet.runtime.spring(function(use)
-						return use(target)
-					end, { period = 0.28, damping = 1, tolerance = 0.01 })
-					motionOwner.watchStatic(animated, function(value)
-						paintedHeight:set(value)
-					end)
-				end)
-			end
-			target:set(h)
-		end)
+			paintedHeight:set(h)
+			return
+		end
+		ensureSpring()
+		spring:setTarget(h)
+	end)
+	local function bindMotion(clock: any, nowSource: (() -> number)?)
+		if clock == motionClock then
+			nowFn = nowSource or nowFn
+			return
+		end
+		if spring ~= nil then
+			spring:dispose()
+			spring = nil
+		end
+		motionClock, nowFn = clock, nowSource
 	end
+	local tallest = Compose.formula(function(use)
+		local d = byId[use(spec.detent)] or byId[lastValid]
+		local mine = heightOf(d, use)
+		for _, other in detents do
+			if heightOf(other, use) > mine then
+				return false
+			end
+		end
+		return true
+	end)
 	local sizeLabel = Compose.formula(function(use)
 		return "Size: " .. use(spec.detent)
 	end)
@@ -411,9 +578,116 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			},
 		})
 	end
+	--[[ NATIVE ACQUISITION on the mounted panel: the engine's UIDragDetector
+		(pointer; on a touch engine it arms by hold) and its touch-pan stream,
+		which observes without sinking, so interactive descendants keep their first
+		press. atLargestDetent also observes the body's pan. Re-attached per
+		mounted surface; released with it and with the owner. ]]
+	local findBody: (any) -> any
+	local controller: any = nil
+	local attachedRoot: string? = nil
+	local detachers: { () -> () } = {}
+	local function detachInput()
+		for _, off in detachers do
+			pcall(off)
+		end
+		table.clear(detachers)
+		attachedRoot = nil
+	end
+	owner.own(detachInput)
+	local function onPan(source: string, bodyPath: string?, g: any)
+		if g.kind ~= "pan" then
+			return
+		end
+		local ty = if type(g.totalTranslation) == "table" then g.totalTranslation.y or 0 else 0
+		local fingers = if type(g.positions) == "table" then #g.positions else 1
+		local s = session
+		if g.state == "began" then
+			if fingers > 1 then
+				return
+			end
+			if source == "body" and tallest:peek() then
+				-- at the tallest detent a body pan is the scroller's, unless it
+				-- starts at the top and goes down
+				local pos = if bodyPath ~= nil then controller.scrollPosition(bodyPath) else nil
+				if pos ~= nil and pos.y > 0.5 then
+					return
+				end
+				if grab(source, "touch", 0, false) then
+					session.downOnly = true
+				end
+				return
+			end
+			grab(source, "touch", 0, false)
+		elseif g.state == "changed" then
+			if s == nil or s.source ~= source or fingers > 1 then
+				return
+			end
+			if s.downOnly and not s.acquired and ty < 0 then
+				endSession() -- upward from the top: the scroller's gesture
+				return
+			end
+			move(ty)
+		elseif s ~= nil and s.source == source then
+			if g.state == "ended" then
+				move(ty)
+				release()
+			else
+				cancelDrag()
+			end
+		end
+	end
+	local function attachInput(root: any)
+		if controller == nil or attachedRoot == root.path then
+			return
+		end
+		detachInput()
+		attachedRoot = root.path
+		local panelPath = root.path .. "/Layer/Panel"
+		local function keep(off: any)
+			if off ~= nil then
+				table.insert(detachers, off)
+			end
+		end
+		if controller.attachDragDetector ~= nil then
+			keep(controller.attachDragDetector(panelPath, {
+				onStart = function(pos: any)
+					if pos ~= nil then
+						grab("detector", detectorClass(), pos.y, false)
+					end
+				end,
+				onContinue = function(pos: any)
+					if pos ~= nil and session ~= nil and session.source == "detector" then
+						move(pos.y)
+					end
+				end,
+				onEnd = function()
+					if session ~= nil and session.source == "detector" then
+						release()
+					end
+				end,
+			}))
+		end
+		if controller.attachContextGestures ~= nil then
+			keep(controller.attachContextGestures(panelPath, {
+				onGesture = function(g: any)
+					onPan("panel", nil, g)
+				end,
+			}))
+			local body = if scrollPolicy == "atLargestDetent" then findBody(root) else nil
+			if body ~= nil then
+				local bodyPath = body.path
+				keep(controller.attachContextGestures(bodyPath, {
+					onGesture = function(g: any)
+						onPan("body", bodyPath, g)
+					end,
+				}))
+			end
+		end
+	end
 	-- hug = the body's natural content height (its children's extent plus its
 	-- own padding) plus everything pinned around the body viewport, counted once
-	local function findBody(node: any): any
+	function findBody(node: any): any
 		if node.id == "Body" and node.class == "ScrollView" then
 			return node
 		end
@@ -470,6 +744,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		local body = UI.ScrollView({
 			id = "Body",
 			axis = "y",
+			-- atLargestDetent: below the tallest detent the body's pan is the
+			-- sheet's; a drag that took the body freezes it (never two scrollers)
+			scrollEnabled = Compose.formula(function(use)
+				if use(bodyTaken) then
+					return false
+				end
+				return scrollPolicy == "always" or use(tallest)
+			end),
 			width = UI.fill(),
 			height = UI.fill(),
 			padding = if hero ~= nil and not sticky then nil else pad,
@@ -499,20 +781,25 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 						id = "Handle",
 						width = UI.fill(),
 						height = UI.fill(),
+						-- the handle is the grab target itself: it acquires at once
 						onPointerDown = function(_, pos)
-							startY = pos.y
-							startHeight = paintedHeight:peek()
-							dragging:set(true)
-							dragHeight:set(startHeight)
-							return true
+							return grab("grip", classOf(pos.pointerType), pos.y, true)
 						end,
 						onPointerMove = function(_, pos)
-							if dragging:peek() then
-								dragHeight:set(math.clamp(startHeight + startY - pos.y, 1, available(read)))
+							if session ~= nil and session.source == "grip" then
+								move(pos.y)
 							end
 						end,
-						onPointerUp = finishDrag,
-						onPointerCancel = cancelDrag,
+						onPointerUp = function()
+							if session ~= nil and session.source == "grip" then
+								release()
+							end
+						end,
+						onPointerCancel = function()
+							if session ~= nil and session.source == "grip" then
+								cancelDrag()
+							end
+						end,
 					}),
 				},
 			}),
@@ -610,10 +897,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				requestDismiss = function(): boolean
 					return allowed("outside")
 				end,
+				bindController = function(c: any)
+					if c ~= controller then
+						detachInput()
+						controller = c
+					end
+				end,
+				bindMotion = bindMotion,
 				syncGeometry = function(rectOf: any, node: any?)
 					if node == nil then
 						return
 					end
+					attachInput(node)
 					if utilityPath ~= nil then
 						local r = rectOf(node.path .. utilityPath)
 						if type(r) == "table" and r.h > 0 and r.h ~= utilityHeight:peek() then
