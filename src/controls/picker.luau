@@ -81,8 +81,9 @@ local NATURAL_WIDTH = table.freeze({ type = "content" })
 -- width — while a hugging strip's segments take their own words' widths, which
 -- is what makes "For you" wider than "Charts" and what the D4 indicator was
 -- built to travel between (two rects, never two indices).
+-- Never below the target floor, so icon-only neighbours' hit bands never overlap.
 local SEGMENT_FILL = table.freeze({ type = "fill", weight = 1 })
-local SEGMENT_NATURAL = table.freeze({ type = "content" })
+local SEGMENT_NATURAL = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
 local SEGMENT_HEIGHT = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
 local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
 

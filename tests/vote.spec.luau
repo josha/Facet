@@ -240,7 +240,8 @@ describe("Vote: read-only, disabled and composition", function()
 		local rects = {}
 		for _, p in w.adapter.paths() do
 			if string.match(p, "/Opt%d$") or string.sub(p, -4) == "/Tag" then
-				table.insert(rects, w.adapter.node(p).rect)
+				-- the EFFECTIVE target: an expanded hit band where one is painted
+				table.insert(rects, w.adapter.hitRectOf(p) or w.adapter.node(p).rect)
 			end
 		end
 		expect(#rects).toBe(5)
