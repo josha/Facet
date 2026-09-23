@@ -385,6 +385,7 @@ describe("DateTimePicker: a single date", function()
 				return path ~= nil and string.match(path, "/Days/R%d/D%d+$") ~= nil
 			end
 			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 16)))
+			expect(w.adapter.visibleOf(must(w, "/Calendar/PageHint")) == true).toBe(false)
 			-- left past the first day pages back into August; right pages forward again
 			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 1)))).toBe(true)
 			w.press("Left")
@@ -454,6 +455,8 @@ describe("DateTimePicker: a single date", function()
 				w.press("ButtonA")
 				w.settle(3)
 				local held = w.record("P").dump().month
+				-- a live pad is told which keys page the month
+				expect(w.adapter.visibleOf(must(w, "/Calendar/PageHint"))).toBe(true)
 				expect(w.pres.focus.focusOn(cellOf(w, start, #w.record("P").dump().cellPaths))).toBe(true)
 				local function at(): string
 					return w.pres.focus.focused:peek() or ""

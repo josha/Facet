@@ -29,9 +29,9 @@
 	ONE Tab stop: the arrows walk the days (±1 across a row's end, ±7 across the
 	shown months), ←/→ paging when the day is not shown; ↓ past the last shown
 	month's last row and ↑ past the first month's first row leave the grid. Its
-	cells are adjust targets WITHOUT an axis, so L1/R1 and Comma/Period page the
-	month while the arrows stay with navigation. Paging stops at a month wholly
-	outside `min`/`max`. ]]
+	cells are adjust targets WITHOUT an axis, so L1/R1 (named by a hint while a
+	pad is live) and Comma/Period page the month while the arrows stay with
+	navigation. Paging stops at a month wholly outside `min`/`max`. ]]
 local Compose = require("../vendor/compose/core")
 local ownedBuild = require("../core/owned_build")
 local ownedFormula = require("../core/owned_formula")
@@ -1097,6 +1097,29 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				},
 			}),
 		}
+		-- the pad's month keys (the adjust route pages from any day), named while a pad is live
+		local keyName = require("../input/key_names").label
+		table.insert(
+			children,
+			UI.HStack({
+				id = "PageHint",
+				gap = "xs",
+				align = "center",
+				hidden = Compose.formula(function(use)
+					local classes = if env ~= nil then use(env:get("interactionClasses")) else nil
+					return not (type(classes) == "table" and classes.gamepad == true)
+				end),
+				children = {
+					require("./shortcut_hint").build(Facet, core, {
+						id = "PageKeys",
+						keys = { { keyName("ButtonL1") :: string }, { keyName("ButtonR1") :: string } },
+						controlSize = "compact",
+						env = spec.env,
+					}).blueprint,
+					UI.Text({ id = "Words", text = "Change month", textSize = "caption", role = "secondary" }),
+				},
+			})
+		)
 		if withTime then
 			table.insert(children, timeSection())
 		end
