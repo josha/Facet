@@ -10,6 +10,9 @@
 	envelope, and the line extent is the tallest card's measured height
 	(`revealExtent.body`) — nothing here predicts text. ]]
 local ITEM_COUNT = 60
+-- UI.Card's engaged scale (api.md#uicard): the lift is paint only, so the gutters
+-- reserve what a lifted card paints past its box
+local CARD_LIFT = 1.04
 -- the first frame's line before any card has measured itself: tall, the safe side
 local SEED_EXTENT = 480
 
@@ -38,6 +41,14 @@ return {
 			local w = use(ctx.env:get("viewportRect")).w
 			return math.max(1, math.min(4, math.floor(w / 300)))
 		end)
+		-- a gutter holds two neighbours lifted toward each other: their combined
+		-- overhang is the footprint's growth, and the theme's `m` is the floor
+		local function gutter(use: any, extent: number): number
+			local metrics = use(ctx.env:get("themeMetrics"))
+			local m = if type(metrics) == "table" and type(metrics.space) == "table" then metrics.space.m else 16
+			local grown = ctx.Facet.layout.transformFootprint(extent, extent, CARD_LIFT, 0)
+			return math.max(m or 16, grown - extent)
+		end
 		local function record(text: string)
 			last:set(COPY.lastPrefix .. text)
 		end
@@ -105,9 +116,19 @@ return {
 						return item.id
 					end,
 					columns = columns,
-					-- the gutters between cards: each plate is inside its own card
-					gap = "m",
-					rowGap = "m",
+					-- the gutters between cards: each plate is inside its own card, and
+					-- each gutter holds the lift of the cards either side of it
+					gap = Compose.formula(function(use)
+						local vp = use(ctx.env:get("viewportRect"))
+						return gutter(use, math.ceil(vp.w / use(columns)))
+					end),
+					rowGap = Compose.formula(function(use)
+						local tallest = SEED_EXTENT
+						for _, h in use(bodies) do
+							tallest = math.max(tallest, h)
+						end
+						return gutter(use, tallest)
+					end),
 					itemExtent = function(line: number, use: any): number
 						local lanes, list, map = use(columns), use(items), use(bodies)
 						local tallest = 0

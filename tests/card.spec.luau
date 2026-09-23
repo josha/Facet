@@ -565,6 +565,70 @@ local function gridCard(g: any, key: string, grid: string?): any
 	return r.dump()
 end
 
+describe("Card: the lift on engagement", function()
+	local function lift(w: any): (number, boolean)
+		local node = w.adapter.node(ROOT)
+		local transform = node.props.transform
+		local scale = if type(transform) == "table" and type(transform.scale) == "number" then transform.scale else 1
+		return scale, node.props.shadow ~= nil
+	end
+	local function state(w: any): string
+		local scale, shadow = lift(w)
+		return `scale {math.floor(scale * 1000 + 0.5) / 1000} shadow {shadow}`
+	end
+
+	it("hover, painted focus and a held press all lift the card; disengaging lands it", function()
+		local log: { string } = {}
+		local w = mount(function(UI)
+			return { UI.Card("C")(cardSpec(log)) }
+		end, { reduced = false })
+		expect(state(w)).toBe("scale 1 shadow false")
+		w.adapter.hover(ROOT)
+		w.settle(40)
+		expect(state(w)).toBe("scale 1.04 shadow true")
+		w.adapter.unhover(ROOT)
+		w.settle(40)
+		expect(state(w)).toBe("scale 1 shadow false")
+		ring(w, `{ROOT}/Body`)
+		w.settle(40)
+		expect(state(w)).toBe("scale 1.04 shadow true")
+		w.pres.focus.focusOn(nil)
+		w.settle(40)
+		local touch = mount(function(UI)
+			return { UI.Card("C")(cardSpec(log)) }
+		end, { reduced = false, capabilities = TOUCH })
+		local r = touch.adapter.node(`{ROOT}/Body`).rect
+		touch.adapter.pointerDown(`{ROOT}/Body`, r.x + 4, r.y + 4, "Touch")
+		touch.settle(40)
+		expect(state(touch)).toBe("scale 1.04 shadow true")
+	end)
+
+	it("reduced motion keeps only the raised shadow, and ten feet leaves the scale to the focus lift", function()
+		local log: { string } = {}
+		local w = mount(function(UI)
+			return { UI.Card("C")(cardSpec(log)) }
+		end, { reduced = true })
+		w.adapter.hover(ROOT)
+		w.settle(40)
+		expect(state(w)).toBe("scale 1 shadow true")
+		local tv = world.new({
+			viewport = { x = 0, y = 0, w = 1920, h = 1080 },
+			reducedMotion = false,
+			capabilities = { gamepad = true },
+			preferredInput = "Gamepad",
+			displaySize = "Large",
+			hostOpts = { keyboardNavigation = true },
+		})
+		tv.present(function()
+			return tv.UI.Screen("S")({ tv.UI.HStack("Row")({ tv.UI.Card("C")(cardSpec(log)) }) })
+		end)
+		tv.settle(3)
+		ring(tv, `{ROOT}/Body`)
+		tv.settle(40)
+		expect(state(tv)).toBe("scale 1 shadow true")
+	end)
+end)
+
 describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 	it("the grid Hit is the browse stop: its ring reveals that card alone", function()
 		local g = gridWorld()

@@ -41,6 +41,9 @@ local themePackage = require("../themes/package")
 
 local card = {}
 
+-- the engaged card's paint-only scale (see THE LIFT below)
+card.LIFT = 1.04
+
 local specTypes = require("../spec_types/card")
 export type Spec = specTypes.Spec
 
@@ -340,11 +343,30 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			})
 		)
 	end
+	--[[ THE LIFT: an engaged card (any input — hover, painted focus, a held
+		press, its menu) rises by LIFT on the control spring with a raised shadow.
+		Paint only: the box never moves, so a grid's gutters reserve the lifted
+		footprint (`Facet.layout.transformFootprint(w, h, card.LIFT, 0)`).
+		Reduced motion keeps the shadow alone, and at ten feet the focus visual's
+		own `tenFootFocusScale` is the lift, so the card does not scale again. ]]
+	local still = ownedFormula(owner, function(use)
+		return use(reduced) or (env ~= nil and use(env:get("distanceProfile")) == "ten-foot")
+	end)
+	local lift = Facet.runtime.spring(function(use)
+		return if use(engaged) and not use(still) then card.LIFT else 1
+	end, { period = 0.28, damping = 0.85 })
+	local raised = UI.shadowData("raised")
 	local root = UI.VStack({
 		id = id,
 		width = spec.width or UI.fill(),
 		gap = if reveal == "always" then "s" else 0,
 		enabled = enabled,
+		scale = function(use: any): number
+			return if use(still) then 1 else math.clamp(use(lift), 1, card.LIFT)
+		end,
+		shadow = function(use: any): any
+			return if use(engaged) then raised else nil
+		end,
 		children = children,
 	})
 
