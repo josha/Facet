@@ -803,7 +803,7 @@ describe("RS-DIR10: a phantom ::UIStroke strokes the TEXT unless the rule says B
 		expect(sheet_model.PHANTOM_PROPS.UIStroke.ApplyStrokeMode).toBe(true)
 	end)
 
-	-- native sweep F1: an Outer stroke overhung its box and a scroller clipped it
+	-- an Outer stroke overhung its box and a scroller clipped it
 	it("every ::UIStroke rule sits Inner, and the property is a legal phantom one", function()
 		expect(sheet_model.PHANTOM_PROPS.UIStroke.BorderStrokePosition).toBe(true)
 		for _, model in { build(), sheet_model.buildPackage(definePkg()) } do

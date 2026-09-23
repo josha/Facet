@@ -424,7 +424,7 @@ local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
 	local insets = if theme.metrics ~= nil and type(theme.metrics.chromeInsets) == "table"
 		then theme.metrics.chromeInsets.panel
 		else nil
-	-- each side is at least the card's inner hairline (native F1: strokes sit inside)
+	-- each side is at least the card's inner hairline (strokes sit inside)
 	local hairline = metric(theme, "strokes.hairline", 1)
 	local side = math.max(if type(insets) == "table" then tonumber(insets.left) or 0 else 0, hairline)
 		+ math.max(if type(insets) == "table" then tonumber(insets.right) or 0 else 0, hairline)
@@ -741,7 +741,7 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 		expect(cells).toBe(#THEMES * #lt.PREFERENCES * #VIEWPORTS)
 	end)
 
-	--[[ A SCROLLING MENU PAYS FOR ITS BAR (phase3 native F2, 2026-09-22: the
+	--[[ A SCROLLING MENU PAYS FOR ITS BAR (the
 		showcase Driver menu, twelve avatar rows under `maxHeight = 220`, handed "Bo"
 		9 px and painted no name). The live adapter reserves the bar off an
 		overflowing list's cross axis; the width estimate never counted it. The

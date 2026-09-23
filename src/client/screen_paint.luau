@@ -493,7 +493,7 @@ function screen_paint.new(ctx: any)
 		-- node strokes the GLYPHS instead of the box (the same engine truth the
 		-- phantom stroke rules carry)
 		live.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		live.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box (native F1)
+		live.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box
 		live.Parent = instance
 	end
 
@@ -873,7 +873,7 @@ function screen_paint.new(ctx: any)
 		stroke.Transparency = style.extra.hairlineOpacity
 		stroke.Thickness = style.strokes.hairline
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		stroke.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box (native F1)
+		stroke.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box
 		stroke.Parent = instance
 	end
 

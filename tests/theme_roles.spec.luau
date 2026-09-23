@@ -493,7 +493,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		local clear = adapter.node("/S/F/Clear").rect
 		expect(clear.w).toBe(28)
 		expect(clear.h).toBe(28)
-		-- 8 from the plate's inner hairline, which sits inside the box (native F1)
+		-- 8 from the plate's inner hairline, which sits inside the box
 		local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
 		expect(adapter.node("/S/F").rect.x + adapter.node("/S/F").rect.w - (clear.x + clear.w)).toBe(8 + hairline)
 	end)

@@ -93,7 +93,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		end
 	end
 
-	--[[ REMOVAL IS EDIT MODE (owner ruling 2026-09-22). A tag selects; while the
+	--[[ REMOVAL IS EDIT MODE. A tag selects; while the
 		caller's `editing` holds true it shows a trailing close mark INSIDE its one
 		plate, and activating it anywhere — or Delete/Backspace while it holds the
 		ring — removes it. The mark is not a second stop or target. A remove-only

@@ -665,7 +665,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
 	local listShrink = Compose.cell(0)
-	--[[ ...AND THE BAR A SCROLLING LIST TOOK (phase3 native F2, 2026-09-22). The
+	--[[ ...AND THE BAR A SCROLLING LIST TOOK. The
 		host reserves the scroll bar off an overflowing list's cross axis, which
 		the width estimate cannot see: it is the renderer's measured gutter
 		(`controller.scrollBarInsetOf`, the one `UI.Table`'s header pays), fed
@@ -1663,8 +1663,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		localized title's longest word (~1.4x, 21px) no longer fits the room a
 		capped trigger leaves beside it on a 320px row (the picker sweep, glossy
 		phone, 2026-09-11), and a word that cannot wrap can only truncate. ]]
-	--[[ A LABELLED MENU IS A FIELD WHERE THERE IS ROOM (lead ruling on native F3,
-		2026-09-22): at a regular or wider size class the title stands above the
+	--[[ A LABELLED MENU IS A FIELD WHERE THERE IS ROOM: at a regular or wider size class the title stands above the
 		trigger, which hugs its value at the leading edge — a 1.4k px row put the
 		value a screen's width from its title. A compact width keeps the one-line
 		form row until the text preference needs the second line. ]]

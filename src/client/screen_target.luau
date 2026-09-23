@@ -1526,7 +1526,7 @@ function screen_target.new(opts: Opts?)
 			instance.AutoButtonColor = false
 			-- A switch paints no plate: its track and knob are the affordance, and a
 			-- plate inside a settings row read darker than the row at rest and
-			-- vanished into its hover fill (owner ruling 2026-09-22).
+			-- vanished into its hover fill.
 			if nativeMode then
 				handle.nativeInteractive = true
 				syncTags(handle)

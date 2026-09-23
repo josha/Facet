@@ -200,7 +200,7 @@ function screen_chrome.new(ctx: Context)
 			stroke.Transparency = style.extra.hairlineOpacity
 			stroke.Thickness = style.strokes.hairline
 			stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			stroke.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box (native F1)
+			stroke.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box
 			stroke.Parent = instance
 		end
 	end

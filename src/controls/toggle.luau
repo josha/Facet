@@ -271,7 +271,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 			mark,
 			side
 		)
-		-- A SETTING ROW WEARS THE ROW FRAME (native sweep F4). `selected` alone
+		-- A SETTING ROW WEARS THE ROW FRAME. `selected` alone
 		-- classifies a Button into the `selection` slot, whose carve differs from
 		-- `control` (Fantasy Ornate: 8 vs 14 px), so this row's content sat 6 px
 		-- left of every Button and Slider row. The mark carries the state; the

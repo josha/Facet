@@ -238,7 +238,7 @@ function pixel_quest.definition(themes: any): any
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	assets.menu = { content = "rbxassetid://119066409501208", tintRole = "content" }
 	assets.flag = { content = "rbxassetid://109067109704366", tintRole = "content" }
-	-- ...and the rest of what the showcase asks for (native sweep F8: `settings`
+	-- ...and the rest of what the showcase asks for (`settings`
 	-- painted `*` here because this map had no answer and the rung is declined)
 	assets.settings = { content = "rbxassetid://78513807849201", tintRole = "content" }
 	assets.trash = { content = "rbxassetid://84398508341623", tintRole = "content" }

@@ -2013,7 +2013,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- state becomes non-zero again is a FRESH delivery, which correctly
 			-- reflects a hold that is live right now.
 			--
-			-- THE HOLD MOVES TO ADJUST AS AN ARRIVAL, NOT A STEP (native F5: one Up
+			-- THE HOLD MOVES TO ADJUST AS AN ARRIVAL, NOT A STEP (one Up
 			-- moved the ring onto a vertical slider AND stepped it, because the
 			-- engine hands a held key to the binding just made for it). The value
 			-- ignores that direction until the key is released.

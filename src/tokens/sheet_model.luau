@@ -562,7 +562,7 @@ local BLACK = { r = 0, g = 0, b = 0 }
 -- hairline is white and the label is white, so it hid for two whole stages.
 local STROKE_BORDER: RuleProp = { kind = "enum", enum = "ApplyStrokeMode", item = "Border" }
 sheet_model.STROKE_BORDER = STROKE_BORDER
--- ...AND INSIDE THE BOX (native sweep F1, 2026-09-22). The engine default is
+-- ...AND INSIDE THE BOX. The engine default is
 -- `Outer`, which overhangs the rect by the stroke's thickness, so a scroller's
 -- clip sliced the left edge of every stroked card and pill. Inner keeps the band
 -- inside the box, and `render/layout_node` pays for it in padding.

@@ -463,7 +463,7 @@ describe("Removable Chip: edit mode (owner ruling 2026-09-22)", function()
 		expect(w.pres.focus.focused:peek()).toBe("/S/List/Fallback")
 	end)
 
-	--[[ ONE KEY EDGE, ONE REMOVAL (phase3 native F6, 2026-09-22: one Delete on the
+	--[[ ONE KEY EDGE, ONE REMOVAL (one Delete on the
 		last of three tags removed all three). The engine hands a key that is still
 		down to a binding armed during it — here the previous tag's keys, armed by
 		the focus handback — so each removal fed the next. ]]

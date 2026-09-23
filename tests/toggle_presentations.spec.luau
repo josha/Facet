@@ -98,7 +98,7 @@ t.describe("Toggle switch paint", function()
 		t.expect(table.concat(seen, " ")).toBe("Bare=none Row=none")
 	end)
 
-	-- native sweep F4: under Fantasy Ornate the Toggle row wore the `selection`
+	-- under Fantasy Ornate the Toggle row wore the `selection`
 	-- frame, which carves 6 px less than `control`, so its icon and label sat
 	-- left of every Button and Slider row on the same page
 	t.it("a toggle row starts its content where a button row does, in every package", function()

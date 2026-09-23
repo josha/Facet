@@ -1727,7 +1727,7 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 	end
 
 	--[[ THE MENU'S OWN SOLVED HEIGHT, PREDICTED (ruling 4). It is a prediction
-		only in name: `MenuRows` is a raised VStack (padding = its hairline, native F1)
+		only in name: `MenuRows` is a raised VStack (padding = its hairline)
 		of `fixed MENU_ROW_HEIGHT` rows, hairline gaps between, so its solved
 		height is exactly `n * rowHeight + (n + 1) * gap` — and both metric names are
 		resolved HERE against `metricsSig`, the same live theme snapshot the solver

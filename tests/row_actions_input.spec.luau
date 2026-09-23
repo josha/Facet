@@ -1869,7 +1869,7 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		local rowH = themeSnapshot.resolveNumber(metrics, "controlSizes.compact.height") or 0
 		local gap = themeSnapshot.resolveNumber(metrics, "strokes.hairline") or 0
 		-- two actions, one gap between, and the raised card's inner hairline above and
-		-- below, which its padding pays for (native F1)
+		-- below, which its padding pays for
 		expect(w.menuRect().h).toBe(2 * rowH + 3 * gap)
 	end)
 
@@ -1923,7 +1923,7 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		-- ...and every row of it travels with the menu, rather than one node moving
 		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")).never().toBeNil()
 		local first = w.adapter.composedRect("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
-		-- inside the card's inner hairline, which its padding pays for (native F1)
+		-- inside the card's inner hairline, which its padding pays for
 		expect(first.x).toBe(trigger.x + HAIRLINE)
 		expect(first.y).toBe(trigger.y + trigger.h + HAIRLINE)
 		--[[ ...and the ANCHOR'S OWN BOX CONTAINS WHAT IT PLACES. An `anchor` node

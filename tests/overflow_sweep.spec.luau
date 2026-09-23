@@ -3505,7 +3505,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			both pinned-EMPTY lists are still empty. ]]
 		-- Adding the two near-controller views contributes 68 measured routes;
 		-- both framework-cut and unexplained sub-floor lists remain empty.
-		--[[ 506 -> 500 (2026-09-22, owner ruling: a switch wears no plate). A Toggle
+		--[[ 506 -> 500 (2026-09-22: a switch wears no plate). A Toggle
 			no longer takes the package's control recipe, so under a carving package it
 			no longer grows by that frame. Diffing the swept route list on both trees:
 			six REMOVALS, nothing added — four `/HudScreen/Hud/Actions/Expand` and two

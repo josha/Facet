@@ -3270,7 +3270,7 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			-- `containerRelativeSize` spends, and the two agreed only by luck while
 			-- the viewport happened to divide evenly by 3 — the gutter made it 279
 			-- and 87.67 rounds UP (director report 2026-08-30).
-			-- ...and less the page inset the scroller now holds inside it (native F1b)
+			-- ...and less the page inset the scroller now holds inside it
 			local viewport = scroll.w - 32 - fake_target.SCROLL_BAR_RESERVE
 			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3 + 0.5)}`)
 			built.dispose()
@@ -3926,7 +3926,7 @@ describe("gallery setting rows and removable race tags", function()
 		expect(actions.report()).toBeNil()
 		handle = w.presenter.present(actions.screen)
 		expect(actions.report().tokenCount).toBe(3)
-		-- tags select until Edit; then a tap removes (owner ruling 2026-09-22)
+		-- tags select until Edit; then a tap removes
 		local token = suffix(w, "/Token+target/Token")
 		w.adapter.tap(token)
 		w.presenter.refresh()
@@ -3952,7 +3952,7 @@ end)
 describe("examples/gallery fixture: Writing's field sections", function()
 	local function writingWorld(): (any, any)
 		-- a short phone, so Content scrolls and reserves its bar: the page's inset now
-		-- sits inside the scroller (native F1b), and the 8px scroll-gutter
+		-- sits inside the scroller, and the 8px scroll-gutter
 		-- containment findings this viewport used to report are gone
 		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 700 } })
 		local built = require("../examples/gallery/scenarios/text_controls").build(scenario_ctx.of(w))

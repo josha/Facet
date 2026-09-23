@@ -1124,7 +1124,7 @@ describe("Slider axis: the press that lands focus is not a value step", function
 				pres.refresh()
 			end
 			-- the engine hands a key HELD when its binding is made to that binding
-			-- (native F5: one Up moved the ring AND stepped Rear); the headless model
+			-- (one Up moved the ring AND stepped Rear); the headless model
 			-- does not, so the engine's delivery is replayed as a second down
 			pres.focus.focusOn("/S/Boost/TrackHost/Track")
 			pres.refresh()

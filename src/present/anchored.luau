@@ -127,7 +127,7 @@ local TAIL_CORNER_METRIC = "radii.panel"
 -- package that thickens its hairlines needs a wider band to cover one.
 -- The band STRADDLES the edge — twice the thickness, plus one pixel so a
 -- fractional layout position cannot leave a lit sliver — which covers the
--- panel's stroke on either side of its rect (it sits Inner since native F1).
+-- panel's stroke on either side of its rect (it sits Inner).
 local SEAM_METRIC = "strokes.hairline"
 local SEAM_OVERDRAW = 1
 

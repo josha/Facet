@@ -121,7 +121,7 @@ t.describe("CollapsibleView control", function()
 		local before = w.controller.screenRectOf(trigger)
 		w.adapter.tap(trigger)
 		opened(w, c)
-		-- the raised PANEL (its body sits one inner hairline inside it, native F1)
+		-- the raised PANEL (its body sits one inner hairline inside it)
 		local panel = w.adapter.node((string.gsub(body, "/Content/Body$", ""))).rect
 		t.expect(math.abs(panel.y - before.y) < 1).toBe(true)
 		cleanup(w, c)

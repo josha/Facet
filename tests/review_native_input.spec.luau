@@ -153,7 +153,7 @@ t.describe("native held input metadata", function()
 		t.expect(system.wouldWinArbitration(context, binding)).toBe(false)
 		system.dispose()
 	end)
-	-- the engine twin of the headless rule (phase3 native F6): a Bool action armed
+	-- the engine twin of the headless rule: a Bool action armed
 	-- while its key is down swallows that press and release; the next press lands
 	t.it("a key already down when its binding arms reaches no handler until it is pressed again", function()
 		local system, held = rig()

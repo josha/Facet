@@ -239,7 +239,7 @@ function overlay_parts.actionRow(UI: any, actions: { any }, height: any): any
 	return UI.HStack({ id = "Actions", gap = "s", width = { type = "fill", weight = 1 }, children = buttons })
 end
 
---[[ THE TINY ROOM (lead ruling, Dialog and Sheet). A panel pins its header,
+--[[ THE TINY ROOM (Dialog and Sheet). A panel pins its header,
 	hero and actions around one scrolling `Body` while they and a minimum body
 	fit. When they do not, every region unpins into ONE scrolling column, so each
 	action stays reachable by pointer and focus.

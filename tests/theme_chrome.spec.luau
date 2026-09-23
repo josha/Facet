@@ -397,7 +397,7 @@ describe("chrome_slots: classification", function()
 			{ input = { class = "Box", surface = "control" }, slot = "control" },
 			{ input = { class = "Box", surface = "chip" }, slot = "control" },
 			{ input = { class = "Button" }, slot = "control" },
-			-- a switch is its track and knob: no plate (owner ruling 2026-09-22)
+			-- a switch is its track and knob: no plate
 			{ input = { class = "Toggle" }, slot = nil },
 		}
 		for _, case in cases do

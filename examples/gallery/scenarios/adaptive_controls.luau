@@ -828,7 +828,7 @@ return {
 				-- and glossy-touch the theme's larger step narrows the body to 242px and the
 				-- Slider row overflows by 4px AT +0 — a default-text-size regression on a shipped
 				-- package. The gutter waits on a control row that can give way at that width.
-				-- Its sides sit INSIDE the scroller and the action bar (native F1b), so the
+				-- Its sides sit INSIDE the scroller and the action bar, so the
 				-- scroll bar keeps the same 16 px of room the leading edge has.
 				padding = { top = 16, bottom = 16 },
 				gap = 12,

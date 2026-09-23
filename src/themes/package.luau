@@ -1180,7 +1180,7 @@ function package.iconGlyph(name: string): string?
 end
 
 --[[ THE DOT A CONTROL DRAWS FOR A NAME THE VOCABULARY LACKS, said once per name
-	(native sweep F8: `icon = "search"` for `facet:search` painted a bare dot and
+	(`icon = "search"` for `facet:search` painted a bare dot and
 	told nobody). `report` is replaceable so a spec reads the sentence. ]]
 local warnedIcons: { [string]: boolean } = {}
 function package.report(message: string)

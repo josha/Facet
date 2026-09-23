@@ -1558,8 +1558,7 @@ local function toLayoutNode(
 			}
 		end
 	end
-	--[[ A STROKE IS DRAWN INSIDE ITS BOX, SO ITS BOX PAYS FOR IT (native F1,
-		2026-09-22). Every border Facet paints sits `Inner` (UIStroke
+	--[[ A STROKE IS DRAWN INSIDE ITS BOX, SO ITS BOX PAYS FOR IT. Every border Facet paints sits `Inner` (UIStroke
 		BorderStrokePosition): an Outer stroke overhung the rect by its thickness
 		and a scroller's clip sliced it. Content keeps clear of the band because
 		each side's padding is at least the stroke: an authored `stroke`, or the

@@ -32,7 +32,7 @@ local isGamepadKeyCode = bindingOwner.isGamepadKeyCode
 function actions.newSystem(core: any)
 	local system = { revision = Compose.cell(0) }
 	local contexts: { any } = {}
-	--[[ ONE KEY EDGE, ONE DELIVERY (phase3 native F6). The engine hands a key that
+	--[[ ONE KEY EDGE, ONE DELIVERY. The engine hands a key that
 		is already down to a binding armed during it, so a Delete that removed the
 		last tag also removed the tag the focus handback armed, and the one after.
 		A Bool action armed while one of its keys is held marks that hold as an
@@ -486,7 +486,7 @@ function actions.newSystem(core: any)
 		-- sibling's lower-priority context (T1) already does the preemption;
 		-- this only decides who is ELIGIBLE to enter that arbitration.
 		local held = system.modifiers()
-		--[[ BORN LIKE THE ENGINE (phase3 native F6): a binding armed WHILE this
+		--[[ BORN LIKE THE ENGINE: a binding armed WHILE this
 			edge is delivered (a removal's focus handback enabling the next tag's
 			context) receives the same edge, so the scan repeats until it finds no
 			binding it has not already offered the edge to. Bool actions only: a
