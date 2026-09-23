@@ -85,6 +85,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Notice = function(w)
 		return { message = "Saved." }
 	end,
+	Vote = function(w)
+		return { value = "none", onChange = function() end }
+	end,
 	StepIndicator = function(w)
 		return { steps = { { id = "a", label = "A" } }, current = "a" }
 	end,

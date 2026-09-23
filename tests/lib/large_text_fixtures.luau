@@ -564,6 +564,18 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "Vote",
+		class = "Vote",
+		build = function(core)
+			return harness.Controls.Vote(core, {
+				id = "Ctl",
+				value = "up",
+				summary = lt.PSEUDO_SECONDARY,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()

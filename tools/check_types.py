@@ -45,7 +45,7 @@ DECLARED_ENTRIES = {
     "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Snackbar", "StatusIndicator", "StepIndicator", "Slider",
     "SplitButton",
-    "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
+    "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid", "Vote",
     "VirtualList",
 }
 
@@ -229,6 +229,8 @@ _EROSION_PROBES = [
     ("Card", 'app.controls.Card({ image = "i", title = "t", reveal = "hover" })'),
     ("Pagination", 'app.controls.Pagination({ page = 1, onChange = function(_n: number) end, form = "dots" })'),
     ("StepIndicator", 'app.controls.StepIndicator({ steps = {}, current = nil, sizing = "wide" })'),
+    ("Vote", 'app.controls.Vote({ value = "sideways", onChange = function(_v) end })'),
+    ("Vote", 'app.controls.Vote("V")({ value = "up", readOnly = "yes" })'),
     ("StepIndicator", 'app.controls.StepIndicator("S")({ steps = { { id = "a", label = "A", state = "done" } }, current = "a" })'),
     ("Pagination", 'app.controls.Pagination("P")({ page = 1, onChange = function(_n: number) end, direction = "up" })'),
     ("Card", 'app.controls.Card("C")({ image = "i", title = "t", primaryAction = { label = "P" } })'),

@@ -29,6 +29,7 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Offer an item (a game, a level, a video) with one main verb and a few secondary ones | `UI.Card` | The body opens the item; Play and More reveal on hover or focus, sit at rest on touch, and are entered from a grid's browse stop on a pad. |
 | Move through pages of results you fetch yourself | `UI.Pagination` | You keep the page; an unknown count uses next/previous availability instead of a last page. |
 | Show where a multi-step flow is, and let the player return to steps you allow | `UI.StepIndicator` | You keep `current`; for a number the player adjusts use `UI.Stepper`, and for a star score `UI.Rating`. |
+| Let the player like or dislike something | `UI.Vote` | You keep the value and the aggregate text; for a score out of five use `UI.Rating`. |
 | Tell the player about a state of the page (offline, saved, an update) without interrupting | `UI.Notice` | It stays in the page and never takes focus; `affixed` pins it to the top and reserves the space. |
 | Confirm something just happened, with an undo, without covering the page | `UI.Snackbar` | One at a time at the bottom; you own whether it shows, and every close is a proposal. |
 | Show a little supporting content next to a control, on request | `UI.Popover` | You keep the open state; it anchors to the trigger or a source and becomes a sheet on a compact touch screen. For one hovered sentence use `help`; for an unprompted tip use `UI.Callout`. |

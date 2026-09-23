@@ -71,6 +71,9 @@ local REQUIRED_ICONS: { string } = {
 	"facet:selection.radio.off",
 	"facet:selection.radio.on",
 	"facet:selection.check.off",
+	-- Vote's two sides (phase6)
+	"vote.up",
+	"vote.down",
 }
 
 -- the files a framework icon request can live in: the composite controls, the

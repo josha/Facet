@@ -77,6 +77,7 @@ local POST_ADR_NAMES: { string } = {
 	"Card",
 	"Pagination",
 	"StepIndicator",
+	"Vote",
 	-- scaffold: new control names are appended above this line
 }
 

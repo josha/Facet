@@ -699,6 +699,22 @@ local _steps = app.controls.StepIndicator("Checkout")({
 	listLabel = "Steps",
 	controlSize = "regular",
 })
+type VoteValue = "up" | "down" | "none"
+local voteNow = Facet.Compose.cell("none")
+local _vote = app.controls.Vote("Track")({
+	-- a getter narrows the cell's string to the three words
+	value = function(use): VoteValue
+		local v = use(voteNow)
+		return if v == "up" then "up" elseif v == "down" then "down" else "none"
+	end,
+	onChange = function(next)
+		voteNow:set(next)
+	end,
+	summary = "99% liked",
+	readOnly = false,
+	controlSize = "large" :: "large",
+})
+local _pastVote = app.controls.Vote({ value = "up", readOnly = true })
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

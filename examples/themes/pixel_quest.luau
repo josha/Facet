@@ -484,6 +484,9 @@ function pixel_quest.definition(themes: any): any
 			["chevron.up"] = "pixel_icon_chevron_up",
 			["chevron.down"] = "pixel_icon_chevron_down",
 			["chevron.up.chevron.down"] = "pixel_icon_chevron_up_down",
+			-- a vote's two sides are this pack's own up and down arrows
+			["vote.up"] = "pixel_icon_chevron_up",
+			["vote.down"] = "pixel_icon_chevron_down",
 			checkmark = "pixel_icon_check",
 			close = "pixel_icon_cross",
 			more = "pixel_icon_more",

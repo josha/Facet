@@ -9075,6 +9075,32 @@ permitted steps select through the same `onSelect` and the list closes.
 summary, form = "row" | "summary", listOpen, steps = { { id, state, button } },
 diagnostics }`.
 
+### `UI.Vote`
+
+`UI.Vote { … }` -> the vote's node. `ref` receives `{ api, dump }`.
+
+Up, down or none over your value — a thin wrapper over Picker's segmented,
+icon-only strip. Spec: `{ id?, value: Bound<"up" | "down" | "none">, onChange:
+((next) -> ())?, summary: Bound<string>?, readOnly: Bound<boolean>?,
+controlSize?, enabled: Bound<boolean>?, env? }`.
+
+`value` is yours: a press proposes `onChange(next)` once and the strip repaints
+only when your value changes, so a refused vote never flashes and a swap from up
+to down is one change. Pressing the chosen side proposes `"none"`. The icons are
+`vote.up` / `vote.down` with the names "Upvote" / "Downvote". `summary` is your
+own aggregate text ("99% liked"), one line, with the whole value disclosed;
+Vote counts nothing. `onChange` is required unless `readOnly` is true.
+
+`readOnly = true` is informational, not disabled: the same icons with your
+choice plated, no press, no focus stop. A later `readOnly = false` without an
+`onChange` is refused and the vote stays read-only (a warning and an
+`api.diagnostics()` line). `enabled = false` is the ordinary disabled strip. A
+late value outside the three keeps the last legal one. For a score out of five
+use `UI.Rating`; for a number the player adjusts, `UI.Stepper`.
+
+`dump()` reports `{ schema = "facet-vote-dump/1", id, value, readOnly, summary,
+diagnostics }`.
+
 ### `UI.Snackbar`
 
 `UI.Snackbar { … }` -> an empty anchor node; the row appears in the

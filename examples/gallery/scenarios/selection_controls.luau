@@ -249,6 +249,30 @@ return {
 			return UI.Text(id)({ text = text, textSize = "caption", role = "secondary", width = UI.fill() })
 		end
 
+		-- a vote over the caller's value, a read-only one, beside a chip
+		local vote = signal("none")
+		local function votes(): any
+			return UI.VStack("Votes")({
+				gap = "s",
+				UI.Vote("TrackVote")({
+					value = vote,
+					summary = function(use): string
+						return if use(vote) == "up" then "You and 98% liked this" else "98% liked this"
+					end,
+					onChange = function(next: string)
+						vote:set(next)
+					end,
+				}),
+				UI.HStack("Beside")({
+					gap = "s",
+					align = "center",
+					wrap = true,
+					UI.Vote("PastVote")({ value = "down", readOnly = true, controlSize = "compact" }),
+					UI.Chip("VoteTag")({ label = "Rally", selected = signal(false) }),
+				}),
+			})
+		end
+
 		local function body()
 			return UI.VStack("Body")({
 				width = UI.fill(),
@@ -292,6 +316,9 @@ return {
 				heading("Choose or name a vehicle class"),
 				caption("CapCombo", "ComboBox · suggestions with custom text"),
 				combo(),
+				heading("Rate this track"),
+				caption("CapVote", "Vote · up, down or none (press again to clear), and a read-only one"),
+				votes(),
 			})
 		end
 		local function screen()

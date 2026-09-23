@@ -212,6 +212,7 @@ owner that owns its resources. Start with
 | `UI.Card` | Artwork and a title with a primary action and a More menu that reveal on engagement; enters from a grid's browse stop. | [api](../reference/api.md#uicard) |
 | `UI.Pagination` | Controlled page selection: a bounded numeric window, an unknown count, a measured fallback to "Page n of m". | [api](../reference/api.md#uipagination) |
 | `UI.StepIndicator` | Workflow steps with one current authority, state cues and words, and a summary with a list when narrow. | [api](../reference/api.md#uistepindicator) |
+| `UI.Vote` | Up, down or none over your value, with your own summary text and a read-only form. | [api](../reference/api.md#uivote) |
 | `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
 | `UI.Snackbar` | One short message at the bottom of the screen with an optional action and close, shown one at a time; the caller owns visibility and every close is a proposal. | [api](../reference/api.md#uisnackbar) |
 | `UI.NavBar` | A surface's top bar with Back, leading, a filling center (title or search) and trailing content that wraps to a second row. | [api](../reference/api.md#uinavbar) |

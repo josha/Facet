@@ -25,6 +25,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Vote`.** Up, down or none over the caller's value, on Picker's
+  segmented icon strip through a private submission seam (a refused vote never
+  paints; pressing the chosen side proposes none), a caller summary, and a
+  read-only informational form with no stops.
 - **`UI.StepIndicator`.** Workflow steps with `current` as the one authority
   over the underline and summary, per-step state cues and words (check, error
   mark, number), Buttons only for navigable enabled steps, and a "Step n of m"

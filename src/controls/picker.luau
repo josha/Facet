@@ -761,7 +761,7 @@ local function lintStaticOptions(spec: Spec, id: string): any
 	}
 end
 
-local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: string, onReselect, owner)
+local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: string, onReselect, owner, submit)
 	local UI = Facet.UI
 	local id = spec.id or "Picker"
 	local mountedNode
@@ -770,7 +770,12 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	end
 	validateArray(spec.options)
 	local selected = spec.selected
-	if not selectionModel.isWritable(selected) then
+	--[[ THE PRIVATE SUBMISSION SEAM (UI.Vote, phase6). With `submit`, the strip
+		BORROWS a derived selected readable and hands an accepted choice to
+		`submit` at the one write/notify boundary below instead of writing: the
+		caller's own value is the only thing that repaints. Public builds never
+		pass it, so every public strip still requires a writable cell. ]]
+	if not selectionModel.isWritable(selected) and not (submit ~= nil and selectionModel.isSource(selected)) then
 		error(`Facet UI.Picker('{id}'): \`selected\` must be a writable Compose cell the caller owns`, 0)
 	end
 	local indicatorRequest = spec.indicator or "automatic"
@@ -938,6 +943,10 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			return false
 		end
 		core.reactor:batch(function()
+			if submit ~= nil then
+				submit(value)
+				return
+			end
 			selected:set(value)
 			if spec.onChange ~= nil then
 				spec.onChange(value)
@@ -1419,6 +1428,9 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			if leaf ~= nil and byId[leaf] ~= nil then
 				if onReselect and byId[leaf] == readValue(selected) and isEnabled() then
 					onReselect()
+				elseif submit ~= nil and byId[leaf] == readValue(selected) then
+					-- reselecting clears, through the same choose (required = false)
+					choose(nil)
 				else
 					choose(byId[leaf])
 				end
@@ -1630,9 +1642,9 @@ local function buildCardsOwned(Facet: any, core: any, spec: any, owner: any)
 	}
 end
 
-local function buildStrip(Facet, core, spec, requested, onReselect)
+local function buildStrip(Facet, core, spec, requested, onReselect, submit)
 	return ownedBuild(core, function(owner)
-		return buildStripOwned(Facet, core, spec, requested, onReselect, owner)
+		return buildStripOwned(Facet, core, spec, requested, onReselect, owner, submit)
 	end)
 end
 
@@ -1748,12 +1760,12 @@ local function buildMenu(Facet: any, core: any, spec: Spec, style: string, id: s
 	return api
 end
 
-local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string, onReselect): any
+local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string, onReselect, submit): any
 	local strip = if style == "automatic" then "automatic" else STRIP_NAME[style]
 	local live = selectionModel.isSource(spec.options)
 	local inner = if live
 		then buildLive(Facet, core, stripSpec(spec, id), strip, onReselect)
-		else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect)
+		else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect, submit)
 	local presentation = Compose.formula(function(use)
 		return PUBLIC_NAME[use(inner.presentation)] or use(inner.presentation)
 	end)
@@ -1962,7 +1974,7 @@ local function buildAutomatic(Facet, core, spec, id)
 end
 
 -- Internal tab-host hook: accepting the current destination completes its chooser without a change event.
-function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?)
+function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?, submit: ((any) -> ())?)
 	specGuard.assertKnownKeys("UI.Picker", spec, PICKER_KEYS, "spec")
 	local id = spec.id or "Picker"
 	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
@@ -2116,7 +2128,7 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 			return buildCardsOwned(Facet, core, stripSpec(spec, id), owner)
 		end)
 	elseif style ~= "automatic" then
-		built = buildStripFamily(Facet, core, spec, style, id, onReselect)
+		built = buildStripFamily(Facet, core, spec, style, id, onReselect, submit)
 	else
 		built = buildAutomatic(Facet, core, spec, id)
 	end

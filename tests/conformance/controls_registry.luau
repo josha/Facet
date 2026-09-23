@@ -2456,6 +2456,34 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		name = "Vote",
+		kind = "composite",
+		module = "src/controls/vote.luau",
+		export = "UI.Vote",
+		spec = "tests/vote.spec.luau",
+		conformance = "tests/vote.spec.luau",
+		docsAnchor = "UI.Vote",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "accepts, swaps in one transition, and reselecting proposes none" },
+			touch = { "a refused proposal never paints and never touches the caller's cell" },
+			keyboard = { "keyboard and pad reach the strip and propose through the same path" },
+			gamepad = { "keyboard and pad reach the strip and propose through the same path" },
+		},
+		-- PARADIGM axis: Picker's own segmented strip in every class; read-only is
+		-- a plated informational pair with no stops. hotSwitch: readOnly and
+		-- enabled switch the form and the stops live.
+		affordanceProofs = {
+			pointer = { "two votes beside a chip keep separate targets that never overlap, with a disclosed summary" },
+			touch = { "a callback that disposes the vote or throws leaves no stale state" },
+			keyboard = { "a getter or formula value works; an invalid late value keeps the last legal paint" },
+			gamepad = { "a readOnly vote without onChange refuses to become interactive" },
+			hotSwitch = {
+				"readOnly shows the choice with nothing to press or focus; disabled is ordinary disabled paint",
+			},
+		},
+	},
+	{
 		name = "Snackbar",
 		kind = "composite",
 		module = "src/controls/snackbar.luau",

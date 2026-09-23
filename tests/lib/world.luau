@@ -71,6 +71,7 @@ local CONTROL_MODULES = {
 	"card",
 	"pagination",
 	"step_indicator",
+	"vote",
 	"snackbar",
 	"progress_view",
 	"radial_menu",
