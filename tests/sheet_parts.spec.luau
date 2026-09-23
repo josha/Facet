@@ -122,7 +122,6 @@ t.describe("Sheet parts", function()
 			end
 		end
 		local w, c = mount({
-			interactiveDismissDisabled = true,
 			actions = {
 				{ id = "Later", label = "Later", role = "cancel", onActivate = log("Later") },
 				{ id = "Join", label = "Join race", role = "default", onActivate = log("Join") },

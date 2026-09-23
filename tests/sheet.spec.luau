@@ -123,9 +123,29 @@ t.describe("Sheet control", function()
 		c.dispose()
 	end)
 	t.it("interactive dismissal can be disabled without disabling explicit close", function()
-		local w, c = mount({ interactiveDismissDisabled = true })
+		local later = 0
+		local w, c = mount({
+			interactiveDismissDisabled = true,
+			actions = {
+				{
+					id = "Later",
+					label = "Later",
+					role = "cancel",
+					onActivate = function()
+						later += 1
+					end,
+				},
+			},
+		})
 		w.press("ButtonB")
 		t.expect(c.dump().presented).toBe(true)
+		t.expect(later).toBe(0) -- Cancel runs no cancel action either
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -6) == "/Later" then
+				w.adapter.tap(path)
+			end
+		end
+		t.expect(later).toBe(1) -- the caller's own button still works
 		w.adapter.tap(close)
 		w.settle(3)
 		t.expect(c.dump().presented).toBe(false)

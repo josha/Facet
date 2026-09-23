@@ -888,6 +888,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			}),
 			{
 				handleCancel = function(): boolean
+					-- a sheet that refuses interactive dismissal refuses its implicit
+					-- Cancel too; the caller's own buttons still work
+					if spec.interactiveDismissDisabled then
+						return true
+					end
 					if usable(cancelAction) then
 						press(cancelAction)
 						return true

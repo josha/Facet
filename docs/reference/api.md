@@ -12756,7 +12756,7 @@ The panel is a pinned column: the drag grip, an optional sticky hero, the title
 | `env` | Optional explicit environment; normally discovered from the surface |
 | `presenter` | Optional presenter retained for `present()` and bound presentation. An application supplies its own |
 | `isPresented` | Optional caller-owned writable Compose cell of a boolean; needs a presenter |
-| `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss; the explicit Close button and `dismiss()` still work |
+| `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss, and Cancel runs no cancel action; the explicit Close button, the caller's own action buttons and `dismiss()` still work |
 | `dragIndicator` | `"automatic"` (default), `"visible"`, or `"hidden"`. Automatic shows the header grip while pointer or touch is available |
 | `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"bottom"`, `"center"`, or `"side"` |
 | `edge` | `"left"` or `"right"` (default); only with `placement = "side"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
@@ -12764,7 +12764,7 @@ The panel is a pinned column: the drag grip, an optional sticky hero, the title
 | `closeButton` | Defaults to true. Independent of `interactiveDismissDisabled` |
 | `header` | Construction-only. Absent shows `title`; a blueprint replaces the title region and sizes itself; `false` removes it. Size and Close stay in every form |
 | `hero` | Construction-only `{ image | content, aspectRatio | height, scaleMode?, background?, sticky? }`: exactly one of an image source or an arbitrary blueprint, exactly one of a ratio or a height (px or metric); `scaleMode` is image-only. `sticky = true` pins it above the body; otherwise it scrolls with the body. It spans the panel width without the body inset. With `header = false`, Size and Close sit over the hero's top corner and stay pinned while a scrolling hero moves; authored hero content starts below a measured band that keeps it clear of them |
-| `actions` | Pinned below the body: `{ id, label, role?, enabled?, busy?, onActivate }` (the Dialog action shape, any count). One `role = "default"` (Return) and one `role = "cancel"`. Cancel (ButtonB) runs an eligible cancel action before interactive dismissal. Actions never close the sheet; set your `isPresented` or call `dismiss()` |
+| `actions` | Pinned below the body: `{ id, label, role?, enabled?, busy?, onActivate }` (the Dialog action shape, any count). One `role = "default"` (Return) and one `role = "cancel"`. Cancel (ButtonB) runs an eligible cancel action before interactive dismissal, unless `interactiveDismissDisabled` is set. Actions never close the sheet; set your `isPresented` or call `dismiss()` |
 | `actionLayout` | `"automatic"` (default), `"row"` or `"stacked"`; a row that cannot show every full label stacks |
 | `contentInset` | `"standard"` (default) or `"none"`: the body's own padding only |
 | `scrollPolicy` | Construction-only. `"always"` (default): the body scrolls at every height and never hands a pan to the sheet. `"atLargestDetent"`: below the tallest detent a body pan resizes the sheet; at it, the body scrolls and only a downward pan starting at the top shrinks the sheet |
