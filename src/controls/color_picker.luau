@@ -800,35 +800,44 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		})
 	end
 
-	-- the plane's pad hint: shown while the plane holds focus and a pad is live
+	-- the plane's pad hint: mounted only while a pad is live (a hidden row keeps
+	-- its box, which left a gap under the plane for every pointer player), and
+	-- shown there while the plane holds focus, so focusing it shifts nothing
 	local function stickHint(): any
-		local hint = require("./shortcut_hint").build(Facet, core, {
-			id = "StickKey",
-			keys = { { require("../input/key_names").label("Thumbstick2") or "Right Stick" } },
-			controlSize = "compact",
-			env = spec.env,
-		})
-		return UI.HStack({
+		return UI.When({
 			id = "StickHint",
-			gap = "xs",
-			align = "center",
-			-- the words wrap beside the key, or under it, rather than run past a narrow panel
-			width = UI.fill(),
-			wrap = true,
-			hidden = Compose.formula(function(use)
+			condition = Compose.formula(function(use)
 				local classes = if env ~= nil then use(env:get("interactionClasses")) else nil
-				local pad = type(classes) == "table" and classes.gamepad == true
-				return not (pad and use(focusedPath) ~= nil and use(focusedPath) == planePath)
+				return type(classes) == "table" and classes.gamepad == true
 			end),
-			children = {
-				hint.blueprint,
-				UI.Text({
-					id = "Words",
-					text = "Move saturation and brightness",
-					textSize = "caption",
-					role = "secondary",
-				}),
-			},
+			thenView = function()
+				local hint = require("./shortcut_hint").build(Facet, core, {
+					id = "StickKey",
+					keys = { { require("../input/key_names").label("Thumbstick2") or "Right Stick" } },
+					controlSize = "compact",
+					env = spec.env,
+				})
+				return UI.HStack({
+					id = "Hint",
+					gap = "xs",
+					align = "center",
+					-- the words wrap beside the key, or under it, rather than run past a narrow panel
+					width = UI.fill(),
+					wrap = true,
+					hidden = Compose.formula(function(use)
+						return not (use(focusedPath) ~= nil and use(focusedPath) == planePath)
+					end),
+					children = {
+						hint.blueprint,
+						UI.Text({
+							id = "Words",
+							text = "Move saturation and brightness",
+							textSize = "caption",
+							role = "secondary",
+						}),
+					},
+				})
+			end,
 		})
 	end
 
