@@ -250,3 +250,61 @@ describe("DB-3(b): the focus RING answers navigation, never a finger", function(
 		expect(ringOn(w, w.pres.focus.focused:peek())).toBe(true)
 	end)
 end)
+
+-- ===========================================================================
+--[[ A TRANSIENT TRAP BELONGS TO ITS CONTRIBUTION'S IDENTITY (phase6 P6a item 13).
+	`syncContributions` replaces the contribution list before the transient sync
+	visits it, so a trap whose contribution LEFT the tree (a recycled grid cell, a
+	closed region) was never visited again and stayed on the graph: focus trapped
+	in a scope with no members. The reconciliation runs before the base focus map,
+	so the restored path is repaired against the live tree. ]]
+describe("transient trap lifetime follows the contribution identity", function()
+	local function trapWorld()
+		local core, _, adapter, system, pres = harness()
+		local open = Compose.cell(true)
+		local active = Compose.cell(false)
+		local generation = Compose.cell(1)
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.Button({ id = "Always", label = "Always" }),
+				UI.ForEach({
+					id = "Rows",
+					items = Compose.formula(function(use)
+						return if use(open) then { { key = "k", gen = use(generation) } } else {}
+					end),
+					key = function(item: any)
+						return `{item.key}`
+					end,
+					row = function(item: any)
+						return contribution.attach(
+							UI.VStack({
+								id = "Panel",
+								children = {
+									UI.Button({ id = "One", label = `One {item.gen}` }),
+									UI.Button({ id = "Two", label = "Two" }),
+								},
+							}),
+							{ transientScope = { active = active } }
+						)
+					end,
+				}),
+			},
+		})
+		pres.present(screen)
+		pres.refresh()
+		pres.focus.focusOn("/S/Always")
+		return { core = core, adapter = adapter, system = system, pres = pres, open = open, active = active }
+	end
+
+	it("a trapped contribution that leaves the tree releases its trap and focus returns live", function()
+		local w = trapWorld()
+		w.active:set(true)
+		w.pres.refresh()
+		expect(w.pres.focus.activeScopeName()).toBe("__transient__/S/Rows/[k]/Panel")
+		w.open:set(false)
+		w.pres.refresh()
+		expect(w.pres.focus.activeScopeName() ~= "__transient__/S/Rows/[k]/Panel").toBe(true)
+		expect(w.pres.focus.focused:peek()).toBe("/S/Always")
+	end)
+end)

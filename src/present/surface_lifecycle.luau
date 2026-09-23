@@ -839,6 +839,11 @@ function surfaceLifecycle.new(ctx: any)
 			if handle.syncContributions ~= nil then
 				handle.syncContributions()
 			end
+			-- a trap whose contribution just left (or was replaced at its path) is
+			-- released BEFORE the base focus map, which then repairs where it restored
+			if handle.pruneTransientScopes ~= nil then
+				handle.pruneTransientScopes()
+			end
 			-- a region that mounted since the last refresh has handles only now, so
 			-- its enter transition's seeded values land here rather than a frame late
 			if handle.coordinator ~= nil then

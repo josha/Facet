@@ -277,6 +277,7 @@ local calloutQueueLib = require("./callout_queue")
 -- (tools/lune/verify/data/source-cap-ledger.md's row for this file named it) and
 -- tests/surface_lifecycle_seam.spec.luau for what mechanises it.
 local surfaceLifecycleLib = require("./surface_lifecycle")
+local transientScopesLib = require("./transient_scopes")
 
 -- ALIASED TO THE SAME LOCAL NAMES the 3 500-line `presenter.new` closure below already
 -- calls (2026-08-06). The focus-order/traversal-rank/navigation-group derivations and
@@ -2623,64 +2624,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			setAdjustBound(state)
 		end
 
-		-- transient-popup focus trap/restore (matrix §B PopupButton; transientScope).
-		-- While a contribution's transientScope is active, focus is TRAPPED within
-		-- rootPath's subtree (defaulting to the contribution's own mounted path so the
-		-- trigger stays the scope entry — focus does not jump into the open rows on
-		-- open) via the focus graph's own trap/restore machinery; on deactivation
-		-- focus RESTORES to the pre-activation focused path (the trigger). Driven from
-		-- refresh (the rows are mounted/unmounted by the same UI.When at refresh), so
-		-- the pushed trap scope always reflects the CURRENT mounted popup.
-		local transientPushed: { [string]: boolean } = {}
-		local function transientName(c: any): string
-			return `__transient__{c.path}`
-		end
-		function handle.syncTransientScopes()
-			for _, c in contributions do
-				local ts = c.bundle.transientScope
-				if ts ~= nil and ts.active ~= nil then
-					local name = transientName(c)
-					local wantActive = ts.active:peek() == true
-					local pushed = transientPushed[c.path] == true
-					if wantActive then
-						local rootPath = ts.rootPath or c.path
-						local sub = nodeAt(root.node, rootPath)
-						local order: { string } = {}
-						if sub ~= nil then
-							focusOrder(sub, order)
-						end
-						-- a popup's trap scope is a framework-derived flat order like any
-						-- other, so it ranks too — a popup holding a Slider traverses in
-						-- document order inside its trap (the traversal-order ledger). Ranked
-						-- against the POPUP's own subtree, which is the tree its order
-						-- was walked from.
-						local rank = if sub ~= nil then traversalRank(sub, order, nil) else nil
-						if not pushed then
-							-- pushScope records the current focus (the trigger) for
-							-- restore and enters at order[1] (the trigger) — no jump
-							graph.pushScope({ name = name, trap = true, order = order, traversalRank = rank })
-							transientPushed[c.path] = true
-						else
-							-- rows may churn while open: keep the trap order current
-							graph.setOrder(name, order, rank)
-						end
-					elseif pushed then
-						graph.removeScope(name) -- top trap: restores focus to the trigger
-						transientPushed[c.path] = nil
-					end
-				end
-			end
-		end
-		-- pop any live transient trap scopes (dismissing a screen with an OPEN
-		-- popup must not orphan its trap scope in the focus graph)
-		function handle.clearTransientScopes()
-			for _, c in contributions do
-				if transientPushed[c.path] then
-					graph.removeScope(transientName(c))
-					transientPushed[c.path] = nil
-				end
-			end
-		end
+		-- transient-popup trap/restore, owned by contribution identity (transient_scopes.luau)
+		transientScopesLib.bind(handle, graph, contributions, function()
+			return root.node
+		end)
 
 		-- keep-visible: opts.keepVisibleOffset wins; else observe EVERY
 		-- contribution's keepVisibleOffset readable and apply the MAX (the largest
