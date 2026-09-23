@@ -280,12 +280,14 @@ return {
 					ref = keep("band"),
 				}),
 				-- a dial's name sits OUTSIDE what rotates; the turned row is the track
-				-- plus its readout, centred in a square of its own column so every
-				-- angle's paint stays inside reserved room
+				-- plus its readout, centred in a square so every angle's paint stays
+				-- inside reserved room. The square is capped: a desktop column is far
+				-- wider than a range needs, and an uncapped square is mostly air
 				UI.Text("TiltCaption")({ text = "Tilt (a turned range)", textSize = "caption", role = "secondary" }),
 				UI.aspectRatio(
 					UI.ZStack("TiltStage")({
-						width = UI.fill(),
+						width = { type = "percent", fraction = 1, max = 320 },
+						lineAlign = "center",
 						alignH = "center",
 						alignV = "center",
 						UI.Slider("Tilt")({
