@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-23T07:32:29Z",
+ "maintainedAt": "2026-09-23T18:09:26Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -6703,7 +6703,7 @@
     ],
     "resultIds": [
      "large_text_matrix::LT-8 control matrix: every registry row at four preferences x two themes::LT8-CTL PopupButton: no sibling overlap, no undisclosed clip beyond its declared allowlist, and no NEW sub-floor control at 0/4/10/14 px x both reference themes",
-     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and 36/44/56 rows per presentation",
+     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and a menu row at the target floor",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton inline rows are 44 and sheet rows are 56",
      "spec_guard_sweep::ARCH-1: every guarded boundary refuses an unknown key::UI.PopupButton refuses 'definitelyNotAKey' and names itself",
      "spec_guard_sweep::ARCH-1: every guarded boundary refuses an unknown key::UI.PopupButton still accepts its legal call",
@@ -18713,7 +18713,7 @@
      "theme_roles::text_metrics: canonical font-descriptor keys::a role's line height reaches the measurer through the layout node",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::Slider: 44px track, 20px thumb, 6px rail, 16px label gap, 40px readout",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::ProgressView: 6px track, 20px row floor, 14px label text, 8px row gap",
-     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and 36/44/56 rows per presentation",
+     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and a menu row at the target floor",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton inline rows are 44 and sheet rows are 56",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::TextInput: 44px field, 28px clear button inset 8px from the right edge",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::Toggle: 28px minimum height and the 44+12+16 track reservation",

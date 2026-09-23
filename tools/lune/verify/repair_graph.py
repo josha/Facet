@@ -478,6 +478,14 @@ CASE_ID_REPAIRS = [
         "is answerable. The case still pins the refusal that the corpse gate's reasoning stands "
         "on; it pins the narrowed one, directionally, and states what the gate's reasoning becomes",
     ),
+    (
+        "theme_roles::migrated controls: byte-parity under Facet Neutral::"
+        "PopupButton: 40px trigger, and 36/44/56 rows per presentation",
+        "theme_roles::migrated controls: byte-parity under Facet Neutral::"
+        "PopupButton: 40px trigger, and a menu row at the target floor",
+        "a floating menu's rows now reserve the target floor (44, not compact 36) so stacked "
+        "rows' hit rects never overlap; the heights are out of the title",
+    ),
 ]
 
 

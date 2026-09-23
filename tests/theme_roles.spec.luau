@@ -447,7 +447,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		expect(adapter.node("/S/P/Bar").rect.x - (label.x + label.w)).toBe(8)
 	end)
 
-	it("PopupButton: 40px trigger, and 36/44/56 rows per presentation", function()
+	it("PopupButton: 40px trigger, and a menu row at the target floor", function()
 		local _, _, adapter, presenter = presentedWorld(function(core)
 			return harness.Controls.PopupButton(core, {
 				id = "M",
@@ -459,7 +459,8 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		expect(adapter.node("/S/M/Trigger").rect.h).toBe(40)
 		adapter.tap("/S/M/Trigger")
 		presenter.refresh()
-		expect(adapter.node("/S/M/PopupWhen/then/Popup/Opt-a").rect.h).toBe(36)
+		-- the target floor, so stacked rows' hit rects never overlap (not compact 36)
+		expect(adapter.node("/S/M/PopupWhen/then/Popup/Opt-a").rect.h).toBe(44)
 		-- the panel sits exactly one trigger height below the trigger
 		expect(adapter.node("/S/M/PopupWhen/then/Popup").rect.y - adapter.node("/S/M").rect.y).toBe(40)
 	end)
