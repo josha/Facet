@@ -1098,8 +1098,7 @@ describe(
 	end
 )
 
---[[ AN INNER STROKE IS PAID FOR IN PADDING (native sweep F1, owner requirement
-	2026-09-22). Every border sits inside its box now, so every descendant of a
+--[[ AN INNER STROKE IS PAID FOR IN PADDING (2026-09-22). Every border sits inside its box now, so every descendant of a
 	stroked node must clear the band on all four sides — under Pixel Quest, the
 	thickest hairline shipped (4 px), at desktop, phone and +14. ]]
 describe("an inner stroke never lies under content", function()
