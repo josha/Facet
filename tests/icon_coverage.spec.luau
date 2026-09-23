@@ -78,6 +78,12 @@ local REQUIRED_ICONS: { string } = {
 	"status.error",
 	-- DateTimePicker's open button (phase5)
 	"calendar",
+	-- Notice's severity icons and Pagination's First/Last
+	"status.info",
+	"status.success",
+	"status.warning",
+	"chevron.first",
+	"chevron.last",
 }
 
 -- the files a framework icon request can live in: the composite controls, the

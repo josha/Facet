@@ -50,7 +50,9 @@ local KEYS = guard.keySet({
 	"title",
 })
 local LINK_KEYS = guard.keySet({ "label", "onActivate" })
-local SEVERITIES = { info = true, success = true, warning = true, error = true }
+-- each severity and the icon it shows (written whole, so icon coverage can pin them)
+local SEVERITIES =
+	{ info = "status.info", success = "status.success", warning = "status.warning", error = "status.error" }
 local APPEARANCES = { standard = true, emphasis = true }
 local PLACEMENTS = { inline = true, affixed = true }
 local DUMP_SCHEMA = "facet-notice-dump/1"
@@ -72,7 +74,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		error(`Facet {where}: \`title\` is a string or a bound string.`, 0)
 	end
 	local severity = spec.severity or "info"
-	if SEVERITIES[severity] ~= true then
+	if SEVERITIES[severity] == nil then
 		error(`Facet {where}: \`severity\` is info | success | warning | error.`, 0)
 	end
 	local appearance = spec.appearance or "standard"
@@ -144,7 +146,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				children,
 				require("./label").icon(
 					UI,
-					if type(spec.icon) == "string" then spec.icon else `status.{severity}`,
+					if type(spec.icon) == "string" then spec.icon else SEVERITIES[severity],
 					{ tint = { role = if emphasis then onRole else plateRole, blend = 1 } }
 				)
 			)

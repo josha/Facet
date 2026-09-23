@@ -245,6 +245,9 @@ function pixel_quest.definition(themes: any): any
 	assets.status_info = { content = "rbxassetid://119954823374061", tintRole = "content" }
 	assets.status_success = { content = "rbxassetid://108245103349446", tintRole = "content" }
 	assets.status_error = { content = "rbxassetid://131379225714116", tintRole = "content" }
+	assets.status_warning = { content = "rbxassetid://94336971455701", tintRole = "content" }
+	assets.chevron_first = { content = "rbxassetid://121092340130819", tintRole = "content" }
+	assets.chevron_last = { content = "rbxassetid://124199778383157", tintRole = "content" }
 	assets.calendar = { content = "rbxassetid://93477762216058", tintRole = "content" }
 	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
@@ -478,6 +481,9 @@ function pixel_quest.definition(themes: any): any
 			["status.info"] = "status_info",
 			["status.success"] = "status_success",
 			["status.error"] = "status_error",
+			["status.warning"] = "status_warning",
+			["chevron.first"] = "chevron_first",
+			["chevron.last"] = "chevron_last",
 			increment = "pixel_icon_plus",
 			decrement = "pixel_icon_minus",
 			["chevron.leading"] = "pixel_icon_chevron_left",
