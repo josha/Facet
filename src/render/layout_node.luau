@@ -1694,16 +1694,23 @@ local function toLayoutNode(
 		-- hint channel; an icon Button owes its picture exactly the same box
 		iconName = props.icon
 	end
+	-- a preferred icon IS the Button's label, so it takes the label's box: its
+	-- control size's `iconSize`, which a text Button's line matches, so an icon
+	-- Button stands as tall as its text neighbours (not `iconSizes.medium`)
+	local labelIconPx: number? = nil
 	if iconName == nil and class == "Button" and #node.children == 0 then
 		local form = compactForm(props)
 		if form ~= nil and form.prefer and form.kind == "icon" then
 			-- Preferred compact art is the content, just like an icon hint.
 			iconName = form.icon
+			local sizes = metrics.controlSizes
+			local rung = if type(sizes) == "table" then sizes[props.controlSize or "regular"] else nil
+			labelIconPx = if type(rung) == "table" and type(rung.iconSize) == "number" then rung.iconSize else nil
 		end
 	end
 	if iconName ~= nil and type(metrics.iconArt) == "table" and metrics.iconArt[iconName] == true then
 		local role = (if hint ~= nil then hint.iconSize else nil) or "medium"
-		local px = if type(metrics.iconSizes) == "table" then metrics.iconSizes[role] else nil
+		local px = labelIconPx or (if type(metrics.iconSizes) == "table" then metrics.iconSizes[role] else nil)
 		if type(px) == "number" and px > 0 then
 			local pt, pr, pb, pl = solver.sides(layoutNode.padding)
 			if layoutNode.width == nil then

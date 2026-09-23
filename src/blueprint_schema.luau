@@ -2930,12 +2930,14 @@ class("Button", {
 		controlSize = p({
 			types = { "string" },
 			reactive = true,
-			dirty = { "paint" },
+			-- measure too: an icon-only Button's picture is its rung's `iconSize`
+			dirty = { "paint", "measure" },
 			enum = { "compact", "regular", "large" },
 			channel = "style",
 			doc = "the local size rung this control paints at — drives the style tag a theme's rules key "
 				.. "on. The MEASUREMENTS of a rung are the theme ladder metrics (controlSizes.<rung>.*) a "
-				.. "composite authors as height/padding; this prop is the paint half",
+				.. "composite authors as height/padding; this prop is the paint half (and an icon-only "
+				.. "Button's picture box, the rung's iconSize)",
 		}),
 		appearance = p({
 			types = { "string" },

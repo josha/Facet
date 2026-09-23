@@ -589,3 +589,26 @@ describe("compactLabel: the table's Edit/Done toggle, its first consumer", funct
 		expect(string.find(src, 'compactLabel = { icon = "edit" }', 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+t.describe("compactLabel: a preferred icon is the Button's label", function()
+	t.it("an icon-only Button stands as tall as a text Button beside it, under a package with big icons", function()
+		local Facet = require("../src") :: any
+		for _, name in { "pixel_quest", "fantasy_ornate" } do
+			local metrics = Facet.themes.resolve(require(`../examples/themes/{name}`).build(Facet.themes), nil, {})
+			local w =
+				require("./lib/world").new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, themeMetrics = metrics })
+			local W = w.UI
+			w.present(function()
+				return W.Screen("S")({
+					W.HStack("Row")({
+						W.Button("Text")({ label = "Install" }),
+						W.Button("Icon")({ label = "Close", compactLabel = { icon = "close", prefer = true } }),
+					}),
+				})
+			end)
+			w.settle(2)
+			local text, icon = w.adapter.node("/S/Row/Text").rect, w.adapter.node("/S/Row/Icon").rect
+			t.expect(`{name}: text {text.h} icon {icon.h}`).toBe(`{name}: text {text.h} icon {text.h}`)
+		end
+	end)
+end)
