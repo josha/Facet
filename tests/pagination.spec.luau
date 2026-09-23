@@ -175,6 +175,8 @@ describe("Pagination: counts and values", function()
 			{ page = 1, onChange = print, form = "dots" },
 			{ page = 1, onChange = print, direction = "up" },
 			{ page = 1, onChange = print, extra = true },
+			-- the window narrows to its offer; a hugging box has none of its own
+			{ page = 1, onChange = print, width = UI.hug() },
 		}
 		for _, spec in bad do
 			expect(pcall(function()
@@ -236,6 +238,43 @@ describe("Pagination: fit, direction and focus", function()
 		w.settle(3)
 		-- recovered onto the current page, the nearest legal one
 		expect(w.pres.focus.focused:peek()).toBe(path(w, "/Page-9"))
+	end)
+
+	it("an arrow that disables at an edge hands focus to the current page", function()
+		for _, case in
+			{
+				{ from = 9, arrow = "/Next", lands = "/Page-10" },
+				{ from = 2, arrow = "/Previous", lands = "/Page-1" },
+				{ from = 3, arrow = "/First", lands = "/Page-1" },
+				{ from = 7, arrow = "/Last", lands = "/Page-10" },
+			}
+		do
+			local spec = controlled(case.from, { pageCount = 10, showFirstLast = true })
+			local w = mount(spec)
+			expect(w.pres.focus.focusOn(path(w, case.arrow))).toBe(true)
+			w.pres.focus.setFocusOrigin("navigation")
+			w.press("Return")
+			w.settle(4)
+			expect(w.pres.focus.focused:peek()).toBe(path(w, case.lands))
+		end
+	end)
+
+	it("page buttons and arrows reserve the target floor: no two hit bands overlap", function()
+		local w = mount(controlled(5, { pageCount = 200, showFirstLast = true }))
+		local rects = {}
+		for _, p in w.adapter.paths() do
+			local node = w.adapter.node(p)
+			if string.sub(p, 1, #ROOT) == ROOT and node.class == "Button" then
+				table.insert(rects, w.adapter.hitRectOf(p) or node.rect)
+			end
+		end
+		expect(#rects).toBe(9)
+		for i = 1, #rects do
+			for j = i + 1, #rects do
+				local r, q = rects[i], rects[j]
+				expect(r.x < q.x + q.w - 0.5 and q.x < r.x + r.w - 0.5).toBe(false)
+			end
+		end
 	end)
 
 	it("count to zero leaves no internal stop and focus returns to a live neighbour", function()

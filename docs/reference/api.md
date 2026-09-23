@@ -9006,7 +9006,9 @@ hasPrevious: Bound<boolean>?, siblingCount: number? (0–20, default 1),
 boundaryCount: number? (0–20, default 1), showFirstLast: boolean? (default
 false), form: ("numbers" | "arrows" | "label")? (default numbers), direction:
 ("ltr" | "rtl")? (default ltr), controlSize?, enabled: Bound<boolean>?, width?,
-env? }`. The last five words are construction-only.
+env? }`. The last five words are construction-only. `width` defaults to fill;
+the window narrows to the width it is offered, so `hug` and `content` are
+refused (a late one keeps the last legal width with a diagnostic).
 
 `page` is yours: every press proposes one page through `onChange` and the row
 repaints only when your value changes, so a refused proposal leaves it as it
@@ -9030,8 +9032,10 @@ higher page on a tie); when not even the current page and its arrows fit, the
 row shows "Page n of m". The row scrolls sideways rather than shrink a target.
 `label` is always "Page n of m"; `arrows` shows only the arrows, so put your own
 result context beside it. Ellipses and disabled arrows are not focus stops. Page
-nodes are keyed by page number, and a focused page that leaves the window hands
-focus to the current page. `direction = "rtl"` reverses the row and its arrows
+nodes are keyed by page number, and a focused page that leaves the window, or a
+focused arrow that disables at an edge, hands focus to the current page. Every
+page and arrow is at least the theme's minimum target wide, so no two targets
+overlap. `direction = "rtl"` reverses the row and its arrows
 once; Left and Right stay physical.
 
 `dump()` reports `{ schema = "facet-pagination-dump/1", id, current, count,

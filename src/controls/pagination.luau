@@ -150,6 +150,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		error(`Facet {where}: \`direction\` is ltr | rtl.`, 0)
 	end
 	vocabulary.assertSize("UI.Pagination", spec.controlSize)
+	-- the window narrows to the room it is OFFERED; a hugging box has none of its own
+	local function offerable(d: any): boolean
+		return d == nil or (type(d) == "table" and d.type ~= "hug" and d.type ~= "content")
+	end
+	if not offerable(selection.read(spec.width)) then
+		error(`Facet {where}: \`width\` is fill, fixed or another offered width — never hug or content.`, 0)
+	end
 	local sibling = spec.siblingCount or 1
 	local boundary = spec.boundaryCount or 1
 	local showFirstLast = spec.showFirstLast == true
@@ -181,6 +188,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end, "is a boolean")
 	end
 	local hasNextIn, hasPreviousIn = flag("hasNext"), flag("hasPrevious")
+	local width = legal("width", spec.width, offerable, "is never hug or content")
 	local enabled = ownedFormula(owner, function(use)
 		return selection.read(spec.enabled, use) ~= false
 	end)
@@ -358,14 +366,17 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		next = if direction == "rtl" then "chevron.leading" else "chevron.trailing",
 		last = if direction == "rtl" then "chevron.first" else "chevron.last",
 	}
+	-- the target floor is layout width, so neighbouring hit bands never overlap
+	local TARGET = { type = "minMax", min = "targetSizes.minimum" }
 	local NAMES = { first = "First page", previous = "Previous page", next = "Next page", last = "Last page" }
 	local buttonLib = require("./button")
 
 	--[[ FOCUS RECOVERY. A focused page that leaves the window (an external page or
-		count change) hands focus to the graph's nearest survivor, which may be
-		outside this row. The row that leaves notes it; the next geometry sync puts
-		focus on the current page, else the next or previous arrow — once they are
-		in the order, which is the refresh after the one that removed the page. ]]
+		count change), or a focused arrow that disables at an edge, hands focus to
+		the graph's nearest survivor, which may be outside this row. The row notes
+		it; the next geometry sync puts focus on the current page, else the next or
+		previous arrow — once they are in the order, which is the refresh after the
+		one that removed the page. ]]
 	local graph: any = nil
 	local rootPath: string? = nil
 	local paths: { [string]: string } = {}
@@ -386,6 +397,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end,
 		}
 	end
+	-- the focused arrow whose target is gone (Next on the last page)
+	local function deadArrow(focused: any): boolean
+		for kind in ICONS do
+			if paths[kind] ~= nil and paths[kind] == focused and targetOf(kind) == nil then
+				return true
+			end
+		end
+		return false
+	end
+	owner.watchStatic(state, function()
+		if graph ~= nil and deadArrow(graph.focused:peek()) then
+			recover = 3
+		end
+	end)
 	local function row(entry: any): any
 		if entry.kind == "label" then
 			return UI.Text({
@@ -405,6 +430,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				id = `Page-{page}`,
 				onAppear = tracked.onAppear,
 				label = tostring(page),
+				width = TARGET,
 				controlSize = spec.controlSize,
 				selected = Compose.formula(function(use)
 					return use(state).current == page
@@ -422,6 +448,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			onAppear = tracked.onAppear,
 			icon = ICONS[kind],
 			name = NAMES[kind],
+			width = TARGET,
 			controlSize = spec.controlSize,
 			enabled = Compose.formula(function(use)
 				use(state)
@@ -436,7 +463,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local root = UI.ScrollView({
 		id = id,
 		axis = "x",
-		width = spec.width or UI.fill(),
+		width = if spec.width ~= nil then width else UI.fill(),
 		height = UI.hug(),
 		enabled = enabled,
 		children = {
@@ -474,6 +501,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				local inside = type(focused) == "string"
 					and string.sub(focused, 1, #node.path + 1) == node.path .. "/"
 					and rectOf(focused) ~= nil
+					and not deadArrow(focused)
 				local current = state:peek().current
 				if inside then
 					recover = 0
