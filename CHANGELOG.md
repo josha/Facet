@@ -60,6 +60,27 @@ detail and every behaviour or path change.
 - Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
 - Badge semantic art retains one caption-sized host, with room for multi-character fallback glyphs. Managed pictures on the four explicit readable partner roles follow that lettering, including selected menu/picker content; unrelated package icon tint remains unchanged.
 
+### Pickers
+
+- **ColorPicker saved colours.** `onSaveSwatch(color)` ends the Swatches tab with
+  a "+" cell that proposes the current colour (never one already listed);
+  `onRemoveSwatch(item)` adds an Edit/Done toggle whose editing mode proposes a
+  swatch's removal on activate or Delete/Backspace/pad remove. The caller owns
+  the list and its persistence.
+- **ColorPicker paint.** An exact two-layer plane (no banding), a rainbow hue
+  strip and a colour-over-checker alpha strip (`UI.Slider.trackContent`, new),
+  two-tone opaque thumbs, square cells for a short swatch list, a hue per column
+  at any column count, Apply as the accent, the brick name above its grid.
+- **DateTimePicker.** The calendar anchors to the field (below, start-aligned),
+  its icon sits inside the field, a single date shows one month, the range band
+  is one pill with content-coloured ends, in-month days are strong, the header is
+  plain words, the draft footer is a Reset all link with Cancel and an accent
+  Apply, and the panel hugs its weeks. A TextInput with an error or held
+  `invalid` wears the danger border.
+- **ViewThatFits** picks the first candidate that fits without being cut (the
+  undercut that kept a cut row is gone); a stack offers it only the room its
+  siblings' gaps leave, so measure and arrange choose the same candidate.
+
 ### Changes
 
 - **Snackbar dismiss words match Dialog and Popover.** A false you write on

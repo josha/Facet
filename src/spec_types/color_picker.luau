@@ -23,6 +23,9 @@ export type Spec = {
 	-- "spectrum" | "sliders" | "brick" (default the first three); refused at build
 	modes: { string }?,
 	swatches: blueprint.Bound<{ Swatch }>?, -- absent = a generated standard grid
+	-- saved colours: the caller adds to / drops from the `swatches` it owns (Facet keeps none)
+	onSaveSwatch: ((color: Color) -> ())?, -- the Swatches tab ends with a "+" cell
+	onRemoveSwatch: ((item: { color: Color, label: string?, key: string }) -> ())?, -- adds Edit/Done
 	style: ("automatic" | "inline")?, -- construction-only; automatic = a well opening the panel
 	draft: boolean?, -- Apply/Cancel; only Apply commits
 	isPresented: blueprint.Bound<boolean>?, -- optional: the well owns its open state

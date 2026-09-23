@@ -104,12 +104,37 @@ return {
 				)
 			)
 		end
-		local team = {
+		-- the team palette is a saved list the page keeps: "+" adds the current
+		-- colour and Edit removes one (Facet holds none of it)
+		local team = Compose.cell({
 			{ color = Color3.fromRGB(255, 196, 0), label = "Gold" },
 			{ color = Color3.fromRGB(20, 20, 24), label = "Carbon" },
 			{ color = Color3.fromRGB(240, 240, 240), label = "Chalk" },
 			{ color = Color3.fromRGB(0, 170, 140), label = "Teal" },
-		}
+		} :: { any })
+		local function saveTeam(c: any)
+			local list = table.clone(team:peek())
+			table.insert(list, c)
+			team:set(list)
+		end
+		local function removeTeam(item: any)
+			local list = {}
+			for _, entry in team:peek() do
+				-- the picker's key: the label, else the hex
+				local key = if type(entry) == "table" and entry.label ~= nil
+					then entry.label
+					else string.format(
+						"#%02X%02X%02X",
+						math.floor(entry.R * 255 + 0.5),
+						math.floor(entry.G * 255 + 0.5),
+						math.floor(entry.B * 255 + 0.5)
+					)
+				if key ~= item.key then
+					table.insert(list, entry)
+				end
+			end
+			team:set(list)
+		end
 
 		local function section(): any
 			return UI.VStack("Pickers")({
@@ -156,6 +181,8 @@ return {
 						onChange = accept(trim),
 						onCommit = record,
 						swatches = team,
+						onSaveSwatch = saveTeam,
+						onRemoveSwatch = removeTeam,
 					}),
 				}),
 				UI.ColorPicker("Livery")({

@@ -45,6 +45,7 @@ local themeSnapshot = require("../themes/snapshot")
 local vocabulary = require("./control_vocabulary")
 local fieldChrome = require("./field_chrome")
 local labelControl = require("./label")
+local rowKeys = require("./row_actions")
 local colorValue = require("./color_value")
 
 type Hsv = colorValue.Hsv
@@ -74,6 +75,8 @@ local KEYS = guard.keySet({
 	"onCommit",
 	"onDismiss",
 	"onPresentedChange",
+	"onRemoveSwatch",
+	"onSaveSwatch",
 	"placeholder",
 	"readOnly",
 	"requiredMark",
@@ -179,7 +182,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	if not (isColor(valueNow) or (valueNow == nil and allowEmpty)) then
 		refuse("`value` is a Color3 (or a bound one); nil only with `allowEmpty = true`.")
 	end
-	for _, key in { "onChange", "onCommit", "onAlphaChange", "onPresentedChange", "onDismiss" } do
+	for _, key in
+		{ "onChange", "onCommit", "onAlphaChange", "onPresentedChange", "onDismiss", "onSaveSwatch", "onRemoveSwatch" }
+	do
 		if (spec :: any)[key] ~= nil and type((spec :: any)[key]) ~= "function" then
 			refuse(`\`{key}\` is a function.`)
 		end
@@ -273,6 +278,17 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end)
 	-- the swatch grid's column count, set from the width its technique is given
 	local columns = Compose.cell(MAX_COLUMNS)
+	--[[ SAVED COLOURS. Facet keeps none: `onSaveSwatch(color)` asks the caller to
+		add one to the `swatches` it owns, and `onRemoveSwatch(item)` to drop one.
+		The Swatches tab then ends with a "+" cell and, for removal, an Edit/Done
+		toggle in the Chip's edit-mode pattern: while editing, activating a swatch
+		(or Delete/Backspace, or the pad's remove binding, on it) proposes removal,
+		with no second stop per swatch and the ring handed to its neighbour. ]]
+	local saving = spec.onSaveSwatch ~= nil
+	local removing = spec.onRemoveSwatch ~= nil
+	local editing = Compose.cell(false)
+	local pendingIndex: number? = nil
+	local SAVE_KEY = "\0save"
 	local swatchList = ownedFormula(owner, function(use)
 		if spec.swatches == nil then
 			-- one hue per column at any width, so every column stays a hue family
@@ -569,6 +585,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local stickWatch: (() -> ())? = nil
 	local motionClock: any = nil
 	local boundController: any = nil
+	local boundGraph: any = nil
 	local dragStart: Hsv? = nil
 	local dragging = Compose.cell(false)
 
@@ -969,6 +986,65 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end, hueStrip)
 	end
 
+	-- the "+" cell: proposes the current colour, once — a colour already in the
+	-- list (by its key) is not proposed again
+	local function saveCell(): any
+		local fresh = Compose.formula(function(use)
+			local v = use(value)
+			if v == nil or use(editing) then
+				return false
+			end
+			for _, item in use(swatchList) do
+				if colorValue.same(item.color, v) or item.key == colorValue.hex(v) then
+					return false
+				end
+			end
+			return true
+		end)
+		return UI.Button({
+			id = "Cell",
+			label = "Save colour",
+			surface = "plain",
+			padding = "xs",
+			enabled = Compose.formula(function(use)
+				return use(interactive) and use(fresh)
+			end),
+			width = { type = "fixed", px = "targetSizes.minimum" },
+			height = { type = "fixed", px = "targetSizes.minimum" },
+			onActivate = function()
+				local v = value:peek()
+				if v ~= nil and fresh:peek() then
+					(spec.onSaveSwatch :: any)(v)
+				end
+			end,
+			children = {
+				UI.stroke(
+					UI.corners(
+						UI.ZStack({
+							id = "Plus",
+							width = UI.fill(),
+							height = UI.fill(),
+							alignH = "center",
+							alignV = "center",
+							children = { labelControl.icon(UI, "plus", { id = "Mark", size = "iconSizes.small" }) },
+						}),
+						"control"
+					),
+					{}
+				),
+			},
+		})
+	end
+
+	-- asks the caller to drop `item`; the ring goes to the cell that takes its place
+	local function removeSwatch(item: colorValue.Swatch)
+		if not mayEdit() then
+			return
+		end
+		pendingIndex = table.find(swatchPaths, focusedPath:peek() :: any);
+		(spec.onRemoveSwatch :: any)({ color = item.color, label = item.label, key = item.key })
+	end
+
 	-- one grid of colour cells, one 2-D focus group
 	local function gridView(gridId: string, items: any): any
 		local lanes = Compose.formula(function(use)
@@ -994,13 +1070,21 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						return item.key
 					end,
 					row = function(item: colorValue.Swatch): any
+						if item.key == SAVE_KEY then
+							return saveCell()
+						end
 						local chosen = Compose.formula(function(use)
 							local v = use(value)
 							return v ~= nil and colorValue.same(v, item.color)
 						end)
+						local named = item.label or colorValue.hex(item.color)
 						return UI.Button({
 							id = "Cell",
-							label = item.label or colorValue.hex(item.color),
+							label = if removing and gridId == "Swatches"
+								then Compose.formula(function(use)
+									return if use(editing) then `Remove {named}` else named
+								end)
+								else named,
 							surface = "plain",
 							padding = "xs",
 							selected = chosen,
@@ -1008,6 +1092,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 							width = { type = "fixed", px = "targetSizes.minimum" },
 							height = { type = "fixed", px = "targetSizes.minimum" },
 							onActivate = function()
+								if removing and gridId == "Swatches" and editing:peek() then
+									removeSwatch(item)
+									return
+								end
 								local next = colorValue.hsvOf(item.color, canon:peek())
 								if propose(next) then
 									commit()
@@ -1242,7 +1330,36 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		local views: { [string]: () -> any } = {
 			swatches = function()
-				return gridView("Swatches", swatchList)
+				local items = if saving
+					then Compose.formula(function(use)
+						local list = table.clone(use(swatchList))
+						table.insert(list, { key = SAVE_KEY, color = nil :: any })
+						return list
+					end)
+					else swatchList
+				local grid = gridView("Swatches", items)
+				if not removing then
+					return grid
+				end
+				return UI.VStack({
+					id = "Saved",
+					width = UI.fill(),
+					gap = "s",
+					children = {
+						UI.Button({
+							id = "Edit",
+							label = Compose.formula(function(use)
+								return if use(editing) then "Done" else "Edit"
+							end),
+							appearance = "link",
+							enabled = interactive,
+							onActivate = function()
+								editing:set(not editing:peek())
+							end,
+						}),
+						grid,
+					},
+				})
 			end,
 			spectrum = function()
 				return UI.VStack({
@@ -1454,6 +1571,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				walk(node)
 				swatchPaths = paths
+				-- a removal's ring lands on the cell that took the removed one's place
+				local landing = pendingIndex
+				if landing ~= nil and boundGraph ~= nil then
+					pendingIndex = nil
+					local target = paths[math.min(landing, #paths)]
+					if target ~= nil then
+						boundGraph.focusOn(target)
+					end
+				end
 				local r = if planePath ~= nil then rectOf(planePath) else nil
 				planeRect:set(r)
 				-- the grid's column count follows the width the technique is given
@@ -1545,6 +1671,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				motionClock = clock
 			end,
 			bindFocusGraph = function(graph: any)
+				boundGraph = graph
 				panelOwner.watchStatic(graph.focused, function(path: any)
 					focusedPath:set(path)
 					if path ~= planePath then
@@ -1577,6 +1704,37 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				panelOwner.own(function()
 					ctx.destroy()
 				end)
+				if removing then
+					-- Delete/Backspace (the row engine's keys) on a swatch while editing
+					local keys = system.createContext({
+						name = `ColorSwatchKeys-{id}`,
+						priority = rowKeys.ROW_KEY_PRIORITY,
+						sink = true,
+					})
+					local remove = keys.createAction("SwatchRemove", "Bool")
+					for _, binding in rowKeys.ROW_KEYS.delete do
+						remove.bind(binding)
+					end
+					local function focusedItem(use: any?): any
+						local here = if use then use(focusedPath) else focusedPath:peek()
+						local index = if here ~= nil then table.find(swatchPaths, here) else nil
+						local list = if use then use(swatchList) else swatchList:peek()
+						return if index ~= nil then list[index] else nil
+					end
+					remove.onPressed(function()
+						local item = focusedItem()
+						if item ~= nil and editing:peek() then
+							removeSwatch(item)
+						end
+					end)
+					keys.setEnabled(false)
+					panelOwner.watch(function(use)
+						keys.setEnabled(use(editing) and use(interactive) and focusedItem(use) ~= nil)
+					end)
+					panelOwner.own(function()
+						keys.destroy()
+					end)
+				end
 			end,
 		})
 	end

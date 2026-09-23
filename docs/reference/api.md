@@ -9243,7 +9243,8 @@ diagnostics }`.
 A colour well that opens a panel, or the panel in place. Spec: `{ id?, value:
 Bound<Color3?>, onChange: ((color) -> ())?, onCommit: ((color) -> ())?, alpha:
 Bound<number>?, onAlphaChange: ((alpha) -> ())?, allowEmpty?, placeholder?,
-modes: { string }?, swatches: Bound<{ Color3 | { color, label? } }>?, style:
+modes: { string }?, swatches: Bound<{ Color3 | { color, label? } }>?,
+onSaveSwatch: ((color) -> ())?, onRemoveSwatch: ((item) -> ())?, style:
 ("automatic" | "inline")?, draft?, isPresented: Bound<boolean>?,
 onPresentedChange?, onDismiss: ((reason) -> ())?, enabled?, readOnly?, label?,
 requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
@@ -9292,6 +9293,16 @@ its open state unless you bind `isPresented` / `onPresentedChange` (a proposal,
 as on `UI.Popover`). `onDismiss` reports `"activate"` (Done), `"apply"`,
 `"cancel"`, `"outside"` or `"anchorLost"`. `style = "inline"` puts the panel in
 the page.
+
+**Saved colours.** Facet keeps no colours of its own: `swatches` stays yours.
+With `onSaveSwatch(color)` the Swatches tab ends with a "+" cell (named "Save
+colour", a stop in the grid walk) that proposes the current colour; a colour
+already in the list is not proposed again. With `onRemoveSwatch({ color, label?,
+key })` the tab adds an Edit/Done toggle in the Chip's edit-mode pattern: while
+editing, activating a swatch (or Delete, Backspace or the pad's remove binding
+while it holds the ring) proposes its removal, with no second stop per swatch,
+and the ring moves to the cell that takes its place. The Bricks tab has no
+favourites (its list is the engine's).
 
 `modes` are the panel's techniques, in tab order: `"swatches"` (your `swatches`,
 or a generated grid of 48), `"spectrum"` (a saturation/brightness plane and a hue

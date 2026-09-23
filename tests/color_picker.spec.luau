@@ -263,6 +263,76 @@ describe("ColorPicker: the well and its panel", function()
 		expect(w.pres.focus.focused:peek()).toBe(cells[4 + columns])
 	end)
 
+	it(
+		"saved colours: + proposes the current colour once; Edit removes by activate or Delete and hands the ring on",
+		function()
+			local cell, _, change = caller(Color3.fromRGB(10, 200, 30))
+			local list = Compose.cell({ Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255) } :: { any })
+			local saved, removed = {}, {}
+			local w = mount({
+				value = cell,
+				onChange = change,
+				swatches = list,
+				onSaveSwatch = function(c: any)
+					table.insert(saved, hex(c))
+					local next = table.clone(list:peek())
+					table.insert(next, c)
+					list:set(next)
+				end,
+				onRemoveSwatch = function(item: any)
+					table.insert(removed, item.key)
+					local next = {}
+					for _, c in list:peek() do
+						if hex(c) ~= item.key then
+							table.insert(next, c)
+						end
+					end
+					list:set(next)
+				end,
+			})
+			open(w)
+			local cells = w.record("P").dump().swatchPaths
+			local plus = cells[#cells]
+			expect(w.adapter.node(plus .. "/Plus") ~= nil).toBe(true)
+			w.adapter.tap(plus)
+			w.settle(2)
+			w.adapter.tap(w.record("P").dump().swatchPaths[4])
+			w.settle(2)
+			-- the colour is now listed, so a second press proposes nothing
+			expect(table.concat(saved, ",")).toBe("#0AC81E")
+			expect(#w.record("P").dump().swatchPaths).toBe(4)
+			-- Edit: activating a swatch proposes its removal instead of choosing it
+			w.adapter.tap(must(w, "/Saved/Edit"))
+			w.settle(2)
+			w.adapter.tap(w.record("P").dump().swatchPaths[1])
+			w.settle(2)
+			expect(table.concat(removed, ",")).toBe("#FF0000")
+			expect(hex(cell:peek())).toBe("#0AC81E")
+			-- Delete on the ringed swatch removes it and the ring lands on its successor
+			w.pres.focus.setFocusOrigin("navigation")
+			expect(w.pres.focus.focusOn(w.record("P").dump().swatchPaths[1])).toBe(true)
+			w.press("Delete")
+			w.settle(3)
+			expect(table.concat(removed, ",")).toBe("#FF0000,#0000FF")
+			expect(w.pres.focus.focused:peek()).toBe(w.record("P").dump().swatchPaths[1])
+			-- Done leaves editing: a swatch chooses again
+			w.adapter.tap(must(w, "/Saved/Edit"))
+			w.settle(2)
+			w.adapter.tap(w.record("P").dump().swatchPaths[1])
+			w.settle(2)
+			expect(#removed).toBe(2)
+		end
+	)
+
+	it("refuses a saved-colour callback that is not a function", function()
+		local cell, _, change = caller(Color3.fromRGB(0, 0, 0))
+		local ok, why = pcall(function()
+			mount({ value = cell, onChange = change, onSaveSwatch = true :: any })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(why), "onSaveSwatch", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("a short swatch list keeps square target cells, and the default grid stays a hue per column", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 196, 0))
 		local w = mount({
@@ -594,7 +664,8 @@ describe("ColorPicker: the gallery tab", function()
 		w.adapter.tap(must(w, "/Trim/Well"), { source = "pointer", x = 10, y = 10 })
 		w.settle(3)
 		local cells = w.record("Trim").dump().swatchPaths
-		expect(#cells).toBe(4)
+		-- four team colours and the saved list's "+" cell
+		expect(#cells).toBe(5)
 		w.adapter.tap(cells[4])
 		w.settle(2)
 		expect(w.adapter.node(line).props.text).toBe("Committed: #00AA8C")
