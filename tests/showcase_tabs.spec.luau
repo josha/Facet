@@ -114,6 +114,25 @@ local function make(scenario, viewport, options)
 end
 
 t.describe("Consolidated showcase", function()
+	t.it("a category page is the room under its bar: Choices' Vote row is not below the fold", function()
+		local w = make(
+			catalog,
+			{ x = 0, y = 0, w = 1542, h = 1067 },
+			{ preferredInput = "MouseKeyboard", toolbar = true }
+		)
+		w.settle(4)
+		activate(w, "Choices")
+		local page, scroll
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -13) == "/PageViewport" then
+				page = w.controller.screenRectOf(path)
+				scroll = w.controller.screenRectOf(string.sub(path, 1, -14))
+			end
+		end
+		t.expect(page ~= nil and scroll ~= nil).toBe(true)
+		t.expect(page.y + page.h <= scroll.y + scroll.h + 0.5).toBe(true)
+	end)
+
 	t.it("keeps the keyboard-focused recipe rail tail inside every nested clipping ancestor", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, {
 			preferredInput = "MouseKeyboard",
