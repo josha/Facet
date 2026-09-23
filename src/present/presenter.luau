@@ -32,12 +32,9 @@ local profile = require("../core/profile")
 -- with roomier spacing gets a proportionally roomier dismiss ring for free.
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
--- D1, the anchored-surface seam: the PURE placement decision (preferred edge,
--- safe-area flip, along-edge shift, arrow tail) and the presented surface built
--- on it. The disclosure plate below is one of the two hand-rolled precedents the
--- pure solver replaced — it asks `anchorPlacement.solve` now instead of carrying
--- its own copy of the same four rules.
-local anchorPlacement = require("../layout/anchor_placement")
+-- D1, the anchored-surface seam: the presented surface built on the PURE
+-- placement decision (`layout/anchor_placement`), which the disclosure plate in
+-- `text_disclosure` asks too instead of carrying its own copy of the rules.
 local anchoredLib = require("./anchored")
 local Compose = require("../vendor/compose/core")
 local ownedFormula = require("../core/owned_formula")
@@ -270,6 +267,9 @@ local withAnimationLib = require("./with_animation")
 -- D3b: the at-most-one queue the app-PUSHED coach mark presents through. Both are
 -- consumers of the D1 anchored seam and neither mounts a surface of its own.
 local helpPlateLib = require("./help_plate")
+-- the full-value disclosure plate — see that module's header for the seam and
+-- tests/text_disclosure_seam.spec.luau for what mechanises it
+local textDisclosureLib = require("./text_disclosure")
 local calloutQueueLib = require("./callout_queue")
 -- the surface lifecycle helpers — the shared focus-visual sync, the per-frame
 -- refresh body and the dismissal pair. See that module's header for the seam
@@ -287,7 +287,6 @@ local FOCUS_ORDER_SCHEMA = focusMap.FOCUS_ORDER_SCHEMA
 local isDisabled = focusMap.isDisabled
 local isPathPrefix = focusMap.isPathPrefix
 local entryPath = focusMap.entryPath
-local isHiddenPath = focusMap.isHiddenPath
 local filterHidden = focusMap.filterHidden
 local filterGroupsHidden = focusMap.filterGroupsHidden
 -- ...and the same splice for a DISABLED subtree, which is the same kind of fact
@@ -592,46 +591,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.topPopupCatcherPath = catchers.topPopupCatcherPath
 	self.topScrimPath = catchers.topScrimPath
 
-	--[[ ===== FULL-VALUE DISCLOSURE (the large-text round) =====================
-
-		A `UI.Text{ disclose = true }` that TRUNCATED owes the reader the whole
-		string. The screen declares the debt; the presenter pays it, here, with one
-		STATIC plate — no marquee, no travel, no per-frame work (the same round chose the
-		static form precisely so reduced-motion parity is structural rather than a
-		branch, and so the moving-label count stays zero).
-
-		PRESENTER-PRIVATE, exactly like the scrim, the popup catcher and the toast
-		layer: not in `stack`, no focus scope, no input context, no tap handler. It
-		cannot be focused or traversed because there is nothing there to focus it
-		WITH — that is what "presentation chrome" means, rather than a property the
-		layer politely observes.
-
-		AT MOST ONE, ACROSS EVERY SURFACE AND EVERY INPUT CLASS. Three engagements
-		feed it — hover dwell (pointer), focus enter (keyboard/gamepad), long-press
-		(touch) — and presenting disposes whatever was up. Two plates would be two
-		answers to "what is this label", and the second would be covering the first.
-		A plate already showing THIS label is left alone whichever engagement raised
-		it, and only that engagement takes it down; a direct pointer/touch ask
-		outranks focus, which is merely wherever focus happens to be.
-
-		THE FACTS COME FROM THE SOLVE, NEVER FROM A RE-MEASURE. `controller.textAt`
-		is the same verdict the reserved box was built from, so the plate appears
-		exactly when the engine is ellipsizing and vanishes the moment a re-solve
-		makes room — a second measurement here would be a second opinion.
-	]]
-	local DISCLOSE_ROOT = "__disclose__"
-	local DISCLOSE_PLATE = `/{DISCLOSE_ROOT}/Layer/Plate`
-	local DISCLOSE_LABEL = `{DISCLOSE_PLATE}/Full`
-	-- POINTER DWELL. A plate that appeared the instant a pointer crossed a label
-	-- would fire on every pass THROUGH a list; 0.45s is the quiet delay the plan
-	-- asks for, long enough to be a decision and short enough not to feel broken.
-	-- Focus and long-press carry their own deliberation and present immediately.
-	local DISCLOSE_DWELL = 0.45
-	local DISCLOSURE_SCHEMA = "facet-disclosure-dump/1"
-
-	local disclosurePlate: any = nil -- { scope, controller, root, owner, sourcePath, source, text }
-	local disclosureDwell: any = nil -- { owner, sourcePath, text, remaining }
-
 	--[[ the safe box a plate may occupy, in WINDOW space: the viewport less the
 		per-edge MAXIMUM of the two inset facts (the `deviceSafeContent` rule). A
 		tooltip under a notch or behind the home indicator is unreadable, and this
@@ -712,84 +671,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		presentOptsKeys = PRESENT_OPTS_KEYS,
 	})
 
-	-- the first TRUNCATED, DISCLOSED Text at or under `path`, in document order.
-	-- Engagement names a focusable (or the label itself); the debt belongs to the
-	-- Text, and a control is free to hold exactly one — a row's name cell.
-	local function disclosureTargetIn(handle: any, path: string?): (string?, string?)
-		if handle == nil or path == nil then
-			return nil, nil
-		end
-		local ctrl = handle.controller
-		if ctrl == nil or ctrl.textAt == nil then
-			return nil, nil
-		end
-		--[[ A CONTROL MAY WIDEN THE SCOPE TO ITS OWN ROW (the adaptation wave). The default is
-			"at or under the focused path", which is dead for any control whose focus
-			stop is a SIBLING of its disclosed label rather than its ancestor — a
-			Table's row `Hit` beside `Row/Cells/…`. The control answers for the paths
-			it recognises and nil for the rest; the walk below is unchanged, so the
-			hidden gate, the truncation test and the document order still decide. ]]
-		local scoped = path
-		for _, c in contributionsForPath(handle.contributions or {}, path) do
-			if c.bundle.discloseScope ~= nil then
-				local widened = c.bundle.discloseScope(path)
-				if type(widened) == "string" then
-					scoped = widened
-					break
-				end
-			end
-		end
-		local node = nodeAt(handle.root.node, scoped)
-		if node == nil then
-			return nil, nil
-		end
-		-- A HIDDEN CANDIDATE DISCLOSES NOTHING (architecture review F-1). A
-		-- losing ViewThatFits candidate keeps its mount, its rects and its
-		-- textFacts — only visibility knows it does not paint. Without this
-		-- gate, focusing a row whose RICH candidate lost raised a plate for a
-		-- string that is nowhere on screen.
-		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
-			(the reuse audit's fourth-copy finding). `focusMap.isHiddenPath` is the published answer and
-			takes the SET `hiddenRoots()` already returns, so the array this used to
-			build was a conversion nobody needed. Hoisted once rather than re-read per
-			node: the walk visits every node in the subtree. ]]
-		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
-		local foundPath: string? = nil
-		local foundText: string? = nil
-		--[[ ...AND WHETHER THE VALUE IS MARKUP (fix round 1, review finding P1b-4).
-			The plate shows the AUTHORED string, which for `rich = true` is markup —
-			so a plate that did not parse it showed a reader `<b>Lap</b> record`. The
-			flag travels beside the value for exactly that reason: they are one fact
-			about one label, and separating them is how they drift. ]]
-		local foundRich: boolean? = nil
-		local function walk(n: any)
-			if foundPath ~= nil or isHiddenPath(n.path, hiddenRoots) then
-				return
-			end
-			-- class-AGNOSTIC on purpose (the large-text gate): any node whose measured text
-			-- carries the disclose declaration owes its full value — a Text's
-			-- `text`, a Toggle's one-line `label` — the facts channel is the same.
-			-- A `reveal` node is a disclosure source too (2026-08-04): the static
-			-- plate is the auto reveal's declared full-value alternative
-			if n.props ~= nil and (n.props.disclose == true or n.props.reveal ~= nil) then
-				local facts = ctrl.textAt(n.path)
-				if facts ~= nil and facts.truncated == true then
-					foundPath = n.path
-					-- the mounted node carries the RESOLVED value, so a bound label
-					-- discloses what it is currently saying rather than a Readable
-					foundText = tostring(n.props.text ~= nil and n.props.text or n.props.label)
-					foundRich = n.props.rich == true
-					return
-				end
-			end
-			for _, child in n.children or {} do
-				walk(child)
-			end
-		end
-		walk(node)
-		return foundPath, foundText, foundRich
-	end
-
 	-- the presented surface that owns `path`, or nil. Topmost wins, exactly as the
 	-- outside-tap policy resolves it.
 	local function handleOwning(path: string?): any
@@ -805,171 +686,28 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return nil
 	end
 
-	local function disposeDisclosure()
-		if disclosurePlate == nil then
-			return
-		end
-		local plate = disclosurePlate
-		disclosurePlate = nil
-		cleanup({
-			plate.controller.dispose,
-			function()
-				plate.scope:dispose()
-			end,
-		})
-	end
-
-	local function dismissDisclosure(_reason: string)
-		disclosureDwell = nil
-		disposeDisclosure()
-	end
-
-	--[[ THE CLAMP, RE-RUNNABLE (found live 2026-08-04, RascalRally: a card
-		caption's full-value plate hung off the BOTTOM of the screen). The plate's
-		size is a solve output whose text measure can land ASYNCHRONOUSLY on the
-		live adapter: a clamp computed once at mount used the placeholder height,
-		chose "below fits", and the plate then grew past the screen edge — while
-		every headless witness measured synchronously and stayed green. The clamp
-		therefore FOLLOWS the live rects: `presentDisclosure` runs it at mount and
-		the presenter tick re-runs it while a plate is live, so a late text
-		measure, a source that moved, or a viewport change all re-place the plate
-		on the next frame. The signals no-op when nothing changed, so a settled
-		plate costs two reads per frame and zero writes. ]]
-	local function clampDisclosure()
-		local plate = disclosurePlate
-		if plate == nil then
-			return
-		end
-		local ctrl = plate.owner.controller
-		local srcRect = if ctrl.screenRectOf ~= nil
-			then ctrl.screenRectOf(plate.sourcePath)
-			else ctrl.rectOf(plate.sourcePath)
-		local plateRect = plate.controller.rectOf(DISCLOSE_PLATE)
-		if type(srcRect) ~= "table" or type(plateRect) ~= "table" then
-			return
-		end
-		--[[ THROUGH THE SHARED SOLVER (D1). This block WAS the first hand-rolled
-			copy of the anchored-placement rules: prefer below, flip above, clamp
-			into the safe box. Being a copy, it had the flip subtly wrong — it
-			flipped whenever below did not fit, including when above did not fit
-			either, which is the "worse place" `row_actions`' own ruling forbids (a
-			plate both clipped AND on the wrong side of its label). It now asks
-			`anchor_placement.solve`, which encodes both halves of that rule once. ]]
-		local placement = anchorPlacement.solve({
-			source = srcRect,
-			size = { w = plateRect.w, h = plateRect.h },
-			safe = safeBox(plate.owner.reserveAppChrome),
-			edge = "bottom",
-			-- leading-aligned on the label, which is where a reader's eye already is
-			align = "start",
-			gap = themeSnapshot.resolveNumber(metricsNow(), "xs") or 4,
-		})
-		if plate.ox:peek() ~= placement.x or plate.oy:peek() ~= placement.y then
-			plate.ox:set(placement.x)
-			plate.oy:set(placement.y)
-			plate.controller.refresh()
-		end
-	end
-
-	-- mount the plate near `sourcePath`, clamped into the safe box. Two passes by
-	-- necessity: the plate's size is a solve output, and the clamp needs it — so
-	-- it is mounted at the source's own corner, measured, then moved through the
-	-- anchor offsets (reactive, `dirty = arrange`), which is a re-solve and never
-	-- a remount — and the clamp KEEPS following the live rects after mount
-	-- (`clampDisclosure` above).
-	local function presentDisclosure(owner: any, sourcePath: string, fullText: string, source: string, rich: boolean?)
-		disposeDisclosure()
-		local ctrl = owner.controller
-		local srcRect = if ctrl.screenRectOf ~= nil then ctrl.screenRectOf(sourcePath) else ctrl.rectOf(sourcePath)
-		if type(srcRect) ~= "table" then
-			return
-		end
-		local box = safeBox(owner.reserveAppChrome)
-		local metrics = metricsNow()
-		local gap = themeSnapshot.resolveNumber(metrics, "xs") or 4
-		local sc = core.owner.createChild()
-		local ox = Compose.cell(srcRect.x)
-		local oy = Compose.cell(srcRect.y + srcRect.h + gap)
-		local root = mountComponent(function(UI)
-			return UI.Screen({
-				id = DISCLOSE_ROOT,
-				children = {
-					UI.Anchor({
-						id = "Layer",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
-						children = {
-							-- a VStack and not a Box: a Box is a LEAF, and the plate has to
-							-- hold the label it exists to show
-							UI.VStack({
-								id = "Plate",
-								anchor = "topLeft",
-								offsetX = ox,
-								offsetY = oy,
-								-- the panel treatment, so the plate is themed by the ACTIVE
-								-- ThemeSnapshot (fill, corner, stroke, contentInsets) rather
-								-- than by numbers written here
-								surface = "raised",
-								padding = "s",
-								-- HUG WITH A CEILING, not a fixed width: a short value gets a
-								-- short plate, and a long one wraps inside the safe box instead
-								-- of running off the screen edge — which is the same overflow
-								-- ladder the label it is disclosing just failed
-								width = { type = "hug", max = math.max(0, box.w - 2 * gap) },
-								children = {
-									UI.Text({
-										id = "Full",
-										text = fullText,
-										textSize = "body",
-										rich = if rich == true then true else nil,
-									}),
-								},
-							}),
-						},
-					}),
-				},
-			})
-		end)
-		sc.own(root.dispose)
-		local controller = renderer.attach(core, root, env, adapter, {
-			clock = motionClock,
-			-- window space: the anchor offsets below are the SAME coordinates
-			-- `screenRectOf` answers in, so the clamp arithmetic has one frame
-			rootPolicy = "edgeToEdge",
-		})
-		controller.initialRender()
-		if controller.setDisplayOrder ~= nil then
-			-- above its owner's content, inside its owner's band — so a plate over a
-			-- base screen never covers a modal, and a modal's own plate is above it
-			controller.setDisplayOrder(owner.displayOrder + 25)
-		end
-		disclosurePlate = {
-			scope = sc,
-			controller = controller,
-			root = root,
-			owner = owner,
-			sourcePath = sourcePath,
-			source = source,
-			text = fullText,
-			ox = ox,
-			oy = oy,
-		}
-		clampDisclosure()
-	end
-
-	--[[ FIRST ENGAGEMENT OWNS THE PLATE, AND IT IS KEYED ON THE LABEL, NOT ON THE
-		INPUT CLASS. A focused row that is also long-pressed, or hovered, is ONE
-		question with one answer, and re-presenting it as a different `source` would
-		dispose and remount an identical plate — visibly, on every refresh, because
-		the focus sync runs on all of them. So a live plate for this label is left
-		exactly as it is, and the engagement that raised it is the one entitled to
-		take it down. ]]
-	local function plateShows(sourcePath: string): boolean
-		return disclosurePlate ~= nil and disclosurePlate.sourcePath == sourcePath
-	end
+	-- ===== full-value disclosure ==============================================
+	-- The truncated-label plate, its dwell, clamp and revalidation live in
+	-- src/present/text_disclosure.luau for the 200,000-char Source WRITE cap (see
+	-- that header). It owns its plate and dwell state; everything here is lent.
+	local textDisclosure = textDisclosureLib.new({
+		core = core,
+		env = env,
+		adapter = adapter,
+		graph = graph,
+		stack = stack,
+		motionClock = motionClock,
+		mountComponent = mountComponent,
+		metricsNow = metricsNow,
+		safeBox = safeBox,
+		handleOwning = handleOwning,
+		isDisposed = function(): boolean
+			return disposed
+		end,
+	})
 
 	--[[ THE HELP PLATE (D3a), built here because this is the first point at which
-		every collaborator it reads exists: `handleOwning`, `disclosureTargetIn` (it
+		every collaborator it reads exists: `handleOwning`, `textDisclosure.targetIn` (it
 		asks the disclosure walker FIRST, so a truncated value outranks the
 		convenience) and `safeBox`. It owns no surface — it presents through
 		`self.presentAnchored`, which is the D1 seam — and it binds NO gesture: the
@@ -980,7 +718,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		presenter = self,
 		handleOwning = handleOwning,
-		discloseTargetIn = disclosureTargetIn,
+		discloseTargetIn = textDisclosure.targetIn,
 		metricsNow = metricsNow,
 		safeBox = safeBox,
 	})
@@ -995,56 +733,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- it as an arrow aimed at nothing
 		handleByPath = handleOwning,
 	})
-
-	local function syncDisclosureFocus(path: string?)
-		if disposed then
-			return
-		end
-		-- A DIRECT ENGAGEMENT OUTRANKS FOCUS. A pointer dwell or a long press is a
-		-- deliberate ask about ONE label; focus merely happens to be somewhere, and
-		-- it is re-synced on every refresh. Without this, a refresh under a live
-		-- hover plate would replace it with the focused row's plate — the reader's
-		-- answer swapped out from under them by a frame of housekeeping.
-		if disclosurePlate ~= nil and disclosurePlate.source ~= "focus" then
-			return
-		end
-		local owner = handleOwning(path)
-		-- containment (architecture review F-11): a surface that declared no
-		-- disclosure anywhere skips the tree walk entirely — the stamp is
-		-- conservative (structural regions keep it true), so this can never
-		-- silently disable the feature
-		if owner ~= nil and owner.hasDisclose ~= true then
-			owner = nil
-		end
-		-- ...AND A POINTER-DRIVEN FOCUS MOVE IS NOT A FOCUS ENGAGEMENT (device round 3,
-		-- the same term the ring reads). Tapping a row moves focus there; the
-		-- finger asked to press the row, not to read its name, and a plate popping
-		-- up under every tap is the tooltip-on-click behaviour nobody wants. The
-		-- pointer's own engagement is the hover dwell, which has its own seam.
-		if graph.focusVisible:peek() == false then
-			owner = nil
-		end
-		-- ...AND THE SURFACE MUST OWN INPUT (rounds 4/6). A passive HUD has focus
-		-- IDENTITY from the moment it mounts; it has the keyboard only once it
-		-- engages, and a plate presented off a focus the player never moved is the
-		-- same lie as a focus ring on a surface the keyboard is not reaching.
-		if owner ~= nil and owner.isPassive and owner.responder:peek() ~= "engaged" then
-			owner = nil
-		end
-		local targetPath, fullText, fullRich = disclosureTargetIn(owner, path)
-		if targetPath == nil then
-			-- focus left every disclosed label, so the plate it raised goes with it
-			-- (the guard above already returned for a pointer/touch one)
-			if disclosurePlate ~= nil then
-				dismissDisclosure("focusLeave")
-			end
-			return
-		end
-		if plateShows(targetPath :: string) then
-			return -- already answered for this label; a refresh must not restart it
-		end
-		presentDisclosure(owner, targetPath :: string, fullText :: string, "focus", fullRich)
-	end
 
 	--[[ THE FOCUS ROUTE INTO `help` (D3a), gated exactly as the plate's is above
 		and for the same three reasons — which is also, without a single device
@@ -1075,45 +763,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		helpPlate.focus(path)
 	end
 
-	--[[ ENGAGEMENT SEAMS (adapter-driven; constitution §2 "a leading underscore
-		means engine-adapter seam"). Pointer hover and touch long-press are engine
-		facts — MouseEnter/MouseLeave and the gesture arbiter's `longPress` — and
-		the presenter is engine-free, so the client hands them over here rather than
-		this module reaching for either. Focus needs no seam: the presenter owns the
-		focus graph and reads it directly (above).
-
-		`nil` means DISENGAGED (the pointer left everything / the press released).
-		Both are idempotent: a hover that re-reports the same node neither restarts
-		the dwell nor re-mounts the plate. ]]
-	local function discloseHoverEngage(path: string?)
-		local owner = handleOwning(path)
-		local targetPath, fullText, fullRich = disclosureTargetIn(owner, path)
-		if targetPath == nil then
-			disclosureDwell = nil
-			if disclosurePlate ~= nil and disclosurePlate.source == "pointer" then
-				dismissDisclosure("pointerLeave")
-			end
-			return
-		end
-		if plateShows(targetPath :: string) then
-			return -- already answered for this label, by this or another engagement
-		end
-		if disclosureDwell ~= nil and disclosureDwell.sourcePath == targetPath then
-			return -- the dwell is already counting on this label
-		end
-		-- moving to a DIFFERENT label retires the old answer immediately; the new
-		-- one has to earn its dwell
-		if disclosurePlate ~= nil and disclosurePlate.source == "pointer" then
-			dismissDisclosure("pointerMove")
-		end
-		disclosureDwell = {
-			owner = owner,
-			sourcePath = targetPath,
-			text = fullText,
-			remaining = DISCLOSE_DWELL,
-		}
-	end
-
 	--[[ ONE POINTER-ENGAGEMENT SEAM, TWO CONSUMERS (D3a). The renderer wires a
 		hover zone on any node declaring `disclose`, `reveal` or `help`, and hands
 		every one of them here. The full-value plate answers first, because a value
@@ -1124,85 +773,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		The help plate takes NOTHING from `_discloseLongPress` below: `help` binds
 		no gesture on any input class, exactly as Apple's does not. ]]
 	function self._discloseHover(path: string?)
-		discloseHoverEngage(path)
+		textDisclosure.hover(path)
 		helpPlate.hover(path)
 	end
 
-	function self._discloseLongPress(path: string?)
-		local owner = handleOwning(path)
-		--[[ THE MENU OWNS THE LONG PRESS INSIDE ITS OWN TRIGGER, and only there
-			(navigation-and-menus D2). The plate keeps the gesture everywhere else,
-			because it is the ONLY touch route to a truncated label's full value:
-			`UI.Text{ reveal = "auto" }` is opt-in, `UI.Text`-only, at most one per
-			presentation and disabled entirely under reduced motion, and a disclosing
-			`Toggle` label or `Table` cell has no marquee even in principle. Deleting
-			the binding would therefore have been an accessibility regression that
-			`text_audit` structurally cannot see — it checks the DECLARATION, never
-			the reachability. So this is a carve-out, not a removal. ]]
-		if owner ~= nil and owner.contextTriggerOwns ~= nil and owner.contextTriggerOwns(path) then
-			return
-		end
-		local targetPath, fullText, fullRich = disclosureTargetIn(owner, path)
-		if targetPath == nil then
-			if disclosurePlate ~= nil and disclosurePlate.source == "touch" then
-				dismissDisclosure("release")
-			end
-			return
-		end
-		if plateShows(targetPath :: string) then
-			return -- already answered for this label, by this or another engagement
-		end
-		-- the long press IS the deliberation: no dwell on top of it
-		disclosureDwell = nil
-		presentDisclosure(owner, targetPath :: string, fullText :: string, "touch", fullRich)
-	end
+	self._discloseLongPress = textDisclosure.longPress
 
-	--[[ the plate outlives neither its source node nor its surface. Called from
-		`refresh` and from `dismiss`.
-
-		TWO conditions, not three. "The source node unmounted" needs no walk of its
-		own: `refresh` re-solves before this runs, so a node a `UI.When` closed over
-		has no entry in the solve's text facts at all — the same read that answers
-		"a re-solve made room for it" answers "it is gone", and it is a map lookup
-		rather than a tree walk on every refresh. What the STACK check adds is
-		different in kind: it keeps a dismissed surface's DISPOSED controller from
-		being read at all. ]]
-	local function revalidateDisclosure()
-		if disclosureDwell ~= nil and table.find(stack, disclosureDwell.owner) == nil then
-			disclosureDwell = nil
-		end
-		if disclosurePlate == nil then
-			return
-		end
-		local plate = disclosurePlate
-		if table.find(stack, plate.owner) == nil then
-			dismissDisclosure("surfaceDismissed")
-			return
-		end
-		local facts = plate.owner.controller.textAt ~= nil and plate.owner.controller.textAt(plate.sourcePath)
-		if facts == nil or facts.truncated ~= true then
-			dismissDisclosure("goneOrNoLongerTruncated")
-		end
-	end
-
-	--[[ disclosure() -> the live plate, in the shipped `dump()` shape
-		(constitution §6): frozen, deterministic, and safe when nothing is up. It is
-		the inspection surface for "is the full value reachable right now", which is
-		otherwise only observable as pixels. ]]
-	function self.disclosure(): any
-		if disclosurePlate == nil then
-			return table.freeze({ schema = DISCLOSURE_SCHEMA, present = false })
-		end
-		return table.freeze({
-			schema = DISCLOSURE_SCHEMA,
-			present = true,
-			path = DISCLOSE_PLATE,
-			labelPath = DISCLOSE_LABEL,
-			sourcePath = disclosurePlate.sourcePath,
-			source = disclosurePlate.source,
-			text = disclosurePlate.text,
-		})
-	end
+	self.disclosure = textDisclosure.dump
 
 	--[[ THE HELP PLATE'S OWN STATE (D3a, schema `facet-help-dump/1`): what is
 		showing, which control asked, which engagement raised it, and how many help
@@ -1235,7 +812,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		env = env,
 		adapter = adapter,
 		stack = stack,
-		plateShows = plateShows,
+		plateShows = textDisclosure.shows,
 		mountComponent = mountComponent,
 	})
 	local stepReveal = textReveal.stepReveal
@@ -1281,8 +858,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		anchoredSurfaces = anchoredSurfaces,
 		helpPlate = helpPlate,
 		calloutQueue = calloutQueue,
-		revalidateDisclosure = revalidateDisclosure,
-		syncDisclosureFocus = syncDisclosureFocus,
+		revalidateDisclosure = textDisclosure.revalidate,
+		syncDisclosureFocus = textDisclosure.focus,
 		syncHelpFocus = syncHelpFocus,
 		syncTextReveal = syncTextReveal,
 		retireRevealFor = textReveal.retireRevealFor,
@@ -1654,7 +1231,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- tap, including one on the disclosed label itself: the plate answers
 				-- "what does this say", and a player who has moved on to pressing
 				-- something has stopped asking.
-				dismissDisclosure("tap")
+				textDisclosure.dismiss("tap")
 				-- ...and the help plate with it (D3a): a player who has moved on to
 				-- pressing something has stopped asking what it does
 				helpPlate.dismiss("tap")
@@ -3882,34 +3459,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		lastTick = t
 		motionClock:step(step)
-		-- POINTER DWELL (the large-text round). Guarded, so a presentation with nothing engaged
-		-- does no per-frame work at all — the plan's own bound on this feature, and
-		-- the reason the disclosure is static rather than a per-label reveal.
-		if disclosureDwell ~= nil then
-			local d = disclosureDwell
-			d.remaining -= math.max(step :: number, 0)
-			if d.remaining <= 0 then
-				disclosureDwell = nil
-				-- RE-ASK AT EXPIRY, never present the hover-time snapshot
-				-- (architecture review F-2): the label may have stopped
-				-- truncating (a re-solve made room) or changed its bound value
-				-- while the dwell counted — the plate must answer for the label
-				-- as it IS, or not at all. The facts come from the live solve,
-				-- which is the same rule the seams and refresh already follow.
-				local targetPath, fullText, fullRich = disclosureTargetIn(d.owner, d.sourcePath)
-				if targetPath ~= nil and fullText ~= nil then
-					presentDisclosure(d.owner, targetPath, fullText, "pointer", fullRich)
-				end
-			end
-		end
+		textDisclosure.stepDwell(math.max(step :: number, 0))
 		-- ...and the HELP dwell rides the same tick (D3a), guarded the same way: a
 		-- presentation with nothing hovered does no per-frame work at all
 		helpPlate.tick(math.max(step :: number, 0))
 		-- a LIVE plate keeps its clamp (found live 2026-08-04: an async text
 		-- measure grew the plate past the screen edge after the one-shot clamp)
-		if disclosurePlate ~= nil then
-			clampDisclosure()
-		end
+		textDisclosure.clamp()
 		-- ...and an ANCHORED surface keeps its placement for the same reason (D1):
 		-- its own size is a solve output whose text measure can land after mount, so
 		-- a surface placed once at mount would be placed from the placeholder
@@ -4011,7 +3567,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			function()
 				helpPlate.dismiss("manual")
 			end,
-			disposeDisclosure,
+			textDisclosure.disposePlate,
 			function()
 				dragProxyHide(nil)
 			end,

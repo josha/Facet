@@ -239,6 +239,8 @@ require("./src_tree.spec")
 	directions, no module-level mutable state, and the rule this document's other
 	seams did not need: that `displayLayer` stays ONE record with two writers ]]
 require("./surface_lifecycle_seam.spec")
+-- ...and `present/text_disclosure.luau`, the full-value plate that left it next
+require("./text_disclosure_seam.spec")
 require("./fine_grained_reactivity.spec")
 --[[ the reactive core's RECOVERY half (release-candidate review RR-1..RR-11):
 	whether a memo that failed, an effect that disposed itself, or a settle

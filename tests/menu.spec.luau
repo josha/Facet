@@ -1345,9 +1345,12 @@ describe("D2: long-press ownership, settled in code", function()
 			-- `render/env_wiring.luau` is not a fourth construct either: it is the
 			-- renderer's own disclosure-engagement carry, which left `renderer.luau`
 			-- on 2026-09-20 to put that file back under the engine's Source cap. The
-			-- code is unchanged and the two files are one consumer.
+			-- code is unchanged and the two files are one consumer. The same holds for
+			-- `present/text_disclosure.luau`: the plate itself, which left the
+			-- presenter for the same cap; the presenter keeps only the seam binding.
 			"src/client/screen_target.luau src/controls/menu.luau src/controls/split_button.luau "
 				.. "src/input/contribution.luau src/input/touch_gestures.luau src/present/presenter.luau "
+				.. "src/present/text_disclosure.luau "
 				.. "src/render/env_wiring.luau src/render/renderer.luau src/render/target_contract.luau"
 		)
 	end)

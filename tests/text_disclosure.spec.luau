@@ -584,3 +584,76 @@ describe("fresh-review closures: the plate answers for the label as it IS", func
 		expect(pres.disclosure().present).toBe(false)
 	end)
 end)
+
+describe("the extracted plate: one plate per presenter, released exactly once", function()
+	-- counts every disclosure root this adapter creates and destroys, so a plate
+	-- whose controller was never released (or released twice) shows as a number
+	local function rootLedger(adapter: any): any
+		local ledger = { created = 0, destroyed = 0 }
+		local create, destroy = adapter.createRoot, adapter.destroyRoot
+		adapter.createRoot = function(id: string): any
+			if id == "__disclose__" then
+				ledger.created += 1
+			end
+			return create(id)
+		end
+		adapter.destroyRoot = function(handle: any)
+			if handle.id == "__disclose__" then
+				ledger.destroyed += 1
+			end
+			destroy(handle)
+		end
+		return ledger
+	end
+
+	it("two presenters hold independent plates; dismissing one leaves the other painted", function()
+		local _, _, adapterA, systemA, presA = makeWorld()
+		local _, _, adapterB, systemB, presB = makeWorld()
+		local ledgerA, ledgerB = rootLedger(adapterA), rootLedger(adapterB)
+		local other = "Maximilianusssssssssssssssssss"
+		local surfaceA = presA.present(roster({ row("RowA", LONG_NAME) }), NO_FOCUS)
+		presB.present(roster({ row("RowB", other) }), NO_FOCUS)
+		local contextsA, contextsB = systemA.contextCount(), systemB.contextCount()
+		local focusA, focusB = presA.focus.focused:peek(), presB.focus.focused:peek()
+		Compose.inspect.start()
+		local ok, err = pcall(function()
+			local mountsBefore = Compose.inspect.snapshot().outstandingMounts
+			presA._discloseLongPress("/Roster/RowA/Name")
+			presB._discloseLongPress("/Roster/RowB/Name")
+			-- each presenter answers for its own label, on its own adapter
+			expect(presA.disclosure().sourcePath).toBe("/Roster/RowA/Name")
+			expect(presB.disclosure().sourcePath).toBe("/Roster/RowB/Name")
+			expect(adapterA.node(PLATE_LABEL).props.text).toBe(LONG_NAME)
+			expect(adapterB.node(PLATE_LABEL).props.text).toBe(other)
+			local rectA = adapterA.node(PLATE).rect
+			expect(rectA.w > 0 and rectA.x >= 0 and rectA.x + rectA.w <= 390).toBe(true)
+			-- chrome, not a surface: no input context and no focus move on either side
+			expect(systemA.contextCount()).toBe(contextsA)
+			expect(systemB.contextCount()).toBe(contextsB)
+			expect(presA.focus.focused:peek()).toBe(focusA)
+			expect(presB.focus.focused:peek()).toBe(focusB)
+			expect(Compose.inspect.snapshot().outstandingMounts).toBe(mountsBefore + 2)
+			-- A's surface leaves: A's plate goes on revalidation, B's stays painted
+			presA.dismiss(surfaceA)
+			presA.refresh()
+			expect(presA.disclosure().present).toBe(false)
+			expect(adapterA.node(PLATE_LABEL)).toBeNil()
+			expect(presB.disclosure().text).toBe(other)
+			expect(adapterB.node(PLATE_LABEL).props.text).toBe(other)
+			expect(`A={ledgerA.created}/{ledgerA.destroyed} B={ledgerB.created}/{ledgerB.destroyed}`).toBe(
+				"A=1/1 B=1/0"
+			)
+			-- A's plate AND A's surface released their mounts; B's two remain
+			expect(Compose.inspect.snapshot().outstandingMounts).toBe(mountsBefore)
+			-- disposing B releases its plate once; a second dispose releases nothing
+			presB.dispose()
+			presB.dispose()
+			expect(`A={ledgerA.created}/{ledgerA.destroyed} B={ledgerB.created}/{ledgerB.destroyed}`).toBe(
+				"A=1/1 B=1/1"
+			)
+			expect(Compose.inspect.snapshot().outstandingMounts).toBe(mountsBefore - 2)
+		end)
+		Compose.inspect.stop()
+		assert(ok, err)
+	end)
+end)
