@@ -306,6 +306,30 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		})
 	end
 
+	-- a teardown this control did not drive (the surface was dismissed from
+	-- outside) is still a closure: report it once, propose false. Both routes.
+	local function watchTeardown(state: any, handle: any)
+		if handle == nil or handle.scope == nil then
+			return
+		end
+		handle.scope.own(function()
+			if live ~= state then
+				return
+			end
+			live = nil
+			local reason = closingReason
+			closingReason = nil
+			if wanted:peek() then
+				-- not a close the caller accepted: propose it, report cancel
+				propose(false, "cancel")
+				closingReason = nil
+				report("cancel")
+			else
+				report(reason or "cancel")
+			end
+		end)
+	end
+
 	local function openRoute(which: string, identity: any)
 		generation += 1
 		local mine = generation
@@ -324,7 +348,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			}, function(reason: string): boolean
 				return propose(false, if reason == "outside" then "outside" else "cancel")
 			end)
-			state.sheet.present(Facet.presenter)
+			watchTeardown(state, state.sheet.present(Facet.presenter))
 			return
 		end
 		local anchor: any = {
@@ -348,26 +372,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			anchor = anchor,
 			transition = { enter = "materialize", plate = "fades", scale = 1.015 },
 		})
-		-- a teardown this control did not drive (the surface was dismissed from
-		-- outside) is still a closure: report it once, propose false
-		if state.handle ~= nil and state.handle.scope ~= nil then
-			state.handle.scope.own(function()
-				if live ~= state then
-					return
-				end
-				live = nil
-				local reason = closingReason
-				closingReason = nil
-				if wanted:peek() then
-					-- not a close the caller accepted: propose it, report cancel
-					propose(false, "cancel")
-					closingReason = nil
-					report("cancel")
-				else
-					report(reason or "cancel")
-				end
-			end)
-		end
+		watchTeardown(state, state.handle)
 	end
 
 	local function sync()

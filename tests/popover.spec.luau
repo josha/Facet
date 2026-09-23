@@ -452,6 +452,31 @@ describe("Popover: the compact sheet and the live route switch", function()
 		expect(w2.record("Tip").dump().route).toBe("popover")
 	end)
 
+	it("a sheet dismissed by something the popover did not drive still proposes and reports", function()
+		local open, log, change = caller()
+		open:set(true)
+		local w = mount(function(UI)
+			return {
+				isPresented = open,
+				onPresentedChange = change,
+				onDismiss = function(reason: string)
+					table.insert(log.dismissed, reason)
+				end,
+				source = { rect = { x = 10, y = 10, w = 40, h = 40 } },
+				content = function()
+					return content(UI)
+				end,
+			}
+		end, { w = 390, h = 700, classes = TOUCH })
+		expect(w.record("Tip").dump().route).toBe("sheet")
+		expect(w.pres.back()).toBe(true)
+		w.settle(3)
+		expect(w.record("Tip").dump().presented).toBe(false)
+		expect(log.changes).toEqual({ false })
+		expect(log.dismissed).toEqual({ "cancel" })
+		expect(open:peek()).toBe(false)
+	end)
+
 	it("the sheet's Close asks first: refused keeps it, accepted closes with cancel", function()
 		for _, accept in { false, true } do
 			local open, log, change = caller(accept)
