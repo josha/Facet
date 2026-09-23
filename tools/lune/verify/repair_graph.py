@@ -486,6 +486,13 @@ CASE_ID_REPAIRS = [
         "a floating menu's rows now reserve the target floor (44, not compact 36) so stacked "
         "rows' hit rects never overlap; the heights are out of the title",
     ),
+    (
+        "display_controls::B-DSP3: PopupButton adapts its presentation::"
+        "a menu sits just below the trigger with compact rows",
+        "display_controls::B-DSP3: PopupButton adapts its presentation::"
+        "a menu sits just below the trigger with rows at the target floor",
+        "a floating menu's rows now reserve the target floor (44, not compact 36)",
+    ),
 ]
 
 

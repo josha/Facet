@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-23T18:09:26Z",
+ "maintainedAt": "2026-09-23T18:54:11Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -18576,7 +18576,7 @@
      "display_controls::B-DSP3: PopupButton rows meet the enforced target floor::the trigger and every open row report a hit rect at or above the floor",
      "display_controls::B-DSP3: PopupButton adapts its presentation::the pure rule prefers a sheet on touch, inline when short, menu otherwise",
      "display_controls::B-DSP3: PopupButton adapts its presentation::a sheet anchors to the bottom edge with visually larger rows",
-     "display_controls::B-DSP3: PopupButton adapts its presentation::a menu sits just below the trigger with compact rows",
+     "display_controls::B-DSP3: PopupButton adapts its presentation::a menu sits just below the trigger with rows at the target floor",
      "display_controls::B-DSP3: PopupButton adapts its presentation::an inline list takes the CONTROL surface, not a floating-panel one",
      "display_controls::B-DSP3: PopupButton adapts its presentation::automatic resolves from LIVE facts, and re-resolves when they change",
      "display_controls::B-DSP3: PopupButton adapts its presentation::a LIVE touch class flips it to a sheet with no rebuild of the trigger",

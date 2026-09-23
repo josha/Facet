@@ -432,9 +432,13 @@ describe("native primary-content paint bridge", function()
 							do
 								table.insert(tags, tag)
 							end
-							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(
-								resolved(model, "TextButton", tags, guiState, "TextColor3")
-							)
+							-- ...except that a lifted label sits on the control's ART, so the
+							-- accent partner it takes is the one paired with that art
+							local want = resolved(model, "TextButton", tags, guiState, "TextColor3")
+							if want == "$OnAccent" then
+								want = "$OnAccentChrome"
+							end
+							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(want)
 							if guiState == "NonInteractable" then
 								expect(resolvedLift(model, tags, guiState, "TextTransparency")).toEqual(
 									resolved(model, "TextButton", tags, guiState, "TextTransparency")
