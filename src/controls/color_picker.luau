@@ -688,16 +688,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						children = {
 							UI.stroke(
 								UI.corners(UI.Box({ id = "Inner", width = UI.fill(), height = UI.fill() }), 999),
-								{ thickness = "hairline", color = "#000000" }
+								{ thickness = "hairline", color = "#000000", transparency = 0 }
 							),
 						},
 					}),
 					999
 				),
-				{ thickness = 3, color = "#ffffff" }
+				{ thickness = 3, color = "#ffffff", transparency = 0 }
 			),
 		}
-		return UI.stroke(UI.corners(UI.ZStack(props), 999), { thickness = "hairline", color = "#000000" })
+		return UI.stroke(
+			UI.corners(UI.ZStack(props), 999),
+			{ thickness = "hairline", color = "#000000", transparency = 0 }
+		)
 	end
 
 	local function planeView(): any

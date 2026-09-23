@@ -810,30 +810,54 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		})
 	end
 
+	-- a header menu: the month's (or year's) plain words and a chevron, as a
+	-- calendar header reads, opening a menu of every choice
 	local function menu(menuId: string, options: any, get: (CivilDate) -> number, set: (number) -> ()): any
-		local cell = Compose.cell(get(viewMonth:peek()))
-		follow(viewMonth, function(m: CivilDate)
-			if cell:peek() ~= get(m) then
-				cell:set(get(m))
+		local items: { any } = {}
+		for _, option in options do
+			table.insert(items, {
+				id = tostring(option.value),
+				label = option.label,
+				onSelect = function()
+					set(option.value)
+				end,
+			})
+		end
+		local words_ = Compose.formula(function(use)
+			local now = get(use(viewMonth))
+			for _, option in options do
+				if option.value == now then
+					return option.label
+				end
 			end
+			return tostring(now)
 		end)
-		local built = require("./picker").build(Facet, core, {
+		local record = require("./menu").build(Facet, core, {
 			id = menuId,
-			options = options,
-			selected = cell,
-			style = "menu",
-			-- plain words and a chevron, as a calendar header reads: no chip plate
-			appearance = "utility",
-			enabled = interactive,
+			trigger = UI.Button({
+				id = menuId,
+				label = words_,
+				surface = "plain",
+				enabled = interactive,
+				children = {
+					UI.HStack({
+						id = "Row",
+						gap = "xs",
+						align = "center",
+						children = {
+							UI.Text({ id = "Words", text = words_, lineLimit = 1 }),
+							labelControl.icon(UI, "chevron.down", { id = "Chevron", size = "iconSizes.small" }),
+						},
+					}),
+				},
+			}),
+			items = items,
 			env = spec.env,
-			onChange = function(v: any)
-				set(v)
-			end,
 		})
 		Compose.cleanup(function()
-			built.dispose()
+			record.dispose()
 		end)
-		return built.blueprint
+		return record.blueprint
 	end
 
 	local function header(): any

@@ -687,6 +687,7 @@ describe("ColorPicker: alpha, empty, disabled and refusals", function()
 			return stroke.color.r + stroke.color.g + stroke.color.b
 		end
 		expect(`{level(ring.props.stroke)} {level(band.props.stroke)}`).toBe("0 3")
+		expect(`{ring.props.stroke.transparency} {band.props.stroke.transparency}`).toBe("0 0")
 		expect(find(w, "/Hue/TrackHost/Groove/Thumb/Ring/Band") ~= nil).toBe(true)
 		expect(find(w, "/Opacity/TrackHost/Groove/Thumb/Ring/Band") ~= nil).toBe(true)
 	end)
