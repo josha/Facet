@@ -24,12 +24,14 @@ local transientScopes = {}
 
 function transientScopes.bind(handle: any, graph: any, contributions: { any }, rootNode: () -> any)
 	local pushed: { [string]: any } = {} -- path -> the bundle that pushed its trap
+	local stack: { string } = {} -- push order: released top first, so no trap restores into a dead one
 	local function name(path: string): string
 		return `__transient__{path}`
 	end
 	local function release(path: string)
 		graph.removeScope(name(path)) -- a top trap restores focus to its trigger
 		pushed[path] = nil
+		table.remove(stack, table.find(stack, path) :: number)
 	end
 
 	function handle.pruneTransientScopes()
@@ -40,8 +42,9 @@ function transientScopes.bind(handle: any, graph: any, contributions: { any }, r
 		for _, c in contributions do
 			live[c.path] = c.bundle
 		end
-		for path, bundle in pushed do
-			if live[path] ~= bundle then
+		for i = #stack, 1, -1 do
+			local path = stack[i]
+			if live[path] ~= pushed[path] then
 				release(path)
 			end
 		end
@@ -66,6 +69,7 @@ function transientScopes.bind(handle: any, graph: any, contributions: { any }, r
 						-- order[1]
 						graph.pushScope({ name = name(c.path), trap = true, order = order, traversalRank = rank })
 						pushed[c.path] = c.bundle
+						table.insert(stack, c.path)
 					else
 						-- rows may churn while open: keep the trap order current
 						graph.setOrder(name(c.path), order, rank)
@@ -79,8 +83,8 @@ function transientScopes.bind(handle: any, graph: any, contributions: { any }, r
 
 	-- dismissing a screen with an OPEN popup must not orphan its trap scope
 	function handle.clearTransientScopes()
-		for path in pushed do
-			release(path)
+		for i = #stack, 1, -1 do
+			release(stack[i])
 		end
 	end
 end
