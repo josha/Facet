@@ -1,6 +1,6 @@
 --!strict
 --[[ ColorPicker — a colour well that opens a panel, or the panel inline (phase5
-	P5a, D7 as amended by the phase5 design recheck §B/§E.2 and the F1 ruling).
+	P5a, D7).
 
 	CONTROLLED. `value` (a Color3, or nil with `allowEmpty`) and `alpha` (0..1,
 	optional) are the caller's. Every accepted change proposes `onChange(color)` /
@@ -123,6 +123,11 @@ local function normalizeSwatches(list: any, where: string): ({ colorValue.Swatch
 		local color, label = item, nil
 		if type(item) == "table" and not isColor(item) then
 			color, label = item.color, item.label
+			for key in item do
+				if key ~= "color" and key ~= "label" then
+					return nil, `item {i} has an unknown key '{tostring(key)}' (it is \{ color, label? })`
+				end
+			end
 		end
 		if not isColor(color) or (label ~= nil and type(label) ~= "string") then
 			return nil, `item {i} is a Color3 or \{ color = Color3, label = string? }`
@@ -534,6 +539,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local planePath: string? = nil
 	local swatchPaths: { string } = {}
 	local columns = Compose.cell(MAX_COLUMNS)
+	-- the most an anchored panel may be tall: the room beside its well (set on sync)
+	local roomPx = Compose.cell(math.huge)
+	local wellPath: string? = nil
+	local wellController: any = nil
 	local stick = { x = 0, y = 0 }
 	local stickTimer: any = nil
 	local stickWatch: (() -> ())? = nil
@@ -1042,11 +1051,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	local function segmented(segId: string, options: { any }, cell: any): any
-		local built = require("./picker").build(Facet, core, {
+		-- the Picker's own space rule: a strip too crowded for a compact screen is
+		-- a menu there, never a row of truncated segments
+		local pickerLib = require("./picker")
+		local longest = 0
+		for _, option in options do
+			longest = math.max(longest, #option.label)
+		end
+		local sizeClass = if env ~= nil then env:get("sizeClass"):peek() else nil
+		local fits = pickerLib.resolvePresentation(#options, sizeClass, longest) == "segmented"
+		local built = pickerLib.build(Facet, core, {
 			id = segId,
 			options = options,
 			selected = cell,
-			style = "segmented",
+			style = if fits then "segmented" else "menu",
 			env = spec.env,
 		})
 		Compose.cleanup(function()
@@ -1102,9 +1120,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end,
 			brick = brickView,
 		}
+		local techniques: { any } = {}
 		for _, mode in modes do
 			table.insert(
-				children,
+				techniques,
 				UI.When({
 					id = `Show{MODE_LABEL[mode]}`,
 					condition = Compose.formula(function(use)
@@ -1114,6 +1133,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				})
 			)
 		end
+		-- an anchored panel fits the room beside its well: the technique scrolls
+		-- when it must, and everything around it stays put
+		table.insert(
+			children,
+			if overlay
+				then UI.ScrollView({
+					id = "Body",
+					axis = "y",
+					width = UI.fill(),
+					shrinkWeight = 1,
+					children = { UI.VStack({ id = "Technique", width = UI.fill(), children = techniques }) },
+				})
+				else UI.VStack({ id = "Technique", width = UI.fill(), children = techniques })
+		)
 		if hasAlpha then
 			local cell = Compose.cell(alpha:peek() * 100)
 			follow(alpha, function(a: number)
@@ -1225,7 +1258,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				return { type = "fixed", px = math.max(cell, math.min(want, room)) }
 			end)
 			else UI.fill()
-		local panel = UI.VStack({ id = "Panel", width = panelWidth, gap = "m", children = children })
+		local panel = UI.VStack({
+			id = "Panel",
+			width = panelWidth,
+			height = if overlay
+				then Compose.formula(function(use)
+					local room = use(roomPx)
+					return if room == math.huge then { type = "hug" } else { type = "hug", max = room }
+				end)
+				else nil,
+			gap = "m",
+			children = children,
+		})
 		local panelOwner = Compose.currentOwner() or owner
 		local detectorPath: string? = nil
 		local detach: (() -> ())? = nil
@@ -1256,8 +1300,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				swatchPaths = paths
 				local r = if planePath ~= nil then rectOf(planePath) else nil
 				planeRect:set(r)
-				-- the grid's column count follows the panel's own solved width
-				local own = rectOf(node.path)
+				-- the grid's column count follows the width the technique is given
+				-- (the scrolling body's, less the bar it takes)
+				local bodyPath = `{node.path}/Body`
+				local own = rectOf(if overlay then bodyPath else node.path)
+				local bar = if overlay
+						and boundController ~= nil
+						and boundController.scrollBarInsetOf ~= nil
+					then boundController.scrollBarInsetOf(bodyPath)
+					else nil
+				if own ~= nil and type(bar) == "table" then
+					own = { w = own.w - (tonumber(bar.right) or 0) }
+				end
 				if own ~= nil and env ~= nil then
 					local metrics = env:get("themeMetrics"):peek() or themeSnapshot.neutral()
 					local cell = themeSnapshot.resolveNumber(metrics, "targetSizes.minimum") or 44
@@ -1266,6 +1320,40 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					if fit ~= columns:peek() then
 						columns:set(fit)
 					end
+				end
+				-- the anchored panel's room: the larger space above or below the well,
+				-- less the anchor's gap and the popover's own chrome around its body
+				local popBody = string.match(node.path, "^(.*)/[^/]+$")
+				local popPanel = if popBody ~= nil then string.match(popBody, "^(.*)/[^/]+$") else nil
+				local outer = if popPanel ~= nil then rectOf(popPanel) else nil
+				local inner = if popBody ~= nil then rectOf(popBody) else nil
+				local well = if wellController ~= nil and wellPath ~= nil
+					then wellController.screenRectOf(wellPath)
+					else nil
+				local view = if env ~= nil then env:get("viewportRect"):peek() else nil
+				local room = math.huge
+				if
+					overlay
+					and popoverApi ~= nil
+					and popoverApi.route:peek() == "popover"
+					and outer
+					and inner
+					and well
+					and view
+				then
+					local insets = env:get("coreSafeInsets"):peek() or {}
+					local metrics = env:get("themeMetrics"):peek() or themeSnapshot.neutral()
+					local gap = themeSnapshot.resolveNumber(metrics, "s") or 8
+					local top = view.y + (tonumber(insets.top) or 0)
+					local bottom = view.y + view.h - (tonumber(insets.bottom) or 0)
+					local beside = math.max(well.y - top, bottom - (well.y + well.h)) - gap
+					room = math.max(
+						2 * (themeSnapshot.resolveNumber(metrics, "targetSizes.minimum") or 44),
+						beside - (outer.h - inner.h)
+					)
+				end
+				if room ~= roomPx:peek() then
+					roomPx:set(room)
 				end
 				-- the native detector drives the same begin/move/end, once per plane node;
 				-- a plane that left (another tab) detaches, so its return re-attaches
@@ -1469,6 +1557,27 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if root == pop.blueprint then
 			root = UI.VStack({ id = id, width = if labelled then UI.fill() else nil, children = { pop.blueprint } })
 		end
+		-- where the well is on screen, read live by the panel for its room
+		root = contribution.attach(root, {
+			bindController = function(controller: any)
+				wellController = controller
+			end,
+			syncGeometry = function(_rectOf: any, node: any?)
+				local function find(n: any): string?
+					if n.id == "Well" and n.class == "Button" then
+						return n.path
+					end
+					for _, child in n.children or {} do
+						local hit = find(child)
+						if hit ~= nil then
+							return hit
+						end
+					end
+					return nil
+				end
+				wellPath = if node ~= nil then find(node) else nil
+			end,
+		})
 	end
 
 	local function dump()

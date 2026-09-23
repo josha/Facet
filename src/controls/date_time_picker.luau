@@ -1,6 +1,6 @@
 --!strict
 --[[ DateTimePicker — a date field that opens a calendar, or the calendar inline
-	(phase5 P5b, D7 as amended by the phase5 design recheck §C/§E.4).
+	(phase5 P5b, D7).
 
 	CIVIL VALUES, CONTROLLED. `value` is the caller's `{ year, month, day }` (with
 	`hour`/`minute` when `time = true`), or with `selection = "range"` the caller's

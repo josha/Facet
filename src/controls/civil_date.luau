@@ -1,6 +1,6 @@
 --!strict
 --[[ CIVIL DATES — the calendar model UI.DateTimePicker holds its values in
-	(phase5 P5b, D7 as amended by the phase5 design recheck §C/§E.4). Public as
+	(phase5 P5b, D7). Public as
 	`Facet.civilDate`.
 
 	A CIVIL DATE IS A WALL-CLOCK FACT, NEVER AN INSTANT: `{ year, month, day }`,

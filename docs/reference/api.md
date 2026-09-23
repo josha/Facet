@@ -9142,7 +9142,10 @@ the page.
 `modes` are the panel's techniques, in tab order: `"swatches"` (your `swatches`,
 or a generated grid of 48), `"spectrum"` (a saturation/brightness plane and a hue
 slider), `"sliders"` (hue, saturation and brightness) and `"brick"` (the
-engine's 128 BrickColors with their names). The default is the first three.
+engine's 128 BrickColors with their names). The default is the first three;
+their tabs are a menu on a compact screen when they would not fit as a strip.
+The anchored panel fits the larger room above or below the well, scrolling the
+technique when it must, so it never covers the well.
 Every tab keeps a preview and an RGB / HSV / Hex readout whose fields commit
 typed values; switching the readout never changes the colour, and a grey keeps
 the hue the player set. Hex accepts `#RGB`, `#RRGGBB` and, with `alpha`,

@@ -565,7 +565,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 					id = "Size",
 					label = sizeLabel,
 					disclose = true,
-					enabled = #detents > 1,
+					-- one size has nothing to choose: its box stays, unpainted and no stop
+					hidden = #detents <= 1,
 					width = if over then nil else UI.fill(),
 					height = { type = "minMax", min = "targetSizes.minimum" },
 					onActivate = function()

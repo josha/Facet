@@ -30,14 +30,23 @@ runtime as `Facet.VERSION`.
   days focusable and inert, typed entry where a keyboard or pointer is live,
   time fields with a touch time list, ranges with clipped presets and an
   Apply/Cancel draft — or the calendar inline. Today comes from an injected
-  clock; `civilDate.fromUnix/toUnix` take an explicit offset.
+  clock (default: the player's local clock); `civilDate.fromUnix/toUnix` take
+  an explicit offset. The day grid is one Tab stop; the arrows walk days across
+  months, and paging stops at a month wholly outside the bounds.
 
 - **`UI.ColorPicker`.** A colour well over the caller's Color3 that opens an
   anchored panel (a hug sheet on compact touch, a centred sheet at ten feet), or
   the panel inline: swatches, a spectrum plane with a hue slider, HSV sliders
   and the engine BrickColors, an RGB/HSV/Hex readout on every tab, optional
-  opacity, and an Apply/Cancel draft. Canonical HSV keeps a grey's hue; Cancel
-  restores the open-time colour; the plane takes the right stick on a pad.
+  opacity, and an Apply/Cancel draft. Canonical HSV keeps a grey's hue; the
+  plane takes (and sinks) the right stick on a pad; an anchored panel fits the
+  room beside its well and scrolls its technique.
+
+- **One commit model for both pickers.** Without `draft`, every change commits
+  as it happens and every way of closing keeps it; with `draft = true` nothing
+  commits until Apply (typed text included) and every other close restores.
+
+- **A single-size Sheet hides its Size control** (it had nothing to choose).
 
 - **Icons in Snackbar, Notice, Vote and StepIndicator** take Button's icon
   path (theme art, `facet:` names, the unknown-name warning), so a semantic

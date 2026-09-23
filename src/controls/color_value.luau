@@ -1,10 +1,10 @@
 --!strict
 --[[ THE COLOUR VALUE POLICY UI.ColorPicker keeps beside the caller's Color3
-	(phase5 P5a, D7 + design recheck §B.9).
+	(phase5 P5a, D7).
 
 	CANONICAL IS HSV FLOATS (0..1 each) + alpha. The engine's own `Color3.fromHSV`
 	/ `ToHSV` convert; what the engine cannot keep is the hue of a grey — `ToHSV`
-	on black or any grey answers hue 0 (measured, evidence/phase5/probes.md) — so
+	on black or any grey answers hue 0 (measured in Studio) — so
 	`hsvOf` takes the previous canonical value and keeps its hue at s = 0 or v = 0
 	(and its saturation at v = 0). Text is FORMATTED from canonical and never read
 	back except on an explicit commit, so switching readouts cannot walk a colour.

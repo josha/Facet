@@ -57,7 +57,7 @@ end
 	`Color3` is a caller's value, not a paint path, so a headless mount of a colour
 	control must be born like the engine: Lune's own `@lune/roblox` Color3 (the same
 	`fromRGB`/`fromHSV`/`ToHSV`/`R,G,B`), and a BrickColor whose `palette` takes the
-	engine's 0..127 index (Lune's is 1-based; measured, evidence/phase5/probes.md).
+	engine's 0..127 index (Lune's is 1-based; measured in Studio).
 	Nothing reads these globals at load except `tokens/chrome_props`, whose engine
 	branch also needs `ColorSequence`, which stays absent. ]]
 function gui_value_shim.installColor()

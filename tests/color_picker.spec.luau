@@ -217,6 +217,22 @@ describe("ColorPicker: the well and its panel", function()
 		expect(painted(w, "/Readout/Head/Preview/Plate")).toBe("#FF0000")
 	end)
 
+	it("a tall technique fits the room beside the well: the panel scrolls and never covers it", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = mount(
+			{ value = cell, onChange = change, modes = { "swatches", "brick" } },
+			{ viewport = { x = 0, y = 0, w = 900, h = 700 } }
+		)
+		open(w)
+		w.adapter.tap(must(w, "/Modes/Indicator/Options/Opt2"))
+		w.settle(3)
+		local well = w.adapter.node(must(w, "/P/Well")).rect
+		local surface = w.adapter.node(must(w, "/Popover-P/Layer/Surface")).rect
+		expect(surface.y + surface.h <= 700).toBe(true)
+		expect(surface.y >= well.y + well.h).toBe(true)
+		expect(find(w, "/BrickGrid") ~= nil).toBe(true)
+	end)
+
 	it("an accepted swatch commits once, marks the cell, and the swatch grid walks in two dimensions", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
 		local commits = {}
@@ -351,6 +367,42 @@ describe("ColorPicker: the well and its panel", function()
 			w.settle(3)
 			expect(w.record("P").dump().route).toBe("sheet")
 			expect(find(w, "/Actions/Done") ~= nil).toBe(true)
+			-- one size: no inert Size control
+			expect(w.adapter.visibleOf(must(w, "/Header/Size"))).toBe(false)
+			-- a slow vertical drag on the plane moves brightness, never the sheet
+			w.adapter.tap(must(w, "/Modes/Indicator/Options/Opt2"))
+			w.settle(3)
+			local sheetPanel = must(w, "/Popover-P/Layer/Panel")
+			local top = w.adapter.node(sheetPanel).rect.y
+			local surface = must(w, "/Plane/Surface")
+			local r = w.adapter.node(surface).rect
+			local v0 = w.record("P").dump().hsv.v
+			w.adapter.pointerDown(surface, r.x + r.w / 2, r.y + r.h * 0.2, "touch")
+			for step = 1, 10 do
+				w.adapter.pointerMove(r.x + r.w / 2, r.y + r.h * (0.2 + step * 0.05))
+				w.settle(1)
+			end
+			w.adapter.pointerUp(r.x + r.w / 2, r.y + r.h * 0.7)
+			w.settle(2)
+			expect(w.record("P").dump().hsv.v < v0 - 20).toBe(true)
+			expect(w.adapter.node(sheetPanel).rect.y).toBe(top)
+			-- the hug sheet re-measures above the on-screen keyboard
+			w.env:set("keyboardOcclusionRect", { x = 0, y = 500, w = 390, h = 344 })
+			w.settle(3)
+			local lifted = w.adapter.node(sheetPanel).rect
+			expect(lifted.y + lifted.h <= 500 + 0.5).toBe(true)
+			w.env:set("keyboardOcclusionRect", nil)
+			w.settle(3)
+			-- three techniques stay a strip; four on a phone are a menu, never cut words
+			expect(find(w, "/Modes/Indicator/Options/Opt3") ~= nil).toBe(true)
+			local four = mount(
+				{ value = cell, onChange = change, modes = { "swatches", "spectrum", "sliders", "brick" } },
+				{ capabilities = TOUCH, preferredInput = "Touch", viewport = { x = 0, y = 0, w = 390, h = 844 } }
+			)
+			four.adapter.tap(must(four, "/P/Well"))
+			four.settle(3)
+			expect(find(four, "/Modes") ~= nil).toBe(true)
+			expect(find(four, "/Modes/Indicator/Options/Opt1")).toBeNil()
 			local tv = mount(
 				{ value = cell, onChange = change, modes = { "spectrum", "swatches" } },
 				{ capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" }
@@ -587,6 +639,14 @@ describe("ColorPicker: alpha, empty, disabled and refusals", function()
 		expect(string.find(build({ value = red, onChange = noop, swatches = { red, red } }), "repeats", 1, true) ~= nil).toBe(
 			true
 		)
+		expect(
+			string.find(
+				build({ value = red, onChange = noop, swatches = { { color = red, lable = "Red" } } }),
+				"lable",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
 		expect(
 			string.find(
 				build({ value = red, onChange = noop, style = "inline", isPresented = true }),
