@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-21T00:50:00Z",
+ "maintainedAt": "2026-09-23T07:32:29Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -21931,7 +21931,7 @@
      "adaptive_defaults::ADAPT-1: a control that cannot get its facts refuses, naming the host::...and a DECLARED presentation consults no ladder, so it never refuses",
      "adaptive_defaults::ADAPT-1: the client host is what makes this free on a real surface::dispose releases the environment the host registered",
      "adaptive_defaults::ADAPT-1: the client host is what makes this free on a real surface::a hosted screen's controls adapt with zero authoring",
-     "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are eleven today",
+     "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are twelve today",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::a control that refuses in either shape is discovered by the scan itself",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::each discovered control's own section names the refusal and the environment",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::removing a control's section from api.md is reported",

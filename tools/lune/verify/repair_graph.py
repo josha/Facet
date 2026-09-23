@@ -404,6 +404,11 @@ SERIALIZED = {
 #   Each entry is (old id, new id, who renamed it). ]]
 CASE_ID_REPAIRS = [
     (
+        'adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are eleven today',
+        'adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are twelve today',
+        "P4b added UI.Dialog to the refusing controls; the census case was retitled eleven -> twelve.",
+    ),
+    (
         'text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::a gap made of a NEWLINE still counts as one, so embedded newlines are unchanged',
         'text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::hard breaks reserve distinct lines, including trailing and empty lines',
         "Multiline text preserves hard breaks and trailing empty lines. The replacement case "
