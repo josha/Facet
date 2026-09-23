@@ -109,11 +109,13 @@ describe("StepIndicator: the row", function()
 		steps[2].state = "error"
 		local w = mount({ steps = steps, current = "ship" })
 		local ship = find(w, "/Step-ship") :: string
-		expect(w.adapter.node(ship .. "/Cue/Mark").props.image).toBe("status.error")
-		expect(w.adapter.visibleOf(ship .. "/Cue/Mark") ~= false).toBe(true)
+		expect(w.adapter.node(ship .. "/Cue/Error").decorationHint.icon).toBe("status.error")
+		expect(w.adapter.visibleOf(ship .. "/Cue/Error") ~= false).toBe(true)
+		expect(w.adapter.visibleOf(ship .. "/Cue/Check")).toBe(false)
 		expect(w.adapter.node(ship .. "/Copy/State").props.text).toBe("Error")
 		local cart = find(w, "/Step-cart") :: string
-		expect(w.adapter.node(cart .. "/Cue/Mark").props.image).toBe("checkmark")
+		expect(w.adapter.node(cart .. "/Cue/Check").decorationHint.icon).toBe("checkmark")
+		expect(w.adapter.visibleOf(cart .. "/Cue/Check") ~= false).toBe(true)
 		expect(w.adapter.node(cart .. "/Copy/State").props.text).toBe("Complete")
 		local pay = find(w, "/Step-pay") :: string
 		expect(w.adapter.node(pay .. "/Cue/Circle/Number").props.text).toBe("3")

@@ -143,14 +143,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					height = { type = "minMax", min = "targetSizes.minimum" },
 					alignH = "center",
 					alignV = "center",
-					children = {
-						UI.Image({
-							id = "Icon",
-							image = option.icon,
-							width = { type = "fixed", px = "iconSizes.medium" },
-							height = { type = "fixed", px = "iconSizes.medium" },
-						}),
-					},
+					children = { require("./label").icon(UI, option.icon) },
 				})
 			)
 		end

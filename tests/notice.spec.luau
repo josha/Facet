@@ -39,7 +39,7 @@ describe("Notice: inline copy, accessories and close", function()
 				}),
 			}
 		end)
-		expect(w.adapter.node(`{ROOT}/Content/Row/Icon`).props.image).toBe("status.warning")
+		expect(w.adapter.node(`{ROOT}/Content/Row/Icon`).decorationHint.icon).toBe("status.warning")
 		expect(w.adapter.node(`{ROOT}/Content/Row/Body/Copy/Title`).props.text).toBe("Connection interrupted")
 		expect(w.adapter.node(`{ROOT}/Content/Row/Body/Copy/Message`).props.text).toBe(
 			"Reconnecting to the race server."
@@ -62,7 +62,7 @@ describe("Notice: inline copy, accessories and close", function()
 		end)
 		expect(w.adapter.node(`{ROOT}/Content/Row/Icon`)).toBeNil()
 		expect(w.adapter.node(`{ROOT}/Content/Row/Body/Copy/Message`).props.text).toBe("Saved.")
-		expect(w.adapter.node("/S/Page/Other/Content/Row/Icon").props.image).toBe("flag")
+		expect(w.adapter.node("/S/Page/Other/Content/Row/Icon").decorationHint.icon).toBe("flag")
 	end)
 
 	it("the link and actions sit beside the copy when there is room and move below it when there is not", function()

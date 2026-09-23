@@ -192,15 +192,7 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 	end
 	local row: { any } = {}
 	if spec.icon ~= nil then
-		table.insert(
-			row,
-			UI.Image({
-				id = "Icon",
-				image = spec.icon,
-				width = { type = "fixed", px = "iconSizes.medium" },
-				height = { type = "fixed", px = "iconSizes.medium" },
-			})
-		)
+		table.insert(row, require("./label").icon(UI, spec.icon))
 	end
 	table.insert(
 		row,

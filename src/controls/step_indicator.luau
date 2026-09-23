@@ -219,18 +219,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			alignV = "center",
 			children = {
 				-- complete is a real check and error its own mark: never colour alone
-				UI.Image({
-					id = "Mark",
-					width = UI.fill(),
-					height = UI.fill(),
+				require("./label").icon(UI, "checkmark", {
+					id = "Check",
+					tint = { role = "accent", blend = 1 },
 					hidden = function(use)
-						return not use(marked)
+						return use(state) ~= "complete"
 					end,
-					image = function(use)
-						return if use(state) == "error" then "status.error" else "checkmark"
-					end,
-					tint = function(use)
-						return { role = if use(state) == "error" then "danger" else "accent", blend = 1 }
+				}),
+				require("./label").icon(UI, "status.error", {
+					id = "Error",
+					tint = { role = "danger", blend = 1 },
+					hidden = function(use)
+						return use(state) ~= "error"
 					end,
 				}),
 				-- current and upcoming: the step's number in an outlined circle

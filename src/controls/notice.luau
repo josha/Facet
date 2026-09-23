@@ -142,13 +142,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if spec.icon ~= false then
 			table.insert(
 				children,
-				UI.Image({
-					id = "Icon",
-					image = if type(spec.icon) == "string" then spec.icon else `status.{severity}`,
-					width = { type = "fixed", px = "iconSizes.medium" },
-					height = { type = "fixed", px = "iconSizes.medium" },
-					tint = { role = if emphasis then onRole else plateRole, blend = 1 },
-				})
+				require("./label").icon(
+					UI,
+					if type(spec.icon) == "string" then spec.icon else `status.{severity}`,
+					{ tint = { role = if emphasis then onRole else plateRole, blend = 1 } }
+				)
 			)
 		end
 		local copy: { any } = {}

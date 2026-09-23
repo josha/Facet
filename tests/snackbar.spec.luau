@@ -193,6 +193,11 @@ describe("Snackbar: the six compositions and their widths", function()
 			local snack = w.adapter.node(assert(w.find("/Snack"), "row"))
 			expect(snack ~= nil).toBe(true)
 			expect(w.find("/Snack/Row/Icon") ~= nil).toBe(case.spec.icon ~= nil)
+			if case.spec.icon ~= nil then
+				-- a semantic name takes Button's icon path, never a raw Image
+				local icon = w.adapter.node(w.find("/Snack/Row/Icon") :: string)
+				expect(icon.decorationHint.icon).toBe(case.spec.icon)
+			end
 			expect(w.find("/Snack/Row/Body/Action") ~= nil).toBe(case.spec.action ~= nil)
 			expect(w.find("/Snack/Row/Close") ~= nil).toBe(case.spec.closeButton ~= false)
 			local cap = math.min(480, 390 - 32)
