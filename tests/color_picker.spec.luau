@@ -643,6 +643,41 @@ describe("ColorPicker: alpha, empty, disabled and refusals", function()
 		expect(find(plain, "/Opacity/TrackHost/Track")).toBeNil()
 	end)
 
+	it("the plane is two exact layers, the strips show what they select, and the thumbs are two-tone rings", function()
+		local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+		local a = Compose.cell(1)
+		local w = mount({
+			value = cell,
+			onChange = change,
+			style = "inline",
+			modes = { "spectrum" },
+			alpha = a,
+			onAlphaChange = function(n: number)
+				a:set(n)
+			end,
+		})
+		-- saturation across (white -> the hue), value down (black fading in): no bands
+		local hue = w.adapter.node(must(w, "/Plane/Field/Hue")).props.gradient
+		expect(`{hue.rotation} {#hue.colors}`).toBe("0 2")
+		local fade = w.adapter.node(must(w, "/Plane/Field/Value")).props.gradient
+		expect(`{fade.rotation} {fade.transparency[1].v} -> {fade.transparency[2].v}`).toBe("90 1 -> 0")
+		expect(find(w, "/Plane/Field/Band1")).toBeNil()
+		-- the hue track is the rainbow and the alpha track the colour over a checker
+		expect(find(w, "/Hue/TrackHost/Groove/Rail/HueStrip/Legs/Leg6") ~= nil).toBe(true)
+		expect(find(w, "/Hue/TrackHost/Groove/Fill")).toBeNil()
+		expect(painted(w, "/Opacity/TrackHost/Groove/Rail/AlphaStrip/Ramp")).toBe("#2E7DFF")
+		expect(find(w, "/AlphaStrip/Checker/Top/C24") ~= nil).toBe(true)
+		-- a white band between two dark hairlines, on the plane and on both strips
+		local ring = w.adapter.node(must(w, "/Plane/Marks/Ring"))
+		local band = w.adapter.node(must(w, "/Plane/Marks/Ring/Band"))
+		local function level(stroke: any): number
+			return stroke.color.r + stroke.color.g + stroke.color.b
+		end
+		expect(`{level(ring.props.stroke)} {level(band.props.stroke)}`).toBe("0 3")
+		expect(find(w, "/Hue/TrackHost/Groove/Thumb/Ring/Band") ~= nil).toBe(true)
+		expect(find(w, "/Opacity/TrackHost/Groove/Thumb/Ring/Band") ~= nil).toBe(true)
+	end)
+
 	it("empty shows the placeholder and the crossed plate; disabled keeps its colour and does not open", function()
 		local cell, _, change = caller(nil)
 		local w = mount({ value = cell, onChange = change, allowEmpty = true, label = "Trim", placeholder = "None" })

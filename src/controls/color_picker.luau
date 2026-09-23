@@ -93,11 +93,30 @@ local FORMATS = {
 local DUMP_SCHEMA = "facet-color_picker-dump/1"
 -- the grid's widest line; a narrower panel drops columns, never shrinks a target
 local MAX_COLUMNS = 8
--- the plane's value bands: each band is exact across saturation (a white -> hue
--- ramp at its own value); a gradient's alpha ceiling rules out one black overlay
-local PLANE_BANDS = 24
--- a gradient's rotation in degrees: 0 runs left to right (the default is down)
+-- a gradient's rotation in degrees: 0 runs left to right, 90 top to bottom
 local ACROSS = 0
+local DOWN = 90
+-- the hue strip's six 60-degree legs (a gradient carries at most three stops)
+local HUE_LEGS = 6
+-- the alpha strip's checker, in cells along its length
+local CHECKER_CELLS = 24
+-- a colour strip's height under its thumb
+local STRIP_HEIGHT = 12
+
+--[[ A RAMP THAT FADES TO NOTHING. `UI.gradientData` caps a transparency stop at
+	0.9 because a gradient fades its node's whole rendering, children included; the
+	plane's value overlay and the alpha strip are childless leaves whose entire job
+	is a full fade, so the stops are set here past the authored ceiling. `from` and
+	`to` are the two ends' transparencies. ]]
+local function fadeData(UI: any, hex: string, rotation: number, from: number, to: number): any
+	local g = UI.gradientData({ colors = { hex, hex }, rotation = rotation })
+	return table.freeze({
+		colors = g.colors,
+		rotation = g.rotation,
+		enabled = g.enabled,
+		transparency = table.freeze({ table.freeze({ t = 0, v = from }), table.freeze({ t = 1, v = to }) }),
+	})
+end
 -- plane fractions per second at a full right-stick deflection
 local STICK_SPEED = 0.6
 local STICK_DEADZONE = 0.2
@@ -652,28 +671,62 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	owner.own(stopStick)
 
+	--[[ THE THUMB: a white ring between two dark hairlines, so it reads on the
+		palest and the darkest colour it can sit on. Placement comes from `place`. ]]
+	local function thumbRing(place: any): any
+		local props: any = table.clone(place)
+		props.id = "Ring"
+		props.padding = 1
+		props.children = {
+			UI.stroke(
+				UI.corners(
+					UI.ZStack({
+						id = "Band",
+						width = UI.fill(),
+						height = UI.fill(),
+						padding = 3,
+						children = {
+							UI.stroke(
+								UI.corners(UI.Box({ id = "Inner", width = UI.fill(), height = UI.fill() }), 999),
+								{ thickness = "hairline", color = "#000000" }
+							),
+						},
+					}),
+					999
+				),
+				{ thickness = 3, color = "#ffffff" }
+			),
+		}
+		return UI.stroke(UI.corners(UI.ZStack(props), 999), { thickness = "hairline", color = "#000000" })
+	end
+
 	local function planeView(): any
-		local bands: { any } = {}
-		for i = 1, PLANE_BANDS do
-			local v = 1 - (i - 1) / (PLANE_BANDS - 1)
-			table.insert(
-				bands,
+		-- TWO LAYERS, exact on both axes: white -> hue across (saturation), under
+		-- black fading in downward (value). No bands, so no banding.
+		local field = UI.ZStack({
+			id = "Field",
+			width = UI.fill(),
+			height = UI.fill(),
+			children = {
 				UI.Box({
-					id = `Band{i}`,
+					id = "Hue",
 					width = UI.fill(),
 					height = UI.fill(),
 					tint = { direct = "#ffffff" },
 					gradient = Compose.formula(function(use)
-						local hue = colorValue.toColor({ h = use(canon).h, s = 1, v = v })
-						local grey = colorValue.toColor({ h = 0, s = 0, v = v })
-						return UI.gradientData({
-							colors = { colorValue.tintHex(grey), colorValue.tintHex(hue) },
-							rotation = ACROSS,
-						})
+						local hue = colorValue.toColor({ h = use(canon).h, s = 1, v = 1 })
+						return UI.gradientData({ colors = { "#ffffff", colorValue.tintHex(hue) }, rotation = ACROSS })
 					end),
-				})
-			)
-		end
+				}),
+				UI.Box({
+					id = "Value",
+					width = UI.fill(),
+					height = UI.fill(),
+					tint = { direct = "#000000" },
+					gradient = fadeData(UI, "#000000", DOWN, 1, 0),
+				}),
+			},
+		})
 		local ring = Compose.formula(function(use)
 			return metric(use, "controls.slider.thumbSize", 20)
 		end)
@@ -703,36 +756,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				return { type = "fixed", px = target * 4 }
 			end),
 			children = {
-				UI.VStack({ id = "Field", width = UI.fill(), height = UI.fill(), gap = 0, children = bands }),
+				field,
 				UI.Anchor({
 					id = "Marks",
 					width = UI.fill(),
 					height = UI.fill(),
 					children = {
-						UI.stroke(
-							UI.corners(
-								UI.ZStack({
-									id = "Ring",
-									anchor = "topLeft",
-									offsetX = along("x"),
-									offsetY = along("y"),
-									width = ringEdge,
-									height = ringEdge,
-									hidden = empty,
-									children = {
-										UI.stroke(
-											UI.corners(
-												UI.Box({ id = "Inner", width = UI.fill(), height = UI.fill() }),
-												999
-											),
-											{ thickness = "hairline", color = "#000000" }
-										),
-									},
-								}),
-								999
-							),
-							{ thickness = "focusRing", color = "#ffffff" }
-						),
+						thumbRing({
+							anchor = "topLeft",
+							offsetX = along("x"),
+							offsetY = along("y"),
+							width = ringEdge,
+							height = ringEdge,
+							hidden = empty,
+						}),
 					},
 				}),
 				UI.Grip({
@@ -790,12 +827,88 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	-- a Slider over one canonical channel: its cell follows canonical, its moves propose
+	-- a colour strip under a slider's thumb: `layers` fill a pill-high band
+	local function strip(stripId: string, layers: { any }): any
+		return UI.ZStack({
+			id = stripId,
+			width = UI.fill(),
+			height = { type = "fixed", px = STRIP_HEIGHT },
+			children = layers,
+		})
+	end
+	local function ringThumb(): any
+		return thumbRing({
+			width = { type = "fixed", px = "controls.slider.thumbSize" },
+			height = { type = "fixed", px = "controls.slider.thumbSize" },
+		})
+	end
+	-- the hue strip: the rainbow itself, one gradient leg per 60 degrees
+	local function hueStrip(): any
+		local legs: { any } = {}
+		for i = 0, HUE_LEGS - 1 do
+			local a = colorValue.toColor({ h = i / HUE_LEGS, s = 1, v = 1 })
+			local b = colorValue.toColor({ h = (i + 1) / HUE_LEGS, s = 1, v = 1 })
+			table.insert(
+				legs,
+				UI.Box({
+					id = `Leg{i + 1}`,
+					width = UI.fill(),
+					height = UI.fill(),
+					tint = { direct = "#ffffff" },
+					gradient = UI.gradientData({
+						colors = { colorValue.tintHex(a), colorValue.tintHex(b) },
+						rotation = ACROSS,
+					}),
+				})
+			)
+		end
+		return strip(
+			"HueStrip",
+			{ UI.HStack({ id = "Legs", width = UI.fill(), height = UI.fill(), gap = 0, children = legs }) }
+		)
+	end
+	-- the alpha strip: the colour from clear to solid over a checker
+	local function alphaStrip(): any
+		local top, bottom = {}, {}
+		for i = 1, CHECKER_CELLS do
+			local odd = i % 2 == 1
+			local function cell(role: string): any
+				return UI.Box({ id = `C{i}`, width = UI.fill(), height = UI.fill(), tint = { role = role, blend = 1 } })
+			end
+			table.insert(top, cell(if odd then "surface" else "surfaceStrong"))
+			table.insert(bottom, cell(if odd then "surfaceStrong" else "surface"))
+		end
+		return strip("AlphaStrip", {
+			UI.VStack({
+				id = "Checker",
+				width = UI.fill(),
+				height = UI.fill(),
+				gap = 0,
+				children = {
+					UI.HStack({ id = "Top", width = UI.fill(), height = UI.fill(), gap = 0, children = top }),
+					UI.HStack({ id = "Bottom", width = UI.fill(), height = UI.fill(), gap = 0, children = bottom }),
+				},
+			}),
+			UI.Box({
+				id = "Ramp",
+				width = UI.fill(),
+				height = UI.fill(),
+				tint = Compose.formula(function(use)
+					local v = use(value)
+					return { direct = if v ~= nil then colorValue.tintHex(v) else "#ffffff" }
+				end),
+				gradient = fadeData(UI, "#ffffff", ACROSS, 1, 0),
+			}),
+		})
+	end
+
 	local function channelSlider(
 		sliderId: string,
 		words: string,
 		max: number,
 		get: (Hsv) -> number,
-		with: (Hsv, number) -> Hsv
+		with: (Hsv, number) -> Hsv,
+		track: (() -> any)?
 	): any
 		local cell = Compose.cell(get(canon:peek()) * max)
 		local sync = Compose.formula(function(use)
@@ -817,6 +930,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			format = function(n: number): string
 				return tostring(math.floor(n + 0.5))
 			end,
+			trackContent = track,
+			thumbContent = if track ~= nil then ringThumb else nil,
 			onChange = function(n: number)
 				if not propose(with(canon:peek(), n / max)) then
 					cell:set(get(canon:peek()) * max)
@@ -836,7 +951,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return c.h
 		end, function(c, f)
 			return { h = f, s = c.s, v = c.v }
-		end)
+		end, hueStrip)
 	end
 
 	-- one grid of colour cells, one 2-D focus group
@@ -1176,6 +1291,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				format = function(n: number): string
 					return `{math.floor(n + 0.5)}%`
 				end,
+				trackContent = alphaStrip,
+				thumbContent = ringThumb,
 				onChange = function(n: number)
 					if not proposeAlpha(n / 100) then
 						cell:set(alpha:peek() * 100)

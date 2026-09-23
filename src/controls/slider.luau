@@ -72,6 +72,7 @@ local SLIDER_KEYS = specGuard.keySet({
 	"thumb",
 	"thumbContent",
 	"thumbImage",
+	"trackContent",
 	"trackImage",
 	"value",
 })
@@ -125,6 +126,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	assertWord(id, "thumb", thumbMode, THUMB_MODES)
 	if spec.thumbContent ~= nil and type(spec.thumbContent) ~= "function" then
 		error(`Facet UI.Slider('{id}'): \`thumbContent\` must be a function(info) returning a node`, 0)
+	end
+	if spec.trackContent ~= nil and (type(spec.trackContent) ~= "function" or spec.trackImage ~= nil) then
+		error(
+			`Facet UI.Slider('{id}'): \`trackContent\` is a function() returning the track's node, and paints `
+				.. "the track instead of `trackImage`",
+			0
+		)
 	end
 	if spec.thumbContent ~= nil and spec.thumbImage ~= nil then
 		error(
@@ -620,13 +628,24 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		}
 	end
 
-	local grooveChildren: { any } = {
-		chrome_slots.attachHint(UI.Box(merge({ id = "Rail" }, along(0, FILL, railThickness))), trackOverride),
-		chrome_slots.attachHint(
-			UI.Box(merge({ id = "Fill", surface = "accent" }, along(fillLead, fillWidth, railThickness))),
-			{ slot = chrome_slots.NO_SLOT }
-		),
-	}
+	-- the caller's track (a colour ramp) replaces the rail and its fill: the strip
+	-- IS the value's scale, so a fill over it would hide what it shows
+	local grooveChildren: { any } = if spec.trackContent ~= nil
+		then {
+			UI.ZStack(merge({
+				id = "Rail",
+				alignH = "center",
+				alignV = "center",
+				children = { spec.trackContent() },
+			}, along(0, FILL, FILL))),
+		}
+		else {
+			chrome_slots.attachHint(UI.Box(merge({ id = "Rail" }, along(0, FILL, railThickness))), trackOverride),
+			chrome_slots.attachHint(
+				UI.Box(merge({ id = "Fill", surface = "accent" }, along(fillLead, fillWidth, railThickness))),
+				{ slot = chrome_slots.NO_SLOT }
+			),
+		}
 	local handleViews: { any } = {}
 	if isRange then
 		-- the handles sit above the track; whichever takes a press, `beginDrag`
@@ -964,6 +983,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			minGap = minGap,
 			thumb = thumbMode,
 			thumbContent = spec.thumbContent ~= nil,
+			trackContent = spec.trackContent ~= nil,
 			rotation = rotationNow(),
 			controlSize = read(spec.controlSize),
 			activeThumb = if isRange then activeThumb else nil,

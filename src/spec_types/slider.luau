@@ -39,6 +39,7 @@ export type Spec<V = NumberCell> = {
 	minGap: number?, -- least distance between the thumbs, in value units
 	thumb: ("always" | "auto" | "none")?, -- when the handle is painted
 	thumbContent: ((info: ThumbInfo) -> any)?, -- the caller's knob, once per thumb
+	trackContent: (() -> any)?, -- the caller's track (a colour ramp), replacing the rail and fill
 	rotation: blueprint.Bound<number>?, -- paint-only degrees about the track's centre
 	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
 	thumbImage: (string | { [string]: any })?,

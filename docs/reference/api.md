@@ -10329,7 +10329,7 @@ the control.
 A continuous or stepped value along a track, sharing the value arithmetic with
 `UI.Stepper`. Spec keys are `id`, `label`, `value`, `min`, `max`, `step`,
 `format`, `enabled`, `onChange`, `onCommit`, `tapToPosition`, `thumbImage`,
-`trackImage`, `row`, `axis`, `range`, `minGap`, `thumb`, `thumbContent`,
+`trackImage`, `row`, `axis`, `range`, `minGap`, `thumb`, `thumbContent`, `trackContent`,
 `rotation` and `controlSize`.
 
 Use a Slider when the player sets a value in a range by feel and the exact
@@ -10345,6 +10345,7 @@ once, so reduced motion changes nothing.
 | `minGap` | Construction-only number from 0 (default) to the range width: the least distance between the thumbs, in value units. |
 | `thumb` | Construction-only `"always"` (default), `"auto"` or `"none"`. Paint only: `auto` shows the handle on hover, focus and drag and always on a touch-primary surface; `none` never paints it. Targets, focus, readout and adjustment are unchanged. |
 | `thumbContent(info)` | Called once per thumb at build; returns the knob node. `info = { thumb = "value" \| "lower" \| "upper", value, fraction, dragging, enabled }`, the last four readables. The knob sits in a handle floored at the theme's thumb size that grows to fit it; it drops only its own `sliderThumb` slot, and travel is measured from what is drawn. Refused with `thumbImage`. |
+| `trackContent()` | Called once at build; returns the track's node (a colour ramp), centred in the track and replacing the rail and its accent fill — the strip is the value's scale. Refused with `trackImage`. |
 | `rotation` | Bound degrees, default 0: paint-only about the track's centre. Presses are converted by the inverse angle at event time (scroll included); label and readout stay upright and the row keeps its unrotated layout box, so reserve room for the turned paint. Ancestor `scale` is not composed into input. |
 | `controlSize` | `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
 
