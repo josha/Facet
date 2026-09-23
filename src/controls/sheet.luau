@@ -518,8 +518,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		end
 		return true
 	end)
+	-- player words, not detent ids: "hug" reads as "Fit", an id as its word
 	local sizeLabel = Compose.formula(function(use)
-		return "Size: " .. use(spec.detent)
+		local current = tostring(use(spec.detent))
+		local word = if current == "hug"
+			then "Fit"
+			else string.upper(string.sub(current, 1, 1)) .. string.sub(current, 2)
+		return "Size: " .. word
 	end)
 	local direct = Compose.formula(function(use)
 		local c = use(classes)
