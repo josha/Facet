@@ -54,11 +54,7 @@ local KEYS = guard.keySet({
 	"title",
 	"width",
 })
-local WIDTHS = {
-	automatic = "controls.alert.maxWidth",
-	narrow = "controls.popup.panelWidth",
-	wide = "controls.dialog.wideWidth",
-}
+local WIDTHS = overlayParts.WIDTHS
 local LAYOUTS = { automatic = true, row = true, stacked = true }
 local DUMP_SCHEMA = "facet-dialog-dump/1"
 

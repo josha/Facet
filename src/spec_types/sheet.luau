@@ -17,5 +17,10 @@ export type Spec<V = StringCell, P = BooleanCell> = {
 	isPresented: P?,
 	interactiveDismissDisabled: boolean?,
 	dragIndicator: ("automatic" | "visible" | "hidden")?,
+	-- construction-only; automatic: centred at ten-foot, otherwise bottom
+	placement: ("automatic" | "bottom" | "side" | "center")?,
+	edge: ("left" | "right")?, -- side only; default right
+	width: ("automatic" | "narrow" | "wide")?, -- the Dialog width presets
+	closeButton: boolean?, -- default true; independent of interactiveDismissDisabled
 }
 return nil

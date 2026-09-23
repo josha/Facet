@@ -7,6 +7,14 @@ local specGuard = require("../spec_guard")
 
 local overlay_parts = {}
 
+-- the modal panels' theme-resolved maximum widths (Dialog and Sheet), each
+-- bounded by the safe room it is offered
+overlay_parts.WIDTHS = table.freeze({
+	automatic = "controls.alert.maxWidth",
+	narrow = "controls.popup.panelWidth",
+	wide = "controls.dialog.wideWidth",
+})
+
 local MEDIA_KEYS = specGuard.keySet({ "aspectRatio", "background", "height", "image", "scaleMode" })
 local ACTION_KEYS = specGuard.keySet({ "busy", "enabled", "id", "label", "onActivate", "role" })
 local SCALE_MODES = { fit = true, crop = true, stretch = true }

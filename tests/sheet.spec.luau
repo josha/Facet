@@ -253,4 +253,123 @@ t.describe("Sheet control", function()
 		t.expect(w.adapter.node("/Sheet/Layer/Panel").rect.h).toBe(600)
 		c.dispose()
 	end)
+
+	-- ===== P4c: placement, edge, width, title getter, closeButton ==========
+	local LONG = string.rep("A long line of body copy that wraps. ", 40)
+	local function wide(extra, facts)
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1200, h = 800 }, reducedMotion = true, env = facts })
+		local spec = {
+			id = "Sheet",
+			title = "Race details",
+			detent = Compose.cell("medium"),
+			content = UI.Text({ id = "Copy", text = LONG, width = UI.fill() }),
+		}
+		for k, v in extra or {} do
+			spec[k] = v
+		end
+		local control = harness.Controls.Sheet(w.core, spec)
+		w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
+		control.present(w.pres)
+		w.settle(3)
+		return w, control
+	end
+	local function panelRect(w)
+		return w.adapter.node("/Sheet/Layer/Panel").rect
+	end
+	t.it("a function-bound title renders as its type promises", function()
+		local w, c = mount({
+			title = function()
+				return "Live title"
+			end,
+		})
+		t.expect(w.adapter.node("/Sheet/Layer/Panel/Title").props.text).toBe("Live title")
+		c.dispose()
+	end)
+	t.it("explicit placements override the distance default", function()
+		local w, c = wide({ placement = "bottom" }, { viewingDistance = "ten-foot" })
+		local r, layer = panelRect(w), w.adapter.node("/Sheet/Layer").rect
+		t.expect(r.y + r.h).toBe(layer.y + layer.h)
+		t.expect(c.dump().placement).toBe("bottom")
+		c.dispose()
+		w, c = wide({ placement = "center" })
+		r = panelRect(w)
+		t.expect(math.abs(r.y + r.h / 2 - 400) < 1).toBe(true)
+		t.expect(math.abs(r.x + r.w / 2 - 600) < 1).toBe(true)
+		c.dispose()
+	end)
+	t.it("side placement docks to its physical edge, detents stay vertical", function()
+		local w, c = wide({ placement = "side" })
+		local r = panelRect(w)
+		t.expect(r.x + r.w).toBe(1200)
+		t.expect(r.y + r.h).toBe(800)
+		t.expect(r.h).toBe(400)
+		t.expect(c.dump().placement).toBe("side")
+		t.expect(c.dump().edge).toBe("right")
+		c.dispose()
+		w, c = wide({ placement = "side", edge = "left", width = "narrow" })
+		r = panelRect(w)
+		t.expect(r.x).toBe(0)
+		t.expect(r.w).toBe(360)
+		c.dispose()
+	end)
+	t.it("width presets reuse the dialog widths, bounded by safe room", function()
+		local widths = {}
+		for _, preset in { "narrow", "automatic", "wide" } do
+			local w, c = wide({ width = preset })
+			widths[preset] = math.round(panelRect(w).w)
+			c.dispose()
+		end
+		t.expect(widths).toEqual({ narrow = 360, automatic = 560, wide = 800 })
+		local w = world.new({ viewport = { x = 0, y = 0, w = 500, h = 800 }, reducedMotion = true })
+		local c = harness.Controls.Sheet(w.core, {
+			id = "Sheet",
+			title = "T",
+			detent = Compose.cell("medium"),
+			width = "wide",
+			content = UI.Text({ text = LONG, width = UI.fill() }),
+		})
+		c.present(w.pres)
+		w.settle(3)
+		t.expect(panelRect(w).w <= 500).toBe(true)
+		c.dispose()
+	end)
+	t.it("side sheets enter and leave toward their own edge", function()
+		local _, c = wide({ placement = "side", edge = "left" })
+		t.expect(c.dump().transition).toEqual({ enter = "slide-right", exit = "slide-left" })
+		c.dispose()
+		local _, r = wide({ placement = "side" })
+		t.expect(r.dump().transition).toEqual({ enter = "slide-left", exit = "slide-right" })
+		r.dispose()
+		local _, b = wide()
+		t.expect(b.dump().transition).toEqual({ enter = "slide-up", exit = "slide-down" })
+		b.dispose()
+	end)
+	t.it("closeButton=false removes Close; Size and interactive dismissal remain", function()
+		local w, c = mount({ closeButton = false })
+		t.expect(w.adapter.node(close)).toBeNil()
+		t.expect(w.adapter.node(size) ~= nil).toBe(true)
+		w.press("ButtonB")
+		t.expect(c.dump().presented).toBe(false)
+		c.dispose()
+	end)
+	t.it("refuses malformed placement, edge, width and closeButton", function()
+		local w = world.new()
+		for _, change in
+			{
+				{ placement = "top" },
+				{ edge = "left" },
+				{ placement = "side", edge = "start" },
+				{ width = "huge" },
+				{ closeButton = "no" },
+			}
+		do
+			local spec = { title = "Details", detent = Compose.cell("medium"), content = UI.Text({ text = "Content" }) }
+			for k, v in change do
+				spec[k] = v
+			end
+			t.expect(pcall(function()
+				harness.Controls.Sheet(w.core, spec)
+			end)).toBe(false)
+		end
+	end)
 end)

@@ -7,6 +7,7 @@ local guard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
 local chromeSlots = require("../tokens/chrome_slots")
+local overlayParts = require("./overlay_parts")
 local sheet = {}
 local specTypes = require("../spec_types/sheet")
 type StringCell = specTypes.StringCell
@@ -23,7 +24,12 @@ local KEYS = guard.keySet({
 	"isPresented",
 	"interactiveDismissDisabled",
 	"dragIndicator",
+	"placement",
+	"edge",
+	"width",
+	"closeButton",
 })
+local PLACEMENTS = { automatic = true, bottom = true, side = true, center = true }
 -- `request(reason) -> boolean` is the private close-request seam: asked BEFORE
 -- the Close button, Cancel, a dismissing drag or an outside tap tears the sheet
 -- down ("close" | "cancel" | "drag" | "outside"); false keeps the surface, its
@@ -33,7 +39,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	local UI = Facet.UI
 	local id = spec.id or "Sheet"
 	assert(type(id) == "string" and id ~= "", "UI.Sheet.id must be a nonempty string")
-	assert(type(spec.title) == "string" or UI.isReadable(spec.title), "UI.Sheet.title must be text or a readable")
+	assert(
+		type(spec.title) == "string" or type(spec.title) == "function" or UI.isReadable(spec.title),
+		"UI.Sheet.title must be text, a readable or a function"
+	)
 	assert(
 		(type(spec.content) == "table" and type(spec.content.class) == "string") or type(spec.content) == "function",
 		"UI.Sheet.content must be a content builder or UI node"
@@ -59,6 +68,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		indicator == "automatic" or indicator == "visible" or indicator == "hidden",
 		"UI.Sheet.dragIndicator must be automatic | visible | hidden"
 	)
+	local placement = spec.placement or "automatic"
+	assert(PLACEMENTS[placement] == true, "UI.Sheet.placement must be automatic | bottom | side | center")
+	assert(
+		spec.edge == nil or (placement == "side" and (spec.edge == "left" or spec.edge == "right")),
+		"UI.Sheet.edge is left | right, and only with placement = side"
+	)
+	local edge = spec.edge or "right"
+	assert(
+		spec.width == nil or overlayParts.WIDTHS[spec.width] ~= nil,
+		"UI.Sheet.width must be automatic | narrow | wide"
+	)
+	assert(spec.closeButton == nil or type(spec.closeButton) == "boolean", "UI.Sheet.closeButton must be boolean")
 	local detents, byId = {}, {}
 	assert(spec.detents == nil or type(spec.detents) == "table", "UI.Sheet.detents must be an array")
 	local entries = spec.detents or { "medium", "large" }
@@ -245,18 +266,33 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		local c = use(classes)
 		return indicator ~= "hidden" and (indicator == "visible" or c.pointer or c.touch)
 	end)
+	-- automatic stays the distance default: ten-foot centred, otherwise bottom
+	local function placed(use): string
+		if placement ~= "automatic" then
+			return placement
+		end
+		return if use(distance) == "ten-foot" then "center" else "bottom"
+	end
+	local function transition()
+		if placement == "side" then
+			local toward = if edge == "left" then "slide-left" else "slide-right"
+			local from = if edge == "left" then "slide-right" else "slide-left"
+			return { enter = from, exit = toward, distance = vp:peek().w }
+		end
+		return { enter = "slide-up", exit = "slide-down", distance = vp:peek().h }
+	end
 	local function buildScreen()
 		local panel = chromeSlots.attachHint(
 			UI.ScrollView({
 				axis = "y",
 				id = "Panel",
-				width = { type = "minMax", max = "controls.alert.maxWidth" },
+				width = { type = "minMax", max = overlayParts.WIDTHS[spec.width or "automatic"] },
 				height = Compose.formula(function(use)
 					return { type = "fixed", px = use(paintedHeight) }
 				end),
-				alignH = "center",
+				alignH = if placement ~= "side" then "center" elseif edge == "left" then "start" else "end",
 				alignV = Compose.formula(function(use)
-					return if use(distance) == "ten-foot" then "center" else "end"
+					return if placed(use) == "center" then "center" else "end"
 				end),
 				surface = "raised",
 				padding = "m",
@@ -319,19 +355,21 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 									adjust(1, true)
 								end,
 							}),
-							UI.Button({
-								id = "Close",
-								disclose = true,
-								label = "Close",
-								compactLabel = { icon = "chevron.down", prefer = true },
-								width = { type = "fixed", px = "targetSizes.minimum" },
-								height = { type = "minMax", min = "targetSizes.minimum" },
-								onActivate = function()
-									if allowed("close") then
-										dismiss()
-									end
-								end,
-							}),
+							if spec.closeButton == false
+								then nil
+								else UI.Button({
+									id = "Close",
+									disclose = true,
+									label = "Close",
+									compactLabel = { icon = "chevron.down", prefer = true },
+									width = { type = "fixed", px = "targetSizes.minimum" },
+									height = { type = "minMax", min = "targetSizes.minimum" },
+									onActivate = function()
+										if allowed("close") then
+											dismiss()
+										end
+									end,
+								}) :: any,
 						},
 					}),
 					UI.VStack({
@@ -384,13 +422,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		handle = presentModal(if Facet.surfaces then buildScreen else blueprint, {
 			outsideTapCancel = not spec.interactiveDismissDisabled,
 			cancelPolicy = "none",
-			transition = {
-				enter = "slide-up",
-				exit = "slide-down",
-				distance = vp:peek().h,
-				class = "dismiss",
-				exitClass = "dismiss",
-			},
+			transition = (function()
+				local motion: any = transition()
+				motion.class = "dismiss"
+				motion.exitClass = "dismiss"
+				return motion
+			end)(),
 		})
 		local opened = handle
 		opened.scope.own(function()
@@ -432,7 +469,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			height = height:peek(),
 			presented = handle ~= nil,
 			dragging = dragging:peek(),
-			placement = if distance:peek() == "ten-foot" then "center" else "bottom",
+			placement = placed(read),
+			edge = if placement == "side" then edge else nil,
+			transition = (function()
+				local motion = transition()
+				return { enter = motion.enter, exit = motion.exit }
+			end)(),
 		}
 	end
 	return table.freeze({
