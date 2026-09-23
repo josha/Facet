@@ -626,6 +626,10 @@ describe("DateTimePicker: the gallery tab", function()
 		w.present(built.screen)
 		w.settle(3)
 		local line = must(w, "/Pickers/Committed")
+		-- an empty window says what it wants
+		local words = find(w, "/Window/Field/Words/then/Entry/Field") or must(w, "/Window/Field/Words/else/Show")
+		local shown = w.adapter.node(words).props
+		expect(shown.placeholder or shown.label).toBe("Choose a start and an end")
 		w.adapter.tap(must(w, "/Window/Field/Open"), { source = "pointer", x = 5, y = 5 })
 		w.settle(3)
 		w.adapter.tap(must(w, "/Preset-week"))

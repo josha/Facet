@@ -22,6 +22,7 @@ local COPY = {
 	raceHint = "The 13th is closed for maintenance",
 	starts = "Starts",
 	window = "Season window",
+	windowEmpty = "Choose a start and an end",
 	thisWeek = "This week",
 	thisMonth = "This month",
 	lastYear = "Last year",
@@ -129,6 +130,8 @@ return {
 					modes = { "swatches", "spectrum", "sliders", "brick" },
 				}),
 				UI.HStack("Wells")({
+					-- a full-width row, so the pair reads from the leading edge
+					width = UI.fill(),
 					gap = "m",
 					align = "center",
 					UI.Text("TrimLabel")({ text = COPY.trim }),
@@ -183,6 +186,7 @@ return {
 				}),
 				UI.DateTimePicker("Window")({
 					label = COPY.window,
+					placeholder = COPY.windowEmpty,
 					selection = "range",
 					range = window,
 					onRangeChange = accept(window),

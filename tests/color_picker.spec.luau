@@ -549,6 +549,8 @@ describe("ColorPicker: the gallery tab", function()
 		w.settle(3)
 		local line = must(w, "/Pickers/Committed")
 		expect(w.adapter.node(line).props.text).toBe("Committed: nothing yet")
+		-- the Trim row reads from the page's leading edge, like its neighbours
+		expect(w.adapter.node(must(w, "/Pickers/Wells")).rect.x).toBe(w.adapter.node(line).rect.x)
 		w.adapter.tap(must(w, "/Trim/Well"), { source = "pointer", x = 10, y = 10 })
 		w.settle(3)
 		local cells = w.record("Trim").dump().swatchPaths
