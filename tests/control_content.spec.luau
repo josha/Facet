@@ -444,6 +444,14 @@ describe("native primary-content paint bridge", function()
 							local want = resolved(model, "TextButton", tags, guiState, "TextColor3")
 							want = if want == "$ContentSecondary" and role == "cancel"
 								then "$OnCancelChrome"
+								elseif
+									string.sub(want, 1, 7) == "$Danger" and role == "destructive"
+								then "$OnDangerChrome"
+								elseif
+									want == "$OnSelected"
+									and appearance == "soft"
+									and not selected
+								then "$OnSoftChrome"
 								else LIFT_TOKEN[want] or want
 							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(want)
 							if guiState == "NonInteractable" then

@@ -1187,6 +1187,12 @@ describe("role tints paint the ART, not a slab behind it", function()
 			["Control content lift — Secondary text"] = "$OnControlChromeSecondary",
 			["Control content lift — Cancel button"] = "$OnCancelChrome",
 			["Control content lift — Destructive button"] = "$OnDangerChrome",
+			-- an appearance's fill is replaced by art its role tint reaches, so its
+			-- label is the one picked for that tinted art
+			["Control content lift — Soft emphasis control"] = "$OnSoftChrome",
+			["Control content lift — Emphasis control"] = "$OnAccentChrome",
+			["Control content lift — Destructive soft"] = "$OnDangerChrome",
+			["Control content lift — Destructive utility — hover"] = "$OnDangerChrome",
 			-- a lifted TextLabel on control art, a field's text and placeholder, a badge
 			["Chrome text — control"] = "$OnControlChrome",
 			["Chrome text — field"] = "$OnFieldChrome",
@@ -1202,6 +1208,15 @@ describe("role tints paint the ART, not a slab behind it", function()
 		expect(ruleNamed(model, "Chrome text — control").selector).toBe(".facet-skinned-control > .facet-chrome-text")
 		expect(ruleNamed(model, "Chrome text — field").selector).toBe(".facet-skinned-field > .facet-chrome-text")
 		expect(ruleNamed(model, "Chrome text — badge").selector).toBe(".facet-skinned-badge > .facet-chrome-text")
+		-- ...and the appearances reach the art as the accent surface does
+		expect(ruleNamed(model, "Chrome role — emphasis").props.ImageColor3).toBe("$ChromeTintAccent")
+		expect(ruleNamed(model, "Chrome role — soft").props.ImageColor3).toBe("$ChromeTintSelected")
+		local index: { [string]: number } = {}
+		for i, rule in model.rules do
+			index[rule.name] = i
+		end
+		-- a destructive soft button's art still reads destructive
+		expect(index["Chrome role — destructive"] > index["Chrome role — soft"]).toBe(true)
 	end)
 
 	it("a flat package emits no role tint rules (there is no art to tint)", function()

@@ -1281,6 +1281,7 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 					{ "secondary", t.OnControlChromeSecondary, plate(control, rest) },
 					{ "cancel", t.OnCancelChrome, plate(control, t.ChromeTintCancel) },
 					{ "destructive", t.OnDangerChrome, plate(control, t.ChromeTintDanger) },
+					{ "soft", t.OnSoftChrome, plate(control, t.ChromeTintSelected) },
 					{ "field", t.OnFieldChrome, plate(field, rest) },
 					{ "placeholder", t.OnFieldChromeSecondary, plate(field, rest) },
 				}
@@ -1314,7 +1315,7 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 		expect(table.concat(rows, " | ")).toBe(
 			"compact-pointer/Aqua destructive 4.55 | fantasy-ornate/Crypt badge 4.63 | "
 				.. "fantasy-ornate/Grand Hall badge 4.64 | fantasy-parchment/Candlelight cancel 4.87 | "
-				.. "fantasy-parchment/Daylight cancel 5.84 | glossy-touch/Sky placeholder 4.70 | "
+				.. "fantasy-parchment/Daylight soft 4.56 | glossy-touch/Sky placeholder 4.70 | "
 				.. "pixel-quest/Quest backed cancel 8.47"
 		)
 	end)

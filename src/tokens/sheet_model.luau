@@ -1394,10 +1394,20 @@ local function projectContentRules(rules: { Rule })
 			local value = source.props[channel[4]]
 			-- a LIFTED label sits on the control's art, never on the accent fill
 			-- $OnAccent is gated against (see `onChromeColor`)
-			if channel[1] == "lift" then
-				value = if value == "$ContentSecondary" and string.find(selector, "role-cancel", 1, true)
-					then "$OnCancelChrome"
-					else LIFT_TOKEN[value] or value
+			-- a destructive button's art is danger-tinted whatever its appearance, and
+			-- a soft one's wears the selection wash
+			if channel[1] == "lift" and value ~= nil then
+				local owner = source.selector
+				local destructive = string.find(owner, "role-destructive", 1, true) ~= nil
+				if value == "$ContentSecondary" and string.find(owner, "role-cancel", 1, true) then
+					value = "$OnCancelChrome"
+				elseif string.sub(value, 1, 7) == "$Danger" and destructive then
+					value = "$OnDangerChrome"
+				elseif value == "$OnSelected" and string.find(owner, "appearance-soft", 1, true) then
+					value = "$OnSoftChrome"
+				else
+					value = LIFT_TOKEN[value] or value
+				end
 			end
 			local buttonSelector = string.sub(source.selector, 1, 10) == "TextButton"
 			-- Only the control's own opacity decision reaches art. Glyph-suppression
@@ -2494,6 +2504,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		tokenSet.OnFieldChrome = pick(rest, body, "fieldArt")
 		tokenSet.OnFieldChromeSecondary = pick(rest, quiet, "fieldArt")
 		tokenSet.OnBadgeChrome = pick(rest, body, "badgeArt")
+		-- a soft button's art wears the selection wash (`Chrome role — soft`)
+		tokenSet.OnSoftChrome = pick(
+			tokenSet.ChromeTintSelected,
+			{ sheet_model.selectedContentColor(styleLike), c.content, c.contentStrong, c.onAccent }
+		)
 		tokenSet.OnDangerChrome = color(
 			sheet_model.readableOnChrome(
 				styleLike,
@@ -3282,6 +3297,20 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 	for index, controlTag in controlTags do
 		local suffix = if #controlTags > 1 then ` L{index}` else ""
+		-- an appearance's fill is hidden under the art, so its emphasis reaches the
+		-- art as the accent surface's does (before destructive, which outranks it)
+		emit("chrome", {
+			name = `Chrome role — emphasis{suffix}`,
+			selector = `.{T.appearancePrefix}emphasis > .{controlTag}`,
+			props = { ImageColor3 = "$ChromeTintAccent" },
+			transitions = { ImageColor3 = "fast" },
+		})
+		emit("chrome", {
+			name = `Chrome role — soft{suffix}`,
+			selector = `.{T.appearancePrefix}soft > .{controlTag}`,
+			props = { ImageColor3 = "$ChromeTintSelected" },
+			transitions = { ImageColor3 = "fast" },
+		})
 		emit("chrome", {
 			name = `Chrome role — destructive{suffix}`,
 			selector = `.facet-role-destructive > .{controlTag}`,
