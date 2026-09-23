@@ -215,6 +215,20 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 	end)
 end)
 
+describe("a ring that lands on a node already wearing its own paint scale", function()
+	it("takes the rect writer's grown geometry at once, after its stroke exists", function()
+		-- a card hover-lifted before Tab lands: the float is built at the solved box,
+		-- so the rect writer (which sizes it about the node's pivot, review_motion_pixels)
+		-- places it now rather than on the next lift frame
+		local strokeAt = at('stroke.Name = "FocusRing"')
+		local placeAt = at("if handle.focusRingFloat ~= nil and handle.motionScale ~= nil then")
+		expect(strokeAt < placeAt).toBe(true)
+		expect(string.find(FN, "placeFloat(handle)", placeAt, true) ~= nil).toBe(true)
+		expect(placeAt < at("aimFocusScale(handle, liftScale)")).toBe(true)
+		expect(string.find(source, "placeFloat = presentation.applyRect", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("label-only indicator focus", function()
 	it("the live adapter declines independent lift and refreshes it when the focused role changes", function()
 		expect(string.find(FN, "strong and handle.buttonRole ~= chrome_slots.ON_INDICATOR_ROLE", 1, true) ~= nil).toBe(

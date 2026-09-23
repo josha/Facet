@@ -3288,6 +3288,7 @@ function screen_target.new(opts: Opts?)
 		focusArtHost = focusArtHost,
 		aimFocusScale = aimFocusScale,
 		hostOriginOf = presentation.hostOriginOf,
+		placeFloat = presentation.applyRect,
 		-- accessors, not values: the host reassigns both (`setActiveTheme`,
 		-- `setThemePackage`), so a captured value would freeze at construction and a
 		-- live theme swap would repaint everything except the ring
