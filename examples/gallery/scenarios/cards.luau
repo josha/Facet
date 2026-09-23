@@ -105,6 +105,9 @@ return {
 						return item.id
 					end,
 					columns = columns,
+					-- the gutters between cards: each plate is inside its own card
+					gap = "m",
+					rowGap = "m",
 					itemExtent = function(line: number, use: any): number
 						local lanes, list, map = use(columns), use(items), use(bodies)
 						local tallest = 0

@@ -8967,7 +8967,7 @@ one, and otherwise enters its actions:
 
 ```lua
 local refs, gridRef = {}, nil
-UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, viewportExtent = "auto",
+UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, gap = "m", rowGap = "m", viewportExtent = "auto",
     itemExtent = 320, -- holds revealExtent.body; the Cards scenario sizes each line from its tallest card
     ref = function(r) gridRef = r end,
     onActivate = function(item) local r = refs[item.id]; if r then r.api.enterActions() end end,
