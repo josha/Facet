@@ -140,7 +140,8 @@ t.describe("public composition recipes", function()
 			t.expect(b.x).toBe(l.x)
 			t.expect(b.x + b.w).toBe(r.x + r.w)
 			t.expect(f.h).toBe(metrics.strokes.hairline)
-			t.expect(h.h).toBe(3)
+			-- heavy is three of the theme's hairlines, so it stays heavier under Pixel's 4 px line
+			t.expect(h.h).toBe(3 * metrics.strokes.hairline)
 		end
 	end)
 	t.it("keeps only the activated accordion body open and focus on its header", function()
