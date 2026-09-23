@@ -463,6 +463,52 @@ describe("Removable Chip: edit mode (owner ruling 2026-09-22)", function()
 		expect(w.pres.focus.focused:peek()).toBe("/S/List/Fallback")
 	end)
 
+	--[[ ONE KEY EDGE, ONE REMOVAL (phase3 native F6, 2026-09-22: one Delete on the
+		last of three tags removed all three). The engine hands a key that is still
+		down to a binding armed during it — here the previous tag's keys, armed by
+		the focus handback — so each removal fed the next. ]]
+	it("Delete or Backspace on the last of N tags removes exactly one and lands on the new last", function()
+		for _, key in { "Delete", "Backspace" } do
+			for _, n in { 3, 2 } do
+				local w = world.new()
+				local all = { "A", "B", "C" }
+				local items = Compose.cell(table.move(all, 1, n, 1, {}))
+				w.present(function()
+					return w.UI.Screen("S")({
+						w.UI.ForEach("Tokens")({
+							items = items,
+							key = function(item)
+								return item
+							end,
+							row = function(item)
+								return w.UI.Chip(item)({
+									label = item,
+									onRemove = function()
+										local nextItems = table.clone(items:peek())
+										table.remove(nextItems, table.find(nextItems, item) :: number)
+										items:set(nextItems)
+									end,
+								})
+							end,
+						}),
+					})
+				end)
+				local last = path(w, `/{all[n]}+target/{all[n]}`) :: string
+				local before = path(w, `/{all[n - 1]}+target/{all[n - 1]}`)
+				w.pres.focus.focusOn(last)
+				w.settle()
+				w.system.deviceKey(key, true)
+				w.settle()
+				w.system.deviceKey(key, false)
+				w.settle()
+				expect(`{key} last of {n}: {#items:peek()} left, focus {w.pres.focus.focused:peek()}`).toBe(
+					`{key} last of {n}: {n - 1} left, focus {before}`
+				)
+				w.close()
+			end
+		end
+	end)
+
 	it("does not steal departed focus when a retained removal request is disposed later", function()
 		for _, destination in { "/C+target/C", "/Unrelated" } do
 			local w = world.new()

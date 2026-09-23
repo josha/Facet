@@ -32,6 +32,23 @@ local isGamepadKeyCode = bindingOwner.isGamepadKeyCode
 function actions.newSystem(core: any)
 	local system = { revision = Compose.cell(0) }
 	local contexts: { any } = {}
+	--[[ ONE KEY EDGE, ONE DELIVERY (phase3 native F6). The engine hands a key that
+		is already down to a binding armed during it, so a Delete that removed the
+		last tag also removed the tag the focus handback armed, and the one after.
+		A Bool action armed while one of its keys is held marks that hold as an
+		ARRIVAL: the state follows the engine, the press and its release reach no
+		handler. The key's release ends the arrival. `src/client/roblox_input.luau`
+		keeps the same rule. ]]
+	local keysDown: { [string]: boolean } = {}
+	local function arm(action: any)
+		action.arrival = false
+		if action.type == "Bool" then
+			for _, binding in action.bindings do
+				action.arrival = action.arrival or (binding.keyCode ~= nil and keysDown[binding.keyCode] == true)
+			end
+		end
+		action.swallowed = action.swallowed and action.arrival
+	end
 	local disposed = false
 
 	local function bump()
@@ -116,6 +133,13 @@ function actions.newSystem(core: any)
 			action.lastBinding = sourceBinding
 			action.state:set(value)
 			if action.type == "Bool" then
+				if value == true and action.arrival then
+					action.swallowed = true
+					return
+				elseif value ~= true and action.swallowed then
+					action.swallowed = false
+					return
+				end
 				local handlers = if value == true then action.pressedHandlers else action.releasedHandlers
 				for _, fn in table.clone(handlers) do
 					fn(value)
@@ -164,6 +188,7 @@ function actions.newSystem(core: any)
 				isGamepad = spec.keyCode ~= nil and isGamepadKeyCode(spec.keyCode :: string),
 			}
 			table.insert(action.bindings, binding)
+			arm(action)
 			-- scriptable test path: fires the action DIRECTLY (engine truth)
 			function binding.fire(value: any)
 				if binding.removed or action.context.destroyed then
@@ -277,6 +302,11 @@ function actions.newSystem(core: any)
 		end
 		function context.setEnabled(on: boolean)
 			context.enabled = on
+			if on then
+				for _, action in context.actions do
+					arm(action)
+				end
+			end
 			if not on then
 				-- engine resets action state when disabled (INFERRED: whether the
 				-- engine also fires Released for a key held across a disable is
@@ -437,6 +467,18 @@ function actions.newSystem(core: any)
 		if MODIFIER_GROUP[keyCode] ~= nil then
 			modifierKeysDown[keyCode] = isDown
 		end
+		keysDown[keyCode] = isDown
+		if not isDown then
+			for _, context in contexts do
+				for _, action in context.actions do
+					for _, binding in action.bindings do
+						if binding.keyCode == keyCode then
+							action.arrival = false
+						end
+					end
+				end
+			end
+		end
 		-- PREEMPTION DECISION POINT (Task 8b): filtering a modifier-mismatched
 		-- binding out of `candidates` HERE, before the untouched sort/sink loop
 		-- below ever runs, is the whole mechanism — a modified binding's
@@ -444,48 +486,67 @@ function actions.newSystem(core: any)
 		-- sibling's lower-priority context (T1) already does the preemption;
 		-- this only decides who is ELIGIBLE to enter that arbitration.
 		local held = system.modifiers()
-		local candidates = {}
-		for _, context in contexts do
-			if context.enabled and not context.destroyed then
-				for _, action in context.actions do
-					for _, binding in action.bindings do
-						if binding.keyCode == keyCode and modifierMatch(binding, isDown, held) then
-							table.insert(candidates, { context = context, action = action, binding = binding })
+		--[[ BORN LIKE THE ENGINE (phase3 native F6): a binding armed WHILE this
+			edge is delivered (a removal's focus handback enabling the next tag's
+			context) receives the same edge, so the scan repeats until it finds no
+			binding it has not already offered the edge to. Bool actions only: a
+			held direction's arrival is the presenter's (`arrivalHeld`, F5). ]]
+		local offered: { [any]: boolean } = {}
+		local firstScan = true
+		local consumedPriority: number? = nil
+		while true do
+			local candidates = {}
+			for _, context in contexts do
+				if context.enabled and not context.destroyed then
+					for _, action in context.actions do
+						for _, binding in action.bindings do
+							if
+								not offered[binding]
+								and (firstScan or action.type == "Bool")
+								and binding.keyCode == keyCode
+								and modifierMatch(binding, isDown, held)
+							then
+								offered[binding] = true
+								table.insert(candidates, { context = context, action = action, binding = binding })
+							end
 						end
 					end
 				end
 			end
-		end
-		table.sort(candidates, function(a, b)
-			return a.context.priority > b.context.priority
-		end)
-		local consumedPriority: number? = nil
-		for _, candidate in candidates do
-			if consumedPriority ~= nil and candidate.context.priority < consumedPriority then
-				break -- sunk by a higher-priority context
+			if #candidates == 0 then
+				return
 			end
-			local value: any
-			if candidate.action.type == "Bool" then
-				value = isDown
-			else
-				-- Direction1D via composite key mapping; key-up returns to 0
-				value = if isDown then candidate.binding.direction or 0 else 0
-			end
-			-- binding-scoped pressed stamp (Task 8b fix round 2):
-			-- set on an ACTUAL delivery, not mere candidacy — a candidate cut
-			-- off by `consumedPriority`'s break above never reaches here and
-			-- is correctly never stamped. Cleared on the matching release's
-			-- own delivery, so a binding's `pressed` window is exactly
-			-- "between the down this binding received and the up it
-			-- delivers" — never read outside `modifierMatch`, so this is a
-			-- no-op write for the many bindings that never declare
-			-- `modifiers` (they always match via the first branch above).
-			if candidate.binding.modifiers ~= nil then
-				candidate.binding.pressed = isDown
-			end
-			candidate.action._deliver(value, candidate.binding.isGamepad, candidate.binding)
-			if candidate.context.sink then
-				consumedPriority = candidate.context.priority
+			firstScan = false
+			table.sort(candidates, function(a, b)
+				return a.context.priority > b.context.priority
+			end)
+			for _, candidate in candidates do
+				if consumedPriority ~= nil and candidate.context.priority < consumedPriority then
+					break -- sunk by a higher-priority context
+				end
+				local value: any
+				if candidate.action.type == "Bool" then
+					value = isDown
+				else
+					-- Direction1D via composite key mapping; key-up returns to 0
+					value = if isDown then candidate.binding.direction or 0 else 0
+				end
+				-- binding-scoped pressed stamp (Task 8b fix round 2):
+				-- set on an ACTUAL delivery, not mere candidacy — a candidate cut
+				-- off by `consumedPriority`'s break above never reaches here and
+				-- is correctly never stamped. Cleared on the matching release's
+				-- own delivery, so a binding's `pressed` window is exactly
+				-- "between the down this binding received and the up it
+				-- delivers" — never read outside `modifierMatch`, so this is a
+				-- no-op write for the many bindings that never declare
+				-- `modifiers` (they always match via the first branch above).
+				if candidate.binding.modifiers ~= nil then
+					candidate.binding.pressed = isDown
+				end
+				candidate.action._deliver(value, candidate.binding.isGamepad, candidate.binding)
+				if candidate.context.sink then
+					consumedPriority = candidate.context.priority
+				end
 			end
 		end
 	end

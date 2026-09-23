@@ -116,6 +116,7 @@ local function rig(labels, images, opts)
 			game = game,
 			Instance = instance,
 			Enum = enum,
+			task = require("@lune/task"),
 			require = function(path)
 				if path == "../vendor/compose/core" then
 					return if opts and opts.compose then opts.compose else require("../src").Compose
@@ -150,6 +151,37 @@ t.describe("native held input metadata", function()
 		modal.destroy()
 		binding.remove()
 		t.expect(system.wouldWinArbitration(context, binding)).toBe(false)
+		system.dispose()
+	end)
+	-- the engine twin of the headless rule (phase3 native F6): a Bool action armed
+	-- while its key is down swallows that press and release; the next press lands
+	t.it("a key already down when its binding arms reaches no handler until it is pressed again", function()
+		local system, held = rig()
+		held.Delete = true
+		local context = system.createContext({ name = "tag" })
+		local action = context.createAction("ChipRemove", "Bool")
+		action.bind({ keyCode = "Delete" })
+		local calls = {}
+		action.onPressed(function()
+			table.insert(calls, "pressed")
+		end)
+		action.onReleased(function()
+			table.insert(calls, "released")
+		end)
+		action.instance.Pressed:fire()
+		held.Delete = false
+		require("@lune/task").wait(0.05) -- the adapter polls the release once a frame
+		action.instance.Released:fire()
+		t.expect(table.concat(calls, " ")).toBe("")
+		held.Delete = true
+		action.instance.Pressed:fire()
+		action.instance.Released:fire()
+		t.expect(table.concat(calls, " ")).toBe("pressed released")
+		-- re-enabling mid-hold arms again
+		context.setEnabled(false)
+		context.setEnabled(true)
+		action.instance.Pressed:fire()
+		t.expect(table.concat(calls, " ")).toBe("pressed released")
 		system.dispose()
 	end)
 	t.it("keeps an analog direction held until recenter and re-arms afterwards", function()
