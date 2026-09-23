@@ -25,6 +25,38 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **Overlay paths and the tiny room (breaking paths).** `UI.Dialog` and
+  `UI.Sheet` lay their regions in one `Room/Column`: `/<Dialog>/Center/Panel/Room/Column/{Header,Body,Actions,…}`
+  and `/<Sheet>/Layer/Panel/Room/Column/{Header,Body,Actions,…}`, with Sheet
+  content at `…/Room/Column/Body/<content>` (a scrolling hero: `Body/Inset`);
+  the Sheet grip stays `/Layer/Panel/Drag/Handle`. When the pinned regions and
+  a one-line body do not fit the room, every region scrolls as one, so each
+  action stays reachable. A compact screen alone no longer stacks two Dialog
+  actions that fit, and a Dialog hero sizes from the live panel width.
+- **Selected under hover** paints the selected fill lifted by the theme's
+  hover step (new `$ControlSelectedHover` token, `Selected — hover` rule in both
+  sheet builders and the fallback painter), never plain hover.
+- **Snackbar layer.** The strip is the toast band's first step
+  (`src/present/surface_bands.luau` now owns the band ladder); Callout, a
+  passive Popover and help, disclosure and reveal plates read above it; modals
+  above all. The strip docks bottom-centre, a stacked action trails, a close by
+  pointer leaves no input catcher, and the HUD reservation holds exiting rows
+  until they have slid out.
+- **Caller callbacks are never swallowed.** A throwing `onActivate`,
+  `onPresentedChange` or `onDismiss` on Dialog, Popover, Sheet, Notice, Callout
+  or Snackbar is raised after the control has settled its own state.
+- `UI.Sheet`: `interactiveDismissDisabled` also stops Cancel running the
+  cancel action; the Size control reads player words (`Size: Fit`,
+  `Size: Medium`). Overlay actions type-check `label`/`enabled`/`busy`, and
+  `UI.Notice` refuses the reserved action ids `Link` and `Close`.
+- `UI.Picker` options take `indicator` (a StatusIndicator spec in a segmented
+  option's trailing lane; construction-only).
+- `UI.Menu`: rows with a badge, shortcut or section heading take the themed
+  panel width instead of collapsing a hugging panel.
+- `UI.Popover`: a path source resolves from its own screen's root inside an
+  embedding screen; a path that has not mounted is awaited with one warning.
+- A focused horizontal value control and live chrome share one owner of the
+  arrow keys (`NavigateH`), so arrows never stay bound to a flat screen.
 - **`UI.Snackbar`** and **`app.presentSnackbar`**: one application snackbar
   service with a persistent bottom strip. The caller's `isPresented` is the only
   authority; close, Cancel, timeout and supersession are proposals, and
@@ -41,7 +73,9 @@ runtime as `Facet.VERSION`.
   scrolling `hero` (image or authored content), pinned `actions` with the
   Dialog action group, `contentInset`, a `"hug"` detent, and `scrollPolicy`.
   The panel is now a pinned column around ONE body scroller: the panel itself
-  no longer scrolls (the Size/Close/grip paths are unchanged). Drags acquire
+  no longer scrolls, and content moved from `/Layer/Panel/<content>` to
+  `/Layer/Panel/Body/<content>` (see the Room/Column entry above for the final
+  paths). Drags acquire
   from the grip, the panel's native drag detector or the touch-pan stream, are
   bound to the input class that started them, and release through a projected
   velocity with bounded resistance. A function-bound `title` now works, as its

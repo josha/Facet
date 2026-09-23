@@ -8824,9 +8824,11 @@ content. A bound title or label may start empty and fill in later in the same
 presentation. `hero` is the shared construction-only media shape (exactly one
 of `aspectRatio` or `height`). Action ids are unique and at most one action is
 `default`, one `cancel`. `actionLayout = "automatic"` rows two short actions and
-stacks three, a compact or distant screen, large text, or labels that do not fit
-side by side; an explicit `"row"` that cannot show every full label falls to the
-same safe stack.
+stacks three, a distant screen, large text, or labels that do not fit side by
+side; an explicit `"row"` that cannot show every full label falls to the same
+safe stack. When the pinned regions and a one-line body do not fit the room,
+every region scrolls as one column (`Panel/Room/Column`), so no action is out of
+reach; `UI.Sheet` does the same.
 
 **Size.** `width` is a theme ceiling — `automatic` is `controls.alert.maxWidth`,
 `narrow` `controls.popup.panelWidth`, `wide` `controls.dialog.wideWidth` —
@@ -8970,11 +8972,13 @@ action or a close selects `controls.snackbar.maxWidth` (bounded by the safe
 room), and the action moves below long copy. A keyboard or pad reaches the row
 after the content (`focusChrome = "bottom"`), arrival never takes focus, and
 Cancel on the row returns focus to the content even when refused. A visible row
-reserves its bottom rectangle through `presenter.reserveHud`; content that
-should avoid it reads `presenter.hudReservations` through
-`Facet.layout.hudInsets`. The strip paints above base screens and toasts and
-below modals; anchored transients (Callout, Menu, Popover) currently paint below
-it. Snackbars are a screen-application service: a SurfaceGui or Billboard
+reserves its bottom rectangle through `presenter.reserveHud` until it has slid
+out; content that should avoid it reads `presenter.hudReservations` through
+`Facet.layout.hudInsets`. The strip docks bottom-centre and paints above base
+screens and toasts; a Callout, a passive Popover and help, disclosure and
+reveal plates paint above it, and modals (Menu, modal Popover, Dialog, Sheet)
+above all. A throwing `onPresentedChange`, `onDismiss` or action callback is
+raised once the service is consistent again. Snackbars are a screen-application service: a SurfaceGui or Billboard
 application refuses them, so present global notifications from a screen
 application.
 

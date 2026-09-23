@@ -61,7 +61,7 @@ local DEFAULT_DURATION = 4
 local DEFAULT_READ_FLOOR = 2.5
 
 export type Entry = {
-	id: number,
+	id: number | string, -- a controlled schedule keeps the caller's id
 	key: string?,
 	priority: number,
 	duration: number,
@@ -418,7 +418,7 @@ function toast_schedule.new(opts: Opts?)
 		return result
 	end
 
-	function schedule.dismiss(id: number, reason: string?)
+	function schedule.dismiss(id: number | string, reason: string?)
 		local why = reason or "manual"
 		for i, entry in visible do
 			if entry.id == id then
