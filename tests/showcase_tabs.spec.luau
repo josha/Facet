@@ -532,6 +532,26 @@ t.describe("Consolidated showcase", function()
 		t.expect(w.core.lastError()).toBeNil()
 	end)
 
+	t.it("the Basics footer stacks its actions at 320x640 Largest rather than cutting them", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 320, h = 640 }, { textOffset = 14 })
+		w.settle(4)
+		local column, row
+		for _, path in w.adapter.paths() do
+			if path:match("/AdaptiveScreen/Actions/ActionsColumn$") then
+				column = w.controller.screenRectOf(path)
+			elseif path:match("/AdaptiveScreen/Actions/ActionsRow$") then
+				row = w.controller.screenRectOf(path)
+			end
+		end
+		-- measure and arrange chose the same rung: the column holds the whole box
+		t.expect(`row {row.w}x{row.h}`).toBe("row 0x0")
+		t.expect(column.w > 0 and column.h > 0).toBe(true)
+		for _, finding in w.controller.diagnostics() do
+			t.expect(string.find(finding.node, "/Actions/", 1, true)).toBeNil()
+		end
+		built.dispose()
+	end)
+
 	t.it("the phone bottom bar shrinks its category words to fit before it truncates one", function()
 		for _, width in { 320, 389 } do
 			local w, built = make(catalog, { x = 0, y = 0, w = width, h = 844 }, { preferredInput = "Touch" })

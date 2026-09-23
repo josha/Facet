@@ -49,10 +49,8 @@ function candidate.choose(deps: Deps, ctx: any, node: any, availW: number, avail
 	local wasProbing = ctx.fitProbe
 	deps.setFitProbe(ctx, true)
 	local chosen = #children -- the last candidate is the declared fallback
-	-- the first candidate that fits but only because its label was CUT, and how
-	-- tall it is: see the note in the loop
+	-- the first candidate that fits but only because its label was CUT
 	local cutIndex: number? = nil
-	local cutHeight = 0
 	--[[ WHAT THIS LADDER OWES ITS CALLER (M1a, review 2026-08-18): the cuts of the
 		configuration it ACTUALLY CHOSE, and not one more.
 
@@ -108,57 +106,33 @@ function candidate.choose(deps: Deps, ctx: any, node: any, availW: number, avail
 			loop stops one short of it), because rule 8's fallback has to resolve
 			even when nothing fits. A screen degrades; it never blanks. ]]
 		local uncut = ctx.fitCuts == cutsBefore
+		--[[ AN HONEST CANDIDATE THAT FITS WINS (owner ruling 2026-09-23, the
+			reference rule). A scrolling axis is offered `math.huge`, so there only
+			the cross axis decides. The old undercut kept a cut rung whenever the
+			honest one was taller, which picked the cut row even with room to
+			spare for the column; a stack now offers a ViewThatFits only the room
+			its siblings' gaps leave, so an honest fit is a real one. A cut rung that
+			fits is kept only for when nothing honest does. ]]
 		if fitsW and fitsH then
 			if uncut then
-				--[[ ...AND IT MAY NOT COST MORE ROOM THAN THE CUT ONE DID (DIR wave
-					contract 7, and the half that is a MEASUREMENT rather than a
-					principle).
-
-					Refusing a cut candidate outright was run through the whole suite
-					first: `adaptive_controls` and `theme_authoring` moved from a
-					three-button ROW onto the three-button COLUMN their ladder declares
-					below it, and their page then overflowed by 24-138px at 640x320 at
-					the Largest preference under seven packages. That is trading a cut
-					label for a screen painting outside its own box — the same defect
-					one level out, and a worse one.
-
-					So a cut candidate is not refused, it is UNDERCUT: a later candidate
-					wins only if it is honest AND costs no more room than the cut one
-					did. The objective chip's "R3" rung is shorter than the cut
-					"Round 3 · Capture" rung, so it wins; a stacked action column is
-					taller than the row it would replace, so the row keeps its place and
-					the ladder is exactly where it was. ]]
-				if cutIndex == nil or h <= cutHeight + 0.01 then
-					chosen = i
-					break
-				end
-				-- an honest candidate that costs MORE than the cut one: the cut one
-				-- was the better screen, and it is what this ladder has always chosen
-				chosen = cutIndex :: number
+				chosen = i
 				break
 			end
 			if cutIndex == nil then
 				cutIndex = i
-				cutHeight = h
 			end
 		end
 	end
 	if chosen == #children and cutIndex ~= nil then
-		--[[ THE FALLBACK IS NEVER PROBED — rule 8 promises it resolves whatever it
-			measures — so when a cut candidate is in hand it has to be measured HERE to
-			know whether it undercuts one. It usually does, and that is the objective
-			chip: "R3" is the last rung and it is shorter than the clamped
-			"Round 3 · Capture" above it.
-
-			If it costs MORE room, the cut candidate stands, which is byte-for-byte
-			what this ladder did before contract 7 — a cut label is a worse screen than
-			a full one and a better screen than one that does not fit. ]]
+		-- THE FALLBACK IS NEVER PROBED (rule 8 promises it resolves), so with a
+		-- cut rung in hand it is measured here: a cut label beats one that does
+		-- not fit at all.
 		local cutsBefore = ctx.fitCuts
 		local w, h = deps.measure(ctx, children[#children], availW, availH)
 		cutsOf[#children] = ctx.fitCuts - cutsBefore
 		local fitsW = availW == math.huge or w <= availW
 		local fitsH = availH == math.huge or h <= availH
-		if not (fitsW and fitsH and h <= cutHeight + 0.01) then
+		if not (fitsW and fitsH) then
 			chosen = cutIndex :: number
 		end
 	end

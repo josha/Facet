@@ -227,6 +227,10 @@ function stack.arrange(
 )
 	local isH = node.kind == "hstack"
 	local children = node.children or {}
+	-- the measure pass's offer to a `ViewThatFits` child (`stack_measure`)
+	local gapSum = if #children > 1 then gap * (#children - 1) else 0
+	local fitsW = if isH then math.max(0, innerW - gapSum) else innerW
+	local fitsH = if isH then innerH else math.max(0, innerH - gapSum)
 	local hasBaseline = isH and baseline.has(node)
 	if not isH and baseline.has(node) and ctx.hiddenDepth == 0 then
 		table.insert(ctx.diagnostics, {
@@ -416,7 +420,12 @@ function stack.arrange(
 				replayable = false
 				break
 			end
-			local w, h = deps.measure(ctx, child, innerW, innerH)
+			local w, h = deps.measure(
+				ctx,
+				child,
+				if child.kind == "fits" then fitsW else innerW,
+				if child.kind == "fits" then fitsH else innerH
+			)
 			if (if isH then w + ml + mr else h + mt + mb) ~= pMain[idx] then
 				replayable = false
 				break
@@ -688,10 +697,15 @@ function stack.arrange(
 			w = (if isH then cmemo.pMain[old] else cmemo.pCross[old]) - ml - mr
 			h = (if isH then cmemo.pCross[old] else cmemo.pMain[old]) - mt - mb
 			ctx.fitCuts += previousCuts[old] or 0
-			ctx.offers[child.wKey or (child.id .. "|w")] = innerW
-			ctx.offers[child.hKey or (child.id .. "|h")] = innerH
+			ctx.offers[child.wKey or (child.id .. "|w")] = if child.kind == "fits" then fitsW else innerW
+			ctx.offers[child.hKey or (child.id .. "|h")] = if child.kind == "fits" then fitsH else innerH
 		else
-			w, h = deps.measure(ctx, child, innerW, innerH)
+			w, h = deps.measure(
+				ctx,
+				child,
+				if child.kind == "fits" then fitsW else innerW,
+				if child.kind == "fits" then fitsH else innerH
+			)
 		end
 		if measuredCuts ~= nil then
 			measuredCuts[idx] = ctx.fitCuts - cutsBefore

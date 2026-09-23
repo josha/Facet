@@ -1368,15 +1368,12 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- last candidate is the fallback when none does, matching SwiftUI.
 		--
 		-- "the space THIS container was proposed" has to mean the space it will
-		-- actually OCCUPY, not the space its parent offered. When the container's
-		-- own width is definite and smaller than the offer — a capped action bar
-		-- declared `percent(1, max = 620)` inside a 1200px screen — measuring the
-		-- candidates at the parent's 1200 picks a row that then has to arrange
-		-- inside 620, where its labels wrap and it no longer fits. Arrange re-runs
-		-- the chooser at the real width, so measure and arrange disagreed and the
-		-- fallback column won on every wide profile (director review 2026-07-24).
-		-- `fixed` and `percent` resolve without consulting content, so asking for
-		-- them here cannot recurse.
+		-- actually OCCUPY, not the space its parent offered: a capped action bar
+		-- declared `percent(1, max = 620)` inside a 1200px screen, less its own
+		-- margins, which arrange takes off its rect. Arrange re-runs the chooser at
+		-- the real width, so any other width lets measure and arrange disagree
+		-- (director review 2026-07-24). `fixed` and `percent` resolve without
+		-- consulting content, so asking for them here cannot recurse.
 		local selfW = dim(node, "w")
 		local limitW = innerMaxW
 		if
@@ -1384,7 +1381,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			or selfW.type == "containerRelative"
 			or (selfW.type == "percent" and maxW ~= math.huge)
 		then
-			local resolved = resolveAxis(ctx, node, selfW, maxW, function()
+			local _, mr, _, ml = sides(node.margin)
+			local resolved = resolveAxis(ctx, node, selfW, maxW - ml - mr, function()
 				return innerMaxW
 			end, ctx.containerW)
 			limitW = math.max(0, resolved - pl - pr)
