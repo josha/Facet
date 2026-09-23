@@ -1357,6 +1357,9 @@ local UNSWEEPABLE: { [string]: string } = {
 	MenuRecipe = "the ROW half of every menu (navigation-and-menus D2): it returns the blueprints Menu, PopupButton "
 		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
 		.. "at every preference and in both reference themes — rather than three times",
+	Dialog = "its blueprint is an empty anchor; the panel is a presented modal surface this sweep does not "
+		.. "open. tests/dialog.spec.luau measures its pinned regions and body budget, and the Overlays showcase "
+		.. "tab is swept at Largest on a phone by showcase_tabs.spec",
 	Popover = "its blueprint is the caller's TRIGGER (or an empty node for a source); the panel is a presented "
 		.. "surface this sweep does not open, like TableDisclosure's plate. tests/popover.spec.luau mounts it, "
 		.. "and the Overlays showcase tab is swept at Largest on a phone by showcase_tabs.spec",

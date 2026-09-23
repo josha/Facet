@@ -25,6 +25,7 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Choose a visually recognizable vehicle, character, map, or item | `UI.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
 | Navigate destinations or complete a multi-step form | `UI.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
 | Confirm a consequential action | `UI.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
+| Make a decision that needs a picture, a body or its own actions | `UI.Dialog` | You keep the open state; the title, hero and actions stay pinned while the body scrolls. |
 | Show a little supporting content next to a control, on request | `UI.Popover` | You keep the open state; it anchors to the trigger or a source and becomes a sheet on a compact touch screen. For one hovered sentence use `help`; for an unprompted tip use `UI.Callout`. |
 
 For a labeled Picker in a settings form, `valueAlignment = "start"` places its

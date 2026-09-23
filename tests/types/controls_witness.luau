@@ -510,6 +510,24 @@ local _sourcePopover = app.controls.Popover({
 		return app.controls.Text({ text = "Body" })
 	end,
 })
+local dialogOpen = Facet.Compose.cell(true)
+local _dialog = app.controls.Dialog("Confirm")({
+	isPresented = dialogOpen,
+	onPresentedChange = function(next: boolean)
+		dialogOpen:set(next)
+	end,
+	onDismiss = function(_reason) end,
+	title = "Leave?",
+	content = function()
+		return app.controls.Text({ text = "Body" })
+	end,
+	hero = { image = "rbxassetid://1", height = 120 },
+	actionLabel = "Choose",
+	actions = { { id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function() end } },
+	actionLayout = "automatic",
+	width = "wide",
+	contentSelectable = false,
+})
 local _asyncimage = app.controls.AsyncImage("Art")({
 	key = "image",
 	scaleMode = "slice",

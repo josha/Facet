@@ -8743,6 +8743,96 @@ app.mount(function()
 end)
 ```
 
+### `UI.Dialog`
+
+`UI.Dialog { … }` -> an empty anchor node; the panel is a modal surface. `ref`
+receives `{ api, dump }`.
+
+A modal panel whose presentation the caller owns: an optional `hero`, a `title`
+beside the close button, one scrolling `content` body, an optional `actionLabel`
+and a pinned group of `actions`. Modal `UI.Alert` is unchanged; reach for Dialog
+when the decision needs more than a sentence, a picture or its own body.
+
+```
+{
+  id?,
+  isPresented: Bound<boolean>,          -- required: the CALLER'S accepted fact
+  onPresentedChange: ((next) -> ())?,   -- a proposal; required while closeButton is true
+  onDismiss: ((reason) -> ())?,         -- "close" | "outside" | "cancel" | "action", once
+  title: Bound<string>?,
+  content: (() -> Node)?,               -- the one body, scrolled between pinned regions
+  hero: { image, aspectRatio | height, scaleMode?, background? }?,
+  actionLabel: Bound<string>?,          -- wraps above the actions
+  actions: { { id, label, role?, enabled?, busy?, onActivate } }?,
+  actionLayout: ("automatic" | "row" | "stacked")?,
+  closeButton: boolean?,                -- default true
+  width: ("automatic" | "narrow" | "wide")?,
+  contentSelectable: boolean?,          -- default true
+  env?,
+}
+```
+
+**The fact is yours.** The dialog renders `isPresented` and never writes it. The
+close button, Cancel (ButtonB) and a tap on the backdrop each call
+`onPresentedChange(false)`; refuse by not changing your fact and the same
+surface keeps its focus. Without a callback, set `closeButton = false`: the
+backdrop and Cancel then only swallow. **Actions never close by themselves** —
+each runs its `onActivate`, and a false you accept during that callback reports
+`"action"`. Cancel goes first to an eligible `role = "cancel"` action (enabled
+and not busy); the one `role = "default"` action answers Return. A disabled or
+busy action cannot fire by any route. `onDismiss` reports each actual closure
+once, after cleanup; your own false and owner disposal report `"cancel"`.
+
+**Composition.** Any one of title, content, hero, actionLabel or actions is
+enough; a static dialog with none of them is refused, and the close is not
+content. A bound title or label may start empty and fill in later in the same
+presentation. `hero` is the shared construction-only media shape (exactly one
+of `aspectRatio` or `height`). Action ids are unique and at most one action is
+`default`, one `cancel`. `actionLayout = "automatic"` rows two short actions and
+stacks three, a compact or distant screen, large text, or labels that do not fit
+side by side; an explicit `"row"` that cannot show every full label falls to the
+same safe stack.
+
+**Size.** `width` is a theme ceiling — `automatic` is `controls.alert.maxWidth`,
+`narrow` `controls.popup.panelWidth`, `wide` `controls.dialog.wideWidth` —
+bounded by the safe room. The height is the live room: the viewport less the
+platform insets, the outer margin and any keyboard occlusion, and the panel is
+centred above the keyboard. Header, hero, action label and actions are pinned;
+the body gives height back and scrolls. When the pinned parts alone exceed the
+room (a very long title, a tall hero and stacked actions under a keyboard) they
+still overrun the panel: keep pinned copy short.
+
+**A plain body that overflows is one pad stop.** With `contentSelectable`
+(default true) the body host joins the focus order while it overflows; with the
+ring on it, Up and Down scroll it and hand the ring on at either end. Its
+interactive children keep their own stops. `false` opts out.
+
+`dump()` reports `{ schema = "facet-dialog-dump/1", id, presented, wanted,
+actionCount, width, closeButton }`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local open = Facet.Compose.cell(false)
+app.mount(function()
+    return UI.Screen("S")({
+        UI.Button("Quit")({ label = "Leave race", onActivate = function() open:set(true) end }),
+        UI.Dialog("Leave")({
+            isPresented = open,
+            onPresentedChange = function(next) open:set(next) end,
+            title = "Leave the race?",
+            content = function()
+                return UI.Text("Body")({ text = "Your lap will not count.", width = UI.fill() })
+            end,
+            actions = {
+                { id = "Stay", label = "Stay", role = "cancel", onActivate = function() open:set(false) end },
+                { id = "Leave", label = "Leave", role = "destructive", onActivate = leaveRace },
+            },
+        }),
+    })
+end)
+```
+
 ### `UI.Stepper`
 
 `UI.Stepper { … }` -> the stepper's node. `ref` receives `{ api, dump }`, and

@@ -1303,6 +1303,7 @@ require("./help.spec")
 -- contract, the caller-owned persistence boundary, and the non-blocking proof
 require("./callout.spec")
 require("./popover.spec")
+require("./dialog.spec")
 -- ...and the SURFACE those two constructs are shown on, which shipped with no
 -- spec at all and took two of the four findings of the 2026-08-16 device review:
 -- the session reset that makes the device pass repeatable, and the screen gutter

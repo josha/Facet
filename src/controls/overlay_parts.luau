@@ -73,10 +73,11 @@ function overlay_parts.checkActions(where: string, actions: any, max: number): n
 	return #actions
 end
 
--- full-width media: the natural width is the theme's popup panel width, which a
--- narrower parent clamps; the height follows the ratio or the declared height
-function overlay_parts.media(UI: any, media: any): any
-	local width = { type = "minMax", preferred = "controls.popup.panelWidth" }
+-- full-width media: the natural width is `preferred` (default the theme's popup
+-- panel width), which a narrower parent clamps; the height follows the ratio or
+-- the declared height
+function overlay_parts.media(UI: any, media: any, preferred: any?): any
+	local width = { type = "minMax", preferred = preferred or "controls.popup.panelWidth" }
 	local height = if media.aspectRatio ~= nil
 		then { type = "aspect", ratio = media.aspectRatio }
 		else { type = "fixed", px = media.height }

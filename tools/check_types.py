@@ -40,7 +40,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # `namespace_entries()` itself whenever a control is deliberately added or
 # retired.
 DECLARED_ENTRIES = {
-    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView",
+    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView", "Dialog",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
     "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "StatusIndicator", "Slider", "SplitButton",
@@ -222,6 +222,9 @@ _EROSION_PROBES = [
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ keys = {{"K"}}, controlSize = "huge" })'),
     ("ShortcutHint", 'app.controls.ShortcutHint({ keys = {{"K"}}, separator = 42 })'),
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ action = "Activate", over = "photo" })'),
+    ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, title = "T", width = "huge" })'),
+    ("Dialog", 'app.controls.Dialog("D")({ isPresented = true, closeButton = "no", title = "T" })'),
+    ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, actions = { { id = "A", label = "A", role = "primary", onActivate = function() end } } })'),
     ("Popover", 'app.controls.Popover({ isPresented = true, source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end, compact = "drawer" })'),
     ("Popover", 'app.controls.Popover("Info")({ isPresented = true, source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end, maxWidth = "wide" })'),
     ("Popover", 'app.controls.Popover({ isPresented = "open", source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end })'),

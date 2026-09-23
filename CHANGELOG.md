@@ -25,6 +25,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Dialog`.** A modal panel the caller owns the open state of: optional
+  hero, title with a close button, one scrolling body, an action label and pinned
+  actions. Close, Cancel and the backdrop propose; actions never close by
+  themselves; `onDismiss(reason)` reports `close | outside | cancel | action`.
+  Width presets are theme ceilings (new `controls.dialog.wideWidth`), the height
+  is the live room above the keyboard, and an overflowing plain body is one pad
+  stop that scrolls (`contentSelectable`).
 - **`UI.Popover`.** Content against a trigger or a source (a path or a rect).
   The caller owns `isPresented`; `onPresentedChange(next)` is a proposal and
   `onDismiss(reason)` reports each closure once. A compact touch screen gets a

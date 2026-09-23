@@ -79,6 +79,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Button = function(w)
 		return { label = "Save", onActivate = function() end }
 	end,
+	Dialog = function(w)
+		return { isPresented = Compose.cell(false), closeButton = false, title = "Title" }
+	end,
 	Popover = function(w)
 		return {
 			isPresented = Compose.cell(false),

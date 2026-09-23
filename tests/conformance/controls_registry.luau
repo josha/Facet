@@ -2296,6 +2296,35 @@ local registry: { Entry } = {
 			hotSwitch = { "a live class change switches the route silently, with one content owner" },
 		},
 	},
+	{
+		name = "Dialog",
+		kind = "composite",
+		module = "src/controls/dialog.luau",
+		export = "UI.Dialog",
+		spec = "tests/dialog.spec.luau",
+		conformance = "tests/dialog.spec.luau",
+		docsAnchor = "UI.Dialog",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "the backdrop proposes outside; with no callback and no close it only swallows" },
+			touch = { "an action that accepts false during its callback closes with reason action" },
+			keyboard = { "the close button proposes: refused keeps the same surface and focus, accepted reports close" },
+			gamepad = { "Cancel runs an eligible cancel action first; without one it proposes cancel" },
+		},
+		-- PARADIGM axis: a pointer or finger taps the backdrop or an action; the
+		-- keyboard's Return is the default action and the close is a focus stop;
+		-- a pad's ButtonB is Cancel and an overflowing plain body is one stop that
+		-- scrolls. hotSwitch: the panel's width and height follow the live room.
+		affordanceProofs = {
+			pointer = { "the backdrop proposes outside; with no callback and no close it only swallows" },
+			touch = { "a long body fits the room: pinned header, label and actions stay on screen while it scrolls" },
+			keyboard = { "Return fires the default action; a disabled or busy one cannot fire by any route" },
+			gamepad = {
+				"the ring reaches the body, Down scrolls it to the end, and then moves on to the actions",
+			},
+			hotSwitch = { "the keyboard's occlusion takes its room from the budget" },
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

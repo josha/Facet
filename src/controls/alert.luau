@@ -141,6 +141,34 @@ function alert.orderActions(actions: { Action }, stacked: boolean): { Action }
 	end
 	return rest
 end
+-- one action label's measured width at the Button type role (shared with Dialog)
+function alert.labelWidth(metrics: any, facts: any, label: string): number
+	local _, role = themeSnapshot.effectiveTypeRole(metrics, "Button", nil)
+	local size = textMetrics.reservedSize(
+		if type(role) == "table" and type(role.size) == "number" then role.size else 16,
+		facts.scale,
+		facts.offset
+	)
+	local font = if type(role) == "table" then role.fontKey else nil
+	if type(font) ~= "string" then
+		return math.huge
+	end
+	local lineHeight = if type(role) == "table" then role.lineHeight else nil
+	return textMetrics.measure(label, font, size, math.huge, lineHeight, 1).width
+end
+-- ...plus the chrome one Button spends around it, and the gap a row puts
+-- between two of them
+-- the horizontal chrome a regular Button spends around its label (shared with Dialog)
+function alert.buttonChromeX(metrics: any): number
+	local sizes = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
+	local regular = if type(sizes) == "table" then (sizes :: any).regular else nil
+	local padX = if type(regular) == "table" and type(regular.paddingX) == "number" then regular.paddingX else 0
+	local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+		then (metrics.chromeInsets :: any).control
+		else nil
+	local artX = if type(art) == "table" then (art.left or 0) + (art.right or 0) else 0
+	return padX * 2 + artX
+end
 local function build(Facet: any, core: any, spec: Spec, owner: any)
 	guard.assertKnownKeys("UI.Alert", spec, KEYS, "spec")
 	local UI = Facet.UI
@@ -197,32 +225,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	-- the natural width of one action label, at the size and face a Button will
 	-- actually draw it — `text_metrics` is the solver's own measurer, not a copy
-	local function labelWidth(metrics: any, facts: any, label: string): number
-		local _, role = themeSnapshot.effectiveTypeRole(metrics, "Button", nil)
-		local size = textMetrics.reservedSize(
-			if type(role) == "table" and type(role.size) == "number" then role.size else 16,
-			facts.scale,
-			facts.offset
-		)
-		local font = if type(role) == "table" then role.fontKey else nil
-		if type(font) ~= "string" then
-			return math.huge
-		end
-		local lineHeight = if type(role) == "table" then role.lineHeight else nil
-		return textMetrics.measure(label, font, size, math.huge, lineHeight, 1).width
-	end
-	-- ...plus the chrome one Button spends around it, and the gap a row puts
-	-- between two of them
-	local function buttonChromeX(metrics: any): number
-		local sizes = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
-		local regular = if type(sizes) == "table" then (sizes :: any).regular else nil
-		local padX = if type(regular) == "table" and type(regular.paddingX) == "number" then regular.paddingX else 0
-		local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
-			then (metrics.chromeInsets :: any).control
-			else nil
-		local artX = if type(art) == "table" then (art.left or 0) + (art.right or 0) else 0
-		return padX * 2 + artX
-	end
+	local labelWidth, buttonChromeX = alert.labelWidth, alert.buttonChromeX
 	local function read(v, use)
 		return if UI.isReadable(v) then (if use then use(v) else v:peek()) else v
 	end
