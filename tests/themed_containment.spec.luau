@@ -1206,4 +1206,37 @@ describe("an inner stroke never lies under content", function()
 			expect(stroked >= 5 and checked >= 5).toBe(true)
 		end)
 	end
+
+	it("a bound focus ring is paint only: focusing an image Button or a Slider thumb solves nothing", function()
+		local w = require("./lib/world").new({
+			viewport = { x = 0, y = 0, w = 1280, h = 800 },
+			themeMetrics = pixel,
+			capabilities = { mouse = false, keyboard = true, touch = false, gamepad = true },
+			preferredInput = "Gamepad",
+			hostOpts = { keyboardNavigation = true },
+		})
+		local W = w.UI
+		w.present(function()
+			return W.Screen("S")({
+				W.VStack("Col")({
+					width = W.fill(),
+					W.Button("Card")({ label = "Car", image = "rbxassetid://1", onActivate = function() end }),
+					W.Slider("Level")({ value = Compose.cell(2), min = 0, max = 5, onChange = function() end }),
+				}),
+			})
+		end)
+		w.settle(3)
+		for _, suffix in { "/Card", "/Level" } do
+			local before = w.controller.stats().solves
+			local moved = false
+			for _, path in w.adapter.paths() do
+				if not moved and string.find(path, "/S/Col" .. suffix, 1, true) then
+					moved = w.pres.focus.focusOn(path)
+				end
+			end
+			expect(moved).toBe(true)
+			w.settle(3)
+			expect(`{suffix} solves {w.controller.stats().solves - before}`).toBe(`{suffix} solves 0`)
+		end
+	end)
 end)

@@ -3169,7 +3169,9 @@ Every border Facet paints, authored or a theme's own hairline (raised, chip, a
 field, the `utility` appearance), sits inside its node's box
 (`BorderStrokePosition = Inner`), so a scroller's clip never cuts it. The node's
 padding on each side is at least the stroke's thickness, so its content never
-lies under the band; padding that is already wider is unchanged.
+lies under the band; padding that is already wider is unchanged. Only a resting
+stroke pays for padding: a bound `stroke` (a formula, such as a focus or hover
+ring) is paint-only, so toggling it never re-solves layout.
 
 | Field | Meaning |
 |---|---|

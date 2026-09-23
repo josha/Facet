@@ -237,7 +237,9 @@ detail and every behaviour or path change.
   `BorderStrokePosition = Inner`, so a scroll clip no longer cuts them, and the
   node's padding on each side is at least the stroke's thickness. A stroked
   container that had no padding (a raised menu card, a field plate) now insets
-  its content by its hairline (1 px under Facet Neutral).
+  its content by its hairline (1 px under Facet Neutral). Only a resting stroke
+  pays: a bound `stroke` (a focus, hover or selection ring) stays paint-only
+  and never moves padding.
 - **Toggle loses its plate.** A switch, bare or in a settings row, paints no
   surface plate and takes no press dip, and a theme package's `control` slot art
   no longer paints Toggles (`CONTROL_CLASSES` is Button only). A settings row

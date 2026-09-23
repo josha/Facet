@@ -1564,8 +1564,10 @@ local function toLayoutNode(
 		and a scroller's clip sliced it. Content keeps clear of the band because
 		each side's padding is at least the stroke: an authored `stroke`, or the
 		theme hairline on the surfaces that wear one (raised, chip, a field, the
-		utility appearance). Padding already wider than the band is untouched. ]]
-	local strokeData = props.stroke
+		utility appearance). Padding already wider than the band is untouched.
+		Only a RESTING stroke pays: a bound one is a state ring (focus, hover,
+		selection) that toggles with the state, and it stays paint-only. ]]
+	local strokeData = if node.dynamicProps and node.dynamicProps.stroke ~= nil then nil else props.stroke
 	local strokeW = if type(strokeData) == "table"
 		then tonumber(styling.paintStroke(strokeData, metrics).thickness) or 0
 		elseif
