@@ -39,6 +39,8 @@ jobs:
       # and StyLua, so this step and the next are the whole setup, and the runner
       # gets exactly the versions a contributor has.
       - name: Install Rokit
+        env:
+          GITHUB_PAT: ${{ github.token }}
         run: |
           curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
           echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
