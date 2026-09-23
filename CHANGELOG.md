@@ -41,8 +41,9 @@ runtime as `Facet.VERSION`.
 - **`UI.Card`.** Artwork, a title and a caption as one body, with a primary
   action and a More menu as sibling targets. `reveal = "automatic"` shows them
   on engagement (pointer, painted focus, a held press, the open menu, a browse
-  stop) over a measured plate that never moves siblings, and at rest on touch;
-  `always` keeps them in layout. `api.enterActions()` enters them from a
+  stop) on a plate inside the card's own hosted envelope, so its box never
+  changes, and at rest whenever the session has touch; `always` keeps them in
+  layout. `api.enterActions()` enters them from a
   `UI.VirtualGrid` browse stop; Cancel returns to it.
 - **Transient traps follow their contribution.** A `transientScope` whose
   control left the tree (a recycled cell, a closed region) no longer strands

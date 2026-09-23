@@ -15,13 +15,14 @@
 	reveal. No global listener, no frame loop.
 
 	`reveal = "always"` keeps the action row in the card's own layout.
-	`reveal = "automatic"` keeps it visible at rest on a touch-only session and
-	otherwise shows it while engaged; the body envelope never changes, because the
-	plate and actions live in an overflowing layer anchored under the body
-	(sideways by one `s`, downward by the row). The layer is always laid out, so
-	its extension is MEASURED at rest (`api.revealExtent`) and a grid can reserve
-	it before anything reveals; `hidden` takes it out of paint, focus and the tap
-	path the moment engagement ends. Entry fades in on the container motion class.
+	`reveal = "automatic"` keeps it visible at rest whenever the session has touch
+	and otherwise shows it while engaged. The card root is one hosted envelope: the
+	body and, directly below it, the action plate, which is ALWAYS laid out and only
+	`hidden` (out of paint, focus and the tap path) at rest. The box never changes,
+	and a pointer moving from the body to Play or More never leaves the envelope it
+	is observed on. Entry fades in on the container motion class; exit is a cut
+	once the pointer has left the envelope. `api.revealExtent.body` is the measured
+	envelope height, so a grid sizes its lines from the card.
 
 	BROWSE ENTRY. Inside a `UI.VirtualGrid` the cell's own Hit is the browse stop;
 	`api.enterActions()` holds the reveal and traps focus in the actions (the
@@ -182,7 +183,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	}
 	local touchAtRest = ownedFormula(owner, function(use)
 		local classes = if env ~= nil then use(env:get("interactionClasses")) else nil
-		return type(classes) == "table" and classes.touch == true and not classes.pointer and not classes.gamepad
+		-- any touch at all: a finger has no hover, so a hybrid device must not hide them
+		return type(classes) == "table" and classes.touch == true
 	end)
 	local engaged = ownedFormula(owner, function(use)
 		return use(hovered)
@@ -284,26 +286,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	local hasActions = #actions > 0
 
-	-- the plate reaches `s` past the body on each side and `s` below the row
-	local side = ownedFormula(owner, function(use)
-		local metrics = if env ~= nil then use(env:get("themeMetrics")) else themeSnapshot.neutral()
-		return themeSnapshot.resolveNumber(metrics, "s") or 8
-	end)
-	local bodySize = Compose.cell({ w = 0, h = 0 }, function(a: any, b: any)
-		return a.w == b.w and a.h == b.h
-	end)
-	local rowHeight = Compose.cell(0)
-	-- `body` is the card's own measured height, so a grid can size its lines from
-	-- the card instead of predicting text
+	-- the card's measured height (body plus the action plate), so a grid can size
+	-- its lines from the card instead of predicting text
+	local height = Compose.cell(0)
 	local extent = ownedFormula(owner, function(use)
-		local body = use(bodySize).h
-		if not hasActions or reveal == "always" then
-			return { side = 0, below = 0, body = body }
-		end
-		local s = use(side)
-		return { side = s, below = s + use(rowHeight) + s, body = body }
+		return { body = use(height) }
 	end, function(a: any, b: any)
-		return a ~= nil and b ~= nil and a.side == b.side and a.below == b.below and a.body == b.body
+		return a ~= nil and b ~= nil and a.body == b.body
 	end)
 
 	local fade = if reveal == "automatic"
@@ -315,79 +304,49 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return env ~= nil and use(env:get("motionPolicy")) == "reduced"
 	end)
 
-	local root: any
-	if reveal == "always" or not hasActions then
-		local children = { body }
-		if hasActions then
-			table.insert(
-				children,
-				UI.HStack({ id = "Actions", width = UI.fill(), gap = "s", align = "center", children = actions })
-			)
-		end
-		root =
-			UI.VStack({ id = id, width = spec.width or UI.fill(), gap = "s", enabled = enabled, children = children })
-	else
-		local function faded(use: any): number
-			return if use(reduced) or fade == nil then 1 else math.clamp(use(fade), 0, 1)
-		end
-		-- each part fades as its own group: a group's buffer is its own bounds, and
-		-- the plate reaches past the layer's
-		local layer = UI.Anchor({
-			id = "Reveal",
-			-- after the body in document order (Tab reads body, primary, More) and
-			-- painted beneath it: a fixed sibling layer, never a bound zIndex
-			zIndex = -1,
-			-- the body's own measured box, so the layer never feeds the hug it sits in
-			width = function(use)
-				return { type = "fixed", px = use(bodySize).w }
-			end,
-			height = function(use)
-				return { type = "fixed", px = use(bodySize).h }
-			end,
-			overflow = "intentionalOverlap",
-			hidden = function(use)
-				return not use(revealed)
-			end,
-			children = {
-				UI.Box({
-					id = "Plate",
-					surface = "raised",
-					anchor = "topLeft",
-					opacity = faded,
-					offsetX = function(use)
-						return -use(side)
-					end,
-					width = function(use)
-						return { type = "fixed", px = use(bodySize).w + 2 * use(side) }
-					end,
-					height = function(use)
-						return { type = "fixed", px = use(bodySize).h + use(extent).below }
-					end,
-				}),
-				UI.ZStack({
-					id = "Actions",
-					anchor = "topLeft",
-					opacity = faded,
-					offsetY = function(use)
-						return use(bodySize).h + use(side)
-					end,
-					width = function(use)
-						return { type = "fixed", px = use(bodySize).w }
-					end,
-					children = {
-						UI.HStack({ id = "Row", width = UI.fill(), gap = "s", align = "center", children = actions }),
-					},
-				}),
-			},
-		})
-		root = UI.ZStack({
-			id = id,
-			width = spec.width or UI.fill(),
-			height = UI.hug(),
-			enabled = enabled,
-			children = { body, layer },
-		})
+	local children = { body }
+	if hasActions and reveal == "always" then
+		table.insert(
+			children,
+			UI.HStack({ id = "Actions", width = UI.fill(), gap = "s", align = "center", children = actions })
+		)
+	elseif hasActions then
+		-- the plate is part of the card's own envelope, directly below the body: the
+		-- box never changes, and a pointer travelling from the body to an action never
+		-- leaves the card
+		table.insert(
+			children,
+			UI.ZStack({
+				id = "Reveal",
+				width = UI.fill(),
+				opacity = function(use: any): number
+					return if use(reduced) or fade == nil then 1 else math.clamp(use(fade), 0, 1)
+				end,
+				hidden = function(use: any): boolean
+					return not use(revealed)
+				end,
+				-- the plate is its own layer, so a themed panel's chrome never narrows the row
+				children = {
+					UI.Box({ id = "Plate", surface = "raised", width = UI.fill(), height = UI.fill() }),
+					UI.HStack({
+						id = "Row",
+						width = UI.fill(),
+						padding = "s",
+						gap = "s",
+						align = "center",
+						children = actions,
+					}),
+				},
+			})
+		)
 	end
+	local root = UI.VStack({
+		id = id,
+		width = spec.width or UI.fill(),
+		gap = if reveal == "always" then "s" else 0,
+		enabled = enabled,
+		children = children,
+	})
 
 	-- ===== the contribution ================================================
 	local rootPath: string? = nil
@@ -495,25 +454,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				-- a fresh mount identity: nothing observed on the old one carries
 				detach()
 				rootPath = node.path
-				transient.rootPath = `{node.path}/Reveal/Actions`
+				transient.rootPath = `{node.path}/Reveal`
 			end
 			attachHover()
-			-- the body's NATURAL box: the root can be offered less than it (a line
-			-- sized from the previous measure), so measuring the root would never grow
-			local r, b = rectOf(node.path), rectOf(`{node.path}/Body`)
+			-- the NATURAL bottom of the last part: the root can be offered less than it
+			-- (a line sized from the previous measure), so measuring the root would never grow
+			local last = if not hasActions then "Body" elseif reveal == "always" then "Actions" else "Reveal"
+			local r, b = rectOf(node.path), rectOf(`{node.path}/{last}`)
 			if type(r) == "table" and type(b) == "table" then
-				local bottom = b.y + b.h
-				local row = if reveal == "always" and hasActions then rectOf(`{node.path}/Actions`) else nil
-				if type(row) == "table" then
-					bottom = row.y + row.h
-				end
-				bodySize:set({ w = r.w, h = bottom - r.y })
-			end
-			if reveal == "automatic" and hasActions then
-				local row = rectOf(`{node.path}/Reveal/Actions`)
-				if type(row) == "table" and row.h ~= rowHeight:peek() then
-					rowHeight:set(row.h)
-				end
+				height:set(b.y + b.h - r.y)
 			end
 			syncFocus()
 		end,

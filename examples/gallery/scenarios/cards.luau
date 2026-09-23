@@ -6,13 +6,12 @@
 	pad, A on a card enters its actions (these cards have no body action; with one,
 	the grid's Activate runs that same callback instead), the arrows stay in them,
 	B leaves (after closing an open menu first). The grid keeps one browse stop per cell; each
-	card reads it through `browseTarget`, and each cell insets its card by the
-	card's MEASURED reveal extension, so the first column and the last line keep
-	their plates. The line extent is the card's own measured height plus that
-	extension — nothing here predicts text. ]]
+	card reads it through `browseTarget`. The plate is inside each card's own
+	envelope, and the line extent is the tallest card's measured height
+	(`revealExtent.body`) — nothing here predicts text. ]]
 local ITEM_COUNT = 60
--- the first frame's line before any card has measured itself
-local SEED_EXTENT = 320
+-- the first frame's line before any card has measured itself: tall, the safe side
+local SEED_EXTENT = 480
 
 local COPY = {
 	lastNone = "Last action: none yet",
@@ -33,7 +32,6 @@ return {
 		local last = Compose.cell(COPY.lastNone)
 		local refs: { [string]: any } = {}
 		local gridRef: any = nil
-		local extent = Compose.cell({ side = 0, below = 0, body = 0 })
 		-- each card's measured height by key: a line is as tall as its tallest card
 		local bodies = Compose.cell({} :: { [string]: number })
 		local columns = Compose.formula(function(use)
@@ -46,63 +44,51 @@ return {
 
 		local function cell(item: any, ctx2: any): any
 			local key = item.id
-			return UI.VStack("Inset")({
-				width = UI.fill(),
-				height = UI.fill(),
-				padding = function(use: any): any
-					local e = use(extent)
-					return { left = e.side, right = e.side, top = 0, bottom = e.below }
+			return UI.Card("Card")({
+				image = "rbxassetid://75342910516929",
+				title = function(use: any): string
+					return ctx2.current(use).title
 				end,
-				UI.Card("Card")({
-					image = "rbxassetid://75342910516929",
-					title = function(use: any): string
-						return ctx2.current(use).title
+				caption = function(use: any): string
+					return ctx2.current(use).players
+				end,
+				browseTarget = function(): string?
+					local path = if gridRef ~= nil then gridRef.api.pathOf(key) else nil
+					return if path ~= nil then `{path}/Hit` else nil
+				end,
+				primaryAction = {
+					label = "Play",
+					onActivate = function()
+						record(`play {key}`)
 					end,
-					caption = function(use: any): string
-						return ctx2.current(use).players
-					end,
-					browseTarget = function(): string?
-						local path = if gridRef ~= nil then gridRef.api.pathOf(key) else nil
-						return if path ~= nil then `{path}/Hit` else nil
-					end,
-					primaryAction = {
-						label = "Play",
-						onActivate = function()
-							record(`play {key}`)
-						end,
-					},
-					menu = {
-						items = {
-							{
-								id = "hide",
-								label = "Not interested",
-								onSelect = function()
-									record(`hid {key}`)
-								end,
-							},
+				},
+				menu = {
+					items = {
+						{
+							id = "hide",
+							label = "Not interested",
+							onSelect = function()
+								record(`hid {key}`)
+							end,
 						},
 					},
-					ref = function(r: any)
-						refs[key] = r
-						ctx2.scope.own(function()
-							if refs[key] == r then
-								refs[key] = nil
-							end
-						end)
-						Compose.watch(function(use)
-							local e = use(r.api.revealExtent)
-							local now = extent:peek()
-							if e.side ~= now.side or e.below ~= now.below then
-								extent:set(e)
-							end
-							if bodies:peek()[key] ~= e.body then
-								local map = table.clone(bodies:peek())
-								map[key] = e.body
-								bodies:set(map)
-							end
-						end)
-					end,
-				}),
+				},
+				ref = function(r: any)
+					refs[key] = r
+					ctx2.scope.own(function()
+						if refs[key] == r then
+							refs[key] = nil
+						end
+					end)
+					Compose.watch(function(use)
+						local e = use(r.api.revealExtent)
+						if bodies:peek()[key] ~= e.body then
+							local map = table.clone(bodies:peek())
+							map[key] = e.body
+							bodies:set(map)
+						end
+					end)
+				end,
 			})
 		end
 
@@ -125,7 +111,7 @@ return {
 						for i = (line - 1) * lanes + 1, math.min(#list, line * lanes) do
 							tallest = math.max(tallest, map[list[i].id] or 0)
 						end
-						return if tallest > 0 then tallest + use(extent).below else SEED_EXTENT
+						return if tallest > 0 then tallest else SEED_EXTENT
 					end,
 					viewportExtent = "auto",
 					ref = function(r: any)
@@ -158,7 +144,7 @@ return {
 				for _ in refs do
 					n += 1
 				end
-				return { mounted = n, extent = extent:peek(), last = last:peek() }
+				return { mounted = n, last = last:peek() }
 			end,
 		}
 	end,

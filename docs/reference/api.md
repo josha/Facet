@@ -8946,45 +8946,41 @@ them. Structure and callbacks are construction-time; the bound values stay live.
 `enabled = false` is inherited by all three.
 
 **Reveal.** `always` keeps the action row in the card's layout. `automatic`
-(the default) shows it at rest on a touch-only session and otherwise while the
-card is **engaged**: the pointer within it, a painted focus ring within it, a
-press held on one of its buttons, its menu open, its actions entered, or the
+(the default) shows it at rest whenever the session has touch (a finger has no
+hover, so hybrid devices keep them too) and otherwise while the card is
+**engaged**: the pointer within it, a painted focus ring within it, a press held
+on one of its buttons, its menu open, its actions entered, or the
 `browseTarget` path focused. A card with neither a body action nor a
-`browseTarget` has no stop of its own, so it shows its actions at rest. Revealed
-actions sit on a plate that reaches one `s` past each side and below the row;
-the card's own box never changes, so siblings never move. The layer is laid out
-at rest, so `api.revealExtent` (`{ side, below, body }`, `body` being the card's
-own measured height) is the **measured** extension
-before anything reveals; reserve it around the card wherever a neighbour's
-controls or a clip edge sit within it. When engagement ends the layer leaves
-paint, focus and the tap path at once; entry fades in on the container class
-(reduced motion: none).
+`browseTarget` has no stop of its own, so it shows its actions at rest. The card
+is one hosted envelope: the body and, directly below it, the action plate. The
+plate is always laid out and only hidden at rest, so the card's box never
+changes, siblings never move, and a pointer travelling from the body to Play or
+More never leaves the envelope it is observed on. `api.revealExtent.body` is
+that envelope's **measured** height, before anything reveals. When engagement
+ends the plate leaves paint, focus and the tap path at once; entry fades in on
+the container class (reduced motion: none).
 
 **In a `UI.VirtualGrid`.** The grid's cell Hit stays the one browse stop. Point
-`browseTarget` at it, keep each card's ref by item key (released by the cell's
-owner), and inset the card by its measured extension so the first column and the
-last line keep their plates. The grid's `onActivate` runs the card's body
-callback when it has one, and otherwise enters its actions:
+`browseTarget` at it and keep each card's ref by item key (released by the
+cell's owner). The grid's `onActivate` runs the card's body callback when it has
+one, and otherwise enters its actions:
 
 ```lua
-local refs, gridRef, extent = {}, nil, Compose.cell({ side = 0, below = 0, body = 0 })
+local refs, gridRef = {}, nil
 UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, viewportExtent = "auto",
-    itemExtent = 320, -- holds revealExtent.body + below; the Cards scenario sizes each line from its tallest card
+    itemExtent = 320, -- holds revealExtent.body; the Cards scenario sizes each line from its tallest card
     ref = function(r) gridRef = r end,
     onActivate = function(item) local r = refs[item.id]; if r then r.api.enterActions() end end,
     cell = function(item, ctx)
         local key = item.id
-        return UI.VStack("Inset")({ width = UI.fill(), height = UI.fill(),
-            padding = function(use) local e = use(extent); return { left = e.side, right = e.side, top = 0, bottom = e.below } end,
-            UI.Card("Card")({ image = item.art, title = function(use) return ctx.current(use).title end,
-                browseTarget = function() local cell = gridRef and gridRef.api.pathOf(key); return cell and cell .. "/Hit" end,
-                primaryAction = { label = "Play", onActivate = function() play(key) end },
-                menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key) end } } },
-                ref = function(r)
-                    refs[key] = r
-                    ctx.scope.own(function() if refs[key] == r then refs[key] = nil end end)
-                    Compose.watch(function(use) extent:set(use(r.api.revealExtent)) end)
-                end }) })
+        return UI.Card("Card")({ image = item.art, title = function(use) return ctx.current(use).title end,
+            browseTarget = function() local cell = gridRef and gridRef.api.pathOf(key); return cell and cell .. "/Hit" end,
+            primaryAction = { label = "Play", onActivate = function() play(key) end },
+            menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key) end } } },
+            ref = function(r)
+                refs[key] = r
+                ctx.scope.own(function() if refs[key] == r then refs[key] = nil end end)
+            end })
     end })
 ```
 
@@ -8996,7 +8992,7 @@ returns to the browse stop (which keeps the card revealed). A tap elsewhere also
 leaves them. Removing, recycling or replacing the card releases its trap.
 
 `api` also carries `leaveActions()`, `engaged`, `revealed` and `revealExtent`
-(readables). `dump()` reports `{ schema = "facet-card-dump/1", id, reveal,
+(readables; `revealExtent` is `{ body }`). `dump()` reports `{ schema = "facet-card-dump/1", id, reveal,
 revealed, engaged, hovered, focusWithin, pressing, browsing, entered, menuOpen,
 body = "button" | "informational", actions, extent, diagnostics }`.
 

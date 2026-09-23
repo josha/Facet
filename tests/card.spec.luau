@@ -1,6 +1,6 @@
 --!strict
---[[ UI.Card — three sibling hit surfaces, owned engagement, and a reveal layer
-	whose measured extension never moves a sibling (phase6 P6a). ]]
+--[[ UI.Card — three sibling hit surfaces, owned engagement, and one hosted
+	envelope (body plus action plate) that never changes size (phase6 P6a). ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local world = require("./lib/world")
@@ -28,8 +28,8 @@ local function mount(content: (UI: any) -> { any }, opts: any?): any
 end
 
 local ROOT = "/S/Row/C"
-local PRIMARY = `{ROOT}/Reveal/Actions/Row/Primary`
-local MORE = `{ROOT}/Reveal/Actions/Row/More`
+local PRIMARY = `{ROOT}/Reveal/Row/Primary`
+local MORE = `{ROOT}/Reveal/Row/More`
 
 local function cardSpec(log: { string }, extra: any?): any
 	local spec: any = {
@@ -189,6 +189,14 @@ describe("Card: activation", function()
 		w.settle(2)
 		expect(w.adapter.node(label).props.text).toBe("Second")
 		expect(w.adapter.node(art).props.image).toBe("rbxassetid://2")
+		-- repeated legal/illegal flips keep a bounded log
+		for i = 1, 20 do
+			title:set("")
+			w.settle(1)
+			title:set(`T{i}`)
+			w.settle(1)
+		end
+		expect(#w.record("C").api.diagnostics()).toBe(16)
 	end)
 
 	it("a callback that removes its own card leaves nothing behind", function()
@@ -230,32 +238,38 @@ describe("Card: engagement and reveal", function()
 		local card, nextRect = rectOf(w, ROOT), rectOf(w, "/S/Row/Next")
 		expect(revealed(w)).toBe(false)
 		expect(w.adapter.visibleOf(`{ROOT}/Reveal`)).toBe(false)
+		-- the envelope the pointer is observed on is a real engine object
+		expect(w.adapter.node(ROOT).elided).toBeNil()
 		w.adapter.hover(ROOT)
 		w.settle(3)
 		expect(revealed(w)).toBe(true)
 		expect(rectOf(w, ROOT)).toBe(card)
 		expect(rectOf(w, "/S/Row/Next")).toBe(nextRect)
-		-- the plate grows sideways by `s` and below by the measured row
-		local body = w.adapter.node(ROOT).rect
-		local plate = w.adapter.node(`{ROOT}/Reveal/Plate`).rect
-		local row = w.adapter.node(`{ROOT}/Reveal/Actions`).rect
-		local extent = w.record("C").api.revealExtent:peek()
-		expect(plate.y).toBe(body.y)
-		expect(plate.x).toBe(body.x - extent.side)
-		expect(plate.y + plate.h).toBe(body.y + body.h + extent.below)
-		expect(row.y + row.h + extent.side).toBe(plate.y + plate.h)
+		-- the plate sits below the body INSIDE the envelope, so a pointer moving from
+		-- the body to Play or More never leaves the observed box
+		local root = w.adapter.node(ROOT).rect
+		local body = w.adapter.node(`{ROOT}/Body`).rect
+		local plate = w.adapter.node(`{ROOT}/Reveal`).rect
+		expect(plate.y).toBe(body.y + body.h)
+		expect(plate.y + plate.h).toBe(root.y + root.h)
+		for _, path in { PRIMARY, MORE } do
+			local r = w.adapter.node(path).rect
+			expect(r.x >= root.x and r.x + r.w <= root.x + root.w).toBe(true)
+			expect(r.y >= plate.y and r.y + r.h <= root.y + root.h).toBe(true)
+		end
 		w.adapter.unhover(ROOT)
 		w.settle(3)
 		expect(revealed(w)).toBe(false)
 	end)
 
-	it("the extension is measured at rest, before anything reveals", function()
+	it("the envelope height is measured at rest, before anything reveals", function()
 		local w = mount(function(UI)
 			return { UI.Card("C")(cardSpec({})) }
 		end)
-		local extent = w.record("C").api.revealExtent:peek()
-		expect(extent.side > 0).toBe(true)
-		expect(extent.below).toBe(extent.side * 2 + w.adapter.node(`{ROOT}/Reveal/Actions`).rect.h)
+		expect(revealed(w)).toBe(false)
+		local root = w.adapter.node(ROOT).rect
+		expect(w.record("C").api.revealExtent:peek().body).toBe(root.h)
+		expect(root.h > w.adapter.node(`{ROOT}/Body`).rect.h).toBe(true)
 	end)
 
 	it("hidden actions are out of the focus order at rest", function()
@@ -342,9 +356,13 @@ describe("Card: engagement and reveal", function()
 		expect(revealed(w)).toBe(true)
 		w.adapter.touchTap(`{ROOT}/Body`)
 		expect(table.concat(log, ",")).toBe("body")
-		-- gaining a mouse returns the card to engagement, without a held menu lost
-		w.env:set("capabilities", { touch = true, mouse = true })
+		-- a hybrid device keeps them: a finger still has no hover
+		w.env:set("capabilities", { touch = true, mouse = true, gamepad = true })
 		w.env:set("preferredInput", "KeyboardAndMouse")
+		w.settle(2)
+		expect(revealed(w)).toBe(true)
+		-- losing touch returns the card to engagement
+		w.env:set("capabilities", { mouse = true })
 		w.settle(2)
 		expect(revealed(w)).toBe(false)
 	end)
@@ -373,7 +391,7 @@ describe("Card: engagement and reveal", function()
 			return { UI.Card("C")(cardSpec({})) }
 		end, { reduced = false })
 		local function alpha(): number
-			local group = w.adapter.node(`{ROOT}/Reveal/Plate`).canvasGroupInstance
+			local group = w.adapter.node(`{ROOT}/Reveal`).canvasGroupInstance
 			return 1 - group.groupTransparency
 		end
 		w.adapter.hover(ROOT)
@@ -413,15 +431,15 @@ describe("Card: engagement and reveal", function()
 		end)
 		w.adapter.hover(ROOT)
 		w.settle(2)
-		local card = rectOf(w, ROOT)
-		local before = w.record("C").api.revealExtent:peek().below
+		local before = w.record("C").api.revealExtent:peek().body
 		w.env:set("preferredTextOffset", 14)
 		w.settle(4)
-		expect(w.record("C").api.revealExtent:peek().below >= before).toBe(true)
-		local plate = w.adapter.node(`{ROOT}/Reveal/Plate`).rect
-		local body = w.adapter.node(ROOT).rect
-		expect(plate.y + plate.h).toBe(body.y + body.h + w.record("C").api.revealExtent:peek().below)
-		expect(rectOf(w, ROOT) == card or w.adapter.node(ROOT).rect.w == 240).toBe(true)
+		local root = w.adapter.node(ROOT).rect
+		expect(w.record("C").api.revealExtent:peek().body > before).toBe(true)
+		expect(w.record("C").api.revealExtent:peek().body).toBe(root.h)
+		local plate = w.adapter.node(`{ROOT}/Reveal`).rect
+		expect(plate.y + plate.h).toBe(root.y + root.h)
+		expect(root.w).toBe(240)
 	end)
 end)
 
@@ -429,9 +447,7 @@ end)
 --[[ THE GRID RECIPE (P6a items 9-12). The grid owns ONE browse stop per cell (its
 	Hit); the cell's Card reads that stop through `browseTarget`, and the grid's
 	activation enters the card's actions through a mount-local ref keyed by the
-	item. Each cell insets its card by the card's MEASURED extension (both sides
-	and below), so a reveal never covers a neighbour and never reaches past the
-	grid's clip edge — the first column and the last line included. ]]
+	item. The plate lives inside the card's own envelope, so no cell insets it. ]]
 local function gridWorld(opts: any?): any
 	local o = opts or {}
 	local w = world.new({
@@ -452,7 +468,6 @@ local function gridWorld(opts: any?): any
 	local function grid(id: string, source: any)
 		local refs: { [string]: any } = {}
 		local gridRef: any = nil
-		local gaps = Compose.cell({ side = 0, below = 0 })
 		local g = UI.VirtualGrid(id)({
 			items = source,
 			key = function(item: any)
@@ -473,7 +488,7 @@ local function gridWorld(opts: any?): any
 			end,
 			cell = function(item: any, ctx: any)
 				local key = item.id
-				local card = UI.Card("Card")({
+				return UI.Card("Card")({
 					image = "rbxassetid://1",
 					title = function(use)
 						return ctx.current(use).title
@@ -506,23 +521,7 @@ local function gridWorld(opts: any?): any
 								refs[key] = nil
 							end
 						end)
-						Compose.watch(function(use)
-							local e = use(r.api.revealExtent)
-							local now = gaps:peek()
-							if e.below > now.below or e.side > now.side then
-								gaps:set({ side = math.max(e.side, now.side), below = math.max(e.below, now.below) })
-							end
-						end)
 					end,
-				})
-				return UI.VStack("Inset")({
-					width = UI.fill(),
-					height = UI.fill(),
-					padding = function(use)
-						local e = use(gaps)
-						return { left = e.side, right = e.side, top = 0, bottom = e.below }
-					end,
-					card,
 				})
 			end,
 		})
@@ -555,7 +554,7 @@ local function gridWorld(opts: any?): any
 			return `/S/Page/{grid or "A"}/Canvas/Band/W/[{key}]/Cell/Hit`
 		end,
 		action = function(key: string, part: string, grid: string?): string
-			return `/S/Page/{grid or "A"}/Canvas/Band/W/[{key}]/Cell/Inset/Card/Reveal/Actions/Row/{part}`
+			return `/S/Page/{grid or "A"}/Canvas/Band/W/[{key}]/Cell/Card/Reveal/Row/{part}`
 		end,
 	}
 end
@@ -573,12 +572,9 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		expect(gridCard(g, "i1").browsing).toBe(true)
 		expect(gridCard(g, "i1").revealed).toBe(true)
 		expect(gridCard(g, "i2").revealed).toBe(false)
-		-- the gutters hold the measured extension: the next line starts below the
-		-- revealed plate, and the neighbour across starts past both sideways reaches
-		local e = g.refs()["i1"].api.revealExtent:peek()
+		-- the plate stays inside its own cell
 		local c1 = g.w.adapter.node(g.hit("i1")).rect
-		local plate = g.w.adapter.node(`/S/Page/A/Canvas/Band/W/[i1]/Cell/Inset/Card/Reveal/Plate`).rect
-		expect(e.side > 0 and e.below > e.side).toBe(true)
+		local plate = g.w.adapter.node(`/S/Page/A/Canvas/Band/W/[i1]/Cell/Card/Reveal`).rect
 		expect(plate.x >= c1.x and plate.x + plate.w <= c1.x + c1.w).toBe(true)
 		expect(plate.y + plate.h <= c1.y + c1.h).toBe(true)
 		-- moving the ring on moves the reveal
@@ -657,6 +653,9 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		g.w.settle(3)
 		expect(g.refs()["i1"]).toBeNil()
 		expect(string.find(g.w.pres.focus.activeScopeName() or "", "__transient__", 1, true)).toBeNil()
+		-- the restore lands on a live stop, never on the recycled card's old one
+		local focused = g.w.pres.focus.focused:peek()
+		expect(focused ~= nil and g.w.adapter.node(focused) ~= nil).toBe(true)
 	end)
 
 	it("two grids with identical keys keep separate cards and entries", function()
@@ -682,15 +681,13 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		w.present(built.screen)
 		w.settle(6)
 		local cell = w.adapter.node("/Cards/Games/Canvas/Band/W/[g1]/Cell").rect
-		local plate = w.adapter.node("/Cards/Games/Canvas/Band/W/[g1]/Cell/Inset/Card/Reveal/Plate").rect
+		local plate = w.adapter.node("/Cards/Games/Canvas/Band/W/[g1]/Cell/Card/Reveal").rect
 		expect(plate.x >= cell.x and plate.x + plate.w <= cell.x + cell.w).toBe(true)
 		expect(plate.y + plate.h <= cell.y + cell.h).toBe(true)
 		local dump = built.steps.enter("g1")
 		w.settle(2)
 		expect(dump.entered).toBe(true)
-		expect(w.pres.focus.focused:peek()).toBe(
-			"/Cards/Games/Canvas/Band/W/[g1]/Cell/Inset/Card/Reveal/Actions/Row/Primary"
-		)
+		expect(w.pres.focus.focused:peek()).toBe("/Cards/Games/Canvas/Band/W/[g1]/Cell/Card/Reveal/Row/Primary")
 		w.press("ButtonA")
 		expect(built.report().last).toBe("Last action: play g1")
 	end)

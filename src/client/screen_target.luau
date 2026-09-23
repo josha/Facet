@@ -3112,6 +3112,7 @@ function screen_target.new(opts: Opts?)
 	-- Control-local hover observation; no global MouseMovement subscription per
 	-- image card and no polling. The control gates the result on live input facts.
 	function adapter.setHoverObserver(handle: any, callback: (boolean) -> ()): () -> ()
+		ensureInstance(handle)
 		local enter = handle.instance.MouseEnter:Connect(function()
 			callback(true)
 		end)

@@ -1645,6 +1645,9 @@ function fake_target.new(opts: Opts?)
 	-- never marks a node hover-capable. hover/unhover then flip the recorded
 	-- hover state only where it was enabled (headless mirror of MouseEnter/Leave).
 	function adapter.setHoverObserver(handle: any, callback: any): () -> ()
+		-- MouseEnter/Leave live on the engine object: an observer materialises an
+		-- elided node, exactly as the live adapter's ensureInstance does
+		adapter._ensureInstance(handle)
 		handle.hoverObserver = callback
 		return function()
 			handle.hoverObserver = nil
