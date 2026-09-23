@@ -1,7 +1,6 @@
 --!strict
 -- The native TextBox press wiring, loaded from production source. Lune has no
--- TextBox, so the engine's measured order is doubled (unfinished-fields-
--- prototype.md): a mouse press places the caret, fires Focused, then the box's
+-- TextBox, so the engine's order measured in Studio is doubled: a mouse press places the caret, fires Focused, then the box's
 -- InputBegan; its release writes the caret before UserInputService.InputEnded.
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect

@@ -2,8 +2,7 @@
 --[[ A NATIVE TEXTBOX'S PRESS: `selectOnFocus`, applied once per focus session,
 	and a NumberInput's scrub, a horizontal drag across the same box.
 
-	Measured on a raw TextBox (docs/plans/facet-foundation-2026-09-18/reports/
-	unfinished-fields-prototype.md): a mouse press places the caret, THEN fires
+	Measured on a raw TextBox in Studio: a mouse press places the caret, THEN fires
 	Focused, THEN the box's own InputBegan; the engine's release writes land before
 	UserInputService.InputEnded. So a selection written in Focused is overwritten
 	by that press, and a pointer focus selects at its own pointer's release. Any
