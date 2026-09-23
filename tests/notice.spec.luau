@@ -107,6 +107,31 @@ describe("Notice: inline copy, accessories and close", function()
 		expect(narrow.adapter.node(ROOT) ~= nil).toBe(true)
 	end)
 
+	it("a link wears no plate, and on an emphasis fill the link and default action are ordinary controls", function()
+		local function spec(appearance: string?): (any) -> { any }
+			return function(UI: any): { any }
+				return {
+					UI.Notice("Conn")({
+						message = "Update available.",
+						appearance = appearance,
+						link = { label = "Notes", onActivate = function() end },
+						actions = {
+							{ id = "Install", label = "Install", role = "default", onActivate = function() end },
+						},
+					}),
+				}
+			end
+		end
+		local ACC = `{ROOT}/Content/Row/Body/Accessories`
+		local plain = mount(spec(nil), { w = 900 })
+		local link = plain.adapter.node(`{ACC}/Link`).props
+		expect(`{link.appearance} {link.surface}`).toBe("link plain")
+		expect(plain.adapter.node(`{ACC}/Install`).props.surface).toBe("accent")
+		local loud = mount(spec("emphasis"), { w = 900 })
+		local link2, install = loud.adapter.node(`{ACC}/Link`).props, loud.adapter.node(`{ACC}/Install`).props
+		expect(`{link2.appearance} {install.surface}`).toBe("nil nil")
+	end)
+
 	it("arrival never moves focus, and every control is a pad stop in the page's own order", function()
 		local show = Compose.cell(false)
 		local w = mount(function(UI)

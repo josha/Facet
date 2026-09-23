@@ -168,7 +168,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					Facet.nativeControls.Button({
 						id = "Link",
 						label = spec.link.label,
-						appearance = "link",
+						-- a link's lettering is the accent, which an emphasis plate (a
+						-- severity fill) can equal: there it is an ordinary control
+						appearance = if emphasis then nil else "link",
 						disclose = true,
 						controlSize = spec.controlSize,
 						onActivate = spec.link.onActivate,
@@ -185,7 +187,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						busy = action.busy,
 						-- roles PAINT here; a page is not a modal and gets no default/cancel keys
 						role = if action.role == "destructive" then "destructive" else nil,
-						surface = if action.role == "default" then "accent" else nil,
+						-- ...and so is the default action: accent on a severity fill
+						-- is a plate with no edge
+						surface = if action.role == "default" and not emphasis then "accent" else nil,
 						disclose = true,
 						controlSize = spec.controlSize,
 						onActivate = action.onActivate,
