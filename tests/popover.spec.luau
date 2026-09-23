@@ -419,6 +419,64 @@ describe("Popover: sources, anchor loss and bounds", function()
 	end)
 end)
 
+describe("Popover: a path source inside an embedded screen", function()
+	it("resolves from the embedded screen's root, and a path that never mounts warns once", function()
+		local env: any = getfenv(0)
+		local realWarn = env.warn
+		local warned: { string } = {}
+		env.warn = function(line: string)
+			table.insert(warned, line)
+		end
+		local ok, err = pcall(function()
+			local open = Compose.cell(true)
+			local lost = Compose.cell(true)
+			local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
+			local UI = w.UI
+			w.present(function()
+				-- a gallery host embedding a page whose paths name its own root
+				return UI.Screen("Host")({
+					UI.VStack("Page")({
+						UI.VStack("Inner")({
+							UI.Text("Row")({ text = "The anchor row" }),
+							UI.Popover("Tip")({
+								isPresented = open,
+								onPresentedChange = function(next: boolean)
+									open:set(next)
+								end,
+								source = { path = "/Inner/Row" },
+								content = function()
+									return UI.Text("Body")({ text = "Tip" })
+								end,
+							}),
+							UI.Popover("Lost")({
+								isPresented = lost,
+								onPresentedChange = function(next: boolean)
+									lost:set(next)
+								end,
+								source = { path = "/Inner/Nowhere" },
+								content = function()
+									return UI.Text("Body")({ text = "Never" })
+								end,
+							}),
+						}),
+					}),
+				})
+			end)
+			w.settle(3)
+			local row = w.adapter.node("/Host/Page/Inner/Row").rect
+			local panel = assert(w.adapter.node(PANEL), "the popover presented").rect
+			expect(panel.y >= row.y + row.h).toBe(true)
+			w.settle(3)
+			expect(#warned).toBe(1)
+			expect(string.find(warned[1], "/Inner/Nowhere", 1, true) ~= nil).toBe(true)
+		end)
+		env.warn = realWarn
+		if not ok then
+			error(err, 0)
+		end
+	end)
+end)
+
 describe("Popover: the compact sheet and the live route switch", function()
 	local TOUCH = {
 		capabilities = { keyboard = false, mouse = false, touch = true, gamepad = false },

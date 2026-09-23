@@ -8740,8 +8740,9 @@ proposes with.
 removed or replaced, the presentation is released at once, `false` is proposed
 and `"anchorLost"` reported; your fact is left alone, and a still-true fact never
 reopens against a replacement until you start a new false → true request. A node
-that has not mounted yet is not a loss. `source.path` names a node on the same
-screen as the popover. A `rect` source is copied once and never draws a tail.
+that has not mounted yet is not a loss (one warning says it is awaited).
+`source.path` names a node on the same screen as the popover, from that screen's
+root, even when the screen is embedded in another (a gallery tab page). A `rect` source is copied once and never draws a tail.
 
 **The panel** is one raised plate with one scrolling body; `maxWidth` and
 `maxHeight` cap the whole plate, chrome included, inside the live safe box, and

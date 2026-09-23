@@ -172,6 +172,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- it joins the presenter's stack; a popover opened there would sit beneath it
 	local ready = false
 	local surfaceId = `Popover-{id}`
+	local warnedUnmounted = false
 
 	local function report(reason: string)
 		if spec.onDismiss ~= nil then
@@ -205,8 +206,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if spec.trigger ~= nil then
 			return triggerNode
 		end
-		local root = rootOf(selfNode)
-		return if root ~= nil then focusMap.nodeAt(root, source.path) else nil
+		-- the path names a node from its own screen's root; a screen embedded in
+		-- another (a gallery tab page) is found by that first id among the
+		-- popover's own ancestors
+		local first, rest = string.match(source.path, "^/([^/]+)(.*)$")
+		local n = selfNode
+		while n ~= nil do
+			if n.id == first then
+				return focusMap.nodeAt(rootOf(n), n.path .. rest)
+			end
+			n = n.parent
+		end
+		return nil
 	end
 
 	local function tearDown(state: any)
@@ -352,9 +363,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return
 		end
 		local anchor: any = {
-			source = if rect ~= nil
-				then { rect = rect }
-				else { path = if spec.trigger ~= nil then triggerNode.path else source.path },
+			source = if rect ~= nil then { rect = rect } else { path = identity.path },
 			edge = spec.edge,
 			align = spec.align,
 			gap = spec.gap,
@@ -418,7 +427,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		local identity = currentIdentity()
 		if identity == nil then
-			return -- not mounted yet: wait, this is not a loss
+			-- not mounted yet: wait, this is not a loss — but say so, once
+			if not warnedUnmounted and source ~= nil and source.path ~= nil then
+				warnedUnmounted = true
+				warn(`Facet {where}: source '{source.path}' is not mounted on this screen; the popover waits for it.`)
+			end
+			return
 		end
 		openRoute(route:peek(), identity)
 	end
