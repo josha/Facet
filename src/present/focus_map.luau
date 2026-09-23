@@ -603,8 +603,9 @@ end
 -- ARRAY is in document order, so adjacency answers it afterwards: the row before
 -- a grid's first row and the row after its last row are exactly the groups either
 -- side of it — including the last/first row of an adjacent grid, which is the
--- right target too. Authored exits are never overwritten.
-local function linkGridBoundaries(groups: { any })
+-- right target too. Authored exits are never overwritten. `sole` names the
+-- contributed groups that were their bundle's ONLY group (see `linkable`).
+local function linkGridBoundaries(groups: { any }, sole: { [any]: boolean }?)
 	local function gridPathOf(group: any): string?
 		local name = group.name
 		if type(name) ~= "string" then
@@ -632,12 +633,14 @@ local function linkGridBoundaries(groups: { any })
 		-- Grid sitting next to a contributing control could be handed an exit into
 		-- that control's LAST visual row. A group whose members all filtered away
 		-- is refused for the same reason: an exit into an empty group is the dead
-		-- end this whole function exists to remove, just quieter.
+		-- end this whole function exists to remove, just quieter. A bundle's ONLY
+		-- group has no order to get wrong, so it links like a derived one (a
+		-- DateTimePicker's month grid reaching the Hour field below it, 2026-09-23).
 		local function linkable(candidate: any): boolean
 			if candidate == nil or type(candidate.name) ~= "string" then
 				return false
 			end
-			if string.sub(candidate.name, 1, 5) ~= "auto-" then
+			if string.sub(candidate.name, 1, 5) ~= "auto-" and not (sole ~= nil and sole[candidate]) then
 				return false
 			end
 			return candidate.order ~= nil and #candidate.order > 0
@@ -727,6 +730,7 @@ end
 
 local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { any }
 	local groups: { any } = {}
+	local sole: { [any]: boolean } = {}
 	local pending: { string } = {}
 	local flatCount = 0
 	local function flush()
@@ -779,8 +783,12 @@ local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { 
 			-- a contribution owns its own subtree's focus: emit its groups and do
 			-- NOT descend (its focusables live inside the groups it declares)
 			flush()
-			for _, group in bundle.focusGroups(node) do
+			local declared = bundle.focusGroups(node)
+			for _, group in declared do
 				table.insert(groups, group)
+			end
+			if #declared == 1 then
+				sole[declared[1]] = true
 			end
 			return
 		end
@@ -820,7 +828,7 @@ local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { 
 	end
 	walk(rootNode)
 	flush()
-	linkGridBoundaries(groups)
+	linkGridBoundaries(groups, sole)
 	return groups
 end
 

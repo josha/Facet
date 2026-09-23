@@ -385,17 +385,28 @@ describe("DateTimePicker: a single date", function()
 				return path ~= nil and string.match(path, "/Days/R%d/D%d+$") ~= nil
 			end
 			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 16)))
-			-- up past the first row keeps going, a week at a time, into August
-			for _ = 1, 3 do
+			-- left past the first day pages back into August; right pages forward again
+			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 1)))).toBe(true)
+			w.press("Left")
+			w.settle(2)
+			expect(month()).toBe("2026-8")
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 8, 31)))
+			w.press("Right")
+			w.settle(2)
+			expect(month()).toBe("2026-9")
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 1)))
+			-- up walks a week at a time, and past the first row leaves for the header
+			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 16)))).toBe(true)
+			for _ = 1, 2 do
 				w.press("Up")
 				w.settle(1)
 			end
-			expect(month()).toBe("2026-8")
-			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 8, 26)))
-			w.press("Down")
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 2)))
+			w.press("Up")
 			w.settle(2)
 			expect(month()).toBe("2026-9")
-			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 2)))
+			expect(string.find(w.pres.focus.focused:peek() or "", "/Header/", 1, true) ~= nil).toBe(true)
+			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 2)))).toBe(true)
 			-- the neighbouring month's grey days are tappable but never a stop
 			expect(w.pres.focus.focusOn(w.record("P").dump().cellPaths[1][1])).toBe(false)
 			-- Tab leaves the grid in one press; Shift+Tab comes back to the chosen day
@@ -421,6 +432,67 @@ describe("DateTimePicker: a single date", function()
 			w.settle(2)
 			expect(month()).toBe("2026-10")
 			expect(string.find(w.pres.focus.focused:peek() or "", "/Actions/", 1, true) ~= nil).toBe(true)
+		end
+	)
+
+	it(
+		"a draft on a TV: Down from any day leaves the months for Apply; Up from the first row reaches the header",
+		function()
+			for _, start in { D(2026, 9, 1), D(2026, 9, 16), D(2026, 9, 24), D(2026, 9, 30) } do
+				local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
+				local commits = 0
+				local w = mount({
+					value = cell,
+					onChange = change,
+					draft = true,
+					time = true,
+					onCommit = function()
+						commits += 1
+					end,
+				}, { capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" })
+				w.pres.focus.focusOn(must(w, "/P/Field/Open"))
+				w.press("ButtonA")
+				w.settle(3)
+				local held = w.record("P").dump().month
+				expect(w.pres.focus.focusOn(cellOf(w, start, #w.record("P").dump().cellPaths))).toBe(true)
+				local function at(): string
+					return w.pres.focus.focused:peek() or ""
+				end
+				for _ = 1, 12 do
+					if string.find(at(), "/Actions/", 1, true) then
+						break
+					end
+					w.press("DPadDown")
+					w.settle(2)
+				end
+				expect(string.find(at(), "/Actions/", 1, true) ~= nil).toBe(true)
+				-- leaving never paged the months
+				expect(w.record("P").dump().month.month).toBe(held.month)
+				for _ = 1, 3 do
+					if string.sub(at(), -6) == "/Apply" then
+						break
+					end
+					w.press("DPadRight")
+					w.settle(1)
+				end
+				expect(string.sub(at(), -6)).toBe("/Apply")
+				w.press("ButtonA")
+				w.settle(3)
+				expect(commits).toBe(1)
+			end
+			local cell, _, change = caller(D(2026, 9, 16))
+			local w = mount(
+				{ value = cell, onChange = change, draft = true },
+				{ capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" }
+			)
+			w.pres.focus.focusOn(must(w, "/P/Field/Open"))
+			w.press("ButtonA")
+			w.settle(3)
+			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 3)))).toBe(true)
+			w.press("DPadUp")
+			w.settle(2)
+			expect(string.find(w.pres.focus.focused:peek() or "", "/Header/", 1, true) ~= nil).toBe(true)
+			expect(w.record("P").dump().month.month).toBe(9)
 		end
 	)
 
@@ -668,6 +740,17 @@ describe("DateTimePicker: layout, routes and refusals", function()
 				.. " | "
 				.. w.adapter.node(must(w, "/Pane2/Title")).props.text
 		end
+		expect(titles()).toBe("December 2026 | January 2027")
+		-- Down crosses from the first month into the second; only the second's
+		-- last row leaves the months (for the control below), never paging
+		expect(w.pres.focus.focusOn(cellOf(w, D(2026, 12, 30)))).toBe(true)
+		w.press("Down")
+		w.settle(2)
+		expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2027, 1, 6), 2))
+		expect(w.pres.focus.focusOn(cellOf(w, D(2027, 1, 27), 2))).toBe(true)
+		w.press("Down")
+		w.settle(2)
+		expect(w.pres.focus.focused:peek()).toBe(must(w, "/Col/Other"))
 		expect(titles()).toBe("December 2026 | January 2027")
 		w.adapter.tap(must(w, "/Header/Next"))
 		w.settle(2)

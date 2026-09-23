@@ -27,10 +27,11 @@
 	Disabled days stay focusable and inert (struck through); a neighbouring
 	month's grey days are shown and tappable but never a focus stop. The grid is
 	ONE Tab stop: the arrows walk the days (±1 across a row's end, ±7 across the
-	first and last row), paging when the day is not shown, and its cells are
-	adjust targets WITHOUT an axis, so L1/R1 and Comma/Period page the month while
-	the arrows stay with navigation. Paging stops at a month wholly outside
-	`min`/`max`. ]]
+	shown months), ←/→ paging when the day is not shown; ↓ past the last shown
+	month's last row and ↑ past the first month's first row leave the grid. Its
+	cells are adjust targets WITHOUT an axis, so L1/R1 and Comma/Period page the
+	month while the arrows stay with navigation. Paging stops at a month wholly
+	outside `min`/`max`. ]]
 local Compose = require("../vendor/compose/core")
 local ownedBuild = require("../core/owned_build")
 local ownedFormula = require("../core/owned_formula")
@@ -1285,8 +1286,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				return true
 			end,
 			-- the arrows walk DAYS: ±1 and ±7 from the focused day, onto whichever
-			-- pane shows it in its own month, paging when none does. A page the
-			-- bounds refuse hands the arrow back to navigation (out of the grid).
+			-- pane shows it in its own month. ←/→ page when no pane does; ↑/↓ past
+			-- the shown months leave the grid from its edge row (the grid's own
+			-- up/down exits reach the header and whatever follows). A page the
+			-- bounds refuse hands the arrow back to navigation too.
 			navigateIntercept = function(direction: string): boolean
 				local here = focusedPath:peek()
 				local k, i = cellAt(here)
@@ -1297,6 +1300,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				lastNav = here
 				local target = civil.addDays(civil.monthGrid(peekPane(k).year, peekPane(k).month, weekStart)[i], step)
+				if cellFor(target) == nil and math.abs(step) == 7 then
+					local m = peekPane(if step > 0 then #cellPaths else 1)
+					local ek, ei = cellFor({
+						year = m.year,
+						month = m.month,
+						day = if step > 0 then civil.daysIn(m.year, m.month) else 1,
+					})
+					if ek ~= nil and ei ~= nil then
+						focusCell(ek, ei)
+						lastNav = focusedPath:peek()
+					end
+					return false
+				end
 				if cellFor(target) == nil and not page(if step > 0 then 1 else -1) then
 					return false
 				end
