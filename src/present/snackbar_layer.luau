@@ -11,9 +11,10 @@
 	its callback once and leaves the row mounted unless the caller closes it
 	during that callback (reason "action"). `onDismiss(reason)` reports each
 	accepted retirement once — action | close | timeout | superseded | cancel; a
-	false the caller writes on its own is "close". Forced release (owner
-	teardown, the returned release function, application disposal) never asks
-	and never reports.
+	false the caller writes on its own is "cancel", as owner teardown (the
+	mount closing, the returned release function) is: those never ask. Dialog
+	and Popover use the same words. Application disposal releases every row
+	without asking or reporting.
 
 	ADMISSION. One active row, at most eight waiting, and a total of nine
 	including rows still painting their exit. Past that a new admission is
@@ -281,7 +282,7 @@ function snackbar_layer.new(ctx: Ctx): any
 			elseif want and (rec == nil or rec.phase == "retiring") then
 				admit(registration, where)
 			elseif not want and rec ~= nil and rec.phase ~= "retiring" then
-				remove(rec, rec.pending or "close")
+				remove(rec, rec.pending or "cancel")
 			end
 		end
 		observeChange(owner, registration.wanted, sync)
@@ -290,8 +291,7 @@ function snackbar_layer.new(ctx: Ctx): any
 		owner.own(function()
 			local rec = registration.rec
 			if rec ~= nil and rec.phase ~= "retiring" then
-				rec.forced = true
-				remove(rec, "forced")
+				remove(rec, "cancel") -- owner teardown: never asks, reports cancel once
 			end
 		end)
 		if registration.wanted:peek() then
