@@ -70,6 +70,7 @@ local CONTROL_MODULES = {
 	"notice",
 	"card",
 	"pagination",
+	"step_indicator",
 	"snackbar",
 	"progress_view",
 	"radial_menu",

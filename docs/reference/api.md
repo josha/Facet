@@ -9042,6 +9042,39 @@ once; Left and Right stay physical.
 hasPrevious, hasNext, form, direction, items, text, diagnostics }`, where
 `items` is the mounted row (`"[5]"` marks the current page).
 
+### `UI.StepIndicator`
+
+`UI.StepIndicator { … }` -> the indicator's node. `ref` receives `{ api, dump }`.
+
+Where a workflow is — a list of step states, not a numeric Stepper or a Picker.
+Spec: `{ id?, steps: Bound<{ Step }>, current: Bound<string?>, onSelect: ((id) ->
+())?, sizing: ("fill" | "hug")? (default fill), listLabel: string? (default
+"Steps"), controlSize?, enabled: Bound<boolean>?, env? }`, where `Step = { id,
+label, description?, state: ("complete" | "current" | "upcoming" | "error")?,
+navigable: boolean? (default false), enabled: boolean? (default true) }`.
+
+Step ids are nonempty and unique; labels are nonempty and may repeat.
+`current` is the only authority on which step is current: it alone places the
+underline and the "Step n of m — Label" summary. A step's `state` sets its
+leading cue and its readable state word — a check for complete, an error mark
+for error, the step's number in an outlined circle otherwise — so an errored
+current step still shows its error. `state = "current"` is accepted only on the
+step `current` names. A `current` that names no step is "No current step"; an
+empty list is "No steps". A malformed snapshot is refused at construction and,
+later, keeps the last legal one with a warning and an `api.diagnostics()` line.
+
+A step is a Button only when it is `navigable`, `enabled` and `onSelect` is
+given; every other step is plain content (with disabled paint when
+`enabled = false`), never a focus stop. Activating a permitted step proposes
+`onSelect(id)` once; nothing here writes `current`, so a refused step changes
+nothing. When the measured width cannot hold the labels, the steps become the
+summary and a Steps button that opens the whole list in a `UI.Popover`, where
+permitted steps select through the same `onSelect` and the list closes.
+
+`dump()` reports `{ schema = "facet-step-indicator-dump/1", id, current,
+summary, form = "row" | "summary", listOpen, steps = { { id, state, button } },
+diagnostics }`.
+
 ### `UI.Snackbar`
 
 `UI.Snackbar { … }` -> an empty anchor node; the row appears in the

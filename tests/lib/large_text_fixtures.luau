@@ -550,6 +550,20 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "StepIndicator",
+		class = "StepIndicator",
+		build = function(core)
+			return harness.Controls.StepIndicator(core, {
+				id = "Ctl",
+				steps = {
+					{ id = "a", label = PSEUDO, state = "complete" },
+					{ id = "b", label = lt.PSEUDO_ACTION, description = lt.PSEUDO_SECONDARY },
+				},
+				current = "b",
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()

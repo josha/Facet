@@ -540,6 +540,7 @@ local SCENARIOS = {
 	"cards",
 	"containers",
 	"paging",
+	"steps",
 	-- scaffold: new control scenarios are appended above this line
 }
 

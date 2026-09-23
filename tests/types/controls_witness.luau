@@ -662,6 +662,43 @@ local _unknownPages = app.controls.Pagination({
 	hasPrevious = Facet.Compose.cell(true),
 	form = "label",
 })
+type StepState = "complete" | "current" | "upcoming" | "error"
+local stepNow = Facet.Compose.cell("ship" :: string?)
+local _steps = app.controls.StepIndicator("Checkout")({
+	steps = {
+		{
+			id = "cart",
+			label = "Cart",
+			description = "",
+			state = "complete" :: StepState,
+			navigable = true,
+			enabled = true,
+		},
+		{
+			id = "ship",
+			label = "Shipping",
+			description = "Address",
+			state = "current" :: StepState,
+			navigable = true,
+			enabled = true,
+		},
+		{
+			id = "pay",
+			label = "Payment",
+			description = "",
+			state = "error" :: StepState,
+			navigable = false,
+			enabled = false,
+		},
+	},
+	current = stepNow,
+	onSelect = function(id: string)
+		stepNow:set(id)
+	end,
+	sizing = "hug",
+	listLabel = "Steps",
+	controlSize = "regular",
+})
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

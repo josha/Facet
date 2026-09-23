@@ -25,6 +25,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.StepIndicator`.** Workflow steps with `current` as the one authority
+  over the underline and summary, per-step state cues and words (check, error
+  mark, number), Buttons only for navigable enabled steps, and a "Step n of m"
+  summary with a Popover list when the labels do not fit.
 - **`UI.Pagination`.** Controlled page selection: `page` and `onChange`, a known
   or unknown `pageCount`, a bounded numeric window with real-gap ellipses, First
   and Last on request, `numbers | arrows | label` forms, an explicit `rtl`

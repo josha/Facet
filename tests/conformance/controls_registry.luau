@@ -2428,6 +2428,34 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		name = "StepIndicator",
+		kind = "composite",
+		module = "src/controls/step_indicator.luau",
+		export = "UI.StepIndicator",
+		spec = "tests/step_indicator.spec.luau",
+		conformance = "tests/step_indicator.spec.luau",
+		docsAnchor = "UI.StepIndicator",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "current alone moves the underline and the summary; a refused selection changes nothing" },
+			touch = { "a narrow width shows Step n of m and a list that selects through the same path" },
+			keyboard = { "only navigable, enabled steps with onSelect are Buttons; the rest are content" },
+			gamepad = { "only navigable, enabled steps with onSelect are Buttons; the rest are content" },
+		},
+		-- PARADIGM axis: only permitted steps are Buttons, in every class; the rest
+		-- are content and never focus stops. hotSwitch: the measured width moves
+		-- between the row and the summary with its list, live.
+		affordanceProofs = {
+			pointer = { "a reorder keeps each step's node and the underline follows the current step's solved rect" },
+			touch = { "a narrow width shows Step n of m and a list that selects through the same path" },
+			keyboard = { "an errored or completed current step keeps its own cue and state word" },
+			gamepad = {
+				"a missing current is unavailable, never guessed; empty and repopulated lists rebuild cleanly",
+			},
+			hotSwitch = { "a narrow width shows Step n of m and a list that selects through the same path" },
+		},
+	},
+	{
 		name = "Snackbar",
 		kind = "composite",
 		module = "src/controls/snackbar.luau",

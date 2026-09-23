@@ -76,6 +76,7 @@ local POST_ADR_NAMES: { string } = {
 	"NavBar",
 	"Card",
 	"Pagination",
+	"StepIndicator",
 	-- scaffold: new control names are appended above this line
 }
 
