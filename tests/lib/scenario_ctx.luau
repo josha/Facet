@@ -35,6 +35,7 @@ local CONTROL_MODULES = {
 	"navigation_stack",
 	"page_view",
 	"picker",
+	"popover",
 	"progress_view",
 	"radial_menu",
 	"rating",

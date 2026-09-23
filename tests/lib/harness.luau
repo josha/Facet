@@ -71,6 +71,7 @@ local CONTROL_MODULES = {
 	"page_view",
 	"picker",
 	"picker_menu",
+	"popover",
 	"progress_view",
 	"radial_menu",
 	"rating",

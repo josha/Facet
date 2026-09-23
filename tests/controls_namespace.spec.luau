@@ -69,6 +69,7 @@ local POST_ADR_NAMES: { string } = {
 	"AvatarGroup",
 	-- the number presentation preset over the text-entry engine: one module, one dump
 	"NumberInput",
+	"Popover",
 	-- scaffold: new control names are appended above this line
 }
 

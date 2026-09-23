@@ -475,6 +475,41 @@ local _callout = app.controls.Callout("Tip")({
 	end,
 	onRetire = function(_reason: string) end,
 })
+local _richCallout = app.controls.Callout({
+	anchor = app.controls.Button({ label = "Help" }),
+	title = "Try it",
+	media = { image = "rbxassetid://1", aspectRatio = 2, scaleMode = "crop" :: "crop" },
+	steps = { index = 1, count = 3 },
+	actions = { { id = "Go", label = "Show me", role = "default" :: "default", onActivate = function() end } },
+	closeButton = true,
+	onRetire = function(_reason: string) end,
+})
+local popoverOpen = Facet.Compose.cell(false)
+local _popover = app.controls.Popover("Info")({
+	isPresented = popoverOpen,
+	onPresentedChange = function(next: boolean)
+		popoverOpen:set(next)
+	end,
+	onDismiss = function(_reason) end,
+	trigger = app.controls.Button({ label = "Info" }),
+	edge = "trailing",
+	align = "center",
+	crossOffset = 4,
+	maxWidth = 320,
+	compact = "popover",
+	content = function()
+		return app.controls.Text({ text = "Body" })
+	end,
+})
+local _sourcePopover = app.controls.Popover({
+	isPresented = function(use)
+		return use(popoverOpen)
+	end,
+	source = { rect = { x = 0, y = 0, w = 10, h = 10 } },
+	content = function()
+		return app.controls.Text({ text = "Body" })
+	end,
+})
 local _asyncimage = app.controls.AsyncImage("Art")({
 	key = "image",
 	scaleMode = "slice",

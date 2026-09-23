@@ -2248,6 +2248,54 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- The shared overlay parts (construction-only media and the action row)
+		-- that Callout wears and Dialog will: it validates and returns blueprints;
+		-- the adopting control mounts them, reports them and owns their input.
+		name = "OverlayParts",
+		kind = "composite",
+		module = "src/controls/overlay_parts.luau",
+		export = "UI.Callout",
+		spec = "tests/callout.spec.luau",
+		conformance = "tests/callout.spec.luau",
+		docsAnchor = "UI.Callout",
+		dump = false,
+		reason = "builder module: it returns the media and action-row blueprints its adopting control mounts and reports",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "Popover",
+		kind = "composite",
+		module = "src/controls/popover.luau",
+		export = "UI.Popover",
+		spec = "tests/popover.spec.luau",
+		conformance = "tests/popover.spec.luau",
+		docsAnchor = "UI.Popover",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "pointer: a click on the trigger opens it and a click outside closes it" },
+			touch = { "the sheet's Close asks first: refused keeps it, accepted closes with cancel" },
+			keyboard = {
+				"keyboard: Return on the focused trigger opens it into the content, and closing returns focus",
+			},
+			gamepad = { "gamepad: ButtonA on the focused trigger opens it, and ButtonB proposes the close" },
+		},
+		-- PARADIGM axis: a pointer or finger closes by tapping outside (or the
+		-- sheet's Close/drag on a compact touch screen); the keyboard ring moves
+		-- into the content and comes home on close; a pad's ButtonB proposes the
+		-- close. hotSwitch: the panel/sheet route follows the live class and size
+		-- facts, silently, carrying the accepted presentation and the focused path.
+		affordanceProofs = {
+			pointer = { "Cancel, an outside tap and a press on the trigger each close with their own reason, once" },
+			touch = { "a compact touch screen presents it as a sheet; compact = popover suppresses that" },
+			keyboard = {
+				"keyboard: Return on the focused trigger opens it into the content, and closing returns focus",
+			},
+			gamepad = { "gamepad: ButtonA on the focused trigger opens it, and ButtonB proposes the close" },
+			hotSwitch = { "a live class change switches the route silently, with one content owner" },
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

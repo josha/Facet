@@ -79,6 +79,15 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Button = function(w)
 		return { label = "Save", onActivate = function() end }
 	end,
+	Popover = function(w)
+		return {
+			isPresented = Compose.cell(false),
+			source = { path = "/S/PopoverId" },
+			content = function()
+				return w.UI.Text("PopoverBody")({ text = "body" })
+			end,
+		}
+	end,
 	Callout = function(w)
 		return {
 			anchor = w.UI.Button("Plus")({ label = "+" }),

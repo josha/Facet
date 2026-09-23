@@ -42,7 +42,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 DECLARED_ENTRIES = {
     "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
-    "NavigationStack", "NumberInput", "PageView", "Picker", "PopupButton", "ProgressView",
+    "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "StatusIndicator", "Slider", "SplitButton",
     "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
     "VirtualList",
@@ -222,6 +222,9 @@ _EROSION_PROBES = [
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ keys = {{"K"}}, controlSize = "huge" })'),
     ("ShortcutHint", 'app.controls.ShortcutHint({ keys = {{"K"}}, separator = 42 })'),
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ action = "Activate", over = "photo" })'),
+    ("Popover", 'app.controls.Popover({ isPresented = true, source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end, compact = "drawer" })'),
+    ("Popover", 'app.controls.Popover("Info")({ isPresented = true, source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end, maxWidth = "wide" })'),
+    ("Popover", 'app.controls.Popover({ isPresented = "open", source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end })'),
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
     ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), appearance = "emphasis" })'),
     ("TextInput", 'app.controls.TextInput("Field")({ value = Facet.Compose.cell(""), requiredMark = "maybe" })'),
