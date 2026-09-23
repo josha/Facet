@@ -8833,6 +8833,59 @@ app.mount(function()
 end)
 ```
 
+### `UI.Notice`
+
+`UI.Notice { … }` -> the notice's node. `ref` receives `{ api, dump }`.
+
+An informational message in the page — never a modal. Spec: `{ id?, message:
+Bound<string>, title: Bound<string>?, severity: ("info" | "success" | "warning" |
+"error")?, appearance: ("standard" | "emphasis")?, placement: ("inline" |
+"affixed")?, icon: (boolean | string)?, link: { label, onActivate }?, actions: {
+Action }? (at most two), onDismiss: (() -> ())?, controlSize?, env? }`.
+
+`severity` (default `info`) picks the status icon and paint; `emphasis` fills the
+plate in the severity's colour with its readable partner lettering. `icon =
+false` drops only the artwork; a string names an icon or image source. The
+`link` is a link-appearance Button, and the actions are ordinary Buttons whose
+roles only **paint** — a page is not a modal, so there is no default or cancel
+key. `onDismiss` draws the close button and reports the press; unmount the notice
+yourself. The link and actions sit beside the copy when the measured width holds
+both and move below it when it does not. The notice never takes focus; its
+controls join the page's own focus order.
+
+**`placement = "affixed"`** is a page-local top recipe, not an automatic host:
+put the notice in your safe root's fill `ZStack`, outside the body scroller. It
+fills the width, hugs its height, sits at the top and publishes its measured
+window rect through `presenter.reserveHud` under a key unique to its mount.
+Content that should move out of its way reads the reservations explicitly:
+
+```lua
+local UI, C = app.controls, Facet.Compose
+local bounds = C.cell({ x = 0, y = 0, w = 0, h = 0 })
+local function reserved(use)
+    return Facet.layout.hudInsets({ bounds = use(bounds), reservations = use(app.presenter.hudReservations) })
+end
+app.mount(function()
+    return UI.Screen("Page")({ UI.ZStack("Safe")({ width = UI.fill(), height = UI.fill(),
+        UI.ZStack("Content")({ width = UI.fill(), height = UI.fill(), padding = reserved,
+            UI.ScrollView("Body")({ width = UI.fill(), height = UI.fill(), UI.Text({ text = "Page content" }) }) }),
+        UI.Notice("Connection")({ placement = "affixed", severity = "warning", message = "Connection interrupted" }),
+    }) })
+end, { onGeometry = function(rectOf)
+    local r, old = rectOf("/Page/Safe"), bounds:peek()
+    if r and (r.x ~= old.x or r.y ~= old.y or r.w ~= old.w or r.h ~= old.h) then bounds:set(table.clone(r)) end
+end })
+```
+
+The recipe assumes an untransformed, non-scrolling safe root whose `rectOf`
+agrees with window coordinates. Several notices stack in an ordinary top
+`VStack` in the same ZStack; each reserves its own rect and `hudInsets` takes the
+deepest edge. A notice that paints nothing reserves nothing, and its reservation
+goes with its owner.
+
+`dump()` reports `{ schema = "facet-notice-dump/1", id, severity, appearance,
+placement, accessories = "beside" | "below", actionCount, closable }`.
+
 ### `UI.Stepper`
 
 `UI.Stepper { … }` -> the stepper's node. `ref` receives `{ api, dump }`, and

@@ -29,6 +29,9 @@ local ON = {
 	error = "onDanger",
 	accent = "onAccent",
 }
+-- the plate and lettering role for each status, shared with Notice's severity paint
+status_indicator.PLATE_ROLES = table.freeze(table.clone(PLATE))
+status_indicator.ON_ROLES = table.freeze(table.clone(ON))
 local FILL = table.freeze({ type = "fill", weight = 1 })
 local ROUND_HEIGHT = table.freeze({ type = "aspect", ratio = 1 })
 -- Percent dimensions round to the nearest pixel; subtracting half a pixel

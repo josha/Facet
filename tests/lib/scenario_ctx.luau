@@ -37,6 +37,7 @@ local CONTROL_MODULES = {
 	"picker",
 	"popover",
 	"dialog",
+	"notice",
 	"progress_view",
 	"radial_menu",
 	"rating",

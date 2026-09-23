@@ -41,7 +41,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # retired.
 DECLARED_ENTRIES = {
     "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView", "Dialog",
-    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
+    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu", "Notice",
     "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "StatusIndicator", "Slider", "SplitButton",
     "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
@@ -222,6 +222,8 @@ _EROSION_PROBES = [
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ keys = {{"K"}}, controlSize = "huge" })'),
     ("ShortcutHint", 'app.controls.ShortcutHint({ keys = {{"K"}}, separator = 42 })'),
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ action = "Activate", over = "photo" })'),
+    ("Notice", 'app.controls.Notice({ message = "m", severity = "fatal" })'),
+    ("Notice", 'app.controls.Notice("N")({ message = "m", placement = "bottom" })'),
     ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, title = "T", width = "huge" })'),
     ("Dialog", 'app.controls.Dialog("D")({ isPresented = true, closeButton = "no", title = "T" })'),
     ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, actions = { { id = "A", label = "A", role = "primary", onActivate = function() end } } })'),

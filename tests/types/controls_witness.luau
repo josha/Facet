@@ -528,6 +528,20 @@ local _dialog = app.controls.Dialog("Confirm")({
 	width = "wide",
 	contentSelectable = false,
 })
+local _notice = app.controls.Notice("Conn")({
+	message = "Offline",
+	title = function(use)
+		return use(labelTitle)
+	end,
+	severity = "warning",
+	appearance = "emphasis",
+	placement = "affixed",
+	icon = false,
+	link = { label = "Details", onActivate = function() end },
+	actions = { { id = "Retry", label = "Retry", onActivate = function() end } },
+	onDismiss = function() end,
+	controlSize = "compact",
+})
 local _asyncimage = app.controls.AsyncImage("Art")({
 	key = "image",
 	scaleMode = "slice",

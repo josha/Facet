@@ -32,6 +32,7 @@ local row_actionsControl = require("./spec_types/row_actions")
 local calloutControl = require("./spec_types/callout")
 local popoverControl = require("./spec_types/popover")
 local dialogControl = require("./spec_types/dialog")
+local noticeControl = require("./spec_types/notice")
 local radial_menuControl = require("./spec_types/radial_menu")
 local alertControl = require("./spec_types/alert")
 local sheetControl = require("./spec_types/sheet")
@@ -412,6 +413,7 @@ export type Controls = {
 	Callout: Constructor<calloutControl.Spec>,
 	Popover: Constructor<popoverControl.Spec>,
 	Dialog: Constructor<dialogControl.Spec>,
+	Notice: Constructor<noticeControl.Spec>,
 	RadialMenu: Constructor<radial_menuControl.Spec>,
 	Alert: Constructor<alertControl.Spec>,
 	Sheet: Constructor<sheetControl.Spec>,

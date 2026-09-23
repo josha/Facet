@@ -209,6 +209,7 @@ owner that owns its resources. Start with
 | `UI.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#uicallout) |
 | `UI.Popover` | Content against a trigger or source you own the open state of: an anchored panel, or a sheet on a compact touch screen. | [api](../reference/api.md#uipopover) |
 | `UI.Dialog` | A modal panel you own the open state of: title, hero, one scrolling body and pinned actions. | [api](../reference/api.md#uidialog) |
+| `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
 | `UI.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#uinavigationstack) |
 | `UI.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#uitabview) |
 | `client.world_anchor` | Measure a Part, Model, or avatar for a radial opening or retained offscreen marker direction, with optional center occlusion. | [api](../reference/api.md#clientworld_anchor) |

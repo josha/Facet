@@ -2325,6 +2325,34 @@ local registry: { Entry } = {
 			hotSwitch = { "the keyboard's occlusion takes its room from the budget" },
 		},
 	},
+	{
+		name = "Notice",
+		kind = "composite",
+		module = "src/controls/notice.luau",
+		export = "UI.Notice",
+		spec = "tests/notice.spec.luau",
+		conformance = "tests/notice.spec.luau",
+		docsAnchor = "UI.Notice",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			touch = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			keyboard = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			gamepad = { "arrival never moves focus, and every control is a pad stop in the page's own order" },
+		},
+		-- PARADIGM axis: its controls are ordinary page Buttons in every class;
+		-- arrival never takes focus. hotSwitch: the accessories move beside or
+		-- below the copy from the measured width, live.
+		affordanceProofs = {
+			pointer = {
+				"the link and actions sit beside the copy when there is room and move below it when there is not",
+			},
+			touch = { "paints the severity icon, title and message, and the close reports the press only" },
+			keyboard = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			gamepad = { "arrival never moves focus, and every control is a pad stop in the page's own order" },
+			hotSwitch = { "a taller message grows the reservation live" },
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

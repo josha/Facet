@@ -1,0 +1,309 @@
+--!strict
+--[[ UI.Notice — inline status copy, and the page-local affixed recipe whose
+	measured rect reserves space a real content consumer then avoids. ]]
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+local world = require("./lib/world")
+local Facet = require("../src") :: any
+local Compose = Facet.Compose
+
+local function mount(content: (UI: any) -> { any }, opts: any?): any
+	local o = opts or {}
+	local w = world.new({ viewport = { x = 0, y = 0, w = o.w or 800, h = o.h or 600 }, reducedMotion = true })
+	if o.classes ~= nil then
+		w.env:set("capabilities", o.classes.capabilities)
+		w.env:set("preferredInput", o.classes.preferredInput)
+	end
+	local UI = w.UI
+	w.present(function()
+		return UI.Screen("S")({ UI.VStack("Page")({ width = UI.fill(), gap = "s", table.unpack(content(UI)) }) })
+	end)
+	w.settle(3)
+	return w
+end
+
+local ROOT = "/S/Page/Conn"
+
+describe("Notice: inline copy, accessories and close", function()
+	it("paints the severity icon, title and message, and the close reports the press only", function()
+		local closed = 0
+		local w = mount(function(UI)
+			return {
+				UI.Notice("Conn")({
+					severity = "warning",
+					title = "Connection interrupted",
+					message = "Reconnecting to the race server.",
+					onDismiss = function()
+						closed += 1
+					end,
+				}),
+			}
+		end)
+		expect(w.adapter.node(`{ROOT}/Content/Row/Icon`).props.image).toBe("status.warning")
+		expect(w.adapter.node(`{ROOT}/Content/Row/Body/Copy/Title`).props.text).toBe("Connection interrupted")
+		expect(w.adapter.node(`{ROOT}/Content/Row/Body/Copy/Message`).props.text).toBe(
+			"Reconnecting to the race server."
+		)
+		local close = w.adapter.node(`{ROOT}/Content/Row/Close`).rect
+		expect(close.w >= 44 and close.h >= 44).toBe(true)
+		w.adapter.tap(`{ROOT}/Content/Row/Close`)
+		w.settle(1)
+		expect(closed).toBe(1)
+		-- the caller unmounts: the notice is still there until it does
+		expect(w.adapter.node(ROOT) ~= nil).toBe(true)
+	end)
+
+	it("icon = false hides only the artwork, and an explicit source paints that source", function()
+		local w = mount(function(UI)
+			return {
+				UI.Notice("Conn")({ message = "Saved.", severity = "success", icon = false }),
+				UI.Notice("Other")({ message = "Custom.", icon = "flag" }),
+			}
+		end)
+		expect(w.adapter.node(`{ROOT}/Content/Row/Icon`)).toBeNil()
+		expect(w.adapter.node(`{ROOT}/Content/Row/Body/Copy/Message`).props.text).toBe("Saved.")
+		expect(w.adapter.node("/S/Page/Other/Content/Row/Icon").props.image).toBe("flag")
+	end)
+
+	it("the link and actions sit beside the copy when there is room and move below it when there is not", function()
+		local pressed: { string } = {}
+		local function spec(UI: any): { any }
+			return {
+				UI.Notice("Conn")({
+					message = "Update available.",
+					link = {
+						label = "Notes",
+						onActivate = function()
+							table.insert(pressed, "Notes")
+						end,
+					},
+					actions = {
+						{
+							id = "Install",
+							label = "Install",
+							role = "default",
+							onActivate = function()
+								table.insert(pressed, "Install")
+							end,
+						},
+					},
+				}),
+			}
+		end
+		local wide = mount(spec, { w = 900 })
+		expect(wide.record("Conn").dump().accessories).toBe("beside")
+		local copy = wide.adapter.node(`{ROOT}/Content/Row/Body/Copy`).rect
+		local acc = wide.adapter.node(`{ROOT}/Content/Row/Body/Accessories`).rect
+		expect(acc.x >= copy.x + copy.w - 1).toBe(true)
+		local narrow = mount(spec, { w = 320 })
+		expect(narrow.record("Conn").dump().accessories).toBe("below")
+		local copy2 = narrow.adapter.node(`{ROOT}/Content/Row/Body/Copy`).rect
+		local acc2 = narrow.adapter.node(`{ROOT}/Content/Row/Body/Accessories`).rect
+		expect(acc2.y >= copy2.y + copy2.h - 1).toBe(true)
+		narrow.adapter.tap(`{ROOT}/Content/Row/Body/Accessories/Install`)
+		narrow.adapter.tap(`{ROOT}/Content/Row/Body/Accessories/Link`)
+		expect(table.concat(pressed, ",")).toBe("Install,Notes")
+		-- actions never close the notice
+		expect(narrow.adapter.node(ROOT) ~= nil).toBe(true)
+	end)
+
+	it("arrival never moves focus, and every control is a pad stop in the page's own order", function()
+		local show = Compose.cell(false)
+		local w = mount(function(UI)
+			return {
+				UI.Button("Before")({ label = "Before" }),
+				UI.When("Gate")({
+					condition = show,
+					thenView = function()
+						return UI.Notice("Conn")({
+							message = "Heads up.",
+							actions = { { id = "Go", label = "Go", onActivate = function() end } },
+							onDismiss = function() end,
+						})
+					end,
+				}),
+			}
+		end, {
+			classes = {
+				capabilities = { keyboard = false, mouse = false, touch = false, gamepad = true },
+				preferredInput = "Gamepad",
+			},
+		})
+		expect(w.pres.focus.focusOn("/S/Page/Before")).toBe(true)
+		show:set(true)
+		w.settle(2)
+		expect(w.pres.focus.focused:peek()).toBe("/S/Page/Before")
+		w.press("Down")
+		w.settle(1)
+		expect(string.find(w.pres.focus.focused:peek() or "", "/Conn/", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("keyboard and gamepad reach the action and press it; a pointer or finger taps it", function()
+		for _, route in { "pointer", "touch", "keyboard", "gamepad" } do
+			local pressed = 0
+			local w = mount(function(UI)
+				return {
+					UI.Notice("Conn")({
+						message = "Update ready.",
+						actions = {
+							{
+								id = "Install",
+								label = "Install",
+								onActivate = function()
+									pressed += 1
+								end,
+							},
+						},
+					}),
+				}
+			end)
+			local path = `{ROOT}/Content/Row/Body/Accessories/Install`
+			if route == "pointer" or route == "touch" then
+				w.adapter.tap(path, { source = "pointer", pointer = route })
+			else
+				w.pres.focus.setFocusOrigin("navigation")
+				expect(w.pres.focus.focusOn(path)).toBe(true)
+				w.press(if route == "keyboard" then "Return" else "ButtonA")
+			end
+			w.settle(1)
+			expect(`{route}: {pressed}`).toBe(`{route}: 1`)
+		end
+	end)
+
+	it("malformed specs are refused by name", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+		local UI = w.UI
+		local noop = function() end
+		for index, bad in
+			{
+				{},
+				{ message = "m", severity = "fatal" },
+				{ message = "m", appearance = "loud" },
+				{ message = "m", placement = "bottom" },
+				{ message = "m", icon = "" },
+				{ message = "m", link = { label = "L" } },
+				{
+					message = "m",
+					actions = {
+						{ id = "A", label = "A", onActivate = noop },
+						{ id = "B", label = "B", onActivate = noop },
+						{ id = "C", label = "C", onActivate = noop },
+					},
+				},
+				{ message = "m", controlSize = "huge" },
+				{ message = "m", extra = true },
+			}
+		do
+			local ok = pcall(function()
+				w.scoped(function()
+					return UI.Notice(bad :: any)
+				end)
+			end)
+			expect(`case {index} refused: {not ok}`).toBe(`case {index} refused: true`)
+		end
+	end)
+end)
+
+describe("Notice: affixed placement reserves space a real consumer avoids", function()
+	-- the documented recipe: the safe root is a fill ZStack; the page content reads
+	-- the reservations through Facet.layout.hudInsets; the notice sits on top
+	local function affixed(notices: (UI: any) -> { any }, opts: any?): (any, any)
+		local o = opts or {}
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
+		local UI = w.UI
+		local bounds = Compose.cell({ x = 0, y = 0, w = 800, h = 600 })
+		local function reserved(use: any): any
+			local inset = Facet.layout.hudInsets({
+				bounds = use(bounds),
+				reservations = use(w.pres.hudReservations),
+			})
+			return { top = inset.top, bottom = inset.bottom, left = inset.left, right = inset.right }
+		end
+		w.present(function()
+			local children: { any } = {
+				UI.ZStack("Content")({
+					width = UI.fill(),
+					height = UI.fill(),
+					padding = reserved,
+					UI.ScrollView("Body")({
+						width = UI.fill(),
+						height = UI.fill(),
+						UI.Text("Top")({ text = "Page content" }),
+					}),
+				}),
+			}
+			for _, n in notices(UI) do
+				table.insert(children, n)
+			end
+			return UI.Screen("Page")({
+				padding = 0,
+				UI.ZStack("Safe")({ width = UI.fill(), height = UI.fill(), table.unpack(children) }),
+			})
+		end, o.present)
+		w.settle(4)
+		return w, UI
+	end
+
+	it("content moves down by the notice's real height and returns when it goes", function()
+		local show = Compose.cell(true)
+		local w = affixed(function(UI)
+			return {
+				UI.When("Gate")({
+					condition = show,
+					thenView = function()
+						return UI.Notice("Conn")({ placement = "affixed", severity = "warning", message = "Offline." })
+					end,
+				}),
+			}
+		end)
+		local noticeRect = w.adapter.node("/Page/Safe/Gate/then/Conn").rect
+		local top = w.adapter.node("/Page/Safe/Content/Body/Top").rect
+		expect(noticeRect.y).toBe(0)
+		expect(top.y >= noticeRect.y + noticeRect.h - 1).toBe(true)
+		-- the body scrolls under a notice that stays pinned
+		w.adapter.setScrollPosition(w.adapter.node("/Page/Safe/Content/Body"), { x = 0, y = 40 })
+		w.settle(2)
+		expect(w.adapter.node("/Page/Safe/Gate/then/Conn").rect.y).toBe(0)
+		show:set(false)
+		w.settle(4)
+		expect(#w.pres.hudReservations:peek()).toBe(0)
+		expect(w.adapter.node("/Page/Safe/Content/Body/Top").rect.y).toBe(0)
+	end)
+
+	it("two stacked notices reserve the deepest edge, same names in two apps never collide", function()
+		local w = affixed(function(UI)
+			return {
+				UI.VStack("Stack")({
+					width = UI.fill(),
+					height = UI.hug(),
+					alignV = "start",
+					UI.Notice("A")({ placement = "affixed", message = "First." }),
+					UI.Notice("B")({ placement = "affixed", message = "Second." }),
+				}),
+			}
+		end)
+		local b = w.adapter.node("/Page/Safe/Stack/B").rect
+		local top = w.adapter.node("/Page/Safe/Content/Body/Top").rect
+		expect(top.y >= b.y + b.h - 1).toBe(true)
+		expect(#w.pres.hudReservations:peek()).toBe(2)
+		local w2 = affixed(function(UI)
+			return { UI.Notice("A")({ placement = "affixed", message = "Other app." }) }
+		end)
+		expect(#w2.pres.hudReservations:peek()).toBe(1)
+		expect(#w.pres.hudReservations:peek()).toBe(2)
+	end)
+
+	it("a taller message grows the reservation live", function()
+		local message = Compose.cell("Short.")
+		local w = affixed(function(UI)
+			return { UI.Notice("Conn")({ placement = "affixed", message = message }) }
+		end)
+		local before = w.pres.hudReservations:peek()[1].rect.h
+		message:set(string.rep("A much longer message that wraps onto more lines. ", 8))
+		w.settle(4)
+		local after = w.pres.hudReservations:peek()[1].rect.h
+		expect(after > before).toBe(true)
+		local top = w.adapter.node("/Page/Safe/Content/Body/Top").rect
+		expect(top.y >= after - 1).toBe(true)
+	end)
+end)

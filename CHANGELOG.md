@@ -25,6 +25,11 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Notice`.** An in-page status message: severity icon and paint, optional
+  title, link, up to two actions and a close that reports the press. The
+  accessories move below the copy when the measured width cannot hold both.
+  `placement = "affixed"` publishes its measured rect through
+  `presenter.reserveHud` for content that reads `Facet.layout.hudInsets`.
 - **`UI.Dialog`.** A modal panel the caller owns the open state of: optional
   hero, title with a close button, one scrolling body, an action label and pinned
   actions. Close, Cancel and the backdrop propose; actions never close by

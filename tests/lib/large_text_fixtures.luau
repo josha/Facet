@@ -494,6 +494,20 @@ local FIXTURES: { Fixture } = {
 	-- the RICH coach-mark plate: title, media, steps and the shared action row
 	-- (src/controls/overlay_parts.luau), swept through the same exported builder
 	{
+		id = "Notice",
+		class = "Notice",
+		build = function(core)
+			return harness.Controls.Notice(core, {
+				id = "Ctl",
+				severity = "warning",
+				title = PSEUDO,
+				message = lt.PSEUDO_SECONDARY,
+				link = { label = PSEUDO, onActivate = function() end },
+				onDismiss = function() end,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()
