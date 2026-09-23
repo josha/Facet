@@ -178,6 +178,87 @@ describe("live chrome participation", function()
 	end)
 end)
 
+-- the arrow KEYS NavigateH holds (the Thumbstick axis is not an arrow)
+local function navigateHKeys(handle: any): number
+	local n = 0
+	for _, action in handle.context.actions do
+		if action.name == "NavigateH" then
+			for _, b in action.bindings do
+				if b.keyCode ~= nil then
+					n += 1
+				end
+			end
+		end
+	end
+	return n
+end
+
+describe("a focused horizontal value control and live chrome share one owner of the arrows", function()
+	local function setup(): (any, any, any, { number })
+		local w = world()
+		local show = Compose.cell(false)
+		w.pres.present(
+			strip("Snack", { "S1" }, function(row)
+				return UI.When({
+					id = "Gate",
+					condition = show,
+					thenView = function()
+						return row
+					end,
+				})
+			end),
+			{ responder = "passive", focusChrome = "bottom", initialFocus = "none" }
+		)
+		local hits: { number } = {}
+		local adj = require("../src/input/contribution").attach(
+			UI.VStack({ id = "Vol", children = { UI.Button({ id = "Knob", label = "Knob" }) } }),
+			{
+				adjustAxis = "horizontal",
+				adjustTargets = function(): { [string]: boolean }
+					return { ["/Content/Vol/Knob"] = true }
+				end,
+				handleAdjust = function(_path: string, dir: number): boolean
+					table.insert(hits, dir)
+					return true
+				end,
+			}
+		)
+		local screen =
+			w.pres.present(UI.Screen({ id = "Content", children = { UI.Button({ id = "A", label = "A" }), adj } }))
+		w.pres.refresh()
+		return w, show, screen, hits
+	end
+
+	it("chrome leaving while the control is focused leaves no arrow on the flat screen", function()
+		local w, show, screen = setup()
+		show:set(true)
+		w.pres.refresh()
+		w.pres.focus.focusOn("/Content/Vol/Knob")
+		w.pres.refresh()
+		expect(navigateHKeys(screen)).toBe(0)
+		show:set(false)
+		w.pres.refresh()
+		w.pres.focus.focusOn("/Content/A")
+		w.pres.refresh()
+		expect(navigateHKeys(screen)).toBe(0)
+	end)
+
+	it("chrome arriving while the control is focused leaves the arrows with the control", function()
+		local w, show, screen, hits = setup()
+		w.pres.focus.focusOn("/Content/Vol/Knob")
+		w.pres.refresh()
+		show:set(true)
+		w.pres.refresh()
+		expect(navigateHKeys(screen)).toBe(0)
+		w.press("Right")
+		expect(hits).toEqual({ 1 })
+		expect(w.pres.focus.focused:peek()).toBe("/Content/Vol/Knob")
+		w.pres.focus.focusOn("/Content/A")
+		w.pres.refresh()
+		expect(navigateHKeys(screen)).toBe(4)
+	end)
+end)
+
 describe("Cancel on adopted chrome", function()
 	it("goes to the chrome's own contribution exactly once", function()
 		local w = world()

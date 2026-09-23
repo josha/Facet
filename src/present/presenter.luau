@@ -1917,8 +1917,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		navigate.bindAxis({ axis = "Thumbstick1", component = "y" })
 		-- the horizontal arrows: grouped screens and live adopted chrome only
 		local navigateH = context.createAction("NavigateH", "Direction1D")
-		local navigateHBound
-		onGroupedUpgrade, navigateHBound = navigateHKeys.attach(navigateH, graph, scope, groupedScope)
+		local navigateHBound, suspendNavigateH
+		onGroupedUpgrade, navigateHBound, suspendNavigateH = navigateHKeys.attach(navigateH, graph, scope, groupedScope)
 		activate.bind({ keyCode = "Return" })
 		activate.bind({ keyCode = "ButtonA" })
 		-- horizontal keys bind ONLY when the screen opts in (onAdjust): a
@@ -1979,18 +1979,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local function axisOwner(axis: string): any
 			return if axis == "horizontal" then navigateH else navigate
 		end
-		-- A SUSPENSION MUST RESTORE WHAT IT TOOK (architecture review). The
-		-- whole binding spec is captured, not just the key and direction: a binding
-		-- also carries `displayName` (what `inputHint` reads to label the
-		-- affordance) and `uiButton`. Restoring a partial spec would silently
-		-- relabel a hint the first time focus passed through a value control.
-		--
-		-- NO TEST PINS THIS, DELIBERATELY. No binding the presenter puts on a
-		-- SUSPENDABLE axis carries a displayName today, so a regression written now
-		-- would pass against the lossy version too — a check that proves nothing,
-		-- which this repository treats as its own defect class. The loss was latent
-		-- rather than live; the capture is written to be total so it stays latent
-		-- when the first labelled directional binding lands.
+		-- A SUSPENSION MUST RESTORE WHAT IT TOOK: the whole binding spec
+		-- (`displayName`, `uiButton` too), so a restore never relabels a hint.
 		local suspendedNav: { { action: any, spec: any } } = {}
 		local arrivalHeld = false -- the arrow that landed the ring is still down
 		local function suspendAxisKeys(axis: string)
@@ -1998,21 +1988,25 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if owner == nil then
 				return -- a flat screen has no NavigateH: nothing to take the keys from
 			end
-			for _, pair in ADJUST_AXIS_KEYS[axis] do
-				local keyCode = pair[1] :: string
-				for i = #owner.bindings, 1, -1 do
-					local b = owner.bindings[i]
-					if b.keyCode == keyCode then
-						table.insert(suspendedNav, {
-							action = owner,
-							spec = {
-								keyCode = b.keyCode,
-								direction = b.direction,
-								displayName = b.displayName,
-								uiButton = b.uiButton,
-							},
-						})
-						b.remove()
+			if owner == navigateH then
+				suspendNavigateH(true) -- navigate_h owns (and restores) these keys
+			else
+				for _, pair in ADJUST_AXIS_KEYS[axis] do
+					local keyCode = pair[1] :: string
+					for i = #owner.bindings, 1, -1 do
+						local b = owner.bindings[i]
+						if b.keyCode == keyCode then
+							table.insert(suspendedNav, {
+								action = owner,
+								spec = {
+									keyCode = b.keyCode,
+									direction = b.direction,
+									displayName = b.displayName,
+									uiButton = b.uiButton,
+								},
+							})
+							b.remove()
+						end
 					end
 				end
 			end
@@ -2043,6 +2037,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			owner.state:set(0)
 		end
 		local function restoreSuspendedNav()
+			suspendNavigateH(false)
 			for _, entry in suspendedNav do
 				entry.action.bind(entry.spec)
 			end
@@ -2082,6 +2077,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 				axis = "horizontal" -- flat screen: nothing else wants them
 				action = adjust
+				suspendNavigateH(true) -- chrome arriving later must not take them too
 			else
 				suspendAxisKeys(axis)
 			end
