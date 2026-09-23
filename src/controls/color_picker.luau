@@ -1189,7 +1189,16 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 											size = "iconSizes.small",
 											tint = { role = "onAccent", blend = 1 },
 											hidden = Compose.formula(function(use)
-												return not use(chosen)
+												return not use(chosen) or use(editing)
+											end),
+										}),
+										-- editing marks every swatch with the remove mark it will act on
+										labelControl.icon(UI, "close", {
+											id = "Remove",
+											size = "iconSizes.small",
+											tint = { role = "onAccent", blend = 1 },
+											hidden = Compose.formula(function(use)
+												return not (removing and gridId == "Swatches" and use(editing))
 											end),
 										}),
 									},

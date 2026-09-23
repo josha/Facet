@@ -712,17 +712,22 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 		-- the footer: Reset all a leading text link, Cancel then the accent Apply at
 		-- the trailing edge, a rule above it and under the header, compact chips
 		local reset = w.adapter.node(must(w, "/Actions/ResetAll"))
-		local apply = w.adapter.node(must(w, "/Actions/Apply"))
-		local cancel = w.adapter.node(must(w, "/Actions/Cancel"))
+		local apply = w.adapter.node(must(w, "/Commit/Apply"))
+		local cancel = w.adapter.node(must(w, "/Commit/Cancel"))
 		expect(`{reset.props.surface == "accent"} {apply.props.surface}`).toBe("false accent")
 		expect(reset.rect.x < cancel.rect.x and cancel.rect.x < apply.rect.x).toBe(true)
+		-- the link at the leading edge, Apply at the trailing one
+		local actionsRow = w.adapter.node(must(w, "/Calendar/Actions")).rect
+		expect(`{reset.rect.x == actionsRow.x} {apply.rect.x + apply.rect.w == actionsRow.x + actionsRow.w}`).toBe(
+			"true true"
+		)
 		expect(find(w, "/Calendar/FooterRule") ~= nil and find(w, "/Calendar/HeaderRule") ~= nil).toBe(true)
 		expect(w.adapter.node(must(w, "/Preset-week")).rect.h < apply.rect.h).toBe(true)
 		w.adapter.tap(must(w, "/Preset-week"))
 		w.settle(2)
 		expect(`{iso(cell:peek().start)}..{iso(cell:peek().finish)}`).toBe("2026-09-20..2026-09-26")
 		expect(#commits).toBe(0)
-		w.adapter.tap(must(w, "/Actions/Cancel"))
+		w.adapter.tap(must(w, "/Commit/Cancel"))
 		w.settle(3)
 		expect(`{iso(cell:peek().start)}..{iso(cell:peek().finish)}`).toBe("2026-09-01..2026-09-03")
 		open(w)
@@ -733,7 +738,7 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 		w.adapter.tap(cellOf(w, D(2026, 9, 9)))
 		w.settle(2)
 		expect(#commits).toBe(0)
-		w.adapter.tap(must(w, "/Actions/Apply"))
+		w.adapter.tap(must(w, "/Commit/Apply"))
 		w.settle(3)
 		expect(table.concat(commits, ",")).toBe("2026-09-07..2026-09-09")
 		expect(w.record("P").dump().presented).toBe(false)
@@ -748,7 +753,7 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 		w.settle(2)
 		w.adapter.tap(cellOf(w, D(2026, 9, 14)))
 		w.settle(2)
-		w.adapter.tap(must(w, "/Actions/Cancel"))
+		w.adapter.tap(must(w, "/Commit/Cancel"))
 		w.settle(3)
 		expect(`{iso(cell:peek().start)}..{iso(cell:peek().finish)}`).toBe("2026-10-01..2026-10-02")
 	end)
@@ -781,7 +786,7 @@ describe("DateTimePicker: the gallery tab", function()
 		w.settle(2)
 		expect(w.adapter.node(line).props.text).toBe("Committed: nothing yet")
 		expect(w.record("Window").dump().text).toBe("09/21/2026 – 09/27/2026")
-		w.adapter.tap(must(w, "/Actions/Apply"))
+		w.adapter.tap(must(w, "/Commit/Apply"))
 		w.settle(3)
 		expect(w.adapter.node(line).props.text).toBe("Committed: 09/21/2026 – 09/27/2026")
 		w.adapter.tap(must(w, "/Pickers/Refuse"))
@@ -926,7 +931,7 @@ describe("DateTimePicker: layout, routes and refusals", function()
 						`{where} true`
 					)
 				end
-				local apply = w.adapter.node(must(w, "/Actions/Apply")).rect
+				local apply = w.adapter.node(must(w, "/Commit/Apply")).rect
 				-- on screen, or (a landscape phone's anchored panel, capped to the screen)
 				-- inside the panel's scrolling body, one scroll away
 				local reachable = apply.y + apply.h <= view.h

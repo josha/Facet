@@ -1236,6 +1236,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				enabled = interactive,
 				-- Reset all is a text link; Apply, the primary action, wears the accent
 				appearance = if look == "link" then "link" else nil,
+				-- a text link carries no plate's inset, so it shares the row with both buttons
+				padding = if look == "link" then { left = "xs", right = "xs" } else nil,
 				surface = if look == "primary" then "accent" else nil,
 			})
 		end
@@ -1246,8 +1248,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					propose(if isRange then {} else nil)
 				end, "link")
 			)
-			-- the link leads; Cancel and Apply keep to the trailing edge
-			table.insert(actions, UI.Spacer({ id = "Gap" }))
 			table.insert(
 				actions,
 				action("Cancel", "Cancel", function()
@@ -1285,6 +1285,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		if #actions > 0 then
 			table.insert(children, UI.Divider({ id = "FooterRule" }))
+			-- a draft's link leads and Cancel/Apply keep to the trailing edge; a
+			-- sheet's lone Done sits at the trailing edge
+			local row = actions
+			if draft then
+				row = {
+					actions[1],
+					UI.HStack({ id = "Commit", gap = "s", children = { actions[2], actions[3] } }),
+				}
+			end
 			table.insert(
 				children,
 				UI.HStack({
@@ -1292,8 +1301,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					gap = "s",
 					wrap = true,
 					width = UI.fill(),
-					distribute = "end",
-					children = actions,
+					distribute = if draft then "spaceBetween" else "end",
+					children = row,
 				})
 			)
 		end

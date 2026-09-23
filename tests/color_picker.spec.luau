@@ -304,6 +304,7 @@ describe("ColorPicker: the well and its panel", function()
 			-- Edit: activating a swatch proposes its removal instead of choosing it
 			w.adapter.tap(must(w, "/Saved/Edit"))
 			w.settle(2)
+			expect(w.adapter.visibleOf(w.record("P").dump().swatchPaths[1] .. "/Layers/Remove")).toBe(true)
 			w.adapter.tap(w.record("P").dump().swatchPaths[1])
 			w.settle(2)
 			expect(table.concat(removed, ",")).toBe("#FF0000")
