@@ -61,7 +61,8 @@ return {
 				UI.Text("SnackbarTitle")({ text = "Snackbars", textSize = "heading", width = UI.fill() }),
 				UI.Text("Undone")({
 					text = function(use: any): string
-						return `Undo pressed {use(undone)} times; the snackbar stays until you close it.`
+						local n = use(undone)
+						return `Undo pressed {n} {if n == 1 then "time" else "times"}; the snackbar stays until you close it.`
 					end,
 					width = UI.fill(),
 				}),
@@ -149,7 +150,10 @@ return {
 					severities,
 					UI.Notice(`Severity-{severity}`)({
 						severity = severity,
-						message = `A {severity} notice keeps its words when the icon is gone.`,
+						-- the emphasis plate paints the severity itself, beside its icon
+						appearance = "emphasis",
+						message = `{if severity == "info" or severity == "error" then "An" else "A"} {severity} notice, `
+							.. "in its severity's colour.",
 					})
 				)
 			end

@@ -26,6 +26,7 @@ local COPY = {
 	coachGo = "Show me",
 	coachLater = "Later",
 	menu = "All tracks",
+	placedMenu = "Tracks, beside",
 	recent = "Recent",
 	everything = "Everything",
 	status = "Last: nothing yet",
@@ -297,6 +298,14 @@ return {
 						UI.Menu("Tracks")({
 							label = COPY.menu,
 							maxHeight = 280,
+							items = tracks(),
+						}),
+						-- the same rows beside the trigger, centred on it, at a fixed width
+						UI.Menu("Placed")({
+							label = COPY.placedMenu,
+							edge = "trailing",
+							align = "center",
+							width = { type = "fixed", px = 320 },
 							items = tracks(),
 						}),
 					}),

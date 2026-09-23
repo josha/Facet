@@ -64,6 +64,12 @@ return {
 				end,
 			})
 		end
+		local raceClass = Compose.cell("rookie")
+		local function classPage(name: string): () -> any
+			return function()
+				return UI.Text({ text = `{name} races`, width = UI.fill() })
+			end
+		end
 		local function Example()
 			return UI.Screen("CollapsibleView")({
 				padding = "m",
@@ -85,6 +91,25 @@ return {
 						width = UI.fill(),
 						height = { type = "fixed", px = 420 },
 						UI.TabView("Destinations")({ style = "collapsible", selection = selected, tabs = tabs }),
+					}),
+					-- a tab strip: a status mark on one tab, and a locked tab that
+					-- stays visible but cannot be chosen
+					UI.VStack("ClassRegion")({
+						width = UI.fill(),
+						height = { type = "fixed", px = 240 },
+						UI.TabView("Classes")({
+							selection = raceClass,
+							tabs = {
+								{ id = "rookie", label = "Rookie", content = classPage("Rookie") },
+								{
+									id = "pro",
+									label = "Pro",
+									indicator = { status = "success", form = "dot" },
+									content = classPage("Pro"),
+								},
+								{ id = "legend", label = "Legend", enabled = false, content = classPage("Legend") },
+							},
+						}),
 					}),
 				}),
 			})
