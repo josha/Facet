@@ -1824,18 +1824,7 @@ local function transientScene(spec: { name: string, requirement: string, dataset
 		warmup = 30,
 		setup = function(profile)
 			local state = newStack(profile)
-			-- KNOWN GAP (see port report): `transientSurfaces.build` and
-			-- `fixture.present` build with `ctx.UI`/`ctx.presenter.present(blueprint)`
-			-- directly, which needs an ambient Compose owner AND (per
-			-- port-reports/chrome.md) a presenter root that came from
-			-- `runtime.mount` — neither of which a bare `newStack` provides. The
-			-- headless lab test harness tolerates this (`harness.newPresenter`
-			-- wraps every `present` in its own mount), so `tests/perf_lab.spec.luau`
-			-- is green; the real `app.presenter` used here is not. Fixing this
-			-- scene means moving `transient_surfaces.luau`'s own `present`/`open`
-			-- calls onto `ctx.app.mount`, which is a change to a file this task
-			-- does not own alone (the lab Studio surface uses the same file) —
-			-- flagged rather than changed under this scene.
+			-- the fixture mounts its base screen through `ctx.app` (labContext)
 			state.fixture = transientSurfaces.build(labContext(state), spec.kind)
 			state.fixture.present(state.pres)
 			return state
