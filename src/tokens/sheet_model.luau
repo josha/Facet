@@ -616,6 +616,16 @@ local function selectedSurfaceOf(theme: any): { r: number, g: number, b: number 
 end
 sheet_model.selectedSurfaceOf = selectedSurfaceOf
 
+-- SELECTED UNDER HOVER: the selected fill with the theme's own hover step on
+-- top (controlHover - control), so a hovered selected row never reads as plain
+-- hover. One formula for the sheet token and the fallback painter.
+function sheet_model.selectedHoverColor(x: any): { r: number, g: number, b: number }
+	local function ch(k: string): number
+		return math.clamp(x.controlSelected[k] + x.controlHover[k] - x.control[k], 0, 1)
+	end
+	return { r = ch("r"), g = ch("g"), b = ch("b") }
+end
+
 function sheet_model.selectedContentColor(theme: any): { r: number, g: number, b: number }
 	local c = theme.colors
 	local surface = selectedSurfaceOf(theme)
@@ -674,6 +684,7 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		ControlHover = color(x.controlHover),
 		ControlPressed = color(x.controlPressed),
 		ControlSelected = color(x.controlSelected),
+		ControlSelectedHover = color(sheet_model.selectedHoverColor(x)),
 		ContentSecondary = color(x.contentSecondary),
 		Hairline = color(x.hairline),
 		-- precomputed accent interaction states (bespoke path computes these
@@ -1689,6 +1700,13 @@ function sheet_model.build(opts: BuildOpts): Model
 			name = "Control — hover",
 			selector = "TextButton." .. T.interactive .. "." .. T.pointerLive .. ":Hover",
 			props = { BackgroundColor3 = "$ControlHover" },
+			transitions = { BackgroundColor3 = "fast" },
+		},
+		-- after the plain hover it must beat, before every role/accent hover
+		{
+			name = "Selected — hover",
+			selector = "TextButton." .. T.selected .. "." .. T.interactive .. "." .. T.pointerLive .. ":Hover",
+			props = { BackgroundColor3 = "$ControlSelectedHover" },
 			transitions = { BackgroundColor3 = "fast" },
 		},
 		{
@@ -3376,6 +3394,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		name = "Control — hover",
 		selector = `TextButton.{T.interactive}.{T.pointerLive}:Hover`,
 		props = { BackgroundColor3 = "$ControlHover" },
+		transitions = { BackgroundColor3 = "fast" },
+	})
+	emit("hover", {
+		name = "Selected — hover",
+		selector = `TextButton.{T.selected}.{T.interactive}.{T.pointerLive}:Hover`,
+		props = { BackgroundColor3 = "$ControlSelectedHover" },
 		transitions = { BackgroundColor3 = "fast" },
 	})
 	emit("hover", {
