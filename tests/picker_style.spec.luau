@@ -608,6 +608,25 @@ describe("Picker value alignment", function()
 	end)
 end)
 
+describe("Picker style: a navigation link keeps its one-line row", function()
+	it("at a regular width the title and value share one line when they fit", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1400, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		local p = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Track",
+			style = "navigationLink",
+			options = THREE,
+			selected = Compose.cell("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		w.settle(3)
+		local label, value = suffixNode(w, "/Trigger/Row/Label").rect, suffixNode(w, "/Trigger/Row/Trailing").rect
+		expect(`one line: {value.y < label.y + label.h and label.y < value.y + value.h}`).toBe("one line: true")
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
+end)
+
 describe("Picker style: badge and sectionTitle reach the menu engine", function()
 	it("an automatic picker that resolves the menu renders an option's badge and its section heading", function()
 		local w, picker = mount("desktop", {

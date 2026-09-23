@@ -1666,14 +1666,16 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	--[[ A LABELLED MENU IS A FIELD WHERE THERE IS ROOM: at a regular or wider size class the title stands above the
 		trigger, which hugs its value at the leading edge — a 1.4k px row put the
 		value a screen's width from its title. A compact width keeps the one-line
-		form row until the text preference needs the second line. ]]
+		form row until the text preference needs the second line, and so does a
+		navigation link at any width: it is one full-width row, title leading and
+		value trailing, with no hugging trigger to strand. ]]
 	rowAxis = Compose.formula(function(use)
 		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
 		local compact = selectionModel.read(sizeClassSource) == "compact"
 		if Compose.isReadable(sizeClassSource) then
 			compact = use(sizeClassSource) == "compact"
 		end
-		return if compact and (type(offset) ~= "number" or offset < 4) then "x" else "y"
+		return if (compact or navLink) and (type(offset) ~= "number" or offset < 4) then "x" else "y"
 	end)
 	local requestedSizing = spec.sizing
 	assert(
