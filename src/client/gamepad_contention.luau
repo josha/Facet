@@ -50,7 +50,7 @@
 -- property IS in this build's reflection database; its scriptability is off.
 -- `StarterPlayer.CreateDefaultPlayerModule`, `Workspace.NextGenerationReplication`
 -- and `Workspace.SignalBehavior` all answer identically — the same capability-gated
--- class (`GameStudio/specialists/ROBLOX.md`, Server Authority setup).
+-- class (the Server Authority setup).
 --
 -- The consequence for design: this is NOT a rollout gap that a newer Studio build
 -- will close. Scriptability is a reflection-level flag, so **no Facet version on

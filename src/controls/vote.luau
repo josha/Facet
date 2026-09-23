@@ -1,6 +1,6 @@
 --!strict
---[[ Vote — up, down or none, over the caller's value (phase6 P6b, D7; owner
-	ruling 2026-09-18: a thin wrapper over Picker).
+--[[ Vote — up, down or none, over the caller's value: a thin wrapper over Picker
+	(phase6 P6b, D7).
 
 	CONTROLLED. `value` is the caller's; a press proposes `onChange(next)` and only
 	the caller's next value repaints. Pressing the chosen side proposes "none".

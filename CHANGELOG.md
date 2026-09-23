@@ -25,6 +25,23 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **Icons in Snackbar, Notice, Vote and StepIndicator** take Button's icon
+  path (theme art, `facet:` names, the unknown-name warning), so a semantic
+  name no longer paints an empty image. The StepIndicator cue is now
+  `Cue/Check` and `Cue/Error` (was one `Cue/Mark`), and its number marker stays
+  a circle at every text size.
+- **`UI.Snackbar`**: a plain message row hugs its copy up to the strip's
+  maximum instead of filling it.
+- **Pagination and hugging segmented strips reserve the target floor** as layout
+  width, so neighbouring targets never overlap; `UI.Pagination` refuses
+  `width = hug | content` (its window narrows to the width it is offered), and
+  a focused arrow that disables at an edge hands focus to the current page.
+- **`UI.StepIndicator`** always takes the width it is offered; `sizing` is how
+  its steps share it. The list closes when `current` changes, so a refused step
+  leaves it open, and an empty list has no Steps button.
+- **Input**: a Sink context never swallows the release owed to a binding that
+  received the press (a menu opened by ButtonA, closed by ButtonB, reopens on
+  the next ButtonA).
 - **`UI.Vote`.** Up, down or none over the caller's value, on Picker's
   segmented icon strip through a private submission seam (a refused vote never
   paints; pressing the chosen side proposes none), a caller summary, and a
