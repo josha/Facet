@@ -479,20 +479,18 @@ function focus_graph.new(core: any)
 		the screen it annotates and still belong in its ring rather than owning one:
 		the coach mark is the shipped case, a plate with a single dismiss
 		affordance that must be one arrow away and must not be a dead end. ]]
-	local function chromeScopes(ownerIndex: number): ({ any }, boolean)
-		local out: { any } = {}
-		local before = true
+	--[[ MIXED EDGES. The chrome splits by the edge each scope names, never by
+		which one was presented last: a top app bar and a bottom notification strip
+		adopted together read top, content, bottom in either presentation order. ]]
+	local function chromeScopes(ownerIndex: number): ({ any }, { any })
+		local above: { any }, below: { any } = {}, {}
 		for i = 1, #scopes do
 			local scope = scopes[i]
 			if i ~= ownerIndex and scope.chrome ~= nil then
-				table.insert(out, scope)
-				before = CHROME_BEFORE[scope.chrome] ~= false
+				table.insert(if CHROME_BEFORE[scope.chrome] ~= false then above else below, scope)
 			end
 		end
-		return out, before
-	end
-	local function chromeBelowTop(): ({ any }, boolean)
-		return chromeScopes(#scopes)
+		return above, below
 	end
 
 	-- a scope's navigation groups, with a flat one read as the single vertical
@@ -539,8 +537,8 @@ function focus_graph.new(core: any)
 		if owner == nil or owner.trap then
 			return owner
 		end
-		local chrome, before = chromeScopes(ownerIndex)
-		if #chrome == 0 then
+		local above, below = chromeScopes(ownerIndex)
+		if #above + #below == 0 then
 			return owner
 		end
 		--[[ A CHROME GROUP IS ENTERED AT ITS NEAR END, ALWAYS. The auto-derived
@@ -552,32 +550,42 @@ function focus_graph.new(core: any)
 			round already ruled on one level down. Cloned rather than written through:
 			these tables belong to the chrome's own scope, which is navigated directly
 			whenever nothing is above it. ]]
-		local chromeGroups: { any } = {}
-		for _, scope in chrome do
-			for _, group in groupsOf(scope, nil) do
-				local copy: any = table.clone(group)
-				copy.entry = "first"
-				table.insert(chromeGroups, copy)
+		local function adopted(side: { any }): { any }
+			local out: { any } = {}
+			for _, scope in side do
+				for _, group in groupsOf(scope, nil) do
+					local copy: any = table.clone(group)
+					copy.entry = "first"
+					table.insert(out, copy)
+				end
+			end
+			return out
+		end
+		local top, bottom = adopted(above), adopted(below)
+		local exits: { [string]: string }? = nil
+		if #above > 0 and #below > 0 then
+			-- both edges: each arrow leaves toward the group NEAREST the content
+			local up, down = nonEmpty(top, true), nonEmpty(bottom, false)
+			if up ~= nil and down ~= nil then
+				exits = { up = up.name, down = down.name }
+			end
+		else
+			local before = #above > 0
+			local chromeGroups = if before then top else bottom
+			local near = nonEmpty(chromeGroups, before)
+			local far = nonEmpty(chromeGroups, not before)
+			if near ~= nil and far ~= nil then
+				-- toward the chrome's edge lands on the group NEAREST the content; the
+				-- far end closes the ring on the group furthest from it, which is where
+				-- a wrap past the opposite edge has always put the player
+				exits = if before then { up = near.name, down = far.name } else { down = near.name, up = far.name }
 			end
 		end
-		local near = nonEmpty(chromeGroups, before)
-		local far = nonEmpty(chromeGroups, not before)
-		local exits: { [string]: string }? = nil
-		if near ~= nil and far ~= nil then
-			-- toward the chrome's edge lands on the group NEAREST the content; the
-			-- far end closes the ring on the group furthest from it, which is where
-			-- a wrap past the opposite edge has always put the player
-			exits = if before then { up = near.name, down = far.name } else { down = near.name, up = far.name }
-		end
-		local ownGroups = groupsOf(owner, exits)
 		local groups: { any } = {}
-		local head = if before then chromeGroups else ownGroups
-		local tail = if before then ownGroups else chromeGroups
-		for _, group in head do
-			table.insert(groups, group)
-		end
-		for _, group in tail do
-			table.insert(groups, group)
+		for _, side in { top, groupsOf(owner, exits), bottom } do
+			for _, group in side do
+				table.insert(groups, group)
+			end
 		end
 		--[[ THE RANK IS RE-DERIVED, NOT MERGED. `traversalOrder` refuses a rank map
 			that misses a single member ("incomplete: no opinion at all"), so handing it
@@ -587,16 +595,12 @@ function focus_graph.new(core: any)
 			the composition complete by construction. ]]
 		local rank: { [string]: number } = {}
 		local n = 0
-		for _, scope in (if before then chrome else { owner }) do
-			for _, id in traversalOrder(scope, allIds(scope)) do
-				n += 1
-				rank[id] = n
-			end
-		end
-		for _, scope in (if before then { owner } else chrome) do
-			for _, id in traversalOrder(scope, allIds(scope)) do
-				n += 1
-				rank[id] = n
+		for _, side in { above, { owner }, below } do
+			for _, scope in side do
+				for _, id in traversalOrder(scope, allIds(scope)) do
+					n += 1
+					rank[id] = n
+				end
 			end
 		end
 		return {
@@ -625,10 +629,11 @@ function focus_graph.new(core: any)
 		if owner == nil or owner.trap then
 			return false
 		end
-		local chrome = chromeScopes(ownerIndex)
-		for _, scope in chrome do
-			if indexOf(allIds(scope), path) ~= nil then
-				return true
+		for _, side in { chromeScopes(ownerIndex) } do -- both edges
+			for _, scope in side do
+				if indexOf(allIds(scope), path) ~= nil then
+					return true
+				end
 			end
 		end
 		return false
@@ -1663,16 +1668,33 @@ function focus_graph.new(core: any)
 		return isAdoptedChrome(path)
 	end
 
-	-- does ANY live scope declare itself chrome? The presenter asks at present
-	-- time, to decide whether a screen binds the horizontal arrows at all (see the
-	-- ordering note beside FocusScope.chrome).
-	function self.hasChromeScope(): boolean
+	-- does any live chrome scope have something to focus? An EMPTY chrome host
+	-- (a notification strip with no rows) takes no part, so it cannot make a flat
+	-- screen bind the horizontal arrows. `chromeLive` is the same answer kept
+	-- current across every scope change, for the presenter's binding to follow.
+	local function liveChrome(): boolean
 		for _, scope in scopes do
-			if scope.chrome ~= nil then
+			if scope.chrome ~= nil and #allIds(scope) > 0 then
 				return true
 			end
 		end
 		return false
+	end
+	function self.hasChromeScope(): boolean
+		return liveChrome()
+	end
+	local chromeLive = Compose.cell(false)
+	self.chromeLive = chromeLive
+	for _, name in { "pushScope", "popScope", "removeScope", "replaceGroups", "setOrder", "setGroupOrder", "remove" } do
+		local inner = (self :: any)[name];
+		(self :: any)[name] = function(...)
+			local results = table.pack(inner(...))
+			local live = liveChrome()
+			if chromeLive:peek() ~= live then
+				chromeLive:set(live)
+			end
+			return table.unpack(results, 1, results.n)
+		end
 	end
 
 	function self.activeScopeName(): string?

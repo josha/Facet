@@ -369,6 +369,7 @@ require("./traversal_order.spec")
 -- composed focus map, opt-in, entry still the active screen's, suspended by a
 -- trap, and the press routed to the surface that owns the node
 require("./focus_chrome.spec")
+require("./focus_chrome_mixed.spec")
 require("./parentless_build_owner.spec")
 require("./path.spec")
 -- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus

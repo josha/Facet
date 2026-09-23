@@ -43,6 +43,7 @@ local activateDispatch = require("./activate_dispatch")
 -- activation gate and the one-press echo collapse
 local dispatchActivate = activateDispatch.dispatch
 local observeChange = require("../core/on_change")
+local navigateHKeys = require("./navigate_h")
 local cleanup = require("../core/cleanup")
 
 local presenter = {}
@@ -1914,38 +1915,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- vertical axis; screen-space convention = +y is down). The IAS
 		-- realization is a Studio-drive/physical rider (roblox_input.bindAxis).
 		navigate.bindAxis({ axis = "Thumbstick1", component = "y" })
-		-- grouped screens own the horizontal axis too (verifier F2): Left/
-		-- Right + dpad become real directions instead of Adjust
-		-- ...and so does a screen that ADOPTS a chrome strip (F1): the composed scope
-		-- is grouped even when this surface's own derivation is one flat ring, so
-		-- without this the pad could reach the strip and not walk it. Read at present
-		-- time, which is why chrome is presented before the screens that adopt it
-		-- (FocusScope.chrome).
-		--
-		-- THE ACTION ALWAYS EXISTS; ITS KEYS DO NOT (see `groupedScope` above). An
-		-- unbound action costs nothing and fires nothing — the same deal `traverse`
-		-- takes for Tab — and having the object lets a LATE upgrade claim the
-		-- horizontal keys without reaching back into a context that is already built.
-		-- A flat surface that never upgrades therefore still shadows no arrow key.
+		-- the horizontal arrows: grouped screens and live adopted chrome only
 		local navigateH = context.createAction("NavigateH", "Direction1D")
-		local navigateHBound = false
-		local function bindNavigateH()
-			if navigateHBound then
-				return
-			end
-			navigateHBound = true
-			navigateH.bind({ keyCode = "Left", direction = -1 })
-			navigateH.bind({ keyCode = "Right", direction = 1 })
-			navigateH.bind({ keyCode = "DPadLeft", direction = -1 })
-			navigateH.bind({ keyCode = "DPadRight", direction = 1 })
-			-- Thumbstick1 horizontal (matrix §D.5): the x component drives the
-			-- horizontal axis on a grouped screen, same latch as the vertical.
-			navigateH.bindAxis({ axis = "Thumbstick1", component = "x" })
-		end
-		if groupedScope or graph.hasChromeScope() then
-			bindNavigateH()
-		end
-		onGroupedUpgrade = bindNavigateH
+		local navigateHBound
+		onGroupedUpgrade, navigateHBound = navigateHKeys.attach(navigateH, graph, scope, groupedScope)
 		activate.bind({ keyCode = "Return" })
 		activate.bind({ keyCode = "ButtonA" })
 		-- horizontal keys bind ONLY when the screen opts in (onAdjust): a
@@ -2104,7 +2077,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			local axis = state
 			local action = adjustAxis
 			if state == "legacy" then
-				if navigateHBound then
+				if navigateHBound() then
 					return bound -- grouped screen: the arrows stay with Navigate
 				end
 				axis = "horizontal" -- flat screen: nothing else wants them
@@ -3006,7 +2979,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			if adjustStateBound == "vertical" then
 				navigateVertical(dir)
-			elseif navigateHBound then
+			elseif navigateHBound() then
 				navigateHorizontal(dir)
 			end
 			-- A YIELD ENDS THIS PRESS, AND HAS TO SAY SO. The key-up that would put
@@ -3089,8 +3062,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- contains an open popup closes the popup on the first ButtonB and
 			-- dismisses on the second. Every existing modal/responder test stays
 			-- green (no prior contribution declares handleCancel).
+			-- adopted chrome: the OWNING surface's contributions, as Activate does
 			local focused = graph.focused:peek()
-			local candidates = if focused ~= nil then contributionsForPath(contributions, focused) else contributions
+			local owning = if graph.isAdoptedChrome(focused) and handleByPath ~= nil
+				then handleByPath(focused :: string)
+				else nil
+			local own = if owning ~= nil then owning.contributions else contributions
+			local candidates = if focused ~= nil then contributionsForPath(own, focused) else own
 			for _, c in candidates do
 				if c.bundle.handleCancel ~= nil and c.bundle.handleCancel(focused) then
 					return
