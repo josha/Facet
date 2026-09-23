@@ -1067,6 +1067,22 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		-- the compound rule beats the plain hover it shares a group with
 		expect(index["Chrome — control selected hover"] > index["Chrome — control hover"]).toBe(true)
 	end)
+
+	it("a pressed SELECTED skin keeps its selection tint, darkened, instead of plain press grey", function()
+		local model = sheet_model.buildPackage(parchment())
+		local theme = model.themes[1]
+		local selected, pressed = theme.tokens.ChromeTintSelected, theme.tokens.ChromeTintSelectedPressed
+		expect(pressed ~= nil).toBe(true)
+		expect(pressed.r <= selected.r and pressed.g <= selected.g and pressed.b <= selected.b).toBe(true)
+		local rule = ruleNamed(model, "Chrome — control selected pressed")
+		expect(rule.selector).toBe(".facet-selected.facet-interactive:Press > .facet-chrome-control")
+		expect(rule.props.ImageColor3).toBe("$ChromeTintSelectedPressed")
+		local index: { [string]: number } = {}
+		for i, r in model.rules do
+			index[r.name] = i
+		end
+		expect(index["Chrome — control selected pressed"] > index["Chrome — control pressed"]).toBe(true)
+	end)
 end)
 
 describe("role tints paint the ART, not a slab behind it", function()

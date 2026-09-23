@@ -2378,6 +2378,8 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- a hovered selected skin: the selection lifted as danger's hover is, so
 		-- hover never repaints a selected row as an unselected one
 		tokenSet.ChromeTintSelectedHover = lerp(tokenSet.ChromeTintSelected, WHITE, 0.18)
+		-- ...and pressed, darkened as danger's press is, so a press never reads unselected
+		tokenSet.ChromeTintSelectedPressed = lerp(tokenSet.ChromeTintSelected, BLACK, 0.18)
 		-- ROLE TINTS (director review 2026-07-25: "a tint like on delete profile
 		-- should tint the IMAGE, not give a random button behind it"). With the
 		-- native plate suppressed under the art there is no coloured slab left to
@@ -3477,6 +3479,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				name = `{entry.name} pressed`,
 				selector = `.{T.interactive}:Press > .{entry.tag}`,
 				props = { ImageColor3 = "$ChromeTintPressed" },
+			})
+			emit("press", {
+				name = `{entry.name} selected pressed`,
+				selector = `.{selectedTag}.{T.interactive}:Press > .{entry.tag}`,
+				props = { ImageColor3 = "$ChromeTintSelectedPressed" },
 			})
 			emit("disabled", {
 				name = `{entry.name} disabled`,
