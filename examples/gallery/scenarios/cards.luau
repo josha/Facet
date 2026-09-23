@@ -135,11 +135,11 @@ return {
 			screen = screen,
 			steps = {
 				-- a card's engagement sources, read without changing anything
-				dump = function(key: string?)
+				dump = function(_built: any, key: string?)
 					local r = refs[key or "g1"]
 					return if r ~= nil then r.dump() else nil
 				end,
-				enter = function(key: string?)
+				enter = function(_built: any, key: string?)
 					local r = refs[key or "g1"]
 					if r ~= nil then
 						r.api.enterActions()

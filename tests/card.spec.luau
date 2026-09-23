@@ -689,7 +689,7 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		local plate = w.adapter.node("/Cards/Games/Canvas/Band/W/[g1]/Cell/Card/Reveal").rect
 		expect(plate.x >= cell.x and plate.x + plate.w <= cell.x + cell.w).toBe(true)
 		expect(plate.y + plate.h <= cell.y + cell.h).toBe(true)
-		local dump = built.steps.enter("g1")
+		local dump = built.steps.enter(built, "g1")
 		w.settle(2)
 		expect(dump.entered).toBe(true)
 		expect(w.pres.focus.focused:peek()).toBe("/Cards/Games/Canvas/Band/W/[g1]/Cell/Card/Reveal/Row/Primary")
