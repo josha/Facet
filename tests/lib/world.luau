@@ -68,6 +68,7 @@ local CONTROL_MODULES = {
 	"popover",
 	"dialog",
 	"notice",
+	"snackbar",
 	"progress_view",
 	"radial_menu",
 	"rating",

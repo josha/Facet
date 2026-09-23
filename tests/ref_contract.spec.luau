@@ -85,6 +85,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Notice = function(w)
 		return { message = "Saved." }
 	end,
+	Snackbar = function(w)
+		return { isPresented = Compose.cell(false), message = "Saved.", closeButton = false }
+	end,
 	Dialog = function(w)
 		return { isPresented = Compose.cell(false), closeButton = false, title = "Title" }
 	end,

@@ -615,6 +615,19 @@ local _sheetParts = app.controls.Sheet("Lobby")({
 		return app.controls.Text({ text = "Lobby" })
 	end,
 })
+local snackShown = Facet.Compose.cell(false)
+local _snackbar = app.controls.Snackbar("Saved")({
+	isPresented = snackShown,
+	message = "Saved to your garage",
+	icon = "status.success",
+	action = { label = "Undo", onActivate = function() end },
+	onPresentedChange = function(next: boolean)
+		snackShown:set(next)
+	end,
+	onDismiss = function(_reason) end,
+	duration = 4,
+	priority = 1,
+})
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

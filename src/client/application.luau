@@ -6,6 +6,7 @@ local scene = require("../render/compose_scene")
 local controls = require("../render/compose_controls")
 local controlTypes = require("../control_types")
 local cleanup = require("../core/cleanup")
+local snackbarControl = require("../controls/snackbar")
 local application = {}
 
 function application.new(opts: host.Opts?): controlTypes.App
@@ -25,7 +26,7 @@ function application.new(opts: host.Opts?): controlTypes.App
 	local installedTheme
 	local surfaces = {}
 	local providers = {}
-	local constructors, domainUI = controls.new(runtime, surface.core, surface.presenter, surfaces)
+	local constructors, domainUI, library = controls.new(runtime, surface.core, surface.presenter, surfaces)
 	local app = {
 		-- the typed face of the constructor table: a spec is checked where it is written
 		controls = constructors :: controlTypes.Controls,
@@ -128,6 +129,57 @@ function application.new(opts: host.Opts?): controlTypes.App
 	function surfaces.callout(spec)
 		return surface.presenter.presentCallout(spec, surfaces.anchored)
 	end
+	--[[ THE SNACKBAR SERVICE boots here: the runtime, the constructors and the
+		mount seam all exist, and no consumer has mounted yet. Screen applications
+		only (a SurfaceGui or Billboard application refuses `UI.Snackbar`). A boot
+		that fails unwinds the runtime and the host before it raises. ]]
+	local snackbars: any = nil
+	if opts == nil or opts.surface == nil or opts.surface.kind == "screen" then
+		local ok, result = pcall(require("../present/snackbar_layer").new, {
+			presenter = surface.presenter,
+			env = surface.env,
+			core = surface.core,
+			present = function(component, options)
+				return present(component, options, surface.presenter.present)
+			end,
+			host = function(rows, attach, actions)
+				return snackbarControl.host(library, surface.env, rows, attach, actions)
+			end,
+		})
+		if not ok then
+			disposed = true
+			cleanup({
+				function()
+					runtime:dispose()
+				end,
+				surface.dispose,
+			})
+			error(result, 0)
+		end
+		snackbars = result
+		surfaces.snackbar = snackbars
+	end
+	-- The imperative door to the SAME service: the same closed spec, released by
+	-- the returned function (forced teardown: it never asks and never reports).
+	function app.presentSnackbar(spec)
+		assert(not disposed, "Facet: cannot present into a disposed application")
+		snackbarControl.validate(spec, "app.presentSnackbar")
+		assert(snackbars ~= nil, "Facet app.presentSnackbar: snackbars are a screen-application service")
+		local owner = surface.core.owner.createChild()
+		local ok, err = pcall(snackbars.register, spec, owner, "app.presentSnackbar")
+		if not ok then
+			owner.dispose()
+			error(err, 0)
+		end
+		local released = false
+		return function()
+			if released then
+				return
+			end
+			released = true
+			owner.dispose()
+		end
+	end
 	-- A provider for `AsyncImage` and other leased content. `options.bind` replaces
 	-- the Roblox transport (a headless caller completes requests itself).
 	function app.newResourceProvider(options)
@@ -172,7 +224,8 @@ function application.new(opts: host.Opts?): controlTypes.App
 		-- application already reads as disposed. The first failure is raised
 		-- once the host is released.
 		-- Surfaces finish their exits before the state they read is released.
-		local steps = { surface.presenter.dispose }
+		-- the snackbar service stops first: no submissions, ticks or rows outlive it
+		local steps = { if snackbars ~= nil then snackbars.dispose else function() end, surface.presenter.dispose }
 		for close in table.clone(mounted) do
 			table.insert(steps, close)
 		end

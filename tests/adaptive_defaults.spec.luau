@@ -790,9 +790,9 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 		return missing
 	end
 
-	it("the refusing controls are read out of the sources, and there are eleven today", function()
+	it("the refusing controls are read out of the sources, and there are twelve today", function()
 		expect(table.concat(refusingControls(), " ")).toBe(
-			"UI.Alert UI.Button UI.Menu UI.Picker UI.PopupButton UI.RadialMenu UI.SplitButton UI.TabView UI.TextInput "
+			"UI.Alert UI.Button UI.Dialog UI.Menu UI.Picker UI.PopupButton UI.RadialMenu UI.SplitButton UI.TabView UI.TextInput "
 				.. "UI.VirtualGrid UI.VirtualList"
 		)
 	end)

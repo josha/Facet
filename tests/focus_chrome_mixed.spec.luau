@@ -12,26 +12,14 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local Compose = Facet.Compose
 local UI = harness.UI
-local fake_target = require("./lib/fake_target")
+local harnessWorld = require("./lib/harness_world")
 
 local function world(): any
-	local core = harness.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-	env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = true })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	return {
-		core = core,
-		env = env,
-		system = system,
-		pres = pres,
-		press = function(key: string)
-			system.deviceKey(key, true)
-			system.deviceKey(key, false)
-		end,
-	}
+	return harnessWorld.new({
+		viewport = { x = 0, y = 0, w = 1200, h = 800 },
+		capabilities = { touch = false, mouse = true, keyboard = true, gamepad = true },
+		presenterOpts = { keyboardNavigation = true },
+	})
 end
 
 local function strip(id: string, names: { string }, extra: any?): any

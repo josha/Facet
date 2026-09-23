@@ -27,6 +27,7 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Confirm a consequential action | `UI.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
 | Make a decision that needs a picture, a body or its own actions | `UI.Dialog` | You keep the open state; the title, hero and actions stay pinned while the body scrolls. |
 | Tell the player about a state of the page (offline, saved, an update) without interrupting | `UI.Notice` | It stays in the page and never takes focus; `affixed` pins it to the top and reserves the space. |
+| Confirm something just happened, with an undo, without covering the page | `UI.Snackbar` | One at a time at the bottom; you own whether it shows, and every close is a proposal. |
 | Show a little supporting content next to a control, on request | `UI.Popover` | You keep the open state; it anchors to the trigger or a source and becomes a sheet on a compact touch screen. For one hovered sentence use `help`; for an unprompted tip use `UI.Callout`. |
 
 For a labeled Picker in a settings form, `valueAlignment = "start"` places its

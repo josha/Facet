@@ -19,8 +19,9 @@ return {
 			local b = use(bounds)
 			local inset = if b.w > 0
 				then ctx.Facet.layout.hudInsets({ bounds = b, reservations = use(ctx.presenter.hudReservations) })
-				else { top = 0 }
-			return { top = inset.top, left = "m", right = "m", bottom = 0 }
+				else { top = 0, bottom = 0 }
+			-- the top notice banner and the bottom snackbar strip both hold room
+			return { top = inset.top, left = "m", right = "m", bottom = inset.bottom or 0 }
 		end
 		return {
 			screen = function()

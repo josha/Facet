@@ -33,6 +33,7 @@ local calloutControl = require("./spec_types/callout")
 local popoverControl = require("./spec_types/popover")
 local dialogControl = require("./spec_types/dialog")
 local noticeControl = require("./spec_types/notice")
+local snackbarControl = require("./spec_types/snackbar")
 local navBarControl = require("./spec_types/nav_bar")
 local radial_menuControl = require("./spec_types/radial_menu")
 local alertControl = require("./spec_types/alert")
@@ -415,6 +416,7 @@ export type Controls = {
 	Popover: Constructor<popoverControl.Spec>,
 	Dialog: Constructor<dialogControl.Spec>,
 	Notice: Constructor<noticeControl.Spec>,
+	Snackbar: Constructor<snackbarControl.Spec>,
 	NavBar: Constructor<navBarControl.Spec>,
 	RadialMenu: Constructor<radial_menuControl.Spec>,
 	Alert: Constructor<alertControl.Spec>,

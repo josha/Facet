@@ -3656,6 +3656,7 @@ end)
 | `app.presentModal(component, options?)` | the same tree as a modal; returns `close, node, handle` |
 | `app.presentAnchored(component, options)` | a panel placed against a source rect; returns `close, node`. The builder receives `app.controls` |
 | `app.presentToast(component, options)` | a toast body inside the toast layer's own row; returns `{ id, dismiss() }` |
+| `app.presentSnackbar(spec)` | the `UI.Snackbar` spec without a component, on the same service; returns an idempotent release function |
 
 `close()` is idempotent: it dismisses that surface and releases the component's
 resources. `app.dispose()` closes every surface that is still open.
@@ -8782,6 +8783,10 @@ beside the close button, one scrolling `content` body, an optional `actionLabel`
 and a pinned group of `actions`. Modal `UI.Alert` is unchanged; reach for Dialog
 when the decision needs more than a sentence, a picture or its own body.
 
+`env?` names the environment whose viewport, safe insets, keyboard occlusion and
+text size size the panel; omitted, the control reads the environment published
+on its core, and construction without either is refused.
+
 ```
 {
   id?,
@@ -8914,6 +8919,63 @@ goes with its owner.
 
 `dump()` reports `{ schema = "facet-notice-dump/1", id, severity, appearance,
 placement, accessories = "beside" | "below", actionCount, closable }`.
+
+### `UI.Snackbar`
+
+`UI.Snackbar { … }` -> an empty anchor node; the row appears in the
+application's bottom snackbar strip. `ref` receives `{ api, dump }`;
+`dump()` reports `admitted`, `visible`, `queued` and the readable seconds.
+`app.presentSnackbar(spec)` takes the same spec and returns an idempotent
+zero-argument release function.
+
+One short message at the bottom of the screen, shown one at a time.
+
+```
+{
+  id?,
+  isPresented: Bound<boolean>,          -- required: the CALLER'S accepted fact
+  message: Bound<string>,               -- required
+  icon: string?,                        -- a semantic icon name or an image source
+  action: { label, onActivate }?,       -- runs once; never closes by itself
+  closeButton: boolean?,                -- default true
+  onPresentedChange: ((next) -> ())?,   -- required while closeButton or duration is set
+  onDismiss: ((reason) -> ())?,         -- "action" | "close" | "timeout" | "superseded" | "cancel"
+  duration: number?,                    -- nil: persistent; else seconds of readable time
+  priority: number?,                    -- default 0
+}
+```
+
+The caller's fact is the only visibility authority. Close, Cancel on a focused
+row, a timeout and a supersession each propose false through
+`onPresentedChange(false)`; the row leaves only when the fact reads false, and a
+refusal keeps the same row. A timeout asks once, at `max(duration, 2.5)` seconds
+of readable time; a refusal makes the row persistent until you hide it. Readable
+time pauses while the row is hovered or focused, while another exclusive
+surface covers it, and never runs while queued. `onDismiss` reports each
+accepted retirement once; a false you write on your own is `"close"`. Owner
+teardown, the release function and application disposal release a row without
+asking and without reporting.
+
+One row shows; up to eight wait, by descending priority and then arrival. A
+strictly higher priority may ask the showing row to leave once it has been
+readable for 2.5 seconds, once per row; equal priority waits. Nine is the total,
+counting rows still leaving: past it a new admission is refused (an error at
+construction, or through the reactive error boundary on a later false-to-true)
+and nothing already admitted moves. A caller that refuses every request can
+starve the queue.
+
+Message-only and icon-plus-message rows hug their copy up to the safe width; an
+action or a close selects `controls.snackbar.maxWidth` (bounded by the safe
+room), and the action moves below long copy. A keyboard or pad reaches the row
+after the content (`focusChrome = "bottom"`), arrival never takes focus, and
+Cancel on the row returns focus to the content even when refused. A visible row
+reserves its bottom rectangle through `presenter.reserveHud`; content that
+should avoid it reads `presenter.hudReservations` through
+`Facet.layout.hudInsets`. The strip paints above base screens and toasts and
+below modals; anchored transients (Callout, Menu, Popover) currently paint below
+it. Snackbars are a screen-application service: a SurfaceGui or Billboard
+application refuses them, so present global notifications from a screen
+application.
 
 ### `UI.Stepper`
 

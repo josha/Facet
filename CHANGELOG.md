@@ -25,6 +25,16 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Snackbar`** and **`app.presentSnackbar`**: one application snackbar
+  service with a persistent bottom strip. The caller's `isPresented` is the only
+  authority; close, Cancel, timeout and supersession are proposals, and
+  `onDismiss` reports action | close | timeout | superseded | cancel once. One
+  row shows, eight wait by priority, nine is the cap (refused, never dropped).
+  Readable dwell pauses on hover, focus and covering surfaces.
+- `toast_schedule` gains an opt-in controlled mode (Toast defaults unchanged).
+- Adopted chrome composes top, content, bottom in either presentation order; an
+  empty chrome scope takes no part and binds no arrow keys; Cancel on an adopted
+  chrome row reaches its own surface.
 - **`UI.Sheet` placement, parts and gestures.** `placement` (automatic keeps
   ten-foot centre, otherwise bottom; `side` with a physical `edge`), the Dialog
   `width` presets, `closeButton`, a `header` blueprint or `false`, a sticky or

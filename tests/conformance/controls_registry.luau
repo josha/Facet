@@ -2369,6 +2369,35 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		name = "Snackbar",
+		kind = "composite",
+		module = "src/controls/snackbar.luau",
+		export = "UI.Snackbar",
+		spec = "tests/snackbar.spec.luau",
+		conformance = "tests/snackbar.spec.luau",
+		docsAnchor = "UI.Snackbar",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "a pointer press on the action does not leave the passive host engaged" },
+			touch = { "an action runs once and leaves the row mounted; closing inside it reports action" },
+			keyboard = { "accepted removal of the focused row puts focus back on the content" },
+			gamepad = {
+				"arrival never steals focus; the row is reached last and Cancel returns to content even when refused",
+			},
+		},
+		-- PARADIGM axis: a pointer or finger presses the action or the close; a
+		-- keyboard or pad reaches the row LAST, after the content, and Cancel on it
+		-- proposes a close and returns to the content. hotSwitch: the action moves
+		-- below the copy from the measured width, and the empty host binds no keys.
+		affordanceProofs = {
+			pointer = { "hover and focus pause the dwell; queued time never counts" },
+			touch = { "a refused close keeps the same row and reports nothing" },
+			keyboard = { "an empty host binds no horizontal arrows on the content screen" },
+			gamepad = { "a modal blocks the dwell until it closes" },
+			hotSwitch = { "long copy wraps and the action moves below it" },
+		},
+	},
+	{
 		-- the typed slot form of the shared nav bar builder; its Back, leading,
 		-- center and trailing controls are ordinary page controls that carry their
 		-- own input stories, and the bar only arranges them
