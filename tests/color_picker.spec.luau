@@ -595,6 +595,86 @@ describe("ColorPicker: the spectrum plane", function()
 		expect(hex(cell:peek())).toBe(before)
 	end)
 
+	it("phone portrait and landscape: every target keeps the floor and Apply stays on screen", function()
+		for _, view in { { w = 390, h = 844 }, { w = 844, h = 390 } } do
+			-- one technique at a time (a compact screen's tabs are a menu); the world
+			-- fails a settle on any content painting outside its box
+			for _, mode in { "swatches", "spectrum", "sliders", "brick" } do
+				local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+				local w = mount({ value = cell, onChange = change, draft = true, modes = { mode } }, {
+					capabilities = TOUCH,
+					preferredInput = "Touch",
+					viewport = { x = 0, y = 0, w = view.w, h = view.h },
+				})
+				open(w)
+				local where = `{view.w}x{view.h} {mode}`
+				-- a sheet on a portrait phone; landscape keeps the anchored panel (its
+				-- height class is compact, its width is not)
+				local route = w.record("P").dump().route
+				expect(`{where} {route}`).toBe(`{where} {if view.h > view.w then "sheet" else "popover"}`)
+				for _, path in w.record("P").dump().swatchPaths do
+					local r = w.adapter.node(path).rect
+					expect(`{where} {r.w >= 44 and r.h >= 44}`).toBe(`{where} true`)
+				end
+				local apply = w.adapter.node(must(w, "/Actions/Apply")).rect
+				expect(`{where} {apply.h >= 44} {apply.y + apply.h <= view.h}`).toBe(`{where} true true`)
+			end
+		end
+	end)
+
+	it("on touch the preview leads the panel, and a drag shows the colour in a bubble above the finger", function()
+		local w, cell =
+			spectrum({ capabilities = TOUCH, preferredInput = "Touch", viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		-- the readout (with its preview) sits above the plane a finger will cover
+		local readout = w.adapter.node(must(w, "/P/Panel/Readout")).rect
+		local surface = must(w, "/Plane/Surface")
+		local r = w.adapter.node(surface).rect
+		expect(readout.y + readout.h <= r.y).toBe(true)
+		local bubble = must(w, "/Marks/Bubble")
+		expect(w.adapter.visibleOf(bubble)).toBe(false)
+		w.adapter.pointerDown(surface, r.x + r.w * 0.5, r.y + r.h * 0.5, "Touch")
+		w.adapter.pointerMove(r.x + r.w * 0.6, r.y + r.h * 0.6)
+		w.settle(1)
+		expect(w.adapter.visibleOf(bubble)).toBe(true)
+		local b = w.adapter.node(bubble)
+		-- above the touch point, painting the colour under it
+		expect(b.rect.y + b.rect.h < r.y + r.h * 0.6).toBe(true)
+		expect(b.props.tint.direct).toBe(colorValue.tintHex(cell:peek()))
+		w.adapter.pointerUp(r.x + r.w * 0.6, r.y + r.h * 0.6)
+		w.settle(2)
+		expect(w.adapter.visibleOf(bubble)).toBe(false)
+		-- ...gone on a cancel (the touch class leaves mid-drag) too
+		w.adapter.pointerDown(surface, r.x + 5, r.y + r.h - 5, "Touch")
+		w.settle(1)
+		expect(w.adapter.visibleOf(bubble)).toBe(true)
+		w.env:set("preferredInput", "Gamepad")
+		w.env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
+		w.settle(2)
+		expect(w.adapter.visibleOf(bubble)).toBe(false)
+		-- the hue strip's own bubble rides above its thumb while a finger drags it
+		local h =
+			spectrum({ capabilities = TOUCH, preferredInput = "Touch", viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local track = must(h, "/Hue/TrackHost/Track")
+		local tr = h.adapter.node(track).rect
+		h.adapter.pointerDown(track, tr.x + tr.w * 0.3, tr.y + tr.h / 2, "Touch")
+		h.adapter.pointerMove(tr.x + tr.w * 0.4, tr.y + tr.h / 2)
+		h.settle(1)
+		local hueBubble = must(h, "/Hue/TrackHost/Groove/Thumb/Knob/Bubble")
+		expect(h.adapter.visibleOf(hueBubble)).toBe(true)
+		expect(h.adapter.node(hueBubble).rect.y + 44 <= tr.y + tr.h / 2).toBe(true)
+		h.adapter.pointerUp(tr.x + tr.w * 0.4, tr.y + tr.h / 2)
+		h.settle(2)
+		expect(h.adapter.visibleOf(hueBubble)).toBe(false)
+		-- a pointer drag shows none: nothing covers the plane
+		local p = spectrum()
+		local ps = must(p, "/Plane/Surface")
+		local pr = p.adapter.node(ps).rect
+		p.adapter.pointerDown(ps, pr.x + 10, pr.y + 10)
+		p.settle(1)
+		expect(p.adapter.visibleOf(must(p, "/Marks/Bubble"))).toBe(false)
+		expect(p.adapter.node(must(p, "/P/Panel/Readout")).rect.y > pr.y).toBe(true)
+	end)
+
 	it("the right stick steers the plane only while it holds focus, and a live hint says so", function()
 		local w, cell, commits = spectrum({ capabilities = PAD, preferredInput = "Gamepad" })
 		local surface = must(w, "/Plane/Surface")
@@ -759,8 +839,8 @@ describe("ColorPicker: alpha, empty, disabled and refusals", function()
 		end
 		expect(`{level(ring.props.stroke)} {level(band.props.stroke)}`).toBe("0 3")
 		expect(`{ring.props.stroke.transparency} {band.props.stroke.transparency}`).toBe("0 0")
-		expect(find(w, "/Hue/TrackHost/Groove/Thumb/Ring/Band") ~= nil).toBe(true)
-		expect(find(w, "/Opacity/TrackHost/Groove/Thumb/Ring/Band") ~= nil).toBe(true)
+		expect(find(w, "/Hue/TrackHost/Groove/Thumb/Knob/Ring/Band") ~= nil).toBe(true)
+		expect(find(w, "/Opacity/TrackHost/Groove/Thumb/Knob/Ring/Band") ~= nil).toBe(true)
 	end)
 
 	it("empty shows the placeholder and the crossed plate; disabled keeps its colour and does not open", function()

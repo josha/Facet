@@ -46,6 +46,7 @@ local vocabulary = require("./control_vocabulary")
 local fieldChrome = require("./field_chrome")
 local labelControl = require("./label")
 local rowKeys = require("./row_actions")
+local menuRecipe = require("./menu_recipe")
 local colorValue = require("./color_value")
 
 type Hsv = colorValue.Hsv
@@ -573,6 +574,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local formatCell = Compose.cell("rgb")
 	local hexError = Compose.cell("")
 	local planeRect = Compose.cell(nil :: any)
+	-- how far above the plane a finger's bubble may rise: to the top of the room
+	-- the panel shows (its scrolling body, or the inline panel), set on sync
+	local bubbleRoom = Compose.cell(0)
 	local focusedPath = Compose.cell(nil :: string?)
 	local planePath: string? = nil
 	local swatchPaths: { string } = {}
@@ -720,6 +724,26 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		)
 	end
 
+	-- a finger covers everything below it: on touch the colour under it is shown
+	-- in a bubble ABOVE the touch point while a drag lasts (FINGER OCCLUSION)
+	local touchLive = ownedFormula(owner, function(use)
+		return env ~= nil and menuRecipe.touchPrimary(use(env:get("interactionClasses")))
+	end)
+	local BUBBLE = 44
+	local function bubble(bubbleId: string, paint: any, shown: any, place: any): any
+		local props: any = table.clone(place)
+		props.id = bubbleId
+		props.width = { type = "fixed", px = BUBBLE }
+		props.height = { type = "fixed", px = BUBBLE }
+		props.hidden = Compose.formula(function(use)
+			return not (use(touchLive) and use(shown))
+		end)
+		props.tint = Compose.formula(function(use)
+			return { direct = colorValue.tintHex(use(paint)) }
+		end)
+		return UI.stroke(UI.corners(UI.Box(props), 999), { thickness = 2, color = "#ffffff", transparency = 0 })
+	end
+
 	local function planeView(): any
 		-- TWO LAYERS, exact on both axes: white -> hue across (saturation), under
 		-- black fading in downward (value). No bands, so no banding.
@@ -790,6 +814,30 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 							height = ringEdge,
 							hidden = empty,
 						}),
+						-- centred over the thumb, a gap above it, kept inside the room
+						-- the panel shows above the plane (`bubbleRoom`)
+						bubble(
+							"Bubble",
+							Compose.formula(function(use)
+								return colorValue.toColor(use(canon))
+							end),
+							dragging,
+							{
+								anchor = "topLeft",
+								offsetX = Compose.formula(function(use)
+									local rect = use(planeRect)
+									local x = if rect ~= nil then use(canon).s * rect.w else 0
+									local w = if rect ~= nil then rect.w else BUBBLE
+									return math.clamp(math.floor(x - BUBBLE / 2 + 0.5), 0, math.max(0, w - BUBBLE))
+								end),
+								offsetY = Compose.formula(function(use)
+									local rect = use(planeRect)
+									local y = if rect ~= nil then (1 - use(canon).v) * rect.h else 0
+									local gap = metric(use, "s", 8)
+									return math.max(math.floor(y - use(ring) / 2 - gap - BUBBLE), -use(bubbleRoom))
+								end),
+							}
+						),
 					},
 				}),
 				UI.Grip({
@@ -868,11 +916,24 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			children = layers,
 		})
 	end
-	local function ringThumb(): any
-		return thumbRing({
-			width = { type = "fixed", px = "controls.slider.thumbSize" },
-			height = { type = "fixed", px = "controls.slider.thumbSize" },
-		})
+	local function ringThumb(paint: any): (info: any) -> any
+		return function(info: any): any
+			local edge = { type = "fixed", px = "controls.slider.thumbSize" }
+			return UI.Anchor({
+				id = "Knob",
+				width = edge,
+				height = edge,
+				children = {
+					thumbRing({ anchor = "center", width = edge, height = edge }),
+					bubble("Bubble", paint(info), info.dragging, {
+						anchor = "center",
+						offsetY = Compose.formula(function(use)
+							return -(BUBBLE + metric(use, "controls.slider.thumbSize", 20)) / 2 - metric(use, "s", 8)
+						end),
+					}),
+				},
+			})
+		end
 	end
 	-- the hue strip: the rainbow itself, one gradient leg per 60 degrees
 	local function hueStrip(): any
@@ -963,7 +1024,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				return tostring(math.floor(n + 0.5))
 			end,
 			trackContent = track,
-			thumbContent = if track ~= nil then ringThumb else nil,
+			thumbContent = if track ~= nil
+				then ringThumb(function(info: any): any
+					-- the hue under the finger, at full strength
+					return Compose.formula(function(use)
+						return colorValue.toColor({ h = use(info.value) / max, s = 1, v = 1 })
+					end)
+				end)
+				else nil,
 			onChange = function(n: number)
 				if not propose(with(canon:peek(), n / max)) then
 					cell:set(get(canon:peek()) * max)
@@ -1026,7 +1094,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 							height = UI.fill(),
 							alignH = "center",
 							alignV = "center",
-							children = { labelControl.icon(UI, "plus", { id = "Mark", size = "iconSizes.small" }) },
+							children = { labelControl.icon(UI, "increment", { id = "Mark", size = "iconSizes.small" }) },
 						}),
 						"control"
 					),
@@ -1435,7 +1503,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					return `{math.floor(n + 0.5)}%`
 				end,
 				trackContent = alphaStrip,
-				thumbContent = ringThumb,
+				thumbContent = ringThumb(function(): any
+					return Compose.formula(function(use)
+						return use(value) or colorValue.toColor(use(canon))
+					end)
+				end),
 				onChange = function(n: number)
 					if not proposeAlpha(n / 100) then
 						cell:set(alpha:peek() * 100)
@@ -1464,8 +1536,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				})
 			)
 		end
+		-- on touch the hand covers what is below the finger, so the preview and its
+		-- readout lead the panel (above the plane); elsewhere they follow it
+		local readoutAt = if touchLive:peek() then (if #modes > 1 then 2 else 1) else #children + 1
 		table.insert(
 			children,
+			readoutAt,
 			UI.VStack({
 				id = "Readout",
 				width = UI.fill(),
@@ -1582,6 +1658,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				local r = if planePath ~= nil then rectOf(planePath) else nil
 				planeRect:set(r)
+				local room = rectOf(if overlay then `{node.path}/Body` else node.path)
+				local above = if r ~= nil and room ~= nil then math.max(0, r.y - room.y) else 0
+				if above ~= bubbleRoom:peek() then
+					bubbleRoom:set(above)
+				end
 				-- the grid's column count follows the width the technique is given
 				-- (the scrolling body's, less the bar it takes)
 				local bodyPath = `{node.path}/Body`
@@ -1633,6 +1714,17 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						2 * (themeSnapshot.resolveNumber(metrics, "targetSizes.minimum") or 44),
 						beside - (outer.h - inner.h)
 					)
+				elseif overlay and popoverApi ~= nil and popoverApi.route:peek() == "sheet" and inner and view then
+					-- a sheet's room is the screen less the sheet's own chrome (its
+					-- drag bar and header, a constant): the technique scrolls inside
+					-- the panel, so the readout and Apply stay on screen on a phone
+					local sheetPanel = string.match(node.path, "^(.*)/Room/Column/Body/[^/]+$")
+					local frame = if sheetPanel ~= nil then rectOf(sheetPanel) else nil
+					if frame ~= nil then
+						local insets = env:get("coreSafeInsets"):peek() or {}
+						local usable = view.h - (tonumber(insets.top) or 0) - (tonumber(insets.bottom) or 0)
+						room = math.max(0, usable - (frame.h - inner.h))
+					end
 				end
 				if room ~= roomPx:peek() then
 					roomPx:set(room)

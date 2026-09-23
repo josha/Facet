@@ -891,6 +891,56 @@ describe("DateTimePicker: layout, routes and refusals", function()
 		end
 	end)
 
+	it("phone portrait and landscape: the calendar fits, every day keeps the floor, Apply is on screen", function()
+		for _, view in { { w = 390, h = 844 }, { w = 844, h = 390 } } do
+			for _, range in { false, true } do
+				local cell, _, change = caller(if range then { start = D(2026, 9, 1) } else D(2026, 9, 16))
+				local spec: any = if range
+					then {
+						selection = "range",
+						range = cell,
+						onRangeChange = change,
+						draft = true,
+						presets = {
+							{
+								id = "week",
+								label = "This week",
+								range = function(t: any)
+									return { start = t, finish = civil.addDays(t, 6) }
+								end,
+							},
+						},
+					}
+					else { value = cell, onChange = change, draft = true }
+				local w = mount(spec, {
+					capabilities = TOUCH,
+					preferredInput = "Touch",
+					viewport = { x = 0, y = 0, w = view.w, h = view.h },
+				})
+				local where = `{view.w}x{view.h} {if range then "range" else "single"}`
+				w.adapter.tap(must(w, "/Words/else/Show"))
+				w.settle(3)
+				for _, path in w.record("P").dump().cellPaths[1] do
+					local r = w.adapter.node(path).rect
+					expect(`{where} {r.w >= 44 and r.h >= 44 and r.x >= 0 and r.x + r.w <= view.w}`).toBe(
+						`{where} true`
+					)
+				end
+				local apply = w.adapter.node(must(w, "/Actions/Apply")).rect
+				-- on screen, or (a landscape phone's anchored panel, capped to the screen)
+				-- inside the panel's scrolling body, one scroll away
+				local reachable = apply.y + apply.h <= view.h
+				local surface = find(w, "/Popover-P/Layer/Surface")
+				if not reachable and surface ~= nil then
+					local sr = w.adapter.node(surface).rect
+					local body = w.adapter.node(must(w, "/Popover-P/Layer/Surface/Popup/Panel/Body"))
+					reachable = sr.y >= 0 and sr.y + sr.h <= view.h and body.scrollRegion ~= nil
+				end
+				expect(`{where} {apply.h >= 44} {reachable}`).toBe(`{where} true true`)
+			end
+		end
+	end)
+
 	it("a single date's panel hugs its six weeks: no room kept for an absent hint, caption or footer", function()
 		local cell, _, change = caller(D(2026, 9, 16))
 		local w = mount({ value = cell, onChange = change })

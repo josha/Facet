@@ -67,6 +67,9 @@ detail and every behaviour or path change.
   `onRemoveSwatch(item)` adds an Edit/Done toggle whose editing mode proposes a
   swatch's removal on activate or Delete/Backspace/pad remove. The caller owns
   the list and its persistence.
+- **ColorPicker on touch.** The preview leads the panel above the plane, a
+  drag on the plane or a strip shows the colour in a bubble above the finger,
+  and a phone sheet scrolls its technique so the readout and Apply stay put.
 - **ColorPicker paint.** An exact two-layer plane (no banding), a rainbow hue
   strip and a colour-over-checker alpha strip (`UI.Slider.trackContent`, new),
   two-tone opaque thumbs, square cells for a short swatch list, a hue per column

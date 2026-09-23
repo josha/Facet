@@ -9294,6 +9294,13 @@ as on `UI.Popover`). `onDismiss` reports `"activate"` (Done), `"apply"`,
 `"cancel"`, `"outside"` or `"anchorLost"`. `style = "inline"` puts the panel in
 the page.
 
+**Touch.** A finger covers what is below it, so on a touch-primary screen the
+preview and its readout lead the panel, above the plane, and while a finger
+drags the plane or the hue or opacity strip a bubble of the colour under it
+rides above the touch point (inside the panel's room; none for a pointer or a
+pad). On a portrait phone the panel is a sheet whose technique scrolls, so the
+readout and Apply stay on screen.
+
 **Saved colours.** Facet keeps no colours of its own: `swatches` stays yours.
 With `onSaveSwatch(color)` the Swatches tab ends with a "+" cell (named "Save
 colour", a stop in the grid walk) that proposes the current colour; a colour
