@@ -308,7 +308,36 @@ local CONSTANT_WORDS =
 
 -- INTENTIONALLY theme-independent literals. `match` is a plain substring of the
 -- offending source line; `why` is the standing justification.
+-- the colour picker's thumb: one optical pattern, the same on every theme
+local RING_WHY = "the colour picker's thumb is an optical pattern (a white band between two dark hairlines) "
+	.. "that must read on every colour a player can pick: a theme retuning its hairline must not thin the "
+	.. "ring into the colour under it"
 local ALLOWLIST: { { file: string, match: string, why: string } } = {
+	{
+		file = "src/controls/color_picker.luau",
+		match = "local STRIP_HEIGHT = 12",
+		why = "the hue and opacity strips are colour scales sized to the thumb ring riding them, not a theme surface",
+	},
+	{
+		file = "src/controls/color_picker.luau",
+		match = "props.padding = 1",
+		why = RING_WHY,
+	},
+	{
+		file = "src/controls/color_picker.luau",
+		match = "padding = 3,",
+		why = RING_WHY,
+	},
+	{
+		file = "src/controls/color_picker.luau",
+		match = '{ thickness = 3, color = "#ffffff", transparency = 0 }',
+		why = RING_WHY,
+	},
+	{
+		file = "src/controls/color_picker.luau",
+		match = '{ thickness = 2, color = "#ffffff", transparency = 0 })',
+		why = "the finger bubble's white rim separates the colour it shows from any colour behind it, on every theme",
+	},
 	{
 		file = "src/controls/text_input.luau",
 		match = "local KEEP_VISIBLE_MARGIN = 8",

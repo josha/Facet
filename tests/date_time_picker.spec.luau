@@ -801,59 +801,56 @@ describe("DateTimePicker: the gallery tab", function()
 end)
 
 describe("DateTimePicker: layout, routes and refusals", function()
-	it(
-		"a wide screen shows a range two consecutive months, and they stay consecutive through paging and bounds",
-		function()
-			local cell, _, change = caller({ start = D(2026, 12, 5) })
-			local bound = Compose.cell(nil :: any)
-			-- a single date keeps to one month however wide the screen (the reference's form)
-			local single, _, changeSingle = caller(D(2026, 12, 5))
-			local one = mount(
-				{ value = single, onChange = changeSingle, style = "inline" },
-				{ viewport = { x = 0, y = 0, w = 1000, h = 900 } }
-			)
-			expect(one.record("P").dump().dual).toBe(false)
-			local w = mount({
-				selection = "range",
-				range = cell,
-				onRangeChange = change,
-				style = "inline",
-				min = function(use)
-					return use(bound)
-				end,
-			}, { viewport = { x = 0, y = 0, w = 1000, h = 900 } })
-			expect(w.record("P").dump().dual).toBe(true)
-			local function titles(): string
-				return w.adapter.node(must(w, "/Pane1/Titled/then/Title")).props.text
-					.. " | "
-					.. w.adapter.node(must(w, "/Pane2/Titled/then/Title")).props.text
-			end
-			expect(titles()).toBe("December 2026 | January 2027")
-			-- Down crosses from the first month into the second; only the second's
-			-- last row leaves the months (for the control below), never paging
-			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 12, 30)))).toBe(true)
-			w.press("Down")
-			w.settle(2)
-			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2027, 1, 6), 2))
-			expect(w.pres.focus.focusOn(cellOf(w, D(2027, 1, 27), 2))).toBe(true)
-			w.press("Down")
-			w.settle(2)
-			expect(w.pres.focus.focused:peek()).toBe(must(w, "/Col/Other"))
-			expect(titles()).toBe("December 2026 | January 2027")
-			w.adapter.tap(must(w, "/Header/Next"))
-			w.settle(2)
-			expect(titles()).toBe("January 2027 | February 2027")
-			bound:set(D(2027, 3, 1))
-			w.settle(2)
-			expect(titles()).toBe("January 2027 | February 2027")
-			local narrow = mount(
-				{ selection = "range", range = cell, onRangeChange = change, style = "inline" },
-				{ viewport = { x = 0, y = 0, w = 390, h = 844 } }
-			)
-			expect(narrow.record("P").dump().dual).toBe(false)
-			expect(find(narrow, "/Pane2/Days")).toBeNil()
+	it("a wide screen shows two consecutive months, and they stay consecutive through paging and bounds", function()
+		local cell, _, change = caller({ start = D(2026, 12, 5) })
+		local bound = Compose.cell(nil :: any)
+		-- a single date keeps to one month however wide the screen (the reference's form)
+		local single, _, changeSingle = caller(D(2026, 12, 5))
+		local one = mount(
+			{ value = single, onChange = changeSingle, style = "inline" },
+			{ viewport = { x = 0, y = 0, w = 1000, h = 900 } }
+		)
+		expect(one.record("P").dump().dual).toBe(false)
+		local w = mount({
+			selection = "range",
+			range = cell,
+			onRangeChange = change,
+			style = "inline",
+			min = function(use)
+				return use(bound)
+			end,
+		}, { viewport = { x = 0, y = 0, w = 1000, h = 900 } })
+		expect(w.record("P").dump().dual).toBe(true)
+		local function titles(): string
+			return w.adapter.node(must(w, "/Pane1/Titled/then/Title")).props.text
+				.. " | "
+				.. w.adapter.node(must(w, "/Pane2/Titled/then/Title")).props.text
 		end
-	)
+		expect(titles()).toBe("December 2026 | January 2027")
+		-- Down crosses from the first month into the second; only the second's
+		-- last row leaves the months (for the control below), never paging
+		expect(w.pres.focus.focusOn(cellOf(w, D(2026, 12, 30)))).toBe(true)
+		w.press("Down")
+		w.settle(2)
+		expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2027, 1, 6), 2))
+		expect(w.pres.focus.focusOn(cellOf(w, D(2027, 1, 27), 2))).toBe(true)
+		w.press("Down")
+		w.settle(2)
+		expect(w.pres.focus.focused:peek()).toBe(must(w, "/Col/Other"))
+		expect(titles()).toBe("December 2026 | January 2027")
+		w.adapter.tap(must(w, "/Header/Next"))
+		w.settle(2)
+		expect(titles()).toBe("January 2027 | February 2027")
+		bound:set(D(2027, 3, 1))
+		w.settle(2)
+		expect(titles()).toBe("January 2027 | February 2027")
+		local narrow = mount(
+			{ selection = "range", range = cell, onRangeChange = change, style = "inline" },
+			{ viewport = { x = 0, y = 0, w = 390, h = 844 } }
+		)
+		expect(narrow.record("P").dump().dual).toBe(false)
+		expect(find(narrow, "/Pane2/Days")).toBeNil()
+	end)
 
 	it("two time pickers on one page: Down from a picker's last week reaches ITS OWN hour field", function()
 		local w = world.new({
