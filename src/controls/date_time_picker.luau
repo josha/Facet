@@ -1216,7 +1216,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		-- the last navigation position, for "focus just entered the grid"
 		local lastNav: string? = nil
-		local STEPS = { left = -1, right = 1, up = -7, down = 7 }
+		-- days per arrow: a row's neighbour, or the same weekday a week away
+		local STEPS = { ["left"] = -1, ["right"] = 1, up = -7, down = 7 }
 		return contribution.attach(panel, {
 			syncGeometry = function(rectOf: (string) -> any, node: any?)
 				if node == nil then

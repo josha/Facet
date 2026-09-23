@@ -2520,7 +2520,7 @@ local registry: { Entry } = {
 		-- the right stick on a pad. hotSwitch: a lost pointer class cancels a drag.
 		affordanceProofs = {
 			pointer = { "a drag tracks 1:1 in saturation and value, keeps the hue, and commits once at release" },
-			touch = { "Cancel restores the open-time colour through onChange; an outside tap keeps what is shown" },
+			touch = { "without draft every change commits live and B or an outside tap only closes, keeping it" },
 			keyboard = {
 				"switching the readout twenty times never moves canonical, and a hex commit is the only write",
 			},
@@ -2574,7 +2574,9 @@ local registry: { Entry } = {
 			keyboard = {
 				"a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck",
 			},
-			gamepad = { "B cancels: the open-time value is restored and focus returns to the field's button" },
+			gamepad = {
+				"a pad sets a date and time: each pick commits, B keeps it and returns focus; a draft's B restores",
+			},
 			hotSwitch = {
 				"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
 			},
