@@ -439,7 +439,6 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 							textSize = "label",
 							width = UI.fill(),
 							textAlign = "center",
-							alignH = "center",
 						})
 					end,
 				}),
