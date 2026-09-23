@@ -121,9 +121,13 @@ local function fitsAt(spec: FitSpec, size: number): (boolean, text_metrics.Metri
 		mid-word and paints outside the column. Both halves are the same rule.
 
 		An UNBOUNDED width (`math.huge`, which is what a node free to grow is
-		offered) can refuse nothing, exactly as it refuses nothing in the solver. ]]
+		offered) can refuse nothing, exactly as it refuses nothing in the solver.
+
+		THE WORD'S OWN WIDTH, NOT THE MEASURED LINE'S: the measurer clamps every
+		line to the width it wrapped into, so `m.width` can never exceed the box and
+		comparing it refused nothing. The widest word is the number that can. ]]
 	if ok then
-		ok = m.width <= spec.width
+		ok = spec.width == math.huge or text_metrics.minWidth(spec.text, spec.font, size + offsetOf(spec)) <= spec.width
 	end
 	if ok and type(spec.height) == "number" then
 		ok = m.height <= (spec.height :: number)

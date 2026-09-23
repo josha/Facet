@@ -58,6 +58,22 @@ describe("text_fit.fit — the largest size that actually fits", function()
 		expect(`floored={fit.size}`).toBe("floored=11")
 	end)
 
+	it("a word wider than the box shrinks until the whole word fits, at any line allowance", function()
+		-- a word has no legal break, so its line never wraps and the measure clamps
+		-- its width to the box: the fit has to ask for the word's own width
+		for _, lines in { 1, 3, math.huge } do
+			local fit =
+				textFit.fit({ text = "Navigation", font = FONT, cap = 24, floor = 8, width = 60, lines = lines })
+			local word = textMetrics.minWidth("Navigation", FONT, fit.size)
+			expect(`lines {lines}: fits={fit.fits} size<cap={fit.size < 24} word<=60={word <= 60}`).toBe(
+				`lines {lines}: fits=true size<cap=true word<=60=true`
+			)
+			expect(`lines {lines}: maximal={textMetrics.minWidth("Navigation", FONT, fit.size + 1) > 60}`).toBe(
+				`lines {lines}: maximal=true`
+			)
+		end
+	end)
+
 	it("honours a HEIGHT constraint as well as a width", function()
 		local wide =
 			{ text = "You earned 25 coins towards kart upgrades.", font = FONT, cap = 40, width = 240, lines = 2 }
