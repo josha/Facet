@@ -627,7 +627,7 @@ describe("ColorPicker: the spectrum plane", function()
 		local w, cell =
 			spectrum({ capabilities = TOUCH, preferredInput = "Touch", viewport = { x = 0, y = 0, w = 390, h = 844 } })
 		-- the readout (with its preview) sits above the plane a finger will cover
-		local readout = w.adapter.node(must(w, "/P/Panel/Readout")).rect
+		local readout = w.adapter.node(must(w, "/P/Panel/Lead/then/Readout")).rect
 		local surface = must(w, "/Plane/Surface")
 		local r = w.adapter.node(surface).rect
 		expect(readout.y + readout.h <= r.y).toBe(true)
@@ -673,7 +673,7 @@ describe("ColorPicker: the spectrum plane", function()
 		p.adapter.pointerDown(ps, pr.x + 10, pr.y + 10)
 		p.settle(1)
 		expect(p.adapter.visibleOf(must(p, "/Marks/Bubble"))).toBe(false)
-		expect(p.adapter.node(must(p, "/P/Panel/Readout")).rect.y > pr.y).toBe(true)
+		expect(p.adapter.node(must(p, "/P/Panel/Tail/then/Readout")).rect.y > pr.y).toBe(true)
 	end)
 
 	it("the right stick steers the plane only while it holds focus, and a live hint says so", function()

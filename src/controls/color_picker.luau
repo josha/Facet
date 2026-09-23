@@ -1532,26 +1532,21 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			table.insert(children, opacity.blueprint)
 		end
 		local fieldViews: { [string]: () -> any } = { rgb = rgbFields, hsv = hsvFields, hex = hexField }
-		local fields: { any } = {}
-		for _, format in FORMATS do
-			table.insert(
-				fields,
-				UI.When({
-					id = `Show{format.label}`,
-					condition = Compose.formula(function(use)
-						return use(formatCell) == format.value
-					end),
-					thenView = fieldViews[format.value],
-				})
-			)
-		end
-		-- on touch the hand covers what is below the finger, so the preview and its
-		-- readout lead the panel (above the plane); elsewhere they follow it
-		local readoutAt = if touchLive:peek() then (if #modes > 1 then 2 else 1) else #children + 1
-		table.insert(
-			children,
-			readoutAt,
-			UI.VStack({
+		local function readoutView(): any
+			local fields: { any } = {}
+			for _, format in FORMATS do
+				table.insert(
+					fields,
+					UI.When({
+						id = `Show{format.label}`,
+						condition = Compose.formula(function(use)
+							return use(formatCell) == format.value
+						end),
+						thenView = fieldViews[format.value],
+					})
+				)
+			end
+			return UI.VStack({
 				id = "Readout",
 				width = UI.fill(),
 				gap = "s",
@@ -1569,7 +1564,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					UI.VStack({ id = "Values", width = UI.fill(), children = fields }),
 				},
 			})
+		end
+		-- on touch the hand covers what is below the finger, so the preview and its
+		-- readout lead the panel (above the plane); elsewhere they follow it. Live:
+		-- a player who picks up a pad or puts a finger down gets the other order.
+		local notTouch = Compose.formula(function(use)
+			return not use(touchLive)
+		end)
+		table.insert(
+			children,
+			if #modes > 1 then 2 else 1,
+			UI.When({ id = "Lead", condition = touchLive, thenView = readoutView })
 		)
+		table.insert(children, UI.When({ id = "Tail", condition = notTouch, thenView = readoutView }))
 		local actions: { any } = {}
 		if draft then
 			table.insert(
