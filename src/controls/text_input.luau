@@ -1122,6 +1122,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		table.insert(rootSpec.children, searchMark)
 	end
 	rootSpec.surface = chrome.surface
+	-- a field that is wrong says so on its plate: the danger border while it
+	-- carries an error, or while its caller holds it `invalid`
+	rootSpec.stroke = Compose.formula(function(use)
+		local wrong = use(chrome.hasError) or (spec.invalid ~= nil and read(spec.invalid, use) == true)
+		return if wrong then UI.strokeData({ color = "danger", thickness = "focusRing", transparency = 0 }) else nil
+	end)
 	rootSpec.enabled = if spec.enabled ~= nil
 		then spec.enabled
 		elseif spec.disabled ~= nil then Compose.formula(function(use)

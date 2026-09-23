@@ -9382,10 +9382,14 @@ one wholly outside the bounds is shown disabled, one that overlaps is clamped.
 The closed form is field chrome: when a keyboard or pointer is live the value
 is an editable field that takes the numeric form back (a text that is not a
 date, or not an available one, stays with its error and commits nothing),
-otherwise a button that opens the calendar; a calendar button sits beside it.
-With a custom `format` the words are display only. It opens an anchored panel,
-a sheet with Done on a compact touch screen, and a centred sheet at ten feet.
-The calendar shows two consecutive months when its width fits them. Its day
+otherwise a button that opens the calendar; a calendar icon sits inside the
+field at its trailing edge, and a refused entry (or `errorText`) borders the
+field in the danger role. With a custom `format` the words are display only. It
+opens a panel anchored to the field (below it and start-aligned, flipping only
+without room), a sheet with Done on a compact touch screen, and a centred sheet
+at ten feet. A single date shows one month; a range shows two consecutive
+months when its width fits them. `draft`'s footer is Reset all as a leading
+text link and Cancel and Apply (the accent) at the trailing edge. Its day
 grid is one Tab stop (focus enters on the chosen day, else today); the arrows
 walk the days — a row's end continues to the next day, Left and Right page the
 month past either end, and Up and Down move a week across the shown months but
@@ -10787,7 +10791,7 @@ end)
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`. Default is never; search defaults to always. Empty or disabled fields hide the affordance. |
 | `maxLength` | Maximum accepted Unicode scalar count. Invalid UTF-8 is rejected. |
 | `validate(text)` | Return an accepted, idempotently normalized string, or nil to reject. Applied after length limiting and on commit. Numeric formatting must also pass validation before committed values change. |
-| `invalid` | Optional caller-owned readable boolean. Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
+| `invalid` | Optional caller-owned readable boolean. While true the plate wears the danger border (as it does while `errorText` or a rejection shows). Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
 | `numericValue` | Required caller-owned writable number cell for number presentation; distinct from the editable string in `value`. |
 | `parse(text)` / `format(number)` | Numeric commit functions. The default parser is a strict decimal grammar (optional sign, digits, at most one `.`; no exponent, grouping, hex or surrounding blanks); `Facet.recipes.arithmetic.parse` adds arithmetic. The default format is `tostring`, or exactly `precision` places when declared. Parsing must return a finite number; formatting must return a string. |
 | `min` / `max` | Optional inclusive numeric bounds. A typed number outside them is clamped to the bound and committed with reason `"clamped"`; it is not an error. |

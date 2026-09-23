@@ -289,10 +289,14 @@ describe("DateTimePicker: a single date", function()
 		typeCommit("02/30/2026")
 		expect(#seen).toBe(0)
 		expect(w.record("P").dump().typedError ~= "").toBe(true)
+		-- the refusal borders the field's plate in the danger role
+		local plate = must(w, "/Words/then/Entry/Input")
+		expect(w.adapter.node(plate).props.stroke ~= nil).toBe(true)
 		expect(w.adapter.node(entry).props.text).toBe("02/30/2026")
 		typeCommit("01/05/2027")
 		expect(#seen).toBe(0)
 		typeCommit("7/4/2026")
+		expect(w.adapter.node(plate).props.stroke).toBeNil()
 		expect(iso(cell:peek())).toBe("2026-07-04")
 		expect(table.concat(commits, ",")).toBe("2026-07-04")
 		expect(w.record("P").dump().typedError).toBe("")
@@ -643,6 +647,27 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 		open(w)
 		expect(w.adapter.visibleOf(cellOf(w, D(2026, 12, 12)) .. "/Layers/Band")).toBe(true)
 		expect(w.adapter.visibleOf(cellOf(w, D(2026, 12, 21)) .. "/Layers/Band")).toBe(false)
+		-- one pill: a middle day paints both halves; a week's edge rounds the pill with
+		-- a cap (Dec 6 is a Sunday, Dec 12 a Saturday); an end paints no half past
+		-- itself (Dec 5, a Saturday start, stands alone on its row)
+		local function shown(d: any): string
+			local function v(part: string): string
+				return if w.adapter.visibleOf(cellOf(w, d) .. "/Layers/" .. part) then "1" else "0"
+			end
+			return v("Band/Leading") .. v("Band/Trailing") .. v("Cap")
+		end
+		expect(`{shown(D(2026, 12, 9))} {shown(D(2026, 12, 6))} {shown(D(2026, 12, 12))} {shown(D(2026, 12, 5))}`).toBe(
+			"110 011 101 000"
+		)
+		-- the ends are the content colour with a surface numeral (light on dark)
+		local ends = w.adapter.node(cellOf(w, D(2026, 12, 20)) .. "/Layers/Disc").props.tint
+		expect(ends.role).toBe("content")
+		expect(w.adapter.node(cellOf(w, D(2026, 12, 20)) .. "/Layers/Day").props.tint.role).toBe("surface")
+		-- a day of this month is strong; a neighbour's is the dim body role
+		local inMonth = w.adapter.node(cellOf(w, D(2026, 12, 9)) .. "/Layers/Day").props
+		local neighbour = w.adapter.node(w.record("P").dump().cellPaths[1][1] .. "/Layers/Day").props
+		expect(`{inMonth.textFont.weight} {neighbour.textFont.weight}`).toBe("SemiBold Regular")
+		expect(neighbour.tint.role).toBe("contentSecondary")
 		-- November's grey December days are December's: no disc, no band there
 		w.adapter.tap(must(w, "/Header/Previous"))
 		w.settle(2)
@@ -684,6 +709,15 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 			end,
 		})
 		open(w)
+		-- the footer: Reset all a leading text link, Cancel then the accent Apply at
+		-- the trailing edge, a rule above it and under the header, compact chips
+		local reset = w.adapter.node(must(w, "/Actions/ResetAll"))
+		local apply = w.adapter.node(must(w, "/Actions/Apply"))
+		local cancel = w.adapter.node(must(w, "/Actions/Cancel"))
+		expect(`{reset.props.surface == "accent"} {apply.props.surface}`).toBe("false accent")
+		expect(reset.rect.x < cancel.rect.x and cancel.rect.x < apply.rect.x).toBe(true)
+		expect(find(w, "/Calendar/FooterRule") ~= nil and find(w, "/Calendar/HeaderRule") ~= nil).toBe(true)
+		expect(w.adapter.node(must(w, "/Preset-week")).rect.h < apply.rect.h).toBe(true)
 		w.adapter.tap(must(w, "/Preset-week"))
 		w.settle(2)
 		expect(`{iso(cell:peek().start)}..{iso(cell:peek().finish)}`).toBe("2026-09-20..2026-09-26")
@@ -762,48 +796,59 @@ describe("DateTimePicker: the gallery tab", function()
 end)
 
 describe("DateTimePicker: layout, routes and refusals", function()
-	it("a wide screen shows two consecutive months, and they stay consecutive through paging and bounds", function()
-		local cell, _, change = caller(D(2026, 12, 5))
-		local bound = Compose.cell(nil :: any)
-		local w = mount({
-			value = cell,
-			onChange = change,
-			style = "inline",
-			min = function(use)
-				return use(bound)
-			end,
-		}, { viewport = { x = 0, y = 0, w = 1000, h = 900 } })
-		expect(w.record("P").dump().dual).toBe(true)
-		local function titles(): string
-			return w.adapter.node(must(w, "/Pane1/Title")).props.text
-				.. " | "
-				.. w.adapter.node(must(w, "/Pane2/Title")).props.text
+	it(
+		"a wide screen shows a range two consecutive months, and they stay consecutive through paging and bounds",
+		function()
+			local cell, _, change = caller({ start = D(2026, 12, 5) })
+			local bound = Compose.cell(nil :: any)
+			-- a single date keeps to one month however wide the screen (the reference's form)
+			local single, _, changeSingle = caller(D(2026, 12, 5))
+			local one = mount(
+				{ value = single, onChange = changeSingle, style = "inline" },
+				{ viewport = { x = 0, y = 0, w = 1000, h = 900 } }
+			)
+			expect(one.record("P").dump().dual).toBe(false)
+			local w = mount({
+				selection = "range",
+				range = cell,
+				onRangeChange = change,
+				style = "inline",
+				min = function(use)
+					return use(bound)
+				end,
+			}, { viewport = { x = 0, y = 0, w = 1000, h = 900 } })
+			expect(w.record("P").dump().dual).toBe(true)
+			local function titles(): string
+				return w.adapter.node(must(w, "/Pane1/Title")).props.text
+					.. " | "
+					.. w.adapter.node(must(w, "/Pane2/Title")).props.text
+			end
+			expect(titles()).toBe("December 2026 | January 2027")
+			-- Down crosses from the first month into the second; only the second's
+			-- last row leaves the months (for the control below), never paging
+			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 12, 30)))).toBe(true)
+			w.press("Down")
+			w.settle(2)
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2027, 1, 6), 2))
+			expect(w.pres.focus.focusOn(cellOf(w, D(2027, 1, 27), 2))).toBe(true)
+			w.press("Down")
+			w.settle(2)
+			expect(w.pres.focus.focused:peek()).toBe(must(w, "/Col/Other"))
+			expect(titles()).toBe("December 2026 | January 2027")
+			w.adapter.tap(must(w, "/Header/Next"))
+			w.settle(2)
+			expect(titles()).toBe("January 2027 | February 2027")
+			bound:set(D(2027, 3, 1))
+			w.settle(2)
+			expect(titles()).toBe("January 2027 | February 2027")
+			local narrow = mount(
+				{ selection = "range", range = cell, onRangeChange = change, style = "inline" },
+				{ viewport = { x = 0, y = 0, w = 390, h = 844 } }
+			)
+			expect(narrow.record("P").dump().dual).toBe(false)
+			expect(find(narrow, "/Pane2/Days")).toBeNil()
 		end
-		expect(titles()).toBe("December 2026 | January 2027")
-		-- Down crosses from the first month into the second; only the second's
-		-- last row leaves the months (for the control below), never paging
-		expect(w.pres.focus.focusOn(cellOf(w, D(2026, 12, 30)))).toBe(true)
-		w.press("Down")
-		w.settle(2)
-		expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2027, 1, 6), 2))
-		expect(w.pres.focus.focusOn(cellOf(w, D(2027, 1, 27), 2))).toBe(true)
-		w.press("Down")
-		w.settle(2)
-		expect(w.pres.focus.focused:peek()).toBe(must(w, "/Col/Other"))
-		expect(titles()).toBe("December 2026 | January 2027")
-		w.adapter.tap(must(w, "/Header/Next"))
-		w.settle(2)
-		expect(titles()).toBe("January 2027 | February 2027")
-		bound:set(D(2027, 3, 1))
-		w.settle(2)
-		expect(titles()).toBe("January 2027 | February 2027")
-		local narrow = mount(
-			{ value = cell, onChange = change, style = "inline" },
-			{ viewport = { x = 0, y = 0, w = 390, h = 844 } }
-		)
-		expect(narrow.record("P").dump().dual).toBe(false)
-		expect(find(narrow, "/Pane2/Days")).toBeNil()
-	end)
+	)
 
 	it("two time pickers on one page: Down from a picker's last week reaches ITS OWN hour field", function()
 		local w = world.new({

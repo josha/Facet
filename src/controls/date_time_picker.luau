@@ -534,7 +534,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local gridWidth = function(use: any): number
 		return 7 * metric(use, "targetSizes.minimum", 44)
 	end
+	-- a single date shows one month (the reference's own form); a range shows two
+	-- wherever they fit, so a span can cross the month boundary in view
 	dualNow = ownedFormula(owner, function(use)
+		if not isRange then
+			return false
+		end
 		local need = 2 * gridWidth(use) + metric(use, "l", 24)
 		if not overlay then
 			return use(measured) >= need
@@ -578,6 +583,27 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local d = use(date)
 			return not use(outside) and r.start ~= nil and r.finish ~= nil and civil.within(d, r.start, r.finish)
 		end)
+		-- THE BAND IS ONE PILL across the span: each cell paints the halves the span
+		-- crosses (none past an endpoint), and a row's first or last column rounds
+		-- its end with a disc-sized cap, so the pill wraps at the week's edge
+		local column = (i - 1) % 7 + 1
+		local function edge(side: string): any
+			return Compose.formula(function(use)
+				if not use(banded) then
+					return true
+				end
+				local r = use(range)
+				local d = use(date)
+				local stop = if side == "leading" then r.start else r.finish
+				return civil.compare(d, stop) == 0 or column == (if side == "leading" then 1 else 7)
+			end)
+		end
+		local capped = Compose.formula(function(use)
+			if not use(banded) or not use(edge("leading")) and not use(edge("trailing")) then
+				return false
+			end
+			return not use(chosen)
+		end)
 		local isToday = Compose.formula(function(use)
 			return civil.compare(use(date), use(today)) == 0
 		end)
@@ -613,19 +639,47 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					alignH = "center",
 					alignV = "center",
 					children = {
-						UI.Box({
+						UI.HStack({
 							id = "Band",
 							width = UI.fill(),
 							height = disc,
-							tint = { role = "controlSelected", blend = 1 },
+							gap = 0,
 							hidden = hiddenUnless(banded),
+							children = {
+								UI.Box({
+									id = "Leading",
+									width = UI.fill(),
+									height = UI.fill(),
+									tint = { role = "controlSelected", blend = 1 },
+									hidden = edge("leading"),
+								}),
+								UI.Box({
+									id = "Trailing",
+									width = UI.fill(),
+									height = UI.fill(),
+									tint = { role = "controlSelected", blend = 1 },
+									hidden = edge("trailing"),
+								}),
+							},
 						}),
+						UI.corners(
+							UI.Box({
+								id = "Cap",
+								width = disc,
+								height = disc,
+								tint = { role = "controlSelected", blend = 1 },
+								hidden = hiddenUnless(capped),
+							}),
+							999
+						),
 						UI.corners(
 							UI.Box({
 								id = "Disc",
 								width = disc,
 								height = disc,
-								tint = { role = "accent", blend = 1 },
+								-- a range's ends are the content colour (light on a dark
+								-- theme) over the band; a single day is the accent
+								tint = { role = if isRange then "content" else "accent", blend = 1 },
 								hidden = hiddenUnless(chosen),
 							}),
 							999
@@ -642,11 +696,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 							text = Compose.formula(function(use)
 								return tostring(use(date).day)
 							end),
-							textSize = "body",
+							-- a day of this month is strong; a neighbour's is dim
+							textSize = Compose.formula(function(use)
+								return if use(outside) then "body" else "strong"
+							end),
 							textAlign = "center",
 							tint = Compose.formula(function(use)
 								return if use(chosen)
-									then { role = "onAccent", blend = 1 }
+									then { role = if isRange then "surface" else "onAccent", blend = 1 }
 									elseif use(outside) or use(disabled) then {
 										role = "contentSecondary",
 										blend = 1,
@@ -765,6 +822,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			options = options,
 			selected = cell,
 			style = "menu",
+			-- plain words and a chevron, as a calendar header reads: no chip plate
+			appearance = "utility",
 			enabled = interactive,
 			env = spec.env,
 			onChange = function(v: any)
@@ -800,6 +859,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				icon = icon,
 				label = name,
 				shape = "circle",
+				-- a bare chevron beside the month words
+				surface = "plain",
 				enabled = Compose.formula(function(use)
 					return use(interactive) and canPage(delta, use)
 				end),
@@ -1050,6 +1111,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local chip = require("./chip").build(Facet, core, {
 				id = `Preset-{p.id}`,
 				label = p.label,
+				controlSize = "compact",
 				selected = on,
 				enabled = Compose.formula(function(use)
 					return use(clamped) ~= nil and use(interactive)
@@ -1081,6 +1143,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local function panelView(): any
 		local children: { any } = {
 			header(),
+			UI.Divider({ id = "HeaderRule" }),
 			UI.HStack({
 				id = "Panes",
 				gap = "l",
@@ -1127,16 +1190,26 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			table.insert(children, presetRow())
 		end
 		local actions: { any } = {}
-		local function action(actionId: string, words_: string, fn: () -> ()): any
-			return UI.Button({ id = actionId, label = words_, onActivate = fn, enabled = interactive })
+		local function action(actionId: string, words_: string, fn: () -> (), look: string?): any
+			return UI.Button({
+				id = actionId,
+				label = words_,
+				onActivate = fn,
+				enabled = interactive,
+				-- Reset all is a text link; Apply, the primary action, wears the accent
+				appearance = if look == "link" then "link" else nil,
+				surface = if look == "primary" then "accent" else nil,
+			})
 		end
 		if draft then
 			table.insert(
 				actions,
 				action("ResetAll", "Reset all", function()
 					propose(if isRange then {} else nil)
-				end)
+				end, "link")
 			)
+			-- the link leads; Cancel and Apply keep to the trailing edge
+			table.insert(actions, UI.Spacer({ id = "Gap" }))
 			table.insert(
 				actions,
 				action("Cancel", "Cancel", function()
@@ -1162,7 +1235,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					if overlay then
 						close("apply")
 					end
-				end)
+				end, "primary")
 			)
 		elseif overlay and popoverApi ~= nil and popoverApi.route:peek() == "sheet" then
 			table.insert(
@@ -1173,6 +1246,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			)
 		end
 		if #actions > 0 then
+			table.insert(children, UI.Divider({ id = "FooterRule" }))
 			table.insert(
 				children,
 				UI.HStack({
@@ -1419,6 +1493,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			enabled = interactive,
 			env = spec.env,
 			trailing = if overlay then calendarButton() else nil,
+			-- a refused or caller-flagged entry borders the field in the danger role
+			invalid = chrome.hasError,
 			onCommit = function(typed: any)
 				if typed == valueText:peek() then
 					return
@@ -1561,6 +1637,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				align = "center",
 				surface = Compose.formula(function(use)
 					return if use(typedEntry) then "plain" else selection.read(chrome.surface, use)
+				end),
+				-- the shown field's own danger border (a typed field draws its own)
+				stroke = Compose.formula(function(use)
+					return if use(chrome.hasError) and not use(typedEntry)
+						then UI.strokeData({ color = "danger", thickness = "focusRing", transparency = 0 })
+						else nil
 				end),
 				height = chrome.height,
 				padding = Compose.formula(function(use)
