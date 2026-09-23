@@ -276,18 +276,42 @@ end
 local readValue = require("../selection_model").read
 
 -- an option's status mark: a StatusIndicator in the row's trailing lane, owned
--- by whichever owner builds the row (the control's, or a keyed row's)
-local function indicatorNode(Facet: any, core: any, indicator: any): any
+-- by whichever owner builds the row (the control's, or a keyed row's). Given the
+-- row's `current` record, the mark follows it: form/status/count track the live
+-- record and a removed indicator unmounts (a row born without one has none).
+local function indicatorNode(Facet: any, core: any, indicator: any, current: any?): any
 	if indicator == nil then
 		return nil
 	end
-	local merged = table.clone(indicator)
-	merged.id = merged.id or "Status"
-	local built = statusIndicator.build(Facet, core, merged)
-	if built.dispose ~= nil then
-		Compose.cleanup(built.dispose)
+	local function mark(): any
+		local merged = table.clone(indicator)
+		merged.id = merged.id or "Status"
+		if current ~= nil then
+			for _, key in { "form", "status", "count" } do
+				if merged[key] ~= nil then
+					merged[key] = function(use)
+						local live = use(current).indicator
+						return if type(live) == "table" then live[key] else indicator[key]
+					end
+				end
+			end
+		end
+		local built = statusIndicator.build(Facet, core, merged)
+		if built.dispose ~= nil then
+			Compose.cleanup(built.dispose)
+		end
+		return built.blueprint
 	end
-	return built.blueprint
+	if current == nil then
+		return mark()
+	end
+	return Facet.UI.When({
+		id = "StatusSlot",
+		condition = function(use)
+			return use(current).indicator ~= nil
+		end,
+		thenView = mark,
+	})
 end
 
 local OPTION_KEYS = specGuard.keySet({
@@ -565,7 +589,7 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 				description = prop("description", ""),
 				icon = prop("icon"),
 				badge = prop("badge", ""),
-				trailing = indicatorNode(Facet, core, initial.indicator),
+				trailing = indicatorNode(Facet, core, initial.indicator, current),
 				width = segmentWidth,
 				textSize = spec.textSize,
 				iconOnly = spec.iconOnly,

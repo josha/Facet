@@ -529,3 +529,38 @@ describe("Picker cards", function()
 		end)).toBe(false)
 	end)
 end)
+
+describe("Picker option indicator", function()
+	it("follows the caller's live option record: status changes and a removed mark goes", function()
+		local function options(indicator: any?)
+			return {
+				{ value = "easy", label = "Easy" },
+				{ value = "normal", label = "Normal", indicator = indicator },
+				{ value = "hard", label = "Hard" },
+			}
+		end
+		local list = Compose.cell(options({ status = "warning" }))
+		local w = mount("desktop", { style = "radioGroup", options = list })
+		local function roles(): string
+			local out: { string } = {}
+			for _, path in w.adapter.paths() do
+				local tint = w.adapter.node(path).props.tint
+				-- the plate's status role (the cutout ring paints `surface`)
+				if string.find(path, "/Status/", 1, true) and type(tint) == "table" and tint.role ~= "surface" then
+					if not table.find(out, tint.role) then
+						table.insert(out, tint.role)
+					end
+				end
+			end
+			table.sort(out)
+			return table.concat(out, ",")
+		end
+		expect(roles()).toBe("warning")
+		list:set(options({ status = "error" }))
+		w.pres.refresh()
+		expect(roles()).toBe("danger")
+		list:set(options(nil))
+		w.pres.refresh()
+		expect(roles()).toBe("")
+	end)
+end)

@@ -9671,7 +9671,10 @@ entry, so it can arrive after mount — in menus, searchable lists and stacked
 strips) and `avatar` (an `UI.Avatar` spec with `name` and optional `image`,
 `userId`, `key`, `provider`, leading the menu row at the compact rung; it adds
 no focus stop or press) and `meta` (a secondary label/value, distinct from
-`badge`, trailing a menu row's words and shown on a card).
+`badge`, trailing a menu row's words and shown on a card) and `indicator` (a
+`UI.StatusIndicator` spec table: a status mark trailing the option's words; on
+a live list its `form`, `status` and `count` follow the record, and setting it
+to nil removes it).
 Descriptions explain unavailable choices without hiding them. Values and stable
 ids must be unique. A live array uses `id`, or the string form of `value`, as
 its path-safe key. Replacing or reordering an option keeps the surviving row's
