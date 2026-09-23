@@ -172,7 +172,11 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 			+ (if closable then target + gap else 0)
 		return need + chrome <= cap(use)
 	end
-	local body: { any } = { UI.Text({ id = "Message", text = spec.message, width = UI.fill() }) }
+	-- a row with an action or a close is the strip's full width and its copy fills
+	-- it; a plain row HUGS its copy up to that width (phase4 S1: a fill chain
+	-- under a hug plate measured to its padding once the dock stopped stretching)
+	local span = if constrained then UI.fill() else UI.hug()
+	local body: { any } = { UI.Text({ id = "Message", text = spec.message, width = span }) }
 	if spec.action ~= nil then
 		table.insert(
 			body,
@@ -202,7 +206,7 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 		row,
 		UI.AdaptiveStack({
 			id = "Body",
-			width = UI.fill(),
+			width = span,
 			gap = "s",
 			-- beside: centred on the copy; below it: the action trails
 			align = function(use: any): string
@@ -242,7 +246,7 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 				UI.Box({ id = "Plate", width = UI.fill(), height = UI.fill(), surface = "raised" }),
 				UI.HStack({
 					id = "Row",
-					width = UI.fill(),
+					width = span,
 					padding = "s",
 					gap = "s",
 					align = "center",

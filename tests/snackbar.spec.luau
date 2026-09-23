@@ -200,6 +200,10 @@ describe("Snackbar: the six compositions and their widths", function()
 				expect(math.abs(snack.rect.w - cap) < 1).toBe(true)
 			else
 				expect(snack.rect.w < cap).toBe(true)
+				-- phase4 S1: the plain row HUGS its message, it never shrinks to padding
+				local copy = w.adapter.node(assert(w.find("/Snack/Row/Body/Message"), "message")).rect
+				expect(copy.w >= 30).toBe(true)
+				expect(snack.rect.w >= copy.w).toBe(true)
 			end
 			for _, path in { "/Snack/Row/Body/Action", "/Snack/Row/Close" } do
 				local p = w.find(path)
@@ -209,6 +213,35 @@ describe("Snackbar: the six compositions and their widths", function()
 			end
 		end)
 	end
+	it("a plain row hugs a longer message up to the strip's width (phase4 S1)", function()
+		for _, icon in { false, true } do
+			local w = app()
+			local c = caller()
+			c.shown:set(true)
+			local spec: any = { closeButton = false, icon = if icon then "status.info" else nil }
+			mountAll(w, { { c = c, message = "Saved to your garage.", spec = spec } })
+			w.advance(0.5)
+			local snack = w.adapter.node(assert(w.find("/Snack"), "row")).rect
+			local copy = w.adapter.node(assert(w.find("/Snack/Row/Body/Message"), "message")).rect
+			expect(copy.w >= 120).toBe(true)
+			expect(copy.h <= 30).toBe(true)
+			expect(snack.w < 358).toBe(true)
+			expect(copy.x + copy.w <= snack.x + snack.w).toBe(true)
+		end
+		-- ...and a message longer than the strip wraps inside it rather than past it
+		local w = app()
+		local c = caller()
+		c.shown:set(true)
+		local long = string.rep("A plain message that keeps going. ", 6)
+		mountAll(w, { { c = c, message = long, spec = { closeButton = false } } })
+		w.advance(0.5)
+		local snack = w.adapter.node(assert(w.find("/Snack"), "row")).rect
+		local copy = w.adapter.node(assert(w.find("/Snack/Row/Body/Message"), "message")).rect
+		expect(snack.w <= 358 + 0.5).toBe(true)
+		expect(copy.x + copy.w <= snack.x + snack.w + 0.5).toBe(true)
+		expect(copy.h > 30).toBe(true)
+	end)
+
 	it("long copy wraps and the action moves below it", function()
 		local w = app()
 		local c = caller()
