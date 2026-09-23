@@ -62,6 +62,19 @@ detail and every behaviour or path change.
 
 ### Changes
 
+- **Snackbar dismiss words match Dialog and Popover.** A false you write on
+  your own now reports `"cancel"` (was `"close"`), and owner teardown or the
+  release function reports `"cancel"` once (was silent). The Close button
+  keeps `"close"`; application disposal still reports nothing.
+- **A hovered selected skin keeps its selection tint.** Image-skinned packages
+  painted a selected row plain white under the pointer; a compound rule now
+  paints `$ChromeTintSelectedHover`, the selection tint lifted.
+- `UI.Alert`'s `icon` name takes Button's icon path, so theme art draws it.
+  A Picker option's `indicator` follows the live record, and its `avatar`
+  keys are closed. A disabled field's label shows no press or hover.
+  `civilDate.parse` asks for AM or PM on a bare 1-12 hour under a 12-hour
+  locale. Pixel Quest draws the warning, First and Last icons.
+
 - **`UI.DateTimePicker`** and **`Facet.civilDate`.** A civil date (no time
   zone) field that opens a calendar — one or two consecutive months, disabled
   days focusable and inert, typed entry where a keyboard or pointer is live,
