@@ -617,17 +617,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				then property("meta")
 				else nil,
 			-- the shipped Avatar, leading the row; decoration, never a second press
-			avatar = if option.avatar ~= nil
-				then Facet.nativeControls.Avatar({
-					id = "Avatar",
-					name = option.avatar.name,
-					image = option.avatar.image,
-					userId = option.avatar.userId,
-					key = option.avatar.key,
-					provider = option.avatar.provider,
-					controlSize = "compact",
-				})
-				else nil,
+			avatar = menuRecipe.avatarNode(Facet, option.avatar),
 			core = core,
 			scope = rowScope,
 			selected = selected,

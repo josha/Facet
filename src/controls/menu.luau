@@ -73,6 +73,7 @@ local ownedFormula = require("../core/owned_formula")
 
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
+local anchorPlacement = require("../layout/anchor_placement")
 local controlContract = require("../class_contract")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
@@ -102,11 +103,14 @@ export type Item = specTypes.Item
 export type Spec = specTypes.Spec
 
 local MENU_KEYS = specGuard.keySet({
+	"align",
 	"backLabel",
+	"edge",
 	"env",
 	"id",
 	"interactionClasses",
 	"items",
+	"maxHeight",
 	"onClose",
 	"onOpen",
 	"presentation",
@@ -114,8 +118,11 @@ local MENU_KEYS = specGuard.keySet({
 	"trigger",
 	"label",
 	"triggers",
+	"width",
 })
 local ITEM_KEYS = specGuard.keySet({
+	"avatar",
+	"badge",
 	"children",
 	"divider",
 	"enabled",
@@ -130,6 +137,8 @@ local ITEM_KEYS = specGuard.keySet({
 	"description",
 	"dismiss",
 	"onChange",
+	"sectionTitle",
+	"shortcutLabel",
 })
 local TRIGGERS: { [string]: boolean } =
 	table.freeze({ activate = true, secondary = true, longPress = true, keyboard = true, gamepad = true })
@@ -193,6 +202,14 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 			)
 		end
 		assert(item.dismiss == nil or type(item.dismiss) == "boolean", "Menu: dismiss must be boolean")
+		assert(
+			item.avatar == nil or (type(item.avatar) == "table" and type(item.avatar.name) == "string"),
+			"Menu: an item avatar must be an Avatar spec table with a name"
+		)
+		assert(
+			item.shortcutLabel == nil or (type(item.shortcutLabel) == "string" and item.shortcutLabel ~= ""),
+			'Menu: shortcutLabel is display text such as "Ctrl+B"; it binds nothing'
+		)
 		assert(
 			item.onChange == nil or (hasState and type(item.onChange) == "function"),
 			"Menu: onChange requires a state item and function"
@@ -286,6 +303,21 @@ local function build(Facet, core, spec, owner)
 	specGuard.assertKnownKeys("UI.Menu", spec, MENU_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Menu"
+	-- the ROOT panel's placement and every panel's size; absent is unchanged
+	anchorPlacement.assertEdge(spec.edge, `UI.Menu('{id}') edge`)
+	anchorPlacement.assertAlign(spec.align, `UI.Menu('{id}') align`)
+	if spec.width ~= nil and (type(spec.width) ~= "table" or type(spec.width.type) ~= "string") then
+		error(`Facet UI.Menu('{id}'): \`width\` is a dimension table such as \{ type = "fixed", px = 280 }.`, 0)
+	end
+	local maxHeight = spec.maxHeight
+	if
+		maxHeight ~= nil
+		and (type(maxHeight) ~= "number" or maxHeight ~= maxHeight or maxHeight <= 0 or maxHeight == math.huge)
+	then
+		error(`Facet UI.Menu('{id}'): \`maxHeight\` is a positive finite number of px, chrome included.`, 0)
+	end
+	-- a bounded list scrolls its rows one level deeper; every path below reads this
+	local ROWS = if maxHeight ~= nil then "/List/Rows" else ""
 	if spec.label ~= nil then
 		assert(type(spec.label) == "string", "UI.Menu.label must be a string")
 		assert(spec.trigger == nil, "Menu: use label or trigger, not both")
@@ -603,8 +635,31 @@ local function build(Facet, core, spec, owner)
 			if isCard and emitted > 1 then
 				table.insert(rows, menuRecipe.divider(UI, `Rule-{emitted}`))
 			end
+			-- a section heading is a caption before its row: never a stop, never a press
+			if item.sectionTitle ~= nil then
+				table.insert(
+					rows,
+					UI.VStack({
+						id = `Section:{item.id}`,
+						width = UI.fill(),
+						padding = { left = "s", right = "s", top = "xs" },
+						children = { menuRecipe.sectionHeading(UI, item.sectionTitle) },
+					})
+				)
+			end
 			local spec = {
 				id = `Item:{item.id}`,
+				badge = item.badge,
+				avatar = menuRecipe.avatarNode(Facet, item.avatar),
+				-- display only: the words of a shortcut some other binding owns
+				trailing = if item.shortcutLabel ~= nil
+					then UI.Text({
+						id = "Shortcut",
+						text = item.shortcutLabel,
+						textSize = "caption",
+						role = "secondary",
+					})
+					else nil,
 
 				label = item.label,
 				description = item.description,
@@ -637,13 +692,38 @@ local function build(Facet, core, spec, owner)
 				break
 			end
 		end
+		if maxHeight ~= nil then
+			-- THE BOUNDED LIST: the rows scroll inside the author's height, less the
+			-- panel's own chrome (the `raised` slot's insets a package carves)
+			rows = {
+				UI.ScrollView({
+					id = "List",
+					axis = "y",
+					chromeReserve = "none",
+					width = UI.fill(),
+					-- the PANEL carries the author's bound (chrome included); the list is
+					-- the part that gives height back when the rows outgrow it
+					shrinkWeight = 1,
+					children = {
+						UI.VStack({
+							id = "Rows",
+							width = UI.fill(),
+							gap = if isCard then 0 else menuRecipe.ROW_GAP,
+							children = rows,
+						}),
+					},
+				}),
+			}
+		end
 		local panel = UI.VStack({
 			id = PANEL_ID,
 			-- a SHEET spans the width a thumb reaches; a floating panel hugs its
 			-- longest row, which is what lets D1 place it against the trigger
 			anchor = if isSheet then "bottomLeft" else nil,
+			height = if maxHeight ~= nil then { type = "hug", max = maxHeight } else nil,
 			width = if isSheet
 				then { type = "fill", weight = 1 }
+				elseif spec.width ~= nil then spec.width
 				elseif rich then { type = "fixed", px = "controls.popup.panelWidth" }
 				else { type = "hug" },
 			surface = "raised",
@@ -732,7 +812,7 @@ local function build(Facet, core, spec, owner)
 					-- a non-sheet root is the `Popup` fade group the materialize
 					-- transition wraps around `Panel`, one level above the rows it used
 					-- to sit on directly; a sheet's root IS `Panel`, unwrapped
-					local rowRoot = if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`
+					local rowRoot = (if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`) .. ROWS
 					for _, rowId in rowIds do
 						table.insert(order, `{rowRoot}/{rowId}`)
 					end
@@ -746,7 +826,7 @@ local function build(Facet, core, spec, owner)
 						ops.back()
 						return true
 					end
-					local itemId = string.match(path, `/{PANEL_ID}/Item:(.+)$`)
+					local itemId = string.match(path, `/{PANEL_ID}{ROWS}/Item:(.+)$`)
 					if itemId == nil then
 						return false
 					end
@@ -817,11 +897,11 @@ local function build(Facet, core, spec, owner)
 			local edge: string
 			if level == 0 then
 				sourcePath = rootPath :: string
-				edge = "bottom"
+				edge = spec.edge or "bottom"
 			else
 				local parentChain = table.clone(chain)
 				local last = table.remove(parentChain) :: string
-				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}/Item:{last}`
+				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}{ROWS}/Item:{last}`
 				edge = "trailing"
 			end
 			handle = (presentAnchoredFn :: any)(if Facet.surfaces then buildAttached else buildAttached(), {
@@ -830,7 +910,13 @@ local function build(Facet, core, spec, owner)
 				-- the same attachment every control-presented popover keeps (picker
 				-- round, 2026-09-11): a tight gap under the source and the screen's
 				-- content inset as the margin it will not cross
-				anchor = { source = { path = sourcePath }, edge = edge, align = "start", gap = "xs", margin = "m" },
+				anchor = {
+					source = { path = sourcePath },
+					edge = edge,
+					align = if level == 0 then spec.align or "start" else "start",
+					gap = "xs",
+					margin = "m",
+				},
 				-- "none" is fully transparent but STILL CATCHING: an outside tap
 				-- closes the menu and is consumed, never clicking through to whatever
 				-- was behind it, and the surface underneath is never dimmed. A menu is
@@ -936,7 +1022,7 @@ local function build(Facet, core, spec, owner)
 				removed it while the level was open). ]]
 			local graph = graphs[#graphs]
 			if graph ~= nil then
-				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}/Item:{leavingId}`)
+				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}{ROWS}/Item:{leavingId}`)
 			end
 		end
 	end
@@ -1032,7 +1118,7 @@ local function build(Facet, core, spec, owner)
 		if type(focused) ~= "string" then
 			return false
 		end
-		local itemId = string.match(focused :: string, `/{PANEL_ID}/Item:(.+)$`)
+		local itemId = string.match(focused :: string, `/{PANEL_ID}{ROWS}/Item:(.+)$`)
 		if itemId == nil then
 			return false
 		end

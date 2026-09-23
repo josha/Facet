@@ -73,6 +73,10 @@ local function world(opts: any?)
 		sizeClass = options.sizeClass,
 		interactionClasses = options.interactionClasses,
 		backLabel = options.backLabel,
+		edge = options.edge,
+		align = options.align,
+		width = options.width,
+		maxHeight = options.maxHeight,
 		onOpen = function()
 			table.insert(ran, "open")
 		end,
@@ -1697,4 +1701,145 @@ describe("sheet submenu motion", function()
 			w.pres.dismiss(w.handle)
 		end)
 	end
+end)
+
+describe("Menu: placement, width, a bounded list and the shared row vocabulary", function()
+	local function open(w: any)
+		w.adapter.tap(TRIGGER)
+		w.pres.refresh()
+	end
+	local SURFACE0 = "/Menu-M/Layer/Surface"
+
+	it("edge and align place the root panel; absent keeps bottom/start", function()
+		local base = world({ w = 800, h = 600 })
+		open(base)
+		expect(base.pres.anchoredSurfaces().surfaces[1].edge).toBe("bottom")
+		local w = world({ w = 800, h = 600, edge = "trailing", align = "center" })
+		open(w)
+		local dump = w.pres.anchoredSurfaces().surfaces[1]
+		expect(dump.edge).toBe("right")
+		local trigger, panel = w.adapter.node(TRIGGER).rect, w.adapter.node(SURFACE0).rect
+		expect(panel.x >= trigger.x + trigger.w).toBe(true)
+	end)
+
+	it("width sets the panel's width dimension", function()
+		local w = world({ width = { type = "fixed", px = 300 } })
+		open(w)
+		expect(w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect.w).toBe(300)
+	end)
+
+	it("maxHeight bounds the whole panel and the rows scroll, with ids and activation intact", function()
+		local items = {}
+		local picked: { string } = {}
+		for i = 1, 20 do
+			table.insert(items, {
+				id = `row{i}`,
+				label = `Row {i}`,
+				onSelect = function()
+					table.insert(picked, `row{i}`)
+				end,
+			})
+		end
+		local w = world({ items = items, maxHeight = 200 })
+		open(w)
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
+		expect(panel.h <= 200).toBe(true)
+		local last = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:row20"
+		expect(w.adapter.node(last) ~= nil).toBe(true)
+		-- keyboard walks to the last row and it is scrolled into view, then activates
+		for _ = 1, 19 do
+			w.system.deviceKey("Down", true)
+			w.system.deviceKey("Down", false)
+			w.pres.refresh()
+		end
+		expect(w.pres.focus.focused:peek()).toBe(last)
+		local list = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List")
+		local scrolled = (list.scrollPosition or { y = 0 }).y
+		local row = w.adapter.node(last).rect
+		expect(scrolled > 0).toBe(true)
+		expect(`visible={row.y - scrolled + row.h <= list.rect.y + list.rect.h + 1}`).toBe("visible=true")
+		w.system.deviceKey("Return", true)
+		w.system.deviceKey("Return", false)
+		expect(table.concat(picked, ",")).toBe("row20")
+	end)
+
+	it("a bounded list keeps submenus anchored to their parent row", function()
+		local w = world({ items = NESTED, maxHeight = 300 })
+		w.control.api.open()
+		w.pres.refresh()
+		expect(w.pres.focus.focused:peek()).toBe("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:adjust")
+		w.system.deviceKey("Right", true)
+		w.system.deviceKey("Right", false)
+		w.pres.refresh()
+		local surfaces = w.pres.anchoredSurfaces().surfaces
+		expect(#surfaces).toBe(2)
+		expect(surfaces[2].edge).toBe("right")
+		expect(w.adapter.node("/Menu-M-L1/Layer/Surface/Popup/Panel/List/Rows/Item:head") ~= nil).toBe(true)
+	end)
+
+	it("badge, avatar, sectionTitle and a display-only shortcutLabel share the row recipe", function()
+		local ran = 0
+		local w = world({
+			items = {
+				{
+					id = "a",
+					label = "Alpha",
+					badge = 3,
+					sectionTitle = "Recent",
+					onSelect = function()
+						ran += 1
+					end,
+				},
+				{
+					id = "b",
+					label = "Beta",
+					avatar = { name = "Bea" },
+					shortcutLabel = "Ctrl+B",
+					onSelect = function() end,
+				},
+			},
+		})
+		open(w)
+		local panel = "/Menu-M/Layer/Surface/Popup/Panel"
+		expect(w.adapter.node(`{panel}/Section:a/SectionTitle`).props.text).toBe("Recent")
+		local texts: { string } = {}
+		local avatar = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, "Item:b/", 1, true) ~= nil and string.find(path, "Avatar", 1, true) ~= nil then
+				avatar = true
+			end
+			local node = w.adapter.node(path)
+			if string.find(path, panel, 1, true) == 1 and node.class == "Text" then
+				table.insert(texts, node.props.text)
+			end
+		end
+		expect(avatar).toBe(true)
+		expect(table.find(texts, "3") ~= nil).toBe(true)
+		expect(table.find(texts, "Ctrl+B") ~= nil).toBe(true)
+		-- the heading is not a stop: the first Down lands on the first ROW
+		w.system.deviceKey("Down", true)
+		w.system.deviceKey("Down", false)
+		expect(string.find(w.pres.focus.focused:peek() or "", "Item:", 1, true) ~= nil).toBe(true)
+		-- the shortcut label registers nothing: pressing B does not select
+		w.system.deviceKey("B", true)
+		w.system.deviceKey("B", false)
+		expect(ran).toBe(0)
+	end)
+
+	it("malformed placement and bounds are refused by name", function()
+		for _, bad in
+			{
+				{ edge = "middle" },
+				{ align = "top" },
+				{ maxHeight = 0 },
+				{ maxHeight = math.huge },
+				{ width = 200 },
+			}
+		do
+			local ok, err = pcall(world, bad)
+			expect(ok).toBe(false)
+			local key = next(bad) :: string
+			expect(string.find(tostring(err), key, 1, true) ~= nil).toBe(true)
+		end
+	end)
 end)

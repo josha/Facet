@@ -18,6 +18,11 @@ export type Item = {
 	onSelect: (() -> ())?, -- an ACTION item
 	children: { Item }?, -- a SUBMENU item
 	divider: boolean?, -- a rule between two groups
+	-- the shared row vocabulary (Picker.Option's words)
+	badge: any?, -- string | number | Readable of either — the count seal
+	avatar: { name: string, image: any?, userId: number?, key: string?, provider: any? }?,
+	sectionTitle: any?, -- string | Readable<string>: a caption heading before this row
+	shortcutLabel: string?, -- display only, e.g. "Ctrl+B"; binds nothing
 }
 export type Spec = {
 	id: string?,
@@ -49,6 +54,12 @@ export type Spec = {
 		width, the framework default since this round) to a localized audience
 		must set this, exactly as `docs/reference/api.md` now says. ]]
 	backLabel: string?,
+	-- the ROOT panel's placement (submenus keep trailing/start) and every
+	-- floating panel's size; absent is unchanged
+	edge: ("top" | "bottom" | "leading" | "trailing")?,
+	align: ("start" | "center" | "end")?,
+	width: blueprint.Dim?,
+	maxHeight: number?, -- px, the whole panel including its chrome; rows scroll inside
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 }

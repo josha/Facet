@@ -669,6 +669,23 @@ end
 --[[ WHERE A ROW SITS IN THE CARD, as the four radii it therefore carries.
 	`only` is the one-row menu, which is the whole plate and takes all four. Pure
 	and exported so a test can ask the same question the panel does. ]]
+-- a row's leading Avatar: the shipped control, compact, decoration and never a
+-- second press. nil for an absent spec.
+function menu_recipe.avatarNode(Facet: any, avatar: any): any
+	if avatar == nil then
+		return nil
+	end
+	return Facet.nativeControls.Avatar({
+		id = "Avatar",
+		name = avatar.name,
+		image = avatar.image,
+		userId = avatar.userId,
+		key = avatar.key,
+		provider = avatar.provider,
+		controlSize = "compact",
+	})
+end
+
 function menu_recipe.cardCorners(position: string): any
 	local top = position == "first" or position == "only"
 	local bottom = position == "last" or position == "only"
