@@ -513,7 +513,11 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 		-- the palette used to spend the accent and the content ramp — so the
 		-- compiled value differs and the stamp says so. Measured: 9a3b8dd8 ->
 		-- 5eb8f614.
-		expect(built("fantasy_parchment").stamp).toBe("5eb8f614")
+		--
+		-- Re-pinned again 2026-09-23: both variants declare `controlArt`, the
+		-- sampled colour of their control art, which the lifted accent label is
+		-- paired against. Measured: 5eb8f614 -> 9863f738.
+		expect(built("fantasy_parchment").stamp).toBe("9863f738")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()
@@ -1212,6 +1216,36 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 				.. "pixel-quest/Quest onAccent=2.43 content=6.11"
 		)
 	end)
+
+	it(
+		"the lifted accent label ($OnAccentChrome) clears 4.5:1 on the sampled plate in every skinned variant",
+		function()
+			-- a Notice's default action and a Card's Play DO pair `surface = "accent"`
+			-- with a skinned control, so the census above is also a gate on the label
+			-- the sheet actually paints there
+			local rows: { string } = {}
+			for _, name in { "fantasy_ornate", "glossy_touch", "pixel_quest", "compact_pointer", "fantasy_parchment" } do
+				local pkg = built(name)
+				local model = sheet_model.buildPackage(pkg)
+				local sample = doc.samples[pkg.identity.id].control
+				for i, theme in pkg.style.themes do
+					local plate = multiply(rgb01(sample), lerp(theme.colors.accent, { r = 1, g = 1, b = 1 }, 0.3))
+					local ratio = tokens.contrastRatio(model.themes[i].tokens.OnAccentChrome, plate)
+					table.insert(rows, `{pkg.identity.id}/{theme.name} {string.format("%.2f", ratio)} {ratio >= FLOOR}`)
+				end
+			end
+			table.sort(rows)
+			expect(table.concat(rows, " | ")).toBe(
+				"compact-pointer/Aqua 4.60 true | "
+					.. "fantasy-ornate/Crypt 13.84 true | "
+					.. "fantasy-ornate/Grand Hall 14.09 true | "
+					.. "fantasy-parchment/Candlelight 5.28 true | "
+					.. "fantasy-parchment/Daylight 5.29 true | "
+					.. "glossy-touch/Sky 4.57 true | "
+					.. "pixel-quest/Quest 6.11 true"
+			)
+		end
+	)
 end)
 
 describe("RS-DIR12: the picker's active row is a SELECTION, not a borrowed fill", function()

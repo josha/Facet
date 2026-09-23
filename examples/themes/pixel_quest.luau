@@ -219,6 +219,9 @@ local QUEST = {
 		-- multiplied by `$ChromeTintSelected` (director finding 12). TAN was the
 		-- untinted art colour, which is not what a selected row shows.
 		controlSelected = rgb(163, 148, 71),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(168, 114, 47),
 		contentSecondary = TAN,
 		hairline = INK,
 		hairlineOpacity = 0.2,

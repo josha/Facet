@@ -109,6 +109,9 @@ local PARCHMENT = {
 		controlHover = rgb(102, 80, 54),
 		controlPressed = rgb(66, 50, 34),
 		controlSelected = rgb(112, 86, 44),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(210, 187, 146),
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
 		hairlineOpacity = 0.7,

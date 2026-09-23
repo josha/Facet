@@ -79,6 +79,9 @@ local AQUA = {
 		-- (`compact_button_hover`), sampled and tinted — see the provenance note on
 		-- the `selection` recipe, and director finding 12
 		controlSelected = rgb(163, 191, 230),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(246, 246, 249),
 		contentSecondary = rgb(96, 104, 116),
 		hairline = rgb(140, 148, 160),
 		hairlineOpacity = 0.9,

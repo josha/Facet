@@ -112,6 +112,9 @@ local GRAND_HALL = {
 		-- multiplied by this theme's own `$ChromeTintSelected`, which is the tint
 		-- every selected skinned plate carries.
 		controlSelected = rgb(38, 74, 50),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(55, 27, 44),
 		contentSecondary = rgb(206, 186, 148),
 		hairline = rgb(226, 200, 150),
 		hairlineOpacity = 0.7,
@@ -153,6 +156,9 @@ local CRYPT = {
 		controlPressed = rgb(38, 44, 54),
 		-- the same emerald plate under Crypt's colder tint (see Grand Hall above)
 		controlSelected = rgb(33, 75, 58),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(55, 27, 44),
 		contentSecondary = rgb(168, 184, 200),
 		hairline = rgb(150, 176, 186),
 		hairlineOpacity = 0.6,

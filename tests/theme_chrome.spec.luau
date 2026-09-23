@@ -1168,7 +1168,8 @@ describe("role tints paint the ART, not a slab behind it", function()
 		local model = sheet_model.buildPackage(parchment())
 		expect(ruleNamed(model, "Chrome text — destructive").props.TextColor3).toBe("$OnDanger")
 		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$ContentSecondary")
-		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccent")
+		-- the accent label pairs with the art it sits on, not the accent fill
+		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccentChrome")
 	end)
 
 	it("a flat package emits no role tint rules (there is no art to tint)", function()

@@ -63,6 +63,9 @@ local DAYLIGHT = {
 		controlHover = rgb(226, 208, 172),
 		controlPressed = rgb(198, 176, 138),
 		controlSelected = rgb(212, 186, 132),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(210, 187, 146),
 		contentSecondary = rgb(110, 92, 66),
 		hairline = rgb(88, 68, 44),
 		-- FOCUS GLOW (director review 2026-07-25: the blue selection ring "looks
@@ -105,6 +108,9 @@ local CANDLELIGHT = {
 		controlHover = rgb(102, 80, 54),
 		controlPressed = rgb(66, 50, 34),
 		controlSelected = rgb(112, 86, 44),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(210, 187, 146),
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
 		-- Candlelight: warm amber firelight, pushed brighter still because the

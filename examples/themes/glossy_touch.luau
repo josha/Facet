@@ -96,6 +96,9 @@ local SKY = {
 		-- nothing this package draws, and it is why "Balanced" was painting
 		-- $Content at 3.74:1 on a saturated blue gel.
 		controlSelected = rgb(20, 81, 194),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(207, 214, 227),
 		contentSecondary = rgb(88, 100, 120),
 		hairline = rgb(36, 56, 86),
 		hairlineOpacity = 0.8,

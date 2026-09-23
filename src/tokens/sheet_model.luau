@@ -635,6 +635,23 @@ function sheet_model.selectedContentColor(theme: any): { r: number, g: number, b
 	return { r = c.onAccent.r, g = c.onAccent.g, b = c.onAccent.b }
 end
 
+--[[ THE LABEL ON A TINTED CONTROL PLATE: a skinned control's art multiplied by
+	`tint`. The art's colour as painted is the package's `extra.controlArt` (its
+	sampled centre), else its flat `control`. `onAccent` when it clears the floor
+	there, else `content` when that does, else whichever reads better. ]]
+function sheet_model.onChromeColor(theme: any, tint: any): { r: number, g: number, b: number }
+	local c = theme.colors
+	local x = theme.extra or {}
+	local base = if type(x.controlArt) == "table"
+		then x.controlArt
+		elseif type(x.control) == "table" then x.control
+		else c.surfaceStrong
+	local plate = { r = base.r * tint.r, g = base.g * tint.g, b = base.b * tint.b }
+	local on, content = tokens.contrastRatio(c.onAccent, plate), tokens.contrastRatio(c.content, plate)
+	local pick = if on >= SELECTED_CONTRAST_FLOOR or on >= content then c.onAccent else c.content
+	return { r = pick.r, g = pick.g, b = pick.b }
+end
+
 -- the gate the resolver leans on: SOME content role must be readable on the
 -- selected surface, or the theme has published a state nobody can read
 function sheet_model.selectedPairReport(theme: any): any
@@ -2404,6 +2421,10 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		tokenSet.ChromeTintCancel = lerp(greyToken(CHROME_TINT_REST), entry.colors.surface, 0.45)
 		-- the primary action reads as the accent, lifted exactly as danger is
 		tokenSet.ChromeTintAccent = lerp(entry.colors.accent, WHITE, 0.3)
+		-- ...and its lifted label is the partner that reads on THAT plate: the
+		-- theme's control art multiplied by the accent tint is not the accent fill
+		-- `onAccent` is gated against (a mid wood or dark lacquer plate under it)
+		tokenSet.OnAccentChrome = color(sheet_model.onChromeColor(styleLike, tokenSet.ChromeTintAccent))
 		-- gradient tokens. EVERY theme carries a token for every gradient slot
 		-- any theme declares: a `$Token` that resolves in one theme and not in
 		-- another is a rule that stops painting on a swap, so a theme that
@@ -3259,7 +3280,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — accent",
 			selector = `.{S}accent > .{liftTag}`,
-			props = { TextColor3 = "$OnAccent" },
+			props = { TextColor3 = "$OnAccentChrome" },
 		})
 		emit("chrome", {
 			name = "Chrome text — destructive",
