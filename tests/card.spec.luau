@@ -349,6 +349,53 @@ describe("Card: engagement and reveal", function()
 		expect(revealed(w)).toBe(false)
 	end)
 
+	it("hidden actions take no tap, and a press cut off by disabling never fires on release", function()
+		local log: { string } = {}
+		local enabled = Compose.cell(true)
+		local w = mount(function(UI)
+			return { UI.Card("C")(cardSpec(log, { enabled = enabled })) }
+		end)
+		w.adapter.tap(PRIMARY)
+		expect(#log).toBe(0)
+		w.adapter.hover(ROOT)
+		w.settle(2)
+		local r = w.adapter.node(PRIMARY).rect
+		w.adapter.pointerDown(PRIMARY, r.x + 2, r.y + 2)
+		enabled:set(false)
+		w.settle(2)
+		w.adapter.pointerUpActivating(r.x + 2, r.y + 2, "after")
+		w.settle(2)
+		expect(#log).toBe(0)
+	end)
+
+	it("a rapid reversal retargets the fade from where it is, never from rest", function()
+		local w = mount(function(UI)
+			return { UI.Card("C")(cardSpec({})) }
+		end, { reduced = false })
+		local function alpha(): number
+			local group = w.adapter.node(`{ROOT}/Reveal/Plate`).canvasGroupInstance
+			return 1 - group.groupTransparency
+		end
+		w.adapter.hover(ROOT)
+		for _ = 1, 6 do
+			w.frame()
+		end
+		local reached = alpha()
+		expect(reached > 0.3 and reached < 1).toBe(true)
+		w.adapter.unhover(ROOT)
+		w.frame()
+		w.frame()
+		local turned = alpha()
+		-- hit and focus left at once; the paint heads back without a jump
+		expect(revealed(w)).toBe(false)
+		expect(turned < reached and turned > reached - 0.2).toBe(true)
+		w.adapter.hover(ROOT)
+		w.frame()
+		w.frame()
+		expect(math.abs(alpha() - turned) < 0.2).toBe(true)
+		expect(revealed(w)).toBe(true)
+	end)
+
 	it("always reserves the action row in the card's own layout", function()
 		local w = mount(function(UI)
 			return { UI.Card("C")(cardSpec({}, { reveal = "always" })) }

@@ -538,6 +538,7 @@ local SCENARIOS = {
 	"overlays",
 	"notice",
 	"cards",
+	"containers",
 	-- scaffold: new control scenarios are appended above this line
 }
 

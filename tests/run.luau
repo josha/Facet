@@ -1307,6 +1307,7 @@ require("./popover.spec")
 require("./dialog.spec")
 require("./notice.spec")
 require("./card.spec")
+require("./view_recipes.spec")
 require("./snackbar.spec")
 -- ...and the SURFACE those two constructs are shown on, which shipped with no
 -- spec at all and took two of the four findings of the 2026-08-16 device review:
