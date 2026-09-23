@@ -9180,16 +9180,17 @@ instant into one at an offset you name). A single picker uses `value` /
 `onChange` / `onCommit`; `selection = "range"` uses `range = { start?, finish?
 }` / `onRangeChange` / `onRangeCommit`, and giving the other mode's keys is an
 error. Both are yours: a pick proposes, and the calendar repaints only from
-what you then hold. A single pick commits and closes (with `time`, the panel
-stays open and commits when it closes). In a range the first pick sets
-`start`, the second sets `finish` (swapping if it is earlier), and
-`onRangeCommit` fires only when both ends are set. `draft = true` adds Reset
-all, Cancel and Apply, and only Apply commits. Cancel (B, the sheet's Close,
-the draft Cancel) proposes the value the panel opened with; a tap outside keeps
-it; a write of yours while it is open becomes what Cancel returns to.
+what you then hold. Every change commits as it happens — a pick (a single pick
+without `time` also closes), a time step, a typed date — and closing the panel
+any way (B, Escape, a tap outside, the sheet's Close) keeps it. In a range the
+first pick sets `start`, the second sets `finish` (swapping if it is earlier),
+and `onRangeCommit` fires only when both ends are set. `draft = true` adds
+Reset all, Cancel and Apply, and nothing commits until Apply (typed text
+included); every other way out proposes the value the panel opened with (a
+write of yours while it is open becomes that value).
 
 "Today" (its ring, the presets, the month an empty picker opens on) comes from
-`clock` — default the engine clock at UTC — and `referenceDate` chooses the
+`clock` — default the player's local wall clock — and `referenceDate` chooses the
 month an empty picker opens on. `min` and `max` are inclusive; a day outside
 them or refused by `isDateDisabled` stays in the grid, focusable, struck
 through and inert. `weekStart` is 1 (Sunday) to 7; `locale` supplies `months`,
@@ -9204,12 +9205,18 @@ date, or not an available one, stays with its error and commits nothing),
 otherwise a button that opens the calendar; a calendar button sits beside it.
 With a custom `format` the words are display only. It opens an anchored panel,
 a sheet with Done on a compact touch screen, and a centred sheet at ten feet.
-The calendar shows two consecutive months when its width fits them; the
-arrows walk the days (a row's end continues to the next day), L1/R1 and
-Comma/Period page the month from any day, and the header's arrows and month
-and year menus reach every month without a shoulder button. `time` adds hour
-and minute fields with steps (AM/PM on a 12-hour clock) and, on touch, a list
-of times at `minuteStep`.
+The calendar shows two consecutive months when its width fits them. Its day
+grid is one Tab stop (focus enters on the chosen day, else today); the arrows
+walk the days — a row's end continues to the next day, Up and Down move a week
+and page the month past the first or last row — and a neighbouring month's grey
+days can be tapped but are never a stop. L1/R1 and Comma/Period page the month
+from any day, the header's arrows and month and year menus reach every month
+without a shoulder button, and paging stops at a month wholly outside `min` /
+`max`. A typed year has four digits; a typed range is two dates joined by its
+own " – " (or " - "). `time` adds hour
+and minute fields with steps on the `minuteStep` grid (AM/PM on a 12-hour
+clock) and, on touch, a list of times at `minuteStep` that opens at the held
+time (else now).
 
 `dump()` reports `{ schema = "facet-date_time_picker-dump/1", id, selection,
 style, value, range, text, typedError, month, dual, today, presented, route,
@@ -10425,8 +10432,8 @@ content, so a standalone rating still hugs its glyphs rather than stretching.
 - Instants always name their offset: `civilDate.fromUnix(seconds,
   offsetMinutes)` and `civilDate.toUnix(date, offsetMinutes)`. There is no zone
   database, so a zone with daylight time is your conversion to a fixed offset.
-  `civilDate.systemClock(offsetMinutes?)` returns the default `clock` (the
-  engine clock at that offset).
+  `civilDate.systemClock(offsetMinutes?)` returns the default `clock`: the
+  player's local date and time, or the engine clock at a named offset.
 
 ### `valueModel`
 

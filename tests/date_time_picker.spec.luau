@@ -150,13 +150,37 @@ describe("civilDate: the calendar model", function()
 		expect(iso(civil.parse("03.09.2026", { order = "dmy" }))).toBe("2026-09-03")
 		expect(iso(civil.parse("09/03/2026 9:30 PM", nil, true))).toBe("2026-09-03 21:30")
 		expect(iso(civil.parse("09/03/2026 21:30", nil, true))).toBe("2026-09-03 21:30")
-		for _, bad in { "02/30/2026", "13/01/2026", "hello", "09/03/2026 25:00" } do
+		for _, bad in { "02/30/2026", "13/01/2026", "hello", "09/03/2026 25:00", "12/31/26" } do
 			expect(`{bad}:{iso(civil.parse(bad, nil, false))}`).toBe(`{bad}:nil`)
 		end
 		expect(civil.parse("09/03/2026", nil, true)).toBeNil()
 		local r = civil.clampRange({ start = D(2026, 1, 1), finish = D(2026, 1, 31) }, D(2026, 1, 10), nil)
 		expect(iso((r :: any).start)).toBe("2026-01-10")
 		expect(civil.clampRange({ start = D(2025, 1, 1), finish = D(2025, 1, 31) }, D(2026, 1, 10), nil)).toBeNil()
+	end)
+end)
+
+describe("civilDate: the player's clock", function()
+	it("the default clock reads the player's local wall clock, not UTC", function()
+		local env: any = getfenv(0)
+		local saved = env.DateTime
+		-- 01:00 UTC on the 24th is 18:00 on the 23rd at UTC-7
+		env.DateTime = {
+			now = function()
+				return {
+					UnixTimestamp = civil.toUnix({ year = 2026, month = 9, day = 24, hour = 1, minute = 0 }, 0),
+					ToLocalTime = function()
+						return { Year = 2026, Month = 9, Day = 23, Hour = 18, Minute = 0 }
+					end,
+				}
+			end,
+		}
+		local ok, err = pcall(function()
+			expect(iso(civil.systemClock()())).toBe("2026-09-23 18:00")
+			expect(iso(civil.systemClock(0)())).toBe("2026-09-24 01:00")
+		end)
+		env.DateTime = saved
+		assert(ok, err)
 	end)
 end)
 
@@ -224,6 +248,9 @@ describe("DateTimePicker: a single date", function()
 			end,
 		})
 		local entry = must(w, "/Words/then/Entry/Field")
+		-- one plate: the field's own, never a second one inside it
+		expect(w.adapter.node(must(w, "/P/Field")).props.surface).toBe("chip")
+		expect(w.adapter.node(must(w, "/Words/then/Entry")).props.surface).toBe("plain")
 		local function typeCommit(text: string)
 			w.adapter.focusText(entry)
 			w.adapter.node(entry).textBuffer = ""
@@ -242,6 +269,64 @@ describe("DateTimePicker: a single date", function()
 		expect(table.concat(commits, ",")).toBe("2026-07-04")
 		expect(w.record("P").dump().typedError).toBe("")
 		expect(w.adapter.node(entry).props.text).toBe("07/04/2026")
+		-- a two-digit year is not a year
+		typeCommit("12/31/26")
+		expect(iso(cell:peek())).toBe("2026-07-04")
+		expect(w.record("P").dump().typedError ~= "").toBe(true)
+	end)
+
+	it("a typed range reads back its own words in every locale order; a draft's typed text only proposes", function()
+		for _, locale in { { order = "mdy" }, { order = "dmy", separator = "." }, { order = "ymd", separator = "-" } } do
+			for _, draft in { false, true } do
+				local cell, _, change = caller({ start = D(2026, 1, 2), finish = D(2026, 1, 9) })
+				local commits = 0
+				local w = mount({
+					selection = "range",
+					range = cell,
+					onRangeChange = change,
+					draft = draft,
+					locale = locale,
+					onRangeCommit = function()
+						commits += 1
+					end,
+				})
+				local entry = must(w, "/Words/then/Entry/Field")
+				-- the shown words, with the start moved a day: edited as a player would
+				local shown = w.adapter.node(entry).props.text
+				local old = civil.format(D(2026, 1, 2), locale)
+				local at = string.find(shown, old, 1, true) :: number
+				local edited = civil.format(D(2026, 1, 3), locale) .. string.sub(shown, at + #old)
+				w.adapter.focusText(entry)
+				w.adapter.node(entry).textBuffer = ""
+				w.adapter.typeText(entry, edited)
+				w.adapter.commitText(entry)
+				w.settle(2)
+				local where = `{locale.order} draft={draft}`
+				expect(`{where} {w.record("P").dump().typedError}`).toBe(`{where} `)
+				expect(`{where} {iso(cell:peek().start)}..{iso(cell:peek().finish)}`).toBe(
+					`{where} 2026-01-03..2026-01-09`
+				)
+				expect(`{where} {commits}`).toBe(`{where} {if draft then 0 else 1}`)
+			end
+		end
+		-- and a single draft's typed date proposes without committing
+		local cell, _, change = caller(nil)
+		local commits = 0
+		local w = mount({
+			value = cell,
+			onChange = change,
+			draft = true,
+			onCommit = function()
+				commits += 1
+			end,
+		})
+		local entry = must(w, "/Words/then/Entry/Field")
+		w.adapter.focusText(entry)
+		w.adapter.typeText(entry, "7/4/2026")
+		w.adapter.commitText(entry)
+		w.settle(2)
+		expect(iso(cell:peek())).toBe("2026-07-04")
+		expect(commits).toBe(0)
 	end)
 
 	it(
@@ -285,27 +370,93 @@ describe("DateTimePicker: a single date", function()
 		end
 	)
 
-	it("B cancels: the open-time value is restored and focus returns to the field's button", function()
-		local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
-		local w = mount({ value = cell, onChange = change, time = true }, {
-			capabilities = PAD,
-			preferredInput = "Gamepad",
-		})
-		local button = must(w, "/P/Field/Open")
-		w.pres.focus.focusOn(button)
-		w.press("ButtonA")
-		w.settle(3)
-		w.press("ButtonA") -- chooses the focused (selected) day again with time: panel stays
-		w.settle(2)
-		w.pres.focus.focusOn(cellOf(w, D(2026, 9, 18)))
-		w.press("ButtonA")
-		w.settle(2)
-		expect(iso(cell:peek())).toBe("2026-09-18 09:30")
-		expect(w.record("P").dump().presented).toBe(true)
-		w.press("ButtonB")
-		w.settle(3)
-		expect(iso(cell:peek())).toBe("2026-09-16 09:30")
-		expect(w.pres.focus.focused:peek()).toBe(button)
+	it(
+		"the grid is one Tab stop; the arrows walk days across months; grey days are no stop; paging stops at the bounds",
+		function()
+			local cell, _, change = caller(D(2026, 9, 16))
+			-- a draft, so the grid has a row of actions below it
+			local w = mount({ value = cell, onChange = change, draft = true, max = D(2026, 10, 31) })
+			open(w)
+			local function month(): string
+				local d = w.record("P").dump()
+				return `{d.month.year}-{d.month.month}`
+			end
+			local function isDay(path: string?): boolean
+				return path ~= nil and string.match(path, "/Days/R%d/D%d+$") ~= nil
+			end
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 16)))
+			-- up past the first row keeps going, a week at a time, into August
+			for _ = 1, 3 do
+				w.press("Up")
+				w.settle(1)
+			end
+			expect(month()).toBe("2026-8")
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 8, 26)))
+			w.press("Down")
+			w.settle(2)
+			expect(month()).toBe("2026-9")
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 2)))
+			-- the neighbouring month's grey days are tappable but never a stop
+			expect(w.pres.focus.focusOn(w.record("P").dump().cellPaths[1][1])).toBe(false)
+			-- Tab leaves the grid in one press; Shift+Tab comes back to the chosen day
+			w.press("Tab")
+			w.settle(1)
+			expect(isDay(w.pres.focus.focused:peek())).toBe(false)
+			w.system.deviceKey("LeftShift", true)
+			w.press("Tab")
+			w.system.deviceKey("LeftShift", false)
+			w.settle(1)
+			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 16)))
+			-- October is the last month with a day to choose: Next and R1 stop there
+			w.adapter.tap(must(w, "/Header/Next"))
+			w.settle(2)
+			expect(month()).toBe("2026-10")
+			expect(w.adapter.node(must(w, "/Header/Next")).props.enabled).toBe(false)
+			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 10, 28)))).toBe(true)
+			w.press("ButtonR1")
+			w.settle(2)
+			expect(month()).toBe("2026-10")
+			-- and Down from the last week leaves the grid for the actions below
+			w.press("Down")
+			w.settle(2)
+			expect(month()).toBe("2026-10")
+			expect(string.find(w.pres.focus.focused:peek() or "", "/Actions/", 1, true) ~= nil).toBe(true)
+		end
+	)
+
+	it("a pad sets a date and time: each pick commits, B keeps it and returns focus; a draft's B restores", function()
+		for _, draft in { false, true } do
+			local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
+			local commits = {}
+			local w = mount({
+				value = cell,
+				onChange = change,
+				time = true,
+				draft = draft,
+				onCommit = function(v: any)
+					table.insert(commits, iso(v))
+				end,
+			}, { capabilities = PAD, preferredInput = "Gamepad" })
+			local button = must(w, "/P/Field/Open")
+			w.pres.focus.focusOn(button)
+			w.press("ButtonA")
+			w.settle(3)
+			w.pres.focus.focusOn(cellOf(w, D(2026, 9, 18)))
+			w.press("ButtonA")
+			w.settle(2)
+			expect(iso(cell:peek())).toBe("2026-09-18 09:30")
+			expect(w.record("P").dump().presented).toBe(true)
+			w.press("ButtonB")
+			w.settle(3)
+			expect(w.pres.focus.focused:peek()).toBe(button)
+			if draft then
+				expect(iso(cell:peek())).toBe("2026-09-16 09:30")
+				expect(#commits).toBe(0)
+			else
+				expect(iso(cell:peek())).toBe("2026-09-18 09:30")
+				expect(table.concat(commits, ",")).toBe("2026-09-18 09:30")
+			end
+		end
 	end)
 
 	it("time: hour and minute fields step on the minute grid, AM/PM flips, and a touch list sets both", function()
@@ -317,16 +468,21 @@ describe("DateTimePicker: a single date", function()
 		w.adapter.tap(must(w, "/Minute/Input/Row/Increment"))
 		w.settle(2)
 		expect(iso(cell:peek())).toBe("2026-09-16 21:45")
+		-- the top step is the last on the grid, never :59
+		w.adapter.tap(must(w, "/Minute/Input/Row/Increment"))
+		w.settle(2)
+		expect(iso(cell:peek())).toBe("2026-09-16 21:45")
 		expect(find(w, "/TouchTimes/then/Times")).toBeNil()
 		local touch = mount(
 			{ value = cell, onChange = change, time = true, minuteStep = 30, style = "inline" },
 			{ capabilities = TOUCH, preferredInput = "Touch" }
 		)
 		expect(find(touch, "/TouchTimes/then/Times") ~= nil).toBe(true)
-		local first = must(touch, "/Times/Canvas/W/[0:0]/Row/Time")
-		touch.adapter.tap(first)
+		-- the list opens at the held time, not at midnight
+		expect(find(touch, "/Times/Canvas/W/[0:0]/Row/Time")).toBeNil()
+		touch.adapter.tap(must(touch, "/Times/Canvas/W/[22:0]/Row/Time"))
 		touch.settle(2)
-		expect(iso(cell:peek())).toBe("2026-09-16 00:00")
+		expect(iso(cell:peek())).toBe("2026-09-16 22:00")
 	end)
 end)
 
@@ -384,6 +540,13 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 		open(w)
 		expect(w.adapter.visibleOf(cellOf(w, D(2026, 12, 12)) .. "/Layers/Band")).toBe(true)
 		expect(w.adapter.visibleOf(cellOf(w, D(2026, 12, 21)) .. "/Layers/Band")).toBe(false)
+		-- November's grey December days are December's: no disc, no band there
+		w.adapter.tap(must(w, "/Header/Previous"))
+		w.settle(2)
+		local grey = w.record("P").dump().cellPaths[1][35]
+		expect(w.adapter.node(grey .. "/Layers/Day").props.text).toBe("5")
+		expect(w.adapter.visibleOf(grey .. "/Layers/Disc")).toBe(false)
+		expect(w.adapter.visibleOf(grey .. "/Layers/Band")).toBe(false)
 	end)
 
 	it("presets clip to the bounds: outside is shown disabled, overlapping is clamped and enabled", function()
@@ -538,6 +701,10 @@ describe("DateTimePicker: layout, routes and refusals", function()
 			tv.press("ButtonA")
 			tv.settle(3)
 			expect(tv.record("P").dump().route).toBe("sheet")
+			-- Pixel Quest paints a calendar on the open button, not a chevron
+			local pixel = (require("../examples/themes/pixel_quest") :: any).build(Facet.themes)
+			local art = require("../src/themes/package").resolveIcon(pixel, "calendar")
+			expect(art.contentId).toBe(require("../src/themes/standard_icons").resolve("calendar").contentId)
 		end
 	)
 
@@ -563,6 +730,12 @@ describe("DateTimePicker: layout, routes and refusals", function()
 		expect(has({ value = TODAY, onChange = noop, time = true }, "hour")).toBe(true)
 		expect(has({ selection = "range", range = {}, onRangeChange = noop, time = true }, "whole days")).toBe(true)
 		expect(has({ value = TODAY, onChange = noop, weekStart = 0 }, "weekStart")).toBe(true)
+		expect(has({
+			selection = "range",
+			range = {},
+			onRangeChange = noop,
+			presets = { { id = "a", label = "A", range = noop, rnage = noop } },
+		}, "rnage")).toBe(true)
 		local source = Compose.cell(TODAY :: any)
 		local m = mount({
 			value = function(use)

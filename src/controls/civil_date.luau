@@ -202,14 +202,23 @@ function civil_date.toUnix(d: CivilDate, offsetMinutes: number): number
 	return civil_date.toDays(d) * 86400 + ((d.hour or 0) * 60 + (d.minute or 0) - offsetMinutes) * 60
 end
 
---[[ TODAY, from the engine's clock at a fixed offset (default UTC). The one
-	place a clock is read; a control takes `clock` from its caller and falls back
-	to this. ]]
+--[[ NOW, as the player's wall clock reads it (date, hour and minute): the
+	engine's local time, or the engine clock at a fixed offset when one is named.
+	The one place a clock is read; a control takes `clock` from its caller and
+	falls back to this. ]]
 function civil_date.systemClock(offsetMinutes: number?): () -> CivilDate
 	return function(): CivilDate
 		local engine: any = DateTime
-		local seconds = if engine ~= nil then engine.now().UnixTimestamp else os.time()
-		return civil_date.dateOf(civil_date.fromUnix(seconds, offsetMinutes or 0))
+		if offsetMinutes ~= nil or engine == nil then
+			local seconds = if engine ~= nil then engine.now().UnixTimestamp else os.time()
+			if offsetMinutes ~= nil then
+				return civil_date.fromUnix(seconds, offsetMinutes)
+			end
+			local t: any = os.date("*t", seconds)
+			return { year = t.year, month = t.month, day = t.day, hour = t.hour, minute = t.min }
+		end
+		local t = engine.now():ToLocalTime()
+		return { year = t.Year, month = t.Month, day = t.Day, hour = t.Hour, minute = t.Minute }
 	end
 end
 
@@ -261,10 +270,15 @@ function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (C
 	if a == nil then
 		return nil, "Enter a date like " .. civil_date.format({ year = 2026, month = 12, day = 31 }, l)
 	end
-	local parts = { tonumber(a), tonumber(b), tonumber(c) }
+	local texts = { a, b, c }
 	local d: any = {}
 	for i = 1, 3 do
-		d[({ m = "month", d = "day", y = "year" })[string.sub(order, i, i)]] = parts[i]
+		local field = ({ m = "month", d = "day", y = "year" })[string.sub(order, i, i)]
+		-- a year is written whole: "26" is not 2026, and never year 26
+		if field == "year" and #texts[i] < 4 then
+			return nil, "Enter a date like " .. civil_date.format({ year = 2026, month = 12, day = 31 }, l)
+		end
+		d[field] = tonumber(texts[i])
 	end
 	rest = string.gsub(rest or "", "^%s+", "")
 	rest = string.gsub(rest, "%s+$", "")

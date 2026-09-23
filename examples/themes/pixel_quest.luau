@@ -245,6 +245,7 @@ function pixel_quest.definition(themes: any): any
 	assets.status_info = { content = "rbxassetid://119954823374061", tintRole = "content" }
 	assets.status_success = { content = "rbxassetid://108245103349446", tintRole = "content" }
 	assets.status_error = { content = "rbxassetid://131379225714116", tintRole = "content" }
+	assets.calendar = { content = "rbxassetid://93477762216058", tintRole = "content" }
 	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
 		base = themes.neutralPackage(),
@@ -487,9 +488,7 @@ function pixel_quest.definition(themes: any): any
 			-- a vote's two sides are this pack's own up and down arrows
 			["vote.up"] = "pixel_icon_chevron_up",
 			["vote.down"] = "pixel_icon_chevron_down",
-			-- no calendar in this pack yet: the date field's open button is its
-			-- own down chevron (the panel opens below the field)
-			calendar = "pixel_icon_chevron_down",
+			calendar = "calendar",
 			checkmark = "pixel_icon_check",
 			close = "pixel_icon_cross",
 			more = "pixel_icon_more",

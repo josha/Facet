@@ -6,26 +6,31 @@
 	`hour`/`minute` when `time = true`), or with `selection = "range"` the caller's
 	`range = { start?, finish? }` — wall-clock facts in no zone (`civil_date`). A
 	pick proposes `onChange` / `onRangeChange`, and the calendar repaints only from
-	what the caller then holds. `onCommit` fires on a pick (single, no time) or when
-	the panel closes with a time; `onRangeCommit` only when both ends are set; with
-	`draft = true` both fire only on Apply. "Today" comes from the injected
-	`clock`; this control reads no clock of its own.
+	what the caller then holds. ONE COMMIT MODEL, every route and input: without
+	`draft`, every change commits as it happens (a pick, a time step, a typed
+	date; `onRangeCommit` once both ends are set) and B, Escape, an outside tap or
+	a sheet's Close only close. With `draft = true` nothing commits until Apply
+	and every other close restores the open-time value. "Today" comes from the
+	injected `clock`; this control reads no clock of its own.
 
 	THE CLOSED FORM is field chrome: the value's words — an editable field when a
 	keyboard or pointer is live (a refused text stays visible with its error and
 	commits nothing), a button that opens the calendar otherwise — and a calendar
 	Button. It opens through `UI.Popover` (anchored; a hug sheet with Done on
 	compact touch; a centred sheet at ten feet) and owns its open state unless the
-	caller binds `isPresented`. Cancel restores the open-time value; outside keeps.
+	caller binds `isPresented`.
 
 	THE CALENDAR: a header (previous, month menu, year menu, next), six weeks of
 	day cells keyed by POSITION, so paging keeps the ring on the same weekday, a
 	second consecutive month when the offered width fits two, a time section, the
 	range presets and the draft actions. Pane two is always pane one + 1 month.
-	Disabled days stay focusable and inert (struck through). The grid is a
-	`UI.Grid`: the arrows walk it (a row's end continues to the next day), and its
-	cells are adjust targets WITHOUT an axis, so L1/R1 and Comma/Period page the
-	month while the arrows stay with navigation. ]]
+	Disabled days stay focusable and inert (struck through); a neighbouring
+	month's grey days are shown and tappable but never a focus stop. The grid is
+	ONE Tab stop: the arrows walk the days (±1 across a row's end, ±7 across the
+	first and last row), paging when the day is not shown, and its cells are
+	adjust targets WITHOUT an axis, so L1/R1 and Comma/Period page the month while
+	the arrows stay with navigation. Paging stops at a month wholly outside
+	`min`/`max`. ]]
 local Compose = require("../vendor/compose/core")
 local ownedBuild = require("../core/owned_build")
 local ownedFormula = require("../core/owned_formula")
@@ -85,6 +90,7 @@ local KEYS = guard.keySet({
 	"weekStart",
 })
 local LOCALE_KEYS = guard.keySet({ "months", "weekdays", "order", "separator", "hourCycle" })
+local PRESET_KEYS = guard.keySet({ "id", "label", "range" })
 local ORDERS = { mdy = true, dmy = true, ymd = true }
 local DUMP_SCHEMA = "facet-date_time_picker-dump/1"
 local CELLS = 42
@@ -231,6 +237,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			then
 				refuse(`\`presets[{i}]\` is \{ id = string, label = string, range = function(today) }.`)
 			end
+			guard.assertKnownKeys("UI.DateTimePicker", p, PRESET_KEYS, `presets[{i}]`)
 			if seen[p.id] then
 				refuse(`\`presets\` repeats the id '{p.id}'.`)
 			end
@@ -282,7 +289,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local interactive = ownedFormula(owner, function(use)
 		return use(enabled) and use(readOnly) ~= true
 	end)
-	local today = Compose.cell(clock())
+	-- the day part of the clock; its time part places the touch time list
+	local today = Compose.cell(civil.dateOf(clock()))
 
 	local disposed = false
 	owner.own(function()
@@ -317,8 +325,30 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local function paneMonth(use: any, k: number): CivilDate
 		return civil.addMonths(use(viewMonth), k - 1)
 	end
-	local function page(delta: number)
+	-- whether a second month shows (the offered width fits two); set below
+	local dualNow: any = nil
+	-- a month nobody may land in: wholly before `min` or wholly after `max`
+	local function monthClosed(m: CivilDate, use: any?): boolean
+		local lo = if use then use(minDate) else minDate:peek()
+		local hi = if use then use(maxDate) else maxDate:peek()
+		local last = { year = m.year, month = m.month, day = civil.daysIn(m.year, m.month) }
+		return (lo ~= nil and civil.compare(last, lo) < 0) or (hi ~= nil and civil.compare(monthOf(m), hi) > 0)
+	end
+	-- paging stops before the month it would bring into view is closed
+	local function canPage(delta: number, use: any?): boolean
+		local read = use or function(r: any)
+			return r:peek()
+		end
+		local panes = if dualNow ~= nil and read(dualNow) then 2 else 1
+		local shown = civil.addMonths(read(viewMonth), if delta > 0 then delta + panes - 1 else delta)
+		return not monthClosed(shown, use)
+	end
+	local function page(delta: number): boolean
+		if not canPage(delta) then
+			return false
+		end
 		viewMonth:set(civil.addMonths(viewMonth:peek(), delta))
+		return true
 	end
 
 	-- ===== proposals, commits and the Cancel snapshot =====================
@@ -406,13 +436,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	follow(presented, function(on: boolean)
 		if on then
 			takeSnapshot()
-			today:set(clock())
+			today:set(civil.dateOf(clock()))
 			viewMonth:set(monthOf(anchorDate()))
 		end
 	end)
-
-	-- whether a second month shows (the offered width fits two); set below
-	local dualNow: any = nil
 
 	-- ===== choosing =========================================================
 	local function choose(d: CivilDate)
@@ -441,9 +468,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					viewMonth:set(monthOf(day))
 				end
 			end
-			if not withTime and not draft then
+			if not draft then
 				commit()
-				if overlay then
+				if not withTime and overlay then
 					close("activate")
 				end
 			end
@@ -531,6 +558,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end)
 		local chosen = Compose.formula(function(use)
 			local d = use(date)
+			if use(outside) then
+				return false
+			end
 			if isRange then
 				local r = use(range)
 				return (r.start ~= nil and civil.compare(d, r.start) == 0)
@@ -545,7 +575,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 			local r = use(range)
 			local d = use(date)
-			return r.start ~= nil and r.finish ~= nil and civil.within(d, r.start, r.finish)
+			return not use(outside) and r.start ~= nil and r.finish ~= nil and civil.within(d, r.start, r.finish)
 		end)
 		local isToday = Compose.formula(function(use)
 			return civil.compare(use(date), use(today)) == 0
@@ -567,6 +597,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			width = { type = "fixed", px = "targetSizes.minimum" },
 			height = { type = "fixed", px = "targetSizes.minimum" },
 			enabled = interactive,
+			-- a neighbouring month's day is that month's: tappable, never a stop
+			focusable = Compose.formula(function(use)
+				return not use(outside)
+			end),
 			onActivate = function()
 				choose(date:peek())
 			end,
@@ -637,7 +671,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		})
 	end
 
-	-- the landing day on open: the chosen day, else today, else the first enabled
+	-- the landing day (on open, and wherever focus enters the grid): the chosen
+	-- day, else today, else the first enabled day of the first month shown
 	local function landing(): number
 		local m = viewMonth:peek()
 		local grid = civil.monthGrid(m.year, m.month, weekStart)
@@ -645,7 +680,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		for _, candidate in { want, today:peek() } do
 			if candidate ~= nil then
 				for i, d in grid do
-					if civil.compare(d, candidate) == 0 and not isDisabled(d) then
+					if civil.compare(d, candidate) == 0 and d.month == m.month and not isDisabled(d) then
 						return i
 					end
 				end
@@ -676,19 +711,24 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				})
 			)
 		end
-		local cells: { any } = {}
-		for i = 1, CELLS do
-			table.insert(cells, dayCell(k, i))
+		-- six declared week rows: navigation reads the rows the eye sees, even
+		-- where grey days (no stop) leave a row short
+		local weeks: { any } = {}
+		for row = 1, CELLS // 7 do
+			local cells: { any } = {}
+			for c = 1, 7 do
+				table.insert(cells, dayCell(k, (row - 1) * 7 + c))
+			end
+			table.insert(weeks, UI.GridRow({ id = `R{row}`, children = cells }))
 		end
 		-- seven cell-wide columns, never stretched across a wider pane
 		local days = UI.Grid({
 			id = "Days",
-			columns = 7,
 			gap = 0,
 			width = Compose.formula(function(use)
 				return { type = "fixed", px = gridWidth(use) }
 			end),
-			children = cells,
+			children = weeks,
 		})
 		return UI.VStack({
 			id = `Pane{k}`,
@@ -759,7 +799,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				icon = icon,
 				label = name,
 				shape = "circle",
-				enabled = interactive,
+				enabled = Compose.formula(function(use)
+					return use(interactive) and canPage(delta, use)
+				end),
 				onActivate = function()
 					page(delta)
 				end,
@@ -846,6 +888,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				onCommit = function(n: any)
 					if not propose(with(base(), n)) then
 						resync()
+					elseif not draft then
+						commit()
 					end
 				end,
 			})
@@ -870,7 +914,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				local h = v.hour :: number
 				return if hourCycle == 12 then (if h % 12 == 0 then 12 else h % 12) else h
 			end, withHour),
-			field("Minute", "Minute", 0, 59, minuteStep, function(v)
+			-- the steps stay on the minute grid: the top step is the last one before 60
+			field("Minute", "Minute", 0, 60 - minuteStep, minuteStep, function(v)
 				return v.minute :: number
 			end, withMinute),
 		}
@@ -895,6 +940,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					next.hour = v.hour % 12 + (if word == "PM" then 12 else 0)
 					if not propose(next) then
 						half:set(if v.hour >= 12 then "PM" else "AM")
+					elseif not draft then
+						commit()
 					end
 				end,
 			})
@@ -914,8 +961,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				return type(classes) == "table" and classes.touch == true
 			end),
 			thenView = function()
+				-- it opens at the held time, else now, else midnight
+				local at: any = value:peek()
+				if at == nil or at.hour == nil then
+					at = clock()
+				end
+				local first = if at.hour ~= nil then (at.hour * 60 + at.minute) // minuteStep else 0
 				local built = require("./virtual_list").build(Facet, core, {
 					id = "Times",
+					scrollNavigation = { position = Compose.cell(first * 44) },
 					rows = Compose.formula(function()
 						return times
 					end),
@@ -944,7 +998,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 								local base = value:peek() or civil.dateOf(anchorDate())
 								local next = civil.dateOf(base)
 								next.hour, next.minute = t.hour, t.minute
-								propose(next)
+								if propose(next) and not draft then
+									commit()
+								end
 							end,
 						})
 					end,
@@ -1088,9 +1144,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			table.insert(
 				actions,
 				action("Done", "Done", function()
-					if withTime then
-						commit()
-					end
 					close("activate")
 				end)
 			)
@@ -1103,7 +1156,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					gap = "s",
 					wrap = true,
 					width = UI.fill(),
-					align = "end",
+					distribute = "end",
 					children = actions,
 				})
 			)
@@ -1132,12 +1185,38 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 			return nil, nil
 		end
-		local function focusCell(k: number, i: number)
+		local function focusCell(k: number, i: number): boolean
 			local list = cellPaths[k]
-			if graphRef ~= nil and list ~= nil and list[i] ~= nil then
-				graphRef.focusOn(list[i])
-			end
+			return graphRef ~= nil and list ~= nil and list[i] ~= nil and graphRef.focusOn(list[i])
 		end
+		local function peekPane(k: number): CivilDate
+			return paneMonth(function(r)
+				return r:peek()
+			end, k)
+		end
+		-- the cell showing `d` inside its own month on a shown pane, or nil
+		local function cellFor(d: CivilDate): (number?, number?)
+			for k in cellPaths do
+				local m = peekPane(k)
+				if d.year == m.year and d.month == m.month then
+					for i, g in civil.monthGrid(m.year, m.month, weekStart) do
+						if civil.compare(g, d) == 0 then
+							return k, i
+						end
+					end
+				end
+			end
+			return nil, nil
+		end
+		-- a day that just paged into view is focusable once the grid re-syncs
+		local pendingDay: CivilDate? = nil
+		local function focusDay(d: CivilDate)
+			local k, i = cellFor(d)
+			pendingDay = if k ~= nil and i ~= nil and focusCell(k, i) then nil else d
+		end
+		-- the last navigation position, for "focus just entered the grid"
+		local lastNav: string? = nil
+		local STEPS = { left = -1, right = 1, up = -7, down = 7 }
 		return contribution.attach(panel, {
 			syncGeometry = function(rectOf: (string) -> any, node: any?)
 				if node == nil then
@@ -1169,6 +1248,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					end
 				end
 				walk(node)
+				if pendingDay ~= nil then
+					focusDay(pendingDay)
+				end
 				if not overlay then
 					local own = rectOf(node.path)
 					if own ~= nil and own.w ~= measured:peek() then
@@ -1201,41 +1283,48 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				page(if direction > 0 then 1 else -1)
 				return true
 			end,
-			-- a row's end continues to the neighbouring day; the grid's own edge
-			-- pages the month and lands on that day
+			-- the arrows walk DAYS: ±1 and ±7 from the focused day, onto whichever
+			-- pane shows it in its own month, paging when none does. A page the
+			-- bounds refuse hands the arrow back to navigation (out of the grid).
 			navigateIntercept = function(direction: string): boolean
-				if direction ~= "left" and direction ~= "right" then
+				local here = focusedPath:peek()
+				local k, i = cellAt(here)
+				local step = STEPS[direction]
+				if k == nil or i == nil or step == nil then
+					lastNav = here
 					return false
 				end
-				local k, i = cellAt(focusedPath:peek())
-				if k == nil or i == nil then
+				lastNav = here
+				local target = civil.addDays(civil.monthGrid(peekPane(k).year, peekPane(k).month, weekStart)[i], step)
+				if cellFor(target) == nil and not page(if step > 0 then 1 else -1) then
 					return false
 				end
-				local column = (i - 1) % 7 + 1
-				if direction == "left" and column ~= 1 or direction == "right" and column ~= 7 then
-					return false
+				focusDay(target)
+				return true
+			end,
+			-- ONE Tab stop: Tab leaves from the grid's last day, Shift+Tab from its
+			-- first, so traversal steps straight out of it
+			handleTraverse = function(from: string, direction: number): boolean
+				lastNav = from
+				local k = cellAt(from)
+				if k ~= nil then
+					local last = #cellPaths
+					local m = peekPane(if direction > 0 then last else 1)
+					local edge = if direction > 0 then civil.daysIn(m.year, m.month) else 1
+					focusDay({ year = m.year, month = m.month, day = edge })
 				end
-				local step = if direction == "right" then 1 else -1
-				local target = i + step
-				if target >= 1 and target <= CELLS then
-					focusCell(k, target)
+				return false
+			end,
+			-- navigation that ENTERS the grid lands on the landing day
+			focusMoved = function(path: string): boolean
+				local entering = cellAt(path) ~= nil and cellAt(lastNav) == nil
+				lastNav = path
+				if entering then
+					focusCell(1, landing())
+					lastNav = focusedPath:peek()
 					return true
 				end
-				local m = paneMonth(function(r)
-					return r:peek()
-				end, k)
-				local date = civil.addDays(civil.monthGrid(m.year, m.month, weekStart)[i], step)
-				page(step)
-				local shown = paneMonth(function(r)
-					return r:peek()
-				end, k)
-				for j, d in civil.monthGrid(shown.year, shown.month, weekStart) do
-					if civil.compare(d, date) == 0 then
-						focusCell(k, j)
-						break
-					end
-				end
-				return true
+				return false
 			end,
 		})
 	end
@@ -1267,6 +1356,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			id = "Entry",
 			value = text,
 			placeholder = spec.placeholder,
+			-- the field's plate is the row's: no second plate inside it
+			appearance = "utility",
 			enabled = interactive,
 			env = spec.env,
 			onCommit = function(typed: any)
@@ -1282,7 +1373,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				local next: any, why: string?
 				if isRange then
-					local a, b = string.match(typed, "^(.-)%s*[–%-]%s*(%d.*)$")
+					-- the words' own separator (an en dash, three bytes) or a spaced
+					-- hyphen: never a byte class, and never a date's own "-"
+					local at, stop = string.find(typed, "–", 1, true)
+					if at == nil then
+						at, stop = string.find(typed, " - ", 1, true)
+					end
+					local a = if at ~= nil then string.sub(typed, 1, at - 1) else nil
+					local b = if stop ~= nil then string.sub(typed, stop + 1) else ""
 					if a == nil and string.match(typed, "^%s*$") ~= nil then
 						next = {}
 					elseif a == nil then
@@ -1319,7 +1417,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				typedError:set("")
 				if propose(next) then
-					if isRange or not draft then
+					if not draft then
 						commit()
 					end
 					local anchor: any = if isRange then next.start else next
@@ -1384,10 +1482,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				closeWhy = nil
 				local proposed = asked
 				asked = false
-				if mine == nil and proposed and reason == "cancel" then
+				-- a draft closed any way but Apply discards; otherwise every change
+				-- already committed and the close keeps it
+				if mine == nil and proposed and draft then
 					restore()
-				elseif mine == nil and reason == "outside" and withTime and not draft then
-					commit()
 				end
 				if spec.onDismiss ~= nil then
 					spec.onDismiss(mine or reason)
