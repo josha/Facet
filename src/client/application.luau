@@ -19,7 +19,13 @@ function application.new(opts: host.Opts?): controlTypes.App
 	end
 	local surface = host.new(hostOpts)
 	local domain =
-		scene.new({ onFrame = surface.presenter.onTick, now = if opts and opts.now then opts.now else os.clock })
+		-- the domain's animations commit inside the motion clock's one transaction per frame
+		scene.new({
+			onFrame = function(listener)
+				return surface.presenter.motionClock:onFrame(listener)
+			end,
+			now = if opts and opts.now then opts.now else os.clock,
+		})
 	local runtime = surface.core.adopt(domain.runtime)
 	local mounted = {}
 	local disposed = false

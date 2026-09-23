@@ -66,6 +66,49 @@ t.describe("Compose UI domain host", function()
 		end
 	end
 
+	t.it("a runtime timeline, a control motion and a clock spring commit in ONE flush per frame", function()
+		local scopes = require("../src/core/profile")
+		local app, _, settle = require("./lib/native_world")({ x = 0, y = 0, w = 480, h = 400 })
+		app.environment:set("reducedMotion", false)
+		local clock = app.presenter.motionClock
+		local spring = clock:spring(0, "object")
+		local expanded = Compose.cell(false)
+		app.mount(function()
+			local entry = app.runtime.timeline({ duration = 1 })
+			return app.controls.Screen("S")({
+				app.controls.Text("T")({
+					text = function(use)
+						return tostring(use(entry.progress))
+					end,
+				}),
+				-- a control's own motion: the disclosure's write takes the single-sink
+				-- entry inside the clock's commit, which must not open a second flush
+				app.controls.DisclosureGroup("Adv")({
+					label = "Advanced",
+					expanded = expanded,
+					content = function()
+						return app.controls.Text("Body")({ text = "body" })
+					end,
+				}),
+			})
+		end)
+		settle(3)
+		spring:setTarget(100)
+		expanded:set(true)
+		scopes.setEnabled(true)
+		scopes.setHooks(function() end, function() end)
+		for _ = 1, 5 do
+			local steps = clock:stats().steps
+			scopes.resetCounters()
+			app.presenter.tick(1 / 60)
+			t.expect(clock:stats().steps - steps).toBe(1)
+			t.expect(scopes.counters().byScope.react).toBe(1)
+		end
+		scopes.setHooks(nil, nil)
+		scopes.setEnabled(false)
+		app.dispose()
+	end)
+
 	t.it("native disclosure uses Compose state and releases each collapsed branch", function()
 		local app, adapter, settle = require("./lib/native_world")({ x = 0, y = 0, w = 480, h = 400 })
 		local expanded = Compose.cell(false)
