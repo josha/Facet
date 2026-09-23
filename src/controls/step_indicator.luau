@@ -149,6 +149,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local currentId = ownedFormula(owner, function(use)
 		return use(snapshot).current
 	end)
+	local listOpen = Compose.cell(false)
+	-- the list closes when the caller ACCEPTS a step; a refusal changes nothing
+	owner.watchStatic(currentId, function()
+		listOpen:set(false)
+	end)
 
 	local function stateOf(step: any, current: string?): string
 		if step.state ~= nil and step.state ~= "current" then
@@ -171,7 +176,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 
 	-- ===== proposals: re-read the step, then one onSelect ====================
 	local disposed = false
-	local listOpen = Compose.cell(false)
 	local function select(stepId: string)
 		if disposed or not enabled:peek() then
 			return
@@ -180,7 +184,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		for _, step in snap.steps do
 			if step.id == stepId then
 				if permitted(step) and stepId ~= snap.current then
-					listOpen:set(false)
 					onSelect(stepId)
 				end
 				return
@@ -206,10 +209,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local s = use(state)
 			return s == "complete" or s == "error"
 		end)
-		-- a FLOOR, not a cap: the number grows with the player's text size
+		-- a FLOOR, not a cap: the number grows with the player's text size, and the
+		-- width follows the height so the circle never becomes an oval
 		return UI.ZStack({
 			id = "Cue",
-			width = { type = "minMax", min = "iconSizes.medium" },
+			width = { type = "aspect", ratio = 1 },
 			height = { type = "minMax", min = "iconSizes.medium" },
 			alignH = "center",
 			alignV = "center",
@@ -427,7 +431,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			onPresentedChange = function(next: boolean)
 				listOpen:set(next)
 			end,
-			trigger = UI.Button({ id = "ShowSteps", label = spec.listLabel or "Steps", disclose = true }),
+			trigger = UI.Button({
+				id = "ShowSteps",
+				label = spec.listLabel or "Steps",
+				disclose = true,
+				-- nothing to list
+				hidden = function(use)
+					return #use(snapshot).steps == 0
+				end,
+			}),
 			maxWidth = 360,
 			content = function()
 				return UI.VStack({
@@ -461,9 +473,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		})
 	end
 
+	-- the root always takes its offer, which is what the fit measures: `sizing` is
+	-- only how the steps share it (a hugging root would measure its own summary)
 	local root = UI.VStack({
 		id = id,
-		width = if sizing == "fill" then UI.fill() else UI.hug(),
+		width = UI.fill(),
 		enabled = enabled,
 		children = {
 			UI.When({

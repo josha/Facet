@@ -9069,7 +9069,12 @@ given; every other step is plain content (with disabled paint when
 `onSelect(id)` once; nothing here writes `current`, so a refused step changes
 nothing. When the measured width cannot hold the labels, the steps become the
 summary and a Steps button that opens the whole list in a `UI.Popover`, where
-permitted steps select through the same `onSelect` and the list closes.
+permitted steps select through the same `onSelect`; the list closes when your
+`current` changes, so a refused step leaves it open. An empty list has no Steps
+button. The indicator always takes the width it is offered (that is what the fit
+measures); `sizing` is how its steps share it — `fill` gives each the widest
+label's share, `hug` each its own label. The number marker is a circle at every
+text size.
 
 `dump()` reports `{ schema = "facet-step-indicator-dump/1", id, current,
 summary, form = "row" | "summary", listOpen, steps = { { id, state, button } },

@@ -120,6 +120,15 @@ describe("StepIndicator: the row", function()
 		expect(w.adapter.node(pay .. "/Copy/State").props.text).toBe("Upcoming")
 	end)
 
+	it("the number marker stays a circle at the largest text size", function()
+		local w = mount({ steps = workflow(), current = "ship" }, { w = 1600 })
+		w.env:set("preferredTextOffset", 14)
+		w.settle(4)
+		local cue = w.adapter.node((find(w, "/Step-pay") :: string) .. "/Cue").rect
+		expect(cue.w).toBe(cue.h)
+		expect(cue.h > 24).toBe(true)
+	end)
+
 	it("a missing current is unavailable, never guessed; empty and repopulated lists rebuild cleanly", function()
 		local steps = Compose.cell(workflow())
 		local current = Compose.cell("gone" :: string?)
@@ -130,6 +139,9 @@ describe("StepIndicator: the row", function()
 			steps:set({})
 			w.settle(2)
 			expect(dump(w).summary).toBe("No steps")
+			-- nothing to list: no button that opens an empty list
+			local show = find(w, "/ShowSteps")
+			expect(show == nil or w.pres.focus.focusOn(show) == false).toBe(true)
 			expect(find(w, "/Step-cart")).toBeNil()
 			steps:set(workflow())
 			current:set("pay")
@@ -200,10 +212,14 @@ describe("StepIndicator: the summary", function()
 	it("a narrow width shows Step n of m and a list that selects through the same path", function()
 		local current = Compose.cell("ship")
 		local asked: { string } = {}
+		local refuse = false
 		local w = mount({
 			steps = workflow(),
 			current = current,
 			onSelect = function(id: string)
+				if refuse then
+					return
+				end
 				table.insert(asked, id)
 				current:set(id)
 			end,
@@ -215,6 +231,16 @@ describe("StepIndicator: the summary", function()
 		expect(dump(w).listOpen).toBe(true)
 		-- opening changed nothing
 		expect(#asked).toBe(0)
+		-- a refused selection changes nothing: the list stays open
+		refuse = true
+		for _, p in w.adapter.paths() do
+			if string.sub(p, -10) == "/Item-cart" then
+				w.adapter.tap(p)
+			end
+		end
+		w.settle(3)
+		expect(dump(w).listOpen).toBe(true)
+		refuse = false
 		local pay: string? = nil
 		for _, p in w.adapter.paths() do
 			if string.sub(p, -9) == "/Item-pay" then
@@ -227,6 +253,30 @@ describe("StepIndicator: the summary", function()
 		expect(table.concat(asked, ",")).toBe("pay")
 		expect(dump(w).listOpen).toBe(false)
 		expect(w.adapter.node(find(w, "/Summary") :: string).props.text).toBe("Step 3 of 4 — Payment")
+	end)
+
+	it("hug sizing follows its offer both ways: narrow to the summary and wide back to the row", function()
+		local room = Compose.cell(150)
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 1000, h = 600 },
+			reducedMotion = true,
+			capabilities = { mouse = true, keyboard = true },
+		})
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("Page")({
+					width = function(use)
+						return { type = "fixed", px = use(room) }
+					end,
+					w.UI.StepIndicator("Steps")({ steps = workflow(), current = "ship", sizing = "hug" }),
+				}),
+			})
+		end)
+		w.settle(3)
+		expect(dump(w).form).toBe("summary")
+		room:set(950)
+		w.settle(4)
+		expect(dump(w).form).toBe("row")
 	end)
 
 	it("a callback that removes the control leaves nothing open", function()
