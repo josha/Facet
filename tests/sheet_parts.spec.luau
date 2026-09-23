@@ -403,7 +403,7 @@ t.describe("Sheet parts", function()
 		})
 		shown:set(true)
 		w.settle(3)
-		w.adapter.tap(assert(find(w, "/Boom"), "Boom"))
+		t.expect((pcall(w.adapter.tap, assert(find(w, "/Boom"), "Boom")))).toBe(false) -- raised, not swallowed
 		w.settle(2)
 		t.expect(control.dump().presented).toBe(true)
 		w.adapter.tap(assert(find(w, "/Finish"), "Done"))

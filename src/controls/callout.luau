@@ -324,10 +324,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						-- the presentation this press belongs to, captured before the
 						-- caller runs: it retires once, and only if still current
 						local pressed = generation
-						pcall(action.onActivate)
-						if pressed == generation then
-							retire("action")
-						end
+						overlayParts.call(action.onActivate, function()
+							if pressed == generation then
+								retire("action")
+							end
+						end)
 						return true
 					end
 					if

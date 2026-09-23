@@ -38,6 +38,7 @@ local focusMap = require("../present/focus_map")
 local menuRecipe = require("./menu_recipe")
 local themeSnapshot = require("../themes/snapshot")
 local sheetLib = require("./sheet")
+local overlayParts = require("./overlay_parts")
 
 local popover = {}
 
@@ -174,7 +175,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 
 	local function report(reason: string)
 		if spec.onDismiss ~= nil then
-			pcall(spec.onDismiss, reason)
+			spec.onDismiss(reason)
 		end
 	end
 
@@ -186,11 +187,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if not next then
 			closingReason = reason
 		end
-		pcall(spec.onPresentedChange, next)
-		local accepted = wanted:peek() == next
-		if not accepted then
-			closingReason = nil
-		end
+		local accepted = false
+		overlayParts.call(spec.onPresentedChange, function()
+			accepted = wanted:peek() == next
+			if not accepted then
+				closingReason = nil
+			end
+		end, next)
 		return accepted
 	end
 

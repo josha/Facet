@@ -1035,7 +1035,7 @@ describe("Callout: rich parts — title, media, steps, actions and a close butto
 		})
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		w.pres.refresh()
-		w.adapter.tap(`{ACTIONS}/Again`)
+		expect((pcall(w.adapter.tap, `{ACTIONS}/Again`))).toBe(false) -- raised, not swallowed
 		w.pres.refresh()
 		expect(control.api.state()).toBe("showing")
 		expect(#reports).toBe(0)
@@ -1062,7 +1062,7 @@ describe("Callout: rich parts — title, media, steps, actions and a close butto
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
 		expect(w.pres.focus.focusOn(`{ACTIONS}/Boom`)).toBe(true)
-		w.system.deviceKey("Return", true)
+		expect((pcall(w.system.deviceKey, "Return", true))).toBe(false) -- raised, not swallowed
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
 		expect(control.api.state()).toBe("retired")

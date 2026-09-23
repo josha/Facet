@@ -192,6 +192,12 @@ describe("Notice: inline copy, accessories and close", function()
 				},
 				{ message = "m", controlSize = "huge" },
 				{ message = "m", extra = true },
+				-- the built-in sibling buttons' ids, and action value types
+				{ message = "m", actions = { { id = "Link", label = "L", onActivate = noop } } },
+				{ message = "m", actions = { { id = "Close", label = "C", onActivate = noop } } },
+				{ message = "m", actions = { { id = "A", label = 5, onActivate = noop } } },
+				{ message = "m", actions = { { id = "A", label = "A", enabled = "yes", onActivate = noop } } },
+				{ message = "m", actions = { { id = "A", label = "A", busy = 1, onActivate = noop } } },
 			}
 		do
 			local ok = pcall(function()

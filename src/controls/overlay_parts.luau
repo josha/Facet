@@ -4,6 +4,7 @@
 	spec error rather than a half-painted plate. Rendering reuses the ordinary
 	Image, Box and Button vocabulary; the caller decides what a press means. ]]
 local specGuard = require("../spec_guard")
+local Compose = require("../vendor/compose/core")
 
 local overlay_parts = {}
 
@@ -20,6 +21,11 @@ local HERO_KEYS = specGuard.keySet({ "aspectRatio", "background", "content", "he
 local ACTION_KEYS = specGuard.keySet({ "busy", "enabled", "id", "label", "onActivate", "role" })
 local SCALE_MODES = { fit = true, crop = true, stretch = true }
 local ROLES = { default = true, cancel = true, destructive = true }
+
+-- a Bound<T>: the value itself, a Compose readable or a tracked function
+local function bound(v: any, kind: string): boolean
+	return type(v) == kind or type(v) == "function" or Compose.isReadable(v)
+end
 
 local function positive(v: any): boolean
 	return type(v) == "number" and v == v and v > 0 and v < math.huge
@@ -85,8 +91,9 @@ function overlay_parts.checkHero(where: string, hero: any)
 	checkShape(where, hero, "hero")
 end
 
--- returns the number of actions (0 for absent or empty)
-function overlay_parts.checkActions(where: string, actions: any, max: number): number
+-- returns the number of actions (0 for absent or empty); `reserved` ids name the
+-- surface's own sibling buttons
+function overlay_parts.checkActions(where: string, actions: any, max: number, reserved: { string }?): number
 	if actions == nil then
 		return 0
 	end
@@ -102,9 +109,17 @@ function overlay_parts.checkActions(where: string, actions: any, max: number): n
 		if type(action.id) ~= "string" or action.id == "" or seen[action.id] then
 			error(`Facet {where}: every action needs a unique string \`id\`.`, 0)
 		end
+		if reserved ~= nil and table.find(reserved, action.id) then
+			error(`Facet {where}: action id '{action.id}' is reserved for the built-in button.`, 0)
+		end
 		seen[action.id] = true
-		if action.label == nil then
-			error(`Facet {where}: action '{action.id}' needs a \`label\`.`, 0)
+		if not bound(action.label, "string") then
+			error(`Facet {where}: action '{action.id}' needs a string \`label\` (or a bound one).`, 0)
+		end
+		for _, key in { "enabled", "busy" } do
+			if action[key] ~= nil and not bound(action[key], "boolean") then
+				error(`Facet {where}: action '{action.id}' \`{key}\` is a boolean (or a bound one).`, 0)
+			end
 		end
 		if action.role ~= nil and ROLES[action.role] ~= true then
 			error(`Facet {where}: action '{action.id}' role is default | cancel | destructive.`, 0)
@@ -215,6 +230,20 @@ function overlay_parts.actionRow(UI: any, actions: { any }, height: any): any
 		)
 	end
 	return UI.HStack({ id = "Actions", gap = "s", width = { type = "fill", weight = 1 }, children = buttons })
+end
+
+--[[ A CALLER'S CALLBACK NEVER FAILS SILENTLY (Alert's contract). `settle` runs
+	first, whether or not the callback threw, so the surface's own state is
+	consistent; then the caller's error is raised as it was thrown. ]]
+function overlay_parts.call(fn: any, settle: (() -> ())?, ...: any): any
+	local ok, result = pcall(fn, ...)
+	if settle ~= nil then
+		settle()
+	end
+	if not ok then
+		error(result, 0)
+	end
+	return result
 end
 
 -- the action a path activates, if it is one of the row's buttons

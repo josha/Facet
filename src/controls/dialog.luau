@@ -162,7 +162,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 
 	local function report(reason: string)
 		if spec.onDismiss ~= nil then
-			pcall(spec.onDismiss, reason)
+			spec.onDismiss(reason)
 		end
 	end
 
@@ -174,11 +174,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if not next then
 			closingReason = reason
 		end
-		pcall(spec.onPresentedChange, next)
-		local accepted = wanted:peek() == next
-		if not accepted then
-			closingReason = nil
-		end
+		local accepted = false
+		overlayParts.call(spec.onPresentedChange, function()
+			accepted = wanted:peek() == next
+			if not accepted then
+				closingReason = nil
+			end
+		end, next)
 		return accepted
 	end
 
@@ -193,10 +195,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return
 		end
 		closingReason = "action"
-		pcall(action.onActivate)
-		if wanted:peek() then
-			closingReason = nil
-		end
+		overlayParts.call(action.onActivate, function()
+			if wanted:peek() then
+				closingReason = nil
+			end
+		end)
 	end
 
 	local function close(reason: string)

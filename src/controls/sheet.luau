@@ -273,7 +273,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	-- actions never close the sheet; the caller does, through its own cells
 	local function press(action: any)
 		if usable(action) then
-			pcall(action.onActivate)
+			action.onActivate()
 		end
 	end
 	--[[ THE DRAG SESSION. One at a time, whichever source starts it: the Grip

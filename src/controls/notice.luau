@@ -100,7 +100,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	vocabulary.assertSize("UI.Notice", spec.controlSize)
 	local actions: { any } = spec.actions or {}
-	overlayParts.checkActions(where, spec.actions, 2)
+	overlayParts.checkActions(where, spec.actions, 2, { "Link", "Close" })
 
 	local env = surfaceEnv.forSpec(core, spec.env)
 	local plateRole = statusIndicator.PLATE_ROLES[severity]
@@ -221,7 +221,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					compactLabel = { icon = "close", prefer = true },
 					controlSize = spec.controlSize,
 					onActivate = function()
-						pcall(spec.onDismiss :: any)
+						local dismiss: any = spec.onDismiss
+						dismiss()
 					end,
 				})
 			)
