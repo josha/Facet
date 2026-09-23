@@ -6,11 +6,13 @@ local blueprint = require("../blueprint")
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
+local overlayParts = require("./overlay_parts")
 
 local callout = {}
 
 local PLATE_ID = "Plate"
 local DISMISS_ID = "Dismiss"
+local CLOSE_ID = "Close"
 local DUMP_SCHEMA = "facet-callout-dump/1"
 
 -- THEME METRICS, never bare pixels. The dismiss row is a real
@@ -21,28 +23,120 @@ local PLATE_PADDING = "s"
 local PLATE_GAP = "s"
 
 local CALLOUT_KEYS = specGuard.keySet({
+	"actions",
 	"afterSessions",
 	"align",
 	"anchor",
+	"closeButton",
 	"content",
 	"dismissLabel",
 	"edge",
 	"featureUsed",
 	"id",
 	"isPresented",
+	"media",
 	"onHide",
 	"onRetire",
 	"onShow",
 	"priority",
 	"seen",
 	"sessions",
+	"steps",
 	"tail",
+	"title",
 })
+local MAX_ACTIONS = 2
 
 local specTypes = require("../spec_types/callout")
 export type Spec = specTypes.Spec
 
-function callout.plate(UI: any, opts: { content: blueprint.Blueprint, dismissLabel: string? }): any
+export type PlateOpts = {
+	content: blueprint.Blueprint?,
+	dismissLabel: string?,
+	title: blueprint.Bound<string>?,
+	media: specTypes.Media?,
+	steps: { index: number, count: number }?,
+	actions: { specTypes.Action }?,
+	closeButton: boolean?,
+}
+
+local function dismissButton(UI: any, label: string?): any
+	return UI.Button({
+		id = DISMISS_ID,
+		label = label or "Got it",
+		width = { type = "fill", weight = 1 },
+		height = DISMISS_HEIGHT,
+	})
+end
+
+-- the rich plate: header (title and/or the top close), media, content, steps,
+-- then the action row, or the legacy dismiss when there are no actions
+local function richPlate(UI: any, opts: PlateOpts): any
+	local children: { any } = {}
+	if opts.title ~= nil or opts.closeButton == true then
+		local header: { any } = {}
+		if opts.title ~= nil then
+			table.insert(header, UI.Text({ id = "Title", text = opts.title, textSize = "heading", width = UI.fill() }))
+		end
+		if opts.closeButton == true then
+			table.insert(
+				header,
+				UI.Button({
+					id = CLOSE_ID,
+					label = "Close",
+					compactLabel = { icon = "close", prefer = true },
+					width = { type = "fixed", px = "targetSizes.minimum" },
+					height = DISMISS_HEIGHT,
+				})
+			)
+		end
+		table.insert(
+			children,
+			UI.HStack({ id = "Header", gap = "s", align = "center", width = UI.fill(), children = header })
+		)
+	end
+	if opts.media ~= nil then
+		table.insert(children, overlayParts.media(UI, opts.media))
+	end
+	if opts.content ~= nil then
+		table.insert(children, opts.content)
+	end
+	if opts.steps ~= nil then
+		table.insert(
+			children,
+			UI.Text({
+				id = "Steps",
+				text = `{opts.steps.index} of {opts.steps.count}`,
+				textSize = "caption",
+				role = "secondary",
+			})
+		)
+	end
+	if opts.actions ~= nil and #opts.actions > 0 then
+		table.insert(children, overlayParts.actionRow(UI, opts.actions, DISMISS_HEIGHT))
+	else
+		table.insert(children, dismissButton(UI, opts.dismissLabel))
+	end
+	return UI.VStack({
+		id = PLATE_ID,
+		surface = "raised",
+		padding = PLATE_PADDING,
+		gap = PLATE_GAP,
+		width = { type = "hug" },
+		children = children,
+	})
+end
+
+function callout.plate(UI: any, opts: PlateOpts): any
+	if
+		opts.title ~= nil
+		or opts.media ~= nil
+		or opts.steps ~= nil
+		or (opts.actions ~= nil and #opts.actions > 0)
+		or opts.closeButton == true
+	then
+		return richPlate(UI, opts)
+	end
 	return UI.VStack({
 		id = PLATE_ID,
 		-- the panel treatment, so the plate is themed by the ACTIVE snapshot
@@ -84,7 +178,42 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			0
 		)
 	end
-	if type(spec.content) ~= "table" and type(spec.content) ~= "function" then
+	local where = `UI.Callout('{id}')`
+	overlayParts.checkMedia(where, spec.media)
+	local actionCount = overlayParts.checkActions(where, spec.actions, MAX_ACTIONS)
+	if spec.closeButton ~= nil and type(spec.closeButton) ~= "boolean" then
+		error(`Facet {where}: \`closeButton\` is true or false (default false).`, 0)
+	end
+	if
+		spec.title ~= nil
+		and type(spec.title) ~= "string"
+		and not Compose.isReadable(spec.title)
+		and type(spec.title) ~= "function"
+	then
+		error(`Facet {where}: \`title\` is a string or a bound string.`, 0)
+	end
+	local steps = spec.steps
+	if steps ~= nil then
+		local index, count =
+			if type(steps) == "table" then steps.index else nil, if type(steps) == "table" then steps.count else nil
+		local function whole(n: any): boolean
+			return type(n) == "number" and n == math.floor(n) and n < math.huge
+		end
+		if not whole(index) or not whole(count) or index < 1 or index > count then
+			error(`Facet {where}: \`steps\` is \{ index, count } with whole numbers 1 <= index <= count.`, 0)
+		end
+	end
+	-- content is optional only when another authored part draws something; the
+	-- close button and the dismiss are affordances, not content
+	local drawsElsewhere = spec.title ~= nil or spec.media ~= nil or steps ~= nil or actionCount > 0
+	if spec.content == nil and not drawsElsewhere then
+		error(
+			`Facet {where}: nothing to show. Give \`content\` (a blueprint) or at least one of \`title\`, `
+				.. "`media`, `steps` or `actions`.",
+			0
+		)
+	end
+	if spec.content ~= nil and type(spec.content) ~= "table" and type(spec.content) ~= "function" then
 		error(
 			`Facet UI.Callout('{id}'): \`content\` is a BLUEPRINT, not a string. The reference plate is styled `
 				.. "and holds more than one line, and a string-only tip could not express it.",
@@ -179,10 +308,29 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local panel = callout.plate(UI, {
 				content = if type(spec.content) == "function" then spec.content() else spec.content,
 				dismissLabel = spec.dismissLabel,
+				title = spec.title,
+				media = spec.media,
+				steps = spec.steps,
+				actions = spec.actions,
+				closeButton = spec.closeButton,
 			})
 			local attached = contribution.attach(panel, {
 				handleActivate = function(path: string, _meta: any?): boolean
-					if string.match(path, `/{PLATE_ID}/{DISMISS_ID}$`) == nil then
+					local action = overlayParts.actionAt(spec.actions, path)
+					if action ~= nil then
+						-- the presentation this press belongs to, captured before the
+						-- caller runs: it retires once, and only if still current
+						local pressed = generation
+						pcall(action.onActivate)
+						if pressed == generation then
+							retire("action")
+						end
+						return true
+					end
+					if
+						string.match(path, `/{PLATE_ID}/{DISMISS_ID}$`) == nil
+						and string.match(path, `/{PLATE_ID}/Header/{CLOSE_ID}$`) == nil
+					then
 						return false
 					end
 					api.dismiss()

@@ -2,12 +2,21 @@
 -- The `callout` control's types, apart from its implementation: reading a type must
 -- not load the control.
 local blueprint = require("../blueprint")
+local overlayParts = require("./overlay_parts")
+export type Media = overlayParts.Media
+export type Action = overlayParts.Action
 export type Spec = {
 	id: string?,
 	isPresented: blueprint.Bound<boolean>?,
 	anchor: blueprint.Blueprint, -- Blueprint, required: the node the plate points at
-	content: blueprint.Blueprint | (() -> blueprint.Blueprint),
+	-- optional when title, media, steps or actions draw something
+	content: (blueprint.Blueprint | (() -> blueprint.Blueprint))?,
 	dismissLabel: string?,
+	title: blueprint.Bound<string>?,
+	media: Media?, -- construction-only
+	steps: { index: number, count: number }?,
+	actions: { Action }?, -- at most two; they replace the bottom dismiss
+	closeButton: boolean?, -- a top close affordance (default false)
 	edge: string?,
 	align: string?,
 	tail: boolean?,
