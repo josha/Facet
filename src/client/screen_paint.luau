@@ -72,7 +72,13 @@ function screen_paint.new(ctx: any)
 	local handlesByPath = ctx.handlesByPath
 	local toColor3 = ctx.toColor3
 	-- the sheet's `$ControlSelectedHover`, one formula (sheet_model.selectedHoverColor)
-	local SELECTED_HOVER = toColor3(sheet_model.selectedHoverColor(style.extra))
+	-- (a partial style that names no control ramp keeps the plain hover)
+	local x = style.extra or {}
+	local SELECTED_HOVER = if x.control ~= nil
+			and x.controlHover ~= nil
+			and x.controlSelected ~= nil
+		then toColor3(sheet_model.selectedHoverColor(x))
+		else nil
 	local isReducedMotion = ctx.isReducedMotion
 	-- the player's Background Transparency preference. An ACCESSOR,
 	-- not a value, for the same reason `focusTreatment`/`activeTheme` below are:
@@ -1105,7 +1111,7 @@ function screen_paint.new(ctx: any)
 			if handle.surfaceKind == "accent" then
 				return COLOR.accent:Lerp(Color3.new(1, 1, 1), 0.12)
 			end
-			return if handle.isSelected then SELECTED_HOVER else COLOR.controlHover
+			return if handle.isSelected and SELECTED_HOVER ~= nil then SELECTED_HOVER else COLOR.controlHover
 		end
 		local function pressedFill(): Color3
 			if handle.surfaceKind == "accent" then
