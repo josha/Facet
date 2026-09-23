@@ -83,6 +83,7 @@ local function richPlate(UI: any, opts: PlateOpts): any
 				header,
 				UI.Button({
 					id = CLOSE_ID,
+					disclose = true,
 					label = "Close",
 					compactLabel = { icon = "close", prefer = true },
 					width = { type = "fixed", px = "targetSizes.minimum" },

@@ -266,6 +266,10 @@ local ORDER = {
 	-- reachable on one machine, and a card whose every item is disabled and which
 	-- still opens. Also in `demo_picker.DEMOS`.
 	"menu",
+	-- Popover (caller-owned open state: accepted and refused closes, a source
+	-- popover), a rich coach mark, the structured help form and a bounded menu:
+	-- the Actions group's Overlays tab. Not in `demo_picker.DEMOS`.
+	"overlays",
 	-- `tab_view` (D5) is `r2`: a page's own top bar inside a screen that is
 	-- itself a tab of the app-level bottom bar, with both levels printing the
 	-- placement they resolved and which authority answered. The eviction is a

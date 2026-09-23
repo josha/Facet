@@ -1735,8 +1735,9 @@ so declaring it costs nothing; **omitting** it on text that truncates is what th
 text audit reports as a clipped-essential finding. Binding a Readable here is
 refused with the rebuild idiom, exactly like `traversalPriority`.
 
-**`help`** (string, construction-only) is one sentence
-about what this view DOES, **pulled by the player**: a pointer resting on it for
+**`help`** (a string, or the table `{ title?, body, shortcut?, edge?, align? }`;
+construction-only) is one sentence about what this view DOES, **pulled by the
+player**: a pointer resting on it for
 a dwell, or the keyboard/gamepad ring landing on it. See **Help** under
 [`app.presenter`](#apppresenter) for the whole contract — including the part that is easy to get
 wrong. **On touch, nothing appears, and that is the specification.** No
@@ -4816,7 +4817,11 @@ options = {
            | { rect = { x, y, w, h } },     -- or a fixed window-space box
     edge?     = "bottom",  -- "top" | "bottom" | "leading" | "trailing" | "overlap"
     align?    = "center",  -- "start" | "center" | "end", along that edge
+    crossOffset? = 0,      -- px ALONG the alignment axis, before the safe clamp; a
+                           -- flip changes the edge only, never the alignment or this
     gap?      = "s",       -- a theme metric name or a number
+    maxWidth?, maxHeight?, -- px caps on the SURFACE (panel and chrome), kept inside the
+                           -- LIVE safe box as insets change; absent = the plain hug
     margin?   = nil,       -- a floor on the safe box's side and bottom insets (a metric
                            -- name or px): a popover from a control passes "m" so it never
                            -- sits closer to the edge than the content it came from
@@ -4920,6 +4925,18 @@ enforces it, and it asks two separate questions:
 - **`helpOnlyRoute`** — the screen paints this sentence nowhere else, so a player
   who never hovers cannot read it. `opts.convenience` (path prefixes or a
   predicate) waives this one, and only this one.
+
+**The table form** adds a heading and placement: `body` is required (empty only
+when `title` carries the words), `title` paints above it, and `shortcut` is a
+display-only list of alternative chords in `UI.ShortcutHint`'s `keys` spelling
+(`{ { "Ctrl", "K" }, { "F1" } }`) — it registers no action and no context.
+`edge`/`align` place the plate (default `bottom`/`start`). `text_audit.helpRoutes`
+checks `title` and `body` **separately**: a title the screen repeats never vouches
+for a body it does not. For a touch player, say the words visibly or put an info
+`UI.Button` beside the control that opens a [`UI.Popover`](#uipopover).
+
+A live plate follows its source: a same-path node rebuilt with other help
+re-presents, and its width stays inside the live safe box as insets change.
 
 The plate is **chrome, not a surface**: it takes no focus, adds no focus stop and
 binds no key. A truncated `disclose` label on the same engagement **outranks** it
@@ -5887,7 +5904,7 @@ shape as `adaptive`/`composition` above.
 | Call | Result |
 |---|---|
 | `layout.transformFootprint(w, h, scale, deg)` | the axis-aligned bounding box of a `w x h` rectangle scaled uniformly by `scale` and rotated `deg` degrees about its own centre, ROUNDED UP: `width, height` (two numbers). `scale`/`rotation` are paint-only (see the `scale` row above), so the solver reserves a node's UNSCALED box and the engine draws the transformed one — a scaled/rotated container's PARENT has to reserve the painted footprint itself, as a plain sibling box outside the node that scales. This is that formula, published (framework-gaps-phase2 gap 33, audit-marked "teaches-wrong 12") so a consumer computes the reservation instead of hand-transcribing the trigonometry the `scale` row documents in prose. Reproduces the exact device measurement recorded there: `transformFootprint(100, 70, 1.5, 30)` returns `183, 166` |
-| `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `UI.RowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, tail?, tailInset?, overflow? }` (window-space rects; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`\|`"overlap"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
+| `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `UI.RowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, crossOffset?, tail?, tailInset?, overflow? }` (window-space rects; `crossOffset` px along the alignment axis before the safe clamp, default 0; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`\|`"overlap"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
 
 #### HUD insets and world markers
 
@@ -8414,10 +8431,19 @@ the popover IS its panel. This is baked into the presentation call, not a
 Spec: `{ id?, trigger: Node?, label: string?, items: { Item }, triggers: { string }?,
 presentation: (("automatic" | "menu" | "sheet") | readable)?, sizeClass: (string | readable)?,
 interactionClasses: (table | readable)?, env: Environment?, backLabel: string?,
+edge: string?, align: string?, width: Dim?, maxHeight: number?,
 onOpen: (() -> ())?, onClose: (() -> ())? }`. Both adaptive facts arrive by themselves
 from the surface's environment when you pass neither, and an automatic menu with no
 environment anywhere refuses to construct; `dump().factsFrom` says which
 happened.
+
+**`edge`/`align`** place the root panel against its trigger (default
+`bottom`/`start`); submenus keep hanging trailing/start off their parent row.
+**`width`** is any dimension table for the floating panels, and **`maxHeight`**
+bounds each floating panel in px **including its chrome**: the rows scroll inside
+one list, and row ids, activation, submenu anchors and focus scroll-into-view keep
+working one path level deeper (`…/Panel/List/Rows/Item:<id>`). Absent, every panel
+is unchanged.
 
 **`backLabel`** labels the sheet's Back row and defaults to "Back". Supply a
 localized label when appropriate. Long labels use the shared compact-label
@@ -8434,6 +8460,12 @@ An **`Item`** is one of these shapes:
 | Shape | Fields | What it is |
 |---|---|---|
 | action | `{ id, label, icon?, role?, enabled?, onSelect }` | runs `onSelect` and closes the menu |
+
+Every row shape above also takes the shared row words `Picker.Option` uses:
+`badge` (a string, number or readable — the count seal), `avatar` (an Avatar
+spec, decoration only), `sectionTitle` (a caption heading before the row, never a
+stop) and **`shortcutLabel`** (display text such as `"Ctrl+B"` — it binds
+nothing; bind the key where the action lives).
 | submenu | `{ id, label, icon?, role?, enabled?, children }` | opens a nested level; draws a trailing chevron |
 | checked | `{ id, label, checked (writable boolean cell), onChange?, dismiss?, enabled?, description?, icon? }` | toggles independent caller-owned state; stays open by default |
 | selection | `{ id, label, selected (writable cell), value, onChange?, dismiss?, enabled?, description?, icon? }` | shares one selected-value cell across exclusive choices; stays open by default |
@@ -8534,11 +8566,27 @@ something here you have not found".
 >
 > *"Use tips sparingly… Don't use tips to guide people through your app, or for advertising and promotion purposes."*
 
-Spec: `{ id?, anchor: Node, content: Node | (() -> Node), isPresented: (boolean | readable)?,
-dismissLabel: string?, edge: string?, align: string?, tail: boolean?, priority: number?,
-seen: readable?, sessions: readable?, afterSessions: number?,
-featureUsed: readable?, onRetire: (reason) -> (), onShow: (() -> ())?,
-onHide: ((reason) -> ())? }`.
+Spec: `{ id?, anchor: Node, content: (Node | (() -> Node))?, title: Bound<string>?,
+media: Media?, steps: { index, count }?, actions: { Action }?, closeButton: boolean?,
+isPresented: Bound<boolean>?, dismissLabel: string?, edge: string?, align: string?,
+tail: boolean?, priority: number?, seen: Bound<boolean>?, sessions: Bound<number>?,
+afterSessions: number?, featureUsed: Bound<boolean>?, onRetire: (reason) -> (),
+onShow: (() -> ())?, onHide: ((reason) -> ())? }`. Every `Bound` fact may be a
+value, a readable or a `(use) -> T` function; functions are tracked like readables.
+
+**The rich parts are optional.** `title` paints a heading; `media` is
+`{ image, aspectRatio | height, scaleMode?, background? }` — exactly one of a
+positive finite `aspectRatio` or `height` (px or a metric name), `scaleMode`
+`fit | crop | stretch` (absent is the Image default), `background` a `tint` value
+painted behind the image; `steps = { index, count }` shows "index of count"
+(whole numbers, `1 <= index <= count`); `actions` holds one or two
+`{ id, label, role?, enabled?, busy?, onActivate }` and **replaces** the bottom
+dismiss; `closeButton = true` adds a top close and keeps the bottom dismiss.
+`content` is optional only when title, media, steps or actions draw something; a
+plate with nothing to show is refused. An action press retires **its own**
+presentation with reason `"action"` — once, even when `onActivate` throws — and
+never a newer one the callback rearmed and presented. With none of the new parts
+the plate is the legacy content-then-dismiss plate, unchanged.
 
 `anchor` is a node you authored; the control returns **that same node** carrying
 an input contribution, so nothing is wrapped and no layout moves — the `UI.Menu`
@@ -8613,6 +8661,83 @@ app.mount(function()
                 analytics.tipRetired("PostAvatar", reason)
             end,
             ref = function(record) tip = record.api end,
+        }),
+    })
+end)
+```
+
+### `UI.Popover`
+
+`UI.Popover { … }` -> the trigger's node carrying the popover's contribution, or
+an empty node for a `source` popover. `ref` receives `{ api, dump }`.
+
+Content presented against a **trigger** or a **source**: an anchored panel, or a
+sheet on a compact touch screen. Spec:
+
+```
+{
+  id?,
+  isPresented: Bound<boolean>,          -- required: the CALLER'S accepted fact
+  onPresentedChange: ((next) -> ())?,   -- a proposal; required for any interactive open/close
+  onDismiss: ((reason) -> ())?,         -- an actual closure, once, after cleanup
+  trigger: Node?,                       -- exactly one of trigger or source
+  source: { path: string } | { rect: { x, y, w, h } }?,
+  content: () -> Node,                  -- each presentation builds and owns its own
+  edge?, align?, gap?, crossOffset?,    -- the anchored placement
+  tail: boolean?,                       -- never drawn for a rect source
+  maxWidth: number?, maxHeight: number?,-- px, the whole panel INCLUDING chrome
+  compact: ("sheet" | "popover")?,      -- default "sheet": a compact touch screen gets a sheet
+  env?,
+}
+```
+
+**The fact is yours.** The popover renders `isPresented` and never writes it.
+A trigger press, Cancel (ButtonB), a tap outside, and a sheet's Close or drag
+each call `onPresentedChange(next)`; the surface changes only when your fact
+does. Refuse by not changing it: the same surface, focus and content stay
+exactly where they were, and a refused sheet drag springs back to its detent.
+Without `onPresentedChange` nothing interactive opens or closes it — your fact
+still does. The keyboard has no Cancel key (Escape belongs to the engine's own
+menu), so give keyboard players a close action in the content or a click outside.
+
+**`onDismiss(reason)`** reports each actual closure once, after its cleanup:
+`"cancel"` (Cancel, a sheet's Close or drag, your own false, owner disposal),
+`"outside"` (a tap outside — an open popover is modal, so a press on its own
+trigger is one), `"anchorLost"`. `"trigger"` is the reason a trigger press
+proposes with.
+
+**A path source is followed through its mounted node.** When that node is
+removed or replaced, the presentation is released at once, `false` is proposed
+and `"anchorLost"` reported; your fact is left alone, and a still-true fact never
+reopens against a replacement until you start a new false → true request. A node
+that has not mounted yet is not a loss. `source.path` names a node on the same
+screen as the popover. A `rect` source is copied once and never draws a tail.
+
+**The panel** is one raised plate with one scrolling body; `maxWidth` and
+`maxHeight` cap the whole plate, chrome included, inside the live safe box, and
+an overflowing body's scroll bar is paid on the panel's own width. **A live class
+or size change** moves between the panel and the sheet silently — no proposal, no
+`onDismiss` — with one content owner at a time and the focused content path
+restored.
+
+`api = { isPresented, route, propose(next) -> accepted }` (the first two are
+readables). `dump()` reports `{ schema = "facet-popover-dump/1", id, presented,
+route, wanted, anchorLost, source }`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local open = Facet.Compose.cell(false)
+app.mount(function()
+    return UI.Screen("S")({
+        UI.Popover("Info")({
+            isPresented = open,
+            onPresentedChange = function(next) open:set(next) end,
+            trigger = UI.Button("InfoButton")({ label = "About scoring", icon = "info" }),
+            maxWidth = 320,
+            content = function()
+                return UI.Text("Body")({ text = "Laps score by position and clean overtakes." })
+            end,
         }),
     })
 end)
@@ -9110,13 +9235,19 @@ arrangement and indicator.
 `setTabHidden(tabId, hidden)`, `dump()` and `dispose()`.
 
 A tab bar and the pages behind it. `spec = { id?, selection (a writable cell),
-tabs ({ id, label?, icon?, badge?, content, section?, required? }[]), sections? ({ id, label }[]),
+tabs ({ id, label?, icon?, badge?, indicator?, enabled?, content, section?, required? }[]), sections? ({ id, label }[]),
 customization? (a writable cell), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
 conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"),
 sidebarPreference?, restoreFocus?, restoreScroll?, shoulderNavigation? }`.
+
+A tab's **`indicator`** is a [`UI.StatusIndicator`](#uistatusindicator) spec
+(`{ form?, status?, count?, max? }`) painted in that tab's own segment, in the lane
+the badge seal uses; the whole-control `indicator` (underline/pill) is a
+different setting and is unchanged. A tab's **`enabled = false`** keeps it in
+the strip and refuses its selection on every input class.
 
 ```lua
 local app = Facet.new()

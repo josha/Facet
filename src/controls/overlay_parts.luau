@@ -119,6 +119,9 @@ function overlay_parts.actionRow(UI: any, actions: { any }, height: any): any
 				role = action.role,
 				enabled = action.enabled,
 				busy = action.busy,
+				-- two actions share one row: a word too long for its half still has
+				-- its full-value path (the Sheet header's buttons do the same)
+				disclose = true,
 				width = { type = "fill", weight = 1 },
 				height = height,
 			})

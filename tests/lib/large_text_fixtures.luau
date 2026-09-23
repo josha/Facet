@@ -491,6 +491,26 @@ local FIXTURES: { Fixture } = {
 			})
 		end,
 	},
+	-- the RICH coach-mark plate: title, media, steps and the shared action row
+	-- (src/controls/overlay_parts.luau), swept through the same exported builder
+	{
+		id = "Callout-rich-plate",
+		class = "OverlayParts",
+		build = function()
+			local calloutLib = require("../../src/controls/callout")
+			return calloutLib.plate(UI, {
+				title = lt.PSEUDO_ACTION,
+				media = { image = "rbxassetid://75342910516929", aspectRatio = 2 },
+				content = UI.Text({ id = "Body", text = lt.PSEUDO_SECONDARY, textSize = "caption" }),
+				steps = { index = 2, count = 3 },
+				closeButton = true,
+				actions = {
+					{ id = "Later", label = PSEUDO, onActivate = function() end },
+					{ id = "Go", label = PSEUDO, role = "default", onActivate = function() end },
+				},
+			})
+		end,
+	},
 	{
 		id = "Rating",
 		class = "Rating",
@@ -1337,6 +1357,9 @@ local UNSWEEPABLE: { [string]: string } = {
 	MenuRecipe = "the ROW half of every menu (navigation-and-menus D2): it returns the blueprints Menu, PopupButton "
 		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
 		.. "at every preference and in both reference themes — rather than three times",
+	Popover = "its blueprint is the caller's TRIGGER (or an empty node for a source); the panel is a presented "
+		.. "surface this sweep does not open, like TableDisclosure's plate. tests/popover.spec.luau mounts it, "
+		.. "and the Overlays showcase tab is swept at Largest on a phone by showcase_tabs.spec",
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ButtonShortcut = "stateless shortcut parsing and matching — no blueprint; Button and Alert own the measured labels",
 	ProgressTrail = "internal motion value, no blueprint or text; ProgressView owns the measured meter",

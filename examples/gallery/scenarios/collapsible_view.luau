@@ -42,6 +42,8 @@ return {
 				id = key,
 				label = copy[key],
 				icon = "flag",
+				-- a per-tab status mark: the summit course is closed for weather
+				indicator = if key == "summit" then { status = "warning", form = "dot" } else nil,
 				content = function()
 					return UI.ScrollView("Course")({
 						width = UI.fill(),

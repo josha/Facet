@@ -484,7 +484,7 @@ t.describe("Consolidated showcase", function()
 				visited += 1
 			end
 		end
-		t.expect(visited).toBe(20)
+		t.expect(visited).toBe(21)
 		w.pres.dismiss(w.handle)
 		w.settle(4)
 		built.dispose()

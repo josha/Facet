@@ -25,6 +25,29 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Popover`.** Content against a trigger or a source (a path or a rect).
+  The caller owns `isPresented`; `onPresentedChange(next)` is a proposal and
+  `onDismiss(reason)` reports each closure once. A compact touch screen gets a
+  sheet (`compact = "popover"` opts out). `maxWidth`/`maxHeight` cap the whole
+  panel inside the live safe box; a removed or replaced path source releases it
+  with `"anchorLost"`.
+- **Anchored surfaces** take `crossOffset` (px along the alignment axis, before
+  the safe clamp) and live `maxWidth`/`maxHeight` caps; `Facet.layout.anchorPlacement`
+  takes `crossOffset` too.
+- **`help` has a table form** `{ title?, body, shortcut?, edge?, align? }`;
+  `text_audit.helpRoutes` checks the title and body separately. A live help or
+  disclosure plate now follows a same-path rebuild or changed value, and stays
+  inside the live safe box as insets grow; the disclosure plate also retires
+  when its label becomes a hidden ViewThatFits candidate.
+- **`UI.Callout`** takes `title`, `media`, `steps`, up to two `actions` and a
+  top `closeButton`; `content` is optional when another part draws something.
+  Function (`(use) -> T`) facts are now tracked, and a dismiss, dispose or rearm
+  inside a synchronous `onShow` no longer strands a plate.
+- **`UI.Menu`** takes root `edge`/`align`, panel `width` and `maxHeight` (rows
+  scroll one path level deeper), and items take `badge`, `avatar`,
+  `sectionTitle` and a display-only `shortcutLabel`.
+- **`UI.TabView`** tabs take `indicator` (a StatusIndicator spec) and `enabled`.
+
 - **Every stroke sits inside its box.** Theme hairlines (raised, chip, field,
   `utility`) and authored `UI.stroke` borders set
   `BorderStrokePosition = Inner`, so a scroll clip no longer cuts them, and the

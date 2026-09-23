@@ -25,6 +25,7 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Choose a visually recognizable vehicle, character, map, or item | `UI.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
 | Navigate destinations or complete a multi-step form | `UI.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
 | Confirm a consequential action | `UI.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
+| Show a little supporting content next to a control, on request | `UI.Popover` | You keep the open state; it anchors to the trigger or a source and becomes a sheet on a compact touch screen. For one hovered sentence use `help`; for an unprompted tip use `UI.Callout`. |
 
 For a labeled Picker in a settings form, `valueAlignment = "start"` places its
 menu value close to the label. The default `"end"` keeps values trailing. This
@@ -117,6 +118,10 @@ still follows TabView's lazy eviction rules. See the
 [shared demo composition](../../examples/gallery/scenarios/demo_tabs.luau).
 
 ### Decisions and page composition
+
+`help` shows nothing on touch, so when touch players need the same words, say
+them on screen or put an info `UI.Button` beside the control that opens a
+`UI.Popover` with them.
 
 Use `UI.Alert` for a brief confirmation or acknowledgement with one to three
 choices. Declare `UI.Alert` in the screen with its title, message, semantic

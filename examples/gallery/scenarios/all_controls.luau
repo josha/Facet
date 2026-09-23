@@ -22,6 +22,7 @@ local groups = {
 			{ id = "menus", label = "Menus", scenario = require("./menu") },
 			{ id = "alerts", label = "Alerts", scenario = require("./alert") },
 			{ id = "sheets", label = "Sheets", scenario = require("./sheet") },
+			{ id = "overlays", label = "Overlays", scenario = require("./overlays") },
 			{ id = "help", label = "Help", scenario = require("./callout") },
 		},
 	},
