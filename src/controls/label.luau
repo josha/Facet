@@ -30,8 +30,8 @@ local LABEL_KEYS = specGuard.keySet({
 	a semantic name is a glyph host carrying the icon hint, so the target draws
 	the theme's picture (or the glyph, or the warned dot for an unknown name);
 	an asset URL is an ordinary Image. A raw name handed to `UI.Image` paints
-	nothing. `opts`: `size` (a floor, default iconSizes.medium), `id`, `tint`,
-	`hidden`. ]]
+	nothing. `opts`: `size` (default iconSizes.medium; a fixed box, or a floor
+	the glyph may grow past with `grow = true`), `id`, `tint`, `hidden`. ]]
 function label_control.icon(UI: any, name: string, opts: any?): any
 	local o = opts or {}
 	local size = o.size or "iconSizes.medium"
@@ -53,9 +53,9 @@ function label_control.icon(UI: any, name: string, opts: any?): any
 			textAlign = "center",
 			tint = o.tint,
 			hidden = o.hidden,
-			-- a semantic glyph can grow with the text preference; package art fits its box
-			width = { type = "minMax", min = size },
-			height = { type = "minMax", min = size },
+			-- package art fits its box; a Label's glyph may grow with the text preference
+			width = if o.grow then { type = "minMax", min = size } else { type = "fixed", px = size },
+			height = if o.grow then { type = "minMax", min = size } else { type = "fixed", px = size },
 		}),
 		{ icon = name }
 	)
@@ -97,7 +97,11 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 	if effective ~= "titleOnly" then
 		table.insert(
 			children,
-			label_control.icon(UI, spec.icon :: string, { size = spec.iconSize or "controlSizes.regular.iconSize" })
+			label_control.icon(
+				UI,
+				spec.icon :: string,
+				{ size = spec.iconSize or "controlSizes.regular.iconSize", grow = true }
+			)
 		)
 	end
 	if effective ~= "iconOnly" then
