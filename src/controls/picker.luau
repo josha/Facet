@@ -2121,6 +2121,18 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	if spec.maxHeight ~= nil and style ~= "automatic" and not MENU_STYLES[style] then
 		error(`Facet UI.Picker('{id}'): \`maxHeight\` bounds the menu panel; the {style} style has none.`, 0)
 	end
+	-- the private submission seam reaches only a static strip; anywhere else it
+	-- would be dropped silently
+	assert(
+		submit == nil
+			or (
+				not MENU_STYLES[style]
+				and style ~= "automatic"
+				and style ~= "cards"
+				and not selectionModel.isSource(spec.options)
+			),
+		"Picker: the private submit seam serves only a static strip"
+	)
 	local built
 	if MENU_STYLES[style] then
 		built = buildMenu(Facet, core, spec, style, id)
