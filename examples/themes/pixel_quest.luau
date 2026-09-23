@@ -53,7 +53,9 @@ local SHADE = rgb(58, 44, 79)
 local WOOD = rgb(168, 114, 47)
 local TAN = rgb(215, 168, 96)
 local CREAM = rgb(244, 230, 192)
-local RED = rgb(122, 31, 34) -- RED_D, the palette's dark red: the mid RED fails the 4.5:1 gate against CREAM
+-- a bright red with INK lettering: danger is read as TEXT on the dark panel too, and
+-- the dark RED_D it replaced read at 1.31:1 there (5.72:1 against INK)
+local RED = rgb(240, 96, 88)
 local GRN = rgb(79, 168, 63)
 -- the two SEMANTIC plates, in the same eight-colour discipline the rest of this
 -- palette keeps: a LEAF darker than the accent green (so "success" and "the
@@ -205,7 +207,7 @@ local QUEST = {
 		accent = GRN,
 		onAccent = INK,
 		danger = RED,
-		onDanger = CREAM,
+		onDanger = INK,
 		success = LEAF,
 		onSuccess = CREAM,
 		warning = GOLD,
@@ -222,6 +224,9 @@ local QUEST = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(168, 114, 47),
+		-- the wood is mid-tone: no label colour clears 4.5:1 on it in every state,
+		-- so every lifted label wears a thin INK backing
+		chromeTextStroke = 0,
 		contentSecondary = TAN,
 		hairline = INK,
 		hairlineOpacity = 0.2,

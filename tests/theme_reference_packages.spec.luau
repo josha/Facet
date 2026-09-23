@@ -1246,6 +1246,73 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 			)
 		end
 	)
+
+	it("a plain button's lifted label reads on the resting plate, directly or on its backing", function()
+		local rows: { string } = {}
+		for _, name in { "fantasy_ornate", "glossy_touch", "pixel_quest", "compact_pointer", "fantasy_parchment" } do
+			local pkg = built(name)
+			local model = sheet_model.buildPackage(pkg)
+			local sample = doc.samples[pkg.identity.id].control
+			local backed = false
+			for _, rule in model.rules do
+				backed = backed or rule.name == "Chrome text — backing"
+			end
+			for i, theme in pkg.style.themes do
+				local plate = multiply(rgb01(sample), { r = 0.9, g = 0.9, b = 0.9 })
+				local label = model.themes[i].tokens.OnControlChrome
+				local direct = tokens.contrastRatio(label, plate)
+				-- every lifted role a plain label paints: read on the art, or — where
+				-- the package backs its labels — against the outline it wears
+				local worst = math.huge
+				for _, colour in { label, theme.colors.content, theme.extra.contentSecondary } do
+					local ratio = tokens.contrastRatio(colour, plate)
+					if backed then
+						ratio = math.max(ratio, tokens.contrastRatio(colour, theme.colors.surface))
+					end
+					worst = math.min(worst, ratio)
+				end
+				table.insert(
+					rows,
+					`{pkg.identity.id}/{theme.name} {string.format("%.2f", direct)}{if backed then " backed" else ""} worst {string.format(
+						"%.2f",
+						worst
+					)}`
+				)
+				-- the plain label itself reads everywhere; every role reads on Pixel's
+				-- backed wood (the others' secondary roles on art are census, not gate)
+				expect(direct >= FLOOR or backed).toBe(true)
+				if name == "pixel_quest" then
+					expect(worst >= FLOOR).toBe(true)
+					-- ...and a destructive label on the danger-tinted wood
+					local dangerPlate = multiply(rgb01(sample), model.themes[i].tokens.ChromeTintDanger)
+					local onDanger = model.themes[i].tokens.OnDangerChrome
+					expect(
+						math.max(
+							tokens.contrastRatio(onDanger, dangerPlate),
+							tokens.contrastRatio(onDanger, theme.colors.surface)
+						) >= FLOOR
+					).toBe(true)
+				end
+			end
+		end
+		table.sort(rows)
+		expect(table.concat(rows, " | ")).toBe(
+			"compact-pointer/Aqua 12.39 worst 4.17 | fantasy-ornate/Crypt 12.87 worst 7.99 | "
+				.. "fantasy-ornate/Grand Hall 13.56 worst 8.54 | fantasy-parchment/Candlelight 7.72 worst 1.09 | "
+				.. "fantasy-parchment/Daylight 6.23 worst 2.79 | glossy-touch/Sky 9.19 worst 3.30 | "
+				.. "pixel-quest/Quest 4.70 backed worst 8.47"
+		)
+	end)
+
+	it("the danger role reads as text on the panel in every Pixel Quest variant", function()
+		for _, theme in built("pixel_quest").style.themes do
+			local danger, onDanger = tokens.dangerPair(theme.colors)
+			expect(`{theme.name} {tokens.contrastRatio(danger, theme.colors.surface) >= FLOOR}`).toBe(
+				`{theme.name} true`
+			)
+			expect(tokens.contrastRatio(onDanger, danger) >= FLOOR).toBe(true)
+		end
+	end)
 end)
 
 describe("RS-DIR12: the picker's active row is a SELECTION, not a borrowed fill", function()

@@ -639,17 +639,41 @@ end
 	`tint`. The art's colour as painted is the package's `extra.controlArt` (its
 	sampled centre), else its flat `control`. `onAccent` when it clears the floor
 	there, else `content` when that does, else whichever reads better. ]]
-function sheet_model.onChromeColor(theme: any, tint: any): { r: number, g: number, b: number }
-	local c = theme.colors
+local function chromePlate(theme: any, tint: any): { r: number, g: number, b: number }
 	local x = theme.extra or {}
 	local base = if type(x.controlArt) == "table"
 		then x.controlArt
 		elseif type(x.control) == "table" then x.control
-		else c.surfaceStrong
-	local plate = { r = base.r * tint.r, g = base.g * tint.g, b = base.b * tint.b }
+		else theme.colors.surfaceStrong
+	return { r = base.r * tint.r, g = base.g * tint.g, b = base.b * tint.b }
+end
+sheet_model.chromePlate = chromePlate
+
+function sheet_model.onChromeColor(theme: any, tint: any): { r: number, g: number, b: number }
+	local c = theme.colors
+	local plate = chromePlate(theme, tint)
 	local on, content = tokens.contrastRatio(c.onAccent, plate), tokens.contrastRatio(c.content, plate)
 	local pick = if on >= SELECTED_CONTRAST_FLOOR or on >= content then c.onAccent else c.content
 	return { r = pick.r, g = pick.g, b = pick.b }
+end
+
+--[[ ...AND ANY OTHER LIFTED LABEL on its tinted art: the first of `picks` that
+	clears the floor there, else whichever reads best. A plain button offers
+	content first (every flat-art package keeps its label), then contentStrong and
+	onAccent; a destructive one offers onDanger first. ]]
+function sheet_model.readableOnChrome(theme: any, tint: any, picks: { any }): { r: number, g: number, b: number }
+	local plate = chromePlate(theme, tint)
+	local best, bestRatio = picks[1], -1
+	for _, pick in picks do
+		local ratio = tokens.contrastRatio(pick, plate)
+		if ratio >= SELECTED_CONTRAST_FLOOR then
+			return { r = pick.r, g = pick.g, b = pick.b }
+		end
+		if ratio > bestRatio then
+			best, bestRatio = pick, ratio
+		end
+	end
+	return { r = best.r, g = best.g, b = best.b }
 end
 
 -- the gate the resolver leans on: SOME content role must be readable on the
@@ -2430,6 +2454,19 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- theme's control art multiplied by the accent tint is not the accent fill
 		-- `onAccent` is gated against (a mid wood or dark lacquer plate under it)
 		tokenSet.OnAccentChrome = color(sheet_model.onChromeColor(styleLike, tokenSet.ChromeTintAccent))
+		local rest = { r = CHROME_TINT_REST, g = CHROME_TINT_REST, b = CHROME_TINT_REST }
+		local c = entry.colors
+		tokenSet.OnControlChrome =
+			color(sheet_model.readableOnChrome(styleLike, rest, { c.content, c.contentStrong, c.onAccent }))
+		tokenSet.OnDangerChrome = color(
+			sheet_model.readableOnChrome(
+				styleLike,
+				dangerTint,
+				{ (select(2, dangerPair(c))), c.content, c.contentStrong }
+			)
+		)
+		-- the lifted labels' backing transparency (`extra.chromeTextStroke`)
+		tokenSet.ChromeTextStroke = num(if type(x.chromeTextStroke) == "number" then x.chromeTextStroke else 1)
 		-- gradient tokens. EVERY theme carries a token for every gradient slot
 		-- any theme declares: a `$Token` that resolves in one theme and not in
 		-- another is a rule that stops painting on a swap, so a theme that
@@ -3265,6 +3302,30 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- label too. `$OnSelected` is the theme's own decision (see
 		-- `selectedContentColor`): $Content wherever it still clears the 4.5
 		-- floor against the theme's selected surface, $OnAccent where it does not.
+		-- a plain button's label on its resting art; every role and state below wins
+		emit("chrome", {
+			name = "Chrome text — control",
+			selector = `TextButton > .{liftTag}`,
+			props = { TextColor3 = "$OnControlChrome" },
+		})
+		-- a thin dark backing behind every lifted label (a glyph outline), only in a
+		-- package whose art asks for one (`extra.chromeTextStroke`)
+		local backed = false
+		for _, x in extraByTheme do
+			backed = backed or type(x.chromeTextStroke) == "number"
+		end
+		if backed then
+			emit("chrome", {
+				name = "Chrome text — backing",
+				selector = `.{liftTag}::UIStroke`,
+				props = {
+					Color = "$Surface",
+					Thickness = num(1),
+					Transparency = "$ChromeTextStroke",
+					ApplyStrokeMode = { kind = "enum", enum = "ApplyStrokeMode", item = "Contextual" },
+				},
+			})
+		end
 		emit("chrome", {
 			name = "Chrome text — selected",
 			selector = `.{T.selected} > .{liftTag}`,
@@ -3290,7 +3351,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — destructive",
 			selector = `.facet-role-destructive > .{liftTag}`,
-			props = { TextColor3 = "$OnDanger" },
+			props = { TextColor3 = "$OnDangerChrome" },
 		})
 		--[[ ...and the label-only role's lifted twin (stabilization B'1). A skinned
 			text-bearing slot moves the label into a managed child, so every
