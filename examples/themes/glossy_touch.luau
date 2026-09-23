@@ -99,6 +99,8 @@ local SKY = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(207, 214, 227),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(253, 253, 255),
 		contentSecondary = rgb(88, 100, 120),
 		hairline = rgb(36, 56, 86),
 		hairlineOpacity = 0.8,

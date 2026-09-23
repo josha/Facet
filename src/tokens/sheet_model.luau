@@ -637,15 +637,23 @@ end
 
 --[[ THE LABEL ON A TINTED CONTROL PLATE: a skinned control's art multiplied by
 	`tint`. The art's colour as painted is the package's `extra.controlArt` (its
-	sampled centre), else its flat `control`. `onAccent` when it clears the floor
-	there, else `content` when that does, else whichever reads better. ]]
-local function chromePlate(theme: any, tint: any): { r: number, g: number, b: number }
+	sampled centre), else its flat `control`; another slot's art is `extra[art]`
+	(`fieldArt`, `badgeArt`). Art that lets the panel through (`a` < 1, a badge
+	seal) reads over the surface. `onAccent` when it clears the floor there, else
+	`content` when that does, else whichever reads better. ]]
+local function chromePlate(theme: any, tint: any, art: string?): { r: number, g: number, b: number }
 	local x = theme.extra or {}
-	local base = if type(x.controlArt) == "table"
-		then x.controlArt
+	local base = if art ~= nil and type(x[art]) == "table"
+		then x[art]
+		elseif type(x.controlArt) == "table" then x.controlArt
 		elseif type(x.control) == "table" then x.control
 		else theme.colors.surfaceStrong
-	return { r = base.r * tint.r, g = base.g * tint.g, b = base.b * tint.b }
+	local a, s = base.a or 1, theme.colors.surface
+	return {
+		r = base.r * tint.r * a + s.r * (1 - a),
+		g = base.g * tint.g * a + s.g * (1 - a),
+		b = base.b * tint.b * a + s.b * (1 - a),
+	}
 end
 sheet_model.chromePlate = chromePlate
 
@@ -661,8 +669,13 @@ end
 	clears the floor there, else whichever reads best. A plain button offers
 	content first (every flat-art package keeps its label), then contentStrong and
 	onAccent; a destructive one offers onDanger first. ]]
-function sheet_model.readableOnChrome(theme: any, tint: any, picks: { any }): { r: number, g: number, b: number }
-	local plate = chromePlate(theme, tint)
+function sheet_model.readableOnChrome(
+	theme: any,
+	tint: any,
+	picks: { any },
+	art: string?
+): { r: number, g: number, b: number }
+	local plate = chromePlate(theme, tint, art)
 	local best, bestRatio = picks[1], -1
 	for _, pick in picks do
 		local ratio = tokens.contrastRatio(pick, plate)
@@ -1333,6 +1346,15 @@ function sheet_model.contentTags(tags: { string }, state: string): { [string]: b
 	return out
 end
 
+-- ...and every other lifted label takes its role's colour as picked against the art
+local LIFT_TOKEN: { [string]: string } = {
+	["$OnAccent"] = "$OnAccentChrome",
+	["$Content"] = "$OnControlChrome",
+	["$ContentStrong"] = "$OnControlChromeStrong",
+	["$ContentSecondary"] = "$OnControlChromeSecondary",
+	["$OnDanger"] = "$OnDangerChrome",
+}
+
 local function projectContentRules(rules: { Rule })
 	local hasLift = false
 	for _, rule in rules do
@@ -1372,8 +1394,10 @@ local function projectContentRules(rules: { Rule })
 			local value = source.props[channel[4]]
 			-- a LIFTED label sits on the control's art, never on the accent fill
 			-- $OnAccent is gated against (see `onChromeColor`)
-			if channel[1] == "lift" and value == "$OnAccent" then
-				value = "$OnAccentChrome"
+			if channel[1] == "lift" then
+				value = if value == "$ContentSecondary" and string.find(selector, "role-cancel", 1, true)
+					then "$OnCancelChrome"
+					else LIFT_TOKEN[value] or value
 			end
 			local buttonSelector = string.sub(source.selector, 1, 10) == "TextButton"
 			-- Only the control's own opacity decision reaches art. Glyph-suppression
@@ -2456,8 +2480,20 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		tokenSet.OnAccentChrome = color(sheet_model.onChromeColor(styleLike, tokenSet.ChromeTintAccent))
 		local rest = { r = CHROME_TINT_REST, g = CHROME_TINT_REST, b = CHROME_TINT_REST }
 		local c = entry.colors
-		tokenSet.OnControlChrome =
-			color(sheet_model.readableOnChrome(styleLike, rest, { c.content, c.contentStrong, c.onAccent }))
+		-- every lifted label role, picked against the art it sits on: its own
+		-- colour where that reads, else the next of the ramp that does
+		local function pick(tint: any, picks: { any }, art: string?): TokenValue
+			return color(sheet_model.readableOnChrome(styleLike, tint, picks, art))
+		end
+		local body = { c.content, c.contentStrong, c.onAccent }
+		local quiet = { x.contentSecondary, c.content, c.contentStrong, c.onAccent }
+		tokenSet.OnControlChrome = pick(rest, body)
+		tokenSet.OnControlChromeStrong = pick(rest, { c.contentStrong, c.content, c.onAccent })
+		tokenSet.OnControlChromeSecondary = pick(rest, quiet)
+		tokenSet.OnCancelChrome = pick(tokenSet.ChromeTintCancel, quiet)
+		tokenSet.OnFieldChrome = pick(rest, body, "fieldArt")
+		tokenSet.OnFieldChromeSecondary = pick(rest, quiet, "fieldArt")
+		tokenSet.OnBadgeChrome = pick(rest, body, "badgeArt")
 		tokenSet.OnDangerChrome = color(
 			sheet_model.readableOnChrome(
 				styleLike,
@@ -3305,8 +3341,18 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- a plain button's label on its resting art; every role and state below wins
 		emit("chrome", {
 			name = "Chrome text — control",
-			selector = `TextButton > .{liftTag}`,
+			selector = `.{chrome_slots.skinnedTagFor("control")} > .{liftTag}`,
 			props = { TextColor3 = "$OnControlChrome" },
+		})
+		emit("chrome", {
+			name = "Chrome text — field",
+			selector = `.{chrome_slots.skinnedTagFor("field")} > .{liftTag}`,
+			props = { TextColor3 = "$OnFieldChrome" },
+		})
+		emit("chrome", {
+			name = "Chrome text — badge",
+			selector = `.{chrome_slots.skinnedTagFor("badge")} > .{liftTag}`,
+			props = { TextColor3 = "$OnBadgeChrome" },
 		})
 		-- a thin dark backing behind every lifted label (a glyph outline), only in a
 		-- package whose art asks for one (`extra.chromeTextStroke`)
@@ -3382,12 +3428,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — cancel",
 			selector = `.facet-role-cancel > .{liftTag}`,
-			props = { TextColor3 = "$ContentSecondary" },
+			props = { TextColor3 = "$OnCancelChrome" },
 		})
 		emit("chrome", {
 			name = "Chrome text — secondary",
 			selector = `.{liftTag}.facet-role-secondary`,
-			props = { TextColor3 = "$ContentSecondary" },
+			props = { TextColor3 = "$OnFieldChromeSecondary" },
 		})
 		-- The two role tags the RENDERER puts on the PARENT (classifyTags:
 		-- `strong` for heading-and-above text, `roleSecondary` for the secondary
@@ -3398,12 +3444,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — strong",
 			selector = `.facet-role-strong > .{liftTag}`,
-			props = { TextColor3 = "$ContentStrong" },
+			props = { TextColor3 = "$OnControlChromeStrong" },
 		})
 		emit("chrome", {
 			name = "Chrome text — parent secondary",
 			selector = `.facet-role-secondary > .{liftTag}`,
-			props = { TextColor3 = "$ContentSecondary" },
+			props = { TextColor3 = "$OnControlChromeSecondary" },
 		})
 		emit("chrome", {
 			name = "Chrome text — disabled button",

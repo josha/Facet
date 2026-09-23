@@ -684,11 +684,12 @@ describe("buildPackage: the chrome text lift paints on every skin that lifts (C1
 		local strong = byName["Chrome text — strong"]
 		expect(strong ~= nil).toBe(true)
 		expect(strong.selector).toBe(".facet-role-strong > .facet-chrome-text")
-		expect(strong.props.TextColor3).toBe("$ContentStrong")
+		-- each picked against the control art the label sits on
+		expect(strong.props.TextColor3).toBe("$OnControlChromeStrong")
 		local secondary = byName["Chrome text — parent secondary"]
 		expect(secondary ~= nil).toBe(true)
 		expect(secondary.selector).toBe(".facet-role-secondary > .facet-chrome-text")
-		expect(secondary.props.TextColor3).toBe("$ContentSecondary")
+		expect(secondary.props.TextColor3).toBe("$OnControlChromeSecondary")
 		-- the label's OWN placeholder tag keeps its rule too
 		expect(byName["Chrome text — secondary"].selector).toBe(".facet-chrome-text.facet-role-secondary")
 	end)

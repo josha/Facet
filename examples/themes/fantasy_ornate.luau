@@ -115,6 +115,10 @@ local GRAND_HALL = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(55, 27, 44),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(30, 20, 28),
+		-- ...and the badge seal's, where its count reads (it lets the panel through)
+		badgeArt = { r = 175 / 255, g = 145 / 255, b = 89 / 255, a = 0.79 },
 		contentSecondary = rgb(206, 186, 148),
 		hairline = rgb(226, 200, 150),
 		hairlineOpacity = 0.7,
@@ -159,6 +163,10 @@ local CRYPT = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(55, 27, 44),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(30, 20, 28),
+		-- ...and the badge seal's, where its count reads (it lets the panel through)
+		badgeArt = { r = 175 / 255, g = 145 / 255, b = 89 / 255, a = 0.79 },
 		contentSecondary = rgb(168, 184, 200),
 		hairline = rgb(150, 176, 186),
 		hairlineOpacity = 0.6,

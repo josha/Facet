@@ -413,6 +413,13 @@ describe("native primary-content paint bridge", function()
 		end
 	end)
 	it("keeps lifted primary Button text on the same role, appearance, selection and state rules", function()
+		local LIFT_TOKEN = {
+			["$OnAccent"] = "$OnAccentChrome",
+			["$Content"] = "$OnControlChrome",
+			["$ContentStrong"] = "$OnControlChromeStrong",
+			["$ContentSecondary"] = "$OnControlChromeSecondary",
+			["$OnDanger"] = "$OnDangerChrome",
+		}
 		for _, theme in { "pixel_quest", "fantasy_ornate" } do
 			local model = sheet.buildPackage(require("../examples/themes/" .. theme).build(Facet.themes))
 			for _, appearance in { "standard", "emphasis", "soft", "utility", "link" } do
@@ -432,12 +439,12 @@ describe("native primary-content paint bridge", function()
 							do
 								table.insert(tags, tag)
 							end
-							-- ...except that a lifted label sits on the control's ART, so the
-							-- accent partner it takes is the one paired with that art
+							-- ...except that a lifted label sits on the control's ART, so each
+							-- role's colour is the one picked against that art
 							local want = resolved(model, "TextButton", tags, guiState, "TextColor3")
-							if want == "$OnAccent" then
-								want = "$OnAccentChrome"
-							end
+							want = if want == "$ContentSecondary" and role == "cancel"
+								then "$OnCancelChrome"
+								else LIFT_TOKEN[want] or want
 							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(want)
 							if guiState == "NonInteractable" then
 								expect(resolvedLift(model, tags, guiState, "TextTransparency")).toEqual(

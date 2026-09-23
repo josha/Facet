@@ -18,6 +18,22 @@
           "y1": 14
         }
       },
+      "field": {
+        "alpha": 1.0,
+        "asset": "compact_field",
+        "b": 255,
+        "file": "assets/themes/compact-pointer/compact_field.png",
+        "g": 255,
+        "r": 255,
+        "sha256": "919b0336ba860659b93cc5814e25e2545bbb5b15c506044f7b77845ff88f0f7c",
+        "size": "32x22",
+        "sliceCenter": {
+          "x0": 8,
+          "x1": 24,
+          "y0": 8,
+          "y1": 14
+        }
+      },
       "selected": {
         "alpha": 1.0,
         "asset": "compact_button_hover",
@@ -36,6 +52,22 @@
       }
     },
     "fantasy-ornate": {
+      "badge": {
+        "alpha": 0.7903,
+        "asset": "ornate_bar_center",
+        "b": 89,
+        "file": "assets/themes/fantasy-ornate/ornate_bar_center.png",
+        "g": 145,
+        "r": 175,
+        "sha256": "f3747c83ad6efca67efc19fcbccedc2df7e035a24a8d3ae3d5dabf0991bc8059",
+        "size": "36x28",
+        "sliceCenter": {
+          "x0": 5,
+          "x1": 31,
+          "y0": 5,
+          "y1": 23
+        }
+      },
       "control": {
         "alpha": 1.0,
         "asset": "ornate_button_default",
@@ -44,6 +76,22 @@
         "g": 27,
         "r": 55,
         "sha256": "3c942c9049955a31feaaeded9e430504e3a0e80ad6c064537baf8ce1b5967fac",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "ornate_field",
+        "b": 28,
+        "file": "assets/themes/fantasy-ornate/ornate_field.png",
+        "g": 20,
+        "r": 30,
+        "sha256": "5028f68110b72c05171a61c51465cb50cf16b6483e5f0d41cc2372314453ea13",
         "size": "64x64",
         "sliceCenter": {
           "x0": 16,
@@ -70,6 +118,22 @@
       }
     },
     "fantasy-parchment": {
+      "badge": {
+        "alpha": 1.0,
+        "asset": "parchment_badge",
+        "b": 148,
+        "file": "assets/themes/fantasy-parchment/parchment_badge.png",
+        "g": 187,
+        "r": 207,
+        "sha256": "57c965e6c0cb3217d8ebe30cfa0cfeefdd46136bb0f4bad43d83495acba63ea8",
+        "size": "28x28",
+        "sliceCenter": {
+          "x0": 5,
+          "x1": 23,
+          "y0": 5,
+          "y1": 23
+        }
+      },
       "control": {
         "alpha": 1.0,
         "asset": "parchment_button",
@@ -78,6 +142,22 @@
         "g": 187,
         "r": 210,
         "sha256": "45c106d28d28ae75ac96074bffa03e37defd8e60100575547f53706d3679f882",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "parchment_field",
+        "b": 171,
+        "file": "assets/themes/fantasy-parchment/parchment_field.png",
+        "g": 213,
+        "r": 234,
+        "sha256": "eb6c830ef98788444111117c91009c7c09860a23b019906e65041018d4d924b8",
         "size": "64x64",
         "sliceCenter": {
           "x0": 16,
@@ -96,6 +176,22 @@
         "g": 214,
         "r": 207,
         "sha256": "e754429e98ff56a43c6affbd86818d91ebd271a7f93db1aedd77ee8101ced463",
+        "size": "64x44",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 28
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "glossy_field",
+        "b": 255,
+        "file": "assets/themes/glossy-touch/glossy_field.png",
+        "g": 253,
+        "r": 253,
+        "sha256": "e47f6df0cae220d7d607ece98d0d43812dd3dc0086551d0235274c0f54ed7d55",
         "size": "64x44",
         "sliceCenter": {
           "x0": 16,
@@ -130,6 +226,22 @@
         "g": 114,
         "r": 168,
         "sha256": "0cca342563e5ba04e85bafdaa37032db68cfd0e686910f9ba509d47ef2132138",
+        "size": "36x36",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 20,
+          "y0": 16,
+          "y1": 20
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "pixel_field",
+        "b": 79,
+        "file": "assets/themes/pixel-quest/pixel_field.png",
+        "g": 44,
+        "r": 58,
+        "sha256": "593f97cd00467e1455cfd51d7dcc772c2b965eaebad7bdecf281b9039c47a677",
         "size": "36x36",
         "sliceCenter": {
           "x0": 16,

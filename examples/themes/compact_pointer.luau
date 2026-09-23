@@ -82,6 +82,8 @@ local AQUA = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(246, 246, 249),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(255, 255, 255),
 		contentSecondary = rgb(96, 104, 116),
 		hairline = rgb(140, 148, 160),
 		hairlineOpacity = 0.9,

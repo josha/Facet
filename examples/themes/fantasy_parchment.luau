@@ -66,6 +66,10 @@ local DAYLIGHT = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(210, 187, 146),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(234, 213, 171),
+		-- ...and the badge seal's, where its count reads
+		badgeArt = rgb(207, 187, 148),
 		contentSecondary = rgb(110, 92, 66),
 		hairline = rgb(88, 68, 44),
 		-- FOCUS GLOW (director review 2026-07-25: the blue selection ring "looks
@@ -111,6 +115,10 @@ local CANDLELIGHT = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(210, 187, 146),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(234, 213, 171),
+		-- ...and the badge seal's, where its count reads
+		badgeArt = rgb(207, 187, 148),
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
 		-- Candlelight: warm amber firelight, pushed brighter still because the

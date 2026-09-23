@@ -517,7 +517,11 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 		-- Re-pinned again 2026-09-23: both variants declare `controlArt`, the
 		-- sampled colour of their control art, which the lifted accent label is
 		-- paired against. Measured: 5eb8f614 -> 9863f738.
-		expect(built("fantasy_parchment").stamp).toBe("9863f738")
+		--
+		-- Re-pinned again 2026-09-23: both variants declare `fieldArt` and
+		-- `badgeArt`, the sampled field and seal colours their lifted text is
+		-- picked against. Measured: 9863f738 -> 7dbf3be8.
+		expect(built("fantasy_parchment").stamp).toBe("7dbf3be8")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()
@@ -1096,7 +1100,7 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 	it("re-hashes every sampled PNG, so a stale sample is a failure and not a drift", function()
 		local seen = 0
 		for _, bySlot in doc.samples do
-			for _, entry in bySlot do
+			for slot, entry in bySlot do
 				local actual = serde.hash("sha256", fs.readFile(entry.file))
 				if actual ~= entry.sha256 then
 					error(
@@ -1105,11 +1109,13 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 						0
 					)
 				end
-				expect(entry.alpha >= 0.9).toBe(true) -- an opaque plate, or the sample means nothing
+				-- an opaque plate, or the sample means nothing; a badge seal lets the
+				-- panel through and the gate below composites it over the surface
+				expect(entry.alpha >= 0.9 or slot == "badge").toBe(true)
 				seen += 1
 			end
 		end
-		expect(seen).toBe(9)
+		expect(seen).toBe(16)
 	end)
 
 	it("every package whose SELECTION slot is image art declares that art's colour", function()
@@ -1247,60 +1253,69 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 		end
 	)
 
-	it("a plain button's lifted label reads on the resting plate, directly or on its backing", function()
+	it("every lifted text role clears 4.5:1 on the art it sits on, directly or on its backing", function()
+		-- each role's label token against the SAMPLED art under its tint: a control's
+		-- plain, strong and secondary labels at rest, its cancel and destructive
+		-- plates, a field's text and placeholder, and a badge's count (a seal that
+		-- lets the panel through is composited over the surface)
 		local rows: { string } = {}
 		for _, name in { "fantasy_ornate", "glossy_touch", "pixel_quest", "compact_pointer", "fantasy_parchment" } do
 			local pkg = built(name)
 			local model = sheet_model.buildPackage(pkg)
-			local sample = doc.samples[pkg.identity.id].control
+			local samples = doc.samples[pkg.identity.id]
 			local backed = false
 			for _, rule in model.rules do
 				backed = backed or rule.name == "Chrome text — backing"
 			end
 			for i, theme in pkg.style.themes do
-				local plate = multiply(rgb01(sample), { r = 0.9, g = 0.9, b = 0.9 })
-				local label = model.themes[i].tokens.OnControlChrome
-				local direct = tokens.contrastRatio(label, plate)
-				-- every lifted role a plain label paints: read on the art, or — where
-				-- the package backs its labels — against the outline it wears
-				local worst = math.huge
-				for _, colour in { label, theme.colors.content, theme.extra.contentSecondary } do
-					local ratio = tokens.contrastRatio(colour, plate)
+				local t = model.themes[i].tokens
+				local rest = { r = 0.9, g = 0.9, b = 0.9 }
+				local function plate(sample: any, tint: any)
+					local art, a, s = multiply(rgb01(sample), tint), sample.alpha, theme.colors.surface
+					return lerp(s, art, a)
+				end
+				local control, field = samples.control, samples.field
+				local cases = {
+					{ "plain", t.OnControlChrome, plate(control, rest) },
+					{ "strong", t.OnControlChromeStrong, plate(control, rest) },
+					{ "secondary", t.OnControlChromeSecondary, plate(control, rest) },
+					{ "cancel", t.OnCancelChrome, plate(control, t.ChromeTintCancel) },
+					{ "destructive", t.OnDangerChrome, plate(control, t.ChromeTintDanger) },
+					{ "field", t.OnFieldChrome, plate(field, rest) },
+					{ "placeholder", t.OnFieldChromeSecondary, plate(field, rest) },
+				}
+				if samples.badge ~= nil then
+					table.insert(cases, { "badge", t.OnBadgeChrome, plate(samples.badge, rest) })
+				end
+				local worst, worstRole = math.huge, ""
+				for _, case in cases do
+					local ratio = tokens.contrastRatio(case[2], case[3])
 					if backed then
-						ratio = math.max(ratio, tokens.contrastRatio(colour, theme.colors.surface))
+						ratio = math.max(ratio, tokens.contrastRatio(case[2], theme.colors.surface))
 					end
-					worst = math.min(worst, ratio)
+					expect(`{pkg.identity.id}/{theme.name} {case[1]} {ratio >= FLOOR}`).toBe(
+						`{pkg.identity.id}/{theme.name} {case[1]} true`
+					)
+					if ratio < worst then
+						worst, worstRole = ratio, case[1]
+					end
 				end
 				table.insert(
 					rows,
-					`{pkg.identity.id}/{theme.name} {string.format("%.2f", direct)}{if backed then " backed" else ""} worst {string.format(
+					`{pkg.identity.id}/{theme.name}{if backed then " backed" else ""} {worstRole} {string.format(
 						"%.2f",
 						worst
 					)}`
 				)
-				-- the plain label itself reads everywhere; every role reads on Pixel's
-				-- backed wood (the others' secondary roles on art are census, not gate)
-				expect(direct >= FLOOR or backed).toBe(true)
-				if name == "pixel_quest" then
-					expect(worst >= FLOOR).toBe(true)
-					-- ...and a destructive label on the danger-tinted wood
-					local dangerPlate = multiply(rgb01(sample), model.themes[i].tokens.ChromeTintDanger)
-					local onDanger = model.themes[i].tokens.OnDangerChrome
-					expect(
-						math.max(
-							tokens.contrastRatio(onDanger, dangerPlate),
-							tokens.contrastRatio(onDanger, theme.colors.surface)
-						) >= FLOOR
-					).toBe(true)
-				end
 			end
 		end
 		table.sort(rows)
+		-- each variant's weakest role, pinned
 		expect(table.concat(rows, " | ")).toBe(
-			"compact-pointer/Aqua 12.39 worst 4.17 | fantasy-ornate/Crypt 12.87 worst 7.99 | "
-				.. "fantasy-ornate/Grand Hall 13.56 worst 8.54 | fantasy-parchment/Candlelight 7.72 worst 1.09 | "
-				.. "fantasy-parchment/Daylight 6.23 worst 2.79 | glossy-touch/Sky 9.19 worst 3.30 | "
-				.. "pixel-quest/Quest 4.70 backed worst 8.47"
+			"compact-pointer/Aqua destructive 4.55 | fantasy-ornate/Crypt badge 4.63 | "
+				.. "fantasy-ornate/Grand Hall badge 4.64 | fantasy-parchment/Candlelight cancel 4.87 | "
+				.. "fantasy-parchment/Daylight cancel 5.84 | glossy-touch/Sky placeholder 4.70 | "
+				.. "pixel-quest/Quest backed cancel 8.47"
 		)
 	end)
 

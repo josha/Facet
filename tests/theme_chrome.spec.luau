@@ -1168,7 +1168,7 @@ describe("role tints paint the ART, not a slab behind it", function()
 		local model = sheet_model.buildPackage(parchment())
 		-- the destructive label pairs with the danger-tinted art, as the accent one does
 		expect(ruleNamed(model, "Chrome text — destructive").props.TextColor3).toBe("$OnDangerChrome")
-		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$ContentSecondary")
+		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$OnCancelChrome")
 		-- the accent label pairs with the art it sits on, not the accent fill
 		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccentChrome")
 		-- ...and so does the generated lift of the primary label rule, which
@@ -1176,6 +1176,32 @@ describe("role tints paint the ART, not a slab behind it", function()
 		expect(ruleNamed(model, "Control content lift — Primary button label").props.TextColor3).toBe(
 			"$OnAccentChrome"
 		)
+	end)
+
+	it("every lifted label takes the colour picked against the art it sits on", function()
+		local model = sheet_model.buildPackage(parchment())
+		local cases = {
+			-- the generated lifts out-rank the hand rules, so they carry the picks too
+			["Control content lift — Button text default"] = "$OnControlChrome",
+			["Control content lift — Strong text"] = "$OnControlChromeStrong",
+			["Control content lift — Secondary text"] = "$OnControlChromeSecondary",
+			["Control content lift — Cancel button"] = "$OnCancelChrome",
+			["Control content lift — Destructive button"] = "$OnDangerChrome",
+			-- a lifted TextLabel on control art, a field's text and placeholder, a badge
+			["Chrome text — control"] = "$OnControlChrome",
+			["Chrome text — field"] = "$OnFieldChrome",
+			["Chrome text — secondary"] = "$OnFieldChromeSecondary",
+			["Chrome text — badge"] = "$OnBadgeChrome",
+			["Chrome text — strong"] = "$OnControlChromeStrong",
+			["Chrome text — parent secondary"] = "$OnControlChromeSecondary",
+		}
+		for name, token in cases do
+			local rule = ruleNamed(model, name)
+			expect(`{name} {rule and rule.props.TextColor3}`).toBe(`{name} {token}`)
+		end
+		expect(ruleNamed(model, "Chrome text — control").selector).toBe(".facet-skinned-control > .facet-chrome-text")
+		expect(ruleNamed(model, "Chrome text — field").selector).toBe(".facet-skinned-field > .facet-chrome-text")
+		expect(ruleNamed(model, "Chrome text — badge").selector).toBe(".facet-skinned-badge > .facet-chrome-text")
 	end)
 
 	it("a flat package emits no role tint rules (there is no art to tint)", function()
