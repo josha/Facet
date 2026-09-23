@@ -417,7 +417,7 @@ describe("DateTimePicker: a single date", function()
 				return path ~= nil and string.match(path, "/Days/R%d/D%d+$") ~= nil
 			end
 			expect(w.pres.focus.focused:peek()).toBe(cellOf(w, D(2026, 9, 16)))
-			expect(w.adapter.visibleOf(must(w, "/Calendar/PageHint")) == true).toBe(false)
+			expect(find(w, "/Calendar/PageHint/then/Keys")).toBeNil()
 			-- left past the first day pages back into August; right pages forward again
 			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 1)))).toBe(true)
 			w.press("Left")
@@ -488,7 +488,7 @@ describe("DateTimePicker: a single date", function()
 				w.settle(3)
 				local held = w.record("P").dump().month
 				-- a live pad is told which keys page the month
-				expect(w.adapter.visibleOf(must(w, "/Calendar/PageHint"))).toBe(true)
+				expect(w.adapter.visibleOf(must(w, "/Calendar/PageHint/then/Keys"))).toBe(true)
 				expect(w.pres.focus.focusOn(cellOf(w, start, #w.record("P").dump().cellPaths))).toBe(true)
 				local function at(): string
 					return w.pres.focus.focused:peek() or ""
@@ -819,9 +819,9 @@ describe("DateTimePicker: layout, routes and refusals", function()
 			}, { viewport = { x = 0, y = 0, w = 1000, h = 900 } })
 			expect(w.record("P").dump().dual).toBe(true)
 			local function titles(): string
-				return w.adapter.node(must(w, "/Pane1/Title")).props.text
+				return w.adapter.node(must(w, "/Pane1/Titled/then/Title")).props.text
 					.. " | "
-					.. w.adapter.node(must(w, "/Pane2/Title")).props.text
+					.. w.adapter.node(must(w, "/Pane2/Titled/then/Title")).props.text
 			end
 			expect(titles()).toBe("December 2026 | January 2027")
 			-- Down crosses from the first month into the second; only the second's
@@ -889,6 +889,24 @@ describe("DateTimePicker: layout, routes and refusals", function()
 			expect(string.find(w.pres.focus.focused:peek() or "", `/Col/{id}/`, 1, true) ~= nil).toBe(true)
 			expect(string.find(w.pres.focus.focused:peek() or "", "/Hour/", 1, true) ~= nil).toBe(true)
 		end
+	end)
+
+	it("a single date's panel hugs its six weeks: no room kept for an absent hint, caption or footer", function()
+		local cell, _, change = caller(D(2026, 9, 16))
+		local w = mount({ value = cell, onChange = change })
+		open(w)
+		local panel = w.adapter.node(must(w, "/Popover-P/Layer/Surface/Popup/Panel")).rect
+		local rows = w.record("P").dump().cellPaths[1]
+		local last = w.adapter.node(rows[#rows]).rect
+		local first = w.adapter.node(rows[1]).rect
+		-- the bottom inset equals the side inset, whatever month is shown
+		expect(panel.y + panel.h - (last.y + last.h)).toBe(first.x - panel.x)
+		-- the month and year share the header's one line, and no caption sits
+		-- between the rule and the weekdays
+		expect(w.adapter.node(must(w, "/Calendar/Header")).rect.h).toBe(44)
+		local rule = w.adapter.node(must(w, "/Calendar/HeaderRule")).rect
+		local weekdays = w.adapter.node(must(w, "/Pane1/Weekdays")).rect
+		expect(weekdays.y - (rule.y + rule.h)).toBe(16)
 	end)
 
 	it(

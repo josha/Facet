@@ -792,16 +792,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			id = `Pane{k}`,
 			gap = "xs",
 			children = {
-				UI.Text({
-					id = "Title",
-					textSize = "label",
-					hidden = Compose.formula(function(use)
-						return not use(dualNow)
-					end),
-					text = Compose.formula(function(use)
-						local m = paneMonth(use, k)
-						return `{locale.months[m.month]} {m.year}`
-					end),
+				-- a pane names its month only beside a second one (and then takes room)
+				UI.When({
+					id = "Titled",
+					condition = dualNow,
+					thenView = function()
+						return UI.Text({
+							id = "Title",
+							textSize = "label",
+							text = Compose.formula(function(use)
+								local m = paneMonth(use, k)
+								return `{locale.months[m.month]} {m.year}`
+							end),
+						})
+					end,
 				}),
 				UI.HStack({ id = "Weekdays", gap = 0, children = names }),
 				-- the landing day takes focus when the calendar appears (pane one only)
@@ -838,6 +842,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				id = menuId,
 				label = words_,
 				surface = "plain",
+				-- plain words need no plate's inset: month and year share one line
+				padding = { left = "xs", right = "xs" },
+				height = { type = "minMax", min = "targetSizes.minimum" },
 				enabled = interactive,
 				children = {
 					UI.HStack({
@@ -1186,25 +1193,32 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		}
 		-- the pad's month keys (the adjust route pages from any day), named while a pad is live
 		local keyName = require("../input/key_names").label
+		-- mounted only while a pad is live: a hidden row would keep its box and
+		-- leave a band of empty panel under the months
 		table.insert(
 			children,
-			UI.HStack({
+			UI.When({
 				id = "PageHint",
-				gap = "xs",
-				align = "center",
-				hidden = Compose.formula(function(use)
+				condition = Compose.formula(function(use)
 					local classes = if env ~= nil then use(env:get("interactionClasses")) else nil
-					return not (type(classes) == "table" and classes.gamepad == true)
+					return type(classes) == "table" and classes.gamepad == true
 				end),
-				children = {
-					require("./shortcut_hint").build(Facet, core, {
-						id = "PageKeys",
-						keys = { { keyName("ButtonL1") :: string }, { keyName("ButtonR1") :: string } },
-						controlSize = "compact",
-						env = spec.env,
-					}).blueprint,
-					UI.Text({ id = "Words", text = "Change month", textSize = "caption", role = "secondary" }),
-				},
+				thenView = function()
+					return UI.HStack({
+						id = "Keys",
+						gap = "xs",
+						align = "center",
+						children = {
+							require("./shortcut_hint").build(Facet, core, {
+								id = "PageKeys",
+								keys = { { keyName("ButtonL1") :: string }, { keyName("ButtonR1") :: string } },
+								controlSize = "compact",
+								env = spec.env,
+							}).blueprint,
+							UI.Text({ id = "Words", text = "Change month", textSize = "caption", role = "secondary" }),
+						},
+					})
+				end,
 			})
 		)
 		if withTime then
