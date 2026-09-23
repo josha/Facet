@@ -192,7 +192,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					})
 				)
 			end
-			table.insert(body, UI.HStack({ id = "Accessories", gap = "s", align = "center", children = accessories }))
+			-- below the copy the accessories wrap rather than run past the plate
+			table.insert(
+				body,
+				UI.HStack({ id = "Accessories", gap = "s", align = "center", wrap = true, children = accessories })
+			)
 		end
 		table.insert(
 			children,
@@ -215,7 +219,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					label = "Close",
 					disclose = true,
 					compactLabel = { icon = "close", prefer = true },
-					width = { type = "fixed", px = "targetSizes.minimum" },
 					controlSize = spec.controlSize,
 					onActivate = function()
 						pcall(spec.onDismiss :: any)

@@ -76,7 +76,10 @@ local function richPlate(UI: any, opts: PlateOpts): any
 	if opts.title ~= nil or opts.closeButton == true then
 		local header: { any } = {}
 		if opts.title ~= nil then
-			table.insert(header, UI.Text({ id = "Title", text = opts.title, textSize = "heading", width = UI.fill() }))
+			table.insert(
+				header,
+				UI.Text({ id = "Title", text = opts.title, textSize = "heading", disclose = true, width = UI.fill() })
+			)
 		end
 		if opts.closeButton == true then
 			table.insert(
@@ -86,7 +89,6 @@ local function richPlate(UI: any, opts: PlateOpts): any
 					disclose = true,
 					label = "Close",
 					compactLabel = { icon = "close", prefer = true },
-					width = { type = "fixed", px = "targetSizes.minimum" },
 					height = DISMISS_HEIGHT,
 				})
 			)

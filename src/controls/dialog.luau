@@ -357,7 +357,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					label = "Close",
 					disclose = true,
 					compactLabel = { icon = "close", prefer = true },
-					width = { type = "fixed", px = "targetSizes.minimum" },
 					height = { type = "minMax", min = "targetSizes.minimum" },
 					onActivate = function()
 						propose(false, "close")
