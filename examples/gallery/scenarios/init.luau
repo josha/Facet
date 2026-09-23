@@ -280,6 +280,8 @@ local ORDER = {
 	"paging",
 	-- UI.StepIndicator: the All controls › Navigation › Steps tab
 	"steps",
+	-- UI.ColorPicker: the All controls › Inputs › Pickers tab
+	"pickers",
 	-- `tab_view` (D5) is `r2`: a page's own top bar inside a screen that is
 	-- itself a tab of the app-level bottom bar, with both levels printing the
 	-- placement they resolved and which authority answered. The eviction is a

@@ -25,6 +25,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.ColorPicker`.** A colour well over the caller's Color3 that opens an
+  anchored panel (a hug sheet on compact touch, a centred sheet at ten feet), or
+  the panel inline: swatches, a spectrum plane with a hue slider, HSV sliders
+  and the engine BrickColors, an RGB/HSV/Hex readout on every tab, optional
+  opacity, and an Apply/Cancel draft. Canonical HSV keeps a grey's hue; Cancel
+  restores the open-time colour; the plane takes the right stick on a pad.
+
 - **Icons in Snackbar, Notice, Vote and StepIndicator** take Button's icon
   path (theme art, `facet:` names, the unknown-name warning), so a semantic
   name no longer paints an empty image. The StepIndicator cue is now

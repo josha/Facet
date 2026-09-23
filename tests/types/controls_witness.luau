@@ -715,6 +715,27 @@ local _vote = app.controls.Vote("Track")({
 	controlSize = "large" :: "large",
 })
 local _pastVote = app.controls.Vote({ value = "up", readOnly = true })
+local bodyColor = Facet.Compose.cell(nil :: any)
+local _color = app.controls.ColorPicker("Body")({
+	label = "Kart body",
+	hint = "Shown on the track",
+	value = bodyColor,
+	onChange = function(next)
+		bodyColor:set(next)
+	end,
+	onCommit = function(_c) end,
+	alpha = 1,
+	onAlphaChange = function(_a: number) end,
+	allowEmpty = true,
+	placeholder = "None",
+	modes = { "swatches", "spectrum", "sliders", "brick" },
+	draft = true,
+	onDismiss = function(_reason) end,
+	controlSize = "compact",
+	corners = "pill",
+})
+local _inlineColor =
+	app.controls.ColorPicker({ value = nil, onChange = function(_c) end, style = "inline", allowEmpty = true })
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

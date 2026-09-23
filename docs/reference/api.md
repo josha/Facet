@@ -9106,6 +9106,56 @@ use `UI.Rating`; for a number the player adjusts, `UI.Stepper`.
 `dump()` reports `{ schema = "facet-vote-dump/1", id, value, readOnly, summary,
 diagnostics }`.
 
+### `UI.ColorPicker`
+
+`UI.ColorPicker { … }` -> the picker's node. `ref` receives `{ api, dump }`.
+
+A colour well that opens a panel, or the panel in place. Spec: `{ id?, value:
+Bound<Color3?>, onChange: ((color) -> ())?, onCommit: ((color) -> ())?, alpha:
+Bound<number>?, onAlphaChange: ((alpha) -> ())?, allowEmpty?, placeholder?,
+modes: { string }?, swatches: Bound<{ Color3 | { color, label? } }>?, style:
+("automatic" | "inline")?, draft?, isPresented: Bound<boolean>?,
+onPresentedChange?, onDismiss: ((reason) -> ())?, enabled?, readOnly?, label?,
+requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
+
+`value` is yours: every accepted change proposes `onChange(color)` and the
+picker repaints only from what you then hold, so a refused change never paints.
+`onCommit(color)` ends a gesture (a drag's release, a slider's release, a swatch
+press, a field commit); with `draft = true` it fires only on **Apply**, and the
+panel adds Apply and Cancel. **Cancel** (B, the sheet's Close, the draft Cancel)
+proposes the colour the panel opened with; a tap outside keeps what is shown. A
+write of yours while the panel is open becomes the colour Cancel returns to.
+`onChange` is required unless `readOnly` is true; `nil` is a value only with
+`allowEmpty = true` (the plate is crossed out and the text is `placeholder`).
+
+`alpha` (0 to 1) with `onAlphaChange(alpha)` mounts an opacity slider and makes
+the text `#RRGGBBAA`; a translucent swatch sits over a small checker. The well
+labelled is a form row (label, swatch, value, chevron); bare it is the swatch
+alone, and the value is its name. It opens an anchored panel, a sheet with a
+Done button on a compact touch screen, and a centred sheet at ten feet; it owns
+its open state unless you bind `isPresented` / `onPresentedChange` (a proposal,
+as on `UI.Popover`). `onDismiss` reports `"activate"` (Done), `"apply"`,
+`"cancel"`, `"outside"` or `"anchorLost"`. `style = "inline"` puts the panel in
+the page.
+
+`modes` are the panel's techniques, in tab order: `"swatches"` (your `swatches`,
+or a generated grid of 48), `"spectrum"` (a saturation/brightness plane and a hue
+slider), `"sliders"` (hue, saturation and brightness) and `"brick"` (the
+engine's 128 BrickColors with their names). The default is the first three.
+Every tab keeps a preview and an RGB / HSV / Hex readout whose fields commit
+typed values; switching the readout never changes the colour, and a grey keeps
+the hue the player set. Hex accepts `#RGB`, `#RRGGBB` and, with `alpha`,
+`#RRGGBBAA`; a refused hex stays in the field with its error and commits
+nothing. The plane drags 1:1 and cancels (restoring its start) if pointer and
+touch go away mid-drag; on a pad it takes the right stick while it has focus,
+with a hint saying so, and the D-pad keeps moving focus. There is no
+eyedropper: Roblox has no screen-pixel read — put your own Button beside the
+well and call `onChange` with what it sampled.
+
+`dump()` reports `{ schema = "facet-color_picker-dump/1", id, style, value,
+alpha, hsv = { h, s, v }, text, name, modes, mode, format, draft, presented,
+route, planePath, columns, swatchPaths, hexError, diagnostics }`.
+
 ### `UI.Snackbar`
 
 `UI.Snackbar { … }` -> an empty anchor node; the row appears in the

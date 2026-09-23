@@ -91,6 +91,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	StepIndicator = function(w)
 		return { steps = { { id = "a", label = "A" } }, current = "a" }
 	end,
+	ColorPicker = function(w)
+		return { value = Color3.fromRGB(255, 0, 0), onChange = function() end }
+	end,
 	Pagination = function(w)
 		return { page = 1, pageCount = 3, onChange = function() end }
 	end,

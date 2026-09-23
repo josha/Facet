@@ -76,6 +76,7 @@ local CONTROL_MODULES = {
 	"notice",
 	"card",
 	"pagination",
+	"color_picker",
 	"step_indicator",
 	"vote",
 	"snackbar",

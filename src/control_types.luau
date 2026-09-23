@@ -35,6 +35,7 @@ local dialogControl = require("./spec_types/dialog")
 local noticeControl = require("./spec_types/notice")
 local cardControl = require("./spec_types/card")
 local paginationControl = require("./spec_types/pagination")
+local colorPickerControl = require("./spec_types/color_picker")
 local stepIndicatorControl = require("./spec_types/step_indicator")
 local voteControl = require("./spec_types/vote")
 local snackbarControl = require("./spec_types/snackbar")
@@ -422,6 +423,7 @@ export type Controls = {
 	Notice: Constructor<noticeControl.Spec>,
 	Card: Constructor<cardControl.Spec>,
 	Pagination: Constructor<paginationControl.Spec>,
+	ColorPicker: Constructor<colorPickerControl.Spec>,
 	StepIndicator: Constructor<stepIndicatorControl.Spec>,
 	Vote: Constructor<voteControl.Spec>,
 	Snackbar: Constructor<snackbarControl.Spec>,

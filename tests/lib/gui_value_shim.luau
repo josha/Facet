@@ -53,4 +53,28 @@ function gui_value_shim.install()
 	end
 end
 
+--[[ THE COLOUR VALUES THE ENGINE HAS AND LUNE DOES NOT (phase5 ColorPicker). A
+	`Color3` is a caller's value, not a paint path, so a headless mount of a colour
+	control must be born like the engine: Lune's own `@lune/roblox` Color3 (the same
+	`fromRGB`/`fromHSV`/`ToHSV`/`R,G,B`), and a BrickColor whose `palette` takes the
+	engine's 0..127 index (Lune's is 1-based; measured, evidence/phase5/probes.md).
+	Nothing reads these globals at load except `tokens/chrome_props`, whose engine
+	branch also needs `ColorSequence`, which stays absent. ]]
+function gui_value_shim.installColor()
+	local env: any = getfenv(0)
+	if env.Color3 ~= nil then
+		return
+	end
+	local roblox: any = require("@lune/roblox")
+	env.Color3 = roblox.Color3
+	env.BrickColor = {
+		palette = function(index: number)
+			if type(index) ~= "number" or index < 0 or index > 127 or index % 1 ~= 0 then
+				error(`palette index out of bounds ({tostring(index)})`)
+			end
+			return roblox.BrickColor.palette(index + 1)
+		end,
+	}
+end
+
 return gui_value_shim

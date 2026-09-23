@@ -10,6 +10,7 @@ local groups = {
 			{ id = "writing", label = "Writing", scenario = require("./text_controls") },
 			{ id = "leaves", label = "Leaves", scenario = require("./leaf_capabilities") },
 			{ id = "choices", label = "Choices", scenario = require("./selection_controls") },
+			{ id = "pickers", label = "Pickers", scenario = require("./pickers") },
 		},
 	},
 	{

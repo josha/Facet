@@ -2484,6 +2484,51 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		-- ColorPicker's value policy (canonical HSV beside the Color3, hex text,
+		-- the generated and engine palettes); owns no UI or live state.
+		name = "ColorValue",
+		kind = "composite",
+		module = "src/controls/color_value.luau",
+		export = "UI.ColorPicker",
+		spec = "tests/color_picker.spec.luau",
+		conformance = "tests/color_picker.spec.luau",
+		docsAnchor = "UI.ColorPicker",
+		dump = false,
+		reason = "stateless module: colour conversion and hex policy for UI.ColorPicker, no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "ColorPicker",
+		kind = "composite",
+		module = "src/controls/color_picker.luau",
+		export = "UI.ColorPicker",
+		spec = "tests/color_picker.spec.luau",
+		conformance = "tests/color_picker.spec.luau",
+		docsAnchor = "UI.ColorPicker",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "the well opens an anchored panel on a roomy pointer screen; a refused swatch never paints" },
+			touch = {
+				"opens as a hug sheet with Done on a compact touch screen, and a centred sheet at ten feet with the plane",
+			},
+			keyboard = { "a saturation round trip through the Sliders tab returns to the hue the player set" },
+			gamepad = { "the right stick steers the plane only while it holds focus, and a live hint says so" },
+		},
+		-- PARADIGM axis: every quantity has a non-drag route (sliders, the readout
+		-- fields, the swatch grid); the plane drags 1:1 on pointer/touch and takes
+		-- the right stick on a pad. hotSwitch: a lost pointer class cancels a drag.
+		affordanceProofs = {
+			pointer = { "a drag tracks 1:1 in saturation and value, keeps the hue, and commits once at release" },
+			touch = { "Cancel restores the open-time colour through onChange; an outside tap keeps what is shown" },
+			keyboard = {
+				"switching the readout twenty times never moves canonical, and a hex commit is the only write",
+			},
+			gamepad = { "an accepted swatch commits once, marks the cell, and the swatch grid walks in two dimensions" },
+			hotSwitch = { "losing the pointer class mid-drag restores where the drag began" },
+		},
+	},
+	{
 		name = "Snackbar",
 		kind = "composite",
 		module = "src/controls/snackbar.luau",

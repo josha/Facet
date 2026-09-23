@@ -576,6 +576,21 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "ColorPicker",
+		class = "ColorPicker",
+		build = function(core)
+			return harness.Controls.ColorPicker(core, {
+				id = "Ctl",
+				label = lt.PSEUDO_SECONDARY,
+				hint = lt.PSEUDO_SECONDARY,
+				value = Color3.fromRGB(46, 125, 255),
+				alpha = 0.5,
+				onAlphaChange = function() end,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()

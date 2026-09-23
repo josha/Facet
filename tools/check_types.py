@@ -40,7 +40,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # `namespace_entries()` itself whenever a control is deliberately added or
 # retired.
 DECLARED_ENTRIES = {
-    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Card", "Chip", "CollapsibleView", "Dialog",
+    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Card", "Chip", "ColorPicker", "CollapsibleView", "Dialog",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu", "NavBar", "Notice", "Pagination",
     "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Snackbar", "StatusIndicator", "StepIndicator", "Slider",
@@ -230,6 +230,8 @@ _EROSION_PROBES = [
     ("Pagination", 'app.controls.Pagination({ page = 1, onChange = function(_n: number) end, form = "dots" })'),
     ("StepIndicator", 'app.controls.StepIndicator({ steps = {}, current = nil, sizing = "wide" })'),
     ("Vote", 'app.controls.Vote({ value = "sideways", onChange = function(_v) end })'),
+    ("ColorPicker", 'app.controls.ColorPicker({ value = nil, onChange = function(_c) end, style = "wheel" })'),
+    ("ColorPicker", 'app.controls.ColorPicker("C")({ value = nil, onChange = function(_c) end, draft = "yes" })'),
     ("Vote", 'app.controls.Vote("V")({ value = "up", readOnly = "yes" })'),
     ("StepIndicator", 'app.controls.StepIndicator("S")({ steps = { { id = "a", label = "A", state = "done" } }, current = "a" })'),
     ("Pagination", 'app.controls.Pagination("P")({ page = 1, onChange = function(_n: number) end, direction = "up" })'),
