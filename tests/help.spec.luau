@@ -579,3 +579,153 @@ describe("D3a help: the reachability check, and why it is not clippedEssential",
 		end
 	end)
 end)
+
+describe("help: the structured form", function()
+	local STRUCTURED = { title = "Post", body = HELP, shortcut = { { "Ctrl", "P" }, { "F2" } } }
+	local TITLE_LABEL = "/__help__/Layer/Surface/Plate/Title"
+
+	local function focusedWorld(help: any): (any, any, any)
+		local _, _, adapter, system, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation")
+		pres.present(helpedScreen(help))
+		return adapter, system, pres
+	end
+
+	it("a title, a body and a display-only shortcut paint in one plate", function()
+		local _, _, _, systemBefore, presBefore = makeWorld(POINTER)
+		presBefore.present(helpedScreen(nil))
+		local adapter, system, pres = focusedWorld(STRUCTURED)
+		local dump = pres.help()
+		expect(dump.present).toBe(true)
+		expect(dump.helpText).toBe(HELP)
+		expect(dump.title).toBe("Post")
+		expect(adapter.node(TITLE_LABEL).props.text).toBe("Post")
+		expect(adapter.node(PLATE_LABEL).props.text).toBe(HELP)
+		local keys: { string } = {}
+		for _, path in adapter.paths() do
+			local node = adapter.node(path)
+			if string.find(path, "/__help__/", 1, true) ~= nil and node.class == "Text" and path ~= PLATE_LABEL then
+				if path ~= TITLE_LABEL and node.props.text ~= "" then
+					table.insert(keys, node.props.text)
+				end
+			end
+		end
+		table.sort(keys)
+		expect(table.concat(keys, " ")).toBe("Ctrl F2 P or")
+		-- display only: the shortcut registers no action and no context
+		expect(system.contextCount()).toBe(systemBefore.contextCount())
+		expect(#system.actionNamed("Activate").bindings).toBe(#systemBefore.actionNamed("Activate").bindings)
+	end)
+
+	it("edge and align place the plate", function()
+		local adapter, _, pres = focusedWorld({ body = "Posts it", edge = "trailing", align = "end" })
+		expect(pres.help().present).toBe(true)
+		local plate, source = adapter.node("/__help__/Layer/Surface").rect, adapter.node("/Editor/Post").rect
+		expect(plate.x >= source.x + source.w).toBe(true)
+		expect(pres.anchoredSurfaces().surfaces[1].edge).toBe("right")
+	end)
+
+	it("the string form paints exactly as before: no title node", function()
+		local adapter, _, pres = focusedWorld(HELP)
+		expect(pres.help().title).toBeNil()
+		expect(adapter.node(TITLE_LABEL)).toBeNil()
+		expect(adapter.node(PLATE_LABEL).props.text).toBe(HELP)
+	end)
+
+	it("malformed tables are refused by name at construction", function()
+		for _, bad in
+			{
+				{ title = "T" } :: any,
+				{ body = "" },
+				{ body = HELP, extra = true },
+				{ body = HELP, shortcut = { "Ctrl" } },
+				{ body = HELP, shortcut = { {} } },
+				{ body = HELP, edge = "overlap" },
+				{ body = HELP, align = "middle" },
+				{ body = 4 },
+			}
+		do
+			local ok, err = pcall(function()
+				return UI.Button({ id = "Post", label = "Post", help = bad })
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "help", 1, true) ~= nil).toBe(true)
+		end
+		-- an empty body is fine when the title carries the words
+		UI.Button({ id = "Post", label = "Post", help = { title = "Post", body = "" } })
+	end)
+
+	it("text_audit reads title and body separately: a visible title waives nothing for the body", function()
+		local rects = {
+			["/S/Post/Label"] = {
+				rect = { x = 0, y = 0, w = 100, h = 20 },
+				textFacts = { text = "Post", truncated = false },
+			},
+		}
+		local findings = textAudit.helpRoutes({
+			["/S/Post"] = { text = HELP, title = "Post", hover = true, focus = true },
+		}, rects)
+		expect(#findings).toBe(1)
+		expect(findings[1].check).toBe("helpOnlyRoute")
+		expect(string.find(findings[1].detail, HELP, 1, true) ~= nil).toBe(true)
+		-- ...and a title said nowhere is its own finding
+		local both = textAudit.helpRoutes({
+			["/S/Post"] = { text = "Post", title = "Marketplace", hover = true, focus = true },
+		}, rects)
+		expect(#both).toBe(1)
+		expect(string.find(both[1].detail, "Marketplace", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("the live declarations carry the title beside the body", function()
+		local _, _, pres = focusedWorld(STRUCTURED)
+		local decl = pres.helpDeclarations()["/Editor/Post"]
+		expect(decl.text).toBe(HELP)
+		expect(decl.title).toBe("Post")
+	end)
+end)
+
+describe("help: the live plate follows its source and the live safe box", function()
+	it("a same-path branch rebuilt with new help repaints the live plate", function()
+		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation")
+		local show = Compose.cell(true)
+		local version = "First sentence about posting"
+		pres.present(UI.Screen({
+			id = "Editor",
+			children = {
+				UI.When({
+					id = "Gate",
+					condition = show,
+					thenView = function()
+						return UI.Button({ id = "Post", label = "Post", help = version })
+					end,
+				}),
+			},
+		}))
+		expect(pres.help().helpText).toBe(version)
+		version = "Second sentence about posting"
+		show:set(false)
+		show:set(true)
+		pres.refresh()
+		expect(adapter.node("/Editor/Gate/then/Post") ~= nil).toBe(true)
+		expect(pres.help().helpText).toBe(version)
+		expect(adapter.node(PLATE_LABEL).props.text).toBe(version)
+	end)
+
+	it("safe insets that grow under a live plate keep it inside the new safe box", function()
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 600, h = 400 },
+			capabilities = POINTER.capabilities,
+			preferredInput = POINTER.preferredInput,
+		})
+		w.pres.focus.setFocusOrigin("navigation")
+		w.pres.present(helpedScreen(string.rep(HELP .. " ", 4)))
+		expect(w.pres.help().present).toBe(true)
+		w.env:set("coreSafeInsets", { top = 0, bottom = 0, left = 180, right = 220 })
+		w.pres.refresh()
+		w.pres.tick(1 / 60)
+		w.pres.refresh()
+		local r = w.adapter.node(PLATE).rect
+		expect(`x={r.x >= 180} right={r.x + r.w <= 380}`).toBe("x=true right=true")
+	end)
+end)

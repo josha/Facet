@@ -945,6 +945,50 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 
 TYPE_CHECKS.imageFraming = imageFraming.check
 
+-- `help`: a sentence, or the closed structured form. Validated whole here so a
+-- malformed table is refused at construction, never half-painted later.
+local HELP_TABLE_KEYS = { title = true, body = true, shortcut = true, edge = true, align = true }
+local HELP_EDGES = { top = true, bottom = true, leading = true, trailing = true }
+local HELP_ALIGNS = { start = true, center = true, ["end"] = true }
+TYPE_CHECKS.help = function(v)
+	local shape = 'a string, or { title?, body, shortcut? = { { "Ctrl", "K" } }, edge?, align? }'
+	if type(v) == "string" then
+		return true
+	elseif type(v) ~= "table" then
+		return false, shape
+	end
+	for key in v do
+		if HELP_TABLE_KEYS[key] ~= true then
+			return false, `{shape}; unknown key '{tostring(key)}'`
+		end
+	end
+	if type(v.body) ~= "string" or (v.title ~= nil and type(v.title) ~= "string") then
+		return false, `{shape}; body is a string and title an optional string`
+	end
+	if v.body == "" and (v.title == nil or v.title == "") then
+		return false, `{shape}; an empty body needs a non-empty title`
+	end
+	if v.shortcut ~= nil then
+		local ok = type(v.shortcut) == "table" and #v.shortcut > 0
+		for _, chord in (if ok then v.shortcut else {}) :: { any } do
+			ok = ok and type(chord) == "table" and #chord > 0
+			for _, key in (if ok then chord else {}) :: { any } do
+				ok = ok and type(key) == "string" and key ~= ""
+			end
+		end
+		if not ok then
+			return false, `{shape}; shortcut is a list of alternatives, each a list of key names`
+		end
+	end
+	if v.edge ~= nil and HELP_EDGES[v.edge] ~= true then
+		return false, `{shape}; edge is top | bottom | leading | trailing`
+	end
+	if v.align ~= nil and HELP_ALIGNS[v.align] ~= true then
+		return false, `{shape}; align is start | center | end`
+	end
+	return true
+end
+
 -- check a STATIC value against a prop spec. Returns (ok, detail?).
 function schema.checkValue(spec: PropSpec, value: any): (boolean, string?)
 	local detail: string? = nil
@@ -1683,7 +1727,7 @@ local REVEAL: PropSpec = p({
 	mounted node. Binding a Readable here is an immediate refusal naming the
 	rebuild idiom (§4), never a silently ignored value. ]]
 local HELP: PropSpec = p({
-	types = { "string" },
+	types = { "help" },
 	reactive = false,
 	-- deliberately NOT `shared`, exactly as `disclose` is not: it lives on the
 	-- four classes a player engages, so it is documented in each of their own
@@ -1692,7 +1736,9 @@ local HELP: PropSpec = p({
 	doc = "one sentence about what this view does, shown when a POINTER hovers it (after a dwell) or the "
 		.. "keyboard/gamepad ring lands on it. Nothing appears on touch — no input class binds a gesture "
 		.. "to help, so it must never be the only route to something a player needs "
-		.. "(`text_audit.helpRoutes`). The plate points at this view with an arrow tail. For an "
+		.. "(`text_audit.helpRoutes`). The plate points at this view with an arrow tail. The table form "
+		.. "`{ title?, body, shortcut?, edge?, align? }` adds a title, a display-only ShortcutHint and the "
+		.. "plate's placement. For an "
 		.. "app-PUSHED coach mark that appears on every input class, see `UI.Callout`",
 })
 

@@ -274,7 +274,7 @@ export type ButtonSpec = {
 	height: bp.Bound<bp.Dim>?,
 	shrinkWeight: bp.Bound<number>?,
 	focusable: bp.Bound<boolean>?,
-	help: string?,
+	help: bp.Help?,
 	icon: string?,
 	shape: string?,
 	textSize: bp.BoundEither<number, bp.TypeRole>?,

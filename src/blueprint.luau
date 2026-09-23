@@ -91,6 +91,16 @@ export type BoundEither<A, B> = Bound<A> | Bound<B> | Bound<A | B>
 -- resolved to pixels on every solve — a literal number opts that value OUT of
 -- theming, which is the documented escape hatch.
 export type Metric = string
+
+-- `help`'s structured form (the string form is `{ body = string }`). `shortcut` is
+-- display only: alternative chords exactly as `ShortcutHint.keys` spells them.
+export type Help = string | {
+	title: string?,
+	body: string,
+	shortcut: { { string } }?,
+	edge: ("top" | "bottom" | "leading" | "trailing")?,
+	align: ("start" | "center" | "end")?,
+}
 -- a typography role name: "caption" | "label" | "body" | "heading" | "title" | "control"
 export type TypeRole = string
 
@@ -371,7 +381,7 @@ export type TextSpec = BoxProps & {
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
-	help: string?,
+	help: Help?,
 	rich: boolean?,
 	direction: ("auto" | "ltr" | "rtl")?,
 	truncate: ("end" | "middle")?,
@@ -445,7 +455,7 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
-	help: string?,
+	help: Help?,
 	onActivate: ((path: string, meta: ActivationMetadata?) -> ())?,
 }
 
@@ -461,7 +471,7 @@ export type ToggleSpec = BoxProps & {
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
-	help: string?,
+	help: Help?,
 	onActivate: ((path: string, meta: ActivationMetadata?) -> ())?,
 }
 
@@ -483,7 +493,7 @@ export type TextFieldSpec = BoxProps & {
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
-	help: string?,
+	help: Help?,
 	onTextChanged: ((text: string) -> ())?,
 	onFocusGained: ((path: string) -> ())?,
 	onFocusLost: ((reason: string) -> ())?,
