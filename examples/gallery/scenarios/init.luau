@@ -276,6 +276,8 @@ local ORDER = {
 	"cards",
 	-- the M74 View recipes: the Motion and layout › Layout › Containers tab
 	"containers",
+	-- UI.Pagination: the All controls › Navigation › Paging tab
+	"paging",
 	-- `tab_view` (D5) is `r2`: a page's own top bar inside a screen that is
 	-- itself a tab of the app-level bottom bar, with both levels printing the
 	-- placement they resolved and which authority answered. The eviction is a

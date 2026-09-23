@@ -25,6 +25,11 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Pagination`.** Controlled page selection: `page` and `onChange`, a known
+  or unknown `pageCount`, a bounded numeric window with real-gap ellipses, First
+  and Last on request, `numbers | arrows | label` forms, an explicit `rtl`
+  direction, and a measured narrowing that drops the farthest pages before it
+  falls back to "Page n of m".
 - **`UI.Card`.** Artwork, a title and a caption as one body, with a primary
   action and a More menu as sibling targets. `reveal = "automatic"` shows them
   on engagement (pointer, painted focus, a held press, the open menu, a browse

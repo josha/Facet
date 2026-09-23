@@ -641,6 +641,27 @@ local _card = app.controls.Card("Nebula")({
 		return nil
 	end,
 })
+local pageNow = Facet.Compose.cell(1)
+local _pagination = app.controls.Pagination("Results")({
+	page = pageNow,
+	onChange = function(next: number)
+		pageNow:set(next)
+	end,
+	pageCount = 12,
+	siblingCount = 1,
+	boundaryCount = 1,
+	showFirstLast = true,
+	form = "numbers",
+	direction = "rtl",
+	controlSize = "compact",
+})
+local _unknownPages = app.controls.Pagination({
+	page = 2,
+	onChange = function(_next: number) end,
+	hasNext = true,
+	hasPrevious = Facet.Compose.cell(true),
+	form = "label",
+})
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

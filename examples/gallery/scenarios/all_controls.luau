@@ -44,6 +44,7 @@ local groups = {
 		tabs = {
 			{ id = "journey", label = "Journey", scenario = require("./navigation_stack") },
 			{ id = "pages", label = "Pages", scenario = require("./page_view") },
+			{ id = "paging", label = "Paging", scenario = require("./paging") },
 			{ id = "disclosure", label = "Disclosure", scenario = require("./collapsible_view") },
 		},
 	},

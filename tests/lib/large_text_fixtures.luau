@@ -537,6 +537,19 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "Pagination",
+		class = "Pagination",
+		build = function(core)
+			return harness.Controls.Pagination(core, {
+				id = "Ctl",
+				page = 5000,
+				pageCount = 9999,
+				showFirstLast = true,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()

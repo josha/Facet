@@ -39,6 +39,7 @@ local CONTROL_MODULES = {
 	"dialog",
 	"notice",
 	"card",
+	"pagination",
 	"snackbar",
 	"progress_view",
 	"radial_menu",

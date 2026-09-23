@@ -2400,6 +2400,34 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		name = "Pagination",
+		kind = "composite",
+		module = "src/controls/pagination.luau",
+		export = "UI.Pagination",
+		spec = "tests/pagination.spec.luau",
+		conformance = "tests/pagination.spec.luau",
+		docsAnchor = "UI.Pagination",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "mounts the window, marks the current page and proposes without writing" },
+			touch = { "mounts the window, marks the current page and proposes without writing" },
+			keyboard = { "is reached from its neighbours, and a vanished focused page leaves focus inside" },
+			gamepad = { "count to zero leaves no internal stop and focus returns to a live neighbour" },
+		},
+		-- PARADIGM axis: every input class presses the same page and arrow
+		-- Buttons; the row is one flat run in the page's focus order. hotSwitch:
+		-- the measured width reduces the window and falls back to the label live.
+		affordanceProofs = {
+			pointer = { "keeps overlapping page nodes when the window moves" },
+			touch = { "zero pages is inert context; one page has no enabled navigation" },
+			keyboard = { "rtl reverses the row once and keeps previous/next meaning" },
+			gamepad = { "an unknown count follows its flags, shows the page label and never a last page" },
+			hotSwitch = {
+				"four-digit pages keep full targets; narrow room drops the farthest boundary page, then neighbours, then labels",
+			},
+		},
+	},
+	{
 		name = "Snackbar",
 		kind = "composite",
 		module = "src/controls/snackbar.luau",

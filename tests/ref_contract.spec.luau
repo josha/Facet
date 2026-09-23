@@ -85,6 +85,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Notice = function(w)
 		return { message = "Saved." }
 	end,
+	Pagination = function(w)
+		return { page = 1, pageCount = 3, onChange = function() end }
+	end,
 	Card = function(w)
 		return { image = "rbxassetid://1", title = "Title" }
 	end,

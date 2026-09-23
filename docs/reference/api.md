@@ -9000,6 +9000,48 @@ leaves them. Removing, recycling or replacing the card releases its trap.
 revealed, engaged, hovered, focusWithin, pressing, browsing, entered, menuOpen,
 body = "button" | "informational", actions, extent, diagnostics }`.
 
+### `UI.Pagination`
+
+`UI.Pagination { … }` -> the pagination's node. `ref` receives `{ api, dump }`.
+
+Page selection, independent of fetching. Spec: `{ id?, page: Bound<number>,
+onChange: (nextPage) -> (), pageCount: Bound<number?>?, hasNext: Bound<boolean>?,
+hasPrevious: Bound<boolean>?, siblingCount: number? (0–20, default 1),
+boundaryCount: number? (0–20, default 1), showFirstLast: boolean? (default
+false), form: ("numbers" | "arrows" | "label")? (default numbers), direction:
+("ltr" | "rtl")? (default ltr), controlSize?, enabled: Bound<boolean>?, width?,
+env? }`. The last five words are construction-only.
+
+`page` is yours: every press proposes one page through `onChange` and the row
+repaints only when your value changes, so a refused proposal leaves it as it
+was. Pages and counts are finite whole numbers; a malformed one is refused at
+construction and, later, keeps the last legal value with a warning and an
+`api.diagnostics()` line. A page outside the range is **shown** clamped (with a
+diagnostic) and never written back.
+
+A known `pageCount` decides availability and ignores `hasNext`/`hasPrevious`.
+Without one the count is unknown: the two flags (default false) decide, the row
+shows "Page n" between its arrows, and there is no Last. `0` pages shows an inert
+"No pages"; `1` page shows it with no enabled navigation. `showFirstLast` adds
+First (to page 1, when there is a previous page) and Last (to a known last page).
+
+`form = "numbers"` shows the boundary pages, the current page and
+`siblingCount` pages either side, with an ellipsis for a real gap (a gap of one
+page shows that page) and a fixed slot count near the edges. The work is bounded
+by the two counts, never by `pageCount`. When the measured width cannot hold the
+row, the farthest boundary page goes first, then the farthest neighbour (the
+higher page on a tie); when not even the current page and its arrows fit, the
+row shows "Page n of m". The row scrolls sideways rather than shrink a target.
+`label` is always "Page n of m"; `arrows` shows only the arrows, so put your own
+result context beside it. Ellipses and disabled arrows are not focus stops. Page
+nodes are keyed by page number, and a focused page that leaves the window hands
+focus to the current page. `direction = "rtl"` reverses the row and its arrows
+once; Left and Right stay physical.
+
+`dump()` reports `{ schema = "facet-pagination-dump/1", id, current, count,
+hasPrevious, hasNext, form, direction, items, text, diagnostics }`, where
+`items` is the mounted row (`"[5]"` marks the current page).
+
 ### `UI.Snackbar`
 
 `UI.Snackbar { … }` -> an empty anchor node; the row appears in the

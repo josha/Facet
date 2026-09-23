@@ -41,7 +41,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # retired.
 DECLARED_ENTRIES = {
     "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Card", "Chip", "CollapsibleView", "Dialog",
-    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu", "NavBar", "Notice",
+    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu", "NavBar", "Notice", "Pagination",
     "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Snackbar", "StatusIndicator", "Slider",
     "SplitButton",
@@ -227,6 +227,8 @@ _EROSION_PROBES = [
     ("NavBar", 'app.controls.NavBar("Bar")({ leading = "Home" })'),
     ("Notice", 'app.controls.Notice({ message = "m", severity = "fatal" })'),
     ("Card", 'app.controls.Card({ image = "i", title = "t", reveal = "hover" })'),
+    ("Pagination", 'app.controls.Pagination({ page = 1, onChange = function(_n: number) end, form = "dots" })'),
+    ("Pagination", 'app.controls.Pagination("P")({ page = 1, onChange = function(_n: number) end, direction = "up" })'),
     ("Card", 'app.controls.Card("C")({ image = "i", title = "t", primaryAction = { label = "P" } })'),
     ("Notice", 'app.controls.Notice("N")({ message = "m", placement = "bottom" })'),
     ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, title = "T", width = "huge" })'),
