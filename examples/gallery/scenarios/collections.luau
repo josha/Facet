@@ -19,6 +19,7 @@ local groups = {
 			{ id = "vertical", label = "Grid", scenario = require("./virtual_grid") },
 			{ id = "horizontal", label = "Sideways grid", scenario = require("./virtual_hgrid") },
 			{ id = "cards", label = "Card rail", scenario = require("./card_rail") },
+			{ id = "games", label = "Cards", scenario = require("./cards") },
 			{ id = "table", label = "Large table", scenario = require("./table_virtualized") },
 		},
 	},

@@ -294,14 +294,17 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return a.w == b.w and a.h == b.h
 	end)
 	local rowHeight = Compose.cell(0)
+	-- `body` is the card's own measured height, so a grid can size its lines from
+	-- the card instead of predicting text
 	local extent = ownedFormula(owner, function(use)
+		local body = use(bodySize).h
 		if not hasActions or reveal == "always" then
-			return { side = 0, below = 0 }
+			return { side = 0, below = 0, body = body }
 		end
 		local s = use(side)
-		return { side = s, below = s + use(rowHeight) + s }
+		return { side = s, below = s + use(rowHeight) + s, body = body }
 	end, function(a: any, b: any)
-		return a ~= nil and b ~= nil and a.side == b.side and a.below == b.below
+		return a ~= nil and b ~= nil and a.side == b.side and a.below == b.below and a.body == b.body
 	end)
 
 	local fade = if reveal == "automatic"
@@ -497,11 +500,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				transient.rootPath = `{node.path}/Reveal/Actions`
 			end
 			attachHover()
-			if reveal == "automatic" and hasActions then
-				local r = rectOf(node.path)
-				if type(r) == "table" then
-					bodySize:set({ w = r.w, h = r.h })
+			-- the body's NATURAL box: the root can be offered less than it (a line
+			-- sized from the previous measure), so measuring the root would never grow
+			local r, b = rectOf(node.path), rectOf(`{node.path}/Body`)
+			if type(r) == "table" and type(b) == "table" then
+				local bottom = b.y + b.h
+				local row = if reveal == "always" and hasActions then rectOf(`{node.path}/Actions`) else nil
+				if type(row) == "table" then
+					bottom = row.y + row.h
 				end
+				bodySize:set({ w = r.w, h = bottom - r.y })
+			end
+			if reveal == "automatic" and hasActions then
 				local row = rectOf(`{node.path}/Reveal/Actions`)
 				if type(row) == "table" and row.h ~= rowHeight:peek() then
 					rowHeight:set(row.h)

@@ -623,6 +623,31 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		expect(gridCard(g, "i1").revealed).toBe(false)
 	end)
 
+	it("the gallery Cards scenario: its lines hold each card and its plate, and its step enters", function()
+		local scenario = require("../examples/gallery/scenarios/cards") :: any
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 1280, h = 720 },
+			reducedMotion = true,
+			capabilities = { gamepad = true, keyboard = true, mouse = true },
+		})
+		local built =
+			scenario.build({ Facet = Facet, UI = w.UI, Compose = Compose, app = w.app, core = w.core, env = w.env })
+		w.present(built.screen)
+		w.settle(6)
+		local cell = w.adapter.node("/Cards/Games/Canvas/Band/W/[g1]/Cell").rect
+		local plate = w.adapter.node("/Cards/Games/Canvas/Band/W/[g1]/Cell/Inset/Card/Reveal/Plate").rect
+		expect(plate.x >= cell.x and plate.x + plate.w <= cell.x + cell.w).toBe(true)
+		expect(plate.y + plate.h <= cell.y + cell.h).toBe(true)
+		local dump = built.steps.enter("g1")
+		w.settle(2)
+		expect(dump.entered).toBe(true)
+		expect(w.pres.focus.focused:peek()).toBe(
+			"/Cards/Games/Canvas/Band/W/[g1]/Cell/Inset/Card/Reveal/Actions/Row/Primary"
+		)
+		w.press("ButtonA")
+		expect(built.report().last).toBe("Last action: play g1")
+	end)
+
 	it("a thousand items keep the mounted cards, refs and owners bounded", function()
 		local g = gridWorld({ count = 1000 })
 		local function count(): number

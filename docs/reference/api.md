@@ -8953,7 +8953,8 @@ press held on one of its buttons, its menu open, its actions entered, or the
 `browseTarget` has no stop of its own, so it shows its actions at rest. Revealed
 actions sit on a plate that reaches one `s` past each side and below the row;
 the card's own box never changes, so siblings never move. The layer is laid out
-at rest, so `api.revealExtent` (`{ side, below }`) is the **measured** extension
+at rest, so `api.revealExtent` (`{ side, below, body }`, `body` being the card's
+own measured height) is the **measured** extension
 before anything reveals; reserve it around the card wherever a neighbour's
 controls or a clip edge sit within it. When engagement ends the layer leaves
 paint, focus and the tap path at once; entry fades in on the container class
@@ -8961,12 +8962,14 @@ paint, focus and the tap path at once; entry fades in on the container class
 
 **In a `UI.VirtualGrid`.** The grid's cell Hit stays the one browse stop. Point
 `browseTarget` at it, keep each card's ref by item key (released by the cell's
-owner), enter the actions from the grid's `onActivate`, and inset the card by its
-measured extension so the first column and the last line keep their plates:
+owner), and inset the card by its measured extension so the first column and the
+last line keep their plates. The grid's `onActivate` runs the card's body
+callback when it has one, and otherwise enters its actions:
 
 ```lua
-local refs, gridRef, extent = {}, nil, Compose.cell({ side = 0, below = 0 })
-UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, itemExtent = 280, viewportExtent = "auto",
+local refs, gridRef, extent = {}, nil, Compose.cell({ side = 0, below = 0, body = 0 })
+UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, viewportExtent = "auto",
+    itemExtent = 320, -- holds revealExtent.body + below; the Cards scenario sizes each line from its tallest card
     ref = function(r) gridRef = r end,
     onActivate = function(item) local r = refs[item.id]; if r then r.api.enterActions() end end,
     cell = function(item, ctx)
@@ -8980,8 +8983,7 @@ UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end
                 ref = function(r)
                     refs[key] = r
                     ctx.scope.own(function() if refs[key] == r then refs[key] = nil end end)
-                    Compose.watch(function(use) local e = use(r.api.revealExtent)
-                        if e.below > extent:peek().below then extent:set(e) end end)
+                    Compose.watch(function(use) extent:set(use(r.api.revealExtent)) end)
                 end }) })
     end })
 ```
