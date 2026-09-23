@@ -1373,6 +1373,7 @@ local FIXTURES: { Fixture } = {
 -- would be the same silent-zero the extension checker exists to prevent.
 local UNSWEEPABLE: { [string]: string } = {
 	ScrollNavigation = "ScrollView target/position behavior only; no blueprint or text. ScrollView is swept directly.",
+	SheetRelease = "Pure release/resistance policy: numbers and ids in and out, no blueprint or text. Sheet is swept directly.",
 	ScrollBookmarks = "destination-owned scroll key/offset records only; no blueprint or text. TabView is swept directly.",
 	RadialGeometry = "pure sector arithmetic; no blueprint or text. RadialMenu mounts its resulting geometry",
 	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "

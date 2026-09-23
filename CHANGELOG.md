@@ -25,6 +25,17 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Sheet` placement, parts and gestures.** `placement` (automatic keeps
+  ten-foot centre, otherwise bottom; `side` with a physical `edge`), the Dialog
+  `width` presets, `closeButton`, a `header` blueprint or `false`, a sticky or
+  scrolling `hero` (image or authored content), pinned `actions` with the
+  Dialog action group, `contentInset`, a `"hug"` detent, and `scrollPolicy`.
+  The panel is now a pinned column around ONE body scroller: the panel itself
+  no longer scrolls (the Size/Close/grip paths are unchanged). Drags acquire
+  from the grip, the panel's native drag detector or the touch-pan stream, are
+  bound to the input class that started them, and release through a projected
+  velocity with bounded resistance. A function-bound `title` now works, as its
+  type always said. The room includes the on-screen keyboard.
 - **`UI.NavBar`** and the nav bar's slot form: `leading` follows Back, `center`
   replaces the title and fills the rest, and trailing content moves to a second
   row when the measured width cannot hold it, without rebuilding the center.

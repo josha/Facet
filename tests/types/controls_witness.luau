@@ -595,6 +595,26 @@ local _sheet = app.controls.Sheet("Details")({
 		return app.controls.Text({ text = "Details" })
 	end,
 })
+local _sheetParts = app.controls.Sheet("Lobby")({
+	title = function(_use)
+		return "Lobby"
+	end,
+	detent = Facet.Compose.cell("hug"),
+	detents = { "hug" :: "hug" | "large", "large" },
+	placement = "side",
+	edge = "left",
+	width = "narrow",
+	closeButton = false,
+	header = false,
+	hero = { image = "rbxassetid://1", aspectRatio = 16 / 9, sticky = true },
+	actions = { { id = "join", label = "Join", role = "default" :: "default", onActivate = function() end } },
+	actionLayout = "stacked",
+	contentInset = "none",
+	scrollPolicy = "atLargestDetent",
+	content = function()
+		return app.controls.Text({ text = "Lobby" })
+	end,
+})
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

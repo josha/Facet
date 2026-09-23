@@ -362,4 +362,86 @@ t.describe("Sheet parts", function()
 			end)).toBe(false)
 		end
 	end)
+
+	-- ===== lifetime around callbacks and failed builds =======================
+	t.it("action callbacks that throw, close or dispose leave no stale surface", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
+		local baseline = w.core.owner.size()
+		local shown = Compose.cell(false)
+		local control: any = nil
+		control = harness.Controls.Sheet(w.core, {
+			id = "Sheet",
+			title = "T",
+			detent = Compose.cell("large"),
+			isPresented = shown,
+			presenter = w.pres,
+			content = UI.Text({ text = "Body" }),
+			actions = {
+				{
+					id = "Boom",
+					label = "Boom",
+					onActivate = function()
+						error("caller bug")
+					end,
+				},
+				{
+					id = "Finish",
+					label = "Done",
+					onActivate = function()
+						shown:set(false)
+						shown:set(true) -- reopen inside the callback
+					end,
+				},
+				{
+					id = "Drop",
+					label = "Drop",
+					onActivate = function()
+						control.dispose()
+					end,
+				},
+			},
+		})
+		shown:set(true)
+		w.settle(3)
+		w.adapter.tap(assert(find(w, "/Boom"), "Boom"))
+		w.settle(2)
+		t.expect(control.dump().presented).toBe(true)
+		w.adapter.tap(assert(find(w, "/Finish"), "Done"))
+		w.settle(3)
+		t.expect(control.dump().presented).toBe(true)
+		t.expect(shown:peek()).toBe(true)
+		w.adapter.tap(assert(find(w, "/Drop"), "Drop"))
+		w.settle(3)
+		t.expect(w.adapter.node(PANEL)).toBeNil()
+		t.expect(shown:peek()).toBe(false)
+		t.expect(w.core.owner.size()).toEqual(baseline)
+	end)
+	-- header and hero content are blueprints, built before the sheet sees them;
+	-- the content builder is the one part that runs at present time
+	t.it("a failing content build does not leave a surface behind", function()
+		for _, broken in
+			{
+				{
+					content = function()
+						error("content failed")
+					end,
+				},
+			}
+		do
+			local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
+			local spec: any =
+				{ id = "Sheet", title = "T", detent = Compose.cell("medium"), content = UI.Text({ text = "B" }) }
+			for k, v in broken do
+				spec[k] = v
+			end
+			local ok, control = pcall(harness.Controls.Sheet, w.core, spec)
+			if ok then
+				pcall(control.present, w.pres)
+				w.settle(3)
+				control.dispose()
+				w.settle(3)
+			end
+			t.expect(w.adapter.node(PANEL)).toBeNil()
+		end
+	end)
 end)

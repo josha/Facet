@@ -216,7 +216,7 @@ owner that owns its resources. Start with
 | `client.world_anchor` | Measure a Part, Model, or avatar for a radial opening or retained offscreen marker direction, with optional center occlusion. | [api](../reference/api.md#clientworld_anchor) |
 | `UI.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#uiradialmenu) |
 | `UI.Alert` | Brief modal decisions with content-sized cards, role-placed row/stack actions, safe focus and cancellation. | [api](../reference/api.md#uialert) |
-| `UI.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#uisheet) |
+| `UI.Sheet` | Modal detents (including a content-fitting hug) at the bottom, centre or a side edge, with a pinned header, hero and actions around one scrolling body. | [api](../reference/api.md#uisheet) |
 | `UI.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#uipageview) |
 | `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
 | `UI.StatusIndicator` | Passive shape and color marks with optional capped counts. | [api](../reference/api.md#uistatusindicator) |

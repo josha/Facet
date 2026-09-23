@@ -12674,23 +12674,38 @@ record, so `record.api` carries `present(presenter?)`, `dismiss()`, `dump()` and
 `blueprint`. The control is released with the Compose owner that built it.
 
 A modal whose height settles at declared detents. It enters from the bottom of
-the screen and exits downward without scaling its text. Nearby screens place the
-panel at the bottom; distant screens center it. Width, text, focus treatment and
-safe-area reservation follow the active surface and theme.
+the screen and exits downward without scaling its text. By default nearby
+screens place the panel at the bottom and distant screens center it; `placement`
+chooses explicitly. Width, text, focus treatment and safe-area reservation
+follow the active surface and theme.
+
+The panel is a pinned column: the drag grip, an optional sticky hero, the title
+(or your `header`), the Size and Close row, ONE scrolling body, and pinned
+`actions`. Only the body scrolls.
 
 | Field | Contract |
 |---|---|
 | `id` | Stable name; defaults to `"Sheet"`. Give it as `id` or as the constructor name, never both |
 | `ref` | `function(record)`, called once while the control is built with the frozen `{ api, dump }` |
-| `title` | Required text or a Compose readable of text |
-| `content` | Required node, or a function returning one. A function is re-run for each presentation, so its cells live only as long as the sheet is open. The sheet supplies scrolling |
+| `title` | Required text, a Compose readable of text, or a `function(use)` returning text |
+| `content` | Required node, or a function returning one. A function is re-run for each presentation, so its cells live only as long as the sheet is open. It sits in the sheet's one body scroller |
 | `detent` | Required caller-owned writable Compose cell holding a declared detent ID |
-| `detents` | Nonempty array; defaults to `{ "medium", "large" }`. Medium requests half the safe height; large requests all of it. Custom entries are `{ id, fraction }` with fraction in `(0, 1]`, or `{ id, height }` with positive finite pixels. IDs are unique |
+| `detents` | Nonempty array; defaults to `{ "medium", "large" }`. Medium requests half the safe height; large requests all of it; `"hug"` (id `hug`) fits the whole body plus the pinned regions and re-measures when copy, text size, theme or viewport change. Custom entries are `{ id, fraction }` with fraction in `(0, 1]`, or `{ id, height }` with positive finite pixels. IDs are unique. Detents are always heights, in every placement |
 | `env` | Optional explicit environment; normally discovered from the surface |
 | `presenter` | Optional presenter retained for `present()` and bound presentation. An application supplies its own |
 | `isPresented` | Optional caller-owned writable Compose cell of a boolean; needs a presenter |
 | `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss; the explicit Close button and `dismiss()` still work |
 | `dragIndicator` | `"automatic"` (default), `"visible"`, or `"hidden"`. Automatic shows the header grip while pointer or touch is available |
+| `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"bottom"`, `"center"`, or `"side"` |
+| `edge` | `"left"` or `"right"` (default); only with `placement = "side"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
+| `width` | `"automatic"` (default, `controls.alert.maxWidth`), `"narrow"` (`controls.popup.panelWidth`) or `"wide"` (`controls.dialog.wideWidth`): the Dialog presets, bounded by the safe room |
+| `closeButton` | Defaults to true. Independent of `interactiveDismissDisabled` |
+| `header` | Construction-only. Absent shows `title`; a blueprint replaces the title region and sizes itself; `false` removes it. Size and Close stay in every form |
+| `hero` | Construction-only `{ image | content, aspectRatio | height, scaleMode?, background?, sticky? }`: exactly one of an image source or an arbitrary blueprint, exactly one of a ratio or a height (px or metric); `scaleMode` is image-only. `sticky = true` pins it above the body; otherwise it scrolls with the body. It spans the panel width without the body inset. With `header = false`, Size and Close sit over the hero's top corner and stay pinned while a scrolling hero moves; authored hero content starts below a measured band that keeps it clear of them |
+| `actions` | Pinned below the body: `{ id, label, role?, enabled?, busy?, onActivate }` (the Dialog action shape, any count). One `role = "default"` (Return) and one `role = "cancel"`. Cancel (ButtonB) runs an eligible cancel action before interactive dismissal. Actions never close the sheet; set your `isPresented` or call `dismiss()` |
+| `actionLayout` | `"automatic"` (default), `"row"` or `"stacked"`; a row that cannot show every full label stacks |
+| `contentInset` | `"standard"` (default) or `"none"`: the body's own padding only |
+| `scrollPolicy` | Construction-only. `"always"` (default): the body scrolls at every height and never hands a pan to the sheet. `"atLargestDetent"`: below the tallest detent a body pan resizes the sheet; at it, the body scrolls and only a downward pan starting at the top shrinks the sheet |
 
 Call `api.present()` to open and `api.dismiss()` to close. Repeated `present()`
 calls while open return the current presentation. The node the constructor
@@ -12698,11 +12713,16 @@ returns is an empty anchor; the panel arrives over the surface. The control is
 released with the Compose owner that built it.
 A bound sheet writes false to `isPresented` when it closes.
 
-Drag the header to resize; release selects the nearest detent. Dragging well
-below the smallest detent dismisses when interactive dismissal is enabled.
-Content pans and wheel input scroll. A change to controller-only input cancels
-an unfinished drag. Resize motion uses the shared non-overshooting motion class
-and honors reduced motion.
+Drag the grip, or the panel's free space (the engine's drag detector and touch
+pan; interactive children keep their own presses), to resize. A drag from free
+space starts after the input class's usual slop. Release projects the drag's
+speed 0.15 s ahead and settles on the nearest detent to that; a tie keeps the
+current detent. Only where the sheet actually is decides dismissal: below 70% of
+the smallest detent, when interactive dismissal is enabled. Past the limits the
+drag resists. One drag at a time: it belongs to the input class that started
+it, and losing that class cancels it back to the grabbed detent; an outside
+detent write or a change of the safe room cancels it too. The settle spring
+starts from the painted height at the flick's speed; reduced motion snaps.
 
 The Size button remains available without dragging. Activate it to cycle sizes;
 Left/Right adjusts while it holds focus, yielding to navigation at either end.
@@ -12710,11 +12730,12 @@ Up/Down moves through the content. Gamepad Back closes and restores focus to the
 presenting surface. The Close button has a downward chevron and works on every
 input class. Distant-screen placement does not change these semantics.
 
-Requested heights are capped by the available safe area and raised to a themed
-minimum that leaves room for controls and content. The panel itself scrolls when
-its contents exceed that height, including on very short screens. There is no
-background interaction through the modal and no gesture handoff that converts a
-content pan into resizing; the visible header owns resizing.
+Requested heights are capped by one safe rectangle (the viewport less the
+platform insets and the on-screen keyboard) and raised to a themed minimum. The
+body gives height back first. When the pinned regions alone exceed the room (a
+very short screen with a tall header and several stacked actions), they overrun
+the panel; no emergency whole-panel scroll exists yet. There is no background
+interaction through the modal.
 
 ```luau
 local detent, shown = Compose.cell("medium"), Compose.cell(false)

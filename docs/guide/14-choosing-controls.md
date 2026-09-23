@@ -354,10 +354,13 @@ of convenience skips the design contract. A supported Facet foreign-content host
 is still composition and should be considered before a custom system.
 
 Use `UI.Sheet` for a substantial briefing or editor that benefits from
-several heights. The header supports dragging; its Size button provides the same
-choices through focus and activation. Content gestures scroll. Distant screens
-center the sheet, while nearby gamepads retain bottom placement. Use Alert for a
-brief decision with a few actions.
+several heights, or one that should fit its content (`"hug"`). The header supports
+dragging; its Size button provides the same choices through focus and activation.
+Content gestures scroll. Distant screens center the sheet, while nearby gamepads
+retain bottom placement; `placement = "side"` docks it to a screen edge for a
+filter or inspector. Pinned `actions` stay reachable over a long body. Use
+Dialog when the caller should own presentation through proposals, and Alert for
+a brief decision with a few actions.
 
 Use `UI.PageView` for a short finite sequence of previews or guided pages.
 Dots show position and offer direct selection; the summary and Previous/Next
