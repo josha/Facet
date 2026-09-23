@@ -249,8 +249,8 @@ describe("DateTimePicker: a single date", function()
 		})
 		local entry = must(w, "/Words/then/Entry/Field")
 		-- one plate: the field's own, never a second one inside it
-		expect(w.adapter.node(must(w, "/P/Field")).props.surface).toBe("chip")
-		expect(w.adapter.node(must(w, "/Words/then/Entry")).props.surface).toBe("plain")
+		expect(w.adapter.node(must(w, "/P/Field")).props.surface).toBe("plain")
+		expect(w.adapter.node(must(w, "/Words/then/Entry")).props.surface).toBe("chip")
 		local function typeCommit(text: string)
 			w.adapter.focusText(entry)
 			w.adapter.node(entry).textBuffer = ""

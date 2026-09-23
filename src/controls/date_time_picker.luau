@@ -1356,8 +1356,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			id = "Entry",
 			value = text,
 			placeholder = spec.placeholder,
-			-- the field's plate is the row's: no second plate inside it
-			appearance = "utility",
+			-- the editable field IS the plate (its own field skin), so the row
+			-- around it paints none: one plate, never a box in a box
+			appearance = spec.appearance,
+			controlSize = spec.controlSize,
 			enabled = interactive,
 			env = spec.env,
 			onCommit = function(typed: any)
@@ -1508,9 +1510,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				width = UI.fill(),
 				gap = "xs",
 				align = "center",
-				surface = chrome.surface,
+				surface = Compose.formula(function(use)
+					return if use(typedEntry) then "plain" else selection.read(chrome.surface, use)
+				end),
 				height = chrome.height,
-				padding = chrome.padding,
+				padding = Compose.formula(function(use)
+					return if use(typedEntry) then 0 else selection.read(chrome.padding, use)
+				end),
 				children = {
 					UI.When({ id = "Words", condition = typedEntry, thenView = typedField, elseView = displayField }),
 					pop.blueprint,
