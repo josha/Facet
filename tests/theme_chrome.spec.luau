@@ -1166,7 +1166,8 @@ describe("role tints paint the ART, not a slab behind it", function()
 
 	it("the lifted label keeps its role TEXT colours (already shipped, not regressed)", function()
 		local model = sheet_model.buildPackage(parchment())
-		expect(ruleNamed(model, "Chrome text — destructive").props.TextColor3).toBe("$OnDanger")
+		-- the destructive label pairs with the danger-tinted art, as the accent one does
+		expect(ruleNamed(model, "Chrome text — destructive").props.TextColor3).toBe("$OnDangerChrome")
 		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$ContentSecondary")
 		-- the accent label pairs with the art it sits on, not the accent fill
 		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccentChrome")
