@@ -93,9 +93,13 @@ local MAX_COLUMNS = 8
 -- the plane's value bands: each band is exact across saturation (a white -> hue
 -- ramp at its own value); a gradient's alpha ceiling rules out one black overlay
 local PLANE_BANDS = 24
+-- a gradient's rotation in degrees: 0 runs left to right (the default is down)
+local ACROSS = 0
 -- plane fractions per second at a full right-stick deflection
 local STICK_SPEED = 0.6
 local STICK_DEADZONE = 0.2
+-- the opacity slider and field run in percent
+local PERCENT = 100
 
 local function isColor(v: any): boolean
 	return typeof(v) == "Color3"
@@ -647,7 +651,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						local grey = Color3.fromHSV(0, 0, v)
 						return UI.gradientData({
 							colors = { colorValue.tintHex(grey), colorValue.tintHex(hue) },
-							rotation = 0,
+							rotation = ACROSS,
 						})
 					end),
 				})
@@ -675,7 +679,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			id = "Plane",
 			width = UI.fill(),
 			height = Compose.formula(function(use)
-				return { type = "fixed", px = 4 * metric(use, "targetSizes.minimum", 44) }
+				-- four touch targets tall: a plane a thumb can travel
+				local target = metric(use, "targetSizes.minimum", 44)
+				return { type = "fixed", px = target * 4 }
 			end),
 			children = {
 				UI.VStack({ id = "Field", width = UI.fill(), height = UI.fill(), gap = 0, children = bands }),
@@ -700,13 +706,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 												UI.Box({ id = "Inner", width = UI.fill(), height = UI.fill() }),
 												999
 											),
-											{ thickness = 1, color = "#000000" }
+											{ thickness = "hairline", color = "#000000" }
 										),
 									},
 								}),
 								999
 							),
-							{ thickness = 2, color = "#ffffff" }
+							{ thickness = "focusRing", color = "#ffffff" }
 						),
 					},
 				}),
@@ -1110,7 +1116,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				label = "Opacity",
 				value = cell,
 				min = 0,
-				max = 100,
+				max = PERCENT,
 				step = 1,
 				enabled = interactive,
 				format = function(n: number): string

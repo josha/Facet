@@ -600,7 +600,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 								UI.Box({ id = "Today", width = disc, height = disc, hidden = hiddenUnless(isToday) }),
 								999
 							),
-							{ color = "accent", thickness = 1 }
+							{ color = "accent", thickness = "hairline" }
 						),
 						UI.Text({
 							id = "Day",

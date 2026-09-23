@@ -28,6 +28,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `replication` · `replication.snapshot` · `replication.collection` · `replication.mutation` | namespace of factories | dot-object state services; verb-string results; E-16 (ingest verbs) | F-8, F-9, F-10, F-11, exported types (pkg1), DOC-17 | core-state |
 | `newResourceProvider` | service | dot-object; pull transport; generation staleness | F-12 (strict opts), DEP (`retryAttempts`), DOC-8 | core-state |
 | `valueModel` · `valueModel.new` · `valueModel.defaultFormat` | pure decision module | E-13; construction-strict; fully typed | F-38 (format quarantine), DOC-8 | core-state |
+| `civilDate` · `civilDate.isLeap` · `civilDate.daysIn` · `civilDate.problem` · `civilDate.toDays` · `civilDate.fromDays` · `civilDate.dateOf` · `civilDate.addDays` · `civilDate.addMonths` · `civilDate.compare` · `civilDate.same` · `civilDate.weekday` · `civilDate.monthGrid` · `civilDate.within` · `civilDate.clampRange` · `civilDate.fromUnix` · `civilDate.toUnix` · `civilDate.systemClock` · `civilDate.formatTime` · `civilDate.format` · `civilDate.parse` · `civilDate.ENGLISH` | pure decision module | zone-free civil values; instants only at a caller-named offset; `systemClock` is the one clock read (phase5 P5b) | NOTE (UI.DateTimePicker's value model) | core-state |
 
 ## Blueprint layer (`UI`)
 

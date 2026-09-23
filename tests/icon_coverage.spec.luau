@@ -76,6 +76,8 @@ local REQUIRED_ICONS: { string } = {
 	"vote.down",
 	-- StepIndicator's error cue (phase6)
 	"status.error",
+	-- DateTimePicker's open button (phase5)
+	"calendar",
 }
 
 -- the files a framework icon request can live in: the composite controls, the
