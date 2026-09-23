@@ -24,6 +24,7 @@ local COPY = {
 	coachTitle = "Welcome to the garage",
 	coachBody = "Tune your car here before a race.",
 	coachGo = "Show me",
+	coachDone = "Done",
 	coachLater = "Later",
 	menu = "All tracks",
 	placedMenu = "Tracks, beside",
@@ -40,11 +41,11 @@ local COPY = {
 	lockedDialogTitle = "League terms",
 	accept = "I have read the terms",
 	search = "Search tracks",
-	searchTitle = "Tracks",
 	filter = "Filter",
 }
 
 local ART = "rbxassetid://75342910516929"
+local TOUR_STEPS = 3
 
 return {
 	title = "Overlays",
@@ -63,6 +64,8 @@ return {
 		local query = Compose.cell("")
 		local status = Compose.cell(COPY.status)
 		local tour: any = nil
+		local tourStep = Compose.cell(1)
+		local advancing = false
 
 		local function note(text: string)
 			status:set(text)
@@ -77,6 +80,7 @@ return {
 			dialogOpen:set(false)
 			termsOpen:set(false)
 			termsRead:set(false)
+			tourStep:set(1)
 			query:set("")
 			status:set(COPY.status)
 			-- a new session: the retired coach mark may be shown again
@@ -117,10 +121,10 @@ return {
 						UI.Text("Intro")({ text = COPY.intro, width = UI.fill() }),
 						UI.Text("Status")({ text = status, width = UI.fill() }),
 						UI.Button("Reset")({ label = "Reset", onActivate = reset }),
-						-- a header whose center is a stateful search field; narrow the
-						-- window and the filter moves to a second row, the text stays
+						-- a header whose center is a stateful search field (the center
+						-- replaces a title); narrow the window and the filter moves to a
+						-- second row, the text stays
 						UI.NavBar("Header")({
-							title = COPY.searchTitle,
 							center = UI.TextInput("Search")({ value = query, placeholder = COPY.search }),
 							trailing = UI.HStack("Tools")({
 								UI.Button("Filter")({ label = COPY.filter, compactLabel = { icon = "menu" } }),
@@ -192,43 +196,69 @@ return {
 								return UI.Text("Body")({ text = COPY.sourceBody, width = UI.fill() })
 							end,
 						}),
-						-- a rich coach mark: title, media, steps and two actions
-						UI.Callout("Tour")({
-							anchor = UI.Button("TourButton")({
-								label = COPY.coach,
-								onActivate = function()
-									tourAsked:set(true)
-								end,
-							}),
-							isPresented = tourAsked,
-							title = COPY.coachTitle,
-							media = { image = ART, aspectRatio = 2, scaleMode = "crop" },
-							content = UI.Text("Body")({ text = COPY.coachBody, width = UI.fill() }),
-							steps = { index = 1, count = 3 },
-							closeButton = true,
-							actions = {
-								{
-									id = "Later",
-									label = COPY.coachLater,
-									onActivate = function()
-										note("Last: tour later")
-									end,
-								},
-								{
-									id = "Go",
-									label = COPY.coachGo,
-									role = "default",
-									onActivate = function()
-										note("Last: tour started")
-									end,
-								},
-							},
-							ref = function(record: any)
-								tour = record.api
+						-- a rich coach mark: title, media, steps and two actions. "Show me"
+						-- moves the tour to its next step (each step is its own mark);
+						-- "Later" or the close retires it
+						UI.ForEach("TourStep")({
+							items = function(use)
+								return { use(tourStep) }
 							end,
-							onRetire = function(reason: string)
-								tourAsked:set(false)
-								note(`Last: tour retired ({reason})`)
+							key = function(step: number): string
+								return tostring(step)
+							end,
+							row = function(step: number)
+								return UI.Callout(if step == 1 then "Tour" else `Tour{step}`)({
+									anchor = UI.Button("TourButton")({
+										label = COPY.coach,
+										onActivate = function()
+											tourAsked:set(true)
+										end,
+									}),
+									isPresented = tourAsked,
+									title = COPY.coachTitle,
+									media = { image = ART, aspectRatio = 2, scaleMode = "crop" },
+									content = UI.Text("Body")({ text = COPY.coachBody, width = UI.fill() }),
+									steps = { index = step, count = TOUR_STEPS },
+									closeButton = true,
+									actions = {
+										{
+											id = "Later",
+											label = COPY.coachLater,
+											onActivate = function()
+												note("Last: tour later")
+											end,
+										},
+										{
+											id = "Go",
+											label = if step < TOUR_STEPS then COPY.coachGo else COPY.coachDone,
+											role = "default",
+											onActivate = function()
+												if step < TOUR_STEPS then
+													advancing = true
+													note(`Last: tour step {step + 1} of {TOUR_STEPS}`)
+												else
+													note("Last: tour finished")
+												end
+											end,
+										},
+									},
+									ref = function(record: any)
+										tour = record.api
+									end,
+									onRetire = function(reason: string)
+										if advancing then
+											-- the next step is the next mark, still presented
+											advancing = false
+											tourStep:set(step + 1)
+											return
+										end
+										tourAsked:set(false)
+										-- an action already wrote its own line
+										if reason ~= "action" then
+											note(`Last: tour retired ({reason})`)
+										end
+									end,
+								})
 							end,
 						}),
 						-- a full dialog: hero, title, a long body, an action label, two actions
@@ -287,6 +317,9 @@ return {
 								else
 									note("Last: close refused")
 								end
+							end,
+							onDismiss = function(reason: string)
+								note(`Last: terms closed ({reason})`)
 							end,
 							title = COPY.lockedDialogTitle,
 							width = "narrow",

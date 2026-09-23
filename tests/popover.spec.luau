@@ -847,8 +847,29 @@ describe("Popover: the Overlays showcase drives its own steps", function()
 		built.steps.reset()
 		w.settle(2)
 		expect(w.adapter.node("/Popover-Source/Layer/Surface")).toBeNil()
-		w.adapter.tap("/Overlays/Content/Sections/TourButton")
+		local tourButton: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -11) == "/TourButton" then
+				tourButton = path
+			end
+		end
+		w.adapter.tap(assert(tourButton, "the tour's button"))
 		w.settle(3)
 		expect(w.adapter.node("/Tour/Layer/Surface/Plate/Header/Title").props.text).toBe(scenario.copy.coachTitle)
+		-- "Show me" moves to the next step: a new mark, still presented, 2 of 3
+		for _, path in w.adapter.paths() do
+			if string.sub(path, 1, 6) == "/Tour/" and string.sub(path, -3) == "/Go" then
+				w.adapter.tap(path)
+			end
+		end
+		w.settle(4)
+		local steps: string? = nil
+		for _, path in w.adapter.paths() do
+			local node = w.adapter.node(path)
+			if string.sub(path, 1, 7) == "/Tour2/" and node.props.text == "2 of 3" then
+				steps = node.props.text
+			end
+		end
+		expect(steps).toBe("2 of 3")
 	end)
 end)
