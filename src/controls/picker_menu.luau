@@ -675,6 +675,12 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
 	local listShrink = Compose.cell(0)
+	--[[ ...AND THE BAR A SCROLLING LIST TOOK (phase3 native F2, 2026-09-22). The
+		host reserves the scroll bar off an overflowing list's cross axis, which
+		the width estimate cannot see: it is the renderer's measured gutter
+		(`controller.scrollBarInsetOf`, the one `UI.Table`'s header pays), fed
+		back after each solve and added to the popover's preferred width. ]]
+	local barGutter = Compose.cell(0)
 	-- the open panel's own controller and search list, for the selected-row reveal
 	local panelController: any = nil
 	local resultsList: any = nil
@@ -1301,13 +1307,16 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			hangs from and never wider than the safe area. `minMax` with no
 			preferred is exactly "content, then clamped". ]]
 		local safeW = math.max(triggerWidth, safeWidthNow())
+		local estimate = if pickerMode then widestRowEstimate() else 0
 		local floor = if pickerMode
-			then {
-				type = "minMax",
-				min = triggerWidth,
-				preferred = math.clamp(widestRowEstimate(), triggerWidth, safeW),
-				max = safeW,
-			}
+			then ownedFormula(popupScope, function(use)
+				return {
+					type = "minMax",
+					min = triggerWidth,
+					preferred = math.clamp(estimate + use(barGutter), triggerWidth, safeW),
+					max = safeW,
+				}
+			end)
 			else { type = "fixed", px = "controls.popup.panelWidth" }
 		local panel = UI.VStack({
 			id = if pickerMode and not isSheet then "Rows" else "Popup",
@@ -1381,6 +1390,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			return
 		end
 		listShrink:set(0)
+		barGutter:set(0)
 		feeds = 0
 		revealed = false
 		--[[ OPENING LANDS ON THE SELECTED ROW: once per open, after the panel has
@@ -1448,6 +1458,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 							return
 						end
 						reveal(node)
+						local inset = if panelController ~= nil
+							then panelController.scrollBarInsetOf(node.path .. "/Rows/List")
+							else nil
+						local gutter = if type(inset) == "table" then tonumber(inset.right) or 0 else 0
+						if gutter ~= barGutter:peek() then
+							barGutter:set(gutter)
+						end
 						local rect = rectOf(node.path)
 						local env = envForFacts or spec.env
 						local vp = if env ~= nil then env:get("viewportRect"):peek() else nil
