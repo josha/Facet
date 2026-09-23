@@ -256,4 +256,110 @@ t.describe("Sheet parts", function()
 			end)).toBe(false)
 		end
 	end)
+
+	-- ===== hug detents, ordering and late values ============================
+	local function natural(w: any): number
+		local body = w.adapter.node(`{PANEL}/Body`)
+		local top, bottom = math.huge, -math.huge
+		for _, path in w.adapter.paths() do
+			local parent = string.match(path, "^(.*)/[^/]+$")
+			if parent == body.path then
+				local r = w.adapter.node(path).rect
+				top, bottom = math.min(top, r.y), math.max(bottom, r.y + r.h)
+			end
+		end
+		return bottom - top
+	end
+	t.it("hug fits the whole body plus the pinned regions, and follows live copy both ways", function()
+		local copy = Compose.cell("Two short lines.")
+		local builds = 0
+		local w, c = mount({
+			detents = { "hug", "large" },
+			content = function()
+				builds += 1
+				-- a fixed width: a hugging panel's width follows its content, which
+				-- is not what this case measures
+				return UI.Text({ id = "Copy", text = copy, width = { type = "fixed", px = 420 } })
+			end,
+			actions = { { id = "Go", label = "Go", onActivate = noop } },
+		}, { detent = "hug" })
+		local body = w.adapter.node(`{PANEL}/Body`)
+		local short = rect(w, PANEL).h
+		t.expect(short < 600).toBe(true)
+		t.expect(body.rect.h >= natural(w) - 0.5).toBe(true)
+		w.adapter.setScrollPosition(body, { x = 0, y = 40 })
+		t.expect(body.scrollPosition.y).toBe(0) -- nothing clipped: no canvas to scroll
+		copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+		w.settle(4)
+		local tall = rect(w, PANEL).h
+		t.expect(tall > short).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Body`).rect.h >= natural(w) - 0.5).toBe(true)
+		copy:set("Two short lines.")
+		w.settle(4)
+		t.expect(rect(w, PANEL).h).toBe(short)
+		-- larger text re-measures without rebuilding the content
+		w.env:set("preferredTextOffset", 10)
+		w.settle(4)
+		t.expect(rect(w, PANEL).h > short).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Body`).rect.h >= natural(w) - 0.5).toBe(true)
+		t.expect(builds).toBe(1)
+		c.dispose()
+	end)
+	t.it("hug clamps to the safe room and keeps the minimum floor", function()
+		local w, c = mount({ detents = { "hug" } }, { detent = "hug" })
+		t.expect(rect(w, PANEL).h).toBe(600)
+		c.dispose()
+		w, c = mount({ detents = { "hug" }, content = UI.Text({ id = "Copy", text = "x" }) }, { detent = "hug" })
+		t.expect(rect(w, PANEL).h >= 4 * 44 + 2 * 16).toBe(true)
+		c.dispose()
+	end)
+	t.it("coinciding heights keep the declared id; Size cycles distinct ids; ties keep the current", function()
+		local w, c, d = mount({
+			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" },
+		}, { detent = "b" })
+		t.expect(d:peek()).toBe("b")
+		t.expect(rect(w, PANEL).h).toBe(300)
+		local seen = {}
+		for _ = 1, 3 do
+			w.adapter.tap(`{PANEL}/Header/Size`)
+			w.settle(2)
+			table.insert(seen, d:peek())
+		end
+		t.expect(seen).toEqual({ "large", "a", "b" })
+		-- a release that lands on the shared height keeps the current id
+		local drag = `{PANEL}/Drag/Handle`
+		local r = rect(w, drag)
+		w.adapter.pointerDown(drag, r.x + 10, r.y + 10, "touch")
+		w.adapter.pointerMove(r.x + 10, r.y + 12)
+		w.adapter.pointerUp(r.x + 10, r.y + 12)
+		w.settle(3)
+		t.expect(d:peek()).toBe("b")
+		c.dispose()
+	end)
+	t.it("an invalid late detent keeps the last geometry and a valid one recovers", function()
+		local w, c, d = mount(nil, { detent = "medium" })
+		local before = rect(w, PANEL).h
+		pcall(function()
+			d:set("bogus")
+		end)
+		w.settle(3)
+		t.expect(rect(w, PANEL).h).toBe(before)
+		d:set("large")
+		w.settle(3)
+		t.expect(rect(w, PANEL).h).toBe(600)
+		c.dispose()
+	end)
+	t.it("refuses a malformed hug entry", function()
+		local w = world.new()
+		for _, detents in { { "hug", "hug" }, { { id = "hug", fraction = 0.5 }, "hug" }, { "Hug" } } do
+			t.expect(pcall(function()
+				harness.Controls.Sheet(w.core, {
+					title = "D",
+					detent = Compose.cell("hug"),
+					detents = detents,
+					content = UI.Text({ text = "C" }),
+				})
+			end)).toBe(false)
+		end
+	end)
 end)

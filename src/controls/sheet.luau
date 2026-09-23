@@ -123,6 +123,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	end
 	assert(defaults <= 1, `{where}: only one action may take role = "default"`)
 	local utilityHeight = Compose.cell(nil)
+	local measureHug: (any, any) -> ()
 	local detents, byId = {}, {}
 	assert(spec.detents == nil or type(spec.detents) == "table", "UI.Sheet.detents must be an array")
 	local entries = spec.detents or { "medium", "large" }
@@ -134,10 +135,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		local d
 		if type(entry) == "string" then
 			assert(
-				entry == "medium" or entry == "large",
-				"UI.Sheet.detents accepts medium, large, or {id, fraction|height}"
+				entry == "medium" or entry == "large" or entry == "hug",
+				"UI.Sheet.detents accepts medium, large, hug, or {id, fraction|height}"
 			)
-			d = { id = entry, fraction = if entry == "medium" then 0.5 else 1 }
+			d = if entry == "hug"
+				then { id = "hug", hug = true }
+				else { id = entry, fraction = if entry == "medium" then 0.5 else 1 }
 		else
 			guard.assertKnownKeys("UI.Sheet.detents", entry, guard.keySet({ "id", "fraction", "height" }), "detent")
 			assert(
@@ -157,6 +160,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		end
 		assert(not byId[d.id], "UI.Sheet detent IDs must be unique")
 		byId[d.id] = d
+		d.index = index
 		table.insert(detents, d)
 	end
 	assert(#detents > 0, "UI.Sheet.detents must not be empty")
@@ -182,6 +186,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		return math.max(0, v.y + v.h - c.insets.bottom - occ.y)
 	end
 	-- ONE safe rectangle: the viewport less the platform insets and the keyboard
+	-- the hug detent's measured height: natural body plus pinned regions, fed
+	-- back from geometry; nil until measured (the floor stands in)
+	local hugHeight = Compose.cell(nil)
 	local function available(use)
 		local v, c = use(vp), use(chrome)
 		return math.max(1, v.h - c.insets.top - c.insets.bottom - keyboardBelow(use))
@@ -194,12 +201,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		local m = use(metrics)
 		local minimum = (themeSnapshot.resolveNumber(m, "targetSizes.minimum") or 44) * 4
 			+ (themeSnapshot.resolveNumber(m, "m") or 16) * 2
-		return math.min(h, math.max(minimum, if d.fraction then h * d.fraction else d.height))
+		local want = if d.hug then use(hugHeight) or minimum elseif d.fraction then h * d.fraction else d.height
+		return math.min(h, math.max(minimum, want))
 	end
+	-- by height; equal heights keep their authored order
 	local function ordered()
 		local out = table.clone(detents)
 		table.sort(out, function(a, b)
-			return heightOf(a, read) < heightOf(b, read)
+			local ha, hb = heightOf(a, read), heightOf(b, read)
+			if ha ~= hb then
+				return ha < hb
+			end
+			return a.index < b.index
 		end)
 		return out
 	end
@@ -274,10 +287,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			end
 			return
 		end
-		local nearest = sorted[1]
+		-- nearest height; a tie keeps the current id, then the authored order
+		local current = spec.detent:peek()
+		local nearest = byId[current] or sorted[1]
+		local best = math.abs(heightOf(nearest, read) - h)
 		for _, d in sorted do
-			if math.abs(heightOf(d, read) - h) < math.abs(heightOf(nearest, read) - h) then
-				nearest = d
+			local gap = math.abs(heightOf(d, read) - h)
+			if gap < best or (gap == best and nearest.id ~= current and d.index < nearest.index) then
+				nearest, best = d, gap
 			end
 		end
 		select(nearest.id)
@@ -287,11 +304,16 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			cancelDrag()
 		end
 	end)
+	-- a late id the sheet does not declare is refused (the error boundary sees
+	-- it) and geometry stays on the last valid one until a valid id arrives
+	local lastValid = spec.detent:peek()
 	owner.watchStatic(spec.detent, function(key)
 		assert(byId[key] ~= nil, "UI.Sheet.detent must name a declared detent")
+		lastValid = key
 	end)
 	local height = Compose.formula(function(use)
-		return math.min(available(use), use(dragHeight) or heightOf(byId[use(spec.detent)], use))
+		local d = byId[use(spec.detent)] or byId[lastValid]
+		return math.min(available(use), use(dragHeight) or heightOf(d, use))
 	end)
 	local paintedHeight = Compose.cell(height:peek())
 	do
@@ -388,6 +410,46 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 					}) :: any,
 			},
 		})
+	end
+	-- hug = the body's natural content height (its children's extent plus its
+	-- own padding) plus everything pinned around the body viewport, counted once
+	local function findBody(node: any): any
+		if node.id == "Body" and node.class == "ScrollView" then
+			return node
+		end
+		for _, child in node.children or {} do
+			local found = findBody(child)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
+	function measureHug(rectOf: any, root: any)
+		local body = findBody(root)
+		local panelRect = rectOf(root.path .. "/Layer/Panel")
+		local bodyRect = if body ~= nil then rectOf(body.path) else nil
+		if type(panelRect) ~= "table" or type(bodyRect) ~= "table" then
+			return
+		end
+		local top, bottom = math.huge, -math.huge
+		for _, child in body.children or {} do
+			local r = rectOf(child.path)
+			if type(r) == "table" then
+				top, bottom = math.min(top, r.y), math.max(bottom, r.y + r.h)
+			end
+		end
+		if top == math.huge then
+			return
+		end
+		local pad = if hero ~= nil and not sticky or spec.contentInset == "none"
+			then 0
+			else themeSnapshot.resolveNumber(metrics:peek(), "s") or 8
+		local want = (bottom - top) + 2 * pad + (panelRect.h - bodyRect.h)
+		local was = hugHeight:peek()
+		if was == nil or math.abs(was - want) > 0.5 then
+			hugHeight:set(want)
+		end
 	end
 	local function buildScreen()
 		local content = if type(spec.content) == "function" then spec.content() else spec.content
@@ -548,14 +610,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				requestDismiss = function(): boolean
 					return allowed("outside")
 				end,
-				syncGeometry = if utilityPath ~= nil
-					then function(rectOf: any, node: any?)
-						local r = if node ~= nil then rectOf(node.path .. utilityPath) else nil
+				syncGeometry = function(rectOf: any, node: any?)
+					if node == nil then
+						return
+					end
+					if utilityPath ~= nil then
+						local r = rectOf(node.path .. utilityPath)
 						if type(r) == "table" and r.h > 0 and r.h ~= utilityHeight:peek() then
 							utilityHeight:set(r.h)
 						end
 					end
-					else nil,
+					if byId.hug ~= nil and byId.hug.hug then
+						measureHug(rectOf, node)
+					end
+				end,
 				adjustAxis = "horizontal",
 				adjustTargets = function(root)
 					return { [root.path .. sizePath] = true }

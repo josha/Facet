@@ -14,7 +14,8 @@ export type Spec<V = StringCell, P = BooleanCell> = {
 	title: publicBlueprint.Bound<string>,
 	content: publicBlueprint.Blueprint | (() -> publicBlueprint.Blueprint),
 	detent: V,
-	detents: { "medium" | "large" | { id: string, fraction: number?, height: number? } }?,
+	-- "hug" fits the whole body plus pinned regions, re-measured live
+	detents: { "medium" | "large" | "hug" | { id: string, fraction: number?, height: number? } }?,
 	env: publicEnv.Env?,
 	presenter: any?,
 	isPresented: P?,
