@@ -9218,7 +9218,8 @@ neighbouring month's grey days can be tapped but are never a stop. L1/R1 and
 Comma/Period page the month from any day (a hint names LB/RB while a pad is
 live), the header's arrows and month and year menus reach every month
 without a shoulder button, and paging stops at a month wholly outside `min` /
-`max`. A typed year has four digits; a typed range is two dates joined by its
+`max`. A typed year has four digits, and on a 12-hour clock a typed hour from 1 to 12
+needs AM or PM (0 and 13-23 read as 24-hour time); a typed range is two dates joined by its
 own " – " (or " - "). `time` adds hour
 and minute fields with steps on the `minuteStep` grid (AM/PM on a 12-hour
 clock) and, on touch, a list of times at `minuteStep` that opens at the held
@@ -10437,7 +10438,9 @@ content, so a standalone rating still hugs its glyphs rather than stretching.
   (why a table is not a date, or nil).
 - Words: `civilDate.format(d, locale?)`, `civilDate.formatTime(d, hourCycle)`
   and `civilDate.parse(text, locale?, withTime?)` in the locale's numeric
-  order; `civilDate.ENGLISH` is the default locale.
+  order (it answers the date, or nil and a sentence saying why; a year has four
+  digits, and a 12-hour locale needs AM or PM on an hour from 1 to 12);
+  `civilDate.ENGLISH` is the default locale.
 - Instants always name their offset: `civilDate.fromUnix(seconds,
   offsetMinutes)` and `civilDate.toUnix(date, offsetMinutes)`. There is no zone
   database, so a zone with daylight time is your conversion to a fixed offset.

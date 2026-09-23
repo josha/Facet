@@ -150,6 +150,11 @@ describe("civilDate: the calendar model", function()
 		expect(iso(civil.parse("03.09.2026", { order = "dmy" }))).toBe("2026-09-03")
 		expect(iso(civil.parse("09/03/2026 9:30 PM", nil, true))).toBe("2026-09-03 21:30")
 		expect(iso(civil.parse("09/03/2026 21:30", nil, true))).toBe("2026-09-03 21:30")
+		-- on a 12-hour clock a bare 1-12 hour is ambiguous: it asks for AM or PM
+		local bare, why = civil.parse("09/03/2026 12:30", nil, true)
+		expect(`{iso(bare)}:{why}`).toBe("nil:Add AM or PM, or write the 24-hour time like 21:30.")
+		expect(iso(civil.parse("09/03/2026 12:30", { hourCycle = 24 }, true))).toBe("2026-09-03 12:30")
+		expect(iso(civil.parse("09/03/2026 0:30", nil, true))).toBe("2026-09-03 00:30")
 		for _, bad in { "02/30/2026", "13/01/2026", "hello", "09/03/2026 25:00", "12/31/26" } do
 			expect(`{bad}:{iso(civil.parse(bad, nil, false))}`).toBe(`{bad}:nil`)
 		end

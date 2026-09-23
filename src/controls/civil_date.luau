@@ -262,7 +262,8 @@ end
 
 --[[ The inverse of `format`: three numbers in the locale's order (any single
 	non-digit separators), then an optional `h:mm` with AM/PM on a 12-hour
-	clock. Answers the date or (nil, why); never a different day. ]]
+	clock (a bare 1-12 hour there is ambiguous and refused; 0 and 13-23 read as
+	24-hour time). Answers the date or (nil, why); never a different day. ]]
 function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (CivilDate?, string?)
 	local l: any = locale or civil_date.ENGLISH
 	local order = l.order or "mdy"
@@ -295,6 +296,9 @@ function civil_date.parse(text: string, locale: Locale?, withTime: boolean?): (C
 			hour = hour % 12 + (if meridiem == "PM" then 12 else 0)
 		elseif meridiem ~= "" then
 			return nil, "Enter a time like 9:30 AM or 21:30."
+		elseif (l.hourCycle or 12) == 12 and hour >= 1 and hour <= 12 then
+			-- "12:30" on a 12-hour clock could be either half of the day
+			return nil, "Add AM or PM, or write the 24-hour time like 21:30."
 		end
 		d.hour, d.minute = hour, minute
 	elseif withTime == true then
