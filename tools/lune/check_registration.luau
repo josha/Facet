@@ -140,6 +140,11 @@ local CONTRIBUTION_INTAKE_ONLY: { [string]: string } = {
 	ShortcutHint = "reads binding names only; its surface-less keycaps have no handlers or focus. "
 		.. "tests/shortcut_hint.spec.luau proves mounting adds no bindings, contexts or focus targets.",
 
+	OverlayParts = "its one bundle (`overlay_parts.room`, the tiny-room column) reads solved geometry only: "
+		.. "a ScrollView holding the panel's own regions, never a focus stop and no handler. "
+		.. "tests/dialog.spec.luau proves it: 'a tiny room unpins every region into one scroller: the last "
+		.. "action is reachable' walks the traversal and finds no Room stop.",
+
 	SelectionIndicator = "its bundle reads geometry epochs and accepts geometry/motion only. It mounts an Anchor holding a Box, "
 		.. "neither of which is in focus_map.FOCUSABLE, and it is declared FIRST inside its ZStack so it paints "
 		.. "BEHIND the strip it decorates and can never take a tap from it. What it owes instead of four input "

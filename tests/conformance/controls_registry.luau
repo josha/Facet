@@ -2249,9 +2249,11 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
-		-- The shared overlay parts (construction-only media and the action row)
-		-- that Callout wears and Dialog will: it validates and returns blueprints;
-		-- the adopting control mounts them, reports them and owns their input.
+		-- The shared overlay parts (construction-only media, the action row and
+		-- the tiny-room column) that Callout, Dialog and Sheet wear: it validates
+		-- and returns blueprints; the adopting control mounts them, reports them
+		-- and owns their input. The room's bundle reads geometry only
+		-- (check_registration's CONTRIBUTION_INTAKE_ONLY).
 		name = "OverlayParts",
 		kind = "composite",
 		module = "src/controls/overlay_parts.luau",

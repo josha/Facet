@@ -406,6 +406,10 @@ describe("Dialog: composition, layout and the height budget", function()
 		end, { w = 640, h = 322 })
 		local room = w.adapter.node(`{PANEL}/Room`)
 		expect(room.props.scrollEnabled).toBe(true)
+		-- the room reads geometry only: it is never a stop of its own
+		for _, entry in w.pres.focus.focusMap().traversal or {} do
+			expect(string.sub(entry.path, -5) == "/Room").toBe(false)
+		end
 		-- the ring walks to the last action and the room scrolls it into view
 		local leave = actionPath(w, "Leave")
 		for _ = 1, 8 do
