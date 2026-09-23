@@ -29,6 +29,18 @@ local COPY = {
 	recent = "Recent",
 	everything = "Everything",
 	status = "Last: nothing yet",
+	dialog = "Leave the race",
+	dialogTitle = "Leave the race?",
+	dialogBody = "Your lap will not count, and your place in the grid goes to the next driver. You can rejoin from the lobby at any time.",
+	dialogLabel = "Leaving now forfeits this heat.",
+	stay = "Stay",
+	leave = "Leave",
+	lockedDialog = "Terms of the league",
+	lockedDialogTitle = "League terms",
+	accept = "I have read the terms",
+	search = "Search tracks",
+	searchTitle = "Tracks",
+	filter = "Filter",
 }
 
 local ART = "rbxassetid://75342910516929"
@@ -44,6 +56,10 @@ return {
 		local allowClose = Compose.cell(false)
 		local sourceOpen = Compose.cell(false)
 		local tourAsked = Compose.cell(false)
+		local dialogOpen = Compose.cell(false)
+		local termsOpen = Compose.cell(false)
+		local termsRead = Compose.cell(false)
+		local query = Compose.cell("")
 		local status = Compose.cell(COPY.status)
 		local tour: any = nil
 
@@ -57,6 +73,10 @@ return {
 			allowClose:set(false)
 			sourceOpen:set(false)
 			tourAsked:set(false)
+			dialogOpen:set(false)
+			termsOpen:set(false)
+			termsRead:set(false)
+			query:set("")
 			status:set(COPY.status)
 			-- a new session: the retired coach mark may be shown again
 			if tour ~= nil then
@@ -96,6 +116,15 @@ return {
 						UI.Text("Intro")({ text = COPY.intro, width = UI.fill() }),
 						UI.Text("Status")({ text = status, width = UI.fill() }),
 						UI.Button("Reset")({ label = "Reset", onActivate = reset }),
+						-- a header whose center is a stateful search field; narrow the
+						-- window and the filter moves to a second row, the text stays
+						UI.NavBar("Header")({
+							title = COPY.searchTitle,
+							center = UI.TextInput("Search")({ value = query, placeholder = COPY.search }),
+							trailing = UI.HStack("Tools")({
+								UI.Button("Filter")({ label = COPY.filter, compactLabel = { icon = "menu" } }),
+							}),
+						}),
 						-- an accepting caller, with the structured help form on its trigger
 						UI.Popover("About")({
 							isPresented = aboutOpen,
@@ -201,6 +230,69 @@ return {
 								note(`Last: tour retired ({reason})`)
 							end,
 						}),
+						-- a full dialog: hero, title, a long body, an action label, two actions
+						UI.Button("DialogButton")({
+							label = COPY.dialog,
+							onActivate = function()
+								dialogOpen:set(true)
+							end,
+						}),
+						UI.Dialog("Leave")({
+							isPresented = dialogOpen,
+							onPresentedChange = function(next: boolean)
+								dialogOpen:set(next)
+							end,
+							onDismiss = function(reason: string)
+								note(`Last: dialog closed ({reason})`)
+							end,
+							hero = { image = ART, aspectRatio = 2, scaleMode = "crop" },
+							title = COPY.dialogTitle,
+							content = function()
+								return UI.Text("Body")({ text = COPY.dialogBody, width = UI.fill() })
+							end,
+							actionLabel = COPY.dialogLabel,
+							actions = {
+								{
+									id = "Stay",
+									label = COPY.stay,
+									role = "cancel",
+									onActivate = function()
+										dialogOpen:set(false)
+									end,
+								},
+								{
+									id = "Leave",
+									label = COPY.leave,
+									role = "destructive",
+									onActivate = function()
+										note("Last: left the race")
+										dialogOpen:set(false)
+									end,
+								},
+							},
+						}),
+						-- a refused close: the dialog stays until the terms are read
+						UI.Button("TermsButton")({
+							label = COPY.lockedDialog,
+							onActivate = function()
+								termsOpen:set(true)
+							end,
+						}),
+						UI.Dialog("Terms")({
+							isPresented = termsOpen,
+							onPresentedChange = function(next: boolean)
+								if next or termsRead:peek() then
+									termsOpen:set(next)
+								else
+									note("Last: close refused")
+								end
+							end,
+							title = COPY.lockedDialogTitle,
+							width = "narrow",
+							content = function()
+								return UI.Toggle("Read")({ label = COPY.accept, value = termsRead })
+							end,
+						}),
 						-- a long menu bounded to a height, with the shared row words
 						UI.Menu("Tracks")({
 							label = COPY.menu,
@@ -222,6 +314,9 @@ return {
 				end,
 				openSource = function()
 					sourceOpen:set(true)
+				end,
+				openDialog = function()
+					dialogOpen:set(true)
 				end,
 			},
 		}

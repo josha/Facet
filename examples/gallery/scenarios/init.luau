@@ -270,6 +270,8 @@ local ORDER = {
 	-- popover), a rich coach mark, the structured help form and a bounded menu:
 	-- the Actions group's Overlays tab. Not in `demo_picker.DEMOS`.
 	"overlays",
+	-- the Status tab's Notice section and its affixed banner (see status_family)
+	"notice",
 	-- `tab_view` (D5) is `r2`: a page's own top bar inside a screen that is
 	-- itself a tab of the app-level bottom bar, with both levels printing the
 	-- placement they resolved and which authority answered. The eviction is a

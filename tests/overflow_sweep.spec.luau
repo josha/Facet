@@ -536,6 +536,7 @@ local SCENARIOS = {
 	"status_indicator",
 	"badge",
 	"overlays",
+	"notice",
 	-- scaffold: new control scenarios are appended above this line
 }
 

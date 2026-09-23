@@ -307,3 +307,34 @@ describe("Notice: affixed placement reserves space a real consumer avoids", func
 		expect(top.y >= after - 1).toBe(true)
 	end)
 end)
+
+describe("Notice: the Status tab's affixed banner", function()
+	it("the banner pins to the tab's top and its content moves out of the way, then back", function()
+		local scenario = require("../examples/gallery/scenarios/status_family") :: any
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 900 }, reducedMotion = true })
+		local built = scenario.build({
+			Facet = Facet,
+			UI = w.UI,
+			Compose = Compose,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.pres,
+		})
+		w.present(function()
+			return built.screen()
+		end, built.present)
+		w.settle(3)
+		local reset = "/StatusFamily/Safe/Content/Recipes/Reset"
+		local before = w.adapter.node(reset).rect.y
+		w.adapter.tap("/StatusFamily/Safe/Content/Recipes/NoticeRecipe/Commands/ShowBanner")
+		w.settle(4)
+		local banner = w.adapter.node("/StatusFamily/Safe/Banner/then/Offline").rect
+		expect(banner.h > 0).toBe(true)
+		expect(w.adapter.node(reset).rect.y >= before + banner.h - 1).toBe(true)
+		w.adapter.tap("/StatusFamily/Safe/Banner/then/Offline/Content/Row/Close")
+		w.settle(4)
+		expect(w.adapter.node("/StatusFamily/Safe/Banner/then/Offline")).toBeNil()
+		expect(w.adapter.node(reset).rect.y).toBe(before)
+	end)
+end)
