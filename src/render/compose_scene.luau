@@ -199,6 +199,11 @@ function scene.new(frames: any?)
 					or value == "lastTextBaseline"
 				)
 			for _, class in ipairs(blueprint.PROP_DIRTY[node.class][key] or { "paint" }) do
+				-- a stroke that CHANGES is a bound one, a state ring that layout
+				-- never floors padding for (`layout_node`), so it stays paint-only
+				if key == "stroke" and class == "measure" then
+					continue
+				end
 				mark(node, if baseline and class == "arrange" then "measure" else class, key)
 			end
 		end

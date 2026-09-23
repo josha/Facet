@@ -1237,9 +1237,9 @@ local BOX: { [string]: PropSpec } = {
 	stroke = p({
 		types = { "table" },
 		reactive = true,
-		-- paint only: a resting (unbound) stroke's padding floor is read at
-		-- mount, and a bound one is a state ring that never moves padding
-		dirty = { "paint" },
+		-- measure too: a resting stroke sits inside the box and its padding pays
+		-- for it (a BOUND stroke never does; see `compose_scene`'s mark loop)
+		dirty = { "paint", "measure" },
 		shared = true,
 		channel = "style",
 		doc = "normalized UIStroke declaration — produced by UI.stroke(bp, …) / UI.strokeData(…)",
