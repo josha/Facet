@@ -174,6 +174,8 @@ function field_chrome.new(opts: any): any
 			id = chrome.LABEL_ID,
 			label = spec.label,
 			focusable = false,
+			-- a disabled field's label shows no press or hover of its own
+			enabled = spec.enabled,
 			-- not a plate: a package that frames its controls would frame every label
 			surface = "plain",
 			padding = 0,

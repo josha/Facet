@@ -93,6 +93,15 @@ describe("field chrome: the label", function()
 		end
 	end)
 
+	it("a disabled field's label follows it: no press or hover affordance, live both ways", function()
+		local enabled = require("../src/vendor/compose/core").cell(false)
+		local w = fieldWorld({ label = "Display name", enabled = enabled })
+		expect(propsOf(w, "/S/Name/Label").enabled).toBe(false)
+		enabled:set(true)
+		w.pres.refresh()
+		expect(propsOf(w, "/S/Name/Label").enabled).toBe(true)
+	end)
+
 	it("the label adds no focus stop, and its target never reaches the field's", function()
 		local plain = fieldWorld({})
 		local labelled = fieldWorld({ label = "Display name" })
