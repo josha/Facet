@@ -147,8 +147,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				refused = true
 				local line = `Facet {where}: \`{key}\` {if allowEmpty then "is a string" else "is a nonempty string"}`
 					.. " — keeping the last legal value"
-				table.insert(diagnostics, line)
-				warn(line)
+				selection.note(diagnostics, line)
 			end
 			return last
 		end)
@@ -416,8 +415,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				if not refusedTarget then
 					refusedTarget = true
 					local line = `Facet {where}: \`browseTarget\` returns a path string or nil — ignored`
-					table.insert(diagnostics, line)
-					warn(line)
+					selection.note(diagnostics, line)
 				end
 				target = nil
 			end

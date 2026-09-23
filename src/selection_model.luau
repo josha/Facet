@@ -11,6 +11,14 @@ function model.read(value: any, use: Compose.Use?): any
 	end
 	return value
 end
+-- a refused late value warns and joins a control's diagnostics, newest 16 kept
+function model.note(diagnostics: { string }, line: string)
+	table.insert(diagnostics, line)
+	if #diagnostics > 16 then
+		table.remove(diagnostics, 1)
+	end
+	warn(line)
+end
 function model.isSource(value)
 	return type(value) == "function" or Compose.isReadable(value)
 end

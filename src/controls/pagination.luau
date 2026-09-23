@@ -157,13 +157,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 
 	-- ===== the caller's facts, legal values only ============================
 	local diagnostics: { string } = {}
-	local function note(line: string)
-		table.insert(diagnostics, line)
-		if #diagnostics > 16 then
-			table.remove(diagnostics, 1)
-		end
-		warn(line)
-	end
 	local function legal(key: string, source: any, ok: (any) -> boolean, what: string): any
 		local last = selection.read(source)
 		local refused = false
@@ -173,7 +166,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				last, refused = v, false
 			elseif not refused then
 				refused = true
-				note(`Facet {where}: \`{key}\` {what} — keeping the last legal value`)
+				selection.note(diagnostics, `Facet {where}: \`{key}\` {what} — keeping the last legal value`)
 			end
 			return last
 		end)
@@ -206,7 +199,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		local clamp = if current ~= nil and current ~= page then `{page}->{current}` else nil
 		if clamp ~= nil and clamp ~= lastClamp then
-			note(`Facet {where}: page {page} is outside 1..{count or "?"}; showing {current}`)
+			selection.note(diagnostics, `Facet {where}: page {page} is outside 1..{count or "?"}; showing {current}`)
 		end
 		lastClamp = clamp
 		local hasPrevious, hasNext

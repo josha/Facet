@@ -79,8 +79,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			elseif not refused then
 				refused = true
 				local line = `Facet {where}: \`{key}\` {what} — keeping the last legal value`
-				table.insert(diagnostics, line)
-				warn(line)
+				selection.note(diagnostics, line)
 			end
 			return last
 		end)

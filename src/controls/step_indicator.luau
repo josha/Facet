@@ -132,8 +132,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		elseif reason ~= lastReason then
 			lastReason = reason
 			local line = `Facet {where}: {reason} — keeping the last legal steps`
-			table.insert(diagnostics, line)
-			warn(line)
+			selection.note(diagnostics, line)
 		end
 		-- a current id that names no step is a legal, unavailable current
 		local index: number? = nil
