@@ -209,6 +209,7 @@ owner that owns its resources. Start with
 | `UI.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#uicallout) |
 | `UI.Popover` | Content against a trigger or source you own the open state of: an anchored panel, or a sheet on a compact touch screen. | [api](../reference/api.md#uipopover) |
 | `UI.Dialog` | A modal panel you own the open state of: title, hero, one scrolling body and pinned actions. | [api](../reference/api.md#uidialog) |
+| `UI.Card` | Artwork and a title with a primary action and a More menu that reveal on engagement; enters from a grid's browse stop. | [api](../reference/api.md#uicard) |
 | `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
 | `UI.Snackbar` | One short message at the bottom of the screen with an optional action and close, shown one at a time; the caller owns visibility and every close is a proposal. | [api](../reference/api.md#uisnackbar) |
 | `UI.NavBar` | A surface's top bar with Back, leading, a filling center (title or search) and trailing content that wraps to a second row. | [api](../reference/api.md#uinavbar) |

@@ -40,7 +40,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # `namespace_entries()` itself whenever a control is deliberately added or
 # retired.
 DECLARED_ENTRIES = {
-    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView", "Dialog",
+    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Card", "Chip", "CollapsibleView", "Dialog",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu", "NavBar", "Notice",
     "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Snackbar", "StatusIndicator", "Slider",
@@ -226,6 +226,8 @@ _EROSION_PROBES = [
     ("NavBar", 'app.controls.NavBar({ title = 4 })'),
     ("NavBar", 'app.controls.NavBar("Bar")({ leading = "Home" })'),
     ("Notice", 'app.controls.Notice({ message = "m", severity = "fatal" })'),
+    ("Card", 'app.controls.Card({ image = "i", title = "t", reveal = "hover" })'),
+    ("Card", 'app.controls.Card("C")({ image = "i", title = "t", primaryAction = { label = "P" } })'),
     ("Notice", 'app.controls.Notice("N")({ message = "m", placement = "bottom" })'),
     ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, title = "T", width = "huge" })'),
     ("Dialog", 'app.controls.Dialog("D")({ isPresented = true, closeButton = "no", title = "T" })'),

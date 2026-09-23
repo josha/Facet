@@ -521,6 +521,22 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "Card",
+		class = "Card",
+		build = function(core)
+			return harness.Controls.Card(core, {
+				id = "Ctl",
+				image = "rbxassetid://75342910516929",
+				title = PSEUDO,
+				caption = lt.PSEUDO_SECONDARY,
+				onActivate = function() end,
+				primaryAction = { label = lt.PSEUDO_ACTION, onActivate = function() end },
+				menu = { label = PSEUDO, items = { { id = "hide", label = PSEUDO, onSelect = function() end } } },
+				reveal = "always",
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()

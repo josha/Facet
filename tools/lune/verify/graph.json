@@ -23027,13 +23027,13 @@
      "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
      "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls"
     ],
-    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"41\""
+    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"42\""
    },
    "class": "result-ids",
    "evidence": null,
    "id": "release-candidate-review::naming-adr-implemented",
    "name": "naming-adr-implemented",
-   "note": "naming-adr-implemented: 3 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. UPDATED 2026-09-21: ShortcutHint adds the thirtieth application composite; the exact namespace case checks the declared control set. P2a adds Skeleton, Avatar, and AvatarGroup to the accepted 30-entry baseline: the exact current composite census is 33. P2bc adds StatusIndicator and Badge: the exact current composite census is 35. NumberInput made it 36; P4a adds Popover: the exact current composite census is 37. P4b adds Dialog: 38, Notice: 39, and NavBar: 40. P4d adds Snackbar: 41.",
+   "note": "naming-adr-implemented: 3 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. UPDATED 2026-09-21: ShortcutHint adds the thirtieth application composite; the exact namespace case checks the declared control set. P2a adds Skeleton, Avatar, and AvatarGroup to the accepted 30-entry baseline: the exact current composite census is 33. P2bc adds StatusIndicator and Badge: the exact current composite census is 35. NumberInput made it 36; P4a adds Popover: the exact current composite census is 37. P4b adds Dialog: 38, Notice: 39, and NavBar: 40. P4d adds Snackbar: 41. P6a adds Card: 42.",
    "phase": "release-candidate-review",
    "releaseBlocking": false,
    "requirements": [

@@ -628,6 +628,19 @@ local _snackbar = app.controls.Snackbar("Saved")({
 	duration = 4,
 	priority = 1,
 })
+local _card = app.controls.Card("Nebula")({
+	image = "rbxassetid://1",
+	title = Facet.Compose.cell("Nebula Racers"),
+	caption = "Friends playing",
+	imageAspectRatio = 16 / 9,
+	onActivate = function() end,
+	primaryAction = { label = "Play", icon = "chevron.trailing", onActivate = function() end, busy = false },
+	menu = { items = { { id = "hide", label = "Not interested", onSelect = function() end } }, label = "More" },
+	reveal = "automatic",
+	browseTarget = function(): string?
+		return nil
+	end,
+})
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

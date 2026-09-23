@@ -8923,6 +8923,81 @@ goes with its owner.
 `dump()` reports `{ schema = "facet-notice-dump/1", id, severity, appearance,
 placement, accessories = "beside" | "below", actionCount, closable }`.
 
+### `UI.Card`
+
+`UI.Card { … }` -> the card's node. `ref` receives `{ api, dump }`.
+
+Artwork, a title and an optional caption, with a primary action and a More menu
+that reveal on engagement. Spec: `{ id?, image: Bound<string>, title:
+Bound<string>, caption: Bound<string>?, imageAspectRatio: number?, imageFraming?,
+onActivate: (() -> ())?, primaryAction: { label, icon?, onActivate, enabled?,
+busy? }?, menu: { items, label? }?, reveal: ("automatic" | "always")?,
+browseTarget: (() -> string?)?, enabled: Bound<boolean>?, width?, env? }`.
+
+`image` and `title` are required and nonempty; `caption` may be empty. A late
+empty or wrong-typed value keeps the last legal paint (a warning and a
+`api.diagnostics()` line) until a legal one arrives. With `onActivate` the body
+is an image `UI.Button` (title as its label, caption as its subtitle, the image
+media keys as Button's); without it the body is plain artwork and text. The
+primary action is an ordinary Button and `menu` is a `UI.Menu` behind a More
+button (`menu.label` is its name, default "More"). Body, primary and More are
+**sibling** targets under a noninteractive card, so a press runs exactly one of
+them. Structure and callbacks are construction-time; the bound values stay live.
+`enabled = false` is inherited by all three.
+
+**Reveal.** `always` keeps the action row in the card's layout. `automatic`
+(the default) shows it at rest on a touch-only session and otherwise while the
+card is **engaged**: the pointer within it, a painted focus ring within it, a
+press held on one of its buttons, its menu open, its actions entered, or the
+`browseTarget` path focused. A card with neither a body action nor a
+`browseTarget` has no stop of its own, so it shows its actions at rest. Revealed
+actions sit on a plate that reaches one `s` past each side and below the row;
+the card's own box never changes, so siblings never move. The layer is laid out
+at rest, so `api.revealExtent` (`{ side, below }`) is the **measured** extension
+before anything reveals; reserve it around the card wherever a neighbour's
+controls or a clip edge sit within it. When engagement ends the layer leaves
+paint, focus and the tap path at once; entry fades in on the container class
+(reduced motion: none).
+
+**In a `UI.VirtualGrid`.** The grid's cell Hit stays the one browse stop. Point
+`browseTarget` at it, keep each card's ref by item key (released by the cell's
+owner), enter the actions from the grid's `onActivate`, and inset the card by its
+measured extension so the first column and the last line keep their plates:
+
+```lua
+local refs, gridRef, extent = {}, nil, Compose.cell({ side = 0, below = 0 })
+UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, itemExtent = 280, viewportExtent = "auto",
+    ref = function(r) gridRef = r end,
+    onActivate = function(item) local r = refs[item.id]; if r then r.api.enterActions() end end,
+    cell = function(item, ctx)
+        local key = item.id
+        return UI.VStack("Inset")({ width = UI.fill(), height = UI.fill(),
+            padding = function(use) local e = use(extent); return { left = e.side, right = e.side, top = 0, bottom = e.below } end,
+            UI.Card("Card")({ image = item.art, title = function(use) return ctx.current(use).title end,
+                browseTarget = function() local cell = gridRef and gridRef.api.pathOf(key); return cell and cell .. "/Hit" end,
+                primaryAction = { label = "Play", onActivate = function() play(key) end },
+                menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key) end } } },
+                ref = function(r)
+                    refs[key] = r
+                    ctx.scope.own(function() if refs[key] == r then refs[key] = nil end end)
+                    Compose.watch(function(use) local e = use(r.api.revealExtent)
+                        if e.below > extent:peek().below then extent:set(e) end end)
+                end }) })
+    end })
+```
+
+`api.enterActions()` holds the reveal and traps focus in the actions, entering at
+the first eligible one; it returns false for a disabled or unmounted card or one
+with nothing eligible, and never runs the primary action. Arrows and Tab stay in
+the actions; Cancel closes an open menu first, then leaves the actions and focus
+returns to the browse stop (which keeps the card revealed). A tap elsewhere also
+leaves them. Removing, recycling or replacing the card releases its trap.
+
+`api` also carries `leaveActions()`, `engaged`, `revealed` and `revealExtent`
+(readables). `dump()` reports `{ schema = "facet-card-dump/1", id, reveal,
+revealed, engaged, hovered, focusWithin, pressing, browsing, entered, menuOpen,
+body = "button" | "informational", actions, extent, diagnostics }`.
+
 ### `UI.Snackbar`
 
 `UI.Snackbar { … }` -> an empty anchor node; the row appears in the

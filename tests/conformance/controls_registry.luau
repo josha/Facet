@@ -2371,6 +2371,35 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		name = "Card",
+		kind = "composite",
+		module = "src/controls/card.luau",
+		export = "UI.Card",
+		spec = "tests/card.spec.luau",
+		conformance = "tests/card.spec.luau",
+		docsAnchor = "UI.Card",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "body, primary and More are sibling targets: one press runs exactly one intent" },
+			touch = { "touch-only keeps actions at rest and the first tap does the body's promised action" },
+			keyboard = { "focus within reveals; pointer departure never hides focused content; focus departure does" },
+			gamepad = {
+				"Activate enters the actions at the first action; arrows stay inside; Cancel restores the stop",
+			},
+		},
+		-- PARADIGM axis: pointer reveals on hover, touch-only shows the actions at
+		-- rest, a painted ring (or a grid browse stop) reveals them and Activate on a
+		-- browse stop enters them. hotSwitch: gaining a pointer returns a touch card
+		-- to engagement, and a live text/theme change re-measures the extension.
+		affordanceProofs = {
+			pointer = { "automatic: pointer within reveals; siblings and the card envelope never move" },
+			touch = { "touch-only keeps actions at rest and the first tap does the body's promised action" },
+			keyboard = { "hidden actions are out of the focus order at rest" },
+			gamepad = { "the grid Hit is the browse stop: its ring reveals that card alone" },
+			hotSwitch = { "a live theme and text change while revealed re-measures without moving siblings" },
+		},
+	},
+	{
 		name = "Snackbar",
 		kind = "composite",
 		module = "src/controls/snackbar.luau",

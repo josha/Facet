@@ -85,6 +85,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Notice = function(w)
 		return { message = "Saved." }
 	end,
+	Card = function(w)
+		return { image = "rbxassetid://1", title = "Title" }
+	end,
 	Snackbar = function(w)
 		return { isPresented = Compose.cell(false), message = "Saved.", closeButton = false }
 	end,

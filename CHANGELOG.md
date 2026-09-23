@@ -25,6 +25,15 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.Card`.** Artwork, a title and a caption as one body, with a primary
+  action and a More menu as sibling targets. `reveal = "automatic"` shows them
+  on engagement (pointer, painted focus, a held press, the open menu, a browse
+  stop) over a measured plate that never moves siblings, and at rest on touch;
+  `always` keeps them in layout. `api.enterActions()` enters them from a
+  `UI.VirtualGrid` browse stop; Cancel returns to it.
+- **Transient traps follow their contribution.** A `transientScope` whose
+  control left the tree (a recycled cell, a closed region) no longer strands
+  focus in its trap; the trap is released before the focus map is rebuilt.
 - **Overlay paths and the tiny room (breaking paths).** `UI.Dialog` and
   `UI.Sheet` lay their regions in one `Room/Column`: `/<Dialog>/Center/Panel/Room/Column/{Header,Body,Actions,…}`
   and `/<Sheet>/Layer/Panel/Room/Column/{Header,Body,Actions,…}`, with Sheet
