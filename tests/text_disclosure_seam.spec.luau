@@ -126,9 +126,12 @@ local function assignmentTargets(source: string): { string }
 	local depth = 0
 	for line in string.gmatch(stripComments(source), "[^\n]+") do
 		local trimmed = string.match(line, "^%s*(.-)%s*$") :: string
-		local target = string.match(trimmed, '^([%a_][%w_%.%[%]"]*)%s*[%+%-]?=[^=]')
-		if depth == 0 and target ~= nil and string.sub(trimmed, 1, 6) ~= "local " then
-			table.insert(out, target)
+		-- one target or a comma list of them (`a, b = f()`)
+		local lhs = string.match(trimmed, '^([%a_][%w_%.%[%]"%s,]*)[%+%-]?=[^=]')
+		if depth == 0 and lhs ~= nil and string.sub(trimmed, 1, 6) ~= "local " then
+			for target in string.gmatch(lhs, "[^,%s]+") do
+				table.insert(out, target)
+			end
 		end
 		local _, opens = string.gsub(trimmed, "{", "")
 		local _, closes = string.gsub(trimmed, "}", "")
@@ -265,8 +268,15 @@ describe("the text-disclosure seam: the WRITE matrix", function()
 
 	it("NEGATIVE CONTROL: each forbidden write is reported, and a read or a constructor entry is not", function()
 		local text = "\n\tstack[1] = h\n\towner.hasDisclose = false\n\tgraph.x += 1\n\tdisclosurePlate = nil\n"
-			.. "\tlocal a = stack[1]\n\tf({\n\t\tid = DISCLOSE_ROOT,\n\t\tchildren = {\n\t\t},\n\t})\n\tif a == b then\n"
-		expect(assignmentTargets(text)).toEqual({ "disclosurePlate", "graph.x", "owner.hasDisclose", "stack[1]" })
+			.. "\tfound, stack[2] = f()\n\tlocal a = stack[1]\n\tf({\n\t\tid = DISCLOSE_ROOT,\n\t\tchildren = {\n\t\t},\n\t})\n\tif a == b then\n"
+		expect(assignmentTargets(text)).toEqual({
+			"disclosurePlate",
+			"found",
+			"graph.x",
+			"owner.hasDisclose",
+			"stack[1]",
+			"stack[2]",
+		})
 		local names = { graph = true, stack = true, env = true, core = true }
 		local body = "\n\tgraph.focusVisible:set(false)\n\tlocal s = table.clone(stack)\n\tenv:get('x'):peek()\n"
 			.. "\ttable.insert(core, 1)\n"

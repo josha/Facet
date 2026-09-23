@@ -88,6 +88,12 @@ function textDisclosure.new(ctx: any)
 	-- the first TRUNCATED, DISCLOSED Text at or under `path`, in document order.
 	-- Engagement names a focusable (or the label itself); the debt belongs to the
 	-- Text, and a control is free to hold exactly one — a row's name cell.
+	-- what a disclosing node owes. The mounted node carries the RESOLVED value,
+	-- so a bound label discloses what it is currently saying rather than a Readable
+	local function valueOf(n: any): (string, boolean)
+		return tostring(n.props.text ~= nil and n.props.text or n.props.label), n.props.rich == true
+	end
+
 	local function disclosureTargetIn(handle: any, path: string?): (string?, string?, boolean?)
 		if handle == nil or path == nil then
 			return nil, nil
@@ -148,10 +154,7 @@ function textDisclosure.new(ctx: any)
 				local facts = ctrl.textAt(n.path)
 				if facts ~= nil and facts.truncated == true then
 					foundPath = n.path
-					-- the mounted node carries the RESOLVED value, so a bound label
-					-- discloses what it is currently saying rather than a Readable
-					foundText = tostring(n.props.text ~= nil and n.props.text or n.props.label)
-					foundRich = n.props.rich == true
+					foundText, foundRich = valueOf(n)
 					return
 				end
 			end
@@ -202,6 +205,15 @@ function textDisclosure.new(ctx: any)
 		local srcRect = if ctrl.screenRectOf ~= nil
 			then ctrl.screenRectOf(plate.sourcePath)
 			else ctrl.rectOf(plate.sourcePath)
+		local safe = safeBox(plate.owner.reserveAppChrome)
+		local gap = themeSnapshot.resolveNumber(metricsNow(), "xs") or 4
+		-- the width ceiling follows the LIVE safe box as well: insets that grow
+		-- under a live plate re-wrap it inside the new box, never past its edge
+		local maxW = math.max(0, safe.w - 2 * gap)
+		if plate.maxW:peek() ~= maxW then
+			plate.maxW:set(maxW)
+			plate.controller.refresh()
+		end
 		local plateRect = plate.controller.rectOf(DISCLOSE_PLATE)
 		if type(srcRect) ~= "table" or type(plateRect) ~= "table" then
 			return
@@ -216,11 +228,11 @@ function textDisclosure.new(ctx: any)
 		local placement = anchorPlacement.solve({
 			source = srcRect,
 			size = { w = plateRect.w, h = plateRect.h },
-			safe = safeBox(plate.owner.reserveAppChrome),
+			safe = safe,
 			edge = "bottom",
 			-- leading-aligned on the label, which is where a reader's eye already is
 			align = "start",
-			gap = themeSnapshot.resolveNumber(metricsNow(), "xs") or 4,
+			gap = gap,
 		})
 		if plate.ox:peek() ~= placement.x or plate.oy:peek() ~= placement.y then
 			plate.ox:set(placement.x)
@@ -248,6 +260,7 @@ function textDisclosure.new(ctx: any)
 		local sc = core.owner.createChild()
 		local ox = Compose.cell(srcRect.x)
 		local oy = Compose.cell(srcRect.y + srcRect.h + gap)
+		local maxW = Compose.cell(math.max(0, box.w - 2 * gap))
 		local root = mountComponent(function(UI)
 			return UI.Screen({
 				id = DISCLOSE_ROOT,
@@ -272,8 +285,11 @@ function textDisclosure.new(ctx: any)
 								-- HUG WITH A CEILING, not a fixed width: a short value gets a
 								-- short plate, and a long one wraps inside the safe box instead
 								-- of running off the screen edge — which is the same overflow
-								-- ladder the label it is disclosing just failed
-								width = { type = "hug", max = math.max(0, box.w - 2 * gap) },
+								-- ladder the label it is disclosing just failed. The ceiling is
+								-- a cell the clamp keeps equal to the live safe box
+								width = function(use: any): any
+									return { type = "hug", max = use(maxW) }
+								end,
 								children = {
 									UI.Text({
 										id = "Full",
@@ -309,8 +325,10 @@ function textDisclosure.new(ctx: any)
 			sourcePath = sourcePath,
 			source = source,
 			text = fullText,
+			rich = rich == true,
 			ox = ox,
 			oy = oy,
+			maxW = maxW,
 		}
 		clampDisclosure()
 	end
@@ -447,9 +465,9 @@ function textDisclosure.new(ctx: any)
 	--[[ the plate outlives neither its source node nor its surface. Called from
 		`refresh` and from `dismiss`.
 
-		TWO conditions, not three. "The source node unmounted" needs no walk of its
-		own: `refresh` re-solves before this runs, so a node a `UI.When` closed over
-		has no entry in the solve's text facts at all — the same read that answers
+		"The source node unmounted" needs no walk of its own: `refresh` re-solves
+		before this runs, so a node a `UI.When` closed over has no entry in the
+		solve's text facts at all — the same read that answers
 		"a re-solve made room for it" answers "it is gone", and it is a map lookup
 		rather than a tree walk on every refresh. What the STACK check adds is
 		different in kind: it keeps a dismissed surface's DISPOSED controller from
@@ -469,6 +487,23 @@ function textDisclosure.new(ctx: any)
 		local facts = plate.owner.controller.textAt ~= nil and plate.owner.controller.textAt(plate.sourcePath)
 		if facts == nil or facts.truncated ~= true then
 			dismissDisclosure("goneOrNoLongerTruncated")
+			return
+		end
+		-- ...AND THE PLATE ANSWERS FOR THE LABEL AS IT IS. A losing ViewThatFits
+		-- candidate keeps its text facts, and a bound value can change while still
+		-- truncated; either would leave the plate showing text that is not on
+		-- screen. Hidden retires it; a changed value re-presents it, same source.
+		local ctrl = plate.owner.controller
+		local node = nodeAt(plate.owner.root.node, plate.sourcePath)
+		if
+			node == nil or isHiddenPath(plate.sourcePath, if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {})
+		then
+			dismissDisclosure("hidden")
+			return
+		end
+		local text, rich = valueOf(node)
+		if text ~= plate.text or rich ~= plate.rich then
+			presentDisclosure(plate.owner, plate.sourcePath, text, plate.source, rich)
 		end
 	end
 
