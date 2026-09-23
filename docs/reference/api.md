@@ -9120,11 +9120,12 @@ requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
 
 `value` is yours: every accepted change proposes `onChange(color)` and the
 picker repaints only from what you then hold, so a refused change never paints.
-`onCommit(color)` ends a gesture (a drag's release, a slider's release, a swatch
-press, a field commit); with `draft = true` it fires only on **Apply**, and the
-panel adds Apply and Cancel. **Cancel** (B, the sheet's Close, the draft Cancel)
-proposes the colour the panel opened with; a tap outside keeps what is shown. A
-write of yours while the panel is open becomes the colour Cancel returns to.
+`onCommit(color)` ends a gesture (a drag's release, a slider's release, a stick
+session, a swatch press, a field commit), so every change commits as it happens
+and closing the panel any way (B, Escape, a tap outside, the sheet's Close)
+keeps it. With `draft = true` nothing commits until **Apply**: the panel adds
+Apply and Cancel, and every other way out proposes the colour the panel opened
+with (a write of yours while it is open becomes that colour).
 `onChange` is required unless `readOnly` is true; `nil` is a value only with
 `allowEmpty = true` (the plate is crossed out and the text is `placeholder`).
 
@@ -9148,13 +9149,15 @@ the hue the player set. Hex accepts `#RGB`, `#RRGGBB` and, with `alpha`,
 `#RRGGBBAA`; a refused hex stays in the field with its error and commits
 nothing. The plane drags 1:1 and cancels (restoring its start) if pointer and
 touch go away mid-drag; on a pad it takes the right stick while it has focus,
-with a hint saying so, and the D-pad keeps moving focus. There is no
+with a hint saying so (and sinks it, so a camera below does not turn), and the
+D-pad keeps moving focus. There is no
 eyedropper: Roblox has no screen-pixel read — put your own Button beside the
 well and call `onChange` with what it sampled.
 
 `dump()` reports `{ schema = "facet-color_picker-dump/1", id, style, value,
 alpha, hsv = { h, s, v }, text, name, modes, mode, format, draft, presented,
-route, planePath, columns, swatchPaths, hexError, diagnostics }`.
+route, planePath, columns, swatchPaths, hexError, diagnostics, owned }`
+(`owned`: what the control's owner holds, for leak checks).
 
 ### `UI.DateTimePicker`
 

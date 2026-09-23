@@ -246,13 +246,16 @@ describe("ColorPicker: the well and its panel", function()
 		expect(w.pres.focus.focused:peek()).toBe(cells[4 + columns])
 	end)
 
-	it("Cancel restores the open-time colour through onChange; an outside tap keeps what is shown", function()
+	it("without draft every change commits live and B or an outside tap only closes, keeping it", function()
 		local startColor = Color3.fromRGB(10, 20, 30)
-		local cell, seen, change = caller(startColor)
-		local reasons = {}
+		local cell, _, change = caller(startColor)
+		local reasons, commits = {}, {}
 		local w = mount({
 			value = cell,
 			onChange = change,
+			onCommit = function(c: any)
+				table.insert(commits, hex(c))
+			end,
 			onDismiss = function(r: string)
 				table.insert(reasons, r)
 			end,
@@ -260,12 +263,14 @@ describe("ColorPicker: the well and its panel", function()
 		open(w)
 		w.adapter.tap(w.record("P").dump().swatchPaths[5])
 		w.settle(2)
-		expect(hex(cell:peek()) ~= hex(startColor)).toBe(true)
+		local picked = hex(cell:peek())
+		expect(picked ~= hex(startColor)).toBe(true)
 		w.press("ButtonB")
 		w.settle(3)
 		expect(w.record("P").dump().presented).toBe(false)
-		expect(hex(cell:peek())).toBe(hex(startColor))
-		expect(hex(seen[#seen])).toBe(hex(startColor))
+		-- the owner's last commit and the shown value agree: nothing was restored
+		expect(hex(cell:peek())).toBe(picked)
+		expect(table.concat(commits, ",")).toBe(picked)
 		open(w)
 		w.adapter.tap(w.record("P").dump().swatchPaths[6])
 		w.settle(2)
@@ -277,9 +282,23 @@ describe("ColorPicker: the well and its panel", function()
 		expect(table.concat(reasons, ",")).toBe("cancel,outside")
 	end)
 
-	it("a caller write while open re-bases the snapshot Cancel restores", function()
-		local cell, _, change = caller(Color3.fromRGB(10, 20, 30))
-		local w = mount({ value = cell, onChange = change })
+	it("draft: B and an outside tap discard, restoring the open-time colour; a caller write re-bases it", function()
+		local startColor = Color3.fromRGB(10, 20, 30)
+		local cell, seen, change = caller(startColor)
+		local w = mount({ value = cell, onChange = change, draft = true })
+		open(w)
+		w.adapter.tap(w.record("P").dump().swatchPaths[5])
+		w.settle(2)
+		w.press("ButtonB")
+		w.settle(3)
+		expect(hex(cell:peek())).toBe(hex(startColor))
+		expect(hex(seen[#seen])).toBe(hex(startColor))
+		open(w)
+		w.adapter.tap(w.record("P").dump().swatchPaths[6])
+		w.settle(2)
+		w.adapter.tap(w.pres.topScrimPath() :: string, { x = 890, y = 890 })
+		w.settle(3)
+		expect(hex(cell:peek())).toBe(hex(startColor))
 		open(w)
 		local server = Color3.fromRGB(200, 100, 50)
 		cell:set(server)
@@ -380,6 +399,32 @@ describe("ColorPicker: the spectrum plane", function()
 		-- the ring sits where the colour is
 		local ring = w.adapter.node(must(w, "/Marks/Ring")).rect
 		expect(math.abs(ring.x + ring.w / 2 - (r.x + r.w * 0.75)) <= 1).toBe(true)
+		-- at a corner the whole ring stays on the plane, where no edge clips it
+		w.adapter.pointerDown(surface, r.x + r.w, r.y)
+		w.adapter.pointerUp(r.x + r.w, r.y)
+		w.settle(2)
+		ring = w.adapter.node(must(w, "/Marks/Ring")).rect
+		expect(ring.x + ring.w <= r.x + r.w and ring.y >= r.y).toBe(true)
+	end)
+
+	it("the native drag detector follows the plane through a tab round trip", function()
+		local cell, _, change = caller(Color3.fromHSV(0.5, 0.5, 0.5))
+		local w = mount({ value = cell, onChange = change, style = "inline", modes = { "spectrum", "sliders" } })
+		local function driveTo(fx: number)
+			local surface = must(w, "/Plane/Surface")
+			local r = w.adapter.node(surface).rect
+			w.adapter.driveDragStart(surface, { x = r.x + r.w * fx, y = r.y + r.h / 2 })
+			w.adapter.driveDragEnd(surface, { x = r.x + r.w * fx, y = r.y + r.h / 2 })
+			w.settle(2)
+		end
+		driveTo(0.2)
+		expect(math.floor(w.record("P").dump().hsv.s + 0.5)).toBe(20)
+		w.adapter.tap(must(w, "/Modes/Indicator/Options/Opt2"))
+		w.settle(2)
+		w.adapter.tap(must(w, "/Modes/Indicator/Options/Opt1"))
+		w.settle(2)
+		driveTo(0.8)
+		expect(math.floor(w.record("P").dump().hsv.s + 0.5)).toBe(80)
 	end)
 
 	it("losing the pointer class mid-drag restores where the drag began", function()
@@ -420,12 +465,25 @@ describe("ColorPicker: the spectrum plane", function()
 		expect(after.s > before.s + 10).toBe(true)
 		expect(math.floor(after.v + 0.5)).toBe(math.floor(before.v + 0.5))
 		expect(#commits).toBe(1)
-		-- the left stick / D-pad still navigate away
+		-- each stick session is released when it ends: the owner does not grow
+		local held = w.record("P").dump().owned
+		for _ = 1, 5 do
+			w.system.deviceAxis("Thumbstick2", 0, 1)
+			w.settle(2)
+			w.system.deviceAxis("Thumbstick2", 0, 0)
+			w.settle(1)
+		end
+		expect(w.record("P").dump().owned).toBe(held)
+		expect(#commits).toBe(6)
+		-- the left stick / D-pad still navigate away, and leaving mid-steer commits
 		expect(w.pres.focus.focused:peek()).toBe(surface)
+		w.system.deviceAxis("Thumbstick2", -1, 0)
+		w.settle(2)
 		w.press("DPadDown")
 		w.settle(1)
 		expect(w.pres.focus.focused:peek() ~= surface).toBe(true)
-		local _ = cell
+		expect(#commits).toBe(7)
+		expect(commits[7]).toBe(hex(cell:peek()))
 	end)
 end)
 
@@ -484,6 +542,11 @@ describe("ColorPicker: alpha, empty, disabled and refusals", function()
 		w.settle(2)
 		expect(a:peek()).toBe(1)
 		expect(w.adapter.visibleOf(must(w, "/P/Well/Row/Swatch/Checker"))).toBe(false)
+		-- the hex error names the alpha form the field shows
+		w.adapter.tap(must(w, "/Format/Indicator/Options/Opt3"))
+		w.settle(2)
+		typeAndCommit(w, must(w, "/FieldHex/Input/Field"), "zz")
+		expect(string.find(w.record("P").dump().hexError, "#RRGGBBAA", 1, true) ~= nil).toBe(true)
 		local plain = mount({ value = cell, onChange = change })
 		open(plain)
 		expect(find(plain, "/Opacity/TrackHost/Track")).toBeNil()

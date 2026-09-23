@@ -55,7 +55,9 @@ end
 function color_value.parseHex(text: string, allowAlpha: boolean): (any, number?, string?)
 	local digits = if string.sub(text, 1, 1) == "#" then string.sub(text, 2) else text
 	if string.match(digits, "^%x+$") == nil then
-		return nil, nil, "Use hex digits: #RGB or #RRGGBB."
+		return nil,
+			nil,
+			if allowAlpha then "Use hex digits: #RGB, #RRGGBB or #RRGGBBAA." else "Use hex digits: #RGB or #RRGGBB."
 	end
 	if #digits == 3 then
 		digits = string.gsub(digits, "%x", "%0%0")

@@ -20,9 +20,12 @@
 	screen, and a centred sheet at ten feet. `style = "inline"` mounts the panel as
 	layout content.
 
-	CANCEL (B, Escape, the sheet's Close, the draft Cancel) restores the open-time
-	snapshot through `onChange`/`onAlphaChange`; an outside tap keeps what is shown.
-	A caller write while the panel is open re-bases that snapshot.
+	ONE COMMIT MODEL, every route and input. Without `draft`, every change commits
+	as it happens (once per gesture or stick session), and B, Escape, an outside
+	tap or the sheet's Close only close: nothing is restored. With `draft = true`
+	nothing commits until Apply, and every other close restores the open-time
+	snapshot through `onChange`/`onAlphaChange` (a caller write while the panel is
+	open re-bases that snapshot).
 
 	THE PANEL: technique tabs (`modes`: swatches | spectrum | sliders | brick), the
 	technique, opacity when `alpha` is supplied, and a preview + RGB/HSV/Hex
@@ -533,6 +536,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local columns = Compose.cell(MAX_COLUMNS)
 	local stick = { x = 0, y = 0 }
 	local stickTimer: any = nil
+	local stickWatch: (() -> ())? = nil
 	local motionClock: any = nil
 	local boundController: any = nil
 	local dragStart: Hsv? = nil
@@ -597,6 +601,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			stickTimer:dispose()
 			stickTimer = nil
 		end
+		if stickWatch ~= nil then
+			stickWatch()
+			stickWatch = nil
+		end
 	end
 	local function steer(dt: number)
 		if dt <= 0 or focusedPath:peek() ~= planePath or not mayEdit() then
@@ -623,13 +631,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local timer = motionClock:timer({ from = 0, to = 1e6, duration = 1e6, kind = "informational" })
 			local last = 0
 			stickTimer = timer
-			Compose.withOwner(owner, function()
-				owner.watchStatic(timer, function(t: number)
-					if stickTimer == timer then
-						steer(t - last)
-					end
-					last = t
-				end)
+			stickWatch = owner.watchStatic(timer, function(t: number)
+				if stickTimer == timer then
+					steer(t - last)
+				end
+				last = t
 			end)
 		end
 	end
@@ -668,8 +674,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				if rect == nil then
 					return 0
 				end
+				local extent = if axis == "x" then rect.w else rect.h
 				local f = if axis == "x" then c.s * rect.w else (1 - c.v) * rect.h
-				return math.floor(f - size / 2 + 0.5)
+				-- the whole ring stays on the plane, so no edge clips it
+				return math.clamp(math.floor(f - size / 2 + 0.5), 0, math.max(0, extent - size))
 			end)
 		end
 		local ringEdge = Compose.formula(function(use)
@@ -1192,7 +1200,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end)
 			)
 		elseif overlay and popoverApi ~= nil and popoverApi.route:peek() == "sheet" then
-			-- a sheet's own Close is Cancel; Done keeps what is shown
+			-- a sheet's visible way out; every change has already committed
 			table.insert(
 				actions,
 				actionButton("Done", "Done", function()
@@ -1203,7 +1211,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if #actions > 0 then
 			table.insert(
 				children,
-				UI.HStack({ id = "Actions", width = UI.fill(), gap = "s", align = "end", children = actions })
+				UI.HStack({ id = "Actions", width = UI.fill(), gap = "s", distribute = "end", children = actions })
 			)
 		end
 
@@ -1225,6 +1233,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			if detach ~= nil then
 				detach()
 			end
+			stopStick()
 		end)
 		return contribution.attach(panel, {
 			syncGeometry = function(rectOf: (string) -> any, node: any?)
@@ -1232,6 +1241,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					return
 				end
 				local paths: { string } = {}
+				planePath = nil
 				local function walk(n: any)
 					if n.id == "Surface" and n.class == "Grip" then
 						planePath = n.path
@@ -1257,14 +1267,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						columns:set(fit)
 					end
 				end
-				-- the native detector drives the same begin/move/end, once per plane node
-				if boundController ~= nil and planePath ~= nil and planePath ~= detectorPath then
+				-- the native detector drives the same begin/move/end, once per plane node;
+				-- a plane that left (another tab) detaches, so its return re-attaches
+				if boundController ~= nil and planePath ~= detectorPath then
 					if detach ~= nil then
 						detach()
 						detach = nil
 					end
 					detectorPath = planePath
-					if boundController.attachDragDetector ~= nil then
+					if planePath ~= nil and boundController.attachDragDetector ~= nil then
 						detach = boundController.attachDragDetector(planePath, {
 							onStart = function(pos: any)
 								if pos ~= nil then
@@ -1294,13 +1305,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					focusedPath:set(path)
 					if path ~= planePath then
 						stick.x, stick.y = 0, 0
-						stopStick()
+						if stickTimer ~= nil then
+							stopStick()
+							commit()
+						end
 					end
 				end)
 				focusedPath:set(graph.focused:peek())
 			end,
 			bindActionSystem = function(system: any)
-				local ctx = system.createContext({ name = `ColorPlane-{id}`, priority = 1100, sink = false })
+				-- SINK: while the plane steers, the right stick is the plane's alone —
+				-- a default camera's own Thumbstick2 binding sits below and must not
+				-- orbit behind the panel. Enabled only while the plane holds focus.
+				local ctx = system.createContext({ name = `ColorPlane-{id}`, priority = 1100, sink = true })
 				local steerAction = ctx.createAction("Steer", "Direction2D")
 				steerAction.bindAxis({ axis = "Thumbstick2" })
 				ctx.setEnabled(false)
@@ -1424,7 +1441,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				closeWhy = nil
 				local proposed = asked
 				asked = false
-				if mine == nil and proposed and reason == "cancel" then
+				-- a draft closed any way but Apply discards; otherwise every change
+				-- already committed and the close keeps it
+				if mine == nil and proposed and draft then
 					restore()
 				end
 				if spec.onDismiss ~= nil then
@@ -1474,6 +1493,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			swatchPaths = table.clone(swatchPaths),
 			hexError = hexError:peek(),
 			diagnostics = table.clone(diagnostics),
+			-- what this control's owner holds: flat across gestures, or it leaks
+			owned = owner.size(),
 		}
 	end
 
