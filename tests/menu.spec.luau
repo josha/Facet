@@ -1728,6 +1728,28 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		expect(w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect.w).toBe(300)
 	end)
 
+	it("rows with a badge, a shortcut or a section heading never collapse the panel", function()
+		local items = {}
+		for i = 1, 6 do
+			table.insert(items, {
+				id = `t{i}`,
+				label = `Track {i}`,
+				badge = "New",
+				shortcutLabel = if i == 1 then "Ctrl+1" else nil,
+				sectionTitle = if i == 4 then "Night" else nil,
+				onSelect = function() end,
+			})
+		end
+		local w = world({ items = items })
+		open(w)
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
+		expect(panel.w >= 120).toBe(true)
+		for i = 1, 6 do
+			local label = w.adapter.node(rowPath(0, `t{i}`)).rect
+			expect(`Track {i} w>40: {label.w > 40}`).toBe(`Track {i} w>40: true`)
+		end
+	end)
+
 	it("maxHeight bounds the whole panel and the rows scroll, with ids and activation intact", function()
 		local items = {}
 		local picked: { string } = {}

@@ -688,9 +688,18 @@ local function build(Facet, core, spec, owner)
 			table.insert(rows, menuRecipe.cardRow(UI, spec :: any, position))
 		end
 		local isSheet = presentation == "sheet"
+		-- a row with a mark, a second line, or a fill-width part (badge, shortcut,
+		-- section heading) has no natural width to hug: it takes the themed width
 		local rich = false
 		for _, item in list do
-			if item.checked ~= nil or item.selected ~= nil or item.description ~= nil then
+			if
+				item.checked ~= nil
+				or item.selected ~= nil
+				or item.description ~= nil
+				or item.badge ~= nil
+				or item.shortcutLabel ~= nil
+				or item.sectionTitle ~= nil
+			then
 				rich = true
 				break
 			end
