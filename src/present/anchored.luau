@@ -132,7 +132,7 @@ local SEAM_OVERDRAW = 1
 
 local ROOT_TWO = math.sqrt(2)
 
-local ANCHOR_KEYS = specGuard.keySet({ "align", "edge", "gap", "margin", "overflow", "source", "tail" })
+local ANCHOR_KEYS = specGuard.keySet({ "align", "crossOffset", "edge", "gap", "margin", "overflow", "source", "tail" })
 local SOURCE_KEYS = specGuard.keySet({ "path", "rect" })
 local TAIL_KEYS = specGuard.keySet({ "cornerInset", "size", "surface" })
 
@@ -142,6 +142,7 @@ export type Anchor = {
 	source: Source,
 	edge: string?,
 	align: string?,
+	crossOffset: number?, -- px along the alignment axis before the safe clamp (default 0)
 	gap: (string | number)?,
 	margin: (string | number)?, -- extra inset of the safe box on every side but the top (a metric name or px)
 	overflow: string?,
@@ -291,6 +292,7 @@ function anchored.new(ctx: any)
 			safe = safe,
 			edge = anchor.edge,
 			align = anchor.align,
+			crossOffset = anchor.crossOffset,
 			gap = gapPx + protrusion,
 			tail = tailPx * ROOT_TWO,
 			-- the CORNER RADIUS only: the solver adds half the tail's own width to
@@ -379,6 +381,7 @@ function anchored.new(ctx: any)
 		anchorPlacement.assertEdge(raw.edge, "presenter.presentAnchored")
 		anchorPlacement.assertAlign(raw.align, "presenter.presentAnchored")
 		anchorPlacement.assertOverflow(raw.overflow, "presenter.presentAnchored")
+		anchorPlacement.assertCrossOffset(raw.crossOffset, "presenter.presentAnchored")
 		local tail = raw.tail
 		if type(tail) == "table" then
 			specGuard.assertKnownKeys("presenter.presentAnchored", tail, TAIL_KEYS, "opts.anchor.tail")
@@ -393,6 +396,7 @@ function anchored.new(ctx: any)
 			source = { path = source.path, rect = source.rect },
 			edge = raw.edge or "bottom",
 			align = raw.align or "center",
+			crossOffset = raw.crossOffset,
 			gap = raw.gap,
 			margin = raw.margin,
 			overflow = raw.overflow,

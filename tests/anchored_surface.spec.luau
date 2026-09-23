@@ -1140,3 +1140,91 @@ describe("framework-gaps-phase2 gap 39: Facet.layout.anchorPlacement is publishe
 		expect(placement.y).toBe(source.y - slot - gap)
 	end)
 end)
+
+describe("anchor crossOffset: px along the alignment axis, before the clamp", function()
+	local SOURCE = { x = 150, y = 350, w = 100, h = 100 }
+	local SIZE = { w = 60, h = 40 }
+
+	it("every edge x align pair moves by exactly the signed offset, and absent == 0", function()
+		for _, edge in { "top", "bottom", "leading", "trailing" } do
+			for _, align in { "start", "center", "end" } do
+				local base = solve({ source = SOURCE, size = SIZE, safe = SAFE, edge = edge, align = align })
+				local zero =
+					solve({ source = SOURCE, size = SIZE, safe = SAFE, edge = edge, align = align, crossOffset = 0 })
+				expect(`{edge}/{align} zero={zero.x},{zero.y}`).toBe(`{edge}/{align} zero={base.x},{base.y}`)
+				for _, offset in { 12, -12 } do
+					local p = solve({
+						source = SOURCE,
+						size = SIZE,
+						safe = SAFE,
+						edge = edge,
+						align = align,
+						crossOffset = offset,
+					})
+					local vertical = edge == "top" or edge == "bottom"
+					local dx = if vertical then offset else 0
+					local dy = if vertical then 0 else offset
+					expect(`{edge}/{align}/{offset} {p.x - base.x},{p.y - base.y} shift={p.shift}`).toBe(
+						`{edge}/{align}/{offset} {dx},{dy} shift=0`
+					)
+				end
+			end
+		end
+	end)
+
+	it("the safe clamp still wins over the offset, and reports the shift it took", function()
+		local p =
+			solve({ source = SOURCE, size = SIZE, safe = SAFE, edge = "bottom", align = "start", crossOffset = -400 })
+		expect(p.x).toBe(0)
+		expect(p.shift).toBe(400 - 150)
+	end)
+
+	it("a flip changes the edge only: the alignment and the offset do not flip", function()
+		local low = { x = 150, y = 760, w = 100, h = 30 }
+		local p = solve({ source = low, size = SIZE, safe = SAFE, edge = "bottom", align = "start", crossOffset = 10 })
+		expect(p.flipped).toBe(true)
+		expect(p.edge).toBe("top")
+		expect(p.x).toBe(160)
+	end)
+
+	it("a non-finite or non-number offset is refused by name", function()
+		for _, bad in { 0 / 0, math.huge, "4" :: any } do
+			local ok, err = pcall(solve, { source = SOURCE, size = SIZE, safe = SAFE, crossOffset = bad })
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "crossOffset", 1, true) ~= nil).toBe(true)
+		end
+	end)
+
+	it("presentAnchored carries it to the mounted surface", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		local function place(offset: number?): any
+			local h = pres.presentAnchored(calloutPanel(40), {
+				id = "Tip",
+				initialFocus = "none",
+				anchor = {
+					source = { path = "/Editor/Bar/Plus" },
+					edge = "bottom",
+					align = "end",
+					crossOffset = offset,
+				},
+			})
+			local r = adapter.node(SURFACE).rect
+			pres.dismiss(h)
+			return r
+		end
+		-- the source hugs the right edge, so the unshifted surface is CLAMPED;
+		-- two offsets that both clear the clamp differ by exactly their difference
+		local near, far = place(-20), place(-40)
+		expect(far.x - near.x).toBe(-20)
+		expect(place(nil).x > near.x).toBe(true)
+		local base, moved = near, far
+		expect(moved.y).toBe(base.y)
+		local ok, err = pcall(pres.presentAnchored, calloutPanel(120), {
+			id = "Tip",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, crossOffset = 0 / 0 },
+		})
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "crossOffset", 1, true) ~= nil).toBe(true)
+	end)
+end)
