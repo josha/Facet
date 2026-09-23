@@ -62,6 +62,14 @@ This stamps and REGISTERS everything, so that nothing can be forgotten. The plan
 Every row is stamped from the one name you typed. Do not add a registration by
 hand that the scaffold already writes.
 
+**Move the stamped `Spec` type out of the control.** The scaffold writes the
+`Spec` type inline in `src/controls/<name>.luau`, but a shipped composite keeps
+its types in `src/spec_types/<name>.luau`, so reading a type loads no control.
+Move it there, re-export it from the control (`export type Spec =
+specTypes.Spec`), and add `<Name>: Constructor<...Spec>` to the typed `Controls`
+constructor map in `src/control_types.luau`. `Button`, `Chip`, `Toggle` and the
+collection types keep their specs in `src/control_types.luau` itself.
+
 Verify the red state: `./run-tests.sh` must now fail with the TEN stamped
 cases and nothing else. Every other check in the suite was green before the
 scaffold ran and must still be green after it. **If anything else is red, that
@@ -81,6 +89,7 @@ check that names it if you forget:
 | a `PROOF_GAPS` or `AFFORDANCE_GAPS` entry, when a class genuinely has no device-true case | `lune run tools/lune/check_registration_cli`, which names the control and the class |
 | a new public property on a primitive | `lune run tools/lune/check_prop_parity_cli`, which proves seven views of the property agree |
 | a guide paragraph, when the control introduces a new CONCEPT | a human reviewer. The catalog row is mandatory; a concept paragraph is a judgement |
+| a row in the [choosing and configuring controls](../guide/16-controls.md) table that fits the control | a human reviewer. Nothing stamps or checks it |
 
 ## 1.5 The shape of a control, and the one way it is registered
 
@@ -339,6 +348,17 @@ Rules the reviewers will hold you to:
   and `handleCancel`/`outsideDismiss`/`transientScope` for a control that opens a
   transient surface (the Picker's menu, `picker_menu.luau`, is the worked example). Use these instead of
   asking consumers for `present()` opts.
+- **Reserve the hit floor.** An interactive control that accepts
+  `controlSize` can paint smaller than the touch floor. Wrap its plate with
+  `vocabulary.reserveTarget(UI, core, id, plate, width, height?)` from
+  `src/controls/control_vocabulary.luau`: the wrapper reserves the larger of
+  the class floor and `targetSizes.minimum` on both axes and centres the plate.
+- **Own arrows or Tab only through the bundle.** A control with its own arrow or
+  Tab behaviour uses the `navigateIntercept(direction)` and
+  `handleTraverse(path, direction)` hooks, documented with the whole bundle in
+  [api.md §Desktop keyboard conventions](../reference/api.md#desktop-keyboard-conventions)
+  and [§`contribution`](../reference/api.md#contribution). The focus graph's
+  `navigationTarget()` reports where the last real navigate went.
 - **Three load-bearing facts:**
   1. **One activation site.** When your bundle declares `handleActivate`, the
      inner focusable primitives must carry **no** `onActivate` prop. Activate

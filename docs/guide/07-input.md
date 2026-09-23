@@ -158,7 +158,9 @@ the same order the arrows walk, but read linearly instead of directionally.
 
 The difference matters in one place: a *contained* group (a `Grid` row, a
 `Table`'s header) stops the arrows from wandering out of it sideways. Tab's
-whole job is to leave, so it does.
+whole job is to leave, so it does. The day grid of a
+[`UI.DateTimePicker`](../reference/api.md#uidatetimepicker) is one example: the
+whole grid is one Tab stop, and the arrows walk the days inside it.
 
 Tab skips everything the arrows skip: a hidden node, a disabled control, a
 losing `ViewThatFits` candidate, a row that has just become ineligible. That is
@@ -302,6 +304,9 @@ That is why nothing disappears when a player picks up a controller mid-session.
   focus-then-directional (D-pad L/R or L1/R1). Directional moves derive from
   on-screen geometry, not tree order. On some console stacks the D-pad arrives
   as **`Thumbstick1`**; Navigate binds that axis too, so it is never dead.
+  A focused control may also take the right stick. The spectrum plane of a
+  [`UI.ColorPicker`](../reference/api.md#uicolorpicker) moves the colour with
+  it and sinks it, so a camera below does not turn; the D-pad still moves focus.
 
 **Hybrid and hot-switch: a device can arrive mid-gesture.** Because every live
 class gets its idiom at once, connecting a pad while dragging a row does not

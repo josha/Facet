@@ -1059,6 +1059,8 @@ a canvas back to the window on an axis the engine cannot scroll (it must, or the
 engine draws a bar nothing can move) — so accepting one would be a declaration the
 live target discards and a headless one honours. The axis left out keeps the
 derived canvas (content + the padding the solve spent + the chrome lane it kept).
+An extent smaller than the content is honoured as written: the content past it
+cannot be scrolled to, and nothing warns.
 Construction-only, and it needs a static `axis` for the same reason a tile mode
 needs a static `scaleMode`. Each authored extent must be positive and finite, or
 name a known non-negated metric that resolves to positive finite pixels. Zero,
@@ -8061,6 +8063,10 @@ One boolean selection control with `presentation = "switch"` (default),
 `function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
 `row`, `hint`, `indicatorPosition`, `controlSize`, `width`, and `children` (custom button content only).
 
+Use a Toggle for one setting that is on or off and takes effect at once. For a
+compact filter tag in a row of tags, use `UI.Chip`; for one choice from three
+or more values, use `UI.Picker`.
+
 Without `onChange`, `value` and any `mixed` binding must be writable cells;
 activation updates them directly. With `onChange(wanted)`, activation requests
 the proposed boolean exactly once and writes neither binding. The model accepts
@@ -8117,6 +8123,10 @@ end)
 `UI.Button { … }` -> the button's node. `ref` receives `{ api, dump }`; the
 button publishes no verbs, and `dump()` reports
 `{ schema, id, busy, enabled, repeating, dialogAction, name, controlSize, appearance }`.
+
+Use a Button for one action that the player starts, such as Save or Play. For a
+state that stays on or off, use `UI.Toggle`; for a primary action with related
+alternatives, use `UI.SplitButton`; for a list of verbs, use `UI.Menu`.
 
 #### Local size, emphasis, silhouette and backdrop
 
@@ -8670,6 +8680,9 @@ ordering, the queue cap and the read floor priority may never truncate are the
 same rules toasts already follow. `presenter.callouts()` reports what is showing
 and what is waiting.
 
+**Motion.** The plate declares no enter or exit transition: it appears and
+leaves at once, so reduced motion changes nothing.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
@@ -8702,7 +8715,10 @@ end)
 an empty node for a `source` popover. `ref` receives `{ api, dump }`.
 
 Content presented against a **trigger** or a **source**: an anchored panel, or a
-sheet on a compact touch screen. Spec:
+sheet on a compact touch screen. Use it for a short task or details that belong
+to one control. For a decision that blocks the screen, use `UI.Dialog`; for a
+tip the application pushes once, use `UI.Callout`; for a list of verbs, use
+`UI.Menu`. Spec:
 
 ```
 {
@@ -8750,6 +8766,10 @@ an overflowing body's scroll bar is paid on the panel's own width. **A live clas
 or size change** moves between the panel and the sheet silently — no proposal, no
 `onDismiss` — with one content owner at a time and the focused content path
 restored.
+
+**Motion.** The anchored panel enters with a short fade and a slight scale; the
+sheet route moves as `UI.Sheet` does. Under reduced motion both arrive and leave
+at once.
 
 `api = { isPresented, route, propose(next) -> accepted }` (the first two are
 readables). `dump()` reports `{ schema = "facet-popover-dump/1", id, presented,
@@ -8844,6 +8864,9 @@ still overrun the panel: keep pinned copy short.
 ring on it, Up and Down scroll it and hand the ring on at either end. Its
 interactive children keep their own stops. `false` opts out.
 
+**Motion.** The dialog declares no enter or exit transition: the panel appears
+and leaves on the frame your fact changes, so reduced motion changes nothing.
+
 `dump()` reports `{ schema = "facet-dialog-dump/1", id, presented, wanted,
 actionCount, width, closeButton }`.
 
@@ -8879,6 +8902,12 @@ Bound<string>, title: Bound<string>?, severity: ("info" | "success" | "warning" 
 "error")?, appearance: ("standard" | "emphasis")?, placement: ("inline" |
 "affixed")?, icon: (boolean | string)?, link: { label, onActivate }?, actions: {
 Action }? (at most two), onDismiss: (() -> ())?, controlSize?, env? }`.
+
+Use a Notice for a status the page must keep in view, such as a lost
+connection or a form problem, until the state changes. For a short message
+that confirms an action and goes away, use `UI.Snackbar`; for a decision the
+player must make now, use `UI.Dialog` or `UI.Alert`. The notice has no enter or
+exit motion: it appears and leaves when you mount and unmount it.
 
 `severity` (default `info`) picks the status icon and paint; `emphasis` fills the
 plate in the severity's colour with its readable partner lettering. `icon =
@@ -8933,6 +8962,11 @@ Bound<string>, caption: Bound<string>?, imageAspectRatio: number?, imageFraming?
 onActivate: (() -> ())?, primaryAction: { label, icon?, onActivate, enabled?,
 busy? }?, menu: { items, label? }?, reveal: ("automatic" | "always")?,
 browseTarget: (() -> string?)?, enabled: Bound<boolean>?, width?, env? }`.
+
+Use a Card for one item in a browsable collection, such as a game, a track or a
+kart, where the picture helps the player choose. For rows of text, use a
+`UI.VirtualList` or `UI.Table`; for an informational panel with no item behind
+it, give a stack `surface = "raised"`.
 
 `image` and `title` are required and nonempty; `caption` may be empty. A late
 empty or wrong-typed value keeps the last legal paint (a warning and a
@@ -9042,6 +9076,25 @@ once; Left and Right stay physical.
 hasPrevious, hasNext, form, direction, items, text, diagnostics }`, where
 `items` is the mounted row (`"[5]"` marks the current page).
 
+Use Pagination when results come in numbered pages that you fetch or build one
+page at a time, such as a leaderboard or a server list. For one long list the
+player scrolls, use `UI.VirtualList`; for swiping between whole screens, use
+`UI.PageView`. The row has no motion of its own: a page change repaints it at
+once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local page = Facet.Compose.cell(1)
+app.mount(function()
+    return UI.Pagination("Results")({
+        page = page,
+        pageCount = 12,
+        onChange = function(nextPage) page:set(nextPage) end, -- write to accept; do nothing to refuse
+    })
+end)
+```
+
 ### `UI.StepIndicator`
 
 `UI.StepIndicator { … }` -> the indicator's node. `ref` receives `{ api, dump }`.
@@ -9080,6 +9133,28 @@ text size.
 summary, form = "row" | "summary", listOpen, steps = { { id, state, button } },
 diagnostics }`.
 
+The underline is the shared selection indicator that Picker uses: when
+`current` changes it moves to the new step on a spring, and reduced motion
+places it at once. The list in summary form opens in a `UI.Popover` and moves
+as that does.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local current = Facet.Compose.cell("car")
+app.mount(function()
+    return UI.StepIndicator("Setup")({
+        steps = {
+            { id = "track", label = "Track", state = "complete", navigable = true },
+            { id = "car", label = "Car", state = "current" },
+            { id = "crew", label = "Crew" },
+        },
+        current = current,
+        onSelect = function(id) current:set(id) end, -- only navigable steps propose
+    })
+end)
+```
+
 ### `UI.Vote`
 
 `UI.Vote { … }` -> the vote's node. `ref` receives `{ api, dump }`.
@@ -9103,6 +9178,26 @@ choice plated, no press, no focus stop. A later `readOnly = false` without an
 late value outside the three keeps the last legal one. For a score out of five
 use `UI.Rating`; for a number the player adjusts, `UI.Stepper`.
 
+**Input.** Each side of the interactive strip is a Picker segment. Pointer and
+touch press a side; keyboard arrows and the D-pad move the focus ring between
+the sides through the focus graph, and Return or ButtonA proposes the focused
+side. **Motion.** The plate under the chosen side is the shared selection
+indicator: it moves on a spring when your value changes, and reduced motion
+places it at once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local vote = Facet.Compose.cell("none")
+app.mount(function()
+    return UI.Vote("TrackVote")({
+        value = vote,
+        onChange = function(next) vote:set(next) end, -- write to accept
+        summary = "92% liked",
+    })
+end)
+```
+
 `dump()` reports `{ schema = "facet-vote-dump/1", id, value, readOnly, summary,
 diagnostics }`.
 
@@ -9117,6 +9212,30 @@ modes: { string }?, swatches: Bound<{ Color3 | { color, label? } }>?, style:
 ("automatic" | "inline")?, draft?, isPresented: Bound<boolean>?,
 onPresentedChange?, onDismiss: ((reason) -> ())?, enabled?, readOnly?, label?,
 requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
+
+Use a ColorPicker when the player chooses any colour, such as a kart's paint.
+When the choice is a few named colours, use `UI.Picker` with those options; a
+fixed palette also fits the `swatches` mode alone.
+
+**The `Color` type is `any`.** The public types are checked without engine
+datatypes, so a wrong value such as a string passes the type checker. The
+control checks at run time instead: a value that is not a `Color3` (or `nil`
+with `allowEmpty`) is an error at construction, and a later one warns, adds a
+line to `api.diagnostics()` and keeps the last legal colour.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local paint = Facet.Compose.cell(Color3.fromRGB(230, 57, 70))
+app.mount(function()
+    return UI.ColorPicker("KartPaint")({
+        label = "Kart paint",
+        value = paint,
+        onChange = function(color) paint:set(color) end, -- each accepted change
+        onCommit = function(color) print("save", color) end, -- once per gesture
+    })
+end)
+```
 
 `value` is yours: every accepted change proposes `onChange(color)` and the
 picker repaints only from what you then hold, so a refused change never paints.
@@ -9157,6 +9276,11 @@ D-pad keeps moving focus. There is no
 eyedropper: Roblox has no screen-pixel read — put your own Button beside the
 well and call `onChange` with what it sampled.
 
+**Motion.** The well's panel opens through `UI.Popover` and moves as that does,
+so reduced motion opens and closes it at once. A right-stick session on the
+plane is driven by an informational timer: under reduced motion it keeps moving
+the colour, in the clock's quantized steps, because that movement is the input.
+
 `dump()` reports `{ schema = "facet-color_picker-dump/1", id, style, value,
 alpha, hsv = { h, s, v }, text, name, modes, mode, format, draft, presented,
 route, planePath, columns, swatchPaths, hexError, diagnostics, owned }`
@@ -9175,6 +9299,24 @@ CivilDate)?, referenceDate: Bound<CivilDate?>?, presets?, draft?, style:
 ("automatic" | "inline")?, format: ((value) -> string)?, placeholder?,
 isPresented?, onPresentedChange?, onDismiss?, enabled?, readOnly?, label?,
 requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
+
+Use a DateTimePicker when the player chooses a calendar date, a date range or a
+date with a time, such as an event day. For a count of days or minutes, use
+`UI.Stepper` or `UI.NumberInput`; for a few fixed dates, use `UI.Picker`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local raceDay = Facet.Compose.cell({ year = 2026, month = 10, day = 3 })
+app.mount(function()
+    return UI.DateTimePicker("RaceDay")({
+        label = "Race day",
+        value = raceDay,
+        onChange = function(date) raceDay:set(date) end, -- write to accept
+        min = { year = 2026, month = 1, day = 1 },
+    })
+end)
+```
 
 Values are **civil dates** — `{ year, month, day }`, with `hour` and `minute`
 when `time = true` — wall-clock facts in no time zone, so a date never moves a
@@ -9225,6 +9367,10 @@ and minute fields with steps on the `minuteStep` grid (AM/PM on a 12-hour
 clock) and, on touch, a list of times at `minuteStep` that opens at the held
 time (else now).
 
+**Motion.** The calendar has no animation of its own: paging a month repaints
+the grid at once. The field's panel opens through `UI.Popover` and moves as
+that does, so reduced motion opens and closes it at once.
+
 `dump()` reports `{ schema = "facet-date_time_picker-dump/1", id, selection,
 style, value, range, text, typedError, month, dual, today, presented, route,
 cellPaths, draft, weekStart, diagnostics }`.
@@ -9237,7 +9383,28 @@ application's bottom snackbar strip. `ref` receives `{ api, dump }`;
 `app.presentSnackbar(spec)` takes the same spec and returns an idempotent
 zero-argument release function.
 
-One short message at the bottom of the screen, shown one at a time.
+One short message at the bottom of the screen, shown one at a time. Use it to
+confirm what the player just did ("Settings saved"), with at most one action
+such as Undo. For a status that must stay in the page, use `UI.Notice`; for a
+decision, use `UI.Dialog`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local shown = Facet.Compose.cell(false)
+app.mount(function()
+    return UI.VStack("Page")({
+        UI.Button("Save")({ label = "Save", onActivate = function() shown:set(true) end }),
+        UI.Snackbar("Saved")({
+            isPresented = shown, -- yours: the row shows while it reads true
+            message = "Settings saved",
+            duration = 4,
+            onPresentedChange = function(next) shown:set(next) end, -- accept a close or timeout
+            action = { label = "Undo", onActivate = function() shown:set(false) end },
+        }),
+    })
+end)
+```
 
 ```
 {
@@ -9261,9 +9428,10 @@ refusal keeps the same row. A timeout asks once, at `max(duration, 2.5)` seconds
 of readable time; a refusal makes the row persistent until you hide it. Readable
 time pauses while the row is hovered or focused, while another exclusive
 surface covers it, and never runs while queued. `onDismiss` reports each
-accepted retirement once; a false you write on your own is `"close"`. Owner
-teardown, the release function and application disposal release a row without
-asking and without reporting.
+accepted retirement once. `"close"` is the Close button; a false you write on
+your own is `"cancel"`, as it is for `UI.Dialog` and `UI.Popover`. Owner teardown
+and the release function release a row without asking and report `"cancel"`
+once; application disposal releases every row without asking or reporting.
 
 One row shows; up to eight wait, by descending priority and then arrival. A
 strictly higher priority may ask the showing row to leave once it has been
@@ -9287,6 +9455,9 @@ above all. A throwing `onPresentedChange`, `onDismiss` or action callback is
 raised once the service is consistent again. Snackbars are a screen-application service: a SurfaceGui or Billboard
 application refuses them, so present global notifications from a screen
 application.
+
+**Motion.** The row slides up to enter and down to leave. Under reduced motion
+it arrives and leaves at once.
 
 ### `UI.Stepper`
 
@@ -9333,6 +9504,11 @@ atMin, atMax, rootPath }`.
 `UI.ProgressView { … }` -> the indicator's node. `ref` receives `{ api, dump }`,
 and the record carries `blueprint`, `model`, `semanticText`, `phase`, `dump` and
 `dispose`.
+
+Use a ProgressView to show how far a task has gone (a bar or circle with a
+value) or that work is running with no known end (a spinner). When the shape of
+the content that is loading helps more than a value, use `UI.Skeleton`; for a
+value the player sets, use `UI.Slider`.
 
 ```lua
 local app = Facet.new()
@@ -9558,6 +9734,17 @@ asset URL keeps ordinary Image behavior and the declared icon dimensions.
 square is worse than a word. Non-interactive: put it inside a `Button` (which takes
 content) when it must be pressable, which keeps one activation surface.
 
+Use a Label for a title that an icon identifies, such as a section heading or
+a row caption. For text alone, use `UI.Text`; for a short status caption on a
+plate, use `UI.Badge`.
+
+**Adaptation.** Label has no `controlSize`. The title uses `textSize` (default
+`body`) and grows with the player's text preference. A semantic icon's box
+starts at `iconSize` (default `controlSizes.regular.iconSize`) and can grow
+with the text; `gap` defaults to `controls.label.gap`. It has no motion, no
+input and no focus stop; its `semanticText` formula is released with the
+control.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
@@ -9575,6 +9762,11 @@ A passive row of keycaps. `UI.ShortcutHint { … }` returns its node; `ref` rece
 `{ api, dump }`. It creates no context, binding, focus target or input handler.
 Give exactly one of `action = "Activate"` (a static semantic name) or
 `keys = {{ "Ctrl", "K" }, { "F1" }}` (static explicit alternatives).
+
+Use a ShortcutHint to show which key does something, next to instruction copy
+or in a controls legend. It only shows keys: to make a key press a button, give
+that `UI.Button` a `shortcut`. For the same answer as plain words in your own
+`UI.Text`, use [`inputHint`](#inputhint).
 
 The action form reads its own mounted surface's action first, even while passive;
 otherwise it finds the highest-priority enabled context declaring that name.
@@ -9600,7 +9792,8 @@ Caps use the theme's icon-size ladder plus `space.xs`, with a strong tinted plat
 authored control corner and hairline. They have no package decoration slot and
 reserve no interactive hit floor. Letters grow with the text preference; native
 key images retain the theme-sized square. The mounted Compose owner disposes
-the display formulas and borrows the action system and caller values.
+the display formulas and borrows the action system and caller values. The hint
+has no motion: a device switch repaints the caps at once.
 
 ```lua
 local app = Facet.new()
@@ -10028,6 +10221,16 @@ onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, contr
 contained (a raised group), or divided (a separator while expanded). Bindable
 `controlSize` uses the shared rung and restores the default when nil.
 
+Use a DisclosureGroup to hide optional detail or advanced settings under a
+heading, pushing the content below it down. For a summary button that expands
+into a view over the page, use `UI.CollapsibleView`; to move to a new page of
+content, use `UI.NavigationStack`.
+
+**Input.** The header is an ordinary `UI.Button`: a pointer click, a touch tap,
+Return on a keyboard and ButtonA on a gamepad all run the same toggle. With
+`enabled = false` the header wears disabled paint and every route refuses the
+toggle; `expanded` keeps its value, so open content stays open.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
@@ -10089,6 +10292,12 @@ A continuous or stepped value along a track, sharing the value arithmetic with
 `format`, `enabled`, `onChange`, `onCommit`, `tapToPosition`, `thumbImage`,
 `trackImage`, `row`, `axis`, `range`, `minGap`, `thumb`, `thumbContent`,
 `rotation` and `controlSize`.
+
+Use a Slider when the player sets a value in a range by feel and the exact
+number matters less, such as volume or camera sensitivity. For small exact
+steps, use `UI.Stepper`; for a typed exact number, use `UI.NumberInput`. The
+slider has no animation of its own: the thumb and fill paint each new value at
+once, so reduced motion changes nothing.
 
 | Key | Contract and default |
 |---|---|
@@ -10447,6 +10656,18 @@ content, so a standalone rating still hugs its glyphs rather than stretching.
   `civilDate.systemClock(offsetMinutes?)` returns the default `clock`: the
   player's local date and time, or the engine clock at a named offset.
 
+`parse` returns two values, `(date?, why?)`: test the date before you use it.
+
+```lua
+local civil = Facet.civilDate
+local start = { year = 2026, month = 2, day = 27 }
+print(civil.format(civil.addDays(start, 3))) -- "03/02/2026": March 2 in the default month/day/year order
+local date, why = civil.parse("02/30/2026")
+if date == nil then
+    print(why) -- a sentence saying why the text is not a date
+end
+```
+
 ### `valueModel`
 
 `Facet.valueModel.new({ min, max, step?, format? }) -> Model` — the shared,
@@ -10488,6 +10709,26 @@ A native text editor with caller-owned text. Choose `presentation = "plain"`,
 messages. Roblox owns typing, caret movement, selection, clipboard interaction,
 and composition. Facet owns accepted values, validation, focus participation,
 geometry, and theme styling.
+
+Use a TextInput when the player types free text, such as a name, a search or a
+message. For a number, use `UI.NumberInput`; for text that must match one of
+your options or pass your own check, use `UI.ComboBox`; for a fixed list, use
+`UI.Picker`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local crewName = Facet.Compose.cell("") -- yours: accepted edits write it
+app.mount(function()
+    return UI.TextInput("CrewName")({
+        value = crewName,
+        label = "Crew name",
+        placeholder = "Enter a name",
+        maxLength = 20,
+        onCommit = function(text, reason) print("saved", text, reason) end,
+    })
+end)
+```
 
 | Field | Contract and default |
 |---|---|
@@ -10602,6 +10843,10 @@ read-only, turning `scrub` off, and disposal cancel: the number and text
 return to the press's snapshot and nothing commits. A caller write to
 `numericValue` during a drag ends the drag, and the caller's number stands.
 
+**Motion.** A rejected commit shakes the field as on `UI.TextInput`, and
+reduced motion drops the shake. Step presses and scrubbing change the number
+at once, with no animation.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
@@ -10684,6 +10929,9 @@ Invariants:
   pointer class is live; keyboard gets a focus ring with Navigate→Activate; and
   a Large (ten-foot) display strengthens the focus profile. The chip owns no
   in-flight gesture, so there is no hot-switch state to carry or cancel.
+- **No motion of its own.** A selection change repaints the plate at once. An
+  `animation` policy you supply runs on the Button plate through the shared
+  motion clock, where decorative motion snaps under reduced motion.
 
 ```lua
 local app = Facet.new()
@@ -13082,9 +13330,17 @@ screens place the panel at the bottom and distant screens center it; `placement`
 chooses explicitly. Width, text, focus treatment and safe-area reservation
 follow the active surface and theme.
 
+Use a Sheet for a supporting task with its own body, such as a briefing, a
+filter set or a loadout, that the player can resize or dismiss. For a centred
+decision with pinned actions, use `UI.Dialog`; for a short panel anchored to one
+control, use `UI.Popover`.
+
 The panel is a pinned column: the drag grip, an optional sticky hero, the title
 (or your `header`), the Size and Close row, ONE scrolling body, and pinned
-`actions`. Only the body scrolls.
+`actions`. Only the body scrolls. Your `content` node mounts
+directly in the body scroller: for a sheet with id `Sheet`, a content node with
+id `Briefing` is at `/Sheet/Layer/Panel/Room/Column/Body/Briefing`. A hero that scrolls
+with the body moves your content one level down, into `Body/Inset`.
 
 | Field | Contract |
 |---|---|
@@ -13333,6 +13589,10 @@ Avatar creates no provider and performs no fetch itself.
 | `onActivate` | none | Adds one ordinary Button activation target. |
 | `ref` | none | Receives the control record; `record.dump()` reports current identity and state. |
 
+Use an Avatar to show who a player is beside their name, in a list row, a chat
+line or a profile header. For several players at once, use `UI.AvatarGroup`;
+for a status mark without a person, use `UI.StatusIndicator`.
+
 Online is a disc, away a disc with a dash, busy a square, and offline a ring.
 Presence is validated once into the shared derived value used by paint, dump,
 and the interactive raw Button's semantic `label`; an invalid update retains the
@@ -13357,6 +13617,8 @@ Framework-generated face layers use true circles independent of a theme's pill
 radius. Interactive layers sit in one zero-padding stack inside the raw Button;
 compact visuals reserve the effective target floor in both axes. Initials fit to
 the label cap, keep one line, and retain disclosure at large text preferences.
+Avatar has no motion of its own; only a pending picture's Skeleton sweeps, and
+reduced motion removes that sweep.
 
 ```luau
 local portraits = app.newResourceProvider()
@@ -13375,6 +13637,11 @@ return UI.Avatar("Driver")({
 an ordered roster and summarizes the rest with a count. Members never generate
 individual targets; `onOverflow` adds one ordinary Button focus stop when there
 are hidden members. Without it, the whole group is informational.
+
+Use an AvatarGroup to show who is in a party, a lobby or a team when the
+individual faces are not targets. When each person must be pressable, use one
+`UI.Avatar` with `onActivate` per person in a list. The group has no motion of
+its own; a pending member's Skeleton sweep is removed under reduced motion.
 
 | Field | Contract |
 |---|---|
@@ -13434,6 +13701,25 @@ return UI.AvatarGroup("Party")({
 `app.controls.StatusIndicator("Unread")({ count = unread, status = "error" })`
 paints a passive mark without an input target or ornament surface.
 
+Use a StatusIndicator for a small state mark or an unread count beside other
+content, such as a tab name or an inbox row. For a mark with a caption on a
+plate, use `UI.Badge`; for a player's online state on a picture, use
+`UI.Avatar`'s `presence`. The mark has no motion: a changed count or status
+repaints at once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local unread = Facet.Compose.cell(3) -- the caller writes the count; the mark only reads it
+app.mount(function()
+    return UI.HStack("Inbox")({
+        gap = "s",
+        UI.Text("Title")({ text = "Messages" }),
+        UI.StatusIndicator("Unread")({ count = unread, status = "error", name = "Unread messages" }),
+    })
+end)
+```
+
 | Field | Contract |
 |---|---|
 | `form` | Bound `dot` (default), `ring`, `square`, or `dash`. Discs and holes stay circular across themes. |
@@ -13468,6 +13754,24 @@ and semantic values, preserve the caller's source, and recover on a legal value.
 
 `app.controls.Badge("Ready")({ label = "Ready", icon = "status.info" })` is an
 informational caption with no generated focus stop or activation behavior.
+
+Use a Badge for a short state or category word on a plate, such as "New",
+"Ready" or a rank. For a mark or a count with no words, use
+`UI.StatusIndicator`; for a tag the player can select or remove, use `UI.Chip`.
+The badge has no motion: a bound change repaints it at once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local online = Facet.Compose.cell(true) -- yours; the badge only reads it
+app.mount(function()
+    return UI.Badge("Server")({
+        label = function(use) return if use(online) then "Online" else "Offline" end,
+        appearance = "status",
+        status = function(use) return if use(online) then "success" else "neutral" end,
+    })
+end)
+```
 
 | Field | Contract |
 |---|---|

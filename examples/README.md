@@ -24,6 +24,11 @@ ownership, containment and settling.
 | Keyed rows and automatic coordinated motion | [Match 3](gallery/examples/07_match3.luau), [automatic motion](gallery/scenarios/component_motion.luau) |
 | Motion values and activity indicators | [Progress](gallery/scenarios/progress_ring.luau) |
 | Toast reflow, edge and width choices | [Toasts](gallery/scenarios/sponsor_toast.luau) |
+| In-page notices and bottom snackbars | [Notice and Snackbar](gallery/scenarios/notice.luau) |
+| Popovers, dialogs and sheets | [Overlays](gallery/scenarios/overlays.luau), [sheet](gallery/scenarios/sheet.luau) |
+| Cards, pages of results and workflow steps | [Cards](gallery/scenarios/cards.luau), [pagination](gallery/scenarios/paging.luau), [steps](gallery/scenarios/steps.luau) |
+| Colour and date pickers | [Pickers](gallery/scenarios/pickers.luau) |
+| Avatars, badges, status marks and loading placeholders | [Avatar](gallery/scenarios/avatar.luau), [avatar group](gallery/scenarios/avatar_group.luau), [badge](gallery/scenarios/badge.luau), [status indicator](gallery/scenarios/status_indicator.luau), [skeleton](gallery/scenarios/skeleton.luau) |
 | A shared model on a world surface | [Outpost terminal](gallery/examples/outpost_terminal/init.luau) |
 | Every public control and modifier at once | [Virtual monitors](virtual_monitors/README.md) |
 
