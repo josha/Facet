@@ -365,7 +365,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		-- a PAINTED ring is engagement; the logical focus a pointer session is
 		-- parked on (or a finger moved) is not, or the first card of every screen
 		-- would open at rest
-		focusWithin:set(rootPath ~= nil and prefixed(rootPath, focused) and graph.focusVisible:peek() ~= false)
+		local painted = graph ~= nil and (graph.focusVisible == nil or graph.focusVisible:peek() ~= false)
+		focusWithin:set(rootPath ~= nil and prefixed(rootPath, focused) and painted)
 		local target: any = nil
 		if spec.browseTarget ~= nil and rootPath ~= nil then
 			local resolve: any = spec.browseTarget
@@ -379,7 +380,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				target = nil
 			end
 		end
-		browsing:set(target ~= nil and focused == target)
+		-- the browse stop the same way: a parked, unpainted focus is not engagement
+		browsing:set(target ~= nil and focused == target and painted)
 	end
 	local function attachHover()
 		if hoverOff == nil and controller ~= nil and rootPath ~= nil and controller.attachContextGestures ~= nil then

@@ -577,6 +577,11 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		local plate = g.w.adapter.node(`/S/Page/A/Canvas/Band/W/[i1]/Cell/Card/Reveal`).rect
 		expect(plate.x >= c1.x and plate.x + plate.w <= c1.x + c1.w).toBe(true)
 		expect(plate.y + plate.h <= c1.y + c1.h).toBe(true)
+		-- a parked, unpainted focus on the stop (a pointer session) is not engagement
+		g.w.pres.focus.setFocusOrigin("pointer")
+		g.w.settle(2)
+		expect(gridCard(g, "i1").revealed).toBe(false)
+		ring(g.w, g.hit("i1"))
 		-- moving the ring on moves the reveal
 		g.w.press("Right")
 		g.w.settle(2)

@@ -8950,7 +8950,7 @@ them. Structure and callbacks are construction-time; the bound values stay live.
 hover, so hybrid devices keep them too) and otherwise while the card is
 **engaged**: the pointer within it, a painted focus ring within it, a press held
 on one of its buttons, its menu open, its actions entered, or the
-`browseTarget` path focused. A card with neither a body action nor a
+`browseTarget` path focused with a painted ring. A card with neither a body action nor a
 `browseTarget` has no stop of its own, so it shows its actions at rest. The card
 is one hosted envelope: the body and, directly below it, the action plate. The
 plate is always laid out and only hidden at rest, so the card's box never
