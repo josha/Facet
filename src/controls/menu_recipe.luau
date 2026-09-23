@@ -230,11 +230,14 @@ function menu_recipe.rowHeightFor(presentation: string): string
 	elseif presentation == "inline" then
 		return menu_recipe.INLINE_ROW_HEIGHT
 	end
-	return menu_recipe.ROW_HEIGHT
+	-- a floating menu's rows stack one hairline apart, so each row's footprint
+	-- is the target floor: a compact row's hit expander would cover its neighbour
+	return "targetSizes.minimum"
 end
 
 export type Row = {
 	wrap: boolean?, -- wrap a labelled badge row when its offer is narrow
+	leading: boolean?, -- lay a plain label as a leading child, as an accessory row lays it (a menu row)
 	labelTint: any?, -- optional semantic label paint, e.g. a selection indicator
 	width: any?,
 	textSize: any?,
@@ -292,8 +295,19 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 		or row.badge ~= nil
 		or row.trailing ~= nil
 		or row.avatar ~= nil
+		or row.leading == true
 	then
 		local content = {}
+		-- a PLAIN leading row (no accessory at all) hugs its words, so a hugging
+		-- panel still has a natural width to take; nothing trails it to push
+		local plain = row.leading == true
+			and row.description == nil
+			and row.indicator == nil
+			and row.badge == nil
+			and row.trailing == nil
+			and row.avatar == nil
+			and row.value == nil
+		local hug = row.wrap or plain
 		-- the indicator slot, placed leading (a desktop menu) or trailing (a
 		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
 		local indicatorView: any = nil
@@ -429,7 +443,9 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 					end,
 				})
 			)
-		elseif row.icon ~= nil then
+		elseif row.icon ~= nil and not plain then
+			-- (a plain leading row keeps the leaf's ruling: its icon is the compact
+			-- form of the words, and a row that hugs its words never runs short)
 			table.insert(content, iconView(row.icon))
 		end
 
@@ -440,7 +456,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 					tint = row.labelTint,
 					text = row.label,
 					textSize = row.textSize or "control",
-					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					width = if hug then UI.hug() else { type = "fill", weight = 1 },
 				}),
 			}
 			local function description()
@@ -472,7 +488,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				content,
 				UI.VStack({
 					gap = "xs",
-					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					width = if hug then UI.hug() else { type = "fill", weight = 1 },
 					children = labels,
 				})
 			)
@@ -599,7 +615,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				UI.HStack({
 					wrap = row.wrap,
 					gap = "s",
-					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					width = if hug then UI.hug() else { type = "fill", weight = 1 },
 					children = content,
 				}),
 			},

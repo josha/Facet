@@ -1768,6 +1768,40 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		end
 	end)
 
+	it("plain rows lead like accessory rows, and every row reserves the target floor", function()
+		local items = {
+			{ id = "a", label = "All tracks", badge = 3, onSelect = function() end },
+			{ id = "b", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end },
+		}
+		for i = 1, 4 do
+			table.insert(items, { id = `p{i}`, label = `Track {i}`, onSelect = function() end })
+		end
+		local w = world({ items = items })
+		open(w)
+		local floor = require("../src/themes/snapshot").neutral().targetSizes.minimum
+		local lefts, previous = {}, nil
+		for _, item in items do
+			local row = rowPath(0, item.id)
+			local rect = w.adapter.node(row).rect
+			expect(`{item.id} h>={floor}: {rect.h >= floor}`).toBe(`{item.id} h>={floor}: true`)
+			if previous ~= nil then
+				expect(`{item.id} clear of the row above: {rect.y >= previous.y + previous.h}`).toBe(
+					`{item.id} clear of the row above: true`
+				)
+			end
+			previous = rect
+			for _, path in w.adapter.paths() do
+				if string.sub(path, 1, #row + 1) == row .. "/" and string.sub(path, -6) == "/Label" then
+					lefts[item.id] = w.adapter.node(path).rect.x
+				end
+			end
+			expect(`{item.id} has a leading label: {lefts[item.id] ~= nil}`).toBe(`{item.id} has a leading label: true`)
+		end
+		for _, item in items do
+			expect(`{item.id} label x {lefts[item.id]}`).toBe(`{item.id} label x {lefts.a}`)
+		end
+	end)
+
 	it("maxHeight bounds the whole panel and the rows scroll, with ids and activation intact", function()
 		local items = {}
 		local picked: { string } = {}

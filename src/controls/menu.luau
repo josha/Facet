@@ -673,6 +673,8 @@ local function build(Facet, core, spec, owner)
 				role = item.role,
 				enabled = item.enabled,
 				submenu = item.children ~= nil,
+				-- a plain row's label leads, as a badge or shortcut row's does
+				leading = true,
 				height = rowHeight,
 			}
 			if not isCard then
