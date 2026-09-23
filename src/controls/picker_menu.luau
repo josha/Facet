@@ -679,8 +679,11 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		host reserves the scroll bar off an overflowing list's cross axis, which
 		the width estimate cannot see: it is the renderer's measured gutter
 		(`controller.scrollBarInsetOf`, the one `UI.Table`'s header pays), fed
-		back after each solve and added to the popover's preferred width. ]]
+		back after each solve and added to the popover's preferred width. The
+		estimate is re-taken there too: at open the rows' words have not been
+		measured by the engine yet, and natively "Bo" read 12 px short. ]]
 	local barGutter = Compose.cell(0)
+	local rowEstimate = Compose.cell(0)
 	-- the open panel's own controller and search list, for the selected-row reveal
 	local panelController: any = nil
 	local resultsList: any = nil
@@ -1313,7 +1316,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				return {
 					type = "minMax",
 					min = triggerWidth,
-					preferred = math.clamp(estimate + use(barGutter), triggerWidth, safeW),
+					preferred = math.clamp(math.max(estimate, use(rowEstimate)) + use(barGutter), triggerWidth, safeW),
 					max = safeW,
 				}
 			end)
@@ -1391,6 +1394,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		end
 		listShrink:set(0)
 		barGutter:set(0)
+		rowEstimate:set(0)
 		feeds = 0
 		revealed = false
 		--[[ OPENING LANDS ON THE SELECTED ROW: once per open, after the panel has
@@ -1464,6 +1468,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 						local gutter = if type(inset) == "table" then tonumber(inset.right) or 0 else 0
 						if gutter ~= barGutter:peek() then
 							barGutter:set(gutter)
+						end
+						local measured = widestRowEstimate()
+						if measured ~= rowEstimate:peek() then
+							rowEstimate:set(measured)
 						end
 						local rect = rectOf(node.path)
 						local env = envForFacts or spec.env
