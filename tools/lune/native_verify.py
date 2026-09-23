@@ -219,7 +219,6 @@ def run():
             ("types", ["python3", "tools/check_types.py"]),
             ("word-data", ["python3", "tools/build_word_lists.py", "--check"]),
             ("word-data-selftest", ["python3", "tools/build_word_lists.py", "--selftest"]),
-            ("perf-budgets", ["python3", "tools/check_perf_budgets.py"]),
             ("gallery-build", ["rojo", "build", "examples/showcase.project.json", "-o", "artifacts/verify/native/gallery.rbxl"]),
             ("monitors-build", ["rojo", "build", "examples/virtual_monitors/default.project.json", "-o", "artifacts/verify/native/virtual-monitors.rbxl"]),
             ("performance-build", ["rojo", "build", "examples/performance.project.json", "-o", "artifacts/verify/native/performance.rbxl"]),
@@ -230,7 +229,7 @@ def run():
             ("theme-artifacts", ["python3", "tools/check_theme_artifacts.py", "--selftest"]),
         ])
     if args.tier in ("full", "release"):
-        commands.extend([("bench", ["bash", "tools/bench.sh"]), ("perf", ["bash", "tools/perf.sh"]), ("perf-metrics", ["python3", "tools/check_perf_metrics.py"])])
+        commands.extend([("bench", ["bash", "tools/bench.sh"]), ("perf", ["bash", "tools/perf.sh"]), ("perf-budgets", ["python3", "tools/check_perf_budgets.py"]), ("perf-metrics", ["python3", "tools/check_perf_metrics.py"])])
     if args.rerun and args.rerun not in {"architecture", "coverage", *[name for name, _ in commands]}:
         parser.error(f"unknown producer: {args.rerun}")
     producers = [{"id": "architecture", "exitCode": int(bool(architecture_failures)), "findings": architecture_failures}, {"id": "coverage", "exitCode": int(bool(missing_coverage)), "findings": missing_coverage}]

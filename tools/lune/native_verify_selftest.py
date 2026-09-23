@@ -105,6 +105,27 @@ return require("./actual")''')
         self.assertEqual(selected, ["native_demo"])
         self.assertEqual(failures, ["product parity G01: Reverse does not change visible row order"])
 
+    def test_full_generates_performance_before_checking_its_report(self):
+        artifacts = self.root / "artifacts/verify/native"
+        performance = self.root / "artifacts/phase-4/perf.json"
+        commands = []
+
+        def execute(command, **kwargs):
+            commands.append(command)
+            if command == ["bash", "tools/perf.sh"]:
+                performance.parent.mkdir(parents=True, exist_ok=True)
+                performance.write_text("{}")
+            if command == ["python3", "tools/check_perf_budgets.py"]:
+                self.assertTrue(performance.exists(), "budget validation needs this run's performance report")
+            return type("Result", (), {"returncode": 0})()
+
+        with patch.object(verify, "ARTIFACTS", artifacts), patch.object(verify, "inventory", return_value=([], [], [])), patch.object(verify, "architecture", return_value=[]), patch.object(verify.subprocess, "run", side_effect=execute), patch.object(verify.sys, "argv", ["native_verify.py", "full"]):
+            self.assertEqual(verify.run(), 0)
+        self.assertIn(["python3", "tools/check_perf_budgets.py"], commands)
+        report = json.loads((artifacts / "report.json").read_text())
+        self.assertTrue(report["completeTier"])
+        self.assertTrue(report["ok"])
+
     def test_architecture_rejects_both_old_api_and_abandoned_renderer(self):
         self.write("src/render/renderer.luau", "return {}")
         self.write("examples/screen.luau", "local app = Facet.new()")
