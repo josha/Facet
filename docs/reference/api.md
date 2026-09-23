@@ -9210,10 +9210,13 @@ With a custom `format` the words are display only. It opens an anchored panel,
 a sheet with Done on a compact touch screen, and a centred sheet at ten feet.
 The calendar shows two consecutive months when its width fits them. Its day
 grid is one Tab stop (focus enters on the chosen day, else today); the arrows
-walk the days — a row's end continues to the next day, Up and Down move a week
-and page the month past the first or last row — and a neighbouring month's grey
-days can be tapped but are never a stop. L1/R1 and Comma/Period page the month
-from any day, the header's arrows and month and year menus reach every month
+walk the days — a row's end continues to the next day, Left and Right page the
+month past either end, and Up and Down move a week across the shown months but
+leave the grid (to the header above, the time fields or actions below) from the
+first shown month's top row and the last shown month's bottom row — and a
+neighbouring month's grey days can be tapped but are never a stop. L1/R1 and
+Comma/Period page the month from any day (a hint names LB/RB while a pad is
+live), the header's arrows and month and year menus reach every month
 without a shoulder button, and paging stops at a month wholly outside `min` /
 `max`. A typed year has four digits; a typed range is two dates joined by its
 own " – " (or " - "). `time` adds hour
