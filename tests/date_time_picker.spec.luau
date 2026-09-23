@@ -973,6 +973,10 @@ describe("DateTimePicker: layout, routes and refusals", function()
 				{ capabilities = TOUCH, preferredInput = "Touch", viewport = { x = 0, y = 0, w = 390, h = 844 } }
 			)
 			expect(find(w, "/Words/else/Show") ~= nil).toBe(true)
+			-- the shown words read from the field's leading edge
+			local show = w.adapter.node(must(w, "/Words/else/Show")).rect
+			local words = w.adapter.node(must(w, "/Words/else/Show/Words")).rect
+			expect(words.x - show.x < 24).toBe(true)
 			w.adapter.tap(must(w, "/Words/else/Show"))
 			w.settle(3)
 			expect(w.record("P").dump().route).toBe("sheet")

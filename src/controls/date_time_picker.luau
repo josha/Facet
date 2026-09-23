@@ -1618,19 +1618,33 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return built.blueprint
 	end
 	local function displayField(): any
+		local shown = Compose.formula(function(use)
+			local s = use(valueText)
+			return if s ~= "" then s else (spec.placeholder or "")
+		end)
 		return UI.Button({
 			id = "Show",
-			label = Compose.formula(function(use)
-				local s = use(valueText)
-				return if s ~= "" then s else (spec.placeholder or "")
-			end),
+			label = shown,
 			surface = "plain",
 			width = UI.fill(),
-			disclose = true,
 			enabled = interactive,
 			onActivate = function()
 				requestPresented(true)
 			end,
+			-- the words read from the field's leading edge, as a typed field's do
+			children = {
+				UI.Text({
+					id = "Words",
+					text = shown,
+					width = UI.fill(),
+					lineLimit = 1,
+					disclose = true,
+					-- a placeholder reads as one
+					role = Compose.formula(function(use)
+						return if use(valueText) == "" then "secondary" else "content"
+					end),
+				}),
+			},
 		})
 	end
 
