@@ -307,7 +307,10 @@ local function build(Facet, core, spec, owner)
 	anchorPlacement.assertEdge(spec.edge, `UI.Menu('{id}') edge`)
 	anchorPlacement.assertAlign(spec.align, `UI.Menu('{id}') align`)
 	if spec.width ~= nil and (type(spec.width) ~= "table" or type(spec.width.type) ~= "string") then
-		error(`Facet UI.Menu('{id}'): \`width\` is a dimension table such as \{ type = "hug", max = "controls.popup.panelWidth" }.`, 0)
+		error(
+			`Facet UI.Menu('{id}'): \`width\` is a dimension table such as \{ type = "hug", max = "controls.popup.panelWidth" }.`,
+			0
+		)
 	end
 	local maxHeight = spec.maxHeight
 	if
