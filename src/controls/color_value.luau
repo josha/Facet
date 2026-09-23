@@ -105,19 +105,20 @@ end
 export type Swatch = { color: any, label: string?, key: string }
 
 --[[ THE GENERATED STANDARD GRID the swatches tab shows when the caller gives
-	none: eight hues in five value/saturation steps, then eight greys — six rows
-	of the eight-column grid. ]]
-function color_value.standard(): { Swatch }
+	none: `hues` hues (one per column, eight by default) in five value/saturation
+	steps, then `hues` greys — six rows, each a step and each column a hue. ]]
+function color_value.standard(hues: number?): { Swatch }
+	local n = math.max(2, hues or 8)
 	local out: { Swatch } = {}
 	local steps = { { 0.35, 1 }, { 0.65, 1 }, { 1, 1 }, { 1, 0.8 }, { 1, 0.55 } } -- { s, v }
 	for _, step in steps do
-		for i = 0, 7 do
-			local c = color_value.toColor({ h = i / 8, s = step[1], v = step[2] })
+		for i = 0, n - 1 do
+			local c = color_value.toColor({ h = i / n, s = step[1], v = step[2] })
 			table.insert(out, { color = c, key = color_value.hex(c) })
 		end
 	end
-	for i = 0, 7 do
-		local c = color_value.toColor({ h = 0, s = 0, v = i / 7 })
+	for i = 0, n - 1 do
+		local c = color_value.toColor({ h = 0, s = 0, v = i / (n - 1) })
 		table.insert(out, { color = c, key = color_value.hex(c) })
 	end
 	return out

@@ -263,6 +263,35 @@ describe("ColorPicker: the well and its panel", function()
 		expect(w.pres.focus.focused:peek()).toBe(cells[4 + columns])
 	end)
 
+	it("a short swatch list keeps square target cells, and the default grid stays a hue per column", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 196, 0))
+		local w = mount({
+			value = cell,
+			onChange = change,
+			swatches = { { color = Color3.fromRGB(255, 196, 0) }, { color = Color3.fromRGB(20, 20, 24) } },
+		})
+		open(w)
+		for _, path in w.record("P").dump().swatchPaths do
+			local r = w.adapter.node(path).rect
+			expect(`{r.w}x{r.h}`).toBe("44x44")
+		end
+		-- the standard grid at seven columns: each column one hue down every step
+		local seven = colorValue.standard(7)
+		expect(#seven).toBe(42)
+		for column = 1, 7 do
+			local hues = {}
+			for row = 0, 4 do
+				local h = colorValue.hsvOf(seven[row * 7 + column].color).h
+				hues[math.floor(h * 360 + 0.5)] = true
+			end
+			local distinct = 0
+			for _ in hues do
+				distinct += 1
+			end
+			expect(distinct).toBe(1)
+		end
+	end)
+
 	it("without draft every change commits live and B or an outside tap only closes, keeping it", function()
 		local startColor = Color3.fromRGB(10, 20, 30)
 		local cell, _, change = caller(startColor)

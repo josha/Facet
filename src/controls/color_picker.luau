@@ -252,9 +252,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		else ownedFormula(owner, function()
 			return 1
 		end)
+	-- the swatch grid's column count, set from the width its technique is given
+	local columns = Compose.cell(MAX_COLUMNS)
 	local swatchList = ownedFormula(owner, function(use)
 		if spec.swatches == nil then
-			return colorValue.standard()
+			-- one hue per column at any width, so every column stays a hue family
+			return colorValue.standard(use(columns))
 		end
 		local list, why = normalizeSwatches(selection.read(spec.swatches, use), where)
 		if list == nil then
@@ -538,7 +541,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local focusedPath = Compose.cell(nil :: string?)
 	local planePath: string? = nil
 	local swatchPaths: { string } = {}
-	local columns = Compose.cell(MAX_COLUMNS)
 	-- the most an anchored panel may be tall: the room beside its well (set on sync)
 	local roomPx = Compose.cell(math.huge)
 	local wellPath: string? = nil
@@ -839,9 +841,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 
 	-- one grid of colour cells, one 2-D focus group
 	local function gridView(gridId: string, items: any): any
+		local lanes = Compose.formula(function(use)
+			return math.max(1, math.min(use(columns), #use(items)))
+		end)
 		return UI.Grid({
 			id = gridId,
-			columns = columns,
+			-- packed at the cells' own pitch rather than spread across the panel
+			width = Compose.formula(function(use)
+				local n = use(lanes)
+				local cell = metric(use, "targetSizes.minimum", 44)
+				return { type = "fixed", px = n * cell + (n - 1) * metric(use, "xs", 4) }
+			end),
+			-- never more columns than cells: a short list's lanes would divide its
+			-- own hugged width and squeeze every cell into a sliver
+			columns = lanes,
 			gap = "xs",
 			children = {
 				UI.ForEach({
