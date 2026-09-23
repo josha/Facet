@@ -1,6 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
 local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 local blueprint = require("../blueprint")
 
 local contribution = require("../input/contribution")
@@ -99,6 +100,17 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		)
 	end
 
+	-- ===== the caller's facts, as tracked readables ========================
+	-- A `(use) -> T` fact is a formula under this control's owner, so it is read
+	-- and watched exactly like a Readable; a plain value stays plain.
+	local function tracked(fact: any): any
+		return if type(fact) == "function" then ownedFormula(owner, fact) else fact
+	end
+	local isPresentedFact = tracked(spec.isPresented)
+	local seenFact = tracked(spec.seen)
+	local sessionsFact = tracked(spec.sessions)
+	local featureUsedFact = tracked(spec.featureUsed)
+
 	-- ===== state ==========================================================
 	local isShowing = Compose.cell(false)
 	local retired = Compose.cell(false)
@@ -108,6 +120,21 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local presentCalloutFn: ((any) -> number)? = nil
 	local releaseCalloutFn: ((number, string?) -> boolean)? = nil
 	local entryId: number? = nil
+	-- which request is current. Every release bumps it, so a request whose
+	-- synchronous onShow retired, rearmed or disposed this control is released
+	-- the moment it returns, and a stale generation's callbacks do nothing.
+	local generation = 0
+	local releaseReason = "manual"
+
+	local function releaseEntry(reason: string)
+		generation += 1
+		releaseReason = reason
+		local entry = entryId
+		entryId = nil
+		if entry ~= nil and releaseCalloutFn ~= nil then
+			releaseCalloutFn(entry, reason)
+		end
+	end
 
 	local api = {} :: any
 
@@ -115,14 +142,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if retired:peek() then
 			return false
 		end
-		if readFact(spec.seen) == true then
+		if readFact(seenFact) == true then
 			return false
 		end
-		if readFact(spec.featureUsed) == true then
+		if readFact(featureUsedFact) == true then
 			return false
 		end
 		if spec.afterSessions ~= nil then
-			local count = readFact(spec.sessions)
+			local count = readFact(sessionsFact)
 			if type(count) ~= "number" or count < spec.afterSessions then
 				return false
 			end
@@ -138,12 +165,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		retired:set(true)
 		queued:set(false)
 		isShowing:set(false)
-		if entryId ~= nil and releaseCalloutFn ~= nil then
-			local id2 = entryId
-			entryId = nil
-			releaseCalloutFn(id2, reason)
-		end
-		entryId = nil
+		releaseEntry(reason)
 		-- THE ONE REPORT. Quarantined, because a caller's save path throwing must
 		-- not leave this control believing it is still on screen.
 		pcall(spec.onRetire, reason)
@@ -203,11 +225,16 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return false -- no presenter, or not mounted yet: nothing to present onto
 		end
 		queued:set(true)
-		entryId = presentCalloutFn({
+		generation += 1
+		local mine = generation
+		local requested = (presentCalloutFn :: any)({
 			id = id,
 			priority = spec.priority,
 			build = buildPanel,
 			onShow = function()
+				if mine ~= generation then
+					return
+				end
 				queued:set(false)
 				isShowing:set(true)
 				if spec.onShow ~= nil then
@@ -215,6 +242,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 			end,
 			onHide = function(reason: string)
+				if mine ~= generation then
+					return
+				end
 				isShowing:set(false)
 				queued:set(false)
 				if spec.onHide ~= nil then
@@ -222,6 +252,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 			end,
 		})
+		if mine ~= generation then
+			-- released while the request was still being made (a synchronous onShow
+			-- that dismissed, rearmed or disposed): give the slot straight back
+			if releaseCalloutFn ~= nil then
+				releaseCalloutFn(requested, releaseReason)
+			end
+			return true
+		end
+		entryId = requested
 		return true
 	end
 
@@ -234,12 +273,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	function api.rearm()
-		if entryId ~= nil and releaseCalloutFn ~= nil then
-			local id2 = entryId
-			entryId = nil
-			releaseCalloutFn(id2, "rearmed")
-		end
-		entryId = nil
+		releaseEntry("rearmed")
 		reported = false
 		retired:set(false)
 		queued:set(false)
@@ -260,15 +294,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	api.isShowing = isShowing
 	api.retired = retired
 
-	if spec.featureUsed ~= nil and type(spec.featureUsed) == "table" then
-		owner.watchStatic(spec.featureUsed, function(used: any)
+	if Compose.isReadable(featureUsedFact) then
+		owner.watchStatic(featureUsedFact, function(used: any)
 			if used == true then
 				retire("featureUsed")
 			end
 		end)
 	end
-	if spec.seen ~= nil and type(spec.seen) == "table" then
-		owner.watchStatic(spec.seen, function(value: any)
+	if Compose.isReadable(seenFact) then
+		owner.watchStatic(seenFact, function(value: any)
 			if value == true then
 				retire("seen")
 			end
@@ -276,7 +310,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	-- a callout the caller has already ruled out never enters the queue at all,
 	-- and reports nothing: there is nothing new to persist about it
-	if readFact(spec.seen) == true or readFact(spec.featureUsed) == true then
+	if readFact(seenFact) == true or readFact(featureUsedFact) == true then
 		reported = true
 		retired:set(true)
 	end
@@ -286,24 +320,18 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if released then
 			return
 		end
-		if readFact(spec.isPresented) ~= false then
+		if readFact(isPresentedFact) ~= false then
 			api.present()
-		elseif entryId ~= nil and releaseCalloutFn then
-			local entry = entryId
-			entryId = nil
-			releaseCalloutFn(entry, "manual")
+		elseif entryId ~= nil then
+			releaseEntry("manual")
 		end
 	end
-	if Compose.isReadable(spec.isPresented) then
-		owner.watchStatic(spec.isPresented, syncPresentation)
+	if Compose.isReadable(isPresentedFact) then
+		owner.watchStatic(isPresentedFact, syncPresentation)
 	end
 	owner.own(function()
 		released = true
-		if entryId ~= nil and releaseCalloutFn then
-			local entry = entryId
-			entryId = nil
-			releaseCalloutFn(entry, "manual")
-		end
+		releaseEntry("manual")
 	end)
 	local blueprint = contribution.attach(spec.anchor, {
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
@@ -335,9 +363,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			tail = spec.tail ~= false,
 			anchorPath = anchorPath,
 			afterSessions = spec.afterSessions,
-			sessions = readFact(spec.sessions),
-			seen = readFact(spec.seen) == true,
-			featureUsed = readFact(spec.featureUsed) == true,
+			sessions = readFact(sessionsFact),
+			seen = readFact(seenFact) == true,
+			featureUsed = readFact(featureUsedFact) == true,
 			text = `callout '{id}': {state}` .. (if state == "retired"
 				then " (reported to the caller, never shown again)"
 				else "") .. `, anchored {spec.edge or "bottom"}/{spec.align or "center"} of {tostring(anchorPath)}`,
@@ -349,11 +377,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		api = api,
 		dump = dump,
 		dispose = function()
-			if entryId ~= nil and releaseCalloutFn ~= nil then
-				local id2 = entryId
-				entryId = nil
-				releaseCalloutFn(id2, "manual")
-			end
+			released = true
+			releaseEntry("manual")
 			owner.dispose()
 		end,
 	}

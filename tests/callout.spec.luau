@@ -753,3 +753,193 @@ describe("D3b Callout: the dump, and the teardown", function()
 		)
 	end)
 end)
+
+describe("Callout: bound facts are read as tracked values", function()
+	it("a function isPresented is evaluated and followed, not treated as a request", function()
+		local w = world()
+		local wanted = Compose.cell(false)
+		local control = build(w, {
+			id = "Callout",
+			isPresented = function(use: any)
+				return use(wanted)
+			end,
+		})
+		w.pres.present(screenWith(control), { initialFocus = "none" })
+		w.pres.refresh()
+		expect(control.api.state()).toBe("waiting")
+		expect(w.adapter.node(PLATE)).toBeNil()
+		wanted:set(true)
+		w.pres.refresh()
+		expect(control.api.state()).toBe("showing")
+		wanted:set(false)
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+	end)
+
+	it("a function seen / featureUsed rules the callout out, and a later true retires it once", function()
+		local w = world()
+		local seen = Compose.cell(true)
+		local ruledOut = build(w, {
+			id = "Callout",
+			seen = function(use: any)
+				return use(seen)
+			end,
+		})
+		expect(ruledOut.api.eligible()).toBe(false)
+		expect(ruledOut.api.state()).toBe("retired")
+		local used = Compose.cell(false)
+		local reports: { string } = {}
+		local w2 = world()
+		local live = build(w2, {
+			id = "Callout",
+			featureUsed = function(use: any)
+				return use(used)
+			end,
+			onRetire = function(reason: string)
+				table.insert(reports, reason)
+			end,
+		})
+		w2.pres.present(screenWith(live), { initialFocus = "none" })
+		w2.pres.refresh()
+		expect(live.api.state()).toBe("showing")
+		used:set(true)
+		w2.pres.refresh()
+		expect(live.api.state()).toBe("retired")
+		expect(table.concat(reports, ",")).toBe("featureUsed")
+		expect(w2.adapter.node(PLATE)).toBeNil()
+	end)
+end)
+
+describe("Callout: callbacks during a synchronous show never strand or double-close a plate", function()
+	-- present once the source is already mounted, so the queue shows synchronously
+	local function armed(onShow: (control: any) -> ()): (any, any, { string })
+		local w = world()
+		local wanted = Compose.cell(false)
+		local reports: { string } = {}
+		local control: any
+		control = build(w, {
+			id = "Callout",
+			isPresented = wanted,
+			onShow = function()
+				onShow(control)
+			end,
+			onRetire = function(reason: string)
+				table.insert(reports, reason)
+			end,
+		})
+		w.pres.present(screenWith(control), { initialFocus = "none" })
+		w.pres.refresh()
+		wanted:set(true)
+		w.pres.refresh()
+		return w, control, reports
+	end
+
+	it("dismiss inside onShow retires once and takes the plate down", function()
+		local w, control, reports = armed(function(c)
+			c.api.dismiss()
+		end)
+		expect(control.api.state()).toBe("retired")
+		expect(table.concat(reports, ",")).toBe("dismissed")
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+	end)
+
+	it("dispose inside onShow releases the queue slot", function()
+		local w, _, _ = armed(function(c)
+			c.dispose()
+		end)
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+	end)
+
+	it(
+		"rearm inside onShow (even when it then throws) leaves no stranded plate, and a later show is its own",
+		function()
+			local count = 0
+			local w, control, reports = armed(function(c)
+				count += 1
+				if count == 1 then
+					c.api.rearm()
+					error("caller bug after rearm")
+				end
+			end)
+			expect(w.adapter.node(PLATE) == nil or control.api.state() == "showing").toBe(true)
+			-- the next geometry pass presents a NEW generation, and only one plate exists
+			w.pres.refresh()
+			expect(control.api.state()).toBe("showing")
+			expect(w.pres.callouts().showing).toBe("Callout")
+			control.api.dismiss()
+			w.pres.refresh()
+			expect(w.adapter.node(PLATE)).toBeNil()
+			expect(table.concat(reports, ",")).toBe("dismissed")
+		end
+	)
+
+	it("an ordinary throw in onShow still shows the plate and keeps the slot accounting", function()
+		local w, control, _ = armed(function()
+			error("caller bug")
+		end)
+		expect(control.api.state()).toBe("showing")
+		control.api.dismiss()
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+	end)
+end)
+
+describe("Callout: two hosts and a recycled source keep their own resources", function()
+	it("disposing one app's callout never touches another app's", function()
+		local a, b = world(), world()
+		local ca, cb = build(a, { id = "Callout" }), build(b, { id = "Callout" })
+		a.pres.present(screenWith(ca), { initialFocus = "none" })
+		b.pres.present(screenWith(cb), { initialFocus = "none" })
+		a.pres.refresh()
+		b.pres.refresh()
+		expect(a.adapter.node(PLATE) ~= nil and b.adapter.node(PLATE) ~= nil).toBe(true)
+		ca.dispose()
+		a.pres.refresh()
+		b.pres.refresh()
+		expect(a.adapter.node(PLATE)).toBeNil()
+		expect(b.pres.callouts().showing).toBe("Callout")
+		expect(b.adapter.node(PLATE) ~= nil).toBe(true)
+	end)
+
+	it("a callout rebuilt at the same path by a branch cycle is a new control with one plate", function()
+		local w = world()
+		local show = Compose.cell(true)
+		local built = 0
+		w.pres.present(
+			UI.Screen({
+				id = "Editor",
+				children = {
+					UI.When({
+						id = "Gate",
+						condition = show,
+						thenView = function()
+							built += 1
+							return calloutLib.build(Facet, w.core, {
+								id = "Callout",
+								anchor = UI.Button({ id = "Plus", label = "+" }),
+								content = plateContent(),
+								onRetire = function() end,
+							}).blueprint
+						end,
+					}),
+				},
+			}),
+			{ initialFocus = "none" }
+		)
+		w.pres.refresh()
+		expect(w.pres.callouts().showing).toBe("Callout")
+		show:set(false)
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+		show:set(true)
+		w.pres.refresh()
+		expect(built).toBe(2)
+		expect(w.pres.callouts().showing).toBe("Callout")
+		expect(w.pres.callouts().queued).toBe(0)
+	end)
+end)
