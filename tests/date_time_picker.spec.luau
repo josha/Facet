@@ -774,6 +774,47 @@ describe("DateTimePicker: layout, routes and refusals", function()
 		expect(find(narrow, "/Pane2/Days")).toBeNil()
 	end)
 
+	it("two time pickers on one page: Down from a picker's last week reaches ITS OWN hour field", function()
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 380, h = 1800 },
+			reducedMotion = true,
+			capabilities = PAD,
+			preferredInput = "Gamepad",
+			hostOpts = { keyboardNavigation = true },
+		})
+		local UI = w.UI
+		local function picker(id: string): any
+			local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
+			return UI.DateTimePicker(id)({
+				value = cell,
+				onChange = change,
+				time = true,
+				style = "inline",
+				clock = clock,
+			})
+		end
+		w.present(function()
+			return UI.Screen("S")({ padding = 0, UI.VStack("Col")({ width = UI.fill(), picker("A"), picker("B") }) })
+		end)
+		w.settle(3)
+		for _, id in { "A", "B" } do
+			local dump = w.record(id).dump()
+			local grid = civil.monthGrid(dump.month.year, dump.month.month, dump.weekStart)
+			-- the last week that still holds a day of this month
+			local last = 0
+			for i, day in grid do
+				if day.month == dump.month.month then
+					last = i
+				end
+			end
+			expect(w.pres.focus.focusOn(dump.cellPaths[1][last])).toBe(true)
+			w.press("DPadDown")
+			w.settle(2)
+			expect(string.find(w.pres.focus.focused:peek() or "", `/Col/{id}/`, 1, true) ~= nil).toBe(true)
+			expect(string.find(w.pres.focus.focused:peek() or "", "/Hour/", 1, true) ~= nil).toBe(true)
+		end
+	end)
+
 	it(
 		"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
 		function()

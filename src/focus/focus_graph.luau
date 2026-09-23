@@ -57,7 +57,8 @@ export type NavigationGroup = {
 	wrap: boolean?,
 	containment: boolean?,
 	entry: string?, -- "first" (default) | "restore" | "nearest"
-	exit: { [string]: string }?, -- direction -> target group name
+	exit: { [string]: string }?, -- direction -> target group name or linkKey
+	linkKey: string?, -- a scope-unique name for a contributed group whose own name is local
 	--[[ THE SECOND AXIS. An integer >= 1 declaring that this group's
 		`order` is LINES of `columns` LANES, row-major, in document order — which is
 		exactly what a lazy grid's mounted band already is. `axis` then names the
@@ -364,7 +365,7 @@ function focus_graph.new(core: any)
 
 	local function groupByName(scope: any, name: string?): NavigationGroup?
 		for _, group in (scope.groups or {}) :: { NavigationGroup } do
-			if group.name == name then
+			if group.name == name or group.linkKey == name then
 				return group
 			end
 		end

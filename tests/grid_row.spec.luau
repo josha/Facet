@@ -520,6 +520,44 @@ describe("GridRow through the public authoring surface", function()
 		expect(pres.focus.focused:peek()).toBe("/S/G/R1/b11")
 	end)
 
+	it("a grid's edge exit reaches the field beside it, not another field with the same group name", function()
+		-- two TextInputs with one id contribute two groups both named `Name:field`;
+		-- the exit must be the neighbour itself, not the first group by that name
+		local w = require("./lib/world").new({
+			viewport = { x = 0, y = 0, w = 800, h = 600 },
+			reducedMotion = true,
+			capabilities = { mouse = false, keyboard = false, touch = false, gamepad = true },
+			preferredInput = "Gamepad",
+			hostOpts = { keyboardNavigation = true },
+		})
+		local W = w.UI
+		local function field(row: string): any
+			return W.VStack(row)({
+				width = W.fill(),
+				W.TextInput("Name")({ label = "Name", value = Facet.Compose.cell("") }),
+			})
+		end
+		w.present(function()
+			local cells = { columns = 2 }
+			for i = 1, 4 do
+				table.insert(cells, W.Button(`b{i}`)({ label = `b{i}` }))
+			end
+			return W.Screen("S")({ W.VStack("Col")({ width = W.fill(), field("R1"), W.Grid("G")(cells), field("R2") }) })
+		end)
+		w.settle(3)
+		local function at(): string
+			return w.pres.focus.focused:peek() or ""
+		end
+		expect(w.pres.focus.focusOn("/S/Col/G/b3")).toBe(true)
+		w.press("DPadDown")
+		w.settle(1)
+		expect(string.find(at(), "/S/Col/R2/", 1, true) ~= nil).toBe(true)
+		expect(w.pres.focus.focusOn("/S/Col/G/b1")).toBe(true)
+		w.press("DPadUp")
+		w.settle(1)
+		expect(string.find(at(), "/S/Col/R1/", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("`gridSpan` is a SHARED box prop, so any cell can carry it", function()
 		local shared: { [string]: boolean } = {}
 		for _, name in schema.sharedPropNames() do
