@@ -167,7 +167,9 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 			+ alert.labelWidth(m, facts, if type(label) == "string" then label else "")
 			+ alert.buttonChromeX(m)
 			+ gap
+		local carve = if type(m) == "table" and type(m.chromeInsets) == "table" then m.chromeInsets.panel else nil
 		local chrome = 2 * gap
+			+ (if type(carve) == "table" then (carve.left or 0) + (carve.right or 0) else 0)
 			+ (if spec.icon ~= nil then resolve(m, "iconSizes.medium", 24) + gap else 0)
 			+ (if closable then target + gap else 0)
 		return need + chrome <= cap(use)
@@ -235,10 +237,12 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 			end,
 			height = UI.hug(),
 			children = {
-				UI.Box({ id = "Plate", width = UI.fill(), height = UI.fill(), surface = "raised" }),
+				-- the row IS the plate, so a theme's frame carve (the shared
+				-- surface inset path) holds its content off the art
 				UI.HStack({
 					id = "Row",
 					width = span,
+					surface = "raised",
 					padding = "s",
 					gap = "s",
 					align = "center",

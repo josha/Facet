@@ -643,6 +643,34 @@ describe("Snackbar: layer, dock, release and caller errors", function()
 		expect(r.y + r.h > 844 - 40).toBe(true)
 	end)
 
+	it("an art theme's frame carve holds the icon, copy and action inside the plate, on screen", function()
+		for _, name in { "pixel_quest", "fantasy_ornate" } do
+			local metrics = Facet.themes.resolve(require(`../examples/themes/{name}`).build(Facet.themes), nil, {})
+			local w = app({ w = 1024, h = 900, env = { themeMetrics = metrics } })
+			local c = caller()
+			c.shown:set(true)
+			mountAll(w, {
+				{
+					c = c,
+					message = "Your save was replaced",
+					spec = { icon = "warning", action = { label = "Undo", onActivate = function() end } },
+				},
+			})
+			w.advance(0.5)
+			local snack = w.adapter.node(assert(w.find("/Snack"), "row")).rect
+			local carve = metrics.chromeInsets.panel
+			for _, part in { "/Snack/Row/Icon", "/Snack/Row/Body/Message", "/Snack/Row/Body/Action" } do
+				local r = w.adapter.node(assert(w.find(part), part)).rect
+				local inside = r.x >= snack.x + carve.left - 0.5
+					and r.y >= snack.y + carve.top - 0.5
+					and r.x + r.w <= snack.x + snack.w - carve.right + 0.5
+					and r.y + r.h <= snack.y + snack.h - carve.bottom + 0.5
+				expect(`{name} {part} inside the carve: {inside}`).toBe(`{name} {part} inside the carve: true`)
+			end
+			expect(`{name} on screen: {snack.y + snack.h <= 900}`).toBe(`{name} on screen: true`)
+		end
+	end)
+
 	it("Callouts and help plates paint above the strip, and modals above them all", function()
 		local w = app()
 		local c = caller()
