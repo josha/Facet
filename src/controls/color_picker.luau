@@ -1739,7 +1739,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					if frame ~= nil then
 						local insets = env:get("coreSafeInsets"):peek() or {}
 						local usable = view.h - (tonumber(insets.top) or 0) - (tonumber(insets.bottom) or 0)
-						room = math.max(0, usable - (frame.h - inner.h))
+						-- ...and less the body's own inset above and below the panel
+						local own = rectOf(node.path)
+						local inset = if own ~= nil then math.max(0, own.y - inner.y) else 0
+						room = math.max(0, usable - (frame.h - inner.h) - 2 * inset)
 					end
 				end
 				if room ~= roomPx:peek() then

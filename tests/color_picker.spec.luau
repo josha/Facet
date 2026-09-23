@@ -619,6 +619,12 @@ describe("ColorPicker: the spectrum plane", function()
 				end
 				local apply = w.adapter.node(must(w, "/Actions/Apply")).rect
 				expect(`{where} {apply.h >= 44} {apply.y + apply.h <= view.h}`).toBe(`{where} true true`)
+				-- ...and inside the sheet's body, not clipped under its bottom edge
+				local sheetBody = find(w, "/Room/Column/Body")
+				if sheetBody ~= nil then
+					local b = w.adapter.node(sheetBody).rect
+					expect(`{where} {apply.y + apply.h <= b.y + b.h}`).toBe(`{where} true`)
+				end
 			end
 		end
 	end)

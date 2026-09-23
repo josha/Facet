@@ -1301,6 +1301,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					gap = "s",
 					wrap = true,
 					width = UI.fill(),
+					align = "center",
 					distribute = if draft then "spaceBetween" else "end",
 					children = row,
 				})
