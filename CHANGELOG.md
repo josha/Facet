@@ -115,6 +115,15 @@ detail and every behaviour or path change.
 - **Input**: a Sink context never swallows the release owed to a binding that
   received the press (a menu opened by ButtonA, closed by ButtonB, reopens on
   the next ButtonA).
+- **Input: one key edge, one delivery.** A `Bool` action armed while one of its
+  keys is held (its context enabled, or its binding added, mid-press) no longer
+  receives that press or its release; the key's release ends the hold. Game
+  contexts enabled by a held key see the next press, not the current one.
+- **Grid navigation leaves for a neighbouring control.** Up from a grid's first
+  row or Down from its last row now reaches a control beside it that
+  contributes exactly one focus group (a TextInput, a range Slider, a
+  VirtualList, a Chip row, a DateTimePicker's time fields), where it used to
+  stop or skip. The exit names that control, not its group name.
 - **`UI.Vote`.** Up, down or none over the caller's value, on Picker's
   segmented icon strip through a private submission seam (a refused vote never
   paints; pressing the chosen side proposes none), a caller summary, and a

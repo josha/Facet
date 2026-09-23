@@ -1656,6 +1656,15 @@ content at measure, so a content-sized parent still hugs). Without this, a line
 whose every cell fills has no content to be derived from and every cell in it is
 zero-height — a rectangle with a width and no area, which paints nothing at all.
 
+On a D-pad, a grid navigates as rows and columns, and Up from its first row or
+Down from its last row leaves for the focus group beside it in document order.
+That neighbour can be a derived row, the last or first row of an adjacent grid,
+or a control's own focus group when that control contributes exactly one (a
+TextInput, a range Slider, a VirtualList, a Chip row, a DateTimePicker's time
+fields). The exit names that particular control, so two fields that share an
+id on one page are never confused. A control that contributes several groups
+is not linked, and an authored `exit` is never overwritten.
+
 ### `GridRow`
 
 `UI.GridRow{ id?, surface?, shadow?, gradient?, corners?, stroke?, zIndex?, children? }`
@@ -5550,6 +5559,14 @@ reads for shift/toggle Activate semantics), `action.onReleased(fn)`,
 for input contexts — constitution E-17). Prefer the setters over writing
 `context.enabled`/`.sink` directly: a bare field write works headlessly and is
 dead on the real engine adapter.
+
+**One key edge, one delivery.** A `Bool` action that becomes armed while one of
+its keys is already held (its context is enabled, or the binding is added,
+mid-press) treats that hold as an arrival. Its state follows the key, but
+neither the press nor its release reaches `onPressed` or `onReleased`, and the
+key's release ends the arrival. So a Delete that removes the focused tag cannot
+also remove the tag that focus moves to, and a context enabled by a ButtonA
+press does not receive that same press. The engine adapter keeps the same rule.
 
 `system.actionNamed(name, preferredContext?)` resolves a non-destroyed preferred
 context first, even if disabled; otherwise it uses enabled contexts by descending

@@ -30,7 +30,7 @@ export type Spec = {
 	isDateDisabled: ((date: CivilDate) -> boolean)?,
 	weekStart: number?, -- 1 = Sunday … 7 = Saturday; default 1
 	locale: Locale?,
-	clock: (() -> CivilDate)?, -- today; default the engine clock at UTC
+	clock: (() -> CivilDate)?, -- today; default the player's local wall clock
 	referenceDate: blueprint.Bound<CivilDate?>?, -- the month an empty picker opens on
 	presets: { Preset }?, -- range only
 	draft: boolean?, -- Apply/Cancel/Reset all; only Apply commits
