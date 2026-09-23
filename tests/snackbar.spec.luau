@@ -593,6 +593,130 @@ describe("Snackbar: focus and input", function()
 	end)
 end)
 
+describe("Snackbar: layer, dock, release and caller errors", function()
+	it("the strip docks bottom-centre", function()
+		local w = app()
+		local c = caller()
+		c.shown:set(true)
+		mountAll(w, { { c = c, spec = { closeButton = false, onPresentedChange = nil } } })
+		w.advance(0.5)
+		local r = w.adapter.node(assert(w.find("/Snack"), "row")).rect
+		expect(math.abs((r.x + r.w / 2) - 195) <= 1).toBe(true)
+		expect(r.y + r.h > 844 - 40).toBe(true)
+	end)
+
+	it("Callouts and help plates paint above the strip, and modals above them all", function()
+		local w = app()
+		local c = caller()
+		c.shown:set(true)
+		mountAll(w, { { c = c } })
+		w.advance(0.5)
+		local pres = w.app.presenter
+		local function panel(UI: any): any
+			return UI.VStack({ id = "Panel", children = { UI.Text({ id = "T", text = "tip" }) } })
+		end
+		local anchor = { source = { path = "/Page/Content" } }
+		pres.presentAnchored(panel, { id = "Tip", initialFocus = "none", anchor = anchor })
+		pres.presentAnchored(panel, { id = "Plate", chrome = true, anchor = anchor })
+		w.app.presentModal(function()
+			return w.app.controls.Screen("Modal")({ w.app.controls.Button("Ok")({ label = "OK" }) })
+		end)
+		w.advance(0.1)
+		local order = w.adapter.rootDisplayOrder
+		local strip = assert(order("FacetSnackbars"), "strip")
+		expect(strip > assert(order("Page"), "page")).toBe(true)
+		expect(assert(order("Tip"), "tip") > strip).toBe(true)
+		expect(assert(order("Plate"), "plate") > strip).toBe(true)
+		expect(assert(order("Modal"), "modal") > order("Tip") :: number).toBe(true)
+	end)
+
+	it("a pointer press on Close leaves no engaged host and no click-eating catcher", function()
+		local w = app()
+		local c = caller()
+		c.shown:set(true)
+		mountAll(w, { { c = c } })
+		w.advance(0.5)
+		w.adapter.tap(assert(w.find("/Snack/Row/Close"), "close"))
+		w.advance(1)
+		expect(c.dismissed).toEqual({ "close" })
+		expect(w.app.presenter.exclusiveSurfaceActive:peek()).toBe(false)
+		expect(w.find("/__scrim__/catcher")).toBe(nil)
+	end)
+
+	it("the reservation keeps an exiting row until it has slid out", function()
+		local w = app()
+		local c = caller()
+		c.shown:set(true)
+		mountAll(w, { { c = c } })
+		w.advance(0.5)
+		c.shown:set(false)
+		w.advance(1 / 60)
+		expect(#w.app.presenter.hudReservations:peek()).toBe(1)
+		w.advance(1)
+		expect(#w.app.presenter.hudReservations:peek()).toBe(0)
+	end)
+
+	it("a throwing caller callback is raised, and the row stays consistent", function()
+		local w = app()
+		local c = caller(false)
+		local runs = 0
+		c.shown:set(true)
+		mountAll(w, {
+			{
+				c = c,
+				spec = {
+					action = {
+						label = "Undo",
+						onActivate = function()
+							runs += 1
+							error("caller bug")
+						end,
+					},
+				},
+			},
+		})
+		w.advance(0.5)
+		local action = assert(w.find("/Snack/Row/Body/Action"), "action")
+		local ok, err = pcall(w.adapter.tap, action)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "caller bug", 1, true) ~= nil).toBe(true)
+		expect(w.app.presenter.exclusiveSurfaceActive:peek()).toBe(false)
+		expect(w.rows()).toBe(1)
+		pcall(w.adapter.tap, action)
+		expect(runs).toBe(2)
+	end)
+
+	it("a construction that raises leaves nothing admitted behind it", function()
+		local w = app()
+		local shown = Compose.cell(true)
+		mountAll(w, {
+			{
+				c = caller(),
+				spec = {
+					isPresented = shown,
+					onPresentedChange = function(next: boolean)
+						if not next then
+							error("refuse loudly")
+						end
+					end,
+				},
+			},
+		})
+		w.advance(3) -- past the incumbent's readable floor
+		local ok, err = pcall(w.app.presentSnackbar, {
+			isPresented = true,
+			message = "urgent",
+			priority = 5,
+			closeButton = false,
+		})
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "refuse loudly", 1, true) ~= nil).toBe(true)
+		shown:set(false)
+		w.advance(2)
+		expect(w.rows()).toBe(0) -- the refused construction's row never shows
+	end)
+end)
+
 describe("Snackbar: the Status showcase", function()
 	it("the showcase buttons present through the same service; a burst is capped, never dropped silently", function()
 		local scenarioCtx = require("./lib/scenario_ctx")

@@ -25,6 +25,7 @@ local anchorPlacement = require("../layout/anchor_placement")
 local themeSnapshot = require("../themes/snapshot")
 local Compose = require("../vendor/compose/core")
 local cleanup = require("../core/cleanup")
+local surfaceBands = require("./surface_bands")
 
 local isHiddenPath = focusMap.isHiddenPath
 local nodeAt = focusMap.nodeAt
@@ -313,9 +314,9 @@ function textDisclosure.new(ctx: any)
 		})
 		controller.initialRender()
 		if controller.setDisplayOrder ~= nil then
-			-- above its owner's content, inside its owner's band — so a plate over a
-			-- base screen never covers a modal, and a modal's own plate is above it
-			controller.setDisplayOrder(owner.displayOrder + 25)
+			-- above its owner's content and the snackbar strip, below every modal —
+			-- and a modal's own plate is above that modal
+			controller.setDisplayOrder(surfaceBands.overlay(owner.displayOrder) + 25)
 		end
 		disclosurePlate = {
 			scope = sc,

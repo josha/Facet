@@ -101,6 +101,7 @@ local specGuard = require("../spec_guard")
 local themeSnapshot = require("../themes/snapshot")
 
 local cleanup = require("../core/cleanup")
+local surfaceBands = require("./surface_bands")
 local anchored = {}
 
 -- Node ids inside the synthesized surface. Public in the sense that a test or a
@@ -713,7 +714,7 @@ function anchored.new(ctx: any)
 					local base = if owner ~= nil and type(owner.displayOrder) == "number"
 						then owner.displayOrder
 						else baseDisplayOrder
-					controller.setDisplayOrder(base + 25)
+					controller.setDisplayOrder(surfaceBands.overlay(base) + 25)
 				end
 				handle = {
 					chrome = true,
@@ -727,6 +728,13 @@ function anchored.new(ctx: any)
 				handle = if opts ~= nil and opts.modal == true
 					then presenter.presentModal(screen, presentOptions, inherited)
 					else presenter.present(screen, presentOptions, inherited)
+				-- a non-modal overlay (Callout, passive Popover) reads over the
+				-- snackbar strip; a modal already sits in its own band
+				local order = surfaceBands.overlay(handle.displayOrder)
+				if order ~= handle.displayOrder and handle.controller.setDisplayOrder ~= nil then
+					handle.displayOrder = order
+					handle.controller.setDisplayOrder(order)
+				end
 			end
 			return handle
 		end

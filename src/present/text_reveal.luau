@@ -46,6 +46,7 @@ local renderer = require("../render/renderer")
 local focusMap = require("./focus_map")
 local richText = require("../layout/rich_text")
 local Compose = require("../vendor/compose/core")
+local surfaceBands = require("./surface_bands")
 
 local textReveal = {}
 
@@ -272,7 +273,7 @@ function textReveal.new(ctx: any)
 		if controller.setDisplayOrder ~= nil then
 			-- above its owner's content, below a disclosure plate (+25): the
 			-- static answer always reads over the moving one
-			controller.setDisplayOrder(st.owner.displayOrder + 24)
+			controller.setDisplayOrder(surfaceBands.overlay(st.owner.displayOrder) + 24)
 		end
 		if ctrl.setPaintHeld ~= nil then
 			ctrl.setPaintHeld(st.sourcePath, true)

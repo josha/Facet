@@ -44,13 +44,14 @@ local observeChange = require("../core/on_change")
 local cleanup = require("../core/cleanup")
 local contribution = require("../input/contribution")
 local focusMap = require("./focus_map")
+local overlayParts = require("../controls/overlay_parts")
 
 local snackbar_layer = {}
 
 snackbar_layer.WAITING = 8
 snackbar_layer.CAPACITY = 9
 snackbar_layer.READ_FLOOR = 2.5
-snackbar_layer.DISPLAY_BAND = 25000 -- above SURFACE_LAYER.toast, below dragProxy
+snackbar_layer.DISPLAY_BAND = require("./surface_bands").SNACKBAR
 snackbar_layer.HOST_ID = "FacetSnackbars"
 
 local REASONS = { timeout = "timeout", preempt = "superseded" }
@@ -110,7 +111,7 @@ function snackbar_layer.new(ctx: Ctx): any
 
 	local function focusInside(rec: any): boolean
 		local path, focused = rowPath(rec), graph.focused:peek()
-		return path ~= nil and focused ~= nil and string.sub(focused, 1, #path) == path
+		return path ~= nil and focused ~= nil and focusMap.isPathPrefix(path, focused)
 	end
 
 	-- another exclusive surface (a modal, an engaged screen) covers the strip
@@ -156,7 +157,7 @@ function snackbar_layer.new(ctx: Ctx): any
 		end
 		rec.reported = true
 		if rec.spec.onDismiss ~= nil then
-			pcall(rec.spec.onDismiss, reason)
+			rec.spec.onDismiss(reason)
 		end
 	end
 
@@ -178,11 +179,13 @@ function snackbar_layer.new(ctx: Ctx): any
 			return false
 		end
 		rec.pending = reason
-		pcall(rec.spec.onPresentedChange, false)
-		local accepted = rec.phase == "retiring" or rec.registration.wanted:peek() == false
-		if not accepted then
-			rec.pending = nil
-		end
+		local accepted = false
+		overlayParts.call(rec.spec.onPresentedChange, function()
+			accepted = rec.phase == "retiring" or rec.registration.wanted:peek() == false
+			if not accepted then
+				rec.pending = nil
+			end
+		end, false)
 		return accepted
 	end
 
@@ -212,7 +215,6 @@ function snackbar_layer.new(ctx: Ctx): any
 			local rec = entry.data
 			local wasActive = rec.phase == "active"
 			rec.phase = "retiring"
-			report(rec, rec.pending or REASONS[reason] or reason)
 			-- focus that stood on the row goes back to the content it came from
 			if wasActive and focusInside(rec) and returnTo ~= nil then
 				graph.focusOn(returnTo)
@@ -220,6 +222,8 @@ function snackbar_layer.new(ctx: Ctx): any
 			if not wasActive or not rec.painted then
 				finish(rec)
 			end
+			-- last: a throwing report is raised once the schedule is whole
+			report(rec, rec.pending or REASONS[reason] or reason)
 		end,
 	})
 
@@ -243,15 +247,12 @@ function snackbar_layer.new(ctx: Ctx): any
 		records[rec.key] = rec
 		admitted += 1
 		registration.rec = rec
-		local ok, err = pcall(schedule.push, {
+		schedule.push({
 			id = rec.key,
 			priority = registration.spec.priority or 0,
 			duration = registration.spec.duration,
 			data = rec,
 		})
-		if not ok then
-			error(err, 0)
-		end
 	end
 
 	local function remove(rec: any, reason: string)
@@ -275,16 +276,17 @@ function snackbar_layer.new(ctx: Ctx): any
 		end)
 		local function sync(want: boolean)
 			local rec = registration.rec
-			if want and (rec == nil or rec.phase == "retiring") then
+			if disposed then
+				return -- the application is gone; a late fact changes nothing
+			elseif want and (rec == nil or rec.phase == "retiring") then
 				admit(registration, where)
 			elseif not want and rec ~= nil and rec.phase ~= "retiring" then
 				remove(rec, rec.pending or "close")
 			end
 		end
-		if registration.wanted:peek() then
-			sync(true) -- refused here is a construction error
-		end
 		observeChange(owner, registration.wanted, sync)
+		-- owned BEFORE the first admission: a construction that raises disposes
+		-- its owner, and that release gives the capacity back
 		owner.own(function()
 			local rec = registration.rec
 			if rec ~= nil and rec.phase ~= "retiring" then
@@ -292,6 +294,9 @@ function snackbar_layer.new(ctx: Ctx): any
 				remove(rec, "forced")
 			end
 		end)
+		if registration.wanted:peek() then
+			sync(true) -- refused here is a construction error
+		end
 		function registration.dump(): any
 			local rec = registration.rec
 			return {
@@ -306,20 +311,9 @@ function snackbar_layer.new(ctx: Ctx): any
 
 	-- ===== row behaviour, handed to the row builder ========================
 	local actions = {}
-	function actions.close(rec: any)
-		propose(rec, "close")
-	end
-	function actions.activate(rec: any)
-		if rec.phase ~= "active" or rec.spec.action == nil then
-			return
-		end
-		rec.pending = "action"
-		pcall(rec.spec.action.onActivate)
-		if rec.phase ~= "retiring" then
-			rec.pending = nil
-		end
-		-- a pointer press engaged the passive host; give input back to the
-		-- content unless the keyboard ring is on the row
+	-- a pointer press engaged the passive host (and its transparent catcher);
+	-- give input back to the content unless the keyboard ring is on the row
+	local function giveBack()
 		if
 			hostHandle ~= nil
 			and hostHandle.resign ~= nil
@@ -328,6 +322,21 @@ function snackbar_layer.new(ctx: Ctx): any
 		then
 			hostHandle.resign()
 		end
+	end
+	function actions.close(rec: any)
+		overlayParts.call(propose, giveBack, rec, "close")
+	end
+	function actions.activate(rec: any)
+		if rec.phase ~= "active" or rec.spec.action == nil then
+			return
+		end
+		rec.pending = "action"
+		overlayParts.call(rec.spec.action.onActivate, function()
+			if rec.phase ~= "retiring" then
+				rec.pending = nil
+			end
+			giveBack()
+		end)
 	end
 	function actions.cancel(rec: any): boolean
 		local back = returnTo
@@ -354,7 +363,7 @@ function snackbar_layer.new(ctx: Ctx): any
 	local function attachHost(node: any): any
 		return contribution.attach(node, {
 			syncGeometry = function(_rectOf: any, mounted: any?)
-				if mounted == nil or hostHandle == nil or presenter.reserveHud == nil then
+				if disposed or mounted == nil or hostHandle == nil or presenter.reserveHud == nil then
 					return
 				end
 				reservation = reservation
@@ -364,7 +373,11 @@ function snackbar_layer.new(ctx: Ctx): any
 					})
 				local ctrl = hostHandle.controller
 				local union: any = nil
-				for _, rec in rows:peek() do
+				-- visible AND exiting rows: a bottom HUD waits for the slide-out
+				for _, rec in records do
+					if not rec.mounted then
+						continue
+					end
 					local r = if rec.path ~= nil and ctrl.screenRectOf ~= nil then ctrl.screenRectOf(rec.path) else nil
 					if type(r) == "table" and r.w > 0 and r.h > 0 then
 						if union == nil then
@@ -396,7 +409,7 @@ function snackbar_layer.new(ctx: Ctx): any
 			local onRow = false
 			for _, rec in records do
 				local p = rec.path
-				if p ~= nil and type(path) == "string" and string.sub(path, 1, #p) == p then
+				if p ~= nil and type(path) == "string" and focusMap.isPathPrefix(p, path) then
 					onRow = true
 					break
 				end

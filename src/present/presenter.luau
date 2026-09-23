@@ -311,22 +311,9 @@ local inflate = modalZones.inflate
 -- the two Zone-A tests had no other reader here.
 type Contribution = focusMap.Contribution
 
--- THE FIVE-LAYER SURFACE ORDER (ui-designer spec §6.3), encoded here because this
--- is where surface z is decided. BANDS, not one running counter: a toast has to
--- sit above every base screen and below every modal regardless of the order they
--- were presented in, which a single monotonic counter cannot express. Within a
--- band, creation order still decides (each surface takes the next +100 step), so
--- ~100 live surfaces per band before two would tie — far past anything real.
---
--- `dragProxy` has no consumer in this package: the drag proxy is P4's, and the
--- constant lives here so its layer is a decision on the record rather than a
--- number chosen at the proxy's call site.
-local SURFACE_LAYER = table.freeze({
-	base = 10000,
-	toast = 20000,
-	dragProxy = 30000,
-	modal = 40000,
-})
+-- THE FIVE-LAYER SURFACE ORDER (src/present/surface_bands.luau). `dragProxy` has
+-- no consumer in this package: its layer is a decision on the record.
+local SURFACE_LAYER = require("./surface_bands").LAYER
 presenter.SURFACE_LAYER = SURFACE_LAYER
 
 export type PresenterOpts = {

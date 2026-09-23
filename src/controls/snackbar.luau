@@ -204,7 +204,10 @@ local function rowView(Facet: any, env: any, rec: any, actions: any): any
 			id = "Body",
 			width = UI.fill(),
 			gap = "s",
-			align = "center",
+			-- beside: centred on the copy; below it: the action trails
+			align = function(use: any): string
+				return if beside(use) then "center" else "end"
+			end,
 			axis = function(use: any): string
 				return if beside(use) then "x" else "y"
 			end,
@@ -291,8 +294,7 @@ function snackbar.host(Facet: any, env: any, rows: any, attach: (any) -> any, ac
 				id = "Dock",
 				width = UI.fill(),
 				height = UI.fill(),
-				alignH = "center",
-				alignV = "end",
+				align = "center",
 				gap = "s",
 				padding = function(use: any): any
 					local v, occ, c = use(viewport), use(keyboard), use(chrome)
@@ -304,6 +306,8 @@ function snackbar.host(Facet: any, env: any, rows: any, attach: (any) -> any, ac
 					return { top = m, left = m, right = m, bottom = below + m }
 				end,
 				children = {
+					-- the rows dock at the bottom edge
+					UI.Spacer({ id = "Push", height = { type = "fill", weight = 1 } }),
 					UI.ForEach({
 						id = "Rows",
 						items = rows,
