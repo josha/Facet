@@ -6,8 +6,8 @@ stages, so the table below has eight numbered stages. Work through the files in
 order and you will have used every major feature of Facet.
 
 The Showcase picker has ten entries. **All controls** groups inputs, actions,
-indicators and navigation in nested tabs. Its Indicators tab includes progress
-rings and level indicators; Navigation includes the journey stack, pages and
+indicators and navigation in nested tabs. Its Status tab includes progress
+rings and level indicators; Menus includes the journey stack, pages and
 collapsible content. **Collections** and **Motion and layout** group the larger
 comparisons. **Screen-anchored HUD** owns a full screen for its adaptive zones.
 **Quick actions**, **Playlist table**, **Settings sync**, **Word game**,

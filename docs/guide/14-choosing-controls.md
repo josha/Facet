@@ -110,7 +110,7 @@ tasks and should not be interchanged merely to copy a streaming-app screenshot.
 ### Two-level navigation
 
 Choose by role, not by labels such as "app", "game", or "demo". In the Showcase,
-All controls' Inputs, Actions, Indicators and Navigation are peer destinations
+All controls' Inputs, Actions, Status and Menus are peer destinations
 organizing the whole screen. They use `UI.TabView` with
 `style = "sidebarAdaptable"` and automatic placement. The example choices inside
 each destination are ordinary nested TabViews. Collections and Motion and layout
@@ -407,7 +407,7 @@ its `"always"` preference retains the offset corner Close.
 Bind its label and icon to the selected value, or keep them static. Bind
 `expanded` to close on the choice that completes the task. For sibling destinations,
 `UI.TabView` with `style = "collapsible"` supplies that wiring; the demo
-**All controls → Navigation → Disclosure** shows both forms. A NavigationStack still represents drill-down
+**All controls → Menus → Disclosure** shows both forms. A NavigationStack still represents drill-down
 and Back, so keep that hierarchy visible alongside a destination chooser.
 
 ## Game HUD feedback and world labels

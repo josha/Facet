@@ -29,7 +29,7 @@ local groups = {
 	},
 	{
 		id = "indicators",
-		label = "Indicators",
+		label = "Status",
 		tabs = {
 			{ id = "progress", label = "Progress", scenario = require("./progress_ring") },
 			{ id = "identity", label = "Identity", scenario = require("./identity") },
@@ -41,7 +41,7 @@ local groups = {
 	},
 	{
 		id = "navigation",
-		label = "Navigation",
+		label = "Menus",
 		tabs = {
 			{ id = "journey", label = "Journey", scenario = require("./navigation_stack") },
 			{ id = "pages", label = "Pages", scenario = require("./page_view") },

@@ -20,8 +20,29 @@ local function button(w, label)
 	end
 	error("Missing button " .. label)
 end
-local function activate(w, label)
-	local path = button(w, label)
+-- a category tab shares its words with an inner tab ("Menus", "Status"), so a
+-- category is picked from the category bar alone
+local function onBar(path)
+	return string.find(path, "/Categories/", 1, true) ~= nil
+		and string.find(path, "/Categories/Content/", 1, true) == nil
+end
+local function pick(w, label, bar)
+	for _, path in w.adapter.paths() do
+		local node = w.adapter.node(path)
+		if node.class == "Button" and node.props.label == label and onBar(path) == bar then
+			return path
+		end
+	end
+	error("Missing tab " .. label)
+end
+local function category(w, label)
+	return pick(w, label, true)
+end
+local function inner(w, label)
+	return pick(w, label, false)
+end
+local function activate(w, label, pick)
+	local path = (pick or button)(w, label)
 	t.expect(w.pres.focus.focusOn(path)).toBe(true)
 	w.press("ButtonA")
 	w.settle(4)
@@ -223,7 +244,7 @@ t.describe("Consolidated showcase", function()
 
 	t.it("offers toasts in Indicators and retires them when leaving the page", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
-		activate(w, "Indicators")
+		activate(w, "Status", category)
 		activate(w, "Toasts")
 		activate(w, "Show toast")
 		t.expect(w.pres.toastCounts().visible).toBe(1)
@@ -436,9 +457,9 @@ t.describe("Consolidated showcase", function()
 			do
 				local w, built = make(scenario, viewport)
 				for _, group in scenario.groups do
-					activate(w, group.label)
+					activate(w, group.label, category)
 					for _, tab in group.tabs do
-						activate(w, tab.label)
+						activate(w, tab.label, inner)
 						t.expect(built.report().active).toBe(tab.id)
 						if scenario == motion and tab.id == "automatic" then
 							t.expect(built.report().example.balance).toBe(100)
@@ -472,11 +493,11 @@ t.describe("Consolidated showcase", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, { textOffset = 14 })
 		local visited = 0
 		for _, group in catalog.groups do
-			activate(w, group.label)
+			activate(w, group.label, category)
 			for _, tab in group.tabs do
-				activate(w, tab.label)
+				activate(w, tab.label, inner)
 				t.expect(built.report().active).toBe(tab.id)
-				local path = button(w, tab.label)
+				local path = inner(w, tab.label)
 				local acc, host = "", nil
 				for segment in path:gmatch("[^/]+") do
 					acc ..= "/" .. segment
@@ -511,9 +532,29 @@ t.describe("Consolidated showcase", function()
 		t.expect(w.core.lastError()).toBeNil()
 	end)
 
+	t.it("the phone bottom bar shrinks its category words to fit before it truncates one", function()
+		for _, width in { 320, 389 } do
+			local w, built = make(catalog, { x = 0, y = 0, w = width, h = 844 }, { preferredInput = "Touch" })
+			w.env:set("capabilities", { gamepad = false, keyboard = false, mouse = false, touch = true })
+			w.settle(4)
+			local seen = {}
+			for _, path in w.adapter.paths() do
+				local node = w.adapter.node(path)
+				if node.class == "Button" and string.find(path, "/Categories/BottomHome/", 1, true) then
+					local facts = w.controller.textAt(path) or {}
+					table.insert(seen, `{node.props.label}={if facts.truncated then "cut" else "whole"}`)
+				end
+			end
+			table.sort(seen)
+			t.expect(`{width}: {table.concat(seen, " ")}`)
+				.toBe(`{width}: Actions=whole Inputs=whole Menus=whole Status=whole`)
+			built.dispose()
+		end
+	end)
+
 	t.it("resets both mounted status and identity recipes through their shared commands", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
-		activate(w, "Indicators")
+		activate(w, "Status", category)
 		activate(w, "Status")
 		activate(w, "warning")
 		activate(w, "Error")
@@ -610,7 +651,7 @@ t.describe("Consolidated showcase", function()
 
 	t.it("routes shoulders to the inner tabs and Back through the nested journey", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
-		activate(w, "Navigation")
+		activate(w, "Menus", category)
 		activate(w, "Journey")
 		activate(w, "Plan details")
 		t.expect(built.report().example.navigation.depth).toBe(1)

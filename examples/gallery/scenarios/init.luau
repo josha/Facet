@@ -276,9 +276,9 @@ local ORDER = {
 	"cards",
 	-- the M74 View recipes: the Motion and layout › Layout › Containers tab
 	"containers",
-	-- UI.Pagination: the All controls › Navigation › Paging tab
+	-- UI.Pagination: the All controls › Menus › Paging tab
 	"paging",
-	-- UI.StepIndicator: the All controls › Navigation › Steps tab
+	-- UI.StepIndicator: the All controls › Menus › Steps tab
 	"steps",
 	-- UI.ColorPicker: the All controls › Inputs › Pickers tab
 	"pickers",
@@ -336,7 +336,7 @@ local ORDER = {
 	"shortcut_hint",
 	"recipes_common",
 	"container_grid",
-	-- Loading/reduced-motion branch lifetime; shared with Indicators → Progress.
+	-- Loading/reduced-motion branch lifetime; shared with Status → Progress.
 	"skeleton",
 	-- Caller-owned portraits, loading branches and live presence; shared with Identity.
 	"avatar",

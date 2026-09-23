@@ -1,5 +1,5 @@
 --!strict
--- One child tab keeps individual identity and rosters together in Indicators.
+-- One child tab keeps individual identity and rosters together in Status.
 return {
 	title = "Identity",
 	ledgerRows = {},

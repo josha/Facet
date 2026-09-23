@@ -653,7 +653,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			axis = stripAxis,
 			sizing = if collapsed then "fill" else sizing,
 			iconOnly = spec.iconOnly,
-			textSize = spec.textSize,
+			-- a tab's words shrink to fit their slot (down to the caption role)
+			-- before the engine truncates one: a filling bottom bar is a fixed share
+			textSize = spec.textSize or "fit",
 			env = spec.env,
 			enabled = spec.enabled,
 			onChange = function(value)
