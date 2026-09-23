@@ -9464,7 +9464,9 @@ surface covers it, and never runs while queued. `onDismiss` reports each
 accepted retirement once. `"close"` is the Close button; a false you write on
 your own is `"cancel"`, as it is for `UI.Dialog` and `UI.Popover`. Owner teardown
 and the release function release a row without asking and report `"cancel"`
-once; application disposal releases every row without asking or reporting.
+once; application disposal releases every row without asking or reporting. The
+teardown report runs while that owner is being disposed, so the callback must
+not read or write state the same owner holds (Dialog and Popover behave alike).
 
 One row shows; up to eight wait, by descending priority and then arrival. A
 strictly higher priority may ask the showing row to leave once it has been
