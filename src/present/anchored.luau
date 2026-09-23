@@ -132,7 +132,18 @@ local SEAM_OVERDRAW = 1
 
 local ROOT_TWO = math.sqrt(2)
 
-local ANCHOR_KEYS = specGuard.keySet({ "align", "crossOffset", "edge", "gap", "margin", "overflow", "source", "tail" })
+local ANCHOR_KEYS = specGuard.keySet({
+	"align",
+	"crossOffset",
+	"edge",
+	"gap",
+	"margin",
+	"maxHeight",
+	"maxWidth",
+	"overflow",
+	"source",
+	"tail",
+})
 local SOURCE_KEYS = specGuard.keySet({ "path", "rect" })
 local TAIL_KEYS = specGuard.keySet({ "cornerInset", "size", "surface" })
 
@@ -144,6 +155,10 @@ export type Anchor = {
 	align: string?,
 	crossOffset: number?, -- px along the alignment axis before the safe clamp (default 0)
 	gap: (string | number)?,
+	-- px caps on the SURFACE (the panel and its chrome), kept inside the LIVE safe
+	-- box as it changes; absent, the surface hugs with no cap exactly as before
+	maxWidth: number?,
+	maxHeight: number?,
 	margin: (string | number)?, -- extra inset of the safe box on every side but the top (a metric name or px)
 	overflow: string?,
 	tail: (boolean | Tail)?,
@@ -305,6 +320,14 @@ function anchored.new(ctx: any)
 		record.placed = true
 
 		local moved = record.ox:peek() ~= placement.x or record.oy:peek() ~= placement.y
+		-- the surface's caps follow the live safe box (a solve later, like the offsets)
+		if record.capW ~= nil then
+			local w = math.min(anchor.maxWidth or math.huge, safe.w)
+			local h = math.min(anchor.maxHeight or math.huge, safe.h)
+			moved = moved or record.capW:peek() ~= w or record.capH:peek() ~= h
+			record.capW:set(w)
+			record.capH:set(h)
+		end
 		record.ox:set(placement.x)
 		record.oy:set(placement.y)
 		if tailPx > 0 then
@@ -382,6 +405,12 @@ function anchored.new(ctx: any)
 		anchorPlacement.assertAlign(raw.align, "presenter.presentAnchored")
 		anchorPlacement.assertOverflow(raw.overflow, "presenter.presentAnchored")
 		anchorPlacement.assertCrossOffset(raw.crossOffset, "presenter.presentAnchored")
+		for _, key in { "maxWidth", "maxHeight" } do
+			local v = raw[key]
+			if v ~= nil and (type(v) ~= "number" or v ~= v or v <= 0 or v == math.huge) then
+				error(`Facet presenter.presentAnchored: \`anchor.{key}\` is a positive finite number of px.`, 0)
+			end
+		end
 		local tail = raw.tail
 		if type(tail) == "table" then
 			specGuard.assertKnownKeys("presenter.presentAnchored", tail, TAIL_KEYS, "opts.anchor.tail")
@@ -397,6 +426,8 @@ function anchored.new(ctx: any)
 			edge = raw.edge or "bottom",
 			align = raw.align or "center",
 			crossOffset = raw.crossOffset,
+			maxWidth = raw.maxWidth,
+			maxHeight = raw.maxHeight,
 			gap = raw.gap,
 			margin = raw.margin,
 			overflow = raw.overflow,
@@ -460,6 +491,14 @@ function anchored.new(ctx: any)
 		local sw = Compose.cell({ type = "fixed", px = 0 })
 		local sh = Compose.cell({ type = "fixed", px = 0 })
 		local tailHidden = Compose.cell(true)
+		-- the surface's live caps, only when the caller asked for one (see `place`)
+		local capped = anchor.maxWidth ~= nil or anchor.maxHeight ~= nil
+		local capW: any, capH: any = nil, nil
+		if capped then
+			local safe = safeBox(reservesAppChromeFor(anchor))
+			capW = Compose.cell(math.min(anchor.maxWidth or math.huge, safe.w))
+			capH = Compose.cell(math.min(anchor.maxHeight or math.huge, safe.h))
+		end
 
 		local tailSpec: any = if type(anchor.tail) == "table" then anchor.tail else {}
 		local wantsTail = anchor.tail ~= nil and anchor.tail ~= false
@@ -535,8 +574,16 @@ function anchored.new(ctx: any)
 					anchor = "topLeft",
 					offsetX = ox,
 					offsetY = oy,
-					width = { type = "hug" },
-					height = { type = "hug" },
+					width = if capped
+						then function(use: any): any
+							return { type = "hug", max = use(capW) }
+						end
+						else { type = "hug" },
+					height = if capped
+						then function(use: any): any
+							return { type = "hug", max = use(capH) }
+						end
+						else { type = "hug" },
 					children = { panel(UI) },
 				})
 			)
@@ -712,6 +759,8 @@ function anchored.new(ctx: any)
 			sw = sw,
 			sh = sh,
 			tailHidden = tailHidden,
+			capW = capW,
+			capH = capH,
 			placed = false,
 			placement = nil,
 		}

@@ -85,6 +85,10 @@ local Compose = require("../vendor/compose/core")
 local contribution = {}
 
 export type Bundle = {
+	-- asked before the presenter tears this contribution's MODAL surface down for
+	-- an outside tap; false keeps the surface (a control whose presentation is a
+	-- caller-owned fact proposes the close and reports whether it was accepted)
+	requestDismiss: ((reason: string) -> boolean)?,
 	-- Presenter-owned input eligibility and dispatch for declarative control actions.
 	bindInputScope: ((inputScope: any) -> ())?,
 	actionKeys: { [string]: boolean }?,

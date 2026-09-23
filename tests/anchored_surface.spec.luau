@@ -1228,3 +1228,73 @@ describe("anchor crossOffset: px along the alignment axis, before the clamp", fu
 		expect(string.find(tostring(err), "crossOffset", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+describe("anchored maxWidth / maxHeight: surface caps kept inside the live safe box", function()
+	local function scrollingPanel(): any
+		local rows = {}
+		for i = 1, 30 do
+			table.insert(rows, UI.Text({ id = `Line{i}`, text = `Line {i} of a long body`, textSize = 16 }))
+		end
+		return UI.VStack({
+			id = "Callout",
+			surface = "raised",
+			padding = "s",
+			children = {
+				UI.ScrollView({
+					id = "Body",
+					axis = "y",
+					shrinkWeight = 1,
+					children = { UI.VStack({ id = "Rows", children = rows }) },
+				}),
+			},
+		})
+	end
+
+	it("caps the surface, including its chrome, and absent keeps the plain hug", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		local h = pres.presentAnchored(scrollingPanel(), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, maxWidth = 200, maxHeight = 240 },
+		})
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		local r = adapter.node(SURFACE).rect
+		expect(`w={r.w <= 200} h={r.h <= 240}`).toBe("w=true h=true")
+		expect(adapter.node(`{SURFACE}/Callout`).rect.h <= 240).toBe(true)
+		pres.dismiss(h)
+	end)
+
+	it("growing safe insets pull a capped surface inside the new box", function()
+		local _, env, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(360), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, maxWidth = 1000 },
+		})
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 60, right = 60 })
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		pres.tick(1 / 60)
+		local r = adapter.node(SURFACE).rect
+		expect(`left={r.x >= 60} right={r.x + r.w <= 390 - 60}`).toBe("left=true right=true")
+	end)
+
+	it("a non-positive or non-finite cap is refused by name", function()
+		local _, _, _, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		for _, bad in { { maxWidth = 0 }, { maxHeight = math.huge }, { maxWidth = "wide" } } do
+			local anchor: any = { source = { path = "/Editor/Bar/Plus" } }
+			for k, v in bad :: any do
+				anchor[k] = v
+			end
+			local ok, err = pcall(pres.presentAnchored, calloutPanel(100), { id = "Tip", anchor = anchor })
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), next(bad :: any) :: string, 1, true) ~= nil).toBe(true)
+		end
+	end)
+end)

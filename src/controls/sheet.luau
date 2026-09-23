@@ -24,7 +24,11 @@ local KEYS = guard.keySet({
 	"interactiveDismissDisabled",
 	"dragIndicator",
 })
-local function build(Facet: any, core: any, spec: Spec, owner: any)
+-- `request(reason) -> boolean` is the private close-request seam: asked BEFORE
+-- the Close button, Cancel, a dismissing drag or an outside tap tears the sheet
+-- down ("close" | "cancel" | "drag" | "outside"); false keeps the surface, its
+-- focus and the accepted detent. Absent, every route closes as it always has.
+local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((string) -> boolean)?)
 	guard.assertKnownKeys("UI.Sheet", spec, KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Sheet"
@@ -161,8 +165,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		disposed = true
 		dismiss()
 	end)
+	local function allowed(reason: string): boolean
+		return request == nil or request(reason) ~= false
+	end
 	local function interactiveClose()
-		if not spec.interactiveDismissDisabled then
+		if not spec.interactiveDismissDisabled and allowed("cancel") then
 			dismiss()
 		end
 		return true
@@ -175,7 +182,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		local h = dragHeight:peek() or startHeight
 		local sorted = ordered()
 		if h < heightOf(sorted[1], read) * 0.7 and not spec.interactiveDismissDisabled then
-			dismiss()
+			if allowed("drag") then
+				dismiss()
+			else
+				-- refused: back to the detent the caller still holds
+				select(spec.detent:peek())
+			end
 			return
 		end
 		local nearest = sorted[1]
@@ -314,7 +326,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 								compactLabel = { icon = "chevron.down", prefer = true },
 								width = { type = "fixed", px = "targetSizes.minimum" },
 								height = { type = "minMax", min = "targetSizes.minimum" },
-								onActivate = dismiss,
+								onActivate = function()
+									if allowed("close") then
+										dismiss()
+									end
+								end,
 							}),
 						},
 					}),
@@ -339,6 +355,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			}),
 			{
 				handleCancel = interactiveClose,
+				requestDismiss = function(): boolean
+					return allowed("outside")
+				end,
 				adjustAxis = "horizontal",
 				adjustTargets = function(root)
 					return { [root.path .. "/Layer/Panel/Header/Size"] = true }
@@ -429,6 +448,13 @@ end
 function sheet.build(Facet: any, core: any, spec: Spec)
 	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
+	end)
+end
+-- the same sheet with the private close-request seam (see `build`); not a
+-- public constructor — the Popover's compact form presents through it
+function sheet.buildRequesting(Facet: any, core: any, spec: Spec, request: (string) -> boolean)
+	return ownedBuild(core, function(owner)
+		return build(Facet, core, spec, owner, request)
 	end)
 end
 return sheet
