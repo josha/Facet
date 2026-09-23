@@ -213,6 +213,7 @@ owner that owns its resources. Start with
 | `UI.Pagination` | Controlled page selection: a bounded numeric window, an unknown count, a measured fallback to "Page n of m". | [api](../reference/api.md#uipagination) |
 | `UI.StepIndicator` | Workflow steps with one current authority, state cues and words, and a summary with a list when narrow. | [api](../reference/api.md#uistepindicator) |
 | `UI.ColorPicker` | A colour well that opens swatches, a spectrum plane, sliders or the engine BrickColors, with RGB/HSV/Hex fields, optional opacity and an Apply/Cancel draft; or the panel in place. | [api](../reference/api.md#uicolorpicker) |
+| `UI.DateTimePicker` | A civil date field that opens a calendar (single, date and time, or a range with presets and an Apply/Cancel draft), or the calendar in place; today comes from your clock. | [api](../reference/api.md#uidatetimepicker) |
 | `UI.Vote` | Up, down or none over your value, with your own summary text and a read-only form. | [api](../reference/api.md#uivote) |
 | `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
 | `UI.Snackbar` | One short message at the bottom of the screen with an optional action and close, shown one at a time; the caller owns visibility and every close is a proposal. | [api](../reference/api.md#uisnackbar) |
@@ -230,6 +231,7 @@ owner that owns its resources. Start with
 | `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
 | `UI.Avatar` | A player picture or initials, with optional presence and activation. | [api](../reference/api.md#uiavatar) |
 | `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |
+| `civilDate` | Civil (zone-free) date arithmetic, the numeric words, and instants at an offset you name, for `UI.DateTimePicker` values. | [api](../reference/api.md#civildate) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
 | `recipes` | Opt-in one-line compositions; `recipes.arithmetic.parse` lets a numeric field accept `3 + 5`. | [api](../reference/api.md#recipes) |

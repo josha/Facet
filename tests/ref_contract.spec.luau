@@ -94,6 +94,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	ColorPicker = function(w)
 		return { value = Color3.fromRGB(255, 0, 0), onChange = function() end }
 	end,
+	DateTimePicker = function(w)
+		return { value = { year = 2026, month = 9, day = 23 }, onChange = function() end }
+	end,
 	Pagination = function(w)
 		return { page = 1, pageCount = 3, onChange = function() end }
 	end,

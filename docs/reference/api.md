@@ -9156,6 +9156,62 @@ well and call `onChange` with what it sampled.
 alpha, hsv = { h, s, v }, text, name, modes, mode, format, draft, presented,
 route, planePath, columns, swatchPaths, hexError, diagnostics }`.
 
+### `UI.DateTimePicker`
+
+`UI.DateTimePicker { … }` -> the picker's node. `ref` receives `{ api, dump }`.
+
+A date field that opens a calendar, or the calendar in place. Spec: `{ id?,
+selection: ("single" | "range")?, value: Bound<CivilDate?>?, onChange?,
+onCommit?, range: Bound<CivilRange>?, onRangeChange?, onRangeCommit?, time?,
+minuteStep?, hourCycle?, min: Bound<CivilDate?>?, max: Bound<CivilDate?>?,
+isDateDisabled: ((date) -> boolean)?, weekStart?, locale?, clock: (() ->
+CivilDate)?, referenceDate: Bound<CivilDate?>?, presets?, draft?, style:
+("automatic" | "inline")?, format: ((value) -> string)?, placeholder?,
+isPresented?, onPresentedChange?, onDismiss?, enabled?, readOnly?, label?,
+requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
+
+Values are **civil dates** — `{ year, month, day }`, with `hour` and `minute`
+when `time = true` — wall-clock facts in no time zone, so a date never moves a
+day because of where it is shown (see [`civilDate`](#civildate) for turning an
+instant into one at an offset you name). A single picker uses `value` /
+`onChange` / `onCommit`; `selection = "range"` uses `range = { start?, finish?
+}` / `onRangeChange` / `onRangeCommit`, and giving the other mode's keys is an
+error. Both are yours: a pick proposes, and the calendar repaints only from
+what you then hold. A single pick commits and closes (with `time`, the panel
+stays open and commits when it closes). In a range the first pick sets
+`start`, the second sets `finish` (swapping if it is earlier), and
+`onRangeCommit` fires only when both ends are set. `draft = true` adds Reset
+all, Cancel and Apply, and only Apply commits. Cancel (B, the sheet's Close,
+the draft Cancel) proposes the value the panel opened with; a tap outside keeps
+it; a write of yours while it is open becomes what Cancel returns to.
+
+"Today" (its ring, the presets, the month an empty picker opens on) comes from
+`clock` — default the engine clock at UTC — and `referenceDate` chooses the
+month an empty picker opens on. `min` and `max` are inclusive; a day outside
+them or refused by `isDateDisabled` stays in the grid, focusable, struck
+through and inert. `weekStart` is 1 (Sunday) to 7; `locale` supplies `months`,
+short `weekdays` (Sunday first), the numeric `order` ("mdy", "dmy", "ymd"),
+`separator` and `hourCycle`. `minuteStep` (default 5) must divide 60.
+`presets = { { id, label, range = function(today) } }` (range only) are chips:
+one wholly outside the bounds is shown disabled, one that overlaps is clamped.
+
+The closed form is field chrome: when a keyboard or pointer is live the value
+is an editable field that takes the numeric form back (a text that is not a
+date, or not an available one, stays with its error and commits nothing),
+otherwise a button that opens the calendar; a calendar button sits beside it.
+With a custom `format` the words are display only. It opens an anchored panel,
+a sheet with Done on a compact touch screen, and a centred sheet at ten feet.
+The calendar shows two consecutive months when its width fits them; the
+arrows walk the days (a row's end continues to the next day), L1/R1 and
+Comma/Period page the month from any day, and the header's arrows and month
+and year menus reach every month without a shoulder button. `time` adds hour
+and minute fields with steps (AM/PM on a 12-hour clock) and, on touch, a list
+of times at `minuteStep`.
+
+`dump()` reports `{ schema = "facet-date_time_picker-dump/1", id, selection,
+style, value, range, text, typedError, month, dual, today, presented, route,
+cellPaths, draft, weekStart, diagnostics }`.
+
 ### `UI.Snackbar`
 
 `UI.Snackbar { … }` -> an empty anchor node; the row appears in the
@@ -10343,6 +10399,31 @@ table column overran by 12px under Glossy Touch and left 28px empty under Pixel
 Quest. Taking a share means the strip can neither overflow its cell nor leave a
 gap, in any package. In a content-sized parent a `fill` child measures as its own
 content, so a standalone rating still hugs its glyphs rather than stretching.
+
+### `civilDate`
+
+`Facet.civilDate` is the calendar `UI.DateTimePicker` keeps its values in. A
+`CivilDate` is `{ year, month, day, hour?, minute? }` in no time zone; a
+`CivilRange` is `{ start?, finish? }`.
+
+- Arithmetic: `civilDate.isLeap(year)`, `civilDate.daysIn(year, month)`,
+  `civilDate.toDays(d)` / `civilDate.fromDays(n)` (days from 1970-01-01),
+  `civilDate.dateOf(d)` (the date without its time), `civilDate.addDays(d, n)`,
+  `civilDate.addMonths(d, n)` (the day clamps: January 31 plus a month is the
+  last of February), `civilDate.compare(a, b)` (by date), `civilDate.same(a,
+  b)` (every field), `civilDate.weekday(d)` (1 = Sunday),
+  `civilDate.monthGrid(year, month, weekStart)` (six weeks of dates),
+  `civilDate.within(d, min?, max?)`, `civilDate.clampRange(range, min?, max?)`
+  (nil when the range is wholly outside) and `civilDate.problem(d, withTime?)`
+  (why a table is not a date, or nil).
+- Words: `civilDate.format(d, locale?)`, `civilDate.formatTime(d, hourCycle)`
+  and `civilDate.parse(text, locale?, withTime?)` in the locale's numeric
+  order; `civilDate.ENGLISH` is the default locale.
+- Instants always name their offset: `civilDate.fromUnix(seconds,
+  offsetMinutes)` and `civilDate.toUnix(date, offsetMinutes)`. There is no zone
+  database, so a zone with daylight time is your conversion to a fixed offset.
+  `civilDate.systemClock(offsetMinutes?)` returns the default `clock` (the
+  engine clock at that offset).
 
 ### `valueModel`
 

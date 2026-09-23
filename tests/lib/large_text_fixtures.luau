@@ -591,6 +591,22 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "DateTimePicker",
+		class = "DateTimePicker",
+		build = function(core)
+			return harness.Controls.DateTimePicker(core, {
+				id = "Ctl",
+				label = lt.PSEUDO_SECONDARY,
+				hint = lt.PSEUDO_SECONDARY,
+				value = { year = 2026, month = 9, day = 23 },
+				clock = function()
+					return { year = 2026, month = 9, day = 23 }
+				end,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Callout-rich-plate",
 		class = "OverlayParts",
 		build = function()
@@ -1466,6 +1482,8 @@ local UNSWEEPABLE: { [string]: string } = {
 	ButtonShortcut = "stateless shortcut parsing and matching — no blueprint; Button and Alert own the measured labels",
 	ProgressTrail = "internal motion value, no blueprint or text; ProgressView owns the measured meter",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
+	ColorValue = "stateless colour conversion and hex policy — no blueprint; ColorPicker owns the measured labels",
+	CivilDate = "stateless calendar arithmetic and words — no blueprint; DateTimePicker owns the measured labels",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on
 	-- 2026-08-14 so that file could get back under the 200,000-char
 	-- `Script.Source` WRITE cap. Neither is a control;

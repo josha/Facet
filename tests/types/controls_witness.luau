@@ -734,6 +734,49 @@ local _color = app.controls.ColorPicker("Body")({
 	controlSize = "compact",
 	corners = "pill",
 })
+local raceDay = Facet.Compose.cell(nil :: Facet.CivilDate?)
+local _date = app.controls.DateTimePicker("RaceDay")({
+	label = "Race day",
+	placeholder = "MM/DD/YYYY",
+	value = raceDay,
+	onChange = function(next)
+		raceDay:set(next)
+	end,
+	onCommit = function(_d) end,
+	min = { year = 2026, month = 1, day = 1 },
+	max = { year = 2026, month = 12, day = 31 },
+	isDateDisabled = function(d)
+		return d.day == 13
+	end,
+	weekStart = 2,
+	time = true,
+	minuteStep = 15,
+	hourCycle = 24,
+	clock = function()
+		return { year = 2026, month = 9, day = 23 }
+	end,
+	draft = true,
+	onDismiss = function(_reason) end,
+})
+local window = Facet.Compose.cell({} :: Facet.CivilRange)
+local _dateRange = app.controls.DateTimePicker({
+	selection = "range",
+	range = window,
+	onRangeChange = function(next)
+		window:set(next)
+	end,
+	onRangeCommit = function(_r) end,
+	presets = {
+		{
+			id = "week",
+			label = "This week",
+			range = function(today)
+				return { start = today, finish = Facet.civilDate.addDays(today, 6) }
+			end,
+		},
+	},
+	style = "inline",
+})
 local _inlineColor =
 	app.controls.ColorPicker({ value = nil, onChange = function(_c) end, style = "inline", allowEmpty = true })
 local _pageview = app.controls.PageView("Pages")({

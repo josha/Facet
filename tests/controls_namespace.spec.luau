@@ -79,6 +79,7 @@ local POST_ADR_NAMES: { string } = {
 	"StepIndicator",
 	"Vote",
 	"ColorPicker",
+	"DateTimePicker",
 	-- scaffold: new control names are appended above this line
 }
 

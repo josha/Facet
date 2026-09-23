@@ -25,6 +25,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.DateTimePicker`** and **`Facet.civilDate`.** A civil date (no time
+  zone) field that opens a calendar — one or two consecutive months, disabled
+  days focusable and inert, typed entry where a keyboard or pointer is live,
+  time fields with a touch time list, ranges with clipped presets and an
+  Apply/Cancel draft — or the calendar inline. Today comes from an injected
+  clock; `civilDate.fromUnix/toUnix` take an explicit offset.
+
 - **`UI.ColorPicker`.** A colour well over the caller's Color3 that opens an
   anchored panel (a hug sheet on compact touch, a centred sheet at ten feet), or
   the panel inline: swatches, a spectrum plane with a hue slider, HSV sliders

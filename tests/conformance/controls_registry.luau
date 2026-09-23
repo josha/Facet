@@ -2529,6 +2529,58 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		-- DateTimePicker's civil calendar (Facet.civilDate): day arithmetic, words,
+		-- fixed-offset instants; owns no UI or live state.
+		name = "CivilDate",
+		kind = "composite",
+		module = "src/controls/civil_date.luau",
+		export = "UI.DateTimePicker",
+		spec = "tests/date_time_picker.spec.luau",
+		conformance = "tests/date_time_picker.spec.luau",
+		docsAnchor = "UI.DateTimePicker",
+		dump = false,
+		reason = "stateless module: civil calendar arithmetic and formatting, no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "DateTimePicker",
+		kind = "composite",
+		module = "src/controls/date_time_picker.luau",
+		export = "UI.DateTimePicker",
+		spec = "tests/date_time_picker.spec.luau",
+		conformance = "tests/date_time_picker.spec.luau",
+		docsAnchor = "UI.DateTimePicker",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "the calendar opens anchored on the chosen day's month; a pick commits once and closes" },
+			touch = {
+				"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
+			},
+			keyboard = { "typed entry commits a date; a refused text stays with its error and commits nothing" },
+			gamepad = {
+				"keyboard and pad: the arrows walk the grid with its contribution attached, a row's end continues, L1/R1 page",
+			},
+		},
+		-- PARADIGM axis: every day, month and time is a discrete stop (no drag
+		-- anywhere); typed entry is added where a keyboard or pointer is live; the
+		-- time list joins the fields on touch. hotSwitch: the typed field and the
+		-- open button swap with the live classes.
+		affordanceProofs = {
+			pointer = {
+				"a wide screen shows two consecutive months, and they stay consecutive through paging and bounds",
+			},
+			touch = { "time: hour and minute fields step on the minute grid, AM/PM flips, and a touch list sets both" },
+			keyboard = {
+				"a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck",
+			},
+			gamepad = { "B cancels: the open-time value is restored and focus returns to the field's button" },
+			hotSwitch = {
+				"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
+			},
+		},
+	},
+	{
 		name = "Snackbar",
 		kind = "composite",
 		module = "src/controls/snackbar.luau",

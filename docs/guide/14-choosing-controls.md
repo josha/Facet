@@ -30,6 +30,7 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Move through pages of results you fetch yourself | `UI.Pagination` | You keep the page; an unknown count uses next/previous availability instead of a last page. |
 | Show where a multi-step flow is, and let the player return to steps you allow | `UI.StepIndicator` | You keep `current`; for a number the player adjusts use `UI.Stepper`, and for a star score `UI.Rating`. |
 | Let the player pick a colour, such as a livery or a trim | `UI.ColorPicker` | You keep the Color3 (and an optional opacity); a labelled well is a settings row, and `style = "inline"` puts the panel in the page. |
+| Let the player choose a date, a time or a date range | `UI.DateTimePicker` | You keep a civil date (no time zone); `selection = "range"` adds presets, and `draft = true` commits only on Apply. |
 | Let the player like or dislike something | `UI.Vote` | You keep the value and the aggregate text; for a score out of five use `UI.Rating`. |
 | Tell the player about a state of the page (offline, saved, an update) without interrupting | `UI.Notice` | It stays in the page and never takes focus; `affixed` pins it to the top and reserves the space. |
 | Confirm something just happened, with an undo, without covering the page | `UI.Snackbar` | One at a time at the bottom; you own whether it shows, and every close is a proposal. |
