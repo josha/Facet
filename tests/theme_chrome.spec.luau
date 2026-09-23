@@ -1048,6 +1048,25 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		expect(ruleNamed(model, "Chrome — control hover").props.ImageColor3).toBe("$ChromeTintHover")
 		expect(ruleNamed(model, "Chrome — control pressed").props.ImageColor3).toBe("$ChromeTintPressed")
 	end)
+
+	it("a hovered SELECTED skin keeps its selection tint, lifted, instead of plain hover white", function()
+		local model = sheet_model.buildPackage(parchment())
+		local theme = model.themes[1]
+		local selected, lifted = theme.tokens.ChromeTintSelected, theme.tokens.ChromeTintSelectedHover
+		expect(lifted ~= nil).toBe(true)
+		-- lighter than the resting selection, and still not the untinted hover white
+		expect(lifted.r >= selected.r and lifted.g >= selected.g and lifted.b >= selected.b).toBe(true)
+		expect(lifted.r < 1 or lifted.g < 1 or lifted.b < 1).toBe(true)
+		local rule = ruleNamed(model, "Chrome — control selected hover")
+		expect(rule.selector).toBe(".facet-selected.facet-interactive.facet-pointer-live:Hover > .facet-chrome-control")
+		expect(rule.props.ImageColor3).toBe("$ChromeTintSelectedHover")
+		local index: { [string]: number } = {}
+		for i, r in model.rules do
+			index[r.name] = i
+		end
+		-- the compound rule beats the plain hover it shares a group with
+		expect(index["Chrome — control selected hover"] > index["Chrome — control hover"]).toBe(true)
+	end)
 end)
 
 describe("role tints paint the ART, not a slab behind it", function()

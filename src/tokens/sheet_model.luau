@@ -2375,6 +2375,9 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		tokenSet.ChromeTintHover = greyToken(CHROME_TINT_HOVER)
 		tokenSet.ChromeTintPressed = greyToken(CHROME_TINT_PRESSED)
 		tokenSet.ChromeTintSelected = lerp({ r = 1, g = 1, b = 1 }, entry.colors.accent, 0.35)
+		-- a hovered selected skin: the selection lifted as danger's hover is, so
+		-- hover never repaints a selected row as an unselected one
+		tokenSet.ChromeTintSelectedHover = lerp(tokenSet.ChromeTintSelected, WHITE, 0.18)
 		-- ROLE TINTS (director review 2026-07-25: "a tint like on delete profile
 		-- should tint the IMAGE, not give a random button behind it"). With the
 		-- native plate suppressed under the art there is no coloured slab left to
@@ -3445,6 +3448,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- one decoration, or every layer of a stack: the whole ladder responds as
 		-- one control, which is what a player sees. rs-m2 proved a compound tag
 		-- can single one layer out when a package wants that instead.
+		local selectedTag = SLOT_SELECTED_TAG[slot] or T.selected
 		local tags: { { name: string, tag: string } } = {}
 		if ninePlans[slot] ~= nil then
 			table.insert(tags, { name = `Chrome — {slot}`, tag = chrome_slots.tagFor(slot) })
@@ -3459,6 +3463,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				name = `{entry.name} hover`,
 				selector = `.{T.interactive}.{T.pointerLive}:Hover > .{entry.tag}`,
 				props = { ImageColor3 = "$ChromeTintHover" },
+				transitions = { ImageColor3 = "fast" },
+			})
+			-- after the plain hover it must beat (the selected tint is a chrome rule,
+			-- which every hover rule outranks by group)
+			emit("hover", {
+				name = `{entry.name} selected hover`,
+				selector = `.{selectedTag}.{T.interactive}.{T.pointerLive}:Hover > .{entry.tag}`,
+				props = { ImageColor3 = "$ChromeTintSelectedHover" },
 				transitions = { ImageColor3 = "fast" },
 			})
 			emit("press", {
