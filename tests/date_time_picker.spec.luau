@@ -87,8 +87,19 @@ local function must(w: any, suffix: string): string
 	return p
 end
 
+-- the calendar icon inside a field's plate (in the typed field's trailing slot
+-- or beside the shown words)
+local function opener(w: any, id: string): string
+	for _, p in w.adapter.paths() do
+		if string.find(p, `/{id}/Field/`, 1, true) ~= nil and string.sub(p, -5) == "/Open" then
+			return p
+		end
+	end
+	error(`no calendar icon under {id}`)
+end
+
 local function open(w: any)
-	w.adapter.tap(must(w, "/P/Field/Open"), { source = "pointer", x = 5, y = 5 })
+	w.adapter.tap(opener(w, "P"), { source = "pointer", x = 5, y = 5 })
 	w.settle(3)
 end
 
@@ -252,10 +263,22 @@ describe("DateTimePicker: a single date", function()
 				table.insert(commits, iso(v))
 			end,
 		})
-		local entry = must(w, "/Words/then/Entry/Field")
+		local entry = must(w, "/Words/then/Entry/Input/Row/Field")
 		-- one plate: the field's own, never a second one inside it
 		expect(w.adapter.node(must(w, "/P/Field")).props.surface).toBe("plain")
-		expect(w.adapter.node(must(w, "/Words/then/Entry")).props.surface).toBe("chip")
+		expect(w.adapter.node(must(w, "/Words/then/Entry/Input")).props.surface).toBe("chip")
+		-- the calendar icon sits inside that plate, at its trailing edge
+		expect(string.find(opener(w, "P"), "/Entry/Input/Row/Trailing/Open", 1, true) ~= nil).toBe(true)
+		-- ...and the calendar hangs from the FIELD: below it, start-aligned
+		open(w)
+		local field = w.adapter.node(must(w, "/P/Field")).rect
+		local surface = w.adapter.node(must(w, "/Popover-P/Layer/Surface")).rect
+		-- (the screen's own 8 px edge inset holds it off x = 0)
+		expect(`{surface.x - field.x <= 8} {surface.y >= field.y + field.h}`).toBe("true true")
+		-- the icon toggles: a second press closes it
+		w.adapter.tap(opener(w, "P"), { source = "pointer", x = 5, y = 5 })
+		w.settle(3)
+		expect(w.record("P").dump().presented).toBe(false)
 		local function typeCommit(text: string)
 			w.adapter.focusText(entry)
 			w.adapter.node(entry).textBuffer = ""
@@ -295,7 +318,7 @@ describe("DateTimePicker: a single date", function()
 						commits += 1
 					end,
 				})
-				local entry = must(w, "/Words/then/Entry/Field")
+				local entry = must(w, "/Words/then/Entry/Input/Row/Field")
 				-- the shown words, with the start moved a day: edited as a player would
 				local shown = w.adapter.node(entry).props.text
 				local old = civil.format(D(2026, 1, 2), locale)
@@ -325,7 +348,7 @@ describe("DateTimePicker: a single date", function()
 				commits += 1
 			end,
 		})
-		local entry = must(w, "/Words/then/Entry/Field")
+		local entry = must(w, "/Words/then/Entry/Input/Row/Field")
 		w.adapter.focusText(entry)
 		w.adapter.typeText(entry, "7/4/2026")
 		w.adapter.commitText(entry)
@@ -339,7 +362,7 @@ describe("DateTimePicker: a single date", function()
 		function()
 			local cell, _, change = caller(D(2026, 9, 16))
 			local w = mount({ value = cell, onChange = change }, { capabilities = PAD, preferredInput = "Gamepad" })
-			w.pres.focus.focusOn(must(w, "/P/Field/Open"))
+			w.pres.focus.focusOn(opener(w, "P"))
 			w.press("ButtonA")
 			w.settle(3)
 			local start = cellOf(w, D(2026, 9, 16))
@@ -456,7 +479,7 @@ describe("DateTimePicker: a single date", function()
 						commits += 1
 					end,
 				}, { capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" })
-				w.pres.focus.focusOn(must(w, "/P/Field/Open"))
+				w.pres.focus.focusOn(opener(w, "P"))
 				w.press("ButtonA")
 				w.settle(3)
 				local held = w.record("P").dump().month
@@ -493,7 +516,7 @@ describe("DateTimePicker: a single date", function()
 				{ value = cell, onChange = change, draft = true },
 				{ capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" }
 			)
-			w.pres.focus.focusOn(must(w, "/P/Field/Open"))
+			w.pres.focus.focusOn(opener(w, "P"))
 			w.press("ButtonA")
 			w.settle(3)
 			expect(w.pres.focus.focusOn(cellOf(w, D(2026, 9, 3)))).toBe(true)
@@ -517,7 +540,7 @@ describe("DateTimePicker: a single date", function()
 					table.insert(commits, iso(v))
 				end,
 			}, { capabilities = PAD, preferredInput = "Gamepad" })
-			local button = must(w, "/P/Field/Open")
+			local button = opener(w, "P")
 			w.pres.focus.focusOn(button)
 			w.press("ButtonA")
 			w.settle(3)
@@ -714,10 +737,11 @@ describe("DateTimePicker: the gallery tab", function()
 		w.settle(3)
 		local line = must(w, "/Pickers/Committed")
 		-- an empty window says what it wants
-		local words = find(w, "/Window/Field/Words/then/Entry/Field") or must(w, "/Window/Field/Words/else/Show")
+		local words = find(w, "/Window/Field/Words/then/Entry/Input/Row/Field")
+			or must(w, "/Window/Field/Words/else/Show")
 		local shown = w.adapter.node(words).props
 		expect(shown.placeholder or shown.label).toBe("Choose a start and an end")
-		w.adapter.tap(must(w, "/Window/Field/Open"), { source = "pointer", x = 5, y = 5 })
+		w.adapter.tap(opener(w, "Window"), { source = "pointer", x = 5, y = 5 })
 		w.settle(3)
 		w.adapter.tap(must(w, "/Preset-week"))
 		w.settle(2)
@@ -728,7 +752,7 @@ describe("DateTimePicker: the gallery tab", function()
 		expect(w.adapter.node(line).props.text).toBe("Committed: 09/21/2026 – 09/27/2026")
 		w.adapter.tap(must(w, "/Pickers/Refuse"))
 		w.settle(2)
-		w.adapter.tap(must(w, "/RaceDay/Field/Open"), { source = "pointer", x = 5, y = 5 })
+		w.adapter.tap(opener(w, "RaceDay"), { source = "pointer", x = 5, y = 5 })
 		w.settle(3)
 		local d = w.record("RaceDay").dump()
 		w.adapter.tap(d.cellPaths[1][20])
@@ -840,7 +864,7 @@ describe("DateTimePicker: layout, routes and refusals", function()
 				{ value = cell, onChange = change },
 				{ capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" }
 			)
-			tv.pres.focus.focusOn(must(tv, "/P/Field/Open"))
+			tv.pres.focus.focusOn(opener(tv, "P"))
 			tv.press("ButtonA")
 			tv.settle(3)
 			expect(tv.record("P").dump().route).toBe("sheet")

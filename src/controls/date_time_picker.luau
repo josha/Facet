@@ -1386,6 +1386,22 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		})
 	end)
 
+	-- the calendar icon, inside the field's plate at its trailing edge
+	local function calendarButton(): any
+		return UI.Button({
+			id = "Open",
+			icon = "calendar",
+			label = "Choose a date",
+			shape = "circle",
+			-- an accessory inside the field's own plate: no second plate of its own
+			surface = "plain",
+			enabled = interactive,
+			onActivate = function()
+				requestPresented(not presented:peek())
+			end,
+		})
+	end
+
 	local function typedField(): any
 		local text = Compose.cell(valueText:peek())
 		follow(valueText, function(s: string)
@@ -1402,6 +1418,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			controlSize = spec.controlSize,
 			enabled = interactive,
 			env = spec.env,
+			trailing = if overlay then calendarButton() else nil,
 			onCommit = function(typed: any)
 				if typed == valueText:peek() then
 					return
@@ -1501,15 +1518,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return if wrapped == panel then UI.VStack({ id = id, width = UI.fill(), children = { panel } }) else wrapped
 		end)
 	else
-		local calendarButton = UI.Button({
-			id = "Open",
-			icon = "calendar",
-			label = "Choose a date",
-			shape = "circle",
-			-- an accessory inside the field's own plate: no second plate of its own
-			surface = "plain",
-			enabled = interactive,
-		})
 		local pop = require("./popover").build(Facet, core, {
 			id = id,
 			isPresented = presented,
@@ -1533,7 +1541,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					spec.onDismiss(mine or reason)
 				end
 			end,
-			trigger = calendarButton,
+			-- the calendar hangs from the whole FIELD (below, start-aligned, flipping
+			-- only when there is no room), never from the icon inside it
+			source = { path = "/Field" },
 			content = panelView,
 			edge = "bottom",
 			align = "start",
@@ -1548,7 +1558,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local row = UI.HStack({
 				id = "Field",
 				width = UI.fill(),
-				gap = "xs",
 				align = "center",
 				surface = Compose.formula(function(use)
 					return if use(typedEntry) then "plain" else selection.read(chrome.surface, use)
@@ -1557,8 +1566,17 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				padding = Compose.formula(function(use)
 					return if use(typedEntry) then 0 else selection.read(chrome.padding, use)
 				end),
+				gap = 0,
 				children = {
 					UI.When({ id = "Words", condition = typedEntry, thenView = typedField, elseView = displayField }),
+					-- a typed field carries the icon in its own trailing slot
+					UI.When({
+						id = "Icon",
+						condition = Compose.formula(function(use)
+							return not use(typedEntry)
+						end),
+						thenView = calendarButton,
+					}),
 					pop.blueprint,
 				},
 			})
