@@ -507,22 +507,28 @@ function screen_presentation.new(ctx: any)
 			-- so a row that re-arranges must carry its ring along)
 			local t = handle.focusRingFloat:FindFirstChild("FocusRing")
 			local thickness = if t ~= nil and t:IsA("UIStroke") then t.Thickness else 2
+			-- ...and the node's own paint scale about its pivot (a lifted card's stop):
+			-- the float is not under the node's UIScale, so it takes the grown box here
+			local own = if handle.motionScale ~= nil then handle.motionScale.Scale else 1
+			local gx = math.round((own - 1) * pw * (handle.motionPivotX or 0.5))
+			local gy = math.round((own - 1) * ph * (handle.motionPivotY or 0.5))
+			local fw, fh = math.round(pw * own), math.round(ph * own)
 			handle.focusRingFloat.Position = UDim2.fromOffset(
-				rect.x - ox + thickness + (handle.presentationOffsetX or 0),
-				rect.y - oy + thickness + (handle.presentationOffsetY or 0)
+				rect.x - ox + thickness + (handle.presentationOffsetX or 0) - gx,
+				rect.y - oy + thickness + (handle.presentationOffsetY or 0) - gy
 			)
 			-- the ring traces the PAINTED box: a ring left at the solved size while its
 			-- node's box travels would visibly detach from the control it marks
 			local geom = handle.focusFloatGeom
-			if geom == nil or geom.w ~= pw or geom.h ~= ph or geom.t ~= thickness then
+			if geom == nil or geom.w ~= fw or geom.h ~= fh or geom.t ~= thickness then
 				if handle.focusFloatTween ~= nil then
 					handle.focusFloatTween:Cancel()
 					handle.focusFloatTween = nil
 				end
-				handle.focusFloatGeom = { w = pw, h = ph, t = thickness }
+				handle.focusFloatGeom = { w = fw, h = fh, t = thickness }
 			end
 			local lift = if handle.focusScale ~= nil then handle.focusScale.Scale else 1
-			handle.focusRingFloat.Size = UDim2.fromOffset(pw * lift - 2 * thickness, ph * lift - 2 * thickness)
+			handle.focusRingFloat.Size = UDim2.fromOffset(fw * lift - 2 * thickness, fh * lift - 2 * thickness)
 		end
 		-- a semantic icon is clamped to the box this node actually has, so a rect
 		-- that lands after the picture did has to re-fit it (director report

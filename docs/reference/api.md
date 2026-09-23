@@ -7343,7 +7343,7 @@ UI.VirtualGrid("Wardrobe")({
     gap = 8,                              -- between cells ACROSS a line
     rowGap = 8,                           -- between LINES
     snap = "item",                        -- optional: settle on a LINE boundary
-    cell = function(item, ctx)            -- ctx = { current, scope, index, line, lane }
+    cell = function(item, ctx)            -- ctx = { current, scope, index, line, lane, focused, stopScale }
         return UI.Text("Name")({ text = item.name })
     end,
     onActivate = function(item) open(item) end,
@@ -9018,14 +9018,16 @@ ends the plate leaves paint, focus and the tap path at once; entry fades in on
 the container class (reduced motion: none).
 
 **Lift.** While engaged, on any input, the card rises to 1.04x on the control
-spring and wears the theme's raised shadow; it lands when engagement ends. The
+spring and wears the theme's raised shadow (a card with a body action; one
+with none has no plate to cast it); it lands when engagement ends. The
 scale is paint only: the card's box never changes, so the gutters around it must
 hold what a lifted card paints past its box. Size them with
 `Facet.layout.transformFootprint(w, h, 1.04, 0)`: a gutter at least the
 footprint's growth holds two neighbours lifted toward each other (the Cards
 scenario does this for both VirtualGrid gutters). Under reduced motion the card
 keeps only the shadow. At ten-foot distance the focus visual's own
-`tenFootFocusScale` is the lift, so the card does not scale a second time.
+`tenFootFocusScale` is the lift, so the card does not scale a second time. In a `UI.VirtualGrid`, hand the card's `api.scale`
+to the cell's `ctx.stopScale` so the cell's focus stop, and its ring, grow with the card.
 
 **In a `UI.VirtualGrid`.** The grid's cell Hit stays the one browse stop. Point
 `browseTarget` at it and keep each card's ref by item key (released by the
@@ -9058,7 +9060,7 @@ the actions; Cancel closes an open menu first, then leaves the actions and focus
 returns to the browse stop (which keeps the card revealed). A tap elsewhere also
 leaves them. Removing, recycling or replacing the card releases its trap.
 
-`api` also carries `leaveActions()`, `engaged`, `revealed` and `revealExtent`
+`api` also carries `leaveActions()`, `engaged`, `revealed`, `scale` (the painted lift) and `revealExtent`
 (readables; `revealExtent` is `{ body }`). `dump()` reports `{ schema = "facet-card-dump/1", id, reveal,
 revealed, engaged, hovered, focusWithin, pressing, browsing, entered, menuOpen,
 body = "button" | "informational", actions, extent, diagnostics }`.

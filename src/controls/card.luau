@@ -355,17 +355,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local lift = Facet.runtime.spring(function(use)
 		return if use(engaged) and not use(still) then card.LIFT else 1
 	end, { period = 0.28, damping = 0.85 })
+	local scale = ownedFormula(owner, function(use)
+		return if use(still) then 1 else math.clamp(use(lift), 1, card.LIFT)
+	end)
 	local raised = UI.shadowData("raised")
 	local root = UI.VStack({
 		id = id,
 		width = spec.width or UI.fill(),
 		gap = if reveal == "always" then "s" else 0,
 		enabled = enabled,
-		scale = function(use: any): number
-			return if use(still) then 1 else math.clamp(use(lift), 1, card.LIFT)
-		end,
+		scale = scale,
+		-- the lift's shadow belongs under a plate: under a card with none (no body
+		-- action) it paints a dark tile behind transparent content
 		shadow = function(use: any): any
-			return if use(engaged) then raised else nil
+			return if use(engaged) and spec.onActivate ~= nil then raised else nil
 		end,
 		children = children,
 	})
@@ -446,6 +449,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	api.engaged = engaged
 	api.revealed = revealed
 	api.revealExtent = extent
+	-- the lift as painted, for a stop outside the card that marks it (a grid cell)
+	api.scale = scale
 	function api.diagnostics(): { string }
 		return table.clone(diagnostics)
 	end

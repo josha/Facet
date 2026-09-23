@@ -452,7 +452,7 @@ local function gridWorld(opts: any?): any
 	local o = opts or {}
 	local w = world.new({
 		viewport = { x = 0, y = 0, w = 900, h = 700 },
-		reducedMotion = true,
+		reducedMotion = o.reduced ~= false,
 		capabilities = { gamepad = true, keyboard = true, mouse = true },
 		hostOpts = { keyboardNavigation = true },
 	})
@@ -516,6 +516,7 @@ local function gridWorld(opts: any?): any
 					},
 					ref = function(r: any)
 						refs[key] = r
+						ctx.stopScale(r.api.scale)
 						ctx.scope.own(function()
 							if refs[key] == r then
 								refs[key] = nil
@@ -601,6 +602,25 @@ describe("Card: the lift on engagement", function()
 		touch.adapter.pointerDown(`{ROOT}/Body`, r.x + 4, r.y + 4, "Touch")
 		touch.settle(40)
 		expect(state(touch)).toBe("scale 1.04 shadow true")
+	end)
+
+	it("a card with no body action lifts without a shadow: it has no plate to cast one", function()
+		local spec = cardSpec({})
+		spec.onActivate = nil
+		local w = mount(function(UI)
+			return { UI.Card("C")(spec) }
+		end, { reduced = false })
+		w.adapter.hover(ROOT)
+		w.settle(40)
+		expect(state(w)).toBe("scale 1.04 shadow false")
+	end)
+
+	it("a grid cell's stop wears its card's lift, so the ring marks the lifted card", function()
+		local g = gridWorld({ reduced = false })
+		ring(g.w, g.hit("i1"))
+		g.w.settle(40)
+		local t = g.w.adapter.node(g.hit("i1")).props.transform
+		expect(`hit scale {if type(t) == "table" then t.scale else 1}`).toBe("hit scale 1.04")
 	end)
 
 	it("reduced motion keeps only the raised shadow, and ten feet leaves the scale to the focus lift", function()

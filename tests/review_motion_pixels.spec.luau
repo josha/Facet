@@ -63,4 +63,23 @@ t.describe("motion pixel settling", function()
 		t.expect(h.focusFloatGeom.w).toBe(330)
 		t.expect(float.Size.X.Offset).toBe(math.floor(330 * 1.05 - 4))
 	end)
+	t.it("a float ring grows with its node's own paint scale about the pivot", function()
+		local float = {
+			Parent = {},
+			FindFirstChild = function()
+				return nil
+			end,
+		}
+		local h = {
+			instance = { AnchorPoint = rb.Vector2.new(0.5, 0.5) },
+			windowRect = { x = 100, y = 100, w = 200, h = 100 },
+			focusRingFloat = float,
+			motionScale = { Scale = 1.1 },
+			motionAnchorCentered = true,
+		}
+		apply(h)
+		-- 10% of 200x100 about the centre: 10 and 5 px out on each side, less the 2px inset
+		t.expect(`{float.Position.X.Offset},{float.Position.Y.Offset}`).toBe("92,97")
+		t.expect(`{float.Size.X.Offset}x{float.Size.Y.Offset}`).toBe("216x106")
+	end)
 end)

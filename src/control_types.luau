@@ -47,7 +47,12 @@ local sheetControl = require("./spec_types/sheet")
 local page_viewControl = require("./spec_types/page_view")
 local collapsible_viewControl = require("./spec_types/collapsible_view")
 export type CellContext<T> = { scope: core.Owner, current: (core.Use) -> T }
-export type GridCellContext<T> = CellContext<T> & { index: number, line: number, lane: number }
+export type GridCellContext<T> = CellContext<T> & {
+	index: number,
+	line: number,
+	lane: number,
+	stopScale: (readable: any) -> (),
+}
 export type RowAction = rowActions.ActionSpec
 export type RowActions = {
 	leading: { RowAction }?,

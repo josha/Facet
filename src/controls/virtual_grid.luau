@@ -1032,6 +1032,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 					local hitPath = Compose.withOwner(itemScope, function()
 						return Compose.cell(nil :: string?)
 					end)
+					-- the paint scale the cell's content asks its stop to wear (`ctx.stopScale`)
+					local worn = Compose.withOwner(itemScope, function()
+						return Compose.cell(nil :: any)
+					end)
 					local hit = UI.Button({
 						id = "Hit",
 						onAppear = function(path: string)
@@ -1049,6 +1053,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						-- list's there is no case in which it is a paint surface.
 						surface = "plain",
 						focusable = true,
+						-- a lifted card grows past its cell: the ring on this stop has to
+						-- grow with it, or it marks a box the player no longer sees
+						scale = ownedFormula(itemScope, function(use)
+							local source = use(worn)
+							return if source ~= nil then use(source) else 1
+						end),
 						width = fill(),
 						height = fill(),
 					})
@@ -1088,6 +1098,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 									return if index then use(spec.items)[index] else entry.item
 								end,
 								scope = itemScope,
+								-- a Readable<number> this cell's stop paints at (a Card's `api.scale`)
+								stopScale = function(readable: any)
+									worn:set(readable)
+								end,
 								index = entry.index,
 								line = entry.line,
 								lane = entry.lane,

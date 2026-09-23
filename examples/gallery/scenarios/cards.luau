@@ -86,6 +86,7 @@ return {
 				},
 				ref = function(r: any)
 					refs[key] = r
+					ctx2.stopScale(r.api.scale)
 					ctx2.scope.own(function()
 						if refs[key] == r then
 							refs[key] = nil
