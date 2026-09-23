@@ -245,3 +245,223 @@ describe("toast schedule: explicit dismissal", function()
 		end
 	end)
 end)
+
+--[[ THE CONTROLLED SEAM (opt-in; Snackbar). The caller owns visibility: a
+	visible entry is removed for a timeout or a supersession only after its
+	`request` accepts, one request per reason per entry; `nil` duration is
+	persistent; the dwell is the caller's `elapsed` and never ends below the read
+	floor; admission beyond the cap is refused, never dropped; and callbacks may
+	re-enter push/dismiss/clear. The Toast defaults above are untouched. ]]
+local function controlled(extra: any?): any
+	local now = 0
+	local log = { requests = {}, dismissed = {} }
+	local opts: any = {
+		controlled = true,
+		maxVisible = 1,
+		queueCap = 8,
+		now = function()
+			return now
+		end,
+		onDismiss = function(entry: any, reason: string)
+			table.insert(log.dismissed, `{entry.data}:{reason}`)
+		end,
+	}
+	for k, v in extra or {} do
+		opts[k] = v
+	end
+	local schedule = toast_schedule.new(opts)
+	return {
+		schedule = schedule,
+		log = log,
+		advance = function(seconds: number)
+			now += seconds
+			schedule.update()
+		end,
+		shown = function(): string
+			local out = {}
+			for _, e in schedule.visible() do
+				table.insert(out, tostring(e.data))
+			end
+			return table.concat(out, ",")
+		end,
+	}
+end
+
+describe("toast schedule: the controlled seam", function()
+	it("a refused timeout keeps the entry and is asked once", function()
+		local accept = false
+		local f
+		f = controlled({
+			request = function(entry: any, reason: string): boolean
+				table.insert(f.log.requests, `{entry.data}:{reason}`)
+				return accept
+			end,
+		})
+		f.schedule.push({ data = "a", duration = 1 })
+		f.advance(2.4)
+		expect(#f.log.requests).toBe(0) -- the read floor, not the 1 s duration
+		f.advance(0.2)
+		expect(f.log.requests).toEqual({ "a:timeout" })
+		expect(f.shown()).toBe("a")
+		f.advance(10)
+		expect(f.log.requests).toEqual({ "a:timeout" }) -- consumed
+		expect(f.shown()).toBe("a")
+		expect(#f.log.dismissed).toBe(0)
+	end)
+
+	it(
+		"an accepted timeout retires once, and a caller who dismisses inside the request is not double-reported",
+		function()
+			local f
+			f = controlled({
+				request = function(entry: any, reason: string): boolean
+					table.insert(f.log.requests, `{entry.data}:{reason}`)
+					if entry.data == "b" then
+						f.schedule.dismiss(entry.id, reason) -- the caller's false lands synchronously
+					end
+					return true
+				end,
+			})
+			f.schedule.push({ data = "a", duration = 3 })
+			f.schedule.push({ data = "b", duration = 3 })
+			f.advance(3)
+			expect(f.log.dismissed).toEqual({ "a:timeout" })
+			expect(f.shown()).toBe("b")
+			f.advance(3)
+			expect(f.log.dismissed).toEqual({ "a:timeout", "b:timeout" })
+			expect(f.shown()).toBe("")
+		end
+	)
+
+	it("nil duration is persistent; the caller's elapsed pauses the dwell", function()
+		local paused = 0
+		local f = controlled({
+			request = function()
+				return true
+			end,
+			elapsed = function(entry: any, t: number): number
+				return t - entry.shownAt - paused
+			end,
+		})
+		f.schedule.push({ data = "p" })
+		f.advance(1000)
+		expect(f.shown()).toBe("p")
+		f.schedule.dismiss(f.schedule.visible()[1].id, "close")
+		f.schedule.push({ data = "q", duration = 4 })
+		f.advance(3)
+		paused = 2 -- two of those seconds were covered
+		f.advance(0.5)
+		expect(f.shown()).toBe("q")
+		f.advance(2.5)
+		expect(f.shown()).toBe("")
+	end)
+
+	it("supersession waits for the floor, asks once, and a refusal keeps every contender queued", function()
+		local answer = false
+		local asked = 0
+		local f = controlled({
+			request = function(_entry: any, reason: string): boolean
+				expect(reason).toBe("preempt")
+				asked += 1
+				return answer
+			end,
+		})
+		f.schedule.push({ data = "low", priority = 0 })
+		f.schedule.push({ data = "same", priority = 0 })
+		f.schedule.push({ data = "high", priority = 5 })
+		f.advance(1)
+		expect(asked).toBe(0) -- equal priority waits; higher waits for the floor
+		f.advance(1.6)
+		expect(asked).toBe(1)
+		expect(f.shown()).toBe("low")
+		f.schedule.push({ data = "higher", priority = 9 })
+		f.advance(5)
+		expect(asked).toBe(1) -- no spam on ticks or arrivals
+		f.schedule.dismiss(f.schedule.visible()[1].id, "close")
+		expect(f.shown()).toBe("higher")
+		answer = true
+		f.advance(2.6)
+		expect(f.shown()).toBe("higher") -- nothing queued outranks it
+		f.schedule.push({ data = "urgent", priority = 12 })
+		f.advance(0.1)
+		expect(f.shown()).toBe("urgent")
+		expect(f.log.dismissed).toEqual({ "low:close", "higher:preempt" })
+	end)
+
+	it("admission past the cap is refused atomically; capacity frees on removal", function()
+		local f = controlled({
+			queueCap = 2,
+			request = function()
+				return true
+			end,
+		})
+		expect(f.schedule.push({ data = "1" }) ~= nil).toBe(true)
+		expect(f.schedule.push({ data = "2" }) ~= nil).toBe(true)
+		expect(f.schedule.push({ data = "3" }) ~= nil).toBe(true)
+		expect(f.schedule.push({ data = "4" })).toBeNil()
+		expect(f.schedule.counts()).toEqual({ visible = 1, queued = 2, sequence = 3 })
+		expect(#f.log.dismissed).toBe(0)
+		f.schedule.dismiss(f.schedule.visible()[1].id, "close")
+		expect(f.schedule.push({ data = "4" }) ~= nil).toBe(true)
+	end)
+
+	it("the caller's identity is published before any callback runs", function()
+		local seen = {}
+		local f
+		f = controlled({
+			onChange = function()
+				for _, e in f.schedule.visible() do
+					table.insert(seen, e.id)
+				end
+			end,
+			request = function()
+				return true
+			end,
+		})
+		f.schedule.push({ id = "row-7", data = "x" })
+		expect(seen).toEqual({ "row-7" })
+		expect(f.schedule.dismiss("row-7", "close")).toBe(true)
+	end)
+
+	it("callbacks may push, dismiss, clear or throw without a stale index", function()
+		local f
+		local depth = 0
+		f = controlled({
+			request = function(entry: any): boolean
+				depth += 1
+				if entry.data == "a" then
+					f.schedule.push({ data = "late", duration = 3 }) -- enqueue inside a request
+					f.schedule.dismiss(entry.id, "timeout")
+				elseif entry.data == "late" then
+					f.schedule.clear("teardown") -- clear inside a request
+				end
+				return true
+			end,
+			onDismiss = function(entry: any, reason: string)
+				table.insert(f.log.dismissed, `{entry.data}:{reason}`)
+				if entry.data == "b" then
+					error("caller bug")
+				end
+			end,
+		})
+		f.schedule.push({ data = "a", duration = 3 })
+		f.schedule.push({ data = "b", duration = 3 })
+		f.advance(3)
+		expect(f.shown()).toBe("b")
+		expect(pcall(function()
+			f.schedule.dismiss(f.schedule.visible()[1].id, "close")
+		end)).toBe(false) -- the throw reaches the caller...
+		expect(f.shown()).toBe("late") -- ...after the schedule is consistent
+		f.advance(3)
+		expect(f.schedule.isEmpty()).toBe(true)
+		expect(depth >= 2).toBe(true)
+	end)
+
+	it("the default (uncontrolled) paths are unchanged", function()
+		local f = fixture()
+		f.schedule.push({ data = "t", duration = 1 })
+		f.advance(1)
+		expect(f.keys()).toBe("") -- still expires at its own duration, below the floor
+		expect(f.events[1].reason).toBe("timeout")
+	end)
+end)
