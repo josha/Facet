@@ -8,6 +8,7 @@ local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
 local chromeSlots = require("../tokens/chrome_slots")
 local overlayParts = require("./overlay_parts")
+local alert = require("./alert")
 local sheet = {}
 local specTypes = require("../spec_types/sheet")
 type StringCell = specTypes.StringCell
@@ -28,6 +29,11 @@ local KEYS = guard.keySet({
 	"edge",
 	"width",
 	"closeButton",
+	"header",
+	"hero",
+	"actions",
+	"actionLayout",
+	"contentInset",
 })
 local PLACEMENTS = { automatic = true, bottom = true, side = true, center = true }
 -- `request(reason) -> boolean` is the private close-request seam: asked BEFORE
@@ -80,6 +86,43 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		"UI.Sheet.width must be automatic | narrow | wide"
 	)
 	assert(spec.closeButton == nil or type(spec.closeButton) == "boolean", "UI.Sheet.closeButton must be boolean")
+	assert(
+		spec.header == nil
+			or spec.header == false
+			or (type(spec.header) == "table" and type(spec.header.class) == "string"),
+		"UI.Sheet.header is a blueprint or false"
+	)
+	assert(
+		spec.contentInset == nil or spec.contentInset == "standard" or spec.contentInset == "none",
+		"UI.Sheet.contentInset must be standard | none"
+	)
+	assert(
+		spec.actionLayout == nil
+			or spec.actionLayout == "automatic"
+			or spec.actionLayout == "row"
+			or spec.actionLayout == "stacked",
+		"UI.Sheet.actionLayout must be automatic | row | stacked"
+	)
+	local where = `UI.Sheet('{id}')`
+	overlayParts.checkHero(where, spec.hero)
+	local hero: any = spec.hero
+	local sticky = hero ~= nil and hero.sticky == true
+	local overHero = spec.header == false and hero ~= nil
+	local sizePath = if overHero then "/Layer/Panel/Stage/Header/Size" else "/Layer/Panel/Header/Size"
+	local actions: { any } = spec.actions or {}
+	overlayParts.checkActions(where, spec.actions, math.huge)
+	local cancelAction, defaults = nil, 0
+	for _, action in actions do
+		assert(not string.find(action.id, "/", 1, true), `{where}: action ids may not contain '/'`)
+		if action.role == "default" then
+			defaults += 1
+		elseif action.role == "cancel" then
+			assert(cancelAction == nil, `{where}: only one action may take role = "cancel"`)
+			cancelAction = action
+		end
+	end
+	assert(defaults <= 1, `{where}: only one action may take role = "default"`)
+	local utilityHeight = Compose.cell(nil)
 	local detents, byId = {}, {}
 	assert(spec.detents == nil or type(spec.detents) == "table", "UI.Sheet.detents must be an array")
 	local entries = spec.detents or { "medium", "large" }
@@ -129,9 +172,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	local distance = env:get("distanceProfile")
 	local classes = env:get("interactionClasses")
 	local metrics = env:get("themeMetrics")
+	local keyboard = env:get("keyboardOcclusionRect")
+	-- the room the keyboard covers above the safe bottom edge
+	local function keyboardBelow(use): number
+		local v, c, occ = use(vp), use(chrome), use(keyboard)
+		if type(occ) ~= "table" or type(occ.y) ~= "number" then
+			return 0
+		end
+		return math.max(0, v.y + v.h - c.insets.bottom - occ.y)
+	end
+	-- ONE safe rectangle: the viewport less the platform insets and the keyboard
 	local function available(use)
 		local v, c = use(vp), use(chrome)
-		return math.max(1, v.h - c.insets.top - c.insets.bottom)
+		return math.max(1, v.h - c.insets.top - c.insets.bottom - keyboardBelow(use))
 	end
 	local function read(v)
 		return v:peek()
@@ -194,6 +247,16 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			dismiss()
 		end
 		return true
+	end
+	local function usable(action: any): boolean
+		local selection = require("../selection_model")
+		return action ~= nil and selection.read(action.enabled) ~= false and selection.read(action.busy) ~= true
+	end
+	-- actions never close the sheet; the caller does, through its own cells
+	local function press(action: any)
+		if usable(action) then
+			pcall(action.onActivate)
+		end
 	end
 	local function finishDrag()
 		if not dragging:peek() then
@@ -281,10 +344,166 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		end
 		return { enter = "slide-up", exit = "slide-down", distance = vp:peek().h }
 	end
+	local function actionWidth(use): number
+		local v, c, m = use(vp), use(chrome), use(metrics)
+		local cap = themeSnapshot.resolveNumber(m, overlayParts.WIDTHS[spec.width or "automatic"]) or math.huge
+		local room = v.w - (c.insets.left or 0) - (c.insets.right or 0)
+		return math.max(0, math.min(cap, room) - 2 * (themeSnapshot.resolveNumber(m, "m") or 16))
+	end
+	-- the utility controls: Size, and Close unless closeButton = false. Laid over
+	-- a hero (header = false) they hug the top-right corner.
+	local function utilities(over: boolean)
+		return UI.HStack({
+			id = "Header",
+			width = if over then UI.hug() else UI.fill(),
+			alignH = if over then "end" else nil,
+			alignV = if over then "start" else nil,
+			gap = "s",
+			children = {
+				UI.Button({
+					id = "Size",
+					label = sizeLabel,
+					disclose = true,
+					enabled = #detents > 1,
+					width = if over then nil else UI.fill(),
+					height = { type = "minMax", min = "targetSizes.minimum" },
+					onActivate = function()
+						adjust(1, true)
+					end,
+				}),
+				if spec.closeButton == false
+					then nil
+					else UI.Button({
+						id = "Close",
+						disclose = true,
+						label = "Close",
+						compactLabel = { icon = "chevron.down", prefer = true },
+						width = { type = "fixed", px = "targetSizes.minimum" },
+						height = { type = "minMax", min = "targetSizes.minimum" },
+						onActivate = function()
+							if allowed("close") then
+								dismiss()
+							end
+						end,
+					}) :: any,
+			},
+		})
+	end
 	local function buildScreen()
+		local content = if type(spec.content) == "function" then spec.content() else spec.content
+		local pad = if spec.contentInset == "none" then 0 else "s"
+		-- the band authored hero content keeps clear for the controls over it
+		local strip = if overHero and hero.content ~= nil
+			then Compose.formula(function(use)
+				return { type = "fixed", px = use(utilityHeight) or "targetSizes.minimum" }
+			end)
+			else nil
+		local bodyChildren = { content }
+		if hero ~= nil and not sticky then
+			bodyChildren = {
+				overlayParts.hero(UI, hero, strip),
+				UI.VStack({ id = "Inset", width = UI.fill(), padding = pad, children = { content } }),
+			}
+		end
+		local body = UI.ScrollView({
+			id = "Body",
+			axis = "y",
+			width = UI.fill(),
+			height = UI.fill(),
+			padding = if hero ~= nil and not sticky then nil else pad,
+			children = bodyChildren,
+		})
+		local children: { any } = {
+			UI.ZStack({
+				id = "Drag",
+				hidden = Compose.formula(function(use)
+					return not use(direct)
+				end),
+				width = UI.fill(),
+				height = { type = "fixed", px = "targetSizes.minimum" },
+				children = {
+					UI.corners(
+						UI.Box({
+							id = "Indicator",
+							width = { type = "fixed", px = "targetSizes.minimum" },
+							height = { type = "fixed", px = "space.xs" },
+							tint = { role = "contentSecondary", blend = 1 },
+							alignH = "center",
+							alignV = "center",
+						}),
+						"pill"
+					),
+					UI.Grip({
+						id = "Handle",
+						width = UI.fill(),
+						height = UI.fill(),
+						onPointerDown = function(_, pos)
+							startY = pos.y
+							startHeight = paintedHeight:peek()
+							dragging:set(true)
+							dragHeight:set(startHeight)
+							return true
+						end,
+						onPointerMove = function(_, pos)
+							if dragging:peek() then
+								dragHeight:set(math.clamp(startHeight + startY - pos.y, 1, available(read)))
+							end
+						end,
+						onPointerUp = finishDrag,
+						onPointerCancel = cancelDrag,
+					}),
+				},
+			}),
+		}
+		if overHero then
+			-- no header strip: the utilities lie over the hero, pinned to the panel
+			-- top whether the hero is pinned or scrolls with the body
+			local column = if sticky
+				then UI.VStack({
+					id = "Column",
+					width = UI.fill(),
+					height = UI.fill(),
+					gap = "s",
+					children = { overlayParts.hero(UI, hero, strip), body },
+				})
+				else body
+			table.insert(
+				children,
+				UI.ZStack({
+					id = "Stage",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = { column, utilities(true) },
+				})
+			)
+		else
+			if sticky then
+				table.insert(children, overlayParts.hero(UI, hero))
+			end
+			if spec.header == nil then
+				table.insert(children, UI.Text({ id = "Title", text = spec.title, disclose = true }))
+			elseif spec.header ~= false then
+				table.insert(children, spec.header)
+			end
+			table.insert(children, utilities(false))
+			table.insert(children, body)
+		end
+		if #actions > 0 then
+			table.insert(
+				children,
+				alert.actionGroup(
+					Facet,
+					Compose.currentOwner() or owner,
+					env,
+					actions,
+					spec.actionLayout or "automatic",
+					actionWidth,
+					press
+				)
+			)
+		end
 		local panel = chromeSlots.attachHint(
-			UI.ScrollView({
-				axis = "y",
+			UI.VStack({
 				id = "Panel",
 				width = { type = "minMax", max = overlayParts.WIDTHS[spec.width or "automatic"] },
 				height = Compose.formula(function(use)
@@ -297,111 +516,52 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				surface = "raised",
 				padding = "m",
 				gap = "s",
-				children = {
-					UI.ZStack({
-						id = "Drag",
-						hidden = Compose.formula(function(use)
-							return not use(direct)
-						end),
-						width = UI.fill(),
-						height = { type = "fixed", px = "targetSizes.minimum" },
-						children = {
-							UI.corners(
-								UI.Box({
-									id = "Indicator",
-									width = { type = "fixed", px = "targetSizes.minimum" },
-									height = { type = "fixed", px = "space.xs" },
-									tint = { role = "contentSecondary", blend = 1 },
-									alignH = "center",
-									alignV = "center",
-								}),
-								"pill"
-							),
-							UI.Grip({
-								id = "Handle",
-								width = UI.fill(),
-								height = UI.fill(),
-								onPointerDown = function(_, pos)
-									startY = pos.y
-									startHeight = paintedHeight:peek()
-									dragging:set(true)
-									dragHeight:set(startHeight)
-									return true
-								end,
-								onPointerMove = function(_, pos)
-									if dragging:peek() then
-										dragHeight:set(math.clamp(startHeight + startY - pos.y, 1, available(read)))
-									end
-								end,
-								onPointerUp = finishDrag,
-								onPointerCancel = cancelDrag,
-							}),
-						},
-					}),
-					UI.Text({ id = "Title", text = spec.title, disclose = true }),
-					UI.HStack({
-						id = "Header",
-						width = UI.fill(),
-						gap = "s",
-						children = {
-							UI.Button({
-								id = "Size",
-								label = sizeLabel,
-								disclose = true,
-								enabled = #detents > 1,
-								width = UI.fill(),
-								height = { type = "minMax", min = "targetSizes.minimum" },
-								onActivate = function()
-									adjust(1, true)
-								end,
-							}),
-							if spec.closeButton == false
-								then nil
-								else UI.Button({
-									id = "Close",
-									disclose = true,
-									label = "Close",
-									compactLabel = { icon = "chevron.down", prefer = true },
-									width = { type = "fixed", px = "targetSizes.minimum" },
-									height = { type = "minMax", min = "targetSizes.minimum" },
-									onActivate = function()
-										if allowed("close") then
-											dismiss()
-										end
-									end,
-								}) :: any,
-						},
-					}),
-					UI.VStack({
-						id = "Body",
-						padding = "s",
-						width = UI.fill(),
-						children = { if type(spec.content) == "function" then spec.content() else spec.content },
-					}),
-				},
+				children = children,
 			}),
 			{ slot = "panel" }
 		)
+		local utilityPath = if overHero then "/Layer/Panel/Stage/Header" else nil
 		local blueprint = require("../input/contribution").attach(
 			UI.Screen({
 				id = id,
 				children = {
-					UI.ZStack({ id = "Layer", width = UI.fill(), height = UI.fill(), children = {
-						panel,
-					} }),
+					UI.ZStack({
+						id = "Layer",
+						width = UI.fill(),
+						height = UI.fill(),
+						-- the keyboard takes the room below its top edge
+						padding = Compose.formula(function(use)
+							return { top = 0, left = 0, right = 0, bottom = keyboardBelow(use) }
+						end),
+						children = { panel },
+					}),
 				},
 			}),
 			{
-				handleCancel = interactiveClose,
+				handleCancel = function(): boolean
+					if usable(cancelAction) then
+						press(cancelAction)
+						return true
+					end
+					return interactiveClose()
+				end,
 				requestDismiss = function(): boolean
 					return allowed("outside")
 				end,
+				syncGeometry = if utilityPath ~= nil
+					then function(rectOf: any, node: any?)
+						local r = if node ~= nil then rectOf(node.path .. utilityPath) else nil
+						if type(r) == "table" and r.h > 0 and r.h ~= utilityHeight:peek() then
+							utilityHeight:set(r.h)
+						end
+					end
+					else nil,
 				adjustAxis = "horizontal",
 				adjustTargets = function(root)
-					return { [root.path .. "/Layer/Panel/Header/Size"] = true }
+					return { [root.path .. sizePath] = true }
 				end,
 				handleAdjust = function(path, direction)
-					if path ~= "/" .. id .. "/Layer/Panel/Header/Size" then
+					if path ~= "/" .. id .. sizePath then
 						return false
 					end
 					return adjust(direction, false)

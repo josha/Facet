@@ -4,6 +4,9 @@
 local publicCore = require("../core/contract")
 local publicBlueprint = require("../blueprint")
 local publicEnv = require("../env/environment")
+local overlayParts = require("./overlay_parts")
+export type Action = overlayParts.Action
+export type Hero = overlayParts.Hero
 export type StringCell = publicCore.Cell<string>
 export type BooleanCell = publicCore.Cell<boolean>
 export type Spec<V = StringCell, P = BooleanCell> = {
@@ -22,5 +25,12 @@ export type Spec<V = StringCell, P = BooleanCell> = {
 	edge: ("left" | "right")?, -- side only; default right
 	width: ("automatic" | "narrow" | "wide")?, -- the Dialog width presets
 	closeButton: boolean?, -- default true; independent of interactiveDismissDisabled
+	-- construction-only: absent renders `title`; a blueprint replaces that
+	-- region; false removes it (Size and Close stay, over the hero if any)
+	header: (publicBlueprint.Blueprint | false)?,
+	hero: Hero?, -- construction-only
+	actions: { Action }?, -- pinned below the body; they never close the sheet
+	actionLayout: ("automatic" | "row" | "stacked")?,
+	contentInset: ("standard" | "none")?, -- the body's own padding only
 }
 return nil

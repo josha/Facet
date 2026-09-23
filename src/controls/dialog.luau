@@ -28,7 +28,6 @@ local selection = require("../selection_model")
 local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
 local chromeSlots = require("../tokens/chrome_slots")
-local textFit = require("../layout/text_fit")
 local focusMap = require("../present/focus_map")
 local alert = require("./alert")
 local overlayParts = require("./overlay_parts")
@@ -144,8 +143,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local env = surfaceEnv.resolve("UI.Dialog", id, core, spec.env, "dialog sizing adapts to the screen")
 	local themeMetrics, viewportRect, platformChrome =
 		env:get("themeMetrics"), env:get("viewportRect"), env:get("platformChrome")
-	local sizeClass, distanceProfile, textOffset =
-		env:get("sizeClass"), env:get("distanceProfile"), env:get("preferredTextOffset")
 	local keyboard = env:get("keyboardOcclusionRect")
 
 	-- ===== presentation state ============================================
@@ -394,73 +391,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			)
 		end
 		if #actions > 0 then
-			local layout = spec.actionLayout or "automatic"
-			local stacked = ownedFormula(branchOwner, function(use)
-				if layout == "stacked" then
-					return true
-				end
-				if
-					layout == "automatic"
-					and alert.resolveStacked(#actions, use(sizeClass), use(distanceProfile), use(textOffset))
-				then
-					return true
-				end
-				-- a row that cannot show every full label falls to the safe stack,
-				-- whichever layout asked for it
-				local metrics = use(themeMetrics)
-				local facts = textFit.facts({ env = env, use = use })
-				local widths = {}
-				for _, action in actions do
-					local label = selection.read(action.label, use)
-					table.insert(
-						widths,
-						alert.labelWidth(metrics, facts, if type(label) == "string" then label else "")
-					)
-				end
-				local gap = themeSnapshot.resolveNumber(metrics, "m") or 0
-				return not alert.rowFits(widths, alert.buttonChromeX(metrics), gap, widthPx(use))
-			end)
-			local rowOrder, stackOrder = alert.orderActions(actions, false), alert.orderActions(actions, true)
-			local function mode(row: any, stack: any): any
-				return ownedFormula(branchOwner, function(use)
-					return if use(stacked) then stack else row
-				end)
-			end
 			table.insert(
 				children,
-				UI.AdaptiveStack({
-					id = "Actions",
-					axis = mode("x", "y"),
-					align = mode("center", "stretch"),
-					gap = mode("m", "s"),
-					width = UI.fill(),
-					distribute = "center",
-					children = {
-						UI.ForEach({
-							id = "Order",
-							items = mode(rowOrder, stackOrder),
-							key = function(action: any): string
-								return action.id
-							end,
-							row = function(action: any): any
-								return Facet.nativeControls.Button({
-									id = action.id,
-									label = action.label,
-									enabled = action.enabled,
-									busy = action.busy,
-									role = if action.role == "destructive" then "destructive" else nil,
-									surface = if action.role == "default" then "accent" else nil,
-									dialogAction = if action.role == "default" then "default" else nil,
-									disclose = true,
-									height = { type = "minMax", min = "targetSizes.minimum" },
-									onActivate = function()
-										press(action)
-									end,
-								})
-							end,
-						}),
-					},
-				})
+				alert.actionGroup(Facet, branchOwner, env, actions, spec.actionLayout or "automatic", widthPx, press)
 			)
 		end
 		return chromeSlots.attachHint(

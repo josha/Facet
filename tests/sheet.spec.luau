@@ -76,7 +76,8 @@ t.describe("Sheet control", function()
 		local w, c, d = mount()
 		dragBy(w, -250, "pointer")
 		t.expect(d:peek()).toBe("large")
-		t.expect(w.adapter.node("/Sheet/Layer/Panel").class).toBe("ScrollView")
+		-- the body scrolls between pinned regions; the panel itself no longer does
+		t.expect(w.adapter.node("/Sheet/Layer/Panel/Body").class).toBe("ScrollView")
 		c.dispose()
 	end)
 	t.it("Sheet touch affordance: 44px floor, naked-pan scroll, edit grip", function()
@@ -178,7 +179,10 @@ t.describe("Sheet control", function()
 		local panel = w.adapter.node("/Sheet/Layer/Panel").rect
 		local closeRect = w.adapter.node(close).rect
 		t.expect(closeRect.y + closeRect.h <= panel.y + panel.h).toBe(true)
-		t.expect(w.adapter.node("/Sheet/Layer/Panel/Body").rect.h >= 44).toBe(true)
+		-- the pinned regions keep their targets; the body viewport is what is
+		-- left of the floor, and its content scrolls natively
+		local body = w.adapter.node("/Sheet/Layer/Panel/Body")
+		t.expect(body.class == "ScrollView" and body.rect.h > 0).toBe(true)
 		c.dispose()
 	end)
 	t.it("directional adjustment yields at the last detent", function()

@@ -1,0 +1,259 @@
+--!strict
+--[[ UI.Sheet parts: a pinned header region, one body-only scroller, pinned
+	actions, a sticky or scrolling hero, and one keyboard-safe room. Every case
+	asserts what is mounted and where, and scrolls through the adapter. ]]
+local harness = require("./lib/harness")
+local t = require("./lib/testkit")
+local world = require("./lib/harness_world")
+local fake = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
+
+local PANEL = "/Sheet/Layer/Panel"
+local LONG = string.rep("A long line of body copy that wraps across the sheet. ", 40)
+
+local function mount(extra: any?, o: any?): (any, any, any)
+	local opts = o or {}
+	local w = world.new({
+		viewport = { x = 0, y = 0, w = opts.w or 800, h = opts.h or 600 },
+		reducedMotion = true,
+		env = opts.facts,
+		newAdapter = function()
+			local a = fake.new()
+			a.scrollBarThickness = fake.SCROLL_BAR_RESERVE
+			return a
+		end,
+	})
+	local detent = Compose.cell(opts.detent or "large")
+	local spec: any = {
+		id = "Sheet",
+		title = "Race details",
+		detent = detent,
+		content = UI.Text({ id = "Copy", text = LONG, width = UI.fill() }),
+	}
+	for k, v in extra or {} do
+		spec[k] = v
+	end
+	local control = harness.Controls.Sheet(w.core, spec)
+	w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
+	control.present(w.pres)
+	w.settle(3)
+	return w, control, detent
+end
+
+local function rect(w: any, path: string): any
+	local node = w.adapter.node(path)
+	assert(node ~= nil, `no node at {path}`)
+	return node.rect
+end
+
+local function find(w: any, suffix: string): string?
+	for _, path in w.adapter.paths() do
+		if string.sub(path, -#suffix) == suffix then
+			return path
+		end
+	end
+	return nil
+end
+
+local function inside(inner: any, outer: any): boolean
+	return inner.x >= outer.x - 0.5
+		and inner.y >= outer.y - 0.5
+		and inner.x + inner.w <= outer.x + outer.w + 0.5
+		and inner.y + inner.h <= outer.y + outer.h + 0.5
+end
+
+local function overlaps(a: any, b: any): boolean
+	return a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+end
+
+local noop = function() end
+
+t.describe("Sheet parts", function()
+	t.it("default parts: pinned title and utilities, one body scroller (the panel no longer scrolls)", function()
+		local w, c = mount()
+		t.expect(w.adapter.node(PANEL).class).toBe("VStack")
+		t.expect(w.adapter.node(`{PANEL}/Body`).class).toBe("ScrollView")
+		t.expect(w.adapter.node(`{PANEL}/Title`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Header/Size`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Header/Close`) ~= nil).toBe(true)
+		local body, copy = rect(w, `{PANEL}/Body`), rect(w, `{PANEL}/Body/Copy`)
+		t.expect(copy.h > body.h).toBe(true)
+		local title = rect(w, `{PANEL}/Title`)
+		w.adapter.setScrollPosition(w.adapter.node(`{PANEL}/Body`), { x = 0, y = 200 })
+		w.settle(2)
+		t.expect(rect(w, `{PANEL}/Title`).y).toBe(title.y)
+		t.expect(w.adapter.node(`{PANEL}/Body`).scrollPosition.y).toBe(200) -- the body canvas overflows
+		c.dispose()
+	end)
+
+	t.it("contentInset none drops only the body padding", function()
+		local w, c = mount()
+		local standard = rect(w, `{PANEL}/Body/Copy`).x - rect(w, `{PANEL}/Body`).x
+		c.dispose()
+		w, c = mount({ contentInset = "none" })
+		local none = rect(w, `{PANEL}/Body/Copy`).x - rect(w, `{PANEL}/Body`).x
+		t.expect(standard > 0).toBe(true)
+		t.expect(none).toBe(0)
+		t.expect(rect(w, PANEL).w > 0).toBe(true)
+		c.dispose()
+	end)
+
+	t.it("a header blueprint replaces the title; header=false removes it; utilities stay", function()
+		local w, c = mount({
+			header = UI.HStack({ id = "Custom", width = UI.fill(), children = { UI.Text({ text = "Lobby" }) } }),
+		})
+		t.expect(w.adapter.node(`{PANEL}/Title`)).toBeNil()
+		t.expect(w.adapter.node(`{PANEL}/Custom`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Header/Size`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Header/Close`) ~= nil).toBe(true)
+		c.dispose()
+		w, c = mount({ header = false })
+		t.expect(w.adapter.node(`{PANEL}/Title`)).toBeNil()
+		t.expect(w.adapter.node(`{PANEL}/Header/Close`) ~= nil).toBe(true)
+		c.dispose()
+	end)
+
+	t.it("pinned actions stay reachable over a long body; Cancel runs the cancel action", function()
+		local pressed = {}
+		local function log(name: string): () -> ()
+			return function()
+				table.insert(pressed, name)
+			end
+		end
+		local w, c = mount({
+			interactiveDismissDisabled = true,
+			actions = {
+				{ id = "Later", label = "Later", role = "cancel", onActivate = log("Later") },
+				{ id = "Join", label = "Join race", role = "default", onActivate = log("Join") },
+			},
+		})
+		local panel = rect(w, PANEL)
+		local join = assert(find(w, "/Join"), "Join is mounted")
+		t.expect(inside(rect(w, join), panel)).toBe(true)
+		local before = rect(w, join).y
+		w.adapter.setScrollPosition(w.adapter.node(`{PANEL}/Body`), { x = 0, y = 300 })
+		w.settle(2)
+		t.expect(rect(w, join).y).toBe(before)
+		w.adapter.tap(join)
+		w.settle(2)
+		t.expect(pressed).toEqual({ "Join" })
+		t.expect(c.dump().presented).toBe(true) -- actions never close by themselves
+		w.press("ButtonB")
+		t.expect(pressed).toEqual({ "Join", "Later" })
+		t.expect(c.dump().presented).toBe(true)
+		c.dispose()
+	end)
+
+	t.it("a sticky image hero stays pinned; header=false puts Close and Size over it", function()
+		local w, c = mount({
+			header = false,
+			hero = { image = "rbxassetid://1", height = 160, sticky = true },
+		})
+		local hero = assert(find(w, "/Hero"), "hero mounted")
+		local close = assert(find(w, "/Close"), "close mounted")
+		local size = assert(find(w, "/Size"), "size mounted")
+		t.expect(inside(rect(w, close), rect(w, hero))).toBe(true)
+		t.expect(inside(rect(w, size), rect(w, hero))).toBe(true)
+		t.expect(rect(w, close).h >= 44).toBe(true)
+		t.expect(w.adapter.node(`{PANEL}/Header`)).toBeNil() -- no empty header strip
+		local y = rect(w, hero).y
+		local body = assert(find(w, "/Body"), "body")
+		w.adapter.setScrollPosition(w.adapter.node(body), { x = 0, y = 200 })
+		w.settle(2)
+		t.expect(rect(w, hero).y).toBe(y)
+		w.adapter.tap(close)
+		w.settle(2)
+		t.expect(c.dump().presented).toBe(false)
+		c.dispose()
+	end)
+
+	t.it("a scrolling content hero reserves the utility strip; utilities stay pinned", function()
+		local w, c = mount({
+			header = false,
+			hero = {
+				height = 200,
+				content = UI.VStack({
+					id = "Art",
+					width = UI.fill(),
+					children = { UI.Button({ id = "Top", label = "Top of hero" }) },
+				}),
+			},
+		})
+		local close = assert(find(w, "/Close"), "close")
+		local size = assert(find(w, "/Size"), "size")
+		local top = assert(find(w, "/Art/Top"), "hero content")
+		t.expect(overlaps(rect(w, top), rect(w, close))).toBe(false)
+		t.expect(overlaps(rect(w, top), rect(w, size))).toBe(false)
+		local closeY = rect(w, close).y
+		local heroPath = assert(find(w, "/Hero"), "hero")
+		local body = assert(find(w, "/Body"), "body")
+		t.expect(string.find(heroPath, "/Body/Hero", 1, true) ~= nil).toBe(true) -- scrolls with the body
+		w.adapter.setScrollPosition(w.adapter.node(body), { x = 0, y = 120 })
+		w.settle(2)
+		t.expect(w.adapter.node(body).scrollPosition.y).toBe(120)
+		t.expect(rect(w, close).y).toBe(closeY)
+		c.dispose()
+	end)
+
+	t.it("a non-sticky hero spans the panel width without the body inset", function()
+		local w, c = mount({ hero = { image = "rbxassetid://1", aspectRatio = 16 / 9 } })
+		local hero = rect(w, assert(find(w, "/Hero"), "hero"))
+		local copy = rect(w, assert(find(w, "/Copy"), "copy"))
+		t.expect(hero.x < copy.x).toBe(true)
+		t.expect(math.abs(hero.h - hero.w * 9 / 16) < 1).toBe(true)
+		c.dispose()
+	end)
+
+	t.it("the keyboard takes its room from the one safe rectangle", function()
+		local w, c = mount({ actions = { { id = "Go", label = "Go", onActivate = noop } } })
+		local tall = rect(w, PANEL).h
+		w.env:set("keyboardOcclusionRect", { x = 0, y = 350, w = 800, h = 250 })
+		w.settle(3)
+		local panel = rect(w, PANEL)
+		t.expect(panel.h < tall).toBe(true)
+		t.expect(panel.y + panel.h <= 350 + 0.5).toBe(true)
+		t.expect(inside(rect(w, assert(find(w, "/Go"), "Go")), panel)).toBe(true)
+		t.expect(inside(rect(w, `{PANEL}/Header/Close`), panel)).toBe(true)
+		w.env:set("keyboardOcclusionRect", nil)
+		w.settle(3)
+		t.expect(rect(w, PANEL).h).toBe(tall)
+		c.dispose()
+	end)
+
+	t.it("refuses malformed header, hero, actions and inset before mounting", function()
+		local w = world.new()
+		for _, change in
+			{
+				{ header = true },
+				{ header = "Title" },
+				{ contentInset = "wide" },
+				{ hero = { image = "rbxassetid://1", content = UI.Text({ text = "x" }), height = 10 } },
+				{ hero = { height = 10 } },
+				{ hero = { content = UI.Text({ text = "x" }), height = 10, scaleMode = "fit" } },
+				{ hero = { image = "rbxassetid://1", height = 10, sticky = "yes" } },
+				{ actions = { { id = "A", label = "A" } } },
+				{
+					actions = {
+						{ id = "A", label = "A", role = "default", onActivate = noop },
+						{
+							id = "B",
+							label = "B",
+							role = "default",
+							onActivate = noop,
+						},
+					},
+				},
+				{ actionLayout = "grid" },
+			}
+		do
+			local spec: any = { title = "Details", detent = Compose.cell("medium"), content = UI.Text({ text = "C" }) }
+			for k, v in change do
+				spec[k] = v
+			end
+			t.expect(pcall(function()
+				harness.Controls.Sheet(w.core, spec)
+			end)).toBe(false)
+		end
+	end)
+end)

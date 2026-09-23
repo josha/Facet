@@ -16,12 +16,29 @@ overlay_parts.WIDTHS = table.freeze({
 })
 
 local MEDIA_KEYS = specGuard.keySet({ "aspectRatio", "background", "height", "image", "scaleMode" })
+local HERO_KEYS = specGuard.keySet({ "aspectRatio", "background", "content", "height", "image", "scaleMode", "sticky" })
 local ACTION_KEYS = specGuard.keySet({ "busy", "enabled", "id", "label", "onActivate", "role" })
 local SCALE_MODES = { fit = true, crop = true, stretch = true }
 local ROLES = { default = true, cancel = true, destructive = true }
 
 local function positive(v: any): boolean
 	return type(v) == "number" and v == v and v > 0 and v < math.huge
+end
+
+local function checkShape(where: string, media: any, name: string)
+	local ratio, height = media.aspectRatio, media.height
+	if (ratio == nil) == (height == nil) then
+		error(`Facet {where}: \`{name}\` takes exactly one of \`aspectRatio\` or \`height\`.`, 0)
+	end
+	if ratio ~= nil and not positive(ratio) then
+		error(`Facet {where}: \`{name}.aspectRatio\` is a positive finite number.`, 0)
+	end
+	if height ~= nil and not positive(height) and not (type(height) == "string" and height ~= "") then
+		error(`Facet {where}: \`{name}.height\` is a positive finite px or a theme metric name.`, 0)
+	end
+	if media.scaleMode ~= nil and SCALE_MODES[media.scaleMode] ~= true then
+		error(`Facet {where}: \`{name}.scaleMode\` is fit | crop | stretch.`, 0)
+	end
 end
 
 function overlay_parts.checkMedia(where: string, media: any)
@@ -35,19 +52,37 @@ function overlay_parts.checkMedia(where: string, media: any)
 	if type(media.image) ~= "string" or media.image == "" then
 		error(`Facet {where}: \`media.image\` is an image source string.`, 0)
 	end
-	local ratio, height = media.aspectRatio, media.height
-	if (ratio == nil) == (height == nil) then
-		error(`Facet {where}: \`media\` takes exactly one of \`aspectRatio\` or \`height\`.`, 0)
+	checkShape(where, media, "media")
+end
+
+-- the Sheet's hero: the media shape plus `sticky`, with arbitrary blueprint
+-- `content` as the alternative to `image` (scaleMode is image-only)
+function overlay_parts.checkHero(where: string, hero: any)
+	if hero == nil then
+		return
 	end
-	if ratio ~= nil and not positive(ratio) then
-		error(`Facet {where}: \`media.aspectRatio\` is a positive finite number.`, 0)
+	if type(hero) ~= "table" then
+		error(`Facet {where}: \`hero\` is \{ image | content, aspectRatio | height, sticky?, ... }.`, 0)
 	end
-	if height ~= nil and not positive(height) and not (type(height) == "string" and height ~= "") then
-		error(`Facet {where}: \`media.height\` is a positive finite px or a theme metric name.`, 0)
+	specGuard.assertKnownKeys(where, hero, HERO_KEYS, "hero")
+	if (hero.image == nil) == (hero.content == nil) then
+		error(`Facet {where}: \`hero\` takes exactly one of \`image\` or \`content\`.`, 0)
 	end
-	if media.scaleMode ~= nil and SCALE_MODES[media.scaleMode] ~= true then
-		error(`Facet {where}: \`media.scaleMode\` is fit | crop | stretch.`, 0)
+	if hero.image ~= nil and (type(hero.image) ~= "string" or hero.image == "") then
+		error(`Facet {where}: \`hero.image\` is an image source string.`, 0)
 	end
+	if hero.content ~= nil then
+		if type(hero.content) ~= "table" or type(hero.content.class) ~= "string" then
+			error(`Facet {where}: \`hero.content\` is a blueprint.`, 0)
+		end
+		if hero.scaleMode ~= nil then
+			error(`Facet {where}: \`hero.scaleMode\` applies to an image only.`, 0)
+		end
+	end
+	if hero.sticky ~= nil and type(hero.sticky) ~= "boolean" then
+		error(`Facet {where}: \`hero.sticky\` is true or false (default).`, 0)
+	end
+	checkShape(where, hero, "hero")
 end
 
 -- returns the number of actions (0 for absent or empty)
@@ -112,6 +147,49 @@ function overlay_parts.media(UI: any, media: any, preferred: any?): any
 			}),
 			image,
 		},
+	})
+end
+
+-- the hero spans the width it is given; `strip` (a height dimension) reserves
+-- a top band inside authored content for controls laid over it, and `over` is
+-- that overlay, painted last
+function overlay_parts.hero(UI: any, hero: any, strip: any?, over: any?): any
+	local children: { any } = {}
+	if hero.background ~= nil then
+		table.insert(
+			children,
+			UI.Box({ id = "Background", tint = hero.background, width = UI.fill(), height = UI.fill() })
+		)
+	end
+	if hero.image ~= nil then
+		table.insert(
+			children,
+			UI.Image({
+				id = "Image",
+				image = hero.image,
+				scaleMode = hero.scaleMode,
+				width = UI.fill(),
+				height = UI.fill(),
+			})
+		)
+	else
+		local stack: { any } = {}
+		if strip ~= nil then
+			table.insert(stack, UI.Box({ id = "Strip", width = UI.fill(), height = strip }))
+		end
+		table.insert(stack, hero.content)
+		table.insert(children, UI.VStack({ id = "Content", width = UI.fill(), height = UI.fill(), children = stack }))
+	end
+	if over ~= nil then
+		table.insert(children, over)
+	end
+	return UI.ZStack({
+		id = "Hero",
+		width = UI.fill(),
+		height = if hero.aspectRatio ~= nil
+			then { type = "aspect", ratio = hero.aspectRatio }
+			else { type = "fixed", px = hero.height },
+		children = children,
 	})
 end
 

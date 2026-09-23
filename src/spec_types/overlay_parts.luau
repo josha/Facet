@@ -15,6 +15,19 @@ export type Media = {
 	background: any?,
 }
 
+-- the Sheet's hero: exactly one of `image` or arbitrary blueprint `content`,
+-- exactly one of `aspectRatio` or `height`; `scaleMode` is image-only.
+-- `sticky` pins it above the body (default false: it scrolls with it).
+export type Hero = {
+	image: string?,
+	content: blueprint.Blueprint?,
+	aspectRatio: number?,
+	height: (number | string)?,
+	scaleMode: ("fit" | "crop" | "stretch")?,
+	background: any?,
+	sticky: boolean?,
+}
+
 export type Action = {
 	id: string,
 	label: blueprint.Bound<string>,

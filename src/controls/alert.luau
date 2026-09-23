@@ -169,6 +169,84 @@ function alert.buttonChromeX(metrics: any): number
 	local artX = if type(art) == "table" then (art.left or 0) + (art.right or 0) else 0
 	return padX * 2 + artX
 end
+--[[ THE PINNED ACTION GROUP a modal panel shares (Dialog, Sheet): the Alert
+	stacking policy, then a measured fall to the safe stack when a row cannot
+	show every full label at `widthOf(use)`. Cancel sits first in a row and last
+	in a stack; the default action wears `dialogAction = "default"` (Return).
+	`press(action)` is the caller's — actions never close anything here. ]]
+function alert.actionGroup(
+	Facet: any,
+	owner: any,
+	env: any,
+	actions: { any },
+	layout: string,
+	widthOf: (any) -> number,
+	press: (any) -> ()
+): any
+	local themeMetrics, sizeClass = env:get("themeMetrics"), env:get("sizeClass")
+	local distanceProfile, textOffset = env:get("distanceProfile"), env:get("preferredTextOffset")
+	local stacked = ownedFormula(owner, function(use)
+		if layout == "stacked" then
+			return true
+		end
+		if
+			layout == "automatic"
+			and alert.resolveStacked(#actions, use(sizeClass), use(distanceProfile), use(textOffset))
+		then
+			return true
+		end
+		-- a row that cannot show every full label falls to the safe stack,
+		-- whichever layout asked for it
+		local metrics = use(themeMetrics)
+		local facts = textFit.facts({ env = env, use = use })
+		local widths = {}
+		for _, action in actions do
+			local label = selection.read(action.label, use)
+			table.insert(widths, alert.labelWidth(metrics, facts, if type(label) == "string" then label else ""))
+		end
+		local gap = themeSnapshot.resolveNumber(metrics, "m") or 0
+		return not alert.rowFits(widths, alert.buttonChromeX(metrics), gap, widthOf(use))
+	end)
+	local rowOrder, stackOrder = alert.orderActions(actions, false), alert.orderActions(actions, true)
+	local function mode(row: any, stack: any): any
+		return ownedFormula(owner, function(use)
+			return if use(stacked) then stack else row
+		end)
+	end
+	return Facet.UI.AdaptiveStack({
+		id = "Actions",
+		axis = mode("x", "y"),
+		align = mode("center", "stretch"),
+		gap = mode("m", "s"),
+		width = Facet.UI.fill(),
+		distribute = "center",
+		children = {
+			Facet.UI.ForEach({
+				id = "Order",
+				items = mode(rowOrder, stackOrder),
+				key = function(action: any): string
+					return action.id
+				end,
+				row = function(action: any): any
+					return Facet.nativeControls.Button({
+						id = action.id,
+						label = action.label,
+						enabled = action.enabled,
+						busy = action.busy,
+						role = if action.role == "destructive" then "destructive" else nil,
+						surface = if action.role == "default" then "accent" else nil,
+						dialogAction = if action.role == "default" then "default" else nil,
+						disclose = true,
+						height = { type = "minMax", min = "targetSizes.minimum" },
+						onActivate = function()
+							press(action)
+						end,
+					})
+				end,
+			}),
+		},
+	})
+end
 local function build(Facet: any, core: any, spec: Spec, owner: any)
 	guard.assertKnownKeys("UI.Alert", spec, KEYS, "spec")
 	local UI = Facet.UI
