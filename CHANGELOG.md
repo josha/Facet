@@ -25,6 +25,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **`UI.NavBar`** and the nav bar's slot form: `leading` follows Back, `center`
+  replaces the title and fills the rest, and trailing content moves to a second
+  row when the measured width cannot hold it, without rebuilding the center.
+  The lowercase `navBar` keeps its legacy shape unless a slot is given.
 - **`UI.Notice`.** An in-page status message: severity icon and paint, optional
   title, link, up to two actions and a close that reports the press. The
   accessories move below the copy when the measured width cannot hold both.

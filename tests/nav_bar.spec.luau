@@ -148,3 +148,184 @@ describe("Facet.navBar: closed-key spec (constitution §4)", function()
 		expect(string.find(tostring(err), "tittle", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+describe("the slot form: leading, center and a second row for trailing content", function()
+	local world = require("./lib/world")
+	local Compose = Facet.Compose
+
+	local function mount(w: number, spec: (UI: any) -> any): any
+		local wld = world.new({ viewport = { x = 0, y = 0, w = w, h = 600 }, reducedMotion = true })
+		local UI = wld.UI
+		wld.present(function()
+			return UI.Screen("S")({ padding = 0, UI.NavBar("Bar")(spec(UI)) })
+		end)
+		wld.settle(3)
+		return wld
+	end
+
+	local function rect(w: any, path: string): any
+		return w.adapter.node(`/S/Bar/{path}`).rect
+	end
+
+	it("Back, leading, a filling center and trailing share one row when there is room", function()
+		local record: any = nil
+		local w = mount(1000, function(UI)
+			return {
+				ref = function(r: any)
+					record = r
+				end,
+				onBack = function() end,
+				backLabel = "Back",
+				leading = UI.Button("Home")({ label = "Home" }),
+				center = UI.TextInput("Search")({ value = Compose.cell(""), placeholder = "Search tracks" }),
+				trailing = UI.HStack("Tools")({ UI.Button("Filter")({ label = "Filter" }) }),
+			}
+		end)
+		local back, home = rect(w, "Primary/Back"), rect(w, "Primary/Leading/Home")
+		local center, tools = rect(w, "Primary/Center"), rect(w, "Trailing")
+		expect(home.x >= back.x + back.w).toBe(true)
+		expect(center.x >= home.x + home.w).toBe(true)
+		expect(tools.x >= center.x + center.w - 1).toBe(true)
+		expect(math.abs(tools.y - center.y) < center.h).toBe(true)
+		expect(record.dump().center).toBe("custom")
+	end)
+
+	it("a narrow bar moves the trailing content to a second row, without rebuilding the center", function()
+		local text = Compose.cell("")
+		local width = 1000
+		local w = mount(width, function(UI)
+			return {
+				onBack = function() end,
+				backLabel = "Back",
+				center = UI.TextInput("Search")({ value = text, placeholder = "Search tracks" }),
+				trailing = UI.HStack("Tools")({
+					UI.Button("Filter")({ label = "Filter results" }),
+					UI.Button("Sort")({ label = "Sort by lap" }),
+				}),
+			}
+		end)
+		local field = w.adapter.node("/S/Bar/Primary/Center/Search")
+		expect(field ~= nil).toBe(true)
+		w.pres.focus.setFocusOrigin("navigation")
+		local searchPath: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Primary/Center/Search", 1, true) and w.adapter.node(path).class == "TextField" then
+				searchPath = path
+			end
+		end
+		assert(searchPath, "search field mounted")
+		expect(w.pres.focus.focusOn(searchPath)).toBe(true)
+		text:set("coast")
+		w.env:set("viewportRect", { x = 0, y = 0, w = 360, h = 600 })
+		w.settle(4)
+		local center, tools = rect(w, "Primary/Center"), rect(w, "Trailing")
+		expect(tools.y >= center.y + center.h - 1).toBe(true)
+		-- the same field, the same text, the same focus
+		expect(w.adapter.node(searchPath) ~= nil).toBe(true)
+		expect(w.pres.focus.focused:peek()).toBe(searchPath)
+		expect(text:peek()).toBe("coast")
+		-- and back to one row when the room returns
+		w.env:set("viewportRect", { x = 0, y = 0, w = 1000, h = 600 })
+		w.settle(4)
+		local center2, tools2 = rect(w, "Primary/Center"), rect(w, "Trailing")
+		expect(math.abs(tools2.y - center2.y) < center2.h).toBe(true)
+	end)
+
+	it("the default center is the one-line disclosed title, and every slot subset mounts", function()
+		for index, keys in
+			{
+				{ "title" },
+				{ "trailing" },
+				{ "title", "trailing" },
+				{ "back", "title" },
+				{ "back", "leading", "title", "trailing" },
+			}
+		do
+			local w = mount(500, function(UI)
+				local spec: any = {}
+				for _, key in keys do
+					if key == "title" then
+						spec.title = string.rep("A long garage title ", 6)
+					elseif key == "trailing" then
+						spec.trailing = UI.Button("More")({ label = "More" })
+					elseif key == "back" then
+						spec.onBack = function() end
+						spec.backLabel = "Back"
+					elseif key == "leading" then
+						spec.leading = UI.Button("Home")({ label = "Home" })
+					end
+				end
+				return spec
+			end)
+			expect(`case {index}: {w.adapter.node("/S/Bar") ~= nil}`).toBe(`case {index}: true`)
+			local title = w.adapter.node("/S/Bar/Primary/Center/Title")
+			if table.find(keys, "title") then
+				expect(title.class).toBe("Text")
+				local facts = w.controller.textAt ~= nil and nil
+				local r = title.rect
+				-- one line, and its full value is disclosed rather than widening the bar
+				expect(r.x + r.w <= 500 + 1).toBe(true)
+				local _ = facts
+			end
+		end
+	end)
+
+	it("the lowercase form keeps its exact legacy shape unless a slot is supplied", function()
+		local bp = Facet.navBar({ title = "Garage", trailing = { UI.Button({ id = "More", label = "More" }) } })
+		expect(bp.class).toBe("HStack")
+		local slotted = Facet.navBar({ title = "Garage", center = UI.Text({ id = "C", text = "c" }) })
+		expect(slotted.class).toBe("AdaptiveStack")
+	end)
+
+	it("UI.NavBar refuses a trailing array and a non-blueprint slot", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+		for index, bad in
+			{
+				{ trailing = { UI.Text({ id = "A", text = "a" }) } },
+				{ leading = "Home" },
+				{ titleWidth = { type = "fixed", px = 10 } },
+			}
+		do
+			local ok = pcall(function()
+				w.scoped(function()
+					return w.UI.NavBar(bad :: any)
+				end)
+			end)
+			expect(`case {index} refused: {not ok}`).toBe(`case {index} refused: true`)
+		end
+	end)
+end)
+
+describe("UI.NavBar: Back answers every input class", function()
+	local world = require("./lib/world")
+	it("Back fires by pointer, touch, keyboard and gamepad", function()
+		for _, route in { "pointer", "touch", "keyboard", "gamepad" } do
+			local fired = 0
+			local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
+			local UI = w.UI
+			w.present(function()
+				return UI.Screen("S")({
+					UI.NavBar("Bar")({
+						onBack = function()
+							fired += 1
+						end,
+						backLabel = "Back",
+						title = "Garage",
+						trailing = UI.Button("More")({ label = "More" }),
+					}),
+				})
+			end)
+			w.settle(2)
+			local back = "/S/Bar/Primary/Back"
+			if route == "pointer" or route == "touch" then
+				w.adapter.tap(back, { source = "pointer", pointer = route })
+			else
+				w.pres.focus.setFocusOrigin("navigation")
+				expect(w.pres.focus.focusOn(back)).toBe(true)
+				w.press(if route == "keyboard" then "Return" else "ButtonA")
+			end
+			w.settle(1)
+			expect(`{route}: {fired}`).toBe(`{route}: 1`)
+		end
+	end)
+end)

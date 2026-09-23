@@ -79,6 +79,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Button = function(w)
 		return { label = "Save", onActivate = function() end }
 	end,
+	NavBar = function(w)
+		return { title = "Garage" }
+	end,
 	Notice = function(w)
 		return { message = "Saved." }
 	end,

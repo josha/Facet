@@ -4488,6 +4488,35 @@ draws the framework's own `chevron.leading` icon through `compactLabel`, and it
 declares `prefer = true`, so the icon is never traded back for a text label by
 the shrink ladder.
 
+**The slot form.** Pass `leading` (a node that follows Back) or `center` (a
+node that replaces the default title) and the bar becomes an `AdaptiveStack`
+with a `Primary` row — Back, `Leading`, then a `Center` that fills what is
+left — and a `Trailing` group. When the measured sides would leave the center
+under `controls.popup.panelWidth`, the trailing content moves to a second row
+while Back, leading and the center stay first; it is an axis change, so no slot
+is rebuilt and a focused search field in the center keeps its text and focus.
+Trailing controls degrade through their own `compactLabel` first. Without
+`leading` or `center` the lowercase form keeps its exact legacy shape.
+
+### `UI.NavBar`
+
+`UI.NavBar { … }` -> the bar's node. `ref` receives `{ api, dump }`.
+
+The typed, named form, **always** the slot form: `{ id?, onBack?, backLabel?,
+title?, titleSize?, leading?, center?, trailing?, gap?, padding? }`. `trailing` is
+**one** node — author a cluster as an `HStack` — and every slot is a caller-owned
+node (a Button, a search `TextInput`, a title-and-subtitle stack). `dump()`
+reports `{ schema = "facet-navbar-dump/1", id, back, leading, center =
+"custom" | "title" | "none", trailing }`.
+
+```lua
+UI.NavBar("Top")({
+    onBack = close, backLabel = "Back",
+    center = UI.TextInput("Search")({ value = query, placeholder = "Search tracks" }),
+    trailing = UI.HStack("Tools")({ UI.Button("Filter")({ label = "Filter", compactLabel = { icon = "menu" } }) }),
+})
+```
+
 ### The standing rule: a transient opens OVER the live screen, and the live screen stays visible
 
 A menu, a popup, a picker panel, a callout, an expand plate — the whole

@@ -210,6 +210,7 @@ owner that owns its resources. Start with
 | `UI.Popover` | Content against a trigger or source you own the open state of: an anchored panel, or a sheet on a compact touch screen. | [api](../reference/api.md#uipopover) |
 | `UI.Dialog` | A modal panel you own the open state of: title, hero, one scrolling body and pinned actions. | [api](../reference/api.md#uidialog) |
 | `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
+| `UI.NavBar` | A surface's top bar with Back, leading, a filling center (title or search) and trailing content that wraps to a second row. | [api](../reference/api.md#uinavbar) |
 | `UI.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#uinavigationstack) |
 | `UI.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#uitabview) |
 | `client.world_anchor` | Measure a Part, Model, or avatar for a radial opening or retained offscreen marker direction, with optional center occlusion. | [api](../reference/api.md#clientworld_anchor) |

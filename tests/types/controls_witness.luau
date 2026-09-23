@@ -542,6 +542,13 @@ local _notice = app.controls.Notice("Conn")({
 	onDismiss = function() end,
 	controlSize = "compact",
 })
+local _navBar = app.controls.NavBar("Top")({
+	onBack = function() end,
+	backLabel = "Back",
+	title = "Garage",
+	leading = app.controls.Button({ label = "Home" }),
+	trailing = app.controls.Button({ label = "More" }),
+})
 local _asyncimage = app.controls.AsyncImage("Art")({
 	key = "image",
 	scaleMode = "slice",

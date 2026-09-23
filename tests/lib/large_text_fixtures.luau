@@ -494,6 +494,19 @@ local FIXTURES: { Fixture } = {
 	-- the RICH coach-mark plate: title, media, steps and the shared action row
 	-- (src/controls/overlay_parts.luau), swept through the same exported builder
 	{
+		id = "NavBar",
+		class = "NavBar",
+		build = function(core)
+			return harness.Controls.NavBar(core, {
+				id = "Ctl",
+				onBack = function() end,
+				backLabel = PSEUDO,
+				title = lt.PSEUDO_ACTION,
+				trailing = UI.Button({ id = "More", label = PSEUDO, disclose = true }),
+			}).blueprint
+		end,
+	},
+	{
 		id = "Notice",
 		class = "Notice",
 		build = function(core)

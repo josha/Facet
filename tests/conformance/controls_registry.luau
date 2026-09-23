@@ -2353,6 +2353,35 @@ local registry: { Entry } = {
 			hotSwitch = { "a taller message grows the reservation live" },
 		},
 	},
+	{
+		-- the typed slot form of the shared nav bar builder; its Back, leading,
+		-- center and trailing controls are ordinary page controls that carry their
+		-- own input stories, and the bar only arranges them
+		name = "NavBar",
+		kind = "composite",
+		module = "src/present/nav_bar.luau",
+		export = "UI.NavBar",
+		spec = "tests/nav_bar.spec.luau",
+		conformance = "tests/nav_bar.spec.luau",
+		docsAnchor = "UI.NavBar",
+		dumpFunction = "dump = function",
+		inputProofs = {
+			pointer = { "Back fires by pointer, touch, keyboard and gamepad" },
+			touch = { "Back fires by pointer, touch, keyboard and gamepad" },
+			keyboard = { "Back fires by pointer, touch, keyboard and gamepad" },
+			gamepad = { "Back fires by pointer, touch, keyboard and gamepad" },
+		},
+		-- PARADIGM axis: Back and every slot are ordinary page controls in every
+		-- class. hotSwitch: the trailing content moves between the first and a
+		-- second row from the measured width, live, without rebuilding the center.
+		affordanceProofs = {
+			pointer = { "Back, leading, a filling center and trailing share one row when there is room" },
+			touch = { "the default center is the one-line disclosed title, and every slot subset mounts" },
+			keyboard = { "a narrow bar moves the trailing content to a second row, without rebuilding the center" },
+			gamepad = { "Back fires by pointer, touch, keyboard and gamepad" },
+			hotSwitch = { "a narrow bar moves the trailing content to a second row, without rebuilding the center" },
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========
