@@ -12965,7 +12965,7 @@ colors, type and border insets.
 | `presenting` | Optional data or readable alongside `isPresented` or manual presentation. Nil prevents opening. Factories and action callbacks receive a shallow snapshot for that presentation. |
 | `item`, `presenter` | Alternative optional-item writable cell. Nonnil opens; dismissal clears it. Cannot combine with `isPresented`, `presenting`, or `error`. |
 | `error` | Record or readable with `errorDescription`, optional `recoverySuggestion` and `failureReason`. Supplies default title/message. A writable cell without `isPresented` is an automatic binding and requires a presenter; dismissal clears it. |
-| `icon` | Optional image asset/readable, sized using `controls.alert.iconSize`. |
+| `icon` | Optional icon name (drawn through the theme's art like Button's `icon`), image asset, or readable asset, sized using `controls.alert.iconSize`. |
 | `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a small inline vector caution mark — `iconSizes.medium`, capped at the heading it leads, because a package may pitch its picture ladder above its type (Fantasy Ornate's is 32 against a 22 px heading) — unless an image is supplied. |
 | `suppression` | `{ isSuppressed, label? }`, where `isSuppressed` is a caller-owned writable Compose cell of a boolean, adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(owner, data) -> node?` for brief extra content such as a `UI.TextInput`. Use a full modal for an editor. The content runs inside the alert's own Compose owner, so `Compose.cleanup` releases with the presentation. |

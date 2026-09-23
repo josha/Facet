@@ -1002,6 +1002,20 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		alert.dispose()
 	end)
 
+	t.it("a named icon takes Button's icon path, so the theme draws it", function()
+		local w, alert = open({
+			id = "Named",
+			title = "Remove this car?",
+			icon = "trash",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		local node = w.adapter.node("/Named/Center/Card/Header/Icon")
+		local hint = node.decorationHint
+		t.expect(if type(hint) == "table" then hint.icon else nil).toBe("trash")
+		t.expect(node.rect.h).toBe(w.env:get("themeMetrics"):peek().controls.alert.iconSize)
+		alert.dispose()
+	end)
+
 	t.it("with no mark, the title's box is centred in the card", function()
 		local w, alert = open({
 			id = "Plain",

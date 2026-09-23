@@ -569,7 +569,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		current = def
 		local content = {}
 		local header = {}
-		if spec.icon ~= nil then
+		if type(spec.icon) == "string" then
+			table.insert(
+				header,
+				require("./label").icon(UI, spec.icon, { size = "controls.alert.iconSize", alignH = "center" })
+			)
+		elseif spec.icon ~= nil then
 			table.insert(
 				header,
 				UI.Image({

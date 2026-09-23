@@ -31,7 +31,7 @@ local LABEL_KEYS = specGuard.keySet({
 	the theme's picture (or the glyph, or the warned dot for an unknown name);
 	an asset URL is an ordinary Image. A raw name handed to `UI.Image` paints
 	nothing. `opts`: `size` (default iconSizes.medium; a fixed box, or a floor
-	the glyph may grow past with `grow = true`), `id`, `tint`, `hidden`. ]]
+	the glyph may grow past with `grow = true`), `id`, `tint`, `hidden`, `alignH`. ]]
 function label_control.icon(UI: any, name: string, opts: any?): any
 	local o = opts or {}
 	local size = o.size or "iconSizes.medium"
@@ -41,6 +41,7 @@ function label_control.icon(UI: any, name: string, opts: any?): any
 			image = name,
 			tint = o.tint,
 			hidden = o.hidden,
+			alignH = o.alignH,
 			width = { type = "fixed", px = size },
 			height = { type = "fixed", px = size },
 		})
@@ -53,6 +54,7 @@ function label_control.icon(UI: any, name: string, opts: any?): any
 			textAlign = "center",
 			tint = o.tint,
 			hidden = o.hidden,
+			alignH = o.alignH,
 			-- package art fits its box; a Label's glyph may grow with the text preference
 			width = if o.grow then { type = "minMax", min = size } else { type = "fixed", px = size },
 			height = if o.grow then { type = "minMax", min = size } else { type = "fixed", px = size },
