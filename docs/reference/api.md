@@ -9390,9 +9390,12 @@ instant into one at an offset you name). A single picker uses `value` /
 error. Both are yours: a pick proposes, and the calendar repaints only from
 what you then hold. Every change commits as it happens — a pick (a single pick
 without `time` also closes), a time step, a typed date — and closing the panel
-any way (B, Escape, a tap outside, the sheet's Close) keeps it. In a range the
+any way (B, Escape, a tap outside, a sheet's drag or scrim) keeps it. In a range the
 first pick sets `start`, the second sets `finish` (swapping if it is earlier),
-and `onRangeCommit` fires only when both ends are set. `draft = true` adds
+and `onRangeCommit` fires only when both ends are set. A pointer or finger can
+also grab a set range's start or end circle and drag it across days and panes
+(each move proposes; crossing the other end swaps them; release commits; a
+cancelled gesture proposes the range it began from). `draft = true` adds
 Reset all, Cancel and Apply, and nothing commits until Apply (typed text
 included); every other way out proposes the value the panel opened with (a
 write of yours while it is open becomes that value).

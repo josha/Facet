@@ -549,6 +549,67 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return room >= need
 	end)
 
+	--[[ DRAGGING A RANGE'S END (owner 2026-09-23). A pointer or finger that lands
+		on a complete range's start or end circle holds it: each move proposes the
+		range from the other end to the day under the pointer (any pane; crossing the
+		other end swaps them, a closed day keeps the last one), the release commits
+		per the draft model, and a cancel proposes the range the drag began from.
+		Any other day declines the capture, so its tap still picks. ]]
+	local grab: any = nil
+	local swallowTap = false
+	local function dayUnder(pos: any, rectOf: any): CivilDate?
+		for pk, list in cellPaths do
+			for ci, path in list do
+				local r = rectOf(path)
+				if r ~= nil and pos.x >= r.x and pos.x < r.x + r.w and pos.y >= r.y and pos.y < r.y + r.h then
+					local m = paneMonth(function(c)
+						return c:peek()
+					end, pk)
+					return civil.monthGrid(m.year, m.month, weekStart)[ci]
+				end
+			end
+		end
+		return nil
+	end
+	local function grabEnd(d: CivilDate): boolean
+		swallowTap = false
+		local r = if isRange then range:peek() else nil
+		if r == nil or r.start == nil or r.finish == nil or not mayEdit() then
+			return false
+		end
+		local other = if civil.compare(d, r.start) == 0
+			then r.finish
+			elseif civil.compare(d, r.finish) == 0 then r.start
+			else nil
+		if other == nil then
+			return false
+		end
+		grab = { other = other, from = r, last = d }
+		return true
+	end
+	local function dragEnd(pos: any, rectOf: any)
+		local d = if grab ~= nil then dayUnder(pos, rectOf) else nil
+		if d == nil or isDisabled(d) or civil.compare(d, grab.last) == 0 then
+			return
+		end
+		grab.last, grab.moved = d, true
+		local a, b = grab.other, civil.dateOf(d)
+		propose(if civil.compare(b, a) < 0 then { start = b, finish = a } else { start = a, finish = b })
+	end
+	local function releaseEnd(cancelled: boolean)
+		local held = grab
+		grab = nil
+		if held == nil or not held.moved then
+			return
+		end
+		swallowTap = not cancelled
+		if cancelled then
+			propose(held.from)
+		elseif not draft then
+			commit()
+		end
+	end
+
 	local function dayCell(k: number, i: number): any
 		local date = Compose.formula(function(use)
 			local m = paneMonth(use, k)
@@ -628,9 +689,36 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			focusable = Compose.formula(function(use)
 				return not use(outside)
 			end),
-			onActivate = function()
+			onActivate = function(_path: string?, meta: any?)
+				-- the release that ended a drag is not a pick (and only a pointer's is)
+				local fromPointer = type(meta) == "table" and meta.source == "pointer"
+				if swallowTap and fromPointer then
+					swallowTap = false
+					return
+				end
+				swallowTap = false
 				choose(date:peek())
 			end,
+			onPointerDown = if isRange
+				then function(): boolean
+					return not outside:peek() and grabEnd(date:peek())
+				end
+				else nil,
+			onPointerMove = if isRange
+				then function(_path: string, pos: any, rectOf: any)
+					dragEnd(pos, rectOf)
+				end
+				else nil,
+			onPointerUp = if isRange
+				then function()
+					releaseEnd(false)
+				end
+				else nil,
+			onPointerCancel = if isRange
+				then function()
+					releaseEnd(true)
+				end
+				else nil,
 			children = {
 				UI.ZStack({
 					id = "Layers",

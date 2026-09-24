@@ -757,6 +757,83 @@ describe("DateTimePicker: ranges, presets and drafts", function()
 		w.settle(3)
 		expect(`{iso(cell:peek().start)}..{iso(cell:peek().finish)}`).toBe("2026-10-01..2026-10-02")
 	end)
+
+	--[[ OWNER 2026-09-23: a pointer or finger grabs a range's start or end circle
+		and drags it across days (across panes too); crossing the other end swaps
+		them; release commits per the draft model; a cancel restores. ]]
+	local function centre(w: any, d: any, k: number?): (number, number)
+		local r = w.adapter.node(cellOf(w, d, k)).rect
+		return r.x + r.w / 2, r.y + r.h / 2
+	end
+	local function drag(w: any, from: any, to: { any }, finish: string?, fromPane: number?)
+		local x, y = centre(w, from, fromPane)
+		w.adapter.pointerDown(cellOf(w, from, fromPane), x, y, "touch")
+		for _, step in to do
+			local tx, ty = centre(w, step[1], step[2])
+			w.adapter.pointerMove(tx, ty)
+			w.settle(1)
+		end
+		local last = to[#to]
+		local lx, ly = centre(w, last[1], last[2])
+		if finish == "cancel" then
+			w.adapter.interruptCapture()
+		else
+			w.adapter.pointerUpActivating(lx, ly, "after")
+		end
+		w.settle(2)
+	end
+	local function span(cell: any): string
+		local r = cell:peek()
+		return `{iso(r.start)}..{iso(r.finish)}`
+	end
+
+	it("a range's end drags across days and panes, crossing swaps, release commits once (owner)", function()
+		local cell, _, change = caller({ start = D(2026, 9, 10), finish = D(2026, 9, 15) })
+		local commits: { string } = {}
+		local w = mount({
+			selection = "range",
+			range = cell,
+			onRangeChange = change,
+			onRangeCommit = function(r: any)
+				table.insert(commits, `{iso(r.start)}..{iso(r.finish)}`)
+			end,
+			style = "inline",
+		}, { viewport = { x = 0, y = 0, w = 900, h = 900 } })
+		expect(w.record("P").dump().dual).toBe(true)
+		-- the finish across into October's pane, then release: one commit, no tap pick
+		drag(w, D(2026, 9, 15), { { D(2026, 9, 22), 1 }, { D(2026, 10, 6), 2 } })
+		expect(span(cell)).toBe("2026-09-10..2026-10-06")
+		expect(table.concat(commits, ",")).toBe("2026-09-10..2026-10-06")
+		-- the start dragged past the finish swaps them
+		drag(w, D(2026, 9, 10), { { D(2026, 10, 8), 2 } })
+		expect(span(cell)).toBe("2026-10-06..2026-10-08")
+		-- a cancel restores the range the drag began from, and commits nothing
+		drag(w, D(2026, 10, 8), { { D(2026, 10, 20), 2 } }, "cancel", 2)
+		expect(span(cell)).toBe("2026-10-06..2026-10-08")
+		expect(#commits).toBe(2)
+		-- a day between the ends is not a handle: a tap there still starts a new range
+		w.adapter.tap(cellOf(w, D(2026, 10, 7), 2))
+		w.settle(2)
+		expect(span(cell)).toBe("2026-10-07..nil")
+	end)
+
+	it("a drafted range drags live but commits only on Apply", function()
+		local cell, _, change = caller({ start = D(2026, 9, 10), finish = D(2026, 9, 15) })
+		local commits = 0
+		local w = mount({
+			selection = "range",
+			range = cell,
+			onRangeChange = change,
+			onRangeCommit = function()
+				commits += 1
+			end,
+			draft = true,
+			style = "inline",
+		})
+		drag(w, D(2026, 9, 15), { { D(2026, 9, 18) } })
+		expect(span(cell)).toBe("2026-09-10..2026-09-18")
+		expect(commits).toBe(0)
+	end)
 end)
 
 describe("DateTimePicker: the gallery tab", function()
