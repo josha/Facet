@@ -10072,7 +10072,11 @@ customization? (a writable cell), placement? ("automatic" | "bottomBar" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
 conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"),
-sidebarPreference?, restoreFocus?, restoreScroll?, shoulderNavigation? }`.
+sidebarPreference?, restoreFocus?, restoreScroll?, shoulderNavigation?, controlSize? }`.
+
+**`controlSize`** (`"xsmall" | "compact" | "regular" | "large"`, bindable) is the
+tabs' local rung: each tab paints at `controlSizes.<rung>.height` while the strip
+still reserves the touch floor.
 
 A tab's **`indicator`** is a [`UI.StatusIndicator`](#uistatusindicator) spec
 (`{ form?, status?, count?, max? }`) painted in that tab's own segment, in the lane
