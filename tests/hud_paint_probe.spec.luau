@@ -1511,7 +1511,8 @@ describe("hud: the paint probe does not cover the HUD it is describing", functio
 			end
 			local n = w.adapter.node(path)
 			local r = if n ~= nil then n.rect else nil
-			if r == nil or r.w < 1 or r.h < 1 then
+			-- a hidden node (an unchosen ladder form) paints nothing to cover
+			if r == nil or r.w < 1 or r.h < 1 or w.adapter.visibleOf(path) == false then
 				continue
 			end
 			local ox = math.min(r.x + r.w, p.x + p.w) - math.max(r.x, p.x)
