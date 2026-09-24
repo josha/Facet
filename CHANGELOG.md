@@ -73,6 +73,8 @@ detail and every behaviour or path change.
   `controls.shortcutHint.capStroke` (default the hairline; 0 = a soft filled cap)
   and `controls.shortcutHint.capGap` (default `space.xs`); Neutral is unchanged. An
   all-optional control family may be absent from a package.
+- **StepIndicator.** A named `controlSize` floors the step marker at the rung's
+  icon size (regular = the theme's medium icon), so the rungs differ.
 - **Vote.** A read-only vote keeps the strip's `controlSize` rung.
 - **ProgressView.** A bar accepts `controlSize` as its track thickness (xsmall and
   compact thin, regular and large the theme track) and refuses it together with

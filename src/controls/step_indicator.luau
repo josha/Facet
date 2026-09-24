@@ -200,6 +200,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		return nil, nil
 	end
+	-- the marker's floor: the rung's icon size, else the theme's medium icon
+	local cueFloor = vocabulary.deriveSize("UI.StepIndicator", spec.controlSize, function(rung)
+		return { type = "minMax", min = vocabulary.iconSizeFor(rung) or "iconSizes.medium" }
+	end) or { type = "minMax", min = "iconSizes.medium" }
 	local function cue(stepId: string): any
 		local state = Compose.formula(function(use)
 			local step = stepById(use, stepId)
@@ -214,7 +218,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return UI.ZStack({
 			id = "Cue",
 			width = { type = "aspect", ratio = 1 },
-			height = { type = "minMax", min = "iconSizes.medium" },
+			height = cueFloor,
 			alignH = "center",
 			alignV = "center",
 			children = {
@@ -381,7 +385,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		local metrics = if env ~= nil then use(env:get("themeMetrics")) else themeSnapshot.neutral()
 		local facts = if env ~= nil then textFit.facts({ env = env, use = use }) else { scale = 1, offset = 0 }
-		local icon = themeSnapshot.resolveNumber(metrics, "iconSizes.medium") or 24
+		local rung = selection.read(spec.controlSize, use)
+		local icon = themeSnapshot.resolveNumber(metrics, vocabulary.iconSizeFor(rung) or "iconSizes.medium") or 24
 		local gap = themeSnapshot.resolveNumber(metrics, "s") or 8
 		local widest = 0
 		for _, step in snap.steps do
