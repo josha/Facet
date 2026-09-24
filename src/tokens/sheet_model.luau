@@ -23,6 +23,7 @@
 local tokens = require("./tokens")
 local chrome_props = require("./chrome_props")
 local chrome_slots = require("./chrome_slots")
+local options = require("./sheet_options")
 -- the pure style-modifier layer: `tint`'s value vocabulary and its hex escape
 -- live there (it is dependency-light and the public schema validates against it),
 -- and this module resolves those roles against a theme's palette
@@ -559,11 +560,6 @@ end
 local WHITE = { r = 1, g = 1, b = 1 }
 local BLACK = { r = 0, g = 0, b = 0 }
 
--- a strong divider's transparency: authored, or three times as visible as the hairline
-local function strongHairlineOpacity(x: any): number
-	return x.strongHairlineOpacity or math.max(0, 1 - (1 - x.hairlineOpacity) * 3)
-end
-
 -- THE PHANTOM STROKE'S MODE (director round 10, found live 2026-07-26).
 --
 -- `UIStroke.ApplyStrokeMode` defaults to **Contextual**, and on a TextButton or
@@ -653,59 +649,12 @@ function sheet_model.selectedContentColor(theme: any): { r: number, g: number, b
 	return { r = c.onAccent.r, g = c.onAccent.g, b = c.onAccent.b }
 end
 
---[[ THE LABEL ON A TINTED CONTROL PLATE: a skinned control's art multiplied by
-	`tint`. The art's colour as painted is the package's `extra.controlArt` (its
-	sampled centre), else its flat `control`; another slot's art is `extra[art]`
-	(`fieldArt`, `badgeArt`). Art that lets the panel through (`a` < 1, a badge
-	seal) reads over the surface. `onAccent` when it clears the floor there, else
-	`content` when that does, else whichever reads better. ]]
-local function chromePlate(theme: any, tint: any, art: string?): { r: number, g: number, b: number }
-	local x = theme.extra or {}
-	local base = if art ~= nil and type(x[art]) == "table"
-		then x[art]
-		elseif type(x.controlArt) == "table" then x.controlArt
-		elseif type(x.control) == "table" then x.control
-		else theme.colors.surfaceStrong
-	local a, s = base.a or 1, theme.colors.surface
-	return {
-		r = base.r * tint.r * a + s.r * (1 - a),
-		g = base.g * tint.g * a + s.g * (1 - a),
-		b = base.b * tint.b * a + s.b * (1 - a),
-	}
-end
+-- the label on tinted control art: `art_contrast` (read-only on theme colours)
+local artContrast = require("./art_contrast")
+local chromePlate = artContrast.chromePlate
 sheet_model.chromePlate = chromePlate
-
-function sheet_model.onChromeColor(theme: any, tint: any): { r: number, g: number, b: number }
-	local c = theme.colors
-	local plate = chromePlate(theme, tint)
-	local on, content = tokens.contrastRatio(c.onAccent, plate), tokens.contrastRatio(c.content, plate)
-	local pick = if on >= SELECTED_CONTRAST_FLOOR or on >= content then c.onAccent else c.content
-	return { r = pick.r, g = pick.g, b = pick.b }
-end
-
---[[ ...AND ANY OTHER LIFTED LABEL on its tinted art: the first of `picks` that
-	clears the floor there, else whichever reads best. A plain button offers
-	content first (every flat-art package keeps its label), then contentStrong and
-	onAccent; a destructive one offers onDanger first. ]]
-function sheet_model.readableOnChrome(
-	theme: any,
-	tint: any,
-	picks: { any },
-	art: string?
-): { r: number, g: number, b: number }
-	local plate = chromePlate(theme, tint, art)
-	local best, bestRatio = picks[1], -1
-	for _, pick in picks do
-		local ratio = tokens.contrastRatio(pick, plate)
-		if ratio >= SELECTED_CONTRAST_FLOOR then
-			return { r = pick.r, g = pick.g, b = pick.b }
-		end
-		if ratio > bestRatio then
-			best, bestRatio = pick, ratio
-		end
-	end
-	return { r = best.r, g = best.g, b = best.b }
-end
+sheet_model.onChromeColor = artContrast.onChromeColor
+sheet_model.readableOnChrome = artContrast.readableOnChrome
 
 -- the gate the resolver leans on: SOME content role must be readable on the
 -- selected surface, or the theme has published a state nobody can read
@@ -728,7 +677,7 @@ end
 -- PascalCased so the Style Editor shows words designers know from the docs)
 local function themeTokens(style: any): { [string]: TokenValue }
 	local c, x = style.colors, style.extra
-	return {
+	local set: { [string]: TokenValue } = {
 		Danger = color((select(1, dangerPair(c)))),
 		OnDanger = color((select(2, dangerPair(c)))),
 		-- role interaction tokens, precomputed with the same edge lerp the control
@@ -759,29 +708,15 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		ControlSelectedHover = color(sheet_model.selectedHoverColor(x)),
 		ContentSecondary = color(x.contentSecondary),
 		Hairline = color(x.hairline),
-		-- optional roles: unauthored, each is the colour its consumers painted before
-		Selection = color(x.selection or c.accent),
-		OnSelection = color(x.onSelection or c.onAccent),
-		Scrim = color(x.scrim or c.surface),
-		-- the inverse pair (a light plate on a dark theme and the reverse):
-		-- authored, or the strong content colour lettered in the page colour
-		InverseSurface = color(x.inverseSurface or c.contentStrong),
-		OnInverse = color(x.onInverse or c.surface),
-		InverseHover = lerp(x.inverseSurface or c.contentStrong, x.onInverse or c.surface, 0.12),
-		InversePressed = lerp(x.inverseSurface or c.contentStrong, x.onInverse or c.surface, 0.2),
-		-- each plate at the disabled content opacity over the page, for a theme that
-		-- dims a disabled control whole (`extra.dimDisabledPlates`)
-		ControlDisabled = lerp(x.control, c.surface, x.disabledContentOpacity or 0.4),
-		ControlSelectedDisabled = lerp(x.controlSelected, c.surface, x.disabledContentOpacity or 0.4),
-		AccentDisabled = lerp(c.accent, c.surface, x.disabledContentOpacity or 0.4),
-		DangerDisabled = lerp((select(1, dangerPair(c))), c.surface, x.disabledContentOpacity or 0.4),
-		InverseDisabled = lerp(x.inverseSurface or c.contentStrong, c.surface, x.disabledContentOpacity or 0.4),
-		SelectionDisabled = lerp(x.selection or c.accent, c.surface, x.disabledContentOpacity or 0.4),
 		-- precomputed accent interaction states (bespoke path computes these
 		-- with Color3:Lerp at the edge; the sheet needs them as real tokens)
 		AccentHover = lerp(c.accent, WHITE, 0.12),
 		AccentPressed = lerp(c.accent, BLACK, 0.18),
 	}
+	for name, value in options.tokens(c, x, (select(1, dangerPair(c)))) do
+		set[name] = value
+	end
+	return set
 end
 
 -- every theme's palette re-passes the library contrast gate before it may be
@@ -1388,79 +1323,6 @@ local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -
 	rolePair("link", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
 end
 
---[[ THE SELECTION MARK — painted only when a theme AUTHORS `extra.selection`.
-	A selected chip, a checkbox's fill and its tick then wear the selection ink
-	and its partner instead of the selected-row wash. No theme that leaves the
-	role out gets these rules, so its chips and checkboxes paint as before. The
-	hover rule keeps a hovered chosen chip chosen (after every per-word state). ]]
-local function authoredSelection(themes: { any }): boolean
-	for _, theme in themes do
-		if type(theme) == "table" and type(theme.extra) == "table" and theme.extra.selection ~= nil then
-			return true
-		end
-	end
-	return false
-end
-
-local function emitSelectionMark(emitRest: (Rule) -> (), emitHover: (Rule) -> (), pointerLive: string)
-	local T = sheet_model.TAGS
-	emitRest({
-		name = "Selection mark — chosen",
-		selector = `TextButton.{T.selected}.{T.selectionMark}`,
-		props = { BackgroundColor3 = "$Selection", TextColor3 = "$OnSelection" },
-	})
-	emitRest({
-		name = "Selection mark — fill",
-		selector = `Frame.{T.selectionMark}`,
-		props = { BackgroundColor3 = "$Selection", BackgroundTransparency = num(0) },
-	})
-	emitRest({
-		name = "Selection mark — ink",
-		selector = `TextLabel.{T.selectionMark}`,
-		props = { TextColor3 = "$OnSelection" },
-	})
-	-- a CHOSEN link (an outline or nav row) is lettered in the selection ink
-	emitRest({
-		name = "Selected link",
-		selector = `TextButton.{T.selected}.{T.appearancePrefix}link`,
-		props = { TextColor3 = "$Selection" },
-	})
-	emitHover({
-		name = "Selection mark — chosen hover",
-		selector = `TextButton.{T.selected}.{T.selectionMark}.{pointerLive}:Hover`,
-		props = { BackgroundColor3 = "$Selection", TextColor3 = "$OnSelection" },
-	})
-end
-
---[[ THE WHOLE-CONTROL DISABLED DIM — emitted only when a theme sets
-	`extra.dimDisabledPlates = true`. The plate then fades with its label: each fill
-	blends toward the page by `disabledContentOpacity`, keyed on the same engine
-	state the label dim rides. A quiet word keeps its own plate under a role, as at
-	rest. Last in the cascade, so no interaction state repaints a disabled plate. ]]
-local function emitDisabledPlates(emit: (Rule) -> (), selectionMarks: boolean)
-	local T = sheet_model.TAGS
-	local A = T.appearancePrefix
-	local D = chrome_slots.TAGS.stateDisabled
-	local function plate(name: string, selector: string, token: string)
-		emit({ name = `Disabled plate — {name}`, selector = selector, props = { BackgroundColor3 = token } })
-	end
-	plate("control", "TextButton:NonInteractable", "$ControlDisabled")
-	plate("selected", `TextButton.{T.selected}:NonInteractable`, "$ControlSelectedDisabled")
-	plate("accent", `TextButton.{T.surfacePrefix}accent:NonInteractable`, "$AccentDisabled")
-	plate("emphasis", `TextButton.{A}emphasis:NonInteractable`, "$AccentDisabled")
-	plate("inverse", `TextButton.{A}inverse:NonInteractable`, "$InverseDisabled")
-	plate("soft", `TextButton.{A}soft:NonInteractable`, "$ControlSelectedDisabled")
-	plate("utility", `TextButton.{A}utility:NonInteractable`, "$Surface")
-	plate("destructive", "TextButton.facet-role-destructive:NonInteractable", "$DangerDisabled")
-	plate("destructive soft", `TextButton.facet-role-destructive.{A}soft:NonInteractable`, "$ControlSelectedDisabled")
-	plate("destructive utility", `TextButton.facet-role-destructive.{A}utility:NonInteractable`, "$Surface")
-	plate("chip box", `Frame.{T.surfacePrefix}chip.{D}`, "$ControlDisabled")
-	if selectionMarks then
-		plate("chosen", `TextButton.{T.selected}.{T.selectionMark}:NonInteractable`, "$SelectionDisabled")
-		plate("mark fill", `Frame.{T.selectionMark}.{D}`, "$SelectionDisabled")
-	end
-end
-
 export type BuildOpts = {
 	-- ordered; the FIRST theme is the base/default unless defaultTheme names another
 	themes: { { name: string, style: any } },
@@ -1696,7 +1558,7 @@ function sheet_model.build(opts: BuildOpts): Model
 		{
 			name = "Strong divider",
 			selector = `.facet-divider.{T.appearancePrefix}strong`,
-			props = { BackgroundTransparency = num(strongHairlineOpacity(x)) },
+			props = { BackgroundTransparency = num(options.strongHairlineOpacity(x)) },
 		},
 		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
 		{ name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } },
@@ -1934,10 +1796,10 @@ function sheet_model.build(opts: BuildOpts): Model
 	for _, entry in opts.themes do
 		table.insert(styles, entry.style)
 	end
-	local selectionMarks = authoredSelection(styles)
+	local selectionMarks = options.authoredSelection(styles)
 	local markHover: { Rule } = {}
 	if selectionMarks then
-		emitSelectionMark(push, into(markHover), T.pointerLive)
+		options.emitSelectionMark(push, into(markHover), T)
 	end
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO — PRE-ARMED, exactly as
@@ -2054,7 +1916,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	})
 
 	if x.dimDisabledPlates == true then
-		emitDisabledPlates(push, selectionMarks)
+		options.emitDisabledPlates(push, selectionMarks, T, chrome_slots.TAGS.stateDisabled)
 	end
 
 	-- Layout-reference MIRRORS (§6.9 Fallback B): editor-VISIBLE, generator-
@@ -2104,11 +1966,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- a mark's icon art (the checkbox tick) is lettered like its glyph, after every
 	-- icon and on-plate tint it has to beat
 	if selectionMarks then
-		push({
-			name = "Selection mark — icon",
-			selector = `.{sheet_model.TAGS.selectionMark} > .{chrome_slots.ICON_PICTURE_TAG}`,
-			props = { ImageColor3 = "$OnSelection" },
-		})
+		push(options.markIconRule(T, chrome_slots.ICON_PICTURE_TAG))
 	end
 	projectContentRules(rules)
 	-- Explicit partner lettering wins over both name tint and generated-owner color.
@@ -3246,7 +3104,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	emit("roles", {
 		name = "Strong divider",
 		selector = `.facet-divider.{T.appearancePrefix}strong`,
-		props = { BackgroundTransparency = num(strongHairlineOpacity(baseExtra)) },
+		props = { BackgroundTransparency = num(options.strongHairlineOpacity(baseExtra)) },
 	})
 	emit(
 		"roles",
@@ -3310,12 +3168,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("roles", rule)
 	end)
 	local markHover: { Rule } = {}
-	if authoredSelection(package.style.themes) then
-		emitSelectionMark(function(rule: Rule)
+	if options.authoredSelection(package.style.themes) then
+		options.emitSelectionMark(function(rule: Rule)
 			emit("roles", rule)
 		end, function(rule: Rule)
 			table.insert(markHover, rule)
-		end, T.pointerLive)
+		end, T)
 	end
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
@@ -4169,12 +4027,8 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			})
 		end
 	end
-	if authoredSelection(package.style.themes) then
-		emit("chrome", {
-			name = "Selection mark — icon",
-			selector = `.{sheet_model.TAGS.selectionMark} > .{chrome_slots.ICON_PICTURE_TAG}`,
-			props = { ImageColor3 = "$OnSelection" },
-		})
+	if options.authoredSelection(package.style.themes) then
+		emit("chrome", options.markIconRule(T, chrome_slots.ICON_PICTURE_TAG))
 	end
 
 	emit("disabled", {
@@ -4188,9 +4042,9 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		props = { TextTransparency = num(baseExtra.disabledContentOpacity) },
 	})
 	if baseExtra.dimDisabledPlates == true then
-		emitDisabledPlates(function(rule: Rule)
+		options.emitDisabledPlates(function(rule: Rule)
 			emit("disabled", rule)
-		end, authoredSelection(package.style.themes))
+		end, options.authoredSelection(package.style.themes), T, chrome_slots.TAGS.stateDisabled)
 	end
 	-- ...and the SUBTREE a disabled container turned off — see the legacy builder's
 	-- note beside the same two rules. Emitted by every package, so a swap can never
