@@ -208,8 +208,9 @@ Three `extra` colour roles are optional and change nothing until you author them
   the tab underline. Unset, they are `accent` / `onAccent`. A theme that marks
   "on" with a neutral (a light ink on a dark theme) sets these and keeps its
   accent for emphasis buttons. Authoring `selection` also paints a selected
-  `Chip` and a checked checkbox with it (plate and label, box and tick) under
-  native styling; without it those keep the selected-row wash.
+  `Chip` and a checked checkbox with it (plate and label, box and tick), and
+  letters a selected `appearance = "link"` row with it, under native styling;
+  without it those keep the selected-row wash.
 - `scrim` — the colour a modal backdrop dims toward (`scrimOpacity` is how
   much). Unset, it is `surface`.
 

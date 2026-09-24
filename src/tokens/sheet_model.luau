@@ -1391,6 +1391,12 @@ local function emitSelectionMark(emitRest: (Rule) -> (), emitHover: (Rule) -> ()
 		selector = `TextLabel.{T.selectionMark}`,
 		props = { TextColor3 = "$OnSelection" },
 	})
+	-- a CHOSEN link (an outline or nav row) is lettered in the selection ink
+	emitRest({
+		name = "Selected link",
+		selector = `TextButton.{T.selected}.{T.appearancePrefix}link`,
+		props = { TextColor3 = "$Selection" },
+	})
 	emitHover({
 		name = "Selection mark — chosen hover",
 		selector = `TextButton.{T.selected}.{T.selectionMark}.{pointerLive}:Hover`,
