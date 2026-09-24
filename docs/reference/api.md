@@ -13855,7 +13855,7 @@ top-right (top-left when `direction = "rtl"`), centred on the corner so it sits
 half over the host and paints above it. The host keeps its own layout box, hit
 target and focus stop; the seal is a later layer moved by a paint-only offset, so
 it never covers the label area and nothing is laid out again. `value` is a string,
-a number (above 99 reads "99+"), `true` for a dot (the seal with no number), or a
+a number (above 99 reads "99+"), `true` for a dot (the seal with a bullet), or a
 Readable of one; nil, false and "" paint nothing. The seal is the package's badge
 slot (a themed seal draws at its full size), the same seal a list, menu or picker
 row wears as an inline trailing pill. A tab bar's icon tabs (a segmented Picker

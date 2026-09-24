@@ -11,10 +11,15 @@ local badge = {}
 --[[ THE COUNT SEAL, one builder for every host (owner ruling 2026-09-23, Badge
 	placement A). A text row wears it as an inline trailing pill; a Button, icon
 	button, Avatar or tab icon wears it on its corner (`badge.corner`). `value` is
-	a string, a number (above 99 reads "99+"), `true` for a dot (the seal with no
-	number), or a Readable of one; nil, false and "" paint nothing. ]]
+	a string, a number (above 99 reads "99+"), `true` for a dot (the seal with a
+	bullet), or a Readable of one; nil, false and "" paint nothing. ]]
 function badge.countText(value: any): string
-	if value == nil or value == false or value == true then
+	if value == true then
+		-- a bullet in the seal's own lettering: an empty seal is invisible wherever
+		-- the badge fill sits close to the page (Facet Neutral's surfaceStrong)
+		return "•"
+	end
+	if value == nil or value == false then
 		return ""
 	end
 	if type(value) == "number" then
@@ -31,7 +36,7 @@ function badge.seal(UI: any, id: string, value: any, offset: any?): any
 		end
 		else badge.countText(value)
 	local function shown(v: any): boolean
-		return v == true or badge.countText(v) ~= ""
+		return badge.countText(v) ~= ""
 	end
 	local hidden = if live
 		then function(use: Compose.Use): boolean

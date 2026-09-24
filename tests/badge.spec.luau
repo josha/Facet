@@ -330,14 +330,14 @@ t.describe("Badge placement: a count on a host sits on its corner", function()
 		-- the seal takes no focus and no tap
 		t.expect(#w.handle.focusOrder().traversal).toBe(1)
 	end)
-	t.it("mirrors to the top-left in rtl, and `true` is a dot with no number", function()
+	t.it("mirrors to the top-left in rtl, and `true` is a dot: a bullet, no number", function()
 		local w = corner("rtl", true)
 		local host = w.adapter.node("/S/Inbox+badge/Inbox").rect
 		local seal = w.adapter.node("/S/Inbox+badge/CornerBadge")
 		local offset = seal.props.transform or { x = 0, y = 0 }
 		local cx = seal.rect.x + offset.x + seal.rect.w / 2
 		t.expect(math.abs(cx - host.x) < 0.51).toBe(true)
-		t.expect(w.adapter.node("/S/Inbox+badge/CornerBadge/Count").props.text).toBe("")
+		t.expect(w.adapter.node("/S/Inbox+badge/CornerBadge/Count").props.text).toBe("•")
 		t.expect(seal.props.hidden == true).toBe(false)
 	end)
 	t.it("a tab icon wears its count on the icon's corner; a text tab keeps the trailing pill", function()
