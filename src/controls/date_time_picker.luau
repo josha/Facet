@@ -95,8 +95,7 @@ local PRESET_KEYS = guard.keySet({ "id", "label", "range" })
 local ORDERS = { mdy = true, dmy = true, ymd = true }
 local DUMP_SCHEMA = "facet-date_time_picker-dump/1"
 local CELLS = 42
--- a year menu spans this many years either side of where the calendar opens,
--- widened to reach the bounds
+-- an unbounded side of the year menu spans this many years from the shown one
 local YEAR_SPAN = 100
 
 local function build(Facet: any, core: any, spec: Spec, owner: any)
@@ -903,20 +902,27 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	-- a header menu: the month's (or year's) plain words and a chevron, as a
-	-- calendar header reads, opening a menu of every choice
+	-- calendar header reads, opening a menu of every choice with the shown one
+	-- marked (the menu opens on it); `pick` follows the month on screen
 	local function menu(menuId: string, options: any, get: (CivilDate) -> number, set: (number) -> ()): any
+		local pick = Compose.cell(get(viewMonth:peek()))
+		follow(viewMonth, function(m)
+			pick:set(get(m))
+		end)
 		local items: { any } = {}
 		for _, option in options do
 			table.insert(items, {
 				id = tostring(option.value),
 				label = option.label,
-				onSelect = function()
-					set(option.value)
-				end,
+				selected = pick,
+				value = option.value,
+				enabled = option.enabled,
+				dismiss = true,
+				onChange = set,
 			})
 		end
 		local words_ = Compose.formula(function(use)
-			local now = get(use(viewMonth))
+			local now = use(pick)
 			for _, option in options do
 				if option.value == now then
 					return option.label
@@ -955,19 +961,32 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return record.blueprint
 	end
 
+	-- a month chosen from a menu lands inside the bounds
+	local function landIn(m: CivilDate)
+		local lo, hi = minDate:peek(), maxDate:peek()
+		if lo ~= nil and civil.compare(m, monthOf(lo)) < 0 then
+			m = monthOf(lo)
+		elseif hi ~= nil and civil.compare(m, monthOf(hi)) > 0 then
+			m = monthOf(hi)
+		end
+		viewMonth:set(m)
+	end
+
 	local function header(): any
 		local months = {}
 		for m = 1, 12 do
-			table.insert(months, { value = m, label = locale.months[m] })
+			table.insert(months, {
+				value = m,
+				label = locale.months[m],
+				enabled = Compose.formula(function(use)
+					return not monthClosed({ year = use(viewMonth).year, month = m, day = 1 }, use)
+				end),
+			})
 		end
+		-- the bounds' years; an open side takes YEAR_SPAN from the shown year
 		local centre = viewMonth:peek().year
-		local lo, hi = centre - YEAR_SPAN, centre + YEAR_SPAN
-		if minDate:peek() ~= nil then
-			lo = math.min(lo, minDate:peek().year)
-		end
-		if maxDate:peek() ~= nil then
-			hi = math.max(hi, maxDate:peek().year)
-		end
+		local lo = if minDate:peek() ~= nil then minDate:peek().year else centre - YEAR_SPAN
+		local hi = if maxDate:peek() ~= nil then maxDate:peek().year else centre + YEAR_SPAN
 		local years = {}
 		for y = lo, hi do
 			table.insert(years, { value = y, label = tostring(y) })
@@ -1006,12 +1025,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						menu("Month", months, function(m)
 							return m.month
 						end, function(v)
-							viewMonth:set({ year = viewMonth:peek().year, month = v, day = 1 })
+							landIn({ year = viewMonth:peek().year, month = v, day = 1 })
 						end),
 						menu("Year", years, function(m)
 							return m.year
 						end, function(v)
-							viewMonth:set({ year = v, month = viewMonth:peek().month, day = 1 })
+							landIn({ year = v, month = viewMonth:peek().month, day = 1 })
 						end),
 					},
 				}),

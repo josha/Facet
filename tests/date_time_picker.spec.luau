@@ -225,6 +225,29 @@ describe("DateTimePicker: a single date", function()
 		expect(w.record("P").dump().presented).toBe(false)
 	end)
 
+	it("the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)", function()
+		local cell, _, change = caller(D(2026, 9, 5))
+		local w =
+			mount({ value = cell, onChange = change, style = "inline", min = D(2020, 3, 10), max = D(2030, 6, 1) })
+		w.adapter.tap(must(w, "/Header/Choose/Year"))
+		w.settle(3)
+		expect(w.pres.focus.focused:peek()).toBe(must(w, "/Rows/Item:2026"))
+		local listed = `{find(w, "/Rows/Item:2019") ~= nil} {find(w, "/Rows/Item:2020") ~= nil} `
+			.. `{find(w, "/Rows/Item:2030") ~= nil} {find(w, "/Rows/Item:2031") ~= nil}`
+		expect(listed).toBe("false true true false")
+		-- September 2030 is past the max: the year lands on the last open month
+		w.adapter.tap(must(w, "/Rows/Item:2030"))
+		w.settle(3)
+		local m = w.record("P").dump().month
+		expect(`{m.year}-{m.month}`).toBe("2030-6")
+		w.adapter.tap(must(w, "/Header/Choose/Month"))
+		w.settle(3)
+		expect(w.pres.focus.focused:peek()).toBe(must(w, "/Rows/Item:6"))
+		local enabled = `{w.adapter.node(must(w, "/Rows/Item:6")).props.enabled} `
+			.. `{w.adapter.node(must(w, "/Rows/Item:7")).props.enabled}`
+		expect(enabled).toBe("true false")
+	end)
+
 	it("a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck", function()
 		local cell, seen, change = caller(D(2026, 9, 10), false)
 		local w = mount({
