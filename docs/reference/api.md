@@ -8132,7 +8132,9 @@ in a row, since `hint` and `row` cannot be combined. `row` and `children` cannot
 be combined, and `row.value` is refused because the toggle supplies it.
 
 Bindable `controlSize` uses the shared xsmall/compact/regular/large ladder; nil restores
-the default. Bare switches retain native track padding. A row's internal indicator
+the default. A checkbox's box is then the rung's `iconSize` plus `xs` (fixed, its mark
+fitted inside), so it grows with the ladder and never outgrows a row of controls at the
+same rung. Bare switches retain native track padding. A row's internal indicator
 has no independent focus or command: the row owns activation and model approval.
 Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
 to `trackInset + trackWidth + trackInset`; an authored value overrides that default.
@@ -9962,7 +9964,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the application's environment. |
 | `requiredMark` | `"required"` or `"optional"`: notation only. Required appends ` *` to the label's own words; optional paints nothing (put localized wording in `hint`). `required` keeps its reselect-policy meaning. |
 | `hint` / `errorText` | Strings or readables on one message line under the picker, whatever style is on screen. A non-empty `errorText` replaces the hint in the danger role beside the `status.error` mark and borders the menu trigger in danger; the picker does not move. |
-| `controlSize` | `compact`, `regular` or `large`. The menu trigger, the segments of a static strip and radio or inline rows take the rung's height and inset; the trigger and a static strip sit inside a reserved whole target (`<id>+target`). A live strip reads a bound rung once for its rows. |
+| `controlSize` | `compact`, `regular` or `large`. The menu trigger, the segments of a static strip and radio or inline rows take the rung's height and inset; the trigger and a static strip sit inside a reserved whole target (`<id>+target`). A tracked segmented strip's segments give up the track's frame carve, so the track itself lands on the rung like a Button plate. A live strip reads a bound rung once for its rows. |
 | `indicatorPosition` | `radioGroup` only, construction-time `leading` (default) or `trailing`: which edge of each row carries the radio mark. Other styles refuse it. |
 | `appearance` | Menu styles: `standard` (default paint), `contrast` (the emphasis plate) or `utility`. Segmented: `filled`, `stroke` or `utility`. Automatic takes all five and maps them onto the family on screen (standard or filled, contrast or stroke, utility); while it resolves to rows the intent is kept and paints nothing. Absent keeps each family's default; `inline`, `radioGroup` and `cards` refuse it. Bound words repaint in place; a word outside the family is refused and the last legal paint stays. |
 | `corners` | Construction-time `pill` or `square` for the menu trigger or a static segmented strip's outer ends, track and selected fill (`pill` is the reference `isCircular`). |

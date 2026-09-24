@@ -1336,6 +1336,114 @@ theme_ledger.ROWS = {
 		`harness.Controls.TabView` now, and the construct declares NO padding and NO gap
 		anywhere in its own scaffold (its header says why), so those steps came back to
 		the content. The sweep reports nothing at that cell any more, from any package. ]]
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "selection_controls",
+		variant = "-",
+		node = "/SelectionControls/Content/Body/PlainCheckbox+target/PlainCheckbox/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/CheckboxGroup/damage+target/damage/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/CheckboxGroup/fuel+target/fuel/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/CheckboxGroup/tires+target/tires/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/CheckboxGroup/weather+target/weather/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/WrapChecks/damage+target/damage/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/WrapChecks/fuel+target/fuel/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/WrapChecks/tires+target/tires/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- a sized checkbox box is FIXED at its rung (icon + xs) so the whole strip
+		-- shares one plate height; these packages' chip carve yields to it (2026-09-24)
+		surface = "recipes_common",
+		variant = "-",
+		node = "/Recipes/Content/Page/WrapChecks/weather+target/weather/Row/Indicator",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 28,
+		since = 0,
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
 } :: { Row }
 
 return theme_ledger

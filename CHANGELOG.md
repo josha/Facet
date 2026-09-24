@@ -73,6 +73,13 @@ detail and every behaviour or path change.
   `controls.shortcutHint.capStroke` (default the hairline; 0 = a soft filled cap)
   and `controls.shortcutHint.capGap` (default `space.xs`); Neutral is unchanged. An
   all-optional control family may be absent from a package.
+- **One rung, one plate height.** At the same `controlSize`, the segmented
+  Picker's track now lands on the rung like a Button's plate (its segments give up
+  the track's frame carve instead of adding it), and a sized checkbox's box is the
+  rung's icon plus `xs` (fixed; its mark fits the box), so it grows with the ladder
+  and never outgrows the row. Pinned across Neutral and every shipped package by
+  `control_rung_heights`; six small-rung art deltas (fantasy, scifi) are recorded
+  there as owed.
 - **Notice: the plate holds its content.** The standard plate is the content
   stack itself (Snackbar's shape), so an art theme's frame carve insets the icon,
   copy and accessories instead of letting them sit on the border.

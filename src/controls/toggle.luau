@@ -189,7 +189,14 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 					UI.Text({
 						id = item[1],
 						text = themePackage.iconGlyph(item[2]) or (if item[1] == "Check" then "x" else "-"),
-						textSize = "control",
+						-- a named rung draws the mark at up to its icon size, FIT to the box
+						textSize = vocabulary.deriveSize("UI.Toggle", spec.controlSize, function(rung)
+							local icon = vocabulary.iconSizeFor(rung)
+							return if icon then { fit = { cap = icon } } else "control"
+						end) or "control",
+						width = if spec.controlSize ~= nil then { type = "fill" } else nil,
+						height = if spec.controlSize ~= nil then { type = "fill" } else nil,
+						textAlign = if spec.controlSize ~= nil then "center" else nil,
 						hidden = Compose.formula(function(use)
 							return not item[3](use)
 						end),
@@ -217,14 +224,21 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 				{ selectionMark = true }
 			)
 		)
+		-- a named rung sizes the box: its icon plus an `xs` margin, FIXED (a text line), so
+		-- the checkbox grows with the ladder and an art theme's box carve yields to
+		-- the rung (the shared inset give-back) instead of outgrowing the row
+		local box = vocabulary.deriveSize("UI.Toggle", spec.controlSize, function(rung)
+			local icon = vocabulary.iconSizeFor(rung)
+			return if icon then { type = "fixed", px = { icon, "xs" } } else INDICATOR_BOX
+		end) or INDICATOR_BOX
 		return UI.corners(
 			UI.ZStack({
 				id = "Indicator",
 				alignH = "center",
 				alignV = "center",
 				surface = "chip",
-				width = INDICATOR_BOX,
-				height = INDICATOR_BOX,
+				width = box,
+				height = box,
 				children = marks,
 			}),
 			"control"

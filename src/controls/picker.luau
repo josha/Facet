@@ -1035,7 +1035,22 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	local trackOutline = UI.strokeData({ color = "hairline", thickness = "hairline", transparency = 0 })
 	-- a named rung's segment and row height; the whole strip reserves the floor
 	local rungHeight = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.heightFor)
-	local segmentHeight = rungHeight or SEGMENT_HEIGHT
+	-- ...less the track's own frame carve, which pads the strip: the TRACK is the
+	-- plate, so it lands on the rung exactly as a Button's plate does
+	local trackCarve = if slides and (spec :: any).track ~= false
+		then trackPaddingFor(core, spec, presentation)
+		else nil
+	local segmentHeight = if rungHeight ~= nil and trackCarve ~= nil
+		then function(use)
+			local env = surfaceEnv.forSpec(core, spec.env)
+			local metrics = if env ~= nil then use(env:get("themeMetrics")) else themeSnapshot.neutral()
+			local path = vocabulary.metricPath(readValue(spec.controlSize, use), "height")
+			local px = if path ~= nil then themeSnapshot.resolveNumber(metrics, path) else nil
+			local carve = trackCarve(use)
+			local inset = if type(carve) == "table" then carve.top + carve.bottom else 0
+			return if px == nil then SEGMENT_HEIGHT else { type = "minMax", min = math.max(0, px - inset) }
+		end
+		else rungHeight or SEGMENT_HEIGHT
 	local rungPadding = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.paddingFor)
 	-- the three silhouettes a segment can wear, filled per index below: the
 	-- horizontal strip's, the vertical rail's, and the row list's
