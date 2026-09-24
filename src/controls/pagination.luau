@@ -411,6 +411,29 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			recover = 3
 		end
 	end)
+	--[[ THE LABEL HOLDS ITS WIDTH (owner 2026-09-23): the arrows beside it must not
+		move as "Page 9" becomes "Page 10". The box is the widest label the count
+		can produce — every digit the widest one — and an unknown count reserves
+		UNKNOWN_DIGITS digits (pages past 9999 widen the row once more). ]]
+	local UNKNOWN_DIGITS = 4
+	local labelWidth = ownedFormula(owner, function(use)
+		local st = use(state)
+		local metrics, facts = measure(use)
+		local digit, widest = "0", -1
+		for d = 0, 9 do
+			local w = alert.labelWidth(metrics, facts, tostring(d))
+			if w > widest then
+				digit, widest = tostring(d), w
+			end
+		end
+		local count = st.count
+		local digits = if count ~= nil then #tostring(math.max(count, 1)) else UNKNOWN_DIGITS
+		local most = string.rep(digit, digits)
+		local text = if count ~= nil then `Page {most} of {count}` else `Page {most}`
+		local px = math.max(alert.labelWidth(metrics, facts, text), alert.labelWidth(metrics, facts, labelOf(st)))
+		-- a whole pixel of slack each side: the engine's own measure may round up
+		return { type = "fixed", px = math.ceil(px) + 2 }
+	end)
 	local function row(entry: any): any
 		if entry.kind == "label" then
 			return UI.Text({
@@ -419,6 +442,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					return labelOf(use(state))
 				end),
 				textSize = "control",
+				textAlign = "center",
+				width = labelWidth,
 			})
 		elseif entry.kind == "gap" then
 			return UI.Text({ id = `Gap-{entry.key}`, text = ELLIPSIS, textSize = "control", role = "secondary" })
@@ -426,19 +451,29 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local page = entry.page
 			local tracked = track(entry.key)
 			Compose.cleanup(tracked.cleanup)
-			return buttonLib.build(Facet, core, {
-				id = `Page-{page}`,
-				onAppear = tracked.onAppear,
-				label = tostring(page),
+			-- the page is the small plate around its number (owner 2026-09-23: the
+			-- target-wide plate read as a big button); the SLOT holds the target
+			-- floor, so its hit band fills the slot and never overlaps a neighbour's
+			return UI.ZStack({
+				id = `Slot-{page}`,
 				width = TARGET,
-				controlSize = spec.controlSize,
-				selected = Compose.formula(function(use)
-					return use(state).current == page
-				end),
-				onActivate = function()
-					propose("page", page)
-				end,
-			}).blueprint
+				alignH = "center",
+				alignV = "center",
+				children = {
+					buttonLib.build(Facet, core, {
+						id = `Page-{page}`,
+						onAppear = tracked.onAppear,
+						label = tostring(page),
+						controlSize = spec.controlSize,
+						selected = Compose.formula(function(use)
+							return use(state).current == page
+						end),
+						onActivate = function()
+							propose("page", page)
+						end,
+					}).blueprint,
+				},
+			})
 		end
 		local kind = entry.kind
 		local tracked = track(kind)

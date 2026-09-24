@@ -9091,7 +9091,10 @@ diagnostic) and never written back.
 
 A known `pageCount` decides availability and ignores `hasNext`/`hasPrevious`.
 Without one the count is unknown: the two flags (default false) decide, the row
-shows "Page n" between its arrows, and there is no Last. `0` pages shows an inert
+shows "Page n" between its arrows, and there is no Last. The label keeps the
+width of the widest label the count can produce (four digits for an unknown
+count), so the arrows beside it do not move as the page gains a digit. Each page
+number is a small plate centred in a slot of the 44 px target floor. `0` pages shows an inert
 "No pages"; `1` page shows it with no enabled navigation. `showFirstLast` adds
 First (to page 1, when there is a previous page) and Last (to a known last page).
 

@@ -277,6 +277,40 @@ describe("Pagination: fit, direction and focus", function()
 		end
 	end)
 
+	it("a page is a small plate centred in a target-wide slot (owner: the big button look is out)", function()
+		local w = mount(controlled(5, { pageCount = 10 }))
+		local page = w.adapter.node(path(w, "/Page-5")).rect
+		local slot = w.adapter.node(path(w, "/Slot-5")).rect
+		expect(page.w < 44).toBe(true)
+		expect(slot.w >= 44).toBe(true)
+		expect(math.abs((page.x + page.w / 2) - (slot.x + slot.w / 2)) <= 1).toBe(true)
+		local hit = w.adapter.hitRectOf(path(w, "/Page-5")) or page
+		expect(hit.x >= slot.x - 0.5 and hit.x + hit.w <= slot.x + slot.w + 0.5).toBe(true)
+	end)
+
+	it("the arrows hold still while the label grows a digit, ltr and rtl, known and unknown (owner)", function()
+		for _, case in
+			{
+				{ extra = { pageCount = 12, form = "label" }, from = 9, to = 10 },
+				{ extra = { pageCount = 12, form = "label", direction = "rtl" }, from = 9, to = 10 },
+				{ extra = { hasNext = true, hasPrevious = true }, from = 9, to = 10 },
+				{ extra = { hasNext = true, hasPrevious = true, direction = "rtl" }, from = 99, to = 100 },
+			}
+		do
+			local spec, page = controlled(case.from, case.extra)
+			local w = mount(spec)
+			local function arrows(): string
+				local n, p = w.adapter.node(path(w, "/Next")).rect, w.adapter.node(path(w, "/Previous")).rect
+				return `{n.x},{p.x}`
+			end
+			local before = arrows()
+			page:set(case.to)
+			w.settle(3)
+			local where = `{case.extra.direction or "ltr"} {case.extra.pageCount or "?"} {case.to}`
+			expect(`{where} {arrows()}`).toBe(`{where} {before}`)
+		end
+	end)
+
 	it("count to zero leaves no internal stop and focus returns to a live neighbour", function()
 		local count = Compose.cell(3)
 		local spec = controlled(2, { pageCount = count })
