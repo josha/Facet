@@ -1861,7 +1861,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			label = selectedLabel,
 			surface = "plain",
 			selected = openNow,
-			width = { type = "fill", weight = 1 },
+			width = formWidth,
 			height = { type = "minMax", min = TRIGGER_HEIGHT },
 			gap = "xs",
 			align = "center",
@@ -1869,7 +1869,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				UI.AdaptiveStack({
 					id = "Row",
 					axis = rowAxis,
-					width = { type = "fill", weight = 1 },
+					width = formWidth,
 					gap = "xs",
 					align = "center",
 					children = {

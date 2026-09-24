@@ -674,6 +674,26 @@ describe("Picker: a start-aligned hugging menu stays inline at any width", funct
 		w.pres.dismiss(w.handle)
 		p.dispose()
 	end)
+
+	it("under touch the one-line row hugs its title and value instead of collapsing them", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 700 }, preferredInput = "Touch" })
+		local p = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Motion",
+			style = "menu",
+			valueAlignment = "start",
+			sizing = "hug",
+			controlSize = "compact",
+			options = THREE,
+			selected = Compose.cell("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { UI.HStack({ id = "Strip", children = { p.blueprint } }) } }))
+		w.settle(3)
+		local trigger = suffixNode(w, "/Trigger").rect
+		expect(trigger.w > 48).toBe(true)
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
 end)
 
 describe("Picker style: a navigation link keeps its one-line row", function()
