@@ -68,6 +68,7 @@ settings_panel.COPY = table.freeze({
 	pointer = "Mouse & keyboard",
 	touch = "Touch",
 	gamepad = "Gamepad",
+	resetAll = "Reset everything to Automatic",
 	previewNote = "Phone and tablet layouts fit within this window. Automatic input follows the preview device, or your current device in Automatic preview.",
 	viewingDistance = "Viewing distance",
 	automaticDistance = "Automatic",
@@ -291,6 +292,18 @@ function settings_panel.mount(opts: MountOpts): any
 		previewInput:set(value)
 		return true
 	end
+	-- one press back to Automatic: the preview's own reset, then the choices shown
+	local function resetAll(): boolean
+		if opts.preview == nil then
+			return false
+		end
+		opts.preview.reset()
+		previewProfile:set("automatic")
+		previewOrientation:set("portrait")
+		previewInput:set("automatic")
+		setDistance("automatic")
+		return true
+	end
 	if opts.preview ~= nil then
 		local function picker(id, label, selected, values, onChange, enabled)
 			local options = {}
@@ -340,6 +353,12 @@ function settings_panel.mount(opts: MountOpts): any
 					setInput,
 					true
 				),
+				UI.Button("ResetAll")({
+					label = COPY.resetAll,
+					onActivate = function()
+						resetAll()
+					end,
+				}),
 				UI.Text("Note")({
 					text = COPY.previewNote,
 					width = UI.fill(),
@@ -387,6 +406,7 @@ function settings_panel.mount(opts: MountOpts): any
 		setPreview = setPreview,
 		setOrientation = setOrientation,
 		setInput = setInput,
+		resetAll = resetAll,
 		viewingDistance = distanceSetting,
 		setViewingDistance = setDistance,
 		-- the live fact's mirror (what the picker shows)

@@ -11960,10 +11960,15 @@ The source is a write sink exposing `set(key, value)` and `batch(body)`.
 - `setProfile(value)`: `automatic`, `desktop`, `phone`, `tablet`, or `tv`.
 - `setOrientation(value)`: `portrait` or `landscape`; affects phone and tablet.
 - `setInput(value)`: `automatic`, `pointer`, `touch`, or `gamepad`.
+- `setTextSize(value)`: `automatic` or an engine text-size name (`Medium`,
+  `Large`, `Larger`, `Largest`), previewed as `preferredTextOffset` from
+  `preferred_text.FALLBACK_OFFSETS`.
+- `setTransparency(value)`: `automatic` or a `preferredTransparency` from 0 to 1.
 - Setters return false for an unknown value. Defaults are automatic profile,
-  portrait orientation, and automatic input.
+  portrait orientation, and automatic input, text size and transparency.
+- `reset()`: every override back to automatic over the latest platform facts.
 - `apply()` reapplies the chosen preview after a demo changes environment facts.
-- `dispose()` restores the latest platform facts. Disconnect the platform binding
+- `dispose()` is `reset()`: it restores the latest platform facts. Disconnect the platform binding
   first when tearing down the host.
 
 Phone and tablet bound the viewport to the existing device-profile dimensions,
