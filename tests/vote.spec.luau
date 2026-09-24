@@ -191,6 +191,19 @@ describe("Vote: read-only, disabled and composition", function()
 		expect(w.pres.focus.focusOn(option(w, "down"))).toBe(false)
 	end)
 
+	it("a readOnly vote keeps the interactive strip's rung height", function()
+		local heights = {}
+		for _, readOnly in { false, true } do
+			for _, rung in { "compact", "large" } do
+				local w = mount({ value = "up", readOnly = readOnly, controlSize = rung, onChange = function() end })
+				heights[`{readOnly}/{rung}`] = w.adapter.node(option(w, "up")).rect.h
+			end
+		end
+		expect(heights["true/compact"]).toBe(heights["false/compact"])
+		expect(heights["true/large"]).toBe(heights["false/large"])
+		expect(heights["true/compact"] < heights["true/large"]).toBe(true)
+	end)
+
 	it("a readOnly vote without onChange refuses to become interactive", function()
 		local readOnly = Compose.cell(true)
 		local w = mount({ value = "down", readOnly = readOnly })

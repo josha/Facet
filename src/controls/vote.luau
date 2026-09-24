@@ -131,6 +131,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	-- the same icons, the caller's choice plated, and nothing to press
+	-- the informational marks take the strip's rung, so both forms are one size
+	local markBox = vocabulary.deriveSize("UI.Vote", spec.controlSize, function(rung)
+		return { type = "minMax", min = vocabulary.metricPath(rung, "height") or "targetSizes.minimum" }
+	end) or { type = "minMax", min = "targetSizes.minimum" }
 	local function informational(): any
 		local marks: { any } = {}
 		for i, option in OPTIONS do
@@ -139,8 +143,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				-- the strip's own segment ids, so both forms read alike
 				UI.ZStack({
 					id = `Opt{i}`,
-					width = { type = "minMax", min = "targetSizes.minimum" },
-					height = { type = "minMax", min = "targetSizes.minimum" },
+					width = markBox,
+					height = markBox,
 					alignH = "center",
 					alignV = "center",
 					children = { require("./label").icon(UI, option.icon) },
