@@ -2101,6 +2101,15 @@ function sheet_model.build(opts: BuildOpts): Model
 		end
 	end
 
+	-- a mark's icon art (the checkbox tick) is lettered like its glyph, after every
+	-- icon and on-plate tint it has to beat
+	if selectionMarks then
+		push({
+			name = "Selection mark — icon",
+			selector = `.{sheet_model.TAGS.selectionMark} > .{chrome_slots.ICON_PICTURE_TAG}`,
+			props = { ImageColor3 = "$OnSelection" },
+		})
+	end
 	projectContentRules(rules)
 	-- Explicit partner lettering wins over both name tint and generated-owner color.
 	emitStatusIconTint(function(rule: Rule)
@@ -4159,6 +4168,13 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				props = { ImageColor3 = entry[2] },
 			})
 		end
+	end
+	if authoredSelection(package.style.themes) then
+		emit("chrome", {
+			name = "Selection mark — icon",
+			selector = `.{sheet_model.TAGS.selectionMark} > .{chrome_slots.ICON_PICTURE_TAG}`,
+			props = { ImageColor3 = "$OnSelection" },
+		})
 	end
 
 	emit("disabled", {
