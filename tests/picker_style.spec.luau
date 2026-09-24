@@ -730,3 +730,40 @@ describe("Picker style: badge and sectionTitle reach the menu engine", function(
 		end
 	end)
 end)
+
+-- DENSE POINTER ROWS (owner ruling 2026-09-24): a theme's `targetSizes.pointer`
+-- is the picker menu's row pitch while the input is pointer-only
+describe("Picker menu rows under a dense pointer theme", function()
+	it("rows take the pointer floor with no overlap, and touch arriving grows them back", function()
+		local snapshot = require("../src/themes/snapshot")
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "dense", displayName = "Dense", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { targetSizes = { minimum = 44, pointer = 28 } },
+		})
+		local w, picker = mount("desktop", { style = "menu" })
+		w.env:set("themeMetrics", snapshot.resolve(pkg))
+		w.pres.refresh()
+		w.adapter.tap(suffixPath(w, "/Trigger") :: string)
+		w.pres.refresh()
+		expect(picker.dump().presentation).toBe("menu")
+		local function pitch(): (string, boolean)
+			local out, previous, overlap = {}, nil, false
+			for _, option in THREE do
+				local path = suffixPath(w, `/Opt-{option.value}`) :: string
+				local hit = w.adapter.hitRectOf(path) or w.adapter.node(path).rect
+				table.insert(out, tostring(math.round(hit.h)))
+				overlap = overlap or (previous ~= nil and hit.y < previous.y + previous.h)
+				previous = hit
+			end
+			return table.concat(out, ","), overlap
+		end
+		local dense, overlap = pitch()
+		expect(dense).toBe("28,28,28")
+		expect(overlap).toBe(false)
+		w.env:set("capabilities", { mouse = true, keyboard = true, touch = true })
+		w.pres.refresh()
+		local grown = pitch()
+		expect(tonumber(string.split(grown, ",")[1]) >= 44).toBe(true)
+	end)
+end)

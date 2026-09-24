@@ -54,6 +54,7 @@
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
 
+local contract = require("../class_contract")
 local guard = require("../spec_guard")
 local selection = require("../selection_model")
 local Compose = require("../vendor/compose/core")
@@ -232,8 +233,25 @@ function menu_recipe.rowHeightFor(presentation: string): string
 		return menu_recipe.INLINE_ROW_HEIGHT
 	end
 	-- a floating menu's rows stack one hairline apart, so each row's footprint
-	-- is the target floor: a compact row's hit expander would cover its neighbour
-	return "targetSizes.minimum"
+	-- is the live hit floor: a compact row's hit expander would cover its
+	-- neighbour. A dense theme lowers it while the input is pointer-only.
+	return "targetSizes.hit"
+end
+
+-- A dense row (the hit floor lowered below the minimum) spends no vertical
+-- inset, so the row IS its pitch; nil elsewhere keeps the Button's own padding.
+function menu_recipe.densePadding(env: any): any
+	if env == nil then
+		return nil
+	end
+	local metrics = env:get("themeMetrics")
+	return function(use)
+		local m = use(metrics)
+		if contract.effectiveHitFloor("Button", m) < m.targetSizes.minimum then
+			return { left = "controls.button.padding", right = "controls.button.padding", top = 0, bottom = 0 }
+		end
+		return nil
+	end
 end
 
 export type Row = {
@@ -272,6 +290,7 @@ export type Row = {
 	selected: any?, -- Readable<boolean>, for a menu that also marks a current value
 	submenu: boolean?, -- true draws the trailing chevron and takes the content form
 	height: (string | number)?, -- the themed row height; defaults to the compact one
+	padding: any?, -- the Button padding (`densePadding`); nil keeps the theme's own
 }
 
 --[[ ONE MENU ROW. `UI` is the blueprint library the caller already holds
@@ -534,6 +553,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 			selected = buttonSelected,
 			width = row.width or { type = "fill", weight = 1 },
 			height = { type = "minMax", min = row.height or "targetSizes.minimum" },
+			padding = row.padding,
 			children = {
 				UI.HStack({
 					wrap = row.wrap,
@@ -561,6 +581,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 			selected = buttonSelected,
 			width = { type = "fill", weight = 1 },
 			height = height,
+			padding = row.padding,
 		}
 	end
 	--[[ THE SUBMENU ROW: a CONTENT button (B-BTN1). The visible label moves into a
@@ -580,6 +601,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 		gap = "xs",
 		width = { type = "fill", weight = 1 },
 		height = height,
+		padding = row.padding,
 		children = {
 			UI.Text({
 				id = "Label",

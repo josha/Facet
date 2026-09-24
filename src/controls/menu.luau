@@ -575,6 +575,9 @@ local function build(Facet, core, spec, owner)
 	local function buildPanel(presentation: string, chain: { string }): any
 		local list = itemsAt(chain)
 		local rowHeight = menuRecipe.rowHeightFor(presentation)
+		local rowPadding = if presentation == "menu"
+			then menuRecipe.densePadding(envForFacts or spec.env or surfaceEnv.find(core))
+			else nil
 		local rows: { any } = {}
 		--[[ THE BACK ROW IS THE SHEET'S ANSWER TO NESTING (brief §2 D2). Under
 			`menu` a submenu is its own floating panel beside its parent, so the parent
@@ -686,6 +689,7 @@ local function build(Facet, core, spec, owner)
 				-- a plain row's label leads, as a badge or shortcut row's does
 				leading = true,
 				height = rowHeight,
+				padding = rowPadding,
 			}
 			if not isCard then
 				table.insert(rows, menuRecipe.row(UI, spec))

@@ -649,7 +649,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				end)
 				else "leading",
 			markHidden = hidden,
-			height = "targetSizes.minimum",
+			height = "targetSizes.hit",
+			padding = menuRecipe.densePadding(envForFacts or spec.env),
 		})
 	end
 	local function optionRow(option, rowScope, currentItem)
