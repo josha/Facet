@@ -13467,8 +13467,8 @@ with the body moves your content one level down, into `Body/Inset`.
 | `isPresented` | Optional caller-owned writable Compose cell of a boolean; needs a presenter |
 | `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss, and Cancel runs no cancel action; the explicit Close button, the caller's own action buttons and `dismiss()` still work |
 | `dragIndicator` | `"automatic"` (default), `"visible"`, or `"hidden"`. Automatic shows the header grip while pointer or touch is available |
-| `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"bottom"`, `"center"`, or `"side"` |
-| `edge` | `"left"` or `"right"` (default); only with `placement = "side"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
+| `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"adaptive"` (as automatic, but a regular-or-wider width with a pointer and no touch docks it on the side edge — a desktop inspector; resolved live), `"bottom"`, `"center"`, or `"side"` |
+| `edge` | `"left"` or `"right"` (default); only with `placement = "side"` or `"adaptive"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
 | `width` | `"automatic"` (default, `controls.alert.maxWidth`), `"narrow"` (`controls.popup.panelWidth`) or `"wide"` (`controls.dialog.wideWidth`): the Dialog presets, bounded by the safe room |
 | `closeButton` | Defaults to true. Independent of `interactiveDismissDisabled` |
 | `header` | Construction-only. Absent shows `title`; a blueprint replaces the title region and sizes itself; `false` removes it. Size and Close stay in every form |

@@ -39,7 +39,7 @@ local KEYS = guard.keySet({
 	"contentInset",
 	"scrollPolicy",
 })
-local PLACEMENTS = { automatic = true, bottom = true, side = true, center = true }
+local PLACEMENTS = { automatic = true, adaptive = true, bottom = true, side = true, center = true }
 -- `request(reason) -> boolean` is the private close-request seam: asked BEFORE
 -- the Close button, Cancel, a dismissing drag or an outside tap tears the sheet
 -- down ("close" | "cancel" | "drag" | "outside"); false keeps the surface, its
@@ -79,10 +79,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		"UI.Sheet.dragIndicator must be automatic | visible | hidden"
 	)
 	local placement = spec.placement or "automatic"
-	assert(PLACEMENTS[placement] == true, "UI.Sheet.placement must be automatic | bottom | side | center")
+	assert(PLACEMENTS[placement] == true, "UI.Sheet.placement must be automatic | adaptive | bottom | side | center")
 	assert(
-		spec.edge == nil or (placement == "side" and (spec.edge == "left" or spec.edge == "right")),
-		"UI.Sheet.edge is left | right, and only with placement = side"
+		spec.edge == nil
+			or ((placement == "side" or placement == "adaptive") and (spec.edge == "left" or spec.edge == "right")),
+		"UI.Sheet.edge is left | right, and only with placement = side | adaptive"
 	)
 	local edge = spec.edge or "right"
 	assert(
@@ -530,15 +531,25 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 		local c = use(classes)
 		return indicator ~= "hidden" and (indicator == "visible" or c.pointer or c.touch)
 	end)
-	-- automatic stays the distance default: ten-foot centred, otherwise bottom
+	-- automatic stays the distance default: ten-foot centred, otherwise bottom.
+	-- adaptive adds the roomy pointer screen: a regular-or-wider width with a
+	-- pointer and no touch takes the side edge (a desktop inspector)
+	local sizeClass = env:get("sizeClass")
 	local function placed(use): string
-		if placement ~= "automatic" then
+		if placement ~= "automatic" and placement ~= "adaptive" then
 			return placement
 		end
-		return if use(distance) == "ten-foot" then "center" else "bottom"
+		if use(distance) == "ten-foot" then
+			return "center"
+		end
+		local c = use(classes)
+		if placement == "adaptive" and use(sizeClass) ~= "compact" and c.pointer and not c.touch then
+			return "side"
+		end
+		return "bottom"
 	end
 	local function transition()
-		if placement == "side" then
+		if placed(read) == "side" then
 			local toward = if edge == "left" then "slide-left" else "slide-right"
 			local from = if edge == "left" then "slide-right" else "slide-left"
 			return { enter = from, exit = toward, distance = vp:peek().w }
@@ -899,7 +910,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				height = Compose.formula(function(use)
 					return { type = "fixed", px = use(paintedHeight) }
 				end),
-				alignH = if placement ~= "side" then "center" elseif edge == "left" then "start" else "end",
+				alignH = Compose.formula(function(use)
+					return if placed(use) ~= "side" then "center" elseif edge == "left" then "start" else "end"
+				end),
 				alignV = Compose.formula(function(use)
 					return if placed(use) == "center" then "center" else "end"
 				end),
@@ -1039,7 +1052,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			presented = handle ~= nil,
 			dragging = dragging:peek(),
 			placement = placed(read),
-			edge = if placement == "side" then edge else nil,
+			edge = if placed(read) == "side" then edge else nil,
 			transition = (function()
 				local motion = transition()
 				return { enter = motion.enter, exit = motion.exit }

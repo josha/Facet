@@ -477,3 +477,25 @@ t.describe("Sheet parts", function()
 		end
 	end)
 end)
+
+t.describe("Sheet adaptive placement", function()
+	local function panelSide(opts: any): (string, number, number)
+		local w, c = mount({ placement = "adaptive" }, opts)
+		local placement = c.dump().placement
+		local panel = rect(w, PANEL)
+		c.dispose()
+		return placement, panel.x + panel.w, panel.x
+	end
+
+	t.it("a roomy pointer screen puts the sheet on the side edge; touch and compact keep the bottom", function()
+		local desktop, right = panelSide({ w = 1200, h = 800, facts = { preferredInput = "KeyboardAndMouse" } })
+		t.expect(desktop).toBe("side")
+		t.expect(right).toBe(1200)
+		t.expect((panelSide({ w = 1200, h = 800, facts = { preferredInput = "Touch" } }))).toBe("bottom")
+		t.expect((panelSide({ w = 390, h = 800, facts = { preferredInput = "KeyboardAndMouse" } }))).toBe("bottom")
+		-- and automatic is unchanged on the same desktop
+		local w, c = mount(nil, { w = 1200, h = 800, facts = { preferredInput = "KeyboardAndMouse" } })
+		t.expect(c.dump().placement).toBe("bottom")
+		c.dispose()
+	end)
+end)
