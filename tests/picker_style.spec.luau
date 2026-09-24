@@ -646,6 +646,36 @@ describe("Picker value alignment", function()
 	end)
 end)
 
+describe("Picker: a start-aligned hugging menu stays inline at any width", function()
+	it('`valueAlignment = "start"` + `sizing = "hug"` puts title and trigger on one line and hugs the pair', function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		local p = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Motion",
+			style = "menu",
+			valueAlignment = "start",
+			sizing = "hug",
+			controlSize = "compact",
+			options = THREE,
+			selected = Compose.cell("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { UI.HStack({ id = "Strip", children = { p.blueprint } }) } }))
+		w.settle(3)
+		local label, trigger = suffixNode(w, "/Row/Label").rect, suffixNode(w, "/Row/Trigger").rect
+		local labelMid, triggerMid = label.y + label.h / 2, trigger.y + trigger.h / 2
+		expect(math.abs(labelMid - triggerMid) <= 1).toBe(true)
+		expect(trigger.x - (label.x + label.w) < 32).toBe(true)
+		expect(suffixNode(w, "/Strip/P+target").rect.w < 400).toBe(true)
+		-- the accessibility sizes still stack it
+		w.env:set("preferredTextOffset", 10)
+		w.settle(3)
+		label, trigger = suffixNode(w, "/Row/Label").rect, suffixNode(w, "/Row/Trigger").rect
+		expect(trigger.y >= label.y + label.h).toBe(true)
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
+end)
+
 describe("Picker style: a navigation link keeps its one-line row", function()
 	it("at a regular width the title and value share one line when they fit", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1400, h = 700 }, preferredInput = "KeyboardAndMouse" })

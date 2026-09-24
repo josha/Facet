@@ -1673,13 +1673,24 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		form row until the text preference needs the second line, and so does a
 		navigation link at any width: it is one full-width row, title leading and
 		value trailing, with no hugging trigger to strand. ]]
+	-- ...unless the title is START-aligned: then it hugs and the value sits right
+	-- after it, so nothing is stranded and the row stays one line at any width
+	local function startAligned(use): boolean
+		local alignment = spec.valueAlignment
+		if Compose.isReadable(alignment) then
+			alignment = use(alignment)
+		end
+		return alignment == "start"
+	end
 	rowAxis = Compose.formula(function(use)
 		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
 		local compact = selectionModel.read(sizeClassSource) == "compact"
 		if Compose.isReadable(sizeClassSource) then
 			compact = use(sizeClassSource) == "compact"
 		end
-		return if (compact or navLink) and (type(offset) ~= "number" or offset < 4) then "x" else "y"
+		return if (compact or navLink or startAligned(use)) and (type(offset) ~= "number" or offset < 4)
+			then "x"
+			else "y"
 	end)
 	local requestedSizing = spec.sizing
 	assert(
@@ -1723,6 +1734,15 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	end)
 	local TRIGGER_FILL = table.freeze({ type = "fill", weight = 1 })
 	local TRIGGER_HUG = table.freeze({ type = "content" })
+	-- a start-aligned form row asked to hug takes its content's width (a toolbar
+	-- `label [value]` pair); every other form row fills its line as before
+	local formWidth = Compose.formula(function(use)
+		return if requestedSizing == "hug"
+				and startAligned(use)
+				and use(rowAxis) == "x"
+			then TRIGGER_HUG
+			else TRIGGER_FILL
+	end)
 	local triggerWidthDim = Compose.formula(function(use)
 		if not pickerMode or navLink then
 			-- the legacy popup and the navigation link are ROWS: they fill
@@ -1967,7 +1987,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		head = UI.VStack({
 			id = "Form",
 			anchor = "topLeft",
-			width = { type = "fill", weight = 1 },
+			width = formWidth,
 			children = {
 				UI.When({ id = "TouchRow", condition = touchPrimary, thenView = touchRowTrigger }),
 				UI.When({
@@ -1979,7 +1999,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 						return UI.AdaptiveStack({
 							id = "Row",
 							axis = rowAxis,
-							width = { type = "fill", weight = 1 },
+							width = formWidth,
 							gap = "s",
 							align = "center",
 							children = { labelView(), boxedTrigger() },
@@ -2006,7 +2026,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	local blueprint = UI.Anchor({
 		id = id,
 		enabled = enabled,
-		width = if pickerMode and not rowForm then triggerWidthDim else { type = "fill", weight = 1 },
+		width = if pickerMode and not rowForm then triggerWidthDim else formWidth,
 		height = if rungHeight ~= nil
 			then rungHeight
 			elseif detached then { type = "minMax", min = TRIGGER_HEIGHT }

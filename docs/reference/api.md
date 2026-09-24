@@ -9933,7 +9933,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `onChange(value)` | Accepted changes only; runs in the selection transaction and must not yield. |
 | `enabled` | Boolean/readable boolean, default true; applies to all choices. |
 | `axis` | Strip styles: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
-| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. The field form (title above the trigger) ignores it. Other styles and unlabeled pickers are unaffected. |
+| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. `end` at a regular or wider width takes the field form (title above the trigger); `start` keeps the one-line row at every width until the accessibility text sizes stack it, and with `sizing = "hug"` the whole `label [value]` pair hugs its content (a toolbar setting). Other styles and unlabeled pickers are unaffected. |
 | `sizing` | `fill` or `hug`, optionally readable. A strip defaults to `fill`; a hugging horizontal strip can live in a ScrollView. A `menu` trigger without a title defaults to `hug` under a pointer (the pop-up button) and `fill` under touch. |
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
