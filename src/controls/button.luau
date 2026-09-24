@@ -492,7 +492,7 @@ local function build(Facet, core, spec, owner)
 			then table.clone(spec.children)
 			else {
 				chromeSlots.attachHint(
-					UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }),
+					UI.Text({ id = "Label", text = spec.label or "", textSize = spec.textSize or "control" }),
 					{ contentOwnerDepth = if imageForm then 3 else 1 }
 				),
 			}
@@ -508,7 +508,7 @@ local function build(Facet, core, spec, owner)
 			table.insert(
 				content,
 				chromeSlots.attachHint(
-					UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }),
+					UI.Text({ id = "Label", text = spec.label or "", textSize = spec.textSize or "control" }),
 					{ contentOwnerDepth = if imageForm then 3 else 1 }
 				)
 			)

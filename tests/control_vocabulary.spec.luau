@@ -1134,3 +1134,23 @@ describe("control plate policy and passive classification", function()
 		expect(tagsOf(w, node.path)["facet-over-media"]).toBe(true)
 	end)
 end)
+
+describe("a Button's textSize reaches the label it draws beside an icon", function()
+	it("icon + label draws the label at the authored role", function()
+		local w = world.new()
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Rows")({
+					UI.Button("Browse")({
+						label = "Browse",
+						icon = "menu",
+						textSize = "label",
+						controlSize = "compact",
+					}),
+				}),
+			})
+		end)
+		expect(propsOf(w, pathOf(w, "Browse/Label")).textSize).toBe(14) -- the label role at Neutral
+	end)
+end)
