@@ -218,7 +218,7 @@ describe("ColorPicker: the well and its panel", function()
 		expect(painted(w, "/Readout/Head/Preview/Plate")).toBe("#FF0000")
 	end)
 
-	it("a tall technique fits the room beside the well: the panel scrolls and never covers it", function()
+	it("a tall technique fits the room around the well: the panel never covers it", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
 		local w = mount(
 			{ value = cell, onChange = change, modes = { "swatches", "brick" } },
@@ -230,8 +230,69 @@ describe("ColorPicker: the well and its panel", function()
 		local well = w.adapter.node(must(w, "/P/Well")).rect
 		local surface = w.adapter.node(must(w, "/Popover-P/Layer/Surface")).rect
 		expect(surface.y + surface.h <= 700).toBe(true)
-		expect(surface.y >= well.y + well.h).toBe(true)
+		expect(surface.y >= well.y + well.h or surface.x >= well.x + well.w).toBe(true)
 		expect(find(w, "/BrickGrid") ~= nil).toBe(true)
+	end)
+
+	it("the panel never covers its well: below, else above, else beside, else shrunk (owner 2026-09-23)", function()
+		-- the room was taken from the platform insets alone, while the placement's
+		-- safe box also keeps the host's chrome band: a panel sized to the larger
+		-- room did not fit there, and the clamp pulled it over its own well
+		local function place(label: string?, view: any, above: number): (any, any, string)
+			local w = world.new({
+				viewport = view,
+				reducedMotion = true,
+				capabilities = POINTER,
+				hostOpts = { keyboardNavigation = true },
+			})
+			w.env:set("appChromeInsets", { top = 120, bottom = 0, left = 0, right = 0 })
+			local UI = w.UI
+			local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+			local alpha = Compose.cell(1)
+			w.present(function()
+				return UI.Screen("S")({
+					padding = 0,
+					UI.VStack("Col")({
+						width = UI.fill(),
+						UI.Box("Above")({ height = { type = "fixed", px = above } }),
+						UI.ColorPicker("P")({
+							label = label,
+							value = cell,
+							onChange = change,
+							alpha = alpha,
+							onAlphaChange = function(v: number)
+								alpha:set(v)
+							end,
+							modes = { "swatches", "spectrum", "sliders", "brick" },
+						}),
+					}),
+				})
+			end)
+			w.settle(3)
+			open(w)
+			local well = w.adapter.node(must(w, "/P/Well")).rect
+			local surface = w.adapter.node(must(w, "/Popover-P/Layer/Surface")).rect
+			local covers = surface.x < well.x + well.w
+				and surface.x + surface.w > well.x
+				and surface.y < well.y + well.h
+				and surface.y + surface.h > well.y
+			local placed = w.pres.anchoredSurfaces().surfaces[1].edge
+			return well, surface, `covers={covers} edge={placed}`
+		end
+		local desk = { x = 0, y = 0, w = 1542, h = 1044 }
+		local _, _, low = place("Kart body", desk, 0)
+		expect(low).toBe("covers=false edge=bottom")
+		local _, _, high = place("Kart body", desk, 520)
+		expect(high).toBe("covers=false edge=top")
+		-- a bare well on a short screen: neither above nor below holds the panel,
+		-- so it hangs beside the well at its full height
+		local short = { x = 0, y = 0, w = 1542, h = 560 }
+		local _, surface, beside = place(nil, short, 120)
+		expect(beside).toBe("covers=false edge=right")
+		-- a full-width well has no side: the panel shrinks into the larger room and scrolls
+		local _, squeezed, shrunk = place("Kart body", short, 120)
+		expect(shrunk).toBe("covers=false edge=bottom")
+		expect(`beside taller {surface.h > squeezed.h}`).toBe("beside taller true")
 	end)
 
 	it("the panel keeps one height across every technique, on a pointer panel and a phone sheet", function()

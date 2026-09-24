@@ -587,6 +587,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local roomPx = Compose.cell(math.huge)
 	local wellPath: string? = nil
 	local wellController: any = nil
+	local wellReservesChrome = true
 	local stick = { x = 0, y = 0 }
 	local stickTimer: any = nil
 	local stickWatch: (() -> ())? = nil
@@ -1744,12 +1745,28 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					and well
 					and view
 				then
-					local insets = env:get("coreSafeInsets"):peek() or {}
+					-- the placement's own safe box (presenter `safeBox`): the larger of the
+					-- platform's and the device's inset per edge, a gutter floor off the
+					-- top, and the host's chrome band when the well's surface keeps it
 					local metrics = env:get("themeMetrics"):peek() or themeSnapshot.neutral()
 					local gap = themeSnapshot.resolveNumber(metrics, "s") or 8
-					local top = view.y + (tonumber(insets.top) or 0)
-					local bottom = view.y + view.h - (tonumber(insets.bottom) or 0)
-					local beside = math.max(well.y - top, bottom - (well.y + well.h)) - gap
+					local function inset(name: string): number
+						local core_ = env:get("coreSafeInsets"):peek() or {}
+						local device = env:get("deviceSafeInsets"):peek() or {}
+						local band = if wellReservesChrome then env:get("appChromeInsets"):peek() or {} else {}
+						local floor = if name == "top" then 0 else gap
+						return math.max(tonumber(core_[name]) or 0, tonumber(device[name]) or 0, floor)
+							+ math.max(0, tonumber(band[name]) or 0)
+					end
+					local top = view.y + inset("top")
+					local bottom = view.y + view.h - inset("bottom")
+					-- below, else above; a well with room BESIDE it for the whole panel
+					-- keeps the full height (the placement hangs it there); else shrink
+					local sideways = well.x - gap - outer.w >= view.x + inset("left")
+						or well.x + well.w + gap + outer.w <= view.x + view.w - inset("right")
+					local beside = if sideways
+						then bottom - top
+						else math.max(well.y - top, bottom - (well.y + well.h)) - gap
 					room = math.max(
 						2 * (themeSnapshot.resolveNumber(metrics, "targetSizes.minimum") or 44),
 						beside - (outer.h - inner.h)
@@ -2021,8 +2038,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		-- where the well is on screen, read live by the panel for its room
 		root = contribution.attach(root, {
-			bindController = function(controller: any)
+			bindController = function(controller: any, reserveAppChrome: boolean?)
 				wellController = controller
+				wellReservesChrome = reserveAppChrome ~= false
 			end,
 			syncGeometry = function(_rectOf: any, node: any?)
 				local function find(n: any): string?
