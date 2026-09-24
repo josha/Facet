@@ -626,6 +626,7 @@ function screen_target.new(opts: Opts?)
 			controlSize = handle.controlSize,
 			appearance = handle.appearance,
 			over = handle.over,
+			onArt = (handle.decorationHint or {}).onArt,
 		})
 		if contentPaint then
 			contentPaint.augment(handle, desired)

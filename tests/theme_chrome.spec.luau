@@ -1043,7 +1043,11 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		local theme = model.themes[1]
 		expect(theme.tokens.ChromeTint.r).toBe(chrome_slots.TINT.rest)
 		expect(theme.tokens.ChromeTintHover.r).toBe(chrome_slots.TINT.hover)
-		expect(theme.tokens.ChromeTintPressed.r).toBe(chrome_slots.TINT.pressed)
+		-- the ladder is the ceiling: a skinned theme presses only as far as its
+		-- labels still read on the art (parchment's stub stops at 0.684), and the
+		-- press still reads as a press
+		local pressed = theme.tokens.ChromeTintPressed.r
+		expect(pressed >= chrome_slots.TINT.pressed and chrome_slots.TINT.rest - pressed >= 0.2).toBe(true)
 		-- and the hover/press rules really do reach a skinned control
 		expect(ruleNamed(model, "Chrome — control hover").props.ImageColor3).toBe("$ChromeTintHover")
 		expect(ruleNamed(model, "Chrome — control pressed").props.ImageColor3).toBe("$ChromeTintPressed")
@@ -2091,5 +2095,112 @@ describe("chrome full bleed: the plate covers the host's own box", function()
 		-- this compensates for
 		expect(string.find(adapterChromeSource, "applyFullBleed(instance, deco", 1, true) ~= nil).toBe(true)
 		expect(string.find(adapterChromeSource, "chrome_slots.fullBleedBox(l, r, t, b)", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("text over another node's plate reads on that plate's art", function()
+	it("the renderer names the plate beneath each unlifted label, and the tag follows", function()
+		local w = require("./lib/world").new()
+		w.present(function()
+			local UI = w.UI
+			return UI.Screen("S")({
+				UI.NumberInput("Laps")({
+					value = w.Compose.cell(""),
+					numericValue = w.Compose.cell(3),
+					placeholder = "Laps",
+					stepButtons = true,
+				}),
+				UI.Picker({
+					id = "D",
+					label = "Driver",
+					style = "menu",
+					selected = w.Compose.cell("a"),
+					options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+				}),
+				UI.background(UI.Text("Stat")({ text = "S1" }), UI.Box("StatPlate")({ surface = "control" })),
+				UI.VStack("Card")({ surface = "raised", UI.Text("Title")({ text = "Card" }) }),
+				UI.Text("Page")({ text = "Plain" }),
+			})
+		end)
+		local function onArt(suffix: string): string
+			for _, path in w.adapter.paths() do
+				if string.sub(path, -#suffix) == suffix then
+					local hint = w.adapter.node(path).decorationHint
+					return `{suffix} {tostring(hint and hint.onArt)}`
+				end
+			end
+			return `{suffix} missing`
+		end
+		-- the field's editor sits on the field's plate (its art is on the Anchor)
+		expect(onArt("/Laps/Input/Row/Field")).toBe("/Laps/Input/Row/Field field")
+		-- a stepper's mark on its button, a picker's value on its trigger
+		expect(onArt("/Increment/Mark")).toBe("/Increment/Mark control")
+		expect(onArt("/Trigger/Value")).toBe("/Trigger/Value control")
+		expect(onArt("/Trigger/Chevron")).toBe("/Trigger/Chevron control")
+		-- an author's label on a `UI.background` plate and inside a raised card
+		expect(onArt("/Stat")).toBe("/Stat control")
+		expect(onArt("/Card/Title")).toBe("/Card/Title panel")
+		-- ...and a label on the page itself sits on no plate at all
+		expect(onArt("/S/Page")).toBe("/S/Page nil")
+		expect(sheet_model.classifyTags({ onArt = "field" })["facet-on-field"]).toBe(true)
+	end)
+
+	it("a skinned package picks every on-art role, icons included, against the art", function()
+		local model = sheet_model.buildPackage(shipping())
+		local want = {
+			[".facet-on-field"] = { TextColor3 = "$OnFieldChrome" },
+			["TextBox.facet-on-field"] = { PlaceholderColor3 = "$OnFieldChromeSecondary" },
+			[".facet-on-field.facet-role-secondary"] = { TextColor3 = "$OnFieldChromeSecondary" },
+			[".facet-on-control"] = { TextColor3 = "$OnControlChrome" },
+			[".facet-on-control.facet-role-strong"] = { TextColor3 = "$OnControlChromeStrong" },
+			[".facet-on-panel"] = { TextColor3 = "$OnPanelChrome" },
+			[".facet-on-panel.facet-role-secondary"] = { TextColor3 = "$OnPanelChromeSecondary" },
+			[".facet-on-control > .facet-chrome-icon"] = { ImageColor3 = "$OnControlChrome" },
+			[".facet-skinned-control > .facet-chrome-icon"] = { ImageColor3 = "$OnControlChrome" },
+		}
+		local index: { [string]: number } = {}
+		for i, rule in model.rules do
+			local props = want[rule.selector]
+			if props ~= nil then
+				for prop, token in props do
+					if rule.props[prop] ~= nil then
+						expect(`{rule.selector} {prop} {rule.props[prop]}`).toBe(`{rule.selector} {prop} {token}`)
+						index[rule.selector .. prop] = i
+					end
+				end
+			end
+			index[rule.name] = index[rule.name] or i
+		end
+		for selector, props in want do
+			for prop in props do
+				expect(`{selector} {prop} {index[selector .. prop] ~= nil}`).toBe(`{selector} {prop} true`)
+			end
+		end
+		-- the role and appearance rules still win over the plate's default
+		expect(index[".facet-on-controlTextColor3"] < index["Link control"]).toBe(true)
+		expect(index[".facet-on-panel.facet-role-secondaryTextColor3"] > index["Secondary text"]).toBe(true)
+		-- ...a flat package has no art, so no rule at all
+		for _, rule in sheet_model.buildPackage(classic()).rules do
+			expect(string.find(rule.selector, "facet-on-", 1, true)).toBeNil()
+		end
+	end)
+
+	it("a skinned Button's generated label and icon take the colour picked for its art", function()
+		local model = sheet_model.buildPackage(shipping())
+		local skinned = ".facet-content-owner-facet-skinned-control"
+		local found = { text = false, icon = false }
+		for _, rule in model.rules do
+			if
+				string.find(rule.selector, skinned, 1, true)
+				and string.find(rule.selector, "facet-role", 1, true) == nil
+			then
+				if rule.props.TextColor3 == "$OnControlChrome" then
+					found.text = true
+				elseif rule.props.ImageColor3 == "$OnControlChrome" then
+					found.icon = true
+				end
+			end
+		end
+		expect(`text {found.text} icon {found.icon}`).toBe("text true icon true")
 	end)
 end)

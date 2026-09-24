@@ -48,7 +48,10 @@ OUT = os.path.join(ROOT, "assets", "themes", "plate-samples.json")
 # replaced the accent fill, and the plate `extra.control` claims to be.
 #
 # `field` is the plate a field's lifted text and placeholder read against, and
-# `badge` the seal a badge's count reads against.
+# `badge` the seal a badge's count reads against. `controlHover`/`controlPressed`
+# are the control recipe's own per-state art, where it declares any, and
+# `panel` the panel art an author's text inside a raised box reads against;
+# `stepper`/`stepperPressed` a stepper's +/- plate at rest and pressed.
 #
 # The slice rect is parsed out of the module, so this table can never drift from
 # the package's own geometry. A badge seal is whole-image art, so its sample is the
@@ -63,6 +66,9 @@ TARGETS = [
             "control": "ornate_button_default",
             "field": "ornate_field",
             "badge": "ornate_bar_center",
+            "controlHover": "ornate_button_hover",
+            "controlPressed": "ornate_button_pressed",
+            "panel": "ornate_panel_fill",
         },
     ),
     (
@@ -73,6 +79,10 @@ TARGETS = [
             "selected": "glossy_selection_selected",
             "control": "glossy_button_default",
             "field": "glossy_field",
+            "controlPressed": "glossy_button_pressed",
+            "panel": "glossy_panel",
+            "stepper": "glossy_stepper_plate_default",
+            "stepperPressed": "glossy_stepper_plate_pressed",
         },
     ),
     (
@@ -83,6 +93,7 @@ TARGETS = [
             "selected": "pixel_plate_selected",
             "control": "pixel_plate_default",
             "field": "pixel_field",
+            "panel": "pixel_panel",
         },
     ),
     (
@@ -93,13 +104,23 @@ TARGETS = [
             "selected": "compact_button_hover",
             "control": "compact_button_default",
             "field": "compact_field",
+            "controlHover": "compact_button_hover",
+            "controlPressed": "compact_button_pressed",
+            "panel": "compact_panel",
+            "stepper": "compact_stepper_plate_default",
+            "stepperPressed": "compact_stepper_plate_pressed",
         },
     ),
     (
         "fantasy-parchment",
         "fantasy_parchment",
         "fantasy-parchment",
-        {"control": "parchment_button", "field": "parchment_field", "badge": "parchment_badge"},
+        {
+            "control": "parchment_button",
+            "field": "parchment_field",
+            "badge": "parchment_badge",
+            "panel": "parchment_panel",
+        },
     ),
 ]
 

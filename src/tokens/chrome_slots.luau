@@ -120,6 +120,12 @@ chrome_slots.TAGS = table.freeze({
 		recipe (`themes/package.lintProperty`) and the package builder holds its own
 		generated rules to that same test. ]]
 	stateDisabled = "facet-state-disabled",
+	-- TEXT ON SOMEBODY ELSE'S PLATE (readability round 2026-09-23). A label that
+	-- is not lifted still paints over art when its plate is an ANCESTOR (a field's
+	-- editor inside the field) or an earlier ZStack layer (`UI.background`). The
+	-- renderer names that plate's slot (`plateBeneath`) and the package's rules
+	-- pick the colour read against its art. + <slot>, on the TEXT node.
+	onArtPrefix = "facet-on-",
 })
 
 -- The decoration child's fixed identity. Named, so a Studio reader can tell a
@@ -957,6 +963,9 @@ export type Hint = {
 		hence one number rather than a pair. Absent (the overwhelmingly common case)
 		means "no host reservation", and the floor grows exactly as it did. ]]
 	footprint: (string | number | { string | number })?,
+	-- the slot of the plate this text node paints over (`plateBeneath`); set by
+	-- the renderer, never by a control
+	onArt: string?,
 }
 
 -- attach(blueprint, hint) -> a NEW frozen blueprint carrying the hint. Mirrors
@@ -1070,6 +1079,9 @@ function chrome_slots.hintKey(hint: Hint?): string
 	if hint.contentOwnerDepth ~= nil then
 		table.insert(parts, "contentOwner=" .. tostring(hint.contentOwnerDepth))
 	end
+	if hint.onArt ~= nil then
+		table.insert(parts, "onArt=" .. hint.onArt)
+	end
 	if type(hint.imageVariants) == "table" then
 		local states = {}
 		for state, entry in hint.imageVariants do
@@ -1079,6 +1091,77 @@ function chrome_slots.hintKey(hint: Hint?): string
 		table.insert(parts, table.concat(states, ","))
 	end
 	return table.concat(parts, "|")
+end
+
+--[[ THE PLATE A TEXT NODE PAINTS OVER (readability round 2026-09-23). A node
+	with no plate of its own sits on the nearest one beneath it: an earlier layer
+	of a ZStack it is in (`UI.background`'s plate), else its parent's plate, and
+	so on up. A scroller or divider is not a face and is looked through; a plate
+	with no slot (`base`, `scrim`) ends the search with no answer. Decided at
+	creation, like the rest of the hint, and memoised per container. ]]
+local PASS_THROUGH: { [string]: boolean } = { scrollbar = true, divider = true }
+local ON_ART_CLASSES: { [string]: boolean } = { Text = true, TextField = true, Button = true }
+
+local function plateOf(node: any): (string | false)?
+	local props = node.props or {}
+	local surface = if type(props.surface) == "string" then props.surface else nil
+	local hint = chrome_slots.readHint(node)
+	local slot = chrome_slots.classify({
+		class = node.class,
+		surface = surface,
+		hasSelection = props.selected ~= nil,
+		hint = if hint ~= nil then hint.slot else nil,
+	})
+	if slot ~= nil and not PASS_THROUGH[slot] then
+		return slot
+	end
+	return if surface ~= nil and surface ~= "plain" then false else nil
+end
+
+local plateUnder: (node: any) -> string | false
+
+-- what a container's CONTENT sits on: its own plate, else what it sits on
+local function contentPlate(node: any): string | false
+	local cached = node.contentPlate
+	if cached == nil then
+		cached = plateOf(node)
+		if cached == nil then
+			cached = plateUnder(node)
+		end
+		node.contentPlate = cached
+	end
+	return cached
+end
+
+function plateUnder(node: any): string | false
+	local parent = node.parent
+	if parent == nil then
+		return false
+	end
+	if parent.class == "ZStack" then
+		local children = parent.children or {}
+		for i = (table.find(children, node) or 1) - 1, 1, -1 do
+			local found = plateOf(children[i])
+			if found ~= nil then
+				return found
+			end
+		end
+	end
+	return contentPlate(parent)
+end
+
+-- the node's hint, carrying `onArt` when it is text over another node's plate
+function chrome_slots.withPlateBeneath(node: any, hint: Hint?): Hint?
+	if not ON_ART_CLASSES[node.class] or plateOf(node) ~= nil then
+		return hint
+	end
+	local slot = plateUnder(node)
+	if slot == false then
+		return hint
+	end
+	local out: any = if hint ~= nil then table.clone(hint) else {}
+	out.onArt = slot
+	return table.freeze(out)
 end
 
 -- ===== 1. classification ===================================================

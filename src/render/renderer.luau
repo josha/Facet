@@ -935,7 +935,7 @@ function renderer.attach(
 				writer of that field would overwrite a memoised `false` with `nil` and let
 				the answer change under a node the adapter had already registered. ]]
 			local createOpts: any = instance_boundary.createOptsFor(node, opts)
-			local hint = chrome_slots.readHint(node)
+			local hint = chrome_slots.withPlateBeneath(node, chrome_slots.readHint(node))
 			-- A STAGE IS NEVER A DECORATION SURFACE (reference-app matrix,
 			-- 2026-08-08). An ornate package's whole-art recipe painted its
 			-- `control` plate OVER a Stage's ViewportFrame — the 3D scene, which

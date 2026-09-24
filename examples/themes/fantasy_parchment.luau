@@ -68,6 +68,8 @@ local DAYLIGHT = {
 		controlArt = rgb(210, 187, 146),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(234, 213, 171),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(218, 200, 162),
 		-- ...and the badge seal's, where its count reads
 		badgeArt = rgb(207, 187, 148),
 		contentSecondary = rgb(110, 92, 66),
@@ -117,6 +119,8 @@ local CANDLELIGHT = {
 		controlArt = rgb(210, 187, 146),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(234, 213, 171),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(218, 200, 162),
 		-- ...and the badge seal's, where its count reads
 		badgeArt = rgb(207, 187, 148),
 		contentSecondary = rgb(196, 176, 142),

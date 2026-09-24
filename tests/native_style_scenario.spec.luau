@@ -310,7 +310,14 @@ describe("screen_target: the image IS the button (source contract)", function()
 		-- read into a local because the same value also keys the recycle pool. The
 		-- contract this guards is unchanged — construction-time, never a later setter
 		-- — so both halves are asserted rather than one exact spelling.
-		expect(string.find(renderer, "local hint = chrome_slots.readHint(node)", 1, true) ~= nil).toBe(true)
+		expect(
+			string.find(
+				renderer,
+				"local hint = chrome_slots.withPlateBeneath(node, chrome_slots.readHint(node))",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
 		expect(
 			string.find(renderer, "adapter.create(rootHandle, node.path, node.class, hint, createOpts)", 1, true) ~= nil
 		).toBe(true)

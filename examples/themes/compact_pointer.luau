@@ -82,8 +82,15 @@ local AQUA = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(246, 246, 249),
+		-- ...and its own hover/pressed art (and a stepper's pressed plate), where
+		-- the same labels have to keep reading
+		controlArtHover = rgb(240, 246, 254),
+		controlArtPressed = rgb(219, 222, 230),
+		stepperArtPressed = rgb(219, 222, 230),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(255, 255, 255),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(247, 248, 250),
 		contentSecondary = rgb(96, 104, 116),
 		hairline = rgb(140, 148, 160),
 		hairlineOpacity = 0.9,

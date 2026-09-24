@@ -55,6 +55,7 @@ detail and every behaviour or path change.
 - All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
 - Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
 - Every lifted label on skinned art (a control's plain, strong, secondary, cancel and destructive text, a field's text and placeholder, a badge's count) takes its role's colour where it clears 4.5:1 on the sampled art, else the next of the content ramp that does. Packages declare `extra.fieldArt` and `extra.badgeArt` beside `controlArt` (`a` < 1 for art that lets the panel through); the generated lifts carry the picks, so they no longer out-rank them with the flat colours.
+- Text that is not lifted but paints over skinned art — a field's editor text and placeholder, a stepper's mark, a picker's value, an author's label inside a skinned box or on a `UI.background` plate — takes the colour picked for that art (the renderer tags it `facet-on-<slot>`), and so does an icon picture on art. Hover and pressed tints on skinned art now keep every label on it readable (each state tint moves only as far as its labels still clear 4.5:1), role-tinted art keeps its role through hover and press, and a stepper's pressed plate picks its own label. Packages declare `extra.panelArt` and any per-state control art (`controlArtHover`/`controlArtPressed`, `stepperArtPressed`).
 
 ### Semantic status colors
 

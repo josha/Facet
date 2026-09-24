@@ -226,6 +226,8 @@ local QUEST = {
 		controlArt = rgb(168, 114, 47),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(58, 44, 79),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(58, 44, 79),
 		-- the wood is mid-tone: no label colour clears 4.5:1 on it in every state,
 		-- so every lifted label wears a thin INK backing
 		chromeTextStroke = 0,

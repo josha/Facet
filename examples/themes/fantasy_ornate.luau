@@ -115,8 +115,14 @@ local GRAND_HALL = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(55, 27, 44),
+		-- ...and its own hover/pressed art (and a stepper's pressed plate), where
+		-- the same labels have to keep reading
+		controlArtHover = rgb(73, 37, 56),
+		controlArtPressed = rgb(25, 12, 21),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(30, 20, 28),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(42, 20, 35),
 		-- ...and the badge seal's, where its count reads (it lets the panel through)
 		badgeArt = { r = 175 / 255, g = 145 / 255, b = 89 / 255, a = 0.79 },
 		contentSecondary = rgb(206, 186, 148),
@@ -163,8 +169,14 @@ local CRYPT = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(55, 27, 44),
+		-- ...and its own hover/pressed art (and a stepper's pressed plate), where
+		-- the same labels have to keep reading
+		controlArtHover = rgb(73, 37, 56),
+		controlArtPressed = rgb(25, 12, 21),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(30, 20, 28),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(42, 20, 35),
 		-- ...and the badge seal's, where its count reads (it lets the panel through)
 		badgeArt = { r = 175 / 255, g = 145 / 255, b = 89 / 255, a = 0.79 },
 		contentSecondary = rgb(168, 184, 200),
