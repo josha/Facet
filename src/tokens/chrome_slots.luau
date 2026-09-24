@@ -1161,6 +1161,32 @@ function chrome_slots.withPlateBeneath(node: any, hint: Hint?): Hint?
 	end
 	local out: any = if hint ~= nil then table.clone(hint) else {}
 	out.onArt = slot
+	--[[ ...AND TEXT ON A SELECTION ROW FOLLOWS THAT ROW'S STATE (owner 2026-09-23).
+		A selection plate changes its art when selected (Pixel Quest: wood to gilt),
+		so a colour picked once cannot read on both: the label joins its row as
+		generated content, whose tags follow the row's (`facet-selected` among them)
+		and so take the row's own `Selected row` pairing, `$OnSelected`. A text that
+		names its own role keeps it (an authored accessory is not the row's label). ]]
+	if
+		slot == "selection"
+		and out.contentOwnerDepth == nil
+		and type(node.path) == "string"
+		and (node.props == nil or node.props.role == nil)
+	then
+		local owner = node.parent
+		while owner ~= nil and plateOf(owner) == nil do
+			owner = owner.parent
+		end
+		if
+			owner ~= nil
+			and owner.class == "Button"
+			and plateOf(owner) == "selection"
+			and type(owner.path) == "string"
+		then
+			local _, below = string.gsub(string.sub(node.path, #owner.path + 1), "/", "")
+			out.contentOwnerDepth = below
+		end
+	end
 	return table.freeze(out)
 end
 

@@ -2145,6 +2145,52 @@ describe("text over another node's plate reads on that plate's art", function()
 		expect(sheet_model.classifyTags({ onArt = "field" })["facet-on-field"]).toBe(true)
 	end)
 
+	it("text on a selection row follows the row's state: it joins the row as its content (owner)", function()
+		-- Pixel Quest's selection plate turns from wood to gilt when selected, so the
+		-- cream label that read on the wood sat on the gilt: the label must take the
+		-- row's `Selected row` pairing, which a content follower's tags carry
+		local w = require("./lib/world").new()
+		w.present(function()
+			local UI = w.UI
+			return UI.Screen("S")({
+				UI.Picker({
+					id = "R",
+					style = "radioGroup",
+					selected = w.Compose.cell("a"),
+					options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+				}),
+				UI.Toggle("Night")({ label = "Night races", value = w.Compose.cell(true), presentation = "checkbox" }),
+			})
+		end)
+		local found = 0
+		for _, path in w.adapter.paths() do
+			local hint = w.adapter.node(path).decorationHint
+			if hint ~= nil and hint.onArt == "selection" and w.adapter.node(path).class == "Text" then
+				local depth = hint.contentOwnerDepth
+				local owner = path
+				for _ = 1, depth or 0 do
+					owner = string.match(owner, "^(.*)/[^/]+$") or ""
+				end
+				local node = w.adapter.node(owner)
+				expect(`{path} owner {depth ~= nil and node ~= nil and node.class}`).toBe(`{path} owner Button`)
+				found += 1
+			end
+		end
+		expect(found >= 3).toBe(true)
+		-- ...and the row's own Selected-row pairing reaches its content
+		local model = sheet_model.buildPackage(shipping())
+		local projected = false
+		for _, rule in model.rules do
+			if
+				string.find(rule.selector, "facet-content-owner-facet-selected", 1, true) ~= nil
+				and rule.props.TextColor3 == "$OnSelected"
+			then
+				projected = true
+			end
+		end
+		expect(projected).toBe(true)
+	end)
+
 	it("a skinned package picks every on-art role, icons included, against the art", function()
 		local model = sheet_model.buildPackage(shipping())
 		local want = {
