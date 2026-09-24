@@ -275,6 +275,30 @@ describe("ColorPicker: the well and its panel", function()
 		end
 	end)
 
+	it("the panel's height follows its room, never a height it once measured (owner 2026-09-23)", function()
+		-- the hidden techniques' reservation was capped at the body's MEASURED
+		-- height, which the cap itself produced: once a smaller room (a rotation, a
+		-- preview, an early solve) set it, the tall technique pushed the panel on
+		-- every later switch
+		local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+		local modes = { "swatches", "spectrum", "sliders", "brick" }
+		local w = mount({ value = cell, onChange = change, modes = modes })
+		open(w)
+		local function height(): number
+			return w.adapter.node((string.gsub(must(w, "/Technique"), "/Technique$", ""))).rect.h
+		end
+		local before = height()
+		w.env:set("viewportRect", { x = 0, y = 0, w = 900, h = 420 })
+		w.settle(3)
+		w.env:set("viewportRect", { x = 0, y = 0, w = 900, h = 900 })
+		w.settle(3)
+		for i = 1, #modes do
+			w.adapter.tap(must(w, `/Modes/Indicator/Options/Opt{i}`))
+			w.settle(3)
+			expect(`{modes[i]} {height()}`).toBe(`{modes[i]} {before}`)
+		end
+	end)
+
 	it("an accepted swatch commits once, marks the cell, and the swatch grid walks in two dimensions", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
 		local commits = {}

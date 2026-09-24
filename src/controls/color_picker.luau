@@ -577,7 +577,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- how far above the plane a finger's bubble may rise: to the top of the room
 	-- the panel shows (its scrolling body, or the inline panel), set on sync
 	local bubbleRoom = Compose.cell(0)
-	-- the scrolling body's measured height: a hidden technique reserves no more
+	-- the room the scrolling body may take: a hidden technique reserves no more
 	-- than it, so a short one never scrolls into a tall one's blank reservation
 	local bodyRoom = Compose.cell(math.huge)
 	local focusedPath = Compose.cell(nil :: string?)
@@ -1476,7 +1476,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			ZStack, the inactive ones `hidden` — laid out, unpainted, out of focus and
 			off the tap path — so the body measures them all at the width it is given
 			and keeps the tallest; a shorter technique sits at its top. In a scrolling
-			body a hidden one reserves at most the body's own height: the tallest
+			body a hidden one reserves at most the room the body may take: the tallest
 			still holds the panel still, and a short one has nothing below it to
 			scroll to. ]]
 		local techniques: { any } = {}
@@ -1699,9 +1699,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				local r = if planePath ~= nil then rectOf(planePath) else nil
 				planeRect:set(r)
 				local room = rectOf(if overlay then `{node.path}/Body` else node.path)
-				if overlay and room ~= nil and room.h ~= bodyRoom:peek() then
-					bodyRoom:set(room.h)
-				end
 				local above = if r ~= nil and room ~= nil then math.max(0, r.y - room.y) else 0
 				if above ~= bubbleRoom:peek() then
 					bubbleRoom:set(above)
@@ -1774,6 +1771,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				if room ~= roomPx:peek() then
 					roomPx:set(room)
+				end
+				-- the body's room is the panel's less the rows around the body, never
+				-- the body's own measured height: that one the cap itself makes, so a
+				-- smaller room seen once would stick and the tall technique would push
+				local panelRect = rectOf(node.path)
+				local bodyRect = rectOf(bodyPath)
+				local spare = if room ~= math.huge
+						and panelRect ~= nil
+						and bodyRect ~= nil
+					then math.max(0, room - (panelRect.h - bodyRect.h))
+					else math.huge
+				if overlay and spare ~= bodyRoom:peek() then
+					bodyRoom:set(spare)
 				end
 				-- the native detector drives the same begin/move/end, once per plane node;
 				-- a plane that left (another tab) detaches, so its return re-attaches
