@@ -158,7 +158,15 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if spec.title ~= nil then
 			table.insert(
 				copy,
-				UI.Text({ id = "Title", text = spec.title, textSize = "label", width = UI.fill(), tint = lettering })
+				UI.Text({
+					id = "Title",
+					text = spec.title,
+					textSize = "label",
+					width = UI.fill(),
+					tint = lettering,
+					-- a title cut by a narrow plate keeps its full value one gesture away
+					disclose = true,
+				})
 			)
 		end
 		table.insert(copy, UI.Text({ id = "Message", text = spec.message, width = UI.fill(), tint = lettering }))
