@@ -937,6 +937,7 @@ require("./progress_reduced_motion.spec")
 require("./theme_package.spec")
 require("./theme_snapshot.spec")
 require("./theme_roles.spec")
+require("./theme_optional_roles.spec")
 require("./theme_drift.spec")
 -- roadmap Step 10: the same rule for the TUTORIAL EXAMPLES, and property-aware
 -- rather than a number ban — an invented `surface` token is as much a bypass as

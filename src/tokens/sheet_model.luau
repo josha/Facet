@@ -746,6 +746,10 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		ControlSelectedHover = color(sheet_model.selectedHoverColor(x)),
 		ContentSecondary = color(x.contentSecondary),
 		Hairline = color(x.hairline),
+		-- optional roles: unauthored, each is the colour its consumers painted before
+		Selection = color(x.selection or c.accent),
+		OnSelection = color(x.onSelection or c.onAccent),
+		Scrim = color(x.scrim or c.surface),
 		-- precomputed accent interaction states (bespoke path computes these
 		-- with Color3:Lerp at the edge; the sheet needs them as real tokens)
 		AccentHover = lerp(c.accent, WHITE, 0.12),
@@ -1477,6 +1481,8 @@ local TINT_ROLE_TOKEN: { [string]: string } = {
 	onSelected = "$OnSelected",
 	danger = "$Danger",
 	hairline = "$Hairline",
+	selection = "$Selection",
+	onSelection = "$OnSelection",
 }
 
 function sheet_model.build(opts: BuildOpts): Model
@@ -1706,7 +1712,7 @@ function sheet_model.build(opts: BuildOpts): Model
 		{
 			name = sheet_model.SCRIM_RULE,
 			selector = "." .. S .. "scrim",
-			props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(numbers.ScrimTransparency) },
+			props = { BackgroundColor3 = "$Scrim", BackgroundTransparency = num(numbers.ScrimTransparency) },
 		},
 		{
 			name = "Grip focus",
@@ -2172,6 +2178,9 @@ local function effectiveExtra(theme: any): any
 	fill("controlSelected", lerp(x.control, c.accent, 0.35))
 	fill("contentSecondary", lerp(c.content, c.surface, 0.35))
 	fill("hairline", { r = 1, g = 1, b = 1 })
+	fill("selection", c.accent)
+	fill("onSelection", c.onAccent)
+	fill("scrim", c.surface)
 	fill("scrimOpacity", 0.45)
 	fill("hairlineOpacity", 0.92)
 	-- shared with the rung-2 adapter path so the accessibility floor is ONE number
@@ -2366,9 +2375,9 @@ function sheet_model.togglePalette(theme: any): any
 		return { r = v.r, g = v.g, b = v.b }
 	end
 	return {
-		trackOn = rgb(c.accent),
+		trackOn = rgb(x.selection),
 		trackOff = rgb(x.controlPressed),
-		knobOn = rgb(c.onAccent),
+		knobOn = rgb(x.onSelection),
 		knobOff = rgb(c.content),
 	}
 end
@@ -3051,7 +3060,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	emit("surfaces", {
 		name = sheet_model.SCRIM_RULE,
 		selector = "." .. S .. "scrim",
-		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(baseExtra.scrimOpacity) },
+		props = { BackgroundColor3 = "$Scrim", BackgroundTransparency = num(baseExtra.scrimOpacity) },
 	})
 
 	-- roles

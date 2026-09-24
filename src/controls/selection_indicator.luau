@@ -516,7 +516,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- A pill fills its themed surface; an underline is a tint rule. The default
 	-- pill keeps the palette fill paired with its label, while an explicit surface
 	-- opts into that surface's ordinary chrome.
-	local UNDERLINE_TINT = table.freeze({ role = "accent", blend = 1 })
+	local UNDERLINE_TINT = table.freeze({ role = "selection", blend = 1 })
 	--[[ THE CORNER, AND WHICH SEGMENT DECIDES IT. `corner` is the uniform answer
 		and has always been; `segmentCorners` is the per-index one, and it is a
 		BOUND prop rather than a `UI.corners` wrap because the answer changes with

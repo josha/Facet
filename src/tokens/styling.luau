@@ -528,6 +528,10 @@ local TINT_ROLES: { string } = {
 	"onSelected",
 	"danger",
 	"hairline",
+	-- the ink an ON or chosen indicator paints and its readable partner; a theme
+	-- that authors neither gets its accent pair
+	"selection",
+	"onSelection",
 }
 styling.TINT_ROLES = table.freeze(TINT_ROLES)
 
