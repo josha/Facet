@@ -304,7 +304,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	-- a step is a Button when it may be selected, else plain content. That SHAPE
 	-- (and whether it has a description) is the row's key; everything else is live
-	local function stepView(entry: any, width: any, idPrefix: string): any
+	local function stepView(entry: any, width: any, idPrefix: string, height: any): any
 		local span = if width.type == "hug" then UI.hug() else UI.fill()
 		local children = {
 			cue(entry.id),
@@ -318,7 +318,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					return if step ~= nil then step.label else entry.id
 				end,
 				width = width,
+				height = height,
 				align = "start",
+				alignV = "start",
+				-- the informational step's inset, so every label starts on one line
+				padding = "xs",
 				controlSize = spec.controlSize,
 				surface = "plain",
 				children = children,
@@ -330,6 +334,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return UI.HStack({
 			id = `{idPrefix}{entry.id}`,
 			width = width,
+			height = height,
 			gap = "s",
 			align = "start",
 			padding = "xs",
@@ -353,7 +358,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		return out
 	end)
-	local function stepsRegion(regionId: string, width: any, idPrefix: string): any
+	local function stepsRegion(regionId: string, width: any, idPrefix: string, height: any): any
 		return UI.ForEach({
 			id = regionId,
 			items = entries,
@@ -361,7 +366,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				return entry.key
 			end,
 			row = function(entry: any): any
-				return stepView(entry, width, idPrefix)
+				return stepView(entry, width, idPrefix, height)
 			end,
 		})
 	end
@@ -406,7 +411,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			width = UI.fill(),
 			gap = "xs",
 			align = "start",
-			children = { stepsRegion("Steps", width, "Step-") },
+			-- one height for every cell (the tallest), content at the top: the
+			-- underline under any current step then sits on the same line (owner)
+			children = { stepsRegion("Steps", width, "Step-", UI.fill()) },
 		})
 		local indicator = selectionIndicator.build(Facet, core, {
 			id = "Underline",

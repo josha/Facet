@@ -104,6 +104,33 @@ describe("StepIndicator: the row", function()
 		expect(#asked).toBe(2)
 	end)
 
+	it("the row's cells share one height and a top edge, so the underline stays on one line (owner)", function()
+		local current = Compose.cell("ship")
+		local w = mount({
+			steps = workflow(),
+			current = current,
+			onSelect = function(id: string)
+				current:set(id)
+			end,
+		})
+		local ids = { "cart", "ship", "pay", "done" }
+		local first = w.adapter.node(find(w, "/Step-cart") :: string).rect
+		local label = w.adapter.node((find(w, "/Step-cart") :: string) .. "/Copy/Label").rect
+		for _, stepId in ids do
+			local path = find(w, `/Step-{stepId}`) :: string
+			local r = w.adapter.node(path).rect
+			local l = w.adapter.node(path .. "/Copy/Label").rect
+			expect(`{stepId} {r.y} {r.h} {l.y}`).toBe(`{stepId} {first.y} {first.h} {label.y}`)
+		end
+		local bar0 = w.adapter.node(find(w, "/Underline/Layer/Bar") :: string).rect
+		for _, stepId in { "cart", "pay", "ship" } do
+			current:set(stepId)
+			w.settle(3)
+			local b = w.adapter.node(find(w, "/Underline/Layer/Bar") :: string).rect
+			expect(`{stepId} {b.y} {b.h}`).toBe(`{stepId} {bar0.y} {bar0.h}`)
+		end
+	end)
+
 	it("an errored or completed current step keeps its own cue and state word", function()
 		local steps = workflow()
 		steps[2].state = "error"
