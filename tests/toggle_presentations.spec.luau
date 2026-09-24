@@ -747,3 +747,58 @@ t.describe("Toggle bound width", function()
 		end
 	end)
 end)
+
+t.describe("a plain Toggle is a bare row", function()
+	t.it(
+		"a plain compact checkbox paints no plate or wash, labels at its type role, and still toggles by tap",
+		function()
+			local w = world.new({ viewport = { x = 0, y = 0, w = 400, h = 300 } })
+			local UI = w.UI
+			local value = Compose.cell(false)
+			w.present(function()
+				return UI.Screen("S")({
+					UI.VStack("Col")({
+						UI.Toggle("Box")({
+							label = "Reduced motion",
+							presentation = "checkbox",
+							appearance = "plain",
+							controlSize = "compact",
+							textSize = "label",
+							width = UI.hug(),
+							value = value,
+						}),
+					}),
+				})
+			end)
+			local row, label
+			for _, path in w.adapter.paths() do
+				if string.match(path, "/Box$") then
+					row = path
+				elseif string.match(path, "/Box/Row/Label$") then
+					label = w.adapter.node(path)
+				end
+			end
+			t.expect(w.adapter.node(row).props.surface).toBe("plain")
+			t.expect(w.adapter.node(row).props.selected).toBeNil()
+			t.expect(w.adapter.node(row).rect.h).toBe(36)
+			t.expect(label.props.textSize).toBe(14)
+			w.adapter.tap(row, { pointer = "touch" })
+			t.expect(value:peek()).toBe(true)
+			t.expect(table.find(w.adapter.tagsOf(row), "facet-selected")).toBeNil()
+		end
+	)
+
+	t.it("the button presentation refuses plain: it IS its plate", function()
+		local w = world.new()
+		t.expect(function()
+			w.scoped(function()
+				return w.UI.Toggle("B")({
+					label = "B",
+					presentation = "button",
+					appearance = "plain",
+					value = Compose.cell(false),
+				})
+			end)
+		end).toThrow("cannot be plain")
+	end)
+end)

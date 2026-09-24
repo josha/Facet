@@ -341,6 +341,9 @@ export type ToggleSpec<V = BooleanSource> = {
 	value: V,
 	mixed: BooleanSource?, -- construction restricts this to checkbox
 	presentation: ("switch" | "checkbox" | "button")?,
+	-- "plain": a bare row (no plate, no selected wash); not for the button presentation
+	appearance: ("standard" | "plain")?,
+	textSize: (string | number)?, -- the label's type role; default "control"
 	children: { bp.Blueprint }?, -- construction restricts this to button
 	enabled: bp.Bound<boolean>?,
 	onChange: ((boolean) -> ())?,

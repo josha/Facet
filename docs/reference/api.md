@@ -8094,7 +8094,12 @@ reading.
 One boolean selection control with `presentation = "switch"` (default),
 `"checkbox"`, or `"button"`. Required `value` is a boolean Compose readable or
 `function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
-`row`, `hint`, `indicatorPosition`, `controlSize`, `width`, and `children` (custom button content only).
+`row`, `hint`, `indicatorPosition`, `controlSize`, `width`, `appearance`, `textSize`, and `children` (custom button content only).
+
+`appearance = "plain"` makes a switch or checkbox a bare row: no plate and no
+selected wash, so the indicator alone carries the state (a toolbar checkbox beside
+compact dropdowns). The button presentation refuses it — its plate is the state.
+`textSize` is the label's type role (default `"control"`); a hint keeps `"label"`.
 
 Use a Toggle for one setting that is on or off and takes effect at once. For a
 compact filter tag in a row of tags, use `UI.Chip`; for one choice from three

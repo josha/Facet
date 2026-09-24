@@ -28,6 +28,8 @@ local KEYS = guard.keySet({
 	"indicatorPosition",
 	"controlSize",
 	"width",
+	"appearance",
+	"textSize",
 })
 
 local DISPLAY_ONLY_META = table.freeze({ displayOnly = true })
@@ -78,6 +80,17 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 			.. `(got '{tostring(spec.indicatorPosition)}')`
 	)
 	vocabulary.assertSize("UI.Toggle", spec.controlSize)
+	assert(
+		spec.appearance == nil or spec.appearance == "standard" or spec.appearance == "plain",
+		`UI.Toggle: \`appearance\` must be standard | plain (got '{tostring(spec.appearance)}')`
+	)
+	assert(
+		spec.appearance ~= "plain" or presentation ~= "button",
+		"UI.Toggle: the button presentation IS its plate, so it cannot be plain"
+	)
+	-- a plain row paints no plate and no selected wash: the indicator carries the state
+	local plain = spec.appearance == "plain"
+	local labelSize = spec.textSize or "control"
 	local UI = Facet.UI
 	local width = if spec.width ~= nil
 		then Compose.formula(function(use)
@@ -251,7 +264,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 	end
 
 	local function labelColumn(): any
-		local title = UI.Text({ id = "Label", text = spec.label or "", textSize = "control", width = contentWidth })
+		local title = UI.Text({ id = "Label", text = spec.label or "", textSize = labelSize, width = contentWidth })
 		if spec.hint == nil then
 			return title
 		end
@@ -271,7 +284,8 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 	if spec.row then
 		assert(spec.row.value == nil, "Toggle.row: value is supplied by the toggle")
 		props.width = rowWidth
-		props.selected = selected
+		props.selected = if plain then nil else selected
+		props.surface = if plain then "plain" else nil
 
 		local mark = indicatorFor()
 
@@ -296,7 +310,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 		-- left of every Button and Slider row. The mark carries the state; the
 		-- sheet's `.facet-selected > .facet-chrome-control` rule still lights it.
 		blueprint = chrome.attachHint(UI.Button(props), { slot = "control" })
-	elseif presentation == "switch" and spec.hint == nil and side == "trailing" then
+	elseif presentation == "switch" and spec.hint == nil and side == "trailing" and not plain then
 		props.value = spec.value
 		props.width = width
 		blueprint = UI.Toggle(props)
@@ -306,7 +320,8 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 		props.children = spec.children
 		blueprint = UI.Button(props)
 	else
-		props.selected = selected
+		props.selected = if plain then nil else selected
+		props.surface = if plain then "plain" else nil
 		props.width = rowWidth
 		local parts: { any } = { labelColumn() }
 		local mark = indicatorFor()
@@ -353,6 +368,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 			hint = selection.read(spec.hint),
 			indicatorPosition = side,
 			controlSize = selection.read(spec.controlSize),
+			appearance = spec.appearance or "standard",
 			width = if width and width:peek() then width:peek().type else nil,
 		}
 	end
