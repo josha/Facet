@@ -1470,6 +1470,9 @@ local UNSWEEPABLE: { [string]: string } = {
 	PopupButtonShim = "the DEPRECATED name of the picker menu engine (picker round 2026-09-11): src/controls/popup_button.luau "
 		.. "re-exports picker_menu.build and mounts nothing of its own; the engine is swept through the `Picker` "
 		.. "fixture (the automatic style is the menu family on the sweep's touch phone) at every preference",
+	BadgeSeal = "the count seal builder (Badge placement A): it returns the seal a menu row, a tab icon and "
+		.. "`UI.badged` mount, so it is swept through the `Menu-panel` and `Picker` fixtures (their rows and "
+		.. "icon tabs wear it) and the Badge showcase section, never on its own",
 	MenuRecipe = "the ROW half of every menu (navigation-and-menus D2): it returns the blueprints Menu, PopupButton "
 		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
 		.. "at every preference and in both reference themes — rather than three times",
