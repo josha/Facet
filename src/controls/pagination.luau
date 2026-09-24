@@ -412,11 +412,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 	end)
 	--[[ THE LABEL HOLDS ITS WIDTH (owner 2026-09-23): the arrows beside it must not
-		move as "Page 9" becomes "Page 10". The box is the widest label the count
-		can produce — every digit the widest one — and an unknown count reserves
-		UNKNOWN_DIGITS digits (pages past 9999 widen the row once more). ]]
+		move as "Page 9" becomes "Page 10". A hidden twin (laid out, unpainted)
+		carries the widest label the count can produce — every digit the widest one
+		— so the engine measures the reservation with the words it draws; an unknown
+		count reserves UNKNOWN_DIGITS digits (past 9999 the row widens once more). ]]
 	local UNKNOWN_DIGITS = 4
-	local labelWidth = ownedFormula(owner, function(use)
+	local widestLabel = ownedFormula(owner, function(use)
 		local st = use(state)
 		local metrics, facts = measure(use)
 		local digit, widest = "0", -1
@@ -427,23 +428,25 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 		end
 		local count = st.count
-		local digits = if count ~= nil then #tostring(math.max(count, 1)) else UNKNOWN_DIGITS
-		local most = string.rep(digit, digits)
-		local text = if count ~= nil then `Page {most} of {count}` else `Page {most}`
-		local px = math.max(alert.labelWidth(metrics, facts, text), alert.labelWidth(metrics, facts, labelOf(st)))
-		-- a whole pixel of slack each side: the engine's own measure may round up
-		return { type = "fixed", px = math.ceil(px) + 2 }
+		local most = string.rep(digit, if count ~= nil then #tostring(math.max(count, 1)) else UNKNOWN_DIGITS)
+		return if count ~= nil then `Page {most} of {count}` else `Page {most}`
 	end)
 	local function row(entry: any): any
 		if entry.kind == "label" then
-			return UI.Text({
-				id = "Context",
-				text = Compose.formula(function(use)
-					return labelOf(use(state))
-				end),
-				textSize = "control",
-				textAlign = "center",
-				width = labelWidth,
+			return UI.ZStack({
+				id = "ContextBox",
+				children = {
+					UI.Text({ id = "Reserve", text = widestLabel, textSize = "control", hidden = true }),
+					UI.Text({
+						id = "Context",
+						text = Compose.formula(function(use)
+							return labelOf(use(state))
+						end),
+						textSize = "control",
+						textAlign = "center",
+						width = UI.fill(),
+					}),
+				},
 			})
 		elseif entry.kind == "gap" then
 			return UI.Text({ id = `Gap-{entry.key}`, text = ELLIPSIS, textSize = "control", role = "secondary" })
