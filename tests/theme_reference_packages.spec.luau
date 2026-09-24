@@ -1381,7 +1381,7 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 			"compact-pointer/Aqua destructive 4.55 | fantasy-ornate/Crypt badge 4.63 | "
 				.. "fantasy-ornate/Grand Hall badge 4.64 | fantasy-parchment/Candlelight cancel.hover 4.56 | "
 				.. "fantasy-parchment/Daylight cancel.pressed 4.52 | glossy-touch/Sky destructive.hover 4.57 | "
-				.. "pixel-quest/Quest backed cancel 8.47"
+				.. "pixel-quest/Quest plain.hover 4.54"
 		)
 	end)
 
