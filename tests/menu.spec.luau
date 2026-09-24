@@ -112,7 +112,7 @@ end
 local TRIGGER = "/S/Body/Trigger"
 local function rowPath(level: number, itemId: string): string
 	local surface = if level == 0 then "Menu-M" else `Menu-M-L{level}`
-	return `/{surface}/Layer/Surface/Popup/Panel/Item:{itemId}`
+	return `/{surface}/Layer/Surface/Popup/Panel/List/Rows/Item:{itemId}`
 end
 local function sheetRow(itemId: string): string
 	return `/Menu-M/Layer/Panel/Item:{itemId}`
@@ -1483,7 +1483,8 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		w.pres.refresh()
 		return w, checked
 	end
-	local PANEL = "/Menu-M/Layer/Surface/Popup/Panel"
+	-- a floating panel's rows scroll one level deeper (always bounded)
+	local PANEL = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows"
 
 	it("draws exactly one hairline between two rows — rows minus one, and no gap besides", function()
 		local w = cardWorld()
@@ -1541,7 +1542,7 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 			expect(string.find(path, "Fill", 1, true) == nil).toBe(true)
 		end
 		-- the fill spans the row, which spans the card inside its inner hairline (F1)
-		local panel = w.adapter.node(PANEL).rect
+		local panel = w.adapter.node((string.gsub(PANEL, "/List/Rows$", ""))).rect
 		local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
 		expect(row.rect.w).toBe(panel.w - 2 * hairline)
 		--[[ ...and it is a FILL, not a picture. `slot = "none"` is what keeps a
@@ -1651,7 +1652,7 @@ describe("menu: the floating panel materializes", function()
 		local w = world({})
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		local popupPath = rowPath(0, "accessory"):gsub("/Popup/Panel/Item:accessory$", "/Popup")
+		local popupPath = rowPath(0, "accessory"):gsub("/Popup/Panel/List/Rows/Item:accessory$", "/Popup")
 		local popup = w.adapter.node(popupPath)
 		expect(popup ~= nil and popup.canvasGroupInstance ~= nil).toBe(true)
 		expect(popup.canvasGroupInstance.groupTransparency).toBe(1)
@@ -1802,6 +1803,20 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		end
 	end)
 
+	it("a floating panel never outgrows the screen: a long list scrolls (owner: the blurry year menu)", function()
+		-- 201 rows ran 9,448 px off the screen, and its fade group outgrew the
+		-- engine's canvas budget, blurring every CanvasGroup's text
+		local items = {}
+		for i = 1, 201 do
+			table.insert(items, { id = `y{i}`, label = tostring(1925 + i), onSelect = function() end })
+		end
+		local w = world({ items = items })
+		open(w)
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
+		expect(`panel {panel.h <= 600}`).toBe("panel true")
+		expect(w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:y201") ~= nil).toBe(true)
+	end)
+
 	it("maxHeight bounds the whole panel and the rows scroll, with ids and activation intact", function()
 		local items = {}
 		local picked: { string } = {}
@@ -1875,7 +1890,7 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		})
 		open(w)
 		local panel = "/Menu-M/Layer/Surface/Popup/Panel"
-		expect(w.adapter.node(`{panel}/Section:a/SectionTitle`).props.text).toBe("Recent")
+		expect(w.adapter.node(`{panel}/List/Rows/Section:a/SectionTitle`).props.text).toBe("Recent")
 		local texts: { string } = {}
 		local avatar = false
 		for _, path in w.adapter.paths() do

@@ -8506,8 +8506,12 @@ happened.
 **`width`** is any dimension table for the floating panels, and **`maxHeight`**
 bounds each floating panel in px **including its chrome**: the rows scroll inside
 one list, and row ids, activation, submenu anchors and focus scroll-into-view keep
-working one path level deeper (`…/Panel/List/Rows/Item:<id>`). Absent, every panel
-is unchanged.
+working one path level deeper (`…/Panel/List/Rows/Item:<id>`). A floating panel is
+always bounded — by `maxHeight` when given, and never taller than the screen less
+its safe insets — so its rows always sit at that path; a long list scrolls instead
+of running off screen. (An unbounded panel's fade group outgrew the engine's
+CanvasGroup budget, which blurs the text of every CanvasGroup on screen.) A sheet's
+rows sit at `…/Panel/Item:<id>` unless `maxHeight` bounds it.
 
 **`backLabel`** labels the sheet's Back row and defaults to "Back". Supply a
 localized label when appropriate. Long labels use the shared compact-label

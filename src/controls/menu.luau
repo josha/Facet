@@ -319,8 +319,18 @@ local function build(Facet, core, spec, owner)
 	then
 		error(`Facet UI.Menu('{id}'): \`maxHeight\` is a positive finite number of px, chrome included.`, 0)
 	end
-	-- a bounded list scrolls its rows one level deeper; every path below reads this
-	local ROWS = if maxHeight ~= nil then "/List/Rows" else ""
+	--[[ A FLOATING PANEL IS ALWAYS BOUNDED (owner 2026-09-23). An unbounded one ran
+		off the screen (the date picker's year menu: 201 rows, 9,448 px) and its fade
+		group — a CanvasGroup — outgrew the engine's canvas budget, which blurs the
+		text of EVERY CanvasGroup on screen, the month menu's too. So a floating
+		panel is capped at the screen and scrolls its rows one level deeper; a sheet
+		does only when the author bounds it. Every row path below reads this. ]]
+	local function rowsOf(presentation: string): string
+		return if maxHeight ~= nil or presentation ~= "sheet" then "/List/Rows" else ""
+	end
+	local function itemIdOf(path: string): string?
+		return string.match(path, `/{PANEL_ID}/List/Rows/Item:(.+)$`) or string.match(path, `/{PANEL_ID}/Item:(.+)$`)
+	end
 	if spec.label ~= nil then
 		assert(type(spec.label) == "string", "UI.Menu.label must be a string")
 		assert(spec.trigger == nil, "Menu: use label or trigger, not both")
@@ -706,7 +716,8 @@ local function build(Facet, core, spec, owner)
 				break
 			end
 		end
-		if maxHeight ~= nil then
+		local bounded = rowsOf(presentation) ~= ""
+		if bounded then
 			-- THE BOUNDED LIST: the rows scroll inside the author's height, less the
 			-- panel's own chrome (the `raised` slot's insets a package carves)
 			rows = {
@@ -734,7 +745,21 @@ local function build(Facet, core, spec, owner)
 			-- a SHEET spans the width a thumb reaches; a floating panel hugs its
 			-- longest row, which is what lets D1 place it against the trigger
 			anchor = if isSheet then "bottomLeft" else nil,
-			height = if maxHeight ~= nil then { type = "hug", max = maxHeight } else nil,
+			height = if not bounded
+				then nil
+				elseif isSheet then { type = "hug", max = maxHeight }
+				else Compose.formula(function(use)
+					-- the screen less its safe insets and the anchor's 16 px margin each side
+					local env = envForFacts or spec.env or surfaceEnv.find(core)
+					local view = if env ~= nil then use(env:get("viewportRect")) else nil
+					local insets = if env ~= nil then use(env:get("coreSafeInsets")) else nil
+					local screen = if type(view) == "table" and type(view.h) == "number"
+						then view.h - (if type(insets) == "table"
+							then (tonumber(insets.top) or 0) + (tonumber(insets.bottom) or 0)
+							else 0) - 32
+						else math.huge
+					return { type = "hug", max = math.max(88, math.min(maxHeight or math.huge, screen)) }
+				end),
 			width = if isSheet
 				then { type = "fill", weight = 1 }
 				elseif spec.width ~= nil then spec.width
@@ -826,7 +851,8 @@ local function build(Facet, core, spec, owner)
 					-- a non-sheet root is the `Popup` fade group the materialize
 					-- transition wraps around `Panel`, one level above the rows it used
 					-- to sit on directly; a sheet's root IS `Panel`, unwrapped
-					local rowRoot = (if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`) .. ROWS
+					local rowRoot = (if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`)
+						.. rowsOf(presentation)
 					for _, rowId in rowIds do
 						table.insert(order, `{rowRoot}/{rowId}`)
 					end
@@ -840,7 +866,7 @@ local function build(Facet, core, spec, owner)
 						ops.back()
 						return true
 					end
-					local itemId = string.match(path, `/{PANEL_ID}{ROWS}/Item:(.+)$`)
+					local itemId = itemIdOf(path)
 					if itemId == nil then
 						return false
 					end
@@ -915,7 +941,7 @@ local function build(Facet, core, spec, owner)
 			else
 				local parentChain = table.clone(chain)
 				local last = table.remove(parentChain) :: string
-				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}{ROWS}/Item:{last}`
+				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}{rowsOf("menu")}/Item:{last}`
 				edge = "trailing"
 			end
 			handle = (presentAnchoredFn :: any)(if Facet.surfaces then buildAttached else buildAttached(), {
@@ -1036,7 +1062,7 @@ local function build(Facet, core, spec, owner)
 				removed it while the level was open). ]]
 			local graph = graphs[#graphs]
 			if graph ~= nil then
-				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}{ROWS}/Item:{leavingId}`)
+				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}{rowsOf("sheet")}/Item:{leavingId}`)
 			end
 		end
 	end
@@ -1132,7 +1158,7 @@ local function build(Facet, core, spec, owner)
 		if type(focused) ~= "string" then
 			return false
 		end
-		local itemId = string.match(focused :: string, `/{PANEL_ID}{ROWS}/Item:(.+)$`)
+		local itemId = itemIdOf(focused :: string)
 		if itemId == nil then
 			return false
 		end

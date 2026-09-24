@@ -40,7 +40,7 @@ end
 
 local function panelRow(card: string, level: number, itemId: string): string
 	local surface = if level == 0 then `Menu-{card}` else `Menu-{card}-L{level}`
-	return `/{surface}/Layer/Surface/Popup/Panel/Item:{itemId}`
+	return `/{surface}/Layer/Surface/Popup/Panel/List/Rows/Item:{itemId}`
 end
 local function sheetRow(card: string, itemId: string): string
 	return `/Menu-{card}/Layer/Panel/Item:{itemId}`
