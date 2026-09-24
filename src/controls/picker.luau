@@ -595,6 +595,9 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 				description = prop("description", ""),
 				icon = prop("icon"),
 				badge = prop("badge", ""),
+				-- a segment with an icon (a tab bar's) wears its badge on the icon's
+				-- corner; a text segment keeps the trailing pill
+				badgeCorner = slides and initial.icon ~= nil,
 				trailing = indicatorNode(Facet, core, initial.indicator, current),
 				width = segmentWidth,
 				textSize = spec.textSize,
@@ -1213,9 +1216,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 		if not badged then
 			table.insert(rows, UI.Button(buttonProps))
 		else
-			-- The shared row recipe measures label and badge in separate lanes.
-			-- Overlaying a count on a short tab obscures its label, especially
-			-- with distant metrics and an image-backed theme badge.
+			-- The shared row recipe measures label and badge in separate lanes; a
+			-- tab icon's count rides the icon's corner, never the label.
 			local row = menuRecipe.rowProps(UI, {
 				id = optionId,
 				label = option.label,
@@ -1231,6 +1233,9 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				icon = option.icon,
 				iconOnly = iconOnly,
 				badge = option.badge,
+				-- owner ruling 2026-09-23 (Badge placement A): a tab's icon wears the
+				-- count on its corner; a text segment keeps the trailing pill
+				badgeCorner = requested == "segmented" and option.icon ~= nil,
 				trailing = indicatorNode(Facet, core, option.indicator),
 				wrap = true,
 				description = option.description,

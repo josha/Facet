@@ -3433,6 +3433,7 @@ is 90 px wide.
 | `alignment` | `UI.alignment(bp, horizontal?, vertical?)` | placement inside a `ZStack` parent |
 | `overlay` | `UI.overlay(bp, content, align?)` | layers `content` **above** `bp` |
 | `background` | `UI.background(bp, content, align?)` | layers `content` **behind** `bp` |
+| `badged` | `UI.badged(bp, value, direction?)` | a count or dot seal on `bp`'s top corner (see `UI.Badge`) |
 
 `overlay` and `background` are the only two that change **structure** — a layered
 pair is a `ZStack` — so they need the base to carry an explicit `id`. The wrapper
@@ -13847,6 +13848,24 @@ end)
 | `controlSize` | Bound compact (default), regular, or large; an icon-size height floor, not a cap on text growth. |
 | `over` | media uses the opaque surfaceStrong/contentStrong pair, overriding the status pair. |
 | `name` | Optional nonempty semantic word; required for icon-only content. |
+
+**A count on a host: `UI.badged(host, value, direction?)`.** A count or dot on a
+Button, an icon button, an Avatar or any other host sits on the host's corner:
+top-right (top-left when `direction = "rtl"`), centred on the corner so it sits
+half over the host and paints above it. The host keeps its own layout box, hit
+target and focus stop; the seal is a later layer moved by a paint-only offset, so
+it never covers the label area and nothing is laid out again. `value` is a string,
+a number (above 99 reads "99+"), `true` for a dot (the seal with no number), or a
+Readable of one; nil, false and "" paint nothing. The seal is the package's badge
+slot (a themed seal draws at its full size), the same seal a list, menu or picker
+row wears as an inline trailing pill. A tab bar's icon tabs (a segmented Picker
+with icons, and so `UI.TabView`'s strip) wear their `badge` on the icon's corner;
+text tabs keep the pill. The seal overhangs the host by half its size: give a host
+at a clipping edge that much room (`UI.VirtualGrid` keeps half a gutter there).
+
+```lua
+UI.badged(UI.Button("Inbox")({ label = "Inbox", onActivate = open }), unread)
+```
 
 Every plated Badge owns a surface-less tinted Box; package badge-slot art remains
 available to existing `Text.surface = "badge"` sites. Absent, static and bound
