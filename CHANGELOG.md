@@ -49,6 +49,30 @@ detail and every behaviour or path change.
   plain Chips inside their target); Chip removal is edit mode; a switch paints
   no plate. Each is listed with its new path below.
 
+### Lab audit fixes
+
+- **A hugging stack reserves what its `fill` children measured.** A stack that
+  hugs its main axis used to report only its fill children's declared floors, so
+  arrange handed a fill `Text` zero width after measuring it one line wide: a
+  `UI.Notice` in a hugging cell painted its title and message as single letters
+  outside its plate. The report now includes the fill demand (weighted so each
+  fill child gets at least what it measured); fill boxes with no content are
+  unchanged. The HUD fixture's task bars (fill in a hugging panel, previously
+  zero wide) now sit in a lane floored at two targets.
+- **Menu submenu rows show their chevron.** The menu's own rows take the leading
+  content form, which dropped the `submenu` chevron; a submenu row now shows it in
+  every form.
+- **Slider rungs and track floor.** A named `controlSize` draws the thumb at the
+  rung's `iconSize` (the rungs visibly differ), and the track's value axis is
+  floored at `targetSizes.minimum`, so a slider in a hugging cell (vertical above
+  all) keeps a draggable track.
+- **ProgressView.** A bar accepts `controlSize` as its track thickness (xsmall and
+  compact thin, regular and large the theme track) and refuses it together with
+  `height`; `showValue` on a ring is allowed at `controlSize = "large"` (the readout
+  centres in the ring when it fits, else stacks under it). The `height`-on-a-ring
+  refusal now names `controlSize`/`diameter`, and Toggle's content-width refusal
+  points at the plain form.
+
 ### Foundation lab gaps
 
 - **`UI.ErrorBoundary` on `app.controls` works.** It fell through to the bare
