@@ -763,12 +763,19 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		Selection = color(x.selection or c.accent),
 		OnSelection = color(x.onSelection or c.onAccent),
 		Scrim = color(x.scrim or c.surface),
+		-- the inverse pair (a light plate on a dark theme and the reverse):
+		-- authored, or the strong content colour lettered in the page colour
+		InverseSurface = color(x.inverseSurface or c.contentStrong),
+		OnInverse = color(x.onInverse or c.surface),
+		InverseHover = lerp(x.inverseSurface or c.contentStrong, x.onInverse or c.surface, 0.12),
+		InversePressed = lerp(x.inverseSurface or c.contentStrong, x.onInverse or c.surface, 0.2),
 		-- each plate at the disabled content opacity over the page, for a theme that
 		-- dims a disabled control whole (`extra.dimDisabledPlates`)
 		ControlDisabled = lerp(x.control, c.surface, x.disabledContentOpacity or 0.4),
 		ControlSelectedDisabled = lerp(x.controlSelected, c.surface, x.disabledContentOpacity or 0.4),
 		AccentDisabled = lerp(c.accent, c.surface, x.disabledContentOpacity or 0.4),
 		DangerDisabled = lerp((select(1, dangerPair(c))), c.surface, x.disabledContentOpacity or 0.4),
+		InverseDisabled = lerp(x.inverseSurface or c.contentStrong, c.surface, x.disabledContentOpacity or 0.4),
 		SelectionDisabled = lerp(x.selection or c.accent, c.surface, x.disabledContentOpacity or 0.4),
 		-- precomputed accent interaction states (bespoke path computes these
 		-- with Color3:Lerp at the edge; the sheet needs them as real tokens)
@@ -1202,6 +1209,16 @@ local function emitVocabularyChrome(
 		selector = `.{T.appearancePrefix}link`,
 		props = { BackgroundTransparency = num(1), TextColor3 = "$Accent" },
 	})
+	-- a light plate on a dark theme (and the reverse): the theme's inverse pair
+	emitRole({
+		name = "Inverse control",
+		selector = `.{T.appearancePrefix}inverse`,
+		props = {
+			BackgroundColor3 = "$InverseSurface",
+			BackgroundTransparency = num(0),
+			TextColor3 = "$OnInverse",
+		},
+	})
 	--[[ OVER ARTWORK, THE PAIR IS THE POINT. A control drawn on a photograph cannot
 		borrow the contrast of a background the theme controls, so it takes the
 		gated ($SurfaceStrong, $ContentStrong) pair opaque — and its interaction
@@ -1317,6 +1334,12 @@ local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -
 		stays invisible anyway — the resting `Link control` rule owns the
 		transparency and nothing in the control ramp touches it. ]]
 	pair("Link", `{A}link`, { TextColor3 = "$AccentHover" }, { TextColor3 = "$AccentPressed" })
+	pair(
+		"Inverse",
+		`{A}inverse`,
+		{ BackgroundColor3 = "$InverseHover", TextColor3 = "$OnInverse" },
+		{ BackgroundColor3 = "$InversePressed", TextColor3 = "$OnInverse" }
+	)
 	-- over artwork the states move to the OTHER gated pair rather than to the
 	-- control ramp, so the control stays readable on a photograph it cannot see
 	pair(
@@ -1350,6 +1373,11 @@ local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -
 	-- carries its gated partner with it
 	rolePair(
 		"emphasis",
+		{ BackgroundColor3 = "$DangerHover", TextColor3 = "$OnDanger" },
+		{ BackgroundColor3 = "$DangerPressed", TextColor3 = "$OnDanger" }
+	)
+	rolePair(
+		"inverse",
 		{ BackgroundColor3 = "$DangerHover", TextColor3 = "$OnDanger" },
 		{ BackgroundColor3 = "$DangerPressed", TextColor3 = "$OnDanger" }
 	)
@@ -1420,6 +1448,7 @@ local function emitDisabledPlates(emit: (Rule) -> (), selectionMarks: boolean)
 	plate("selected", `TextButton.{T.selected}:NonInteractable`, "$ControlSelectedDisabled")
 	plate("accent", `TextButton.{T.surfacePrefix}accent:NonInteractable`, "$AccentDisabled")
 	plate("emphasis", `TextButton.{A}emphasis:NonInteractable`, "$AccentDisabled")
+	plate("inverse", `TextButton.{A}inverse:NonInteractable`, "$InverseDisabled")
 	plate("soft", `TextButton.{A}soft:NonInteractable`, "$ControlSelectedDisabled")
 	plate("utility", `TextButton.{A}utility:NonInteractable`, "$Surface")
 	plate("destructive", "TextButton.facet-role-destructive:NonInteractable", "$DangerDisabled")

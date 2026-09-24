@@ -297,3 +297,34 @@ describe("the pane surface", function()
 		expect(found).toBe(true)
 	end)
 end)
+
+describe("the inverse appearance", function()
+	it("an inverse Button wears the theme's inverse pair: authored, or contentStrong lettered in surface", function()
+		local neutral = sheet_model.buildPackage(snapshot.neutralPackage())
+		for _, theme in neutral.themes do
+			expect(same(theme.tokens.InverseSurface, theme.tokens.ContentStrong)).toBe(true)
+			expect(same(theme.tokens.OnInverse, theme.tokens.Surface)).toBe(true)
+		end
+		local rule = ruleNamed(neutral, "Inverse control")
+		expect(rule.selector).toBe(".facet-appearance-inverse")
+		expect(rule.props.BackgroundColor3).toBe("$InverseSurface")
+		expect(rule.props.TextColor3).toBe("$OnInverse")
+		expect(ruleNamed(neutral, "Inverse — hover").props.TextColor3).toBe("$OnInverse")
+		local model = sheet_model.buildPackage(authored({ inverseSurface = INK, onInverse = ON_INK }))
+		expect(same(model.themes[1].tokens.InverseSurface, INK)).toBe(true)
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 300, h = 200 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Col")({ UI.Button("Inv")({ label = "Invert", appearance = "inverse" }) }),
+			})
+		end)
+		local tagged = false
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Inv$") then
+				tagged = table.find(w.adapter.tagsOf(path), "facet-appearance-inverse") ~= nil
+			end
+		end
+		expect(tagged).toBe(true)
+	end)
+end)

@@ -2953,7 +2953,7 @@ class("Button", {
 			reactive = true,
 			-- measure too: `utility` wears an inner hairline its padding pays for
 			dirty = { "paint", "measure" },
-			enum = { "standard", "emphasis", "soft", "utility", "link" },
+			enum = { "standard", "emphasis", "soft", "utility", "link", "inverse" },
 			channel = "style",
 			doc = "visual emphasis only — drives a style tag and its sheet rule (never a bespoke fill). "
 				.. 'Composes with `role`, which stays the SEMANTIC channel: `role = "destructive"` and '

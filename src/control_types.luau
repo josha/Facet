@@ -270,7 +270,7 @@ export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? 
 export type ButtonSpec = {
 	animation: bp.AnimationSpec?,
 	controlSize: bp.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
-	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
+	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link" | "inverse")?>?,
 	corners: ("pill" | "square")?,
 	over: "media"?,
 	name: string?,

@@ -89,7 +89,7 @@ local PASSTHROUGH = {
 	"onDisappear",
 }
 local POINTER = { "onPointerDown", "onPointerUp", "onPointerCancel", "onPointerMove" }
-local APPEARANCES = { "standard", "emphasis", "soft", "utility", "link" }
+local APPEARANCES = { "standard", "emphasis", "soft", "utility", "link", "inverse" }
 local APPEARANCE_SET = guard.keySet(APPEARANCES)
 local DEFAULT_ICON_SIZE = "controlSizes.regular.iconSize"
 local function build(Facet, core, spec, owner)

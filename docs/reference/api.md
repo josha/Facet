@@ -2036,7 +2036,7 @@ onPointerDown?, onPointerMove?, onPointerUp?, onPointerCancel? }` — activatabl
 control.
 
 **`controlSize`** (`"xsmall" | "compact" | "regular" | "large"`, bindable) and
-**`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link"`,
+**`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link" | "inverse"`,
 bindable) are the **paint half** of the shared local vocabulary — each becomes one
 style tag (`facet-size-<rung>`, `facet-appearance-<word>`) that the theme's rules
 key on, exactly as `role` does. Neither moves geometry: the *measurements* of a
@@ -2045,7 +2045,9 @@ which a composite authors as ordinary `height`/`padding` props. `appearance` is
 emphasis only and composes with `role`, which stays the semantic channel:
 `role = "destructive", appearance = "utility"` is a quiet delete. `"standard"` is
 the paint an untagged button already has and earns no tag. Absent on both means
-today's paint, unchanged. **`over = "media"`** (construction-only) is the one tag
+today's paint, unchanged. `"inverse"` is a light plate on a dark theme (and the
+reverse): the theme's `extra.inverseSurface` / `onInverse` pair, unset
+`contentStrong` lettered in `surface`. **`over = "media"`** (construction-only) is the one tag
 for a control drawn on top of artwork: it takes the theme's strong opaque surface
 and the content colour gated against it, instead of the caller painting a scrim.
 
