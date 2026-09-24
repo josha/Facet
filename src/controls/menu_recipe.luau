@@ -57,7 +57,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 local guard = require("../spec_guard")
 local selection = require("../selection_model")
 local Compose = require("../vendor/compose/core")
-local badgeLib = require("./badge")
+local badgeLib = require("./badge_seal")
 local menu_recipe = {}
 -- Shared content for semantic setting/action rows. Accessories are inert; the
 -- owning Button, Toggle or Slider retains the single input identity.

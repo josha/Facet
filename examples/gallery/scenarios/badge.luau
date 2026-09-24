@@ -73,12 +73,7 @@ return {
 					align = "center",
 					UI.badged(UI.Button("Inbox")({ label = "Inbox", onActivate = function() end }), 3),
 					UI.badged(
-						UI.Button("Alerts")({
-							shape = "circle",
-							icon = "menu",
-							name = "Alerts",
-							onActivate = function() end,
-						}),
+						UI.Button("Alerts")({ label = "Alerts", icon = "menu", onActivate = function() end }),
 						120
 					),
 					UI.badged(UI.Avatar("Friend")({ name = "Ada Quill" }), true),

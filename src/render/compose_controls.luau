@@ -260,7 +260,7 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	-- a count or dot on a host's corner (Badge placement A, `badge.corner`)
 	UI.badged = function(host, value, direction)
 		assert(host.parent == nil, "Facet badged: badge the host before mounting it")
-		return require("../controls/badge").corner(UI, host, value, direction)
+		return require("../controls/badge_seal").corner(UI, host, value, direction)
 	end
 	local library: any = { UI = UI, Controls = {}, surfaces = surfaces, runtime = runtime, presenter = presenter }
 	library.Controls.ProgressView = function(controlCore, spec)

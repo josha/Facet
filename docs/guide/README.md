@@ -172,6 +172,7 @@ owner that owns its resources. Start with
 | `UI.Composition` | Arranges ranked content instead of a per-device layout ladder. | [api](../reference/api.md#composition) |
 | `UI.Region` | One ranked thing a `Composition` must place, richest form first. | [api](../reference/api.md#region) |
 | `UI.frame`, `UI.padding`, `UI.offset`, `UI.aspectRatio`, `UI.alignment`, `UI.overlay`, `UI.background` | The layout modifiers you wrap around a blueprint. | [api](../reference/api.md#layout-modifiers-frame-padding-offset-aspectratio-alignment-overlay-background) |
+| `UI.badged` | A count or dot seal on a host's corner (a Button, icon button, Avatar). | [api](../reference/api.md#uibadge) |
 | `UI.containerRelativeFrame` | Sizes an element as a fraction of its container. | [api](../reference/api.md#containerrelativeframe) |
 | `UI.fill`, `UI.hug` | Shorthand for the `fill`/`hug` dimension tables you'd otherwise write by hand. | [api](../reference/api.md#shared-properties) |
 | `UI.Stage` | Reserves a box for engine content; native `content` setup and cleanup follow its Compose lifetime. | [api](../reference/api.md#stage) |

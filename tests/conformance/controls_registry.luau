@@ -2249,6 +2249,23 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- The count seal and its corner placement (Badge placement A): the seal a
+		-- menu row, a tab icon and `UI.badged` wear. It returns blueprints its
+		-- callers mount; the corner's bundle reads the seal's solved size only
+		-- (check_registration's CONTRIBUTION_INTAKE_ONLY).
+		name = "BadgeSeal",
+		kind = "composite",
+		module = "src/controls/badge_seal.luau",
+		export = "UI.Badge",
+		spec = "tests/badge.spec.luau",
+		conformance = "tests/badge.spec.luau",
+		docsAnchor = "UI.Badge",
+		dump = false,
+		reason = "builder module: it returns the seal blueprint its host mounts; the host control (a row, a tab strip) reports it through its own dump()",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		-- The shared overlay parts (construction-only media, the action row and
 		-- the tiny-room column) that Callout, Dialog and Sheet wear: it validates
 		-- and returns blueprints; the adopting control mounts them, reports them

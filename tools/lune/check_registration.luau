@@ -140,6 +140,10 @@ local CONTRIBUTION_INTAKE_ONLY: { [string]: string } = {
 	ShortcutHint = "reads binding names only; its surface-less keycaps have no handlers or focus. "
 		.. "tests/shortcut_hint.spec.luau proves mounting adds no bindings, contexts or focus targets.",
 
+	BadgeSeal = "its one bundle (`badge.corner`) reads the seal's solved size only, for a paint offset: the seal is a "
+		.. "Box and a Text, never a focus stop and no handler. tests/badge.spec.luau proves it: 'centres the seal on "
+		.. "the top-right corner, paint only: the host's box and target are unchanged' counts one traversal stop.",
+
 	OverlayParts = "its one bundle (`overlay_parts.room`, the tiny-room column) reads solved geometry only: "
 		.. "a ScrollView holding the panel's own regions, never a focus stop and no handler. "
 		.. "tests/dialog.spec.luau proves it: 'a tiny room unpins every region into one scroller: the last "
