@@ -981,6 +981,9 @@ function screen_paint.new(ctx: any)
 		if surface == "base" then
 			instance.BackgroundTransparency = 0
 			instance.BackgroundColor3 = COLOR.surface
+		elseif surface == "pane" then
+			instance.BackgroundTransparency = 0
+			instance.BackgroundColor3 = COLOR.surfaceStrong
 		elseif surface == "raised" then
 			instance.BackgroundTransparency = 0
 			instance.BackgroundColor3 = COLOR.surfaceStrong

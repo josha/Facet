@@ -528,7 +528,7 @@ Three groups recur in the column below and are worth naming once:
 | `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
-| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `TextField`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
+| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `TextField`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node; `"pane"` is the raised fill flush (no corner, no edge) — a sidebar or split pane beside the page |
 | `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order — both derivations (linear and directional), and every group, including the ones a control contributes for itself and a `navigationGroups` map you declare (a **static array** is filtered when the surface is presented; use the **function** form for a map that must follow a reactive `enabled`, which is the same rule `hidden` has always had) — refuses activation on every input class, and takes no pointer, touch or drag. The themed disabled state reaches the **text** of that subtree. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule, what is painted, and what is not |
 | `tint` | layout containers (subtree only), `Box`, `Text`, `Image`, `Path`, `Stage` | the one continuous colour channel. On a painting class it paints that class's own channel; on a layout container it paints nothing and is **inherited** by the subtree. See [Continuous colour](#continuous-colour-tint) for the value forms and [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
@@ -1789,7 +1789,7 @@ deliberately; an engaged variant remains a possible future value. Inert while th
 text fits, exactly like `disclose`.
 
 **`surface` on a Text is `"badge"` or `"chip"` — and only those two.** Box and
-Image take the full eight-surface vocabulary; a Text takes the two that are
+Image take the full nine-surface vocabulary; a Text takes the two that are
 read-only by nature:
 
 | Value | What it is |
@@ -2550,7 +2550,7 @@ UI.Stage({
 })
 ```
 
-`surface` is the standard eight-surface vocabulary (`base`, `raised`, `control`,
+`surface` is the standard nine-surface vocabulary (`base`, `raised`, `pane`, `control`,
 `chip`, `badge`, `accent`, `scrim`, `plain`) and paints the plate *behind* the
 scene. **`tint`** (see [above](#continuous-colour-tint)) claims the frame's own
 `ImageColor3` — a stage's "picture" is the scene it renders, and the engine
@@ -2643,7 +2643,7 @@ UI.Foreign({
 })
 ```
 
-`surface` is the standard eight-surface vocabulary and paints the container, which
+`surface` is the standard nine-surface vocabulary and paints the container, which
 Facet owns. There is deliberately **no `tint`**: a tint multiplies the node's own
 picture, and this node's picture is *your* instance — painting it would be the
 framework writing the content it exists to disclaim.

@@ -1453,9 +1453,9 @@ local CONTAINER_LAYOUT: { [string]: PropSpec } = {
 		reactive = true,
 		dirty = { "paint", "measure" },
 		shared = true,
-		enum = { "base", "raised", "control", "chip", "badge", "accent", "scrim", "plain" },
+		enum = { "base", "raised", "pane", "control", "chip", "badge", "accent", "scrim", "plain" },
 		channel = "style",
-		doc = "surface style role painted behind this container",
+		doc = 'surface style role painted behind this container ("pane" is a flush raised fill: no corner, no edge)',
 	}),
 	--[[ ===== THE TWO INHERITED CHANNELS =====================================
 		(stabilization pass 2026-09-07; design note
@@ -2668,7 +2668,7 @@ class("Text", {
 		-- real layout input on a label (it lets UI.padding apply without wrapping)
 		padding = CONTAINER_LAYOUT.padding,
 		-- A DELIBERATELY NARROWER VOCABULARY than Box's (director fix round
-		-- 2026-07-25). Box and Image take all eight surfaces; a Text takes the two
+		-- 2026-07-25). Box and Image take all nine surfaces; a Text takes the two
 		-- that are READ-ONLY BY NATURE, and the restriction is the point:
 		--
 		--   badge  the counter seal — the case this prop exists for. Without it
@@ -3330,7 +3330,7 @@ class("Stage", {
 	container = false,
 	structural = false,
 	props = merge(BOX, {
-		-- the eight-surface vocabulary, shared with Box: the plate BEHIND the
+		-- the nine-surface vocabulary, shared with Box: the plate BEHIND the
 		-- rendered scene (a Stage is transparent until something paints it)
 		surface = CONTAINER_LAYOUT.surface,
 		-- ...and the one continuous channel, which on this class claims the frame's

@@ -1674,6 +1674,12 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = "." .. S .. "base",
 			props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0) },
 		},
+		-- a flush pane: the raised fill with no corner and no edge (a sidebar)
+		{
+			name = "Pane surface",
+			selector = "." .. S .. "pane",
+			props = { BackgroundColor3 = "$SurfaceStrong", BackgroundTransparency = num(0) },
+		},
 		{
 			name = "Raised panel",
 			selector = "." .. S .. "raised",
@@ -3034,6 +3040,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		name = "Base surface",
 		selector = "." .. S .. "base",
 		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0) },
+	})
+	emit("surfaces", {
+		name = "Pane surface",
+		selector = "." .. S .. "pane",
+		props = { BackgroundColor3 = "$SurfaceStrong", BackgroundTransparency = num(0) },
 	})
 	emit("surfaces", {
 		name = "Raised panel",

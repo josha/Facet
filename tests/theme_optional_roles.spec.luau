@@ -261,3 +261,35 @@ describe("a strong Divider and an outline-free utility control are theme data", 
 		expect(ruleNamed(model, "Raised panel — hairline").props.Thickness.value).toBe(1)
 	end)
 end)
+
+describe("the pane surface", function()
+	it('`surface = "pane"` is the raised fill with no corner and no edge, in both builders', function()
+		for _, model in
+			{
+				sheet_model.buildPackage(snapshot.neutralPackage()),
+				sheet_model.build({ themes = { { name = "N", style = require("../src/tokens/default_style") } } }),
+			}
+		do
+			local pane = ruleNamed(model, "Pane surface")
+			expect(pane.selector).toBe(".facet-surface-pane")
+			expect(pane.props.BackgroundColor3).toBe("$SurfaceStrong")
+			for _, rule in model.rules do
+				expect(string.find(rule.selector, "facet-surface-pane::", 1, true)).toBeNil()
+			end
+		end
+		expect(sheet_model.classifyTags({ surface = "pane" })["facet-surface-pane"]).toBe(true)
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 300, h = 200 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({ UI.VStack("Side")({ surface = "pane", width = UI.fill(), height = UI.fill() }) })
+		end)
+		local found = false
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Side$") then
+				expect(w.adapter.node(path).props.surface).toBe("pane")
+				found = true
+			end
+		end
+		expect(found).toBe(true)
+	end)
+end)
