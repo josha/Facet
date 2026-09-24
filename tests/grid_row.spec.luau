@@ -570,3 +570,47 @@ describe("GridRow through the public authoring surface", function()
 		end
 	end)
 end)
+
+describe("a plated GridRow keeps room for its theme's chrome", function()
+	-- a surface's contentInsets arrive as the row's padding (pixel-quest's panel
+	-- carve is 24): the grid reserves it, so the cells keep their text
+	it("pixel-quest raised rows: every cell has height and sits inside its row", function()
+		local world = require("./lib/world")
+		local Facet = require("../src") :: any
+		local metrics = Facet.themes.resolve(require("../examples/themes/pixel_quest").build(Facet.themes), nil, {})
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, themeMetrics = metrics })
+		local W = w.UI
+		w.present(function()
+			return W.Screen("S")({
+				W.VStack("Col")({
+					align = "start",
+					W.Grid("G")({
+						columns = 2,
+						gap = "s",
+						W.GridRow("R1")({
+							surface = "raised",
+							W.Text("K")({ text = "Track" }),
+							W.Text("V")({ text = "Coastal" }),
+						}),
+						W.GridRow("R2")({
+							surface = "raised",
+							W.Text("K")({ text = "Laps" }),
+							W.Text("V")({ text = "3" }),
+						}),
+					}),
+				}),
+			})
+		end)
+		w.settle(3)
+		for _, row in { "R1", "R2" } do
+			local box = w.adapter.node(`/S/Col/G/{row}`).rect
+			for _, cell in { "K", "V" } do
+				local r = w.adapter.node(`/S/Col/G/{row}/{cell}`).rect
+				expect(r.h > 0).toBe(true)
+				expect(r.x >= box.x and r.x + r.w <= box.x + box.w and r.y + r.h <= box.y + box.h).toBe(true)
+			end
+		end
+		-- the columns still line up across rows
+		expect(w.adapter.node("/S/Col/G/R1/V").rect.x).toBe(w.adapter.node("/S/Col/G/R2/V").rect.x)
+	end)
+end)

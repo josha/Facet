@@ -583,6 +583,15 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 	end
 	local widths: { number } = {}
 	local cols = 0
+	-- A ROW'S OWN PADDING IS ITS THEME CHROME: a GridRow refuses authored padding,
+	-- so padding here is a surface's contentInsets. The columns live inside it, so
+	-- every row reserves the widest row inset (one pitch for all rows).
+	local rowPadX = 0
+	for _, row in node.children or {} do
+		local _, pr, _, pl = deps.sides(row.padding)
+		rowPadX = math.max(rowPadX, pl + pr)
+	end
+	innerW = if innerW == math.huge then innerW else math.max(0, innerW - rowPadX)
 	-- ADAPT-L8: does ANY cell declare a rigid px width? A column whose natural came
 	-- from CONTENT reflows honestly when it is narrowed — the audit's cell B-5
 	-- measured exactly that and called it RIGHT — so only a declared `fixed` is a
@@ -650,7 +659,7 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 			end
 		end
 	end
-	local value = { widths = widths, cols = cols, gap = gap, squeeze = squeeze }
+	local value = { widths = widths, cols = cols, gap = gap, squeeze = squeeze, rowPadX = rowPadX }
 	ctx.gridPlan[node.id] = { key = key, value = value }
 	return value
 end
@@ -681,7 +690,9 @@ local function gridRowHeight(deps: Deps, ctx: any, row: any, plan: any, limitH: 
 		rowH = math.max(rowH, h + mt + mb)
 		column += span
 	end
-	return rowH
+	-- ...and the row's own chrome inset on top and bottom (see `rowPadX`)
+	local pt, _, pb, _ = deps.sides(row.padding)
+	return rowH + pt + pb
 end
 
 -- ===== THE MEASURE HALF ======================================================
@@ -720,7 +731,7 @@ function grid.measure(
 		for i = 1, plan.cols do
 			totalW += plan.widths[i]
 		end
-		totalW += gap * math.max(0, plan.cols - 1)
+		totalW += gap * math.max(0, plan.cols - 1) + plan.rowPadX
 		local totalH = 0
 		for i, row in rows do
 			totalH += gridRowHeight(deps, ctx, row, plan, innerMaxH)

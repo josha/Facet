@@ -73,6 +73,10 @@ detail and every behaviour or path change.
   `controls.shortcutHint.capStroke` (default the hairline; 0 = a soft filled cap)
   and `controls.shortcutHint.capGap` (default `space.xs`); Neutral is unchanged. An
   all-optional control family may be absent from a package.
+- **Grid rows keep room for their chrome.** A `UI.GridRow` wearing a surface
+  whose theme `contentInsets` exceed its content (Pixel Quest's panel carve)
+  collapsed its cells' text to zero height. The grid now reserves each row's inset
+  vertically and the widest row inset horizontally, so the columns still align.
 - **StepIndicator.** A named `controlSize` floors the step marker at the rung's
   icon size (regular = the theme's medium icon), so the rungs differ.
 - **Vote.** A read-only vote keeps the strip's `controlSize` rung.
