@@ -2,6 +2,7 @@
 -- The `picker` control's types, apart from its implementation: reading a type must
 -- not load the control.
 local blueprint = require("../blueprint")
+local statusIndicator = require("./status_indicator")
 local coreContract = require("../core/contract")
 export type AnyCell = coreContract.Cell<any>
 export type Option = {
@@ -13,6 +14,10 @@ export type Option = {
 	enabled: blueprint.Bound<boolean>?,
 	description: any?,
 	sectionTitle: any?,
+	-- an Avatar spec (name plus optional image/userId/key/provider) leading the row
+	avatar: { name: string, image: any?, userId: number?, key: string?, provider: any? }?,
+	meta: any?, -- a card's (or menu row's) secondary label/value, distinct from badge
+	indicator: statusIndicator.Spec?, -- a status mark in a segmented option's trailing lane
 }
 export type Spec<V = AnyCell> = {
 	required: boolean?,
@@ -23,7 +28,7 @@ export type Spec<V = AnyCell> = {
 	options: { Option } | coreContract.Readable<{ Option }>,
 	selected: V, -- the caller's writable cell
 	-- "automatic" (default) | "menu" | "segmented" | "inline" | "radioGroup" |
-	-- "navigationLink" — see the header for the ladder
+	-- "navigationLink" | "cards" — see the header for the ladder
 	style: string?,
 	presentation: string?, -- DEPRECATED alias of `style` ("radio" reads as "radioGroup")
 	-- a caller-owned Signal<string>: the search text of a navigationLink list.
@@ -63,6 +68,17 @@ export type Spec<V = AnyCell> = {
 	env: any?, -- optional environment, so the indicator's metrics follow a live theme
 	enabled: blueprint.Bound<boolean>?,
 	onChange: ((value: any) -> ())?,
+	-- the shared field furniture: notation in the label, one message line below
+	requiredMark: ("required" | "optional")?, -- notation only; `required` stays reselect policy
+	hint: blueprint.Bound<string>?,
+	errorText: blueprint.Bound<string>?, -- replaces the hint and borders the menu trigger
+	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	-- menu: standard | contrast | utility; segmented: filled | stroke | utility;
+	-- automatic takes all five and maps them onto the family on screen
+	appearance: blueprint.Bound<string?>?,
+	corners: ("pill" | "square")?,
+	maxHeight: number?, -- the menu panel's bound in px, chrome included
+	indicatorPosition: ("leading" | "trailing")?, -- radioGroup: the mark's edge
 }
 export type StyleFacts = {
 	optionCount: number,

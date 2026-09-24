@@ -1097,3 +1097,145 @@ describe(
 		end
 	end
 )
+
+--[[ AN INNER STROKE IS PAID FOR IN PADDING (2026-09-22). Every border sits inside its box now, so every descendant of a
+	stroked node must clear the band on all four sides — under Pixel Quest, the
+	thickest hairline shipped (4 px), at desktop, phone and +14. ]]
+describe("an inner stroke never lies under content", function()
+	local pixel = require("../src/themes/snapshot").resolve(
+		require("../examples/themes/pixel_quest").build(Facet.themes),
+		nil,
+		{}
+	)
+	local band = pixel.strokes.hairline
+	local STROKED_SURFACE = { raised = true, chip = true }
+	local function thicknessOf(node: any): number
+		local props = node.props or {}
+		if type(props.stroke) == "table" then
+			local token = type(props.stroke.tokens) == "table" and props.stroke.tokens.thickness
+			return if token == "hairline" then band else tonumber(props.stroke.thickness) or 0
+		end
+		return if STROKED_SURFACE[props.surface] or props.appearance == "utility" then band else 0
+	end
+	for _, case in
+		{
+			{ "desktop", { x = 0, y = 0, w = 1280, h = 800 }, 0 },
+			{ "phone", { x = 0, y = 0, w = 390, h = 844 }, 0 },
+			{ "phone +14", { x = 0, y = 0, w = 390, h = 844 }, 14 },
+		}
+	do
+		it(`stroked button, chip, segmented strip, cards and a bare box clear the band ({case[1]})`, function()
+			local w = worldLib.new({ viewport = case[2], themeMetrics = pixel, preferredTextOffset = case[3] })
+			local chip = harness.Controls.Chip(w.core, {
+				id = "Tag",
+				label = "Rain",
+				appearance = "utility",
+				selected = Compose.cell(false),
+				editing = Compose.cell(true),
+				onRemove = function() end,
+			})
+			local strip = harness.Controls.Picker(w.core, {
+				id = "Strip",
+				style = "segmented",
+				appearance = "stroke",
+				selected = Compose.cell("b"),
+				options = { { value = "a", label = "Sprint" }, { value = "b", label = "Endurance" } },
+			})
+			local cards = harness.Controls.Picker(w.core, {
+				id = "Cards",
+				style = "cards",
+				selected = Compose.cell("a"),
+				options = { { value = "a", label = "Day" }, { value = "b", label = "Night" } },
+			})
+			w.present(UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "Col",
+						gap = "m",
+						children = {
+							UI.stroke(
+								UI.Button({
+									id = "Go",
+									label = "Go",
+									children = { UI.Text({ id = "Word", text = "Go" }) },
+								}),
+								{}
+							),
+							chip.blueprint,
+							strip.blueprint,
+							cards.blueprint,
+							-- a stroked box no theme carves: only the floor keeps it clear
+							UI.stroke(
+								UI.VStack({ id = "Box", children = { UI.Text({ id = "Line", text = "Rain" }) } }),
+								{}
+							),
+						},
+					}),
+				},
+			}))
+			w.pres.refresh()
+			local stroked, checked = 0, 0
+			for path, node in w.adapter.liveNodes() do
+				local t = thicknessOf(node)
+				if t > 0 and node.rect ~= nil then
+					stroked += 1
+					local r = node.rect
+					for inner, child in w.adapter.liveNodes() do
+						local c = child.rect
+						if
+							inner ~= path
+							and string.sub(inner, 1, #path + 1) == path .. "/"
+							and c ~= nil
+							and c.w > 0
+						then
+							checked += 1
+							local clear = c.x >= r.x + t - 0.5
+								and c.y >= r.y + t - 0.5
+								and c.x + c.w <= r.x + r.w - t + 0.5
+								and c.y + c.h <= r.y + r.h - t + 0.5
+							expect(`{inner} clears {path}'s {t}px band: {clear}`).toBe(
+								`{inner} clears {path}'s {t}px band: true`
+							)
+						end
+					end
+				end
+			end
+			-- anti-vacuity: the four kinds really were stroked and really had content
+			expect(stroked >= 5 and checked >= 5).toBe(true)
+		end)
+	end
+
+	it("a bound focus ring is paint only: focusing an image Button or a Slider thumb solves nothing", function()
+		local w = require("./lib/world").new({
+			viewport = { x = 0, y = 0, w = 1280, h = 800 },
+			themeMetrics = pixel,
+			capabilities = { mouse = false, keyboard = true, touch = false, gamepad = true },
+			preferredInput = "Gamepad",
+			hostOpts = { keyboardNavigation = true },
+		})
+		local W = w.UI
+		w.present(function()
+			return W.Screen("S")({
+				W.VStack("Col")({
+					width = W.fill(),
+					W.Button("Card")({ label = "Car", image = "rbxassetid://1", onActivate = function() end }),
+					W.Slider("Level")({ value = Compose.cell(2), min = 0, max = 5, onChange = function() end }),
+				}),
+			})
+		end)
+		w.settle(3)
+		for _, suffix in { "/Card", "/Level" } do
+			local before = w.controller.stats().solves
+			local moved = false
+			for _, path in w.adapter.paths() do
+				if not moved and string.find(path, "/S/Col" .. suffix, 1, true) then
+					moved = w.pres.focus.focusOn(path)
+				end
+			end
+			expect(moved).toBe(true)
+			w.settle(3)
+			expect(`{suffix} solves {w.controller.stats().solves - before}`).toBe(`{suffix} solves 0`)
+		end
+	end)
+end)

@@ -271,7 +271,12 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 			mark,
 			side
 		)
-		blueprint = UI.Button(props)
+		-- A SETTING ROW WEARS THE ROW FRAME. `selected` alone
+		-- classifies a Button into the `selection` slot, whose carve differs from
+		-- `control` (Fantasy Ornate: 8 vs 14 px), so this row's content sat 6 px
+		-- left of every Button and Slider row. The mark carries the state; the
+		-- sheet's `.facet-selected > .facet-chrome-control` rule still lights it.
+		blueprint = chrome.attachHint(UI.Button(props), { slot = "control" })
 	elseif presentation == "switch" and spec.hint == nil and side == "trailing" then
 		props.value = spec.value
 		props.width = width

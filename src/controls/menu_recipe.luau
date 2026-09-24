@@ -57,6 +57,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 local guard = require("../spec_guard")
 local selection = require("../selection_model")
 local Compose = require("../vendor/compose/core")
+local badgeLib = require("./badge_seal")
 local menu_recipe = {}
 -- Shared content for semantic setting/action rows. Accessories are inert; the
 -- owning Button, Toggle or Slider retains the single input identity.
@@ -230,19 +231,24 @@ function menu_recipe.rowHeightFor(presentation: string): string
 	elseif presentation == "inline" then
 		return menu_recipe.INLINE_ROW_HEIGHT
 	end
-	return menu_recipe.ROW_HEIGHT
+	-- a floating menu's rows stack one hairline apart, so each row's footprint
+	-- is the target floor: a compact row's hit expander would cover its neighbour
+	return "targetSizes.minimum"
 end
 
 export type Row = {
 	wrap: boolean?, -- wrap a labelled badge row when its offer is narrow
+	leading: boolean?, -- lay a plain label as a leading child, as an accessory row lays it (a menu row)
 	labelTint: any?, -- optional semantic label paint, e.g. a selection indicator
 	width: any?,
 	textSize: any?,
 	iconOnly: boolean?,
 	badge: any?, -- string | number | Readable; empty removes the badge paint
+	badgeCorner: boolean?, -- a tab icon's badge rides the icon's corner (`badge.corner`), not the row's end
 	surface: any?,
 	value: any?,
 	trailing: any?, -- inert owned accessory, placed inside the row wrapping layout
+	avatar: any?, -- a built Avatar node leading the row (identity decoration, never a press)
 	trailingEdge: string?,
 	description: any?,
 	markHidden: any?,
@@ -284,8 +290,26 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 	-- has already painted its own
 	local buttonSelected = if row.platedSelection == true then nil else row.selected
 
-	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil or row.trailing ~= nil then
+	if
+		row.description ~= nil
+		or row.indicator ~= nil
+		or liveIcon
+		or row.badge ~= nil
+		or row.trailing ~= nil
+		or row.avatar ~= nil
+		or row.leading == true
+	then
 		local content = {}
+		-- a PLAIN leading row (no accessory at all) hugs its words, so a hugging
+		-- panel still has a natural width to take; nothing trails it to push
+		local plain = row.leading == true
+			and row.description == nil
+			and row.indicator == nil
+			and row.badge == nil
+			and row.trailing == nil
+			and row.avatar == nil
+			and row.value == nil
+		local hug = row.wrap or plain
 		-- the indicator slot, placed leading (a desktop menu) or trailing (a
 		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
 		local indicatorView: any = nil
@@ -388,17 +412,24 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				table.insert(content, indicatorView)
 			end
 		end
-		local function iconView(icon)
+		if row.avatar ~= nil then
+			table.insert(content, row.avatar)
+		end
+		local cornerBadge = row.badgeCorner == true and row.badge ~= nil and row.icon ~= nil
+		local function glyphView(icon)
 			return chrome_slots.attachHint(
 				UI.Text({
 					id = "Icon",
 					tint = row.labelTint,
-					text = themePackage.iconGlyph(icon) or "•",
+					text = themePackage.iconGlyphOrDot(icon),
 					textSize = row.textSize or "control",
 					width = { type = "minMax", min = "l" },
 				}),
 				{ icon = icon }
 			)
+		end
+		local function iconView(icon)
+			return if cornerBadge then badgeLib.corner(UI, glyphView(icon), row.badge) else glyphView(icon)
 		end
 		if liveIcon then
 			local icons = function(use)
@@ -418,7 +449,9 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 					end,
 				})
 			)
-		elseif row.icon ~= nil then
+		elseif row.icon ~= nil and not plain then
+			-- (a plain leading row keeps the leaf's ruling: its icon is the compact
+			-- form of the words, and a row that hugs its words never runs short)
 			table.insert(content, iconView(row.icon))
 		end
 
@@ -429,7 +462,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 					tint = row.labelTint,
 					text = row.label,
 					textSize = row.textSize or "control",
-					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					width = if hug then UI.hug() else { type = "fill", weight = 1 },
 				}),
 			}
 			local function description()
@@ -461,7 +494,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				content,
 				UI.VStack({
 					gap = "xs",
-					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					width = if hug then UI.hug() else { type = "fill", weight = 1 },
 					children = labels,
 				})
 			)
@@ -485,92 +518,9 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				table.insert(content, row.trailing)
 			end
 		end
-		if row.badge ~= nil then
-			local badge = if readable(row.badge)
-				then function(use)
-					local value = read(row.badge, use)
-					return if value == nil then "" else tostring(value)
-				end
-				else tostring(row.badge)
-			local hidden = if readable(badge)
-				then function(use)
-					return read(badge, use) == ""
-				end
-				else badge == ""
-			table.insert(
-				content,
-				--[[ THE SEAL IS A PLATE AND THE NUMBER IS A NODE INSIDE IT (owner
-					report 2026-09-12, `tests/badge_centering.spec.luau`).
-
-					WHAT WAS REPORTED: the count sits off-centre in its circle.
-
-					THE PLATE IS BIGGER THAN THE GLYPH, by two rules that both mean
-					to be: `render/layout_node.luau` gives `surface = "badge"` an
-					intrinsic MINIMUM on both axes (`controls.badge.minimum`, 20px in
-					Facet Neutral) and the padding below adds a margin a side. So
-					SOMETHING has to decide where the number sits in the slack, and
-					while the plate and the glyph were ONE `UI.Text` nothing in Facet
-					did: the horizontal answer came from `screen_target`'s create
-					default for a text node (`TextXAlignment.Left`, which put the
-					number 2.5px left of centre in Facet Neutral) and the vertical one
-					from its `TextYAlignment.Center`. One of those two is wrong and
-					neither is this control's.
-
-					THEY WERE ALSO UNMEASURABLE. One node is one solved rect, so no
-					headless test could ask where the number sat inside its seal — the
-					first version of this fix pinned a DERIVED answer, which is a pin
-					on a declaration and not on paint. A plate with a glyph inside it
-					has two rects and the claim becomes a measurement: with the glyph
-					a node of its own and the stack left to place it, it lands at the
-					plate's top-left (dy -2.5 in Facet Neutral, -3 under Compact
-					Pointer, -2.5 under Pixel Quest), and `alignH`/`alignV` are what
-					put it in the middle — as this control's decision, on both axes,
-					in a form the target can see.
-
-					THE PADDING STAYS ON ONE AXIS, deliberately, and it is the one
-					candidate this round measured and rejected. Making it uniform gives
-					the glyph vertical breathing room it currently has none of at a
-					raised text preference (Facet Neutral at +14: a 25x32 seal whose
-					glyph clears its sides by 4px and its top and bottom by zero) — but
-					it also costs the CIRCLE at the default preference, where the badge
-					minimum is what makes the seal 20x20 and a vertical margin would
-					make it 20x23. The seal the report was made against is round; a
-					margin is not worth an egg. ]]
-				UI.ZStack({
-					id = "Badge",
-					hidden = hidden,
-					surface = "badge",
-					padding = { left = "xs", right = "xs" },
-					corners = UI.cornersData("pill"),
-					children = {
-						--[[ THE PLATE CARRIES `hidden`, THE NUMBER DOES NOT, and that is a
-							cost decision as much as a tidiness one. `hidden` is not just a
-							paint flag: the renderer publishes every authored-hidden path as
-							an entry in `controller.hiddenRoots()`, and `focus_map.isHiddenPath`
-							answers "is this path inside a subtree that does not paint" by
-							SCANNING that set — once per node, in walks that run every frame
-							(`presenter.disclosureTargetIn`, `help_plate.helpTargetIn`,
-							`text_reveal`). A nested hidden node is never a root: `/…/Badge`
-							is already a path prefix of `/…/Badge/Count`, so the second entry
-							cannot change a single answer — it only makes every one of those
-							scans longer.
-
-							MEASURED (2026-09-13, `adaptive-navigation-images`): three unbadged
-							tab options put 3 entries in `hiddenRoots`; declaring it on the
-							glyph too put 6 there, and the per-frame disclosure walk went
-							7.8→10.6 us and the help walk 11.8→17.5 us — +25% on the whole
-							scene, for a duplicated declaration. One decision, one node. ]]
-						UI.Text({
-							id = "Count",
-							text = badge,
-							textSize = "caption",
-							textAlign = "center",
-							alignH = "center",
-							alignV = "center",
-						}),
-					},
-				})
-			)
+		if row.badge ~= nil and not cornerBadge then
+			-- a text row's badge is an inline trailing pill (`badge.seal`)
+			table.insert(content, badgeLib.seal(UI, "Badge", row.badge))
 		end
 		if trailingSlot and indicatorView ~= nil then
 			table.insert(content, indicatorView)
@@ -588,7 +538,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				UI.HStack({
 					wrap = row.wrap,
 					gap = "s",
-					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					width = if hug then UI.hug() else { type = "fill", weight = 1 },
 					children = content,
 				}),
 			},
@@ -658,6 +608,23 @@ end
 --[[ WHERE A ROW SITS IN THE CARD, as the four radii it therefore carries.
 	`only` is the one-row menu, which is the whole plate and takes all four. Pure
 	and exported so a test can ask the same question the panel does. ]]
+-- a row's leading Avatar: the shipped control, compact, decoration and never a
+-- second press. nil for an absent spec.
+function menu_recipe.avatarNode(Facet: any, avatar: any): any
+	if avatar == nil then
+		return nil
+	end
+	return Facet.nativeControls.Avatar({
+		id = "Avatar",
+		name = avatar.name,
+		image = avatar.image,
+		userId = avatar.userId,
+		key = avatar.key,
+		provider = avatar.provider,
+		controlSize = "compact",
+	})
+end
+
 function menu_recipe.cardCorners(position: string): any
 	local top = position == "first" or position == "only"
 	local bottom = position == "last" or position == "only"
@@ -717,6 +684,36 @@ function menu_recipe.cardRow(UI: any, row: Row, position: string): any
 		UI.corners(menu_recipe.row(UI, spec), menu_recipe.cardCorners(position)),
 		{ slot = chrome_slots.NO_SLOT }
 	)
+end
+
+--[[ SECTION HEADINGS AS LIST ENTRIES. An option's non-empty `sectionTitle`
+	becomes its own keyed entry just before it (`{ sectionHeading, key }`), so a
+	heading can arrive after mount without re-keying any row, and a keyed list,
+	a virtual list and a static list all interleave it the same way. A heading
+	is a caption, never a stop and never an activation site. ]]
+function menu_recipe.sectionEntries(list: { any }, keyOf: (any) -> string, use: any?): { any }
+	local out = {}
+	for _, option in list do
+		local title = if type(option) == "table" and option.divider ~= true
+			then selection.read(option.sectionTitle, use)
+			else nil
+		if type(title) == "string" and title ~= "" then
+			table.insert(out, { sectionHeading = title, key = "H-" .. keyOf(option) })
+		end
+		table.insert(out, option)
+	end
+	return out
+end
+
+function menu_recipe.sectionHeading(UI: any, text: any, hidden: any?): any
+	return UI.Text({
+		id = "SectionTitle",
+		text = text,
+		textSize = "caption",
+		role = "secondary",
+		width = { type = "fill", weight = 1 },
+		hidden = hidden,
+	})
 end
 
 --[[ A DIVIDER ITEM. `UI.Divider` is the shipped axis-aware hairline (A-LV3): it

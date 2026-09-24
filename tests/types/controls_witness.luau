@@ -121,6 +121,24 @@ local _table = app.controls.Table("Table")({
 	},
 })
 local _slider = app.controls.Slider("Volume")({ value = Facet.Compose.cell(0.5), min = 0, max = 1 })
+local _rangeSlider = app.controls.Slider({
+	value = Facet.Compose.cell({ lower = 2, upper = 8 }),
+	min = 0,
+	max = 10,
+	range = true,
+	minGap = 1,
+	axis = "y",
+	thumb = "auto",
+	rotation = function(_use)
+		return 90
+	end,
+	controlSize = "compact",
+	thumbContent = function(info)
+		local _ = info.thumb
+		return nil
+	end,
+	onChange = function(_value: any, _info) end,
+})
 local _stepper = app.controls.Stepper("Laps")({ value = Facet.Compose.cell(2), min = 1, max = 8 })
 local _picker = app.controls.Picker("Picker")({
 	options = { { id = "a", value = "a", label = "Alpine" } },
@@ -131,6 +149,18 @@ local _livePicker = app.controls.Picker("LivePicker")({
 	options = Facet.Compose.cell(pickerOptions),
 	selected = Facet.Compose.cell("a"),
 	presentation = "radio",
+})
+local _pickerField = app.controls.Picker({
+	options = { { value = "a", label = "Ada", avatar = { name = "Ada" }, badge = 2, sectionTitle = "Crew" } },
+	selected = Facet.Compose.cell("a"),
+	style = "menu",
+	requiredMark = "required",
+	hint = "Who drives",
+	errorText = Facet.Compose.cell(""),
+	controlSize = "compact",
+	appearance = "contrast",
+	corners = "pill",
+	maxHeight = 96,
 })
 local _popupbutton = app.controls.PopupButton("Popup")({
 	options = { { id = "a", label = "Alpine" } },
@@ -248,6 +278,12 @@ local _chip = app.controls.Chip("Tag")({
 	selected = Facet.Compose.cell(false),
 	label = "Tag",
 })
+local _editableTag = app.controls.Chip("EditTag")({
+	label = "Tag",
+	selected = Facet.Compose.cell(false),
+	editing = Facet.Compose.cell(false),
+	onRemove = function() end,
+})
 local _removeOnly = app.controls.Chip("RemoveTag")({
 	label = "Tag",
 	onRemove = function() end,
@@ -270,6 +306,48 @@ local _anonymousSetting = app.controls.Toggle({
 })
 local _rating = app.controls.Rating("Rating")({ value = Facet.Compose.cell(3) })
 local _textinput = app.controls.TextInput("Name")({ value = Facet.Compose.cell("Alpine") })
+local _fieldChrome = app.controls.TextInput({
+	value = Facet.Compose.cell(""),
+	label = "Display name",
+	requiredMark = "required",
+	hint = function(_use)
+		return "Shown to other players"
+	end,
+	errorText = Facet.Compose.cell(""),
+	controlSize = "compact",
+	appearance = "contrast",
+	corners = "pill",
+})
+local _numberInput = app.controls.NumberInput("Fee")({
+	value = Facet.Compose.cell("2.00"),
+	numericValue = Facet.Compose.cell(2),
+	min = 0,
+	max = 50,
+	step = 0.5,
+	precision = 2,
+	stepButtons = true,
+	prefix = "$",
+	suffix = function(_use)
+		return "ea"
+	end,
+	parse = Facet.recipes.arithmetic.parse,
+})
+local _anonymousNumber =
+	app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1) })
+local _readOnlyNotes = app.controls.TextInput("Notes")({
+	value = Facet.Compose.cell(""),
+	multiline = true,
+	visibleLines = 3,
+	readOnly = function(_use)
+		return true
+	end,
+	selectOnFocus = "all",
+})
+local _scrubbed = app.controls.NumberInput("Laps")({
+	value = Facet.Compose.cell("1"),
+	numericValue = Facet.Compose.cell(1),
+	scrub = true,
+})
 local _numericText = app.controls.TextInput("Number")({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),
@@ -282,7 +360,8 @@ local _numericText = app.controls.TextInput("Number")({
 	format = function(number: number): string
 		return tostring(number)
 	end,
-	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
+	-- the number presentation reports a number, and "clamped" when a bound moved it
+	onCommit = function(_value: string | number, _reason: "enter" | "focusLost" | "submit" | "clamped") end,
 	onCancel = function() end,
 })
 local _progressview =
@@ -396,6 +475,80 @@ local _callout = app.controls.Callout("Tip")({
 	end,
 	onRetire = function(_reason: string) end,
 })
+local _richCallout = app.controls.Callout({
+	anchor = app.controls.Button({ label = "Help" }),
+	title = "Try it",
+	media = { image = "rbxassetid://1", aspectRatio = 2, scaleMode = "crop" :: "crop" },
+	steps = { index = 1, count = 3 },
+	actions = { { id = "Go", label = "Show me", role = "default" :: "default", onActivate = function() end } },
+	closeButton = true,
+	onRetire = function(_reason: string) end,
+})
+local popoverOpen = Facet.Compose.cell(false)
+local _popover = app.controls.Popover("Info")({
+	isPresented = popoverOpen,
+	onPresentedChange = function(next: boolean)
+		popoverOpen:set(next)
+	end,
+	onDismiss = function(_reason) end,
+	trigger = app.controls.Button({ label = "Info" }),
+	edge = "trailing",
+	align = "center",
+	crossOffset = 4,
+	maxWidth = 320,
+	compact = "popover",
+	content = function()
+		return app.controls.Text({ text = "Body" })
+	end,
+})
+local _sourcePopover = app.controls.Popover({
+	isPresented = function(use)
+		return use(popoverOpen)
+	end,
+	source = { rect = { x = 0, y = 0, w = 10, h = 10 } },
+	content = function()
+		return app.controls.Text({ text = "Body" })
+	end,
+})
+local dialogOpen = Facet.Compose.cell(true)
+local _dialog = app.controls.Dialog("Confirm")({
+	isPresented = dialogOpen,
+	onPresentedChange = function(next: boolean)
+		dialogOpen:set(next)
+	end,
+	onDismiss = function(_reason) end,
+	title = "Leave?",
+	content = function()
+		return app.controls.Text({ text = "Body" })
+	end,
+	hero = { image = "rbxassetid://1", height = 120 },
+	actionLabel = "Choose",
+	actions = { { id = "Stay", label = "Stay", role = "cancel" :: "cancel", onActivate = function() end } },
+	actionLayout = "automatic",
+	width = "wide",
+	contentSelectable = false,
+})
+local _notice = app.controls.Notice("Conn")({
+	message = "Offline",
+	title = function(use)
+		return use(labelTitle)
+	end,
+	severity = "warning",
+	appearance = "emphasis",
+	placement = "affixed",
+	icon = false,
+	link = { label = "Details", onActivate = function() end },
+	actions = { { id = "Retry", label = "Retry", onActivate = function() end } },
+	onDismiss = function() end,
+	controlSize = "compact",
+})
+local _navBar = app.controls.NavBar("Top")({
+	onBack = function() end,
+	backLabel = "Back",
+	title = "Garage",
+	leading = app.controls.Button({ label = "Home" }),
+	trailing = app.controls.Button({ label = "More" }),
+})
 local _asyncimage = app.controls.AsyncImage("Art")({
 	key = "image",
 	scaleMode = "slice",
@@ -442,6 +595,190 @@ local _sheet = app.controls.Sheet("Details")({
 		return app.controls.Text({ text = "Details" })
 	end,
 })
+local _sheetParts = app.controls.Sheet("Lobby")({
+	title = function(_use)
+		return "Lobby"
+	end,
+	detent = Facet.Compose.cell("hug"),
+	detents = { "hug" :: "hug" | "large", "large" },
+	placement = "side",
+	edge = "left",
+	width = "narrow",
+	closeButton = false,
+	header = false,
+	hero = { image = "rbxassetid://1", aspectRatio = 16 / 9, sticky = true },
+	actions = { { id = "join", label = "Join", role = "default" :: "default", onActivate = function() end } },
+	actionLayout = "stacked",
+	contentInset = "none",
+	scrollPolicy = "atLargestDetent",
+	content = function()
+		return app.controls.Text({ text = "Lobby" })
+	end,
+})
+local snackShown = Facet.Compose.cell(false)
+local _snackbar = app.controls.Snackbar("Saved")({
+	isPresented = snackShown,
+	message = "Saved to your garage",
+	icon = "status.success",
+	action = { label = "Undo", onActivate = function() end },
+	onPresentedChange = function(next: boolean)
+		snackShown:set(next)
+	end,
+	onDismiss = function(_reason) end,
+	duration = 4,
+	priority = 1,
+})
+local _card = app.controls.Card("Nebula")({
+	image = "rbxassetid://1",
+	title = Facet.Compose.cell("Nebula Racers"),
+	caption = "Friends playing",
+	imageAspectRatio = 16 / 9,
+	onActivate = function() end,
+	primaryAction = { label = "Play", icon = "chevron.trailing", onActivate = function() end, busy = false },
+	menu = { items = { { id = "hide", label = "Not interested", onSelect = function() end } }, label = "More" },
+	reveal = "automatic",
+	browseTarget = function(): string?
+		return nil
+	end,
+})
+local pageNow = Facet.Compose.cell(1)
+local _pagination = app.controls.Pagination("Results")({
+	page = pageNow,
+	onChange = function(next: number)
+		pageNow:set(next)
+	end,
+	pageCount = 12,
+	siblingCount = 1,
+	boundaryCount = 1,
+	showFirstLast = true,
+	form = "numbers",
+	direction = "rtl",
+	controlSize = "compact",
+})
+local _unknownPages = app.controls.Pagination({
+	page = 2,
+	onChange = function(_next: number) end,
+	hasNext = true,
+	hasPrevious = Facet.Compose.cell(true),
+	form = "label",
+})
+type StepState = "complete" | "current" | "upcoming" | "error"
+local stepNow = Facet.Compose.cell("ship" :: string?)
+local _steps = app.controls.StepIndicator("Checkout")({
+	steps = {
+		{
+			id = "cart",
+			label = "Cart",
+			description = "",
+			state = "complete" :: StepState,
+			navigable = true,
+			enabled = true,
+		},
+		{
+			id = "ship",
+			label = "Shipping",
+			description = "Address",
+			state = "current" :: StepState,
+			navigable = true,
+			enabled = true,
+		},
+		{
+			id = "pay",
+			label = "Payment",
+			description = "",
+			state = "error" :: StepState,
+			navigable = false,
+			enabled = false,
+		},
+	},
+	current = stepNow,
+	onSelect = function(id: string)
+		stepNow:set(id)
+	end,
+	sizing = "hug",
+	listLabel = "Steps",
+	controlSize = "regular",
+})
+type VoteValue = "up" | "down" | "none"
+local voteNow = Facet.Compose.cell("none")
+local _vote = app.controls.Vote("Track")({
+	-- a getter narrows the cell's string to the three words
+	value = function(use): VoteValue
+		local v = use(voteNow)
+		return if v == "up" then "up" elseif v == "down" then "down" else "none"
+	end,
+	onChange = function(next)
+		voteNow:set(next)
+	end,
+	summary = "99% liked",
+	readOnly = false,
+	controlSize = "large" :: "large",
+})
+local _pastVote = app.controls.Vote({ value = "up", readOnly = true })
+local bodyColor = Facet.Compose.cell(nil :: any)
+local _color = app.controls.ColorPicker("Body")({
+	label = "Kart body",
+	hint = "Shown on the track",
+	value = bodyColor,
+	onChange = function(next)
+		bodyColor:set(next)
+	end,
+	onCommit = function(_c) end,
+	alpha = 1,
+	onAlphaChange = function(_a: number) end,
+	allowEmpty = true,
+	placeholder = "None",
+	modes = { "swatches", "spectrum", "sliders", "brick" },
+	draft = true,
+	onDismiss = function(_reason) end,
+	controlSize = "compact",
+	corners = "pill",
+})
+local raceDay = Facet.Compose.cell(nil :: Facet.CivilDate?)
+local _date = app.controls.DateTimePicker("RaceDay")({
+	label = "Race day",
+	placeholder = "MM/DD/YYYY",
+	value = raceDay,
+	onChange = function(next)
+		raceDay:set(next)
+	end,
+	onCommit = function(_d) end,
+	min = { year = 2026, month = 1, day = 1 },
+	max = { year = 2026, month = 12, day = 31 },
+	isDateDisabled = function(d)
+		return d.day == 13
+	end,
+	weekStart = 2,
+	time = true,
+	minuteStep = 15,
+	hourCycle = 24,
+	clock = function()
+		return { year = 2026, month = 9, day = 23 }
+	end,
+	draft = true,
+	onDismiss = function(_reason) end,
+})
+local window = Facet.Compose.cell({} :: Facet.CivilRange)
+local _dateRange = app.controls.DateTimePicker({
+	selection = "range",
+	range = window,
+	onRangeChange = function(next)
+		window:set(next)
+	end,
+	onRangeCommit = function(_r) end,
+	presets = {
+		{
+			id = "week",
+			label = "This week",
+			range = function(today)
+				return { start = today, finish = Facet.civilDate.addDays(today, 6) }
+			end,
+		},
+	},
+	style = "inline",
+})
+local _inlineColor =
+	app.controls.ColorPicker({ value = nil, onChange = function(_c) end, style = "inline", allowEmpty = true })
 local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },

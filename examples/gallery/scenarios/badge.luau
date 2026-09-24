@@ -65,6 +65,19 @@ return {
 						controlSize = rung,
 					}),
 				}),
+				-- on a host a count sits on its corner (Badge placement A): a Button, an
+				-- icon button past 99, and an Avatar's dot; rows keep the trailing pill
+				UI.HStack("Hosts")({
+					gap = "l",
+					wrap = true,
+					align = "center",
+					UI.badged(UI.Button("Inbox")({ label = "Inbox", onActivate = function() end }), 3),
+					UI.badged(
+						UI.Button("Alerts")({ label = "Alerts", icon = "menu", onActivate = function() end }),
+						120
+					),
+					UI.badged(UI.Avatar("Friend")({ name = "Ada Quill" }), true),
+				}),
 				UI.HStack("Commands")({
 					gap = "s",
 					wrap = true,
@@ -112,8 +125,13 @@ return {
 			screen = function()
 				return UI.Screen("Badge")({
 					surface = "base",
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
+					padding = { top = "m", bottom = "m" },
+					UI.ScrollView("Content")({
+						width = UI.fill(),
+						height = UI.fill(),
+						padding = { left = "m", right = "m" },
+						section(),
+					}),
 				})
 			end,
 			steps = {

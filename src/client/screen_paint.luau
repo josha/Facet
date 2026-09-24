@@ -71,6 +71,14 @@ function screen_paint.new(ctx: any)
 	local instancesByPath = ctx.instancesByPath
 	local handlesByPath = ctx.handlesByPath
 	local toColor3 = ctx.toColor3
+	-- the sheet's `$ControlSelectedHover`, one formula (sheet_model.selectedHoverColor)
+	-- (a partial style that names no control ramp keeps the plain hover)
+	local x = style.extra or {}
+	local SELECTED_HOVER = if x.control ~= nil
+			and x.controlHover ~= nil
+			and x.controlSelected ~= nil
+		then toColor3(sheet_model.selectedHoverColor(x))
+		else nil
 	local isReducedMotion = ctx.isReducedMotion
 	-- the player's Background Transparency preference. An ACCESSOR,
 	-- not a value, for the same reason `focusTreatment`/`activeTheme` below are:
@@ -485,6 +493,7 @@ function screen_paint.new(ctx: any)
 		-- node strokes the GLYPHS instead of the box (the same engine truth the
 		-- phantom stroke rules carry)
 		live.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		live.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box
 		live.Parent = instance
 	end
 
@@ -538,6 +547,27 @@ function screen_paint.new(ctx: any)
 		return handle.restingScale or 1
 	end
 
+	-- THE DIP SCALES ONE INSTANCE, SO IT MAY ONLY SCALE A BUTTON THAT DRAWS ITSELF
+	-- (owner 2026-09-23). A Button's content — an icon, a swatch, a value, a
+	-- chevron — is its own flat instances beside the plate, not under it, so the
+	-- dip shrank the plate toward its top-left under content that stayed put: a
+	-- 1400px picker field lost 21px on the right and its chevron hung outside.
+	-- Such a Button keeps its pressed paint and does not dip; a text-only Button
+	-- draws its label itself, and one hosting its content carries it along.
+	local function dipCarriesContent(handle: any): boolean
+		local prefix = handle.path .. "/"
+		for path, other in handlesByPath do
+			if
+				string.sub(path, 1, #prefix) == prefix
+				and other.instance ~= nil
+				and not other.instance:IsDescendantOf(handle.instance)
+			then
+				return false
+			end
+		end
+		return true
+	end
+
 	-- A neutral press-only UIScale suppresses UIShadow in the native engine.
 	-- Drop it after recovery; authored/motion scales keep their existing pivot
 	-- and lifetime, including the settled radial-menu rounding protection.
@@ -581,7 +611,7 @@ function screen_paint.new(ctx: any)
 			end
 		end
 		button.MouseButton1Down:Connect(function()
-			if not isReducedMotion() and not handle.suppressStates then
+			if not isReducedMotion() and not handle.suppressStates and dipCarriesContent(handle) then
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),
@@ -864,6 +894,7 @@ function screen_paint.new(ctx: any)
 		stroke.Transparency = style.extra.hairlineOpacity
 		stroke.Thickness = style.strokes.hairline
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		stroke.BorderStrokePosition = Enum.BorderStrokePosition.Inner -- inside the box
 		stroke.Parent = instance
 	end
 
@@ -1101,7 +1132,7 @@ function screen_paint.new(ctx: any)
 			if handle.surfaceKind == "accent" then
 				return COLOR.accent:Lerp(Color3.new(1, 1, 1), 0.12)
 			end
-			return COLOR.controlHover
+			return if handle.isSelected and SELECTED_HOVER ~= nil then SELECTED_HOVER else COLOR.controlHover
 		end
 		local function pressedFill(): Color3
 			if handle.surfaceKind == "accent" then
@@ -1208,7 +1239,12 @@ function screen_paint.new(ctx: any)
 		end)
 		button.MouseButton1Down:Connect(function()
 			setFill(pressedFill(), true, "pressed")
-			if handle.class ~= "Toggle" and not isReducedMotion() and not handle.suppressStates then
+			if
+				handle.class ~= "Toggle"
+				and not isReducedMotion()
+				and not handle.suppressStates
+				and dipCarriesContent(handle)
+			then
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),

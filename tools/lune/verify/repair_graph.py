@@ -404,6 +404,11 @@ SERIALIZED = {
 #   Each entry is (old id, new id, who renamed it). ]]
 CASE_ID_REPAIRS = [
     (
+        'adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are eleven today',
+        'adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are twelve today',
+        "P4b added UI.Dialog to the refusing controls; the census case was retitled eleven -> twelve.",
+    ),
+    (
         'text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::a gap made of a NEWLINE still counts as one, so embedded newlines are unchanged',
         'text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::hard breaks reserve distinct lines, including trailing and empty lines',
         "Multiline text preserves hard breaks and trailing empty lines. The replacement case "
@@ -472,6 +477,21 @@ CASE_ID_REPAIRS = [
         "needed -- and the renderer now sweeps departed paths deepest-first so the emptiness test "
         "is answerable. The case still pins the refusal that the corpse gate's reasoning stands "
         "on; it pins the narrowed one, directionally, and states what the gate's reasoning becomes",
+    ),
+    (
+        "theme_roles::migrated controls: byte-parity under Facet Neutral::"
+        "PopupButton: 40px trigger, and 36/44/56 rows per presentation",
+        "theme_roles::migrated controls: byte-parity under Facet Neutral::"
+        "PopupButton: 40px trigger, and a menu row at the target floor",
+        "a floating menu's rows now reserve the target floor (44, not compact 36) so stacked "
+        "rows' hit rects never overlap; the heights are out of the title",
+    ),
+    (
+        "display_controls::B-DSP3: PopupButton adapts its presentation::"
+        "a menu sits just below the trigger with compact rows",
+        "display_controls::B-DSP3: PopupButton adapts its presentation::"
+        "a menu sits just below the trigger with rows at the target floor",
+        "a floating menu's rows now reserve the target floor (44, not compact 36)",
     ),
 ]
 

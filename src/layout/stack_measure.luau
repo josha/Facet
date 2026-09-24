@@ -103,6 +103,11 @@ function stack_measure.contentSize(
 	local n = #children
 	local gaps = if n > 1 then gap * (n - 1) else 0
 	local mainLimit = if isH then innerMaxW else innerMaxH
+	-- A `ViewThatFits` turns its offer into a CHOICE, so it alone is offered only
+	-- the room its siblings' gaps leave; for any other child the offer is a
+	-- ceiling whose overrun the sum reports.
+	local fitsW = if isH then math.max(0, innerMaxW - gaps) else innerMaxW
+	local fitsH = if isH then innerMaxH else math.max(0, innerMaxH - gaps)
 	local mainSum, fillWeightSum = 0, 0
 	local crossOf: { [number]: number } = {}
 	local marginMain: { [number]: number } = {}
@@ -472,7 +477,12 @@ function stack_measure.contentSize(
 			marginMain[idx] = if isH then ml + mr else mt + mb
 			ctx.childVisits += 1
 			local cutsBefore = ctx.fitCuts
-			local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
+			local cw, ch = measure(
+				ctx,
+				child,
+				if child.kind == "fits" then fitsW else innerMaxW,
+				if child.kind == "fits" then fitsH else innerMaxH
+			)
 			local mainOf = (if isH then cw + ml + mr else ch + mt + mb) + spacerMinimum(child, isH)
 			crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
 			-- OWED ROWS A6 AND A7, the only arithmetic in this task, and both are exact
@@ -558,8 +568,8 @@ function stack_measure.contentSize(
 				could never differ, on the branch whose own finding is that the residual is
 				now the dominant term. If a later task gives the fill pass a second reader,
 				it re-adds the array WITH a case that fails without it. ]]
-				ctx.offers[child.wKey or (child.id .. "|w")] = innerMaxW
-				ctx.offers[child.hKey or (child.id .. "|h")] = innerMaxH
+				ctx.offers[child.wKey or (child.id .. "|w")] = if child.kind == "fits" then fitsW else innerMaxW
+				ctx.offers[child.hKey or (child.id .. "|h")] = if child.kind == "fits" then fitsH else innerMaxH
 				ctx.fitCuts += mCuts[idx]
 				crossOf[idx] = mCross[idx]
 				mainSum += mMain[idx]
@@ -596,7 +606,12 @@ function stack_measure.contentSize(
 			else
 				ctx.childVisits += 1
 				local cutsBefore = ctx.fitCuts
-				local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
+				local cw, ch = measure(
+					ctx,
+					child,
+					if child.kind == "fits" then fitsW else innerMaxW,
+					if child.kind == "fits" then fitsH else innerMaxH
+				)
 				local mainOf = (if isH then cw + ml + mr else ch + mt + mb) + spacerMinimum(child, isH)
 				local crossOfIdx = if isH then ch + mt + mb else cw + ml + mr
 				mainSum += mainOf

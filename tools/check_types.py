@@ -40,11 +40,12 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # `namespace_entries()` itself whenever a control is deliberately added or
 # retired.
 DECLARED_ENTRIES = {
-    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView",
-    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
-    "NavigationStack", "PageView", "Picker", "PopupButton", "ProgressView",
-    "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "StatusIndicator", "Slider", "SplitButton",
-    "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
+    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Card", "Chip", "ColorPicker", "DateTimePicker", "CollapsibleView", "Dialog",
+    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu", "NavBar", "Notice", "Pagination",
+    "NavigationStack", "NumberInput", "PageView", "Picker", "Popover", "PopupButton", "ProgressView",
+    "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Snackbar", "StatusIndicator", "StepIndicator", "Slider",
+    "SplitButton",
+    "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid", "Vote",
     "VirtualList",
 }
 
@@ -78,7 +79,7 @@ def analyze(paths):
 # `api.NAME = composite("NAME", localVar.build)` where `localVar` was bound by
 # a top-of-file `local localVar = require("../controls/x")`.
 _COMPOSITE_RE = re.compile(
-    r'api\.(\w+) = composite\("\1",\s*(?:require\("([^"]+)"\)|(\w+))\.build\)'
+    r'api\.(\w+) = composite\("\1",\s*(?:require\("([^"]+)"\)|(\w+))\.build\w*\)'
 )
 _REQUIRE_RE = re.compile(r'local (\w+) = require\("(\.\./controls/[^"]+)"\)')
 
@@ -166,6 +167,8 @@ _EROSION_PROBES = [
     # the other is exactly the gap this list exists to catch.
     ("Slider", 'app.controls.Slider({ value = "nope", min = 0, max = 1 })'),
     ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
+    ("Slider", 'app.controls.Slider({ value = Facet.Compose.cell(0), min = 0, max = 1, axis = "z" })'),
+    ("Slider", 'app.controls.Slider("S")({ value = Facet.Compose.cell(0), min = 0, max = 1, thumb = "sometimes" })'),
     ("NavigationStack", 'app.controls.NavigationStack(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
     ("NavigationStack", 'app.controls.NavigationStack("N")(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
     ("Label", 'app.controls.Label({ title = 42 })'),
@@ -220,7 +223,47 @@ _EROSION_PROBES = [
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ keys = {{"K"}}, controlSize = "huge" })'),
     ("ShortcutHint", 'app.controls.ShortcutHint({ keys = {{"K"}}, separator = 42 })'),
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ action = "Activate", over = "photo" })'),
+    ("NavBar", 'app.controls.NavBar({ title = 4 })'),
+    ("NavBar", 'app.controls.NavBar("Bar")({ leading = "Home" })'),
+    ("Notice", 'app.controls.Notice({ message = "m", severity = "fatal" })'),
+    ("Card", 'app.controls.Card({ image = "i", title = "t", reveal = "hover" })'),
+    ("Pagination", 'app.controls.Pagination({ page = 1, onChange = function(_n: number) end, form = "dots" })'),
+    ("StepIndicator", 'app.controls.StepIndicator({ steps = {}, current = nil, sizing = "wide" })'),
+    ("Vote", 'app.controls.Vote({ value = "sideways", onChange = function(_v) end })'),
+    ("ColorPicker", 'app.controls.ColorPicker({ value = nil, onChange = function(_c) end, style = "wheel" })'),
+    ("ColorPicker", 'app.controls.ColorPicker("C")({ value = nil, onChange = function(_c) end, draft = "yes" })'),
+    ("DateTimePicker", 'app.controls.DateTimePicker({ value = nil, onChange = function(_d) end, selection = "multi" })'),
+    ("DateTimePicker", 'app.controls.DateTimePicker("D")({ value = nil, onChange = function(_d) end, style = "wheel" })'),
+    ("Vote", 'app.controls.Vote("V")({ value = "up", readOnly = "yes" })'),
+    ("StepIndicator", 'app.controls.StepIndicator("S")({ steps = { { id = "a", label = "A", state = "done" } }, current = "a" })'),
+    ("Pagination", 'app.controls.Pagination("P")({ page = 1, onChange = function(_n: number) end, direction = "up" })'),
+    ("Card", 'app.controls.Card("C")({ image = "i", title = "t", primaryAction = { label = "P" } })'),
+    ("Notice", 'app.controls.Notice("N")({ message = "m", placement = "bottom" })'),
+    ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, title = "T", width = "huge" })'),
+    ("Dialog", 'app.controls.Dialog("D")({ isPresented = true, closeButton = "no", title = "T" })'),
+    ("Dialog", 'app.controls.Dialog({ isPresented = true, closeButton = false, actions = { { id = "A", label = "A", role = "primary", onActivate = function() end } } })'),
+    ("Sheet", 'app.controls.Sheet({ title = "T", detent = Facet.Compose.cell("medium"), content = function() return app.controls.Text({ text = "x" }) end, placement = "top" })'),
+    ("Sheet", 'app.controls.Sheet("S")({ title = "T", detent = Facet.Compose.cell("medium"), content = function() return app.controls.Text({ text = "x" }) end, placement = "side", edge = "start" })'),
+    ("Sheet", 'app.controls.Sheet({ title = "T", detent = Facet.Compose.cell("hug"), detents = { "hug", "tall" }, content = function() return app.controls.Text({ text = "x" }) end })'),
+    ("Sheet", 'app.controls.Sheet("S")({ title = "T", detent = Facet.Compose.cell("medium"), content = function() return app.controls.Text({ text = "x" }) end, header = true })'),
+    ("Sheet", 'app.controls.Sheet({ title = "T", detent = Facet.Compose.cell("medium"), content = function() return app.controls.Text({ text = "x" }) end, scrollPolicy = "never" })'),
+    ("Sheet", 'app.controls.Sheet("S")({ title = "T", detent = Facet.Compose.cell("medium"), content = function() return app.controls.Text({ text = "x" }) end, hero = { image = "rbxassetid://1", height = 10, sticky = "yes" } })'),
+    ("Snackbar", 'app.controls.Snackbar({ isPresented = true, message = "m", closeButton = "no" })'),
+    ("Snackbar", 'app.controls.Snackbar("S")({ isPresented = true, message = "m", closeButton = false, duration = "long" })'),
+    ("Snackbar", 'app.controls.Snackbar({ isPresented = true, message = "m", closeButton = false, action = { label = "a" } })'),
+    ("Popover", 'app.controls.Popover({ isPresented = true, source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end, compact = "drawer" })'),
+    ("Popover", 'app.controls.Popover("Info")({ isPresented = true, source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end, maxWidth = "wide" })'),
+    ("Popover", 'app.controls.Popover({ isPresented = "open", source = { path = "/S/A" }, content = function() return app.controls.Text({ text = "x" }) end })'),
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
+    ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), appearance = "emphasis" })'),
+    ("TextInput", 'app.controls.TextInput("Field")({ value = Facet.Compose.cell(""), requiredMark = "maybe" })'),
+    ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), readOnly = "yes" })'),
+    ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), selectOnFocus = "everything" })'),
+    ("NumberInput", 'app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), presentation = "search" })'),
+    ("Picker", 'app.controls.Picker({ options = {}, selected = Facet.Compose.cell("a"), maxHeight = "96" })'),
+    ("Picker", 'app.controls.Picker("P")({ options = {}, selected = Facet.Compose.cell("a"), requiredMark = "maybe" })'),
+    ("NumberInput", 'app.controls.NumberInput("Laps")({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), step = "one" })'),
+    ("NumberInput", 'app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), scrub = "yes" })'),
 ]
 
 

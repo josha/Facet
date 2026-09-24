@@ -5,6 +5,7 @@ local publicCore = require("../core/contract")
 local publicBlueprint = require("../blueprint")
 local publicEnv = require("../env/environment")
 local adaptive = require("../layout/adaptive")
+local statusIndicator = require("./status_indicator")
 export type Tab = {
 	id: string,
 	label: publicBlueprint.Bound<string>?, -- string | Readable<string>; defaults to `id`
@@ -12,6 +13,10 @@ export type Tab = {
 	required: boolean?,
 	section: string?,
 	badge: publicBlueprint.Bound<string | number>?, -- string | number | Readable of either — the count seal
+	-- a StatusIndicator spec painted in this tab's segment (construction-only table)
+	indicator: statusIndicator.Spec?,
+	-- false leaves the tab in the strip but refuses its selection on every input class
+	enabled: publicBlueprint.Bound<boolean>?,
 	content: (tabScope: publicCore.Owner) -> publicBlueprint.Blueprint,
 }
 export type Accessories = {

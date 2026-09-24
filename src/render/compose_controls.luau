@@ -257,6 +257,11 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 			return wrapper
 		end
 	end
+	-- a count or dot on a host's corner (Badge placement A, `badge.corner`)
+	UI.badged = function(host, value, direction)
+		assert(host.parent == nil, "Facet badged: badge the host before mounting it")
+		return require("../controls/badge_seal").corner(UI, host, value, direction)
+	end
 	local library: any = { UI = UI, Controls = {}, surfaces = surfaces, runtime = runtime, presenter = presenter }
 	library.Controls.ProgressView = function(controlCore, spec)
 		return progress.build(library, controlCore, spec)
@@ -268,6 +273,7 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	end
 	api.background = UI.background
 	api.overlay = UI.overlay
+	api.badged = UI.badged
 	--[[ `UI.ForEach`/`UI.When` dispatch on `spec.transition` (Compose.keyed/
 		Compose.show underneath, `../render/region_transitions.luau` when a
 		transition is declared) but that dispatch lives only on the INTERNAL
@@ -451,6 +457,17 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	api.RadialMenu = composite("RadialMenu", require("../controls/radial_menu").build)
 	api.Alert = composite("Alert", require("../controls/alert").build)
 	api.Callout = composite("Callout", require("../controls/callout").build)
+	api.Popover = composite("Popover", require("../controls/popover").build)
+	api.Dialog = composite("Dialog", require("../controls/dialog").build)
+	api.Notice = composite("Notice", require("../controls/notice").build)
+	api.Card = composite("Card", require("../controls/card").build)
+	api.Pagination = composite("Pagination", require("../controls/pagination").build)
+	api.StepIndicator = composite("StepIndicator", require("../controls/step_indicator").build)
+	api.Vote = composite("Vote", require("../controls/vote").build)
+	api.ColorPicker = composite("ColorPicker", require("../controls/color_picker").build)
+	api.DateTimePicker = composite("DateTimePicker", require("../controls/date_time_picker").build)
+	api.Snackbar = composite("Snackbar", require("../controls/snackbar").build)
+	api.NavBar = composite("NavBar", require("../present/nav_bar").buildControl)
 	api.Sheet = composite("Sheet", require("../controls/sheet").build)
 	api.NavigationStack = composite("NavigationStack", require("../controls/navigation_stack").build)
 	api.AsyncImage = composite("AsyncImage", require("../controls/async_image").build)
@@ -467,6 +484,7 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	api.Chip = composite("Chip", require("../controls/chip").build)
 	api.Toggle = composite("Toggle", toggle.build)
 	api.TextInput = composite("TextInput", textInput.build)
+	api.NumberInput = composite("NumberInput", textInput.buildNumber)
 	api.ProgressView = composite("ProgressView", progress.build)
 	return api, UI, library
 end

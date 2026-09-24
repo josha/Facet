@@ -10,6 +10,7 @@ local groups = {
 			{ id = "writing", label = "Writing", scenario = require("./text_controls") },
 			{ id = "leaves", label = "Leaves", scenario = require("./leaf_capabilities") },
 			{ id = "choices", label = "Choices", scenario = require("./selection_controls") },
+			{ id = "pickers", label = "Pickers", scenario = require("./pickers") },
 		},
 	},
 	{
@@ -22,12 +23,13 @@ local groups = {
 			{ id = "menus", label = "Menus", scenario = require("./menu") },
 			{ id = "alerts", label = "Alerts", scenario = require("./alert") },
 			{ id = "sheets", label = "Sheets", scenario = require("./sheet") },
+			{ id = "overlays", label = "Overlays", scenario = require("./overlays") },
 			{ id = "help", label = "Help", scenario = require("./callout") },
 		},
 	},
 	{
 		id = "indicators",
-		label = "Indicators",
+		label = "Status",
 		tabs = {
 			{ id = "progress", label = "Progress", scenario = require("./progress_ring") },
 			{ id = "identity", label = "Identity", scenario = require("./identity") },
@@ -39,10 +41,12 @@ local groups = {
 	},
 	{
 		id = "navigation",
-		label = "Navigation",
+		label = "Menus",
 		tabs = {
 			{ id = "journey", label = "Journey", scenario = require("./navigation_stack") },
 			{ id = "pages", label = "Pages", scenario = require("./page_view") },
+			{ id = "paging", label = "Paging", scenario = require("./paging") },
+			{ id = "steps", label = "Steps", scenario = require("./steps") },
 			{ id = "disclosure", label = "Disclosure", scenario = require("./collapsible_view") },
 		},
 	},

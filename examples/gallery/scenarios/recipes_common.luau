@@ -129,16 +129,20 @@ return {
 				table.unpack(children),
 			})
 		end
-		local function dividerExample(id: string, name: string, sides: any, thickness: number?): any
+		-- Each line sits under a representative icon row, so a leading inset visibly
+		-- starts where the row's text does: the Label's icon box plus its gap.
+		local TEXT_INSET = { "controlSizes.regular.iconSize", "controls.label.gap" }
+		local function dividerExample(id: string, name: string, sides: any, thickness: any?): any
 			return UI.VStack(id)({
 				width = UI.fill(),
 				gap = "xs",
 
-				UI.Text("Label")({
-					text = name,
-					textSize = "caption",
-					role = "secondary",
+				UI.HStack("Row")({
 					width = UI.fill(),
+					gap = "controls.label.gap",
+					align = "center",
+					UI.Label("Icon")({ title = name, icon = "settings", presentation = "iconOnly" }),
+					UI.Text("Title")({ text = name, width = UI.fill() }),
 				}),
 				UI.VStack("Pad")({
 					width = UI.fill(),
@@ -362,11 +366,22 @@ return {
 				}),
 
 				heading("DividerHeading", "Divider insets"),
-				dividerExample("DividerFull", "Full", 0),
-				dividerExample("DividerLeading", "Leading inset", { left = "m" }),
-				dividerExample("DividerTrailing", "Trailing inset", { right = "m" }),
-				dividerExample("DividerBoth", "Leading and trailing", { left = "m", right = "m" }),
-				dividerExample("DividerHeavy", "Heavy", 0, 3),
+				-- one bounded card, so both ends of every line are on screen to compare;
+				-- the trailing inset is the same amount as the leading one
+				UI.VStack("Dividers")({
+					surface = "raised",
+					width = { type = "percent", fraction = 1, max = 360 },
+					padding = "m",
+					gap = "m",
+					dividerExample("DividerFull", "Full width", 0),
+					dividerExample("DividerLeading", "Leading inset: starts at the text", { left = TEXT_INSET }),
+					dividerExample("DividerTrailing", "Trailing inset: stops short", { right = TEXT_INSET }),
+					dividerExample("DividerBoth", "Leading and trailing", { left = TEXT_INSET, right = TEXT_INSET }),
+					dividerExample("DividerHeavy", "Heavy: three hairlines", 0, function(use)
+						local metrics = use(ctx.env:get("themeMetrics")) or Facet.themes.neutral()
+						return 3 * metrics.strokes.hairline
+					end),
+				}),
 
 				heading("AccordionHeading", "Single-open accordion"),
 				UI.VStack("Accordion")({
@@ -413,8 +428,13 @@ return {
 			screen = function()
 				return UI.Screen("Recipes")({
 					surface = "base",
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), Page() }),
+					padding = { top = "m", bottom = "m" },
+					UI.ScrollView("Content")({
+						width = UI.fill(),
+						height = UI.fill(),
+						padding = { left = "m", right = "m" },
+						Page(),
+					}),
 				})
 			end,
 			steps = {

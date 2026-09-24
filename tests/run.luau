@@ -45,7 +45,11 @@ require("./stateful_menu.spec")
 require("./toggle_presentations.spec")
 require("./multiline_input.spec")
 require("./native_caret_scroll.spec")
+require("./native_text_press.spec")
 require("./text_presentations.spec")
+require("./field_chrome.spec")
+require("./number_input.spec")
+require("./picker_fields.spec")
 require("./studio_sync_bootstrap.spec")
 require("./smoke.spec")
 require("./conformance/conformance.spec")
@@ -235,6 +239,8 @@ require("./src_tree.spec")
 	directions, no module-level mutable state, and the rule this document's other
 	seams did not need: that `displayLayer` stays ONE record with two writers ]]
 require("./surface_lifecycle_seam.spec")
+-- ...and `present/text_disclosure.luau`, the full-value plate that left it next
+require("./text_disclosure_seam.spec")
 require("./fine_grained_reactivity.spec")
 --[[ the reactive core's RECOVERY half (release-candidate review RR-1..RR-11):
 	whether a memo that failed, an effect that disposed itself, or a settle
@@ -363,6 +369,7 @@ require("./traversal_order.spec")
 -- composed focus map, opt-in, entry still the active screen's, suspended by a
 -- trap, and the press routed to the surface that owns the node
 require("./focus_chrome.spec")
+require("./focus_chrome_mixed.spec")
 require("./parentless_build_owner.spec")
 require("./path.spec")
 -- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus
@@ -1296,6 +1303,17 @@ require("./help.spec")
 -- D3b: `Callout` — the app-pushed coach mark, its eligibility/invalidation
 -- contract, the caller-owned persistence boundary, and the non-blocking proof
 require("./callout.spec")
+require("./popover.spec")
+require("./dialog.spec")
+require("./notice.spec")
+require("./card.spec")
+require("./view_recipes.spec")
+require("./pagination.spec")
+require("./color_picker.spec")
+require("./date_time_picker.spec")
+require("./step_indicator.spec")
+require("./vote.spec")
+require("./snackbar.spec")
 -- ...and the SURFACE those two constructs are shown on, which shipped with no
 -- spec at all and took two of the four findings of the 2026-08-16 device review:
 -- the session reset that makes the device pass repeatable, and the screen gutter
@@ -1533,6 +1551,9 @@ require("./app_chrome_insets.spec")
 require("./screen_focus_visual_seam.spec")
 require("./toast_layer_seam.spec")
 require("./sheet.spec")
+require("./sheet_parts.spec")
+require("./sheet_gesture.spec")
+require("./sheet_release.spec")
 require("./page_view.spec")
 require("./mouse_scroll.spec")
 require("./collapsible_view.spec")

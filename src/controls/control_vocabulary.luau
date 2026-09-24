@@ -126,19 +126,27 @@ function vocabulary.cornerRadiusFor(word: any): any
 	return if type(word) == "string" then CORNER_RADIUS[word] else nil
 end
 
+-- The effective hit floor as a bound minMax Dim: the larger of the class floor
+-- and the theme minimum. Returns the Dim function and the env it reads.
+function vocabulary.hitFloor(core: any, id: string): ((any) -> any, any)
+	local env = surfaceEnv.resolve("UI.Button", id, core, nil, "a sized control must reserve its effective hit floor")
+	return function(use)
+		return { type = "minMax", min = contract.effectiveHitFloor("Button", use(env:get("themeMetrics"))) }
+	end,
+		env
+end
+
 -- Reserve both axes at the larger of the class floor and theme minimum.
 -- The plate keeps its id and authored dimensions; fill also belongs on the wrapper.
-function vocabulary.reserveTarget(UI: any, core: any, id: string, plate: any, width: any): any
-	local env = surfaceEnv.resolve("UI.Button", id, core, nil, "a sized control must reserve its effective hit floor")
-	local function floor(use)
-		return { type = "minMax", min = contract.effectiveHitFloor("Button", use(env:get("themeMetrics"))) }
-	end
-	return UI.ZStack({
-		id = id .. "+target",
-		-- A fixed sub-floor plate contributes its own width to this minimum.
-		-- Fill belongs on the wrapper too, so the control still takes its offer.
-		width = function(use)
-			local authored = selection.read(width, use)
+-- `height` negotiates exactly as `width` does, for a control whose value runs down
+-- the page (a vertical Slider); absent, both axes floor as before.
+function vocabulary.reserveTarget(UI: any, core: any, id: string, plate: any, width: any, height: any?): any
+	local floor, env = vocabulary.hitFloor(core, id)
+	-- A fixed sub-floor plate contributes its own extent to this minimum.
+	-- Fill belongs on the wrapper too, so the control still takes its offer.
+	local function reserve(dim: any)
+		return function(use)
+			local authored = selection.read(dim, use)
 			if authored and authored.type == "fill" then
 				local metrics = use(env:get("themeMetrics"))
 				local reserved = table.clone(authored)
@@ -149,8 +157,12 @@ function vocabulary.reserveTarget(UI: any, core: any, id: string, plate: any, wi
 				return reserved
 			end
 			return floor(use)
-		end,
-		height = floor,
+		end
+	end
+	return UI.ZStack({
+		id = id .. "+target",
+		width = reserve(width),
+		height = reserve(height),
 		alignH = "center",
 		alignV = "center",
 		children = { plate },

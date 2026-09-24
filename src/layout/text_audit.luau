@@ -408,26 +408,33 @@ function text_audit.helpRoutes(declarations: { [string]: any }, rects: { [string
 		if waived(path) then
 			continue
 		end
-		local wanted = string.lower(decl.text)
-		local echoed = false
-		for _, line in spoken do
-			if string.find(line, wanted, 1, true) ~= nil then
-				echoed = true
-				break
+		-- the structured form's title and body are checked SEPARATELY: a title the
+		-- screen repeats never vouches for a body it does not
+		for _, part in { decl.text, decl.title } do
+			if type(part) ~= "string" or part == "" then
+				continue
 			end
+			local wanted = string.lower(part)
+			local echoed = false
+			for _, line in spoken do
+				if string.find(line, wanted, 1, true) ~= nil then
+					echoed = true
+					break
+				end
+			end
+			if echoed then
+				continue
+			end
+			table.insert(out, {
+				check = "helpOnlyRoute",
+				node = path,
+				contract = "`help` shows nothing on touch, so it must never be the only route to something a "
+					.. "player needs: this sentence appears nowhere the screen actually paints",
+				fix = "say it on screen as well (a caption, a secondary label, a Callout), or list it in "
+					.. "opts.convenience if a touch player genuinely loses nothing by never seeing it",
+				detail = string.format("%q is painted by no visible, untruncated text node", part),
+			})
 		end
-		if echoed then
-			continue
-		end
-		table.insert(out, {
-			check = "helpOnlyRoute",
-			node = path,
-			contract = "`help` shows nothing on touch, so it must never be the only route to something a "
-				.. "player needs: this sentence appears nowhere the screen actually paints",
-			fix = "say it on screen as well (a caption, a secondary label, a Callout), or list it in "
-				.. "opts.convenience if a touch player genuinely loses nothing by never seeing it",
-			detail = string.format("%q is painted by no visible, untruncated text node", decl.text),
-		})
 	end
 	return finish(out)
 end

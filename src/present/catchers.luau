@@ -80,9 +80,22 @@ function catchers.new(ctx: any)
 	-- one non-destructive outcome for outside-tap, Cancel (B), and Close (spec
 	-- §2.3): a modal dismisses (or SWALLOWS if it declined outside-dismiss — a
 	-- true barrier, never a clickthrough); an engaged-passive surface resigns.
+	-- A CLOSE REQUEST BEFORE THE TEARDOWN. A control on the surface may answer an
+	-- outside tap itself (`requestDismiss("outside") -> boolean`): false keeps the
+	-- surface, its focus and its content exactly as they are.
+	local function dismissAllowed(candidate: any): boolean
+		for _, c in candidate.contributions or {} do
+			local request = c.bundle.requestDismiss
+			if request ~= nil and request("outside") == false then
+				return false
+			end
+		end
+		return true
+	end
+
 	local function applyOutsideOutcome(candidate: any, engagedPassive: boolean)
 		if candidate.kind == "modal" then
-			if candidate.outsideTapCancel then
+			if candidate.outsideTapCancel and dismissAllowed(candidate) then
 				presenter.dismiss(candidate)
 			end
 			-- outsideTapCancel=false: swallow (barrier), no dismiss, no clickthrough

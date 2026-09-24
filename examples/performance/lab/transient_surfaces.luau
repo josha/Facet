@@ -55,6 +55,19 @@ local function base(ctx: any, id: string)
 	return UI.Screen(id)({ padding = 12, UI.Button({ id = "Open", label = "Open" }) })
 end
 
+-- present a base screen through the application's mount when the caller has one
+-- (the mount is the owner its controls build under), else straight to the
+-- presenter; answers the close
+local function presentBase(ctx: any, pres: any, screen: () -> any): () -> ()
+	if ctx.app ~= nil then
+		return (ctx.app.mount(screen))
+	end
+	local handle = pres.present(screen())
+	return function()
+		pres.dismiss(handle)
+	end
+end
+
 local function buildAlert(ctx: any): Fixture
 	local core = ctx.core
 	-- Built under this fixture's own owner, so disposing it is the teardown.
@@ -76,7 +89,6 @@ local function buildAlert(ctx: any): Fixture
 		})
 	end)
 	local baseHandle: any = nil
-	local presenter: any = nil
 	local handle: any = nil
 	local lastHandle: any = nil
 	local presents = 0
@@ -92,9 +104,10 @@ local function buildAlert(ctx: any): Fixture
 	local represents = 0
 	return {
 		present = function(pres)
-			presenter = pres
 			if baseHandle == nil then
-				baseHandle = pres.present(base(ctx, "AlertBase"))
+				baseHandle = presentBase(ctx, pres, function()
+					return base(ctx, "AlertBase")
+				end)
 				pres.refresh()
 				pres.focus.focusOn("/AlertBase/Open")
 			end
@@ -123,7 +136,7 @@ local function buildAlert(ctx: any): Fixture
 		end,
 		dispose = function()
 			if baseHandle ~= nil then
-				presenter.dismiss(baseHandle)
+				baseHandle()
 				baseHandle = nil
 			end
 			alertScope:dispose()
@@ -161,14 +174,14 @@ local function buildPicker(ctx: any): Fixture
 		})
 	end)
 	local baseHandle: any = nil
-	local presenter: any = nil
 	local opens = 0
 	local presentation: string? = nil
 	return {
 		present = function(pres)
-			presenter = pres
 			if baseHandle == nil then
-				baseHandle = pres.present(UI.Screen("PickerBase")({ padding = 12, pickerBlueprint }))
+				baseHandle = presentBase(ctx, pres, function()
+					return UI.Screen("PickerBase")({ padding = 12, pickerBlueprint })
+				end)
 				tickAndRefresh(pres, 1)
 			end
 		end,
@@ -195,7 +208,7 @@ local function buildPicker(ctx: any): Fixture
 		end,
 		dispose = function()
 			if baseHandle ~= nil then
-				presenter.dismiss(baseHandle)
+				baseHandle()
 				baseHandle = nil
 			end
 			pickerScope:dispose()
@@ -227,13 +240,13 @@ local function buildRadial(ctx: any): Fixture
 		})
 	end)
 	local baseHandle: any = nil
-	local presenter: any = nil
 	local opens = 0
 	return {
 		present = function(pres)
-			presenter = pres
 			if baseHandle == nil then
-				baseHandle = pres.present(UI.Screen("RadialBase")({ menuBlueprint }))
+				baseHandle = presentBase(ctx, pres, function()
+					return UI.Screen("RadialBase")({ menuBlueprint })
+				end)
 				-- the launcher paints only once its position is solved (three ticks)
 				tickAndRefresh(pres, 3)
 			end
@@ -254,7 +267,7 @@ local function buildRadial(ctx: any): Fixture
 		end,
 		dispose = function()
 			if baseHandle ~= nil then
-				presenter.dismiss(baseHandle)
+				baseHandle()
 				baseHandle = nil
 			end
 			radialScope:dispose()

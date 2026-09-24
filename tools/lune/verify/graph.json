@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-21T00:50:00Z",
+ "maintainedAt": "2026-09-23T18:54:11Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -6703,7 +6703,7 @@
     ],
     "resultIds": [
      "large_text_matrix::LT-8 control matrix: every registry row at four preferences x two themes::LT8-CTL PopupButton: no sibling overlap, no undisclosed clip beyond its declared allowlist, and no NEW sub-floor control at 0/4/10/14 px x both reference themes",
-     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and 36/44/56 rows per presentation",
+     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and a menu row at the target floor",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton inline rows are 44 and sheet rows are 56",
      "spec_guard_sweep::ARCH-1: every guarded boundary refuses an unknown key::UI.PopupButton refuses 'definitelyNotAKey' and names itself",
      "spec_guard_sweep::ARCH-1: every guarded boundary refuses an unknown key::UI.PopupButton still accepts its legal call",
@@ -18576,7 +18576,7 @@
      "display_controls::B-DSP3: PopupButton rows meet the enforced target floor::the trigger and every open row report a hit rect at or above the floor",
      "display_controls::B-DSP3: PopupButton adapts its presentation::the pure rule prefers a sheet on touch, inline when short, menu otherwise",
      "display_controls::B-DSP3: PopupButton adapts its presentation::a sheet anchors to the bottom edge with visually larger rows",
-     "display_controls::B-DSP3: PopupButton adapts its presentation::a menu sits just below the trigger with compact rows",
+     "display_controls::B-DSP3: PopupButton adapts its presentation::a menu sits just below the trigger with rows at the target floor",
      "display_controls::B-DSP3: PopupButton adapts its presentation::an inline list takes the CONTROL surface, not a floating-panel one",
      "display_controls::B-DSP3: PopupButton adapts its presentation::automatic resolves from LIVE facts, and re-resolves when they change",
      "display_controls::B-DSP3: PopupButton adapts its presentation::a LIVE touch class flips it to a sheet with no rebuild of the trigger",
@@ -18713,7 +18713,7 @@
      "theme_roles::text_metrics: canonical font-descriptor keys::a role's line height reaches the measurer through the layout node",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::Slider: 44px track, 20px thumb, 6px rail, 16px label gap, 40px readout",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::ProgressView: 6px track, 20px row floor, 14px label text, 8px row gap",
-     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and 36/44/56 rows per presentation",
+     "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton: 40px trigger, and a menu row at the target floor",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::PopupButton inline rows are 44 and sheet rows are 56",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::TextInput: 44px field, 28px clear button inset 8px from the right edge",
      "theme_roles::migrated controls: byte-parity under Facet Neutral::Toggle: 28px minimum height and the 44+12+16 track reservation",
@@ -21931,7 +21931,7 @@
      "adaptive_defaults::ADAPT-1: a control that cannot get its facts refuses, naming the host::...and a DECLARED presentation consults no ladder, so it never refuses",
      "adaptive_defaults::ADAPT-1: the client host is what makes this free on a real surface::dispose releases the environment the host registered",
      "adaptive_defaults::ADAPT-1: the client host is what makes this free on a real surface::a hosted screen's controls adapt with zero authoring",
-     "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are eleven today",
+     "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are twelve today",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::a control that refuses in either shape is discovered by the scan itself",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::each discovered control's own section names the refusal and the environment",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::removing a control's section from api.md is reported",
@@ -23027,13 +23027,13 @@
      "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
      "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls"
     ],
-    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"35\""
+    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"47\""
    },
    "class": "result-ids",
    "evidence": null,
    "id": "release-candidate-review::naming-adr-implemented",
    "name": "naming-adr-implemented",
-   "note": "naming-adr-implemented: 3 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. UPDATED 2026-09-21: ShortcutHint adds the thirtieth application composite; the exact namespace case checks the declared control set. P2a adds Skeleton, Avatar, and AvatarGroup to the accepted 30-entry baseline: the exact current composite census is 33. P2bc adds StatusIndicator and Badge: the exact current composite census is 35.",
+   "note": "naming-adr-implemented: 3 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. UPDATED 2026-09-21: ShortcutHint adds the thirtieth application composite; the exact namespace case checks the declared control set. P2a adds Skeleton, Avatar, and AvatarGroup to the accepted 30-entry baseline: the exact current composite census is 33. P2bc adds StatusIndicator and Badge: the exact current composite census is 35. NumberInput made it 36; P4a adds Popover: the exact current composite census is 37. P4b adds Dialog: 38, Notice: 39, and NavBar: 40. P4d adds Snackbar: 41. P6a adds Card: 42. P6b adds Pagination: 43, StepIndicator: 44 and Vote: 45. P5a adds ColorPicker: 46. P5b adds DateTimePicker: 47.",
    "phase": "release-candidate-review",
    "releaseBlocking": false,
    "requirements": [

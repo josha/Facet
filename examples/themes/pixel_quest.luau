@@ -53,7 +53,9 @@ local SHADE = rgb(58, 44, 79)
 local WOOD = rgb(168, 114, 47)
 local TAN = rgb(215, 168, 96)
 local CREAM = rgb(244, 230, 192)
-local RED = rgb(122, 31, 34) -- RED_D, the palette's dark red: the mid RED fails the 4.5:1 gate against CREAM
+-- a bright red with INK lettering: danger is read as TEXT on the dark panel too, and
+-- the dark RED_D it replaced read at 1.31:1 there (5.72:1 against INK)
+local RED = rgb(240, 96, 88)
 local GRN = rgb(79, 168, 63)
 -- the two SEMANTIC plates, in the same eight-colour discipline the rest of this
 -- palette keeps: a LEAF darker than the accent green (so "success" and "the
@@ -205,7 +207,7 @@ local QUEST = {
 		accent = GRN,
 		onAccent = INK,
 		danger = RED,
-		onDanger = CREAM,
+		onDanger = INK,
 		success = LEAF,
 		onSuccess = CREAM,
 		warning = GOLD,
@@ -219,6 +221,15 @@ local QUEST = {
 		-- multiplied by `$ChromeTintSelected` (director finding 12). TAN was the
 		-- untinted art colour, which is not what a selected row shows.
 		controlSelected = rgb(163, 148, 71),
+		-- the control art's centre as painted (assets/themes/plate-samples.json):
+		-- what a lifted label on this plate is paired against
+		controlArt = rgb(168, 114, 47),
+		-- ...and its stepper's pressed plate, where the +/- is picked
+		stepperArtPressed = rgb(107, 67, 38),
+		-- ...and the field's art, where its text and placeholder read
+		fieldArt = rgb(58, 44, 79),
+		-- ...and the panel's, where an author's text inside a raised box reads
+		panelArt = rgb(58, 44, 79),
 		contentSecondary = TAN,
 		hairline = INK,
 		hairlineOpacity = 0.2,
@@ -238,6 +249,17 @@ function pixel_quest.definition(themes: any): any
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	assets.menu = { content = "rbxassetid://119066409501208", tintRole = "content" }
 	assets.flag = { content = "rbxassetid://109067109704366", tintRole = "content" }
+	-- ...and the rest of what the showcase asks for (`settings`
+	-- painted `*` here because this map had no answer and the rung is declined)
+	assets.settings = { content = "rbxassetid://78513807849201", tintRole = "content" }
+	assets.trash = { content = "rbxassetid://84398508341623", tintRole = "content" }
+	assets.status_info = { content = "rbxassetid://119954823374061", tintRole = "content" }
+	assets.status_success = { content = "rbxassetid://108245103349446", tintRole = "content" }
+	assets.status_error = { content = "rbxassetid://131379225714116", tintRole = "content" }
+	assets.status_warning = { content = "rbxassetid://94336971455701", tintRole = "content" }
+	assets.chevron_first = { content = "rbxassetid://121092340130819", tintRole = "content" }
+	assets.chevron_last = { content = "rbxassetid://124199778383157", tintRole = "content" }
+	assets.calendar = { content = "rbxassetid://93477762216058", tintRole = "content" }
 	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
 		base = themes.neutralPackage(),
@@ -465,6 +487,14 @@ function pixel_quest.definition(themes: any): any
 			["facet:search"] = "search",
 			menu = "menu",
 			flag = "flag",
+			settings = "settings",
+			trash = "trash",
+			["status.info"] = "status_info",
+			["status.success"] = "status_success",
+			["status.error"] = "status_error",
+			["status.warning"] = "status_warning",
+			["chevron.first"] = "chevron_first",
+			["chevron.last"] = "chevron_last",
 			increment = "pixel_icon_plus",
 			decrement = "pixel_icon_minus",
 			["chevron.leading"] = "pixel_icon_chevron_left",
@@ -472,6 +502,10 @@ function pixel_quest.definition(themes: any): any
 			["chevron.up"] = "pixel_icon_chevron_up",
 			["chevron.down"] = "pixel_icon_chevron_down",
 			["chevron.up.chevron.down"] = "pixel_icon_chevron_up_down",
+			-- a vote's two sides are this pack's own up and down arrows
+			["vote.up"] = "pixel_icon_chevron_up",
+			["vote.down"] = "pixel_icon_chevron_down",
+			calendar = "calendar",
 			checkmark = "pixel_icon_check",
 			close = "pixel_icon_cross",
 			more = "pixel_icon_more",

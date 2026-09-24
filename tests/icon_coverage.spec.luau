@@ -71,6 +71,19 @@ local REQUIRED_ICONS: { string } = {
 	"facet:selection.radio.off",
 	"facet:selection.radio.on",
 	"facet:selection.check.off",
+	-- Vote's two sides (phase6)
+	"vote.up",
+	"vote.down",
+	-- StepIndicator's error cue (phase6)
+	"status.error",
+	-- DateTimePicker's open button (phase5)
+	"calendar",
+	-- Notice's severity icons and Pagination's First/Last
+	"status.info",
+	"status.success",
+	"status.warning",
+	"chevron.first",
+	"chevron.last",
 }
 
 -- the files a framework icon request can live in: the composite controls, the
@@ -94,7 +107,7 @@ end
 
 -- every icon name the sources NAME, by the three shapes a name is written in:
 -- the decoration hint / control property (`icon = "..."`), the floor lookup
--- (`iconGlyph("...")`), and a bare `facet:`-namespaced literal, which in
+-- (`iconGlyph("...")`), the shared icon node, and a bare `facet:`-namespaced literal, which in
 -- framework code is an icon name by construction (`ns:name` in an error string
 -- is not, and cannot be: the namespace has to be `facet`).
 local function namesInSources(): { [string]: { string } }
@@ -115,6 +128,10 @@ local function namesInSources(): { [string]: { string } }
 			end
 		end
 		for name in string.gmatch(src, 'iconGlyph%("([^"]+)"%)') do
+			add(name, path)
+		end
+		-- the shared icon node (`label.icon(UI, "<name>", ...)`)
+		for name in string.gmatch(src, '%.icon%(UI, "([^"]+)"') do
 			add(name, path)
 		end
 		for name in string.gmatch(src, '"(facet:[%a][%w_%.]*)"') do
@@ -340,3 +357,59 @@ describe(`icon coverage: nothing on a mounted {SCENARIO} paints a fallback chara
 		end)
 	end
 end)
+
+--[[ THE PHASE3-6 CONTROLS TAKE BUTTON'S ICON PATH (phase6 fix1 P2). Snackbar,
+	Notice, Vote's read-only marks and StepIndicator's cues handed a semantic name
+	to `UI.Image` raw, which paints nothing. Each now carries the icon hint, and in
+	Neutral, Pixel and Fantasy every one of those names resolves to something drawn. ]]
+describe("icon coverage: Notice, Vote and StepIndicator show named icons through the hint", function()
+	local world = require("./lib/world")
+	for _, module in { "", "pixel_quest", "fantasy_ornate" } do
+		local pkg = if module == ""
+			then themeSnapshot.neutralPackage()
+			else (require(`../examples/themes/{module}`) :: any).build(Facet.themes)
+		it(`{if module == "" then "facet-neutral" else module}`, function()
+			local w = world.new({ viewport = { x = 0, y = 0, w = 1400, h = 700 }, reducedMotion = true })
+			w.env:set("themeMetrics", themeSnapshot.resolve(pkg, nil, {}))
+			w.present(function()
+				local UI = w.UI
+				return UI.Screen("S")({
+					UI.VStack("Page")({
+						width = UI.fill(),
+						UI.Notice("N")({ message = "Lap lost.", severity = "error" }),
+						UI.Vote("V")({ value = "up", readOnly = true }),
+						UI.StepIndicator("P")({
+							steps = {
+								{ id = "a", label = "Cart", state = "complete" },
+								{ id = "b", label = "Pay", state = "error" },
+							},
+							current = "b",
+						}),
+					}),
+				})
+			end)
+			w.settle(3)
+			local seen: { string } = {}
+			for _, path in w.adapter.paths() do
+				local hint = w.adapter.node(path).decorationHint
+				local name = if type(hint) == "table" then hint.icon else nil
+				if type(name) == "string" and string.find(path, "/[NVP]/") then
+					local resolved = themePackage.resolveIcon(pkg, name)
+					local drawn = type(resolved) == "table"
+						and (
+							(resolved.source == "asset" and (resolved.contentId or "") ~= "")
+							or (resolved.glyph or "") ~= ""
+						)
+					expect(`{name}:{drawn}`).toBe(`{name}:true`)
+					table.insert(seen, `{string.match(path, "/([NVP])/")}:{name}`)
+				end
+			end
+			table.sort(seen)
+			expect(table.concat(seen, ",")).toBe(
+				"N:status.error,P:checkmark,P:checkmark,P:status.error,P:status.error,V:vote.down,V:vote.up"
+			)
+		end)
+	end
+end)
+
+return nil

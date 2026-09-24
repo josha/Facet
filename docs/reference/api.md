@@ -1059,6 +1059,8 @@ a canvas back to the window on an axis the engine cannot scroll (it must, or the
 engine draws a bar nothing can move) — so accepting one would be a declaration the
 live target discards and a headless one honours. The axis left out keeps the
 derived canvas (content + the padding the solve spent + the chrome lane it kept).
+An extent smaller than the content is honoured as written: the content past it
+cannot be scrolled to, and nothing warns.
 Construction-only, and it needs a static `axis` for the same reason a tile mode
 needs a static `scaleMode`. Each authored extent must be positive and finite, or
 name a known non-negated metric that resolves to positive finite pixels. Zero,
@@ -1654,6 +1656,15 @@ content at measure, so a content-sized parent still hugs). Without this, a line
 whose every cell fills has no content to be derived from and every cell in it is
 zero-height — a rectangle with a width and no area, which paints nothing at all.
 
+On a D-pad, a grid navigates as rows and columns, and Up from its first row or
+Down from its last row leaves for the focus group beside it in document order.
+That neighbour can be a derived row, the last or first row of an adjacent grid,
+or a control's own focus group when that control contributes exactly one (a
+TextInput, a range Slider, a VirtualList, a Chip row, a DateTimePicker's time
+fields). The exit names that particular control, so two fields that share an
+id on one page are never confused. A control that contributes several groups
+is not linked, and an authored `exit` is never overwritten.
+
 ### `GridRow`
 
 `UI.GridRow{ id?, surface?, shadow?, gradient?, corners?, stroke?, zIndex?, children? }`
@@ -1735,8 +1746,9 @@ so declaring it costs nothing; **omitting** it on text that truncates is what th
 text audit reports as a clipped-essential finding. Binding a Readable here is
 refused with the rebuild idiom, exactly like `traversalPriority`.
 
-**`help`** (string, construction-only) is one sentence
-about what this view DOES, **pulled by the player**: a pointer resting on it for
+**`help`** (a string, or the table `{ title?, body, shortcut?, edge?, align? }`;
+construction-only) is one sentence about what this view DOES, **pulled by the
+player**: a pointer resting on it for
 a dwell, or the keyboard/gamepad ring landing on it. See **Help** under
 [`app.presenter`](#apppresenter) for the whole contract — including the part that is easy to get
 wrong. **On touch, nothing appears, and that is the specification.** No
@@ -2214,7 +2226,9 @@ floating round "…" action. It is **not reactive**: a shape is what the control
   `"chevron.trailing"`, or a package's namespaced `"ns:name"`. The framework draws
   its own ASCII-safe glyph for that name immediately, so the affordance is legible
   under *every* theme, and a package that ships art for the name has the adapter
-  paint the picture over it, tinted by that asset's `tintRole`. With an `icon` the
+  paint the picture over it, tinted by that asset's `tintRole`. A plain name outside
+  the vocabulary (`"search"` for `"facet:search"`) draws a dot and warns once per
+  name in the output, naming the near miss when there is one. With an `icon` the
   `label` stays the **semantic name** and is not drawn — which names the node for a
   dump, a bug report and a focus trace, and reaches the player through nothing (see
   the accessibility note under **Custom content** above). `icon` is circle-only; a
@@ -2299,9 +2313,9 @@ hover and focus only, nothing on touch (see `Text`'s `help`).
 
 ### `TextField`
 
-`UI.TextField{ id?, text?, placeholder?, editing?, enabled?, focusable?,
-maxLength?, keyboardType?, multiline?, surface?, help?, padding?, textSize?,
-traversalPriority?, onTextChanged?, onFocusGained?, onFocusLost? }` —
+`UI.TextField{ id?, text?, placeholder?, editing?, enabled?, editable?, focusable?,
+selectOnFocus?, maxLength?, keyboardType?, multiline?, surface?, help?, padding?, textSize?,
+traversalPriority?, onTextChanged?, onFocusGained?, onFocusLost?, onScrub? }` —
 the text-entry leaf primitive the renderer maps to an engine `TextBox`. All of
 `text`/`placeholder`/`editing`/`enabled`/`maxLength`/`keyboardType` ride the
 binding authority (the engine adapter maps `editing` to CaptureFocus/
@@ -2310,11 +2324,11 @@ props inherit `common`. **`help`** (construction-only) is the player-pulled
 sentence about what this field is for — pointer hover and focus only, nothing on
 touch (see `Text`'s `help`). The three handler props are functions the adapter wires
 through the optional `setTextInputHandlers(handle, handlers)` seam
-(`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason), onCaretRect?(rect) }`,
+(`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason), onScrub?(phase, arg), onCaretRect?(rect) }`,
 `reason ∈ "enter" | "focusLost" | "cancel"`; `path` is the focused node's full
 path — engine-initiated focus must deliver it so occlusion keep-visible works
-without a prior activate). The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `UI.TextInput`
-composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
+without a prior activate). `onScrub` reports a horizontal drag across the editor: `"press"` with the pressing class (`"pointer"` or `"touch"`) answers whether to follow it, `"begin"` past the shared slop answers whether to take it (the adapter then releases focus), then `"move"` with the total horizontal travel in pixels and one `"end"` or `"cancel"`. The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `UI.TextInput`
+composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `editable = false` is the engine's own read-only mode (`TextEditable`), default true: the field stays focusable, selectable and at full contrast but refuses every edit; the adapter composes it with `enabled`, so a field is editable only when both allow it. `selectOnFocus` (`"none"` default, `"all"`, `"end"`; bound words apply live, an illegal one is refused and the last legal policy stays) is read once at the start of each native focus session: a focus made by a pointer press applies it at that pointer's release, after the engine has placed its own caret; any other focus applies it at once. Offsets are the engine's byte offsets; `none` writes nothing, and text writes never select. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
 
 ### `UI.NavigationStack`
 
@@ -3160,6 +3174,14 @@ misbehaves when the alias and per-corner properties mix).
 hairline, so `UI.stroke(bp, {})` is exactly the hairline the adapter already draws
 on a raised panel.
 
+Every border Facet paints, authored or a theme's own hairline (raised, chip, a
+field, the `utility` appearance), sits inside its node's box
+(`BorderStrokePosition = Inner`), so a scroller's clip never cuts it. The node's
+padding on each side is at least the stroke's thickness, so its content never
+lies under the band; padding that is already wider is unchanged. Only a resting
+stroke pays for padding: a bound `stroke` (a formula, such as a focus or hover
+ring) is paint-only, so toggling it never re-solves layout.
+
 | Field | Meaning |
 |---|---|
 | `thickness` | px, or a stroke token name (`"hairline"`). Default: the style's hairline weight. |
@@ -3411,6 +3433,7 @@ is 90 px wide.
 | `alignment` | `UI.alignment(bp, horizontal?, vertical?)` | placement inside a `ZStack` parent |
 | `overlay` | `UI.overlay(bp, content, align?)` | layers `content` **above** `bp` |
 | `background` | `UI.background(bp, content, align?)` | layers `content` **behind** `bp` |
+| `badged` | `UI.badged(bp, value, direction?)` | a count or dot seal on `bp`'s top corner (see `UI.Badge`) |
 
 `overlay` and `background` are the only two that change **structure** — a layered
 pair is a `ZStack` — so they need the base to carry an explicit `id`. The wrapper
@@ -3598,6 +3621,22 @@ filtering: the game still uses the platform's filtering rules.
 UI.Text { rich = true, text = "<b>" .. Facet.richText.escape(playerName) .. "</b> wins" }
 ```
 
+### `recipes`
+
+`Facet.recipes` holds compositions a caller opts into in one line rather than
+keys every control carries. `Facet.recipes.arithmetic.parse(text) -> number?`
+is a pure four-operator parser for a `UI.NumberInput`'s `parse`, so `3 + 5`
+commits as 8. It reads `+ - * /`, parentheses, the typographic `×`, `÷` and
+`−`, and the numeric field's strict decimal grammar; it answers `nil` for
+malformed text, division by zero, a non-finite result, more than 256 bytes or
+more than 32 levels of nesting (a run of signs counts). It parses and never
+compiles or runs the text. Whether a field accepts arithmetic is a product
+decision, which is why this is a recipe and not a key.
+
+```lua
+UI.NumberInput("Fee")({ value = draft, numericValue = fee, parse = Facet.recipes.arithmetic.parse })
+```
+
 ### Engine-selection bridge (a presentModal opt)
 
 `app.presentModal(component, { engineSelectionBridge = true })` — opt-in mirror
@@ -3631,6 +3670,7 @@ end)
 | `app.presentModal(component, options?)` | the same tree as a modal; returns `close, node, handle` |
 | `app.presentAnchored(component, options)` | a panel placed against a source rect; returns `close, node`. The builder receives `app.controls` |
 | `app.presentToast(component, options)` | a toast body inside the toast layer's own row; returns `{ id, dismiss() }` |
+| `app.presentSnackbar(spec)` | the `UI.Snackbar` spec without a component, on the same service; returns an idempotent release function |
 
 `close()` is idempotent: it dismisses that surface and releases the component's
 resources. `app.dispose()` closes every surface that is still open.
@@ -4463,6 +4503,35 @@ draws the framework's own `chevron.leading` icon through `compactLabel`, and it
 declares `prefer = true`, so the icon is never traded back for a text label by
 the shrink ladder.
 
+**The slot form.** Pass `leading` (a node that follows Back) or `center` (a
+node that replaces the default title) and the bar becomes an `AdaptiveStack`
+with a `Primary` row — Back, `Leading`, then a `Center` that fills what is
+left — and a `Trailing` group. When the measured sides would leave the center
+under `controls.popup.panelWidth`, the trailing content moves to a second row
+while Back, leading and the center stay first; it is an axis change, so no slot
+is rebuilt and a focused search field in the center keeps its text and focus.
+Trailing controls degrade through their own `compactLabel` first. Without
+`leading` or `center` the lowercase form keeps its exact legacy shape.
+
+### `UI.NavBar`
+
+`UI.NavBar { … }` -> the bar's node. `ref` receives `{ api, dump }`.
+
+The typed, named form, **always** the slot form: `{ id?, onBack?, backLabel?,
+title?, titleSize?, leading?, center?, trailing?, gap?, padding? }`. `trailing` is
+**one** node — author a cluster as an `HStack` — and every slot is a caller-owned
+node (a Button, a search `TextInput`, a title-and-subtitle stack). `dump()`
+reports `{ schema = "facet-navbar-dump/1", id, back, leading, center =
+"custom" | "title" | "none", trailing }`.
+
+```lua
+UI.NavBar("Top")({
+    onBack = close, backLabel = "Back",
+    center = UI.TextInput("Search")({ value = query, placeholder = "Search tracks" }),
+    trailing = UI.HStack("Tools")({ UI.Button("Filter")({ label = "Filter", compactLabel = { icon = "menu" } }) }),
+})
+```
+
 ### The standing rule: a transient opens OVER the live screen, and the live screen stays visible
 
 A menu, a popup, a picker panel, a callout, an expand plate — the whole
@@ -4792,7 +4861,11 @@ options = {
            | { rect = { x, y, w, h } },     -- or a fixed window-space box
     edge?     = "bottom",  -- "top" | "bottom" | "leading" | "trailing" | "overlap"
     align?    = "center",  -- "start" | "center" | "end", along that edge
+    crossOffset? = 0,      -- px ALONG the alignment axis, before the safe clamp; a
+                           -- flip changes the edge only, never the alignment or this
     gap?      = "s",       -- a theme metric name or a number
+    maxWidth?, maxHeight?, -- px caps on the SURFACE (panel and chrome), kept inside the
+                           -- LIVE safe box as insets change; absent = the plain hug
     margin?   = nil,       -- a floor on the safe box's side and bottom insets (a metric
                            -- name or px): a popover from a control passes "m" so it never
                            -- sits closer to the edge than the content it came from
@@ -4828,8 +4901,9 @@ presenter's disclosure plate and `UI.RowActions`' floating menu also ask:
 1. **Place** on the preferred edge, `gap` px off the source.
 2. **Flip** to the opposite edge when the preferred placement crosses the safe
    box **and** the opposite one fits entirely. Both halves matter: it never flips
-   into a worse place, so a panel too tall for either side stays where it was
-   asked to go.
+   into a worse place. When neither side holds it, it goes **beside** the source
+   (the perpendicular edges, trailing or below first) if one holds it entirely;
+   only a panel that fits nowhere is left to `overflow`.
 3. **Shift** along the edge until the surface is inside the safe box.
 4. **Tail**: centre it on the *source*, keep it clear of the panel's own rounded
    corners, and **suppress it** when the shift has carried it off the source —
@@ -4896,6 +4970,18 @@ enforces it, and it asks two separate questions:
 - **`helpOnlyRoute`** — the screen paints this sentence nowhere else, so a player
   who never hovers cannot read it. `opts.convenience` (path prefixes or a
   predicate) waives this one, and only this one.
+
+**The table form** adds a heading and placement: `body` is required (empty only
+when `title` carries the words), `title` paints above it, and `shortcut` is a
+display-only list of alternative chords in `UI.ShortcutHint`'s `keys` spelling
+(`{ { "Ctrl", "K" }, { "F1" } }`) — it registers no action and no context.
+`edge`/`align` place the plate (default `bottom`/`start`). `text_audit.helpRoutes`
+checks `title` and `body` **separately**: a title the screen repeats never vouches
+for a body it does not. For a touch player, say the words visibly or put an info
+`UI.Button` beside the control that opens a [`UI.Popover`](#uipopover).
+
+A live plate follows its source: a same-path node rebuilt with other help
+re-presents, and its width stays inside the live safe box as insets change.
 
 The plate is **chrome, not a surface**: it takes no focus, adds no focus stop and
 binds no key. A truncated `disclose` label on the same engagement **outranks** it
@@ -5476,6 +5562,14 @@ for input contexts — constitution E-17). Prefer the setters over writing
 `context.enabled`/`.sink` directly: a bare field write works headlessly and is
 dead on the real engine adapter.
 
+**One key edge, one delivery.** A `Bool` action that becomes armed while one of
+its keys is already held (its context is enabled, or the binding is added,
+mid-press) treats that hold as an arrival. Its state follows the key, but
+neither the press nor its release reaches `onPressed` or `onReleased`, and the
+key's release ends the arrival. So a Delete that removes the focused tag cannot
+also remove the tag that focus moves to, and a context enabled by a ButtonA
+press does not receive that same press. The engine adapter keeps the same rule.
+
 `system.actionNamed(name, preferredContext?)` resolves a non-destroyed preferred
 context first, even if disabled; otherwise it uses enabled contexts by descending
 priority, with creation order breaking ties. This names a binding; it does not
@@ -5863,7 +5957,7 @@ shape as `adaptive`/`composition` above.
 | Call | Result |
 |---|---|
 | `layout.transformFootprint(w, h, scale, deg)` | the axis-aligned bounding box of a `w x h` rectangle scaled uniformly by `scale` and rotated `deg` degrees about its own centre, ROUNDED UP: `width, height` (two numbers). `scale`/`rotation` are paint-only (see the `scale` row above), so the solver reserves a node's UNSCALED box and the engine draws the transformed one — a scaled/rotated container's PARENT has to reserve the painted footprint itself, as a plain sibling box outside the node that scales. This is that formula, published (framework-gaps-phase2 gap 33, audit-marked "teaches-wrong 12") so a consumer computes the reservation instead of hand-transcribing the trigonometry the `scale` row documents in prose. Reproduces the exact device measurement recorded there: `transformFootprint(100, 70, 1.5, 30)` returns `183, 166` |
-| `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `UI.RowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, tail?, tailInset?, overflow? }` (window-space rects; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`\|`"overlap"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
+| `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `UI.RowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, crossOffset?, tail?, tailInset?, overflow? }` (window-space rects; `crossOffset` px along the alignment axis before the safe clamp, default 0; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`\|`"overlap"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
 
 #### HUD insets and world markers
 
@@ -7251,7 +7345,7 @@ UI.VirtualGrid("Wardrobe")({
     gap = 8,                              -- between cells ACROSS a line
     rowGap = 8,                           -- between LINES
     snap = "item",                        -- optional: settle on a LINE boundary
-    cell = function(item, ctx)            -- ctx = { current, scope, index, line, lane }
+    cell = function(item, ctx)            -- ctx = { current, scope, index, line, lane, focused, stopScale }
         return UI.Text("Name")({ text = item.name })
     end,
     onActivate = function(item) open(item) end,
@@ -7990,6 +8084,10 @@ One boolean selection control with `presentation = "switch"` (default),
 `function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
 `row`, `hint`, `indicatorPosition`, `controlSize`, `width`, and `children` (custom button content only).
 
+Use a Toggle for one setting that is on or off and takes effect at once. For a
+compact filter tag in a row of tags, use `UI.Chip`; for one choice from three
+or more values, use `UI.Picker`.
+
 Without `onChange`, `value` and any `mixed` binding must be writable cells;
 activation updates them directly. With `onChange(wanted)`, activation requests
 the proposed boolean exactly once and writes neither binding. The model accepts
@@ -8046,6 +8144,10 @@ end)
 `UI.Button { … }` -> the button's node. `ref` receives `{ api, dump }`; the
 button publishes no verbs, and `dump()` reports
 `{ schema, id, busy, enabled, repeating, dialogAction, name, controlSize, appearance }`.
+
+Use a Button for one action that the player starts, such as Save or Play. For a
+state that stays on or off, use `UI.Toggle`; for a primary action with related
+alternatives, use `UI.SplitButton`; for a list of verbs, use `UI.Menu`.
 
 #### Local size, emphasis, silhouette and backdrop
 
@@ -8372,6 +8474,10 @@ every adjacent pair, and a selected row's fill is the row itself — the theme's
 `accent` under an `onAccent` label, the one pair every theme guarantees at
 4.5:1. Under `sheet` the rows are unchanged.
 
+Each floating row is at least the target floor (`targetSizes.minimum`) tall, so
+two rows' hit rects never overlap. A plain row's label leads, exactly as a row
+with a badge or a shortcut does; its `icon` stays the compact form of its words.
+
 It attaches to **any** node. `spec.trigger` is a node you authored; the
 control returns that same node carrying an input contribution, so nothing is
 wrapped and no layout moves. Pass `label` instead and the control builds a plain
@@ -8390,10 +8496,25 @@ the popover IS its panel. This is baked into the presentation call, not a
 Spec: `{ id?, trigger: Node?, label: string?, items: { Item }, triggers: { string }?,
 presentation: (("automatic" | "menu" | "sheet") | readable)?, sizeClass: (string | readable)?,
 interactionClasses: (table | readable)?, env: Environment?, backLabel: string?,
+edge: string?, align: string?, width: Dim?, maxHeight: number?,
 onOpen: (() -> ())?, onClose: (() -> ())? }`. Both adaptive facts arrive by themselves
 from the surface's environment when you pass neither, and an automatic menu with no
 environment anywhere refuses to construct; `dump().factsFrom` says which
 happened.
+
+**`edge`/`align`** place the root panel against its trigger (default
+`bottom`/`start`); submenus keep hanging trailing/start off their parent row.
+**`width`** is any dimension table for the floating panels, and **`maxHeight`**
+bounds each floating panel in px **including its chrome**: the rows scroll inside
+one list, and row ids, activation, submenu anchors and focus scroll-into-view keep
+working one path level deeper (`…/Panel/List/Rows/Item:<id>`). A floating panel is
+always bounded — by `maxHeight` when given, and never taller than the screen less
+its safe insets — so its rows always sit at that path; a long list scrolls instead
+of running off screen. (An unbounded panel's fade group outgrew the engine's
+CanvasGroup budget, which blurs the text of every CanvasGroup on screen.) A sheet's
+rows sit at `…/Panel/Item:<id>` unless `maxHeight` bounds it. A level whose `selected` group
+holds one of its rows opens with focus on that row, centred in its scrolled list
+(a `checked` toggle does not move the landing).
 
 **`backLabel`** labels the sheet's Back row and defaults to "Back". Supply a
 localized label when appropriate. Long labels use the shared compact-label
@@ -8410,6 +8531,12 @@ An **`Item`** is one of these shapes:
 | Shape | Fields | What it is |
 |---|---|---|
 | action | `{ id, label, icon?, role?, enabled?, onSelect }` | runs `onSelect` and closes the menu |
+
+Every row shape above also takes the shared row words `Picker.Option` uses:
+`badge` (a string, number or readable — the count seal), `avatar` (an Avatar
+spec, decoration only), `sectionTitle` (a caption heading before the row, never a
+stop) and **`shortcutLabel`** (display text such as `"Ctrl+B"` — it binds
+nothing; bind the key where the action lives).
 | submenu | `{ id, label, icon?, role?, enabled?, children }` | opens a nested level; draws a trailing chevron |
 | checked | `{ id, label, checked (writable boolean cell), onChange?, dismiss?, enabled?, description?, icon? }` | toggles independent caller-owned state; stays open by default |
 | selection | `{ id, label, selected (writable cell), value, onChange?, dismiss?, enabled?, description?, icon? }` | shares one selected-value cell across exclusive choices; stays open by default |
@@ -8510,11 +8637,27 @@ something here you have not found".
 >
 > *"Use tips sparingly… Don't use tips to guide people through your app, or for advertising and promotion purposes."*
 
-Spec: `{ id?, anchor: Node, content: Node | (() -> Node), isPresented: (boolean | readable)?,
-dismissLabel: string?, edge: string?, align: string?, tail: boolean?, priority: number?,
-seen: readable?, sessions: readable?, afterSessions: number?,
-featureUsed: readable?, onRetire: (reason) -> (), onShow: (() -> ())?,
-onHide: ((reason) -> ())? }`.
+Spec: `{ id?, anchor: Node, content: (Node | (() -> Node))?, title: Bound<string>?,
+media: Media?, steps: { index, count }?, actions: { Action }?, closeButton: boolean?,
+isPresented: Bound<boolean>?, dismissLabel: string?, edge: string?, align: string?,
+tail: boolean?, priority: number?, seen: Bound<boolean>?, sessions: Bound<number>?,
+afterSessions: number?, featureUsed: Bound<boolean>?, onRetire: (reason) -> (),
+onShow: (() -> ())?, onHide: ((reason) -> ())? }`. Every `Bound` fact may be a
+value, a readable or a `(use) -> T` function; functions are tracked like readables.
+
+**The rich parts are optional.** `title` paints a heading; `media` is
+`{ image, aspectRatio | height, scaleMode?, background? }` — exactly one of a
+positive finite `aspectRatio` or `height` (px or a metric name), `scaleMode`
+`fit | crop | stretch` (absent is the Image default), `background` a `tint` value
+painted behind the image; `steps = { index, count }` shows "index of count"
+(whole numbers, `1 <= index <= count`); `actions` holds one or two
+`{ id, label, role?, enabled?, busy?, onActivate }` and **replaces** the bottom
+dismiss; `closeButton = true` adds a top close and keeps the bottom dismiss.
+`content` is optional only when title, media, steps or actions draw something; a
+plate with nothing to show is refused. An action press retires **its own**
+presentation with reason `"action"` — once, even when `onActivate` throws — and
+never a newer one the callback rearmed and presented. With none of the new parts
+the plate is the legacy content-then-dismiss plate, unchanged.
 
 `anchor` is a node you authored; the control returns **that same node** carrying
 an input contribution, so nothing is wrapped and no layout moves — the `UI.Menu`
@@ -8568,6 +8711,9 @@ ordering, the queue cap and the read floor priority may never truncate are the
 same rules toasts already follow. `presenter.callouts()` reports what is showing
 and what is waiting.
 
+**Motion.** The plate declares no enter or exit transition: it appears and
+leaves at once, so reduced motion changes nothing.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
@@ -8593,6 +8739,803 @@ app.mount(function()
     })
 end)
 ```
+
+### `UI.Popover`
+
+`UI.Popover { … }` -> the trigger's node carrying the popover's contribution, or
+an empty node for a `source` popover. `ref` receives `{ api, dump }`.
+
+Content presented against a **trigger** or a **source**: an anchored panel, or a
+sheet on a compact touch screen. Use it for a short task or details that belong
+to one control. For a decision that blocks the screen, use `UI.Dialog`; for a
+tip the application pushes once, use `UI.Callout`; for a list of verbs, use
+`UI.Menu`. Spec:
+
+```
+{
+  id?,
+  isPresented: Bound<boolean>,          -- required: the CALLER'S accepted fact
+  onPresentedChange: ((next) -> ())?,   -- a proposal; required for any interactive open/close
+  onDismiss: ((reason) -> ())?,         -- an actual closure, once, after cleanup
+  trigger: Node?,                       -- exactly one of trigger or source
+  source: { path: string } | { rect: { x, y, w, h } }?,
+  content: () -> Node,                  -- each presentation builds and owns its own
+  edge?, align?, gap?, crossOffset?,    -- the anchored placement
+  tail: boolean?,                       -- never drawn for a rect source
+  maxWidth: number?, maxHeight: number?,-- px, the whole panel INCLUDING chrome
+  compact: ("sheet" | "popover")?,      -- default "sheet": a compact touch screen gets a sheet
+  env?,
+}
+```
+
+**The fact is yours.** The popover renders `isPresented` and never writes it.
+A trigger press, Cancel (ButtonB), a tap outside, and a sheet's Close or drag
+each call `onPresentedChange(next)`; the surface changes only when your fact
+does. Refuse by not changing it: the same surface, focus and content stay
+exactly where they were, and a refused sheet drag springs back to its detent.
+Without `onPresentedChange` nothing interactive opens or closes it — your fact
+still does. The keyboard has no Cancel key (Escape belongs to the engine's own
+menu), so give keyboard players a close action in the content or a click outside.
+
+**`onDismiss(reason)`** reports each actual closure once, after its cleanup:
+`"cancel"` (Cancel, a sheet's Close or drag, your own false, owner disposal),
+`"outside"` (a tap outside — an open popover is modal, so a press on its own
+trigger is one), `"anchorLost"`. `"trigger"` is the reason a trigger press
+proposes with.
+
+**A path source is followed through its mounted node.** When that node is
+removed or replaced, the presentation is released at once, `false` is proposed
+and `"anchorLost"` reported; your fact is left alone, and a still-true fact never
+reopens against a replacement until you start a new false → true request. A node
+that has not mounted yet is not a loss (one warning says it is awaited).
+`source.path` names a node on the same screen as the popover, from that screen's
+root, even when the screen is embedded in another (a gallery tab page). A `rect` source is copied once and never draws a tail.
+
+**The panel** is one raised plate with one scrolling body; `maxWidth` and
+`maxHeight` cap the whole plate, chrome included, inside the live safe box, and
+an overflowing body's scroll bar is paid on the panel's own width. **A live class
+or size change** moves between the panel and the sheet silently — no proposal, no
+`onDismiss` — with one content owner at a time and the focused content path
+restored.
+
+**Motion.** The anchored panel enters with a short fade and a slight scale; the
+sheet route moves as `UI.Sheet` does. Under reduced motion both arrive and leave
+at once.
+
+`api = { isPresented, route, propose(next) -> accepted }` (the first two are
+readables). `dump()` reports `{ schema = "facet-popover-dump/1", id, presented,
+route, wanted, anchorLost, source }`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local open = Facet.Compose.cell(false)
+app.mount(function()
+    return UI.Screen("S")({
+        UI.Popover("Info")({
+            isPresented = open,
+            onPresentedChange = function(next) open:set(next) end,
+            trigger = UI.Button("InfoButton")({ label = "About scoring", icon = "info" }),
+            maxWidth = 320,
+            content = function()
+                return UI.Text("Body")({ text = "Laps score by position and clean overtakes." })
+            end,
+        }),
+    })
+end)
+```
+
+### `UI.Dialog`
+
+`UI.Dialog { … }` -> an empty anchor node; the panel is a modal surface. `ref`
+receives `{ api, dump }`.
+
+A modal panel whose presentation the caller owns: an optional `hero`, a `title`
+beside the close button, one scrolling `content` body, an optional `actionLabel`
+and a pinned group of `actions`. Modal `UI.Alert` is unchanged; reach for Dialog
+when the decision needs more than a sentence, a picture or its own body.
+
+`env?` names the environment whose viewport, safe insets, keyboard occlusion and
+text size size the panel; omitted, the control reads the environment published
+on its core, and construction without either is refused.
+
+```
+{
+  id?,
+  isPresented: Bound<boolean>,          -- required: the CALLER'S accepted fact
+  onPresentedChange: ((next) -> ())?,   -- a proposal; required while closeButton is true
+  onDismiss: ((reason) -> ())?,         -- "close" | "outside" | "cancel" | "action", once
+  title: Bound<string>?,
+  content: (() -> Node)?,               -- the one body, scrolled between pinned regions
+  hero: { image, aspectRatio | height, scaleMode?, background? }?,
+  actionLabel: Bound<string>?,          -- wraps above the actions
+  actions: { { id, label, role?, enabled?, busy?, onActivate } }?,
+  actionLayout: ("automatic" | "row" | "stacked")?,
+  closeButton: boolean?,                -- default true
+  width: ("automatic" | "narrow" | "wide")?,
+  contentSelectable: boolean?,          -- default true
+  env?,
+}
+```
+
+**The fact is yours.** The dialog renders `isPresented` and never writes it. The
+close button, Cancel (ButtonB) and a tap on the backdrop each call
+`onPresentedChange(false)`; refuse by not changing your fact and the same
+surface keeps its focus. Without a callback, set `closeButton = false`: the
+backdrop and Cancel then only swallow. **Actions never close by themselves** —
+each runs its `onActivate`, and a false you accept during that callback reports
+`"action"`. Cancel goes first to an eligible `role = "cancel"` action (enabled
+and not busy); the one `role = "default"` action answers Return. A disabled or
+busy action cannot fire by any route. `onDismiss` reports each actual closure
+once, after cleanup; your own false and owner disposal report `"cancel"`.
+
+**Composition.** Any one of title, content, hero, actionLabel or actions is
+enough; a static dialog with none of them is refused, and the close is not
+content. A bound title or label may start empty and fill in later in the same
+presentation. `hero` is the shared construction-only media shape (exactly one
+of `aspectRatio` or `height`). Action ids are unique and at most one action is
+`default`, one `cancel`. `actionLayout = "automatic"` rows two short actions and
+stacks three, a distant screen, large text, or labels that do not fit side by
+side; an explicit `"row"` that cannot show every full label falls to the same
+safe stack. When the pinned regions and a one-line body do not fit the room,
+every region scrolls as one column (`Panel/Room/Column`), so no action is out of
+reach; `UI.Sheet` does the same.
+
+**Size.** `width` is a theme ceiling — `automatic` is `controls.alert.maxWidth`,
+`narrow` `controls.popup.panelWidth`, `wide` `controls.dialog.wideWidth` —
+bounded by the safe room. The height is the live room: the viewport less the
+platform insets, the outer margin and any keyboard occlusion, and the panel is
+centred above the keyboard. Header, hero, action label and actions are pinned;
+the body gives height back and scrolls. When the pinned parts alone exceed the
+room (a very long title, a tall hero and stacked actions under a keyboard) they
+still overrun the panel: keep pinned copy short.
+
+**A plain body that overflows is one pad stop.** With `contentSelectable`
+(default true) the body host joins the focus order while it overflows; with the
+ring on it, Up and Down scroll it and hand the ring on at either end. Its
+interactive children keep their own stops. `false` opts out.
+
+**Motion.** The dialog declares no enter or exit transition: the panel appears
+and leaves on the frame your fact changes, so reduced motion changes nothing.
+
+`dump()` reports `{ schema = "facet-dialog-dump/1", id, presented, wanted,
+actionCount, width, closeButton }`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local open = Facet.Compose.cell(false)
+app.mount(function()
+    return UI.Screen("S")({
+        UI.Button("Quit")({ label = "Leave race", onActivate = function() open:set(true) end }),
+        UI.Dialog("Leave")({
+            isPresented = open,
+            onPresentedChange = function(next) open:set(next) end,
+            title = "Leave the race?",
+            content = function()
+                return UI.Text("Body")({ text = "Your lap will not count.", width = UI.fill() })
+            end,
+            actions = {
+                { id = "Stay", label = "Stay", role = "cancel", onActivate = function() open:set(false) end },
+                { id = "Leave", label = "Leave", role = "destructive", onActivate = leaveRace },
+            },
+        }),
+    })
+end)
+```
+
+### `UI.Notice`
+
+`UI.Notice { … }` -> the notice's node. `ref` receives `{ api, dump }`.
+
+An informational message in the page — never a modal. Spec: `{ id?, message:
+Bound<string>, title: Bound<string>?, severity: ("info" | "success" | "warning" |
+"error")?, appearance: ("standard" | "emphasis")?, placement: ("inline" |
+"affixed")?, icon: (boolean | string)?, link: { label, onActivate }?, actions: {
+Action }? (at most two), onDismiss: (() -> ())?, controlSize?, env? }`.
+
+Use a Notice for a status the page must keep in view, such as a lost
+connection or a form problem, until the state changes. For a short message
+that confirms an action and goes away, use `UI.Snackbar`; for a decision the
+player must make now, use `UI.Dialog` or `UI.Alert`. The notice has no enter or
+exit motion: it appears and leaves when you mount and unmount it.
+
+`severity` (default `info`) picks the status icon and paint; `emphasis` fills the
+plate in the severity's colour with its readable partner lettering. `icon =
+false` drops only the artwork; a string names an icon or image source. The
+`link` is a link-appearance Button, and the actions are ordinary Buttons whose
+roles only **paint** — a page is not a modal, so there is no default or cancel
+key. `onDismiss` draws the close button and reports the press; unmount the notice
+yourself. The link and actions sit beside the copy when the measured width holds
+both and move below it when it does not. The notice never takes focus; its
+controls join the page's own focus order.
+
+**`placement = "affixed"`** is a page-local top recipe, not an automatic host:
+put the notice in your safe root's fill `ZStack`, outside the body scroller. It
+fills the width, hugs its height, sits at the top and publishes its measured
+window rect through `presenter.reserveHud` under a key unique to its mount.
+Content that should move out of its way reads the reservations explicitly:
+
+```lua
+local UI, C = app.controls, Facet.Compose
+local bounds = C.cell({ x = 0, y = 0, w = 0, h = 0 })
+local function reserved(use)
+    return Facet.layout.hudInsets({ bounds = use(bounds), reservations = use(app.presenter.hudReservations) })
+end
+app.mount(function()
+    return UI.Screen("Page")({ UI.ZStack("Safe")({ width = UI.fill(), height = UI.fill(),
+        UI.ZStack("Content")({ width = UI.fill(), height = UI.fill(), padding = reserved,
+            UI.ScrollView("Body")({ width = UI.fill(), height = UI.fill(), UI.Text({ text = "Page content" }) }) }),
+        UI.Notice("Connection")({ placement = "affixed", severity = "warning", message = "Connection interrupted" }),
+    }) })
+end, { onGeometry = function(rectOf)
+    local r, old = rectOf("/Page/Safe"), bounds:peek()
+    if r and (r.x ~= old.x or r.y ~= old.y or r.w ~= old.w or r.h ~= old.h) then bounds:set(table.clone(r)) end
+end })
+```
+
+The recipe assumes an untransformed, non-scrolling safe root whose `rectOf`
+agrees with window coordinates. Several notices stack in an ordinary top
+`VStack` in the same ZStack; each reserves its own rect and `hudInsets` takes the
+deepest edge. A notice that paints nothing reserves nothing, and its reservation
+goes with its owner.
+
+`dump()` reports `{ schema = "facet-notice-dump/1", id, severity, appearance,
+placement, accessories = "beside" | "below", actionCount, closable }`.
+
+### `UI.Card`
+
+`UI.Card { … }` -> the card's node. `ref` receives `{ api, dump }`.
+
+Artwork, a title and an optional caption, with a primary action and a More menu
+that reveal on engagement. Spec: `{ id?, image: Bound<string>, title:
+Bound<string>, caption: Bound<string>?, imageAspectRatio: number?, imageFraming?,
+onActivate: (() -> ())?, primaryAction: { label, icon?, onActivate, enabled?,
+busy? }?, menu: { items, label? }?, reveal: ("automatic" | "always")?,
+browseTarget: (() -> string?)?, enabled: Bound<boolean>?, width?, env? }`.
+
+Use a Card for one item in a browsable collection, such as a game, a track or a
+kart, where the picture helps the player choose. For rows of text, use a
+`UI.VirtualList` or `UI.Table`; for an informational panel with no item behind
+it, give a stack `surface = "raised"`.
+
+`image` and `title` are required and nonempty; `caption` may be empty. A late
+empty or wrong-typed value keeps the last legal paint (a warning and a
+`api.diagnostics()` line) until a legal one arrives. With `onActivate` the body
+is an image `UI.Button` (title as its label, caption as its subtitle, the image
+media keys as Button's); without it the body is plain artwork and text. The
+primary action is an ordinary Button and `menu` is a `UI.Menu` behind a More
+button (`menu.label` is its name, default "More"). Body, primary and More are
+**sibling** targets under a noninteractive card, so a press runs exactly one of
+them. Structure and callbacks are construction-time; the bound values stay live.
+`enabled = false` is inherited by all three.
+
+**Reveal.** `always` keeps the action row in the card's layout. `automatic`
+(the default) shows it at rest whenever the session has touch (a finger has no
+hover, so hybrid devices keep them too) and otherwise while the card is
+**engaged**: the pointer within it, a painted focus ring within it, a press held
+on one of its buttons, its menu open, its actions entered, or the
+`browseTarget` path focused with a painted ring. A card with neither a body action nor a
+`browseTarget` has no stop of its own, so it shows its actions at rest. The card
+is one hosted envelope: the body and, directly below it, the action plate. The
+plate is always laid out and only hidden at rest, so the card's box never
+changes, siblings never move, and a pointer travelling from the body to Play or
+More never leaves the envelope it is observed on. `api.revealExtent.body` is
+that envelope's **measured** height, before anything reveals. When engagement
+ends the plate leaves paint, focus and the tap path at once; entry fades in on
+the container class (reduced motion: none).
+
+**Lift.** While engaged, on any input, the card rises to 1.04x on the control
+spring and wears the theme's raised shadow (a card with a body action; one
+with none has no plate to cast it); it lands when engagement ends. The
+scale is paint only: the card's box never changes, so the gutters around it must
+hold what a lifted card paints past its box. Size them with
+`Facet.layout.transformFootprint(w, h, 1.04, 0)`: a gutter at least the
+footprint's growth holds two neighbours lifted toward each other (the Cards
+scenario does this for both VirtualGrid gutters), and a `UI.VirtualGrid` keeps
+half of each gutter at its outer edges, so a lifted card in a corner cell and
+its ring stay inside the grid's clip. Under reduced motion the card
+keeps only the shadow. At ten-foot distance the focus visual's own
+`tenFootFocusScale` is the lift, so the card does not scale a second time. In a `UI.VirtualGrid`, hand the card's `api.scale`
+to the cell's `ctx.stopScale` so the cell's focus stop, and its ring, grow with the card.
+
+**In a `UI.VirtualGrid`.** The grid's cell Hit stays the one browse stop. Point
+`browseTarget` at it and keep each card's ref by item key (released by the
+cell's owner). The grid's `onActivate` runs the card's body callback when it has
+one, and otherwise enters its actions:
+
+```lua
+local refs, gridRef = {}, nil
+UI.VirtualGrid("Games")({ items = games, key = function(item) return item.id end, columns = 3, gap = "m", rowGap = "m", viewportExtent = "auto",
+    itemExtent = 320, -- holds revealExtent.body; the Cards scenario sizes each line from its tallest card
+    ref = function(r) gridRef = r end,
+    onActivate = function(item) local r = refs[item.id]; if r then r.api.enterActions() end end,
+    cell = function(item, ctx)
+        local key = item.id
+        return UI.Card("Card")({ image = item.art, title = function(use) return ctx.current(use).title end,
+            browseTarget = function() local cell = gridRef and gridRef.api.pathOf(key); return cell and cell .. "/Hit" end,
+            primaryAction = { label = "Play", onActivate = function() play(key) end },
+            menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key) end } } },
+            ref = function(r)
+                refs[key] = r
+                ctx.scope.own(function() if refs[key] == r then refs[key] = nil end end)
+            end })
+    end })
+```
+
+`api.enterActions()` holds the reveal and traps focus in the actions, entering at
+the first eligible one; it returns false for a disabled or unmounted card or one
+with nothing eligible, and never runs the primary action. Arrows and Tab stay in
+the actions; Cancel closes an open menu first, then leaves the actions and focus
+returns to the browse stop (which keeps the card revealed). A tap elsewhere also
+leaves them. Removing, recycling or replacing the card releases its trap.
+
+`api` also carries `leaveActions()`, `engaged`, `revealed`, `scale` (the painted lift) and `revealExtent`
+(readables; `revealExtent` is `{ body }`). `dump()` reports `{ schema = "facet-card-dump/1", id, reveal,
+revealed, engaged, hovered, focusWithin, pressing, browsing, entered, menuOpen,
+body = "button" | "informational", actions, extent, diagnostics }`.
+
+### `UI.Pagination`
+
+`UI.Pagination { … }` -> the pagination's node. `ref` receives `{ api, dump }`.
+
+Page selection, independent of fetching. Spec: `{ id?, page: Bound<number>,
+onChange: (nextPage) -> (), pageCount: Bound<number?>?, hasNext: Bound<boolean>?,
+hasPrevious: Bound<boolean>?, siblingCount: number? (0–20, default 1),
+boundaryCount: number? (0–20, default 1), showFirstLast: boolean? (default
+false), form: ("numbers" | "arrows" | "label")? (default numbers), direction:
+("ltr" | "rtl")? (default ltr), controlSize?, enabled: Bound<boolean>?, width?,
+env? }`. The last five words are construction-only. `width` defaults to fill;
+the window narrows to the width it is offered, so `hug` and `content` are
+refused (a late one keeps the last legal width with a diagnostic).
+
+`page` is yours: every press proposes one page through `onChange` and the row
+repaints only when your value changes, so a refused proposal leaves it as it
+was. Pages and counts are finite whole numbers; a malformed one is refused at
+construction and, later, keeps the last legal value with a warning and an
+`api.diagnostics()` line. A page outside the range is **shown** clamped (with a
+diagnostic) and never written back.
+
+A known `pageCount` decides availability and ignores `hasNext`/`hasPrevious`.
+Without one the count is unknown: the two flags (default false) decide, the row
+shows "Page n" between its arrows, and there is no Last. The label keeps the
+width of the widest label the count can produce (four digits for an unknown
+count), so the arrows beside it do not move as the page gains a digit. Each page
+number is a small plate centred in a slot of the 44 px target floor. `0` pages shows an inert
+"No pages"; `1` page shows it with no enabled navigation. `showFirstLast` adds
+First (to page 1, when there is a previous page) and Last (to a known last page).
+
+`form = "numbers"` shows the boundary pages, the current page and
+`siblingCount` pages either side, with an ellipsis for a real gap (a gap of one
+page shows that page) and a fixed slot count near the edges. The work is bounded
+by the two counts, never by `pageCount`. When the measured width cannot hold the
+row, the farthest boundary page goes first, then the farthest neighbour (the
+higher page on a tie); when not even the current page and its arrows fit, the
+row shows "Page n of m". The row scrolls sideways rather than shrink a target.
+`label` is always "Page n of m"; `arrows` shows only the arrows, so put your own
+result context beside it. Ellipses and disabled arrows are not focus stops. Page
+nodes are keyed by page number, and a focused page that leaves the window, or a
+focused arrow that disables at an edge, hands focus to the current page. Every
+page and arrow is at least the theme's minimum target wide, so no two targets
+overlap. `direction = "rtl"` reverses the row and its arrows
+once; Left and Right stay physical.
+
+`dump()` reports `{ schema = "facet-pagination-dump/1", id, current, count,
+hasPrevious, hasNext, form, direction, items, text, diagnostics }`, where
+`items` is the mounted row (`"[5]"` marks the current page).
+
+Use Pagination when results come in numbered pages that you fetch or build one
+page at a time, such as a leaderboard or a server list. For one long list the
+player scrolls, use `UI.VirtualList`; for swiping between whole screens, use
+`UI.PageView`. The row has no motion of its own: a page change repaints it at
+once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local page = Facet.Compose.cell(1)
+app.mount(function()
+    return UI.Pagination("Results")({
+        page = page,
+        pageCount = 12,
+        onChange = function(nextPage) page:set(nextPage) end, -- write to accept; do nothing to refuse
+    })
+end)
+```
+
+### `UI.StepIndicator`
+
+`UI.StepIndicator { … }` -> the indicator's node. `ref` receives `{ api, dump }`.
+
+Where a workflow is — a list of step states, not a numeric Stepper or a Picker.
+Spec: `{ id?, steps: Bound<{ Step }>, current: Bound<string?>, onSelect: ((id) ->
+())?, sizing: ("fill" | "hug")? (default fill), listLabel: string? (default
+"Steps"), controlSize?, enabled: Bound<boolean>?, env? }`, where `Step = { id,
+label, description?, state: ("complete" | "current" | "upcoming" | "error")?,
+navigable: boolean? (default false), enabled: boolean? (default true) }`.
+
+Step ids are nonempty and unique; labels are nonempty and may repeat.
+`current` is the only authority on which step is current: it alone places the
+underline and the "Step n of m — Label" summary. A step's `state` sets its
+leading cue and its readable state word — a check for complete, an error mark
+for error, the step's number in an outlined circle otherwise — so an errored
+current step still shows its error. `state = "current"` is accepted only on the
+step `current` names. A `current` that names no step is "No current step"; an
+empty list is "No steps". A malformed snapshot is refused at construction and,
+later, keeps the last legal one with a warning and an `api.diagnostics()` line.
+
+A step is a Button only when it is `navigable`, `enabled` and `onSelect` is
+given; every other step is plain content (with disabled paint when
+`enabled = false`), never a focus stop. Activating a permitted step proposes
+`onSelect(id)` once; nothing here writes `current`, so a refused step changes
+nothing. When the measured width cannot hold the labels, the steps become the
+summary and a Steps button that opens the whole list in a `UI.Popover`, where
+permitted steps select through the same `onSelect`; the list closes when your
+`current` changes, so a refused step leaves it open. An empty list has no Steps
+button. The indicator always takes the width it is offered (that is what the fit
+measures); `sizing` is how its steps share it — `fill` gives each the widest
+label's share, `hug` each its own label. The number marker is a circle at every
+text size.
+
+`dump()` reports `{ schema = "facet-step-indicator-dump/1", id, current,
+summary, form = "row" | "summary", listOpen, steps = { { id, state, button } },
+diagnostics }`.
+
+The underline is the shared selection indicator that Picker uses: when
+`current` changes it moves to the new step on a spring, and reduced motion
+places it at once. The list in summary form opens in a `UI.Popover` and moves
+as that does.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local current = Facet.Compose.cell("car")
+app.mount(function()
+    return UI.StepIndicator("Setup")({
+        steps = {
+            { id = "track", label = "Track", state = "complete", navigable = true },
+            { id = "car", label = "Car", state = "current" },
+            { id = "crew", label = "Crew" },
+        },
+        current = current,
+        onSelect = function(id) current:set(id) end, -- only navigable steps propose
+    })
+end)
+```
+
+### `UI.Vote`
+
+`UI.Vote { … }` -> the vote's node. `ref` receives `{ api, dump }`.
+
+Up, down or none over your value — a thin wrapper over Picker's segmented,
+icon-only strip. Spec: `{ id?, value: Bound<"up" | "down" | "none">, onChange:
+((next) -> ())?, summary: Bound<string>?, readOnly: Bound<boolean>?,
+controlSize?, enabled: Bound<boolean>?, env? }`.
+
+`value` is yours: a press proposes `onChange(next)` once and the strip repaints
+only when your value changes, so a refused vote never flashes and a swap from up
+to down is one change. Pressing the chosen side proposes `"none"`. The icons are
+`vote.up` / `vote.down` with the names "Upvote" / "Downvote". `summary` is your
+own aggregate text ("99% liked"), one line, with the whole value disclosed;
+Vote counts nothing. `onChange` is required unless `readOnly` is true.
+
+`readOnly = true` is informational, not disabled: the same icons with your
+choice plated, no press, no focus stop. A later `readOnly = false` without an
+`onChange` is refused and the vote stays read-only (a warning and an
+`api.diagnostics()` line). `enabled = false` is the ordinary disabled strip. A
+late value outside the three keeps the last legal one. For a score out of five
+use `UI.Rating`; for a number the player adjusts, `UI.Stepper`.
+
+**Input.** Each side of the interactive strip is a Picker segment. Pointer and
+touch press a side; keyboard arrows and the D-pad move the focus ring between
+the sides through the focus graph, and Return or ButtonA proposes the focused
+side. **Motion.** The plate under the chosen side is the shared selection
+indicator: it moves on a spring when your value changes, and reduced motion
+places it at once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local vote = Facet.Compose.cell("none")
+app.mount(function()
+    return UI.Vote("TrackVote")({
+        value = vote,
+        onChange = function(next) vote:set(next) end, -- write to accept
+        summary = "92% liked",
+    })
+end)
+```
+
+`dump()` reports `{ schema = "facet-vote-dump/1", id, value, readOnly, summary,
+diagnostics }`.
+
+### `UI.ColorPicker`
+
+`UI.ColorPicker { … }` -> the picker's node. `ref` receives `{ api, dump }`.
+
+A colour well that opens a panel, or the panel in place. Spec: `{ id?, value:
+Bound<Color3?>, onChange: ((color) -> ())?, onCommit: ((color) -> ())?, alpha:
+Bound<number>?, onAlphaChange: ((alpha) -> ())?, allowEmpty?, placeholder?,
+modes: { string }?, swatches: Bound<{ Color3 | { color, label? } }>?,
+onSaveSwatch: ((color) -> ())?, onRemoveSwatch: ((item) -> ())?, style:
+("automatic" | "inline")?, draft?, isPresented: Bound<boolean>?,
+onPresentedChange?, onDismiss: ((reason) -> ())?, enabled?, readOnly?, label?,
+requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
+
+Use a ColorPicker when the player chooses any colour, such as a kart's paint.
+When the choice is a few named colours, use `UI.Picker` with those options; a
+fixed palette also fits the `swatches` mode alone.
+
+**The `Color` type is `any`.** The public types are checked without engine
+datatypes, so a wrong value such as a string passes the type checker. The
+control checks at run time instead: a value that is not a `Color3` (or `nil`
+with `allowEmpty`) is an error at construction, and a later one warns, adds a
+line to `api.diagnostics()` and keeps the last legal colour.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local paint = Facet.Compose.cell(Color3.fromRGB(230, 57, 70))
+app.mount(function()
+    return UI.ColorPicker("KartPaint")({
+        label = "Kart paint",
+        value = paint,
+        onChange = function(color) paint:set(color) end, -- each accepted change
+        onCommit = function(color) print("save", color) end, -- once per gesture
+    })
+end)
+```
+
+`value` is yours: every accepted change proposes `onChange(color)` and the
+picker repaints only from what you then hold, so a refused change never paints.
+`onCommit(color)` ends a gesture (a drag's release, a slider's release, a stick
+session, a swatch press, a field commit), so every change commits as it happens
+and closing the panel any way (B, Escape, a tap outside, the sheet's Close)
+keeps it. With `draft = true` nothing commits until **Apply**: the panel adds
+Apply and Cancel, and every other way out proposes the colour the panel opened
+with (a write of yours while it is open becomes that colour).
+`onChange` is required unless `readOnly` is true; `nil` is a value only with
+`allowEmpty = true` (the plate is crossed out and the text is `placeholder`).
+
+`alpha` (0 to 1) with `onAlphaChange(alpha)` mounts an opacity slider and makes
+the text `#RRGGBBAA`; a translucent swatch sits over a small checker. The well
+labelled is a form row (label, swatch, value, chevron); bare it is the swatch
+alone, and the value is its name. It opens an anchored panel, a sheet with a
+Done button on a compact touch screen, and a centred sheet at ten feet; it owns
+its open state unless you bind `isPresented` / `onPresentedChange` (a proposal,
+as on `UI.Popover`). `onDismiss` reports `"activate"` (Done), `"apply"`,
+`"cancel"`, `"outside"` or `"anchorLost"`. `style = "inline"` puts the panel in
+the page.
+
+**Touch.** A finger covers what is below it, so on a touch-primary screen the
+preview and its readout lead the panel, above the plane, and while a finger
+drags the plane or the hue or opacity strip a bubble of the colour under it
+rides above the touch point (inside the panel's room; none for a pointer or a
+pad). On a portrait phone the panel is a sheet whose technique scrolls, so the
+readout and Apply stay on screen.
+
+**Saved colours.** Facet keeps no colours of its own: `swatches` stays yours.
+With `onSaveSwatch(color)` the Swatches tab ends with a "+" cell (named "Save
+colour", a stop in the grid walk) that proposes the current colour; a colour
+already in the list is not proposed again. With `onRemoveSwatch({ color, label?,
+key })` the tab adds an Edit/Done toggle in the Chip's edit-mode pattern: while
+editing, activating a swatch (or Delete, Backspace or the pad's remove binding
+while it holds the ring) proposes its removal, with no second stop per swatch,
+and the ring moves to the cell that takes its place. The Bricks tab has no
+favourites (its list is the engine's).
+
+`modes` are the panel's techniques, in tab order: `"swatches"` (your `swatches`,
+or a generated grid of 48), `"spectrum"` (a saturation/brightness plane and a hue
+slider), `"sliders"` (hue, saturation and brightness) and `"brick"` (the
+engine's 128 BrickColors with their names). The default is the first three;
+their tabs are a menu on a compact screen when they would not fit as a strip.
+The anchored panel fits the larger room above or below the well, scrolling the
+technique when it must, so it never covers the well.
+Every tab keeps a preview and an RGB / HSV / Hex readout whose fields commit
+typed values; switching the readout never changes the colour, and a grey keeps
+the hue the player set. Hex accepts `#RGB`, `#RRGGBB` and, with `alpha`,
+`#RRGGBBAA`; a refused hex stays in the field with its error and commits
+nothing. The plane drags 1:1 and cancels (restoring its start) if pointer and
+touch go away mid-drag; on a pad it takes the right stick while it has focus,
+with a hint saying so (and sinks it, so a camera below does not turn), and the
+D-pad keeps moving focus. There is no
+eyedropper: Roblox has no screen-pixel read — put your own Button beside the
+well and call `onChange` with what it sampled.
+
+**Motion.** The well's panel opens through `UI.Popover` and moves as that does,
+so reduced motion opens and closes it at once. A right-stick session on the
+plane is driven by an informational timer: under reduced motion it keeps moving
+the colour, in the clock's quantized steps, because that movement is the input.
+
+`dump()` reports `{ schema = "facet-color_picker-dump/1", id, style, value,
+alpha, hsv = { h, s, v }, text, name, modes, mode, format, draft, presented,
+route, planePath, columns, swatchPaths, hexError, diagnostics, owned }`
+(`owned`: what the control's owner holds, for leak checks).
+
+### `UI.DateTimePicker`
+
+`UI.DateTimePicker { … }` -> the picker's node. `ref` receives `{ api, dump }`.
+
+A date field that opens a calendar, or the calendar in place. Spec: `{ id?,
+selection: ("single" | "range")?, value: Bound<CivilDate?>?, onChange?,
+onCommit?, range: Bound<CivilRange>?, onRangeChange?, onRangeCommit?, time?,
+minuteStep?, hourCycle?, min: Bound<CivilDate?>?, max: Bound<CivilDate?>?,
+isDateDisabled: ((date) -> boolean)?, weekStart?, locale?, clock: (() ->
+CivilDate)?, referenceDate: Bound<CivilDate?>?, presets?, draft?, style:
+("automatic" | "inline")?, format: ((value) -> string)?, placeholder?,
+isPresented?, onPresentedChange?, onDismiss?, enabled?, readOnly?, label?,
+requiredMark?, hint?, errorText?, controlSize?, appearance?, corners?, env? }`.
+
+Use a DateTimePicker when the player chooses a calendar date, a date range or a
+date with a time, such as an event day. For a count of days or minutes, use
+`UI.Stepper` or `UI.NumberInput`; for a few fixed dates, use `UI.Picker`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local raceDay = Facet.Compose.cell({ year = 2026, month = 10, day = 3 })
+app.mount(function()
+    return UI.DateTimePicker("RaceDay")({
+        label = "Race day",
+        value = raceDay,
+        onChange = function(date) raceDay:set(date) end, -- write to accept
+        min = { year = 2026, month = 1, day = 1 },
+    })
+end)
+```
+
+Values are **civil dates** — `{ year, month, day }`, with `hour` and `minute`
+when `time = true` — wall-clock facts in no time zone, so a date never moves a
+day because of where it is shown (see [`civilDate`](#civildate) for turning an
+instant into one at an offset you name). A single picker uses `value` /
+`onChange` / `onCommit`; `selection = "range"` uses `range = { start?, finish?
+}` / `onRangeChange` / `onRangeCommit`, and giving the other mode's keys is an
+error. Both are yours: a pick proposes, and the calendar repaints only from
+what you then hold. Every change commits as it happens — a pick (a single pick
+without `time` also closes), a time step, a typed date — and closing the panel
+any way (B, Escape, a tap outside, a sheet's drag or scrim) keeps it. In a range the
+first pick sets `start`, the second sets `finish` (swapping if it is earlier),
+and `onRangeCommit` fires only when both ends are set. A pointer or finger can
+also grab a set range's start or end circle and drag it across days and panes
+(each move proposes; crossing the other end swaps them; release commits; a
+cancelled gesture proposes the range it began from). `draft = true` adds
+Reset all, Cancel and Apply, and nothing commits until Apply (typed text
+included); every other way out proposes the value the panel opened with (a
+write of yours while it is open becomes that value).
+
+"Today" (its ring, the presets, the month an empty picker opens on) comes from
+`clock` — default the player's local wall clock — and `referenceDate` chooses the
+month an empty picker opens on. `min` and `max` are inclusive; a day outside
+them or refused by `isDateDisabled` stays in the grid, focusable, struck
+through and inert. `weekStart` is 1 (Sunday) to 7; `locale` supplies `months`,
+short `weekdays` (Sunday first), the numeric `order` ("mdy", "dmy", "ymd"),
+`separator` and `hourCycle`. `minuteStep` (default 5) must divide 60.
+`presets = { { id, label, range = function(today) } }` (range only) are chips:
+one wholly outside the bounds is shown disabled, one that overlaps is clamped.
+
+The closed form is field chrome: when a keyboard or pointer is live the value
+is an editable field that takes the numeric form back (a text that is not a
+date, or not an available one, stays with its error and commits nothing),
+otherwise a button that opens the calendar; a calendar icon sits inside the
+field at its trailing edge, and a refused entry (or `errorText`) borders the
+field in the danger role. With a custom `format` the words are display only. It
+opens a panel anchored to the field (below it and start-aligned, flipping only
+without room), a sheet with Done on a compact touch screen, and a centred sheet
+at ten feet. A single date shows one month; a range shows two consecutive
+months when its width fits them. `draft`'s footer is Reset all as a leading
+text link and Cancel and Apply (the accent) at the trailing edge. Its day
+grid is one Tab stop (focus enters on the chosen day, else today); the arrows
+walk the days — a row's end continues to the next day, Left and Right page the
+month past either end, and Up and Down move a week across the shown months but
+leave the grid (to the header above, the time fields or actions below) from the
+first shown month's top row and the last shown month's bottom row — and a
+neighbouring month's grey days can be tapped but are never a stop. L1/R1 and
+Comma/Period page the month from any day (a hint names LB/RB while a pad is
+live), the header's arrows and month and year menus reach every month
+without a shoulder button, and paging stops at a month wholly outside `min` /
+`max`. The month and year menus open on the shown one (marked, centred); the
+year menu lists only years inside `min`/`max` (an open side spans 100 years
+from the shown one), months outside the bounds are disabled, and a pick lands
+on the nearest open month. A typed year has four digits, and on a 12-hour clock a typed hour from 1 to 12
+needs AM or PM (0 and 13-23 read as 24-hour time); a typed range is two dates joined by its
+own " – " (or " - "). `time` adds hour
+and minute fields with steps on the `minuteStep` grid (AM/PM on a 12-hour
+clock) and, on touch, a list of times at `minuteStep` that opens at the held
+time (else now).
+
+**Motion.** The calendar has no animation of its own: paging a month repaints
+the grid at once. The field's panel opens through `UI.Popover` and moves as
+that does, so reduced motion opens and closes it at once.
+
+`dump()` reports `{ schema = "facet-date_time_picker-dump/1", id, selection,
+style, value, range, text, typedError, month, dual, today, presented, route,
+cellPaths, draft, weekStart, diagnostics }`.
+
+### `UI.Snackbar`
+
+`UI.Snackbar { … }` -> an empty anchor node; the row appears in the
+application's bottom snackbar strip. `ref` receives `{ api, dump }`;
+`dump()` reports `admitted`, `visible`, `queued` and the readable seconds.
+`app.presentSnackbar(spec)` takes the same spec and returns an idempotent
+zero-argument release function.
+
+One short message at the bottom of the screen, shown one at a time. Use it to
+confirm what the player just did ("Settings saved"), with at most one action
+such as Undo. For a status that must stay in the page, use `UI.Notice`; for a
+decision, use `UI.Dialog`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local shown = Facet.Compose.cell(false)
+app.mount(function()
+    return UI.VStack("Page")({
+        UI.Button("Save")({ label = "Save", onActivate = function() shown:set(true) end }),
+        UI.Snackbar("Saved")({
+            isPresented = shown, -- yours: the row shows while it reads true
+            message = "Settings saved",
+            duration = 4,
+            onPresentedChange = function(next) shown:set(next) end, -- accept a close or timeout
+            action = { label = "Undo", onActivate = function() shown:set(false) end },
+        }),
+    })
+end)
+```
+
+```
+{
+  id?,
+  isPresented: Bound<boolean>,          -- required: the CALLER'S accepted fact
+  message: Bound<string>,               -- required
+  icon: string?,                        -- a semantic icon name or an image source
+  action: { label, onActivate }?,       -- runs once; never closes by itself
+  closeButton: boolean?,                -- default true
+  onPresentedChange: ((next) -> ())?,   -- required while closeButton or duration is set
+  onDismiss: ((reason) -> ())?,         -- "action" | "close" | "timeout" | "superseded" | "cancel"
+  duration: number?,                    -- nil: persistent; else seconds of readable time
+  priority: number?,                    -- default 0
+}
+```
+
+The caller's fact is the only visibility authority. Close, Cancel on a focused
+row, a timeout and a supersession each propose false through
+`onPresentedChange(false)`; the row leaves only when the fact reads false, and a
+refusal keeps the same row. A timeout asks once, at `max(duration, 2.5)` seconds
+of readable time; a refusal makes the row persistent until you hide it. Readable
+time pauses while the row is hovered or focused, while another exclusive
+surface covers it, and never runs while queued. `onDismiss` reports each
+accepted retirement once. `"close"` is the Close button; a false you write on
+your own is `"cancel"`, as it is for `UI.Dialog` and `UI.Popover`. Owner teardown
+and the release function release a row without asking and report `"cancel"`
+once; application disposal releases every row without asking or reporting. The
+teardown report runs while that owner is being disposed, so the callback must
+not read or write state the same owner holds (Dialog and Popover behave alike).
+
+One row shows; up to eight wait, by descending priority and then arrival. A
+strictly higher priority may ask the showing row to leave once it has been
+readable for 2.5 seconds, once per row; equal priority waits. Nine is the total,
+counting rows still leaving: past it a new admission is refused (an error at
+construction, or through the reactive error boundary on a later false-to-true)
+and nothing already admitted moves. A caller that refuses every request can
+starve the queue.
+
+Message-only and icon-plus-message rows hug their copy up to the safe width; an
+action or a close selects `controls.snackbar.maxWidth` (bounded by the safe
+room), and the action moves below long copy. A keyboard or pad reaches the row
+after the content (`focusChrome = "bottom"`), arrival never takes focus, and
+Cancel on the row returns focus to the content even when refused. A visible row
+reserves its bottom rectangle through `presenter.reserveHud` until it has slid
+out; content that should avoid it reads `presenter.hudReservations` through
+`Facet.layout.hudInsets`. The strip docks bottom-centre and paints above base
+screens and toasts; a Callout, a passive Popover and help, disclosure and
+reveal plates paint above it, and modals (Menu, modal Popover, Dialog, Sheet)
+above all. A throwing `onPresentedChange`, `onDismiss` or action callback is
+raised once the service is consistent again. Snackbars are a screen-application service: a SurfaceGui or Billboard
+application refuses them, so present global notifications from a screen
+application.
+
+**Motion.** The row slides up to enter and down to leave. Under reduced motion
+it arrives and leaves at once.
 
 ### `UI.Stepper`
 
@@ -8639,6 +9582,11 @@ atMin, atMax, rootPath }`.
 `UI.ProgressView { … }` -> the indicator's node. `ref` receives `{ api, dump }`,
 and the record carries `blueprint`, `model`, `semanticText`, `phase`, `dump` and
 `dispose`.
+
+Use a ProgressView to show how far a task has gone (a bar or circle with a
+value) or that work is running with no known end (a spinner). When the shape of
+the content that is loading helps more than a value, use `UI.Skeleton`; for a
+value the player sets, use `UI.Slider`.
 
 ```lua
 local app = Facet.new()
@@ -8864,6 +9812,17 @@ asset URL keeps ordinary Image behavior and the declared icon dimensions.
 square is worse than a word. Non-interactive: put it inside a `Button` (which takes
 content) when it must be pressable, which keeps one activation surface.
 
+Use a Label for a title that an icon identifies, such as a section heading or
+a row caption. For text alone, use `UI.Text`; for a short status caption on a
+plate, use `UI.Badge`.
+
+**Adaptation.** Label has no `controlSize`. The title uses `textSize` (default
+`body`) and grows with the player's text preference. A semantic icon's box
+starts at `iconSize` (default `controlSizes.regular.iconSize`) and can grow
+with the text; `gap` defaults to `controls.label.gap`. It has no motion, no
+input and no focus stop; its `semanticText` formula is released with the
+control.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
@@ -8881,6 +9840,11 @@ A passive row of keycaps. `UI.ShortcutHint { … }` returns its node; `ref` rece
 `{ api, dump }`. It creates no context, binding, focus target or input handler.
 Give exactly one of `action = "Activate"` (a static semantic name) or
 `keys = {{ "Ctrl", "K" }, { "F1" }}` (static explicit alternatives).
+
+Use a ShortcutHint to show which key does something, next to instruction copy
+or in a controls legend. It only shows keys: to make a key press a button, give
+that `UI.Button` a `shortcut`. For the same answer as plain words in your own
+`UI.Text`, use [`inputHint`](#inputhint).
 
 The action form reads its own mounted surface's action first, even while passive;
 otherwise it finds the highest-priority enabled context declaring that name.
@@ -8906,7 +9870,8 @@ Caps use the theme's icon-size ladder plus `space.xs`, with a strong tinted plat
 authored control corner and hairline. They have no package decoration slot and
 reserve no interactive hit floor. Letters grow with the text preference; native
 key images retain the theme-sized square. The mounted Compose owner disposes
-the display formulas and borrows the action system and caller values.
+the display formulas and borrows the action system and caller values. The hint
+has no motion: a device switch repaints the caps at once.
 
 ```lua
 local app = Facet.new()
@@ -8933,7 +9898,7 @@ record also carries `presentation`, a readable of the resolved style.
 The one selection control: a single value backed by one caller-owned writable
 cell, in the style the task and the surface want. `style` follows the reference
 platform's picker styles: `automatic` (the default), `menu`, `segmented`,
-`inline`, `radioGroup` and `navigationLink`. Use `UI.ComboBox` for
+`inline`, `radioGroup`, `navigationLink` and `cards`. Use `UI.ComboBox` for
 validated custom text, `UI.Menu` for verbs or a set of independent
 checks, and `UI.TabView` when choosing a page rather than a value.
 
@@ -8942,7 +9907,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `id`, `label` | Optional stable control identity and title. A titled `menu` picker is a form row (title leading, value and chevron trailing); a titled `navigationLink` is one row button. |
 | `selected` | Required caller-owned writable cell holding the option value. |
 | `options` | Static option array or readable array with stable values/identities. |
-| `style` | `automatic` (default), `menu`, `segmented`, `inline`, `radioGroup`, or `navigationLink`. |
+| `style` | `automatic` (default), `menu`, `segmented`, `inline`, `radioGroup`, `navigationLink`, or `cards` (never chosen by `automatic`). |
 | `presentation` | **Deprecated** since 0.11.0 (removal no earlier than 0.12.0): the former spelling of `style`, with the same values. `radio` reads as `radioGroup`; pass one of the two, never both. |
 | `query` | Optional caller-owned writable string cell: a searchable list. Its presence makes the automatic style the navigation link; an explicit style must be `navigationLink`. |
 | `placeholder` | The trigger's word when nothing is selected (menu styles). |
@@ -8951,7 +9916,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `onChange(value)` | Accepted changes only; runs in the selection transaction and must not yield. |
 | `enabled` | Boolean/readable boolean, default true; applies to all choices. |
 | `axis` | Strip styles: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
-| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. Large-text stacked rows keep their full-width label. Other styles and unlabeled pickers are unaffected. |
+| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. The field form (title above the trigger) ignores it. Other styles and unlabeled pickers are unaffected. |
 | `sizing` | `fill` or `hug`, optionally readable. A strip defaults to `fill`; a hugging horizontal strip can live in a ScrollView. A `menu` trigger without a title defaults to `hug` under a pointer (the pop-up button) and `fill` under touch. |
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
@@ -8959,10 +9924,29 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `track` | Boolean. `track = false` marks a tab strip inside its own band (what `UI.TabView` passes): no segmented plate, no carved inset, no disclose plate — the band's own ladder owns all three. |
 | `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the LIVE style publishes — the base `control | panel | pill` plus any a package adds of its own (`radii.chip`), because `radii.selection:chip` resolves under such a package; anything else refuses at construction, naming the vocabulary it was actually checked against. A **readable `stripCorner`** re-resolves on every read: on a swap AWAY from the package that publishes the container, the fill falls back to plain `radii.selection` rather than losing its corner, and a swap back re-derives the container answer on the next read. A **static `stripCorner`** is resolved once, at build, through that same fallback — so a later swap-away leaves it on the token it took, and neither the fallback nor the counter moves again for it. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`UI.TabView` passes one: its adaptable app bar's corner in the band form, nothing in the rail form). Absent, the fill keeps plain `radii.selection`. A healed fallback says so once per token per control **while it is falling back**: a swap back to the package clears the note and a second departure warns again, and a reactive `stripCorner` alternating between two names neither of which resolves warns on every change — the cost of a count stated in the present tense. `dump().indicator.cornerFallbacks` is that present-tense count (0 or 1): 1 means the fill is painting a fallback corner right now, and it returns to 0 the instant any token resolves again. |
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the application's environment. |
+| `requiredMark` | `"required"` or `"optional"`: notation only. Required appends ` *` to the label's own words; optional paints nothing (put localized wording in `hint`). `required` keeps its reselect-policy meaning. |
+| `hint` / `errorText` | Strings or readables on one message line under the picker, whatever style is on screen. A non-empty `errorText` replaces the hint in the danger role beside the `status.error` mark and borders the menu trigger in danger; the picker does not move. |
+| `controlSize` | `compact`, `regular` or `large`. The menu trigger, the segments of a static strip and radio or inline rows take the rung's height and inset; the trigger and a static strip sit inside a reserved whole target (`<id>+target`). A live strip reads a bound rung once for its rows. |
+| `indicatorPosition` | `radioGroup` only, construction-time `leading` (default) or `trailing`: which edge of each row carries the radio mark. Other styles refuse it. |
+| `appearance` | Menu styles: `standard` (default paint), `contrast` (the emphasis plate) or `utility`. Segmented: `filled`, `stroke` or `utility`. Automatic takes all five and maps them onto the family on screen (standard or filled, contrast or stroke, utility); while it resolves to rows the intent is kept and paints nothing. Absent keeps each family's default; `inline`, `radioGroup` and `cards` refuse it. Bound words repaint in place; a word outside the family is refused and the last legal paint stays. |
+| `corners` | Construction-time `pill` or `square` for the menu trigger or a static segmented strip's outer ends, track and selected fill (`pill` is the reference `isCircular`). |
+| `maxHeight` | Menu styles and automatic: a finite pixel bound above zero on the whole open panel, chrome included, overriding the default two-row floor down to one visible row (and kept by the sheet fallback). Other styles refuse it. |
+
+Opening a menu scrolls the selected row into view: a mounted row through the
+shared keep-visible seam, a searchable list through its own window at the row's
+estimated offset (the search field keeps focus).
 
 An option has required `value` and nonempty `label`, and optional `id`,
-`description`, semantic `icon`, `badge`, boolean/readable `enabled`, and
-`sectionTitle` (a heading drawn above this option in a live list).
+`description`, semantic `icon`, `badge`, boolean/readable `enabled`,
+`sectionTitle` (a caption heading drawn above this option — its own keyed
+entry, so it can arrive after mount — in menus, searchable lists and stacked
+strips) and `avatar` (an `UI.Avatar` spec with `name` and optional `image`,
+`userId`, `key`, `provider`, leading the menu row at the compact rung; it adds
+no focus stop or press) and `meta` (a secondary label/value, distinct from
+`badge`, trailing a menu row's words and shown on a card) and `indicator` (a
+`UI.StatusIndicator` spec table: a status mark trailing the option's words; on
+a live list its `form`, `status` and `count` follow the record, and setting it
+to nil removes it).
 Descriptions explain unavailable choices without hiding them. Values and stable
 ids must be unique. A live array uses `id`, or the string form of `value`, as
 its path-safe key. Replacing or reordering an option keeps the surviving row's
@@ -8982,11 +9966,12 @@ focused available choice. Disabling the control rejects every activation route.
 
 | Style | What it is |
 |---|---|
-| `menu` | On a touch surface a titled picker is one form row — title, then the value and the up/down chevron (`chevron.up.chevron.down`, a semantic icon a theme may paint) flush trailing on the same line, the whole row the tap target; elsewhere, one pop-up button carrying the value and the chevron. Activating it presents the options anchored to the trigger with a short materialize transition, the current value focused and check-marked, and no Cancel row: an outside tap, re-activating the trigger, or gamepad ButtonB closes it (Escape belongs to the engine). A gamepad, or more than six options on a compact or touch surface, presents a bottom sheet with a Cancel row instead. With a `label` the control is a form row: title leading, the trigger trailing — a plain value under touch and a bordered pop-up button under a pointer, never wider than about half the screen; at the two largest text preferences, and at the Large one on a compact screen, the row stacks vertically. The value is one line and may truncate with disclosure. The popover is the theme's panel width (never narrower than the trigger, never wider than the screen), and its rows scroll inside the height the screen allows. |
+| `menu` | On a touch surface a titled picker is one form row — title, then the value and the up/down chevron (`chevron.up.chevron.down`, a semantic icon a theme may paint) flush trailing on the same line, the whole row the tap target; elsewhere, one pop-up button carrying the value and the chevron. Activating it presents the options anchored to the trigger with a short materialize transition, the current value focused and check-marked, and no Cancel row: an outside tap, re-activating the trigger, or gamepad ButtonB closes it (Escape belongs to the engine). A gamepad, or more than six options on a compact or touch surface, presents a bottom sheet with a Cancel row instead. With a `label` the control is a form row: title leading, the trigger trailing — a plain value under touch and a bordered pop-up button under a pointer, never wider than about half the screen. Under a pointer or a pad at a regular or wider size class, and on a compact screen at the Large text preference or above, it is a field instead: the title above, the bordered trigger under it at the leading edge at its natural width, and its menu hanging from that leading edge. The value is one line and may truncate with disclosure. The popover is the theme's panel width (never narrower than the trigger, never wider than the screen), and its rows scroll inside the height the screen allows. |
 | `navigationLink` | A row that leads to the full list: title, value and a trailing chevron in one row button (the value drops beneath the title at large text), presenting a full-width sheet with the rows scrolling inside the height the screen allows, the optional `query` search field and a Cancel row. |
 | `segmented` | One plated track (the `control` surface every package skins) holding equal segments side by side (or a vertical rail with `axis = "y"`), always visible, the selected segment raised by the sliding `indicator`. A segment is a label only: an option with a `description` is refused on a declared segmented picker. |
 | `inline` | Options stacked as full-width rows. |
-| `radioGroup` | The inline rows wearing a radio mark. |
+| `radioGroup` | The inline rows wearing a radio mark (`indicatorPosition` picks its edge). |
+| `cards` | Each option a selectable card: title, optional icon, description, `meta` and badge, a hairline edge at rest and the accent plate when chosen (the shared menu card row). A column by default; `axis = "x"` wraps onto more lines instead of running off the offer, and long copy wraps inside its card. With `required = false`, choosing the chosen card again clears the selection. Cards take no `appearance`. |
 
 **The automatic style** resolves from the live environment — size class,
 viewing distance and the primary interaction class — never from a device name.
@@ -9069,13 +10054,19 @@ arrangement and indicator.
 `setTabHidden(tabId, hidden)`, `dump()` and `dispose()`.
 
 A tab bar and the pages behind it. `spec = { id?, selection (a writable cell),
-tabs ({ id, label?, icon?, badge?, content, section?, required? }[]), sections? ({ id, label }[]),
+tabs ({ id, label?, icon?, badge?, indicator?, enabled?, content, section?, required? }[]), sections? ({ id, label }[]),
 customization? (a writable cell), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
 conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"),
 sidebarPreference?, restoreFocus?, restoreScroll?, shoulderNavigation? }`.
+
+A tab's **`indicator`** is a [`UI.StatusIndicator`](#uistatusindicator) spec
+(`{ form?, status?, count?, max? }`) painted in that tab's own segment, in the lane
+the badge seal uses; the whole-control `indicator` (underline/pill) is a
+different setting and is unchanged. A tab's **`enabled = false`** keeps it in
+the strip and refuses its selection on every input class.
 
 ```lua
 local app = Facet.new()
@@ -9273,8 +10264,10 @@ states its band and lets its labels adapt inside it; a hugging rail at a 1.4x lo
 and the largest text preference otherwise becomes as wide as its longest tab name and
 squeezes the content lane. Refused for a declared placement that has no rail.
 
-**`textSize`** is passed straight through to the strip's segments (see `UI.Picker`), and
-is reactive so it can be bound against the placement: a thumb-zone tab bar is
+**`textSize`** is passed straight through to the strip's segments (see `UI.Picker`). It
+defaults to `"fit"`: a tab's words shrink toward the caption role to fit their slot before
+the engine truncates one (a filling bottom bar gives each tab a fixed share). It is
+reactive so it can be bound against the placement: a thumb-zone tab bar is
 caption-sized in tighter chrome and a rail is not. The construct carries the binding and
 does not pick the ramp — which home takes which role is a design language.
 
@@ -9307,6 +10300,16 @@ onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, contr
 `chevronPosition` is leading (default) or trailing. `appearance` is plain (default),
 contained (a raised group), or divided (a separator while expanded). Bindable
 `controlSize` uses the shared rung and restores the default when nil.
+
+Use a DisclosureGroup to hide optional detail or advanced settings under a
+heading, pushing the content below it down. For a summary button that expands
+into a view over the page, use `UI.CollapsibleView`; to move to a new page of
+content, use `UI.NavigationStack`.
+
+**Input.** The header is an ordinary `UI.Button`: a pointer click, a touch tap,
+Return on a keyboard and ButtonA on a gamepad all run the same toggle. With
+`enabled = false` the header wears disabled paint and every route refuses the
+toggle; `expanded` keeps its value, so open content stays open.
 
 ```lua
 local app = Facet.new()
@@ -9358,15 +10361,49 @@ semanticText }`.
 ### `UI.Slider`
 
 `UI.Slider { … }` -> the slider's node. `ref` receives `{ api, dump }`, where
-`api` exposes `model`, `semanticText`, `fillWidth`, `thumbOffset` and
-`onInteractionClassLost(class)`, with diagnostics through `record.dump()`.
+`api` exposes `model`, `semanticText`, `fillWidth`, `thumbOffset`,
+`onInteractionClassLost(class)` and `diagnostics()` (a copy of a range's
+refusal lines), with state through `record.dump()`.
 The ref does not expose `blueprint` or `dispose`; the component owner releases
 the control.
 
 A continuous or stepped value along a track, sharing the value arithmetic with
 `UI.Stepper`. Spec keys are `id`, `label`, `value`, `min`, `max`, `step`,
 `format`, `enabled`, `onChange`, `onCommit`, `tapToPosition`, `thumbImage`,
-`trackImage` and `row`.
+`trackImage`, `row`, `axis`, `range`, `minGap`, `thumb`, `thumbContent`, `trackContent`,
+`rotation` and `controlSize`.
+
+Use a Slider when the player sets a value in a range by feel and the exact
+number matters less, such as volume or camera sensitivity. For small exact
+steps, use `UI.Stepper`; for a typed exact number, use `UI.NumberInput`. The
+slider has no animation of its own: the thumb and fill paint each new value at
+once, so reduced motion changes nothing.
+
+| Key | Contract and default |
+|---|---|
+| `axis` | Construction-only `"x"` (default) or `"y"`. A `y` track runs bottom to top and its arrows are Up/Down; the arrows always follow this authored axis, whatever `rotation` paints. |
+| `range` | Construction-only, default false. `value` then holds `{ lower, upper }`; each change writes a fresh pair and calls `onChange(pair, { thumb = "lower" \| "upper" })`, and `onCommit` likewise once per gesture. The thumbs never cross. An illegal initial pair (wrong type, non-finite, reversed, narrower than `minGap`) is a build error; one arriving later keeps the last legal pair painted and driveable, is never written back, and records a line in `api.diagnostics()` (once per consecutive distinct reason, at most 16 kept). |
+| `minGap` | Construction-only number from 0 (default) to the range width: the least distance between the thumbs, in value units. |
+| `thumb` | Construction-only `"always"` (default), `"auto"` or `"none"`. Paint only: `auto` shows the handle on hover, focus and drag and always on a touch-primary surface; `none` never paints it. Targets, focus, readout and adjustment are unchanged. |
+| `thumbContent(info)` | Called once per thumb at build; returns the knob node. `info = { thumb = "value" \| "lower" \| "upper", value, fraction, dragging, enabled }`, the last four readables. The knob sits in a handle floored at the theme's thumb size that grows to fit it; it drops only its own `sliderThumb` slot, and travel is measured from what is drawn. Refused with `thumbImage`. |
+| `trackContent()` | Called once at build; returns the track's node (a colour ramp), centred in the track and replacing the rail and its accent fill — the strip is the value's scale. Refused with `trackImage`. |
+| `rotation` | Bound degrees, default 0: paint-only about the track's centre. Presses are converted by the inverse angle at event time (scroll included); label and readout stay upright and the row keeps its unrotated layout box, so reserve room for the turned paint. Ancestor `scale` is not composed into input. |
+| `controlSize` | `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
+
+A range's two handles share one focus group: Tab visits both and then leaves,
+and keyboard arrows adjust the focused handle. On a gamepad-primary surface the
+arrows first move between the handles; Activate enters adjust mode, and Cancel,
+Tab or focus leaving exits it. Coincident thumbs choose by the side a press
+approaches from, before quantization (at the minimum the upper moves, at the
+maximum the lower); a gesture keeps its thumb and commits once, and losing the
+pointer and touch classes mid-drag restores the whole starting value. The range
+handles use capture-based dragging; the native detector serves the track. The
+label shrinks (its full text disclosed) before the track or readout does.
+
+**There is no separate Knob control.** A handle's size, shadow, stroke, disabled
+look and icon come from the theme's `sliderThumb` slot (or `thumbImage`); an
+inverted or icon-bearing knob is a `thumbContent` node reading `info.enabled`
+and `info.dragging`. A switch's knob is the Toggle's own theme chrome.
 
 ```lua
 local app = Facet.new()
@@ -9673,6 +10710,45 @@ Quest. Taking a share means the strip can neither overflow its cell nor leave a
 gap, in any package. In a content-sized parent a `fill` child measures as its own
 content, so a standalone rating still hugs its glyphs rather than stretching.
 
+### `civilDate`
+
+`Facet.civilDate` is the calendar `UI.DateTimePicker` keeps its values in. A
+`CivilDate` is `{ year, month, day, hour?, minute? }` in no time zone; a
+`CivilRange` is `{ start?, finish? }`.
+
+- Arithmetic: `civilDate.isLeap(year)`, `civilDate.daysIn(year, month)`,
+  `civilDate.toDays(d)` / `civilDate.fromDays(n)` (days from 1970-01-01),
+  `civilDate.dateOf(d)` (the date without its time), `civilDate.addDays(d, n)`,
+  `civilDate.addMonths(d, n)` (the day clamps: January 31 plus a month is the
+  last of February), `civilDate.compare(a, b)` (by date), `civilDate.same(a,
+  b)` (every field), `civilDate.weekday(d)` (1 = Sunday),
+  `civilDate.monthGrid(year, month, weekStart)` (six weeks of dates),
+  `civilDate.within(d, min?, max?)`, `civilDate.clampRange(range, min?, max?)`
+  (nil when the range is wholly outside) and `civilDate.problem(d, withTime?)`
+  (why a table is not a date, or nil).
+- Words: `civilDate.format(d, locale?)`, `civilDate.formatTime(d, hourCycle)`
+  and `civilDate.parse(text, locale?, withTime?)` in the locale's numeric
+  order (it answers the date, or nil and a sentence saying why; a year has four
+  digits, and a 12-hour locale needs AM or PM on an hour from 1 to 12);
+  `civilDate.ENGLISH` is the default locale.
+- Instants always name their offset: `civilDate.fromUnix(seconds,
+  offsetMinutes)` and `civilDate.toUnix(date, offsetMinutes)`. There is no zone
+  database, so a zone with daylight time is your conversion to a fixed offset.
+  `civilDate.systemClock(offsetMinutes?)` returns the default `clock`: the
+  player's local date and time, or the engine clock at a named offset.
+
+`parse` returns two values, `(date?, why?)`: test the date before you use it.
+
+```lua
+local civil = Facet.civilDate
+local start = { year = 2026, month = 2, day = 27 }
+print(civil.format(civil.addDays(start, 3))) -- "03/02/2026": March 2 in the default month/day/year order
+local date, why = civil.parse("02/30/2026")
+if date == nil then
+    print(why) -- a sentence saying why the text is not a date
+end
+```
+
 ### `valueModel`
 
 `Facet.valueModel.new({ min, max, step?, format? }) -> Model` — the shared,
@@ -9715,6 +10791,26 @@ messages. Roblox owns typing, caret movement, selection, clipboard interaction,
 and composition. Facet owns accepted values, validation, focus participation,
 geometry, and theme styling.
 
+Use a TextInput when the player types free text, such as a name, a search or a
+message. For a number, use `UI.NumberInput`; for text that must match one of
+your options or pass your own check, use `UI.ComboBox`; for a fixed list, use
+`UI.Picker`.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local crewName = Facet.Compose.cell("") -- yours: accepted edits write it
+app.mount(function()
+    return UI.TextInput("CrewName")({
+        value = crewName,
+        label = "Crew name",
+        placeholder = "Enter a name",
+        maxLength = 20,
+        onCommit = function(text, reason) print("saved", text, reason) end,
+    })
+end)
+```
+
 | Field | Contract and default |
 |---|---|
 | `id` | Stable control identity; defaults to `"TextInput"`. |
@@ -9726,20 +10822,35 @@ geometry, and theme styling.
 | `multiline` | Construction-time boolean, default false. Native multiline text and wrapping inside a native scroll viewport. Incompatible with numeric presentation. |
 | `height` | Dimension; a single line has a minimum of `controls.textInput.fieldHeight` and grows for its text and theme. Multiline defaults to `controls.textInput.multilineHeight`. Long multiline content grows inside the viewport and can be scrolled; native caret movement and line insertion reveal the active line. The default viewport shrinks to the available keyboard-free area while editing; an explicit height stays caller-owned. |
 | `onChange(text)` | Called for each accepted user edit or clear, never for caller writes or cancellation. |
-| `onCommit(text, reason)` | Called for a valid commit. Reasons are `"enter"`, `"focusLost"`, and explicit `"submit"`. |
+| `onCommit(value, reason)` | Called for a valid commit. The text presentations report the accepted string; the number presentation reports the committed **number**. Reasons are `"enter"`, `"focusLost"`, explicit `"submit"` (also a step-button press), and `"clamped"` when a bound moved a typed number. A read-only field reports no commit. |
 | `onCancel()` | Called after restoring the text captured at edit entry. No commit fires. |
 | `clearButton` | Convenience for `clearButtonMode = "always"`. |
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`. Default is never; search defaults to always. Empty or disabled fields hide the affordance. |
 | `maxLength` | Maximum accepted Unicode scalar count. Invalid UTF-8 is rejected. |
 | `validate(text)` | Return an accepted, idempotently normalized string, or nil to reject. Applied after length limiting and on commit. Numeric formatting must also pass validation before committed values change. |
-| `invalid` | Optional caller-owned readable boolean. Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
+| `invalid` | Optional caller-owned readable boolean. While true the plate wears the danger border (as it does while `errorText` or a rejection shows). Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
 | `numericValue` | Required caller-owned writable number cell for number presentation; distinct from the editable string in `value`. |
-| `parse(text)` / `format(number)` | Numeric commit functions; default to `tonumber` and `tostring`. Parsing must return a finite number; formatting must return a string. |
-| `min` / `max` | Optional inclusive numeric bounds. Invalid input leaves `numericValue` unchanged and displays a validation message. |
+| `parse(text)` / `format(number)` | Numeric commit functions. The default parser is a strict decimal grammar (optional sign, digits, at most one `.`; no exponent, grouping, hex or surrounding blanks); `Facet.recipes.arithmetic.parse` adds arithmetic. The default format is `tostring`, or exactly `precision` places when declared. Parsing must return a finite number; formatting must return a string. |
+| `min` / `max` | Optional inclusive numeric bounds. A typed number outside them is clamped to the bound and committed with reason `"clamped"`; it is not an error. |
+| `step` | Number presentation: finite and above zero, default 1. One step-button press; with both bounds it follows the step grid measured from `min`, as Slider and Stepper do. |
+| `precision` | Number presentation: whole number of decimal places from 0 to 10. Rounds half away from zero at commit (and on a step press), never while typing. |
+| `stepButtons` | Number presentation, construction-time boolean. Two target-sized buttons inside the plate after the clear affordance: ordinary focus stops that claim no arrow keys, disabled at the bound they face, when read-only and when disabled. A press commits. |
+| `prefix` / `suffix` | Number presentation: string or readable string standing beside the editor as unit chrome, never part of the draft. They shrink before the editor on a narrow row; a unit, clear affordance and both step buttons can still exhaust a 320 px phone at the largest text preference under heavy themes. |
 | `env` | Defaults to the environment the application published; an environment must exist for keyboard occlusion and input-class handling. |
 | `actionSystem` | Optional injection; the presenter supplies the existing action system automatically. |
 | `keyboardType` | `"default"`, `"numeric"`, `"email"`, or `"phone"`. Intent metadata: the shipping public engine API does not allow Facet to choose the native keyboard. |
 | `submitLabel` | `"default"`, `"done"`, `"go"`, `"next"`, `"search"`, or `"send"`. Intent metadata; no public engine property applies it. |
+| `label` | String or readable string above the field. A tap or touch on it focuses the editor; it adds no focus stop and reserves the touch floor in its own row, words at the bottom. |
+| `requiredMark` | `"required"` or `"optional"`: notation only, never validation. Required appends ` *` to the label's own string (bound labels too). Optional paints nothing, because Facet has no localization table: put localized "optional" wording in `hint`. |
+| `hint` | String or readable string on the one message line under the field at rest. Wraps; unbreakable text stays reachable through disclosure. |
+| `errorText` | String or readable string. Non-empty replaces the hint and the numeric rejection line, paints the danger role beside the `status.error` mark, keeps the field's position, and does not shake (`invalid` keeps that meaning). |
+| `leading` / `trailing` | Blueprints inside the plate. Leading is static decoration and adds no stop; a search field refuses it. Trailing sits after the clear affordance, and its focusables join the field's focus order after the editor and clear. |
+| `controlSize` | `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
+| `appearance` | `"standard"` (default chip plate), `"contrast"` (control plate) or `"utility"` (no plate). Bound words repaint in place; a word outside the set is refused and the last legal paint stays. |
+| `corners` | Construction-time `"pill"` or `"square"`; absent keeps the theme radius. |
+| `readOnly` | Boolean or readable boolean, default false. True keeps the field focusable, selectable, at full contrast and able to show a caret, but the engine and the model refuse every edit; the clear affordance is not offered and leaving the field commits nothing. Live changes keep the same editor and edit. |
+| `selectOnFocus` | `"none"` (default: the native caret where the press put it), `"all"` or `"end"`, or a readable one. Applied once per focus session: a pointer focus applies it at that pointer's release, activation at once. A change while focused applies at the next focus; value, text and theme changes never reselect. A read-only field may select; a disabled one never gains focus. |
+| `visibleLines` | Multiline only: a construction-time whole count of at least 1. The viewport is that many lines of the field's `control` typography plus the skin's field inset, still capped to the keyboard-free area while editing; past it the text scrolls inside a box that holds still. An authored `height` wins. |
 
 Single-line Enter commits. Multiline Enter inserts a newline; use `api.submit()`
 for explicit submission. Focus loss commits through the same validation path.
@@ -9749,8 +10860,10 @@ and `api.cancel()` restore the entry snapshot. Disabling, including through an
 ancestor, ends editing, preserves accepted text, and rejects late edits and commits.
 
 Numeric entry keeps strings such as `"-"`, `"."`, and `"1e"` as editable drafts.
-Parsing, bounds, and formatting run on commit, rather than rewriting each
-keystroke. Rejected commits retain the draft, show an error, and shake the field
+Parsing, rounding, bounds, and formatting run on commit, rather than rewriting each
+keystroke. Leaving the field on an incomplete draft (empty, a lone sign, a lone
+point) restores the last committed number without a message, unless
+`requiredMark = "required"`, which reports it. Rejected commits retain the draft, show an error, and shake the field
 on the same paint-only `offset` `invalid` shakes on — but **on every rejected
 commit, not an edge**: a repeat of the same rejection shakes again, which is
 exactly when the nudge is worth the most (`invalid`, by contrast, only shakes on
@@ -9775,7 +10888,45 @@ disabled, multiline, presentation, numericValue, validationError, clearVisible,
 clearButtonMode, placeholderVisible, occlusionOffset, keyboardType, and submitLabel.
 
 The field's mounted editor is at `<id>/Field` and its clear affordance at
-`<id>/Clear`.
+`<id>/Clear`. A field wearing a label, hint, error line, accessory or number
+presentation mounts its plate at `<id>/Input` inside a vertical stack
+(`<id>/Label` above, `<id>/Message` below); accessories put the editor and clear
+inside `<plate>/Row`, and a named `controlSize` puts the plate inside
+`<plate id>+target`. `dump()` also reports label, requiredMark, hint, errorText,
+hasError, controlSize, appearance, corners, leading, trailing, readOnly and
+visibleLines. The mounted editor wears `selectOnFocus` only when it is supplied.
+
+### `UI.NumberInput`
+
+`UI.NumberInput { … }` -> the field's node: `UI.TextInput` with
+`presentation = "number"` already chosen. It is the same engine (draft, commit,
+chrome, focus and input story) under the name a chooser finds; supplying
+`presentation` is refused. `value` (the editable string) and `numericValue` (the
+committed number) are both caller-owned cells. Every `UI.TextInput` field
+applies; `step`, `precision`, `stepButtons`, `prefix` and `suffix` are its own.
+Without `precision`, a step button or a scrub rounds to the decimal places of
+`step` and `min`, so three presses of `0.1` hold `0.3`, not a floating-point
+remainder; typed numbers keep their own digits.
+The step buttons mount at `<plate>/Row/Decrement` and `<plate>/Row/Increment`;
+their semantic names are not localized. `dump()` adds step, precision,
+stepButtons, prefix and suffix.
+
+`scrub` (boolean or readable boolean, default false) lets a horizontal drag
+across the editor move the number. Nothing happens before the shared press→drag
+slop (6 px pointer, 14 px touch), so a tap still places the caret natively, and a
+drag that is mostly vertical stays a scroll. Past it the edit the press opened
+ends without a commit: a typed, uncommitted draft is discarded and the text
+returns to the committed number's, which is where the drag starts. The number moves by one `step` per 8 px of total
+travel from the press, through the step buttons' own rounding and bounds;
+`onChange` reports each change and release commits once with reason `"submit"`.
+Escape or ButtonB, losing the dragging input class, becoming disabled or
+read-only, turning `scrub` off, and disposal cancel: the number and text
+return to the press's snapshot and nothing commits. A caller write to
+`numericValue` during a drag ends the drag, and the caller's number stands.
+
+**Motion.** A rejected commit shakes the field as on `UI.TextInput`, and
+reduced motion drops the shake. Step presses and scrubbing change the number
+at once, with no animation.
 
 ```lua
 local app = Facet.new()
@@ -9783,9 +10934,9 @@ local UI = app.controls
 local draft, laps = Facet.Compose.cell("3"), Facet.Compose.cell(3)
 local field
 app.mount(function()
-    return UI.TextInput("Laps")({
-        presentation = "number", value = draft,
-        numericValue = laps, min = 1, max = 99,
+    return UI.NumberInput("Laps")({
+        value = draft, numericValue = laps, min = 1, max = 99,
+        stepButtons = true, label = "Laps",
         ref = function(record) field = record.api end,
     })
 end)
@@ -9812,22 +10963,25 @@ Spec fields:
 | `id` | `string` | no (default `"Chip"`) | the plate id; a supplied `controlSize` adds the `<id>+target` parent. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
 | `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
-| `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by body activation. A remove-only token omits it and has an informational body. Readonly selection is refused. |
+| `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by activation outside edit mode. A remove-only token omits it. Readonly selection is refused. |
 | `animation` | animation policy | no | applies to the primitive Button plate and is checked against its supported properties. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip; requires selected. |
-| `onRemove` | `() -> ()` | no | separate named close target; the caller removes the item from its keyed collection. |
-| `removeLabel` | `string` | no | semantic close label, default `Remove <label>`. |
+| `onRemove` | `() -> ()` | no | called when the tag is removed in edit mode; the caller removes the item from its keyed collection. |
+| `editing` | boolean or readable boolean | with `onRemove` and `selected` | the caller's edit-mode cell (the `UI.Table`/`UI.RowActions` precedent). While true the tag shows a trailing close mark inside its one plate, and activating it, or Delete/Backspace while it holds the ring, removes it. A remove-only token without it is always editing. Requires `onRemove`. |
+| `removeLabel` | `string` | no | the tag's semantic name while editing, default `Remove <label>`. |
 | `removeFocusFallback` | bindable `string` | no | destination when no sibling remove target survives. |
 | `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
 | `appearance` | `"standard" \| "utility"` (bindable) | no | visual emphasis, through a style tag. A chip's family is two words, not the Button's five: `emphasis`/`soft`/`link` describe an action's weight among actions, which a filter pill is not. |
 | `corners` | `"pill" \| "square"` | no | the corner treatment, through the shipped `UI.corners` modifier. Absent = `"pill"`, exactly as before. |
 | `leading` / `trailing` | blueprint | no | static content either side of the label (a count, a dot, an avatar). They are content, never a second focus stop — the chip keeps one activation surface, so every input class still reaches the same flip. With neither, the chip is byte-identical to the label-only pill it has always been. |
 
-A removable token reserves separate body and close hit footprints, including the
-effective target floor. Removing a focused item returns focus to the next sibling
-remove target, then the previous, then the supplied fallback after its owner retires.
-A remove-only token has one generated focus stop; selected tokens also have their
-body action. The callback does not mutate the caller's collection automatically.
+Removal is edit mode. A tag outside edit mode only selects and shows no close mark.
+While `editing` is true the close mark sits inside the tag's one plate, one surface
+in every theme, and is not a separate focus stop or target: activating the tag on
+any input removes it, and so do Delete and Backspace while it holds the ring.
+Removing a focused tag returns focus to the next removable tag, then the previous,
+then the supplied fallback after its owner retires. The callback does not mutate
+the caller's collection automatically.
 
 The record `ref` hands back carries:
 
@@ -9856,6 +11010,9 @@ Invariants:
   pointer class is live; keyboard gets a focus ring with Navigate→Activate; and
   a Large (ten-foot) display strengthens the focus profile. The chip owns no
   in-flight gesture, so there is no hot-switch state to carry or cancel.
+- **No motion of its own.** A selection change repaints the plate at once. An
+  `animation` policy you supply runs on the Button plate through the shared
+  motion clock, where decorative motion snaps under reduced motion.
 
 ```lua
 local app = Facet.new()
@@ -12143,7 +13300,7 @@ colors, type and border insets.
 | `presenting` | Optional data or readable alongside `isPresented` or manual presentation. Nil prevents opening. Factories and action callbacks receive a shallow snapshot for that presentation. |
 | `item`, `presenter` | Alternative optional-item writable cell. Nonnil opens; dismissal clears it. Cannot combine with `isPresented`, `presenting`, or `error`. |
 | `error` | Record or readable with `errorDescription`, optional `recoverySuggestion` and `failureReason`. Supplies default title/message. A writable cell without `isPresented` is an automatic binding and requires a presenter; dismissal clears it. |
-| `icon` | Optional image asset/readable, sized using `controls.alert.iconSize`. |
+| `icon` | Optional icon name (drawn through the theme's art like Button's `icon`), image asset, or readable asset, sized using `controls.alert.iconSize`. |
 | `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a small inline vector caution mark — `iconSizes.medium`, capped at the heading it leads, because a package may pitch its picture ladder above its type (Fantasy Ornate's is 32 against a 22 px heading) — unless an image is supplied. |
 | `suppression` | `{ isSuppressed, label? }`, where `isSuppressed` is a caller-owned writable Compose cell of a boolean, adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(owner, data) -> node?` for brief extra content such as a `UI.TextInput`. Use a full modal for an editor. The content runs inside the alert's own Compose owner, so `Compose.cleanup` releases with the presentation. |
@@ -12249,23 +13406,46 @@ record, so `record.api` carries `present(presenter?)`, `dismiss()`, `dump()` and
 `blueprint`. The control is released with the Compose owner that built it.
 
 A modal whose height settles at declared detents. It enters from the bottom of
-the screen and exits downward without scaling its text. Nearby screens place the
-panel at the bottom; distant screens center it. Width, text, focus treatment and
-safe-area reservation follow the active surface and theme.
+the screen and exits downward without scaling its text. By default nearby
+screens place the panel at the bottom and distant screens center it; `placement`
+chooses explicitly. Width, text, focus treatment and safe-area reservation
+follow the active surface and theme.
+
+Use a Sheet for a supporting task with its own body, such as a briefing, a
+filter set or a loadout, that the player can resize or dismiss. For a centred
+decision with pinned actions, use `UI.Dialog`; for a short panel anchored to one
+control, use `UI.Popover`.
+
+The panel is a pinned column: the drag grip, an optional sticky hero, the title
+(or your `header`), the Size and Close row, ONE scrolling body, and pinned
+`actions`. Only the body scrolls. Your `content` node mounts
+directly in the body scroller: for a sheet with id `Sheet`, a content node with
+id `Briefing` is at `/Sheet/Layer/Panel/Room/Column/Body/Briefing`. A hero that scrolls
+with the body moves your content one level down, into `Body/Inset`.
 
 | Field | Contract |
 |---|---|
 | `id` | Stable name; defaults to `"Sheet"`. Give it as `id` or as the constructor name, never both |
 | `ref` | `function(record)`, called once while the control is built with the frozen `{ api, dump }` |
-| `title` | Required text or a Compose readable of text |
-| `content` | Required node, or a function returning one. A function is re-run for each presentation, so its cells live only as long as the sheet is open. The sheet supplies scrolling |
+| `title` | Required text, a Compose readable of text, or a `function(use)` returning text |
+| `content` | Required node, or a function returning one. A function is re-run for each presentation, so its cells live only as long as the sheet is open. It sits in the sheet's one body scroller |
 | `detent` | Required caller-owned writable Compose cell holding a declared detent ID |
-| `detents` | Nonempty array; defaults to `{ "medium", "large" }`. Medium requests half the safe height; large requests all of it. Custom entries are `{ id, fraction }` with fraction in `(0, 1]`, or `{ id, height }` with positive finite pixels. IDs are unique |
+| `detents` | Nonempty array; defaults to `{ "medium", "large" }`. Medium requests half the safe height; large requests all of it; `"hug"` (id `hug`) fits the whole body plus the pinned regions and re-measures when copy, text size, theme or viewport change. Custom entries are `{ id, fraction }` with fraction in `(0, 1]`, or `{ id, height }` with positive finite pixels. IDs are unique. Detents are always heights, in every placement |
 | `env` | Optional explicit environment; normally discovered from the surface |
 | `presenter` | Optional presenter retained for `present()` and bound presentation. An application supplies its own |
 | `isPresented` | Optional caller-owned writable Compose cell of a boolean; needs a presenter |
-| `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss; the explicit Close button and `dismiss()` still work |
+| `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss, and Cancel runs no cancel action; the explicit Close button, the caller's own action buttons and `dismiss()` still work |
 | `dragIndicator` | `"automatic"` (default), `"visible"`, or `"hidden"`. Automatic shows the header grip while pointer or touch is available |
+| `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"bottom"`, `"center"`, or `"side"` |
+| `edge` | `"left"` or `"right"` (default); only with `placement = "side"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
+| `width` | `"automatic"` (default, `controls.alert.maxWidth`), `"narrow"` (`controls.popup.panelWidth`) or `"wide"` (`controls.dialog.wideWidth`): the Dialog presets, bounded by the safe room |
+| `closeButton` | Defaults to true. Independent of `interactiveDismissDisabled` |
+| `header` | Construction-only. Absent shows `title`; a blueprint replaces the title region and sizes itself; `false` removes it. Size and Close stay in every form |
+| `hero` | Construction-only `{ image | content, aspectRatio | height, scaleMode?, background?, sticky? }`: exactly one of an image source or an arbitrary blueprint, exactly one of a ratio or a height (px or metric); `scaleMode` is image-only. `sticky = true` pins it above the body; otherwise it scrolls with the body. It spans the panel width without the body inset. With `header = false`, Size and Close sit over the hero's top corner and stay pinned while a scrolling hero moves; authored hero content starts below a measured band that keeps it clear of them |
+| `actions` | Pinned below the body: `{ id, label, role?, enabled?, busy?, onActivate }` (the Dialog action shape, any count). One `role = "default"` (Return) and one `role = "cancel"`. Cancel (ButtonB) runs an eligible cancel action before interactive dismissal, unless `interactiveDismissDisabled` is set. Actions never close the sheet; set your `isPresented` or call `dismiss()` |
+| `actionLayout` | `"automatic"` (default), `"row"` or `"stacked"`; a row that cannot show every full label stacks |
+| `contentInset` | `"standard"` (default) or `"none"`: the body's own padding only |
+| `scrollPolicy` | Construction-only. `"always"` (default): the body scrolls at every height and never hands a pan to the sheet. `"atLargestDetent"`: below the tallest detent a body pan resizes the sheet; at it, the body scrolls and only a downward pan starting at the top shrinks the sheet |
 
 Call `api.present()` to open and `api.dismiss()` to close. Repeated `present()`
 calls while open return the current presentation. The node the constructor
@@ -12273,11 +13453,16 @@ returns is an empty anchor; the panel arrives over the surface. The control is
 released with the Compose owner that built it.
 A bound sheet writes false to `isPresented` when it closes.
 
-Drag the header to resize; release selects the nearest detent. Dragging well
-below the smallest detent dismisses when interactive dismissal is enabled.
-Content pans and wheel input scroll. A change to controller-only input cancels
-an unfinished drag. Resize motion uses the shared non-overshooting motion class
-and honors reduced motion.
+Drag the grip, or the panel's free space (the engine's drag detector and touch
+pan; interactive children keep their own presses), to resize. A drag from free
+space starts after the input class's usual slop. Release projects the drag's
+speed 0.15 s ahead and settles on the nearest detent to that; a tie keeps the
+current detent. Only where the sheet actually is decides dismissal: below 70% of
+the smallest detent, when interactive dismissal is enabled. Past the limits the
+drag resists. One drag at a time: it belongs to the input class that started
+it, and losing that class cancels it back to the grabbed detent; an outside
+detent write or a change of the safe room cancels it too. The settle spring
+starts from the painted height at the flick's speed; reduced motion snaps.
 
 The Size button remains available without dragging. Activate it to cycle sizes;
 Left/Right adjusts while it holds focus, yielding to navigation at either end.
@@ -12285,11 +13470,12 @@ Up/Down moves through the content. Gamepad Back closes and restores focus to the
 presenting surface. The Close button has a downward chevron and works on every
 input class. Distant-screen placement does not change these semantics.
 
-Requested heights are capped by the available safe area and raised to a themed
-minimum that leaves room for controls and content. The panel itself scrolls when
-its contents exceed that height, including on very short screens. There is no
-background interaction through the modal and no gesture handoff that converts a
-content pan into resizing; the visible header owns resizing.
+Requested heights are capped by one safe rectangle (the viewport less the
+platform insets and the on-screen keyboard) and raised to a themed minimum. The
+body gives height back first. When the pinned regions alone exceed the room (a
+very short screen with a tall header and several stacked actions), they overrun
+the panel; no emergency whole-panel scroll exists yet. There is no background
+interaction through the modal.
 
 ```luau
 local detent, shown = Compose.cell("medium"), Compose.cell(false)
@@ -12484,6 +13670,10 @@ Avatar creates no provider and performs no fetch itself.
 | `onActivate` | none | Adds one ordinary Button activation target. |
 | `ref` | none | Receives the control record; `record.dump()` reports current identity and state. |
 
+Use an Avatar to show who a player is beside their name, in a list row, a chat
+line or a profile header. For several players at once, use `UI.AvatarGroup`;
+for a status mark without a person, use `UI.StatusIndicator`.
+
 Online is a disc, away a disc with a dash, busy a square, and offline a ring.
 Presence is validated once into the shared derived value used by paint, dump,
 and the interactive raw Button's semantic `label`; an invalid update retains the
@@ -12508,6 +13698,8 @@ Framework-generated face layers use true circles independent of a theme's pill
 radius. Interactive layers sit in one zero-padding stack inside the raw Button;
 compact visuals reserve the effective target floor in both axes. Initials fit to
 the label cap, keep one line, and retain disclosure at large text preferences.
+Avatar has no motion of its own; only a pending picture's Skeleton sweeps, and
+reduced motion removes that sweep.
 
 ```luau
 local portraits = app.newResourceProvider()
@@ -12526,6 +13718,11 @@ return UI.Avatar("Driver")({
 an ordered roster and summarizes the rest with a count. Members never generate
 individual targets; `onOverflow` adds one ordinary Button focus stop when there
 are hidden members. Without it, the whole group is informational.
+
+Use an AvatarGroup to show who is in a party, a lobby or a team when the
+individual faces are not targets. When each person must be pressable, use one
+`UI.Avatar` with `onActivate` per person in a list. The group has no motion of
+its own; a pending member's Skeleton sweep is removed under reduced motion.
 
 | Field | Contract |
 |---|---|
@@ -12585,6 +13782,25 @@ return UI.AvatarGroup("Party")({
 `app.controls.StatusIndicator("Unread")({ count = unread, status = "error" })`
 paints a passive mark without an input target or ornament surface.
 
+Use a StatusIndicator for a small state mark or an unread count beside other
+content, such as a tab name or an inbox row. For a mark with a caption on a
+plate, use `UI.Badge`; for a player's online state on a picture, use
+`UI.Avatar`'s `presence`. The mark has no motion: a changed count or status
+repaints at once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local unread = Facet.Compose.cell(3) -- the caller writes the count; the mark only reads it
+app.mount(function()
+    return UI.HStack("Inbox")({
+        gap = "s",
+        UI.Text("Title")({ text = "Messages" }),
+        UI.StatusIndicator("Unread")({ count = unread, status = "error", name = "Unread messages" }),
+    })
+end)
+```
+
 | Field | Contract |
 |---|---|
 | `form` | Bound `dot` (default), `ring`, `square`, or `dash`. Discs and holes stay circular across themes. |
@@ -12620,6 +13836,24 @@ and semantic values, preserve the caller's source, and recover on a legal value.
 `app.controls.Badge("Ready")({ label = "Ready", icon = "status.info" })` is an
 informational caption with no generated focus stop or activation behavior.
 
+Use a Badge for a short state or category word on a plate, such as "New",
+"Ready" or a rank. For a mark or a count with no words, use
+`UI.StatusIndicator`; for a tag the player can select or remove, use `UI.Chip`.
+The badge has no motion: a bound change repaints it at once.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+local online = Facet.Compose.cell(true) -- yours; the badge only reads it
+app.mount(function()
+    return UI.Badge("Server")({
+        label = function(use) return if use(online) then "Online" else "Offline" end,
+        appearance = "status",
+        status = function(use) return if use(online) then "success" else "neutral" end,
+    })
+end)
+```
+
 | Field | Contract |
 |---|---|
 | `label`, `icon` | Bound caption and/or static semantic icon name. An empty or absent caption requires an icon and a nonempty `name`. Bound caption presence mounts/removes the owned label; invalid updates retain the last legal content. |
@@ -12630,6 +13864,24 @@ informational caption with no generated focus stop or activation behavior.
 | `controlSize` | Bound compact (default), regular, or large; an icon-size height floor, not a cap on text growth. |
 | `over` | media uses the opaque surfaceStrong/contentStrong pair, overriding the status pair. |
 | `name` | Optional nonempty semantic word; required for icon-only content. |
+
+**A count on a host: `UI.badged(host, value, direction?)`.** A count or dot on a
+Button, an icon button, an Avatar or any other host sits on the host's corner:
+top-right (top-left when `direction = "rtl"`), centred on the corner so it sits
+half over the host and paints above it. The host keeps its own layout box, hit
+target and focus stop; the seal is a later layer moved by a paint-only offset, so
+it never covers the label area and nothing is laid out again. `value` is a string,
+a number (above 99 reads "99+"), `true` for a dot (the seal with a bullet), or a
+Readable of one; nil, false and "" paint nothing. The seal is the package's badge
+slot (a themed seal draws at its full size), the same seal a list, menu or picker
+row wears as an inline trailing pill. A tab bar's icon tabs (a segmented Picker
+with icons, and so `UI.TabView`'s strip) wear their `badge` on the icon's corner;
+text tabs keep the pill. The seal overhangs the host by half its size: give a host
+at a clipping edge that much room (`UI.VirtualGrid` keeps half a gutter there).
+
+```lua
+UI.badged(UI.Button("Inbox")({ label = "Inbox", onActivate = open }), unread)
+```
 
 Every plated Badge owns a surface-less tinted Box; package badge-slot art remains
 available to existing `Text.surface = "badge"` sites. Absent, static and bound

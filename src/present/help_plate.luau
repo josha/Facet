@@ -57,6 +57,8 @@
 ]]
 
 local focusMap = require("./focus_map")
+local Compose = require("../vendor/compose/core")
+local shortcutHint = require("../controls/shortcut_hint")
 local themeSnapshot = require("../themes/snapshot")
 local paths = require("../paths")
 
@@ -65,6 +67,8 @@ local help_plate = {}
 local HELP_ROOT = "__help__"
 local PLATE_ID = "Plate"
 local BODY_ID = "Body"
+local TITLE_ID = "Title"
+local SHORTCUT_ID = "Shortcut"
 local DUMP_SCHEMA = "facet-help-dump/1"
 
 -- THE SAME 0.45 s DELIBERATION the disclosure plate's pointer dwell uses, and
@@ -113,7 +117,16 @@ function help_plate.new(ctx: any)
 		Engagement names either the helped node itself (a hover zone is wired on it
 		directly) or a focusable that contains it (the ring lands on a Button whose
 		child Text carries the sentence), and one walk answers both. ]]
-	local function helpTargetIn(handle: any, path: string?): (string?, string?)
+	-- the declaration's structured form: a string is `{ body = string }`
+	local function helpOf(value: any): any
+		return if type(value) == "table" then value else { body = value }
+	end
+
+	local function declared(value: any): boolean
+		return (type(value) == "string" and value ~= "") or type(value) == "table"
+	end
+
+	local function helpTargetIn(handle: any, path: string?): (string?, any)
 		if handle == nil or path == nil or handle.hasHelp ~= true then
 			return nil, nil
 		end
@@ -135,15 +148,15 @@ function help_plate.new(ctx: any)
 			node: the walk visits every node in the subtree. ]]
 		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
-		local foundText: string? = nil
+		local foundValue: any = nil
 		local function walk(n: any)
 			if foundPath ~= nil or focusMap.isHiddenPath(n.path, hiddenRoots) then
 				return
 			end
-			local text = if n.props ~= nil then n.props.help else nil
-			if type(text) == "string" and text ~= "" then
+			local value = if n.props ~= nil then n.props.help else nil
+			if declared(value) then
 				foundPath = n.path
-				foundText = text
+				foundValue = value
 				return
 			end
 			for _, child in n.children or {} do
@@ -151,7 +164,7 @@ function help_plate.new(ctx: any)
 			end
 		end
 		walk(node)
-		return foundPath, foundText
+		return foundPath, foundValue
 	end
 
 	local function dispose()
@@ -163,11 +176,33 @@ function help_plate.new(ctx: any)
 		presenter.dismiss(handle)
 	end
 
-	local function present(owner: any, sourcePath: string, text: string, source: string)
-		dispose()
-		local box = safeBox(owner.reserveAppChrome)
+	-- the plate's width ceiling: the owner's LIVE safe box less the edge inset
+	local function ceilingFor(owner: any): number
 		local inset = themeSnapshot.resolveNumber(metricsNow(), EDGE_INSET_METRIC) or 0
+		return math.max(0, safeBox(owner.reserveAppChrome).w - 2 * inset)
+	end
+
+	local function present(owner: any, sourcePath: string, value: any, source: string)
+		dispose()
+		local help = helpOf(value)
+		local maxW = Compose.cell(ceilingFor(owner))
 		local function panel(UI: any)
+			local children: { any } = {}
+			if help.title ~= nil and help.title ~= "" then
+				table.insert(children, UI.Text({ id = TITLE_ID, text = help.title, textSize = "heading" }))
+			end
+			if help.body ~= "" then
+				table.insert(children, UI.Text({ id = BODY_ID, text = help.body, textSize = "body" }))
+			end
+			if help.shortcut ~= nil then
+				-- display only: the explicit-chord form of ShortcutHint registers no
+				-- action or context. Built directly because a presenter surface's
+				-- component receives the primitive vocabulary, not app.controls
+				table.insert(
+					children,
+					shortcutHint.build({ UI = UI }, nil, { id = SHORTCUT_ID, keys = help.shortcut }).blueprint
+				)
+			end
 			return UI.VStack({
 				id = PLATE_ID,
 				-- the panel treatment, so the plate is themed by the ACTIVE snapshot
@@ -177,9 +212,13 @@ function help_plate.new(ctx: any)
 				-- HUG WITH A CEILING: a short sentence gets a short plate, a long one
 				-- WRAPS inside the safe box instead of running off the screen edge —
 				-- which is what makes a 1.4x pseudo-localized string legible rather
-				-- than clipped
-				width = { type = "hug", max = math.max(0, box.w - 2 * inset) },
-				children = { UI.Text({ id = BODY_ID, text = text, textSize = "body" }) },
+				-- than clipped. The ceiling is a cell revalidation keeps equal to
+				-- the live safe box, so growing insets re-wrap a live plate
+				width = function(use: any): any
+					return { type = "hug", max = use(maxW) }
+				end,
+				gap = "xs",
+				children = children,
 			})
 		end
 		presenting = true
@@ -197,9 +236,9 @@ function help_plate.new(ctx: any)
 			chrome = true,
 			anchor = {
 				source = { path = sourcePath },
-				edge = "bottom",
+				edge = help.edge or "bottom",
 				-- leading-aligned on the control, which is where the reader's eye is
-				align = "start",
+				align = help.align or "start",
 				--[[ AND IT POINTS AT WHAT IT DESCRIBES (director, device review
 					2026-08-16): *"should we get some sort of pointer like in the original
 					image to indicate which control the tooltip is attached to"* — Win32's
@@ -231,7 +270,16 @@ function help_plate.new(ctx: any)
 		if not ok or type(handle) ~= "table" then
 			return
 		end
-		live = { handle = handle, owner = owner, sourcePath = sourcePath, text = text, source = source }
+		live = {
+			handle = handle,
+			owner = owner,
+			sourcePath = sourcePath,
+			value = value,
+			text = help.body,
+			title = help.title,
+			source = source,
+			maxW = maxW,
+		}
 	end
 
 	local api = {}
@@ -263,7 +311,7 @@ function help_plate.new(ctx: any)
 			dispose()
 			return
 		end
-		local targetPath, text = helpTargetIn(owner, path)
+		local targetPath = helpTargetIn(owner, path)
 		if targetPath == nil then
 			dwell = nil
 			if live ~= nil and live.source == "pointer" then
@@ -282,7 +330,7 @@ function help_plate.new(ctx: any)
 		if live ~= nil and live.source == "pointer" then
 			dispose()
 		end
-		dwell = { owner = owner, sourcePath = targetPath, text = text, remaining = HELP_DWELL }
+		dwell = { owner = owner, sourcePath = targetPath, remaining = HELP_DWELL }
 	end
 
 	--[[ THE FOCUS ENGAGEMENT. The presenter calls this from the ONE place that
@@ -304,7 +352,7 @@ function help_plate.new(ctx: any)
 			dispose()
 			return
 		end
-		local targetPath, text = helpTargetIn(owner, path)
+		local targetPath, value = helpTargetIn(owner, path)
 		if targetPath == nil then
 			if live ~= nil then
 				dispose()
@@ -314,7 +362,7 @@ function help_plate.new(ctx: any)
 		if shows(targetPath :: string) then
 			return
 		end
-		present(owner, targetPath :: string, text :: string, "focus")
+		present(owner, targetPath :: string, value, "focus")
 	end
 
 	-- the dwell, stepped on the presenter's own tick. Guarded, so a presentation
@@ -331,9 +379,9 @@ function help_plate.new(ctx: any)
 		dwell = nil
 		-- RE-ASK AT EXPIRY, never present the hover-time snapshot: the control may
 		-- have unmounted or lost its declaration while the dwell counted
-		local targetPath, text = helpTargetIn(d.owner, d.sourcePath)
-		if targetPath ~= nil and text ~= nil then
-			present(d.owner, targetPath, text, "pointer")
+		local targetPath, value = helpTargetIn(d.owner, d.sourcePath)
+		if targetPath ~= nil and value ~= nil then
+			present(d.owner, targetPath, value, "pointer")
 		end
 	end
 
@@ -348,9 +396,21 @@ function help_plate.new(ctx: any)
 			dispose()
 			return
 		end
-		local targetPath = helpTargetIn(live.owner, live.sourcePath)
+		local targetPath, value = helpTargetIn(live.owner, live.sourcePath)
 		if targetPath == nil then
 			dispose()
+			return
+		end
+		-- a same-path node REBUILT with other help (a branch cycle) is a new
+		-- declaration: answer for it, with the same engagement
+		if targetPath ~= live.sourcePath or value ~= live.value then
+			present(live.owner, targetPath :: string, value, live.source)
+			return
+		end
+		local ceiling = ceilingFor(live.owner)
+		if live.maxW:peek() ~= ceiling then
+			live.maxW:set(ceiling)
+			live.handle.controller.refresh()
 		end
 	end
 
@@ -373,9 +433,10 @@ function help_plate.new(ctx: any)
 			local function walk(n: any, focusableAbove: boolean)
 				local focusable = focusableAbove
 					or (focusMap.FOCUSABLE[n.class] == true and not (n.props ~= nil and n.props.focusable == false))
-				local text = if n.props ~= nil then n.props.help else nil
-				if type(text) == "string" and text ~= "" then
-					out[n.path] = { text = text, hover = pointerLive, focus = focusable }
+				local value = if n.props ~= nil then n.props.help else nil
+				if declared(value) then
+					local help = helpOf(value)
+					out[n.path] = { text = help.body, title = help.title, hover = pointerLive, focus = focusable }
 				end
 				for _, child in n.children or {} do
 					walk(child, focusable)
@@ -410,6 +471,7 @@ function help_plate.new(ctx: any)
 			sourcePath = live.sourcePath,
 			source = live.source,
 			helpText = live.text,
+			title = live.title,
 			declarations = count,
 			dwelling = dwell ~= nil,
 			text = `help for {live.sourcePath} ({live.source}): {live.text}`,

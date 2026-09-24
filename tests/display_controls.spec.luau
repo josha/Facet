@@ -802,7 +802,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		expect(panel.y + panel.h).toBe(host.y + host.h)
 	end)
 
-	it("a menu sits just below the trigger with compact rows", function()
+	it("a menu sits just below the trigger with rows at the target floor", function()
 		local _, adapter, _, pres, _, control = mountPopup({ presentation = "menu" })
 		adapter.tap("/S/Choice/Trigger")
 		pres.refresh()
@@ -810,7 +810,8 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		local panel = adapter.node("/S/Choice/PopupWhen/then/Popup").rect
 		local trigger = adapter.node("/S/Choice/Trigger").rect
 		expect(panel.y).toBe(trigger.y + trigger.h)
-		expect(adapter.node("/S/Choice/PopupWhen/then/Popup/Opt-one").rect.h).toBe(36)
+		-- the target floor, so stacked rows' hits never overlap
+		expect(adapter.node("/S/Choice/PopupWhen/then/Popup/Opt-one").rect.h).toBe(44)
 	end)
 
 	it("an inline list takes the CONTROL surface, not a floating-panel one", function()

@@ -513,7 +513,19 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 		-- the palette used to spend the accent and the content ramp — so the
 		-- compiled value differs and the stamp says so. Measured: 9a3b8dd8 ->
 		-- 5eb8f614.
-		expect(built("fantasy_parchment").stamp).toBe("5eb8f614")
+		--
+		-- Re-pinned again 2026-09-23: both variants declare `controlArt`, the
+		-- sampled colour of their control art, which the lifted accent label is
+		-- paired against. Measured: 5eb8f614 -> 9863f738.
+		--
+		-- Re-pinned again 2026-09-23: both variants declare `fieldArt` and
+		-- `badgeArt`, the sampled field and seal colours their lifted text is
+		-- picked against. Measured: 9863f738 -> 7dbf3be8.
+		--
+		-- Re-pinned again 2026-09-23: both variants declare `panelArt`, the sampled
+		-- panel colour an author's text inside a raised box is picked against.
+		-- Measured: 7dbf3be8 -> b9d66bb0.
+		expect(built("fantasy_parchment").stamp).toBe("b9d66bb0")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()
@@ -1092,7 +1104,7 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 	it("re-hashes every sampled PNG, so a stale sample is a failure and not a drift", function()
 		local seen = 0
 		for _, bySlot in doc.samples do
-			for _, entry in bySlot do
+			for slot, entry in bySlot do
 				local actual = serde.hash("sha256", fs.readFile(entry.file))
 				if actual ~= entry.sha256 then
 					error(
@@ -1101,11 +1113,13 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 						0
 					)
 				end
-				expect(entry.alpha >= 0.9).toBe(true) -- an opaque plate, or the sample means nothing
+				-- an opaque plate, or the sample means nothing; a badge seal lets the
+				-- panel through and the gate below composites it over the surface
+				expect(entry.alpha >= 0.9 or slot == "badge").toBe(true)
 				seen += 1
 			end
 		end
-		expect(seen).toBe(9)
+		expect(seen).toBe(32)
 	end)
 
 	it("every package whose SELECTION slot is image art declares that art's colour", function()
@@ -1211,6 +1225,174 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 				.. "glossy-touch/Sky onAccent=4.57 content=3.65 | "
 				.. "pixel-quest/Quest onAccent=2.43 content=6.11"
 		)
+	end)
+
+	it(
+		"the lifted accent label ($OnAccentChrome) clears 4.5:1 on the sampled plate in every skinned variant",
+		function()
+			-- a Notice's default action and a Card's Play DO pair `surface = "accent"`
+			-- with a skinned control, so the census above is also a gate on the label
+			-- the sheet actually paints there
+			local rows: { string } = {}
+			for _, name in { "fantasy_ornate", "glossy_touch", "pixel_quest", "compact_pointer", "fantasy_parchment" } do
+				local pkg = built(name)
+				local model = sheet_model.buildPackage(pkg)
+				local sample = doc.samples[pkg.identity.id].control
+				for i, theme in pkg.style.themes do
+					local plate = multiply(rgb01(sample), lerp(theme.colors.accent, { r = 1, g = 1, b = 1 }, 0.3))
+					local ratio = tokens.contrastRatio(model.themes[i].tokens.OnAccentChrome, plate)
+					table.insert(rows, `{pkg.identity.id}/{theme.name} {string.format("%.2f", ratio)} {ratio >= FLOOR}`)
+				end
+			end
+			table.sort(rows)
+			expect(table.concat(rows, " | ")).toBe(
+				"compact-pointer/Aqua 4.60 true | "
+					.. "fantasy-ornate/Crypt 13.84 true | "
+					.. "fantasy-ornate/Grand Hall 14.09 true | "
+					.. "fantasy-parchment/Candlelight 5.28 true | "
+					.. "fantasy-parchment/Daylight 5.29 true | "
+					.. "glossy-touch/Sky 4.57 true | "
+					.. "pixel-quest/Quest 6.11 true"
+			)
+		end
+	)
+
+	it("every text role clears 4.5:1 and every icon 3:1 on the art it sits on, at rest, hovered and pressed", function()
+		-- each role's label token against the SAMPLED art under its tint, in every
+		-- state that re-tints or swaps it: a control's plain, strong and secondary
+		-- labels, its cancel, destructive, soft and accent plates, a stepper's
+		-- pressed plate, a field's text and placeholder, a panel's text, and a badge's
+		-- count (a seal that lets the panel through is composited over the surface).
+		-- Text over another node's plate (`facet-on-*`) and an icon picture on art
+		-- take these same tokens (pinned in theme_chrome), and an icon needs 3:1.
+		local rows: { string } = {}
+		for _, name in { "fantasy_ornate", "glossy_touch", "pixel_quest", "compact_pointer", "fantasy_parchment" } do
+			local pkg = built(name)
+			local model = sheet_model.buildPackage(pkg)
+			local samples = doc.samples[pkg.identity.id]
+			local backed = false
+			local iconToken: { [string]: string } = {}
+			local stepperIcon = false
+			for _, rule in model.rules do
+				backed = backed or rule.name == "Chrome text — backing"
+				stepperIcon = stepperIcon or rule.name == "On plate — stepper icon"
+				local slot = string.match(rule.selector, "^%.facet%-on%-(%a+) > %.facet%-chrome%-icon$")
+				if slot ~= nil then
+					iconToken[slot] = string.sub(rule.props.ImageColor3, 2)
+				end
+			end
+			for i, theme in pkg.style.themes do
+				local t = model.themes[i].tokens
+				local function plate(sample: any, tint: any)
+					local art, a, s = multiply(rgb01(sample), tint), sample.alpha, theme.colors.surface
+					return lerp(s, art, a)
+				end
+				local function states(role: string, label: any, sample: string, tint: string, floor: number?)
+					local out = {}
+					for _, state in { "", "Hover", "Pressed" } do
+						local art = samples[sample .. state] or samples[sample]
+						local key = if tint == "ChromeTint" and state == "" then "ChromeTint" else tint .. state
+						table.insert(out, {
+							role .. (if state == "" then "" else "." .. string.lower(state)),
+							label,
+							plate(art, t[key]),
+							floor,
+						})
+					end
+					return out
+				end
+				local cases = {}
+				local function add(list: { any })
+					for _, case in list do
+						table.insert(cases, case)
+					end
+				end
+				add(states("plain", t.OnControlChrome, "control", "ChromeTint"))
+				add(states("strong", t.OnControlChromeStrong, "control", "ChromeTint"))
+				add(states("secondary", t.OnControlChromeSecondary, "control", "ChromeTint"))
+				add(states("cancel", t.OnCancelChrome, "control", "ChromeTintCancel"))
+				add(states("destructive", t.OnDangerChrome, "control", "ChromeTintDanger"))
+				add(states("soft", t.OnSoftChrome, "control", "ChromeTintSelected"))
+				add(states("accent", t.OnAccentChrome, "control", "ChromeTintAccent"))
+				add(states("field", t.OnFieldChrome, "field", "ChromeTint"))
+				add(states("placeholder", t.OnFieldChromeSecondary, "field", "ChromeTint"))
+				add(states("panel", t.OnPanelChrome, "panel", "ChromeTint"))
+				add(states("panel strong", t.OnPanelChromeStrong, "panel", "ChromeTint"))
+				add(states("panel secondary", t.OnPanelChromeSecondary, "panel", "ChromeTint"))
+				if samples.badge ~= nil then
+					table.insert(cases, { "badge", t.OnBadgeChrome, plate(samples.badge, t.ChromeTint) })
+				end
+				if samples.stepperPressed ~= nil then
+					table.insert(cases, { "stepper", t.OnControlChrome, plate(samples.stepper, t.ChromeTint) })
+					table.insert(cases, {
+						"stepper.pressed",
+						t.OnStepperChromePressed,
+						plate(samples.stepperPressed, t.ChromeTintPressed),
+					})
+				end
+				-- an icon on art wears its plate's label colour, every state; an icon
+				-- has no glyph backing, so it reads directly
+				for slot, token in iconToken do
+					if samples[slot] ~= nil then
+						for _, case in states(`{slot} icon`, t[token], slot, "ChromeTint", 3) do
+							table.insert(cases, { case[1], case[2], case[3], 3, true })
+						end
+					end
+				end
+				if stepperIcon and samples.stepperPressed ~= nil then
+					table.insert(
+						cases,
+						{ "stepper icon", t.OnControlChrome, plate(samples.stepper, t.ChromeTint), 3, true }
+					)
+					table.insert(cases, {
+						"stepper icon.pressed",
+						t.OnStepperChromePressed,
+						plate(samples.stepperPressed, t.ChromeTintPressed),
+						3,
+						true,
+					})
+				end
+				local worst, worstRole = math.huge, ""
+				for _, case in cases do
+					local ratio = tokens.contrastRatio(case[2], case[3])
+					if backed and not case[5] then
+						ratio = math.max(ratio, tokens.contrastRatio(case[2], theme.colors.surface))
+					end
+					local floor = case[4] or FLOOR
+					expect(`{pkg.identity.id}/{theme.name} {case[1]} {ratio >= floor}`).toBe(
+						`{pkg.identity.id}/{theme.name} {case[1]} true`
+					)
+					if case[4] == nil and ratio < worst then
+						worst, worstRole = ratio, case[1]
+					end
+				end
+				table.insert(
+					rows,
+					`{pkg.identity.id}/{theme.name}{if backed then " backed" else ""} {worstRole} {string.format(
+						"%.2f",
+						worst
+					)}`
+				)
+			end
+		end
+		table.sort(rows)
+		-- each variant's weakest text role, pinned
+		expect(table.concat(rows, " | ")).toBe(
+			"compact-pointer/Aqua destructive 4.55 | fantasy-ornate/Crypt badge 4.63 | "
+				.. "fantasy-ornate/Grand Hall badge 4.64 | fantasy-parchment/Candlelight cancel.hover 4.56 | "
+				.. "fantasy-parchment/Daylight cancel.pressed 4.52 | glossy-touch/Sky destructive.hover 4.57 | "
+				.. "pixel-quest/Quest plain.hover 4.54"
+		)
+	end)
+
+	it("the danger role reads as text on the panel in every Pixel Quest variant", function()
+		for _, theme in built("pixel_quest").style.themes do
+			local danger, onDanger = tokens.dangerPair(theme.colors)
+			expect(`{theme.name} {tokens.contrastRatio(danger, theme.colors.surface) >= FLOOR}`).toBe(
+				`{theme.name} true`
+			)
+			expect(tokens.contrastRatio(onDanger, danger) >= FLOOR).toBe(true)
+		end
 	end)
 end)
 

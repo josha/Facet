@@ -339,6 +339,8 @@ function Runner.start(deps: { [string]: any })
 			app = deps.app,
 			UI = deps.app.controls,
 			Compose = Facet.Compose,
+			-- the engine's colour constructor, for a scenario that holds a caller Color3
+			Color3 = Color3,
 			core = deps.core,
 			-- a control's `{ api, dump }` record by id, when the bootstrap keeps one
 			controlRecord = deps.controlRecord,

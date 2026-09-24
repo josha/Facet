@@ -296,3 +296,78 @@ t.describe("Badge status silhouette", function()
 		end
 	end)
 end)
+
+t.describe("Badge placement: a count on a host sits on its corner", function()
+	local function corner(direction: string?, value: any)
+		local w = world.new()
+		w.present(function()
+			local UI = w.UI
+			return UI.Screen("S")({
+				UI.badged(
+					UI.Button("Inbox")({
+						label = "Inbox",
+						width = { type = "fixed", px = 120 },
+						height = { type = "fixed", px = 44 },
+					}),
+					value,
+					direction
+				),
+			})
+		end)
+		w.settle(3)
+		return w
+	end
+	t.it("centres the seal on the top-right corner, paint only: the host's box and target are unchanged", function()
+		local w = corner(nil, 120)
+		local host = w.adapter.node("/S/Inbox+badge/Inbox").rect
+		local wrapper = w.adapter.node("/S/Inbox+badge").rect
+		t.expect(`{wrapper.w}x{wrapper.h}`).toBe(`{host.w}x{host.h}`)
+		local seal = w.adapter.node("/S/Inbox+badge/CornerBadge")
+		local offset = seal.props.transform or { x = 0, y = 0 }
+		local cx, cy = seal.rect.x + offset.x + seal.rect.w / 2, seal.rect.y + offset.y + seal.rect.h / 2
+		t.expect(`{math.abs(cx - (host.x + host.w)) < 0.51} {math.abs(cy - host.y) < 0.51}`).toBe("true true")
+		t.expect(w.adapter.node("/S/Inbox+badge/CornerBadge/Count").props.text).toBe("99+")
+		-- the seal takes no focus and no tap
+		t.expect(#w.handle.focusOrder().traversal).toBe(1)
+	end)
+	t.it("mirrors to the top-left in rtl, and `true` is a dot: a bullet, no number", function()
+		local w = corner("rtl", true)
+		local host = w.adapter.node("/S/Inbox+badge/Inbox").rect
+		local seal = w.adapter.node("/S/Inbox+badge/CornerBadge")
+		local offset = seal.props.transform or { x = 0, y = 0 }
+		local cx = seal.rect.x + offset.x + seal.rect.w / 2
+		t.expect(math.abs(cx - host.x) < 0.51).toBe(true)
+		t.expect(w.adapter.node("/S/Inbox+badge/CornerBadge/Count").props.text).toBe("•")
+		t.expect(seal.props.hidden == true).toBe(false)
+	end)
+	t.it("a tab icon wears its count on the icon's corner; a text tab keeps the trailing pill", function()
+		local w = world.new()
+		w.present(function()
+			local UI = w.UI
+			return UI.Screen("S")({
+				UI.Picker({
+					id = "Tabs",
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Inbox", icon = "menu", badge = 3 },
+						{ value = "b", label = "Sent", icon = "flag" },
+					},
+				}),
+				UI.Picker({
+					id = "Words",
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "Inbox", badge = 3 }, { value = "b", label = "Sent" } },
+				}),
+			})
+		end)
+		w.settle(3)
+		local found = { corner = false, pill = false }
+		for _, path in w.adapter.paths() do
+			found.corner = found.corner or string.find(path, "/Icon%+badge/CornerBadge$") ~= nil
+			found.pill = found.pill or string.find(path, "/Words/.-Opt1/.-/Badge$") ~= nil
+		end
+		t.expect(`corner {found.corner} pill {found.pill}`).toBe("corner true pill true")
+	end)
+end)

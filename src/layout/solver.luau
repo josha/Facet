@@ -1368,15 +1368,12 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- last candidate is the fallback when none does, matching SwiftUI.
 		--
 		-- "the space THIS container was proposed" has to mean the space it will
-		-- actually OCCUPY, not the space its parent offered. When the container's
-		-- own width is definite and smaller than the offer — a capped action bar
-		-- declared `percent(1, max = 620)` inside a 1200px screen — measuring the
-		-- candidates at the parent's 1200 picks a row that then has to arrange
-		-- inside 620, where its labels wrap and it no longer fits. Arrange re-runs
-		-- the chooser at the real width, so measure and arrange disagreed and the
-		-- fallback column won on every wide profile (director review 2026-07-24).
-		-- `fixed` and `percent` resolve without consulting content, so asking for
-		-- them here cannot recurse.
+		-- actually OCCUPY, not the space its parent offered: a capped action bar
+		-- declared `percent(1, max = 620)` inside a 1200px screen, less its own
+		-- margins, which arrange takes off its rect. Arrange re-runs the chooser at
+		-- the real width, so any other width lets measure and arrange disagree
+		-- (director review 2026-07-24). `fixed` and `percent` resolve without
+		-- consulting content, so asking for them here cannot recurse.
 		local selfW = dim(node, "w")
 		local limitW = innerMaxW
 		if
@@ -1384,7 +1381,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			or selfW.type == "containerRelative"
 			or (selfW.type == "percent" and maxW ~= math.huge)
 		then
-			local resolved = resolveAxis(ctx, node, selfW, maxW, function()
+			local _, mr, _, ml = sides(node.margin)
+			local resolved = resolveAxis(ctx, node, selfW, maxW - ml - mr, function()
 				return innerMaxW
 			end, ctx.containerW)
 			limitW = math.max(0, resolved - pl - pr)
@@ -1534,17 +1532,19 @@ local function record(
 	--[[ ONLY ON A SOLVE THAT COULD EVER SPEND IT, and that is the solver's PURITY
 		CONTRACT rather than an economy. This file's first line says it solves "over an
 		immutable snapshot", and `tests/layout.spec.luau`'s purity case hands it a
-		`table.freeze`d tree — which a write here turns into a hard error for every
-		direct caller that has one (`dump.fromSolve`, the layout fuzzer, a hand-built
-		node tree in a spec). A solve with no reuse set is also the solve P1's own
-		economics say must be the PRE-CHANGE solver exactly, and a reuse set is
-		precisely what a frozen hand-built tree never has.
+		`table.freeze`d tree — a write here is a hard error for every direct caller
+		that has one (`dump.fromSolve`, the layout fuzzer, a spec's hand-built tree).
+		A reuse set is precisely what a frozen tree never has.
 
-		WHAT IT COSTS, stated rather than hidden: the first reuse solve after a full one
-		records and serves nothing, and the one after it serves. So a structural change
-		or a viewport change — both already full solves — is followed by ONE ordinary
-		solve at the old price. `tests/measure_serve.spec.luau` pins that pair. ]]
+		...AND IT LEAVES NOTHING TO SERVE: a tuple recorded before this solve can be
+		stale under an unchanged stamp (a text settle over the push cap, owner report
+		2026-09-22); a frozen tree has no `mStamp`. So the first reuse solve after a
+		full one records and serves nothing, and the next serves
+		(`tests/measure_serve.spec.luau`). ]]
 	if ctx.reuse == nil then
+		if node.mStamp ~= nil then
+			node.mStamp = nil
+		end
 		return w, h
 	end
 	-- AXIS 3 IS SHARED BY BOTH SLOTS, so a stamp that moved drops both at once. It is

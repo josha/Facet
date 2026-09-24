@@ -684,11 +684,12 @@ describe("buildPackage: the chrome text lift paints on every skin that lifts (C1
 		local strong = byName["Chrome text — strong"]
 		expect(strong ~= nil).toBe(true)
 		expect(strong.selector).toBe(".facet-role-strong > .facet-chrome-text")
-		expect(strong.props.TextColor3).toBe("$ContentStrong")
+		-- each picked against the control art the label sits on
+		expect(strong.props.TextColor3).toBe("$OnControlChromeStrong")
 		local secondary = byName["Chrome text — parent secondary"]
 		expect(secondary ~= nil).toBe(true)
 		expect(secondary.selector).toBe(".facet-role-secondary > .facet-chrome-text")
-		expect(secondary.props.TextColor3).toBe("$ContentSecondary")
+		expect(secondary.props.TextColor3).toBe("$OnControlChromeSecondary")
 		-- the label's OWN placeholder tag keeps its rule too
 		expect(byName["Chrome text — secondary"].selector).toBe(".facet-chrome-text.facet-role-secondary")
 	end)
@@ -801,6 +802,19 @@ describe("RS-DIR10: a phantom ::UIStroke strokes the TEXT unless the rule says B
 
 	it("ApplyStrokeMode is a legal phantom property, so the rule cannot be inert", function()
 		expect(sheet_model.PHANTOM_PROPS.UIStroke.ApplyStrokeMode).toBe(true)
+	end)
+
+	-- an Outer stroke overhung its box and a scroller clipped it
+	it("every ::UIStroke rule sits Inner, and the property is a legal phantom one", function()
+		expect(sheet_model.PHANTOM_PROPS.UIStroke.BorderStrokePosition).toBe(true)
+		for _, model in { build(), sheet_model.buildPackage(definePkg()) } do
+			for _, r in strokeRules(model) do
+				local position = r.props.BorderStrokePosition
+				expect(`{r.name}: {if position then position.enum .. "." .. position.item else "none"}`).toBe(
+					`{r.name}: BorderStrokePosition.Inner`
+				)
+			end
+		end
 	end)
 end)
 

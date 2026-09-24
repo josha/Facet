@@ -429,6 +429,7 @@ if bootDecision.mode == "showcase" then
 			app = app,
 			UI = UI,
 			Compose = Compose,
+			Color3 = Color3,
 			core = core,
 			env = env,
 			adapter = adapter,

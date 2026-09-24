@@ -59,6 +59,48 @@ function roblox_input.newSystem(core: any)
 			system.revision:set(system.revision:peek() + 1)
 		end
 	end
+
+	-- is this binding's own key held right now (any connected pad for a pad key)?
+	local function bindingDown(binding: any): boolean
+		if binding.removed or binding.keyCode == nil then
+			return false
+		end
+		local key = (Enum.KeyCode :: any)[binding.keyCode]
+		if binding.isGamepad then
+			for _, pad in UserInputService:GetConnectedGamepads() do
+				if UserInputService:IsGamepadButtonDown(pad, key) then
+					return true
+				end
+			end
+			return false
+		end
+		return UserInputService:IsKeyDown(key)
+	end
+	local function anyDown(action: any): boolean
+		for _, binding in action.bindings do
+			if bindingDown(binding) then
+				return true
+			end
+		end
+		return false
+	end
+	-- ONE KEY EDGE, ONE DELIVERY: the rule `src/input/actions.luau` states. A Bool
+	-- action armed while one of its keys is held swallows that press and its
+	-- release; the key's own release ends the arrival. The release is polled off
+	-- the same key state (the raw input stream is not this adapter's to read).
+	local function arm(action: any)
+		action.arrival = action.type == "Bool" and anyDown(action)
+		action.swallowed = action.swallowed and action.arrival
+		if action.arrival and not action.watching then
+			action.watching = true
+			task.spawn(function()
+				while action.arrival and not action.context.destroyed and anyDown(action) do
+					task.wait()
+				end
+				action.arrival, action.watching = false, false
+			end)
+		end
+	end
 	function system.actionNamed(name: string, prefer: any?): any
 		return bindingOwner.actionNamed(contexts, name, prefer)
 	end
@@ -139,21 +181,8 @@ function roblox_input.newSystem(core: any)
 					if value ~= 0 and value ~= false and value ~= action.state:peek() then
 						action.lastBinding, action.lastGamepad = nil, false
 						for _, binding in action.bindings do
-							if
-								not binding.removed
-								and binding.keyCode
-								and (binding.direction == nil or binding.direction == value)
-							then
-								local key = (Enum.KeyCode :: any)[binding.keyCode]
-								local down = false
-								if binding.isGamepad then
-									for _, pad in UserInputService:GetConnectedGamepads() do
-										down = down or UserInputService:IsGamepadButtonDown(pad, key)
-									end
-								else
-									down = UserInputService:IsKeyDown(key)
-								end
-								if down then
+							if binding.direction == nil or binding.direction == value then
+								if bindingDown(binding) then
 									action.lastBinding, action.lastGamepad = binding, binding.isGamepad
 									break
 								end
@@ -166,6 +195,10 @@ function roblox_input.newSystem(core: any)
 			table.insert(
 				action.connections,
 				actionInstance.Pressed:Connect(function()
+					if action.arrival then
+						action.swallowed = true
+						return
+					end
 					for _, fn in table.clone(action.pressedHandlers) do
 						fn(true)
 					end
@@ -174,6 +207,10 @@ function roblox_input.newSystem(core: any)
 			table.insert(
 				action.connections,
 				actionInstance.Released:Connect(function()
+					if action.swallowed then
+						action.swallowed = false
+						return
+					end
 					for _, fn in table.clone(action.releasedHandlers) do
 						fn(false)
 					end
@@ -283,6 +320,7 @@ function roblox_input.newSystem(core: any)
 						end
 					end
 					table.insert(action.bindings, binding)
+					arm(action)
 					bump()
 					return binding
 				end
@@ -345,6 +383,7 @@ function roblox_input.newSystem(core: any)
 					end
 				end
 				table.insert(action.bindings, binding)
+				arm(action)
 				bump()
 				return binding
 			end
@@ -475,6 +514,11 @@ function roblox_input.newSystem(core: any)
 
 		function context.setEnabled(on: boolean)
 			context.enabled = on
+			if on then
+				for _, action in context.actions do
+					arm(action)
+				end
+			end
 			contextInstance.Enabled = on
 			bump()
 		end

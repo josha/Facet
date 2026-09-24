@@ -1,5 +1,6 @@
 --!strict
 local harness = require("./harness")
+local Color3 = require("./gui_value_shim").colorValues().Color3
 --[[ THE LARGE-TEXT CONTROL FIXTURES — one mountable screen per
 	tests/conformance/controls_registry row (acceptance LT-8).
 
@@ -363,6 +364,23 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- a range readout ("4–12") beside a long label: the label gives way first
+		id = "SliderRange",
+		class = "Slider",
+		build = function(core)
+			return harness.Controls.Slider(core, {
+				id = "Ctl",
+				label = PSEUDO,
+				value = Compose.cell({ lower = 4, upper = 12 }),
+				min = 1,
+				max = 20,
+				step = 1,
+				range = true,
+				minGap = 2,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Stepper",
 		class = "Stepper",
 		build = function(core)
@@ -471,6 +489,139 @@ local FIXTURES: { Fixture } = {
 					},
 				}),
 				dismissLabel = PSEUDO,
+			})
+		end,
+	},
+	-- the RICH coach-mark plate: title, media, steps and the shared action row
+	-- (src/controls/overlay_parts.luau), swept through the same exported builder
+	{
+		id = "NavBar",
+		class = "NavBar",
+		build = function(core)
+			return harness.Controls.NavBar(core, {
+				id = "Ctl",
+				onBack = function() end,
+				backLabel = PSEUDO,
+				title = lt.PSEUDO_ACTION,
+				trailing = UI.Button({ id = "More", label = PSEUDO, disclose = true }),
+			}).blueprint
+		end,
+	},
+	{
+		id = "Notice",
+		class = "Notice",
+		build = function(core)
+			return harness.Controls.Notice(core, {
+				id = "Ctl",
+				severity = "warning",
+				title = PSEUDO,
+				message = lt.PSEUDO_SECONDARY,
+				link = { label = PSEUDO, onActivate = function() end },
+				onDismiss = function() end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "Card",
+		class = "Card",
+		build = function(core)
+			return harness.Controls.Card(core, {
+				id = "Ctl",
+				image = "rbxassetid://75342910516929",
+				title = PSEUDO,
+				caption = lt.PSEUDO_SECONDARY,
+				onActivate = function() end,
+				primaryAction = { label = lt.PSEUDO_ACTION, onActivate = function() end },
+				menu = { label = PSEUDO, items = { { id = "hide", label = PSEUDO, onSelect = function() end } } },
+				reveal = "always",
+			}).blueprint
+		end,
+	},
+	{
+		id = "Pagination",
+		class = "Pagination",
+		build = function(core)
+			return harness.Controls.Pagination(core, {
+				id = "Ctl",
+				page = 5000,
+				pageCount = 9999,
+				showFirstLast = true,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "StepIndicator",
+		class = "StepIndicator",
+		build = function(core)
+			return harness.Controls.StepIndicator(core, {
+				id = "Ctl",
+				steps = {
+					{ id = "a", label = PSEUDO, state = "complete" },
+					{ id = "b", label = lt.PSEUDO_ACTION, description = lt.PSEUDO_SECONDARY },
+				},
+				current = "b",
+			}).blueprint
+		end,
+	},
+	{
+		id = "Vote",
+		class = "Vote",
+		build = function(core)
+			return harness.Controls.Vote(core, {
+				id = "Ctl",
+				value = "up",
+				summary = lt.PSEUDO_SECONDARY,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "ColorPicker",
+		class = "ColorPicker",
+		build = function(core)
+			return harness.Controls.ColorPicker(core, {
+				id = "Ctl",
+				label = lt.PSEUDO_SECONDARY,
+				hint = lt.PSEUDO_SECONDARY,
+				value = Color3.fromRGB(46, 125, 255),
+				alpha = 0.5,
+				onAlphaChange = function() end,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "DateTimePicker",
+		class = "DateTimePicker",
+		build = function(core)
+			return harness.Controls.DateTimePicker(core, {
+				id = "Ctl",
+				label = lt.PSEUDO_SECONDARY,
+				hint = lt.PSEUDO_SECONDARY,
+				value = { year = 2026, month = 9, day = 23 },
+				clock = function()
+					return { year = 2026, month = 9, day = 23 }
+				end,
+				onChange = function() end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "Callout-rich-plate",
+		class = "OverlayParts",
+		build = function()
+			local calloutLib = require("../../src/controls/callout")
+			return calloutLib.plate(UI, {
+				title = lt.PSEUDO_ACTION,
+				media = { image = "rbxassetid://75342910516929", aspectRatio = 2 },
+				content = UI.Text({ id = "Body", text = lt.PSEUDO_SECONDARY, textSize = "caption" }),
+				steps = { index = 2, count = 3 },
+				closeButton = true,
+				actions = {
+					{ id = "Later", label = PSEUDO, onActivate = function() end },
+					{ id = "Go", label = PSEUDO, role = "default", onActivate = function() end },
+				},
 			})
 		end,
 	},
@@ -650,6 +801,43 @@ local FIXTURES: { Fixture } = {
 				id = "Ctl",
 				value = Compose.cell(""),
 				placeholder = PSEUDO,
+				env = w.env,
+				actionSystem = w.system,
+			}).blueprint
+		end,
+	},
+	{
+		-- the field wearing its furniture: a wrapping label with its notation and
+		-- the one message line, three stacked strings in one column
+		id = "TextInputField",
+		class = "FieldChrome",
+		build = function(core, w)
+			return harness.Controls.TextInput(core, {
+				id = "Ctl",
+				value = Compose.cell(""),
+				placeholder = PSEUDO,
+				label = PSEUDO,
+				requiredMark = "required",
+				hint = GERMAN,
+				env = w.env,
+				actionSystem = w.system,
+			}).blueprint
+		end,
+	},
+	{
+		-- the numeric field with a unit and both step buttons: width is its worst
+		-- case at a raised preference, and the editor must survive the squeeze
+		id = "NumberInput",
+		class = "NumberInput",
+		build = function(core, w)
+			return harness.Controls.NumberInput(core, {
+				id = "Ctl",
+				value = Compose.cell("3"),
+				numericValue = Compose.cell(3),
+				min = 0,
+				max = 99,
+				stepButtons = true,
+				suffix = "km",
 				env = w.env,
 				actionSystem = w.system,
 			}).blueprint
@@ -1272,6 +1460,8 @@ local FIXTURES: { Fixture } = {
 -- would be the same silent-zero the extension checker exists to prevent.
 local UNSWEEPABLE: { [string]: string } = {
 	ScrollNavigation = "ScrollView target/position behavior only; no blueprint or text. ScrollView is swept directly.",
+	Snackbar = "Its rows mount in the application-owned host, which a harness core does not have; tests/snackbar.spec measures all six compositions, and the largest-text policy is a live check.",
+	SheetRelease = "Pure release/resistance policy: numbers and ids in and out, no blueprint or text. Sheet is swept directly.",
 	ScrollBookmarks = "destination-owned scroll key/offset records only; no blueprint or text. TabView is swept directly.",
 	RadialGeometry = "pure sector arithmetic; no blueprint or text. RadialMenu mounts its resulting geometry",
 	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "
@@ -1280,13 +1470,24 @@ local UNSWEEPABLE: { [string]: string } = {
 	PopupButtonShim = "the DEPRECATED name of the picker menu engine (picker round 2026-09-11): src/controls/popup_button.luau "
 		.. "re-exports picker_menu.build and mounts nothing of its own; the engine is swept through the `Picker` "
 		.. "fixture (the automatic style is the menu family on the sweep's touch phone) at every preference",
+	BadgeSeal = "the count seal builder (Badge placement A): it returns the seal a menu row, a tab icon and "
+		.. "`UI.badged` mount, so it is swept through the `Menu-panel` and `Picker` fixtures (their rows and "
+		.. "icon tabs wear it) and the Badge showcase section, never on its own",
 	MenuRecipe = "the ROW half of every menu (navigation-and-menus D2): it returns the blueprints Menu, PopupButton "
 		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
 		.. "at every preference and in both reference themes — rather than three times",
+	Dialog = "its blueprint is an empty anchor; the panel is a presented modal surface this sweep does not "
+		.. "open. tests/dialog.spec.luau measures its pinned regions and body budget, and the Overlays showcase "
+		.. "tab is swept at Largest on a phone by showcase_tabs.spec",
+	Popover = "its blueprint is the caller's TRIGGER (or an empty node for a source); the panel is a presented "
+		.. "surface this sweep does not open, like TableDisclosure's plate. tests/popover.spec.luau mounts it, "
+		.. "and the Overlays showcase tab is swept at Largest on a phone by showcase_tabs.spec",
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ButtonShortcut = "stateless shortcut parsing and matching — no blueprint; Button and Alert own the measured labels",
 	ProgressTrail = "internal motion value, no blueprint or text; ProgressView owns the measured meter",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
+	ColorValue = "stateless colour conversion and hex policy — no blueprint; ColorPicker owns the measured labels",
+	CivilDate = "stateless calendar arithmetic and words — no blueprint; DateTimePicker owns the measured labels",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on
 	-- 2026-08-14 so that file could get back under the 200,000-char
 	-- `Script.Source` WRITE cap. Neither is a control;

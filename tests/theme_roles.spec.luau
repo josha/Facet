@@ -447,7 +447,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		expect(adapter.node("/S/P/Bar").rect.x - (label.x + label.w)).toBe(8)
 	end)
 
-	it("PopupButton: 40px trigger, and 36/44/56 rows per presentation", function()
+	it("PopupButton: 40px trigger, and a menu row at the target floor", function()
 		local _, _, adapter, presenter = presentedWorld(function(core)
 			return harness.Controls.PopupButton(core, {
 				id = "M",
@@ -459,7 +459,8 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		expect(adapter.node("/S/M/Trigger").rect.h).toBe(40)
 		adapter.tap("/S/M/Trigger")
 		presenter.refresh()
-		expect(adapter.node("/S/M/PopupWhen/then/Popup/Opt-a").rect.h).toBe(36)
+		-- the target floor, so stacked rows' hit rects never overlap (not compact 36)
+		expect(adapter.node("/S/M/PopupWhen/then/Popup/Opt-a").rect.h).toBe(44)
 		-- the panel sits exactly one trigger height below the trigger
 		expect(adapter.node("/S/M/PopupWhen/then/Popup").rect.y - adapter.node("/S/M").rect.y).toBe(40)
 	end)
@@ -493,7 +494,9 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		local clear = adapter.node("/S/F/Clear").rect
 		expect(clear.w).toBe(28)
 		expect(clear.h).toBe(28)
-		expect(adapter.node("/S/F").rect.x + adapter.node("/S/F").rect.w - (clear.x + clear.w)).toBe(8)
+		-- 8 from the plate's inner hairline, which sits inside the box
+		local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
+		expect(adapter.node("/S/F").rect.x + adapter.node("/S/F").rect.w - (clear.x + clear.w)).toBe(8 + hairline)
 	end)
 
 	it("Toggle: 28px minimum height and the 44+12+16 track reservation", function()

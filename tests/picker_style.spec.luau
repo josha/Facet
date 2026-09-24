@@ -551,9 +551,49 @@ describe("Picker menu: the chosen row is readable on its own selection fill", fu
 	end)
 end)
 
+describe("Picker search: the chosen row paints no wash, so its label keeps the panel colour", function()
+	it("a searchable list's selected row carries no onSelected tint (owner: black on Pixel purple)", function()
+		local w = world.new({
+			viewport = FACTS.phone.viewport,
+			capabilities = FACTS.phone.capabilities,
+			preferredInput = FACTS.phone.preferredInput,
+		})
+		local picker = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Track",
+			selected = Compose.cell("normal"),
+			options = THREE,
+			query = Compose.cell(""),
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		w.pres.refresh()
+		picker.api.open()
+		for _ = 1, 3 do
+			w.pres.refresh()
+		end
+		local labels, fills = 0, 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "[normal]/Row/", 1, true) ~= nil then
+				if string.sub(path, -5) == "/Fill" then
+					fills += 1
+				elseif string.sub(path, -6) == "/Label" then
+					labels += 1
+					local tint = readFact(w.adapter.node(path).props.tint)
+					local role = if type(tint) == "table" then tint.role else "none"
+					expect(`chosen search row label tint: {role}`).toBe("chosen search row label tint: none")
+				end
+			end
+		end
+		expect(`{labels} label, {fills} fill`).toBe("1 label, 0 fill")
+		picker.dispose()
+	end)
+end)
+
 describe("Picker value alignment", function()
 	it("moves a labeled menu value next to its label without remounting the picker", function()
-		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		-- the one-line form row is the COMPACT form; a wider class stands the title
+		-- above the trigger (next case)
+		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 700 }, preferredInput = "KeyboardAndMouse" })
 		local alignment = Compose.cell("end")
 		local p = harness.Controls.Picker(w.core, {
 			id = "P",
@@ -586,5 +626,77 @@ describe("Picker value alignment", function()
 		expect(w.core.lastError()).toBe(nil)
 		w.pres.dismiss(w.handle)
 		p.dispose()
+	end)
+
+	it("at a regular width the title stands above a trigger that hugs its value at the leading edge", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		local p = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Driver",
+			style = "menu",
+			options = THREE,
+			selected = Compose.cell("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		w.settle(3)
+		local label, trigger = suffixNode(w, "/Row/Label").rect, suffixNode(w, "/Row/Trigger").rect
+		expect(`{trigger.y >= label.y + label.h} {trigger.x == label.x} {trigger.w < 400}`).toBe("true true true")
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
+end)
+
+describe("Picker style: a navigation link keeps its one-line row", function()
+	it("at a regular width the title and value share one line when they fit", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1400, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		local p = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Track",
+			style = "navigationLink",
+			options = THREE,
+			selected = Compose.cell("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		w.settle(3)
+		local label, value = suffixNode(w, "/Trigger/Row/Label").rect, suffixNode(w, "/Trigger/Row/Trailing").rect
+		expect(`one line: {value.y < label.y + label.h and label.y < value.y + value.h}`).toBe("one line: true")
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
+end)
+
+describe("Picker style: badge and sectionTitle reach the menu engine", function()
+	it("an automatic picker that resolves the menu renders an option's badge and its section heading", function()
+		local w, picker = mount("desktop", {
+			options = {
+				{ value = "easy", label = "Easy", sectionTitle = "Casual" },
+				{ value = "normal", label = "Normal", badge = 3 },
+				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" },
+			},
+		})
+		expect(picker.dump().style).toBe("menu")
+		w.adapter.tap(suffixPath(w, "/Trigger") :: string)
+		w.pres.refresh()
+		local count: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Opt-normal/", 1, true) and string.sub(path, -#"/Badge/Count") == "/Badge/Count" then
+				count = w.adapter.node(path).props.text
+			end
+		end
+		expect(count).toBe("3")
+		local headings: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -#"/SectionTitle") == "/SectionTitle" then
+				table.insert(headings, w.adapter.node(path).props.text)
+			end
+		end
+		table.sort(headings)
+		expect(table.concat(headings, " ")).toBe("Casual Ranked")
+		-- a heading is not a stop and not a second activation site
+		for _, path in w.adapter.paths() do
+			if string.find(path, "SectionTitle", 1, true) then
+				expect(w.adapter.node(path).class).toBe("Text")
+			end
+		end
 	end)
 end)

@@ -243,12 +243,13 @@ end
 	copy is how the two would drift apart the day the rule changes. `UI` is passed
 	in for the same reason every recipe in this framework takes it: this module
 	stays free of the init cycle. ]]
-function selection_indicator.segmentShape(UI: any, index: number, count: number, axis: string): any
+function selection_indicator.segmentShape(UI: any, index: number, count: number, axis: string, corner: any?): any
+	local outer = if corner ~= nil then corner else selection_indicator.TRACK_CORNER
 	if count <= 1 then
-		return UI.cornersData(selection_indicator.TRACK_CORNER)
+		return UI.cornersData(outer)
 	end
-	local first = if index == 1 then selection_indicator.TRACK_CORNER else 0
-	local last = if index == count then selection_indicator.TRACK_CORNER else 0
+	local first = if index == 1 then outer else 0
+	local last = if index == count then outer else 0
 	if axis == "y" then
 		return UI.cornersData({ topLeft = first, topRight = first, bottomLeft = last, bottomRight = last })
 	end

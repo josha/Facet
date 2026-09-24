@@ -37,6 +37,7 @@
 	than a count. See the report attached to this spec's restoration. ]]
 
 local t = require("./lib/testkit")
+local Color3 = require("./lib/gui_value_shim").colorValues().Color3
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
@@ -78,6 +79,45 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	end,
 	Button = function(w)
 		return { label = "Save", onActivate = function() end }
+	end,
+	NavBar = function(w)
+		return { title = "Garage" }
+	end,
+	Notice = function(w)
+		return { message = "Saved." }
+	end,
+	Vote = function(w)
+		return { value = "none", onChange = function() end }
+	end,
+	StepIndicator = function(w)
+		return { steps = { { id = "a", label = "A" } }, current = "a" }
+	end,
+	ColorPicker = function(w)
+		return { value = Color3.fromRGB(255, 0, 0), onChange = function() end }
+	end,
+	DateTimePicker = function(w)
+		return { value = { year = 2026, month = 9, day = 23 }, onChange = function() end }
+	end,
+	Pagination = function(w)
+		return { page = 1, pageCount = 3, onChange = function() end }
+	end,
+	Card = function(w)
+		return { image = "rbxassetid://1", title = "Title" }
+	end,
+	Snackbar = function(w)
+		return { isPresented = Compose.cell(false), message = "Saved.", closeButton = false }
+	end,
+	Dialog = function(w)
+		return { isPresented = Compose.cell(false), closeButton = false, title = "Title" }
+	end,
+	Popover = function(w)
+		return {
+			isPresented = Compose.cell(false),
+			source = { path = "/S/PopoverId" },
+			content = function()
+				return w.UI.Text("PopoverBody")({ text = "body" })
+			end,
+		}
 	end,
 	Callout = function(w)
 		return {
@@ -262,6 +302,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	end,
 	TextInput = function(w)
 		return { value = Compose.cell("hi"), env = w.env }
+	end,
+	NumberInput = function(w)
+		return { value = Compose.cell("1"), numericValue = Compose.cell(1), env = w.env }
 	end,
 	Toggle = function(w)
 		return { label = "Filter", value = Compose.cell(true) }

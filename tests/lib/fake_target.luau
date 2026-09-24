@@ -4,6 +4,9 @@
 -- structural adds/removes, and final virtual state. Same interface as the
 -- client-only ScreenTarget.
 
+-- the engine value types a caller hands a control (Color3) exist headlessly too,
+-- handed to the colour code rather than installed as globals
+require("../../src/controls/color_value").engine = require("./gui_value_shim").colorValues()
 local chrome_slots = require("../../src/tokens/chrome_slots")
 local default_style = require("../../src/tokens/default_style")
 -- the PURE paint resolvers the live adapter goes through. Sharing them is the
@@ -48,6 +51,9 @@ local HANDLED_PROPS: { string } = {
 	"editing",
 	"maxLength",
 	"keyboardType",
+	-- the engine's read-only mode on the text-entry leaf
+	"editable",
+	"selectOnFocus",
 	"multiline",
 	-- the scroll host's FREEZE: one engine boolean (`ScrollingEnabled`) on the
 	-- host's own instance, written like `active` is — its CANVAS is a separate,
@@ -593,8 +599,9 @@ function fake_target.new(opts: Opts?)
 		}
 		if class == "Button" or class == "Toggle" then
 			-- the class default the live adapter takes at CREATE: control chrome plus
-			-- interaction states, both from the sheet (screen_target's create branch)
-			node.tagState = { surface = "control", interactive = true }
+			-- interaction states, both from the sheet (screen_target's create branch);
+			-- a switch has no plate
+			node.tagState = { surface = if class == "Button" then "control" else nil, interactive = true }
 			node.tags = {}
 			syncFakeTags(node)
 		end
@@ -1641,6 +1648,9 @@ function fake_target.new(opts: Opts?)
 	-- never marks a node hover-capable. hover/unhover then flip the recorded
 	-- hover state only where it was enabled (headless mirror of MouseEnter/Leave).
 	function adapter.setHoverObserver(handle: any, callback: any): () -> ()
+		-- MouseEnter/Leave live on the engine object: an observer materialises an
+		-- elided node, exactly as the live adapter's ensureInstance does
+		adapter._ensureInstance(handle)
 		handle.hoverObserver = callback
 		return function()
 			handle.hoverObserver = nil
@@ -2666,28 +2676,29 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
-	function adapter.hover(path: string)
+	-- two channels, kept apart as the engine keeps them: the hover VISUAL state
+	-- exists only where the renderer enabled it, while an observer requested through
+	-- `attachContextGestures` (MouseEnter/MouseLeave on the instance) hears the
+	-- pointer whether or not the renderer hovers that class
+	local function setHover(path: string, on: boolean)
 		local node = nodes[path]
-		hoverHint = node and node.props.cursorHint or nil
-		-- the hover VISUAL state only exists where the renderer enabled it
-		-- (pointer class live); off pointer this is a no-op, matching production
-		if node and node.hoverEnabled then
-			node.hovered = true
-			if node.hoverObserver then
-				node.hoverObserver(true)
-			end
+		hoverHint = if on and node then node.props.cursorHint else nil
+		if node == nil then
+			return
 		end
+		if node.hoverEnabled then
+			node.hovered = on
+		end
+		if node.hoverObserver then
+			node.hoverObserver(on)
+		end
+	end
+	function adapter.hover(path: string)
+		setHover(path, true)
 	end
 
 	function adapter.unhover(path: string)
-		hoverHint = nil
-		local node = nodes[path]
-		if node and node.hoverEnabled then
-			node.hovered = false
-			if node.hoverObserver then
-				node.hoverObserver(false)
-			end
-		end
+		setHover(path, false)
 	end
 
 	function adapter.cursorHint(): string?
@@ -2872,9 +2883,14 @@ function fake_target.new(opts: Opts?)
 	end
 	-- type per grapheme, firing onTextChanged with the full engine buffer each
 	-- step (mirrors TextBox.Text changing as the user types)
+	-- the engine refuses the keystroke itself when TextEditable is false (read-only
+	-- or disabled), so no text-changed report is made: the fake refuses there too
+	local function editableNow(node: any): boolean
+		return node.props.editable ~= false and node.props.enabled ~= false
+	end
 	function adapter.typeText(path: string, str: string)
 		local node = nodes[path]
-		if node == nil or node.textHandlers == nil then
+		if node == nil or node.textHandlers == nil or not editableNow(node) then
 			return
 		end
 		for _, g in graphemes(str) do
@@ -2887,7 +2903,7 @@ function fake_target.new(opts: Opts?)
 	-- paste idiom: one onTextChanged with a multi-grapheme delta appended
 	function adapter.pasteText(path: string, str: string)
 		local node = nodes[path]
-		if node == nil or node.textHandlers == nil then
+		if node == nil or node.textHandlers == nil or not editableNow(node) then
 			return
 		end
 		node.textBuffer = (node.textBuffer or "") .. str

@@ -758,6 +758,15 @@ function screen_props.new(ctx: Ctx)
 					end
 				end
 			end
+		elseif prop == "editable" then
+			-- the engine's read-only mode; `enabled` and `editable` each write the
+			-- COMPOSITION, so either may arrive first
+			handle.readOnlyState = value == false
+			if instance:IsA("TextBox") then
+				instance.TextEditable = value ~= false and handle.disabledState ~= true
+			end
+		elseif prop == "selectOnFocus" then
+			handle.selectOnFocus = value -- read at each native focus (screen_text_press)
 		elseif prop == "multiline" then
 			if instance:IsA("TextBox") then
 				instance.MultiLine = value == true
@@ -823,7 +832,7 @@ function screen_props.new(ctx: Ctx)
 				end
 			end
 			if instance:IsA("TextBox") then
-				instance.TextEditable = value == true
+				instance.TextEditable = value == true and handle.readOnlyState ~= true
 				if nativeMode then
 					-- native: Interactable drives GuiState.NonInteractable (spike
 					-- m1 — Active does NOT); the :NonInteractable rule owns the

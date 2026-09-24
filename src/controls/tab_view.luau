@@ -622,6 +622,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				label = tab.label or tab.id,
 				icon = tab.icon,
 				badge = tab.badge,
+				indicator = tab.indicator,
+				enabled = tab.enabled,
 				sectionTitle = if liveStrip and tab.section ~= previousSection then sectionLabels[tab.section] else nil,
 			})
 			previousSection = tab.section
@@ -651,7 +653,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			axis = stripAxis,
 			sizing = if collapsed then "fill" else sizing,
 			iconOnly = spec.iconOnly,
-			textSize = spec.textSize,
+			-- a tab's words shrink to fit their slot (down to the caption role)
+			-- before the engine truncates one: a filling bottom bar is a fixed share
+			textSize = spec.textSize or "fit",
 			env = spec.env,
 			enabled = spec.enabled,
 			onChange = function(value)

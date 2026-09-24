@@ -33,7 +33,8 @@ describe("generated control content owns its plate's semantic paint", function()
 		expect(w.adapter.node("/S/Delete/Label").decorationHint.contentOwnerDepth).toBe(1)
 		expect(w.adapter.node("/S/Delete/Icon").decorationHint.contentOwnerDepth).toBe(1)
 		expect(w.adapter.node("/S/Chip+target/Chip/Content/Label").decorationHint.contentOwnerDepth).toBe(2)
-		expect(w.adapter.node("/S/Chip+target/Chip/Content/Accessory").decorationHint).toBe(nil)
+		-- (its hint carries only the plate it sits on, never an owner)
+		expect(w.adapter.node("/S/Chip+target/Chip/Content/Accessory").decorationHint.contentOwnerDepth).toBe(nil)
 	end)
 	it("emits content text and image colors from each existing vocabulary color rule", function()
 		for _, model in
@@ -413,6 +414,13 @@ describe("native primary-content paint bridge", function()
 		end
 	end)
 	it("keeps lifted primary Button text on the same role, appearance, selection and state rules", function()
+		local LIFT_TOKEN = {
+			["$OnAccent"] = "$OnAccentChrome",
+			["$Content"] = "$OnControlChrome",
+			["$ContentStrong"] = "$OnControlChromeStrong",
+			["$ContentSecondary"] = "$OnControlChromeSecondary",
+			["$OnDanger"] = "$OnDangerChrome",
+		}
 		for _, theme in { "pixel_quest", "fantasy_ornate" } do
 			local model = sheet.buildPackage(require("../examples/themes/" .. theme).build(Facet.themes))
 			for _, appearance in { "standard", "emphasis", "soft", "utility", "link" } do
@@ -432,9 +440,21 @@ describe("native primary-content paint bridge", function()
 							do
 								table.insert(tags, tag)
 							end
-							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(
-								resolved(model, "TextButton", tags, guiState, "TextColor3")
-							)
+							-- ...except that a lifted label sits on the control's ART, so each
+							-- role's colour is the one picked against that art
+							local want = resolved(model, "TextButton", tags, guiState, "TextColor3")
+							want = if want == "$ContentSecondary" and role == "cancel"
+								then "$OnCancelChrome"
+								elseif
+									string.sub(want, 1, 7) == "$Danger" and role == "destructive"
+								then "$OnDangerChrome"
+								elseif
+									want == "$OnSelected"
+									and appearance == "soft"
+									and not selected
+								then "$OnSoftChrome"
+								else LIFT_TOKEN[want] or want
+							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(want)
 							if guiState == "NonInteractable" then
 								expect(resolvedLift(model, tags, guiState, "TextTransparency")).toEqual(
 									resolved(model, "TextButton", tags, guiState, "TextTransparency")

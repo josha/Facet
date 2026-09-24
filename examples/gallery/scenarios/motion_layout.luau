@@ -18,6 +18,7 @@ local groups = {
 		label = "Layout",
 		tabs = {
 			{ id = "wrap", label = "Wrapping", scenario = require("./flow_wrap") },
+			{ id = "containers", label = "Containers", scenario = require("./containers") },
 			{ id = "grid", label = "Grid", scenario = require("./container_grid") },
 			{ id = "labels", label = "Labels", scenario = require("./text_degrade") },
 			{ id = "inheritance", label = "Inheritance", scenario = require("./inherited_subtree") },

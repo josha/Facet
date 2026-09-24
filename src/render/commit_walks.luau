@@ -1250,9 +1250,11 @@ function commit_walks.new(ctx: CommitCtx)
 				local roleName, role =
 					themeSnapshot.effectiveTypeRole(metrics, node.class, node.props and node.props.textSize)
 				if role ~= nil then
+					-- the ROLE rides the stamp too: roles sharing one face still differ
+					-- in their native type tag
 					local fontStamp = if node.class == "TextField"
-						then role.fontKey .. "/" .. tostring(role.lineHeight)
-						else role.fontKey
+						then `{roleName}/{role.fontKey}/{role.lineHeight}`
+						else `{roleName}/{role.fontKey}`
 					if lastTextFont[node.path] ~= fontStamp then
 						authority.assertWrite(node.class, "textFont", "layout")
 						adapter.setProp(handles[node.path], "textFont", {

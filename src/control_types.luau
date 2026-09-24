@@ -30,13 +30,29 @@ local level_pickerControl = require("./spec_types/level_picker")
 local disclosure_groupControl = require("./spec_types/disclosure_group")
 local row_actionsControl = require("./spec_types/row_actions")
 local calloutControl = require("./spec_types/callout")
+local popoverControl = require("./spec_types/popover")
+local dialogControl = require("./spec_types/dialog")
+local noticeControl = require("./spec_types/notice")
+local cardControl = require("./spec_types/card")
+local paginationControl = require("./spec_types/pagination")
+local colorPickerControl = require("./spec_types/color_picker")
+local dateTimePickerControl = require("./spec_types/date_time_picker")
+local stepIndicatorControl = require("./spec_types/step_indicator")
+local voteControl = require("./spec_types/vote")
+local snackbarControl = require("./spec_types/snackbar")
+local navBarControl = require("./spec_types/nav_bar")
 local radial_menuControl = require("./spec_types/radial_menu")
 local alertControl = require("./spec_types/alert")
 local sheetControl = require("./spec_types/sheet")
 local page_viewControl = require("./spec_types/page_view")
 local collapsible_viewControl = require("./spec_types/collapsible_view")
 export type CellContext<T> = { scope: core.Owner, current: (core.Use) -> T }
-export type GridCellContext<T> = CellContext<T> & { index: number, line: number, lane: number }
+export type GridCellContext<T> = CellContext<T> & {
+	index: number,
+	line: number,
+	lane: number,
+	stopScale: (readable: any) -> (),
+}
 export type RowAction = rowActions.ActionSpec
 export type RowActions = {
 	leading: { RowAction }?,
@@ -190,6 +206,7 @@ export type ChipSpec<V = BooleanCell> = {
 	enabled: bp.Bound<boolean>?,
 	onToggle: ((boolean) -> ())?,
 	onRemove: (() -> ())?,
+	editing: bp.Bound<boolean>?, -- required with onRemove on a selectable chip
 	removeLabel: string?,
 	removeFocusFallback: bp.Bound<string>?,
 }
@@ -273,7 +290,7 @@ export type ButtonSpec = {
 	height: bp.Bound<bp.Dim>?,
 	shrinkWeight: bp.Bound<number>?,
 	focusable: bp.Bound<boolean>?,
-	help: string?,
+	help: bp.Help?,
 	icon: string?,
 	shape: string?,
 	textSize: bp.BoundEither<number, bp.TypeRole>?,
@@ -386,7 +403,7 @@ export type Controls = {
 	VirtualGrid: Constructor<VirtualGridSpec<any>>,
 	NavigationStack: Constructor<navigation_stackControl.Spec>,
 	Table: Constructor<tableControl.Spec>,
-	Slider: Constructor<sliderControl.Spec>,
+	Slider: Constructor<sliderControl.Spec<sliderControl.NumberCell | sliderControl.RangeCell>>,
 	Stepper: Constructor<stepperControl.Spec>,
 	Picker: Constructor<pickerControl.Spec>,
 	PopupButton: Constructor<picker_menuControl.Spec>,
@@ -401,11 +418,23 @@ export type Controls = {
 	AvatarGroup: Constructor<avatarGroupControl.Spec>,
 	Rating: Constructor<ratingControl.Spec>,
 	TextInput: Constructor<text_inputControl.Spec>,
+	NumberInput: Constructor<text_inputControl.NumberSpec>,
 	ProgressView: Constructor<progress_viewControl.Spec>,
 	LevelPicker: Constructor<level_pickerControl.Spec>,
 	DisclosureGroup: Constructor<disclosure_groupControl.Spec>,
 	RowActions: Constructor<row_actionsControl.Spec>,
 	Callout: Constructor<calloutControl.Spec>,
+	Popover: Constructor<popoverControl.Spec>,
+	Dialog: Constructor<dialogControl.Spec>,
+	Notice: Constructor<noticeControl.Spec>,
+	Card: Constructor<cardControl.Spec>,
+	Pagination: Constructor<paginationControl.Spec>,
+	ColorPicker: Constructor<colorPickerControl.Spec>,
+	DateTimePicker: Constructor<dateTimePickerControl.Spec>,
+	StepIndicator: Constructor<stepIndicatorControl.Spec>,
+	Vote: Constructor<voteControl.Spec>,
+	Snackbar: Constructor<snackbarControl.Spec>,
+	NavBar: Constructor<navBarControl.Spec>,
 	RadialMenu: Constructor<radial_menuControl.Spec>,
 	Alert: Constructor<alertControl.Spec>,
 	Sheet: Constructor<sheetControl.Spec>,

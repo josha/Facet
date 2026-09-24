@@ -14,14 +14,46 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Keep a compact set of occasional commands at a screen edge | `UI.RadialMenu` with a corner preset | A small launcher opens inward and returns to the same corner. |
 | Read many commands, unfamiliar names, or long descriptions | `UI.Menu` or a labeled list | Reading and scanning need predictable linear space. A radial menu should not become a dense inventory. |
 | Keep frequently used actions visible | Buttons in a toolbar/stack | Avoid making players open a menu for every repeated action. |
-| Choose one value from a list | `UI.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `navigationLink` for a long or searchable list. |
+| Choose one value from a list | `UI.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `radioGroup` when each choice needs its explanation in view, `cards` when each choice is a rich tile (title, description, `meta`), and `navigationLink` for a long or searchable list. |
 | Choose a persistent value | Picker, Toggle, or Slider as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
+| Type a word, a name, or a paragraph | `UI.TextInput` | Add `label`, `hint`/`errorText`, `readOnly` or `multiline` with `visibleLines`; a search field is `presentation = "search"`. |
+| Choose a band, such as a lap window or a price range | `UI.Slider` with `range = true` | Two thumbs that never cross, with `minGap` holding them apart. |
+| Type or nudge a quantity | `UI.NumberInput` | The committed number is separate from the draft; bounds clamp, `stepButtons` add two stops, and a Slider or Stepper suits a value picked rather than typed. |
 | Run one action with alternatives | `UI.Button` beside a `Picker`, or `UI.SplitButton` | The split joins a chevron segment to the button under a pointer and becomes one long-press button under touch; when the alternatives must be discoverable on a phone, a Picker beside the Button says them out loud. |
 | Browse inventory, compare items, or search a large collection | Grid/list/table with filtering | Item discovery and comparison need more content than directional quick actions. |
 | Switch peer destinations such as Garage, Races, and Settings | `UI.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |
 | Choose a visually recognizable vehicle, character, map, or item | `UI.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
 | Navigate destinations or complete a multi-step form | `UI.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
 | Confirm a consequential action | `UI.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
+| Make a decision that needs a picture, a body or its own actions | `UI.Dialog` | You keep the open state; the title, hero and actions stay pinned while the body scrolls. |
+| Offer an item (a game, a level, a video) with one main verb and a few secondary ones | `UI.Card` | The body opens the item; Play and More reveal on hover or focus, sit at rest on touch, and are entered from a grid's browse stop on a pad. |
+| Move through pages of results you fetch yourself | `UI.Pagination` | You keep the page; an unknown count uses next/previous availability instead of a last page. |
+| Show where a multi-step flow is, and let the player return to steps you allow | `UI.StepIndicator` | You keep `current`; for a number the player adjusts use `UI.Stepper`, and for a star score `UI.Rating`. |
+| Let the player pick a colour, such as a livery or a trim | `UI.ColorPicker` | You keep the Color3 (and an optional opacity); a labelled well is a settings row, and `style = "inline"` puts the panel in the page. |
+| Let the player choose a date, a time or a date range | `UI.DateTimePicker` | You keep a civil date (no time zone); `selection = "range"` adds presets, and `draft = true` commits only on Apply. |
+| Let the player like or dislike something | `UI.Vote` | You keep the value and the aggregate text; for a score out of five use `UI.Rating`. |
+| Tell the player about a state of the page (offline, saved, an update) without interrupting | `UI.Notice` | It stays in the page and never takes focus; `affixed` pins it to the top and reserves the space. |
+| Confirm something just happened, with an undo, without covering the page | `UI.Snackbar` | One at a time at the bottom; you own whether it shows, and every close is a proposal. |
+| Show a little supporting content next to a control, on request | `UI.Popover` | You keep the open state; it anchors to the trigger or a source and becomes a sheet on a compact touch screen. For one hovered sentence use `help`; for an unprompted tip use `UI.Callout`. |
+
+### Close alternatives
+
+Several controls look alike and answer different tasks. Pick by what the player
+is doing, not by the picture.
+
+| When you are choosing between | Choose the first when | Choose the second when |
+|---|---|---|
+| `UI.Button`, `UI.Toggle` or `UI.Picker` | The player runs a command now (Button). | The player sets an on/off fact that stays (Toggle), or one value from several that stays (Picker). |
+| `UI.Menu` or a dropdown (`UI.Picker`, `UI.ComboBox`) | The rows are commands, filters or submenus; nothing is "the value" afterwards (Menu). | The player keeps a chosen value: Picker's automatic menu form for a fixed list, ComboBox when the player may also type a value you validate. |
+| `UI.Notice`, a toast, `UI.Snackbar`, `UI.Alert` or `UI.Dialog` | The page has a state to report and keeps it in the flow without taking focus (Notice). | Brief news with no action (`app.presentToast`); news with one action, such as Undo, that must not cover the page (Snackbar); a decision the player must make before continuing (Alert for a few words and choices, Dialog for a picture, a body or its own layout). |
+| `help`, `UI.Callout` or `UI.Popover` | One sentence about a control, on hover or focus (`help`; say it on screen for touch). | An unprompted tip that points at a control (Callout); supporting content the player asks for with a button (Popover). |
+| `UI.Stepper` or `UI.StepIndicator` | The player adjusts a number by steps. | The player sees where a multi-step flow is and returns to allowed steps. |
+| `UI.Rating` or `UI.Vote` | A score on a scale, such as stars out of five. | Up, down or none, usually beside an aggregate count. |
+| A date or a date and time (`UI.DateTimePicker`) | The value is a day (`time` off). | The value also needs an hour and minute (`time = true`, stepped by `minuteStep`). |
+| `UI.Slider` or `UI.Slider` with `range = true` | One value. | A band with two ends that never cross (`minGap` keeps them apart). |
+| `UI.PageView` or `UI.Pagination` | A short, finite set of pages the player swipes or steps through in place. | Pages of results you fetch yourself; you keep the page and the count may be unknown. |
+| `UI.Avatar` or `UI.Image` | The picture is a person: headshot or initials, optional presence, an optional profile action. | The picture is decoration or item art with no identity semantics. |
+| `UI.TabView` with `style = "sidebarAdaptable"` or a plain `UI.TabView` | The tabs are the screen's peer destinations. | The tabs switch local pages inside one task; a segmented Picker when it is a value, not pages. |
 
 For a labeled Picker in a settings form, `valueAlignment = "start"` places its
 menu value close to the label. The default `"end"` keeps values trailing. This
@@ -78,7 +110,7 @@ tasks and should not be interchanged merely to copy a streaming-app screenshot.
 ### Two-level navigation
 
 Choose by role, not by labels such as "app", "game", or "demo". In the Showcase,
-All controls' Inputs, Actions, Indicators and Navigation are peer destinations
+All controls' Inputs, Actions, Status and Menus are peer destinations
 organizing the whole screen. They use `UI.TabView` with
 `style = "sidebarAdaptable"` and automatic placement. The example choices inside
 each destination are ordinary nested TabViews. Collections and Motion and layout
@@ -114,6 +146,10 @@ still follows TabView's lazy eviction rules. See the
 [shared demo composition](../../examples/gallery/scenarios/demo_tabs.luau).
 
 ### Decisions and page composition
+
+`help` shows nothing on touch, so when touch players need the same words, say
+them on screen or put an info `UI.Button` beside the control that opens a
+`UI.Popover` with them.
 
 Use `UI.Alert` for a brief confirmation or acknowledgement with one to three
 choices. Declare `UI.Alert` in the screen with its title, message, semantic
@@ -303,8 +339,9 @@ equipment details and action lists that need descriptions or trailing values. Ke
 one semantic control per row; its real switch or checkbox shares row activation.
 Use a Toggle hint for standalone explanatory copy. Group optional settings with
 DisclosureGroup description, semantic icon and plain/contained/divided appearance.
-Use removable Chips for caller-owned keyed tags: onRemove updates the collection,
-while Chip preserves neighboring remove-target focus. Do not nest a second focusable button around a toggle
+Use removable Chips for caller-owned keyed tags: give the list an Edit toggle bound
+to `editing`; onRemove updates the collection, while Chip moves focus to the
+neighboring tag. Do not nest a second focusable button around a toggle
 or slider. Keep Table/VirtualList for actual collections, including editing,
 selection, row actions and reordering. A TV presentation should increase readability
 without flattening those editing semantics into a streaming catalog.
@@ -343,10 +380,13 @@ of convenience skips the design contract. A supported Facet foreign-content host
 is still composition and should be considered before a custom system.
 
 Use `UI.Sheet` for a substantial briefing or editor that benefits from
-several heights. The header supports dragging; its Size button provides the same
-choices through focus and activation. Content gestures scroll. Distant screens
-center the sheet, while nearby gamepads retain bottom placement. Use Alert for a
-brief decision with a few actions.
+several heights, or one that should fit its content (`"hug"`). The header supports
+dragging; its Size button provides the same choices through focus and activation.
+Content gestures scroll. Distant screens center the sheet, while nearby gamepads
+retain bottom placement; `placement = "side"` docks it to a screen edge for a
+filter or inspector. Pinned `actions` stay reachable over a long body. Use
+Dialog when the caller should own presentation through proposals, and Alert for
+a brief decision with a few actions.
 
 Use `UI.PageView` for a short finite sequence of previews or guided pages.
 Dots show position and offer direct selection; the summary and Previous/Next
@@ -367,7 +407,7 @@ its `"always"` preference retains the offset corner Close.
 Bind its label and icon to the selected value, or keep them static. Bind
 `expanded` to close on the choice that completes the task. For sibling destinations,
 `UI.TabView` with `style = "collapsible"` supplies that wiring; the demo
-**All controls → Navigation → Disclosure** shows both forms. A NavigationStack still represents drill-down
+**All controls → Menus → Disclosure** shows both forms. A NavigationStack still represents drill-down
 and Back, so keep that hierarchy visible alongside a destination chooser.
 
 ## Game HUD feedback and world labels

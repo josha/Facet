@@ -117,7 +117,8 @@ local function install(reactor: any, report: (string) -> (), span: (<T>(string, 
 		and one write reaches both, so an unguarded span would report two flushes
 		for the round trip the settle phase exists to make cost one. ]]
 	local function react(body: () -> ())
-		if flushing then
+		-- inside a batch the flush belongs to the batch's own closing `react`
+		if flushing or depth > 0 then
 			body()
 			return
 		end

@@ -27,6 +27,7 @@ local fake_target = require("../tests/lib/fake_target")
 local lt = require("./lib/large_text")
 local text_metrics = require("../src/layout/text_metrics")
 local themeSnapshot = require("../src/themes/snapshot")
+local HAIRLINE = themeSnapshot.neutral().strokes.hairline
 
 local ROW = "/S/Row"
 local HIT = ROW .. "/Content/Hit"
@@ -1828,7 +1829,7 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		expect(menu.y + menu.h).toBe(trigger.y)
 		-- ...and every row travelled with it, rather than one node moving
 		local first = w.adapter.composedRect("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
-		expect(first.y).toBe(menu.y)
+		expect(first.y).toBe(menu.y + HAIRLINE) -- inside the card's inner hairline (F1)
 		-- WHOLLY ON SCREEN, both edges — the actual requirement
 		expect(`top inside: {menu.y >= 0}`).toBe("top inside: true")
 		expect(`bottom inside: {menu.y + menu.h <= 600}`).toBe("bottom inside: true")
@@ -1867,7 +1868,9 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		local metrics = if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 		local rowH = themeSnapshot.resolveNumber(metrics, "controlSizes.compact.height") or 0
 		local gap = themeSnapshot.resolveNumber(metrics, "strokes.hairline") or 0
-		expect(w.menuRect().h).toBe(2 * rowH + gap) -- two actions in this fixture
+		-- two actions, one gap between, and the raised card's inner hairline above and
+		-- below, which its padding pays for
+		expect(w.menuRect().h).toBe(2 * rowH + 3 * gap)
 	end)
 
 	it("NEGATIVE CONTROL: with no room ABOVE either, it stays BELOW rather than flipping", function()
@@ -1920,8 +1923,9 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		-- ...and every row of it travels with the menu, rather than one node moving
 		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")).never().toBeNil()
 		local first = w.adapter.composedRect("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
-		expect(first.x).toBe(trigger.x)
-		expect(first.y).toBe(trigger.y + trigger.h)
+		-- inside the card's inner hairline, which its padding pays for
+		expect(first.x).toBe(trigger.x + HAIRLINE)
+		expect(first.y).toBe(trigger.y + trigger.h + HAIRLINE)
 		--[[ ...and the ANCHOR'S OWN BOX CONTAINS WHAT IT PLACES. An `anchor` node
 			left content-sized measures the union of its children WITHOUT their
 			offsets, so it would report a 91x73 box at (0, 0) while painting its menu

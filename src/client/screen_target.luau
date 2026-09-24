@@ -67,6 +67,7 @@ local screen_image = require("./screen_image")
 local screen_control_content = require("./screen_control_content")
 local screen_props = require("./screen_props")
 local screen_caret = require("./screen_caret")
+local screen_text_press = require("./screen_text_press")
 local screen_focus_visual = require("./screen_focus_visual")
 -- the pointer seam: the one activate meta, the global capture, the semantic
 -- cursor and the connection census that reports what they hold
@@ -625,6 +626,7 @@ function screen_target.new(opts: Opts?)
 			controlSize = handle.controlSize,
 			appearance = handle.appearance,
 			over = handle.over,
+			onArt = (handle.decorationHint or {}).onArt,
 		})
 		if contentPaint then
 			contentPaint.augment(handle, desired)
@@ -1523,13 +1525,12 @@ function screen_target.new(opts: Opts?)
 			end
 		elseif class == "Toggle" and instance:IsA("TextButton") then
 			instance.AutoButtonColor = false
+			-- A switch paints no plate: its track and knob are the affordance, and a
+			-- plate inside a settings row read darker than the row at rest and
+			-- vanished into its hover fill.
 			if nativeMode then
-				handle.nativeSurface = "control"
 				handle.nativeInteractive = true
 				syncTags(handle)
-				wireNativePressDip(instance, handle)
-			else
-				wireInteractiveStates(instance, handle)
 			end
 			buildToggleVisual(instance, handle)
 		elseif class == "TextField" and instance:IsA("TextBox") then
@@ -3034,6 +3035,7 @@ function screen_target.new(opts: Opts?)
 		end
 		handle.lastModelText = handle.lastModelText or instance.Text
 		screen_caret.wire(handle, handlers)
+		screen_text_press.wire(handle, { uis = UserInputService, Enum = Enum }, handlers)
 		-- RECONNECT, NOT A RAW ASSIGNMENT (task CONN round 2, completeness sweep):
 		-- once-per-life setter, same Finding-1 unconditional-overwrite shape as
 		-- `screen_pointer.luau`'s siblings — a recycled handle kept a stale
@@ -3111,6 +3113,7 @@ function screen_target.new(opts: Opts?)
 	-- Control-local hover observation; no global MouseMovement subscription per
 	-- image card and no polling. The control gates the result on live input facts.
 	function adapter.setHoverObserver(handle: any, callback: (boolean) -> ()): () -> ()
+		ensureInstance(handle)
 		local enter = handle.instance.MouseEnter:Connect(function()
 			callback(true)
 		end)
@@ -3286,6 +3289,7 @@ function screen_target.new(opts: Opts?)
 		focusArtHost = focusArtHost,
 		aimFocusScale = aimFocusScale,
 		hostOriginOf = presentation.hostOriginOf,
+		placeFloat = presentation.applyRect,
 		-- accessors, not values: the host reassigns both (`setActiveTheme`,
 		-- `setThemePackage`), so a captured value would freeze at construction and a
 		-- live theme swap would repaint everything except the ring

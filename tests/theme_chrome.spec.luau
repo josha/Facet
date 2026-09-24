@@ -13,6 +13,7 @@ local harness = require("./lib/harness")
 --      each direction.
 
 local t = require("./lib/testkit")
+local snapshotLib = require("../src/themes/snapshot")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
@@ -396,7 +397,8 @@ describe("chrome_slots: classification", function()
 			{ input = { class = "Box", surface = "control" }, slot = "control" },
 			{ input = { class = "Box", surface = "chip" }, slot = "control" },
 			{ input = { class = "Button" }, slot = "control" },
-			{ input = { class = "Toggle" }, slot = "control" },
+			-- a switch is its track and knob: no plate
+			{ input = { class = "Toggle" }, slot = nil },
 		}
 		for _, case in cases do
 			expect(chrome_slots.classify(case.input)).toBe(case.slot)
@@ -724,7 +726,10 @@ describe("decoration content insets reach the solver", function()
 		env:set("themeMetrics", themes.resolve(parchment(), nil, {}))
 		presenter.refresh()
 		local ornateInner = adapter.node("/InsetProbe/Panel/Inner").rect
-		expect(ornateInner.x - flatInner.x).toBe(parchment().chrome.panel.contentInsets.left)
+		-- (the flat panel's padding is its inner hairline, which the carve covers)
+		expect(ornateInner.x - flatInner.x).toBe(
+			parchment().chrome.panel.contentInsets.left - snapshotLib.neutral().strokes.hairline
+		)
 		expect(adapter.node("/InsetProbe/Panel").rect.w).toBe(300) -- the box itself is unchanged
 		presenter.dismiss(handle)
 	end)
@@ -1038,10 +1043,49 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		local theme = model.themes[1]
 		expect(theme.tokens.ChromeTint.r).toBe(chrome_slots.TINT.rest)
 		expect(theme.tokens.ChromeTintHover.r).toBe(chrome_slots.TINT.hover)
-		expect(theme.tokens.ChromeTintPressed.r).toBe(chrome_slots.TINT.pressed)
+		-- the ladder is the ceiling: a skinned theme presses only as far as its
+		-- labels still read on the art (parchment's stub stops at 0.684), and the
+		-- press still reads as a press
+		local pressed = theme.tokens.ChromeTintPressed.r
+		expect(pressed >= chrome_slots.TINT.pressed and chrome_slots.TINT.rest - pressed >= 0.2).toBe(true)
 		-- and the hover/press rules really do reach a skinned control
 		expect(ruleNamed(model, "Chrome — control hover").props.ImageColor3).toBe("$ChromeTintHover")
 		expect(ruleNamed(model, "Chrome — control pressed").props.ImageColor3).toBe("$ChromeTintPressed")
+	end)
+
+	it("a hovered SELECTED skin keeps its selection tint, lifted, instead of plain hover white", function()
+		local model = sheet_model.buildPackage(parchment())
+		local theme = model.themes[1]
+		local selected, lifted = theme.tokens.ChromeTintSelected, theme.tokens.ChromeTintSelectedHover
+		expect(lifted ~= nil).toBe(true)
+		-- lighter than the resting selection, and still not the untinted hover white
+		expect(lifted.r >= selected.r and lifted.g >= selected.g and lifted.b >= selected.b).toBe(true)
+		expect(lifted.r < 1 or lifted.g < 1 or lifted.b < 1).toBe(true)
+		local rule = ruleNamed(model, "Chrome — control selected hover")
+		expect(rule.selector).toBe(".facet-selected.facet-interactive.facet-pointer-live:Hover > .facet-chrome-control")
+		expect(rule.props.ImageColor3).toBe("$ChromeTintSelectedHover")
+		local index: { [string]: number } = {}
+		for i, r in model.rules do
+			index[r.name] = i
+		end
+		-- the compound rule beats the plain hover it shares a group with
+		expect(index["Chrome — control selected hover"] > index["Chrome — control hover"]).toBe(true)
+	end)
+
+	it("a pressed SELECTED skin keeps its selection tint, darkened, instead of plain press grey", function()
+		local model = sheet_model.buildPackage(parchment())
+		local theme = model.themes[1]
+		local selected, pressed = theme.tokens.ChromeTintSelected, theme.tokens.ChromeTintSelectedPressed
+		expect(pressed ~= nil).toBe(true)
+		expect(pressed.r <= selected.r and pressed.g <= selected.g and pressed.b <= selected.b).toBe(true)
+		local rule = ruleNamed(model, "Chrome — control selected pressed")
+		expect(rule.selector).toBe(".facet-selected.facet-interactive:Press > .facet-chrome-control")
+		expect(rule.props.ImageColor3).toBe("$ChromeTintSelectedPressed")
+		local index: { [string]: number } = {}
+		for i, r in model.rules do
+			index[r.name] = i
+		end
+		expect(index["Chrome — control selected pressed"] > index["Chrome — control pressed"]).toBe(true)
 	end)
 end)
 
@@ -1126,9 +1170,57 @@ describe("role tints paint the ART, not a slab behind it", function()
 
 	it("the lifted label keeps its role TEXT colours (already shipped, not regressed)", function()
 		local model = sheet_model.buildPackage(parchment())
-		expect(ruleNamed(model, "Chrome text — destructive").props.TextColor3).toBe("$OnDanger")
-		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$ContentSecondary")
-		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccent")
+		-- the destructive label pairs with the danger-tinted art, as the accent one does
+		expect(ruleNamed(model, "Chrome text — destructive").props.TextColor3).toBe("$OnDangerChrome")
+		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$OnCancelChrome")
+		-- the accent label pairs with the art it sits on, not the accent fill
+		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccentChrome")
+		-- ...and so does the generated lift of the primary label rule, which
+		-- out-ranks it (found live: Card Play kept $OnAccent under Pixel)
+		expect(ruleNamed(model, "Control content lift — Primary button label").props.TextColor3).toBe(
+			"$OnAccentChrome"
+		)
+	end)
+
+	it("every lifted label takes the colour picked against the art it sits on", function()
+		local model = sheet_model.buildPackage(parchment())
+		local cases = {
+			-- the generated lifts out-rank the hand rules, so they carry the picks too
+			["Control content lift — Button text default"] = "$OnControlChrome",
+			["Control content lift — Strong text"] = "$OnControlChromeStrong",
+			["Control content lift — Secondary text"] = "$OnControlChromeSecondary",
+			["Control content lift — Cancel button"] = "$OnCancelChrome",
+			["Control content lift — Destructive button"] = "$OnDangerChrome",
+			-- an appearance's fill is replaced by art its role tint reaches, so its
+			-- label is the one picked for that tinted art
+			["Control content lift — Soft emphasis control"] = "$OnSoftChrome",
+			["Control content lift — Emphasis control"] = "$OnAccentChrome",
+			["Control content lift — Destructive soft"] = "$OnDangerChrome",
+			["Control content lift — Destructive utility — hover"] = "$OnDangerChrome",
+			-- a lifted TextLabel on control art, a field's text and placeholder, a badge
+			["Chrome text — control"] = "$OnControlChrome",
+			["Chrome text — field"] = "$OnFieldChrome",
+			["Chrome text — secondary"] = "$OnFieldChromeSecondary",
+			["Chrome text — badge"] = "$OnBadgeChrome",
+			["Chrome text — strong"] = "$OnControlChromeStrong",
+			["Chrome text — parent secondary"] = "$OnControlChromeSecondary",
+		}
+		for name, token in cases do
+			local rule = ruleNamed(model, name)
+			expect(`{name} {rule and rule.props.TextColor3}`).toBe(`{name} {token}`)
+		end
+		expect(ruleNamed(model, "Chrome text — control").selector).toBe(".facet-skinned-control > .facet-chrome-text")
+		expect(ruleNamed(model, "Chrome text — field").selector).toBe(".facet-skinned-field > .facet-chrome-text")
+		expect(ruleNamed(model, "Chrome text — badge").selector).toBe(".facet-skinned-badge > .facet-chrome-text")
+		-- ...and the appearances reach the art as the accent surface does
+		expect(ruleNamed(model, "Chrome role — emphasis").props.ImageColor3).toBe("$ChromeTintAccent")
+		expect(ruleNamed(model, "Chrome role — soft").props.ImageColor3).toBe("$ChromeTintSelected")
+		local index: { [string]: number } = {}
+		for i, rule in model.rules do
+			index[rule.name] = i
+		end
+		-- a destructive soft button's art still reads destructive
+		expect(index["Chrome role — destructive"] > index["Chrome role — soft"]).toBe(true)
 	end)
 
 	it("a flat package emits no role tint rules (there is no art to tint)", function()
@@ -2003,5 +2095,171 @@ describe("chrome full bleed: the plate covers the host's own box", function()
 		-- this compensates for
 		expect(string.find(adapterChromeSource, "applyFullBleed(instance, deco", 1, true) ~= nil).toBe(true)
 		expect(string.find(adapterChromeSource, "chrome_slots.fullBleedBox(l, r, t, b)", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("text over another node's plate reads on that plate's art", function()
+	it("the renderer names the plate beneath each unlifted label, and the tag follows", function()
+		local w = require("./lib/world").new()
+		w.present(function()
+			local UI = w.UI
+			return UI.Screen("S")({
+				UI.NumberInput("Laps")({
+					value = w.Compose.cell(""),
+					numericValue = w.Compose.cell(3),
+					placeholder = "Laps",
+					stepButtons = true,
+				}),
+				UI.Picker({
+					id = "D",
+					label = "Driver",
+					style = "menu",
+					selected = w.Compose.cell("a"),
+					options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+				}),
+				UI.background(UI.Text("Stat")({ text = "S1" }), UI.Box("StatPlate")({ surface = "control" })),
+				UI.VStack("Card")({ surface = "raised", UI.Text("Title")({ text = "Card" }) }),
+				UI.Text("Page")({ text = "Plain" }),
+			})
+		end)
+		local function onArt(suffix: string): string
+			for _, path in w.adapter.paths() do
+				if string.sub(path, -#suffix) == suffix then
+					local hint = w.adapter.node(path).decorationHint
+					return `{suffix} {tostring(hint and hint.onArt)}`
+				end
+			end
+			return `{suffix} missing`
+		end
+		-- the field's editor sits on the field's plate (its art is on the Anchor)
+		expect(onArt("/Laps/Input/Row/Field")).toBe("/Laps/Input/Row/Field field")
+		-- a stepper's mark on its button, a picker's value on its trigger
+		expect(onArt("/Increment/Mark")).toBe("/Increment/Mark control")
+		expect(onArt("/Trigger/Value")).toBe("/Trigger/Value control")
+		expect(onArt("/Trigger/Chevron")).toBe("/Trigger/Chevron control")
+		-- an author's label on a `UI.background` plate and inside a raised card
+		expect(onArt("/Stat")).toBe("/Stat control")
+		expect(onArt("/Card/Title")).toBe("/Card/Title panel")
+		-- ...and a label on the page itself sits on no plate at all
+		expect(onArt("/S/Page")).toBe("/S/Page nil")
+		expect(sheet_model.classifyTags({ onArt = "field" })["facet-on-field"]).toBe(true)
+	end)
+
+	it("text on a selection row follows the row's state: it joins the row as its content (owner)", function()
+		-- Pixel Quest's selection plate turns from wood to gilt when selected, so the
+		-- cream label that read on the wood sat on the gilt: the label must take the
+		-- row's `Selected row` pairing, which a content follower's tags carry
+		local w = require("./lib/world").new()
+		w.present(function()
+			local UI = w.UI
+			return UI.Screen("S")({
+				UI.Picker({
+					id = "R",
+					style = "radioGroup",
+					selected = w.Compose.cell("a"),
+					options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+				}),
+				UI.Toggle("Night")({ label = "Night races", value = w.Compose.cell(true), presentation = "checkbox" }),
+			})
+		end)
+		local found = 0
+		for _, path in w.adapter.paths() do
+			local hint = w.adapter.node(path).decorationHint
+			if hint ~= nil and hint.onArt == "selection" and w.adapter.node(path).class == "Text" then
+				local depth = hint.contentOwnerDepth
+				local owner = path
+				for _ = 1, depth or 0 do
+					owner = string.match(owner, "^(.*)/[^/]+$") or ""
+				end
+				local node = w.adapter.node(owner)
+				expect(`{path} owner {depth ~= nil and node ~= nil and node.class}`).toBe(`{path} owner Button`)
+				found += 1
+			end
+		end
+		expect(found >= 3).toBe(true)
+		-- ...and the row's own Selected-row pairing reaches its content
+		local model = sheet_model.buildPackage(shipping())
+		local projected = false
+		for _, rule in model.rules do
+			if
+				string.find(rule.selector, "facet-content-owner-facet-selected", 1, true) ~= nil
+				and rule.props.TextColor3 == "$OnSelected"
+			then
+				projected = true
+			end
+		end
+		expect(projected).toBe(true)
+	end)
+
+	it("a skinned package picks every on-art role, icons included, against the art", function()
+		local model = sheet_model.buildPackage(shipping())
+		local want = {
+			[".facet-on-field"] = { TextColor3 = "$OnFieldChrome" },
+			["TextBox.facet-on-field"] = { PlaceholderColor3 = "$OnFieldChromeSecondary" },
+			[".facet-on-field.facet-role-secondary"] = { TextColor3 = "$OnFieldChromeSecondary" },
+			[".facet-on-control"] = { TextColor3 = "$OnControlChrome" },
+			[".facet-on-control.facet-role-strong"] = { TextColor3 = "$OnControlChromeStrong" },
+			[".facet-on-panel"] = { TextColor3 = "$OnPanelChrome" },
+			[".facet-on-panel.facet-role-secondary"] = { TextColor3 = "$OnPanelChromeSecondary" },
+			[".facet-on-control > .facet-chrome-icon"] = { ImageColor3 = "$OnControlChrome" },
+			[".facet-skinned-control > .facet-chrome-icon"] = { ImageColor3 = "$OnControlChrome" },
+		}
+		local index: { [string]: number } = {}
+		for i, rule in model.rules do
+			local props = want[rule.selector]
+			if props ~= nil then
+				for prop, token in props do
+					if rule.props[prop] ~= nil then
+						expect(`{rule.selector} {prop} {rule.props[prop]}`).toBe(`{rule.selector} {prop} {token}`)
+						index[rule.selector .. prop] = i
+					end
+				end
+			end
+			index[rule.name] = index[rule.name] or i
+		end
+		for selector, props in want do
+			for prop in props do
+				expect(`{selector} {prop} {index[selector .. prop] ~= nil}`).toBe(`{selector} {prop} true`)
+			end
+		end
+		-- the role and appearance rules still win over the plate's default
+		expect(index[".facet-on-controlTextColor3"] < index["Link control"]).toBe(true)
+		expect(index[".facet-on-panel.facet-role-secondaryTextColor3"] > index["Secondary text"]).toBe(true)
+		-- a stepper's +/- art wears its label's colour over the package's own
+		-- icon tint (Pixel Quest paints increment/decrement accent green on wood)
+		local pixel = sheet_model.buildPackage(require("../examples/themes/pixel_quest").build(themes))
+		local at: { [string]: number } = {}
+		for i, rule in pixel.rules do
+			at[rule.name] = i
+			if rule.name == "On plate — stepper icon" then
+				expect(rule.props.ImageColor3).toBe("$OnControlChrome")
+			end
+		end
+		expect(
+			`{at["On plate — stepper icon"] ~= nil and at["On plate — stepper icon"] > at["Icon — increment"]}`
+		).toBe("true")
+		-- ...a flat package has no art, so no rule at all
+		for _, rule in sheet_model.buildPackage(classic()).rules do
+			expect(string.find(rule.selector, "facet-on-", 1, true)).toBeNil()
+		end
+	end)
+
+	it("a skinned Button's generated label and icon take the colour picked for its art", function()
+		local model = sheet_model.buildPackage(shipping())
+		local skinned = ".facet-content-owner-facet-skinned-control"
+		local found = { text = false, icon = false }
+		for _, rule in model.rules do
+			if
+				string.find(rule.selector, skinned, 1, true)
+				and string.find(rule.selector, "facet-role", 1, true) == nil
+			then
+				if rule.props.TextColor3 == "$OnControlChrome" then
+					found.text = true
+				elseif rule.props.ImageColor3 == "$OnControlChrome" then
+					found.icon = true
+				end
+			end
+		end
+		expect(`text {found.text} icon {found.icon}`).toBe("text true icon true")
 	end)
 end)

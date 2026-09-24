@@ -73,6 +73,7 @@ local ownedFormula = require("../core/owned_formula")
 
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
+local anchorPlacement = require("../layout/anchor_placement")
 local controlContract = require("../class_contract")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
@@ -102,11 +103,14 @@ export type Item = specTypes.Item
 export type Spec = specTypes.Spec
 
 local MENU_KEYS = specGuard.keySet({
+	"align",
 	"backLabel",
+	"edge",
 	"env",
 	"id",
 	"interactionClasses",
 	"items",
+	"maxHeight",
 	"onClose",
 	"onOpen",
 	"presentation",
@@ -114,8 +118,11 @@ local MENU_KEYS = specGuard.keySet({
 	"trigger",
 	"label",
 	"triggers",
+	"width",
 })
 local ITEM_KEYS = specGuard.keySet({
+	"avatar",
+	"badge",
 	"children",
 	"divider",
 	"enabled",
@@ -130,6 +137,8 @@ local ITEM_KEYS = specGuard.keySet({
 	"description",
 	"dismiss",
 	"onChange",
+	"sectionTitle",
+	"shortcutLabel",
 })
 local TRIGGERS: { [string]: boolean } =
 	table.freeze({ activate = true, secondary = true, longPress = true, keyboard = true, gamepad = true })
@@ -193,6 +202,14 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 			)
 		end
 		assert(item.dismiss == nil or type(item.dismiss) == "boolean", "Menu: dismiss must be boolean")
+		assert(
+			item.avatar == nil or (type(item.avatar) == "table" and type(item.avatar.name) == "string"),
+			"Menu: an item avatar must be an Avatar spec table with a name"
+		)
+		assert(
+			item.shortcutLabel == nil or (type(item.shortcutLabel) == "string" and item.shortcutLabel ~= ""),
+			'Menu: shortcutLabel is display text such as "Ctrl+B"; it binds nothing'
+		)
 		assert(
 			item.onChange == nil or (hasState and type(item.onChange) == "function"),
 			"Menu: onChange requires a state item and function"
@@ -286,6 +303,34 @@ local function build(Facet, core, spec, owner)
 	specGuard.assertKnownKeys("UI.Menu", spec, MENU_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Menu"
+	-- the ROOT panel's placement and every panel's size; absent is unchanged
+	anchorPlacement.assertEdge(spec.edge, `UI.Menu('{id}') edge`)
+	anchorPlacement.assertAlign(spec.align, `UI.Menu('{id}') align`)
+	if spec.width ~= nil and (type(spec.width) ~= "table" or type(spec.width.type) ~= "string") then
+		error(
+			`Facet UI.Menu('{id}'): \`width\` is a dimension table such as \{ type = "hug", max = "controls.popup.panelWidth" }.`,
+			0
+		)
+	end
+	local maxHeight = spec.maxHeight
+	if
+		maxHeight ~= nil
+		and (type(maxHeight) ~= "number" or maxHeight ~= maxHeight or maxHeight <= 0 or maxHeight == math.huge)
+	then
+		error(`Facet UI.Menu('{id}'): \`maxHeight\` is a positive finite number of px, chrome included.`, 0)
+	end
+	--[[ A FLOATING PANEL IS ALWAYS BOUNDED (owner 2026-09-23). An unbounded one ran
+		off the screen (the date picker's year menu: 201 rows, 9,448 px) and its fade
+		group — a CanvasGroup — outgrew the engine's canvas budget, which blurs the
+		text of EVERY CanvasGroup on screen, the month menu's too. So a floating
+		panel is capped at the screen and scrolls its rows one level deeper; a sheet
+		does only when the author bounds it. Every row path below reads this. ]]
+	local function rowsOf(presentation: string): string
+		return if maxHeight ~= nil or presentation ~= "sheet" then "/List/Rows" else ""
+	end
+	local function itemIdOf(path: string): string?
+		return string.match(path, `/{PANEL_ID}/List/Rows/Item:(.+)$`) or string.match(path, `/{PANEL_ID}/Item:(.+)$`)
+	end
 	if spec.label ~= nil then
 		assert(type(spec.label) == "string", "UI.Menu.label must be a string")
 		assert(spec.trigger == nil, "Menu: use label or trigger, not both")
@@ -603,8 +648,31 @@ local function build(Facet, core, spec, owner)
 			if isCard and emitted > 1 then
 				table.insert(rows, menuRecipe.divider(UI, `Rule-{emitted}`))
 			end
+			-- a section heading is a caption before its row: never a stop, never a press
+			if item.sectionTitle ~= nil then
+				table.insert(
+					rows,
+					UI.VStack({
+						id = `Section:{item.id}`,
+						width = UI.fill(),
+						padding = { left = "s", right = "s", top = "xs" },
+						children = { menuRecipe.sectionHeading(UI, item.sectionTitle) },
+					})
+				)
+			end
 			local spec = {
 				id = `Item:{item.id}`,
+				badge = item.badge,
+				avatar = menuRecipe.avatarNode(Facet, item.avatar),
+				-- display only: the words of a shortcut some other binding owns
+				trailing = if item.shortcutLabel ~= nil
+					then UI.Text({
+						id = "Shortcut",
+						text = item.shortcutLabel,
+						textSize = "caption",
+						role = "secondary",
+					})
+					else nil,
 
 				label = item.label,
 				description = item.description,
@@ -615,6 +683,8 @@ local function build(Facet, core, spec, owner)
 				role = item.role,
 				enabled = item.enabled,
 				submenu = item.children ~= nil,
+				-- a plain row's label leads, as a badge or shortcut row's does
+				leading = true,
 				height = rowHeight,
 			}
 			if not isCard then
@@ -630,20 +700,69 @@ local function build(Facet, core, spec, owner)
 			table.insert(rows, menuRecipe.cardRow(UI, spec :: any, position))
 		end
 		local isSheet = presentation == "sheet"
+		-- a row with a mark, a second line, or a fill-width part (badge, shortcut,
+		-- section heading) has no natural width to hug: it takes the themed width
 		local rich = false
 		for _, item in list do
-			if item.checked ~= nil or item.selected ~= nil or item.description ~= nil then
+			if
+				item.checked ~= nil
+				or item.selected ~= nil
+				or item.description ~= nil
+				or item.badge ~= nil
+				or item.shortcutLabel ~= nil
+				or item.sectionTitle ~= nil
+			then
 				rich = true
 				break
 			end
+		end
+		local bounded = rowsOf(presentation) ~= ""
+		if bounded then
+			-- THE BOUNDED LIST: the rows scroll inside the author's height, less the
+			-- panel's own chrome (the `raised` slot's insets a package carves)
+			rows = {
+				UI.ScrollView({
+					id = "List",
+					axis = "y",
+					chromeReserve = "none",
+					width = UI.fill(),
+					-- the PANEL carries the author's bound (chrome included); the list is
+					-- the part that gives height back when the rows outgrow it
+					shrinkWeight = 1,
+					children = {
+						UI.VStack({
+							id = "Rows",
+							width = UI.fill(),
+							gap = if isCard then 0 else menuRecipe.ROW_GAP,
+							children = rows,
+						}),
+					},
+				}),
+			}
 		end
 		local panel = UI.VStack({
 			id = PANEL_ID,
 			-- a SHEET spans the width a thumb reaches; a floating panel hugs its
 			-- longest row, which is what lets D1 place it against the trigger
 			anchor = if isSheet then "bottomLeft" else nil,
+			height = if not bounded
+				then nil
+				elseif isSheet then { type = "hug", max = maxHeight }
+				else Compose.formula(function(use)
+					-- the screen less its safe insets and the anchor's 16 px margin each side
+					local env = envForFacts or spec.env or surfaceEnv.find(core)
+					local view = if env ~= nil then use(env:get("viewportRect")) else nil
+					local insets = if env ~= nil then use(env:get("coreSafeInsets")) else nil
+					local screen = if type(view) == "table" and type(view.h) == "number"
+						then view.h - (if type(insets) == "table"
+							then (tonumber(insets.top) or 0) + (tonumber(insets.bottom) or 0)
+							else 0) - 32
+						else math.huge
+					return { type = "hug", max = math.max(88, math.min(maxHeight or math.huge, screen)) }
+				end),
 			width = if isSheet
 				then { type = "fill", weight = 1 }
+				elseif spec.width ~= nil then spec.width
 				elseif rich then { type = "fixed", px = "controls.popup.panelWidth" }
 				else { type = "hug" },
 			surface = "raised",
@@ -710,13 +829,38 @@ local function build(Facet, core, spec, owner)
 		-- once per open/level rather than threaded through as another return
 		local isSheet = presentation == "sheet"
 		local rowIds: { string } = {}
+		-- a level with a selected row (a radio group's current value, not a check
+		-- toggle) opens ON it: focus lands there and a scrolled list centres it
+		-- (owner 2026-09-23: the year menu opened at 1926)
+		local landing: string? = nil
 		for _, item in itemsAt(chain) do
 			if item.divider ~= true then
 				table.insert(rowIds, `Item:{item.id}`)
+				if landing == nil and item.selected ~= nil and selectedByItem[item]:peek() then
+					landing = `Item:{item.id}`
+				end
 			end
 		end
+		local panelController: any = nil
 		local function buildAttached()
 			return contribution.attach(buildPanel(presentation, chain), {
+				bindController = function(ctrl: any)
+					panelController = ctrl
+				end,
+				syncGeometry = function(rectOf: (string) -> any, rootNode: any?)
+					if landing == nil or rootNode == nil or panelController == nil or rowsOf(presentation) == "" then
+						return
+					end
+					local list = (if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`) .. "/List"
+					local row = `{list}/Rows/{landing}`
+					local band, at = rectOf(list), rectOf(row)
+					if type(band) ~= "table" or type(at) ~= "table" or band.h <= 0 then
+						return
+					end
+					landing = nil
+					-- a band-tall span centred on the row: the keep-visible rule then centres it
+					panelController.scrollToVisible(row, { x = 0, y = (at.h - band.h) / 2, w = at.w, h = band.h })
+				end,
 				--[[ ONE GROUP, AND IT IS WHAT MAKES THE ARROWS EXIST. The presenter
 				creates its HORIZONTAL Navigate action only when the surface has
 				navigation groups (`navigateH` is nil otherwise), so without this
@@ -732,7 +876,8 @@ local function build(Facet, core, spec, owner)
 					-- a non-sheet root is the `Popup` fade group the materialize
 					-- transition wraps around `Panel`, one level above the rows it used
 					-- to sit on directly; a sheet's root IS `Panel`, unwrapped
-					local rowRoot = if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`
+					local rowRoot = (if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`)
+						.. rowsOf(presentation)
 					for _, rowId in rowIds do
 						table.insert(order, `{rowRoot}/{rowId}`)
 					end
@@ -746,7 +891,7 @@ local function build(Facet, core, spec, owner)
 						ops.back()
 						return true
 					end
-					local itemId = string.match(path, `/{PANEL_ID}/Item:(.+)$`)
+					local itemId = itemIdOf(path)
 					if itemId == nil then
 						return false
 					end
@@ -804,6 +949,7 @@ local function build(Facet, core, spec, owner)
 				outsideTapCancel = true,
 				cancelPolicy = "none",
 				transition = { enter = direction or "slide-up", exit = "slide-down" },
+				initialFocus = if landing ~= nil then { id = landing } else nil,
 			})
 		else
 			--[[ D1 DOES THE PLACEMENT. Level 0 hangs under the trigger; a submenu
@@ -817,11 +963,11 @@ local function build(Facet, core, spec, owner)
 			local edge: string
 			if level == 0 then
 				sourcePath = rootPath :: string
-				edge = "bottom"
+				edge = spec.edge or "bottom"
 			else
 				local parentChain = table.clone(chain)
 				local last = table.remove(parentChain) :: string
-				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}/Item:{last}`
+				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}{rowsOf("menu")}/Item:{last}`
 				edge = "trailing"
 			end
 			handle = (presentAnchoredFn :: any)(if Facet.surfaces then buildAttached else buildAttached(), {
@@ -830,7 +976,13 @@ local function build(Facet, core, spec, owner)
 				-- the same attachment every control-presented popover keeps (picker
 				-- round, 2026-09-11): a tight gap under the source and the screen's
 				-- content inset as the margin it will not cross
-				anchor = { source = { path = sourcePath }, edge = edge, align = "start", gap = "xs", margin = "m" },
+				anchor = {
+					source = { path = sourcePath },
+					edge = edge,
+					align = if level == 0 then spec.align or "start" else "start",
+					gap = "xs",
+					margin = "m",
+				},
 				-- "none" is fully transparent but STILL CATCHING: an outside tap
 				-- closes the menu and is consumed, never clicking through to whatever
 				-- was behind it, and the surface underneath is never dimmed. A menu is
@@ -838,6 +990,7 @@ local function build(Facet, core, spec, owner)
 				scrim = "none",
 				outsideTapCancel = true,
 				cancelPolicy = "none",
+				initialFocus = if landing ~= nil then { id = landing } else nil,
 				-- the short fade-and-grow every pop-up menu materializes with; an
 				-- anchored surface with no pivot of its own grows from the corner it
 				-- hangs at (render/transitions `pivot` inference)
@@ -936,7 +1089,7 @@ local function build(Facet, core, spec, owner)
 				removed it while the level was open). ]]
 			local graph = graphs[#graphs]
 			if graph ~= nil then
-				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}/Item:{leavingId}`)
+				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}{rowsOf("sheet")}/Item:{leavingId}`)
 			end
 		end
 	end
@@ -1032,7 +1185,7 @@ local function build(Facet, core, spec, owner)
 		if type(focused) ~= "string" then
 			return false
 		end
-		local itemId = string.match(focused :: string, `/{PANEL_ID}/Item:(.+)$`)
+		local itemId = itemIdOf(focused :: string)
 		if itemId == nil then
 			return false
 		end

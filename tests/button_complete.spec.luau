@@ -263,6 +263,50 @@ describe("B-BTN2: semantic roles ride tags and style rules", function()
 		expect(indexOf["Selected row"] < indexOf["Destructive button"]).toBe(true)
 	end)
 
+	it("a HOVERED selected control paints selected+hover, never plain hover (both builders)", function()
+		-- owner bug 2026-09-22: `Control — hover` came after `Selected row` in the
+		-- insertion-ordered cascade, so a hovered chosen chip read as unchosen
+		local tags = sheetModel.classifyTags({
+			class = "Button",
+			interactive = true,
+			pointerLive = true,
+			selected = true,
+		})
+		local function hoveredFill(model: any): string?
+			local winner: string? = nil
+			local best = -math.huge
+			for index, rule in model.rules do
+				local sel = rule.selector
+				local fill = rule.props.BackgroundColor3
+				if fill == nil or string.find(sel, " > ", 1, true) or string.find(sel, "::", 1, true) then
+					continue
+				end
+				local cls, tail, state = string.match(sel, "^(%a*)([%.%w%-]*):?(%a*)$")
+				if cls == nil or (cls ~= "" and cls ~= "TextButton") or (state ~= "" and state ~= "Hover") then
+					continue
+				end
+				local ok = true
+				for tag in string.gmatch(tail, "%.([%w%-]+)") do
+					ok = ok and tags[tag] == true
+				end
+				local rank = (if type(rule.priority) == "number" then rule.priority else index) * 1e6 + index
+				if ok and rank > best then
+					winner, best = fill, rank
+				end
+			end
+			return winner
+		end
+		local base = sheetModel.build({ themes = { { name = "Dark", style = defaultStyle } } })
+		local pkg = sheetModel.buildPackage(require("../src/themes/snapshot").neutralPackage())
+		expect(hoveredFill(base)).toBe("$ControlSelectedHover")
+		expect(hoveredFill(pkg)).toBe("$ControlSelectedHover")
+		-- ...and the token is its own colour: selected, lifted by the hover step
+		local tok = base.themes[1].tokens
+		local lifted = tok.ControlSelectedHover.b - tok.ControlSelected.b
+		expect(math.abs(lifted - (tok.ControlHover.b - tok.Control.b)) < 1e-6).toBe(true)
+		expect(lifted ~= 0).toBe(true)
+	end)
+
 	it("the sheet carries a rule per role, so paint stays sheet-owned", function()
 		local model = sheetModel.build({ themes = { { name = "Dark", style = defaultStyle } } })
 		local names = {}

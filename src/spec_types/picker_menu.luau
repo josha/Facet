@@ -10,6 +10,10 @@ export type Option = {
 	label: (string | coreContract.Readable<string>)?,
 	icon: (string | coreContract.Readable<string>)?, -- semantic icon NAME, never an asset id
 	divider: boolean?,
+	badge: (string | number | coreContract.Readable<string | number>)?, -- the count seal
+	sectionTitle: (string | coreContract.Readable<string>)?, -- a heading before this row
+	meta: (string | coreContract.Readable<string>)?, -- secondary label/value on the row
+	avatar: { name: string, image: any?, userId: number?, key: string?, provider: any? }?,
 }
 export type Spec = {
 	required: boolean?,

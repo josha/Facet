@@ -57,6 +57,75 @@ t.describe("Toggle presentations", function()
 	end
 end)
 
+t.describe("Toggle switch paint", function()
+	-- Owner report 2026-09-22 (bugs/toggle.png): the row's switch wore its own
+	-- control plate, darker than the selected row at rest and equal to the row's
+	-- hover fill, so the highlight read inverted. A switch paints no plate.
+	t.it("a switch, bare or in a settings row, wears no surface plate", function()
+		local core = harness.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 400 })
+		local value = Compose.cell(true)
+		local bare = harness.Controls.Toggle(core, { id = "Bare", label = "Bare", value = value })
+		local row = harness.Controls.Toggle(core, {
+			id = "Row",
+			label = "Driving assistance",
+			value = value,
+			row = { description = "Keep the car stable", icon = "settings" },
+		})
+		local adapter = fakeTarget.new()
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		pres.present(harness.UI.Screen({ id = "S", children = { bare.blueprint, row.blueprint } }))
+		pres.refresh()
+		local seen = {}
+		for _, path in adapter.paths() do
+			if adapter.node(path).class == "Toggle" then
+				local plate = "none"
+				for _, tag in adapter.tagsOf(path) do
+					if string.sub(tag, 1, 14) == "facet-surface-" then
+						plate = tag
+					end
+				end
+				-- ...and no package plate either: a skinned theme must not frame it
+				local slot = require("../src/tokens/chrome_slots").classify({ class = "Toggle" })
+				if slot ~= nil then
+					plate = `slot {slot}`
+				end
+				table.insert(seen, `{string.match(path, "^/S/(%a+)")}={plate}`)
+			end
+		end
+		table.sort(seen)
+		t.expect(table.concat(seen, " ")).toBe("Bare=none Row=none")
+	end)
+
+	-- under Fantasy Ornate the Toggle row wore the `selection`
+	-- frame, which carves 6 px less than `control`, so its icon and label sat
+	-- left of every Button and Slider row on the same page
+	t.it("a toggle row starts its content where a button row does, in every package", function()
+		local snapshot = require("../src/themes/snapshot")
+		for _, name in { "neutral", "pixel_quest", "fantasy_ornate" } do
+			local metrics = if name == "neutral"
+				then snapshot.neutral()
+				else snapshot.resolve(require("../examples/themes/" .. name).build(Facet.themes), nil, {})
+			local w = world.new({ themeMetrics = metrics, viewport = { x = 0, y = 0, w = 700, h = 600 } })
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Button("B")({ label = "Manage", row = { icon = "settings" } }),
+					w.UI.Toggle("T")({ label = "Assist", value = Compose.cell(true), row = { icon = "settings" } }),
+				})
+			end)
+			local xs = {}
+			for _, path in w.adapter.paths() do
+				if string.sub(path, -5) == "/Icon" then
+					xs[string.match(path, "^/S/(%a)")] = w.adapter.node(path).rect.x
+				end
+			end
+			t.expect(`{name} {xs.T == xs.B}`).toBe(`{name} true`)
+			w.close()
+		end
+	end)
+end)
+
 t.describe("Toggle model approval", function()
 	local worlds = {}
 	t.afterEach(function()

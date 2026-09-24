@@ -134,6 +134,16 @@ ALLOWLIST = {
         "IAS gains a gesture surface, a text-entry surface, and an InputObject payload on "
         "Pressed. Each closes a different row here; the entry shrinks as they land.",
     ),
+    "src/client/screen_text_press.luau": (
+        "3",
+        "TextBox press geometry: selectOnFocus must land at the ORIGINATING press's release "
+        "(measured 2026-09-22: a write in Focused or on defer is overwritten by the click's "
+        "own caret placement), and NumberInput scrub separates a drag from a tap by 6/14px "
+        "slop on that InputObject. IAS has no text-entry surface, no InputObject payload and "
+        "no pointer geometry (A.4) — the same gaps as screen_target/screen_pointer.",
+        "IAS gains a text-entry surface with caret control, or a pointer-geometry surface "
+        "carrying InputObject identity.",
+    ),
     "examples/gallery/scenarios/runner.luau": (
         "5 (+4)",
         "INPUT-65..67. The raw gameProcessed SECOND OPINION has no IAS equivalent — IAS "

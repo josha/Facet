@@ -40,6 +40,18 @@ return {
 		local query = signal("")
 		local track = signal("track-1")
 		local tagCoastal, tagForest, tagSnow = signal(true), signal(false), signal(false)
+		-- the picker as a field, cards and a stroked strip
+		local driver = signal("d3")
+		local driverError = signal("")
+		local mode = signal("sprint")
+		local laps = signal("5")
+		local rootPath: string? = nil
+		local records: { [string]: any } = {}
+		local function keep(id: string)
+			return function(r: any)
+				records[id] = r
+			end
+		end
 		local comboValue = signal("road")
 		local comboText = signal("Road")
 		local tracks = {}
@@ -140,6 +152,62 @@ return {
 				},
 			})
 		end
+		local DRIVERS = {}
+		for i, name in { "Ada", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal", "Ivy", "Jo", "Kai", "Lu" } do
+			table.insert(DRIVERS, {
+				value = "d" .. i,
+				label = name,
+				avatar = { name = name },
+				badge = if i == 2 then 3 else nil,
+				sectionTitle = if i == 1 then "Crew" elseif i == 5 then "Rivals" else nil,
+			})
+		end
+		local function driverField()
+			return UI.Picker("Driver")({
+				label = "Driver",
+				requiredMark = "required",
+				hint = "Who takes the wheel for this race.",
+				errorText = driverError,
+				style = "menu",
+				maxHeight = 220,
+				selected = driver,
+				options = DRIVERS,
+				enabled = enabled,
+				ref = keep("Driver"),
+			})
+		end
+		local function cards()
+			return UI.Picker("Mode")({
+				label = "Race mode",
+				style = "cards",
+				axis = "x",
+				required = false,
+				selected = mode,
+				options = {
+					{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" },
+					{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" },
+					{
+						value = "night",
+						label = "Night",
+						description = "Unlocks at level 10",
+						meta = "Soon",
+						enabled = false,
+					},
+				},
+				enabled = enabled,
+			})
+		end
+		local function lapStrip()
+			return UI.Picker("Laps")({
+				style = "segmented",
+				appearance = "stroke",
+				corners = "pill",
+				controlSize = "compact",
+				selected = laps,
+				options = { { value = "3", label = "3" }, { value = "5", label = "5" }, { value = "10", label = "10" } },
+				enabled = enabled,
+			})
+		end
 		local function combo()
 			return UI.ComboBox("Vehicle")({
 				value = comboValue,
@@ -165,6 +233,10 @@ return {
 			tagSnow:set(false)
 			comboValue:set("road")
 			comboText:set("Road")
+			driver:set("d3")
+			driverError:set("")
+			mode:set("sprint")
+			laps:set("5")
 		end
 		local function heading(text)
 			return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
@@ -175,6 +247,30 @@ return {
 			asked for — so a screenshot names its own subjects. ]]
 		local function caption(id: string, text: string)
 			return UI.Text(id)({ text = text, textSize = "caption", role = "secondary", width = UI.fill() })
+		end
+
+		-- a vote over the caller's value, a read-only one, beside a chip
+		local vote = signal("none")
+		local function votes(): any
+			return UI.VStack("Votes")({
+				gap = "s",
+				UI.Vote("TrackVote")({
+					value = vote,
+					summary = function(use): string
+						return if use(vote) == "up" then "You and 98% liked this" else "98% liked this"
+					end,
+					onChange = function(next: string)
+						vote:set(next)
+					end,
+				}),
+				UI.HStack("Beside")({
+					gap = "s",
+					align = "center",
+					wrap = true,
+					UI.Vote("PastVote")({ value = "down", readOnly = true, controlSize = "compact" }),
+					UI.Chip("VoteTag")({ label = "Rally", selected = signal(false) }),
+				}),
+			})
 		end
 
 		local function body()
@@ -204,6 +300,13 @@ return {
 						club:set(not club:peek())
 					end,
 				}),
+				heading("Pick a driver and a race"),
+				caption("CapDriver", "Picker · menu field (required, hint or error, avatars, sections, maxHeight)"),
+				driverField(),
+				caption("CapMode", "Picker · cards (choose again to clear)"),
+				cards(),
+				caption("CapLaps", "Picker · segmented, stroke, pill, compact"),
+				lapStrip(),
 				heading("Search 250 tracks"),
 				caption("CapSearch", "Picker · navigationLink (searchable sheet)"),
 				search(),
@@ -213,15 +316,29 @@ return {
 				heading("Choose or name a vehicle class"),
 				caption("CapCombo", "ComboBox · suggestions with custom text"),
 				combo(),
+				heading("Rate this track"),
+				caption("CapVote", "Vote · up, down or none (press again to clear), and a read-only one"),
+				votes(),
 			})
 		end
 		local function screen()
 			return UI.Screen("SelectionControls")({
 				surface = "base",
-				padding = "m",
+				onAppear = function(path)
+					rootPath = path
+				end,
+				onDisappear = function()
+					rootPath = nil
+				end,
+				padding = { top = "m", bottom = "m" },
 				gap = "s",
 
-				UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), body() }),
+				UI.ScrollView("Content")({
+					width = UI.fill(),
+					height = UI.fill(),
+					padding = { left = "m", right = "m" },
+					body(),
+				}),
 			})
 		end
 		return {
@@ -267,6 +384,42 @@ return {
 				no_results = function()
 					query:set("unlisted")
 				end,
+				-- the error line swaps in place under the driver field
+				driverError = function(b)
+					driverError:set(if driverError:peek() == "" then "Pick a driver to continue." else "")
+					local controller = if type(b) == "table" and b.handle ~= nil then b.handle.controller else nil
+					if controller == nil or rootPath == nil then
+						return { error = driverError:peek() }
+					end
+					controller.refresh()
+					local base = rootPath .. "/Content/Body/Driver"
+					return {
+						error = driverError:peek(),
+						mark = controller.rectOf(base .. "/Message/MarkWhen/then/MessageMark") ~= nil,
+						line = controller.rectOf(base .. "/Message/Validation") ~= nil,
+					}
+				end,
+				-- the row of cards wraps rather than running off a narrow screen
+				modeWrap = function(b)
+					local controller = if type(b) == "table" and b.handle ~= nil then b.handle.controller else nil
+					if controller == nil or rootPath == nil then
+						return {}
+					end
+					controller.refresh()
+					local rows, seen, inside = 0, {}, true
+					local band = controller.rectOf(rootPath .. "/Content/Body/Mode")
+					for _, key in { "sprint", "endurance", "night" } do
+						local r = controller.rectOf(`{rootPath}/Content/Body/Mode/Options/Cards/[{key}]/Card-{key}`)
+						if r ~= nil then
+							if not seen[r.y] then
+								seen[r.y] = true
+								rows += 1
+							end
+							inside = inside and band ~= nil and r.x + r.w <= band.x + band.w + 0.5
+						end
+					end
+					return { rows = rows, inside = inside }
+				end,
 				replace_options = function()
 					choices:set({
 						{ id = "open", value = "open", label = "Public races" },
@@ -282,6 +435,8 @@ return {
 					search = dumpOf("Tracks"),
 					multiple = dumpOf("Tags"),
 					combo = dumpOf("Vehicle"),
+					driver = if records.Driver then records.Driver.dump() else nil,
+					mode = mode:peek(),
 				}
 			end,
 			-- nothing outlives the screen

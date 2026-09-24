@@ -3270,7 +3270,8 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			-- `containerRelativeSize` spends, and the two agreed only by luck while
 			-- the viewport happened to divide evenly by 3 — the gutter made it 279
 			-- and 87.67 rounds UP (director report 2026-08-30).
-			local viewport = scroll.w - fake_target.SCROLL_BAR_RESERVE
+			-- ...and less the page inset the scroller now holds inside it
+			local viewport = scroll.w - 32 - fake_target.SCROLL_BAR_RESERVE
 			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3 + 0.5)}`)
 			built.dispose()
 		end
@@ -3287,7 +3288,7 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 		local scroll = rectOf(w, SCROLL)
 		local column = rectOf(w, HUD)
 		local page = rectOf(w, HUD .. "/Page")
-		local viewport = scroll.w - fake_target.SCROLL_BAR_RESERVE
+		local viewport = scroll.w - 32 - fake_target.SCROLL_BAR_RESERVE -- less the page inset (F1b)
 		expect(`column={column.w} viewport={viewport}`).toBe(`column=587 viewport=1191`)
 		expect(`page={page.w}`).toBe(`page={math.floor((viewport - 16) / 3 + 0.5)}`)
 		-- the parent-relative reading, which this is NOT
@@ -3925,11 +3926,19 @@ describe("gallery setting rows and removable race tags", function()
 		expect(actions.report()).toBeNil()
 		handle = w.presenter.present(actions.screen)
 		expect(actions.report().tokenCount).toBe(3)
-		local remove = suffix(w, "/Token+token/Remove")
-		w.adapter.tap(remove)
+		-- tags select until Edit; then a tap removes
+		local token = suffix(w, "/Token+target/Token")
+		w.adapter.tap(token)
+		w.presenter.refresh()
+		expect(actions.report().tokenCount).toBe(3)
+		w.adapter.tap(suffix(w, "/EditTags"))
+		w.presenter.refresh()
+		expect(actions.report().editingTags).toBe(true)
+		token = suffix(w, "/Token+target/Token")
+		w.adapter.tap(token)
 		w.presenter.refresh()
 		expect(actions.report().tokenCount).toBe(2)
-		expect(w.adapter.node(remove)).toBeNil()
+		expect(w.adapter.node(token)).toBeNil()
 		actions.steps.reset()
 		w.presenter.refresh()
 		expect(actions.report().tokenCount).toBe(3)
@@ -3937,5 +3946,139 @@ describe("gallery setting rows and removable race tags", function()
 		expect(actions.report()).toBeNil()
 		expect(w.core.lastError()).toBeNil()
 		w.app.dispose()
+	end)
+end)
+
+describe("examples/gallery fixture: Writing's field sections", function()
+	local function writingWorld(): (any, any)
+		-- a short phone, so Content scrolls and reserves its bar: the page's inset now
+		-- sits inside the scroller, and the 8px scroll-gutter
+		-- containment findings this viewport used to report are gone
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 700 } })
+		local built = require("../examples/gallery/scenarios/text_controls").build(scenario_ctx.of(w))
+		w.present(built.screen, { sinkNavigation = true })
+		built.handle = w.handle
+		return w, built
+	end
+
+	it("its three new steps drive the screen and answer with what the screen has", function()
+		local w, built = writingWorld()
+		local named = built.steps.nameError(built)
+		expect(`{named.error} {named.labelAbove} {named.errorMark} {named.trailing}`).toBe(
+			"That name is taken. true true true"
+		)
+		local cleared = built.steps.nameError(built)
+		-- the field held its place while the line under it changed
+		expect(`{cleared.errorMark} {cleared.plateY == named.plateY}`).toBe("false true")
+		local lines = built.steps.briefLines(built)
+		expect(`{lines.before ~= nil} {lines.before == lines.after}`).toBe("true true")
+		local fee = built.steps.stepFee(built)
+		expect(`{fee.value} {fee.draft} {fee.committed} {fee.unitOutside} {fee.buttons}`).toBe(
+			"8 8.00 8 (submit) true true"
+		)
+		local report = built.report()
+		expect(`{report.joinCode.readOnly} {report.briefing.visibleLines} {report.fee.prefix}`).toBe("true 3 $")
+		expect(w.core.lastError()).toBeNil()
+		w.close()
+		expect(w.adapter.liveCount()).toBe(0)
+	end)
+
+	it("the pit-lane field selects on focus and scrubs by its step", function()
+		local w, built = writingWorld()
+		local field = w.adapter.node("/TextControls/Content/Body/Speed/Input/Row/Field")
+		expect(field.props.selectOnFocus).toBe("all")
+		local scrub = field.textHandlers.onScrub
+		expect(`{scrub("press", "pointer")} {scrub("begin")}`).toBe("true true")
+		scrub("move", 24) -- three steps of 5
+		scrub("end")
+		w.settle()
+		expect(`{built.report().speed.numericValue} {built.report().speed.value}`).toBe("135 135")
+		expect(w.core.lastError()).toBeNil()
+		w.close()
+	end)
+
+	it("the numeric-error state still produces a visible rejection", function()
+		local w, built = writingWorld()
+		local states = built.states()
+		expect(states[1].open()).toBe(true)
+		w.settle()
+		expect(built.report().number.validationError ~= "").toBe(true)
+		w.close()
+	end)
+end)
+
+describe("examples/gallery fixture: the Slider shapes in Basics", function()
+	local function shapesWorld(view: any): (any, any)
+		local w = require("./lib/world").new({
+			viewport = view,
+		})
+		local built = require("../examples/gallery/scenarios/adaptive_controls").build(scenario_ctx.of(w))
+		w.present(built.screen)
+		built.handle = w.handle
+		return w, built
+	end
+	local ROOT = "/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes"
+
+	for _, view in { { x = 0, y = 0, w = 390, h = 844 }, { x = 0, y = 0, w = 1920, h = 1080 } } do
+		it(
+			`the steps answer with the screen, and every turned extent stays in its stage ({view.w}x{view.h})`,
+			function()
+				local w, built = shapesWorld(view)
+				local band = built.steps.sliderBand(built)
+				expect(`{band.band} {band.ordered} {band.fillBetween}`).toBe("2-18 true true")
+				local axis = built.steps.sliderAxis(built)
+				expect(`{axis.rear} {axis.climb} {axis.trackTall}`).toBe("90 90 true")
+				local stage = w.controller.rectOf(ROOT .. "/TiltStage")
+				for _ = 1, 8 do
+					local tilt = built.steps.sliderTilt(built)
+					local track = w.controller.rectOf(ROOT .. "/TiltStage/Tilt/TrackHost")
+					-- the painted extent of a w x h box turned about its centre
+					local a = math.rad(tilt.degrees)
+					local ew = math.abs(track.w * math.cos(a)) + math.abs(track.h * math.sin(a))
+					local eh = math.abs(track.w * math.sin(a)) + math.abs(track.h * math.cos(a))
+					local cx, cy = track.x + track.w / 2, track.y + track.h / 2
+					local inside = cx - ew / 2 >= stage.x - 0.5
+						and cx + ew / 2 <= stage.x + stage.w + 0.5
+						and cy - eh / 2 >= stage.y - 0.5
+						and cy + eh / 2 <= stage.y + stage.h + 0.5
+					expect(`{tilt.degrees}: {inside}`).toBe(`{tilt.degrees}: true`)
+				end
+				-- Steer's knob is a real plate at least the thumb size, its mark inside it
+				local plate = w.controller.rectOf(ROOT .. "/Steer/TrackHost/Groove/Thumb/Knob/Plate")
+				local mark = w.controller.rectOf(ROOT .. "/Steer/TrackHost/Groove/Thumb/Knob/Mark")
+				expect(plate.w >= 20 and plate.h >= 20).toBe(true)
+				expect(mark.x >= plate.x and mark.x + mark.w <= plate.x + plate.w).toBe(true)
+				-- Rear's label and readout centre on its track
+				local rear = ROOT .. "/BalanceRow/BalanceStage/Balance"
+				local track = w.controller.rectOf(rear .. "/TrackHost")
+				for _, part in { "Label", "Value" } do
+					local r = w.controller.rectOf(rear .. "/" .. part)
+					expect(`{part}: {math.abs((r.x + r.w / 2) - (track.x + track.w / 2)) <= 1}`).toBe(`{part}: true`)
+				end
+				expect(built.report().sliderShapes.band.range).toBe(true)
+				expect(w.core.lastError()).toBeNil()
+				w.close()
+			end
+		)
+	end
+end)
+
+describe("examples/gallery fixture: Choices' picker fields and cards", function()
+	it("the driver error and the wrapping cards answer with the screen", function()
+		local w = require("./lib/world").new({
+			viewport = { x = 0, y = 0, w = 390, h = 3000 },
+		})
+		local built = require("../examples/gallery/scenarios/selection_controls").build(scenario_ctx.of(w))
+		w.present(built.screen)
+		built.handle = w.handle
+		local failed = built.steps.driverError(built)
+		expect(`{failed.error} {failed.mark} {failed.line}`).toBe("Pick a driver to continue. true true")
+		local cleared = built.steps.driverError(built)
+		expect(`{cleared.mark} {cleared.line}`).toBe("false true")
+		local wrap = built.steps.modeWrap(built)
+		expect(`{wrap.rows > 1} {wrap.inside}`).toBe("true true")
+		expect(built.report().driver.style).toBe("menu")
+		expect(w.core.lastError()).toBeNil()
+		w.close()
 	end)
 end)

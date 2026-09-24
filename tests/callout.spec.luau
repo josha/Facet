@@ -122,6 +122,10 @@ local function build(w: any, spec: any): any
 	for key, value in spec do
 		merged[key] = value
 	end
+	-- `content = false` asks for no content at all (a rich-part-only callout)
+	if merged.content == false then
+		merged.content = nil
+	end
 	return calloutLib.build(Facet, w.core, merged)
 end
 
@@ -751,5 +755,429 @@ describe("D3b Callout: the dump, and the teardown", function()
 		expect(string.find(api, "Don't use tips to guide people through your app, or for advertising", 1, true) ~= nil).toBe(
 			true
 		)
+	end)
+end)
+
+describe("Callout: bound facts are read as tracked values", function()
+	it("a function isPresented is evaluated and followed, not treated as a request", function()
+		local w = world()
+		local wanted = Compose.cell(false)
+		local control = build(w, {
+			id = "Callout",
+			isPresented = function(use: any)
+				return use(wanted)
+			end,
+		})
+		w.pres.present(screenWith(control), { initialFocus = "none" })
+		w.pres.refresh()
+		expect(control.api.state()).toBe("waiting")
+		expect(w.adapter.node(PLATE)).toBeNil()
+		wanted:set(true)
+		w.pres.refresh()
+		expect(control.api.state()).toBe("showing")
+		wanted:set(false)
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+	end)
+
+	it("a function seen / featureUsed rules the callout out, and a later true retires it once", function()
+		local w = world()
+		local seen = Compose.cell(true)
+		local ruledOut = build(w, {
+			id = "Callout",
+			seen = function(use: any)
+				return use(seen)
+			end,
+		})
+		expect(ruledOut.api.eligible()).toBe(false)
+		expect(ruledOut.api.state()).toBe("retired")
+		local used = Compose.cell(false)
+		local reports: { string } = {}
+		local w2 = world()
+		local live = build(w2, {
+			id = "Callout",
+			featureUsed = function(use: any)
+				return use(used)
+			end,
+			onRetire = function(reason: string)
+				table.insert(reports, reason)
+			end,
+		})
+		w2.pres.present(screenWith(live), { initialFocus = "none" })
+		w2.pres.refresh()
+		expect(live.api.state()).toBe("showing")
+		used:set(true)
+		w2.pres.refresh()
+		expect(live.api.state()).toBe("retired")
+		expect(table.concat(reports, ",")).toBe("featureUsed")
+		expect(w2.adapter.node(PLATE)).toBeNil()
+	end)
+end)
+
+describe("Callout: callbacks during a synchronous show never strand or double-close a plate", function()
+	-- present once the source is already mounted, so the queue shows synchronously
+	local function armed(onShow: (control: any) -> ()): (any, any, { string })
+		local w = world()
+		local wanted = Compose.cell(false)
+		local reports: { string } = {}
+		local control: any
+		control = build(w, {
+			id = "Callout",
+			isPresented = wanted,
+			onShow = function()
+				onShow(control)
+			end,
+			onRetire = function(reason: string)
+				table.insert(reports, reason)
+			end,
+		})
+		w.pres.present(screenWith(control), { initialFocus = "none" })
+		w.pres.refresh()
+		wanted:set(true)
+		w.pres.refresh()
+		return w, control, reports
+	end
+
+	it("dismiss inside onShow retires once and takes the plate down", function()
+		local w, control, reports = armed(function(c)
+			c.api.dismiss()
+		end)
+		expect(control.api.state()).toBe("retired")
+		expect(table.concat(reports, ",")).toBe("dismissed")
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+	end)
+
+	it("dispose inside onShow releases the queue slot", function()
+		local w, _, _ = armed(function(c)
+			c.dispose()
+		end)
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+	end)
+
+	it(
+		"rearm inside onShow (even when it then throws) leaves no stranded plate, and a later show is its own",
+		function()
+			local count = 0
+			local w, control, reports = armed(function(c)
+				count += 1
+				if count == 1 then
+					c.api.rearm()
+					error("caller bug after rearm")
+				end
+			end)
+			expect(w.adapter.node(PLATE) == nil or control.api.state() == "showing").toBe(true)
+			-- the next geometry pass presents a NEW generation, and only one plate exists
+			w.pres.refresh()
+			expect(control.api.state()).toBe("showing")
+			expect(w.pres.callouts().showing).toBe("Callout")
+			control.api.dismiss()
+			w.pres.refresh()
+			expect(w.adapter.node(PLATE)).toBeNil()
+			expect(table.concat(reports, ",")).toBe("dismissed")
+		end
+	)
+
+	it("an ordinary throw in onShow still shows the plate and keeps the slot accounting", function()
+		local w, control, _ = armed(function()
+			error("caller bug")
+		end)
+		expect(control.api.state()).toBe("showing")
+		control.api.dismiss()
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+	end)
+end)
+
+describe("Callout: two hosts and a recycled source keep their own resources", function()
+	it("disposing one app's callout never touches another app's", function()
+		local a, b = world(), world()
+		local ca, cb = build(a, { id = "Callout" }), build(b, { id = "Callout" })
+		a.pres.present(screenWith(ca), { initialFocus = "none" })
+		b.pres.present(screenWith(cb), { initialFocus = "none" })
+		a.pres.refresh()
+		b.pres.refresh()
+		expect(a.adapter.node(PLATE) ~= nil and b.adapter.node(PLATE) ~= nil).toBe(true)
+		ca.dispose()
+		a.pres.refresh()
+		b.pres.refresh()
+		expect(a.adapter.node(PLATE)).toBeNil()
+		expect(b.pres.callouts().showing).toBe("Callout")
+		expect(b.adapter.node(PLATE) ~= nil).toBe(true)
+	end)
+
+	it("a callout rebuilt at the same path by a branch cycle is a new control with one plate", function()
+		local w = world()
+		local show = Compose.cell(true)
+		local built = 0
+		w.pres.present(
+			UI.Screen({
+				id = "Editor",
+				children = {
+					UI.When({
+						id = "Gate",
+						condition = show,
+						thenView = function()
+							built += 1
+							return calloutLib.build(Facet, w.core, {
+								id = "Callout",
+								anchor = UI.Button({ id = "Plus", label = "+" }),
+								content = plateContent(),
+								onRetire = function() end,
+							}).blueprint
+						end,
+					}),
+				},
+			}),
+			{ initialFocus = "none" }
+		)
+		w.pres.refresh()
+		expect(w.pres.callouts().showing).toBe("Callout")
+		show:set(false)
+		w.pres.refresh()
+		expect(w.adapter.node(PLATE)).toBeNil()
+		expect(w.pres.callouts().showing).toBeNil()
+		show:set(true)
+		w.pres.refresh()
+		expect(built).toBe(2)
+		expect(w.pres.callouts().showing).toBe("Callout")
+		expect(w.pres.callouts().queued).toBe(0)
+	end)
+end)
+
+describe("Callout: rich parts — title, media, steps, actions and a close button", function()
+	local HEADER = `{PLATE}/Header`
+	local ACTIONS = `{PLATE}/Actions`
+
+	local function shown(spec: any): (any, any)
+		local w = world()
+		local control = build(w, spec)
+		w.pres.present(screenWith(control), { initialFocus = "none" })
+		w.pres.refresh()
+		return w, control
+	end
+
+	local function buttonsUnder(w: any, prefix: string): { string }
+		local out: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.sub(path, 1, #prefix) == prefix and w.adapter.node(path).class == "Button" then
+				table.insert(out, string.sub(path, #prefix + 2))
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	it("the full composition paints every part, and one or two actions replace the bottom dismiss", function()
+		local pressed: { string } = {}
+		local w, control = shown({
+			id = "Callout",
+			title = "Try the editor",
+			media = { image = "rbxassetid://1", aspectRatio = 2 },
+			steps = { index = 2, count = 3 },
+			closeButton = true,
+			actions = {
+				{
+					id = "Later",
+					label = "Later",
+					onActivate = function()
+						table.insert(pressed, "Later")
+					end,
+				},
+				{
+					id = "Go",
+					label = "Show me",
+					role = "default",
+					onActivate = function()
+						table.insert(pressed, "Go")
+					end,
+				},
+			},
+		})
+		expect(control.api.state()).toBe("showing")
+		expect(w.adapter.node(`{HEADER}/Title`).props.text).toBe("Try the editor")
+		local media = w.adapter.node(`{PLATE}/Media`).rect
+		expect(media.w > 0 and math.abs(media.w / media.h - 2) < 0.01).toBe(true)
+		expect(w.adapter.node(`{PLATE}/Steps`).props.text).toBe("2 of 3")
+		expect(w.adapter.node(BODY).props.text).toBe(TIP)
+		expect(table.concat(buttonsUnder(w, PLATE), ",")).toBe("Actions/Go,Actions/Later,Header/Close")
+		expect(w.adapter.node(DISMISS)).toBeNil()
+		w.adapter.tap(`{ACTIONS}/Go`)
+		w.pres.refresh()
+		expect(table.concat(pressed, ",")).toBe("Go")
+		expect(control.api.state()).toBe("retired")
+		expect(w.adapter.node(PLATE)).toBeNil()
+	end)
+
+	it("an action retires its own generation once, and never a newer one it presented", function()
+		local reports: { string } = {}
+		local control: any
+		local w = world()
+		control = build(w, {
+			id = "Callout",
+			actions = {
+				{
+					id = "Again",
+					label = "Again",
+					onActivate = function()
+						control.api.rearm()
+						control.api.present()
+						error("caller bug after rearm")
+					end,
+				},
+			},
+			onRetire = function(reason: string)
+				table.insert(reports, reason)
+			end,
+		})
+		w.pres.present(screenWith(control), { initialFocus = "none" })
+		w.pres.refresh()
+		expect((pcall(w.adapter.tap, `{ACTIONS}/Again`))).toBe(false) -- raised, not swallowed
+		w.pres.refresh()
+		expect(control.api.state()).toBe("showing")
+		expect(#reports).toBe(0)
+		expect(w.pres.callouts().showing).toBe("Callout")
+	end)
+
+	it("a throwing action still retires the presentation it belonged to, exactly once", function()
+		local reports: { string } = {}
+		local w, control = shown({
+			id = "Callout",
+			actions = {
+				{
+					id = "Boom",
+					label = "Boom",
+					onActivate = function()
+						error("caller bug")
+					end,
+				},
+			},
+			onRetire = function(reason: string)
+				table.insert(reports, reason)
+			end,
+		})
+		w.system.deviceKey("Down", true)
+		w.system.deviceKey("Down", false)
+		expect(w.pres.focus.focusOn(`{ACTIONS}/Boom`)).toBe(true)
+		expect((pcall(w.system.deviceKey, "Return", true))).toBe(false) -- raised, not swallowed
+		w.system.deviceKey("Return", false)
+		w.pres.refresh()
+		expect(control.api.state()).toBe("retired")
+		expect(table.concat(reports, ",")).toBe("action")
+	end)
+
+	it("a disabled action cannot fire", function()
+		local fired = false
+		local w, control = shown({
+			id = "Callout",
+			actions = {
+				{
+					id = "Nope",
+					label = "Nope",
+					enabled = false,
+					onActivate = function()
+						fired = true
+					end,
+				},
+			},
+		})
+		w.adapter.tap(`{ACTIONS}/Nope`)
+		w.pres.refresh()
+		expect(fired).toBe(false)
+		expect(control.api.state()).toBe("showing")
+	end)
+
+	it("closeButton adds a top close and keeps the legacy bottom dismiss when there are no actions", function()
+		local w, control = shown({ id = "Callout", closeButton = true })
+		expect(table.concat(buttonsUnder(w, PLATE), ",")).toBe("Dismiss,Header/Close")
+		local close = w.adapter.node(`{HEADER}/Close`).rect
+		expect(close.w >= 44 and close.h >= 44).toBe(true)
+		w.adapter.tap(`{HEADER}/Close`)
+		w.pres.refresh()
+		expect(control.api.state()).toBe("retired")
+	end)
+
+	it("the legacy content-only plate is unchanged: content then the dismiss button, nothing else", function()
+		local w = shown({ id = "Callout" })
+		expect(table.concat(buttonsUnder(w, PLATE), ",")).toBe("Dismiss")
+		expect(w.adapter.node(HEADER)).toBeNil()
+		expect(w.adapter.node(`{PLATE}/Media`)).toBeNil()
+		local children = w.adapter.node(PLATE).children or {}
+		expect(#children == 0 or #children == 2).toBe(true)
+	end)
+
+	it("title-only, media-only, steps-only and actions-only compositions need no content", function()
+		for _, spec in
+			{
+				{ title = "Title only" },
+				{ media = { image = "rbxassetid://1", height = 80 } },
+				{ steps = { index = 1, count = 2 } },
+				{ actions = { { id = "Ok", label = "Ok", onActivate = function() end } } },
+			}
+		do
+			spec.id = "Callout"
+			spec.content = false
+			local w, control = shown(spec)
+			expect(control.api.state()).toBe("showing")
+			expect(w.adapter.node(PLATE) ~= nil).toBe(true)
+		end
+	end)
+
+	it("an empty composition and malformed parts are refused by name", function()
+		local w = world()
+		for _, bad in
+			{
+				{ content = false },
+				{ content = false, closeButton = true },
+				{ media = { image = "x", aspectRatio = 1, height = 20 } },
+				{ media = { image = "x" } },
+				{ media = { image = "x", aspectRatio = -1 } },
+				{ media = { image = "x", height = 10, scaleMode = "tile" } },
+				{ media = { image = "x", height = 10, extra = 1 } },
+				{ steps = { index = 0, count = 2 } },
+				{ steps = { index = 3, count = 2 } },
+				{ steps = { index = 1.5, count = 2 } },
+				{
+					actions = {
+						{ id = "A", label = "A", onActivate = print },
+						{ id = "B", label = "B", onActivate = print },
+						{ id = "C", label = "C", onActivate = print },
+					},
+				},
+				{
+					actions = {
+						{ id = "A", label = "A", onActivate = print },
+						{ id = "A", label = "B", onActivate = print },
+					},
+				},
+				{ actions = { { id = "A", label = "A" } } },
+				{ actions = { { id = "A", label = "A", onActivate = print, role = "primary" } } },
+				{ closeButton = "yes" },
+				{ title = 4 },
+			}
+		do
+			local spec: any = { id = "Callout" }
+			for key, value in bad :: any do
+				spec[key] = if value == false then nil else value
+			end
+			if (bad :: any).content == false then
+				spec.content = nil
+			end
+			local ok = pcall(build, w, spec)
+			if (bad :: any).content == false then
+				-- `build` merges a default content; remove it for the empty cases
+				local merged: any =
+					{ id = "Callout", anchor = UI.Button({ id = "Plus", label = "+" }), onRetire = print }
+				for key, value in spec do
+					merged[key] = value
+				end
+				merged.content = nil
+				ok = pcall(calloutLib.build, Facet, w.core, merged)
+			end
+			expect(ok).toBe(false)
+		end
 	end)
 end)

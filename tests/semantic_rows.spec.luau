@@ -48,6 +48,66 @@ t.describe("semantic control rows", function()
 		w.pres.dismiss(w.handle)
 		toggle.dispose()
 	end)
+	-- Owner report 2026-09-22 (bugs/align.png): the Slider row inset its icon by
+	-- `space.m` while Button and Toggle rows took the button padding.
+	for _, theme in { "neutral", "pixel_quest" } do
+		t.it("stacks Button, Toggle and Slider rows on one icon and label column in " .. theme, function()
+			local snapshot = require("../src/themes/snapshot")
+			local metrics = if theme == "neutral"
+				then nil
+				else snapshot.resolve(require("../examples/themes/" .. theme).build(Facet.themes), nil, {})
+			local w = world.new({ viewport = { x = 0, y = 0, w = 900, h = 700 }, themeMetrics = metrics })
+			local rows = {
+				harness.Controls.Button(w.core, {
+					id = "Action",
+					label = "Manage equipment",
+					row = { description = "Choose a driver", icon = "settings" },
+				}),
+				harness.Controls.Toggle(w.core, {
+					id = "Toggle",
+					label = "Driving assistance",
+					row = { description = "Keep the car stable", icon = "settings" },
+					value = Compose.cell(true),
+				}),
+				harness.Controls.Slider(w.core, {
+					id = "Volume",
+					label = "Music volume",
+					row = { description = "Balance music", icon = "settings" },
+					value = Compose.cell(50),
+					min = 0,
+					max = 100,
+				}),
+			}
+			local blueprints = {}
+			for _, row in rows do
+				table.insert(blueprints, row.blueprint)
+			end
+			w.present(UI.Screen({
+				id = "S",
+				children = { UI.VStack({ id = "Rows", width = UI.fill(), gap = "m", children = blueprints }) },
+			}))
+			local columns = {}
+			for _, id in { "Action", "Toggle", "Volume" } do
+				local icon, label
+				for _, path in w.adapter.paths() do
+					if string.sub(path, 1, #id + 9) == `/S/Rows/{id}/` then
+						if string.sub(path, -5) == "/Icon" then
+							icon = w.controller.rectOf(path).x
+						elseif string.sub(path, -6) == "/Label" and w.adapter.node(path).class == "Text" then
+							label = w.controller.rectOf(path).x
+						end
+					end
+				end
+				table.insert(columns, `{id} icon={icon} label={label}`)
+			end
+			local first = string.match(columns[1], "icon=.*$")
+			t.expect(table.concat(columns, "; ")).toBe(`Action {first}; Toggle {first}; Volume {first}`)
+			w.pres.dismiss(w.handle)
+			for _, row in rows do
+				row.dispose()
+			end
+		end)
+	end
 	for _, input in { "Gamepad", "Keyboard", "Touch", "MouseKeyboard" } do
 		t.it("keeps one semantic target and readable content for " .. input, function()
 			local w = world.new({ preferredInput = input, viewport = { x = 0, y = 0, w = 390, h = 844 } })
@@ -57,7 +117,11 @@ t.describe("semantic control rows", function()
 			local action = harness.Controls.Button(w.core, {
 				id = "Action",
 				label = "Manage equipment",
-				row = { description = "Choose equipment for the next expedition", icon = "search", value = "12 items" },
+				row = {
+					description = "Choose equipment for the next expedition",
+					icon = "facet:search",
+					value = "12 items",
+				},
 				onActivate = function()
 					hits += 1
 				end,
@@ -65,13 +129,13 @@ t.describe("semantic control rows", function()
 			local toggle = harness.Controls.Toggle(w.core, {
 				id = "Toggle",
 				label = "Camera assistance",
-				row = { description = "Keep the route in view", icon = "search" },
+				row = { description = "Keep the route in view", icon = "facet:search" },
 				value = value,
 			})
 			local slider = harness.Controls.Slider(w.core, {
 				id = "Volume",
 				label = "Music volume",
-				row = { description = "Adjust music while playing", icon = "search" },
+				row = { description = "Adjust music while playing", icon = "facet:search" },
 				value = volume,
 				min = 0,
 				max = 100,

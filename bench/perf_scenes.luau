@@ -62,6 +62,7 @@ local navigationInventory = require("../examples/performance/lab/navigation_inve
 local transientSurfaces = require("../examples/performance/lab/transient_surfaces")
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
+local scopes = require("../src/core/profile")
 
 local Compose = Facet.Compose
 
@@ -1375,7 +1376,10 @@ table.insert(scenes, {
 		state.contentUp = state.adapter.node(DISCLOSURE_BODY) ~= nil
 		state.flipsSeen, state.shakesSeen = 0, 0
 		state.motionSteps, state.motionDrains = 0, 0
-		Compose.setWorkCounters(true)
+		-- the flushes are counted off the settle pass's `react` phase: one per
+		-- transaction, however many reactors and settle callbacks it opened
+		scopes.setEnabled(true)
+		scopes.setHooks(noop, noop)
 		return state
 	end,
 	run = function(state)
@@ -1404,14 +1408,15 @@ table.insert(scenes, {
 		-- ONE clock step: every active control motion advances inside one core
 		-- transaction, which is what `motionSteps == motionTransactions` asserts
 		local t1 = os.clock()
-		Compose.resetWorkCounters()
+		local stepsBefore = state.pres.motionClock:stats().steps
+		scopes.resetCounters()
 		state.tick(1 / 60)
-		local work = Compose.readWorkCounters()
-		if work.cellWrites > 0 then
-			state.motionSteps += 1
-			state.motionDrains += work.drains
-		end
+		local flushes = scopes.counters().byScope.react or 0
 		local motion = os.clock() - t1
+		if state.pres.motionClock:stats().steps > stepsBefore then
+			state.motionSteps += 1
+		end
+		state.motionDrains += flushes
 		local t2 = os.clock()
 		state.pres.refresh()
 		return { mutate = mutate, motion = motion, commit = os.clock() - t2 }
@@ -1497,7 +1502,8 @@ table.insert(scenes, {
 		}
 	end,
 	teardown = function(state)
-		Compose.setWorkCounters(false)
+		scopes.setHooks(nil, nil)
+		scopes.setEnabled(false)
 		state.app.dispose()
 	end,
 })
@@ -1824,18 +1830,7 @@ local function transientScene(spec: { name: string, requirement: string, dataset
 		warmup = 30,
 		setup = function(profile)
 			local state = newStack(profile)
-			-- KNOWN GAP (see port report): `transientSurfaces.build` and
-			-- `fixture.present` build with `ctx.UI`/`ctx.presenter.present(blueprint)`
-			-- directly, which needs an ambient Compose owner AND (per
-			-- port-reports/chrome.md) a presenter root that came from
-			-- `runtime.mount` — neither of which a bare `newStack` provides. The
-			-- headless lab test harness tolerates this (`harness.newPresenter`
-			-- wraps every `present` in its own mount), so `tests/perf_lab.spec.luau`
-			-- is green; the real `app.presenter` used here is not. Fixing this
-			-- scene means moving `transient_surfaces.luau`'s own `present`/`open`
-			-- calls onto `ctx.app.mount`, which is a change to a file this task
-			-- does not own alone (the lab Studio surface uses the same file) —
-			-- flagged rather than changed under this scene.
+			-- the fixture mounts its base screen through `ctx.app` (labContext)
 			state.fixture = transientSurfaces.build(labContext(state), spec.kind)
 			state.fixture.present(state.pres)
 			return state

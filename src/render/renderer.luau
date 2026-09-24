@@ -935,7 +935,7 @@ function renderer.attach(
 				writer of that field would overwrite a memoised `false` with `nil` and let
 				the answer change under a node the adapter had already registered. ]]
 			local createOpts: any = instance_boundary.createOptsFor(node, opts)
-			local hint = chrome_slots.readHint(node)
+			local hint = chrome_slots.withPlateBeneath(node, chrome_slots.readHint(node))
 			-- A STAGE IS NEVER A DECORATION SURFACE (reference-app matrix,
 			-- 2026-08-08). An ornate package's whole-art recipe painted its
 			-- `control` plate OVER a Stage's ViewportFrame — the 3D scene, which
@@ -1319,11 +1319,9 @@ function renderer.attach(
 					end,
 				})
 			end
-			-- text-entry seam (§17 Phase 5, TextField): the control supplies
-			-- onTextChanged/onFocusGained/onFocusLost as node props (functions,
-			-- not engine writes); the adapter wires them to the TextBox and
-			-- reports edits/focus back through them. Optional adapter method —
-			-- absent adapters degrade to a read-only field (§13 seam).
+			-- text-entry seam (§17 Phase 5, TextField): the control's handler
+			-- props (functions, not engine writes) wired by the adapter to the
+			-- TextBox. Optional; absent adapters degrade to a read-only field.
 			if
 				adapter.setTextInputHandlers ~= nil
 				and node.class == "TextField"
@@ -1345,6 +1343,7 @@ function renderer.attach(
 						end
 						else nil,
 					onFocusLost = node.props.onFocusLost,
+					onScrub = node.props.onScrub,
 					onCaretRect = if node.props.multiline == true
 						then function(rect)
 							controller.scrollToVisible(nodePath, rect)

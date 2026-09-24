@@ -8,9 +8,14 @@ local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local selection = require("../selection_model")
 local vocabulary = require("./control_vocabulary")
+local themePackage = require("../themes/package")
 
 local controlContract = require("../class_contract")
+local rowKeys = require("./row_actions")
 local chip = {}
+
+-- the live paths of removable tags, which removal hands the ring between
+local REMOVABLE: { [string]: boolean } = {}
 
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
@@ -21,6 +26,7 @@ local CHIP_KEYS = specGuard.keySet({
 	"label",
 	"onToggle",
 	"onRemove",
+	"editing",
 	"removeLabel",
 	"removeFocusFallback",
 	"selected",
@@ -87,36 +93,54 @@ function chip.build(Facet: any, core: any, spec: any)
 		end
 	end
 
-	local REMOVE_ID = "Remove"
+	--[[ REMOVAL IS EDIT MODE. A tag selects; while the
+		caller's `editing` holds true it shows a trailing close mark INSIDE its one
+		plate, and activating it anywhere — or Delete/Backspace while it holds the
+		ring — removes it. The mark is not a second stop or target. A remove-only
+		token (no `selected`) is always editing. After a removal the ring goes to
+		the next removable tag, then the previous one, then the caller's fallback. ]]
+	local editingSource = spec.editing
+	assert(editingSource == nil or removable, "UI.Chip.editing requires onRemove")
+	if removable and selected ~= nil and editingSource == nil then
+		error(
+			`Facet UI.Chip('{id}'): a selectable chip with \`onRemove\` removes in edit mode; `
+				.. `supply \`editing\` (a readable boolean the caller owns)`,
+			0
+		)
+	end
+	local function editingNow(use: any?): boolean
+		return removable and (editingSource == nil or read(editingSource, use) == true)
+	end
+	local removeLabel = spec.removeLabel or `Remove {label}`
+	local owner = Compose.currentOwner()
+	local chipPath = Compose.cell(nil :: string?)
 	local focusGraph: any = nil
-	local removePath: string? = nil
+	local actionSystem: any = nil
+	local keys: any = nil
 	local pendingFocus: any = nil
 	local function releaseFocus()
 		local target = pendingFocus
 		pendingFocus = nil
+		local path = chipPath:peek()
+		REMOVABLE[path or ""] = nil
 		-- A caller may retain a rejected/delayed request. Disposal must not
 		-- reclaim focus after the player has moved to another command.
-		if target ~= nil and focusGraph ~= nil and focusGraph.focused:peek() == removePath then
-			if removePath ~= nil then
-				focusGraph.remove(removePath)
-			end
+		if target ~= nil and focusGraph ~= nil and path ~= nil and focusGraph.focused:peek() == path then
+			focusGraph.remove(path)
 			focusGraph.focusOn(target)
 		end
 	end
 
 	local function nextRemoveStop(): string?
-		if focusGraph == nil or removePath == nil then
-			return nil
-		end
-		local map = focusGraph.focusMap()
+		local path = chipPath:peek()
+		local map = if focusGraph ~= nil then focusGraph.focusMap() else nil
 		local traversal = if type(map) == "table" then map.traversal else nil
-		if type(traversal) ~= "table" then
+		if path == nil or type(traversal) ~= "table" then
 			return nil
 		end
-		local suffix = "/" .. REMOVE_ID
 		local mine: number? = nil
 		for index, entry in traversal do
-			if entry.path == removePath or entry.id == removePath then
+			if (entry.path or entry.id) == path then
 				mine = index
 				break
 			end
@@ -124,22 +148,19 @@ function chip.build(Facet: any, core: any, spec: any)
 		if mine == nil then
 			return nil
 		end
-		local function pathAt(index: number): string?
+		local function removableAt(index: number): string?
 			local entry = traversal[index]
-			local path = if entry == nil then nil else (entry.path or entry.id)
-			if type(path) == "string" and path ~= removePath and string.sub(path, -#suffix) == suffix then
-				return path
-			end
-			return nil
+			local found = if entry == nil then nil else (entry.path or entry.id)
+			return if type(found) == "string" and found ~= path and REMOVABLE[found] then found else nil
 		end
 		for index = mine + 1, #traversal do
-			local found = pathAt(index)
+			local found = removableAt(index)
 			if found ~= nil then
 				return found
 			end
 		end
 		for index = mine - 1, 1, -1 do
-			local found = pathAt(index)
+			local found = removableAt(index)
 			if found ~= nil then
 				return found
 			end
@@ -148,12 +169,43 @@ function chip.build(Facet: any, core: any, spec: any)
 	end
 
 	local function remove()
-		if disposed or not controlContract.enabledNow(spec.enabled) or not removable then
+		if disposed or not controlContract.enabledNow(spec.enabled) or not editingNow() then
 			return
 		end
-
 		pendingFocus = nextRemoveStop() or selection.read(spec.removeFocusFallback);
 		(spec.onRemove :: any)()
+	end
+
+	-- Delete/Backspace — the row engine's own keys — only while THIS tag is
+	-- editing and holds the ring, so nothing else on the screen loses them
+	local watching = false
+	local function watchKeys()
+		if watching or owner == nil or focusGraph == nil or actionSystem == nil or not removable then
+			return
+		end
+		watching = true
+		owner.watch(function(use)
+			local path = use(chipPath)
+			local on = path ~= nil and use(focusGraph.focused) == path and editingNow(use)
+			if on and keys == nil then
+				keys = actionSystem.createContext({
+					name = `ChipKeys-{id}`,
+					priority = rowKeys.ROW_KEY_PRIORITY,
+					sink = true,
+				})
+				local delete = keys.createAction("ChipRemove", "Bool")
+				for _, binding in rowKeys.ROW_KEYS.delete do
+					delete.bind(binding)
+				end
+				delete.onPressed(remove)
+				owner.own(function()
+					keys.destroy()
+				end)
+			end
+			if keys ~= nil then
+				keys.setEnabled(on)
+			end
+		end)
 	end
 
 	-- the pill: a focusable Button (44px hit floor, hover layer, focus ring all
@@ -164,7 +216,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		has always been (the leaf draws the label itself, and a wrapper would change
 		both the mounted paths and the measured box for every chip that shipped). ]]
 	local chromeSlots = require("../tokens/chrome_slots")
-	local accessories = spec.leading ~= nil or spec.trailing ~= nil
+	local accessories = spec.leading ~= nil or spec.trailing ~= nil or removable
 	local children: { any }? = nil
 	if accessories then
 		local row = {}
@@ -181,75 +233,77 @@ function chip.build(Facet: any, core: any, spec: any)
 		if spec.trailing ~= nil then
 			table.insert(row, spec.trailing)
 		end
+		if removable then
+			-- the close mark, inside this one plate and never its own target
+			table.insert(
+				row,
+				UI.When({
+					id = "RemoveWhen",
+					condition = Compose.formula(function(use)
+						return editingNow(use)
+					end),
+					thenView = function()
+						return chromeSlots.attachHint(
+							UI.Text({ id = "Remove", text = themePackage.iconGlyph("close"), textSize = "control" }),
+							{ icon = "close", iconSize = "small" }
+						)
+					end,
+				})
+			)
+		end
 		children = { UI.HStack({ id = "Content", gap = "s", align = "center", children = row }) }
 	end
+	local appearance = vocabulary.deriveAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET)
+	-- honour the Button contract's minHitSize as a real layout floor (a chip
+	-- is a touch target first) — the touch structural idiom. The FLOOR is a
+	-- theme metric, so a theme with roomier targets grows the chip with it.
+	local plateHeight = sizedHeight or { type = "minMax", min = "targetSizes.minimum" }
+	local radius = vocabulary.cornerRadiusFor(spec.corners or "pill")
 	local blueprint = UI.corners(
 		UI.Button({
 			id = id,
-			label = label,
+			label = if editingSource ~= nil
+				then Compose.formula(function(use)
+					return if editingNow(use) then removeLabel else label
+				end)
+				elseif removable and selected == nil then removeLabel
+				else label,
 			selected = selected,
-			focusable = if removable and selected == nil then false else nil,
 			enabled = spec.enabled,
 			children = children,
 			animation = spec.animation,
 			controlSize = spec.controlSize,
-			appearance = vocabulary.deriveAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET),
+			appearance = appearance,
 			padding = sizedPadding,
-			-- honour the Button contract's minHitSize as a real layout floor (a chip
-			-- is a touch target first) — the touch structural idiom. The FLOOR is a
-			-- theme metric, so a theme with roomier targets grows the chip with it.
-			height = sizedHeight or { type = "minMax", min = "targetSizes.minimum" },
+			height = plateHeight,
 		}),
-		vocabulary.cornerRadiusFor(spec.corners or "pill")
+		radius
 	)
 
-	if removable then
-		local removeLabel = spec.removeLabel or `Remove {label}`
-		local removeButton = UI.Button({
-			id = REMOVE_ID,
-			icon = "close",
-
-			label = removeLabel,
-			enabled = spec.enabled,
-
-			shape = "circle",
-			surface = "plain",
-			height = { type = "minMax", min = "targetSizes.minimum" },
-		})
-
-		blueprint = UI.HStack({
-			id = `{id}+token`,
-			gap = "xs",
-			align = "center",
-			children = { vocabulary.reserveTarget(UI, core, id, blueprint, nil), removeButton },
-		})
-	end
-
 	blueprint = contribution.attach(blueprint, {
-		handleActivate = function(path: string, _meta: any?): boolean
-			local isRemove = if removePath ~= nil
-				then path == removePath
-				else string.sub(path, -#REMOVE_ID - 1) == "/" .. REMOVE_ID
-			if removable and isRemove then
-				removePath = path
+		handleActivate = function(_path: string, _meta: any?): boolean
+			if editingNow() then
 				remove()
-				return true
+			else
+				toggle()
 			end
-			toggle()
 			return true
 		end,
 
 		bindFocusGraph = function(graph: any)
 			focusGraph = graph
+			watchKeys()
+		end,
+
+		bindActionSystem = function(system: any)
+			actionSystem = system
+			watchKeys()
 		end,
 
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
-			if rootNode ~= nil and removePath == nil and removable then
-				for _, child in rootNode.children or {} do
-					if child.id == REMOVE_ID then
-						removePath = child.path
-					end
-				end
+			if rootNode ~= nil and removable and chipPath:peek() == nil then
+				REMOVABLE[rootNode.path] = true
+				chipPath:set(rootNode.path)
 			end
 		end,
 	})
@@ -262,16 +316,16 @@ function chip.build(Facet: any, core: any, spec: any)
 			label = label,
 			selected = if selected ~= nil then read(selected) else nil,
 			removable = removable,
-			removeLabel = if removable then (spec.removeLabel or `Remove {label}`) else nil,
+			editing = editingNow(),
+			removeLabel = if removable then removeLabel else nil,
 			enabled = controlContract.enabledNow(spec.enabled),
 			controlSize = selection.read(spec.controlSize),
 			appearance = selection.read(spec.appearance),
 		}
 	end
 
-	local mounted = if not removable then vocabulary.reserveTarget(UI, core, id, blueprint, nil) else blueprint
 	return {
-		blueprint = mounted,
+		blueprint = vocabulary.reserveTarget(UI, core, id, blueprint, nil),
 		dump = dump,
 		dispose = function()
 			disposed = true

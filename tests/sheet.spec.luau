@@ -2,6 +2,7 @@
 local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local world = require("./lib/harness_world")
+local fake = require("./lib/fake_target")
 local Facet = require("../src") :: any
 local Compose = require("../src/vendor/compose/core")
 local UI = harness.UI
@@ -26,9 +27,9 @@ local function mount(extra, facts)
 	w.settle(3)
 	return w, control, detent, handle
 end
-local size = "/Sheet/Layer/Panel/Header/Size"
+local size = "/Sheet/Layer/Panel/Room/Column/Header/Size"
 local drag = "/Sheet/Layer/Panel/Drag/Handle"
-local close = "/Sheet/Layer/Panel/Header/Close"
+local close = "/Sheet/Layer/Panel/Room/Column/Header/Close"
 local function dragBy(w, dy, kind)
 	local r = w.adapter.node(drag).rect
 	w.adapter.pointerDown(drag, r.x + r.w / 2, r.y + r.h / 2, kind)
@@ -76,7 +77,8 @@ t.describe("Sheet control", function()
 		local w, c, d = mount()
 		dragBy(w, -250, "pointer")
 		t.expect(d:peek()).toBe("large")
-		t.expect(w.adapter.node("/Sheet/Layer/Panel").class).toBe("ScrollView")
+		-- the body scrolls between pinned regions; the panel itself no longer does
+		t.expect(w.adapter.node("/Sheet/Layer/Panel/Room/Column/Body").class).toBe("ScrollView")
 		c.dispose()
 	end)
 	t.it("Sheet touch affordance: 44px floor, naked-pan scroll, edit grip", function()
@@ -122,9 +124,29 @@ t.describe("Sheet control", function()
 		c.dispose()
 	end)
 	t.it("interactive dismissal can be disabled without disabling explicit close", function()
-		local w, c = mount({ interactiveDismissDisabled = true })
+		local later = 0
+		local w, c = mount({
+			interactiveDismissDisabled = true,
+			actions = {
+				{
+					id = "Later",
+					label = "Later",
+					role = "cancel",
+					onActivate = function()
+						later += 1
+					end,
+				},
+			},
+		})
 		w.press("ButtonB")
 		t.expect(c.dump().presented).toBe(true)
+		t.expect(later).toBe(0) -- Cancel runs no cancel action either
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -6) == "/Later" then
+				w.adapter.tap(path)
+			end
+		end
+		t.expect(later).toBe(1) -- the caller's own button still works
 		w.adapter.tap(close)
 		w.settle(3)
 		t.expect(c.dump().presented).toBe(false)
@@ -165,7 +187,17 @@ t.describe("Sheet control", function()
 		ctl.dispose()
 	end)
 	t.it("small detents retain usable content and reachable dismissal", function()
-		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 300 }, reducedMotion = true })
+		-- the room is too small for the pinned regions, so they scroll as one; the
+		-- adapter publishes the engine's bar like the real target does
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 390, h = 300 },
+			reducedMotion = true,
+			newAdapter = function()
+				local a = fake.new()
+				a.scrollBarThickness = fake.SCROLL_BAR_RESERVE
+				return a
+			end,
+		})
 		local c = harness.Controls.Sheet(w.core, {
 			id = "Sheet",
 			title = "Details",
@@ -178,7 +210,10 @@ t.describe("Sheet control", function()
 		local panel = w.adapter.node("/Sheet/Layer/Panel").rect
 		local closeRect = w.adapter.node(close).rect
 		t.expect(closeRect.y + closeRect.h <= panel.y + panel.h).toBe(true)
-		t.expect(w.adapter.node("/Sheet/Layer/Panel/Body").rect.h >= 44).toBe(true)
+		-- the pinned regions keep their targets; the body viewport is what is
+		-- left of the floor, and its content scrolls natively
+		local body = w.adapter.node("/Sheet/Layer/Panel/Room/Column/Body")
+		t.expect(body.class == "ScrollView" and body.rect.h > 0).toBe(true)
 		c.dispose()
 	end)
 	t.it("directional adjustment yields at the last detent", function()
@@ -190,9 +225,17 @@ t.describe("Sheet control", function()
 		t.expect(w.pres.focus.focused:peek()).toBe(close)
 		c.dispose()
 	end)
+	t.it("the Size control reads player words, never a detent id", function()
+		local w, c, d = mount({ detents = { "hug", "medium" } })
+		t.expect(w.adapter.node(size).props.label).toBe("Size: Medium")
+		d:set("hug")
+		w.settle(3)
+		t.expect(w.adapter.node(size).props.label).toBe("Size: Fit")
+		c.dispose()
+	end)
 	t.it("caller content named Size does not acquire sheet adjustment", function()
 		local w, c, d = mount({ content = UI.Button({ id = "Size", label = "Player size" }) })
-		w.pres.focus.focusOn("/Sheet/Layer/Panel/Body/Size")
+		w.pres.focus.focusOn("/Sheet/Layer/Panel/Room/Column/Body/Size")
 		w.press("DPadRight")
 		t.expect(d:peek()).toBe("medium")
 		c.dispose()
@@ -252,5 +295,124 @@ t.describe("Sheet control", function()
 		w.settle(120)
 		t.expect(w.adapter.node("/Sheet/Layer/Panel").rect.h).toBe(600)
 		c.dispose()
+	end)
+
+	-- ===== P4c: placement, edge, width, title getter, closeButton ==========
+	local LONG = string.rep("A long line of body copy that wraps. ", 40)
+	local function wide(extra, facts)
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1200, h = 800 }, reducedMotion = true, env = facts })
+		local spec = {
+			id = "Sheet",
+			title = "Race details",
+			detent = Compose.cell("medium"),
+			content = UI.Text({ id = "Copy", text = LONG, width = UI.fill() }),
+		}
+		for k, v in extra or {} do
+			spec[k] = v
+		end
+		local control = harness.Controls.Sheet(w.core, spec)
+		w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
+		control.present(w.pres)
+		w.settle(3)
+		return w, control
+	end
+	local function panelRect(w)
+		return w.adapter.node("/Sheet/Layer/Panel").rect
+	end
+	t.it("a function-bound title renders as its type promises", function()
+		local w, c = mount({
+			title = function()
+				return "Live title"
+			end,
+		})
+		t.expect(w.adapter.node("/Sheet/Layer/Panel/Room/Column/Title").props.text).toBe("Live title")
+		c.dispose()
+	end)
+	t.it("explicit placements override the distance default", function()
+		local w, c = wide({ placement = "bottom" }, { viewingDistance = "ten-foot" })
+		local r, layer = panelRect(w), w.adapter.node("/Sheet/Layer").rect
+		t.expect(r.y + r.h).toBe(layer.y + layer.h)
+		t.expect(c.dump().placement).toBe("bottom")
+		c.dispose()
+		w, c = wide({ placement = "center" })
+		r = panelRect(w)
+		t.expect(math.abs(r.y + r.h / 2 - 400) < 1).toBe(true)
+		t.expect(math.abs(r.x + r.w / 2 - 600) < 1).toBe(true)
+		c.dispose()
+	end)
+	t.it("side placement docks to its physical edge, detents stay vertical", function()
+		local w, c = wide({ placement = "side" })
+		local r = panelRect(w)
+		t.expect(r.x + r.w).toBe(1200)
+		t.expect(r.y + r.h).toBe(800)
+		t.expect(r.h).toBe(400)
+		t.expect(c.dump().placement).toBe("side")
+		t.expect(c.dump().edge).toBe("right")
+		c.dispose()
+		w, c = wide({ placement = "side", edge = "left", width = "narrow" })
+		r = panelRect(w)
+		t.expect(r.x).toBe(0)
+		t.expect(r.w).toBe(360)
+		c.dispose()
+	end)
+	t.it("width presets reuse the dialog widths, bounded by safe room", function()
+		local widths = {}
+		for _, preset in { "narrow", "automatic", "wide" } do
+			local w, c = wide({ width = preset })
+			widths[preset] = math.round(panelRect(w).w)
+			c.dispose()
+		end
+		t.expect(widths).toEqual({ narrow = 360, automatic = 560, wide = 800 })
+		local w = world.new({ viewport = { x = 0, y = 0, w = 500, h = 800 }, reducedMotion = true })
+		local c = harness.Controls.Sheet(w.core, {
+			id = "Sheet",
+			title = "T",
+			detent = Compose.cell("medium"),
+			width = "wide",
+			content = UI.Text({ text = LONG, width = UI.fill() }),
+		})
+		c.present(w.pres)
+		w.settle(3)
+		t.expect(panelRect(w).w <= 500).toBe(true)
+		c.dispose()
+	end)
+	t.it("side sheets enter and leave toward their own edge", function()
+		local _, c = wide({ placement = "side", edge = "left" })
+		t.expect(c.dump().transition).toEqual({ enter = "slide-right", exit = "slide-left" })
+		c.dispose()
+		local _, r = wide({ placement = "side" })
+		t.expect(r.dump().transition).toEqual({ enter = "slide-left", exit = "slide-right" })
+		r.dispose()
+		local _, b = wide()
+		t.expect(b.dump().transition).toEqual({ enter = "slide-up", exit = "slide-down" })
+		b.dispose()
+	end)
+	t.it("closeButton=false removes Close; Size and interactive dismissal remain", function()
+		local w, c = mount({ closeButton = false })
+		t.expect(w.adapter.node(close)).toBeNil()
+		t.expect(w.adapter.node(size) ~= nil).toBe(true)
+		w.press("ButtonB")
+		t.expect(c.dump().presented).toBe(false)
+		c.dispose()
+	end)
+	t.it("refuses malformed placement, edge, width and closeButton", function()
+		local w = world.new()
+		for _, change in
+			{
+				{ placement = "top" },
+				{ edge = "left" },
+				{ placement = "side", edge = "start" },
+				{ width = "huge" },
+				{ closeButton = "no" },
+			}
+		do
+			local spec = { title = "Details", detent = Compose.cell("medium"), content = UI.Text({ text = "Content" }) }
+			for k, v in change do
+				spec[k] = v
+			end
+			t.expect(pcall(function()
+				harness.Controls.Sheet(w.core, spec)
+			end)).toBe(false)
+		end
 	end)
 end)

@@ -29,6 +29,9 @@ export type ChipSpec = controlTypes.ChipSpec
 export type AsyncImageSpec = controlTypes.AsyncImageSpec
 export type VirtualListSpec<T> = controlTypes.VirtualListSpec<T>
 export type VirtualGridSpec<T> = controlTypes.VirtualGridSpec<T>
+local civilDate = require("@self/controls/civil_date")
+export type CivilDate = civilDate.CivilDate
+export type CivilRange = civilDate.Range
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
 local motionClasses = require("@self/motion/classes")
@@ -172,9 +175,17 @@ local Facet = {
 
 	valueModel = require("@self/controls/value_model"),
 
+	-- civil dates (UI.DateTimePicker's values): calendar arithmetic, the default
+	-- numeric words, and `fromUnix`/`toUnix` at a caller-named fixed offset
+	civilDate = civilDate,
+
 	-- pure Path2D shape math for UI.Path (the native substrate):
 	-- rings/arcs/needles as normalized control points, headlessly tested
 	pathShapes = require("@self/controls/path_shapes"),
+
+	-- opt-in compositions a caller wires in one line: `arithmetic.parse` is a
+	-- NumberInput `parse` that commits `3 + 5` as 8 (a product decision, not a key)
+	recipes = table.freeze({ arithmetic = table.freeze({ parse = require("@self/arithmetic").parse }) }),
 
 	--[[ THE MARKUP DOOR, for `UI.Text{ rich = true }`.
 

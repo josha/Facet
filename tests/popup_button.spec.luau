@@ -346,3 +346,58 @@ describe("PopupButton: build-time contract", function()
 		expect(string.find(tostring(err), "must be a writable Compose cell the caller owns", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+describe("Picker menu rows: badge and sectionTitle on every list engine", function()
+	local worldLib = require("./lib/harness_world")
+	local function mountMenu(spec: any)
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 1280, h = 720 },
+			capabilities = { mouse = true, keyboard = true },
+			preferredInput = "KeyboardAndMouse",
+		})
+		spec.id = "P"
+		spec.selected = spec.selected or Compose.cell("a")
+		local picker = harness.Controls.Picker(w.core, spec)
+		w.present(harness.UI.Screen({ id = "S", children = { picker.blueprint } }))
+		w.pres.refresh()
+		picker.api.open()
+		w.pres.refresh()
+		return w, picker
+	end
+	local function texts(w: any, leaf: string): string
+		local out: { string } = {}
+		for _, path in w.adapter.paths() do
+			local text = w.adapter.node(path).props.text
+			if string.sub(path, -#leaf - 1) == "/" .. leaf and text ~= nil and text ~= "" then
+				table.insert(out, tostring(text))
+			end
+		end
+		table.sort(out)
+		return table.concat(out, " ")
+	end
+	it("keyed (live) rows and searchable rows carry the count and the heading", function()
+		local options = Compose.cell({
+			{ value = "a", label = "Alpha", badge = 2 },
+			{ value = "b", label = "Beta" },
+		})
+		local w = mountMenu({ style = "menu", options = options })
+		expect(texts(w, "Count")).toBe("2")
+		-- a same-id update can add the FIRST heading after mount
+		options:set({
+			{ value = "a", label = "Alpha", badge = 2 },
+			{ value = "b", label = "Beta", sectionTitle = "More" },
+		})
+		w.pres.refresh()
+		expect(texts(w, "SectionTitle")).toBe("More")
+		local search = mountMenu({
+			style = "navigationLink",
+			query = Compose.cell(""),
+			options = {
+				{ value = "a", label = "Alpha", sectionTitle = "First" },
+				{ value = "b", label = "Beta", badge = "9" },
+			},
+		})
+		expect(texts(search, "SectionTitle")).toBe("First")
+		expect(texts(search, "Count")).toBe("9")
+	end)
+end)

@@ -1727,9 +1727,9 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 	end
 
 	--[[ THE MENU'S OWN SOLVED HEIGHT, PREDICTED (ruling 4). It is a prediction
-		only in name: `MenuRows` is a plain VStack with no padding whose every child
-		declares `height = { type = "fixed", px = MENU_ROW_HEIGHT }`, so its solved
-		height is exactly `n * rowHeight + (n - 1) * gap` — and both metric names are
+		only in name: `MenuRows` is a raised VStack (padding = its hairline)
+		of `fixed MENU_ROW_HEIGHT` rows, hairline gaps between, so its solved
+		height is exactly `n * rowHeight + (n + 1) * gap` — and both metric names are
 		resolved HERE against `metricsSig`, the same live theme snapshot the solver
 		resolves them against when it lays the menu out. The two cannot disagree
 		about a themed or text-scaled row height, which is the failure this would
@@ -1747,7 +1747,7 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 		local metrics = metricsSig:peek()
 		local rowH = themeSnapshot.resolveNumber(metrics, MENU_ROW_HEIGHT) or 0
 		local gap = themeSnapshot.resolveNumber(metrics, MENU_ROW_GAP) or 0
-		return n * rowH + (n - 1) * gap
+		return n * rowH + (n + 1) * gap
 	end
 
 	-- the height of the window the menu has to stay inside. `spec.env` is
@@ -1856,12 +1856,13 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 			-- menu that fits on neither side stays below and clipped
 			overflow = "keep",
 		})
-		if placement.flipped then
+		if placement.edge == "top" then
 			-- see `menuOy`'s own comment: a fraction of the anchor's inner height,
 			-- so the solver supplies the height this file must not guess at
 			return rect.x, { scale = -1, offset = rect.y }, "bottomLeft"
 		end
-		return rect.x, placement.y, "topLeft"
+		-- below; a width-less menu has no honest beside, so that answer stays below
+		return rect.x, if placement.edge == "bottom" then placement.y else below, "topLeft"
 	end
 
 	--[[ THE PLACEMENT PROPS BELONG TO THE CHILD, NOT TO THE ANCHOR ITSELF (live

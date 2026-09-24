@@ -226,9 +226,7 @@ end
 	the shape is load-bearing in a way a shared opt would hide: the rich rung is a
 	MEASURE-DIRTY VStack (so C2's serve refuses it and `contentSize` is entered at all),
 	its row 1 carries the dirt, and its row 2 holds ONE UNBROKEN WORD wider than the
-	40px offer — a phrase would wrap, and wrapping is fitting. The honest rung is no
-	TALLER than the cut one, because a taller honest rung loses the ladder's undercut
-	rule and the case would pass for the wrong reason. ]]
+	40px offer — a phrase would wrap, and wrapping is fitting. ]]
 local function fitsScene(opts: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)

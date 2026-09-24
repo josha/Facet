@@ -20,8 +20,29 @@ local function button(w, label)
 	end
 	error("Missing button " .. label)
 end
-local function activate(w, label)
-	local path = button(w, label)
+-- a category tab shares its words with an inner tab ("Menus", "Status"), so a
+-- category is picked from the category bar alone
+local function onBar(path)
+	return string.find(path, "/Categories/", 1, true) ~= nil
+		and string.find(path, "/Categories/Content/", 1, true) == nil
+end
+local function pick(w, label, bar)
+	for _, path in w.adapter.paths() do
+		local node = w.adapter.node(path)
+		if node.class == "Button" and node.props.label == label and onBar(path) == bar then
+			return path
+		end
+	end
+	error("Missing tab " .. label)
+end
+local function category(w, label)
+	return pick(w, label, true)
+end
+local function inner(w, label)
+	return pick(w, label, false)
+end
+local function activate(w, label, pick)
+	local path = (pick or button)(w, label)
 	t.expect(w.pres.focus.focusOn(path)).toBe(true)
 	w.press("ButtonA")
 	w.settle(4)
@@ -71,6 +92,7 @@ local function make(scenario, viewport, options)
 		app = require("./lib/scenario_app").over(w.core, w.pres),
 		UI = (harness.libraryOf(w.core)),
 		Compose = Facet.Compose,
+		Color3 = require("./lib/gui_value_shim").colorValues().Color3,
 		core = w.core,
 		env = w.env,
 		presenter = w.pres,
@@ -114,6 +136,25 @@ local function make(scenario, viewport, options)
 end
 
 t.describe("Consolidated showcase", function()
+	t.it("a category page is the room under its bar: Choices' Vote row is not below the fold", function()
+		local w = make(
+			catalog,
+			{ x = 0, y = 0, w = 1542, h = 1067 },
+			{ preferredInput = "MouseKeyboard", toolbar = true }
+		)
+		w.settle(4)
+		activate(w, "Choices")
+		local page, scroll
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -13) == "/PageViewport" then
+				page = w.controller.screenRectOf(path)
+				scroll = w.controller.screenRectOf(string.sub(path, 1, -14))
+			end
+		end
+		t.expect(page ~= nil and scroll ~= nil).toBe(true)
+		t.expect(page.y + page.h <= scroll.y + scroll.h + 0.5).toBe(true)
+	end)
+
 	t.it("keeps the keyboard-focused recipe rail tail inside every nested clipping ancestor", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, {
 			preferredInput = "MouseKeyboard",
@@ -159,9 +200,51 @@ t.describe("Consolidated showcase", function()
 		t.expect(#w.adapter.paths()).toBe(0)
 	end)
 
+	t.it("widens every inner tab to its engine width when the words arrive after the page mounts", function()
+		-- Owner report 2026-09-22 (bugs/topClip.png): the Actions tabs kept the
+		-- estimator's box after their exact widths arrived, clipping "Butto…".
+		-- The word store is process-global, so it is restored however this ends.
+		local text_metrics = require("../src/layout/text_metrics")
+		local saved = text_metrics.measuredDump()
+		local function widthOf(word: string, size: number): number
+			return #word * size * 0.7
+		end
+		local ok, result = pcall(function()
+			local w = make(catalog, { x = 0, y = 0, w = 1542, h = 1067 }, { preferredInput = "MouseKeyboard" })
+			local function deliver()
+				for _ = 1, 6 do
+					w.adapter.deliverTextWidths(widthOf, true)
+				end
+				w.settle(2)
+			end
+			deliver()
+			activate(w, "Actions")
+			deliver()
+			local wanted = {}
+			for _, label in { "Buttons", "Recipes", "Menus", "Sheets", "Help" } do
+				local rect = w.controller.rectOf(button(w, label))
+				local need = math.ceil(widthOf(label, 18)) + 24
+				table.insert(wanted, `{label} {rect.w >= need}`)
+			end
+			return table.concat(wanted, ", ")
+		end)
+		text_metrics.resetMeasured()
+		for _, entry in saved do
+			if entry.width == false then
+				text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
+			else
+				text_metrics.setMeasured(entry.font, entry.size, entry.word, entry.width :: number)
+			end
+		end
+		if not ok then
+			error(result, 0)
+		end
+		t.expect(result).toBe("Buttons true, Recipes true, Menus true, Sheets true, Help true")
+	end)
+
 	t.it("offers toasts in Indicators and retires them when leaving the page", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
-		activate(w, "Indicators")
+		activate(w, "Status", category)
 		activate(w, "Toasts")
 		activate(w, "Show toast")
 		t.expect(w.pres.toastCounts().visible).toBe(1)
@@ -374,9 +457,9 @@ t.describe("Consolidated showcase", function()
 			do
 				local w, built = make(scenario, viewport)
 				for _, group in scenario.groups do
-					activate(w, group.label)
+					activate(w, group.label, category)
 					for _, tab in group.tabs do
-						activate(w, tab.label)
+						activate(w, tab.label, inner)
 						t.expect(built.report().active).toBe(tab.id)
 						if scenario == motion and tab.id == "automatic" then
 							t.expect(built.report().example.balance).toBe(100)
@@ -410,11 +493,11 @@ t.describe("Consolidated showcase", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, { textOffset = 14 })
 		local visited = 0
 		for _, group in catalog.groups do
-			activate(w, group.label)
+			activate(w, group.label, category)
 			for _, tab in group.tabs do
-				activate(w, tab.label)
+				activate(w, tab.label, inner)
 				t.expect(built.report().active).toBe(tab.id)
-				local path = button(w, tab.label)
+				local path = inner(w, tab.label)
 				local acc, host = "", nil
 				for segment in path:gmatch("[^/]+") do
 					acc ..= "/" .. segment
@@ -442,16 +525,56 @@ t.describe("Consolidated showcase", function()
 				visited += 1
 			end
 		end
-		t.expect(visited).toBe(20)
+		t.expect(visited).toBe(24)
 		w.pres.dismiss(w.handle)
 		w.settle(4)
 		built.dispose()
 		t.expect(w.core.lastError()).toBeNil()
 	end)
 
+	t.it("the Basics footer stacks its actions at 320x640 Largest rather than cutting them", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 320, h = 640 }, { textOffset = 14 })
+		w.settle(4)
+		local column, row
+		for _, path in w.adapter.paths() do
+			if path:match("/AdaptiveScreen/Actions/ActionsColumn$") then
+				column = w.controller.screenRectOf(path)
+			elseif path:match("/AdaptiveScreen/Actions/ActionsRow$") then
+				row = w.controller.screenRectOf(path)
+			end
+		end
+		-- measure and arrange chose the same rung: the column holds the whole box
+		t.expect(`row {row.w}x{row.h}`).toBe("row 0x0")
+		t.expect(column.w > 0 and column.h > 0).toBe(true)
+		for _, finding in w.controller.diagnostics() do
+			t.expect(string.find(finding.node, "/Actions/", 1, true)).toBeNil()
+		end
+		built.dispose()
+	end)
+
+	t.it("the phone bottom bar shrinks its category words to fit before it truncates one", function()
+		for _, width in { 320, 389 } do
+			local w, built = make(catalog, { x = 0, y = 0, w = width, h = 844 }, { preferredInput = "Touch" })
+			w.env:set("capabilities", { gamepad = false, keyboard = false, mouse = false, touch = true })
+			w.settle(4)
+			local seen = {}
+			for _, path in w.adapter.paths() do
+				local node = w.adapter.node(path)
+				if node.class == "Button" and string.find(path, "/Categories/BottomHome/", 1, true) then
+					local facts = w.controller.textAt(path) or {}
+					table.insert(seen, `{node.props.label}={if facts.truncated then "cut" else "whole"}`)
+				end
+			end
+			table.sort(seen)
+			t.expect(`{width}: {table.concat(seen, " ")}`)
+				.toBe(`{width}: Actions=whole Inputs=whole Menus=whole Status=whole`)
+			built.dispose()
+		end
+	end)
+
 	t.it("resets both mounted status and identity recipes through their shared commands", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
-		activate(w, "Indicators")
+		activate(w, "Status", category)
 		activate(w, "Status")
 		activate(w, "warning")
 		activate(w, "Error")
@@ -548,7 +671,7 @@ t.describe("Consolidated showcase", function()
 
 	t.it("routes shoulders to the inner tabs and Back through the nested journey", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
-		activate(w, "Navigation")
+		activate(w, "Menus", category)
 		activate(w, "Journey")
 		activate(w, "Plan details")
 		t.expect(built.report().example.navigation.depth).toBe(1)

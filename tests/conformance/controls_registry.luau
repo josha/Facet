@@ -214,6 +214,23 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- The shared field chrome (label, notation, hint/error line, accessories,
+		-- rung/appearance/corners) that field controls wear. It builds blueprints
+		-- and folds its facts into the adopting control's dump; the adopting
+		-- control carries the input and affordance stories.
+		name = "FieldChrome",
+		kind = "composite",
+		module = "src/controls/field_chrome.luau",
+		export = "UI.TextInput",
+		spec = "tests/field_chrome.spec.luau",
+		conformance = "tests/field_chrome.spec.luau",
+		docsAnchor = "UI.TextInput",
+		dump = false,
+		reason = "builder module: it returns blueprints and folds its facts into the adopting control's dump",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "ButtonControl",
 		kind = "composite",
 		module = "src/controls/button.luau",
@@ -847,6 +864,34 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		-- The number presentation preset: the SAME module, dump and docs anchor as
+		-- TextInput (one engine). Its new input story is the two step buttons.
+		name = "NumberInput",
+		kind = "composite",
+		module = "src/controls/text_input.luau",
+		export = "UI.NumberInput",
+		spec = "tests/number_input.spec.luau",
+		conformance = "tests/number_input.spec.luau",
+		docsAnchor = "UI.NumberInput",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			touch = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			keyboard = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			gamepad = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+		},
+		-- PARADIGM axis: the editor's story is TextInput's; the step buttons are
+		-- ordinary target-sized stops that claim no adjust axis, and a press is
+		-- atomic, so there is nothing in flight for an input-class flip to carry
+		affordanceProofs = {
+			pointer = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			touch = { "the step buttons are square targets that meet the touch floor and never share a pixel" },
+			keyboard = { "the step buttons are ordinary focus stops, after the editor and its clear" },
+			gamepad = { "the step buttons are ordinary focus stops, after the editor and its clear" },
+			hotSwitch = false,
+		},
+	},
+	{
 		-- the shared value arithmetic behind the value-control family. Not a
 		-- control (it renders nothing and has no input surface), but it lives under
 		-- src/controls/ so the checker requires a row — declared explicitly rather
@@ -992,8 +1037,12 @@ local registry: { Entry } = {
 			keyboard = {
 				"keyboard: Adjust steps predictably rather than requiring a drag",
 				"Left/Right adjust a focused horizontal Slider on a GROUPED screen",
+				"keyboard: each thumb is its own Tab stop, and the arrows adjust the one holding the ring",
 			},
-			gamepad = { "gamepad: the bumpers Adjust the focused slider" },
+			gamepad = {
+				"gamepad: the bumpers Adjust the focused slider",
+				"gamepad: Left/Right reach the other thumb until Activate engages, and Cancel gives them back",
+			},
 		},
 		-- PARADIGM: pointer = direct drag on the track (native UIDragDetector, with
 		-- the Grip capture path as the corrections-mandated fallback) plus
@@ -1010,6 +1059,7 @@ local registry: { Entry } = {
 			hotSwitch = {
 				"Slider hot-switch: losing the pointer class mid-drag CANCELS back to the snapshot",
 				"a cancelled capture also reverts (the adapter's own cancel path)",
+				"a REAL capability loss mid-drag restores the pair, and the later move and release commit nothing",
 			},
 		},
 	},
@@ -2197,6 +2247,415 @@ local registry: { Entry } = {
 		dumpFunction = "function dump",
 		inputProofs = false,
 		affordanceProofs = false,
+	},
+	{
+		-- The count seal and its corner placement (Badge placement A): the seal a
+		-- menu row, a tab icon and `UI.badged` wear. It returns blueprints its
+		-- callers mount; the corner's bundle reads the seal's solved size only
+		-- (check_registration's CONTRIBUTION_INTAKE_ONLY).
+		name = "BadgeSeal",
+		kind = "composite",
+		module = "src/controls/badge_seal.luau",
+		export = "UI.Badge",
+		spec = "tests/badge.spec.luau",
+		conformance = "tests/badge.spec.luau",
+		docsAnchor = "UI.Badge",
+		dump = false,
+		reason = "builder module: it returns the seal blueprint its host mounts; the host control (a row, a tab strip) reports it through its own dump()",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		-- The shared overlay parts (construction-only media, the action row and
+		-- the tiny-room column) that Callout, Dialog and Sheet wear: it validates
+		-- and returns blueprints; the adopting control mounts them, reports them
+		-- and owns their input. The room's bundle reads geometry only
+		-- (check_registration's CONTRIBUTION_INTAKE_ONLY).
+		name = "OverlayParts",
+		kind = "composite",
+		module = "src/controls/overlay_parts.luau",
+		export = "UI.Callout",
+		spec = "tests/callout.spec.luau",
+		conformance = "tests/callout.spec.luau",
+		docsAnchor = "UI.Callout",
+		dump = false,
+		reason = "builder module: it returns the media and action-row blueprints its adopting control mounts and reports",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		-- The Sheet's pure release and resistance policy: heights in, a detent id
+		-- (or dismissal) out. The Sheet mounts, reports and owns every input.
+		name = "SheetRelease",
+		kind = "composite",
+		module = "src/controls/sheet_release.luau",
+		export = "UI.Sheet",
+		spec = "tests/sheet_release.spec.luau",
+		conformance = "tests/sheet_gesture.spec.luau",
+		docsAnchor = "UI.Sheet",
+		dump = false,
+		reason = "pure policy module: it returns numbers and ids; the Sheet's own dump reports the outcome",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "Popover",
+		kind = "composite",
+		module = "src/controls/popover.luau",
+		export = "UI.Popover",
+		spec = "tests/popover.spec.luau",
+		conformance = "tests/popover.spec.luau",
+		docsAnchor = "UI.Popover",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "pointer: a click on the trigger opens it and a click outside closes it" },
+			touch = { "the sheet's Close asks first: refused keeps it, accepted closes with cancel" },
+			keyboard = {
+				"keyboard: Return on the focused trigger opens it into the content, and closing returns focus",
+			},
+			gamepad = { "gamepad: ButtonA on the focused trigger opens it, and ButtonB proposes the close" },
+		},
+		-- PARADIGM axis: a pointer or finger closes by tapping outside (or the
+		-- sheet's Close/drag on a compact touch screen); the keyboard ring moves
+		-- into the content and comes home on close; a pad's ButtonB proposes the
+		-- close. hotSwitch: the panel/sheet route follows the live class and size
+		-- facts, silently, carrying the accepted presentation and the focused path.
+		affordanceProofs = {
+			pointer = { "Cancel, an outside tap and a press on the trigger each close with their own reason, once" },
+			touch = { "a compact touch screen presents it as a sheet; compact = popover suppresses that" },
+			keyboard = {
+				"keyboard: Return on the focused trigger opens it into the content, and closing returns focus",
+			},
+			gamepad = { "gamepad: ButtonA on the focused trigger opens it, and ButtonB proposes the close" },
+			hotSwitch = { "a live class change switches the route silently, with one content owner" },
+		},
+	},
+	{
+		name = "Dialog",
+		kind = "composite",
+		module = "src/controls/dialog.luau",
+		export = "UI.Dialog",
+		spec = "tests/dialog.spec.luau",
+		conformance = "tests/dialog.spec.luau",
+		docsAnchor = "UI.Dialog",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "the backdrop proposes outside; with no callback and no close it only swallows" },
+			touch = { "an action that accepts false during its callback closes with reason action" },
+			keyboard = { "the close button proposes: refused keeps the same surface and focus, accepted reports close" },
+			gamepad = { "Cancel runs an eligible cancel action first; without one it proposes cancel" },
+		},
+		-- PARADIGM axis: a pointer or finger taps the backdrop or an action; the
+		-- keyboard's Return is the default action and the close is a focus stop;
+		-- a pad's ButtonB is Cancel and an overflowing plain body is one stop that
+		-- scrolls. hotSwitch: the panel's width and height follow the live room.
+		affordanceProofs = {
+			pointer = { "the backdrop proposes outside; with no callback and no close it only swallows" },
+			touch = { "a long body fits the room: pinned header, label and actions stay on screen while it scrolls" },
+			keyboard = { "Return fires the default action; a disabled or busy one cannot fire by any route" },
+			gamepad = {
+				"the ring reaches the body, Down scrolls it to the end, and then moves on to the actions",
+			},
+			hotSwitch = { "the keyboard's occlusion takes its room from the budget" },
+		},
+	},
+	{
+		name = "Notice",
+		kind = "composite",
+		module = "src/controls/notice.luau",
+		export = "UI.Notice",
+		spec = "tests/notice.spec.luau",
+		conformance = "tests/notice.spec.luau",
+		docsAnchor = "UI.Notice",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			touch = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			keyboard = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			gamepad = { "arrival never moves focus, and every control is a pad stop in the page's own order" },
+		},
+		-- PARADIGM axis: its controls are ordinary page Buttons in every class;
+		-- arrival never takes focus. hotSwitch: the accessories move beside or
+		-- below the copy from the measured width, live.
+		affordanceProofs = {
+			pointer = {
+				"the link and actions sit beside the copy when there is room and move below it when there is not",
+			},
+			touch = { "paints the severity icon, title and message, and the close reports the press only" },
+			keyboard = { "keyboard and gamepad reach the action and press it; a pointer or finger taps it" },
+			gamepad = { "arrival never moves focus, and every control is a pad stop in the page's own order" },
+			hotSwitch = { "a taller message grows the reservation live" },
+		},
+	},
+	{
+		name = "Card",
+		kind = "composite",
+		module = "src/controls/card.luau",
+		export = "UI.Card",
+		spec = "tests/card.spec.luau",
+		conformance = "tests/card.spec.luau",
+		docsAnchor = "UI.Card",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "body, primary and More are sibling targets: one press runs exactly one intent" },
+			touch = { "touch-only keeps actions at rest and the first tap does the body's promised action" },
+			keyboard = { "focus within reveals; pointer departure never hides focused content; focus departure does" },
+			gamepad = {
+				"Activate enters the actions at the first action; arrows stay inside; Cancel restores the stop",
+			},
+		},
+		-- PARADIGM axis: pointer reveals on hover, touch-only shows the actions at
+		-- rest, a painted ring (or a grid browse stop) reveals them and Activate on a
+		-- browse stop enters them. hotSwitch: gaining a pointer returns a touch card
+		-- to engagement, and a live text/theme change re-measures the extension.
+		affordanceProofs = {
+			pointer = { "automatic: pointer within reveals; siblings and the card envelope never move" },
+			touch = { "touch-only keeps actions at rest and the first tap does the body's promised action" },
+			keyboard = { "hidden actions are out of the focus order at rest" },
+			gamepad = { "the grid Hit is the browse stop: its ring reveals that card alone" },
+			hotSwitch = { "a live theme and text change while revealed re-measures without moving siblings" },
+		},
+	},
+	{
+		name = "Pagination",
+		kind = "composite",
+		module = "src/controls/pagination.luau",
+		export = "UI.Pagination",
+		spec = "tests/pagination.spec.luau",
+		conformance = "tests/pagination.spec.luau",
+		docsAnchor = "UI.Pagination",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "mounts the window, marks the current page and proposes without writing" },
+			touch = { "mounts the window, marks the current page and proposes without writing" },
+			keyboard = { "is reached from its neighbours, and a vanished focused page leaves focus inside" },
+			gamepad = { "count to zero leaves no internal stop and focus returns to a live neighbour" },
+		},
+		-- PARADIGM axis: every input class presses the same page and arrow
+		-- Buttons; the row is one flat run in the page's focus order. hotSwitch:
+		-- the measured width reduces the window and falls back to the label live.
+		affordanceProofs = {
+			pointer = { "keeps overlapping page nodes when the window moves" },
+			touch = { "zero pages is inert context; one page has no enabled navigation" },
+			keyboard = { "rtl reverses the row once and keeps previous/next meaning" },
+			gamepad = { "an unknown count follows its flags, shows the page label and never a last page" },
+			hotSwitch = {
+				"four-digit pages keep full targets; narrow room drops the farthest boundary page, then neighbours, then labels",
+			},
+		},
+	},
+	{
+		name = "StepIndicator",
+		kind = "composite",
+		module = "src/controls/step_indicator.luau",
+		export = "UI.StepIndicator",
+		spec = "tests/step_indicator.spec.luau",
+		conformance = "tests/step_indicator.spec.luau",
+		docsAnchor = "UI.StepIndicator",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "current alone moves the underline and the summary; a refused selection changes nothing" },
+			touch = { "a narrow width shows Step n of m and a list that selects through the same path" },
+			keyboard = { "only navigable, enabled steps with onSelect are Buttons; the rest are content" },
+			gamepad = { "only navigable, enabled steps with onSelect are Buttons; the rest are content" },
+		},
+		-- PARADIGM axis: only permitted steps are Buttons, in every class; the rest
+		-- are content and never focus stops. hotSwitch: the measured width moves
+		-- between the row and the summary with its list, live.
+		affordanceProofs = {
+			pointer = { "a reorder keeps each step's node and the underline follows the current step's solved rect" },
+			touch = { "a narrow width shows Step n of m and a list that selects through the same path" },
+			keyboard = { "an errored or completed current step keeps its own cue and state word" },
+			gamepad = {
+				"a missing current is unavailable, never guessed; empty and repopulated lists rebuild cleanly",
+			},
+			hotSwitch = { "a narrow width shows Step n of m and a list that selects through the same path" },
+		},
+	},
+	{
+		name = "Vote",
+		kind = "composite",
+		module = "src/controls/vote.luau",
+		export = "UI.Vote",
+		spec = "tests/vote.spec.luau",
+		conformance = "tests/vote.spec.luau",
+		docsAnchor = "UI.Vote",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "accepts, swaps in one transition, and reselecting proposes none" },
+			touch = { "a refused proposal never paints and never touches the caller's cell" },
+			keyboard = { "keyboard and pad reach the strip and propose through the same path" },
+			gamepad = { "keyboard and pad reach the strip and propose through the same path" },
+		},
+		-- PARADIGM axis: Picker's own segmented strip in every class; read-only is
+		-- a plated informational pair with no stops. hotSwitch: readOnly and
+		-- enabled switch the form and the stops live.
+		affordanceProofs = {
+			pointer = { "two votes beside a chip keep separate targets that never overlap, with a disclosed summary" },
+			touch = { "a callback that disposes the vote or throws leaves no stale state" },
+			keyboard = { "a getter or formula value works; an invalid late value keeps the last legal paint" },
+			gamepad = { "a readOnly vote without onChange refuses to become interactive" },
+			hotSwitch = {
+				"readOnly shows the choice with nothing to press or focus; disabled is ordinary disabled paint",
+			},
+		},
+	},
+	{
+		-- ColorPicker's value policy (canonical HSV beside the Color3, hex text,
+		-- the generated and engine palettes); owns no UI or live state.
+		name = "ColorValue",
+		kind = "composite",
+		module = "src/controls/color_value.luau",
+		export = "UI.ColorPicker",
+		spec = "tests/color_picker.spec.luau",
+		conformance = "tests/color_picker.spec.luau",
+		docsAnchor = "UI.ColorPicker",
+		dump = false,
+		reason = "stateless module: colour conversion and hex policy for UI.ColorPicker, no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "ColorPicker",
+		kind = "composite",
+		module = "src/controls/color_picker.luau",
+		export = "UI.ColorPicker",
+		spec = "tests/color_picker.spec.luau",
+		conformance = "tests/color_picker.spec.luau",
+		docsAnchor = "UI.ColorPicker",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "the well opens an anchored panel on a roomy pointer screen; a refused swatch never paints" },
+			touch = {
+				"opens as a hug sheet with Done on a compact touch screen, and a centred sheet at ten feet with the plane",
+			},
+			keyboard = { "a saturation round trip through the Sliders tab returns to the hue the player set" },
+			gamepad = { "the right stick steers the plane only while it holds focus, and a live hint says so" },
+		},
+		-- PARADIGM axis: every quantity has a non-drag route (sliders, the readout
+		-- fields, the swatch grid); the plane drags 1:1 on pointer/touch and takes
+		-- the right stick on a pad. hotSwitch: a lost pointer class cancels a drag.
+		affordanceProofs = {
+			pointer = { "a drag tracks 1:1 in saturation and value, keeps the hue, and commits once at release" },
+			touch = { "without draft every change commits live and B or an outside tap only closes, keeping it" },
+			keyboard = {
+				"switching the readout twenty times never moves canonical, and a hex commit is the only write",
+			},
+			gamepad = { "an accepted swatch commits once, marks the cell, and the swatch grid walks in two dimensions" },
+			hotSwitch = { "losing the pointer class mid-drag restores where the drag began" },
+		},
+	},
+	{
+		-- DateTimePicker's civil calendar (Facet.civilDate): day arithmetic, words,
+		-- fixed-offset instants; owns no UI or live state.
+		name = "CivilDate",
+		kind = "composite",
+		module = "src/controls/civil_date.luau",
+		export = "UI.DateTimePicker",
+		spec = "tests/date_time_picker.spec.luau",
+		conformance = "tests/date_time_picker.spec.luau",
+		docsAnchor = "UI.DateTimePicker",
+		dump = false,
+		reason = "stateless module: civil calendar arithmetic and formatting, no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "DateTimePicker",
+		kind = "composite",
+		module = "src/controls/date_time_picker.luau",
+		export = "UI.DateTimePicker",
+		spec = "tests/date_time_picker.spec.luau",
+		conformance = "tests/date_time_picker.spec.luau",
+		docsAnchor = "UI.DateTimePicker",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "the calendar opens anchored on the chosen day's month; a pick commits once and closes" },
+			touch = {
+				"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
+			},
+			keyboard = { "typed entry commits a date; a refused text stays with its error and commits nothing" },
+			gamepad = {
+				"keyboard and pad: the arrows walk the grid with its contribution attached, a row's end continues, L1/R1 page",
+			},
+		},
+		-- PARADIGM axis: every day, month and time is a discrete stop (no drag
+		-- anywhere); typed entry is added where a keyboard or pointer is live; the
+		-- time list joins the fields on touch. hotSwitch: the typed field and the
+		-- open button swap with the live classes.
+		affordanceProofs = {
+			pointer = {
+				"a wide screen shows two consecutive months, and they stay consecutive through paging and bounds",
+			},
+			touch = { "time: hour and minute fields step on the minute grid, AM/PM flips, and a touch list sets both" },
+			keyboard = {
+				"a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck",
+			},
+			gamepad = {
+				"a pad sets a date and time: each pick commits, B keeps it and returns focus; a draft's B restores",
+			},
+			hotSwitch = {
+				"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
+			},
+		},
+	},
+	{
+		name = "Snackbar",
+		kind = "composite",
+		module = "src/controls/snackbar.luau",
+		export = "UI.Snackbar",
+		spec = "tests/snackbar.spec.luau",
+		conformance = "tests/snackbar.spec.luau",
+		docsAnchor = "UI.Snackbar",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "a pointer press on the action does not leave the passive host engaged" },
+			touch = { "an action runs once and leaves the row mounted; closing inside it reports action" },
+			keyboard = { "accepted removal of the focused row puts focus back on the content" },
+			gamepad = {
+				"arrival never steals focus; the row is reached last and Cancel returns to content even when refused",
+			},
+		},
+		-- PARADIGM axis: a pointer or finger presses the action or the close; a
+		-- keyboard or pad reaches the row LAST, after the content, and Cancel on it
+		-- proposes a close and returns to the content. hotSwitch: the action moves
+		-- below the copy from the measured width, and the empty host binds no keys.
+		affordanceProofs = {
+			pointer = { "hover and focus pause the dwell; queued time never counts" },
+			touch = { "a refused close keeps the same row and reports nothing" },
+			keyboard = { "an empty host binds no horizontal arrows on the content screen" },
+			gamepad = { "a modal blocks the dwell until it closes" },
+			hotSwitch = { "long copy wraps and the action moves below it" },
+		},
+	},
+	{
+		-- the typed slot form of the shared nav bar builder; its Back, leading,
+		-- center and trailing controls are ordinary page controls that carry their
+		-- own input stories, and the bar only arranges them
+		name = "NavBar",
+		kind = "composite",
+		module = "src/present/nav_bar.luau",
+		export = "UI.NavBar",
+		spec = "tests/nav_bar.spec.luau",
+		conformance = "tests/nav_bar.spec.luau",
+		docsAnchor = "UI.NavBar",
+		dumpFunction = "dump = function",
+		inputProofs = {
+			pointer = { "Back fires by pointer, touch, keyboard and gamepad" },
+			touch = { "Back fires by pointer, touch, keyboard and gamepad" },
+			keyboard = { "Back fires by pointer, touch, keyboard and gamepad" },
+			gamepad = { "Back fires by pointer, touch, keyboard and gamepad" },
+		},
+		-- PARADIGM axis: Back and every slot are ordinary page controls in every
+		-- class. hotSwitch: the trailing content moves between the first and a
+		-- second row from the measured width, live, without rebuilding the center.
+		affordanceProofs = {
+			pointer = { "Back, leading, a filling center and trailing share one row when there is room" },
+			touch = { "the default center is the one-line disclosed title, and every slot subset mounts" },
+			keyboard = { "a narrow bar moves the trailing content to a second row, without rebuilding the center" },
+			gamepad = { "Back fires by pointer, touch, keyboard and gamepad" },
+			hotSwitch = { "a narrow bar moves the trailing content to a second row, without rebuilding the center" },
+		},
 	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 

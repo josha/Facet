@@ -193,6 +193,9 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		placeholder = "binding",
 		editing = "binding",
 		enabled = "binding",
+		-- composed with `enabled` onto one engine property by the adapter
+		editable = "binding",
+		selectOnFocus = "binding",
 		maxLength = "binding",
 		keyboardType = "binding",
 		multiline = "binding",

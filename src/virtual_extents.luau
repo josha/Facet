@@ -220,4 +220,31 @@ function virtual_extents.variable(extents: { number }, gap: number): Index
 	return ix
 end
 
+--[[ ── AN INDEX WITH ROOM AT BOTH ENDS ─────────────────────────────────────────
+	`edge` px before the first slot and after the last, for content that paints
+	past its own box (a lifted card and its ring) at a scroller's clip edge. Every
+	answer is the inner index's, shifted; `content` grows by both edges. ]]
+function virtual_extents.edged(ix: Index, edge: number): Index
+	if edge <= 0 then
+		return ix
+	end
+	return {
+		count = ix.count,
+		content = if ix.count <= 0 then 0 else ix.content + 2 * edge,
+		offsetOf = function(index: number): number
+			return ix.offsetOf(index) + edge
+		end,
+		extentOf = ix.extentOf,
+		window = function(top: number, viewport: number, overscan: number): (number, number)
+			return ix.window(math.max(0, top - edge), viewport, overscan)
+		end,
+		slotAt = function(offset: number): number
+			return ix.slotAt(offset - edge)
+		end,
+		boundaryOffset = function(slot: number): number
+			return ix.boundaryOffset(slot) + edge
+		end,
+	}
+end
+
 return virtual_extents

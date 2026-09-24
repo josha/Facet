@@ -132,7 +132,7 @@ describe("D1 placement solver: the flip, and the rule that it never lands somewh
 		local p = solve({
 			source = { x = 0, y = 300, w = 80, h = 40 },
 			size = { w = 120, h = 600 }, -- taller than the space either side of the source
-			safe = { x = 0, y = 0, w = 400, h = 800 },
+			safe = { x = 0, y = 0, w = 190, h = 800 }, -- and no room beside it
 			edge = "bottom",
 			align = "start",
 			gap = 0,
@@ -144,11 +144,23 @@ describe("D1 placement solver: the flip, and the rule that it never lands somewh
 		expect(p.fits).toBe(false)
 	end)
 
-	it("overflow 'clamp' pulls a surface that fits nowhere back inside the safe box", function()
+	it("a surface that fits neither above nor below hangs BESIDE its source, never over it", function()
 		local p = solve({
 			source = { x = 0, y = 300, w = 80, h = 40 },
 			size = { w = 120, h = 600 },
 			safe = { x = 0, y = 40, w = 400, h = 720 },
+			edge = "bottom",
+			align = "start",
+			gap = 8,
+		})
+		expect(`{p.edge} {p.x} {p.fits}`).toBe("right 88 true")
+	end)
+
+	it("overflow 'clamp' pulls a surface that fits nowhere back inside the safe box", function()
+		local p = solve({
+			source = { x = 0, y = 300, w = 80, h = 40 },
+			size = { w = 120, h = 600 },
+			safe = { x = 0, y = 40, w = 190, h = 720 },
 			edge = "bottom",
 			align = "start",
 			gap = 0,
@@ -1138,5 +1150,163 @@ describe("framework-gaps-phase2 gap 39: Facet.layout.anchorPlacement is publishe
 		})
 		expect(placement.x).toBe(source.x + source.w / 2 - slot / 2)
 		expect(placement.y).toBe(source.y - slot - gap)
+	end)
+end)
+
+describe("anchor crossOffset: px along the alignment axis, before the clamp", function()
+	local SOURCE = { x = 150, y = 350, w = 100, h = 100 }
+	local SIZE = { w = 60, h = 40 }
+
+	it("every edge x align pair moves by exactly the signed offset, and absent == 0", function()
+		for _, edge in { "top", "bottom", "leading", "trailing" } do
+			for _, align in { "start", "center", "end" } do
+				local base = solve({ source = SOURCE, size = SIZE, safe = SAFE, edge = edge, align = align })
+				local zero =
+					solve({ source = SOURCE, size = SIZE, safe = SAFE, edge = edge, align = align, crossOffset = 0 })
+				expect(`{edge}/{align} zero={zero.x},{zero.y}`).toBe(`{edge}/{align} zero={base.x},{base.y}`)
+				for _, offset in { 12, -12 } do
+					local p = solve({
+						source = SOURCE,
+						size = SIZE,
+						safe = SAFE,
+						edge = edge,
+						align = align,
+						crossOffset = offset,
+					})
+					local vertical = edge == "top" or edge == "bottom"
+					local dx = if vertical then offset else 0
+					local dy = if vertical then 0 else offset
+					expect(`{edge}/{align}/{offset} {p.x - base.x},{p.y - base.y} shift={p.shift}`).toBe(
+						`{edge}/{align}/{offset} {dx},{dy} shift=0`
+					)
+				end
+			end
+		end
+	end)
+
+	it("the safe clamp still wins over the offset, and reports the shift it took", function()
+		local p =
+			solve({ source = SOURCE, size = SIZE, safe = SAFE, edge = "bottom", align = "start", crossOffset = -400 })
+		expect(p.x).toBe(0)
+		expect(p.shift).toBe(400 - 150)
+	end)
+
+	it("a flip changes the edge only: the alignment and the offset do not flip", function()
+		local low = { x = 150, y = 760, w = 100, h = 30 }
+		local p = solve({ source = low, size = SIZE, safe = SAFE, edge = "bottom", align = "start", crossOffset = 10 })
+		expect(p.flipped).toBe(true)
+		expect(p.edge).toBe("top")
+		expect(p.x).toBe(160)
+	end)
+
+	it("a non-finite or non-number offset is refused by name", function()
+		for _, bad in { 0 / 0, math.huge, "4" :: any } do
+			local ok, err = pcall(solve, { source = SOURCE, size = SIZE, safe = SAFE, crossOffset = bad })
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "crossOffset", 1, true) ~= nil).toBe(true)
+		end
+	end)
+
+	it("presentAnchored carries it to the mounted surface", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		local function place(offset: number?): any
+			local h = pres.presentAnchored(calloutPanel(40), {
+				id = "Tip",
+				initialFocus = "none",
+				anchor = {
+					source = { path = "/Editor/Bar/Plus" },
+					edge = "bottom",
+					align = "end",
+					crossOffset = offset,
+				},
+			})
+			local r = adapter.node(SURFACE).rect
+			pres.dismiss(h)
+			return r
+		end
+		-- the source hugs the right edge, so the unshifted surface is CLAMPED;
+		-- two offsets that both clear the clamp differ by exactly their difference
+		local near, far = place(-20), place(-40)
+		expect(far.x - near.x).toBe(-20)
+		expect(place(nil).x > near.x).toBe(true)
+		local base, moved = near, far
+		expect(moved.y).toBe(base.y)
+		local ok, err = pcall(pres.presentAnchored, calloutPanel(120), {
+			id = "Tip",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, crossOffset = 0 / 0 },
+		})
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "crossOffset", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("anchored maxWidth / maxHeight: surface caps kept inside the live safe box", function()
+	local function scrollingPanel(): any
+		local rows = {}
+		for i = 1, 30 do
+			table.insert(rows, UI.Text({ id = `Line{i}`, text = `Line {i} of a long body`, textSize = 16 }))
+		end
+		return UI.VStack({
+			id = "Callout",
+			surface = "raised",
+			padding = "s",
+			children = {
+				UI.ScrollView({
+					id = "Body",
+					axis = "y",
+					shrinkWeight = 1,
+					children = { UI.VStack({ id = "Rows", children = rows }) },
+				}),
+			},
+		})
+	end
+
+	it("caps the surface, including its chrome, and absent keeps the plain hug", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		local h = pres.presentAnchored(scrollingPanel(), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, maxWidth = 200, maxHeight = 240 },
+		})
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		local r = adapter.node(SURFACE).rect
+		expect(`w={r.w <= 200} h={r.h <= 240}`).toBe("w=true h=true")
+		expect(adapter.node(`{SURFACE}/Callout`).rect.h <= 240).toBe(true)
+		pres.dismiss(h)
+	end)
+
+	it("growing safe insets pull a capped surface inside the new box", function()
+		local _, env, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(360), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, maxWidth = 1000 },
+		})
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 60, right = 60 })
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		pres.tick(1 / 60)
+		local r = adapter.node(SURFACE).rect
+		expect(`left={r.x >= 60} right={r.x + r.w <= 390 - 60}`).toBe("left=true right=true")
+	end)
+
+	it("a non-positive or non-finite cap is refused by name", function()
+		local _, _, _, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		for _, bad in { { maxWidth = 0 }, { maxHeight = math.huge }, { maxWidth = "wide" } } do
+			local anchor: any = { source = { path = "/Editor/Bar/Plus" } }
+			for k, v in bad :: any do
+				anchor[k] = v
+			end
+			local ok, err = pcall(pres.presentAnchored, calloutPanel(100), { id = "Tip", anchor = anchor })
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), next(bad :: any) :: string, 1, true) ~= nil).toBe(true)
+		end
 	end)
 end)

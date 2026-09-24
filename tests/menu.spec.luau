@@ -73,6 +73,10 @@ local function world(opts: any?)
 		sizeClass = options.sizeClass,
 		interactionClasses = options.interactionClasses,
 		backLabel = options.backLabel,
+		edge = options.edge,
+		align = options.align,
+		width = options.width,
+		maxHeight = options.maxHeight,
 		onOpen = function()
 			table.insert(ran, "open")
 		end,
@@ -108,7 +112,7 @@ end
 local TRIGGER = "/S/Body/Trigger"
 local function rowPath(level: number, itemId: string): string
 	local surface = if level == 0 then "Menu-M" else `Menu-M-L{level}`
-	return `/{surface}/Layer/Surface/Popup/Panel/Item:{itemId}`
+	return `/{surface}/Layer/Surface/Popup/Panel/List/Rows/Item:{itemId}`
 end
 local function sheetRow(itemId: string): string
 	return `/Menu-M/Layer/Panel/Item:{itemId}`
@@ -416,6 +420,24 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		w.pres.refresh()
 		expect(#w.control.api.openPath:peek()).toBe(0)
 		expect(w.control.api.isOpen:peek()).toBe(true)
+	end)
+
+	it("ButtonA opens, ButtonB closes, and the next ButtonA opens again", function()
+		local w = world()
+		expect(w.pres.focus.focusOn(TRIGGER)).toBe(true)
+		for _ = 1, 2 do
+			-- the menu opens on the down edge; its Sink is born holding that press
+			w.system.deviceKey("ButtonA", true)
+			w.pres.refresh()
+			w.system.deviceKey("ButtonA", false)
+			w.pres.refresh()
+			expect(w.control.api.isOpen:peek()).toBe(true)
+			w.system.deviceKey("ButtonB", true)
+			w.system.deviceKey("ButtonB", false)
+			w.pres.refresh()
+			expect(w.control.api.isOpen:peek()).toBe(false)
+			expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
+		end
 	end)
 
 	it("activating an item runs its onSelect exactly once and closes the menu", function()
@@ -1345,9 +1367,12 @@ describe("D2: long-press ownership, settled in code", function()
 			-- `render/env_wiring.luau` is not a fourth construct either: it is the
 			-- renderer's own disclosure-engagement carry, which left `renderer.luau`
 			-- on 2026-09-20 to put that file back under the engine's Source cap. The
-			-- code is unchanged and the two files are one consumer.
+			-- code is unchanged and the two files are one consumer. The same holds for
+			-- `present/text_disclosure.luau`: the plate itself, which left the
+			-- presenter for the same cap; the presenter keeps only the seam binding.
 			"src/client/screen_target.luau src/controls/menu.luau src/controls/split_button.luau "
 				.. "src/input/contribution.luau src/input/touch_gestures.luau src/present/presenter.luau "
+				.. "src/present/text_disclosure.luau "
 				.. "src/render/env_wiring.luau src/render/renderer.luau src/render/target_contract.luau"
 		)
 	end)
@@ -1458,7 +1483,8 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		w.pres.refresh()
 		return w, checked
 	end
-	local PANEL = "/Menu-M/Layer/Surface/Popup/Panel"
+	-- a floating panel's rows scroll one level deeper (always bounded)
+	local PANEL = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows"
 
 	it("draws exactly one hairline between two rows — rows minus one, and no gap besides", function()
 		local w = cardWorld()
@@ -1515,9 +1541,10 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		for _, path in w.adapter.paths() do
 			expect(string.find(path, "Fill", 1, true) == nil).toBe(true)
 		end
-		-- the fill spans the row, which spans the card
-		local panel = w.adapter.node(PANEL).rect
-		expect(row.rect.w).toBe(panel.w)
+		-- the fill spans the row, which spans the card inside its inner hairline (F1)
+		local panel = w.adapter.node((string.gsub(PANEL, "/List/Rows$", ""))).rect
+		local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
+		expect(row.rect.w).toBe(panel.w - 2 * hairline)
 		--[[ ...and it is a FILL, not a picture. `slot = "none"` is what keeps a
 			skinned package from painting its whole control plate over the one row
 			that is meant to read as a wash inside the card — the same declaration
@@ -1625,7 +1652,7 @@ describe("menu: the floating panel materializes", function()
 		local w = world({})
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		local popupPath = rowPath(0, "accessory"):gsub("/Popup/Panel/Item:accessory$", "/Popup")
+		local popupPath = rowPath(0, "accessory"):gsub("/Popup/Panel/List/Rows/Item:accessory$", "/Popup")
 		local popup = w.adapter.node(popupPath)
 		expect(popup ~= nil and popup.canvasGroupInstance ~= nil).toBe(true)
 		expect(popup.canvasGroupInstance.groupTransparency).toBe(1)
@@ -1693,4 +1720,235 @@ describe("sheet submenu motion", function()
 			w.pres.dismiss(w.handle)
 		end)
 	end
+end)
+
+describe("Menu: placement, width, a bounded list and the shared row vocabulary", function()
+	local function open(w: any)
+		w.adapter.tap(TRIGGER)
+		w.pres.refresh()
+	end
+	local SURFACE0 = "/Menu-M/Layer/Surface"
+
+	it("edge and align place the root panel; absent keeps bottom/start", function()
+		local base = world({ w = 800, h = 600 })
+		open(base)
+		expect(base.pres.anchoredSurfaces().surfaces[1].edge).toBe("bottom")
+		local w = world({ w = 800, h = 600, edge = "trailing", align = "center" })
+		open(w)
+		local dump = w.pres.anchoredSurfaces().surfaces[1]
+		expect(dump.edge).toBe("right")
+		local trigger, panel = w.adapter.node(TRIGGER).rect, w.adapter.node(SURFACE0).rect
+		expect(panel.x >= trigger.x + trigger.w).toBe(true)
+	end)
+
+	it("width sets the panel's width dimension", function()
+		local w = world({ width = { type = "fixed", px = 300 } })
+		open(w)
+		expect(w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect.w).toBe(300)
+	end)
+
+	it("rows with a badge, a shortcut or a section heading never collapse the panel", function()
+		local items = {}
+		for i = 1, 6 do
+			table.insert(items, {
+				id = `t{i}`,
+				label = `Track {i}`,
+				badge = "New",
+				shortcutLabel = if i == 1 then "Ctrl+1" else nil,
+				sectionTitle = if i == 4 then "Night" else nil,
+				onSelect = function() end,
+			})
+		end
+		local w = world({ items = items })
+		open(w)
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
+		expect(panel.w >= 120).toBe(true)
+		for i = 1, 6 do
+			local label = w.adapter.node(rowPath(0, `t{i}`)).rect
+			expect(`Track {i} w>40: {label.w > 40}`).toBe(`Track {i} w>40: true`)
+		end
+	end)
+
+	it("plain rows lead like accessory rows, and every row reserves the target floor", function()
+		local items = {
+			{ id = "a", label = "All tracks", badge = 3, onSelect = function() end },
+			{ id = "b", label = "Favourites", shortcutLabel = "Ctrl+F", onSelect = function() end },
+		}
+		for i = 1, 4 do
+			table.insert(items, { id = `p{i}`, label = `Track {i}`, onSelect = function() end })
+		end
+		local w = world({ items = items })
+		open(w)
+		local floor = require("../src/themes/snapshot").neutral().targetSizes.minimum
+		local lefts, previous = {}, nil
+		for _, item in items do
+			local row = rowPath(0, item.id)
+			local rect = w.adapter.node(row).rect
+			expect(`{item.id} h>={floor}: {rect.h >= floor}`).toBe(`{item.id} h>={floor}: true`)
+			if previous ~= nil then
+				expect(`{item.id} clear of the row above: {rect.y >= previous.y + previous.h}`).toBe(
+					`{item.id} clear of the row above: true`
+				)
+			end
+			previous = rect
+			for _, path in w.adapter.paths() do
+				if string.sub(path, 1, #row + 1) == row .. "/" and string.sub(path, -6) == "/Label" then
+					lefts[item.id] = w.adapter.node(path).rect.x
+				end
+			end
+			expect(`{item.id} has a leading label: {lefts[item.id] ~= nil}`).toBe(`{item.id} has a leading label: true`)
+		end
+		for _, item in items do
+			expect(`{item.id} label x {lefts[item.id]}`).toBe(`{item.id} label x {lefts.a}`)
+		end
+	end)
+
+	it("a floating panel never outgrows the screen: a long list scrolls (owner: the blurry year menu)", function()
+		-- 201 rows ran 9,448 px off the screen, and its fade group outgrew the
+		-- engine's canvas budget, blurring every CanvasGroup's text
+		local items = {}
+		for i = 1, 201 do
+			table.insert(items, { id = `y{i}`, label = tostring(1925 + i), onSelect = function() end })
+		end
+		local w = world({ items = items })
+		open(w)
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
+		expect(`panel {panel.h <= 600}`).toBe("panel true")
+		expect(w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:y201") ~= nil).toBe(true)
+	end)
+
+	it(
+		"a menu opens on its selected row, centred in the scrolled list (owner: the year menu opened at 1926)",
+		function()
+			local year = Compose.cell(2026)
+			local items = {}
+			for y = 1926, 2126 do
+				table.insert(items, { id = `y{y}`, label = tostring(y), selected = year, value = y })
+			end
+			local w = world({ items = items })
+			open(w)
+			local path = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:y2026"
+			expect(w.pres.focus.focused:peek()).toBe(path)
+			local list = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List")
+			local row = w.adapter.node(path).rect
+			local scrolled = (list.scrollPosition or { y = 0 }).y
+			local off = (row.y - scrolled + row.h / 2) - (list.rect.y + list.rect.h / 2)
+			expect(`centred={math.abs(off) <= 1}`).toBe("centred=true")
+		end
+	)
+
+	it("maxHeight bounds the whole panel and the rows scroll, with ids and activation intact", function()
+		local items = {}
+		local picked: { string } = {}
+		for i = 1, 20 do
+			table.insert(items, {
+				id = `row{i}`,
+				label = `Row {i}`,
+				onSelect = function()
+					table.insert(picked, `row{i}`)
+				end,
+			})
+		end
+		local w = world({ items = items, maxHeight = 200 })
+		open(w)
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
+		expect(panel.h <= 200).toBe(true)
+		local last = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:row20"
+		expect(w.adapter.node(last) ~= nil).toBe(true)
+		-- keyboard walks to the last row and it is scrolled into view, then activates
+		for _ = 1, 19 do
+			w.system.deviceKey("Down", true)
+			w.system.deviceKey("Down", false)
+			w.pres.refresh()
+		end
+		expect(w.pres.focus.focused:peek()).toBe(last)
+		local list = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List")
+		local scrolled = (list.scrollPosition or { y = 0 }).y
+		local row = w.adapter.node(last).rect
+		expect(scrolled > 0).toBe(true)
+		expect(`visible={row.y - scrolled + row.h <= list.rect.y + list.rect.h + 1}`).toBe("visible=true")
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		expect(table.concat(picked, ",")).toBe("row20")
+	end)
+
+	it("a bounded list keeps submenus anchored to their parent row", function()
+		local w = world({ items = NESTED, maxHeight = 300 })
+		w.control.api.open()
+		w.pres.refresh()
+		expect(w.pres.focus.focused:peek()).toBe("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:adjust")
+		w.system.deviceKey("Right", true)
+		w.system.deviceKey("Right", false)
+		w.pres.refresh()
+		local surfaces = w.pres.anchoredSurfaces().surfaces
+		expect(#surfaces).toBe(2)
+		expect(surfaces[2].edge).toBe("right")
+		expect(w.adapter.node("/Menu-M-L1/Layer/Surface/Popup/Panel/List/Rows/Item:head") ~= nil).toBe(true)
+	end)
+
+	it("badge, avatar, sectionTitle and a display-only shortcutLabel share the row recipe", function()
+		local ran = 0
+		local w = world({
+			items = {
+				{
+					id = "a",
+					label = "Alpha",
+					badge = 3,
+					sectionTitle = "Recent",
+					onSelect = function()
+						ran += 1
+					end,
+				},
+				{
+					id = "b",
+					label = "Beta",
+					avatar = { name = "Bea" },
+					shortcutLabel = "Ctrl+B",
+					onSelect = function() end,
+				},
+			},
+		})
+		open(w)
+		local panel = "/Menu-M/Layer/Surface/Popup/Panel"
+		expect(w.adapter.node(`{panel}/List/Rows/Section:a/SectionTitle`).props.text).toBe("Recent")
+		local texts: { string } = {}
+		local avatar = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, "Item:b/", 1, true) ~= nil and string.find(path, "Avatar", 1, true) ~= nil then
+				avatar = true
+			end
+			local node = w.adapter.node(path)
+			if string.find(path, panel, 1, true) == 1 and node.class == "Text" then
+				table.insert(texts, node.props.text)
+			end
+		end
+		expect(avatar).toBe(true)
+		expect(table.find(texts, "3") ~= nil).toBe(true)
+		expect(table.find(texts, "Ctrl+B") ~= nil).toBe(true)
+		-- the heading is not a stop: the first Down lands on the first ROW
+		w.system.deviceKey("Down", true)
+		w.system.deviceKey("Down", false)
+		expect(string.find(w.pres.focus.focused:peek() or "", "Item:", 1, true) ~= nil).toBe(true)
+		-- the shortcut label registers nothing: pressing B does not select
+		w.system.deviceKey("B", true)
+		w.system.deviceKey("B", false)
+		expect(ran).toBe(0)
+	end)
+
+	it("malformed placement and bounds are refused by name", function()
+		for _, bad in
+			{
+				{ edge = "middle" },
+				{ align = "top" },
+				{ maxHeight = 0 },
+				{ maxHeight = math.huge },
+				{ width = 200 },
+			}
+		do
+			local ok, err = pcall(world, bad)
+			expect(ok).toBe(false)
+			local key = next(bad) :: string
+			expect(string.find(tostring(err), key, 1, true) ~= nil).toBe(true)
+		end
+	end)
 end)

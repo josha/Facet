@@ -167,7 +167,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Foyer/Root/TopBar/BellZ/BadgeWhen/then/BadgeBubble/Count",
 		sig = "the 'X' chrome contentInsets could not be",
-		px = 32, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
+		px = 35, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep; +3 since the seal's inner stroke is paid for in padding
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment",
 		kind = "theme-inset-yield",
@@ -177,7 +177,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody/FeedPage/FriendsRow/AddTile/BadgeWhen/then/BadgeBubble/Count",
 		sig = "the 'X' chrome contentInsets could not be",
-		px = 32, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
+		px = 35, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep; +3 since the seal's inner stroke is paid for in padding
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment",
 		kind = "theme-inset-yield",
@@ -363,26 +363,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "layer-overlap",
-	},
-	{
-		surface = "adaptive_controls",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Settings/Brightness",
-		sig = "content overflows this hstack by Npx on the",
-		px = 98,
-		since = 14,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "theme_authoring",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Settings/Brightness",
-		sig = "content overflows this hstack by Npx on the",
-		px = 98,
-		since = 14,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
 	},
 	{
 		surface = "virtual_list_native",

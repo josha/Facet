@@ -112,8 +112,11 @@ sheet_model.DEFAULT_APPEARANCE = "standard"
 	`accent` share the accent; `neutral` is content on the page, which needs no
 	rule because `content` is what an icon already declares), so this is the whole
 	closed set — and it is what keeps the icon rules below a STATUS feature rather
-	than a per-node tint channel. ]]
-sheet_model.STATUS_LETTERS = table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong" })
+	than a per-node tint channel. `contentStrong` and `danger` are lettering with
+	no plate under it: over-media lettering, and a field's error line, whose status
+	mark would otherwise keep the page's content colour beside a red sentence. ]]
+sheet_model.STATUS_LETTERS =
+	table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong", "danger" })
 local STATUS_LETTER_ROLES: { [string]: boolean } = {}
 for _, role in sheet_model.STATUS_LETTERS do
 	STATUS_LETTER_ROLES[role] = true
@@ -348,6 +351,8 @@ export type ClassifyInput = {
 	-- the surface this control is drawn over ("media"), when it is not the theme's
 	-- own background. One word, one tag.
 	over: string?,
+	-- the slot of the plate this text paints over (`chrome_slots.withPlateBeneath`)
+	onArt: string?,
 }
 
 function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
@@ -445,6 +450,9 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- "I am drawn over artwork": one word, one tag, no second treatment vocabulary
 	if input.over == "media" then
 		tags[T.overMedia] = true
+	end
+	if type(input.onArt) == "string" then
+		tags[chrome_slots.TAGS.onArtPrefix .. input.onArt] = true
 	end
 	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
 	-- including the class defaults: a rule that restates the class default is inert
@@ -559,6 +567,12 @@ local BLACK = { r = 0, g = 0, b = 0 }
 -- hairline is white and the label is white, so it hid for two whole stages.
 local STROKE_BORDER: RuleProp = { kind = "enum", enum = "ApplyStrokeMode", item = "Border" }
 sheet_model.STROKE_BORDER = STROKE_BORDER
+-- ...AND INSIDE THE BOX. The engine default is
+-- `Outer`, which overhangs the rect by the stroke's thickness, so a scroller's
+-- clip sliced the left edge of every stroked card and pill. Inner keeps the band
+-- inside the box, and `render/layout_node` pays for it in padding.
+local STROKE_INNER: RuleProp = { kind = "enum", enum = "BorderStrokePosition", item = "Inner" }
+sheet_model.STROKE_INNER = STROKE_INNER
 
 -- THE SELECTED STATE'S CONTENT COLOUR (director round 8, the palette
 -- contract; the 3.5 `togglePalette` ruling is the precedent).
@@ -607,6 +621,16 @@ local function selectedSurfaceOf(theme: any): { r: number, g: number, b: number 
 end
 sheet_model.selectedSurfaceOf = selectedSurfaceOf
 
+-- SELECTED UNDER HOVER: the selected fill with the theme's own hover step on
+-- top (controlHover - control), so a hovered selected row never reads as plain
+-- hover. One formula for the sheet token and the fallback painter.
+function sheet_model.selectedHoverColor(x: any): { r: number, g: number, b: number }
+	local function ch(k: string): number
+		return math.clamp(x.controlSelected[k] + x.controlHover[k] - x.control[k], 0, 1)
+	end
+	return { r = ch("r"), g = ch("g"), b = ch("b") }
+end
+
 function sheet_model.selectedContentColor(theme: any): { r: number, g: number, b: number }
 	local c = theme.colors
 	local surface = selectedSurfaceOf(theme)
@@ -614,6 +638,60 @@ function sheet_model.selectedContentColor(theme: any): { r: number, g: number, b
 		return { r = c.content.r, g = c.content.g, b = c.content.b }
 	end
 	return { r = c.onAccent.r, g = c.onAccent.g, b = c.onAccent.b }
+end
+
+--[[ THE LABEL ON A TINTED CONTROL PLATE: a skinned control's art multiplied by
+	`tint`. The art's colour as painted is the package's `extra.controlArt` (its
+	sampled centre), else its flat `control`; another slot's art is `extra[art]`
+	(`fieldArt`, `badgeArt`). Art that lets the panel through (`a` < 1, a badge
+	seal) reads over the surface. `onAccent` when it clears the floor there, else
+	`content` when that does, else whichever reads better. ]]
+local function chromePlate(theme: any, tint: any, art: string?): { r: number, g: number, b: number }
+	local x = theme.extra or {}
+	local base = if art ~= nil and type(x[art]) == "table"
+		then x[art]
+		elseif type(x.controlArt) == "table" then x.controlArt
+		elseif type(x.control) == "table" then x.control
+		else theme.colors.surfaceStrong
+	local a, s = base.a or 1, theme.colors.surface
+	return {
+		r = base.r * tint.r * a + s.r * (1 - a),
+		g = base.g * tint.g * a + s.g * (1 - a),
+		b = base.b * tint.b * a + s.b * (1 - a),
+	}
+end
+sheet_model.chromePlate = chromePlate
+
+function sheet_model.onChromeColor(theme: any, tint: any): { r: number, g: number, b: number }
+	local c = theme.colors
+	local plate = chromePlate(theme, tint)
+	local on, content = tokens.contrastRatio(c.onAccent, plate), tokens.contrastRatio(c.content, plate)
+	local pick = if on >= SELECTED_CONTRAST_FLOOR or on >= content then c.onAccent else c.content
+	return { r = pick.r, g = pick.g, b = pick.b }
+end
+
+--[[ ...AND ANY OTHER LIFTED LABEL on its tinted art: the first of `picks` that
+	clears the floor there, else whichever reads best. A plain button offers
+	content first (every flat-art package keeps its label), then contentStrong and
+	onAccent; a destructive one offers onDanger first. ]]
+function sheet_model.readableOnChrome(
+	theme: any,
+	tint: any,
+	picks: { any },
+	art: string?
+): { r: number, g: number, b: number }
+	local plate = chromePlate(theme, tint, art)
+	local best, bestRatio = picks[1], -1
+	for _, pick in picks do
+		local ratio = tokens.contrastRatio(pick, plate)
+		if ratio >= SELECTED_CONTRAST_FLOOR then
+			return { r = pick.r, g = pick.g, b = pick.b }
+		end
+		if ratio > bestRatio then
+			best, bestRatio = pick, ratio
+		end
+	end
+	return { r = best.r, g = best.g, b = best.b }
 end
 
 -- the gate the resolver leans on: SOME content role must be readable on the
@@ -665,6 +743,7 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		ControlHover = color(x.controlHover),
 		ControlPressed = color(x.controlPressed),
 		ControlSelected = color(x.controlSelected),
+		ControlSelectedHover = color(sheet_model.selectedHoverColor(x)),
 		ContentSecondary = color(x.contentSecondary),
 		Hairline = color(x.hairline),
 		-- precomputed accent interaction states (bespoke path computes these
@@ -865,6 +944,7 @@ local function emitOwnSlotPaint(
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
@@ -891,7 +971,12 @@ local function emitSlotSuppression(slot: string, emit: (Rule) -> ())
 	emit({
 		name = `Skinned — {slot} outline`,
 		selector = `.{skinnedTag}::UIStroke`,
-		props = { Thickness = num(0), Transparency = num(1), ApplyStrokeMode = STROKE_BORDER },
+		props = {
+			Thickness = num(0),
+			Transparency = num(1),
+			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
+		},
 	})
 end
 
@@ -964,6 +1049,7 @@ local function emitShapeChrome(
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
@@ -1041,6 +1127,7 @@ local function emitVocabularyChrome(
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
@@ -1264,6 +1351,31 @@ function sheet_model.contentTags(tags: { string }, state: string): { [string]: b
 	return out
 end
 
+-- ...and every other lifted label takes its role's colour as picked against the art
+local LIFT_TOKEN: { [string]: string } = {
+	["$OnAccent"] = "$OnAccentChrome",
+	["$Content"] = "$OnControlChrome",
+	["$ContentStrong"] = "$OnControlChromeStrong",
+	["$ContentSecondary"] = "$OnControlChromeSecondary",
+	["$OnDanger"] = "$OnDangerChrome",
+}
+
+-- A LIFTED label sits on the control's art, never on the accent fill $OnAccent is
+-- gated against (see `onChromeColor`); a destructive button's art is
+-- danger-tinted whatever its appearance, and a soft one's wears the selection wash
+local function liftValue(value: string, owner: string): string
+	if value == "$ContentSecondary" and string.find(owner, "role-cancel", 1, true) then
+		return "$OnCancelChrome"
+	elseif string.sub(value, 1, 7) == "$Danger" and string.find(owner, "role-destructive", 1, true) then
+		return "$OnDangerChrome"
+	elseif value == "$OnSelected" and string.find(owner, "appearance-soft", 1, true) then
+		return "$OnSoftChrome"
+	end
+	return LIFT_TOKEN[value] or value
+end
+-- ...and a skinned Button's GENERATED label and icon sit on that same art
+local SKINNED_OWNER = "." .. sheet_model.CONTENT_OWNER_PREFIX .. chrome_slots.skinnedTagFor("control")
+
 local function projectContentRules(rules: { Rule })
 	local hasLift = false
 	for _, rule in rules do
@@ -1301,6 +1413,9 @@ local function projectContentRules(rules: { Rule })
 			}
 		do
 			local value = source.props[channel[4]]
+			if channel[1] == "lift" and value ~= nil then
+				value = liftValue(value, source.selector)
+			end
 			local buttonSelector = string.sub(source.selector, 1, 10) == "TextButton"
 			-- Only the control's own opacity decision reaches art. Glyph-suppression
 			-- and ordinary subtree text rules must never make its image transparent.
@@ -1328,6 +1443,18 @@ local function projectContentRules(rules: { Rule })
 				transitions = if transition then { [channel[3]] = transition } else nil,
 				priority = (#rules + 1) * 10,
 			})
+			local onArt = if hasLift and (channel[1] == "text" or channel[1] == "icon")
+				then liftValue(value, source.selector)
+				else value
+			if onArt ~= value then
+				table.insert(rules, {
+					name = "Control content " .. channel[1] .. " skinned — " .. source.name,
+					selector = contentSelector .. SKINNED_OWNER,
+					props = { [channel[3]] = onArt },
+					transitions = if transition then { [channel[3]] = transition } else nil,
+					priority = (#rules + 1) * 10,
+				})
+			end
 		end
 	end
 end
@@ -1461,6 +1588,7 @@ function sheet_model.build(opts: BuildOpts): Model
 				Transparency = num(numbers.HairlineTransparency),
 				Thickness = num(base.strokes.hairline),
 				ApplyStrokeMode = STROKE_BORDER,
+				BorderStrokePosition = STROKE_INNER,
 			},
 		},
 		{
@@ -1481,6 +1609,7 @@ function sheet_model.build(opts: BuildOpts): Model
 				Transparency = num(numbers.HairlineTransparency),
 				Thickness = num(base.strokes.hairline),
 				ApplyStrokeMode = STROKE_BORDER,
+				BorderStrokePosition = STROKE_INNER,
 			},
 		},
 		{
@@ -1501,6 +1630,7 @@ function sheet_model.build(opts: BuildOpts): Model
 				Transparency = num(numbers.HairlineTransparency),
 				Thickness = num(base.strokes.hairline),
 				ApplyStrokeMode = STROKE_BORDER,
+				BorderStrokePosition = STROKE_INNER,
 			},
 		},
 		{
@@ -1669,6 +1799,13 @@ function sheet_model.build(opts: BuildOpts): Model
 			name = "Control — hover",
 			selector = "TextButton." .. T.interactive .. "." .. T.pointerLive .. ":Hover",
 			props = { BackgroundColor3 = "$ControlHover" },
+			transitions = { BackgroundColor3 = "fast" },
+		},
+		-- after the plain hover it must beat, before every role/accent hover
+		{
+			name = "Selected — hover",
+			selector = "TextButton." .. T.selected .. "." .. T.interactive .. "." .. T.pointerLive .. ":Hover",
+			props = { BackgroundColor3 = "$ControlSelectedHover" },
 			transitions = { BackgroundColor3 = "fast" },
 		},
 		{
@@ -1905,6 +2042,7 @@ sheet_model.PHANTOM_PROPS = table.freeze({
 		Transparency = true,
 		Thickness = true,
 		ApplyStrokeMode = true,
+		BorderStrokePosition = true,
 		LineJoinMode = true,
 		Enabled = true,
 	}),
@@ -2336,6 +2474,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		tokenSet.ChromeTintHover = greyToken(CHROME_TINT_HOVER)
 		tokenSet.ChromeTintPressed = greyToken(CHROME_TINT_PRESSED)
 		tokenSet.ChromeTintSelected = lerp({ r = 1, g = 1, b = 1 }, entry.colors.accent, 0.35)
+		-- a hovered selected skin: the selection lifted as danger's hover is, so
+		-- hover never repaints a selected row as an unselected one
+		tokenSet.ChromeTintSelectedHover = lerp(tokenSet.ChromeTintSelected, WHITE, 0.18)
+		-- ...and pressed, darkened as danger's press is, so a press never reads unselected
+		tokenSet.ChromeTintSelectedPressed = lerp(tokenSet.ChromeTintSelected, BLACK, 0.18)
 		-- ROLE TINTS (director review 2026-07-25: "a tint like on delete profile
 		-- should tint the IMAGE, not give a random button behind it"). With the
 		-- native plate suppressed under the art there is no coloured slab left to
@@ -2360,6 +2503,123 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		tokenSet.ChromeTintCancel = lerp(greyToken(CHROME_TINT_REST), entry.colors.surface, 0.45)
 		-- the primary action reads as the accent, lifted exactly as danger is
 		tokenSet.ChromeTintAccent = lerp(entry.colors.accent, WHITE, 0.3)
+		-- ...and its lifted label is the partner that reads on THAT plate: the
+		-- theme's control art multiplied by the accent tint is not the accent fill
+		-- `onAccent` is gated against (a mid wood or dark lacquer plate under it)
+		tokenSet.OnAccentChrome = color(sheet_model.onChromeColor(styleLike, tokenSet.ChromeTintAccent))
+		local rest = { r = CHROME_TINT_REST, g = CHROME_TINT_REST, b = CHROME_TINT_REST }
+		local c = entry.colors
+		-- every lifted label role, picked against the art it sits on: its own
+		-- colour where that reads, else the next of the ramp that does
+		local function pick(tint: any, picks: { any }, art: string?): TokenValue
+			return color(sheet_model.readableOnChrome(styleLike, tint, picks, art))
+		end
+		local body = { c.content, c.contentStrong, c.onAccent }
+		local quiet = { x.contentSecondary, c.content, c.contentStrong, c.onAccent }
+		tokenSet.OnControlChrome = pick(rest, body)
+		tokenSet.OnControlChromeStrong = pick(rest, { c.contentStrong, c.content, c.onAccent })
+		tokenSet.OnControlChromeSecondary = pick(rest, quiet)
+		tokenSet.OnCancelChrome = pick(tokenSet.ChromeTintCancel, quiet)
+		tokenSet.OnFieldChrome = pick(rest, body, "fieldArt")
+		tokenSet.OnFieldChromeSecondary = pick(rest, quiet, "fieldArt")
+		tokenSet.OnBadgeChrome = pick(rest, body, "badgeArt")
+		tokenSet.OnPanelChrome = pick(rest, body, "panelArt")
+		tokenSet.OnPanelChromeStrong = pick(rest, { c.contentStrong, c.content, c.onAccent }, "panelArt")
+		tokenSet.OnPanelChromeSecondary = pick(rest, quiet, "panelArt")
+		-- a soft button's art wears the selection wash (`Chrome role — soft`)
+		tokenSet.OnSoftChrome = pick(
+			tokenSet.ChromeTintSelected,
+			{ sheet_model.selectedContentColor(styleLike), c.content, c.contentStrong, c.onAccent }
+		)
+		tokenSet.OnDangerChrome = color(
+			sheet_model.readableOnChrome(
+				styleLike,
+				dangerTint,
+				{ (select(2, dangerPair(c))), c.content, c.contentStrong }
+			)
+		)
+		-- the lifted labels' backing transparency (`extra.chromeTextStroke`)
+		tokenSet.ChromeTextStroke = num(if type(x.chromeTextStroke) == "number" then x.chromeTextStroke else 1)
+		--[[ ...AND THE LABELS KEEP READING WHILE HOVERED AND PRESSED (readability
+			round 2026-09-23). A state re-tints the art under an unchanged label: the
+			resting grey lifts to 1.0 and presses to 0.66, a role's tint lightens and
+			darkens by 0.18, and a package may swap in its own state art. On mid-tone
+			art the full excursion carried a label under the floor (parchment
+			Daylight pressed 3.49, a hovered emphasis button on Glossy 1.46). So each
+			state tint goes as far toward its target as every label on it still
+			reads, in tenths, and no further — the state still shows, the words
+			still read. A package with no art keeps the constants. ]]
+		if type(x.controlArt) == "table" then
+			local backed = type(x.chromeTextStroke) == "number"
+			-- the furthest tenth of `reach` toward `target` at which every (label, art)
+			-- pair still reads — directly, or on the package's glyph backing. A
+			-- package's own state art may already have moved the plate past the
+			-- label (Compact's pressed button is darker art), so when no step toward
+			-- the target reads, the tint leans the other way, no further than needed.
+			local function stateTint(base: any, target: any, reach: number, pairs: { { any } }): TokenValue
+				local other = if target == WHITE then BLACK else WHITE
+				for step = 10, -20, -1 do
+					local tint = if step >= 0
+						then lerp(base, target, reach * step / 10)
+						else lerp(base, other, -step / 20)
+					local ok = true
+					for _, pair in pairs do
+						local plate = sheet_model.chromePlate(styleLike, tint, pair[2])
+						ok = ok
+							and (
+								tokens.contrastRatio(pair[1], plate) >= SELECTED_CONTRAST_FLOOR
+								or (backed and tokens.contrastRatio(pair[1], c.surface) >= SELECTED_CONTRAST_FLOOR)
+							)
+					end
+					if ok then
+						return tint
+					end
+				end
+				return color(base)
+			end
+			local t = tokenSet :: any
+			for _, state in { "Hover", "Pressed" } do
+				local art = if type(x["controlArt" .. state]) == "table" then "controlArt" .. state else "controlArt"
+				local target, reach =
+					if state == "Hover" then WHITE else BLACK,
+					if state == "Hover" then 1 else 1 - CHROME_TINT_PRESSED / CHROME_TINT_REST
+				t["ChromeTint" .. state] = stateTint(rest, target, reach, {
+					{ t.OnControlChrome, art },
+					{ t.OnControlChromeStrong, art },
+					{ t.OnControlChromeSecondary, art },
+					{ t.OnFieldChrome, "fieldArt" },
+					{ t.OnFieldChromeSecondary, "fieldArt" },
+					{ t.OnPanelChrome, "panelArt" },
+					{ t.OnPanelChromeStrong, "panelArt" },
+					{ t.OnPanelChromeSecondary, "panelArt" },
+					{ t.OnBadgeChrome, "badgeArt" },
+				})
+				for _, entry in
+					{
+						{ "ChromeTintAccent", t.OnAccentChrome },
+						{ "ChromeTintCancel", t.OnCancelChrome },
+						{ "ChromeTintSelected", t.OnSoftChrome },
+						{ "ChromeTintDanger", t.OnDangerChrome },
+					}
+				do
+					t[entry[1] .. state] = stateTint(t[entry[1]], target, 0.18, { { entry[2], art } })
+				end
+			end
+		else
+			tokenSet.ChromeTintAccentHover = lerp(tokenSet.ChromeTintAccent, WHITE, 0.18)
+			tokenSet.ChromeTintAccentPressed = lerp(tokenSet.ChromeTintAccent, BLACK, 0.18)
+			tokenSet.ChromeTintCancelHover = lerp(tokenSet.ChromeTintCancel, WHITE, 0.18)
+			tokenSet.ChromeTintCancelPressed = lerp(tokenSet.ChromeTintCancel, BLACK, 0.18)
+		end
+		-- a stepper's PRESSED plate may be different art altogether (Glossy's is
+		-- the accent blue), so its label on that plate is picked there
+		tokenSet.OnStepperChromePressed = pick(
+			if type(x.stepperArtPressed) == "table"
+				then lerp(rest, BLACK, 1 - CHROME_TINT_PRESSED / CHROME_TINT_REST)
+				else rest,
+			body,
+			"stepperArtPressed"
+		)
 		-- gradient tokens. EVERY theme carries a token for every gradient slot
 		-- any theme declares: a `$Token` that resolves in one theme and not in
 		-- another is a rule that stops painting on a swap, so a theme that
@@ -2593,6 +2853,36 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		},
 	})
 	fromMetric("type.control.font", "Field text default", "FontFace", "font")
+	--[[ TEXT ON ANOTHER NODE'S PLATE (readability round 2026-09-23). A field's
+		editor, a stepper's mark, a picker's value and an author's label on a skinned
+		box are not lifted — their plate is an ancestor or an earlier layer — so the
+		renderer tags them with that plate's slot (`chrome_slots.withPlateBeneath`)
+		and they take the colours picked against its art, exactly as a lifted label
+		does. Here, beside the class defaults they replace, so every appearance,
+		role and state rule after them still wins; only slots this package paints
+		with art. ]]
+	local onArtRoles: { { string } } = {}
+	for _, entry in
+		{
+			{ "control", "$OnControlChrome", "$OnControlChromeStrong", "$OnControlChromeSecondary" },
+			{ "field", "$OnFieldChrome", "$OnFieldChrome", "$OnFieldChromeSecondary" },
+			{ "badge", "$OnBadgeChrome", "$OnBadgeChrome", "$OnBadgeChrome" },
+			{ "panel", "$OnPanelChrome", "$OnPanelChromeStrong", "$OnPanelChromeSecondary" },
+		}
+	do
+		if ninePlans[entry[1]] ~= nil or stacks[entry[1]] ~= nil then
+			table.insert(onArtRoles, entry)
+		end
+	end
+	for _, entry in onArtRoles do
+		local tag = `.{chrome_slots.TAGS.onArtPrefix}{entry[1]}`
+		emit("base", { name = `On plate — {entry[1]}`, selector = tag, props = { TextColor3 = entry[2] } })
+		emit("base", {
+			name = `On plate — {entry[1]} placeholder`,
+			selector = `TextBox{tag}`,
+			props = { PlaceholderColor3 = entry[4] },
+		})
+	end
 	-- THE PER-ROLE FACES (F2, 2026-08-02). A node's typography role reaches native
 	-- paint as `facet-type-<role>`; this is the rule that gives that tag its face,
 	-- from the SAME `type.<role>.font` the solver measured with. Emitted for all
@@ -2643,6 +2933,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	fromMetric("strokes.hairline", "Raised panel — hairline", "Thickness", "number")
@@ -2665,6 +2956,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	fromMetric("strokes.hairline", "Field — outline", "Thickness", "number")
@@ -2687,6 +2979,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	fromMetric("strokes.hairline", "Chip — outline", "Thickness", "number")
@@ -2773,6 +3066,20 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } }
 	)
 	emit("roles", { name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } })
+	-- ...and the two text roles on a plate's art (see "On plate" above)
+	for _, entry in onArtRoles do
+		local tag = `.{chrome_slots.TAGS.onArtPrefix}{entry[1]}`
+		emit("roles", {
+			name = `On plate — {entry[1]} secondary`,
+			selector = `{tag}.facet-role-secondary`,
+			props = { TextColor3 = entry[4] },
+		})
+		emit("roles", {
+			name = `On plate — {entry[1]} strong`,
+			selector = `{tag}.facet-role-strong`,
+			props = { TextColor3 = entry[3] },
+		})
+	end
 	emit("roles", {
 		name = "Grip focus",
 		selector = ".facet-grip-focus",
@@ -2973,6 +3280,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 					Transparency = hairlineT,
 					Thickness = hairlineW,
 					ApplyStrokeMode = STROKE_BORDER,
+					BorderStrokePosition = STROKE_INNER,
 				},
 			})
 			fromMetric("strokes.hairline", `Chrome — {slot} fallback hairline`, "Thickness", "number")
@@ -3135,6 +3443,20 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 	for index, controlTag in controlTags do
 		local suffix = if #controlTags > 1 then ` L{index}` else ""
+		-- an appearance's fill is hidden under the art, so its emphasis reaches the
+		-- art as the accent surface's does (before destructive, which outranks it)
+		emit("chrome", {
+			name = `Chrome role — emphasis{suffix}`,
+			selector = `.{T.appearancePrefix}emphasis > .{controlTag}`,
+			props = { ImageColor3 = "$ChromeTintAccent" },
+			transitions = { ImageColor3 = "fast" },
+		})
+		emit("chrome", {
+			name = `Chrome role — soft{suffix}`,
+			selector = `.{T.appearancePrefix}soft > .{controlTag}`,
+			props = { ImageColor3 = "$ChromeTintSelected" },
+			transitions = { ImageColor3 = "fast" },
+		})
 		emit("chrome", {
 			name = `Chrome role — destructive{suffix}`,
 			selector = `.facet-role-destructive > .{controlTag}`,
@@ -3191,6 +3513,47 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- label too. `$OnSelected` is the theme's own decision (see
 		-- `selectedContentColor`): $Content wherever it still clears the 4.5
 		-- floor against the theme's selected surface, $OnAccent where it does not.
+		-- a plain button's label on its resting art; every role and state below wins
+		emit("chrome", {
+			name = "Chrome text — control",
+			selector = `.{chrome_slots.skinnedTagFor("control")} > .{liftTag}`,
+			props = { TextColor3 = "$OnControlChrome" },
+		})
+		emit("chrome", {
+			name = "Chrome text — field",
+			selector = `.{chrome_slots.skinnedTagFor("field")} > .{liftTag}`,
+			props = { TextColor3 = "$OnFieldChrome" },
+		})
+		emit("chrome", {
+			name = "Chrome text — badge",
+			selector = `.{chrome_slots.skinnedTagFor("badge")} > .{liftTag}`,
+			props = { TextColor3 = "$OnBadgeChrome" },
+		})
+		-- a thin dark backing behind every lifted label (a glyph outline), only in a
+		-- package whose art asks for one (`extra.chromeTextStroke`)
+		local backed = false
+		for _, x in extraByTheme do
+			backed = backed or type(x.chromeTextStroke) == "number"
+		end
+		if backed then
+			-- ...and behind text over another node's plate, which is on the same art
+			local backedTags = { liftTag }
+			for _, entry in onArtRoles do
+				table.insert(backedTags, chrome_slots.TAGS.onArtPrefix .. entry[1])
+			end
+			for _, tag in backedTags do
+				emit("chrome", {
+					name = if tag == liftTag then "Chrome text — backing" else `Chrome text — backing ({tag})`,
+					selector = `.{tag}::UIStroke`,
+					props = {
+						Color = "$Surface",
+						Thickness = num(1),
+						Transparency = "$ChromeTextStroke",
+						ApplyStrokeMode = { kind = "enum", enum = "ApplyStrokeMode", item = "Contextual" },
+					},
+				})
+			end
+		end
 		emit("chrome", {
 			name = "Chrome text — selected",
 			selector = `.{T.selected} > .{liftTag}`,
@@ -3211,12 +3574,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — accent",
 			selector = `.{S}accent > .{liftTag}`,
-			props = { TextColor3 = "$OnAccent" },
+			props = { TextColor3 = "$OnAccentChrome" },
 		})
 		emit("chrome", {
 			name = "Chrome text — destructive",
 			selector = `.facet-role-destructive > .{liftTag}`,
-			props = { TextColor3 = "$OnDanger" },
+			props = { TextColor3 = "$OnDangerChrome" },
 		})
 		--[[ ...and the label-only role's lifted twin (stabilization B'1). A skinned
 			text-bearing slot moves the label into a managed child, so every
@@ -3247,12 +3610,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — cancel",
 			selector = `.facet-role-cancel > .{liftTag}`,
-			props = { TextColor3 = "$ContentSecondary" },
+			props = { TextColor3 = "$OnCancelChrome" },
 		})
 		emit("chrome", {
 			name = "Chrome text — secondary",
 			selector = `.{liftTag}.facet-role-secondary`,
-			props = { TextColor3 = "$ContentSecondary" },
+			props = { TextColor3 = "$OnFieldChromeSecondary" },
 		})
 		-- The two role tags the RENDERER puts on the PARENT (classifyTags:
 		-- `strong` for heading-and-above text, `roleSecondary` for the secondary
@@ -3263,12 +3626,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		emit("chrome", {
 			name = "Chrome text — strong",
 			selector = `.facet-role-strong > .{liftTag}`,
-			props = { TextColor3 = "$ContentStrong" },
+			props = { TextColor3 = "$OnControlChromeStrong" },
 		})
 		emit("chrome", {
 			name = "Chrome text — parent secondary",
 			selector = `.facet-role-secondary > .{liftTag}`,
-			props = { TextColor3 = "$ContentSecondary" },
+			props = { TextColor3 = "$OnControlChromeSecondary" },
 		})
 		emit("chrome", {
 			name = "Chrome text — disabled button",
@@ -3354,6 +3717,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		transitions = { BackgroundColor3 = "fast" },
 	})
 	emit("hover", {
+		name = "Selected — hover",
+		selector = `TextButton.{T.selected}.{T.interactive}.{T.pointerLive}:Hover`,
+		props = { BackgroundColor3 = "$ControlSelectedHover" },
+		transitions = { BackgroundColor3 = "fast" },
+	})
+	emit("hover", {
 		name = "Primary — hover",
 		selector = `TextButton.{S}accent.{T.pointerLive}:Hover`,
 		props = { BackgroundColor3 = "$AccentHover" },
@@ -3396,6 +3765,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- one decoration, or every layer of a stack: the whole ladder responds as
 		-- one control, which is what a player sees. rs-m2 proved a compound tag
 		-- can single one layer out when a package wants that instead.
+		local selectedTag = SLOT_SELECTED_TAG[slot] or T.selected
 		local tags: { { name: string, tag: string } } = {}
 		if ninePlans[slot] ~= nil then
 			table.insert(tags, { name = `Chrome — {slot}`, tag = chrome_slots.tagFor(slot) })
@@ -3412,10 +3782,23 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				props = { ImageColor3 = "$ChromeTintHover" },
 				transitions = { ImageColor3 = "fast" },
 			})
+			-- after the plain hover it must beat (the selected tint is a chrome rule,
+			-- which every hover rule outranks by group)
+			emit("hover", {
+				name = `{entry.name} selected hover`,
+				selector = `.{selectedTag}.{T.interactive}.{T.pointerLive}:Hover > .{entry.tag}`,
+				props = { ImageColor3 = "$ChromeTintSelectedHover" },
+				transitions = { ImageColor3 = "fast" },
+			})
 			emit("press", {
 				name = `{entry.name} pressed`,
 				selector = `.{T.interactive}:Press > .{entry.tag}`,
 				props = { ImageColor3 = "$ChromeTintPressed" },
+			})
+			emit("press", {
+				name = `{entry.name} selected pressed`,
+				selector = `.{selectedTag}.{T.interactive}:Press > .{entry.tag}`,
+				props = { ImageColor3 = "$ChromeTintSelectedPressed" },
 			})
 			emit("disabled", {
 				name = `{entry.name} disabled`,
@@ -3463,19 +3846,32 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- without these a hovered destructive slab repainted itself neutral grey and
 	-- the role visually vanished at the moment of the click. Emitted AFTER the
 	-- loop above so insertion order puts them on top of it.
+	-- Every role that tints the art keeps its tint through the states (readability
+	-- round 2026-09-23: a hovered emphasis button went grey under its white label),
+	-- in the resting rules' order.
 	if ninePlans.control ~= nil then
 		local controlTag = ninePlans.control.tag
-		emit("hover", {
-			name = "Chrome role — destructive hover",
-			selector = `.facet-role-destructive.{T.pointerLive}:Hover > .{controlTag}`,
-			props = { ImageColor3 = "$ChromeTintDangerHover" },
-			transitions = { ImageColor3 = "fast" },
-		})
-		emit("press", {
-			name = "Chrome role — destructive pressed",
-			selector = `.facet-role-destructive:Press > .{controlTag}`,
-			props = { ImageColor3 = "$ChromeTintDangerPressed" },
-		})
+		for _, entry in
+			{
+				{ "emphasis", `.{T.appearancePrefix}emphasis`, "ChromeTintAccent" },
+				{ "soft", `.{T.appearancePrefix}soft`, "ChromeTintSelected" },
+				{ "destructive", ".facet-role-destructive", "ChromeTintDanger" },
+				{ "cancel", ".facet-role-cancel", "ChromeTintCancel" },
+				{ "accent", `.{S}accent`, "ChromeTintAccent" },
+			}
+		do
+			emit("hover", {
+				name = `Chrome role — {entry[1]} hover`,
+				selector = `{entry[2]}.{T.pointerLive}:Hover > .{controlTag}`,
+				props = { ImageColor3 = `${entry[3]}Hover` },
+				transitions = { ImageColor3 = "fast" },
+			})
+			emit("press", {
+				name = `Chrome role — {entry[1]} pressed`,
+				selector = `{entry[2]}:Press > .{controlTag}`,
+				props = { ImageColor3 = `${entry[3]}Pressed` },
+			})
+		end
 	end
 	-- ----- SEMANTIC ICON PAINT -------------------------------
 	--
@@ -3547,6 +3943,31 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				name = `Icon — {name}`,
 				selector = "." .. chrome_slots.iconTagFor(name),
 				props = imageProps(props),
+			})
+		end
+	end
+	-- an icon picture on art wears the label's colour for that art: over another
+	-- node's plate, or on its own skinned node — a stepper's +/- art too, whose
+	-- label is the control's (and its pressed plate's own, see the text rule)
+	if ninePlans.stepperPlate ~= nil or stacks.stepperPlate ~= nil then
+		local skinned = `.{chrome_slots.skinnedTagFor("stepperPlate")}`
+		emit("chrome", {
+			name = "On plate — stepper icon",
+			selector = `{skinned} > .{chrome_slots.ICON_PICTURE_TAG}`,
+			props = { ImageColor3 = "$OnControlChrome" },
+		})
+		emit("chrome", {
+			name = "On plate — stepper icon pressed",
+			selector = `{skinned}:Press > .{chrome_slots.ICON_PICTURE_TAG}`,
+			props = { ImageColor3 = "$OnStepperChromePressed" },
+		})
+	end
+	for _, entry in onArtRoles do
+		for _, prefix in { chrome_slots.TAGS.onArtPrefix, chrome_slots.TAGS.skinnedPrefix } do
+			emit("chrome", {
+				name = `On plate — {entry[1]} icon ({prefix})`,
+				selector = `.{prefix}{entry[1]} > .{chrome_slots.ICON_PICTURE_TAG}`,
+				props = { ImageColor3 = entry[2] },
 			})
 		end
 	end
@@ -3625,6 +4046,18 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 
 	projectContentRules(rules)
+	-- a stepper's pressed plate may be different art, and its label is picked there;
+	-- after the generated lifts, which out-rank every hand chrome rule
+	if ninePlans.stepperPlate ~= nil then
+		local selector = `.{chrome_slots.skinnedTagFor("stepperPlate")}:Press > .{chrome_slots.TAGS.text}`
+		sheet_model.checkSelector(selector, "Chrome text — stepper pressed")
+		table.insert(rules, {
+			name = "Chrome text — stepper pressed",
+			selector = selector,
+			props = { TextColor3 = "$OnStepperChromePressed" },
+			priority = (#rules + 1) * 10,
+		})
+	end
 	-- Explicit partner lettering wins over both name tint and generated-owner color.
 	emitStatusIconTint(function(rule: Rule)
 		rule.priority = (#rules + 1) * 10

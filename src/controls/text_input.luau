@@ -7,12 +7,16 @@ local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
-local paths = require("../paths")
 local rectLib = require("../rect")
 local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
-local patternEscape = paths.escape
+local textFit = require("../layout/text_fit")
+local arithmetic = require("../arithmetic")
+local valueModel = require("./value_model")
+local isFinite = require("../num").isFinite
+local fieldChrome = require("./field_chrome")
+local vocabulary = require("./control_vocabulary")
 
 local text_input = {}
 
@@ -82,6 +86,26 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"submitLabel",
 	"validate",
 	"value",
+	-- the shared field chrome (field_chrome.KEYS)
+	"label",
+	"requiredMark",
+	"hint",
+	"errorText",
+	"leading",
+	"trailing",
+	"controlSize",
+	"appearance",
+	"corners",
+	"readOnly",
+	"selectOnFocus",
+	"visibleLines",
+	-- the number presentation's step, rounding and units
+	"step",
+	"precision",
+	"stepButtons",
+	"prefix",
+	"suffix",
+	"scrub",
 })
 
 local function build(Facet: any, core: any, spec: Spec, owner: any)
@@ -131,10 +155,69 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				and spec.min == nil
 				and spec.max == nil
 				and spec.parse == nil
-				and spec.format == nil,
-			"TextInput: numericValue, bounds, parse and format require presentation number"
+				and spec.format == nil
+				and spec.step == nil
+				and spec.precision == nil
+				and spec.stepButtons == nil
+				and spec.prefix == nil
+				and spec.suffix == nil
+				and spec.scrub == nil,
+			"TextInput: numericValue, bounds, parse, format, step, precision, stepButtons, prefix, suffix and scrub "
+				.. "require presentation number"
 		)
 	end
+	assert(
+		spec.step == nil or (type(spec.step) == "number" and isFinite(spec.step) and spec.step > 0),
+		"TextInput: step must be a finite number above zero"
+	)
+	assert(
+		spec.precision == nil
+			or (
+				type(spec.precision) == "number"
+				and spec.precision >= 0
+				and spec.precision <= 10
+				and spec.precision % 1 == 0
+			),
+		"TextInput: precision must be a whole number of decimal places from 0 to 10"
+	)
+	assert(spec.stepButtons == nil or type(spec.stepButtons) == "boolean", "TextInput: stepButtons must be a boolean")
+	local scrubNow = read(spec.scrub)
+	assert(scrubNow == nil or type(scrubNow) == "boolean", "TextInput: scrub must be a boolean or a readable boolean")
+	for _, name in { "prefix", "suffix" } do
+		local unit = read(spec[name])
+		assert(unit == nil or type(unit) == "string", `TextInput: {name} must be a string or a readable string`)
+	end
+	fieldChrome.assertSpec("UI.TextInput", spec)
+	local readOnlyNow = read(spec.readOnly)
+	assert(
+		readOnlyNow == nil or type(readOnlyNow) == "boolean",
+		"UI.TextInput: readOnly must be a boolean or a readable boolean"
+	)
+	local selectNow = read(spec.selectOnFocus)
+	assert(
+		selectNow == nil or selectNow == "none" or selectNow == "all" or selectNow == "end",
+		"UI.TextInput: selectOnFocus must be none | all | end (or a readable one)"
+	)
+	-- a line count is a multiline fact: on a single-line field it would change nothing
+	assert(
+		spec.visibleLines == nil
+			or (
+				spec.multiline == true
+				and type(spec.visibleLines) == "number"
+				and spec.visibleLines >= 1
+				and spec.visibleLines < math.huge
+				and spec.visibleLines % 1 == 0
+			),
+		"UI.TextInput: visibleLines must be a whole count of at least 1, on a multiline field "
+			.. "(how many lines the editor shows at once; past them it scrolls)"
+	)
+	-- a search field already leads with its own mark; a second one beside it would
+	-- read as part of the first
+	assert(
+		spec.leading == nil or presentation ~= "search",
+		"UI.TextInput: a search field already leads with its own mark — `leading` would sit beside it "
+			.. 'and read as part of it. Use `trailing`, or presentation = "plain" with your own mark.'
+	)
 	for _, name in { "parse", "format", "validate", "onChange", "onCommit", "onCancel" } do
 		assert(spec[name] == nil or type(spec[name]) == "function", `TextInput: {name} must be a function`)
 	end
@@ -177,6 +260,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		)
 	)
 	local validationError = Compose.cell("")
+	-- the numeric rejection line is the chrome's internal message, outranked by
+	-- the caller's `errorText` in one place
+	local chrome = fieldChrome.new({
+		UI = Facet.UI,
+		control = "UI.TextInput",
+		spec = spec,
+		internalMessage = if presentation == "number" then validationError else nil,
+	})
 
 	local nativeTimeline = if Facet.runtime and (spec.invalid ~= nil or presentation == "number")
 		then Facet.runtime.timeline({ duration = 0.24, autoplay = false })
@@ -285,6 +376,71 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local enabledMemo = Compose.formula(function(use)
 		return not use(disabledMemo)
 	end)
+	--[[ READ-BUT-DO-NOT-WRITE. Not `enabled = false`: the field keeps its focus
+		stop, caret, selection and full contrast. The engine refuses the keystroke
+		(`TextEditable`); the model refuses too, so no route slips past. ]]
+	local readOnlyMemo = Compose.formula(function(use)
+		return read(spec.readOnly, use) == true
+	end)
+	--[[ THE NUMERIC ARITHMETIC IS THE VALUE FAMILY'S OWN: with two distinct bounds
+		`value_model` clamps and steps on the grid measured from `min`, as Slider
+		and Stepper do. Without them there is no grid to invent a bound for. ]]
+	local stepSize = spec.step or 1
+	local boundedModel = if presentation == "number"
+			and spec.min ~= nil
+			and spec.max ~= nil
+			and spec.min < spec.max
+		then valueModel.new({ min = spec.min, max = spec.max, step = stepSize })
+		else nil
+	local function clampNumber(v: number): number
+		if boundedModel ~= nil then
+			return boundedModel.clamp(v)
+		end
+		if spec.min ~= nil and v < spec.min then
+			return spec.min
+		end
+		if spec.max ~= nil and v > spec.max then
+			return spec.max
+		end
+		return v
+	end
+	-- half away from zero, at commit only: rounding a draft deletes the digit
+	-- being typed. A value too large to shift has no places left to round.
+	local function roundTo(v: number, places: number?): number
+		places = places or spec.precision
+		if places == nil then
+			return v
+		end
+		local scale = 10 ^ places
+		local shifted = v * scale
+		if not isFinite(shifted) then
+			return v
+		end
+		local rounded = if shifted >= 0 then math.floor(shifted + 0.5) else -math.floor(-shifted + 0.5)
+		return rounded / scale
+	end
+	--[[ A STEP OR SCRUB LANDS ON THE GRID'S OWN PLACES. Without a precision, three
+		presses of 0.1 would hold 0.30000000000000004; the decimals `step` and `min`
+		are written in are all a stepped number can honestly carry. ]]
+	local function placesOf(v: number?): number
+		local s = string.gsub(string.format("%.10f", v or 0), "0+$", "")
+		local dot = string.find(s, ".", 1, true)
+		return if dot then #s - dot else 0
+	end
+	local gridPlaces = math.max(placesOf(stepSize), placesOf(spec.min))
+	local function roundStep(v: number): number
+		return roundTo(v, spec.precision or gridPlaces)
+	end
+	-- an authored format wins; a declared precision writes exactly that many places
+	local function formatNumber(v: number): string
+		if spec.format ~= nil then
+			return spec.format(v)
+		end
+		if spec.precision ~= nil then
+			return string.format(`%.{spec.precision}f`, v)
+		end
+		return tostring(v)
+	end
 	local clearMode = spec.clearButtonMode
 		or (if spec.clearButton or presentation == "search" then "always" else "never")
 	if CLEAR_MODES[clearMode] == nil then
@@ -298,7 +454,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if clearMode == "never" then
 			return false
 		end
-		if use(disabledMemo) then
+		-- a read-only field offers nothing that would change its value
+		if use(disabledMemo) or use(readOnlyMemo) then
 			return false
 		end
 		if read(spec.value, use) == "" then
@@ -357,7 +514,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end)
 	end
 	local function applyProposed(proposed: string): boolean
-		if disposed or disabledMemo:peek() then
+		if disposed or disabledMemo:peek() or readOnlyMemo:peek() then
 			return false
 		end
 		if utf8.len(proposed) == nil then
@@ -423,27 +580,53 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if disposed or disabledMemo:peek() or not editing:peek() then
 			return
 		end
+		if readOnlyMemo:peek() then
+			-- nothing could have changed: leaving the edit is the whole of it, and an
+			-- onCommit here would be a false report
+			endEditing()
+			return
+		end
 
 		local text = read(spec.value)
+		-- a numeric field owns a number: its commit reports that, not the string
+		local committed: any = text
 		if presentation == "number" then
-			local ok, number = pcall(spec.parse or tonumber, text)
-			if disposed or disabledMemo:peek() then
-				return
-			end
-			local message = ""
-			if not ok or type(number) ~= "number" or number ~= number or math.abs(number) == math.huge then
-				message = "Enter a valid number."
-			elseif spec.min ~= nil and number < spec.min then
-				message = "Enter a value of at least " .. tostring(spec.min) .. "."
-			elseif spec.max ~= nil and number > spec.max then
-				message = "Enter a value of at most " .. tostring(spec.max) .. "."
-			end
-			if message ~= "" then
-				rejectWith(message)
+			--[[ AN INCOMPLETE DRAFT IS NOT A MISTAKE: nothing, a lone sign or a lone
+				point is a number on the way to being typed. Leaving on one restores the
+				last committed number in silence, unless the caller declared the field
+				required. ]]
+			if arithmetic.incomplete(text) then
+				local restoredOk, restored = pcall(formatNumber, spec.numericValue:peek())
+				if disposed or disabledMemo:peek() then
+					return
+				end
+				if restoredOk and type(restored) == "string" and restored ~= text then
+					spec.value:set(restored)
+				end
+				if spec.requiredMark == "required" then
+					rejectWith("Enter a number.")
+				else
+					validationError:set("")
+				end
 				endEditing()
 				return
 			end
-			local formattedOk, formatted = pcall(spec.format or tostring, number)
+			local ok, number = pcall(spec.parse or arithmetic.number, text)
+			if disposed or disabledMemo:peek() then
+				return
+			end
+			if not ok or type(number) ~= "number" or not isFinite(number) then
+				rejectWith("Enter a valid number.")
+				endEditing()
+				return
+			end
+			-- round, then clamp: a bound moves the value and the reason says so
+			local rounded = roundTo(number)
+			local bounded = clampNumber(rounded)
+			if bounded ~= rounded then
+				reason = "clamped"
+			end
+			local formattedOk, formatted = pcall(formatNumber, bounded)
 			if disposed or disabledMemo:peek() then
 				return
 			end
@@ -471,10 +654,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 			validationError:set("")
 			core.reactor:batch(function()
-				spec.numericValue:set(number)
+				spec.numericValue:set(bounded)
 				spec.value:set(formatted)
 			end)
-			text = formatted
+			committed = bounded
 		end
 		if spec.validate ~= nil and presentation ~= "number" then
 			local normalized = spec.validate(text)
@@ -482,10 +665,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				spec.value:set(normalized)
 				text = normalized
 			end
+			committed = text
 		end
 		endEditing()
 		if spec.onCommit ~= nil then
-			spec.onCommit(text, reason :: any)
+			spec.onCommit(committed, reason :: any)
 		end
 	end
 	cancelEdit = function()
@@ -508,6 +692,122 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 			if editing:peek() and touchLiveAtEditStart and classes.touch ~= true and classes.keyboard ~= true then
 				commit("focusLost")
+			end
+		end)
+	end
+	--[[ ONE PRESS OF A STEP BUTTON, through the typed path's own arithmetic —
+		step, round, clamp, format — so pressing and typing land on the same
+		numbers. A press is a whole decision: it commits as "submit" (and reports
+		the text change) rather than leaving a draft behind. ]]
+	local function setNumber(proposed: number): boolean
+		local ok, formatted = pcall(formatNumber, proposed)
+		if disposed or disabledMemo:peek() then
+			return false
+		end
+		if not ok or type(formatted) ~= "string" then
+			rejectWith("The number could not be formatted.")
+			return false
+		end
+		validationError:set("")
+		core.reactor:batch(function()
+			spec.numericValue:set(proposed)
+			spec.value:set(formatted)
+		end)
+		if spec.onChange ~= nil then
+			spec.onChange(formatted)
+		end
+		return true
+	end
+	local function stepBy(direction: number)
+		if disposed or disabledMemo:peek() or readOnlyMemo:peek() then
+			return
+		end
+		local current = spec.numericValue:peek()
+		local moved = if boundedModel ~= nil
+			then boundedModel.stepped(current, direction)
+			else current + direction * stepSize
+		local proposed = clampNumber(roundStep(moved))
+		if proposed == current or not isFinite(proposed) then
+			return
+		end
+		if setNumber(proposed) and not disposed and spec.onCommit ~= nil then
+			spec.onCommit(proposed :: any, "submit" :: any)
+		end
+	end
+	--[[ A SCRUB: a horizontal drag across the editor, reported by the adapter as
+		press -> begin (past the slop) -> move(total travel px) -> end | cancel.
+		The number moves by whole steps of the TOTAL travel through the step
+		press's own arithmetic, the edit the press opened ends without a commit,
+		and release commits once. A caller write mid-gesture ends it and wins. ]]
+	local SCRUB_PX_PER_STEP = 8
+	local scrubPress: any = nil -- the snapshot an eligible press took
+	local scrubbing: any = nil -- the promoted gesture: that snapshot and the last number written
+	local function scrubAllowed(): boolean
+		return not disposed and read(spec.scrub) == true and not disabledMemo:peek() and not readOnlyMemo:peek()
+	end
+	local function endScrub(restore: boolean)
+		local gesture = scrubbing
+		scrubbing = nil
+		if gesture ~= nil and restore then
+			core.reactor:batch(function()
+				spec.numericValue:set(gesture.number)
+				spec.value:set(gesture.text)
+			end)
+		end
+	end
+	local function onScrub(phase: string, arg: any): boolean
+		if phase == "press" then
+			-- the COMMITTED number and its own text: a typed draft is not what a
+			-- gesture restores to, and taking one discards the draft
+			local number = spec.numericValue:peek()
+			local ok, text = pcall(formatNumber, number)
+			scrubPress = if scrubAllowed()
+					and ok
+					and type(text) == "string"
+				then { number = number, text = text, class = arg }
+				else nil
+			return scrubPress ~= nil
+		elseif phase == "begin" then
+			if scrubPress == nil or not scrubAllowed() then
+				return false
+			end
+			scrubbing, scrubPress = scrubPress, nil
+			scrubbing.last = spec.numericValue:peek()
+			endEditing()
+			validationError:set("")
+			if read(spec.value) ~= scrubbing.text then
+				spec.value:set(scrubbing.text)
+			end
+			return true
+		elseif scrubbing == nil then
+			return false
+		elseif phase == "move" then
+			local proposed = clampNumber(roundStep(scrubbing.number + math.round(arg / SCRUB_PX_PER_STEP) * stepSize))
+			if proposed ~= spec.numericValue:peek() and isFinite(proposed) then
+				scrubbing.last = proposed
+				setNumber(proposed)
+			end
+		elseif phase == "end" then
+			endScrub(false)
+			if spec.onCommit ~= nil then
+				spec.onCommit(spec.numericValue:peek() :: any, "submit" :: any)
+			end
+		else
+			endScrub(true)
+		end
+		return true
+	end
+	if presentation == "number" and spec.scrub ~= nil then
+		owner.watch(function(use)
+			local number = read(spec.numericValue, use)
+			local classes = use(env:get("interactionClasses"))
+			local off = read(spec.scrub, use) ~= true or use(disabledMemo) or use(readOnlyMemo)
+			if scrubbing == nil then
+				return
+			elseif number ~= scrubbing.last then
+				scrubbing = nil -- the caller wrote: its number stands
+			elseif off or (type(classes) == "table" and classes[scrubbing.class] ~= true) then
+				endScrub(true)
 			end
 		end)
 	end
@@ -558,34 +858,106 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		commit("focusLost")
 		return false -- the edit is closed: let the ring move on
 	end
+	--[[ WHERE EVERY PART OF THIS CONTROL IS, derived once from four independent
+		facts: furniture puts the plate inside a stack, a named rung inside the
+		reserved touch floor, accessories put the editor inside a row, multiline
+		inside a viewport. Focus, activation and occlusion all read these tails. ]]
+	local sizedRung = spec.controlSize ~= nil
+	local fieldId = if chrome.active then "Input" else id
+	local rootId = if not chrome.active and sizedRung then `{id}+target` else id
+	local fieldBase = if chrome.active
+		then (if sizedRung then "/Input+target/Input" else "/Input")
+		elseif sizedRung then `/{id}`
+		else ""
+	-- a pinned child and a row member cannot share the plate's right edge, so
+	-- anything else inside the plate turns the plate into one row
+	local stepButtons = spec.stepButtons == true
+	local usesRow = chrome.hasAccessories or stepButtons or spec.prefix ~= nil or spec.suffix ~= nil
+	local rowPrefix = if usesRow then "/Row" else ""
+	local function ownTail(suffix: string): string
+		return `/{rootId}{fieldBase}{suffix}`
+	end
+	local fieldSuffix = rowPrefix .. (if spec.multiline then "/Viewport" else "") .. "/Field"
+	local FIELD_TAIL, CLEAR_TAIL = ownTail(fieldSuffix), ownTail(rowPrefix .. "/Clear")
+	local TRAILING_TAIL = ownTail("/Row/Trailing")
+	local DECREMENT_TAIL, INCREMENT_TAIL = ownTail("/Row/Decrement"), ownTail("/Row/Increment")
+	local LABEL_TAIL = `/{id}/{chrome.LABEL_ID}`
+	-- compared as text, so an id carrying a pattern character needs no escaping
+	local function endsWith(path: string, tail: string): boolean
+		return string.sub(path, -#tail) == tail
+	end
+	-- the clear chip and the caller's trailing content are facts only the mounted
+	-- tree can answer: a path named in an order and not mounted is a dead stop
+	local function mountedUnder(node: any, tail: string): any?
+		if type(node.path) == "string" and endsWith(node.path, tail) then
+			return node
+		end
+		for _, child in node.children or {} do
+			local found = mountedUnder(child, tail)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
+	local function collectStops(node: any, into: { string })
+		local class = controlContract.forClass(node.class)
+		local props = node.props
+		local focusable = if node.class == "Grip"
+			then props ~= nil and props.focusable == true
+			else class ~= nil and class.focusRole == "focusable" and not (props ~= nil and props.focusable == false)
+		if focusable then
+			table.insert(into, node.path)
+		end
+		for _, child in node.children or {} do
+			collectStops(child, into)
+		end
+	end
+	-- a contribution owns its subtree's focus, so every stop inside it is named
+	-- here: the editor, the mounted clear, then focusables in `trailing`
 	function api.focusGroups(rootNode: any): { any }
 		if not enabledMemo:peek() then
 			return {}
 		end
-		return {
-			{
-				name = `{id}:field`,
-				axis = "horizontal",
-				entry = "first",
-				order = {
-					rootNode.path .. (if presentation == "number"
-						then "/Input/Field"
-						elseif spec.multiline then "/Viewport/Field"
-						else "/Field"),
-				},
-			},
-		}
+		local order: { string } = { rootNode.path .. fieldBase .. fieldSuffix }
+		local clear = mountedUnder(rootNode, CLEAR_TAIL)
+		if clear ~= nil then
+			table.insert(order, clear.path)
+		end
+		if stepButtons then
+			for _, tail in { DECREMENT_TAIL, INCREMENT_TAIL } do
+				local button = mountedUnder(rootNode, tail)
+				if button ~= nil then
+					table.insert(order, button.path)
+				end
+			end
+		end
+		if chrome.trailing ~= nil then
+			local trailing = mountedUnder(rootNode, TRAILING_TAIL)
+			if trailing ~= nil then
+				collectStops(trailing, order)
+			end
+		end
+		return { { name = `{id}:field`, axis = "horizontal", entry = "first", order = order } }
 	end
 
-	local idPattern = patternEscape(id) .. (if presentation == "number" then "/Input" else "")
+	-- the field enters editing, the clear empties it, the label focuses its field
 	function api.handleActivate(path: string, _meta: any?): boolean
-		if string.match(path, `/{idPattern}{if spec.multiline then "/Viewport" else ""}/Field$`) ~= nil then
+		if endsWith(path, FIELD_TAIL) then
 			fieldFullPath = path -- learn our full path for keep-visible
 			beginEditing()
 			return true
 		end
-		if string.match(path, `/{idPattern}/Clear$`) ~= nil then
+		if endsWith(path, CLEAR_TAIL) then
 			clearValue()
+			return true
+		end
+		if spec.label ~= nil and endsWith(path, LABEL_TAIL) then
+			beginEditing()
+			return true
+		end
+		if stepButtons and (endsWith(path, DECREMENT_TAIL) or endsWith(path, INCREMENT_TAIL)) then
+			stepBy(if endsWith(path, DECREMENT_TAIL) then -1 else 1)
 			return true
 		end
 		return false
@@ -598,8 +970,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			inheritedDisabled:set(controlContract.isDisabled(rootNode))
 		end
 		latestRectOf = rectOf
-		if spec.multiline and rootNode then
-			local frame = rectOf(rootNode.path)
+		local platePath = if rootNode then rootNode.path .. fieldBase else nil
+		if spec.multiline and platePath then
+			local frame = rectOf(platePath)
 			local metrics = env:get("themeMetrics"):peek()
 			local inset = metrics.chromeInsets and metrics.chromeInsets.field
 			local height = if frame then math.max(0, frame.h - (if inset then inset.top + inset.bottom else 0)) else 0
@@ -608,10 +981,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 		end
 		if fieldFullPath ~= nil and editing:peek() then
-			local r = rectOf(if spec.multiline and rootNode then rootNode.path else fieldFullPath)
-			if spec.multiline and rootNode and renderController then
-				renderController.scrollToVisible(rootNode.path)
-				local painted = renderController.screenRectOf(rootNode.path)
+			local r = rectOf(if spec.multiline and platePath then platePath else fieldFullPath)
+			if spec.multiline and platePath and renderController then
+				renderController.scrollToVisible(platePath)
+				local painted = renderController.screenRectOf(platePath)
 				if painted then
 					r = { x = painted.x, y = painted.y + keepVisibleOffset:peek(), w = painted.w, h = painted.h }
 				end
@@ -640,8 +1013,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				),
 				UI.Spacer({ id = "AfterMark" }),
 			},
-			anchor = "right",
-			offsetX = CLEAR_INSET,
+			-- pinned only as the Anchor's own child; in the row it is a member
+			anchor = if usesRow then nil else "right",
+			offsetX = if usesRow then nil else CLEAR_INSET,
 			padding = 0,
 			width = { type = "minMax", min = CLEAR_SIZE },
 			height = { type = "minMax", min = CLEAR_SIZE, max = FIELD_HEIGHT },
@@ -654,6 +1028,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local raw = use(env:get("themeMetrics"))
 			local metrics = if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
 			local height = metrics.controls.textInput.multilineHeight
+			if spec.visibleLines ~= nil then
+				--[[ N lines of the field's own `control` typography plus the skin's
+					field inset (the viewport is the plate minus that inset), so a text
+					preference or ladder grows the box with its words. Past N the box
+					holds and the editor scrolls inside it. ]]
+				local facts = textFit.facts({ env = env, use = use })
+				local inset = metrics.chromeInsets and metrics.chromeInsets.field
+				height = textFit.lineBox({
+					facts = facts,
+					size = "control",
+					lines = spec.visibleLines,
+					role = "control",
+				}) + (if inset then inset.top + inset.bottom else 0)
+			end
 			local occlusion = use(env:get("keyboardOcclusionRect"))
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
@@ -667,11 +1055,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return { type = "fixed", px = height }
 		end)
 		else { type = "minMax", min = FIELD_HEIGHT }
+	local fieldPadding = chrome.padding or { left = "controls.textInput.padding", right = "controls.textInput.padding" }
 	local rootView = UI.Anchor
 	local rootSpec = {
-		id = if presentation == "number" then "Input" else id,
+		id = fieldId,
 		width = { type = "fill", weight = 1 },
-		height = spec.height or defaultHeight,
+		-- authored height wins, then the rung's; a multiline editor's height is a
+		-- count of lines, so a rung's single-line floor never applies there
+		height = spec.height or (if spec.multiline then defaultHeight else chrome.height or defaultHeight),
 		offset = Compose.formula(function(use)
 			local x = use(shakeOffset)
 			return if x == 0 then nil else { x = x, y = 0 }
@@ -682,16 +1073,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				text = spec.value,
 				multiline = spec.multiline,
 				surface = "plain",
-				padding = if spec.multiline
-					then nil
-					else { left = "controls.textInput.padding", right = "controls.textInput.padding" },
+				-- with an accessory row the ROW owns the inset
+				padding = if spec.multiline or usesRow then nil else fieldPadding,
 
 				placeholder = spec.placeholder or (if presentation == "search" then "Search" else nil),
 				editing = editing,
 				enabled = enabledMemo,
 				focusable = enabledMemo,
 				maxLength = spec.maxLength,
+				editable = Compose.formula(function(use)
+					return not use(readOnlyMemo)
+				end),
 				keyboardType = spec.keyboardType or "default",
+				selectOnFocus = spec.selectOnFocus,
 				width = { type = "fill", weight = 1 },
 				height = if spec.multiline
 					then Compose.formula(function(use)
@@ -701,28 +1095,39 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				onTextChanged = onTextChanged,
 				onFocusGained = onFocusGained,
 				onFocusLost = onFocusLost,
+				onScrub = if presentation == "number" and spec.scrub ~= nil then onScrub else nil,
 			}),
 
 			Compose.show(clearVisible, clearButtonView),
 		},
 	}
-	if presentation == "search" then
-		rootSpec.padding = { left = "xl" }
-		table.insert(
-			rootSpec.children,
-			chromeSlots.attachHint(
-				UI.Text({
-					id = "SearchIcon",
-					text = themePackage.iconGlyph("facet:search"),
-					textSize = "control",
-					anchor = "left",
-					offsetX = "-xl",
-				}),
-				{ icon = "facet:search" }
-			)
+	-- the search mark: pinned to the plate's left edge in the Anchor form, the
+	-- first row member in the row form (an anchored child is not carried there)
+	local searchMark = if presentation == "search"
+		then chromeSlots.attachHint(
+			UI.Text({
+				id = "SearchIcon",
+				text = themePackage.iconGlyph("facet:search"),
+				textSize = "control",
+				anchor = if usesRow then nil else "left",
+				offsetX = if usesRow then nil else "-xl",
+				width = if usesRow then UI.hug() else nil,
+				height = if usesRow then UI.hug() else nil,
+			}),
+			{ icon = "facet:search" }
 		)
+		else nil
+	if searchMark ~= nil and not usesRow then
+		rootSpec.padding = { left = "xl" }
+		table.insert(rootSpec.children, searchMark)
 	end
-	rootSpec.surface = "chip"
+	rootSpec.surface = chrome.surface
+	-- a field that is wrong says so on its plate: the danger border while it
+	-- carries an error, or while its caller holds it `invalid`
+	rootSpec.stroke = Compose.formula(function(use)
+		local wrong = use(chrome.hasError) or (spec.invalid ~= nil and read(spec.invalid, use) == true)
+		return if wrong then UI.strokeData({ color = "danger", thickness = "focusRing", transparency = 0 }) else nil
+	end)
 	rootSpec.enabled = if spec.enabled ~= nil
 		then spec.enabled
 		elseif spec.disabled ~= nil then Compose.formula(function(use)
@@ -742,30 +1147,120 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			children = { field },
 		})
 	end
-	local blueprint = chromeSlots.attachHint(rootView(rootSpec), { slot = "field" })
-
-	if presentation == "number" then
-		blueprint = UI.VStack({
-			id = id,
-			width = UI.fill(),
-			gap = "xs",
-			children = {
-				blueprint,
-				UI.Text({
-					id = "Validation",
-					text = validationError,
-					tint = { role = "danger", blend = 1 },
-					textSize = "caption",
-					width = UI.fill(),
-					hidden = Compose.formula(function(use)
-						return use(validationError) == ""
+	--[[ THE ACCESSORY ROW. A leading mark is decoration inside a plain hugging
+		stack, so a tap across the plate still reaches the editor; a trailing
+		Button is its own focus stop after the clear, in document order. ]]
+	if usesRow then
+		local function holder(holderId: string, content: any): any
+			return UI.ZStack({
+				id = holderId,
+				width = UI.hug(),
+				height = UI.hug(),
+				alignH = "center",
+				alignV = "center",
+				children = { content },
+			})
+		end
+		local row: { any } = {}
+		if chrome.leading ~= nil then
+			table.insert(row, holder("Leading", chrome.leading))
+		end
+		if searchMark ~= nil then
+			table.insert(row, searchMark)
+		end
+		-- units are chrome beside the editor, never characters in the draft; they
+		-- give way before the editor does on a narrow row
+		local function unit(unitId: string, text: any): any
+			return UI.Text({
+				id = unitId,
+				text = text,
+				textSize = "control",
+				role = "secondary",
+				width = UI.hug(),
+				height = UI.hug(),
+				shrinkWeight = 1,
+				disclose = true,
+			})
+		end
+		if spec.prefix ~= nil then
+			table.insert(row, unit("Prefix", spec.prefix))
+		end
+		table.insert(row, rootSpec.children[1])
+		if spec.suffix ~= nil then
+			table.insert(row, unit("Suffix", spec.suffix))
+		end
+		table.insert(row, rootSpec.children[2])
+		--[[ TWO SQUARE TARGETS THAT ARE ORDINARY FOCUS STOPS. They claim no adjust
+			axis (Left/Right move between them), and at a bound, read-only or disabled
+			each says so by being disabled rather than refusing its own press. ]]
+		for _, entry in
+			(if stepButtons then { { "Decrement", "decrement", "-", -1 }, { "Increment", "increment", "+", 1 } } else {}) :: { any }
+		do
+			local direction = entry[4] :: number
+			table.insert(
+				row,
+				UI.Button({
+					id = entry[1],
+					label = entry[1],
+					align = "center",
+					padding = 0,
+					width = { type = "minMax", min = "targetSizes.minimum" },
+					height = { type = "minMax", min = "targetSizes.minimum" },
+					enabled = Compose.formula(function(use)
+						if use(disabledMemo) or use(readOnlyMemo) then
+							return false
+						end
+						local current = clampNumber(read(spec.numericValue, use))
+						if direction < 0 then
+							return spec.min == nil or current > spec.min
+						end
+						return spec.max == nil or current < spec.max
 					end),
-				}),
-			},
-		})
+					surface = "chip",
+					-- the clear chip's centring: a framed package keeps the glyph whole
+					children = {
+						UI.Spacer({ id = "BeforeMark" }),
+						chromeSlots.attachHint(
+							UI.Text({
+								id = "Mark",
+								text = themePackage.iconGlyph(entry[2]) or entry[3],
+								textSize = "control",
+								textAlign = "center",
+							}),
+							{ icon = entry[2] }
+						),
+						UI.Spacer({ id = "AfterMark" }),
+					},
+				})
+			)
+		end
+		if chrome.trailing ~= nil then
+			table.insert(row, holder("Trailing", chrome.trailing))
+		end
+		rootSpec.children = {
+			UI.HStack({
+				id = "Row",
+				width = UI.fill(),
+				height = UI.fill(),
+				align = "center",
+				gap = "s",
+				padding = fieldPadding,
+				children = row,
+			}),
+		}
 	end
+	local blueprint = chromeSlots.attachHint(rootView(rootSpec), { slot = "field" })
+	if spec.corners ~= nil then
+		blueprint = UI.corners(blueprint, vocabulary.cornerRadiusFor(spec.corners))
+	end
+	-- only a named rung can solve the plate under the touch floor, so only a named
+	-- rung is mounted inside the container that reserves it
+	if sizedRung then
+		blueprint = vocabulary.reserveTarget(UI, core, fieldId, blueprint, UI.fill())
+	end
+	blueprint = chrome.wrap(blueprint, id)
 	local function dump()
-		return {
+		local out: any = {
 			schema = "facet-text_input-dump/1",
 			presentation = presentation,
 			validationError = validationError:peek(),
@@ -781,7 +1276,16 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			occlusionOffset = keepVisibleOffset:peek(),
 			keyboardType = spec.keyboardType or "default",
 			submitLabel = spec.submitLabel or "default",
+			readOnly = readOnlyMemo:peek(),
+			visibleLines = spec.visibleLines,
+			step = if presentation == "number" then stepSize else nil,
+			precision = spec.precision,
+			stepButtons = stepButtons,
+			prefix = read(spec.prefix),
+			suffix = read(spec.suffix),
 		}
+		chrome.dumpInto(out)
+		return out
 	end
 
 	return {
@@ -803,6 +1307,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			if disposed then
 				return
 			end
+			endScrub(true)
 			endEditing()
 			disposed = true
 			if shaking ~= nil then
@@ -819,6 +1324,18 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
+end
+
+-- `UI.NumberInput`: the same engine with the number presentation chosen — one
+-- draft, commit, chrome and input story under the name a chooser finds
+function text_input.buildNumber(Facet: any, core: any, spec: specTypes.NumberSpec)
+	assert(
+		(spec :: any).presentation == nil,
+		"Facet UI.NumberInput IS the number presentation: drop `presentation`, or use UI.TextInput"
+	)
+	local numeric = table.clone(spec :: any)
+	numeric.presentation = "number"
+	return text_input.build(Facet, core, numeric)
 end
 
 return text_input

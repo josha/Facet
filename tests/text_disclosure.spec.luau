@@ -17,6 +17,8 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local worldLib = require("./lib/harness_world")
+-- the application world (`w.UI`, `w.present`) for cases that bind a rich value
+local appWorld = require("./lib/world")
 
 local customFactory = harness.coreFactory
 local UI = harness.UI
@@ -581,6 +583,203 @@ describe("fresh-review closures: the plate answers for the label as it IS", func
 		after.longPress(true)
 		expect(pres.disclosure().present).toBe(true)
 		after.longPress(false)
+		expect(pres.disclosure().present).toBe(false)
+	end)
+end)
+
+describe("the extracted plate: one plate per presenter, released exactly once", function()
+	-- counts every disclosure root this adapter creates and destroys, so a plate
+	-- whose controller was never released (or released twice) shows as a number
+	local function rootLedger(adapter: any): any
+		local ledger = { created = 0, destroyed = 0 }
+		local create, destroy = adapter.createRoot, adapter.destroyRoot
+		adapter.createRoot = function(id: string): any
+			if id == "__disclose__" then
+				ledger.created += 1
+			end
+			return create(id)
+		end
+		adapter.destroyRoot = function(handle: any)
+			if handle.id == "__disclose__" then
+				ledger.destroyed += 1
+			end
+			destroy(handle)
+		end
+		return ledger
+	end
+
+	it("two presenters hold independent plates; dismissing one leaves the other painted", function()
+		local _, _, adapterA, systemA, presA = makeWorld()
+		local _, _, adapterB, systemB, presB = makeWorld()
+		local ledgerA, ledgerB = rootLedger(adapterA), rootLedger(adapterB)
+		local other = "Maximilianusssssssssssssssssss"
+		local surfaceA = presA.present(roster({ row("RowA", LONG_NAME) }), NO_FOCUS)
+		presB.present(roster({ row("RowB", other) }), NO_FOCUS)
+		local contextsA, contextsB = systemA.contextCount(), systemB.contextCount()
+		local focusA, focusB = presA.focus.focused:peek(), presB.focus.focused:peek()
+		Compose.inspect.start()
+		local ok, err = pcall(function()
+			local mountsBefore = Compose.inspect.snapshot().outstandingMounts
+			presA._discloseLongPress("/Roster/RowA/Name")
+			presB._discloseLongPress("/Roster/RowB/Name")
+			-- each presenter answers for its own label, on its own adapter
+			expect(presA.disclosure().sourcePath).toBe("/Roster/RowA/Name")
+			expect(presB.disclosure().sourcePath).toBe("/Roster/RowB/Name")
+			expect(adapterA.node(PLATE_LABEL).props.text).toBe(LONG_NAME)
+			expect(adapterB.node(PLATE_LABEL).props.text).toBe(other)
+			local rectA = adapterA.node(PLATE).rect
+			expect(rectA.w > 0 and rectA.x >= 0 and rectA.x + rectA.w <= 390).toBe(true)
+			-- chrome, not a surface: no input context and no focus move on either side
+			expect(systemA.contextCount()).toBe(contextsA)
+			expect(systemB.contextCount()).toBe(contextsB)
+			expect(presA.focus.focused:peek()).toBe(focusA)
+			expect(presB.focus.focused:peek()).toBe(focusB)
+			expect(Compose.inspect.snapshot().outstandingMounts).toBe(mountsBefore + 2)
+			-- A's surface leaves: A's plate goes on revalidation, B's stays painted
+			presA.dismiss(surfaceA)
+			presA.refresh()
+			expect(presA.disclosure().present).toBe(false)
+			expect(adapterA.node(PLATE_LABEL)).toBeNil()
+			expect(presB.disclosure().text).toBe(other)
+			expect(adapterB.node(PLATE_LABEL).props.text).toBe(other)
+			expect(`A={ledgerA.created}/{ledgerA.destroyed} B={ledgerB.created}/{ledgerB.destroyed}`).toBe(
+				"A=1/1 B=1/0"
+			)
+			-- A's plate AND A's surface released their mounts; B's two remain
+			expect(Compose.inspect.snapshot().outstandingMounts).toBe(mountsBefore)
+			-- disposing B releases its plate once; a second dispose releases nothing
+			presB.dispose()
+			presB.dispose()
+			expect(`A={ledgerA.created}/{ledgerA.destroyed} B={ledgerB.created}/{ledgerB.destroyed}`).toBe(
+				"A=1/1 B=1/1"
+			)
+			expect(Compose.inspect.snapshot().outstandingMounts).toBe(mountsBefore - 2)
+		end)
+		Compose.inspect.stop()
+		assert(ok, err)
+	end)
+end)
+
+describe("the live plate follows its source's value and the live safe box", function()
+	-- a one-line disclosed label in a 120px row, so a long phrase truncates
+	local function oneLine(id: string, text: any): any
+		return UI.Button({
+			id = id,
+			label = "",
+			width = { type = "fixed", px = 120 },
+			height = { type = "fixed", px = 44 },
+			children = { UI.Text({ id = "Name", text = text, textSize = 16, lineLimit = 1, disclose = true }) },
+		})
+	end
+
+	it("a bound plain value that changes while still truncated repaints the live plate", function()
+		local _, _, adapter, _, pres = makeWorld()
+		local first = "First complete value for the narrow plain label"
+		local second = "Second complete value has different words and remains truncated"
+		local name = Compose.cell(first)
+		pres.present(roster({ oneLine("RowA", name) }), NO_FOCUS)
+		pres._discloseLongPress("/Roster/RowA/Name")
+		expect(adapter.node(PLATE_LABEL).props.text).toBe(first)
+		name:set(second)
+		pres.refresh()
+		expect(pres.disclosure().text).toBe(second)
+		expect(pres.disclosure().source).toBe("touch")
+		expect(adapter.node(PLATE_LABEL).props.text).toBe(second)
+	end)
+
+	it("a bound rich value that changes repaints the live plate AS RICH", function()
+		local w = appWorld.new({ viewport = { x = 0, y = 0, w = 400, h = 400 } })
+		local red = '<font color="#FF0000">Championship standings updated for the season</font>'
+		local blue = '<font color="#0000FF">Championship standings updated for the season</font>'
+		local value = Compose.cell(red)
+		w.present(function()
+			return w.UI.Screen("Disc")({
+				padding = 0,
+				w.UI.Text("Marked")({
+					rich = true,
+					disclose = true,
+					lineLimit = 1,
+					text = value,
+					width = { type = "fixed", px = 80 },
+				}),
+			})
+		end)
+		w.pres._discloseLongPress("/Disc/Marked")
+		expect(w.adapter.node(PLATE_LABEL).props.text).toBe(red)
+		value:set(blue)
+		w.pres.refresh()
+		local plate = w.adapter.node(PLATE_LABEL)
+		expect(plate.props.text).toBe(blue)
+		expect(plate.appliedRichText).toBe(true)
+	end)
+
+	it("an unchanged value never remounts the live plate across refreshes", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(roster({ row("RowA", LONG_NAME) }), NO_FOCUS)
+		pres._discloseLongPress("/Roster/RowA/Name")
+		local before = adapter.node(PLATE_LABEL)
+		for _ = 1, 3 do
+			pres.refresh()
+			pres.tick(1 / 60)
+		end
+		expect(adapter.node(PLATE_LABEL) == before).toBe(true)
+	end)
+
+	it("safe insets that grow under a live plate narrow it into the new safe box", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
+		local pres, env, adapter = w.pres, w.env, w.adapter
+		pres.focus.setFocusOrigin("navigation")
+		local long = "A racer name that is far too long for this narrow cell and must wrap in the plate"
+		pres.present(roster({ oneLine("RowA", long) }), NO_FOCUS)
+		pres._discloseLongPress("/Roster/RowA/Name")
+		expect(pres.disclosure().present).toBe(true)
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 180, right = 220 })
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.tick(1 / 60)
+		local r = adapter.node(PLATE).rect
+		expect(`x={r.x >= 180} right={r.x + r.w <= 380}`).toBe("x=true right=true")
+		-- ...and the full value still wraps inside it rather than being dropped
+		expect(adapter.node(PLATE_LABEL).props.text).toBe(long)
+	end)
+
+	it("a source that becomes a HIDDEN ViewThatFits candidate retires its plate", function()
+		local core, env, adapter, _, pres = makeWorld()
+		local wide = Compose.cell(350)
+		local long = string.rep("Bartholomew ", 60)
+		pres.present(
+			UI.Screen({
+				id = "Roster",
+				children = {
+					UI.VStack({
+						id = "Box",
+						width = function(use: any)
+							return { type = "fixed", px = use(wide) }
+						end,
+						children = {
+							UI.ViewThatFits({
+								id = "VTF",
+								children = {
+									UI.VStack({
+										id = "Rich",
+										width = { type = "fixed", px = 300 },
+										children = {
+											UI.Text({ id = "Long", text = long, disclose = true, lineLimit = 1 }),
+										},
+									}),
+									UI.VStack({ id = "Short", children = { UI.Text({ id = "Bo", text = "Bo" }) } }),
+								},
+							}),
+						},
+					}),
+				},
+			}),
+			NO_FOCUS
+		)
+		pres._discloseLongPress("/Roster/Box/VTF/Rich/Long")
+		expect(pres.disclosure().present).toBe(true)
+		wide:set(120)
+		pres.refresh()
 		expect(pres.disclosure().present).toBe(false)
 	end)
 end)

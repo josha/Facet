@@ -41,6 +41,9 @@ local BINDING_PROPS: { [string]: boolean } = {
 	editing = true,
 	maxLength = true,
 	keyboardType = true,
+	-- the engine's read-only mode, restricted to the text-entry leaf below
+	editable = true,
+	selectOnFocus = true,
 	multiline = true,
 	-- THE SCROLL FREEZE (`ScrollView.scrollEnabled`): one engine property on the
 	-- host's own instance, written like `active` is. The host's CANVAS is a
@@ -197,6 +200,8 @@ prop_channels.BINDING_PROPS = BINDING_PROPS
 -- stays loud (an undeclared write is still an assertWrite error).
 local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
 	thickness = { Path = true },
+	editable = { TextField = true },
+	selectOnFocus = { TextField = true },
 	--[[ THE CONTINUOUS-COLOUR CHANNEL, RESTRICTED (2026-09-07).
 		`tint` is now legal on the layout CONTAINERS too, where it declares
 		the colour a whole SUBTREE paints with and paints nothing of its own — a

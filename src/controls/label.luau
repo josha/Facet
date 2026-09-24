@@ -26,6 +26,43 @@ local LABEL_KEYS = specGuard.keySet({
 	"title",
 })
 
+--[[ THE ONE WAY A CONTROL SHOWS AN ICON NAME, the path Button's own icon takes:
+	a semantic name is a glyph host carrying the icon hint, so the target draws
+	the theme's picture (or the glyph, or the warned dot for an unknown name);
+	an asset URL is an ordinary Image. A raw name handed to `UI.Image` paints
+	nothing. `opts`: `size` (default iconSizes.medium; a fixed box, or a floor
+	the glyph may grow past with `grow = true`), `id`, `tint`, `hidden`, `alignH`. ]]
+function label_control.icon(UI: any, name: string, opts: any?): any
+	local o = opts or {}
+	local size = o.size or "iconSizes.medium"
+	if string.match(name, "^%a[%w+.-]*://") ~= nil then
+		return UI.Image({
+			id = o.id or "Icon",
+			image = name,
+			tint = o.tint,
+			hidden = o.hidden,
+			alignH = o.alignH,
+			width = { type = "fixed", px = size },
+			height = { type = "fixed", px = size },
+		})
+	end
+	return chromeSlots.attachHint(
+		UI.Text({
+			id = o.id or "Icon",
+			text = themePackage.iconGlyphOrDot(name),
+			textSize = "control",
+			textAlign = "center",
+			tint = o.tint,
+			hidden = o.hidden,
+			alignH = o.alignH,
+			-- package art fits its box; a Label's glyph may grow with the text preference
+			width = if o.grow then { type = "minMax", min = size } else { type = "fixed", px = size },
+			height = if o.grow then { type = "minMax", min = size } else { type = "fixed", px = size },
+		}),
+		{ icon = name }
+	)
+end
+
 function label_control.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("UI.Label", spec, LABEL_KEYS, "spec")
 	local UI = Facet.UI
@@ -60,34 +97,14 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 
 	local children: { any } = {}
 	if effective ~= "titleOnly" then
-		local size = spec.iconSize or "controlSizes.regular.iconSize"
-		if type(spec.icon) == "string" and string.match(spec.icon, "^%a[%w+.-]*://") == nil then
-			table.insert(
-				children,
-				chromeSlots.attachHint(
-					UI.Text({
-						id = "Icon",
-						text = themePackage.iconGlyph(spec.icon) or "•",
-						textSize = "control",
-						textAlign = "center",
-						-- A semantic glyph can grow with the text preference; package art fits its box.
-						width = { type = "minMax", min = size },
-						height = { type = "minMax", min = size },
-					}),
-					{ icon = spec.icon }
-				)
+		table.insert(
+			children,
+			label_control.icon(
+				UI,
+				spec.icon :: string,
+				{ size = spec.iconSize or "controlSizes.regular.iconSize", grow = true }
 			)
-		else
-			table.insert(
-				children,
-				UI.Image({
-					id = "Icon",
-					image = spec.icon,
-					width = { type = "fixed", px = size },
-					height = { type = "fixed", px = size },
-				})
-			)
-		end
+		)
 	end
 	if effective ~= "iconOnly" then
 		-- CENTRED TEXT (director review 2026-07-24). The headless measurer

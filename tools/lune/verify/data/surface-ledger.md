@@ -28,6 +28,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `replication` · `replication.snapshot` · `replication.collection` · `replication.mutation` | namespace of factories | dot-object state services; verb-string results; E-16 (ingest verbs) | F-8, F-9, F-10, F-11, exported types (pkg1), DOC-17 | core-state |
 | `newResourceProvider` | service | dot-object; pull transport; generation staleness | F-12 (strict opts), DEP (`retryAttempts`), DOC-8 | core-state |
 | `valueModel` · `valueModel.new` · `valueModel.defaultFormat` | pure decision module | E-13; construction-strict; fully typed | F-38 (format quarantine), DOC-8 | core-state |
+| `civilDate` · `civilDate.isLeap` · `civilDate.daysIn` · `civilDate.problem` · `civilDate.toDays` · `civilDate.fromDays` · `civilDate.dateOf` · `civilDate.addDays` · `civilDate.addMonths` · `civilDate.compare` · `civilDate.same` · `civilDate.weekday` · `civilDate.monthGrid` · `civilDate.within` · `civilDate.clampRange` · `civilDate.fromUnix` · `civilDate.toUnix` · `civilDate.systemClock` · `civilDate.formatTime` · `civilDate.format` · `civilDate.parse` · `civilDate.ENGLISH` | pure decision module | zone-free civil values; instants only at a caller-named offset; `systemClock` is the one clock read (phase5 P5b) | NOTE (UI.DateTimePicker's value model) | core-state |
 
 ## Blueprint layer (`UI`)
 
@@ -90,6 +91,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `specGuard` · `specGuard.keySet` · `specGuard.assertKnownKeys` · `specGuard.keyFunction` | pure decision module | stateless dot module | none (exported 0.10.0, ARCH-8: the strictness rule the extension playbook teaches had no public route). `keyFunction` joins the same pattern (0.11.0): ONE `key` rule for every keyed collection — a function, or the NAME of the identity field, resolved to `(item) -> string` in one place instead of once per collection control | root |
 
 | `richText` · `richText.escape` | pure decision module | stateless escaping helper; not text filtering | none | root |
+| `recipes` · `recipes.arithmetic` · `recipes.arithmetic.parse` | pure decision module | stateless dot module: a four-operator parser a NumberInput takes as its `parse` in one line, bounded (256 bytes, 32 levels) and never compiling what a player typed | none (P3a numeric field) | root |
 
 ## Runtime services
 

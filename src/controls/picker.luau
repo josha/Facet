@@ -15,8 +15,11 @@ local surfaceEnv = require("../env/surface_env")
 
 local selectionModel = require("../selection_model")
 local menuRecipe = require("./menu_recipe")
+local statusIndicator = require("./status_indicator")
 local themeSnapshot = require("../themes/snapshot")
 local textMetrics = require("../layout/text_metrics")
+local fieldChrome = require("./field_chrome")
+local vocabulary = require("./control_vocabulary")
 local picker = {}
 
 -- `icon` is a SEMANTIC NAME ("close", "chevron.trailing", a namespaced
@@ -41,8 +44,9 @@ local STYLES: { [string]: boolean } = {
 	inline = true,
 	radioGroup = true,
 	navigationLink = true,
+	cards = true,
 }
-local STYLE_LIST = "automatic | menu | segmented | inline | radioGroup | navigationLink"
+local STYLE_LIST = "automatic | menu | segmented | inline | radioGroup | navigationLink | cards"
 local STRIP_NAME: { [string]: string } = { segmented = "segmented", inline = "inline", radioGroup = "radio" }
 local PUBLIC_NAME: { [string]: string } = { segmented = "segmented", inline = "inline", radio = "radioGroup" }
 local pickerMenu = require("./picker_menu")
@@ -77,8 +81,9 @@ local NATURAL_WIDTH = table.freeze({ type = "content" })
 -- width — while a hugging strip's segments take their own words' widths, which
 -- is what makes "For you" wider than "Charts" and what the D4 indicator was
 -- built to travel between (two rects, never two indices).
+-- Never below the target floor, so icon-only neighbours' hit bands never overlap.
 local SEGMENT_FILL = table.freeze({ type = "fill", weight = 1 })
-local SEGMENT_NATURAL = table.freeze({ type = "content" })
+local SEGMENT_NATURAL = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
 local SEGMENT_HEIGHT = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
 local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
 
@@ -226,7 +231,42 @@ local PICKER_KEYS = specGuard.keySet({
 		from it. Only a `track = false` caller has anything to say here — a tracked
 		picker draws its own plate and this control already knows its corner. ]]
 	"stripCorner",
+	-- the shared field furniture and local vocabulary
+	"hint",
+	"errorText",
+	"requiredMark",
+	"controlSize",
+	"appearance",
+	"corners",
+	-- the menu panel's bound, chrome included
+	"maxHeight",
+	-- the radio group's mark: "leading" (default) | "trailing"
+	"indicatorPosition",
 })
+
+--[[ ONE APPEARANCE WORD, TWO FAMILIES. The menu trigger speaks
+	standard/contrast/utility and the segmented strip filled/stroke/utility; an
+	automatic picker accepts all five and maps each onto whichever family is on
+	screen (standard|filled, contrast|stroke, utility), so a family switch never
+	drops the author's intent. Absent stays absent: each family keeps its own
+	default. Row forms (inline, radioGroup, cards) take no appearance. ]]
+local MENU_WORDS = table.freeze({ "standard", "contrast", "utility" })
+local STRIP_WORDS = table.freeze({ "filled", "stroke", "utility" })
+local AUTO_WORDS = table.freeze({ "standard", "contrast", "filled", "stroke", "utility" })
+local TO_MENU: { [string]: string } =
+	{ standard = "standard", filled = "standard", contrast = "contrast", stroke = "contrast", utility = "utility" }
+local TO_STRIP: { [string]: string } =
+	{ standard = "filled", filled = "filled", contrast = "stroke", stroke = "stroke", utility = "utility" }
+local function wordsFor(style: string): { string }?
+	if style == "automatic" then
+		return AUTO_WORDS
+	elseif style == "menu" or style == "navigationLink" then
+		return MENU_WORDS
+	elseif style == "segmented" then
+		return STRIP_WORDS
+	end
+	return nil
+end
 
 -- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
 -- reactive kinds, exactly as `selection_indicator.readValue` does and for the
@@ -235,8 +275,60 @@ local PICKER_KEYS = specGuard.keySet({
 -- caller back the node itself.
 local readValue = require("../selection_model").read
 
-local OPTION_KEYS =
-	specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled", "sectionTitle" })
+-- an option's status mark: a StatusIndicator in the row's trailing lane, owned
+-- by whichever owner builds the row (the control's, or a keyed row's). Given the
+-- row's `current` record, the mark follows it: form/status/count track the live
+-- record and a removed indicator unmounts (a row born without one has none).
+local function indicatorNode(Facet: any, core: any, indicator: any, current: any?): any
+	if indicator == nil then
+		return nil
+	end
+	local function mark(): any
+		local merged = table.clone(indicator)
+		merged.id = merged.id or "Status"
+		if current ~= nil then
+			for _, key in { "form", "status", "count" } do
+				if merged[key] ~= nil then
+					merged[key] = function(use)
+						local live = use(current).indicator
+						return if type(live) == "table" then live[key] else indicator[key]
+					end
+				end
+			end
+		end
+		local built = statusIndicator.build(Facet, core, merged)
+		if built.dispose ~= nil then
+			Compose.cleanup(built.dispose)
+		end
+		return built.blueprint
+	end
+	if current == nil then
+		return mark()
+	end
+	return Facet.UI.When({
+		id = "StatusSlot",
+		condition = function(use)
+			return use(current).indicator ~= nil
+		end,
+		thenView = mark,
+	})
+end
+
+-- the Avatar keys a menu row passes on (menu_recipe.avatarNode)
+local AVATAR_KEYS = specGuard.keySet({ "name", "image", "userId", "key", "provider" })
+local OPTION_KEYS = specGuard.keySet({
+	"id",
+	"value",
+	"label",
+	"description",
+	"icon",
+	"badge",
+	"enabled",
+	"sectionTitle",
+	"avatar",
+	"meta",
+	"indicator",
+})
 local function validateArray(list)
 	assert(type(list) == "table", "Picker: options must be an array")
 	local count = 0
@@ -265,8 +357,20 @@ local function validateOption(option, use)
 		badge == nil or type(badge) == "string" or type(badge) == "number",
 		"Picker: badge must be a string or number or readable of either"
 	)
+	assert(
+		option.indicator == nil or type(option.indicator) == "table",
+		"Picker: indicator must be a StatusIndicator spec table"
+	)
+	if option.avatar ~= nil then
+		assert(type(option.avatar) == "table", "Picker: avatar must be an Avatar spec table")
+		specGuard.assertKnownKeys("Picker.option.avatar", option.avatar, AVATAR_KEYS, "avatar")
+	end
 	local enabled = readValue(option.enabled, use)
 	assert(enabled == nil or type(enabled) == "boolean", "Picker: option enabled must be boolean or readable boolean")
+	local heading = readValue(option.sectionTitle, use)
+	assert(heading == nil or type(heading) == "string", "Picker: sectionTitle must be a string or readable string")
+	local meta = readValue(option.meta, use)
+	assert(meta == nil or type(meta) == "string", "Picker: meta must be a string or readable string")
 	assert(
 		option.icon == nil or (type(option.icon) == "string" and option.icon ~= ""),
 		"Picker: icon must be a non-empty semantic icon name"
@@ -318,10 +422,6 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 	assert(PRESENTATIONS[requested], "Picker: presentation must be automatic | segmented | inline | radio")
 	assert(spec.indicator == nil or INDICATORS[spec.indicator], "Picker: invalid live indicator")
 	local slides = requested == "segmented" and (spec.indicator == "pill" or spec.indicator == "underline")
-	local sectioned = false
-	for _, option in readValue(spec.options) do
-		sectioned = sectioned or option.sectionTitle ~= nil
-	end
 	local mountedNode
 	local function key(option)
 		return option.id or tostring(option.value)
@@ -442,11 +542,30 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 			end)
 		end
 	end
+	-- a heading is its own keyed entry, so one can arrive after mount without
+	-- re-keying the row under it; it shows only on a stacked (y) list
 	local rows = UI.ForEach({
 		id = "Rows",
-		items = options,
-		key = key,
+		items = Compose.formula(function(use)
+			return menuRecipe.sectionEntries(use(options), key, use)
+		end),
+		key = function(entry)
+			return if entry.sectionHeading ~= nil then entry.key else key(entry)
+		end,
 		row = function(initial, _, current)
+			if initial.sectionHeading ~= nil then
+				return UI.When({
+					id = "SectionHeading",
+					condition = function(use)
+						return use(axis) == "y"
+					end,
+					thenView = function()
+						return menuRecipe.sectionHeading(UI, function(use)
+							return use(current).sectionHeading
+						end)
+					end,
+				})
+			end
 			local identity = key(initial)
 			-- Compose supplies the current record for this key. Each row reads
 			-- that record directly instead of searching the entire option list.
@@ -476,12 +595,20 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 				description = prop("description", ""),
 				icon = prop("icon"),
 				badge = prop("badge", ""),
+				-- a segment with an icon (a tab bar's) wears its badge on the icon's
+				-- corner; a text segment keeps the trailing pill
+				badgeCorner = slides and initial.icon ~= nil,
+				trailing = indicatorNode(Facet, core, initial.indicator, current),
 				width = segmentWidth,
 				textSize = spec.textSize,
 				iconOnly = spec.iconOnly,
 				selected = if slides then nil else selected,
 				enabled = enabled,
 				indicator = if requested == "radio" then "radio" else nil,
+				indicatorEdge = spec.indicatorPosition,
+				height = if spec.controlSize ~= nil
+					then vocabulary.metricPath(readValue(spec.controlSize), "height")
+					else nil,
 				markHidden = function(use)
 					return not selected(use)
 				end,
@@ -496,34 +623,7 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 					return true
 				end,
 			})
-			if not sectioned then
-				return row
-			end
-			local heading = prop("sectionTitle", "")
-			local showHeading = function(use)
-				return use(axis) == "y" and heading(use) ~= ""
-			end
-			return UI.VStack({
-				id = "SectionRow-" .. identity,
-				width = segmentWidth,
-				gap = "xs",
-				children = {
-					UI.When({
-						id = "SectionHeading",
-						condition = showHeading,
-						thenView = function()
-							return UI.Text({
-								id = "SectionTitle",
-								text = heading,
-								textSize = "caption",
-								role = "secondary",
-								width = UI.fill(),
-							})
-						end,
-					}),
-					row,
-				},
-			})
+			return row
 		end,
 	})
 	local group = UI.AdaptiveStack({
@@ -695,7 +795,7 @@ local function lintStaticOptions(spec: Spec, id: string): any
 	}
 end
 
-local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: string, onReselect, owner)
+local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: string, onReselect, owner, submit)
 	local UI = Facet.UI
 	local id = spec.id or "Picker"
 	local mountedNode
@@ -704,7 +804,12 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	end
 	validateArray(spec.options)
 	local selected = spec.selected
-	if not selectionModel.isWritable(selected) then
+	--[[ THE PRIVATE SUBMISSION SEAM (UI.Vote, phase6). With `submit`, the strip
+		BORROWS a derived selected readable and hands an accepted choice to
+		`submit` at the one write/notify boundary below instead of writing: the
+		caller's own value is the only thing that repaints. Public builds never
+		pass it, so every public strip still requires a writable cell. ]]
+	if not selectionModel.isWritable(selected) and not (submit ~= nil and selectionModel.isSource(selected)) then
 		error(`Facet UI.Picker('{id}'): \`selected\` must be a writable Compose cell the caller owns`, 0)
 	end
 	local indicatorRequest = spec.indicator or "automatic"
@@ -872,6 +977,10 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			return false
 		end
 		core.reactor:batch(function()
+			if submit ~= nil then
+				submit(value)
+				return
+			end
 			selected:set(value)
 			if spec.onChange ~= nil then
 				spec.onChange(value)
@@ -917,7 +1026,17 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	-- the row form's silhouette, and the ONE shape both its states wear (item 5):
 	-- the plate a theme paints under a chosen row is the row's own node, so an
 	-- authored corner makes chosen and unchosen the same outline by construction
-	local rowCorners = UI.cornersData(SEGMENT_RADIUS)
+	-- the strip's outer corner: `corners` names it, absent is the theme's radius
+	local outerCorner: any = if spec.corners == "pill"
+		then "pill"
+		elseif spec.corners == "square" then 0
+		else SEGMENT_RADIUS
+	local rowCorners = UI.cornersData(outerCorner)
+	local trackOutline = UI.strokeData({ color = "hairline", thickness = "hairline", transparency = 0 })
+	-- a named rung's segment and row height; the whole strip reserves the floor
+	local rungHeight = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.heightFor)
+	local segmentHeight = rungHeight or SEGMENT_HEIGHT
+	local rungPadding = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.paddingFor)
 	-- the three silhouettes a segment can wear, filled per index below: the
 	-- horizontal strip's, the vertical rail's, and the row list's
 	local cornersX: { any } = {}
@@ -993,14 +1112,14 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 		local optionId = option.id or "Opt" .. i
 		byId[optionId] = option.value
 		table.insert(segments, { value = option.value, id = optionId })
-		local badged = option.badge ~= nil
+		local badged = option.badge ~= nil or option.indicator ~= nil
 		--[[ THIS SEGMENT'S SHAPE, in one memo over the two facts that can move it.
 			Both answers are built here, once, so the memo picks between two stable
 			tables rather than allocating a corner set per re-solve. A strip that is
 			not a track (a tab bar, or a strip with no indicator) takes the plain
 			row shape, which is the same radius without the end rule. ]]
-		local cornerX = stripCorners(UI, i, segmentCount, "x")
-		local cornerY = stripCorners(UI, i, segmentCount, "y")
+		local cornerX = stripCorners(UI, i, segmentCount, "x", outerCorner)
+		local cornerY = stripCorners(UI, i, segmentCount, "y", outerCorner)
 		cornersX[i], cornersY[i], cornersRow[i] = cornerX, cornerY, rowCorners
 		local optionCorners: any = rowCorners
 		if tracked then
@@ -1052,7 +1171,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			-- width (the reactive one) is the single place the segment's size is
 			-- decided and the two can never disagree
 			width = if badged then SEGMENT_FILL else segmentWidth,
-			height = if badged then OVERLAY_FILL else SEGMENT_HEIGHT,
+			height = if badged then OVERLAY_FILL else segmentHeight,
+			padding = rungPadding,
 			-- the focus ring follows the node's corners, so a segment wears the
 			-- same shape as the bar sliding under it: one silhouette, one height.
 			-- It is authored on EVERY form, not only the sliding one, because a row
@@ -1077,6 +1197,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				description = option.description,
 				icon = option.icon,
 				indicator = if requested == "radio" then "radio" else nil,
+				indicatorEdge = spec.indicatorPosition,
+				height = rungHeight and vocabulary.metricPath(readValue(spec.controlSize), "height"),
 				markHidden = Compose.formula(function(use)
 					return selectionModel.read(selected, use) ~= option.value
 				end),
@@ -1094,9 +1216,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 		if not badged then
 			table.insert(rows, UI.Button(buttonProps))
 		else
-			-- The shared row recipe measures label and badge in separate lanes.
-			-- Overlaying a count on a short tab obscures its label, especially
-			-- with distant metrics and an image-backed theme badge.
+			-- The shared row recipe measures label and badge in separate lanes; a
+			-- tab icon's count rides the icon's corner, never the label.
 			local row = menuRecipe.rowProps(UI, {
 				id = optionId,
 				label = option.label,
@@ -1112,6 +1233,10 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				icon = option.icon,
 				iconOnly = iconOnly,
 				badge = option.badge,
+				-- owner ruling 2026-09-23 (Badge placement A): a tab's icon wears the
+				-- count on its corner; a text segment keeps the trailing pill
+				badgeCorner = requested == "segmented" and option.icon ~= nil,
+				trailing = indicatorNode(Facet, core, option.indicator),
 				wrap = true,
 				description = option.description,
 				indicator = if requested == "radio" then "radio" else nil,
@@ -1125,7 +1250,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			local props = table.clone(buttonProps)
 			props.id = optionId
 			props.compactLabel = nil
-			props.height = SEGMENT_HEIGHT
+			props.height = segmentHeight
 			props.children = row.children
 			local button = UI.Button(props)
 			table.insert(
@@ -1133,7 +1258,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				UI.ZStack({
 					id = optionId .. "Cell",
 					width = segmentWidth,
-					height = SEGMENT_HEIGHT,
+					height = segmentHeight,
 					children = { button },
 				})
 			)
@@ -1246,7 +1371,12 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				below and its corner is `SEGMENT_RADIUS`; an untracked one's is the
 				band its caller drew, which is the only thing `stripCorner` is for.
 				`selection_indicator.fillCornerFor` carries the three clauses. ]]
-			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
+			trackCorner = if (spec :: any).track == false
+				then (spec :: any).stripCorner
+				elseif spec.corners == "pill" then "pill"
+				else SEGMENT_RADIUS,
+			-- a square strip's fill is square too
+			corner = if spec.corners == "square" and (spec :: any).track ~= false then 0 else nil,
 			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
 				plated track holding equal segments with the selected one raised; the
 				bar alone left every unselected segment as bare text floating beside
@@ -1262,12 +1392,18 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				then nil
 				else UI.Box({
 					id = "Track",
-					surface = "control",
-					corners = UI.cornersData(SEGMENT_RADIUS),
+					-- `appearance`: filled is the plate, stroke an outline, utility none
+					surface = function(use)
+						return if readValue(spec.appearance, use) == "stroke" then "plain" else "control"
+					end,
+					stroke = function(use)
+						return if readValue(spec.appearance, use) == "stroke" then trackOutline else nil
+					end,
+					corners = UI.cornersData(outerCorner),
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					hidden = Compose.formula(function(use)
-						return use(presentation) ~= "segmented"
+						return use(presentation) ~= "segmented" or readValue(spec.appearance, use) == "utility"
 					end),
 				}),
 		})
@@ -1328,6 +1464,9 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			if leaf ~= nil and byId[leaf] ~= nil then
 				if onReselect and byId[leaf] == readValue(selected) and isEnabled() then
 					onReselect()
+				elseif submit ~= nil and byId[leaf] == readValue(selected) then
+					-- reselecting clears, through the same choose (required = false)
+					choose(nil)
 				else
 					choose(byId[leaf])
 				end
@@ -1338,7 +1477,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	})
 
 	local api = {}
-	api.blueprint = built
+	-- a named rung can solve segments under the touch floor: reserve it once
+	api.blueprint = if rungHeight ~= nil then vocabulary.reserveTarget(UI, core, id, built, groupWidth) else built
 	api.presentation = presentation
 	--[[ THE ID THIS STRIP GAVE EACH OPTION, as `{ value, id }` pairs — the exact
 		table the D4 indicator is handed, published because D5's TabView needs the
@@ -1416,9 +1556,131 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	return api
 end
 
-local function buildStrip(Facet, core, spec, requested, onReselect)
+--[[ THE CARDS STYLE: each option a selectable card built on the shared
+	`menu_recipe.cardRow` (its selected surface and paired lettering, its corners
+	from `cardCorners`) with a hairline edge at rest. A column by default; a row
+	(`axis = "x"`) WRAPS onto more lines rather than running off its offer, and
+	each card hugs no wider than its offer so long copy wraps. Selection is the
+	shared `selectionModel.choose`; with `required = false` choosing the selected
+	card again clears it. ]]
+local CARD_EDGE = table.freeze({ color = "hairline", thickness = "hairline", transparency = 0 })
+local function buildCardsOwned(Facet: any, core: any, spec: any, owner: any)
+	local UI = Facet.UI
+	local id = spec.id or "Picker"
+	local mountedNode
+	assert(selectionModel.isWritable(spec.selected), "UI.Picker: selected must be a writable Compose cell")
+	local function key(option)
+		return option.id or tostring(option.value)
+	end
+	local options = Compose.formula(function(use)
+		local list = readValue(spec.options, use)
+		validateArray(list)
+		for _, option in list do
+			validateOption(option, use)
+		end
+		return list
+	end)
+	options:peek()
+	local axis = readValue(spec.axis) or "y"
+	local function choose(option: any)
+		if
+			owner.isDisposed()
+			or controlContract.isDisabled(mountedNode)
+			or not controlContract.enabledNow(spec.enabled)
+		then
+			return
+		end
+		local current = readValue(spec.selected)
+		local proposed = if current == option.value and spec.required == false then nil else option.value
+		local accepted, nextValue =
+			selectionModel.choose(options:peek(), current, proposed, spec.required, spec.onChanging)
+		if accepted and not owner.isDisposed() then
+			core.reactor:batch(function()
+				spec.selected:set(nextValue)
+				if spec.onChange then
+					spec.onChange(nextValue)
+				end
+			end)
+		end
+	end
+	local rows = UI.ForEach({
+		id = "Cards",
+		items = options,
+		key = key,
+		row = function(initial, _, current)
+			local function prop(name, fallback)
+				return function(use)
+					local value = readValue(use(current)[name], use)
+					return if value == nil then fallback else value
+				end
+			end
+			local card = menuRecipe.cardRow(UI, {
+				id = "Card-" .. key(initial),
+				label = prop("label"),
+				description = prop("description", ""),
+				icon = if initial.icon ~= nil then prop("icon") else nil,
+				badge = if initial.badge ~= nil then prop("badge", "") else nil,
+				value = if initial.meta ~= nil then prop("meta", "") else nil,
+				platedSelection = true,
+				textSize = spec.textSize,
+				width = if axis == "x" then UI.hug() else nil,
+				-- a hugging card's words hug too (fill inside hug would be nothing)
+				wrap = axis == "x",
+				selected = function(use)
+					return selectionModel.read(spec.selected, use) == use(current).value
+				end,
+				enabled = function(use)
+					return controlContract.enabledIn(use, spec.enabled)
+						and controlContract.enabledIn(use, use(current).enabled)
+				end,
+			}, "only")
+			return contribution.attach(UI.stroke(card, CARD_EDGE), {
+				handleActivate = function()
+					choose(readValue(current))
+					return true
+				end,
+			})
+		end,
+	})
+	local group = if axis == "x"
+		then UI.HStack({ id = "Options", wrap = true, gap = "s", width = BAND_WIDTH, children = { rows } })
+		else UI.VStack({ id = "Options", gap = "s", width = BAND_WIDTH, children = { rows } })
+	local children = { group }
+	if spec.label then
+		table.insert(children, 1, UI.Text({ id = "Label", text = spec.label, textSize = "label", width = UI.fill() }))
+	end
+	local blueprint = contribution.attach(UI.VStack({ id = id, width = BAND_WIDTH, gap = "xs", children = children }), {
+		syncGeometry = function(_, node)
+			mountedNode = node
+		end,
+	})
+	local presentation = Compose.formula(function()
+		return "cards"
+	end)
+	return {
+		blueprint = blueprint,
+		presentation = presentation,
+		dump = function()
+			return {
+				schema = "facet-picker-dump/1",
+				id = id,
+				selected = readValue(spec.selected),
+				presentation = "cards",
+				style = "cards",
+				requestedStyle = "cards",
+				axis = axis,
+				optionCount = #options:peek(),
+			}
+		end,
+		dispose = function()
+			owner.dispose()
+		end,
+	}
+end
+
+local function buildStrip(Facet, core, spec, requested, onReselect, submit)
 	return ownedBuild(core, function(owner)
-		return buildStripOwned(Facet, core, spec, requested, onReselect, owner)
+		return buildStripOwned(Facet, core, spec, requested, onReselect, owner, submit)
 	end)
 end
 
@@ -1472,7 +1734,7 @@ local function menuSpec(spec: Spec, style: string, id: string): any
 		style = style,
 		options = spec.options,
 		selected = spec.selected,
-		label = spec.label,
+		label = fieldChrome.labelText(spec.label, spec.requiredMark),
 		valueAlignment = spec.valueAlignment,
 		sizing = readValue(spec.sizing),
 		textSize = spec.textSize,
@@ -1484,6 +1746,13 @@ local function menuSpec(spec: Spec, style: string, id: string): any
 		enabled = spec.enabled,
 		env = spec.env,
 		sizeClass = spec.sizeClass,
+		errorText = spec.errorText,
+		controlSize = spec.controlSize,
+		corners = spec.corners,
+		maxHeight = spec.maxHeight,
+		appearance = vocabulary.derive(spec.appearance, function(word)
+			return if type(word) == "string" then TO_MENU[word] else nil
+		end),
 	}
 end
 
@@ -1493,6 +1762,10 @@ local function stripSpec(spec: Spec, id: string): any
 	local out = table.clone(spec :: any)
 	out.id = id
 	out.style, out.presentation, out.query, out.placeholder = nil, nil, nil, nil
+	out.label = fieldChrome.labelText(spec.label, spec.requiredMark)
+	out.appearance = vocabulary.derive(spec.appearance, function(word)
+		return if type(word) == "string" then TO_STRIP[word] else nil
+	end)
 	return out
 end
 
@@ -1523,12 +1796,12 @@ local function buildMenu(Facet: any, core: any, spec: Spec, style: string, id: s
 	return api
 end
 
-local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string, onReselect): any
+local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string, onReselect, submit): any
 	local strip = if style == "automatic" then "automatic" else STRIP_NAME[style]
 	local live = selectionModel.isSource(spec.options)
 	local inner = if live
 		then buildLive(Facet, core, stripSpec(spec, id), strip, onReselect)
-		else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect)
+		else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect, submit)
 	local presentation = Compose.formula(function(use)
 		return PUBLIC_NAME[use(inner.presentation)] or use(inner.presentation)
 	end)
@@ -1737,7 +2010,7 @@ local function buildAutomatic(Facet, core, spec, id)
 end
 
 -- Internal tab-host hook: accepting the current destination completes its chooser without a change event.
-function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?)
+function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?, submit: ((any) -> ())?)
 	specGuard.assertKnownKeys("UI.Picker", spec, PICKER_KEYS, "spec")
 	local id = spec.id or "Picker"
 	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
@@ -1846,13 +2119,84 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	if spec.query ~= nil and style ~= "automatic" and style ~= "navigationLink" then
 		error(`Facet UI.Picker('{id}'): \`query\` (a searchable list) belongs to the navigationLink style.`, 0)
 	end
+	-- the field furniture: notation, the message line, rung and silhouette words
+	fieldChrome.assertSpec("UI.Picker", {
+		requiredMark = spec.requiredMark,
+		hint = spec.hint,
+		errorText = spec.errorText,
+		controlSize = spec.controlSize,
+		corners = spec.corners,
+	})
+	if spec.indicatorPosition ~= nil then
+		if spec.indicatorPosition ~= "leading" and spec.indicatorPosition ~= "trailing" then
+			error(`Facet UI.Picker('{id}'): indicatorPosition must be leading | trailing`, 0)
+		end
+		if style ~= "radioGroup" then
+			error(`Facet UI.Picker('{id}'): indicatorPosition places the radio mark; the {style} style has none.`, 0)
+		end
+	end
+	local words = wordsFor(style)
+	if spec.appearance ~= nil then
+		if words == nil then
+			error(
+				`Facet UI.Picker('{id}'): \`appearance\` belongs to the menu trigger and the segmented strip; `
+					.. `the {style} style draws rows and takes none.`,
+				0
+			)
+		end
+		-- the automatic family's current answer checks its own words at the write
+		vocabulary.assertAppearance("UI.Picker", spec.appearance, words, specGuard.keySet(words))
+		local checked = spec.appearance
+		spec = table.clone(spec :: any)
+		spec.appearance = vocabulary.derive(checked, function(word)
+			vocabulary.assertAppearance("UI.Picker", word, words, specGuard.keySet(words))
+			return word
+		end)
+	end
+	if spec.maxHeight ~= nil and style ~= "automatic" and not MENU_STYLES[style] then
+		error(`Facet UI.Picker('{id}'): \`maxHeight\` bounds the menu panel; the {style} style has none.`, 0)
+	end
+	-- the private submission seam reaches only a static strip; anywhere else it
+	-- would be dropped silently
+	assert(
+		submit == nil
+			or (
+				not MENU_STYLES[style]
+				and style ~= "automatic"
+				and style ~= "cards"
+				and not selectionModel.isSource(spec.options)
+			),
+		"Picker: the private submit seam serves only a static strip"
+	)
+	local built
 	if MENU_STYLES[style] then
-		return buildMenu(Facet, core, spec, style, id)
+		built = buildMenu(Facet, core, spec, style, id)
+	elseif style == "cards" then
+		built = ownedBuild(core, function(owner)
+			return buildCardsOwned(Facet, core, stripSpec(spec, id), owner)
+		end)
+	elseif style ~= "automatic" then
+		built = buildStripFamily(Facet, core, spec, style, id, onReselect, submit)
+	else
+		built = buildAutomatic(Facet, core, spec, id)
 	end
-	if style ~= "automatic" then
-		return buildStripFamily(Facet, core, spec, style, id, onReselect)
+	-- one message line under whichever family is on screen, owned like it: its
+	-- formulas die with the picker's dispose, not with whoever called
+	if spec.hint ~= nil or spec.errorText ~= nil then
+		local chromeOwner: any
+		built.blueprint = ownedBuild(core, function(owner)
+			chromeOwner = owner
+			return fieldChrome
+				.new({ UI = Facet.UI, control = "UI.Picker", spec = { hint = spec.hint, errorText = spec.errorText } })
+				.wrap(built.blueprint, id)
+		end)
+		local disposeFamily = built.dispose
+		built.dispose = function()
+			disposeFamily()
+			chromeOwner.dispose()
+		end
 	end
-	return buildAutomatic(Facet, core, spec, id)
+	return built
 end
 
 return picker

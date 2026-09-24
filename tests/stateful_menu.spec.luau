@@ -36,7 +36,7 @@ t.describe("Stateful menu", function()
 		pres.refresh()
 		local function expectSingleStateIcon(item: string, on: boolean)
 			-- the item's content row is unnamed, so its path segment is found
-			local prefix = "/Menu-M/Layer/Surface/Popup/Panel/Item:" .. item .. "/"
+			local prefix = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:" .. item .. "/"
 			local path: string? = nil
 			for _, candidate in adapter.paths() do
 				if string.sub(candidate, 1, #prefix) == prefix and string.match(candidate, "/Indicator$") then
@@ -50,18 +50,18 @@ t.describe("Stateful menu", function()
 		expectSingleStateIcon("check", false)
 		expectSingleStateIcon("a", true)
 		expectSingleStateIcon("b", false)
-		adapter.tap("/Menu-M/Layer/Surface/Popup/Panel/Item:check")
+		adapter.tap("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:check")
 		pres.refresh()
 		expectSingleStateIcon("check", true)
 		t.expect(checked:peek()).toBe(true)
 		t.expect(menu.dump().open).toBe(true)
-		adapter.tap("/Menu-M/Layer/Surface/Popup/Panel/Item:b")
+		adapter.tap("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:b")
 		pres.refresh()
 		t.expect(selected:peek()).toBe("b")
 		expectSingleStateIcon("a", false)
 		expectSingleStateIcon("b", true)
 		t.expect(menu.dump().open).toBe(true)
-		adapter.tap("/Menu-M/Layer/Surface/Popup/Panel/Item:done")
+		adapter.tap("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:done")
 		pres.refresh()
 		t.expect(calls).toBe(1)
 		t.expect(menu.dump().open).toBe(false)

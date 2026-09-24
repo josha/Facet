@@ -78,6 +78,8 @@ target_contract.OPTIONAL = {
 	-- onFocusLost("cancel") — D1). An adapter without this method degrades to a
 	-- read-only field; the CaptureFocus/ReleaseFocus and .Text/.PlaceholderText
 	-- writes ride the ordinary setProp path (editing/text/placeholder bindings).
+	-- Optional onScrub(phase, arg) reports a drag across the editor (see
+	-- blueprint_schema TextField.onScrub); an adapter without it never scrubs.
 	"setTextInputHandlers", -- (handle, { onTextChanged, onFocusGained, onFocusLost })
 	-- native scroll host (the native substrate): a scroll node's SOLVED
 	-- content extent maps to the engine canvas (CanvasSize); the ENGINE owns

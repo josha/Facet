@@ -1,17 +1,5 @@
 # Changelog
 
-## Unreleased — interaction and theme hardening
-
-- Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
-- All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
-- Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
-
-## Unreleased — semantic status colors
-
-- Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
-- Badge semantic art retains one caption-sized host, with room for multi-character fallback glyphs. Managed pictures on the four explicit readable partner roles follow that lettering, including selected menu/picker content; unrelated package icon tint remains unchanged.
-
-
 All notable changes to Facet are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Facet's version
 numbers follow the policy in
@@ -24,6 +12,407 @@ The version string lives in exactly one place, `src/init.luau`, and is readable 
 runtime as `Facet.VERSION`.
 
 ## [Unreleased]
+
+### Summary of this release's control work
+
+One pass added the controls most game screens were composing by hand, and
+extended existing controls with the options they were missing. Every new
+control is on `app.controls` with a typed spec, automatic input discovery
+(pointer, touch, keyboard, gamepad), the 44 px hit floor, theme paint through
+the package slots, and a section in the [API reference](docs/reference/api.md).
+The [control chooser](docs/guide/14-choosing-controls.md) says when to pick
+each one over its closest alternative. The entries below this summary give the
+detail and every behaviour or path change.
+
+- **New controls.** Identity and status: `UI.Avatar`, `UI.AvatarGroup`,
+  `UI.Badge`, `UI.StatusIndicator`, `UI.Skeleton`, `UI.ShortcutHint`.
+  Notices and overlays: `UI.Notice`, `UI.Snackbar` (and
+  `app.presentSnackbar`), `UI.Dialog`, `UI.Popover`, `UI.Callout`, `UI.NavBar`.
+  Workflow and paging: `UI.Card`, `UI.Pagination`, `UI.StepIndicator`,
+  `UI.Vote`. Colour and dates: `UI.ColorPicker`, `UI.DateTimePicker` and
+  `Facet.civilDate`.
+- **Extended controls.** Button and Chip take local `controlSize`,
+  `appearance` and `corners`, and Button takes `icon`, `trailingIcon` and
+  `over = "media"`. Toggle settings rows, `width` and hints; DisclosureGroup
+  descriptions and appearances; removable Chips in edit mode; TextInput field
+  chrome, `readOnly` and `selectOnFocus`; NumberInput presets and `scrub`;
+  Slider `axis`, `range` and `minGap`; Picker `cards`, field chrome, segmented
+  `appearance` and option `indicator`; Sheet placement, `hug` and pinned
+  actions; ProgressView segments and trail; Menu edges and widths; TabView tab
+  `indicator` and `enabled`.
+- **Shared mechanisms.** Success and warning palette pairs; a theme
+  `controlSizes` ladder; eleven more standard icons, drawn by every shipped
+  theme wherever a control asks for one; the overlay band ladder, so a snackbar, a callout and a menu stack in
+  a fixed order; selected-under-hover paint; strokes that sit inside their box;
+  a Sink context that never swallows a release it owes.
+- **Breaking.** Several mounted paths moved (Dialog, Sheet, Card, StepIndicator,
+  plain Chips inside their target); Chip removal is edit mode; a switch paints
+  no plate. Each is listed with its new path below.
+
+### Interaction and theme hardening
+
+- Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
+- All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
+- Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
+- Every lifted label on skinned art (a control's plain, strong, secondary, cancel and destructive text, a field's text and placeholder, a badge's count) takes its role's colour where it clears 4.5:1 on the sampled art, else the next of the content ramp that does. Packages declare `extra.fieldArt` and `extra.badgeArt` beside `controlArt` (`a` < 1 for art that lets the panel through); the generated lifts carry the picks, so they no longer out-rank them with the flat colours.
+- Text that is not lifted but paints over skinned art — a field's editor text and placeholder, a stepper's mark, a picker's value, an author's label inside a skinned box or on a `UI.background` plate — takes the colour picked for that art (the renderer tags it `facet-on-<slot>`), and so does an icon picture on art. Hover and pressed tints on skinned art now keep every label on it readable (each state tint moves only as far as its labels still clear 4.5:1), role-tinted art keeps its role through hover and press, and a stepper's pressed plate picks its own label. Packages declare `extra.panelArt` and any per-state control art (`controlArtHover`/`controlArtPressed`, `stepperArtPressed`).
+- `UI.VirtualGrid` keeps half of each gutter at its outer edges (both ends of the scroll axis, both sides of the lanes), so content that paints past its cell — a lifted Card and its focus ring — is no longer cut by the grid's clip in a corner cell. Lanes are narrower by one gutter and the canvas longer by one row gutter.
+- `UI.ColorPicker`'s panel keeps one height across its techniques: every technique is mounted, the inactive ones `hidden`, so the body reserves the tallest at the current width (at most the scrolling body's own height) and a shorter one sits at its top. A tab switch no longer resizes the panel or the phone sheet.
+- Badge placement (owner ruling A): `UI.badged(host, value, direction?)` puts a count or dot seal on a Button's, icon button's or Avatar's top corner (top-left in rtl), centred on the corner, paint only — the host's box, target and label are unchanged. A segmented Picker's icon tabs (so a TabView's icon strip) wear their `badge` there; text tabs and list, menu and picker rows keep the inline trailing pill. Counts above 99 read "99+" everywhere; `true` is a dot (a bullet on the seal).
+- Owner bug round (2026-09-23): a Button whose content is its own instances (an icon, a value, a chevron) no longer press-dips — the dip scaled the plate alone, so a wide picker field shrank past its chevron. `UI.ColorPicker`'s hidden techniques reserve the room the body may take rather than a height it once measured, so the panel stays one height after a rotation or preview. A floating `UI.Menu` panel is always bounded by the screen and scrolls its rows at `…/Panel/List/Rows/Item:<id>` (a 201-row year menu ran off screen, and its CanvasGroup outgrew the engine's budget, blurring every menu's text). A `UI.DateTimePicker` range's start or end circle drags across days and panes (crossing swaps; release commits per the draft model; cancel restores). `UI.StepIndicator` row cells share one height with content at the top, so the underline stays on one line. `UI.Pagination` reserves its label for the widest label the count can produce (four digits when unknown) and its page numbers are small plates in 44 px slots. The ColorPicker and DateTimePicker phone sheets have no Close button (drag, scrim, B, footer). A plain label on a selection row follows the row's selected state; a picker row with no selection wash keeps the panel's label colour. Pixel Quest's lifted labels wear no glyph backing.
+- Owner repair (2026-09-23): a `UI.Menu` level whose `selected` group holds one of its rows opens with focus on it, centred in a scrolled list. `UI.DateTimePicker`'s month and year menus mark and open on the shown ones; the year menu lists only years inside `min`/`max` (an open side spans 100 years from the shown one), months outside the bounds are disabled, and a pick lands inside the bounds. An anchored surface that fits neither above nor below its source hangs beside it before any clamp. `UI.ColorPicker` sizes its anchored panel from the placement's own safe box (host chrome band, device insets, gutter), so the panel never covers its well: below, else above, else beside, else shrunk and scrolled.
+
+### Semantic status colors
+
+- Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
+- Badge semantic art retains one caption-sized host, with room for multi-character fallback glyphs. Managed pictures on the four explicit readable partner roles follow that lettering, including selected menu/picker content; unrelated package icon tint remains unchanged.
+
+### Pickers
+
+- **ColorPicker saved colours.** `onSaveSwatch(color)` ends the Swatches tab with
+  a "+" cell that proposes the current colour (never one already listed);
+  `onRemoveSwatch(item)` adds an Edit/Done toggle whose editing mode proposes a
+  swatch's removal on activate or Delete/Backspace/pad remove. The caller owns
+  the list and its persistence.
+- **ColorPicker on touch.** The preview leads the panel above the plane, a
+  drag on the plane or a strip shows the colour in a bubble above the finger,
+  and a phone sheet scrolls its technique so the readout and Apply stay put.
+- **ColorPicker paint.** An exact two-layer plane (no banding), a rainbow hue
+  strip and a colour-over-checker alpha strip (`UI.Slider.trackContent`, new),
+  two-tone opaque thumbs, square cells for a short swatch list, a hue per column
+  at any column count, Apply as the accent, the brick name above its grid.
+- **DateTimePicker.** The calendar anchors to the field (below, start-aligned),
+  its icon sits inside the field, a single date shows one month, the range band
+  is one pill with content-coloured ends, in-month days are strong, the header is
+  plain words, the draft footer is a Reset all link with Cancel and an accent
+  Apply, and the panel hugs its weeks. A TextInput with an error or held
+  `invalid` wears the danger border.
+- **ViewThatFits** picks the first candidate that fits without being cut (the
+  undercut that kept a cut row is gone); a stack offers it only the room its
+  siblings' gaps leave, so measure and arrange choose the same candidate.
+
+### Changes
+
+- **Snackbar dismiss words match Dialog and Popover.** A false you write on
+  your own now reports `"cancel"` (was `"close"`), and owner teardown or the
+  release function reports `"cancel"` once (was silent). The Close button
+  keeps `"close"`; application disposal still reports nothing.
+- **A hovered selected skin keeps its selection tint.** Image-skinned packages
+  painted a selected row plain white under the pointer; a compound rule now
+  paints `$ChromeTintSelectedHover`, the selection tint lifted.
+- `UI.Alert`'s `icon` name takes Button's icon path, so theme art draws it.
+  A Picker option's `indicator` follows the live record, and its `avatar`
+  keys are closed. A disabled field's label shows no press or hover.
+  `civilDate.parse` asks for AM or PM on a bare 1-12 hour under a 12-hour
+  locale. Pixel Quest draws the warning, First and Last icons.
+
+- **`UI.DateTimePicker`** and **`Facet.civilDate`.** A civil date (no time
+  zone) field that opens a calendar — one or two consecutive months, disabled
+  days focusable and inert, typed entry where a keyboard or pointer is live,
+  time fields with a touch time list, ranges with clipped presets and an
+  Apply/Cancel draft — or the calendar inline. Today comes from an injected
+  clock (default: the player's local clock); `civilDate.fromUnix/toUnix` take
+  an explicit offset. The day grid is one Tab stop; the arrows walk days across
+  months, and paging stops at a month wholly outside the bounds.
+
+- **`UI.ColorPicker`.** A colour well over the caller's Color3 that opens an
+  anchored panel (a hug sheet on compact touch, a centred sheet at ten feet), or
+  the panel inline: swatches, a spectrum plane with a hue slider, HSV sliders
+  and the engine BrickColors, an RGB/HSV/Hex readout on every tab, optional
+  opacity, and an Apply/Cancel draft. Canonical HSV keeps a grey's hue; the
+  plane takes (and sinks) the right stick on a pad; an anchored panel fits the
+  room beside its well and scrolls its technique.
+
+- **One commit model for both pickers.** Without `draft`, every change commits
+  as it happens and every way of closing keeps it; with `draft = true` nothing
+  commits until Apply (typed text included) and every other close restores.
+
+- **A single-size Sheet hides its Size control** (it had nothing to choose).
+
+- **Icons in Snackbar, Notice, Vote and StepIndicator** take Button's icon
+  path (theme art, `facet:` names, the unknown-name warning), so a semantic
+  name no longer paints an empty image. The StepIndicator cue is now
+  `Cue/Check` and `Cue/Error` (was one `Cue/Mark`), and its number marker stays
+  a circle at every text size.
+- **`UI.Snackbar`**: a plain message row hugs its copy up to the strip's
+  maximum instead of filling it.
+- **Pagination and hugging segmented strips reserve the target floor** as layout
+  width, so neighbouring targets never overlap; `UI.Pagination` refuses
+  `width = hug | content` (its window narrows to the width it is offered), and
+  a focused arrow that disables at an edge hands focus to the current page.
+- **`UI.StepIndicator`** always takes the width it is offered; `sizing` is how
+  its steps share it. The list closes when `current` changes, so a refused step
+  leaves it open, and an empty list has no Steps button.
+- **Input**: a Sink context never swallows the release owed to a binding that
+  received the press (a menu opened by ButtonA, closed by ButtonB, reopens on
+  the next ButtonA).
+- **`UI.Card` lifts on engagement.** Hover, a painted focus ring, a held press
+  or its open menu raise the card to 1.04x (paint only) with the raised shadow;
+  reduced motion keeps the shadow alone, and at ten feet the focus lift is the
+  only scale. Gutters around a card reserve the lift
+  (`Facet.layout.transformFootprint`).
+- **Menu rows.** A floating menu's rows are at least the target floor tall (44
+  under Facet Neutral, was the compact 36), so stacked rows' hit rects never
+  overlap; a plain row's label leads like a badge or shortcut row's. This
+  includes the legacy PopupButton's floating rows.
+- **`UI.TabView` tab words fit.** The strip's `textSize` defaults to `"fit"`:
+  a label shrinks toward the caption role before it truncates.
+- **Text fit refuses an overlong word.** `textSize = "fit"` and `Facet.text.fit`
+  compare the widest word with the box, so a single word wider than the box
+  shrinks (it used to answer the cap and let the engine truncate it).
+- **`UI.Snackbar`** content sits inside a theme package's panel carve (the row
+  is the plate).
+- **`UI.Picker`** `navigationLink` keeps its one-line row (title leading, value
+  trailing) at every width until the text preference needs a second line.
+- **Skinned selected rows** keep their selection tint while pressed.
+- **Input: one key edge, one delivery.** A `Bool` action armed while one of its
+  keys is held (its context enabled, or its binding added, mid-press) no longer
+  receives that press or its release; the key's release ends the hold. Game
+  contexts enabled by a held key see the next press, not the current one.
+- **Grid navigation leaves for a neighbouring control.** Up from a grid's first
+  row or Down from its last row now reaches a control beside it that
+  contributes exactly one focus group (a TextInput, a range Slider, a
+  VirtualList, a Chip row, a DateTimePicker's time fields), where it used to
+  stop or skip. The exit names that control, not its group name.
+- **`UI.Vote`.** Up, down or none over the caller's value, on Picker's
+  segmented icon strip through a private submission seam (a refused vote never
+  paints; pressing the chosen side proposes none), a caller summary, and a
+  read-only informational form with no stops.
+- **`UI.StepIndicator`.** Workflow steps with `current` as the one authority
+  over the underline and summary, per-step state cues and words (check, error
+  mark, number), Buttons only for navigable enabled steps, and a "Step n of m"
+  summary with a Popover list when the labels do not fit.
+- **`UI.Pagination`.** Controlled page selection: `page` and `onChange`, a known
+  or unknown `pageCount`, a bounded numeric window with real-gap ellipses, First
+  and Last on request, `numbers | arrows | label` forms, an explicit `rtl`
+  direction, and a measured narrowing that drops the farthest pages before it
+  falls back to "Page n of m".
+- **`UI.Card`.** Artwork, a title and a caption as one body, with a primary
+  action and a More menu as sibling targets. `reveal = "automatic"` shows them
+  on engagement (pointer, painted focus, a held press, the open menu, a browse
+  stop) on a plate inside the card's own hosted envelope, so its box never
+  changes, and at rest whenever the session has touch; `always` keeps them in
+  layout. `api.enterActions()` enters them from a
+  `UI.VirtualGrid` browse stop; Cancel returns to it.
+- **Transient traps follow their contribution.** A `transientScope` whose
+  control left the tree (a recycled cell, a closed region) no longer strands
+  focus in its trap; the trap is released before the focus map is rebuilt.
+- **Overlay paths and the tiny room (breaking paths).** `UI.Dialog` and
+  `UI.Sheet` lay their regions in one `Room/Column`: `/<Dialog>/Center/Panel/Room/Column/{Header,Body,Actions,…}`
+  and `/<Sheet>/Layer/Panel/Room/Column/{Header,Body,Actions,…}`, with Sheet
+  content at `…/Room/Column/Body/<content>` (a scrolling hero: `Body/Inset`);
+  the Sheet grip stays `/Layer/Panel/Drag/Handle`. When the pinned regions and
+  a one-line body do not fit the room, every region scrolls as one, so each
+  action stays reachable. A compact screen alone no longer stacks two Dialog
+  actions that fit, and a Dialog hero sizes from the live panel width.
+- **Selected under hover** paints the selected fill lifted by the theme's
+  hover step (new `$ControlSelectedHover` token, `Selected — hover` rule in both
+  sheet builders and the fallback painter), never plain hover.
+- **Snackbar layer.** The strip is the toast band's first step
+  (`src/present/surface_bands.luau` now owns the band ladder); Callout, a
+  passive Popover and help, disclosure and reveal plates read above it; modals
+  above all. The strip docks bottom-centre, a stacked action trails, a close by
+  pointer leaves no input catcher, and the HUD reservation holds exiting rows
+  until they have slid out.
+- **Caller callbacks are never swallowed.** A throwing `onActivate`,
+  `onPresentedChange` or `onDismiss` on Dialog, Popover, Sheet, Notice, Callout
+  or Snackbar is raised after the control has settled its own state.
+- `UI.Sheet`: `interactiveDismissDisabled` also stops Cancel running the
+  cancel action; the Size control reads player words (`Size: Fit`,
+  `Size: Medium`). Overlay actions type-check `label`/`enabled`/`busy`, and
+  `UI.Notice` refuses the reserved action ids `Link` and `Close`.
+- `UI.Picker` options take `indicator` (a StatusIndicator spec in a segmented
+  option's trailing lane; construction-only).
+- `UI.Menu`: rows with a badge, shortcut or section heading take the themed
+  panel width instead of collapsing a hugging panel.
+- `UI.Popover`: a path source resolves from its own screen's root inside an
+  embedding screen; a path that has not mounted is awaited with one warning.
+- A focused horizontal value control and live chrome share one owner of the
+  arrow keys (`NavigateH`), so arrows never stay bound to a flat screen.
+- **`UI.Snackbar`** and **`app.presentSnackbar`**: one application snackbar
+  service with a persistent bottom strip. The caller's `isPresented` is the only
+  authority; close, Cancel, timeout and supersession are proposals, and
+  `onDismiss` reports action | close | timeout | superseded | cancel once. One
+  row shows, eight wait by priority, nine is the cap (refused, never dropped).
+  Readable dwell pauses on hover, focus and covering surfaces.
+- `toast_schedule` gains an opt-in controlled mode (Toast defaults unchanged).
+- Adopted chrome composes top, content, bottom in either presentation order; an
+  empty chrome scope takes no part and binds no arrow keys; Cancel on an adopted
+  chrome row reaches its own surface.
+- **`UI.Sheet` placement, parts and gestures.** `placement` (automatic keeps
+  ten-foot centre, otherwise bottom; `side` with a physical `edge`), the Dialog
+  `width` presets, `closeButton`, a `header` blueprint or `false`, a sticky or
+  scrolling `hero` (image or authored content), pinned `actions` with the
+  Dialog action group, `contentInset`, a `"hug"` detent, and `scrollPolicy`.
+  The panel is now a pinned column around ONE body scroller: the panel itself
+  no longer scrolls, and content moved from `/Layer/Panel/<content>` to
+  `/Layer/Panel/Body/<content>` (see the Room/Column entry above for the final
+  paths). Drags acquire
+  from the grip, the panel's native drag detector or the touch-pan stream, are
+  bound to the input class that started them, and release through a projected
+  velocity with bounded resistance. A function-bound `title` now works, as its
+  type always said. The room includes the on-screen keyboard.
+- **`UI.NavBar`** and the nav bar's slot form: `leading` follows Back, `center`
+  replaces the title and fills the rest, and trailing content moves to a second
+  row when the measured width cannot hold it, without rebuilding the center.
+  The lowercase `navBar` keeps its legacy shape unless a slot is given.
+- **`UI.Notice`.** An in-page status message: severity icon and paint, optional
+  title, link, up to two actions and a close that reports the press. The
+  accessories move below the copy when the measured width cannot hold both.
+  `placement = "affixed"` publishes its measured rect through
+  `presenter.reserveHud` for content that reads `Facet.layout.hudInsets`.
+- **`UI.Dialog`.** A modal panel the caller owns the open state of: optional
+  hero, title with a close button, one scrolling body, an action label and pinned
+  actions. Close, Cancel and the backdrop propose; actions never close by
+  themselves; `onDismiss(reason)` reports `close | outside | cancel | action`.
+  Width presets are theme ceilings (new `controls.dialog.wideWidth`), the height
+  is the live room above the keyboard, and an overflowing plain body is one pad
+  stop that scrolls (`contentSelectable`).
+- **`UI.Popover`.** Content against a trigger or a source (a path or a rect).
+  The caller owns `isPresented`; `onPresentedChange(next)` is a proposal and
+  `onDismiss(reason)` reports each closure once. A compact touch screen gets a
+  sheet (`compact = "popover"` opts out). `maxWidth`/`maxHeight` cap the whole
+  panel inside the live safe box; a removed or replaced path source releases it
+  with `"anchorLost"`.
+- **Anchored surfaces** take `crossOffset` (px along the alignment axis, before
+  the safe clamp) and live `maxWidth`/`maxHeight` caps; `Facet.layout.anchorPlacement`
+  takes `crossOffset` too.
+- **`help` has a table form** `{ title?, body, shortcut?, edge?, align? }`;
+  `text_audit.helpRoutes` checks the title and body separately. A live help or
+  disclosure plate now follows a same-path rebuild or changed value, and stays
+  inside the live safe box as insets grow; the disclosure plate also retires
+  when its label becomes a hidden ViewThatFits candidate.
+- **`UI.Callout`** takes `title`, `media`, `steps`, up to two `actions` and a
+  top `closeButton`; `content` is optional when another part draws something.
+  Function (`(use) -> T`) facts are now tracked, and a dismiss, dispose or rearm
+  inside a synchronous `onShow` no longer strands a plate.
+- **`UI.Menu`** takes root `edge`/`align`, panel `width` and `maxHeight` (rows
+  scroll one path level deeper), and items take `badge`, `avatar`,
+  `sectionTitle` and a display-only `shortcutLabel`.
+- **`UI.TabView`** tabs take `indicator` (a StatusIndicator spec) and `enabled`.
+
+- **Every stroke sits inside its box.** Theme hairlines (raised, chip, field,
+  `utility`) and authored `UI.stroke` borders set
+  `BorderStrokePosition = Inner`, so a scroll clip no longer cuts them, and the
+  node's padding on each side is at least the stroke's thickness. A stroked
+  container that had no padding (a raised menu card, a field plate) now insets
+  its content by its hairline (1 px under Facet Neutral). Only a resting stroke
+  pays: a bound `stroke` (a focus, hover or selection ring) stays paint-only
+  and never moves padding.
+- **Toggle loses its plate.** A switch, bare or in a settings row, paints no
+  surface plate and takes no press dip, and a theme package's `control` slot art
+  no longer paints Toggles (`CONTROL_CLASSES` is Button only). A settings row
+  wears the `control` frame, so its content lines up with Button and Slider
+  rows in every theme.
+- Slider row content inset changed from 16 to 12 px, matching the other rows.
+- A labelled `menu` Picker is a field (title above, trigger at the leading edge)
+  at a regular or wider size class under a pointer or pad; the popover counts
+  avatar, icon, meta and badge when it sizes to its widest row, never lists
+  fewer than one visible row under `maxHeight`, and stops warning about an
+  ignored `offsetY`. The hint/error line is released by the picker's dispose.
+- NumberInput: without `precision`, a step button or scrub rounds to the decimal
+  places of `step` and `min` (three presses of 0.1 hold 0.3); a scrub over a
+  typed, uncommitted draft discards the draft and starts from the committed
+  number. A touch on a field with nothing to select or scrub adds no listener;
+  a mouse press whose release was lost no longer blocks the next scrub.
+- The arrow that moves focus onto a slider is not also a value step; a range
+  thumb stopped by `minGap` keeps the arrow instead of passing focus.
+- A plain icon name outside the vocabulary draws a dot and warns once per name,
+  naming the near miss (`search` → `facet:search`).
+
+- **Breaking — `UI.Chip` removal is edit mode.** A tag selects and shows no
+  close mark by default. The new `editing` (boolean or readable boolean,
+  required with `onRemove` on a selectable chip) shows the mark inside the tag's
+  one plate; activating the tag, or Delete/Backspace while it holds the ring,
+  removes it. The separate `…+token/Remove` button, its focus stop and its
+  plate are gone; the tag mounts at `<id>+target/<id>` like every chip. A
+  remove-only token (no `selected`) is always editing. Removal focus moves to
+  the next removable tag, then the previous, then `removeFocusFallback`.
+
+- `UI.TextInput{ selectOnFocus = "none" | "all" | "end" }` (and the primitive's
+  `UI.TextField{ selectOnFocus }`): what each new native focus session selects,
+  in byte offsets. A pointer focus applies it at that pointer's release, after
+  the engine's own caret placement; activation applies it at once. The default
+  writes nothing.
+
+- `UI.NumberInput{ scrub = true }`: a horizontal drag across the editor moves
+  the number one `step` per 8 px of total travel, through the step buttons'
+  rounding and bounds, and commits once at release. Before the shared slop a
+  tap stays native; Escape, class loss, disable, read-only and disposal restore
+  the snapshot; a caller write ends the drag. `UI.TextField` gains the
+  `onScrub` handler the adapter reports it through.
+
+- `UI.Picker{ style = "cards" }`: each option a selectable card on the shared
+  menu card row (a hairline edge at rest, the accent plate when chosen),
+  carrying the new option `meta` (a secondary label/value, also on menu rows)
+  beside its description, icon and badge. A row of cards wraps instead of
+  overflowing and long copy wraps; with `required = false` choosing the
+  chosen card again clears it. The picker sweep covers the new style.
+
+- `UI.Picker` segmented strips take `appearance` (`filled` plate, `stroke`
+  outline, `utility` none; bound words repaint in place), `corners` (track,
+  outer ends and selected fill; `pill` is the reference `isCircular`) and
+  `controlSize` (segments inside one reserved target); radio and inline rows
+  take the rung's height. `indicatorPosition = "leading" | "trailing"` places
+  the radioGroup's mark. `selection_indicator.segmentShape` takes an optional
+  outer corner.
+
+- `UI.Picker` is a field: `requiredMark`, one `hint`/`errorText` message line
+  (on every style; an error also borders the menu trigger), `controlSize`
+  (the menu trigger inside a reserved target), `appearance` (menu standard /
+  contrast / utility; automatic maps five words across families), `corners`,
+  and `maxHeight` on the open menu panel. Opening a menu scrolls the selected
+  row into view. Options take `avatar` (the shipped Avatar leading the row);
+  menu rows gain `menu_recipe` `avatar`.
+
+- Fixed: a `UI.Picker` option carrying `badge` or `sectionTitle` crashed as
+  soon as its style resolved to `menu` or `navigationLink` (what `automatic`
+  resolves to on most nearby screens). Both now render on the menu engine —
+  the count seal on the row and the heading as a caption before it — in
+  static, keyed and searchable lists. A keyed list (and a keyed strip) can
+  gain its first heading after mount; sectioned live strip rows no longer sit
+  in a `SectionRow-<id>` wrapper (the heading is its own keyed entry).
+
+- `UI.Slider` gains `axis` (`"y"` runs bottom to top), `range` with `minGap`
+  (a `{ lower, upper }` band, thumbs never cross, illegal runtime pairs
+  quarantined with `api.diagnostics()`), `thumb` (`always`/`auto`/`none`,
+  paint only), `thumbContent(info)` (a custom knob per thumb; refused with
+  `thumbImage`), live paint-only `rotation` with inverse pointer conversion,
+  and `controlSize`. Pointer input now reads the track's painted rect at event
+  time, so a scrolled track converts correctly. Range handles share one focus
+  group; a gamepad enters adjust mode with Activate. **Behavior change for
+  every Slider:** the label now shrinks (full text disclosed) before the track
+  and readout, which clears two recorded Brightness row overflows. Losing the
+  pointer and touch classes mid-drag now cancels through the live environment.
+  `reserveTarget` takes an optional height negotiated like width.
+
+- `UI.NumberInput` is the number presentation preset over the same text-entry
+  engine, with `step`, `precision`, `stepButtons`, `prefix` and `suffix`, and
+  `Facet.recipes.arithmetic.parse` is an opt-in bounded arithmetic parser for
+  its `parse`. **Breaking, number presentation:** `onCommit` now reports the
+  committed number rather than the string; the default parser is a strict
+  decimal grammar instead of `tonumber` (no exponent, hex or blanks); a typed
+  value outside `min`/`max` is clamped and committed with reason `"clamped"`
+  instead of refused; leaving on an incomplete draft (empty, lone sign or point)
+  restores the last number silently unless the field is `requiredMark =
+  "required"`; `precision` rounds half away from zero at commit.
+
+- `UI.TextInput{ readOnly }` keeps a field focusable, selectable and at full
+  contrast while refusing every edit through the engine and the model (no clear
+  affordance, no commit report). `visibleLines` sizes a multiline viewport as
+  that many lines plus the field inset. The primitive gains
+  `UI.TextField{ editable }` (default true), composed with `enabled` onto the
+  engine's `TextEditable`.
+
+- `UI.TextInput` wears the shared field chrome: `label` (a tap focuses the
+  field; no extra focus stop), `requiredMark` notation, one `hint`/`errorText`
+  message line with the `status.error` mark, `leading`/`trailing` accessories
+  inside the plate, and `controlSize`, `appearance` and `corners`. A field with
+  none of these keys keeps its tree. The number presentation's rejection line
+  now lives on that message line (`<id>/Message/Validation`, was
+  `<id>/Validation`), and the clear affordance plus any trailing focusable are
+  now keyboard and gamepad stops after the editor. Managed pictures under
+  `danger` lettering follow it, so the error mark paints the message's colour.
 
 - A chat thread can be scrolled while a reply is arriving. `UI.VirtualList`'s
   `follow = "end"` re-pinned the end on every frame of content growth, and one

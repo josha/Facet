@@ -25,6 +25,7 @@ local lt = require("./lib/large_text")
 local snapshot = require("../src/themes/snapshot")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local textMetrics = require("../src/layout/text_metrics")
+local fake_target = require("./lib/fake_target")
 
 local UI = harness.UI
 
@@ -55,7 +56,7 @@ local VIEWPORTS = {
 	{ id = "console-ten-foot", rect = { x = 0, y = 0, w = 1920, h = 1080 }, input = "gamepad" },
 }
 
-local STYLES = { "automatic", "menu", "segmented", "inline", "radioGroup", "navigationLink" }
+local STYLES = { "automatic", "menu", "segmented", "inline", "radioGroup", "navigationLink", "cards" }
 local MENU_FAMILY: { [string]: boolean } = { menu = true, navigationLink = true }
 
 -- pseudo-localized (~1.4x) labels that can WRAP. An unbreakable compound word
@@ -187,6 +188,12 @@ local function pinAttachment(label: string, w: any, theme: any, viewport: any, t
 	-- (the placement's own shift; the reference platform's menu does the same)
 	local flush = near(panel.x + panel.w, source.x + source.w)
 		or (near(panel.x, inset) and panel.x + panel.w + 0.5 >= source.x + source.w)
+	-- a FIELD-form row (title above, trigger at the leading edge under it; lead
+	-- ruling 2026-09-22) hangs its menu from the trigger's leading edge instead
+	local title = suffixPath(w, "/Row/Label")
+	if title ~= nil and triggerRect.y + 0.5 >= w.adapter.node(title).rect.y + w.adapter.node(title).rect.h then
+		flush = near(panel.x, source.x) or near(panel.x + panel.w, viewport.rect.w - inset)
+	end
 	expect(
 		`{label} trailing edges flush: {flush} (panel right {panel.x + panel.w}, source right {source.x + source.w})`
 	).toBe(`{label} trailing edges flush: true (panel right {panel.x + panel.w}, source right {source.x + source.w})`)
@@ -417,7 +424,10 @@ local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
 	local insets = if theme.metrics ~= nil and type(theme.metrics.chromeInsets) == "table"
 		then theme.metrics.chromeInsets.panel
 		else nil
-	local side = if type(insets) == "table" then (tonumber(insets.left) or 0) + (tonumber(insets.right) or 0) else 0
+	-- each side is at least the card's inner hairline (strokes sit inside)
+	local hairline = metric(theme, "strokes.hairline", 1)
+	local side = math.max(if type(insets) == "table" then tonumber(insets.left) or 0 else 0, hairline)
+		+ math.max(if type(insets) == "table" then tonumber(insets.right) or 0 else 0, hairline)
 	expect(
 		`{label} list spans the card's content box: {near(listRect.w, card.w - side)} (list {listRect.w}, card {card.w}, insets {side})`
 	).toBe(`{label} list spans the card's content box: true (list {listRect.w}, card {card.w}, insets {side})`)
@@ -660,7 +670,7 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							pinTrack(label, w, picker)
 							local second = suffixPath(w, "/Opt2")
 								or suffixPath(w, "/[b]/Option-b")
-								or suffixPath(w, "/[b]/SectionRow-b/Option-b")
+								or suffixPath(w, "/[b]/Card-b")
 							expect(`{label} second option mounted: {second ~= nil}`).toBe(
 								`{label} second option mounted: true`
 							)
@@ -729,6 +739,57 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 			end
 		end
 		expect(cells).toBe(#THEMES * #lt.PREFERENCES * #VIEWPORTS)
+	end)
+
+	--[[ A SCROLLING MENU PAYS FOR ITS BAR (the
+		showcase Driver menu, twelve avatar rows under `maxHeight = 220`, handed "Bo"
+		9 px and painted no name). The live adapter reserves the bar off an
+		overflowing list's cross axis; the width estimate never counted it. The
+		headless default reserves 0, so this cell sets the engine's reserve. ]]
+	it("a menu whose rows scroll is widened by the scroll-bar reserve", function()
+		local viewport = VIEWPORTS[4]
+		local theme = THEMES[1]
+		local w = world(viewport, 0, theme);
+		(w.adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
+		local drivers = {}
+		for i, name in { "Ada", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal", "Ivy", "Jo", "Kai", "Lu" } do
+			table.insert(drivers, {
+				value = "d" .. i,
+				label = name,
+				avatar = { name = name },
+				badge = if i == 2 then 3 else nil,
+			})
+		end
+		w.present(function()
+			return UI.Screen({
+				id = "S",
+				padding = "m",
+				children = {
+					w.UI.Picker({
+						id = "D",
+						label = "Driver",
+						style = "menu",
+						maxHeight = 220,
+						selected = Compose.cell("d1"),
+						options = drivers,
+					}),
+				},
+			})
+		end)
+		w.pres.refresh()
+		local picker = w.record("D")
+		picker.api.open()
+		w.pres.refresh()
+		w.pres.refresh()
+		local popupRoot = suffixPath(w, "/Popup")
+		expect(`popup mounted: {popupRoot ~= nil}`).toBe("popup mounted: true")
+		-- the list really scrolls and really spent the reserve off its rows
+		local list = w.adapter.node(suffixPath(w, "/List") :: string).rect
+		local rows = w.adapter.node(suffixPath(w, "/List/Rows") :: string).rect
+		expect(`bar reserved: {list.w - rows.w}`).toBe(`bar reserved: {fake_target.SCROLL_BAR_RESERVE}`)
+		pinRowFit("[driver menu, bar reserved]", w, theme, viewport, popupRoot :: string)
+		picker.dispose()
+		w.pres.dismiss(w.handle)
 	end)
 
 	--[[ BOTH ARMS OF THE FIT RULE WERE EXERCISED. `pinRowFit` asserts a

@@ -18,6 +18,70 @@
           "y1": 14
         }
       },
+      "controlHover": {
+        "alpha": 1.0,
+        "asset": "compact_button_hover",
+        "b": 254,
+        "file": "assets/themes/compact-pointer/compact_button_hover.png",
+        "g": 246,
+        "r": 240,
+        "sha256": "bc1a1fe331fecb828e2891cbc22ece47d3cdc65fff34f9656b0456a49548e807",
+        "size": "32x22",
+        "sliceCenter": {
+          "x0": 8,
+          "x1": 24,
+          "y0": 8,
+          "y1": 14
+        }
+      },
+      "controlPressed": {
+        "alpha": 1.0,
+        "asset": "compact_button_pressed",
+        "b": 230,
+        "file": "assets/themes/compact-pointer/compact_button_pressed.png",
+        "g": 222,
+        "r": 219,
+        "sha256": "9b4534b00e39a2acb5e3f5413451fdb40d84b2417b80605cae1b8f6f0a77d9b4",
+        "size": "32x22",
+        "sliceCenter": {
+          "x0": 8,
+          "x1": 24,
+          "y0": 8,
+          "y1": 14
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "compact_field",
+        "b": 255,
+        "file": "assets/themes/compact-pointer/compact_field.png",
+        "g": 255,
+        "r": 255,
+        "sha256": "919b0336ba860659b93cc5814e25e2545bbb5b15c506044f7b77845ff88f0f7c",
+        "size": "32x22",
+        "sliceCenter": {
+          "x0": 8,
+          "x1": 24,
+          "y0": 8,
+          "y1": 14
+        }
+      },
+      "panel": {
+        "alpha": 1.0,
+        "asset": "compact_panel",
+        "b": 250,
+        "file": "assets/themes/compact-pointer/compact_panel.png",
+        "g": 248,
+        "r": 247,
+        "sha256": "b52beab51b4c7f721e25b4e4a2d1de5ce4d84a44c43682e6ae489a11380f6b6e",
+        "size": "48x48",
+        "sliceCenter": {
+          "x0": 12,
+          "x1": 36,
+          "y0": 12,
+          "y1": 36
+        }
+      },
       "selected": {
         "alpha": 1.0,
         "asset": "compact_button_hover",
@@ -33,9 +97,57 @@
           "y0": 8,
           "y1": 14
         }
+      },
+      "stepper": {
+        "alpha": 1.0,
+        "asset": "compact_stepper_plate_default",
+        "b": 249,
+        "file": "assets/themes/compact-pointer/compact_stepper_plate_default.png",
+        "g": 246,
+        "r": 246,
+        "sha256": "602d9d4e413c9fcca9cb2691b740cd0280c6610923419ca3394c3f20944f6e6c",
+        "size": "22x22",
+        "sliceCenter": {
+          "x0": 7,
+          "x1": 15,
+          "y0": 7,
+          "y1": 15
+        }
+      },
+      "stepperPressed": {
+        "alpha": 1.0,
+        "asset": "compact_stepper_plate_pressed",
+        "b": 230,
+        "file": "assets/themes/compact-pointer/compact_stepper_plate_pressed.png",
+        "g": 222,
+        "r": 219,
+        "sha256": "2f15ef7a080f8cfbaf1f299aa4a7003740988ad7390b2966c2e035f4ce256ac2",
+        "size": "22x22",
+        "sliceCenter": {
+          "x0": 7,
+          "x1": 15,
+          "y0": 7,
+          "y1": 15
+        }
       }
     },
     "fantasy-ornate": {
+      "badge": {
+        "alpha": 0.7903,
+        "asset": "ornate_bar_center",
+        "b": 89,
+        "file": "assets/themes/fantasy-ornate/ornate_bar_center.png",
+        "g": 145,
+        "r": 175,
+        "sha256": "f3747c83ad6efca67efc19fcbccedc2df7e035a24a8d3ae3d5dabf0991bc8059",
+        "size": "36x28",
+        "sliceCenter": {
+          "x0": 5,
+          "x1": 31,
+          "y0": 5,
+          "y1": 23
+        }
+      },
       "control": {
         "alpha": 1.0,
         "asset": "ornate_button_default",
@@ -50,6 +162,70 @@
           "x1": 48,
           "y0": 16,
           "y1": 48
+        }
+      },
+      "controlHover": {
+        "alpha": 1.0,
+        "asset": "ornate_button_hover",
+        "b": 56,
+        "file": "assets/themes/fantasy-ornate/ornate_button_hover.png",
+        "g": 37,
+        "r": 73,
+        "sha256": "6102ee0b2e888a552fbff6d2b90a2d723bf7fe3d068e4c687fe44e1ec67de1b7",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "controlPressed": {
+        "alpha": 1.0,
+        "asset": "ornate_button_pressed",
+        "b": 21,
+        "file": "assets/themes/fantasy-ornate/ornate_button_pressed.png",
+        "g": 12,
+        "r": 25,
+        "sha256": "7e89c92a190429838bd3d0c2b14a42efa95c18c8ba471f36508c090881dfb60a",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "ornate_field",
+        "b": 28,
+        "file": "assets/themes/fantasy-ornate/ornate_field.png",
+        "g": 20,
+        "r": 30,
+        "sha256": "5028f68110b72c05171a61c51465cb50cf16b6483e5f0d41cc2372314453ea13",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "panel": {
+        "alpha": 1.0,
+        "asset": "ornate_panel_fill",
+        "b": 35,
+        "file": "assets/themes/fantasy-ornate/ornate_panel_fill.png",
+        "g": 20,
+        "r": 42,
+        "sha256": "5c7b1d668c07bf21e8f9786b3462249691058fee60e2cf7f7b4357a626bb2640",
+        "size": "128x128",
+        "sliceCenter": {
+          "x0": 32,
+          "x1": 96,
+          "y0": 32,
+          "y1": 96
         }
       },
       "selected": {
@@ -70,6 +246,22 @@
       }
     },
     "fantasy-parchment": {
+      "badge": {
+        "alpha": 1.0,
+        "asset": "parchment_badge",
+        "b": 148,
+        "file": "assets/themes/fantasy-parchment/parchment_badge.png",
+        "g": 187,
+        "r": 207,
+        "sha256": "57c965e6c0cb3217d8ebe30cfa0cfeefdd46136bb0f4bad43d83495acba63ea8",
+        "size": "28x28",
+        "sliceCenter": {
+          "x0": 5,
+          "x1": 23,
+          "y0": 5,
+          "y1": 23
+        }
+      },
       "control": {
         "alpha": 1.0,
         "asset": "parchment_button",
@@ -84,6 +276,38 @@
           "x1": 48,
           "y0": 16,
           "y1": 48
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "parchment_field",
+        "b": 171,
+        "file": "assets/themes/fantasy-parchment/parchment_field.png",
+        "g": 213,
+        "r": 234,
+        "sha256": "eb6c830ef98788444111117c91009c7c09860a23b019906e65041018d4d924b8",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "panel": {
+        "alpha": 1.0,
+        "asset": "parchment_panel",
+        "b": 162,
+        "file": "assets/themes/fantasy-parchment/parchment_panel.png",
+        "g": 200,
+        "r": 218,
+        "sha256": "899b2b7afe50281a3a0f7fca1e715b8842f4c3ba6ca7e924a76d549baeaae17b",
+        "size": "144x144",
+        "sliceCenter": {
+          "x0": 40,
+          "x1": 104,
+          "y0": 40,
+          "y1": 104
         }
       }
     },
@@ -104,6 +328,54 @@
           "y1": 28
         }
       },
+      "controlPressed": {
+        "alpha": 1.0,
+        "asset": "glossy_button_pressed",
+        "b": 178,
+        "file": "assets/themes/glossy-touch/glossy_button_pressed.png",
+        "g": 158,
+        "r": 146,
+        "sha256": "47a09ba8a1e5f05ff3469529b3d2cc0df8eff52ec9bb84107e662dbc4dc52a95",
+        "size": "64x44",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 28
+        }
+      },
+      "field": {
+        "alpha": 1.0,
+        "asset": "glossy_field",
+        "b": 255,
+        "file": "assets/themes/glossy-touch/glossy_field.png",
+        "g": 253,
+        "r": 253,
+        "sha256": "e47f6df0cae220d7d607ece98d0d43812dd3dc0086551d0235274c0f54ed7d55",
+        "size": "64x44",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 28
+        }
+      },
+      "panel": {
+        "alpha": 1.0,
+        "asset": "glossy_panel",
+        "b": 244,
+        "file": "assets/themes/glossy-touch/glossy_panel.png",
+        "g": 239,
+        "r": 236,
+        "sha256": "9c873297f6a71721d4d8ba26accc57cfd9a63a35c12a3bf88755c8ce6fb6c1e0",
+        "size": "96x96",
+        "sliceCenter": {
+          "x0": 28,
+          "x1": 68,
+          "y0": 28,
+          "y1": 68
+        }
+      },
       "selected": {
         "alpha": 1.0,
         "asset": "glossy_selection_selected",
@@ -118,6 +390,38 @@
           "x1": 54,
           "y0": 18,
           "y1": 26
+        }
+      },
+      "stepper": {
+        "alpha": 1.0,
+        "asset": "glossy_stepper_plate_default",
+        "b": 229,
+        "file": "assets/themes/glossy-touch/glossy_stepper_plate_default.png",
+        "g": 216,
+        "r": 210,
+        "sha256": "ec1648144125519670a4ee80e2c3a3c68783f62c592f1ea4c9135e6c6fc1487d",
+        "size": "44x44",
+        "sliceCenter": {
+          "x0": 14,
+          "x1": 30,
+          "y0": 14,
+          "y1": 30
+        }
+      },
+      "stepperPressed": {
+        "alpha": 1.0,
+        "asset": "glossy_stepper_plate_pressed",
+        "b": 182,
+        "file": "assets/themes/glossy-touch/glossy_stepper_plate_pressed.png",
+        "g": 83,
+        "r": 20,
+        "sha256": "7d2ab9e2bba14baf33bccd754ea6461b2b78b3573136bc8def428d13e57a6808",
+        "size": "44x44",
+        "sliceCenter": {
+          "x0": 14,
+          "x1": 30,
+          "y0": 14,
+          "y1": 30
         }
       }
     },
@@ -138,6 +442,38 @@
           "y1": 20
         }
       },
+      "field": {
+        "alpha": 1.0,
+        "asset": "pixel_field",
+        "b": 79,
+        "file": "assets/themes/pixel-quest/pixel_field.png",
+        "g": 44,
+        "r": 58,
+        "sha256": "593f97cd00467e1455cfd51d7dcc772c2b965eaebad7bdecf281b9039c47a677",
+        "size": "36x36",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 20,
+          "y0": 16,
+          "y1": 20
+        }
+      },
+      "panel": {
+        "alpha": 1.0,
+        "asset": "pixel_panel",
+        "b": 79,
+        "file": "assets/themes/pixel-quest/pixel_panel.png",
+        "g": 44,
+        "r": 58,
+        "sha256": "2c4bbbef0fbd1ef88aa84edd89e9b84561adb5b50cb9463abdc50d61786be137",
+        "size": "52x52",
+        "sliceCenter": {
+          "x0": 24,
+          "x1": 28,
+          "y0": 24,
+          "y1": 28
+        }
+      },
       "selected": {
         "alpha": 1.0,
         "asset": "pixel_plate_selected",
@@ -152,6 +488,38 @@
           "x1": 20,
           "y0": 16,
           "y1": 20
+        }
+      },
+      "stepper": {
+        "alpha": 1.0,
+        "asset": "pixel_stepper_plate_default",
+        "b": 47,
+        "file": "assets/themes/pixel-quest/pixel_stepper_plate_default.png",
+        "g": 114,
+        "r": 168,
+        "sha256": "8a2ad694c603fe39c01c506299fe19aabd9e3d21e938a79539358c1acddbfd5e",
+        "size": "28x28",
+        "sliceCenter": {
+          "x0": 12,
+          "x1": 16,
+          "y0": 12,
+          "y1": 16
+        }
+      },
+      "stepperPressed": {
+        "alpha": 1.0,
+        "asset": "pixel_stepper_plate_pressed",
+        "b": 38,
+        "file": "assets/themes/pixel-quest/pixel_stepper_plate_pressed.png",
+        "g": 67,
+        "r": 107,
+        "sha256": "f8d19fba17023b4daa9ebfbb04ffa92e11ff5d2b453b6224632d045d80204b68",
+        "size": "28x28",
+        "sliceCenter": {
+          "x0": 12,
+          "x1": 16,
+          "y0": 12,
+          "y1": 16
         }
       }
     }

@@ -16,6 +16,8 @@ local themeSnapshot = require("../themes/snapshot")
 local textMetrics = require("../layout/text_metrics")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
+local vocabulary = require("./control_vocabulary")
+local isFinite = require("../num").isFinite
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -39,7 +41,19 @@ local popup_button = {}
 local specTypes = require("../spec_types/picker_menu")
 export type Option = specTypes.Option
 
-local OPTION_KEYS = specGuard.keySet({ "divider", "enabled", "icon", "id", "label", "description", "value" })
+local OPTION_KEYS = specGuard.keySet({
+	"divider",
+	"enabled",
+	"icon",
+	"id",
+	"label",
+	"description",
+	"value",
+	"badge",
+	"sectionTitle",
+	"avatar",
+	"meta",
+})
 local STYLES: { [string]: boolean } = { menu = true, navigationLink = true }
 
 export type Spec = specTypes.Spec
@@ -86,7 +100,17 @@ local POPUP_BUTTON_KEYS = specGuard.keySet({
 	"presentation",
 	"sizeClass",
 	"value",
+	-- the menu field's own paint and bounds (the Picker maps its words here)
+	"errorText",
+	"controlSize",
+	"appearance",
+	"corners",
+	"maxHeight",
 })
+-- the trigger's emphasis words, onto the Button vocabulary every package paints
+local MENU_APPEARANCES = table.freeze({ "standard", "contrast", "utility" })
+local MENU_APPEARANCE_SET = specGuard.keySet(MENU_APPEARANCES)
+local BUTTON_APPEARANCE: { [string]: string } = { contrast = "emphasis", utility = "utility" }
 
 local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, affordanceOnly: boolean?)
 	specGuard.assertKnownKeys("UI.PopupButton", spec, POPUP_BUTTON_KEYS, "spec")
@@ -144,6 +168,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	-- a labelled picker is a FORM ROW: title leading, value + chevron trailing
 	-- (the navigation link puts its title INSIDE its one row button instead)
 	local rowForm = pickerMode and spec.style == "menu" and spec.label ~= nil
+	local rowAxis: any -- the form's axis, built with the trigger below; the popover reads it at open
 	local multiple = spec.selectedValues ~= nil
 	assert(
 		(spec.value ~= nil and 1 or 0) + (multiple and 1 or 0) + (spec.selected ~= nil and 1 or 0) == 1,
@@ -192,6 +217,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	assert(spec.required == nil or type(spec.required) == "boolean", "PopupButton: required must be boolean")
 	assert(spec.onChanging == nil or type(spec.onChanging) == "function", "PopupButton: onChanging must be a function")
 	assert(spec.onChange == nil or type(spec.onChange) == "function", "PopupButton: onChange must be a function")
+	assert(
+		spec.maxHeight == nil or (type(spec.maxHeight) == "number" and isFinite(spec.maxHeight) and spec.maxHeight > 0),
+		"Picker: maxHeight must be a finite number of pixels above zero"
+	)
+	vocabulary.assertSize("UI.Picker", spec.controlSize)
+	vocabulary.assertCorners("UI.Picker", spec.corners)
+	vocabulary.assertAppearance("UI.Picker", spec.appearance, MENU_APPEARANCES, MENU_APPEARANCE_SET)
 	local function validatedOptions(use)
 		local list = selectionModel.read(spec.options, use)
 		assert(type(list) == "table", "PopupButton: options must be an array or readable array")
@@ -236,6 +268,19 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				enabledValue == nil or type(enabledValue) == "boolean",
 				"PopupButton: option enabled must be boolean or readable boolean"
 			)
+			local badge = selectionModel.read(option.badge, use)
+			assert(
+				badge == nil or type(badge) == "string" or type(badge) == "number",
+				"PopupButton: badge must be a string or number or readable of either"
+			)
+			local heading = selectionModel.read(option.sectionTitle, use)
+			assert(heading == nil or type(heading) == "string", "PopupButton: sectionTitle must be a string")
+			local meta = selectionModel.read(option.meta, use)
+			assert(meta == nil or type(meta) == "string", "PopupButton: meta must be a string")
+			assert(
+				option.avatar == nil or (type(option.avatar) == "table" and type(option.avatar.name) == "string"),
+				"Picker: an option avatar must be an Avatar spec table with a name"
+			)
 		end
 		local mixed = menuRecipe.mixedIconGroup(list)
 		assert(
@@ -273,6 +318,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			end
 		end
 		return filtered
+	end)
+	-- the rendered list: results with each section heading as its own entry
+	local function entryKey(entry: any): string
+		return if entry.sectionHeading ~= nil then entry.key else keyOf(entry)
+	end
+	local entries = Compose.formula(function(use)
+		return menuRecipe.sectionEntries(use(results), keyOf, use)
 	end)
 	-- open/closed is the control's only owned state; selection lives in `value`
 	local open = Compose.cell(false)
@@ -524,7 +576,15 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		compares by value, so a fresh table per solve would churn the paint channel,
 		and a resting row wants no claim on `TextColor3` at all. ]]
 	local ON_SELECTED_TINT = table.freeze({ role = "onSelected", blend = 1 })
-	local function optionProps(option, rowScope, currentItem)
+	local metaLane = false
+	for _, option in selectionModel.read(spec.options) do
+		metaLane = metaLane or (type(option) == "table" and option.meta ~= nil)
+	end
+	-- `washed`: the row paints the `controlSelected` wash behind the chosen one (the
+	-- card's static rows). Only there is `onSelected` the label's partner: a row
+	-- with no wash (a search result, a dynamic or multi row) sits on the panel, so
+	-- its label keeps the panel's colour (owner 2026-09-23: black on Pixel's purple)
+	local function optionProps(option, rowScope, currentItem, washed: boolean?)
 		local function currentOption(use)
 			return if currentItem then use(currentItem) else byKey(keyOf(option), use)
 		end
@@ -532,7 +592,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			return ownedFormula(rowScope, function(use)
 				local current = currentOption(use)
 				local value = if current then selectionModel.read(current[name], use) else nil
-				return if name == "description" then (value or "") else value
+				return if name == "description" or name == "meta" then (value or "") else value
 			end)
 		end
 		local selected = ownedFormula(rowScope, function(use)
@@ -554,10 +614,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				else nil,
 			enabled = property("enabled"),
 			icon = if dynamicOptions then property("icon") else option.icon,
+			badge = if option.badge ~= nil or spec.query ~= nil or dynamicOptions then property("badge") else nil,
+			-- the option's secondary label/value, trailing its words
+			-- (a keyed or searchable list carries the lane when its first list does)
+			value = if option.meta ~= nil or ((spec.query ~= nil or dynamicOptions) and metaLane)
+				then property("meta")
+				else nil,
+			-- the shipped Avatar, leading the row; decoration, never a second press
+			avatar = menuRecipe.avatarNode(Facet, option.avatar),
 			core = core,
 			scope = rowScope,
 			selected = selected,
-			labelTint = if pickerMode
+			labelTint = if pickerMode and washed
 				then ownedFormula(rowScope, function(use)
 					return if use(selected) then ON_SELECTED_TINT else nil
 				end)
@@ -601,6 +669,19 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
 	local listShrink = Compose.cell(0)
+	--[[ ...AND THE BAR A SCROLLING LIST TOOK. The
+		host reserves the scroll bar off an overflowing list's cross axis, which
+		the width estimate cannot see: it is the renderer's measured gutter
+		(`controller.scrollBarInsetOf`, the one `UI.Table`'s header pays), fed
+		back after each solve and added to the popover's preferred width. The
+		estimate is re-taken there too: at open the rows' words have not been
+		measured by the engine yet, and natively "Bo" read 12 px short. ]]
+	local barGutter = Compose.cell(0)
+	local rowEstimate = Compose.cell(0)
+	-- the open panel's own controller and search list, for the selected-row reveal
+	local panelController: any = nil
+	local resultsList: any = nil
+	local revealed = false
 	local feeds = 0 -- shrinks fed this open (convergence guard: the solver caps feedback at 8 rounds)
 	local function listMaxPx(presentation: string, use: any?): number
 		local shrink = if use ~= nil then use(listShrink) else listShrink:peek()
@@ -682,6 +763,19 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			local below = h - m - (source.y + source.h + xs)
 			local above = source.y - xs - top
 			budget = math.min(budget, math.max(below, above) - offset - plateV - space)
+		end
+		--[[ AN AUTHORED maxHeight BOUNDS THE WHOLE PANEL, chrome included, and wins
+			over the two-row floor down to ONE row: a list the pad can walk is never
+			0 px tall. ]]
+		if type(spec.maxHeight) == "number" then
+			local insetsBySlot = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+			local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
+			local plateV = if type(plate) == "table"
+				then (tonumber(plate.top) or 0) + (tonumber(plate.bottom) or 0)
+				else 0
+			local panelChrome = if presentation == "sheet" then chrome - minimum else plateV
+			local cap = math.max(0, spec.maxHeight - panelChrome)
+			return math.max(minimum, math.min(cap, budget - shrink)), true
 		end
 		return math.max(minimum * 2, budget - shrink), budget - shrink <= minimum * 2
 	end
@@ -829,7 +923,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		-- between the popover's edge and a label.
 		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
 		local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
-		local card = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
+		-- ...each side at least the card's inner hairline, which its padding pays for
+		local hairline = tonumber(type(snap.strokes) == "table" and snap.strokes.hairline) or 0
+		local card = math.max(tonumber(type(plate) == "table" and plate.left) or 0, hairline)
+			+ math.max(tonumber(type(plate) == "table" and plate.right) or 0, hairline)
 		--[[ ...AND THE FLOATING ROW SHADE'S OWN MARGIN, which is horizontal room no
 			label ever gets (measured 2026-09-13).
 
@@ -864,6 +961,26 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			local description = selectionModel.read(option.description)
 			if type(description) == "string" then
 				w = math.max(w, lineWidth(description, captionPx, captionRole))
+			end
+			-- every other column `menu_recipe.rowProps` lays beside the words, each
+			-- behind one row gap: avatar, icon, meta value, badge
+			if option.avatar ~= nil then
+				w += (themeSnapshot.resolveNumber(snap, "controlSizes.compact.height") or 36) + gap
+			end
+			local icon = selectionModel.read(option.icon)
+			if type(icon) == "string" and icon ~= "" then
+				local glyph = lineWidth(themePackage.iconGlyph(icon) or "•", labelPx, labelRole)
+				w += math.max(themeSnapshot.resolveNumber(snap, "space.l") or 24, glyph) + gap
+			end
+			local meta = selectionModel.read(option.meta)
+			if type(meta) == "string" and meta ~= "" then
+				w += lineWidth(meta, labelPx, labelRole) + gap
+			end
+			local badge = selectionModel.read(option.badge)
+			if badge ~= nil and tostring(badge) ~= "" then
+				local seal = lineWidth(tostring(badge), captionPx, captionRole)
+					+ 2 * (themeSnapshot.resolveNumber(snap, "space.xs") or 4)
+				w += math.max(themeSnapshot.resolveNumber(snap, "controls.badge.minimum") or 20, seal) + gap
 			end
 			widest = math.max(widest, w + slot + gap + rowPad)
 		end
@@ -914,20 +1031,28 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			{ id = "Search", value = spec.query, presentation = "search", enabled = enabled, env = spec.env }
 		local listSpec = {
 			id = "Results",
-			key = keyOf,
+			key = entryKey,
 			itemExtent = "measured",
 			estimatedItemExtent = rowHeight,
 			viewportExtent = viewport,
 			width = { type = "fill", weight = 1 },
 			onActivate = function(option)
-				select(selectionModel.identity(option))
+				if option.sectionHeading == nil then
+					select(selectionModel.identity(option))
+				end
 			end,
 		}
-		listSpec.rows = results
+		listSpec.rows = entries
+		listSpec.ref = function(record)
+			resultsList = record.api
+		end
 		listSpec.rowFocusable = function(option)
-			return selectionModel.enabled(byKey(keyOf(option)))
+			return option.sectionHeading == nil and selectionModel.enabled(byKey(keyOf(option)))
 		end
 		listSpec.cell = function(option, ctx)
+			if option.sectionHeading ~= nil then
+				return menuRecipe.sectionHeading(UI, option.sectionHeading)
+			end
 			return rowContent(option, ctx.scope)
 		end
 		return Facet.nativeControls.TextInput(fieldSpec), Facet.nativeControls.VirtualList(listSpec)
@@ -1025,9 +1150,14 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 					listRows,
 					UI.ForEach({
 						id = "Options",
-						items = results,
-						key = keyOf,
-						row = optionRow,
+						items = entries,
+						key = entryKey,
+						row = function(entry, rowScope, current)
+							if entry.sectionHeading ~= nil then
+								return menuRecipe.sectionHeading(UI, entry.sectionHeading)
+							end
+							return optionRow(entry, rowScope, current)
+						end,
 					})
 				)
 			else
@@ -1039,6 +1169,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 					end
 				end
 				for index, option in staticOptions do
+					local title = if option.divider then nil else selectionModel.read(option.sectionTitle)
+					if type(title) == "string" and title ~= "" then
+						table.insert(
+							listRows,
+							UI.VStack({
+								id = `Section-{keyOf(option)}`,
+								width = { type = "fill", weight = 1 },
+								padding = { left = "s", right = "s", top = "xs" },
+								children = { menuRecipe.sectionHeading(UI, title) },
+							})
+						)
+					end
 					if not option.divider then
 						optionIndex += 1
 						local position = if optionCount == 1
@@ -1046,7 +1188,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 							elseif optionIndex == 1 then "first"
 							elseif optionIndex == optionCount then "last"
 							else "middle"
-						local props = optionProps(option, popupScope)
+						local props = optionProps(option, popupScope, nil, true)
 						props.height = if detached
 							then { type = "minMax", min = rowHeight }
 							else { type = "fixed", px = rowHeight }
@@ -1162,18 +1304,21 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			hangs from and never wider than the safe area. `minMax` with no
 			preferred is exactly "content, then clamped". ]]
 		local safeW = math.max(triggerWidth, safeWidthNow())
+		local estimate = if pickerMode then widestRowEstimate() else 0
 		local floor = if pickerMode
-			then {
-				type = "minMax",
-				min = triggerWidth,
-				preferred = math.clamp(widestRowEstimate(), triggerWidth, safeW),
-				max = safeW,
-			}
+			then ownedFormula(popupScope, function(use)
+				return {
+					type = "minMax",
+					min = triggerWidth,
+					preferred = math.clamp(math.max(estimate, use(rowEstimate)) + use(barGutter), triggerWidth, safeW),
+					max = safeW,
+				}
+			end)
 			else { type = "fixed", px = "controls.popup.panelWidth" }
 		local panel = UI.VStack({
 			id = if pickerMode and not isSheet then "Rows" else "Popup",
 			anchor = if isSheet then "bottomLeft" elseif detached then nil else "topLeft",
-			offsetY = if detached or isSheet then 0 else TRIGGER_HEIGHT,
+			offsetY = if detached or isSheet then nil else TRIGGER_HEIGHT,
 			width = if pickerMode and not isSheet
 				then { type = "fill", weight = 1 }
 				elseif detached and not isSheet then floor
@@ -1242,9 +1387,62 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			return
 		end
 		listShrink:set(0)
+		barGutter:set(0)
+		rowEstimate:set(0)
 		feeds = 0
+		revealed = false
+		--[[ OPENING LANDS ON THE SELECTED ROW: once per open, after the panel has
+			solved, a mounted row is scrolled into view through the shared
+			keep-visible seam and a searchable list scrolls its own window to the
+			row's estimated offset (search-field focus is untouched). ]]
+		local function reveal(node: any)
+			if revealed or panelController == nil then
+				return
+			end
+			-- a virtual list reveals through its own window once its scroll host is bound
+			if resultsList ~= nil and resultsList.scrollPath() == nil then
+				return
+			end
+			revealed = true
+			local want = currentRowId()
+			if want == nil then
+				return
+			end
+			if resultsList ~= nil then
+				for index, entry in entries:peek() do
+					if entry.sectionHeading == nil and `Opt-{keyOf(entry)}` == want then
+						local env = envForFacts or spec.env
+						local metrics = if env ~= nil then env:get("themeMetrics"):peek() else nil
+						local minimum = if type(metrics) == "table" and type(metrics.targetSizes) == "table"
+							then metrics.targetSizes.minimum
+							else themeSnapshot.neutral().targetSizes.minimum
+						resultsList.scrollTo(panelController, (index - 1) * minimum * 2)
+					end
+				end
+				return
+			end
+			local function find(n: any): string?
+				if n.id == want then
+					return n.path
+				end
+				for _, child in n.children or {} do
+					local found = find(child)
+					if found ~= nil then
+						return found
+					end
+				end
+				return nil
+			end
+			local path = find(node)
+			if path ~= nil then
+				panelController.scrollToVisible(path)
+			end
+		end
 		local function buildPanel()
 			return contribution.attach(popupPanel(), {
+				bindController = function(controller)
+					panelController = controller
+				end,
 				handleActivate = api.handleActivate,
 				handleCancel = function()
 					api.close()
@@ -1256,6 +1454,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 					then function(rectOf, node)
 						if node == nil then
 							return
+						end
+						reveal(node)
+						local inset = if panelController ~= nil
+							then panelController.scrollBarInsetOf(node.path .. "/Rows/List")
+							else nil
+						local gutter = if type(inset) == "table" then tonumber(inset.right) or 0 else 0
+						if gutter ~= barGutter:peek() then
+							barGutter:set(gutter)
+						end
+						local measured = widestRowEstimate()
+						if measured ~= rowEstimate:peek() then
+							rowEstimate:set(measured)
 						end
 						local rect = rectOf(node.path)
 						local env = envForFacts or spec.env
@@ -1378,7 +1588,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				anchor = {
 					source = { path = anchorSourcePath() },
 					edge = "bottom",
-					align = if rowForm then "end" else "start",
+					align = if rowForm and rowAxis:peek() == "x" then "end" else "start",
 					gap = "xs",
 					margin = "m",
 				},
@@ -1457,16 +1667,19 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		localized title's longest word (~1.4x, 21px) no longer fits the room a
 		capped trigger leaves beside it on a 320px row (the picker sweep, glossy
 		phone, 2026-09-11), and a word that cannot wrap can only truncate. ]]
-	local rowAxis = Compose.formula(function(use)
+	--[[ A LABELLED MENU IS A FIELD WHERE THERE IS ROOM: at a regular or wider size class the title stands above the
+		trigger, which hugs its value at the leading edge — a 1.4k px row put the
+		value a screen's width from its title. A compact width keeps the one-line
+		form row until the text preference needs the second line, and so does a
+		navigation link at any width: it is one full-width row, title leading and
+		value trailing, with no hugging trigger to strand. ]]
+	rowAxis = Compose.formula(function(use)
 		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
-		if type(offset) ~= "number" then
-			return "x"
-		end
 		local compact = selectionModel.read(sizeClassSource) == "compact"
 		if Compose.isReadable(sizeClassSource) then
 			compact = use(sizeClassSource) == "compact"
 		end
-		return if offset >= 10 or (offset >= 4 and compact) then "y" else "x"
+		return if (compact or navLink) and (type(offset) ~= "number" or offset < 4) then "x" else "y"
 	end)
 	local requestedSizing = spec.sizing
 	assert(
@@ -1652,11 +1865,36 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			},
 		})
 	end
+	-- the field's paint on the boxed trigger: emphasis, rung, error border
+	local triggerAppearance = vocabulary.derive(spec.appearance, function(word)
+		vocabulary.assertAppearance("UI.Picker", word, MENU_APPEARANCES, MENU_APPEARANCE_SET)
+		return if type(word) == "string" then BUTTON_APPEARANCE[word] else nil
+	end)
+	local rungHeight = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.heightFor)
+	local rungPadding = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.paddingFor)
+	local errorStroke = if spec.errorText ~= nil
+		then Compose.formula(function(use)
+			local text = selectionModel.read(spec.errorText, use)
+			return if type(text) == "string" and text ~= ""
+				then UI.strokeData({ color = "danger", thickness = "focusRing", transparency = 0 })
+				else nil
+		end)
+		else nil
 	local function boxedTrigger()
 		local button = UI.Button({
+			appearance = triggerAppearance,
+			padding = rungPadding,
+			stroke = errorStroke,
 			id = "Trigger",
 			label = selectedLabel,
 			anchor = if rowForm then nil else "topLeft",
+			-- a FIELD-form trigger stands at the title's leading edge; its own
+			-- `align` (its content's) would otherwise centre it in the column
+			lineAlign = if rowForm
+				then Compose.formula(function(use)
+					return if use(rowAxis) == "y" then "start" else "center"
+				end)
+				else nil,
 			surface = triggerSurface, -- control everywhere but a plain touch navigation link
 			-- lit while its menu is up (the `selected` state of whichever slot this
 			-- trigger paints as — see the decoration hint below)
@@ -1679,14 +1917,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				the control follow when something does. The non-detached inline popup
 				keeps its fixed height: its anchor is `fill`, so filling there would
 				take the whole parent. ]]
-			height = if detached and not rowForm
-				then UI.fill()
+			height = if rungHeight ~= nil
+				then rungHeight
+				elseif detached and not rowForm then UI.fill()
 				elseif detached then { type = "minMax", min = TRIGGER_HEIGHT }
 				else { type = "fixed", px = TRIGGER_HEIGHT },
 			gap = "xs",
 			align = "center",
 			children = contentViews(),
 		})
+		if spec.corners ~= nil then
+			button = UI.corners(button, vocabulary.cornerRadiusFor(spec.corners))
+		end
 		if navLink then
 			--[[ THE NAVIGATION LINK IS THE ONE TRIGGER WHOSE SURFACE MOVES. It is
 				`plain` on a touch row and `control` elsewhere (`triggerSurface` above),
@@ -1765,7 +2007,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		id = id,
 		enabled = enabled,
 		width = if pickerMode and not rowForm then triggerWidthDim else { type = "fill", weight = 1 },
-		height = if detached then { type = "minMax", min = TRIGGER_HEIGHT } else { type = "fill", weight = 1 },
+		height = if rungHeight ~= nil
+			then rungHeight
+			elseif detached then { type = "minMax", min = TRIGGER_HEIGHT }
+			else { type = "fill", weight = 1 },
 		children = {
 			head,
 			UI.When({
@@ -1810,6 +2055,11 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	end
 
 	owner.own(closeSurface)
+	-- a named rung can solve the trigger under the touch floor, so only then is the
+	-- control mounted inside the container that reserves the whole target
+	local function reserve(node: any): any
+		return if rungHeight ~= nil then vocabulary.reserveTarget(UI, core, id, node, triggerWidthDim) else node
+	end
 	return {
 		-- attach the input contribution: the presenter auto-routes open/select/
 		-- cancel Activate to handleActivate with no consumer opts.
@@ -1822,7 +2072,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		--   transientScope — focus is trapped in the control while open and restores
 		--                    to the trigger on close (rootPath defaults to the control
 		--                    root, keeping the trigger as the scope entry)
-		blueprint = contribution.attach(blueprint, {
+		blueprint = reserve(contribution.attach(blueprint, {
 			bindInputScope = function(inputScope)
 				inputScope.onDispose(function()
 					open:set(false)
@@ -1884,7 +2134,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			transientScope = {
 				active = inlineOpen,
 			},
-		}),
+		})),
 		api = api,
 		-- the resolved presentation (B-DSP3), exposed on the control itself so a
 		-- consumer and a test can read the idiom without reaching into `api`

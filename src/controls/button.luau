@@ -464,7 +464,7 @@ local function build(Facet, core, spec, owner)
 		return chromeSlots.attachHint(
 			UI.Text({
 				id = id,
-				text = themePackage.iconGlyph(iconName) or "•",
+				text = themePackage.iconGlyphOrDot(iconName),
 				textSize = "control",
 				textAlign = "center",
 				--[[ THE RUNG RESERVES THE SQUARE, IT DOES NOT CAP IT. A fixed width
@@ -625,7 +625,8 @@ local function build(Facet, core, spec, owner)
 		selected = spec.selected,
 		help = spec.help,
 		width = spec.width or (if imageForm or spec.row then UI.fill() else nil),
-		surface = spec.surface or (if imageForm then "plain" else nil),
+		-- a link has no plate, so a theme's control art never frames it either
+		surface = spec.surface or (if imageForm or spec.appearance == "link" then "plain" else nil),
 		focusVisual = if imageForm then "none" else nil,
 		height = spec.height or sizedHeight or (if spec.row
 			then { type = "minMax", min = "targetSizes.minimum" }

@@ -380,7 +380,14 @@ local function mountSlider(specOverrides: any?, fakeOpts: any?)
 		(adapter :: any).noDragDetector = true
 	end
 	local system = actionsLib.newSystem(core)
-	local pres = presenterLib.new(core, env, adapter, system)
+	-- Tab is a presenter option: a case that drives Tab asks for it
+	local pres = presenterLib.new(
+		core,
+		env,
+		adapter,
+		system,
+		if fakeOpts ~= nil and (fakeOpts :: any).keyboardNavigation then { keyboardNavigation = true } else nil
+	)
 	local value = Compose.cell(50)
 	local spec: any = { id = "Vol", label = "Vol", value = value, min = 0, max = 100 }
 	for k, v in (specOverrides or {}) :: any do
@@ -1006,5 +1013,801 @@ describe("Slider: the decoration hint reaches the render target", function()
 			end
 			expect(count).toBe(1)
 		end
+	end)
+end)
+-- ===== P3b: axis, rotation, range, thumb modes, custom knob ================
+--
+-- Every case below asks the SCREEN what happened — a solved rect, a hit rect, a
+-- mounted path, the owner's own Signal — never the control's dump. The dump is
+-- read in exactly one place (the fixture's report), and a control that agreed
+-- with its own dump while painting something else is the defect these rows are
+-- written against.
+
+local function mountRange(specOverrides: any?, worldOverrides: any?)
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+	for k, v in (worldOverrides or {}) :: any do
+		env:set(k, v)
+	end
+	local adapter = fake_target.new({ ops = true })
+	local system = actionsLib.newSystem(core)
+	local pres = presenterLib.new(core, env, adapter, system, { keyboardNavigation = true })
+	local value = Compose.cell({ lower = 20, upper = 60 })
+	local spec: any = { id = "Gap", label = "Gap", value = value, min = 0, max = 100, range = true, step = 5 }
+	for k, v in (specOverrides or {}) :: any do
+		spec[k] = v
+	end
+	local control = harness.Controls.Slider(core, spec)
+	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
+	pres.refresh()
+	return core, adapter, system, pres, value, control, env
+end
+
+local RANGE_LOWER = "/S/Gap/TrackHost/Handles/HandleLower"
+local RANGE_UPPER = "/S/Gap/TrackHost/Handles/HandleUpper"
+local RANGE_TRACK = "/S/Gap/TrackHost/Track"
+
+describe("Slider axis: a vertical track runs bottom to top", function()
+	it("the fill grows from the BOTTOM edge and the thumb climbs as the value rises", function()
+		local _, adapter, _, pres, value = mountSlider({ axis = "y", step = 10 }, nil)
+		local track = adapter.node("/S/Vol/TrackHost").rect
+		local fill = adapter.node("/S/Vol/TrackHost/Groove/Fill").rect
+		-- a vertical track is TALL and thin: the value axis is its height
+		expect(track.h > track.w).toBe(true)
+		-- at 50 of 0..100 the fill is half the track and its BOTTOM edge is the
+		-- track's bottom edge — a fill that grew downward would share the TOP one
+		expect(fill.h).toBe(math.floor(track.h * 0.5 + 0.5))
+		expect(fill.y + fill.h).toBe(track.y + track.h)
+		local before = adapter.node("/S/Vol/TrackHost/Groove/Thumb").rect.y
+		value:set(90)
+		pres.refresh()
+		pres.refresh()
+		expect(adapter.node("/S/Vol/TrackHost/Groove/Thumb").rect.y < before).toBe(true)
+	end)
+
+	it("Up/Down adjust it and Left/Right do not, because the AXIS is what was authored", function()
+		--[[ FOCUSED WITH TAB, DELIBERATELY. A vertical slider declares the VERTICAL
+			adjust axis, which is the axis a flat screen also navigates on — the
+			trade `contribution.Bundle` documents for this key — so arriving on
+			DPadDown spends that press on navigation and the first arrow after it is
+			absorbed by the same held-direction edge. Tab is the way in that does not
+			share an axis with the value. ]]
+		local _, _, system, pres, value = mountSlider({ axis = "y", step = 10 }, { keyboardNavigation = true })
+		system.deviceKey("Tab", true)
+		system.deviceKey("Tab", false)
+		pres.refresh()
+		-- Up increases a bottom-to-top track; the presenter's vertical adjust axis
+		-- is what makes these arrows reach the control at all
+		system.deviceKey("Up", true)
+		system.deviceKey("Up", false)
+		pres.refresh()
+		expect(value:peek()).toBe(60)
+		system.deviceKey("Down", true)
+		system.deviceKey("Down", false)
+		pres.refresh()
+		expect(value:peek()).toBe(50)
+		-- the other axis keeps navigating: it never reaches the value
+		system.deviceKey("Right", true)
+		system.deviceKey("Right", false)
+		pres.refresh()
+		expect(value:peek()).toBe(50)
+	end)
+end)
+
+describe("Slider axis: the press that lands focus is not a value step", function()
+	it("Up onto a vertical slider moves the ring only; the next Up steps it", function()
+		for _, key in { "Up", "DPadUp" } do
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local adapter = fake_target.new({ ops = true })
+			local system = actionsLib.newSystem(core)
+			local pres = presenterLib.new(core, env, adapter, system, { keyboardNavigation = true })
+			local rear, boost = Compose.cell(50), Compose.cell(50)
+			local vertical = harness.Controls.Slider(
+				core,
+				{ id = "Rear", label = "Rear", value = rear, min = 0, max = 100, step = 10, axis = "y" }
+			)
+			local horizontal = harness.Controls.Slider(
+				core,
+				{ id = "Boost", label = "Boost", value = boost, min = 0, max = 100, step = 10 }
+			)
+			pres.present(UI.Screen({ id = "S", children = { vertical.blueprint, horizontal.blueprint } }))
+			pres.refresh()
+			local function tap(code: string)
+				system.deviceKey(code, true)
+				pres.refresh()
+				system.deviceKey(code, false)
+				pres.refresh()
+			end
+			-- the engine hands a key HELD when its binding is made to that binding
+			-- (one Up moved the ring AND stepped Rear); the headless model
+			-- does not, so the engine's delivery is replayed as a second down
+			pres.focus.focusOn("/S/Boost/TrackHost/Track")
+			pres.refresh()
+			system.deviceKey(key, true)
+			pres.refresh()
+			system.deviceKey(key, true)
+			pres.refresh()
+			system.deviceKey(key, false)
+			pres.refresh()
+			local ring = tostring(pres.focus.focused:peek())
+			expect(`{key} landed {string.find(ring, "/S/Rear", 1, true) ~= nil} {rear:peek()}`).toBe(
+				`{key} landed true 50`
+			)
+			tap(key)
+			expect(`{key} next {rear:peek()}`).toBe(`{key} next 60`)
+		end
+	end)
+end)
+
+describe("Slider rotation: the painted angle and the pointer share one conversion", function()
+	--[[ `rotation` is PAINT-ONLY about the node's centre, so the solver hands back
+		the unrotated rect and the renderer can answer nothing about where the
+		player pressed. The control therefore un-rotates the pointer itself — and
+		THAT is what these cases drive: a press placed where the player's finger
+		really lands on the turned track must produce the fraction the upright
+		track would have produced at the same point along it. ]]
+	local function pressAtFraction(adapter: any, pres: any, degrees: number, f: number, root: string?, painted: any?)
+		local at = (root or "/S/Vol") .. "/TrackHost"
+		local track = painted or adapter.node(at).rect
+		local cx, cy = track.x + track.w / 2, track.y + track.h / 2
+		-- the point ON the upright track at fraction f, then turned by the same
+		-- angle the paint is turned by (screen y runs DOWN, so positive is clockwise)
+		local ux, uy = track.x + track.w * f, cy
+		local a = math.rad(degrees)
+		local dx, dy = ux - cx, uy - cy
+		local px = cx + dx * math.cos(a) - dy * math.sin(a)
+		local py = cy + dx * math.sin(a) + dy * math.cos(a)
+		adapter.pointerDown(at .. "/Track", px, py)
+		pres.refresh()
+		adapter.pointerUp(px, py)
+	end
+
+	it("every eighth of a turn reads the same value the upright track would", function()
+		for _, degrees in { 45, 90, 135, 180, 225, 270, 315 } do
+			local _, adapter, _, pres, value = mountSlider({ rotation = degrees, step = 25 })
+			pressAtFraction(adapter, pres, degrees, 0.75)
+			expect(`{degrees}deg -> {value:peek()}`).toBe(`{degrees}deg -> 75`)
+		end
+	end)
+
+	it("a press on a SCROLLED track reads the painted position, not the layout one", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new({ ops = true })
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local value = Compose.cell(0)
+		local control = harness.Controls.Slider(core, {
+			id = "Vol",
+			label = "Vol",
+			value = value,
+			min = 0,
+			max = 100,
+			step = 25,
+			rotation = 90,
+		})
+		local handle = pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ScrollView({
+					id = "Scroll",
+					axis = "y",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = {
+						UI.Box({ id = "Spacer", width = UI.fill(), height = { type = "fixed", px = 400 } }),
+						control.blueprint,
+						UI.Box({ id = "After", width = UI.fill(), height = { type = "fixed", px = 400 } }),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		-- really scroll before the press: the painted track moves, its layout rect does not
+		handle.controller.scrollTo("/S/Scroll", { x = 0, y = 300 })
+		pres.refresh()
+		local painted = handle.controller.screenRectOf("/S/Scroll/Vol/TrackHost")
+		expect(painted.y ~= adapter.node("/S/Scroll/Vol/TrackHost").rect.y).toBe(true)
+		pressAtFraction(adapter, pres, 90, 0.25, "/S/Scroll/Vol", painted)
+		expect(value:peek()).toBe(25)
+	end)
+
+	it("an upright slider takes the untouched path: zero degrees costs no conversion", function()
+		local _, adapter, _, pres, value = mountSlider({ rotation = 0, step = 25 })
+		local track = adapter.node("/S/Vol/TrackHost").rect
+		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x + track.w, track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerUp(track.x + track.w, track.y)
+		expect(value:peek()).toBe(100)
+	end)
+end)
+
+describe("Slider range: two thumbs, one track, and they never cross", function()
+	it("both handles are targets that meet the touch floor, and the fill spans between them", function()
+		local _, adapter = mountRange()
+		local lower = adapter.hitRectOf(RANGE_LOWER)
+		local upper = adapter.hitRectOf(RANGE_UPPER)
+		expect(lower.w >= 44 and lower.h >= 44).toBe(true)
+		expect(upper.w >= 44 and upper.h >= 44).toBe(true)
+		-- the paint between them IS the selected band: it starts at the lower thumb
+		-- and ends at the upper, rather than at the track's own edge
+		local track = adapter.node("/S/Gap/TrackHost").rect
+		local fill = adapter.node("/S/Gap/TrackHost/Groove/Fill").rect
+		expect(fill.x - track.x).toBe(math.floor(track.w * 0.2 + 0.5))
+		expect(fill.w).toBe(math.floor(track.w * 0.6 + 0.5) - math.floor(track.w * 0.2 + 0.5))
+	end)
+
+	it("a thumb stops at the other one, and `minGap` holds them apart", function()
+		local _, adapter, _, pres, value = mountRange({ minGap = 10 })
+		local track = adapter.node(RANGE_TRACK).rect
+		-- drag the LOWER thumb all the way right: it must stop a whole gap short
+		adapter.pointerDown(RANGE_LOWER, track.x + math.floor(track.w * 0.2), track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerMove(track.x + track.w, track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerUp(track.x + track.w, track.y + track.h / 2)
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("50/60")
+	end)
+
+	it("an arrow a thumb cannot use against its partner keeps the ring on that thumb", function()
+		local _, _, system, pres, value = mountRange({ minGap = 10 })
+		value:set({ lower = 50, upper = 60 })
+		pres.refresh()
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+		system.deviceKey("Right", true)
+		system.deviceKey("Right", false)
+		pres.refresh()
+		expect(`{pres.focus.focused:peek()} {value:peek().lower}`).toBe(`{RANGE_LOWER} 50`)
+	end)
+
+	it("a press LEFT of a coincident pair takes the lower thumb, and a press right takes the upper", function()
+		for _, case in
+			{
+				{ at = 0.2, moves = "lower" },
+				{ at = 0.8, moves = "upper" },
+			}
+		do
+			local _, adapter, _, pres, value = mountRange({ step = 1 })
+			value:set({ lower = 50, upper = 50 })
+			pres.refresh()
+			local track = adapter.node(RANGE_TRACK).rect
+			local x = track.x + track.w * case.at
+			adapter.pointerDown(RANGE_TRACK, x, track.y + track.h / 2)
+			pres.refresh()
+			adapter.pointerUp(x, track.y + track.h / 2)
+			local pair = value:peek()
+			local moved = if pair.lower ~= 50 then "lower" else "upper"
+			expect(`at {case.at} -> {moved}`).toBe(`at {case.at} -> {case.moves}`)
+		end
+	end)
+
+	it("a drag keeps the thumb it started with, even dragged past the other one", function()
+		local _, adapter, _, pres, value = mountRange({ minGap = 0 })
+		local track = adapter.node(RANGE_TRACK).rect
+		-- grab the UPPER thumb and drag it all the way to the left edge: it must
+		-- pile up on the lower thumb, never hand the gesture over to it
+		adapter.pointerDown(RANGE_UPPER, track.x + math.floor(track.w * 0.6), track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerMove(track.x, track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerUp(track.x, track.y + track.h / 2)
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("20/20")
+	end)
+
+	it("ONE commit per completed gesture, and it names the thumb that moved", function()
+		local commits = {}
+		local _, adapter, _, pres = mountRange({
+			onCommit = function(range: any, info: any)
+				table.insert(commits, `{info.thumb}:{range.lower}-{range.upper}`)
+			end,
+		})
+		local track = adapter.node(RANGE_TRACK).rect
+		adapter.pointerDown(RANGE_UPPER, track.x + math.floor(track.w * 0.6), track.y + track.h / 2)
+		pres.refresh()
+		for _, f in { 0.7, 0.8, 0.9 } do
+			adapter.pointerMove(track.x + track.w * f, track.y + track.h / 2)
+			pres.refresh()
+		end
+		adapter.pointerUp(track.x + track.w * 0.9, track.y + track.h / 2)
+		expect(#commits).toBe(1)
+		expect(commits[1]).toBe("upper:20-90")
+	end)
+
+	it("keyboard: each thumb is its own Tab stop, and the arrows adjust the one holding the ring", function()
+		local _, _, system, pres, value = mountRange()
+		local function tab()
+			system.deviceKey("Tab", true)
+			system.deviceKey("Tab", false)
+			pres.refresh()
+		end
+		local function right()
+			system.deviceKey("Right", true)
+			system.deviceKey("Right", false)
+			pres.refresh()
+		end
+		-- the ring enters on the LOWER thumb (the group's own entry), and the arrow
+		-- moves THAT number
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+		right()
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("25/60")
+		-- ...and Tab is a second stop, not a way past the pair
+		tab()
+		expect(pres.focus.focused:peek()).toBe(RANGE_UPPER)
+		right()
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("25/65")
+		-- a third Tab LEAVES the control rather than bouncing between the thumbs
+		-- forever: with nothing else on this screen it wraps back to the entry
+		tab()
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+	end)
+
+	it("gamepad: Left/Right reach the other thumb until Activate engages, and Cancel gives them back", function()
+		local _, _, system, pres, value = mountRange(nil, {
+			capabilities = { keyboard = false, mouse = false, touch = false, gamepad = true },
+		})
+		system.deviceKey("DPadDown", true)
+		system.deviceKey("DPadDown", false)
+		pres.refresh()
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+		-- NOT engaged: the arrow is navigation, so the ring moves and nothing changes
+		system.deviceKey("DPadRight", true)
+		system.deviceKey("DPadRight", false)
+		pres.refresh()
+		expect(pres.focus.focused:peek()).toBe(RANGE_UPPER)
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("20/60")
+		-- engaged: the same arrow is the value
+		system.deviceKey("ButtonA", true)
+		system.deviceKey("ButtonA", false)
+		pres.refresh()
+		system.deviceKey("DPadRight", true)
+		system.deviceKey("DPadRight", false)
+		pres.refresh()
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("20/65")
+		expect(pres.focus.focused:peek()).toBe(RANGE_UPPER)
+		-- ...AND IT IS LEAVEABLE. Cancel drops the mode and the arrow navigates again
+		system.deviceKey("ButtonB", true)
+		system.deviceKey("ButtonB", false)
+		pres.refresh()
+		system.deviceKey("DPadLeft", true)
+		system.deviceKey("DPadLeft", false)
+		pres.refresh()
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("20/65")
+	end)
+
+	it("losing the pointer class mid-drag restores BOTH numbers, not just the one that moved", function()
+		local _, adapter, _, pres, value, control = mountRange()
+		local track = adapter.node(RANGE_TRACK).rect
+		adapter.pointerDown(RANGE_LOWER, track.x + math.floor(track.w * 0.2), track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerMove(track.x, track.y + track.h / 2)
+		pres.refresh()
+		expect(value:peek().lower).toBe(0)
+		control.onInteractionClassLost("pointer")
+		pres.refresh()
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("20/60")
+	end)
+
+	it("a REAL capability loss mid-drag restores the pair, and the later move and release commit nothing", function()
+		local commits = 0
+		local _, adapter, _, pres, value, _, env = mountRange({
+			onCommit = function()
+				commits += 1
+			end,
+		}, { capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false } })
+		local track = adapter.node(RANGE_TRACK).rect
+		adapter.pointerDown(RANGE_LOWER, track.x + math.floor(track.w * 0.2), track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerMove(track.x, track.y + track.h / 2)
+		pres.refresh()
+		expect(value:peek().lower).toBe(0)
+		-- the device's pointer and touch go away: the environment's live class set moves
+		env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
+		pres.refresh()
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("20/60")
+		adapter.pointerMove(track.x + track.w * 0.4, track.y + track.h / 2)
+		adapter.pointerUp(track.x + track.w * 0.4, track.y + track.h / 2)
+		pres.refresh()
+		expect(`{value:peek().lower}/{value:peek().upper} commits={commits}`).toBe("20/60 commits=0")
+	end)
+
+	it("an authored pair the wrong way round is a spec error, not a silent swap", function()
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			harness.Controls.Slider(core, {
+				id = "Bad",
+				value = Compose.cell({ lower = 80, upper = 20 }),
+				min = 0,
+				max = 100,
+				range = true,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "is above", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("Slider thumb modes and the custom knob", function()
+	it('`thumb = "none"` paints no handle and leaves every route open', function()
+		local _, adapter, system, pres, value = mountSlider({ thumb = "none", step = 10 })
+		-- the handle is not painted...
+		expect(adapter.visibleOf("/S/Vol/TrackHost/Groove/Thumb")).toBe(false)
+		-- ...and the readout still says the value
+		expect(adapter.node("/S/Vol/Value").props.text).toBe("50")
+		-- pointer and touch still reach it
+		local track = adapter.node("/S/Vol/TrackHost/Track").rect
+		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x + track.w, track.y, "touch")
+		pres.refresh()
+		adapter.pointerUp(track.x + track.w, track.y)
+		expect(value:peek()).toBe(100)
+		-- and so do keyboard and gamepad
+		system.deviceKey("DPadDown", true)
+		system.deviceKey("DPadDown", false)
+		pres.refresh()
+		system.deviceKey("Comma", true)
+		system.deviceKey("Comma", false)
+		pres.refresh()
+		system.deviceKey("ButtonL1", true)
+		system.deviceKey("ButtonL1", false)
+		pres.refresh()
+		expect(value:peek()).toBe(80)
+	end)
+
+	it('`thumb = "auto"` keeps the handle out at rest and brings it back on focus', function()
+		local _, adapter, system, pres = mountSlider({ thumb = "auto" })
+		expect(adapter.visibleOf("/S/Vol/TrackHost/Groove/Thumb")).toBe(false)
+		system.deviceKey("DPadDown", true)
+		system.deviceKey("DPadDown", false)
+		pres.refresh()
+		expect(adapter.visibleOf("/S/Vol/TrackHost/Groove/Thumb")).toBe(true)
+	end)
+
+	it('`thumb = "auto"` on a TOUCH-primary surface keeps a handle to grab', function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		local adapter = fake_target.new({ ops = true })
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local control = harness.Controls.Slider(core, {
+			id = "Vol",
+			label = "Vol",
+			value = Compose.cell(50),
+			min = 0,
+			max = 100,
+			thumb = "auto",
+		})
+		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
+		pres.refresh()
+		expect(adapter.visibleOf("/S/Vol/TrackHost/Groove/Thumb")).toBe(true)
+	end)
+
+	it("a custom knob is built once per thumb and solves at the control's own footprint", function()
+		local builds = 0
+		local seen: { any } = {}
+		local _, adapter, _, pres, value = mountSlider({
+			step = 10,
+			thumbContent = function(info: any)
+				builds += 1
+				table.insert(seen, info.thumb)
+				return UI.Text({ id = "Pip", text = "x", textSize = "caption" })
+			end,
+		})
+		expect(builds).toBe(1)
+		expect(seen[1]).toBe("value")
+		local knob = adapter.node("/S/Vol/TrackHost/Groove/Thumb").rect
+		local mark = adapter.node("/S/Vol/TrackHost/Groove/Thumb/Pip").rect
+		-- the handle is the CONTROL's, floored at the theme's own thumb metric, and
+		-- the caller's mark is centred inside it rather than deciding its size
+		expect(knob.w >= mark.w and knob.h >= mark.h).toBe(true)
+		expect(knob.w).toBe(20)
+		-- ...and the mark never paints outside the handle that carries it
+		expect(mark.x >= knob.x and mark.x + mark.w <= knob.x + knob.w).toBe(true)
+		-- and it rides the value without being rebuilt
+		value:set(100)
+		pres.refresh()
+		pres.refresh()
+		expect(builds).toBe(1)
+		expect(adapter.node("/S/Vol/TrackHost/Groove/Thumb").rect.x > knob.x).toBe(true)
+	end)
+
+	it("a custom knob drops the theme's own slot, so no package paints a circle behind it", function()
+		local _, adapter = mountSlider({
+			thumbContent = function()
+				return UI.Text({ id = "Pip", text = "x", textSize = "caption" })
+			end,
+		})
+		-- the handle node keeps its id and loses the chrome hint with the box that
+		-- named it: a package's `Slot — sliderThumb` rule has nothing to select
+		expect(adapter.node("/S/Vol/TrackHost/Groove/Thumb").decorationHint).toBeNil()
+		-- ...and it grows rather than clipping when the content outgrows the metric
+		local big = select(
+			2,
+			mountSlider({
+				thumbContent = function()
+					return UI.Box({
+						id = "Wide",
+						width = { type = "fixed", px = 40 },
+						height = { type = "fixed", px = 40 },
+					})
+				end,
+			})
+		)
+		expect(big.node("/S/Vol/TrackHost/Groove/Thumb").rect.w).toBe(40)
+	end)
+end)
+
+describe("Slider controlSize: the plate shrinks and the target does not", function()
+	it("a named rung paints a thinner track inside a whole reserved target", function()
+		local _, adapter = mountSlider({ controlSize = "compact" })
+		local floor = adapter.node("/S/Vol/TrackHost+target").rect
+		local plate = adapter.node("/S/Vol/TrackHost+target/TrackHost").rect
+		expect(plate.h < floor.h).toBe(true)
+		expect(floor.h >= 44).toBe(true)
+		-- and the hit surface still answers for a whole finger
+		local hit = adapter.hitRectOf("/S/Vol/TrackHost+target/TrackHost/Track")
+		expect(hit.h >= 44).toBe(true)
+	end)
+end)
+
+-- ===== P3b fix round 1 =====================================================
+
+describe('Slider `thumb = "auto"`: the hover route is wired, not just declared', function()
+	it("the handle appears under the pointer and goes again when it leaves", function()
+		--[[ The attach used to live inside `bindController` behind
+			`trackPath ~= nil` — never true there, because the presenter binds the
+			controller BEFORE the first geometry feed and the track path is only
+			learned by that feed. So the one writer of `hovered` never ran and the
+			handle that `auto` promises under the pointer never came. This drives the
+			engine's own hover stream, which is the seam that was dead. ]]
+		local _, adapter, _, pres = mountSlider({ thumb = "auto" })
+		local TRACK = "/S/Vol/TrackHost/Track"
+		local THUMB = "/S/Vol/TrackHost/Groove/Thumb"
+		expect(adapter.visibleOf(THUMB)).toBe(false)
+		adapter.hover(TRACK)
+		pres.refresh()
+		expect(adapter.visibleOf(THUMB)).toBe(true)
+		adapter.unhover(TRACK)
+		pres.refresh()
+		expect(adapter.visibleOf(THUMB)).toBe(false)
+	end)
+end)
+
+describe("Slider `controlSize` on a vertical track", function()
+	it("a rung thins the track and the column keeps its travel", function()
+		--[[ `reserveTarget` floors the axis it is given, and flooring the VALUE axis
+			of a vertical slider is the content-sizing collapse this file names: a
+			`fill` track inside a hugging parent resolves to one touch target and the
+			travel goes with it. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new({ ops = true })
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local control = harness.Controls.Slider(core, {
+			id = "Vol",
+			label = "Vol",
+			value = Compose.cell(50),
+			min = 0,
+			max = 100,
+			step = 5,
+			axis = "y",
+			controlSize = "compact",
+		})
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Stage",
+					width = { type = "fixed", px = 120 },
+					height = { type = "fixed", px = 260 },
+					children = { control.blueprint },
+				}),
+			},
+		}))
+		pres.refresh()
+		local floor = adapter.node("/S/Stage/Vol/TrackHost+target").rect
+		local plate = adapter.node("/S/Stage/Vol/TrackHost+target/TrackHost").rect
+		-- the track still has a column to run down...
+		expect(plate.h > 150).toBe(true)
+		-- ...its paint is thinner than a whole target ACROSS...
+		expect(plate.w < 44).toBe(true)
+		-- ...and the reserved footprint is still a finger wide
+		expect(floor.w >= 44).toBe(true)
+	end)
+end)
+
+describe("Slider range: an illegal pair arriving at RUNTIME is quarantined, never fatal", function()
+	local function drive(next_: any, reason: string, overrides: any?)
+		local _, adapter, _, pres, value, control = mountRange(overrides)
+		local before = adapter.node("/S/Gap/TrackHost/Groove/Fill").rect
+		value:set(next_)
+		pres.refresh()
+		pres.refresh()
+		local after = adapter.node("/S/Gap/TrackHost/Groove/Fill").rect
+		-- the screen holds the last legal band rather than painting nonsense...
+		expect(`{reason}: {after.x},{after.w}`).toBe(`{reason}: {before.x},{before.w}`)
+		-- ...the refusal is SAID rather than swallowed...
+		expect(`{reason}: said`).toBe(`{reason}: {if #control.diagnostics() > 0 then "said" else "silent"}`)
+		-- ...and nothing was quarantined inside the solve
+		return control
+	end
+
+	it("a reversed pair, a scalar, a nil and a pair narrower than its own gap all keep the last legal band", function()
+		drive({ lower = 80, upper = 20 }, "reversed")
+		drive(50, "scalar")
+		drive(nil, "nil")
+		drive({ lower = 40, upper = 41 }, "under the gap", { minGap = 10 })
+	end)
+
+	it("and the control is still DRIVEABLE afterwards, from the pointer", function()
+		local _, adapter, _, pres, value = mountRange({ minGap = 10 })
+		value:set({ lower = 90, upper = 10 })
+		pres.refresh()
+		local track = adapter.node(RANGE_TRACK).rect
+		adapter.pointerDown(RANGE_LOWER, track.x, track.y + track.h / 2)
+		pres.refresh()
+		adapter.pointerUp(track.x, track.y + track.h / 2)
+		-- the press moved the LAST LEGAL pair's lower thumb to the floor
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("0/60")
+	end)
+
+	it("an authored pair narrower than its own gap is a build error", function()
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			harness.Controls.Slider(core, {
+				id = "Bad",
+				value = Compose.cell({ lower = 40, upper = 41 }),
+				min = 0,
+				max = 100,
+				range = true,
+				minGap = 10,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "narrower than", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("Slider: the words that decide what it IS are refused when bound", function()
+	it("a bound axis names itself rather than freezing on its first reading", function()
+		local core = customFactory.new()
+		for _, key in { "axis", "range", "thumb", "minGap" } do
+			local spec: any = { id = "B", value = Compose.cell(0.5), min = 0, max = 1 }
+			spec[key] = function()
+				return if key == "minGap" then 0 else "x"
+			end
+			local ok, err = pcall(function()
+				harness.Controls.Slider(core, spec)
+			end)
+			expect(`{key}: {ok}`).toBe(`{key}: false`)
+			expect(`{key}: {string.find(tostring(err), "construction-only", 1, true) ~= nil}`).toBe(`{key}: true`)
+		end
+	end)
+end)
+
+describe("Slider range: each handle's travel is priced off its OWN art", function()
+	it("two different-sized knobs both stop at the track's end", function()
+		local _, adapter, _, pres, value = mountRange({
+			minGap = 0,
+			thumbContent = function(info: any)
+				local px = if info.thumb == "upper" then 40 else 12
+				return UI.Box({
+					id = "Art",
+					width = { type = "fixed", px = px },
+					height = { type = "fixed", px = px },
+				})
+			end,
+		})
+		value:set({ lower = 0, upper = 100 })
+		pres.refresh()
+		pres.refresh()
+		local track = adapter.node("/S/Gap/TrackHost").rect
+		local lower = adapter.node("/S/Gap/TrackHost/Handles/ThumbLower").rect
+		local upper = adapter.node("/S/Gap/TrackHost/Handles/ThumbUpper").rect
+		-- the two handles really are different sizes...
+		expect(upper.w > lower.w).toBe(true)
+		-- ...the lower one sits at the track's start...
+		expect(lower.x).toBe(track.x)
+		-- ...and the BIGGER one still stops exactly at its end, rather than hanging
+		-- past it by the size difference
+		expect(upper.x + upper.w).toBe(track.x + track.w)
+	end)
+end)
+
+describe("Slider: two answers to one question are refused", function()
+	it("a thumbImage beside a thumbContent names the collision", function()
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			harness.Controls.Slider(core, {
+				id = "B",
+				value = Compose.cell(0.5),
+				min = 0,
+				max = 1,
+				thumbImage = "rbxassetid://1",
+				thumbContent = function()
+					return UI.Box({ id = "Art" })
+				end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "both paint the handle", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("Slider range adjust mode: only a pad may enter it", function()
+	it("a keyboard Return on a handle does not latch a mode a keyboard never needs", function()
+		local _, _, system, pres, value, control = mountRange()
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+		system.deviceKey("Return", true)
+		system.deviceKey("Return", false)
+		pres.refresh()
+		expect(control.dump().engaged).toBe(false)
+		-- ...and the arrows still adjust, which is the keyboard's whole story
+		system.deviceKey("Right", true)
+		system.deviceKey("Right", false)
+		pres.refresh()
+		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("25/60")
+	end)
+end)
+
+describe("Slider range: legality at build, and lifetimes", function()
+	it("an initial NaN, a bad type and a bad gap are build errors, never a seeded fallback", function()
+		for _, bad in { { lower = 0 / 0, upper = 10 }, { lower = "1", upper = 10 }, { lower = 1, upper = math.huge } } do
+			local core = customFactory.new()
+			local ok = pcall(function()
+				harness.Controls.Slider(core, { id = "B", value = Compose.cell(bad), min = 0, max = 100, range = true })
+			end)
+			expect(ok).toBe(false)
+		end
+	end)
+
+	it("a runtime NaN keeps the last legal band, and a legal pair afterwards paints and drives again", function()
+		local _, adapter, _, pres, value, control = mountRange()
+		value:set({ lower = 0 / 0, upper = 50 })
+		pres.refresh()
+		expect(#control.diagnostics()).toBe(1)
+		value:set({ lower = 30, upper = 70 })
+		pres.refresh()
+		pres.refresh()
+		local track = adapter.node("/S/Gap/TrackHost").rect
+		local fill = adapter.node("/S/Gap/TrackHost/Groove/Fill").rect
+		expect(fill.x - track.x).toBe(math.floor(track.w * 0.3 + 0.5))
+		-- a repeat of the same refusal is recorded once; a legal read resets that
+		value:set({ lower = 0 / 0, upper = 50 })
+		pres.refresh()
+		expect(#control.diagnostics()).toBe(2)
+	end)
+
+	it("a knob is told its own thumb, and building, driving and disposing leaves the owner as it was", function()
+		local core = customFactory.new()
+		local baseline = core.owner.size()
+		local seen: { string } = {}
+		local control = harness.Controls.Slider(core, {
+			id = "L",
+			value = Compose.cell({ lower = 10, upper = 90 }),
+			min = 0,
+			max = 100,
+			range = true,
+			thumb = "auto",
+			thumbContent = function(info: any)
+				table.insert(seen, info.thumb)
+				return UI.Box({ id = "Art" })
+			end,
+		})
+		expect(table.concat(seen, " ")).toBe("lower upper")
+		control.dispose()
+		expect(core.owner.size()).toBe(baseline)
 	end)
 end)

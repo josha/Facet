@@ -1103,7 +1103,9 @@ describe("the layout-node store: the audit that licenses it", function()
 			exactly the property the reuse gate needs of a field it does not watch. ]]
 		-- Native structural moves mutate arrays in place. The scene host increments
 		-- childrenVersion and publishes structure dirt on every such mutation.
-		expect(out).toEqual({ "children", "childrenVersion", "class", "hostSpace", "path", "props" })
+		-- `dynamicProps` is written only while the node is created (`noteBound`),
+		-- so which props are bound cannot change under a mounted node.
+		expect(out).toEqual({ "children", "childrenVersion", "class", "dynamicProps", "hostSpace", "path", "props" })
 	end)
 
 	it("every call that hands a mounted node OUT of the file is enumerated, with its fields", function()

@@ -219,7 +219,7 @@ describe("the icon's box: a picture is reserved for, not painted over", function
 end)
 
 describe("preferred compact icons", function()
-	it("reserve the same art square as an icon hint across live themes", function()
+	it("reserve their control size's icon square (the label's box) across live themes", function()
 		local w = require("./lib/harness_world").new({ viewport = { x = 0, y = 0, w = 800, h = 400 } })
 		w.present(UI.Screen({
 			id = "S",
@@ -247,8 +247,11 @@ describe("preferred compact icons", function()
 				local pad = snapshot.buttonPadding(snap, {})
 				local inset = snap.chromeInsets.control or { top = 0, right = 0, bottom = 0, left = 0 }
 				local pt, pr, pb, pl = pad + inset.top, pad + inset.right, pad + inset.bottom, pad + inset.left
+				-- the picture is the Button's label, so it is the rung's `iconSize`
+				-- (a text Button's line), drawn no larger than the package's art rung
+				local rung = snap.controlSizes.regular.iconSize
 				expect(chrome_slots.iconBoxPx(snap.iconSizes.medium, node.rect.w, node.rect.h, pl + pr, pt + pb)).toBe(
-					snap.iconSizes.medium
+					math.min(snap.iconSizes.medium, rung)
 				)
 			end
 		end

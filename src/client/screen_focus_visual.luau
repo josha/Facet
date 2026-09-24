@@ -94,6 +94,7 @@ export type Ctx = {
 	hostOriginOf: (any) -> (number, number),
 	focusTreatment: () -> any,
 	snapshot: () -> any,
+	placeFloat: (any) -> (),
 }
 
 function screen_focus_visual.new(ctx: Ctx)
@@ -109,6 +110,7 @@ function screen_focus_visual.new(ctx: Ctx)
 	local hostOriginOf = ctx.hostOriginOf
 	local focusTreatment = ctx.focusTreatment
 	local snapshot = ctx.snapshot
+	local placeFloat = ctx.placeFloat
 
 	-- focus ring (design §8.4: focus is never color-only — ring + hover fill).
 	-- profile is the env distanceProfile (UI-PARADIGM-003, matrix D.4): on a
@@ -511,6 +513,11 @@ function screen_focus_visual.new(ctx: Ctx)
 				else
 					(ring :: UIStroke).Thickness = thickness;
 					(ring :: UIStroke).Color = focusColor()
+				end
+				-- a node already wearing its own paint scale (a hover-lifted card's stop)
+				-- takes the grown ring now, from the rect writer, not on its next lift frame
+				if handle.focusRingFloat ~= nil and handle.motionScale ~= nil then
+					placeFloat(handle)
 				end
 			end
 			-- ten-foot: a dedicated UIScale lifts the focused control (kept

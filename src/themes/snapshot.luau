@@ -1842,6 +1842,21 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(out.controls.popup.panelWidth) ~= "number" then
 		out.controls.popup.panelWidth = out.targetSizes.minimum * (360 / 44)
 	end
+	-- the Dialog's `width = "wide"` ceiling; narrow is the popup panel width and
+	-- automatic the alert's, so this is the one Dialog-only width
+	if type(out.controls.dialog) ~= "table" then
+		out.controls.dialog = {}
+	end
+	if type(out.controls.dialog.wideWidth) ~= "number" then
+		out.controls.dialog.wideWidth = out.targetSizes.minimum * (800 / 44)
+	end
+	-- the snackbar's constrained width (an action or a close button present)
+	if type(out.controls.snackbar) ~= "table" then
+		out.controls.snackbar = {}
+	end
+	if type(out.controls.snackbar.maxWidth) ~= "number" then
+		out.controls.snackbar.maxWidth = out.targetSizes.minimum * (480 / 44)
+	end
 	-- the menu card's row-shade FORM (user ruling 2026-09-12): 0 (the default)
 	-- is the flush form — the shade spans the card edge to edge and takes the
 	-- card's corners by position; a positive inset is the floating form — an

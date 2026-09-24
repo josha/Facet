@@ -237,10 +237,11 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 		local core = harness.newCore()
 		local grid = newGrid(core, { items = Compose.cell(makeItems(17)), columns = 4, itemExtent = 40, rowGap = 6 })
 		-- 17 items over 4 lanes is 5 lines: four full and one of a single cell
-		local ix = virtual_extents.uniform(5, 40, 6)
+		-- ...with half a gutter at each end (an outer edge holds one cell's lift)
+		local ix = virtual_extents.edged(virtual_extents.uniform(5, 40, 6), 3)
 		expect(grid.dump().lineCount).toBe(5)
 		expect(grid.dump().content).toBe(ix.content)
-		expect(grid.dump().content).toBe(5 * 40 + 4 * 6)
+		expect(grid.dump().content).toBe(5 * 40 + 4 * 6 + 2 * 3)
 		grid.dispose()
 	end)
 
@@ -254,7 +255,7 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 			viewportExtent = 200,
 			overscan = 0,
 		})
-		local ix = virtual_extents.uniform(100, 40, 6)
+		local ix = virtual_extents.edged(virtual_extents.uniform(100, 40, 6), 3)
 		grid.scrollTop:set(460)
 		local first, last = ix.window(460, 200, 0)
 		expect(grid.dump().lines).toEqual({ first, last })
@@ -294,7 +295,7 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 		local grid = newGrid(core, { items = Compose.cell(makeItems(9)), columns = 4, itemExtent = 40, rowGap = 6 })
 		-- 9 items over 4 lanes is 3 lines, the last holding ONE cell
 		expect(grid.dump().lineCount).toBe(3)
-		expect(grid.dump().content).toBe(3 * 40 + 2 * 6)
+		expect(grid.dump().content).toBe(3 * 40 + 2 * 6 + 2 * 3)
 		expect(grid.dump().window).toEqual({ "i1", "i2", "i3", "i4", "i5", "i6", "i7", "i8", "i9" })
 		grid.dispose()
 	end)
@@ -517,22 +518,23 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 			itemExtent = 40,
 			width = { type = "fixed", px = 320 },
 		})
-		-- floor((320 - 4 * 3) / 4) = 77, the flow grid's own formula
-		expect(w.cellRect("i1").w).toBe(77)
-		expect(w.cellRect("i1").x).toBe(0)
-		expect(w.cellRect("i2").x).toBe(81)
-		expect(w.cellRect("i4").x).toBe(243)
+		-- floor((320 - 2 * 2 - 4 * 3) / 4) = 76, the flow grid's own formula inside
+		-- the band's half-gutter edges
+		expect(w.cellRect("i1").w).toBe(76)
+		expect(w.cellRect("i1").x).toBe(2)
+		expect(w.cellRect("i2").x).toBe(82)
+		expect(w.cellRect("i4").x).toBe(242)
 		w.grid.dispose()
 	end)
 
 	it("a SHORT last line keeps its column width and stays left-aligned", function()
 		local w =
 			world({ items = makeItems(6), columns = 4, gap = 4, itemExtent = 40, width = { type = "fixed", px = 320 } })
-		-- line 2 holds two cells; they must be 77 wide at x = 0 and 81, NOT stretched
-		expect(w.cellRect("i5").w).toBe(77)
-		expect(w.cellRect("i5").x).toBe(0)
-		expect(w.cellRect("i6").x).toBe(81)
-		expect(w.cellRect("i6").w).toBe(77)
+		-- line 2 holds two cells; they must be 76 wide at x = 2 and 82, NOT stretched
+		expect(w.cellRect("i5").w).toBe(76)
+		expect(w.cellRect("i5").x).toBe(2)
+		expect(w.cellRect("i6").x).toBe(82)
+		expect(w.cellRect("i6").w).toBe(76)
 		w.grid.dispose()
 	end)
 
@@ -575,11 +577,11 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 			viewportExtent = 200,
 			overscan = 0,
 		})
-		expect(w.rect("/S/VG/Canvas").h).toBe(100 * 40 + 99 * 6)
+		expect(w.rect("/S/VG/Canvas").h).toBe(100 * 40 + 99 * 6 + 2 * 3)
 		w.grid.scrollTop:set(460)
 		w.pres.refresh()
 		local first = w.grid.dump().lines[1]
-		expect(w.rect("/S/VG/Canvas/Band").y).toBe((first - 1) * 46)
+		expect(w.rect("/S/VG/Canvas/Band").y).toBe(3 + (first - 1) * 46)
 		w.grid.dispose()
 	end)
 end)
@@ -589,7 +591,7 @@ end)
 
 describe("VirtualGrid: dump() reports the cross extent and the per-lane width", function()
 	it("the mounted band's own cross extent and its solved column width, not a re-derivation", function()
-		-- SAME FIXTURE AS THE DIFFERENTIAL ABOVE: floor((320 - 4 * 3) / 4) = 77 is
+		-- SAME FIXTURE AS THE DIFFERENTIAL ABOVE: floor((316 - 4 * 3) / 4) = 76 is
 		-- the flow grid's own column arithmetic, already proven equal to
 		-- `w.cellRect("i1").w` there. This is the same number, reached through
 		-- `dump()` instead of a private `rectOf` read.
@@ -602,7 +604,7 @@ describe("VirtualGrid: dump() reports the cross extent and the per-lane width", 
 		})
 		local d = w.grid.dump()
 		expect(d.crossExtent).toBe(320)
-		expect(d.laneWidth).toBe(77)
+		expect(d.laneWidth).toBe(76)
 		expect(d.laneWidth).toBe(w.cellRect("i1").w)
 		w.grid.dispose()
 	end)

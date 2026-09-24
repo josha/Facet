@@ -142,7 +142,7 @@ describe("scenario 'tab_view': two levels, and each one SAYS where it landed", f
 		expect(w.text(`{pageBody("avatars")}/Placements/Inner`)).toBe("Page bar: topBar (nested)")
 		expect(w.text(`{pageBody("avatars")}/Placements/Outer`)).toBe("App bar: bottomBar (policy)")
 		-- ...and the two bars really are in different homes
-		expect(w.adapter.node(`{BOTTOM}/Rows/[pages]/SectionRow-pages/Option-pages`) ~= nil).toBe(true)
+		expect(w.adapter.node(`{BOTTOM}/Rows/[pages]/Option-pages`) ~= nil).toBe(true)
 		expect(w.adapter.node(`{PAGE_OPTS}/Opt1`) ~= nil).toBe(true)
 	end)
 
@@ -230,7 +230,7 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		local w = world(PHONE)
 		-- the count is a node INSIDE the seal (2026-09-12) — see
 		-- tests/badge_centering.spec.luau for why the seal and its number are two
-		local inboxOption = `{BOTTOM}/Rows/[inbox]/SectionRow-inbox/Option-inbox`
+		local inboxOption = `{BOTTOM}/Rows/[inbox]/Option-inbox`
 		expect(w.text(badgeCountPath(w, inboxOption))).toBe("3")
 		expect(w.built.report().app.mountedTabs[1]).toBe("pages")
 		w.built.steps.select(w.built, "me")
@@ -240,7 +240,7 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		-- inbox has never been mounted at all, and its seal has still moved twice
 		expect(w.built.report().builds.inbox).toBeNil()
 		expect(w.text(badgeCountPath(w, inboxOption))).toBe("5")
-		expect(w.adapter.node(`{BOTTOM}/Rows/[inbox]/SectionRow-inbox/Option-inbox`) ~= nil).toBe(true)
+		expect(w.adapter.node(`{BOTTOM}/Rows/[inbox]/Option-inbox`) ~= nil).toBe(true)
 		-- ...and the badge empties rather than painting a zero, from the tab itself
 		w.built.steps.select(w.built, "inbox")
 		w.settle()
@@ -288,7 +288,7 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 		-- the page's own content for the same reason — so the ring walks the inner
 		-- level first and lands on the app bar at the end.
 		expect(#paths).toBe(14)
-		expect(paths[11]).toBe(`{BOTTOM}/Rows/[pages]/SectionRow-pages/Option-pages`)
+		expect(paths[11]).toBe(`{BOTTOM}/Rows/[pages]/Option-pages`)
 		for _, path in paths do
 			local node = w.adapter.node(path)
 			expect(`{path}: {node.class}`).toBe(`{path}: Button`)

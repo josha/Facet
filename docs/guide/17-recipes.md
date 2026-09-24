@@ -129,3 +129,35 @@ After an activation, at most one section is open; closing that section leaves
 none. The activated header keeps focus. The callback batch does not enclose the
 control's earlier write, so this recipe does not promise atomicity to arbitrary
 observers between the write and notification.
+
+## 17.7 Containers without a View
+
+Facet has no catchall `View`. Every container job is an existing primitive, and
+the gallery's **Motion and layout → Layout → Containers** tab shows each one.
+
+| Job | Use |
+|---|---|
+| A styled group | `UI.Box` or `UI.ZStack` with a `surface`, or a `tint` for a flat face |
+| One activation | a `UI.Button` inside the group; `enabled = false` on the group disables everything under it |
+| Size | `{ type = "fixed" }`, `percent`, `UI.fill()`, `UI.hug()`, and `UI.frame(bp, { minWidth = … })` for a floor. A fixed axis lets a larger child overflow; a hugging axis grows to fit it |
+| Aspect ratio in a known box | size the subject from the box: `width = 96 * math.min(1, r)`, `height = 96 / math.max(1, r)`, centred in the 96 × 96 parent |
+| Scale | `scale` on a `ZStack` paints larger or smaller; the solved rect and the tap target stay where layout put them |
+| Group opacity | `opacity` on a `Box` or `ZStack` fades the subtree as one group. At `0` it is still laid out, focusable and tappable; use `hidden` to remove all three |
+| Direction, alignment, gap, padding | `HStack` / `VStack`; `alignH` / `alignV` (`start`, `center`, `end`) move a child through spare room, so a hugging parent has none to give; `gap` spaces siblings without insetting them; `padding = { left = 32, top = 8, right = 8, bottom = 8 }` moves only the edges it names |
+| Wrap and clip | `wrap = true` on a stack moves children to the next line; without it a row overruns its parent. `overflow = "clip"` cuts at the edge; a `ScrollView` with `axis = "x"` keeps an unwrapped row reachable |
+| Rounding, border, shadow | `UI.corners(bp, { topLeft = 16, bottomRight = 16 })` (unset corners are 0; an engine without per-corner radii rounds every corner with the largest), `UI.stroke` (drawn inside the box), `UI.shadow` (drawn where the engine has `UIShadow`, data otherwise) |
+
+```luau
+local function contain(id, ratio)
+    return UI.ZStack(id)({ width = { type = "fixed", px = 96 }, height = { type = "fixed", px = 96 },
+        alignH = "center", alignV = "center",
+        UI.Image("Art")({ image = art, scaleMode = "crop",
+            width = { type = "fixed", px = 96 * math.min(1, ratio) },
+            height = { type = "fixed", px = 96 / math.max(1, ratio) } }),
+    })
+end
+```
+
+Colour, stroke, radius and shadow values come from the theme's tokens (`accent`,
+`hairline`, `raised`, …). A game that wants a larger named catalog adds it to its
+own theme package rather than to these calls.

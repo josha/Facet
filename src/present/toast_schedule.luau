@@ -32,6 +32,21 @@
 --   schedule.visible()         -- showing entries, newest LAST (stack order)
 --   schedule.dismiss(id, reason?)
 --   schedule.counts()          -- { visible, queued, sequence }
+--
+-- THE CONTROLLED SEAM (`controlled = true`, opt-in; the Snackbar service). The
+-- caller owns visibility, so the rules above bend in four places and nowhere
+-- else — every default path and transcript is unchanged:
+--   * a visible entry leaves for "timeout" or "preempt" only after
+--     `request(entry, reason)` returns true, and each reason is asked ONCE per
+--     entry (a refusal is consumed, not retried per tick or per arrival);
+--   * `duration = nil` is persistent, a timeout never lands below the read
+--     floor, and the dwell is the caller's `elapsed(entry, now)` (paused time);
+--   * preemption needs strictly higher priority; equal priority waits;
+--   * admission past `maxVisible + queueCap` is REFUSED (push returns nil) and
+--     nothing already admitted moves — no capacity drop.
+-- `spec.id` publishes the caller's identity before any callback can run, and a
+-- callback may push, dismiss, clear or throw: the resolve restarts rather than
+-- trusting an index, and the first error is raised once the schedule is whole.
 
 local num = require("../num")
 
@@ -46,7 +61,7 @@ local DEFAULT_DURATION = 4
 local DEFAULT_READ_FLOOR = 2.5
 
 export type Entry = {
-	id: number,
+	id: number | string, -- a controlled schedule keeps the caller's id
 	key: string?,
 	priority: number,
 	duration: number,
@@ -56,6 +71,8 @@ export type Entry = {
 	shownAt: number?,
 	-- FIFO tie-break within a priority
 	sequence: number,
+	-- controlled: the reasons already asked of this entry
+	asked: { [string]: boolean }?,
 }
 
 export type Opts = {
@@ -67,6 +84,9 @@ export type Opts = {
 	-- (entry, reason) — "timeout" | "supersede" | "capacity" | "preempt" | "manual"
 	onDismiss: ((entry: Entry, reason: string) -> ())?,
 	onChange: (() -> ())?,
+	controlled: boolean?,
+	request: ((entry: Entry, reason: string) -> boolean)?,
+	elapsed: ((entry: Entry, now: number) -> number)?,
 }
 
 local isFinite = num.isFinite
@@ -84,6 +104,11 @@ function toast_schedule.new(opts: Opts?)
 	local now = options.now or os.clock
 	local onDismiss = options.onDismiss
 	local onChange = options.onChange
+	local controlled = options.controlled == true
+	local request = options.request
+	local elapsedOf = options.elapsed
+	local resolving, again, depth = false, false, 0
+	local failure: any = nil
 
 	local visible: { Entry } = {} -- showing, oldest first (the stack order)
 	local queue: { Entry } = {} -- waiting, priority-ordered, FIFO within a priority
@@ -93,9 +118,24 @@ function toast_schedule.new(opts: Opts?)
 
 	local schedule = {}
 
+	-- controlled callbacks are caller code that may re-enter or throw: the first
+	-- error is kept and raised once the outermost call has finished
+	local function guarded(fn: any, ...: any): any
+		local ok, result = pcall(fn, ...)
+		if not ok then
+			failure = failure or result
+			return nil
+		end
+		return result
+	end
+
 	local function retired(entry: Entry, reason: string)
 		if onDismiss ~= nil then
-			onDismiss(entry, reason)
+			if controlled then
+				guarded(onDismiss, entry, reason)
+			else
+				onDismiss(entry, reason)
+			end
 		end
 	end
 
@@ -116,8 +156,15 @@ function toast_schedule.new(opts: Opts?)
 		table.sort(queue, outranks)
 	end
 
+	local function dwell(entry: Entry, t: number): number
+		if elapsedOf ~= nil then
+			return guarded(elapsedOf, entry, t) or 0
+		end
+		return t - (entry.shownAt :: number)
+	end
+
 	local function floorMet(entry: Entry, t: number): boolean
-		return entry.shownAt ~= nil and (t - (entry.shownAt :: number)) >= entry.readFloor
+		return entry.shownAt ~= nil and dwell(entry, t) >= entry.readFloor
 	end
 
 	-- the showing toast a newcomer would replace: lowest priority, oldest first
@@ -155,7 +202,77 @@ function toast_schedule.new(opts: Opts?)
 		end
 	end
 
+	-- ask once; true when the caller accepted (it may already have dismissed it)
+	local function ask(entry: Entry, reason: string): boolean
+		local asked = entry.asked or {}
+		entry.asked = asked
+		asked[reason] = true
+		return request ~= nil and guarded(request, entry, reason) == true
+	end
+
+	local function stillVisible(entry: Entry): number?
+		return table.find(visible, entry)
+	end
+
+	-- one controlled pass; true when a callback ran (the caller restarts)
+	local function controlledPass(t: number): boolean
+		for _, entry in visible do
+			local due = math.max(entry.duration, entry.readFloor)
+			if not (entry.asked and entry.asked.timeout) and entry.shownAt ~= nil and dwell(entry, t) >= due then
+				if ask(entry, "timeout") then
+					local index = stillVisible(entry)
+					if index ~= nil then
+						removeVisible(index, "timeout")
+					end
+				end
+				return true
+			end
+		end
+		while #visible < maxVisible and #queue > 0 do
+			show(table.remove(queue, 1) :: Entry, t)
+		end
+		local waiting = queue[1]
+		local worst = weakestVisible()
+		if
+			waiting ~= nil
+			and worst ~= nil
+			and #visible >= maxVisible
+			and waiting.priority > worst.priority
+			and not (worst.asked and worst.asked.preempt)
+			and floorMet(worst, t)
+		then
+			if ask(worst, "preempt") then
+				local index = stillVisible(worst)
+				if index ~= nil then
+					removeVisible(index, "preempt")
+				end
+			end
+			return true
+		end
+		return false
+	end
+
 	local function resolve()
+		if controlled then
+			if resolving then
+				again = true
+				return
+			end
+			resolving = true
+			repeat
+				again = false
+				while controlledPass(now()) do
+				end
+			until not again
+			resolving = false
+			if changed then
+				changed = false
+				if onChange ~= nil then
+					guarded(onChange)
+				end
+			end
+			return
+		end
 		local t = now()
 		-- 1. retire what has run its duration
 		local i = 1
@@ -250,13 +367,18 @@ function toast_schedule.new(opts: Opts?)
 		if type(spec) ~= "table" then
 			error(`Facet toast: presentToast takes an options table, got {typeof(spec)}`, 0)
 		end
+		if controlled and #visible + #queue >= maxVisible + queueCap then
+			return nil :: any -- refused: nothing admitted moves
+		end
 		nextId += 1
 		sequence += 1
 		local entry: Entry = {
-			id = nextId,
+			id = if controlled and spec.id ~= nil then spec.id else nextId,
 			key = if type(spec.key) == "string" then spec.key else nil,
 			priority = if isFinite(spec.priority) then spec.priority else 0,
-			duration = positive(spec.duration, defaultDuration),
+			duration = if controlled and spec.duration == nil
+				then math.huge
+				else positive(spec.duration, defaultDuration),
 			readFloor = positive(spec.readFloor, defaultReadFloor),
 			data = spec.data,
 			shownAt = nil,
@@ -276,18 +398,32 @@ function toast_schedule.new(opts: Opts?)
 		end
 		table.insert(queue, entry)
 		sortQueue()
-		enforceCap()
-		resolve()
-		return entry.id
+		if not controlled then
+			enforceCap()
+		end
+		return schedule._finish(entry.id)
 	end
 
-	function schedule.dismiss(id: number, reason: string?)
+	-- the outermost public call raises the first controlled callback error, once
+	-- the schedule is consistent again
+	function schedule._finish(result: any): any
+		depth += 1
+		resolve()
+		depth -= 1
+		if depth == 0 and failure ~= nil then
+			local err = failure
+			failure = nil
+			error(err, 0)
+		end
+		return result
+	end
+
+	function schedule.dismiss(id: number | string, reason: string?)
 		local why = reason or "manual"
 		for i, entry in visible do
 			if entry.id == id then
 				removeVisible(i, why)
-				resolve()
-				return true
+				return schedule._finish(true)
 			end
 		end
 		for i, entry in queue do
@@ -295,8 +431,7 @@ function toast_schedule.new(opts: Opts?)
 				table.remove(queue, i)
 				markChanged()
 				retired(entry, why)
-				resolve()
-				return true
+				return schedule._finish(true)
 			end
 		end
 		return false
@@ -305,7 +440,7 @@ function toast_schedule.new(opts: Opts?)
 	-- advance: retire what is due and promote what fits. Idempotent; call it once
 	-- per frame from the same loop that steps the motion clock.
 	function schedule.update()
-		resolve()
+		schedule._finish(nil)
 	end
 
 	function schedule.visible(): { Entry }
@@ -336,6 +471,11 @@ function toast_schedule.new(opts: Opts?)
 			retired(entry, why)
 		end
 		changed = false
+		if controlled and depth == 0 and failure ~= nil then
+			local err = failure
+			failure = nil
+			error(err, 0)
+		end
 	end
 
 	return schedule

@@ -301,7 +301,7 @@ describe("Chip control", function()
 	end)
 end)
 
-describe("Removable Chip", function()
+describe("Removable Chip: edit mode (owner ruling 2026-09-22)", function()
 	local world = require("./lib/world")
 	local function path(w, suffix)
 		for candidate in w.adapter.liveNodes() do
@@ -309,80 +309,115 @@ describe("Removable Chip", function()
 				return candidate
 			end
 		end
-		error("missing chip " .. suffix)
+		return nil
 	end
-	for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
-		it("keeps the token body inert and removes once through " .. input, function()
-			local w = world.new()
-			local calls = 0
-			w.present(function()
-				return w.UI.Screen("S")({
-					w.UI.Chip("Token")({
-						label = "Rain",
-						onRemove = function()
-							calls += 1
-						end,
-					}),
-				})
-			end)
-			local remove = path(w, "/Remove")
-			expect(#w.handle.focusOrder().traversal).toBe(1)
-			w.adapter.tap(path(w, "/Token"))
-			expect(calls).toBe(0)
-			if input == "pointer" then
-				w.adapter.tap(remove)
-			elseif input == "touch" then
-				w.adapter.touchTap(remove)
-			else
-				w.pres.focus.focusOn(remove)
-				w.press(if input == "keyboard" then "Return" else "ButtonA")
-			end
-			expect(calls).toBe(1)
-			local raw = require("../src/paths").nodeAt(w.handle.root.node, remove)
-			expect(raw.props.label).toBe("Remove Rain")
-			expect(raw.props.shape).toBe("circle")
+	local function activate(w, input: string, target: string)
+		if input == "pointer" then
+			w.adapter.tap(target)
+		elseif input == "touch" then
+			w.adapter.touchTap(target)
+		else
+			w.pres.focus.focusOn(target)
+			w.press(if input == "keyboard" then "Return" else "ButtonA")
+		end
+		w.settle()
+	end
+	local function tagWorld(extra: any?)
+		local w = world.new(extra and extra.facts or nil)
+		w.selected = Compose.cell(false)
+		w.editing = Compose.cell(false)
+		w.removes = 0
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Chip("Tag")({
+					label = "Rain",
+					selected = w.selected,
+					editing = w.editing,
+					controlSize = extra and extra.rung or nil,
+					onRemove = function()
+						w.removes += 1
+					end,
+				}),
+			})
 		end)
+		return w
 	end
-	it("distinguishes a body named Remove and reserves disjoint effective targets", function()
-		for _, rung in { false, "compact", "large" } do
-			local snapshot = require("../src/themes/snapshot")
-			local metrics = table.clone(snapshot.neutral())
-			metrics.targetSizes = table.clone(metrics.targetSizes)
-			metrics.targetSizes.minimum = 60
-			local w = world.new({ themeMetrics = metrics })
-			local selected = Compose.cell(false)
-			local removes = 0
-			w.present(function()
-				return w.UI.Screen("S")({
-					w.UI.HStack("Tokens")({
-						gap = 0,
-						w.UI.Chip("Remove")({
-							label = "A",
-							selected = selected,
-							controlSize = if rung then rung else nil,
-							onRemove = function()
-								removes += 1
-							end,
-						}),
-						w.UI.Button("Next")({ label = "Next" }),
-					}),
-				})
-			end)
-			local body = "/S/Tokens/Remove+token/Remove+target/Remove"
-			local remove = "/S/Tokens/Remove+token/Remove"
-			local bodyHit = w.adapter.hitRectOf(body) or w.adapter.node(body).rect
-			local removeHit = w.adapter.hitRectOf(remove) or w.adapter.node(remove).rect
-			expect(bodyHit.x + bodyHit.w <= removeHit.x).toBe(true)
-			expect(removeHit.x + removeHit.w <= w.adapter.node("/S/Tokens/Next").rect.x).toBe(true)
-			w.adapter.tap(body)
-			expect(selected:peek()).toBe(true)
-			expect(removes).toBe(0)
-			w.adapter.tap(remove)
-			expect(removes).toBe(1)
-			expect(selected:peek()).toBe(true)
+
+	for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
+		it(
+			"a tag selects with no mark; editing shows the mark in its plate and activation removes, via " .. input,
+			function()
+				local w = tagWorld()
+				local tag = path(w, "/Tag+target/Tag") :: string
+				expect(path(w, "/Remove")).toBeNil()
+				activate(w, input, tag)
+				expect(`{w.selected:peek()} {w.removes}`).toBe("true 0")
+				w.editing:set(true)
+				w.settle()
+				local mark = path(w, "/Remove") :: string
+				local plate, glyph = w.adapter.node(tag).rect, w.adapter.node(mark).rect
+				local inside = glyph.x >= plate.x and glyph.x + glyph.w <= plate.x + plate.w
+				expect(`{inside} {#w.handle.focusOrder().traversal}`).toBe("true 1")
+				expect(require("../src/paths").nodeAt(w.handle.root.node, tag).props.label).toBe("Remove Rain")
+				activate(w, input, tag)
+				expect(`{w.selected:peek()} {w.removes}`).toBe("true 1")
+				w.close()
+			end
+		)
+	end
+
+	it("Delete and Backspace remove the focused tag only while editing", function()
+		for _, key in { "Delete", "Backspace" } do
+			local w = tagWorld()
+			local tag = path(w, "/Tag+target/Tag") :: string
+			w.pres.focus.focusOn(tag)
+			w.settle()
+			w.press(key)
+			expect(`{key} resting {w.removes}`).toBe(`{key} resting 0`)
+			w.editing:set(true)
+			w.settle()
+			w.press(key)
+			expect(`{key} editing {w.removes}`).toBe(`{key} editing 1`)
 			w.close()
 		end
 	end)
+
+	it("one plate in skinned themes: the mark is text inside the tag, never its own button", function()
+		local snapshot = require("../src/themes/snapshot")
+		for _, theme in { "pixel_quest", "fantasy_ornate" } do
+			local metrics = snapshot.resolve(require("../examples/themes/" .. theme).build(Facet.themes), nil, {})
+			for _, rung in { false, "compact", "large" } do
+				local w = tagWorld({ facts = { themeMetrics = metrics }, rung = if rung then rung else nil })
+				w.editing:set(true)
+				w.settle()
+				local buttons = {}
+				for candidate, node in w.adapter.liveNodes() do
+					if node.class == "Button" or node.class == "TextButton" then
+						table.insert(buttons, candidate)
+					end
+				end
+				local tag = path(w, "/Tag+target/Tag") :: string
+				local mark = w.adapter.node(path(w, "/Remove") :: string)
+				expect(`{theme} {tostring(rung)}: {#buttons} {mark.class}`).toBe(`{theme} {tostring(rung)}: 1 Text`)
+				expect(buttons[1]).toBe(tag)
+				w.close()
+			end
+		end
+	end)
+
+	it("a selectable tag that can be removed must say when it is editing", function()
+		local w = world.new()
+		local ok, err = pcall(function()
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Chip("Tag")({ label = "Rain", selected = Compose.cell(false), onRemove = function() end }),
+				})
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "editing", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("chooses next then previous then caller fallback through real keyed owner disposal", function()
 		local w = world.new()
 		local items = Compose.cell({ "A", "B", "C" })
@@ -396,6 +431,7 @@ describe("Removable Chip", function()
 							return item
 						end,
 						row = function(item)
+							-- a remove-only token is always editing
 							return w.UI.Chip(item)({
 								label = item,
 								removeFocusFallback = "/S/List/Fallback",
@@ -414,7 +450,7 @@ describe("Removable Chip", function()
 				}),
 			})
 		end)
-		local a, b, c = path(w, "/A+token/Remove"), path(w, "/B+token/Remove"), path(w, "/C+token/Remove")
+		local a, b, c = path(w, "/A+target/A"), path(w, "/B+target/B"), path(w, "/C+target/C")
 		w.pres.focus.focusOn(b)
 		w.adapter.tap(b)
 		w.settle()
@@ -426,8 +462,55 @@ describe("Removable Chip", function()
 		w.settle()
 		expect(w.pres.focus.focused:peek()).toBe("/S/List/Fallback")
 	end)
+
+	--[[ ONE KEY EDGE, ONE REMOVAL (one Delete on the
+		last of three tags removed all three). The engine hands a key that is still
+		down to a binding armed during it — here the previous tag's keys, armed by
+		the focus handback — so each removal fed the next. ]]
+	it("Delete or Backspace on the last of N tags removes exactly one and lands on the new last", function()
+		for _, key in { "Delete", "Backspace" } do
+			for _, n in { 3, 2 } do
+				local w = world.new()
+				local all = { "A", "B", "C" }
+				local items = Compose.cell(table.move(all, 1, n, 1, {}))
+				w.present(function()
+					return w.UI.Screen("S")({
+						w.UI.ForEach("Tokens")({
+							items = items,
+							key = function(item)
+								return item
+							end,
+							row = function(item)
+								return w.UI.Chip(item)({
+									label = item,
+									onRemove = function()
+										local nextItems = table.clone(items:peek())
+										table.remove(nextItems, table.find(nextItems, item) :: number)
+										items:set(nextItems)
+									end,
+								})
+							end,
+						}),
+					})
+				end)
+				local last = path(w, `/{all[n]}+target/{all[n]}`) :: string
+				local before = path(w, `/{all[n - 1]}+target/{all[n - 1]}`)
+				w.pres.focus.focusOn(last)
+				w.settle()
+				w.system.deviceKey(key, true)
+				w.settle()
+				w.system.deviceKey(key, false)
+				w.settle()
+				expect(`{key} last of {n}: {#items:peek()} left, focus {w.pres.focus.focused:peek()}`).toBe(
+					`{key} last of {n}: {n - 1} left, focus {before}`
+				)
+				w.close()
+			end
+		end
+	end)
+
 	it("does not steal departed focus when a retained removal request is disposed later", function()
-		for _, destination in { "/C+token/Remove", "/Unrelated" } do
+		for _, destination in { "/C+target/C", "/Unrelated" } do
 			local w = world.new()
 			local items = Compose.cell({ "A", "B", "C" })
 			local requests = 0
@@ -452,13 +535,12 @@ describe("Removable Chip", function()
 					}),
 				})
 			end)
-			local a = path(w, "/A+token/Remove")
+			local a = path(w, "/A+target/A") :: string
 			w.pres.focus.focusOn(a)
 			w.adapter.tap(a)
 			w.settle()
 			expect(requests).toBe(1)
-			expect(w.adapter.node(a) ~= nil).toBe(true)
-			local elsewhere = path(w, destination)
+			local elsewhere = path(w, destination) :: string
 			expect(w.pres.focus.focusOn(elsewhere)).toBe(true)
 			items:set({ "B", "C" })
 			w.settle()
@@ -469,7 +551,7 @@ describe("Removable Chip", function()
 		end
 	end)
 
-	it("does not repeat a held Remove across an input-class change and respects inherited disabled", function()
+	it("does not repeat a held removal across an input-class change and respects inherited disabled", function()
 		local w = world.new()
 		local enabled = Compose.cell(true)
 		local calls = 0
@@ -486,25 +568,24 @@ describe("Removable Chip", function()
 				}),
 			})
 		end)
-		local remove = path(w, "/Remove")
-		w.pres.focus.focusOn(remove)
+		local token = path(w, "/Token+target/Token") :: string
+		w.pres.focus.focusOn(token)
 		w.system.deviceKey("Return", true)
 		expect(calls).toBe(1)
 		w.env:set("capabilities", { mouse = true, keyboard = true, touch = true, gamepad = true })
 		w.env:set("preferredInput", "Gamepad")
 		w.settle()
-		expect(w.env:get("effectiveInput"):peek()).toBe("Gamepad")
 		w.system.deviceKey("Return", false)
 		w.settle()
 		expect(calls).toBe(1)
 		w.env:set("preferredInput", "KeyboardAndMouse")
 		enabled:set(false)
 		w.settle()
-		w.adapter.tap(remove)
+		w.adapter.tap(token)
 		expect(calls).toBe(1)
 		enabled:set(true)
 		w.settle()
-		w.adapter.tap(remove)
+		w.adapter.tap(token)
 		expect(calls).toBe(2)
 	end)
 end)

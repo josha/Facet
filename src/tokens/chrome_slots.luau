@@ -120,6 +120,12 @@ chrome_slots.TAGS = table.freeze({
 		recipe (`themes/package.lintProperty`) and the package builder holds its own
 		generated rules to that same test. ]]
 	stateDisabled = "facet-state-disabled",
+	-- TEXT ON SOMEBODY ELSE'S PLATE (readability round 2026-09-23). A label that
+	-- is not lifted still paints over art when its plate is an ANCESTOR (a field's
+	-- editor inside the field) or an earlier ZStack layer (`UI.background`). The
+	-- renderer names that plate's slot (`plateBeneath`) and the package's rules
+	-- pick the colour read against its art. + <slot>, on the TEXT node.
+	onArtPrefix = "facet-on-",
 })
 
 -- The decoration child's fixed identity. Named, so a Studio reader can tell a
@@ -957,6 +963,9 @@ export type Hint = {
 		hence one number rather than a pair. Absent (the overwhelmingly common case)
 		means "no host reservation", and the floor grows exactly as it did. ]]
 	footprint: (string | number | { string | number })?,
+	-- the slot of the plate this text node paints over (`plateBeneath`); set by
+	-- the renderer, never by a control
+	onArt: string?,
 }
 
 -- attach(blueprint, hint) -> a NEW frozen blueprint carrying the hint. Mirrors
@@ -1070,6 +1079,9 @@ function chrome_slots.hintKey(hint: Hint?): string
 	if hint.contentOwnerDepth ~= nil then
 		table.insert(parts, "contentOwner=" .. tostring(hint.contentOwnerDepth))
 	end
+	if hint.onArt ~= nil then
+		table.insert(parts, "onArt=" .. hint.onArt)
+	end
 	if type(hint.imageVariants) == "table" then
 		local states = {}
 		for state, entry in hint.imageVariants do
@@ -1079,6 +1091,103 @@ function chrome_slots.hintKey(hint: Hint?): string
 		table.insert(parts, table.concat(states, ","))
 	end
 	return table.concat(parts, "|")
+end
+
+--[[ THE PLATE A TEXT NODE PAINTS OVER (readability round 2026-09-23). A node
+	with no plate of its own sits on the nearest one beneath it: an earlier layer
+	of a ZStack it is in (`UI.background`'s plate), else its parent's plate, and
+	so on up. A scroller or divider is not a face and is looked through; a plate
+	with no slot (`base`, `scrim`) ends the search with no answer. Decided at
+	creation, like the rest of the hint, and memoised per container. ]]
+local PASS_THROUGH: { [string]: boolean } = { scrollbar = true, divider = true }
+local ON_ART_CLASSES: { [string]: boolean } = { Text = true, TextField = true, Button = true }
+
+local function plateOf(node: any): (string | false)?
+	local props = node.props or {}
+	local surface = if type(props.surface) == "string" then props.surface else nil
+	local hint = chrome_slots.readHint(node)
+	local slot = chrome_slots.classify({
+		class = node.class,
+		surface = surface,
+		hasSelection = props.selected ~= nil,
+		hint = if hint ~= nil then hint.slot else nil,
+	})
+	if slot ~= nil and not PASS_THROUGH[slot] then
+		return slot
+	end
+	return if surface ~= nil and surface ~= "plain" then false else nil
+end
+
+local plateUnder: (node: any) -> string | false
+
+-- what a container's CONTENT sits on: its own plate, else what it sits on
+local function contentPlate(node: any): string | false
+	local cached = node.contentPlate
+	if cached == nil then
+		cached = plateOf(node)
+		if cached == nil then
+			cached = plateUnder(node)
+		end
+		node.contentPlate = cached
+	end
+	return cached
+end
+
+function plateUnder(node: any): string | false
+	local parent = node.parent
+	if parent == nil then
+		return false
+	end
+	if parent.class == "ZStack" then
+		local children = parent.children or {}
+		for i = (table.find(children, node) or 1) - 1, 1, -1 do
+			local found = plateOf(children[i])
+			if found ~= nil then
+				return found
+			end
+		end
+	end
+	return contentPlate(parent)
+end
+
+-- the node's hint, carrying `onArt` when it is text over another node's plate
+function chrome_slots.withPlateBeneath(node: any, hint: Hint?): Hint?
+	if not ON_ART_CLASSES[node.class] or plateOf(node) ~= nil then
+		return hint
+	end
+	local slot = plateUnder(node)
+	if slot == false then
+		return hint
+	end
+	local out: any = if hint ~= nil then table.clone(hint) else {}
+	out.onArt = slot
+	--[[ ...AND TEXT ON A SELECTION ROW FOLLOWS THAT ROW'S STATE (owner 2026-09-23).
+		A selection plate changes its art when selected (Pixel Quest: wood to gilt),
+		so a colour picked once cannot read on both: the label joins its row as
+		generated content, whose tags follow the row's (`facet-selected` among them)
+		and so take the row's own `Selected row` pairing, `$OnSelected`. A text that
+		names its own role keeps it (an authored accessory is not the row's label). ]]
+	if
+		slot == "selection"
+		and out.contentOwnerDepth == nil
+		and type(node.path) == "string"
+		and (node.props == nil or node.props.role == nil)
+	then
+		local owner = node.parent
+		while owner ~= nil and plateOf(owner) == nil do
+			owner = owner.parent
+		end
+		if
+			owner ~= nil
+			and owner.class == "Button"
+			and plateOf(owner) == "selection"
+			and type(owner.path) == "string"
+		then
+			local _, below = string.gsub(string.sub(node.path, #owner.path + 1), "/", "")
+			out.contentOwnerDepth = below
+		end
+	end
+	return table.freeze(out)
 end
 
 -- ===== 1. classification ===================================================
@@ -1104,8 +1213,10 @@ end
 --                                                    a second slot
 --   surface = raised                  -> panel       the raised-panel family
 --   surface = control | chip | accent -> control     the interactive family
---   class = Button | Toggle           -> control     ...including a Button that
---                                                    never declared a surface
+--   class = Button                    -> control     ...including a Button that
+--                                                    never declared a surface;
+--                                                    a Toggle is its track and
+--                                                    knob and wears no plate
 --   surface = badge (not an Image)    -> badge       the counter seal (director
 --                                                    review 2026-07-25: a '3' on
 --                                                    a flat circle was
@@ -1133,7 +1244,7 @@ export type SlotInput = {
 }
 
 local CONTROL_SURFACES: { [string]: boolean } = { control = true, chip = true, accent = true }
-local CONTROL_CLASSES: { [string]: boolean } = { Button = true, Toggle = true }
+local CONTROL_CLASSES: { [string]: boolean } = { Button = true }
 
 function chrome_slots.classify(input: SlotInput): string?
 	local class, surface = input.class, input.surface

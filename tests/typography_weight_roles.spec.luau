@@ -185,6 +185,21 @@ describe("one role, both seams: measured and painted read the same descriptor", 
 		expect(adapter.node("/S/N").props.textFont.fontKey).toBe("GothamSSm#Bold#Normal")
 		expect(adapter.node("/S/N").props.textSize).toBe(18)
 	end)
+
+	it("a swap between two roles that share one face still repaints the role", function()
+		-- Neutral's heading and label are both BuilderSans Regular: a stamp of the
+		-- face alone left a native `facet-type-heading` tag on a label
+		local w = require("./lib/world").new()
+		local role = w.Compose.cell("heading")
+		w.present(function()
+			return w.UI.Screen("S")({ w.UI.Text("N")({ text = "Cart", textSize = role }) })
+		end)
+		w.settle(2)
+		expect(w.adapter.node("/S/N").props.textFont.role).toBe("heading")
+		role:set("label")
+		w.settle(2)
+		expect(w.adapter.node("/S/N").props.textFont.role).toBe("label")
+	end)
 end)
 
 describe("construction refuses an unknown role, naming the eight", function()

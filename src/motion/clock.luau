@@ -92,6 +92,7 @@ export type Clock = {
 	setEasing: (self: Clock, evaluate: (number, string, string) -> number) -> (),
 	chase: (self: Clock, opts: chaseLib.Opts) -> chaseLib.Chase,
 	timeline: (self: Clock, spec: timelineLib.Spec) -> timelineLib.Timeline,
+	onFrame: (self: Clock, listener: (dt: number) -> ()) -> () -> (),
 	isReduced: (self: Clock) -> boolean,
 	dispose: (self: Clock) -> (),
 	isDisposed: (self: Clock) -> boolean,
@@ -423,6 +424,41 @@ function clock.new(core: any, opts: Opts?): Clock
 	function self.chase(_: any, chaseOpts: chaseLib.Opts)
 		assert(not disposed, "Facet motion: cannot build a chase on a disposed clock")
 		return chaseLib.new(internals, chaseOpts)
+	end
+
+	--[[ A FRAME LISTENER THAT COMMITS WITH THE MOTIONS. The Compose domain's
+		animations (its motion hub, `runtime.timeline`) each opened their own batch
+		from a presenter tick hook, so one animated frame flushed — and ran the
+		settle pass — once for the clock and once more per Compose driver. Called
+		inside the commit phase, their batches nest into the clock's one
+		transaction. Attached only while subscribed, so rest still costs zero. Not
+		a motion's own write: `isCommitting` stays false for the listener, so a
+		collection admitting rows on this frame keeps its declarative layout
+		animation. A throwing listener is contained and reported. ]]
+	function self.onFrame(_: any, listener: (dt: number) -> ()): () -> ()
+		assert(not disposed, "Facet motion: cannot listen to a disposed clock")
+		local pending: number? = nil
+		return internals.attach({
+			advance = function(dt: number)
+				pending = dt
+			end,
+			commit = function()
+				local dt = pending
+				pending = nil
+				if dt == nil then
+					return
+				end
+				committing -= 1
+				local ok, err = pcall(listener, dt)
+				committing += 1
+				if not ok then
+					internals.noteError(tostring(err))
+					if core.report then
+						core.report(`Facet: a frame listener failed: {tostring(err)}`)
+					end
+				end
+			end,
+		})
 	end
 
 	function self.timeline(_: any, spec: timelineLib.Spec)

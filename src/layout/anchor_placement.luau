@@ -16,7 +16,7 @@
 	and it is what lets three different callers share ONE answer:
 
 	  * `src/present/anchored.luau`   the presented anchored surface (D1)
-	  * `src/present/presenter.luau`  the full-value disclosure plate, whose
+	  * `src/present/text_disclosure.luau` the full-value disclosure plate, whose
 	                                  `clampDisclosure` was the first hand-rolled
 	                                  copy of these rules
 	  * `src/controls/row_actions.luau` the row's floating action menu, whose
@@ -31,6 +31,9 @@
 	     "never flips into a worse place — a menu too tall for the space above
 	     stays below (partly clipped is better than partly clipped AND upside
 	     down)". A flip that lands somewhere worse is a regression, not a fix.
+	     When neither side holds it, it goes BESIDE the source (the perpendicular
+	     edges, trailing/bottom first) if one of those holds it wholly; only then
+	     does `overflow` decide.
 	  3. SHIFT along the edge until the surface is inside the safe box, and
 	     report how far it moved. `shift` is signed and in px, because the tail
 	     rule and every diagnostic want to know.
@@ -73,6 +76,9 @@ export type Request = {
 	edge: string?, -- "top" | "bottom" | "leading" | "trailing" (default "bottom")
 	align: string?, -- "start" | "center" | "end" (default "center")
 	gap: number?, -- distance from the source's edge, default 0
+	-- px along the ALIGNMENT axis, applied before the safe clamp; default 0.
+	-- A flip changes the edge only: the alignment and this offset never flip.
+	crossOffset: number?,
 	-- the tail's extent ALONG the edge (its painted width for a top/bottom
 	-- placement, its painted height for a side one). 0 or absent = no tail.
 	tail: number?,
@@ -138,6 +144,15 @@ function anchor_placement.assertOverflow(overflow: any, where: string)
 end
 
 -- "leading"/"trailing" -> "left"/"right"; "top"/"bottom" pass through
+function anchor_placement.assertCrossOffset(crossOffset: any, where: string)
+	if
+		crossOffset ~= nil
+		and (type(crossOffset) ~= "number" or crossOffset ~= crossOffset or math.abs(crossOffset) == math.huge)
+	then
+		error(`Facet {where}: \`crossOffset\` must be a finite number of px (got {tostring(crossOffset)}).`, 0)
+	end
+end
+
 function anchor_placement.resolveEdge(edge: string): string
 	if edge == "leading" then
 		return "left"
@@ -156,6 +171,7 @@ function anchor_placement.solve(req: Request): Placement
 	anchor_placement.assertEdge(req.edge, where)
 	anchor_placement.assertAlign(req.align, where)
 	anchor_placement.assertOverflow(req.overflow, where)
+	anchor_placement.assertCrossOffset(req.crossOffset, where)
 
 	local source = req.source
 	local size = req.size
@@ -214,6 +230,18 @@ function anchor_placement.solve(req: Request): Placement
 		if mainFits(other) then
 			resolved = other
 			flipped = true
+		else
+			-- neither side holds it: BESIDE the source (trailing first) before any
+			-- clamp could pull it over the thing it points at (owner 2026-09-23)
+			local sides = if isVertical(preferred) then { "right", "left" } else { "bottom", "top" }
+			for _, side in sides do
+				local across = if isVertical(side) then size.w <= safe.w else size.h <= safe.h
+				if across and mainFits(side) then
+					resolved = side
+					flipped = true
+					break
+				end
+			end
 		end
 	end
 
@@ -244,6 +272,7 @@ function anchor_placement.solve(req: Request): Placement
 	else
 		aligned = sourceLow + sourceExtent / 2 - alongExtent / 2
 	end
+	aligned += req.crossOffset or 0
 	local alongLow = if vertical then safe.x else safe.y
 	local alongHigh = alongLow + (if vertical then safe.w else safe.h) - alongExtent
 	-- a surface WIDER than the safe box has no legal range at all; pin it to the

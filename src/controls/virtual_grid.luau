@@ -666,6 +666,15 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return true
 	end
 
+	--[[ THE OUTER EDGES HOLD HALF A GUTTER (owner 2026-09-23: a lifted card's ring
+		was cut by the grid's clip). A gutter is sized to hold the paint of the two
+		cells either side of it — a lifted card and the ring it wears — so each
+		outer edge holds one: half the gutter, at both ends of the scroll axis (on
+		the index) and both sides of the cross axis (on the band). ]]
+	local function edgeOf(gutter: number): number
+		return math.ceil(math.max(0, gutter) / 2)
+	end
+
 	local cachedInputs: any = nil
 	local cachedIndex: any = nil
 	local layoutIndex = ownedFormula(scope, function(use)
@@ -680,9 +689,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			return cachedIndex
 		end
 		cachedInputs = inputs
-		cachedIndex = if extentIsPerLine
-			then virtual_extents.variable(inputs.extents, inputs.gap)
-			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
+		cachedIndex = virtual_extents.edged(
+			if extentIsPerLine
+				then virtual_extents.variable(inputs.extents, inputs.gap)
+				else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap),
+			edgeOf(inputs.gap)
+		)
 		return cachedIndex
 	end)
 	local function layoutNow(): any
@@ -987,6 +999,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			were. ]]
 		gap = gapProp,
 		rowGap = rowGapProp,
+		padding = ownedFormula(scope, function(use)
+			local edge = edgeOf(gapMetricReader.In(use))
+			return if isX then { top = edge, bottom = edge } else { left = edge, right = edge }
+		end),
 		width = widthOf(nil, fill()),
 		height = heightOf(nil, fill()),
 		children = {
@@ -1032,6 +1048,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 					local hitPath = Compose.withOwner(itemScope, function()
 						return Compose.cell(nil :: string?)
 					end)
+					-- the paint scale the cell's content asks its stop to wear (`ctx.stopScale`)
+					local worn = Compose.withOwner(itemScope, function()
+						return Compose.cell(nil :: any)
+					end)
 					local hit = UI.Button({
 						id = "Hit",
 						onAppear = function(path: string)
@@ -1049,6 +1069,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						-- list's there is no case in which it is a paint surface.
 						surface = "plain",
 						focusable = true,
+						-- a lifted card grows past its cell: the ring on this stop has to
+						-- grow with it, or it marks a box the player no longer sees
+						scale = ownedFormula(itemScope, function(use)
+							local source = use(worn)
+							return if source ~= nil then use(source) else 1
+						end),
 						width = fill(),
 						height = fill(),
 					})
@@ -1088,6 +1114,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 									return if index then use(spec.items)[index] else entry.item
 								end,
 								scope = itemScope,
+								-- a Readable<number> this cell's stop paints at (a Card's `api.scale`)
+								stopScale = function(readable: any)
+									worn:set(readable)
+								end,
 								index = entry.index,
 								line = entry.line,
 								lane = entry.lane,
@@ -1499,7 +1529,8 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 				if lanes <= 0 then
 					return nil
 				end
-				return math.max(0, math.floor((cross - gapNow() * (lanes - 1)) / lanes))
+				local gap = gapNow()
+				return math.max(0, math.floor((cross - 2 * edgeOf(gap) - gap * (lanes - 1)) / lanes))
 			end)(),
 		}
 	end

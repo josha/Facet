@@ -3,6 +3,9 @@
 -- tab's resources: a tab's content runs under its own owner, so leaving the tab
 -- releases the example's controls, watchers and subscriptions.
 
+-- the shortest room a page bar and its content share without scrolling together
+local ROOM_FLOOR = 480
+
 return function(ctx: any, id: string, groups: { any }): any
 	local Facet = ctx.Facet
 	local UI, Compose = ctx.UI, ctx.Compose
@@ -66,19 +69,32 @@ return function(ctx: any, id: string, groups: { any }): any
 					if entry.tabs == nil then
 						return examplePage(entry)
 					end
-					-- Scroll the page bar with its content when large type or a short
-					-- viewport leaves too little room under the category bar.
-					return UI.ScrollView("PageScroll")({
+					-- The page is the room under the category bar, so nothing sits below
+					-- the fold. Where that room is too short for a page bar and its content
+					-- (a landscape phone, large type) the page stays the screen tall and
+					-- scrolls with its bar.
+					local room = Compose.cell(0)
+					local scroller = UI.ScrollView("PageScroll")({
 						width = UI.fill(),
 						height = UI.fill(),
 
 						UI.VStack("PageViewport")({
 							width = UI.fill(),
 							height = function(use)
-								return { type = "fixed", px = math.max(1, use(ctx.env:get("viewportRect")).h) }
+								local r = use(room)
+								local px = if r >= ROOM_FLOOR then r else use(ctx.env:get("viewportRect")).h
+								return { type = "fixed", px = math.max(1, px) }
 							end,
 							tabsFor(entry.id, entry.tabs, false),
 						}),
+					})
+					return Facet.contribution.attach(scroller, {
+						syncGeometry = function(rectOf, node)
+							local r = rectOf(node.path)
+							if type(r) == "table" and r.h ~= room:peek() then
+								room:set(r.h)
+							end
+						end,
 					})
 				end,
 			})

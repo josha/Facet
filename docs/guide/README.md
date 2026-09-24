@@ -172,6 +172,7 @@ owner that owns its resources. Start with
 | `UI.Composition` | Arranges ranked content instead of a per-device layout ladder. | [api](../reference/api.md#composition) |
 | `UI.Region` | One ranked thing a `Composition` must place, richest form first. | [api](../reference/api.md#region) |
 | `UI.frame`, `UI.padding`, `UI.offset`, `UI.aspectRatio`, `UI.alignment`, `UI.overlay`, `UI.background` | The layout modifiers you wrap around a blueprint. | [api](../reference/api.md#layout-modifiers-frame-padding-offset-aspectratio-alignment-overlay-background) |
+| `UI.badged` | A count or dot seal on a host's corner (a Button, icon button, Avatar). | [api](../reference/api.md#uibadge) |
 | `UI.containerRelativeFrame` | Sizes an element as a fraction of its container. | [api](../reference/api.md#containerrelativeframe) |
 | `UI.fill`, `UI.hug` | Shorthand for the `fill`/`hug` dimension tables you'd otherwise write by hand. | [api](../reference/api.md#shared-properties) |
 | `UI.Stage` | Reserves a box for engine content; native `content` setup and cleanup follow its Compose lifetime. | [api](../reference/api.md#stage) |
@@ -200,18 +201,30 @@ owner that owns its resources. Start with
 | `UI.Picker` | The one selection control: an automatic style that is a menu on a phone or a desktop and a strip on a television, plus declared menu, segmented, inline, radioGroup and navigationLink styles, searchable lists and live options. | [api](../reference/api.md#uipicker) |
 | `UI.PopupButton` | **Deprecated** (0.11.0): the popup half of `UI.Picker`'s menu styles; still builds on the same engine. | [api](../reference/api.md#uipopupbutton) |
 | `UI.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#uimenu) |
-| `UI.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#uitextinput) |
+| `UI.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel; label, hint/error line, accessories, read-only and line-count options. | [api](../reference/api.md#uitextinput) |
+| `UI.NumberInput` | The numeric field: a committed number beside its draft, bounds that clamp, precision, units and optional step buttons. | [api](../reference/api.md#uinumberinput) |
 | `UI.ProgressView` | A determinate or indeterminate bar or ring, segmented HUD meters, damage trails, and adaptive gauge readouts; the Compose owner and the application clock drive it. | [api](../reference/api.md#uiprogressview) |
 | `UI.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#uidisclosuregroup) |
 | `UI.LevelPicker` | A discrete numeric level strip with bar, glyph or image segments. | [api](../reference/api.md#uilevelpicker) |
 | `UI.AsyncImage` | An image with placeholder, failure, and retry states; the Compose owner holds its request lease. | [api](../reference/api.md#uiasyncimage) |
 | `UI.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#uicallout) |
+| `UI.Popover` | Content against a trigger or source you own the open state of: an anchored panel, or a sheet on a compact touch screen. | [api](../reference/api.md#uipopover) |
+| `UI.Dialog` | A modal panel you own the open state of: title, hero, one scrolling body and pinned actions. | [api](../reference/api.md#uidialog) |
+| `UI.Card` | Artwork and a title with a primary action and a More menu that reveal on engagement; enters from a grid's browse stop. | [api](../reference/api.md#uicard) |
+| `UI.Pagination` | Controlled page selection: a bounded numeric window, an unknown count, a measured fallback to "Page n of m". | [api](../reference/api.md#uipagination) |
+| `UI.StepIndicator` | Workflow steps with one current authority, state cues and words, and a summary with a list when narrow. | [api](../reference/api.md#uistepindicator) |
+| `UI.ColorPicker` | A colour well that opens swatches, a spectrum plane, sliders or the engine BrickColors, with RGB/HSV/Hex fields, optional opacity and an Apply/Cancel draft; or the panel in place. | [api](../reference/api.md#uicolorpicker) |
+| `UI.DateTimePicker` | A civil date field that opens a calendar (single, date and time, or a range with presets and an Apply/Cancel draft), or the calendar in place; today comes from your clock. | [api](../reference/api.md#uidatetimepicker) |
+| `UI.Vote` | Up, down or none over your value, with your own summary text and a read-only form. | [api](../reference/api.md#uivote) |
+| `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
+| `UI.Snackbar` | One short message at the bottom of the screen with an optional action and close, shown one at a time; the caller owns visibility and every close is a proposal. | [api](../reference/api.md#uisnackbar) |
+| `UI.NavBar` | A surface's top bar with Back, leading, a filling center (title or search) and trailing content that wraps to a second row. | [api](../reference/api.md#uinavbar) |
 | `UI.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#uinavigationstack) |
 | `UI.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#uitabview) |
 | `client.world_anchor` | Measure a Part, Model, or avatar for a radial opening or retained offscreen marker direction, with optional center occlusion. | [api](../reference/api.md#clientworld_anchor) |
 | `UI.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#uiradialmenu) |
 | `UI.Alert` | Brief modal decisions with content-sized cards, role-placed row/stack actions, safe focus and cancellation. | [api](../reference/api.md#uialert) |
-| `UI.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#uisheet) |
+| `UI.Sheet` | Modal detents (including a content-fitting hug) at the bottom, centre or a side edge, with a pinned header, hero and actions around one scrolling body. | [api](../reference/api.md#uisheet) |
 | `UI.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#uipageview) |
 | `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
 | `UI.StatusIndicator` | Passive shape and color marks with optional capped counts. | [api](../reference/api.md#uistatusindicator) |
@@ -219,8 +232,10 @@ owner that owns its resources. Start with
 | `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
 | `UI.Avatar` | A player picture or initials, with optional presence and activation. | [api](../reference/api.md#uiavatar) |
 | `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |
+| `civilDate` | Civil (zone-free) date arithmetic, the numeric words, and instants at an offset you name, for `UI.DateTimePicker` values. | [api](../reference/api.md#civildate) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
+| `recipes` | Opt-in one-line compositions; `recipes.arithmetic.parse` lets a numeric field accept `3 + 5`. | [api](../reference/api.md#recipes) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 
 ### 3. Collections, scrolling, selection, reorder, and drag/drop

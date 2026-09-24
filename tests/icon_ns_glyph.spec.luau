@@ -36,6 +36,25 @@ describe("namespaced icon ASCII floor", function()
 		expect(themePackage.iconGlyph("")).toBeNil()
 	end)
 
+	it("a control drawing an unknown name says so once, naming the near miss", function()
+		local said: { string } = {}
+		local real = themePackage.report
+		themePackage.report = function(message: string)
+			table.insert(said, message)
+		end
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 400, h = 300 } })
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Button("A")({ label = "Find", row = { icon = "search" } }),
+				w.UI.Button("B")({ label = "Find", row = { icon = "search" } }),
+				w.UI.Button("C")({ label = "Find", row = { icon = "facet:search" } }),
+			})
+		end)
+		themePackage.report = real
+		expect(#said).toBe(1)
+		expect(string.find(said[1], "'facet:search'", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("a namespace with no letter after the colon resolves to nil, never a broken char", function()
 		expect(themePackage.iconGlyph("ns:")).toBeNil()
 		expect(themePackage.iconGlyph("ns:123")).toBeNil()
