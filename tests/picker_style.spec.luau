@@ -551,6 +551,44 @@ describe("Picker menu: the chosen row is readable on its own selection fill", fu
 	end)
 end)
 
+describe("Picker search: the chosen row paints no wash, so its label keeps the panel colour", function()
+	it("a searchable list's selected row carries no onSelected tint (owner: black on Pixel purple)", function()
+		local w = world.new({
+			viewport = FACTS.phone.viewport,
+			capabilities = FACTS.phone.capabilities,
+			preferredInput = FACTS.phone.preferredInput,
+		})
+		local picker = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Track",
+			selected = Compose.cell("normal"),
+			options = THREE,
+			query = Compose.cell(""),
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		w.pres.refresh()
+		picker.api.open()
+		for _ = 1, 3 do
+			w.pres.refresh()
+		end
+		local labels, fills = 0, 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "[normal]/Row/", 1, true) ~= nil then
+				if string.sub(path, -5) == "/Fill" then
+					fills += 1
+				elseif string.sub(path, -6) == "/Label" then
+					labels += 1
+					local tint = readFact(w.adapter.node(path).props.tint)
+					local role = if type(tint) == "table" then tint.role else "none"
+					expect(`chosen search row label tint: {role}`).toBe("chosen search row label tint: none")
+				end
+			end
+		end
+		expect(`{labels} label, {fills} fill`).toBe("1 label, 0 fill")
+		picker.dispose()
+	end)
+end)
+
 describe("Picker value alignment", function()
 	it("moves a labeled menu value next to its label without remounting the picker", function()
 		-- the one-line form row is the COMPACT form; a wider class stands the title

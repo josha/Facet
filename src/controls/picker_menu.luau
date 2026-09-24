@@ -580,7 +580,11 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	for _, option in selectionModel.read(spec.options) do
 		metaLane = metaLane or (type(option) == "table" and option.meta ~= nil)
 	end
-	local function optionProps(option, rowScope, currentItem)
+	-- `washed`: the row paints the `controlSelected` wash behind the chosen one (the
+	-- card's static rows). Only there is `onSelected` the label's partner: a row
+	-- with no wash (a search result, a dynamic or multi row) sits on the panel, so
+	-- its label keeps the panel's colour (owner 2026-09-23: black on Pixel's purple)
+	local function optionProps(option, rowScope, currentItem, washed: boolean?)
 		local function currentOption(use)
 			return if currentItem then use(currentItem) else byKey(keyOf(option), use)
 		end
@@ -621,7 +625,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			core = core,
 			scope = rowScope,
 			selected = selected,
-			labelTint = if pickerMode
+			labelTint = if pickerMode and washed
 				then ownedFormula(rowScope, function(use)
 					return if use(selected) then ON_SELECTED_TINT else nil
 				end)
@@ -1184,7 +1188,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 							elseif optionIndex == 1 then "first"
 							elseif optionIndex == optionCount then "last"
 							else "middle"
-						local props = optionProps(option, popupScope)
+						local props = optionProps(option, popupScope, nil, true)
 						props.height = if detached
 							then { type = "minMax", min = rowHeight }
 							else { type = "fixed", px = rowHeight }
