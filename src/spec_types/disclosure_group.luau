@@ -16,6 +16,6 @@ export type Spec<V = BooleanCell> = {
 	icon: string?,
 	chevronPosition: ("leading" | "trailing")?,
 	appearance: ("plain" | "contained" | "divided")?,
-	controlSize: blueprint.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: blueprint.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 }
 return nil

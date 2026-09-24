@@ -13,7 +13,7 @@ local vocabulary = {}
 -- (`metrics.controlSizes`), so a package that retunes its ladder retunes every
 -- control that names a rung, and no control carries a fourth word for a size the
 -- theme cannot answer.
-vocabulary.SIZES = table.freeze({ "compact", "regular", "large" })
+vocabulary.SIZES = table.freeze({ "xsmall", "compact", "regular", "large" })
 local SIZE_SET = guard.keySet(vocabulary.SIZES)
 
 -- The corner silhouettes an author may ask for locally. `nil` is the theme's own

@@ -8,6 +8,6 @@ export type Spec = {
 	height: bp.Bound<bp.Dim>?,
 	lines: number?,
 	corners: ("pill" | "square")?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 }
 return nil

@@ -14,7 +14,7 @@ export type Spec = {
 	max: number?, -- default 1
 	format: ((value: number) -> string)?,
 	endLabel: blueprint.Bound<string>?,
-	controlSize: blueprint.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: blueprint.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	showValue: boolean?, -- render the formatted value beside the bar
 	height: number?, -- the BAR's track thickness; refused for a spinner
 	presentation: string?, -- "bar" (default) | "spinner" (indeterminate only)

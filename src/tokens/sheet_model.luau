@@ -95,7 +95,7 @@ sheet_model.TAGS = table.freeze({
 		`appearance = "standard"` EARNS NOTHING, which is the other precedent and the
 		right one here: standard IS the paint every untagged control already has, so
 		a tag for it would be a rule with nothing to say. ]]
-	sizePrefix = "facet-size-", -- + compact|regular|large
+	sizePrefix = "facet-size-", -- + xsmall|compact|regular|large
 	appearancePrefix = "facet-appearance-", -- + emphasis|soft|utility|link (standard adds none)
 	-- ...and the one surface a control can say it is drawn ON TOP OF. A control
 	-- over artwork cannot lean on the theme's resting control fill, so it asks for
@@ -1129,6 +1129,11 @@ local function emitVocabularyChrome(
 	local T = sheet_model.TAGS
 	local radii = metrics.radii
 	emitSurface({
+		name = "Control size — xsmall corner",
+		selector = `.{T.sizePrefix}xsmall::UICorner`,
+		props = { CornerRadius = udim(0, radii.control) },
+	})
+	emitSurface({
 		name = "Control size — compact corner",
 		selector = `.{T.sizePrefix}compact::UICorner`,
 		props = { CornerRadius = udim(0, radii.control) },
@@ -1157,6 +1162,7 @@ local function emitVocabularyChrome(
 		},
 	})
 	if fromMetric ~= nil then
+		fromMetric("radii.control", "Control size — xsmall corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.control", "Control size — compact corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.control", "Control size — regular corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.panel", "Control size — large corner", "CornerRadius", "udimOffset")

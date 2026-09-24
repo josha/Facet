@@ -72,7 +72,7 @@ export type Spec<V = AnyCell> = {
 	requiredMark: ("required" | "optional")?, -- notation only; `required` stays reselect policy
 	hint: blueprint.Bound<string>?,
 	errorText: blueprint.Bound<string>?, -- replaces the hint and borders the menu trigger
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	-- menu: standard | contrast | utility; segmented: filled | stroke | utility;
 	-- automatic takes all five and maps them onto the family on screen
 	appearance: blueprint.Bound<string?>?,

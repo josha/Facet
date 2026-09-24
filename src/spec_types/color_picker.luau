@@ -38,7 +38,7 @@ export type Spec = {
 	requiredMark: ("required" | "optional")?,
 	hint: blueprint.Bound<string>?,
 	errorText: blueprint.Bound<string>?,
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	appearance: blueprint.Bound<("standard" | "contrast" | "utility")?>?,
 	corners: ("pill" | "square")?,
 	env: publicEnv.Env?,

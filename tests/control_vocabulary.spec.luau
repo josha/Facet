@@ -58,8 +58,47 @@ local function targetOf(w: any, id: string): any
 end
 
 describe("the local size vocabulary resolves the theme ladder by NAME", function()
-	it("names the three rungs and nothing else", function()
-		expect(table.concat(vocabulary.SIZES, ",")).toBe("compact,regular,large")
+	it("names the four rungs and nothing else", function()
+		expect(table.concat(vocabulary.SIZES, ",")).toBe("xsmall,compact,regular,large")
+	end)
+
+	it("xsmall is one ladder step below compact unless the theme authors it", function()
+		-- Neutral: compact 36/8/16, regular 44/12/20 -> xsmall 28/4/12
+		local rung = NEUTRAL.controlSizes.xsmall
+		expect(rung.height).toBe(28)
+		expect(rung.paddingX).toBe(4)
+		expect(rung.iconSize).toBe(12)
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "xs", displayName = "XS", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { controlSizes = { xsmall = { height = 24, paddingX = 8, iconSize = 12 } } },
+		})
+		expect(snapshot.resolve(pkg).controlSizes.xsmall.height).toBe(24)
+		local bad, report = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "xb", displayName = "XB", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { controlSizes = { xsmall = { height = 24 } } },
+		})
+		expect(bad).toBeNil()
+		expect(string.find(report.errors[1].message, "xsmall", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("an xsmall Button and Chip paint 28 inside a 44 hit footprint", function()
+		local w = world.new()
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Rows")({
+					UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" }),
+					UI.Chip("TinyChip")({ label = "Tag", selected = Facet.Compose.cell(false), controlSize = "xsmall" }),
+				}),
+			})
+		end)
+		for _, id in { "Tiny", "TinyChip" } do
+			expect(rectOf(w, pathOf(w, id)).h).toBe(28)
+			expect(targetOf(w, id).h >= FLOOR).toBe(true)
+			expect(tagsOf(w, pathOf(w, id))["facet-size-xsmall"]).toBe(true)
+		end
 	end)
 
 	it("a rung becomes the ladder's metric PATHS, never a resolved number", function()

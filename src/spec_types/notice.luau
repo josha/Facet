@@ -23,7 +23,7 @@ export type Spec = {
 	actions: { Action }?, -- at most two; roles paint only
 	-- its presence draws the close button; it reports the press, the caller unmounts
 	onDismiss: (() -> ())?,
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	env: publicEnv.Env?,
 }
 

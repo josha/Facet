@@ -21,7 +21,7 @@ export type Spec = {
 	onSelect: ((id: string) -> ())?, -- a proposal for a navigable, enabled step
 	sizing: ("fill" | "hug")?, -- construction-only, default fill
 	listLabel: string?, -- the summary's list button, default "Steps"
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	enabled: blueprint.Bound<boolean>?,
 	env: publicEnv.Env?,
 }

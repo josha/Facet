@@ -1433,6 +1433,16 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	for size, entry in metrics.controlSizes do
 		out.controlSizes[size] = { height = entry.height, paddingX = entry.paddingX, iconSize = entry.iconSize }
 	end
+	-- the optional `xsmall` rung: authored, or one ladder step below `compact`
+	-- (compact minus the compact-to-regular step, per field, floored at 0)
+	if out.controlSizes.xsmall == nil and out.controlSizes.compact ~= nil and out.controlSizes.regular ~= nil then
+		local compact, regular = out.controlSizes.compact, out.controlSizes.regular
+		local function below(field: string): number
+			return math.max(0, 2 * compact[field] - regular[field])
+		end
+		out.controlSizes.xsmall =
+			{ height = below("height"), paddingX = below("paddingX"), iconSize = below("iconSize") }
+	end
 	for family, entry in metrics.controls do
 		local copy: any = {}
 		for k, v in entry do

@@ -249,6 +249,11 @@ metrics = {
 },
 ```
 
+**A fourth, smaller rung is optional.** `controlSizes.xsmall` (same three fields)
+is the rung a dense toolbar or tag row asks for with `controlSize = "xsmall"`.
+Leave it out and it is one ladder step below `compact` (Neutral: 28/4/12). Its
+plate paints under the touch floor; the control still reserves the full target.
+
 **The highlight shape is a token, not a guess.** `radii.selection` is the
 radius of every *selection highlight*: the segmented picker's sliding fill (an
 inset rounded rect floating inside its track) and a menu card's chosen-row

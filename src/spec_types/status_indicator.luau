@@ -11,7 +11,7 @@ export type Spec = {
 	max: number?,
 	cutout: boolean?,
 	name: string?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	width: bp.Bound<bp.Dim>?,
 	height: bp.Bound<bp.Dim>?,
 }

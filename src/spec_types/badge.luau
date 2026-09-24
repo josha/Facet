@@ -10,7 +10,7 @@ export type Spec = {
 	status: bp.Bound<status.Status | nil>?,
 	appearance: ("standard" | "status" | "utility")?,
 	corners: ("pill" | "square")?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	over: "media"?,
 	name: string?,
 }

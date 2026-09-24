@@ -2035,7 +2035,7 @@ focusable?, focusVisual?, traversalPriority?, onActivate?, children?,
 onPointerDown?, onPointerMove?, onPointerUp?, onPointerCancel? }` — activatable
 control.
 
-**`controlSize`** (`"compact" | "regular" | "large"`, bindable) and
+**`controlSize`** (`"xsmall" | "compact" | "regular" | "large"`, bindable) and
 **`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link"`,
 bindable) are the **paint half** of the shared local vocabulary — each becomes one
 style tag (`facet-size-<rung>`, `facet-appearance-<word>`) that the theme's rules
@@ -8116,7 +8116,7 @@ Button presentation keeps its trailing state word and refuses indicatorPosition.
 in a row, since `hint` and `row` cannot be combined. `row` and `children` cannot
 be combined, and `row.value` is refused because the toggle supplies it.
 
-Bindable `controlSize` uses the shared compact/regular/large ladder; nil restores
+Bindable `controlSize` uses the shared xsmall/compact/regular/large ladder; nil restores
 the default. Bare switches retain native track padding. A row's internal indicator
 has no independent focus or command: the row owns activation and model approval.
 Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
@@ -8169,7 +8169,7 @@ adopts them takes the same words with the same meanings.
 
 | key | values | reactive | what it does |
 |---|---|---|---|
-| `controlSize` | `"compact"` / `"regular"` / `"large"` | yes | resolves to the theme ladder `controlSizes.<rung>.{height,paddingX,iconSize}` as **metric names**, so a theme swap re-sizes the button with no rebuild, and to one style tag for the paint |
+| `controlSize` | `"xsmall"` / `"compact"` / `"regular"` / `"large"` | yes | resolves to the theme ladder `controlSizes.<rung>.{height,paddingX,iconSize}` as **metric names**, so a theme swap re-sizes the button with no rebuild, and to one style tag for the paint. `xsmall` is optional in a theme: unauthored it is one ladder step below `compact` (28/4/12 at Neutral); its plate paints under the touch floor and the reserved footprint keeps the 44 hit target |
 | `appearance` | `"standard"` / `"emphasis"` / `"soft"` / `"utility"` / `"link"` | yes | visual emphasis only, through a style tag |
 | `corners` | `"pill"` / `"square"` | no | the corner treatment, through the shipped `UI.corners` modifier. `"square"` is a radius of 0, never a 1:1 box — the disc is `UI.Button{ shape = "circle" }` |
 | `over` | `"media"` | no | the control is drawn over artwork: it takes the theme's strong opaque surface and its readable content colour |
@@ -10400,7 +10400,7 @@ once, so reduced motion changes nothing.
 | `thumbContent(info)` | Called once per thumb at build; returns the knob node. `info = { thumb = "value" \| "lower" \| "upper", value, fraction, dragging, enabled }`, the last four readables. The knob sits in a handle floored at the theme's thumb size that grows to fit it; it drops only its own `sliderThumb` slot, and travel is measured from what is drawn. Refused with `thumbImage`. |
 | `trackContent()` | Called once at build; returns the track's node (a colour ramp), centred in the track and replacing the rail and its accent fill — the strip is the value's scale. Refused with `trackImage`. |
 | `rotation` | Bound degrees, default 0: paint-only about the track's centre. Presses are converted by the inverse angle at event time (scroll included); label and readout stay upright and the row keeps its unrotated layout box, so reserve room for the turned paint. Ancestor `scale` is not composed into input. |
-| `controlSize` | `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
+| `controlSize` | `"xsmall"`, `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
 
 A range's two handles share one focus group: Tab visits both and then leaves,
 and keyboard arrows adjust the focused handle. On a gamepad-primary surface the
@@ -10857,7 +10857,7 @@ end)
 | `hint` | String or readable string on the one message line under the field at rest. Wraps; unbreakable text stays reachable through disclosure. |
 | `errorText` | String or readable string. Non-empty replaces the hint and the numeric rejection line, paints the danger role beside the `status.error` mark, keeps the field's position, and does not shake (`invalid` keeps that meaning). |
 | `leading` / `trailing` | Blueprints inside the plate. Leading is static decoration and adds no stop; a search field refuses it. Trailing sits after the clear affordance, and its focusables join the field's focus order after the editor and clear. |
-| `controlSize` | `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
+| `controlSize` | `"xsmall"`, `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
 | `appearance` | `"standard"` (default chip plate), `"contrast"` (control plate) or `"utility"` (no plate). Bound words repaint in place; a word outside the set is refused and the last legal paint stays. |
 | `corners` | Construction-time `"pill"` or `"square"`; absent keeps the theme radius. |
 | `readOnly` | Boolean or readable boolean, default false. True keeps the field focusable, selectable, at full contrast and able to show a caret, but the engine and the model refuse every edit; the clear affordance is not offered and leaving the field commits nothing. Live changes keep the same editor and edit. |
@@ -13625,7 +13625,7 @@ surface decoration. Use `UI.ProgressView` when the player needs a progress value
 or activity indicator; use Skeleton when the pending content's shape is useful.
 
 `form` is required: `"box"`, `"line"`, or `"circle"`. `controlSize` accepts a
-static or bound `"compact" | "regular" | "large"`; absent means regular. Box and
+static or bound `"xsmall" | "compact" | "regular" | "large"`; absent means regular. Box and
 circle use the rung's control height; line uses its icon size. A line's positive
 whole `lines` count defaults to one. Multiple lines have theme-small gaps and a
 60% final line. Box/line accept bound `width` and `height` dimensions; their

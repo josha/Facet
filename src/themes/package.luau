@@ -169,6 +169,8 @@ package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 package.DERIVED_SPACE_STEPS = table.freeze({ "gutter", "tight" })
 package.SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl", "gutter", "tight" })
 package.REQUIRED_CONTROL_SIZES = table.freeze({ "compact", "regular", "large" })
+-- a rung a package MAY declare; `snapshot.resolve` derives it when absent
+package.OPTIONAL_CONTROL_SIZES = table.freeze({ "xsmall" })
 package.CONTROL_SIZE_FIELDS = table.freeze({ "height", "paddingX", "iconSize" })
 -- THE SLOT VOCABULARY IS chrome_slots'. It used to be restated here and the two
 -- lists had to be kept in step by hand; they are one list now, because a slot
@@ -1593,7 +1595,13 @@ function package.define(def: any): (any, any)
 	end
 
 	local controlSizes = if type(metrics.controlSizes) == "table" then metrics.controlSizes else {}
-	for _, size in package.REQUIRED_CONTROL_SIZES do
+	local sizesToCheck = table.clone(package.REQUIRED_CONTROL_SIZES)
+	for _, size in package.OPTIONAL_CONTROL_SIZES do
+		if controlSizes[size] ~= nil then
+			table.insert(sizesToCheck, size)
+		end
+	end
+	for _, size in sizesToCheck do
 		local entry = controlSizes[size]
 		if not need(`metrics.controlSizes.{size}`, entry, "{ height, paddingX, iconSize }") then
 			continue

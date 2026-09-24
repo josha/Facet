@@ -195,7 +195,7 @@ export type ViewVirtualGridSpec<T> = VirtualGridOptions & {
 type BooleanCell = core.Cell<boolean>
 export type ChipSpec<V = BooleanCell> = {
 	animation: bp.AnimationSpec?,
-	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: bp.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	appearance: bp.Bound<("standard" | "utility")?>?,
 	corners: ("pill" | "square")?,
 	leading: bp.Blueprint?,
@@ -269,7 +269,7 @@ export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? 
 -- The composite button uses one flat spec so both constructor forms check fields.
 export type ButtonSpec = {
 	animation: bp.AnimationSpec?,
-	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: bp.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
 	corners: ("pill" | "square")?,
 	over: "media"?,
@@ -335,7 +335,7 @@ export type ToggleSpec<V = BooleanSource> = {
 	row: SemanticRow?,
 	hint: bp.Bound<string>?,
 	indicatorPosition: ("leading" | "trailing")?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	id: string?,
 	label: bp.Bound<string>?,
 	value: V,

@@ -2543,7 +2543,8 @@ class("Divider", {
 		appearance = p({
 			types = { "string" },
 			reactive = true,
-			dirty = { "paint" },
+			-- measure: the solver's stroke-padding read keys on `appearance`
+			dirty = { "paint", "measure" },
 			enum = { "standard", "strong" },
 			channel = "style",
 			doc = '"strong" paints the rule at the theme\'s strongHairlineOpacity (a pane edge); "standard" is the hairline',
@@ -2940,7 +2941,7 @@ class("Button", {
 			reactive = true,
 			-- measure too: an icon-only Button's picture is its rung's `iconSize`
 			dirty = { "paint", "measure" },
-			enum = { "compact", "regular", "large" },
+			enum = { "xsmall", "compact", "regular", "large" },
 			channel = "style",
 			doc = "the local size rung this control paints at — drives the style tag a theme's rules key "
 				.. "on. The MEASUREMENTS of a rung are the theme ladder metrics (controlSizes.<rung>.*) a "
