@@ -234,6 +234,47 @@ describe("ColorPicker: the well and its panel", function()
 		expect(find(w, "/BrickGrid") ~= nil).toBe(true)
 	end)
 
+	it("the panel keeps one height across every technique, on a pointer panel and a phone sheet", function()
+		-- the body reserves the tallest technique at the current width; a shorter one
+		-- sits at its top, so a tab switch never resizes the panel
+		for _, case in
+			{
+				{
+					caps = POINTER,
+					input = nil,
+					view = { x = 0, y = 0, w = 900, h = 900 },
+					modes = { "swatches", "spectrum", "sliders", "brick" },
+				},
+				{
+					caps = TOUCH,
+					input = "Touch",
+					view = { x = 0, y = 0, w = 390, h = 844 },
+					modes = { "swatches", "spectrum", "sliders" },
+				},
+			}
+		do
+			local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+			local w = mount(
+				{ value = cell, onChange = change, modes = case.modes },
+				{ capabilities = case.caps, preferredInput = case.input, viewport = case.view }
+			)
+			open(w)
+			local heights: { string } = {}
+			for i = 1, #case.modes do
+				w.adapter.tap(must(w, `/Modes/Indicator/Options/Opt{i}`))
+				w.settle(3)
+				-- the box the technique is shown in: the panel's scrolling body
+				local modes = w.adapter.node(must(w, "/Modes")).rect
+				local body = w.adapter.node((string.gsub(must(w, "/Technique"), "/Technique$", ""))).rect
+				table.insert(heights, `{body.h}@{body.y - modes.y}`)
+			end
+			local where = `{case.view.w}x{case.view.h}`
+			for i = 2, #heights do
+				expect(`{where} {heights[i]}`).toBe(`{where} {heights[1]}`)
+			end
+		end
+	end)
+
 	it("an accepted swatch commits once, marks the cell, and the swatch grid walks in two dimensions", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
 		local commits = {}

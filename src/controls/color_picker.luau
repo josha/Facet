@@ -577,6 +577,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- how far above the plane a finger's bubble may rise: to the top of the room
 	-- the panel shows (its scrolling body, or the inline panel), set on sync
 	local bubbleRoom = Compose.cell(0)
+	-- the scrolling body's measured height: a hidden technique reserves no more
+	-- than it, so a short one never scrolls into a tall one's blank reservation
+	local bodyRoom = Compose.cell(math.huge)
 	local focusedPath = Compose.cell(nil :: string?)
 	local planePath: string? = nil
 	local swatchPaths: { string } = {}
@@ -1468,19 +1471,35 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end,
 			brick = brickView,
 		}
+		--[[ EVERY TECHNIQUE IS MOUNTED AND THE BODY IS THE TALLEST OF THEM (owner
+			2026-09-23: the panel resized on every tab switch). Each is a layer of one
+			ZStack, the inactive ones `hidden` — laid out, unpainted, out of focus and
+			off the tap path — so the body measures them all at the width it is given
+			and keeps the tallest; a shorter technique sits at its top. In a scrolling
+			body a hidden one reserves at most the body's own height: the tallest
+			still holds the panel still, and a short one has nothing below it to
+			scroll to. ]]
 		local techniques: { any } = {}
 		for _, mode in modes do
 			table.insert(
 				techniques,
-				UI.When({
+				UI.VStack({
 					id = `Show{MODE_LABEL[mode]}`,
-					condition = Compose.formula(function(use)
-						return use(modeCell) == mode
+					width = UI.fill(),
+					hidden = Compose.formula(function(use)
+						return use(modeCell) ~= mode
 					end),
-					thenView = views[mode],
+					height = Compose.formula(function(use)
+						local room = use(bodyRoom)
+						return if use(modeCell) == mode or room == math.huge
+							then { type = "hug" }
+							else { type = "hug", max = room }
+					end),
+					children = { views[mode]() },
 				})
 			)
 		end
+		local technique = UI.ZStack({ id = "Technique", width = UI.fill(), alignV = "start", children = techniques })
 		-- an anchored panel fits the room beside its well: the technique scrolls
 		-- when it must, and everything around it stays put
 		table.insert(
@@ -1491,9 +1510,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					axis = "y",
 					width = UI.fill(),
 					shrinkWeight = 1,
-					children = { UI.VStack({ id = "Technique", width = UI.fill(), children = techniques }) },
+					children = { technique },
 				})
-				else UI.VStack({ id = "Technique", width = UI.fill(), children = techniques })
+				else technique
 		)
 		if hasAlpha then
 			local cell = Compose.cell(alpha:peek() * 100)
@@ -1651,7 +1670,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end
 				local paths: { string } = {}
 				planePath = nil
+				local active = `Show{MODE_LABEL[modeCell:peek()]}`
 				local function walk(n: any)
+					-- a hidden technique's cells are not the panel's
+					if string.sub(n.id or "", 1, 4) == "Show" and n.id ~= active and n.class == "VStack" then
+						return
+					end
 					if n.id == "Surface" and n.class == "Grip" then
 						planePath = n.path
 					elseif n.id == "Cell" and n.class == "Button" then
@@ -1675,6 +1699,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				local r = if planePath ~= nil then rectOf(planePath) else nil
 				planeRect:set(r)
 				local room = rectOf(if overlay then `{node.path}/Body` else node.path)
+				if overlay and room ~= nil and room.h ~= bodyRoom:peek() then
+					bodyRoom:set(room.h)
+				end
 				local above = if r ~= nil and room ~= nil then math.max(0, r.y - room.y) else 0
 				if above ~= bubbleRoom:peek() then
 					bubbleRoom:set(above)
