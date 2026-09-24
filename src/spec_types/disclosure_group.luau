@@ -15,7 +15,10 @@ export type Spec<V = BooleanCell> = {
 	description: blueprint.Bound<string>?,
 	icon: string?,
 	chevronPosition: ("leading" | "trailing")?,
-	appearance: ("plain" | "contained" | "divided")?,
+	-- "outline": a tree row — no header plate and no expanded wash
+	appearance: ("plain" | "contained" | "divided" | "outline")?,
+	textSize: (string | number)?, -- the header's type role; default "control"
+	indent: (string | number)?, -- the content's leading inset: a space step or px
 	controlSize: blueprint.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 }
 return nil

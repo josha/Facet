@@ -10310,12 +10310,17 @@ and `dispose()`.
 
 A labelled header that expands and collapses its content. `spec = { id?, label
 (required), expanded (a writable boolean cell), content (() -> Node), enabled?,
-onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, controlSize? }`.
+onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, controlSize?,
+textSize?, indent? }`.
 
 `description` is bindable secondary copy; `icon` is a semantic icon name.
 `chevronPosition` is leading (default) or trailing. `appearance` is plain (default),
-contained (a raised group), or divided (a separator while expanded). Bindable
-`controlSize` uses the shared rung and restores the default when nil.
+contained (a raised group), divided (a separator while expanded), or outline — a
+tree row: the header paints no plate and no expanded wash (it keeps focus and
+activation). `textSize` is the header's type role (label, caret and icon; default
+`"control"`); `indent` insets the content's leading edge by a space step or px, so
+nested groups read as an outline. Bindable `controlSize` uses the shared rung and
+restores the default when nil.
 
 Use a DisclosureGroup to hide optional detail or advanced settings under a
 heading, pushing the content below it down. For a summary button that expands
