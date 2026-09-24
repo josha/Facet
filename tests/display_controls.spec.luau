@@ -1641,10 +1641,47 @@ describe("ProgressView trailing copy and local rungs", function()
 			w.close()
 		end
 	end)
-	it("refuses bar rungs, explicit diameter plus rung, and non-string end phrases", function()
+	it("a bar spends its rung on track thickness: small rungs thin, regular/large the theme track", function()
+		for rung, px in { xsmall = 4, compact = 4, regular = 6, large = 6, none = 6 } do
+			local w = world.new()
+			mount(w, { value = 0.5, controlSize = if rung == "none" then nil else rung })
+			expect(`{rung}={rect(w, "Bar").h}`).toBe(`{rung}={px}`)
+			w.close()
+		end
+	end)
+	it("a large ring shows its value; smaller rungs still refuse the readout", function()
+		local w = world.new()
+		mount(w, { value = 0.65, presentation = "circular", showValue = true, controlSize = "large" })
+		local shown = {}
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -6) == "/Value" then
+				table.insert(shown, `{path}={w.adapter.node(path).props.text}`)
+			end
+		end
+		-- centred when it fits the rung's ring, otherwise stacked under it
+		expect(#shown).toBe(1)
+		expect(string.find(shown[1], "^/S/Progress/Gauge/") ~= nil).toBe(true)
+		expect(string.sub(shown[1], -5)).toBe("=0.65")
+		w.close()
+		local small = world.new()
+		local ok, err = pcall(function()
+			mount(small, { value = 0.65, presentation = "circular", showValue = true, controlSize = "regular" })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), 'controlSize = "large"', 1, true) ~= nil).toBe(true)
+	end)
+	it("a ring's height refusal names the ring's own size knobs", function()
+		local ok, err = pcall(function()
+			mount(world.new(), { value = 0.5, presentation = "circular", height = 12 })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "controlSize", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "diameter", 1, true) ~= nil).toBe(true)
+	end)
+	it("refuses a bar rung with height, explicit diameter plus rung, and non-string end phrases", function()
 		for _, spec in
 			{
-				{ controlSize = "compact" },
+				{ value = 0.5, controlSize = "compact", height = 8 },
 				{ presentation = "circular", diameter = 64, controlSize = "regular" },
 				{ presentation = "spinner", controlSize = "huge" },
 				{ value = 0.5, endLabel = 7 },

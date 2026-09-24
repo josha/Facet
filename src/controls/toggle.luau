@@ -101,7 +101,8 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 				local content = value.type == "hug" or value.type == "content" or value.type == "minMax"
 				assert(
 					not (content and (spec.row ~= nil or presentation == "button")),
-					"UI.Toggle: content-sized width is unsupported on row and button forms; use fixed or fill"
+					"UI.Toggle: content-sized width is unsupported on row and button forms; use fixed or fill, "
+						.. "or the plain form (a switch or checkbox without `row`), which already sizes to its label"
 				)
 			end
 			return value
