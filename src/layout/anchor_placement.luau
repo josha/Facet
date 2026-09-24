@@ -31,6 +31,9 @@
 	     "never flips into a worse place — a menu too tall for the space above
 	     stays below (partly clipped is better than partly clipped AND upside
 	     down)". A flip that lands somewhere worse is a regression, not a fix.
+	     When neither side holds it, it goes BESIDE the source (the perpendicular
+	     edges, trailing/bottom first) if one of those holds it wholly; only then
+	     does `overflow` decide.
 	  3. SHIFT along the edge until the surface is inside the safe box, and
 	     report how far it moved. `shift` is signed and in px, because the tail
 	     rule and every diagnostic want to know.
@@ -227,6 +230,18 @@ function anchor_placement.solve(req: Request): Placement
 		if mainFits(other) then
 			resolved = other
 			flipped = true
+		else
+			-- neither side holds it: BESIDE the source (trailing first) before any
+			-- clamp could pull it over the thing it points at (owner 2026-09-23)
+			local sides = if isVertical(preferred) then { "right", "left" } else { "bottom", "top" }
+			for _, side in sides do
+				local across = if isVertical(side) then size.w <= safe.w else size.h <= safe.h
+				if across and mainFits(side) then
+					resolved = side
+					flipped = true
+					break
+				end
+			end
 		end
 	end
 

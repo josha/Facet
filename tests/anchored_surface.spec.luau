@@ -132,7 +132,7 @@ describe("D1 placement solver: the flip, and the rule that it never lands somewh
 		local p = solve({
 			source = { x = 0, y = 300, w = 80, h = 40 },
 			size = { w = 120, h = 600 }, -- taller than the space either side of the source
-			safe = { x = 0, y = 0, w = 400, h = 800 },
+			safe = { x = 0, y = 0, w = 190, h = 800 }, -- and no room beside it
 			edge = "bottom",
 			align = "start",
 			gap = 0,
@@ -144,11 +144,23 @@ describe("D1 placement solver: the flip, and the rule that it never lands somewh
 		expect(p.fits).toBe(false)
 	end)
 
-	it("overflow 'clamp' pulls a surface that fits nowhere back inside the safe box", function()
+	it("a surface that fits neither above nor below hangs BESIDE its source, never over it", function()
 		local p = solve({
 			source = { x = 0, y = 300, w = 80, h = 40 },
 			size = { w = 120, h = 600 },
 			safe = { x = 0, y = 40, w = 400, h = 720 },
+			edge = "bottom",
+			align = "start",
+			gap = 8,
+		})
+		expect(`{p.edge} {p.x} {p.fits}`).toBe("right 88 true")
+	end)
+
+	it("overflow 'clamp' pulls a surface that fits nowhere back inside the safe box", function()
+		local p = solve({
+			source = { x = 0, y = 300, w = 80, h = 40 },
+			size = { w = 120, h = 600 },
+			safe = { x = 0, y = 40, w = 190, h = 720 },
 			edge = "bottom",
 			align = "start",
 			gap = 0,
