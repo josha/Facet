@@ -479,3 +479,75 @@ describe("DisclosureGroup header vocabulary", function()
 		end
 	end)
 end)
+
+-- G7 (owner 2026-09-24): an outline of sections in a scroller closes up when one
+-- collapses. The lab's gap came from a space-reserving `hidden`, not from this path;
+-- this pins the path the lab now uses (groups in When branches, keyed rows).
+describe("DisclosureGroup outline in a ScrollView", function()
+	it("collapsing a section moves the next one up and shrinks the canvas; expanding grows it back", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 400 } })
+		local UI = w.UI
+		local open = Compose.cell(true)
+		w.present(function()
+			local groups: any = { width = UI.fill() }
+			for i = 1, 2 do
+				table.insert(
+					groups,
+					UI.When("W" .. i)({
+						Compose.show(Compose.cell(true), function()
+							return UI.When("then")({
+								UI.DisclosureGroup("G" .. i)({
+									label = "Group " .. i,
+									expanded = if i == 1 then open else Compose.cell(true),
+									content = function()
+										return UI.VStack("Rows")({
+											width = UI.fill(),
+											Compose.keyed({
+												from = Compose.cell({ "a", "b", "c", "d" }),
+												key = function(id: string): string
+													return id
+												end,
+												render = function(id: any)
+													return UI.Button("B" .. id:peek())({
+														label = id:peek(),
+														width = UI.fill(),
+													})
+												end,
+											}),
+										})
+									end,
+								}),
+							})
+						end),
+					})
+				)
+			end
+			return UI.Screen("S")({
+				UI.ScrollView("Sc")({ width = UI.fill(), height = UI.fill(), UI.VStack("Tree")(groups) }),
+			})
+		end)
+		w.settle(10)
+		local function facts(): (number, number)
+			local next, canvas = -1, -1
+			for _, path in w.adapter.paths() do
+				local node = w.adapter.node(path)
+				if string.sub(path, -3) == "/G2" then
+					next = node.rect.y
+				elseif string.sub(path, -6) == "/S/Sc" then
+					canvas = node.scrollRegion.contentH
+				end
+			end
+			return next, canvas
+		end
+		local openY, openCanvas = facts()
+		open:set(false)
+		w.settle(60)
+		local closedY, closedCanvas = facts()
+		expect(closedY < openY).toBe(true)
+		expect(closedCanvas).toBe(openCanvas - (openY - closedY))
+		open:set(true)
+		w.settle(60)
+		local againY, againCanvas = facts()
+		expect(`{againY},{againCanvas}`).toBe(`{openY},{openCanvas}`)
+	end)
+end)
