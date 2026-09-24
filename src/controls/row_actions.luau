@@ -1856,12 +1856,13 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 			-- menu that fits on neither side stays below and clipped
 			overflow = "keep",
 		})
-		if placement.flipped then
+		if placement.edge == "top" then
 			-- see `menuOy`'s own comment: a fraction of the anchor's inner height,
 			-- so the solver supplies the height this file must not guess at
 			return rect.x, { scale = -1, offset = rect.y }, "bottomLeft"
 		end
-		return rect.x, placement.y, "topLeft"
+		-- below; a width-less menu has no honest beside, so that answer stays below
+		return rect.x, if placement.edge == "bottom" then placement.y else below, "topLeft"
 	end
 
 	--[[ THE PLACEMENT PROPS BELONG TO THE CHILD, NOT TO THE ANCHOR ITSELF (live
