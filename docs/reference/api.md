@@ -9901,7 +9901,9 @@ untinted key image. Explicit keys print the supplied words on every device.
 | `env` | Optional surface environment; supply it when the app serves ambiguous surfaces. |
 
 Caps use the theme's icon-size ladder plus `space.xs`, with a strong tinted plate,
-authored control corner and hairline. They have no package decoration slot and
+authored control corner and an outline of `controls.shortcutHint.capStroke` (optional
+metric, default the hairline; 0 draws a soft filled cap). A chord's caps sit
+`controls.shortcutHint.capGap` apart (optional, default `space.xs`). They have no package decoration slot and
 reserve no interactive hit floor. Letters grow with the text preference; native
 key images retain the theme-sized square. The mounted Compose owner disposes
 the display formulas and borrows the action system and caller values. The hint

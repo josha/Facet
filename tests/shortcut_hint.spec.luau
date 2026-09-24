@@ -270,6 +270,28 @@ t.describe("ShortcutHint passive cap anatomy", function()
 		w.settle()
 		expect(cap.rect.h > old).toBe(true)
 	end)
+	t.it("the keycap stroke and the gap between caps are theme metrics (Neutral: hairline, xs)", function()
+		local snapshot = require("../src/themes/snapshot")
+		local function chord(metrics)
+			local w = world.new({ themeMetrics = metrics })
+			mount(w, { keys = { { "Ctrl", "S" } } })
+			local a = w.adapter.node("/S/Hint/Chord1/Key1").rect
+			local b = w.adapter.node("/S/Hint/Chord1/Key2").rect
+			local stroke = w.adapter.node("/S/Hint/Chord1/Key1/Plate").props.stroke
+			return b.x - (a.x + a.w), stroke
+		end
+		local neutral = snapshot.neutral()
+		local gap, stroke = chord(nil)
+		expect(gap).toBe(neutral.space.xs)
+		expect(stroke ~= nil).toBe(true)
+		expect(neutral.controls.shortcutHint.capStroke).toBe(neutral.strokes.hairline)
+		local soft = table.clone(neutral)
+		soft.controls = table.clone(neutral.controls)
+		soft.controls.shortcutHint = { capGap = 2, capStroke = 0 }
+		local tight, none = chord(soft)
+		expect(tight).toBe(2)
+		expect(none).toBeNil()
+	end)
 	for _, name in packages do
 		t.it(`stays a cap at normal and largest text in {name}`, function()
 			local pkg = require("../examples/themes/" .. name).build(Facet.themes)

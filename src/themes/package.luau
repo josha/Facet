@@ -229,6 +229,7 @@ package.CONTROL_FAMILIES = table.freeze({
 		"ghostStackHeight",
 	}),
 	rowActions = table.freeze({ "buttonMinWidth", "buttonPad", "editAffordance" }),
+	shortcutHint = table.freeze({}),
 })
 
 -- OPTIONAL family fields: legal to declare, never required, and filled in by
@@ -273,6 +274,8 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	-- resolved size, because a stroke wider than the box's own inset paints
 	-- outside the rect the solver measured (see snapshot.resolve).
 	progress = table.freeze({ "spinnerDotSize", "circularSize", "circularThickness" }),
+	-- the keycap's outline (0 = a soft filled cap) and the gap between a chord's caps
+	shortcutHint = table.freeze({ "capStroke", "capGap" }),
 })
 
 -- VALUE-DISPLAY HOSTS whose extent is a METRIC the package resolves (rich-skinning v2).
@@ -1624,7 +1627,9 @@ function package.define(def: any): (any, any)
 	local controls = if type(metrics.controls) == "table" then metrics.controls else {}
 	for family, fields in package.CONTROL_FAMILIES do
 		local entry = controls[family]
-		if entry == nil then
+		if entry == nil and #fields == 0 then
+			continue -- an all-optional family may be absent: `snapshot.resolve` fills it
+		elseif entry == nil then
 			reject(
 				"missingRole",
 				`metrics.controls.{family}`,

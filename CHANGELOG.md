@@ -69,6 +69,10 @@ detail and every behaviour or path change.
 - **Badge status mark.** The status appearance's mark takes the plate's lettering
   role and no longer carries a page-coloured cutout, which painted a dark ring on
   the coloured plate (and left the equal-role mark invisible on it).
+- **ShortcutHint keycaps are themeable.** Optional metrics
+  `controls.shortcutHint.capStroke` (default the hairline; 0 = a soft filled cap)
+  and `controls.shortcutHint.capGap` (default `space.xs`); Neutral is unchanged. An
+  all-optional control family may be absent from a package.
 - **Vote.** A read-only vote keeps the strip's `controlSize` rung.
 - **ProgressView.** A bar accepts `controlSize` as its track thickness (xsmall and
   compact thin, regular and large the theme track) and refuses it together with

@@ -27,6 +27,7 @@ local HINT_KEYS = specGuard.keySet({
 })
 
 local DEFAULT_SEPARATOR = "or"
+local CAP_GAP = "controls.shortcutHint.capGap"
 local DEFAULT_RUNG = "regular"
 type Key = { text: string, glyph: string? }
 local EMPTY_KEY: Key = table.freeze({ text = "", glyph = nil })
@@ -93,6 +94,18 @@ function shortcut_hint.build(Facet: any, core: any, spec: Spec)
 		)
 	end
 	local separator = spec.separator or DEFAULT_SEPARATOR
+	-- the cap's outline is the theme's `controls.shortcutHint.capStroke` (Neutral: the
+	-- hairline); 0 draws a soft filled cap with no outline
+	local metricsEnv = env or surfaceEnv.find(core)
+	local capStroke = Compose.formula(function(use)
+		local metrics = if metricsEnv ~= nil then use(metricsEnv:get("themeMetrics")) else nil
+		local family = if type(metrics) == "table" and metrics.controls then metrics.controls.shortcutHint else nil
+		local thickness = if family then family.capStroke else nil
+		if thickness == 0 then
+			return nil
+		end
+		return Facet.UI.strokeData({ color = "hairline", thickness = thickness })
+	end)
 
 	local rung = selection.read(spec.controlSize) or DEFAULT_RUNG
 	local function capDim(currentRung: any): any
@@ -118,17 +131,15 @@ function shortcut_hint.build(Facet: any, core: any, spec: Spec)
 		if glyph == nil then
 			content = UI.padding(content, { left = "space.xs", right = "space.xs", top = 0, bottom = 0 })
 		end
-		local plate = UI.stroke(
-			UI.corners(
-				UI.Box({
-					id = "Plate",
-					tint = { role = "surfaceStrong", blend = 1 },
-					width = UI.fill(),
-					height = UI.fill(),
-				}),
-				"control"
-			),
-			{ color = "hairline" }
+		local plate = UI.corners(
+			UI.Box({
+				id = "Plate",
+				tint = { role = "surfaceStrong", blend = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
+				stroke = capStroke,
+			}),
+			"control"
 		)
 		return UI.ZStack({
 			id = capId,
@@ -247,7 +258,7 @@ function shortcut_hint.build(Facet: any, core: any, spec: Spec)
 				children,
 				UI.HStack({
 					id = `Chord{index}`,
-					gap = "xs",
+					gap = CAP_GAP,
 					align = "center",
 					wrap = true,
 					children = capsInChord,

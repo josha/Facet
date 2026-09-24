@@ -2011,6 +2011,19 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(rowActionsFamily.rowGutter) ~= "number" then
 		rowActionsFamily.rowGutter = out.space.s
 	end
+	-- ShortcutHint's keycap outline and the gap between a chord's caps: optional,
+	-- filled from the theme's own hairline and `xs` for the same stamp reason
+	local hintFamily = out.controls.shortcutHint
+	if type(hintFamily) ~= "table" then
+		hintFamily = {}
+		out.controls.shortcutHint = hintFamily
+	end
+	if type(hintFamily.capStroke) ~= "number" then
+		hintFamily.capStroke = out.strokes.hairline
+	end
+	if type(hintFamily.capGap) ~= "number" then
+		hintFamily.capGap = out.space.xs
+	end
 	-- A display-only switch reserves both native track insets, without a label column.
 	local toggleFamily = out.controls.toggle
 	if type(toggleFamily) == "table" and type(toggleFamily.markWidth) ~= "number" then
