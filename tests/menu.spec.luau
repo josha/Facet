@@ -1182,6 +1182,30 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 		expect(table.concat(ids, ",")).toBe("Label,Chevron")
 	end)
 
+	it("the menu's own submenu row (leading content form) shows its chevron, beside a shortcut row", function()
+		local w = world({
+			items = {
+				{ id = "copy", label = "Copy", shortcutLabel = "Ctrl+C", onSelect = function() end },
+				{ id = "share", label = "Share", children = ITEMS },
+			},
+		})
+		w.adapter.tap(TRIGGER)
+		w.pres.refresh()
+		local share, copy = rowPath(0, "share"), rowPath(0, "copy")
+		local chevrons, copyChevron = 0, false
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -8) == "/Chevron" then
+				chevrons += 1
+				copyChevron = copyChevron or string.sub(path, 1, #copy) == copy
+				expect(string.sub(path, 1, #share)).toBe(share)
+				local rect, row = w.adapter.node(path).rect, w.adapter.node(share).rect
+				expect(rect.w > 0 and rect.x + rect.w <= row.x + row.w).toBe(true)
+			end
+		end
+		expect(chevrons).toBe(1)
+		expect(copyChevron).toBe(false)
+	end)
+
 	it("`icon` and a divider joined popup_button.Option, and both render from the recipe", function()
 		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
