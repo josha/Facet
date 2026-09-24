@@ -217,3 +217,47 @@ describe("the whole-control disabled dim is a theme opt-in", function()
 		end
 	)
 end)
+
+describe("a strong Divider and an outline-free utility control are theme data", function()
+	it('`appearance = "strong"` on a Divider earns a tag whose rule paints the heavier opacity', function()
+		local neutral = sheet_model.buildPackage(snapshot.neutralPackage())
+		local strong = ruleNamed(neutral, "Strong divider")
+		expect(strong.selector).toBe(".facet-divider.facet-appearance-strong")
+		-- unauthored: three times as visible as the hairline (Neutral 0.92 -> 0.76)
+		expect(math.abs(strong.props.BackgroundTransparency.value - 0.76) < 1e-9).toBe(true)
+		local authoredModel = sheet_model.buildPackage(authored({ strongHairlineOpacity = 0.6 }))
+		expect(ruleNamed(authoredModel, "Strong divider").props.BackgroundTransparency.value).toBe(0.6)
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 300, h = 200 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Col")({ width = UI.fill(), UI.Divider("Edge")({ appearance = "strong" }) }),
+			})
+		end)
+		local found = false
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Edge$") then
+				expect(w.adapter.node(path).props.appearance).toBe("strong")
+				found = true
+			end
+		end
+		expect(found).toBe(true)
+		expect(sheet_model.classifyTags({ divider = true, appearance = "strong" } :: any)["facet-appearance-strong"]).toBe(
+			true
+		)
+	end)
+
+	it("`strokes.utility` retunes the utility outline alone; unset it is the hairline", function()
+		local neutral = sheet_model.buildPackage(snapshot.neutralPackage())
+		expect(ruleNamed(neutral, "Utility control — outline").props.Thickness.value).toBe(1)
+		local base = snapshot.neutralPackage()
+		local pkg = themes.define({
+			base = base,
+			identity = { id = "bare", displayName = "Bare", schemaVersion = themes.SCHEMA, version = "1.0.0" },
+			metrics = { strokes = { hairline = 1, utility = 0 } },
+		})
+		local model = sheet_model.buildPackage(pkg)
+		expect(ruleNamed(model, "Utility control — outline").props.Thickness.value).toBe(0)
+		expect(ruleNamed(model, "Raised panel — hairline").props.Thickness.value).toBe(1)
+	end)
+end)

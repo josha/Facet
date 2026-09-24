@@ -1558,7 +1558,7 @@ unknown arrangement name, a `floor` that states neither `lines` nor `targets`.
 
 ### `Divider`
 
-`UI.Divider{ id?, axis?, thickness?, width?, height? }` — an axis-aware hairline.
+`UI.Divider{ id?, axis?, thickness?, appearance?, width?, height? }` — an axis-aware hairline.
 It **infers its orientation from the enclosing stack**, so one declaration reads
 correctly in both: inside a `VStack` it is a horizontal line spanning the cross
 axis, and inside an `HStack` a vertical one. Inside an `AdaptiveStack` it follows
@@ -1587,6 +1587,11 @@ surface it sits on rather than as a bar of the raw hairline colour, and a packag
 that wants a bolder separator authors one number for its strokes and its dividers
 together. The player's background-transparency preference does not move it: a
 divider is a border, and borders are outside that preference's scope.
+
+**`appearance = "strong"`** (bindable; default `"standard"`) paints a heavier rule —
+a pane edge rather than a row separator — at the theme's `extra.strongHairlineOpacity`
+(unset: three times as visible as the hairline). It is a style tag like the rest of
+the divider's paint, so it needs native styling to show.
 
 ### `Grid`
 

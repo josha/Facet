@@ -215,6 +215,9 @@ Three `extra` colour roles are optional and change nothing until you author them
 
 And one switch: `dimDisabledPlates = true` fades a disabled control's plate
 with its label (by `disabledContentOpacity`) instead of dimming the label alone.
+`strongHairlineOpacity` sets how visible a `UI.Divider{ appearance = "strong" }`
+is (unset: three times the hairline), and the optional metric `strokes.utility`
+retunes the utility appearance's outline alone — `0` draws a bare label plate.
 
 ### The metrics
 

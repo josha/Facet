@@ -559,6 +559,11 @@ end
 local WHITE = { r = 1, g = 1, b = 1 }
 local BLACK = { r = 0, g = 0, b = 0 }
 
+-- a strong divider's transparency: authored, or three times as visible as the hairline
+local function strongHairlineOpacity(x: any): number
+	return x.strongHairlineOpacity or math.max(0, 1 - (1 - x.hairlineOpacity) * 3)
+end
+
 -- THE PHANTOM STROKE'S MODE (director round 10, found live 2026-07-26).
 --
 -- `UIStroke.ApplyStrokeMode` defaults to **Contextual**, and on a TextButton or
@@ -1138,13 +1143,15 @@ local function emitVocabularyChrome(
 		selector = `.{T.sizePrefix}large::UICorner`,
 		props = { CornerRadius = udim(0, radii.panel) },
 	})
+	-- `strokes.utility` (optional, 0 = no outline) retunes this edge alone
+	local utilityStroke = metrics.strokes and metrics.strokes.utility
 	emitSurface({
 		name = "Utility control — outline",
 		selector = `.{T.appearancePrefix}utility::UIStroke`,
 		props = {
 			Color = "$Hairline",
 			Transparency = hairlineT,
-			Thickness = hairlineW,
+			Thickness = if utilityStroke ~= nil then num(utilityStroke) else hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
 			BorderStrokePosition = STROKE_INNER,
 		},
@@ -1153,7 +1160,12 @@ local function emitVocabularyChrome(
 		fromMetric("radii.control", "Control size — compact corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.control", "Control size — regular corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.panel", "Control size — large corner", "CornerRadius", "udimOffset")
-		fromMetric("strokes.hairline", "Utility control — outline", "Thickness", "number")
+		fromMetric(
+			if utilityStroke ~= nil then "strokes.utility" else "strokes.hairline",
+			"Utility control — outline",
+			"Thickness",
+			"number"
+		)
 	end
 	emitRole({
 		name = "Emphasis control",
@@ -1639,6 +1651,11 @@ function sheet_model.build(opts: BuildOpts): Model
 			name = "Divider",
 			selector = ".facet-divider",
 			props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(numbers.HairlineTransparency) },
+		},
+		{
+			name = "Strong divider",
+			selector = `.facet-divider.{T.appearancePrefix}strong`,
+			props = { BackgroundTransparency = num(strongHairlineOpacity(x)) },
 		},
 		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
 		{ name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } },
@@ -3164,6 +3181,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		name = "Divider",
 		selector = ".facet-divider",
 		props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = hairlineT },
+	})
+	emit("roles", {
+		name = "Strong divider",
+		selector = `.facet-divider.{T.appearancePrefix}strong`,
+		props = { BackgroundTransparency = num(strongHairlineOpacity(baseExtra)) },
 	})
 	emit(
 		"roles",

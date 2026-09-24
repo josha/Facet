@@ -2540,6 +2540,14 @@ class("Divider", {
 			channel = "layout",
 			doc = 'hairline thickness: a px number or a theme metric name. Absent = the theme\'s "strokes.hairline"',
 		}),
+		appearance = p({
+			types = { "string" },
+			reactive = true,
+			dirty = { "paint" },
+			enum = { "standard", "strong" },
+			channel = "style",
+			doc = '"strong" paints the rule at the theme\'s strongHairlineOpacity (a pane edge); "standard" is the hairline',
+		}),
 	}),
 })
 
