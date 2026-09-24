@@ -8512,7 +8512,9 @@ always bounded — by `maxHeight` when given, and never taller than the screen l
 its safe insets — so its rows always sit at that path; a long list scrolls instead
 of running off screen. (An unbounded panel's fade group outgrew the engine's
 CanvasGroup budget, which blurs the text of every CanvasGroup on screen.) A sheet's
-rows sit at `…/Panel/Item:<id>` unless `maxHeight` bounds it.
+rows sit at `…/Panel/Item:<id>` unless `maxHeight` bounds it. A level whose rows include a
+selected (`selected`/`checked`) one opens with focus on the first such row, centred
+in its scrolled list.
 
 **`backLabel`** labels the sheet's Back row and defaults to "Back". Supply a
 localized label when appropriate. Long labels use the shared compact-label
