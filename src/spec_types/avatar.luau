@@ -9,7 +9,7 @@ export type Spec = {
 	userId: number?,
 	key: string?,
 	provider: any?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	diameter: (number | string)?,
 	presence: bp.Bound<Presence | nil>?,
 	presenceLabel: bp.Bound<string | nil>?,

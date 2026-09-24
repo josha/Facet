@@ -16,7 +16,7 @@ export type Spec = {
 	showFirstLast: boolean?, -- construction-only, default false
 	form: ("numbers" | "arrows" | "label")?, -- construction-only, default numbers
 	direction: ("ltr" | "rtl")?, -- construction-only, default ltr
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	enabled: blueprint.Bound<boolean>?,
 	width: blueprint.Bound<blueprint.Dim>?,
 	env: publicEnv.Env?,

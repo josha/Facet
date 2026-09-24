@@ -18,7 +18,7 @@ export type Spec = {
 	max: number?,
 	overflow: ("count" | "ellipsis")?,
 	form: ("standard" | "icon")?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	over: "media"?,
 	onOverflow: (() -> ())?,
 	overflowLabel: bp.Bound<string | nil>?,

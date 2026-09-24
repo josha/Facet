@@ -69,6 +69,8 @@ export type Spec<V = StringCell> = {
 	-- takes which role is a design language rather than a layout rule — so the
 	-- construct carries the binding and never picks the ramp.
 	textSize: publicBlueprint.Bound<number | string>?,
+	-- the tabs' local size rung, passed to the strip
+	controlSize: publicBlueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	conditions: any?, -- the table `adaptive.conditions(env)` returns
 	env: publicEnv.Env?, -- an environment, when `conditions` was not built by the caller
 	enabled: publicBlueprint.Bound<boolean>?,

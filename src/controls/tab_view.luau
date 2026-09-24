@@ -79,6 +79,7 @@ local BAND_CAPPED = table.freeze({ type = "hug" })
 local TABVIEW_KEYS = specGuard.keySet({
 	"accessories",
 	"conditions",
+	"controlSize",
 	"customization",
 	"sections",
 	"enabled",
@@ -673,6 +674,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			-- a tab's words shrink to fit their slot (down to the caption role)
 			-- before the engine truncates one: a filling bottom bar is a fixed share
 			textSize = spec.textSize or "fit",
+			-- the tabs' local rung (the strip's own controlSize)
+			controlSize = spec.controlSize,
 			env = spec.env,
 			enabled = spec.enabled,
 			onChange = function(value)

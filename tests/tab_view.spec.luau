@@ -1675,3 +1675,47 @@ describe("Tab.indicator and Tab.enabled: per-tab status and availability through
 		expect(w.adapter.node(tabPath(w, 2)) ~= nil).toBe(true)
 	end)
 end)
+
+describe("a TabView's tabs take a local size rung", function()
+	it("`controlSize` reaches the strip: each tab paints at the rung's height inside the reserved floor", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.TabView("Tabs")({
+					placement = "topBar",
+					controlSize = "compact",
+					selection = Compose.cell("a"),
+					tabs = {
+						{
+							id = "a",
+							label = "Alpha",
+							content = function()
+								return UI.Text("PA")({ text = "A" })
+							end,
+						},
+						{
+							id = "b",
+							label = "Beta",
+							content = function()
+								return UI.Text("PB")({ text = "B" })
+							end,
+						},
+					},
+				}),
+			})
+		end)
+		w.settle(5)
+		local tabs, reserved = 0, 0
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Strip/Indicator/Options/Opt%d$") then
+				tabs += 1
+				expect(w.adapter.node(path).rect.h).toBe(36) -- Neutral compact
+			elseif string.match(path, "/Strip%+target$") then
+				reserved = w.adapter.node(path).rect.h
+			end
+		end
+		expect(tabs).toBe(2)
+		expect(reserved).toBe(44) -- the strip still reserves the touch floor
+	end)
+end)

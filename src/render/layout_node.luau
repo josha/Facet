@@ -1573,8 +1573,10 @@ local function toLayoutNode(
 			props.surface == "raised"
 			or props.surface == "chip"
 			or (class == "TextField" and props.surface ~= "plain")
-			or props.appearance == "utility"
 		then tonumber(metrics.strokes and metrics.strokes.hairline) or 0
+		elseif props.appearance == "utility" then tonumber(
+			metrics.strokes and (metrics.strokes.utility or metrics.strokes.hairline)
+		) or 0
 		else 0
 	local sTop, sRight, sBottom, sLeft = solver.sides(layoutNode.padding)
 	if math.min(sTop, sRight, sBottom, sLeft) < strokeW then

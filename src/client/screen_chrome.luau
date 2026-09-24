@@ -411,6 +411,8 @@ function screen_chrome.new(ctx: Context)
 		onSelected = toColor3(sheet_model.selectedContentColor(style)),
 		danger = toColor3(style.colors.danger),
 		hairline = toColor3(style.extra.hairline),
+		selection = toColor3(style.extra.selection or style.colors.accent),
+		onSelection = toColor3(style.extra.onSelection or style.colors.onAccent),
 	}
 	local iconArtCount = 0
 	-- forward-declared: `destroyChromeText` is defined below and a later local is

@@ -1253,6 +1253,14 @@ local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = 
 -- so the rule survives a legitimate new prop without going blind to a wrong one.
 local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, class: string?, path: string?, why: string } } = {
 	{
+		prop = "tint",
+		value = "{blend=1,role=selection}",
+		class = "Box",
+		path = "/Vocabulary/Volume/TrackHost/Groove/Fill",
+		why = "The slider fill reads the theme's selection ink through a tint; unauthored it resolves to the "
+			.. "accent the fill's accent surface already painted, so the colour, rects and hits are unchanged.",
+	},
+	{
 		prop = "editable",
 		value = "true",
 		class = "TextField",

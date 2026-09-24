@@ -13,7 +13,7 @@ export type Spec = {
 	onChange: ((next: Value) -> ())?,
 	summary: blueprint.Bound<string>?, -- the caller's aggregate, one line, disclosed
 	readOnly: blueprint.Bound<boolean>?, -- informational: normal paint, nothing to press
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	enabled: blueprint.Bound<boolean>?,
 	env: publicEnv.Env?,
 }

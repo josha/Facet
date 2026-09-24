@@ -103,6 +103,7 @@ return {
 		local brightness = Compose.cell(40)
 		local quality = Compose.cell("balanced")
 		local advancedOpen = Compose.cell(false)
+		local outlineOpen = Compose.cell(true)
 		local vsync, telemetry = Compose.cell(true), Compose.cell(false)
 		local progress = Compose.cell(0.35)
 		local navSection = Compose.cell("browse")
@@ -435,6 +436,22 @@ return {
 				navShapes,
 				UI.Divider({}),
 				disclosure,
+				-- a pane edge: the strong divider, then an outline (tree) group
+				UI.Divider("PaneEdge")({ appearance = "strong" }),
+				UI.DisclosureGroup("Outline")({
+					label = "Components",
+					appearance = "outline",
+					textSize = "label",
+					indent = "m",
+					expanded = outlineOpen,
+					content = function()
+						return UI.VStack("OutlineRows")({
+							width = UI.fill(),
+							UI.Button("OutlineButton")({ label = "Button", appearance = "link", width = UI.fill() }),
+							UI.Button("OutlineChip")({ label = "Chip", appearance = "link", width = UI.fill() }),
+						})
+					end,
+				}),
 			})
 			-- A-LV4 shapes that had no fixture: an OVERLAY badge on a tile, a 16:9 media
 			-- box via aspectRatio, and a toolbar row. None uses manual pixel positioning.

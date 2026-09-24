@@ -346,6 +346,7 @@ export type DividerSpec = BoxProps & {
 	-- in artifacts/api-architecture-consistency/); this type used to
 	-- say only `number`
 	thickness: BoundEither<number, Metric>?,
+	appearance: Bound<"standard" | "strong">?, -- "strong": the theme's heavier rule
 }
 
 -- `tint` is the continuous-colour channel: { role, blend, from? } (themable) or
@@ -420,8 +421,8 @@ export type ImageSpec = BoxProps & {
 }
 
 export type ButtonSpec = BoxProps & PointerHandlers & {
-	controlSize: Bound<("compact" | "regular" | "large")?>?,
-	appearance: Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
+	controlSize: Bound<("xsmall" | "compact" | "regular" | "large")?>?,
+	appearance: Bound<("standard" | "emphasis" | "soft" | "utility" | "link" | "inverse")?>?,
 	over: "media"?,
 	children: { Blueprint }?,
 	role: Bound<string>?,

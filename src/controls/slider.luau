@@ -29,6 +29,8 @@ local READOUT_MIN_WIDTH = "controls.slider.readoutMinWidth"
 -- Leave clearance between the label and the thumb at the start of the track.
 local LABEL_GAP = "m"
 local FOCUS_RING = "focusRing"
+-- the fill is the theme's selection ink (its accent unless the theme authors one)
+local SELECTION_INK = table.freeze({ role = "selection", blend = 1 })
 -- a quarantined range keeps at most this many refusal lines
 local MAX_DIAGNOSTICS = 16
 
@@ -642,7 +644,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		else {
 			chrome_slots.attachHint(UI.Box(merge({ id = "Rail" }, along(0, FILL, railThickness))), trackOverride),
 			chrome_slots.attachHint(
-				UI.Box(merge({ id = "Fill", surface = "accent" }, along(fillLead, fillWidth, railThickness))),
+				UI.Box(
+					merge(
+						{ id = "Fill", surface = "accent", tint = SELECTION_INK },
+						along(fillLead, fillWidth, railThickness)
+					)
+				),
 				{ slot = chrome_slots.NO_SLOT }
 			),
 		}

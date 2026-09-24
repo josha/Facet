@@ -23,8 +23,8 @@ local CIRCULAR_SIZE = "controls.progress.circularSize"
 local CIRCULAR_THICKNESS = "controls.progress.circularThickness"
 -- Local indicator rungs spend the existing space scale. Absent keeps each
 -- package's authored progress size, rather than selecting the regular rung.
-local SPINNER_DOT_RUNG = { compact = "space.xs", regular = "space.s", large = "space.m" }
-local CIRCULAR_SIZE_RUNG = { compact = "space.m", regular = "space.l", large = "space.xl" }
+local SPINNER_DOT_RUNG = { xsmall = "space.xs", compact = "space.xs", regular = "space.s", large = "space.m" }
+local CIRCULAR_SIZE_RUNG = { xsmall = "space.s", compact = "space.m", regular = "space.l", large = "space.xl" }
 
 local CIRCULAR_RADIUS = 0.8
 progress_view.CIRCULAR_RADIUS = CIRCULAR_RADIUS

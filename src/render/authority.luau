@@ -110,6 +110,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- write CLAIMS the engine property from the sheet; the claim is recorded and
 	-- dumped so defeat detection audits the hand-off instead of tripping on it.
 	Box = { tint = "binding" },
+	Divider = { appearance = "style" }, -- a classification tag; the theme's rule paints it
 	Text = {
 		text = "binding",
 		textColor = "style",

@@ -195,7 +195,7 @@ export type ViewVirtualGridSpec<T> = VirtualGridOptions & {
 type BooleanCell = core.Cell<boolean>
 export type ChipSpec<V = BooleanCell> = {
 	animation: bp.AnimationSpec?,
-	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: bp.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	appearance: bp.Bound<("standard" | "utility")?>?,
 	corners: ("pill" | "square")?,
 	leading: bp.Blueprint?,
@@ -269,12 +269,13 @@ export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? 
 -- The composite button uses one flat spec so both constructor forms check fields.
 export type ButtonSpec = {
 	animation: bp.AnimationSpec?,
-	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
-	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
+	controlSize: bp.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
+	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link" | "inverse")?>?,
 	corners: ("pill" | "square")?,
 	over: "media"?,
 	name: string?,
 	trailingIcon: string?,
+	underline: ("always" | "hover")?, -- a text button's label underline (a link's cue)
 	id: string?,
 	label: bp.BoundEither<string, number>?,
 	compactLabel: (string | { text: string?, icon: string?, image: string?, prefer: boolean? })?,
@@ -335,12 +336,15 @@ export type ToggleSpec<V = BooleanSource> = {
 	row: SemanticRow?,
 	hint: bp.Bound<string>?,
 	indicatorPosition: ("leading" | "trailing")?,
-	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
+	controlSize: bp.Bound<"xsmall" | "compact" | "regular" | "large" | nil>?,
 	id: string?,
 	label: bp.Bound<string>?,
 	value: V,
 	mixed: BooleanSource?, -- construction restricts this to checkbox
 	presentation: ("switch" | "checkbox" | "button")?,
+	-- "plain": a bare row (no plate, no selected wash); not for the button presentation
+	appearance: ("standard" | "plain")?,
+	textSize: (string | number)?, -- the label's type role; default "control"
 	children: { bp.Blueprint }?, -- construction restricts this to button
 	enabled: bp.Bound<boolean>?,
 	onChange: ((boolean) -> ())?,

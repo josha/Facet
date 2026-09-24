@@ -169,6 +169,8 @@ package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 package.DERIVED_SPACE_STEPS = table.freeze({ "gutter", "tight" })
 package.SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl", "gutter", "tight" })
 package.REQUIRED_CONTROL_SIZES = table.freeze({ "compact", "regular", "large" })
+-- a rung a package MAY declare; `snapshot.resolve` derives it when absent
+package.OPTIONAL_CONTROL_SIZES = table.freeze({ "xsmall" })
 package.CONTROL_SIZE_FIELDS = table.freeze({ "height", "paddingX", "iconSize" })
 -- THE SLOT VOCABULARY IS chrome_slots'. It used to be restated here and the two
 -- lists had to be kept in step by hand; they are one list now, because a slot
@@ -291,6 +293,9 @@ package.VALUE_HOST_METRICS = table.freeze({
 -- WCAG-derived accessibility floor. A theme may raise a target size; it can
 -- never lower one below the platform-agnostic minimum.
 package.MIN_TARGET_SIZE = 44
+-- the floor of an optional `targetSizes.pointer`: the dense row pitch and hit
+-- floor a theme may take while the live input is pointer-only (WCAG 2.5.8)
+package.MIN_POINTER_TARGET_SIZE = 24
 
 -- RESOLVABLE FONT FAMILIES. A typography role's family (which is also the
 -- chrome-text font, since the lifted label's rules take `fontOf(role)`) must be
@@ -1593,7 +1598,13 @@ function package.define(def: any): (any, any)
 	end
 
 	local controlSizes = if type(metrics.controlSizes) == "table" then metrics.controlSizes else {}
-	for _, size in package.REQUIRED_CONTROL_SIZES do
+	local sizesToCheck = table.clone(package.REQUIRED_CONTROL_SIZES)
+	for _, size in package.OPTIONAL_CONTROL_SIZES do
+		if controlSizes[size] ~= nil then
+			table.insert(sizesToCheck, size)
+		end
+	end
+	for _, size in sizesToCheck do
 		local entry = controlSizes[size]
 		if not need(`metrics.controlSizes.{size}`, entry, "{ height, paddingX, iconSize }") then
 			continue
@@ -1827,6 +1838,22 @@ function package.define(def: any): (any, any)
 			"metrics.targetSizes.minimum",
 			`targetSizes.minimum is {tostring(minimum)}; the accessibility floor is {package.MIN_TARGET_SIZE}`,
 			`raise it to at least {package.MIN_TARGET_SIZE} — the floor clamps UP, so a lower value would never take effect anyway`
+		)
+	end
+	local pointer = if type(metrics.targetSizes) == "table" then metrics.targetSizes.pointer else nil
+	if
+		pointer ~= nil
+		and (
+			not isFiniteNumber(pointer)
+			or pointer < package.MIN_POINTER_TARGET_SIZE
+			or (isFiniteNumber(minimum) and pointer > minimum)
+		)
+	then
+		reject(
+			"targetTooSmall",
+			"metrics.targetSizes.pointer",
+			`targetSizes.pointer is {tostring(pointer)}; it must lie between {package.MIN_POINTER_TARGET_SIZE} and targetSizes.minimum`,
+			"the dense row pitch applies only while the input is pointer-only; touch and gamepad keep targetSizes.minimum"
 		)
 	end
 

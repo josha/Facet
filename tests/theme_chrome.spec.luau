@@ -937,7 +937,8 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 		-- outline` bakes `strokes.hairline`, so a designer retuning either metric
 		-- retunes every locally-sized and every quiet control with it — the same
 		-- reason `Primary button — corner` and `Circle button — hairline` are here.
-		expect(count).toBe(15 + slotSites + typeSites)
+		-- +1 for the optional `xsmall` rung's corner (`radii.control`).
+		expect(count).toBe(16 + slotSites + typeSites)
 	end)
 end)
 

@@ -201,6 +201,27 @@ partner has had a shipped fallback since it existed.
 contract colours, using the same ramps it always uses — so a palette-only
 package can be a dozen lines.
 
+These `extra` colour roles are optional and change nothing until you author them:
+
+- `selection` / `onSelection` — the ink an on or chosen indicator paints and
+  the colour that reads on it: the switch track and knob, the slider fill and
+  the tab underline. Unset, they are `accent` / `onAccent`. A theme that marks
+  "on" with a neutral (a light ink on a dark theme) sets these and keeps its
+  accent for emphasis buttons. Authoring `selection` also paints a selected
+  `Chip` and a checked checkbox with it (plate and label, box and tick), and
+  letters a selected `appearance = "link"` row with it, under native styling;
+  without it those keep the selected-row wash.
+- `scrim` — the colour a modal backdrop dims toward (`scrimOpacity` is how
+  much). Unset, it is `surface`.
+- `inverseSurface` / `onInverse` — the plate and lettering of
+  `appearance = "inverse"` controls. Unset, `contentStrong` and `surface`.
+
+And one switch: `dimDisabledPlates = true` fades a disabled control's plate
+with its label (by `disabledContentOpacity`) instead of dimming the label alone.
+`strongHairlineOpacity` sets how visible a `UI.Divider{ appearance = "strong" }`
+is (unset: three times the hairline), and the optional metric `strokes.utility`
+retunes the utility appearance's outline alone — `0` draws a bare label plate.
+
 ### The metrics
 
 > **In plain words.** The measurements: type sizes, spacing steps, how tall a
@@ -230,6 +251,20 @@ metrics = {
     insets = { … },
 },
 ```
+
+**A fourth, smaller rung is optional.** `controlSizes.xsmall` (same three fields)
+is the rung a dense toolbar or tag row asks for with `controlSize = "xsmall"`.
+Leave it out and it is one ladder step below `compact` (Neutral: 28/4/12). Its
+plate paints under the touch floor; the control still reserves the full target.
+
+**Dense rows for a mouse are opt-in.** `targetSizes.pointer` (24 up to
+`targetSizes.minimum`) is the row pitch and hit floor while the live input is
+pointer-only — no touch and no gamepad present. Floating Menu and Picker menu rows
+take it, as does any control on a rung whose plate is at or under it (an xsmall
+list row), and each row's hit area is exactly the row, so neighbours never overlap.
+The moment touch or a gamepad appears, mid-session too, rows grow back to
+`targetSizes.minimum`; they return to dense when the input is pointer-only again.
+Leave it out (Neutral does) and every row keeps the 44 floor.
 
 **The highlight shape is a token, not a guess.** `radii.selection` is the
 radius of every *selection highlight*: the segmented picker's sliding fill (an

@@ -23,6 +23,7 @@
 local tokens = require("./tokens")
 local chrome_props = require("./chrome_props")
 local chrome_slots = require("./chrome_slots")
+local options = require("./sheet_options")
 -- the pure style-modifier layer: `tint`'s value vocabulary and its hex escape
 -- live there (it is dependency-light and the public schema validates against it),
 -- and this module resolves those roles against a theme's palette
@@ -95,12 +96,15 @@ sheet_model.TAGS = table.freeze({
 		`appearance = "standard"` EARNS NOTHING, which is the other precedent and the
 		right one here: standard IS the paint every untagged control already has, so
 		a tag for it would be a rule with nothing to say. ]]
-	sizePrefix = "facet-size-", -- + compact|regular|large
+	sizePrefix = "facet-size-", -- + xsmall|compact|regular|large
 	appearancePrefix = "facet-appearance-", -- + emphasis|soft|utility|link (standard adds none)
 	-- ...and the one surface a control can say it is drawn ON TOP OF. A control
 	-- over artwork cannot lean on the theme's resting control fill, so it asks for
 	-- the strong opaque pair by name instead of hand-painting a scrim behind itself.
 	overMedia = "facet-over-media",
+	-- a chosen/checked mark painted with the theme's authored `selection` ink
+	-- (`chrome_slots.Hint.selectionMark`)
+	selectionMark = "facet-selection-mark",
 })
 
 -- the emphasis word that IS the default paint, named once: `classifyTags` skips it
@@ -353,6 +357,8 @@ export type ClassifyInput = {
 	over: string?,
 	-- the slot of the plate this text paints over (`chrome_slots.withPlateBeneath`)
 	onArt: string?,
+	-- a chosen/checked mark (`chrome_slots.Hint.selectionMark`)
+	selectionMark: boolean?,
 }
 
 function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
@@ -453,6 +459,9 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	end
 	if type(input.onArt) == "string" then
 		tags[chrome_slots.TAGS.onArtPrefix .. input.onArt] = true
+	end
+	if input.selectionMark == true then
+		tags[T.selectionMark] = true
 	end
 	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
 	-- including the class defaults: a rule that restates the class default is inert
@@ -640,59 +649,12 @@ function sheet_model.selectedContentColor(theme: any): { r: number, g: number, b
 	return { r = c.onAccent.r, g = c.onAccent.g, b = c.onAccent.b }
 end
 
---[[ THE LABEL ON A TINTED CONTROL PLATE: a skinned control's art multiplied by
-	`tint`. The art's colour as painted is the package's `extra.controlArt` (its
-	sampled centre), else its flat `control`; another slot's art is `extra[art]`
-	(`fieldArt`, `badgeArt`). Art that lets the panel through (`a` < 1, a badge
-	seal) reads over the surface. `onAccent` when it clears the floor there, else
-	`content` when that does, else whichever reads better. ]]
-local function chromePlate(theme: any, tint: any, art: string?): { r: number, g: number, b: number }
-	local x = theme.extra or {}
-	local base = if art ~= nil and type(x[art]) == "table"
-		then x[art]
-		elseif type(x.controlArt) == "table" then x.controlArt
-		elseif type(x.control) == "table" then x.control
-		else theme.colors.surfaceStrong
-	local a, s = base.a or 1, theme.colors.surface
-	return {
-		r = base.r * tint.r * a + s.r * (1 - a),
-		g = base.g * tint.g * a + s.g * (1 - a),
-		b = base.b * tint.b * a + s.b * (1 - a),
-	}
-end
+-- the label on tinted control art: `art_contrast` (read-only on theme colours)
+local artContrast = require("./art_contrast")
+local chromePlate = artContrast.chromePlate
 sheet_model.chromePlate = chromePlate
-
-function sheet_model.onChromeColor(theme: any, tint: any): { r: number, g: number, b: number }
-	local c = theme.colors
-	local plate = chromePlate(theme, tint)
-	local on, content = tokens.contrastRatio(c.onAccent, plate), tokens.contrastRatio(c.content, plate)
-	local pick = if on >= SELECTED_CONTRAST_FLOOR or on >= content then c.onAccent else c.content
-	return { r = pick.r, g = pick.g, b = pick.b }
-end
-
---[[ ...AND ANY OTHER LIFTED LABEL on its tinted art: the first of `picks` that
-	clears the floor there, else whichever reads best. A plain button offers
-	content first (every flat-art package keeps its label), then contentStrong and
-	onAccent; a destructive one offers onDanger first. ]]
-function sheet_model.readableOnChrome(
-	theme: any,
-	tint: any,
-	picks: { any },
-	art: string?
-): { r: number, g: number, b: number }
-	local plate = chromePlate(theme, tint, art)
-	local best, bestRatio = picks[1], -1
-	for _, pick in picks do
-		local ratio = tokens.contrastRatio(pick, plate)
-		if ratio >= SELECTED_CONTRAST_FLOOR then
-			return { r = pick.r, g = pick.g, b = pick.b }
-		end
-		if ratio > bestRatio then
-			best, bestRatio = pick, ratio
-		end
-	end
-	return { r = best.r, g = best.g, b = best.b }
-end
+sheet_model.onChromeColor = artContrast.onChromeColor
+sheet_model.readableOnChrome = artContrast.readableOnChrome
 
 -- the gate the resolver leans on: SOME content role must be readable on the
 -- selected surface, or the theme has published a state nobody can read
@@ -715,7 +677,7 @@ end
 -- PascalCased so the Style Editor shows words designers know from the docs)
 local function themeTokens(style: any): { [string]: TokenValue }
 	local c, x = style.colors, style.extra
-	return {
+	local set: { [string]: TokenValue } = {
 		Danger = color((select(1, dangerPair(c)))),
 		OnDanger = color((select(2, dangerPair(c)))),
 		-- role interaction tokens, precomputed with the same edge lerp the control
@@ -751,6 +713,10 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		AccentHover = lerp(c.accent, WHITE, 0.12),
 		AccentPressed = lerp(c.accent, BLACK, 0.18),
 	}
+	for name, value in options.tokens(c, x, (select(1, dangerPair(c)))) do
+		set[name] = value
+	end
+	return set
 end
 
 -- every theme's palette re-passes the library contrast gate before it may be
@@ -1105,6 +1071,11 @@ local function emitVocabularyChrome(
 	local T = sheet_model.TAGS
 	local radii = metrics.radii
 	emitSurface({
+		name = "Control size — xsmall corner",
+		selector = `.{T.sizePrefix}xsmall::UICorner`,
+		props = { CornerRadius = udim(0, radii.control) },
+	})
+	emitSurface({
 		name = "Control size — compact corner",
 		selector = `.{T.sizePrefix}compact::UICorner`,
 		props = { CornerRadius = udim(0, radii.control) },
@@ -1119,22 +1090,30 @@ local function emitVocabularyChrome(
 		selector = `.{T.sizePrefix}large::UICorner`,
 		props = { CornerRadius = udim(0, radii.panel) },
 	})
+	-- `strokes.utility` (optional, 0 = no outline) retunes this edge alone
+	local utilityStroke = metrics.strokes and metrics.strokes.utility
 	emitSurface({
 		name = "Utility control — outline",
 		selector = `.{T.appearancePrefix}utility::UIStroke`,
 		props = {
 			Color = "$Hairline",
 			Transparency = hairlineT,
-			Thickness = hairlineW,
+			Thickness = if utilityStroke ~= nil then num(utilityStroke) else hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
 			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
+		fromMetric("radii.control", "Control size — xsmall corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.control", "Control size — compact corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.control", "Control size — regular corner", "CornerRadius", "udimOffset")
 		fromMetric("radii.panel", "Control size — large corner", "CornerRadius", "udimOffset")
-		fromMetric("strokes.hairline", "Utility control — outline", "Thickness", "number")
+		fromMetric(
+			if utilityStroke ~= nil then "strokes.utility" else "strokes.hairline",
+			"Utility control — outline",
+			"Thickness",
+			"number"
+		)
 	end
 	emitRole({
 		name = "Emphasis control",
@@ -1164,6 +1143,16 @@ local function emitVocabularyChrome(
 		name = "Link control",
 		selector = `.{T.appearancePrefix}link`,
 		props = { BackgroundTransparency = num(1), TextColor3 = "$Accent" },
+	})
+	-- a light plate on a dark theme (and the reverse): the theme's inverse pair
+	emitRole({
+		name = "Inverse control",
+		selector = `.{T.appearancePrefix}inverse`,
+		props = {
+			BackgroundColor3 = "$InverseSurface",
+			BackgroundTransparency = num(0),
+			TextColor3 = "$OnInverse",
+		},
 	})
 	--[[ OVER ARTWORK, THE PAIR IS THE POINT. A control drawn on a photograph cannot
 		borrow the contrast of a background the theme controls, so it takes the
@@ -1280,6 +1269,12 @@ local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -
 		stays invisible anyway — the resting `Link control` rule owns the
 		transparency and nothing in the control ramp touches it. ]]
 	pair("Link", `{A}link`, { TextColor3 = "$AccentHover" }, { TextColor3 = "$AccentPressed" })
+	pair(
+		"Inverse",
+		`{A}inverse`,
+		{ BackgroundColor3 = "$InverseHover", TextColor3 = "$OnInverse" },
+		{ BackgroundColor3 = "$InversePressed", TextColor3 = "$OnInverse" }
+	)
 	-- over artwork the states move to the OTHER gated pair rather than to the
 	-- control ramp, so the control stays readable on a photograph it cannot see
 	pair(
@@ -1313,6 +1308,11 @@ local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -
 	-- carries its gated partner with it
 	rolePair(
 		"emphasis",
+		{ BackgroundColor3 = "$DangerHover", TextColor3 = "$OnDanger" },
+		{ BackgroundColor3 = "$DangerPressed", TextColor3 = "$OnDanger" }
+	)
+	rolePair(
+		"inverse",
 		{ BackgroundColor3 = "$DangerHover", TextColor3 = "$OnDanger" },
 		{ BackgroundColor3 = "$DangerPressed", TextColor3 = "$OnDanger" }
 	)
@@ -1477,6 +1477,8 @@ local TINT_ROLE_TOKEN: { [string]: string } = {
 	onSelected = "$OnSelected",
 	danger = "$Danger",
 	hairline = "$Hairline",
+	selection = "$Selection",
+	onSelection = "$OnSelection",
 }
 
 function sheet_model.build(opts: BuildOpts): Model
@@ -1553,6 +1555,11 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = ".facet-divider",
 			props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(numbers.HairlineTransparency) },
 		},
+		{
+			name = "Strong divider",
+			selector = `.facet-divider.{T.appearancePrefix}strong`,
+			props = { BackgroundTransparency = num(options.strongHairlineOpacity(x)) },
+		},
 		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
 		{ name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } },
 		-- THE TYPOGRAPHY-ROLE FACES (F2, 2026-08-02). One rule per role that wears
@@ -1569,6 +1576,12 @@ function sheet_model.build(opts: BuildOpts): Model
 			name = "Base surface",
 			selector = "." .. S .. "base",
 			props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0) },
+		},
+		-- a flush pane: the raised fill with no corner and no edge (a sidebar)
+		{
+			name = "Pane surface",
+			selector = "." .. S .. "pane",
+			props = { BackgroundColor3 = "$SurfaceStrong", BackgroundTransparency = num(0) },
 		},
 		{
 			name = "Raised panel",
@@ -1706,7 +1719,7 @@ function sheet_model.build(opts: BuildOpts): Model
 		{
 			name = sheet_model.SCRIM_RULE,
 			selector = "." .. S .. "scrim",
-			props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(numbers.ScrimTransparency) },
+			props = { BackgroundColor3 = "$Scrim", BackgroundTransparency = num(numbers.ScrimTransparency) },
 		},
 		{
 			name = "Grip focus",
@@ -1779,6 +1792,15 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- the compound role x appearance rules, immediately after the roles they must
 	-- beat (see emitVocabularyRoles)
 	emitVocabularyRoles(push)
+	local styles: { any } = {}
+	for _, entry in opts.themes do
+		table.insert(styles, entry.style)
+	end
+	local selectionMarks = options.authoredSelection(styles)
+	local markHover: { Rule } = {}
+	if selectionMarks then
+		options.emitSelectionMark(push, into(markHover), T)
+	end
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO — PRE-ARMED, exactly as
 	-- in `buildPackage` (director round 5). The base seed needs it for the same
@@ -1844,6 +1866,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- the same reason (see emitVocabularyStates). After the generic control ramp,
 	-- before the disabled group which must still beat every interaction state.
 	emitVocabularyStates(push, push, T.pointerLive)
+	pushAll(markHover)
 	pushAll({
 		{
 			name = "Disabled button",
@@ -1892,6 +1915,10 @@ function sheet_model.build(opts: BuildOpts): Model
 		},
 	})
 
+	if x.dimDisabledPlates == true then
+		options.emitDisabledPlates(push, selectionMarks, T, chrome_slots.TAGS.stateDisabled)
+	end
+
 	-- Layout-reference MIRRORS (§6.9 Fallback B): editor-VISIBLE, generator-
 	-- owned attributes regenerated on every apply. Editing them in the editor
 	-- does nothing to layout (the solver reads the Luau tokens) — the styling
@@ -1936,6 +1963,11 @@ function sheet_model.build(opts: BuildOpts): Model
 		end
 	end
 
+	-- a mark's icon art (the checkbox tick) is lettered like its glyph, after every
+	-- icon and on-plate tint it has to beat
+	if selectionMarks then
+		push(options.markIconRule(T, chrome_slots.ICON_PICTURE_TAG))
+	end
 	projectContentRules(rules)
 	-- Explicit partner lettering wins over both name tint and generated-owner color.
 	emitStatusIconTint(function(rule: Rule)
@@ -2172,6 +2204,9 @@ local function effectiveExtra(theme: any): any
 	fill("controlSelected", lerp(x.control, c.accent, 0.35))
 	fill("contentSecondary", lerp(c.content, c.surface, 0.35))
 	fill("hairline", { r = 1, g = 1, b = 1 })
+	fill("selection", c.accent)
+	fill("onSelection", c.onAccent)
+	fill("scrim", c.surface)
 	fill("scrimOpacity", 0.45)
 	fill("hairlineOpacity", 0.92)
 	-- shared with the rung-2 adapter path so the accessibility floor is ONE number
@@ -2366,9 +2401,9 @@ function sheet_model.togglePalette(theme: any): any
 		return { r = v.r, g = v.g, b = v.b }
 	end
 	return {
-		trackOn = rgb(c.accent),
+		trackOn = rgb(x.selection),
 		trackOff = rgb(x.controlPressed),
-		knobOn = rgb(c.onAccent),
+		knobOn = rgb(x.onSelection),
 		knobOff = rgb(c.content),
 	}
 end
@@ -2915,6 +2950,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0) },
 	})
 	emit("surfaces", {
+		name = "Pane surface",
+		selector = "." .. S .. "pane",
+		props = { BackgroundColor3 = "$SurfaceStrong", BackgroundTransparency = num(0) },
+	})
+	emit("surfaces", {
 		name = "Raised panel",
 		selector = "." .. S .. "raised",
 		props = { BackgroundColor3 = "$SurfaceStrong", BackgroundTransparency = num(0) },
@@ -3051,7 +3091,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	emit("surfaces", {
 		name = sheet_model.SCRIM_RULE,
 		selector = "." .. S .. "scrim",
-		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(baseExtra.scrimOpacity) },
+		props = { BackgroundColor3 = "$Scrim", BackgroundTransparency = num(baseExtra.scrimOpacity) },
 	})
 
 	-- roles
@@ -3060,6 +3100,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		name = "Divider",
 		selector = ".facet-divider",
 		props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = hairlineT },
+	})
+	emit("roles", {
+		name = "Strong divider",
+		selector = `.facet-divider.{T.appearancePrefix}strong`,
+		props = { BackgroundTransparency = num(options.strongHairlineOpacity(baseExtra)) },
 	})
 	emit(
 		"roles",
@@ -3122,6 +3167,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	emitVocabularyRoles(function(rule: Rule)
 		emit("roles", rule)
 	end)
+	local markHover: { Rule } = {}
+	if options.authoredSelection(package.style.themes) then
+		options.emitSelectionMark(function(rule: Rule)
+			emit("roles", rule)
+		end, function(rule: Rule)
+			table.insert(markHover, rule)
+		end, T)
+	end
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
 	-- 2026-07-25). The three `Slot — <slot>` rules above are the ACCESSIBILITY
@@ -3757,6 +3810,9 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end, function(rule: Rule)
 		emit("press", rule)
 	end, T.pointerLive)
+	for _, rule in markHover do
+		emit("hover", rule)
+	end
 	-- Chrome interaction states. The decoration child is Active=false and can
 	-- never report a GuiState of its own, so the state is read from its PARENT
 	-- and reaches the child through the child combinator. One base image, four
@@ -3971,6 +4027,9 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			})
 		end
 	end
+	if options.authoredSelection(package.style.themes) then
+		emit("chrome", options.markIconRule(T, chrome_slots.ICON_PICTURE_TAG))
+	end
 
 	emit("disabled", {
 		name = "Disabled button",
@@ -3982,6 +4041,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextBox:NonInteractable",
 		props = { TextTransparency = num(baseExtra.disabledContentOpacity) },
 	})
+	if baseExtra.dimDisabledPlates == true then
+		options.emitDisabledPlates(function(rule: Rule)
+			emit("disabled", rule)
+		end, options.authoredSelection(package.style.themes), T, chrome_slots.TAGS.stateDisabled)
+	end
 	-- ...and the SUBTREE a disabled container turned off — see the legacy builder's
 	-- note beside the same two rules. Emitted by every package, so a swap can never
 	-- leave a disabled panel's labels reading at full contrast.

@@ -1234,6 +1234,7 @@ function snapshot.forDisplay(snap: any, displaySize: any): any
 		-- override may not (`resolve` step 5)
 		if type(out.targetSizes) == "table" and type(out.targetSizes.minimum) == "number" then
 			out.targetSizes.minimum = math.max(pkg.MIN_TARGET_SIZE, out.targetSizes.minimum)
+			out.targetSizes.hit = out.targetSizes.minimum
 		end
 	end
 	out.density = density
@@ -1246,6 +1247,38 @@ function snapshot.forDisplay(snap: any, displaySize: any): any
 	end
 	cached[factor] = frozen
 	return frozen
+end
+
+--[[ forPointer(snapshot) -> the snapshot as presented to a POINTER-ONLY session
+	(dense rows, owner ruling 2026-09-24). A package that authors
+	`targetSizes.pointer` gets it as `targetSizes.hit` — the row pitch and hit
+	floor — and every other snapshot is returned as is. The environment's
+	`themeMetrics` memo applies it after `forDisplay`, only while no touch and no
+	gamepad is present, so the 44 floor returns the moment either appears. ]]
+local pointerCache: any = setmetatable({}, { __mode = "k" })
+function snapshot.forPointer(snap: any): any
+	local sizes = if type(snap) == "table" then snap.targetSizes else nil
+	if
+		type(sizes) ~= "table"
+		or type(sizes.pointer) ~= "number"
+		or type(sizes.hit) ~= "number"
+		or sizes.pointer >= sizes.hit
+	then
+		return snap
+	end
+	local cached = pointerCache[snap]
+	if cached ~= nil then
+		return cached
+	end
+	local lowered = table.clone(sizes)
+	lowered.hit = sizes.pointer
+	local out = table.clone(snap)
+	out.targetSizes = table.freeze(lowered)
+	table.freeze(out)
+	-- a round trip through `env:set` recovers the authored base, never this form
+	densityBases[out] = snapshot.baseOf(snap)
+	pointerCache[snap] = out
+	return out
 end
 
 --[[ paintForDisplay(metricsLike, displaySize, pixelUnit?) -> the PAINT FAMILY,
@@ -1432,6 +1465,16 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 	for size, entry in metrics.controlSizes do
 		out.controlSizes[size] = { height = entry.height, paddingX = entry.paddingX, iconSize = entry.iconSize }
+	end
+	-- the optional `xsmall` rung: authored, or one ladder step below `compact`
+	-- (compact minus the compact-to-regular step, per field, floored at 0)
+	if out.controlSizes.xsmall == nil and out.controlSizes.compact ~= nil and out.controlSizes.regular ~= nil then
+		local compact, regular = out.controlSizes.compact, out.controlSizes.regular
+		local function below(field: string): number
+			return math.max(0, 2 * compact[field] - regular[field])
+		end
+		out.controlSizes.xsmall =
+			{ height = below("height"), paddingX = below("paddingX"), iconSize = below("iconSize") }
 	end
 	for family, entry in metrics.controls do
 		local copy: any = {}
@@ -2232,6 +2275,9 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		out.targetSizes.minimum = math.max(pkg.MIN_TARGET_SIZE, out.targetSizes.minimum)
 	end
 	out.overrides = applied
+	-- the LIVE hit floor: the minimum here; `forPointer` lowers it to an authored
+	-- `targetSizes.pointer` while the input is pointer-only (dense rows)
+	out.targetSizes.hit = out.targetSizes.minimum
 
 	--[[ 6. THE PACKAGE'S OWN TEN-FOOT LADDER, carried but not applied (the
 		metric-ladder contract, clause 2). `metrics.tenFoot` is a map of dotted metric paths to ABSOLUTE

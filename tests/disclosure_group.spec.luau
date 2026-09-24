@@ -551,3 +551,47 @@ describe("DisclosureGroup outline in a ScrollView", function()
 		expect(`{againY},{againCanvas}`).toBe(`{openY},{openCanvas}`)
 	end)
 end)
+
+describe("an outline DisclosureGroup is a tree row", function()
+	it("no header plate or expanded wash, a chosen type role, and an indented body", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 400 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Tree")({
+					width = UI.fill(),
+					UI.DisclosureGroup("G")({
+						label = "Inputs",
+						appearance = "outline",
+						textSize = "label",
+						indent = "m",
+						expanded = Compose.cell(true),
+						content = function()
+							return UI.Text("Row")({ text = "Button" })
+						end,
+					}),
+				}),
+			})
+		end)
+		w.settle(10)
+		local header, label, group, row
+		for _, path in w.adapter.paths() do
+			local node = w.adapter.node(path)
+			if string.match(path, "/Header$") then
+				header = path
+			elseif string.match(path, "/Header/Label$") then
+				label = node
+			elseif string.match(path, "/Tree/G$") then
+				group = node
+			elseif string.match(path, "/Row$") then
+				row = node
+			end
+		end
+		local headerNode = w.adapter.node(header)
+		expect(headerNode.props.surface).toBe("plain")
+		expect(headerNode.props.selected).toBeNil()
+		expect(table.find(w.adapter.tagsOf(header), "facet-selected")).toBeNil()
+		expect(label.props.textSize).toBe(14) -- the label role at Neutral
+		expect(row.rect.x - group.rect.x).toBe(16) -- space.m at Neutral
+	end)
+end)

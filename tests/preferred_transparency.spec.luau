@@ -125,7 +125,10 @@ describe("the scope is a measurement: one partial background in the whole sheet"
 	end
 
 	it("the rules painting a see-through background are the backdrop and the hairline rule", function()
-		expect(table.concat(partialBackgrounds(build()), ", ")).toBe("Divider=0.92, Scrim backdrop=0.45")
+		-- the strong divider is a hairline rule too (a border, outside the preference)
+		expect(table.concat(partialBackgrounds(build()), ", ")).toBe(
+			"Divider=0.92, Scrim backdrop=0.45, Strong divider=0.7600000000000001"
+		)
 	end)
 
 	--[[ ...and the same holds for a compiled THEME PACKAGE, which is the shipped
@@ -134,9 +137,10 @@ describe("the scope is a measurement: one partial background in the whole sheet"
 		reddening. ]]
 	it("...and in a compiled theme package too, whatever its own dim is", function()
 		local found = partialBackgrounds(sheet_model.buildPackage(neutralPackage()))
-		expect(#found).toBe(2)
+		expect(#found).toBe(3)
 		expect(string.match(found[1], "^Divider=") ~= nil).toBe(true)
 		expect(string.match(found[2], "^Scrim backdrop=") ~= nil).toBe(true)
+		expect(string.match(found[3], "^Strong divider=") ~= nil).toBe(true)
 	end)
 
 	--[[ THE DECLARED SCOPE, ASSERTED AGAINST THE MEASURED ONE. `PREFERENCE_RULE_PROPS`
@@ -163,7 +167,7 @@ describe("the scope is a measurement: one partial background in the whole sheet"
 		end
 		table.sort(measured)
 
-		expect(table.concat(measured, ", ")).toBe("Divider, Scrim backdrop")
+		expect(table.concat(measured, ", ")).toBe("Divider, Scrim backdrop, Strong divider")
 		expect(table.concat(declared, ", ")).toBe(sheet_model.SCRIM_RULE)
 		expect(#declared).toBe(1)
 	end)

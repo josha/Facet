@@ -151,7 +151,7 @@ describe("UI.Foreign: strict authoring (a)", function()
 	end)
 
 	it("enforces the eight-surface vocabulary on the plate BEHIND the content", function()
-		for _, surface in { "base", "raised", "control", "chip", "badge", "accent", "scrim", "plain" } do
+		for _, surface in { "base", "raised", "pane", "control", "chip", "badge", "accent", "scrim", "plain" } do
 			local ok = pcall(function()
 				UI.Foreign({ id = "Video", surface = surface })
 			end)
@@ -161,7 +161,7 @@ describe("UI.Foreign: strict authoring (a)", function()
 			UI.Foreign({ id = "Video", surface = "glass" })
 		end)
 		expect(contains(err, "Foreign.surface")).toBe(true)
-		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
+		expect(contains(err, "base | raised | pane | control | chip | badge | accent | scrim | plain")).toBe(true)
 	end)
 end)
 

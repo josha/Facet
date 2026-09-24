@@ -31,9 +31,11 @@ local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
 	"chevronPosition",
 	"appearance",
 	"controlSize",
+	"textSize",
+	"indent",
 })
 
-local APPEARANCES = { "plain", "contained", "divided" }
+local APPEARANCES = { "plain", "contained", "divided", "outline" }
 local APPEARANCE_SET = specGuard.keySet(APPEARANCES)
 local POSITIONS = { "leading", "trailing" }
 local POSITION_SET = specGuard.keySet(POSITIONS)
@@ -91,6 +93,10 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		)
 	end
 	vocabulary.assertSize("UI.DisclosureGroup", spec.controlSize)
+	-- the header's type role (label, caret, icon); `control` as before
+	local textSize = spec.textSize or "control"
+	-- an outline row: no header plate and no expanded wash, like a tree row
+	local outline = appearance == "outline"
 
 	local headerPath: string? = nil
 	local rootPath: string? = nil
@@ -154,19 +160,20 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 			id = "Reveal",
 			clipChildren = true,
 			width = { type = "fill", weight = 1 },
+			padding = if spec.indent ~= nil then { left = spec.indent, right = 0, top = 0, bottom = 0 } else nil,
 			children = { spec.content() },
 		})
 	end
 	local reveal, adoptReveal =
 		regionTransitions.branch({ enter = "reveal", class = "dismiss", exitClass = "dismiss" }, expanded, content)
 	local caret = chrome_slots.attachHint(
-		UI.Text({ id = "Caret", text = CARET, textSize = "control", rotation = caretAngle }),
+		UI.Text({ id = "Caret", text = CARET, textSize = textSize, rotation = caretAngle }),
 		{ icon = "chevron.trailing" }
 	)
 	local title: any = UI.Text({
 		id = "Label",
 		text = spec.label,
-		textSize = "control",
+		textSize = textSize,
 		width = { type = "fill", weight = 1 },
 	})
 	if spec.description ~= nil then
@@ -178,7 +185,7 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 				UI.Text({
 					id = "Label",
 					text = spec.label,
-					textSize = "control",
+					textSize = textSize,
 					width = { type = "fill", weight = 1 },
 				}),
 				UI.Text({
@@ -201,7 +208,7 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		table.insert(
 			headerChildren,
 			chrome_slots.attachHint(
-				UI.Text({ id = "Icon", text = themePackage.iconGlyph(spec.icon) or "", textSize = "control" }),
+				UI.Text({ id = "Icon", text = themePackage.iconGlyph(spec.icon) or "", textSize = textSize }),
 				{ icon = spec.icon }
 			)
 		)
@@ -220,7 +227,8 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		id = "Header",
 		label = spec.label,
 		enabled = spec.enabled,
-		selected = expanded,
+		selected = if outline then nil else expanded,
+		surface = if outline then "plain" else nil,
 		gap = "xs",
 		width = { type = "fill", weight = 1 },
 		height = sizedHeight or { type = "minMax", min = "targetSizes.minimum" },
@@ -309,6 +317,8 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 			chevronPosition = chevronSide,
 			appearance = appearance,
 			controlSize = selection.read(spec.controlSize),
+			textSize = textSize,
+			indent = spec.indent,
 			expanded = selection.read(expanded),
 			headerPath = headerPath,
 			semanticText = `{spec.label}: {if selection.read(expanded) then "expanded" else "collapsed"}`,

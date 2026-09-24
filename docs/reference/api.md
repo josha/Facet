@@ -528,7 +528,7 @@ Three groups recur in the column below and are worth naming once:
 | `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
-| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `TextField`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
+| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `TextField`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node; `"pane"` is the raised fill flush (no corner, no edge) — a sidebar or split pane beside the page |
 | `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order — both derivations (linear and directional), and every group, including the ones a control contributes for itself and a `navigationGroups` map you declare (a **static array** is filtered when the surface is presented; use the **function** form for a map that must follow a reactive `enabled`, which is the same rule `hidden` has always had) — refuses activation on every input class, and takes no pointer, touch or drag. The themed disabled state reaches the **text** of that subtree. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule, what is painted, and what is not |
 | `tint` | layout containers (subtree only), `Box`, `Text`, `Image`, `Path`, `Stage` | the one continuous colour channel. On a painting class it paints that class's own channel; on a layout container it paints nothing and is **inherited** by the subtree. See [Continuous colour](#continuous-colour-tint) for the value forms and [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
@@ -643,7 +643,9 @@ solve — which is why installing or swapping a theme changes geometry without
 rebuilding a blueprint. A name is either a spacing step (`"xs"`, `"tight"`,
 `"s"`, `"m"`, `"l"`, `"xl"`, or the derived screen-edge step `"gutter"`) or a
 dotted path into the snapshot
-(`"targetSizes.minimum"`, `"controlSizes.large.height"`,
+(`"targetSizes.minimum"`, `"targetSizes.hit"` — the live hit floor, which a
+theme's optional `targetSizes.pointer` lowers while the input is pointer-only —
+`"controlSizes.large.height"`,
 `"controls.slider.thumbSize"`, `"strokes.hairline"`, `"radii.panel"`,
 `"controls.decorative.minimum"` — the theme-owned floor for a non-text decorative
 box with nothing of its own to measure, `"controls.focusRing.thickness"` — the
@@ -676,7 +678,7 @@ selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `onSelected` — the label colour the theme itself chose to read on `controlSelected`, gated at 4.5:1 — `danger`, `onDanger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `onSelected` — the label colour the theme itself chose to read on `controlSelected`, gated at 4.5:1 — `danger`, `onDanger`, `hairline`, `selection`, `onSelection` — the ink an on or chosen indicator paints and its partner, the accent pair unless the theme authors them), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -798,6 +800,12 @@ always had. Beyond that, **one rule ships**: every theme — Facet Neutral and
 every package — emits `Disabled subtree text`, which selects a `TextLabel`
 carrying the `facet-state-disabled` tag and dims it to that theme's own
 `disabledContentOpacity`.
+
+A theme that sets `extra.dimDisabledPlates = true` also fades the **plate**: every
+Button fill (standard, selected, accent, emphasis, soft, destructive, a selected
+chip) and a disabled checkbox box blend toward the page by the same
+`disabledContentOpacity`, so the whole control reads disabled. Unset (every shipped
+theme), only the label dims.
 
 Three consequences, all deliberate, none of them a bug to report:
 
@@ -1552,7 +1560,7 @@ unknown arrangement name, a `floor` that states neither `lines` nor `targets`.
 
 ### `Divider`
 
-`UI.Divider{ id?, axis?, thickness?, width?, height? }` — an axis-aware hairline.
+`UI.Divider{ id?, axis?, thickness?, appearance?, width?, height? }` — an axis-aware hairline.
 It **infers its orientation from the enclosing stack**, so one declaration reads
 correctly in both: inside a `VStack` it is a horizontal line spanning the cross
 axis, and inside an `HStack` a vertical one. Inside an `AdaptiveStack` it follows
@@ -1581,6 +1589,11 @@ surface it sits on rather than as a bar of the raw hairline colour, and a packag
 that wants a bolder separator authors one number for its strokes and its dividers
 together. The player's background-transparency preference does not move it: a
 divider is a border, and borders are outside that preference's scope.
+
+**`appearance = "strong"`** (bindable; default `"standard"`) paints a heavier rule —
+a pane edge rather than a row separator — at the theme's `extra.strongHairlineOpacity`
+(unset: three times as visible as the hairline). It is a style tag like the rest of
+the divider's paint, so it needs native styling to show.
 
 ### `Grid`
 
@@ -1778,7 +1791,7 @@ deliberately; an engaged variant remains a possible future value. Inert while th
 text fits, exactly like `disclose`.
 
 **`surface` on a Text is `"badge"` or `"chip"` — and only those two.** Box and
-Image take the full eight-surface vocabulary; a Text takes the two that are
+Image take the full nine-surface vocabulary; a Text takes the two that are
 read-only by nature:
 
 | Value | What it is |
@@ -2019,13 +2032,13 @@ its outer surfaces. It does not change focus order or activation.
 
 
 `UI.Button{ id?, label (required), compactLabel?, disclose?, enabled?, selected?,
-role?, shape?, icon?, controlSize?, appearance?, over?, gap?, align?, help?, surface?, textSize?, padding?,
+role?, shape?, icon?, controlSize?, appearance?, underline?, over?, gap?, align?, help?, surface?, textSize?, padding?,
 focusable?, focusVisual?, traversalPriority?, onActivate?, children?,
 onPointerDown?, onPointerMove?, onPointerUp?, onPointerCancel? }` — activatable
 control.
 
-**`controlSize`** (`"compact" | "regular" | "large"`, bindable) and
-**`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link"`,
+**`controlSize`** (`"xsmall" | "compact" | "regular" | "large"`, bindable) and
+**`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link" | "inverse"`,
 bindable) are the **paint half** of the shared local vocabulary — each becomes one
 style tag (`facet-size-<rung>`, `facet-appearance-<word>`) that the theme's rules
 key on, exactly as `role` does. Neither moves geometry: the *measurements* of a
@@ -2034,7 +2047,12 @@ which a composite authors as ordinary `height`/`padding` props. `appearance` is
 emphasis only and composes with `role`, which stays the semantic channel:
 `role = "destructive", appearance = "utility"` is a quiet delete. `"standard"` is
 the paint an untagged button already has and earns no tag. Absent on both means
-today's paint, unchanged. **`over = "media"`** (construction-only) is the one tag
+today's paint, unchanged. `"inverse"` is a light plate on a dark theme (and the
+reverse): the theme's `extra.inverseSurface` / `onInverse` pair, unset
+`contentStrong` lettered in `surface`. **`underline`** (`"always" | "hover"`,
+construction-only, text buttons only) draws the label underlined — always, or while
+the pointer is over it or it holds painted focus; it is the usual cue on an
+`appearance = "link"` button. **`over = "media"`** (construction-only) is the one tag
 for a control drawn on top of artwork: it takes the theme's strong opaque surface
 and the content colour gated against it, instead of the caller painting a scrim.
 
@@ -2539,7 +2557,7 @@ UI.Stage({
 })
 ```
 
-`surface` is the standard eight-surface vocabulary (`base`, `raised`, `control`,
+`surface` is the standard nine-surface vocabulary (`base`, `raised`, `pane`, `control`,
 `chip`, `badge`, `accent`, `scrim`, `plain`) and paints the plate *behind* the
 scene. **`tint`** (see [above](#continuous-colour-tint)) claims the frame's own
 `ImageColor3` — a stage's "picture" is the scene it renders, and the engine
@@ -2632,7 +2650,7 @@ UI.Foreign({
 })
 ```
 
-`surface` is the standard eight-surface vocabulary and paints the container, which
+`surface` is the standard nine-surface vocabulary and paints the container, which
 Facet owns. There is deliberately **no `tint`**: a tint multiplies the node's own
 picture, and this node's picture is *your* instance — painting it would be the
 framework writing the content it exists to disclaim.
@@ -8083,7 +8101,12 @@ reading.
 One boolean selection control with `presentation = "switch"` (default),
 `"checkbox"`, or `"button"`. Required `value` is a boolean Compose readable or
 `function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
-`row`, `hint`, `indicatorPosition`, `controlSize`, `width`, and `children` (custom button content only).
+`row`, `hint`, `indicatorPosition`, `controlSize`, `width`, `appearance`, `textSize`, and `children` (custom button content only).
+
+`appearance = "plain"` makes a switch or checkbox a bare row: no plate and no
+selected wash, so the indicator alone carries the state (a toolbar checkbox beside
+compact dropdowns). The button presentation refuses it — its plate is the state.
+`textSize` is the label's type role (default `"control"`); a hint keeps `"label"`.
 
 Use a Toggle for one setting that is on or off and takes effect at once. For a
 compact filter tag in a row of tags, use `UI.Chip`; for one choice from three
@@ -8105,7 +8128,7 @@ Button presentation keeps its trailing state word and refuses indicatorPosition.
 in a row, since `hint` and `row` cannot be combined. `row` and `children` cannot
 be combined, and `row.value` is refused because the toggle supplies it.
 
-Bindable `controlSize` uses the shared compact/regular/large ladder; nil restores
+Bindable `controlSize` uses the shared xsmall/compact/regular/large ladder; nil restores
 the default. Bare switches retain native track padding. A row's internal indicator
 has no independent focus or command: the row owns activation and model approval.
 Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
@@ -8158,7 +8181,7 @@ adopts them takes the same words with the same meanings.
 
 | key | values | reactive | what it does |
 |---|---|---|---|
-| `controlSize` | `"compact"` / `"regular"` / `"large"` | yes | resolves to the theme ladder `controlSizes.<rung>.{height,paddingX,iconSize}` as **metric names**, so a theme swap re-sizes the button with no rebuild, and to one style tag for the paint |
+| `controlSize` | `"xsmall"` / `"compact"` / `"regular"` / `"large"` | yes | resolves to the theme ladder `controlSizes.<rung>.{height,paddingX,iconSize}` as **metric names**, so a theme swap re-sizes the button with no rebuild, and to one style tag for the paint. `xsmall` is optional in a theme: unauthored it is one ladder step below `compact` (28/4/12 at Neutral); its plate paints under the touch floor and the reserved footprint keeps the 44 hit target |
 | `appearance` | `"standard"` / `"emphasis"` / `"soft"` / `"utility"` / `"link"` | yes | visual emphasis only, through a style tag |
 | `corners` | `"pill"` / `"square"` | no | the corner treatment, through the shipped `UI.corners` modifier. `"square"` is a radius of 0, never a 1:1 box — the disc is `UI.Button{ shape = "circle" }` |
 | `over` | `"media"` | no | the control is drawn over artwork: it takes the theme's strong opaque surface and its readable content colour |
@@ -8475,8 +8498,11 @@ every adjacent pair, and a selected row's fill is the row itself — the theme's
 `accent` under an `onAccent` label, the one pair every theme guarantees at
 4.5:1. Under `sheet` the rows are unchanged.
 
-Each floating row is at least the target floor (`targetSizes.minimum`) tall, so
-two rows' hit rects never overlap. A plain row's label leads, exactly as a row
+Each floating row is at least the live hit floor (`targetSizes.hit`) tall, so
+two rows' hit rects never overlap. `targetSizes.hit` is `targetSizes.minimum`,
+except under a theme that authors `targetSizes.pointer`: while the input is
+pointer-only (no touch, no gamepad) it is that dense pitch, the rows drop their
+vertical inset, and they grow back the moment touch or a gamepad appears. A plain row's label leads, exactly as a row
 with a badge or a shortcut does; its `icon` stays the compact form of its words.
 
 It attaches to **any** node. `spec.trigger` is a node you authored; the
@@ -9917,7 +9943,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `onChange(value)` | Accepted changes only; runs in the selection transaction and must not yield. |
 | `enabled` | Boolean/readable boolean, default true; applies to all choices. |
 | `axis` | Strip styles: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
-| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. The field form (title above the trigger) ignores it. Other styles and unlabeled pickers are unaffected. |
+| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. `end` at a regular or wider width takes the field form (title above the trigger); `start` keeps the one-line row at every width until the accessibility text sizes stack it, and with `sizing = "hug"` the whole `label [value]` pair hugs its content (a toolbar setting). Other styles and unlabeled pickers are unaffected. |
 | `sizing` | `fill` or `hug`, optionally readable. A strip defaults to `fill`; a hugging horizontal strip can live in a ScrollView. A `menu` trigger without a title defaults to `hug` under a pointer (the pop-up button) and `fill` under touch. |
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
@@ -10061,7 +10087,11 @@ customization? (a writable cell), placement? ("automatic" | "bottomBar" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
 conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"),
-sidebarPreference?, restoreFocus?, restoreScroll?, shoulderNavigation? }`.
+sidebarPreference?, restoreFocus?, restoreScroll?, shoulderNavigation?, controlSize? }`.
+
+**`controlSize`** (`"xsmall" | "compact" | "regular" | "large"`, bindable) is the
+tabs' local rung: each tab paints at `controlSizes.<rung>.height` while the strip
+still reserves the touch floor.
 
 A tab's **`indicator`** is a [`UI.StatusIndicator`](#uistatusindicator) spec
 (`{ form?, status?, count?, max? }`) painted in that tab's own segment, in the lane
@@ -10295,12 +10325,17 @@ and `dispose()`.
 
 A labelled header that expands and collapses its content. `spec = { id?, label
 (required), expanded (a writable boolean cell), content (() -> Node), enabled?,
-onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, controlSize? }`.
+onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, controlSize?,
+textSize?, indent? }`.
 
 `description` is bindable secondary copy; `icon` is a semantic icon name.
 `chevronPosition` is leading (default) or trailing. `appearance` is plain (default),
-contained (a raised group), or divided (a separator while expanded). Bindable
-`controlSize` uses the shared rung and restores the default when nil.
+contained (a raised group), divided (a separator while expanded), or outline — a
+tree row: the header paints no plate and no expanded wash (it keeps focus and
+activation). `textSize` is the header's type role (label, caret and icon; default
+`"control"`); `indent` insets the content's leading edge by a space step or px, so
+nested groups read as an outline. Bindable `controlSize` uses the shared rung and
+restores the default when nil.
 
 Use a DisclosureGroup to hide optional detail or advanced settings under a
 heading, pushing the content below it down. For a summary button that expands
@@ -10389,7 +10424,7 @@ once, so reduced motion changes nothing.
 | `thumbContent(info)` | Called once per thumb at build; returns the knob node. `info = { thumb = "value" \| "lower" \| "upper", value, fraction, dragging, enabled }`, the last four readables. The knob sits in a handle floored at the theme's thumb size that grows to fit it; it drops only its own `sliderThumb` slot, and travel is measured from what is drawn. Refused with `thumbImage`. |
 | `trackContent()` | Called once at build; returns the track's node (a colour ramp), centred in the track and replacing the rail and its accent fill — the strip is the value's scale. Refused with `trackImage`. |
 | `rotation` | Bound degrees, default 0: paint-only about the track's centre. Presses are converted by the inverse angle at event time (scroll included); label and readout stay upright and the row keeps its unrotated layout box, so reserve room for the turned paint. Ancestor `scale` is not composed into input. |
-| `controlSize` | `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
+| `controlSize` | `"xsmall"`, `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
 
 A range's two handles share one focus group: Tab visits both and then leaves,
 and keyboard arrows adjust the focused handle. On a gamepad-primary surface the
@@ -10846,7 +10881,7 @@ end)
 | `hint` | String or readable string on the one message line under the field at rest. Wraps; unbreakable text stays reachable through disclosure. |
 | `errorText` | String or readable string. Non-empty replaces the hint and the numeric rejection line, paints the danger role beside the `status.error` mark, keeps the field's position, and does not shake (`invalid` keeps that meaning). |
 | `leading` / `trailing` | Blueprints inside the plate. Leading is static decoration and adds no stop; a search field refuses it. Trailing sits after the clear affordance, and its focusables join the field's focus order after the editor and clear. |
-| `controlSize` | `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
+| `controlSize` | `"xsmall"`, `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
 | `appearance` | `"standard"` (default chip plate), `"contrast"` (control plate) or `"utility"` (no plate). Bound words repaint in place; a word outside the set is refused and the last legal paint stays. |
 | `corners` | Construction-time `"pill"` or `"square"`; absent keeps the theme radius. |
 | `readOnly` | Boolean or readable boolean, default false. True keeps the field focusable, selectable, at full contrast and able to show a caret, but the engine and the model refuse every edit; the clear affordance is not offered and leaving the field commits nothing. Live changes keep the same editor and edit. |
@@ -13442,8 +13477,8 @@ with the body moves your content one level down, into `Body/Inset`.
 | `isPresented` | Optional caller-owned writable Compose cell of a boolean; needs a presenter |
 | `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss, and Cancel runs no cancel action; the explicit Close button, the caller's own action buttons and `dismiss()` still work |
 | `dragIndicator` | `"automatic"` (default), `"visible"`, or `"hidden"`. Automatic shows the header grip while pointer or touch is available |
-| `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"bottom"`, `"center"`, or `"side"` |
-| `edge` | `"left"` or `"right"` (default); only with `placement = "side"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
+| `placement` | Construction-only: `"automatic"` (default: centered at ten-foot, otherwise bottom), `"adaptive"` (as automatic, but a regular-or-wider width with a pointer and no touch docks it on the side edge — a desktop inspector; resolved live), `"bottom"`, `"center"`, or `"side"` |
+| `edge` | `"left"` or `"right"` (default); only with `placement = "side"` or `"adaptive"`. Physical edges: the sheet docks there, bottom-aligned, and slides in from and out toward that edge |
 | `width` | `"automatic"` (default, `controls.alert.maxWidth`), `"narrow"` (`controls.popup.panelWidth`) or `"wide"` (`controls.dialog.wideWidth`): the Dialog presets, bounded by the safe room |
 | `closeButton` | Defaults to true. Independent of `interactiveDismissDisabled` |
 | `header` | Construction-only. Absent shows `title`; a blueprint replaces the title region and sizes itself; `false` removes it. Size and Close stay in every form |
@@ -13614,7 +13649,7 @@ surface decoration. Use `UI.ProgressView` when the player needs a progress value
 or activity indicator; use Skeleton when the pending content's shape is useful.
 
 `form` is required: `"box"`, `"line"`, or `"circle"`. `controlSize` accepts a
-static or bound `"compact" | "regular" | "large"`; absent means regular. Box and
+static or bound `"xsmall" | "compact" | "regular" | "large"`; absent means regular. Box and
 circle use the rung's control height; line uses its icon size. A line's positive
 whole `lines` count defaults to one. Multiple lines have theme-small gaps and a
 60% final line. Box/line accept bound `width` and `height` dimensions; their

@@ -39,7 +39,7 @@ export type Spec<V = StringCell> = {
 	errorText: blueprint.Bound<string>?, -- non-empty replaces the hint; shakes nothing
 	leading: any?, -- a static blueprint inside the plate, before the editor
 	trailing: any?, -- a blueprint inside the plate, after the clear affordance
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	appearance: blueprint.Bound<("standard" | "contrast" | "utility")?>?,
 	corners: ("pill" | "square")?,
 	-- focusable, selectable and full contrast, accepting no edit; not `enabled = false`

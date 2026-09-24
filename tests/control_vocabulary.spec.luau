@@ -58,8 +58,47 @@ local function targetOf(w: any, id: string): any
 end
 
 describe("the local size vocabulary resolves the theme ladder by NAME", function()
-	it("names the three rungs and nothing else", function()
-		expect(table.concat(vocabulary.SIZES, ",")).toBe("compact,regular,large")
+	it("names the four rungs and nothing else", function()
+		expect(table.concat(vocabulary.SIZES, ",")).toBe("xsmall,compact,regular,large")
+	end)
+
+	it("xsmall is one ladder step below compact unless the theme authors it", function()
+		-- Neutral: compact 36/8/16, regular 44/12/20 -> xsmall 28/4/12
+		local rung = NEUTRAL.controlSizes.xsmall
+		expect(rung.height).toBe(28)
+		expect(rung.paddingX).toBe(4)
+		expect(rung.iconSize).toBe(12)
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "xs", displayName = "XS", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { controlSizes = { xsmall = { height = 24, paddingX = 8, iconSize = 12 } } },
+		})
+		expect(snapshot.resolve(pkg).controlSizes.xsmall.height).toBe(24)
+		local bad, report = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "xb", displayName = "XB", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { controlSizes = { xsmall = { height = 24 } } },
+		})
+		expect(bad).toBeNil()
+		expect(string.find(report.errors[1].message, "xsmall", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("an xsmall Button and Chip paint 28 inside a 44 hit footprint", function()
+		local w = world.new()
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Rows")({
+					UI.Button("Tiny")({ label = "Go", controlSize = "xsmall" }),
+					UI.Chip("TinyChip")({ label = "Tag", selected = Facet.Compose.cell(false), controlSize = "xsmall" }),
+				}),
+			})
+		end)
+		for _, id in { "Tiny", "TinyChip" } do
+			expect(rectOf(w, pathOf(w, id)).h).toBe(28)
+			expect(targetOf(w, id).h >= FLOOR).toBe(true)
+			expect(tagsOf(w, pathOf(w, id))["facet-size-xsmall"]).toBe(true)
+		end
 	end)
 
 	it("a rung becomes the ladder's metric PATHS, never a resolved number", function()
@@ -1093,5 +1132,146 @@ describe("control plate policy and passive classification", function()
 		expect(tagsOf(w, node.path)["facet-over-media"]).toBe(nil)
 		w.adapter.setProp(node, "over", "media")
 		expect(tagsOf(w, node.path)["facet-over-media"]).toBe(true)
+	end)
+end)
+
+describe("a Button's textSize reaches the label it draws beside an icon", function()
+	it("icon + label draws the label at the authored role", function()
+		local w = world.new()
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Rows")({
+					UI.Button("Browse")({
+						label = "Browse",
+						icon = "menu",
+						textSize = "label",
+						controlSize = "compact",
+					}),
+				}),
+			})
+		end)
+		expect(propsOf(w, pathOf(w, "Browse/Label")).textSize).toBe(14) -- the label role at Neutral
+	end)
+end)
+
+describe("a link's underline", function()
+	it('`underline = "hover"` underlines the label while hovered and clears it after', function()
+		local w = world.new({ preferredInput = "KeyboardAndMouse" })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Rows")({
+					UI.Button("More")({ label = "Learn & more", appearance = "link", underline = "hover" }),
+					UI.Button("Always")({ label = "Terms", appearance = "link", underline = "always" }),
+				}),
+			})
+		end)
+		local label = pathOf(w, "More/Label")
+		expect(propsOf(w, label).text).toBe("Learn &amp; more")
+		expect(propsOf(w, pathOf(w, "Always/Label")).text).toBe("<u>Terms</u>")
+		w.adapter.hover(pathOf(w, "More"))
+		w.settle(2)
+		expect(propsOf(w, label).text).toBe("<u>Learn &amp; more</u>")
+		w.adapter.unhover(pathOf(w, "More"))
+		w.settle(2)
+		expect(propsOf(w, label).text).toBe("Learn &amp; more")
+	end)
+end)
+
+--[[ DENSE POINTER ROWS (owner ruling 2026-09-24, option A). A theme's optional
+	`targetSizes.pointer` is the row pitch and hit floor while the live input is
+	pointer-only; touch or a gamepad present puts the 44 floor back, live. ]]
+describe("dense pointer rows", function()
+	local POINTER = 28
+	local function dense(): any
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "dense", displayName = "Dense", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { targetSizes = { minimum = 44, pointer = POINTER } },
+		})
+		return snapshot.resolve(pkg)
+	end
+	local ROWS = { "RowA", "RowB", "RowC" }
+	local function rows(themeMetrics: any?, capabilities: any?): any
+		local w = world.new({
+			themeMetrics = themeMetrics,
+			capabilities = capabilities or { mouse = true, keyboard = true, touch = false, gamepad = false },
+			preferredInput = "KeyboardAndMouse",
+		})
+		local UI = w.UI
+		w.present(function()
+			local list = { gap = 0, width = UI.fill() }
+			for _, id in ROWS do
+				table.insert(
+					list,
+					UI.Button(id)({ label = id, appearance = "link", controlSize = "xsmall", width = UI.fill() })
+				)
+			end
+			return UI.Screen("S")({ UI.VStack("List")(list) })
+		end)
+		return w
+	end
+	-- every row's footprint pitch and hit height, and whether neighbours overlap
+	local function measure(w: any): ({ number }, boolean)
+		local heights, overlap = {}, false
+		local previous: any = nil
+		for _, id in ROWS do
+			local hit = targetOf(w, id)
+			table.insert(heights, math.round(hit.h))
+			if previous ~= nil and overlaps(previous, hit) then
+				overlap = true
+			end
+			previous = hit
+		end
+		return heights, overlap
+	end
+
+	it("pointer-only: rows stack at the theme's pointer floor and each hit is its own row", function()
+		local w = rows(dense())
+		local heights, overlap = measure(w)
+		expect(table.concat(heights, ",")).toBe("28,28,28")
+		expect(overlap).toBe(false)
+		expect(rectOf(w, pathOf(w, "RowA+target")).h).toBe(POINTER)
+	end)
+
+	it("Neutral, and touch or a gamepad present, keep the 44 floor", function()
+		local heights = measure(rows(nil))
+		expect(table.concat(heights, ",")).toBe("44,44,44")
+		heights = measure(rows(dense(), { mouse = true, keyboard = true, touch = true, gamepad = false }))
+		expect(table.concat(heights, ",")).toBe("44,44,44")
+		heights = measure(rows(dense(), { mouse = true, keyboard = true, touch = false, gamepad = true }))
+		expect(table.concat(heights, ",")).toBe("44,44,44")
+	end)
+
+	it("a live input switch grows the rows back to 44 and returns them to dense, both ways", function()
+		local w = rows(dense())
+		local pointerOnly = { mouse = true, keyboard = true, touch = false, gamepad = false }
+		for _, step in
+			{
+				{ caps = { mouse = true, keyboard = true, touch = true, gamepad = false }, want = "44,44,44" },
+				{ caps = pointerOnly, want = "28,28,28" },
+				{ caps = { mouse = true, keyboard = true, touch = false, gamepad = true }, want = "44,44,44" },
+				{ caps = pointerOnly, want = "28,28,28" },
+			}
+		do
+			w.env:set("capabilities", step.caps)
+			w.settle()
+			local heights, overlap = measure(w)
+			expect(table.concat(heights, ",")).toBe(step.want)
+			expect(overlap).toBe(false)
+		end
+	end)
+
+	it("the pointer floor is validated: at least 24 and no larger than the minimum", function()
+		for _, bad in { 20, 48 } do
+			local pkg, report = Facet.themes.define({
+				base = snapshot.neutralPackage(),
+				identity = { id = "bad", displayName = "Bad", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+				metrics = { targetSizes = { minimum = 44, pointer = bad } },
+			})
+			expect(pkg).toBeNil()
+			expect(report.errors[1].field).toBe("metrics.targetSizes.pointer")
+		end
 	end)
 end)

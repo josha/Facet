@@ -981,6 +981,9 @@ function screen_paint.new(ctx: any)
 		if surface == "base" then
 			instance.BackgroundTransparency = 0
 			instance.BackgroundColor3 = COLOR.surface
+		elseif surface == "pane" then
+			instance.BackgroundTransparency = 0
+			instance.BackgroundColor3 = COLOR.surfaceStrong
 		elseif surface == "raised" then
 			instance.BackgroundTransparency = 0
 			instance.BackgroundColor3 = COLOR.surfaceStrong
@@ -1083,7 +1086,7 @@ function screen_paint.new(ctx: any)
 			-- two paint modes cannot drift apart about what the player asked for.
 			instance.BackgroundTransparency =
 				sheet_model.backdropTransparency(style.extra.scrimOpacity, preferredTransparency())
-			instance.BackgroundColor3 = toColor3(style.colors.surface)
+			instance.BackgroundColor3 = toColor3(style.extra.scrim or style.colors.surface)
 			local chrome = instance:FindFirstChild("Hairline")
 			if chrome then
 				chrome:Destroy()

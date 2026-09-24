@@ -41,7 +41,7 @@ export type Spec<V = NumberCell> = {
 	thumbContent: ((info: ThumbInfo) -> any)?, -- the caller's knob, once per thumb
 	trackContent: (() -> any)?, -- the caller's track (a colour ramp), replacing the rail and fill
 	rotation: blueprint.Bound<number>?, -- paint-only degrees about the track's centre
-	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	controlSize: blueprint.Bound<("xsmall" | "compact" | "regular" | "large")?>?,
 	thumbImage: (string | { [string]: any })?,
 	trackImage: (string | { [string]: any })?,
 }

@@ -1952,3 +1952,46 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		end
 	end)
 end)
+
+-- DENSE POINTER ROWS (owner ruling 2026-09-24): a theme's `targetSizes.pointer`
+-- is the floating menu's row pitch while the input is pointer-only
+describe("Menu rows under a dense pointer theme", function()
+	it("rows take the pointer floor, each hit is its row, and a gamepad grows them to 44 live", function()
+		local snapshot = require("../src/themes/snapshot")
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = { id = "dense", displayName = "Dense", schemaVersion = Facet.themes.SCHEMA, version = "1.0.0" },
+			metrics = { targetSizes = { minimum = 44, pointer = 28 } },
+		})
+		local w = world({ presentation = "menu" })
+		w.env:set("themeMetrics", snapshot.resolve(pkg))
+		w.env:set("capabilities", { mouse = true, keyboard = true, touch = false, gamepad = false })
+		w.control.api.open()
+		w.pres.refresh()
+		local function pitch(): (string, boolean)
+			local out, previous, overlap = {}, nil, false
+			for _, item in ITEMS do
+				local path = rowPath(0, item.id)
+				local hit = w.adapter.hitRectOf(path) or w.adapter.node(path).rect
+				table.insert(out, tostring(math.round(hit.h)))
+				if previous ~= nil and hit.y < previous.y + previous.h then
+					overlap = true
+				end
+				previous = hit
+			end
+			return table.concat(out, ","), overlap
+		end
+		expect((pitch())).toBe("28,28,28")
+		w.env:set("capabilities", { mouse = true, keyboard = true, touch = false, gamepad = true })
+		w.pres.refresh()
+		-- back to the shipped row: the 44 floor, grown by its content as in Neutral
+		local tall, overlap = pitch()
+		expect(tall).toBe("46,46,46")
+		expect(overlap).toBe(false)
+		w.env:set("capabilities", { mouse = true, keyboard = true, touch = false, gamepad = false })
+		w.pres.refresh()
+		local dense, denseOverlap = pitch()
+		expect(dense).toBe("28,28,28")
+		expect(denseOverlap).toBe(false)
+	end)
+end)

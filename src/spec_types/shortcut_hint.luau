@@ -6,7 +6,7 @@ export type Spec = {
 	action: string?,
 	keys: { { string } }?,
 	separator: blueprint.Bound<string>?,
-	controlSize: blueprint.Bound<"compact" | "regular" | "large">?,
+	controlSize: blueprint.Bound<"xsmall" | "compact" | "regular" | "large">?,
 	over: "media"?,
 	env: environment.Env?,
 }

@@ -71,6 +71,34 @@ detail and every behaviour or path change.
   `reset()`; the showcase settings Display section gains "Reset everything to
   Automatic".
 
+### Theme roles and control options for a neutral design system
+
+- **Optional palette roles.** A theme may author `extra.selection` /
+  `onSelection` (the switch track and knob, slider fill and tab underline read
+  them; unset they are the accent pair), `extra.scrim` (the modal backdrop's
+  colour; unset it is `surface`) and `extra.inverseSurface` / `onInverse`.
+  Authoring `selection` also paints a selected `Chip`, a checked checkbox (box and
+  tick) and a selected link row with it; without it those keep the selected-row wash.
+- **`extra.dimDisabledPlates = true`** fades a disabled control's plate with its
+  label; `extra.strongHairlineOpacity` and the optional metric `strokes.utility`
+  (0 = a bare utility plate) retune the new strong divider and the utility outline.
+- **`controlSize = "xsmall"`** on every control that takes a rung. A theme may
+  author `controlSizes.xsmall`; unset it is one step below `compact`. The plate
+  paints under the touch floor and the footprint still reserves the target.
+- **Dense pointer rows.** A theme may author `targetSizes.pointer` (24 up to the
+  minimum): while the input is pointer-only, floating Menu and Picker menu rows and
+  rung-sized rows use it as their pitch and hit floor (`targetSizes.hit`), with no
+  overlap; touch or a gamepad appearing restores the minimum live. Neutral is unchanged.
+- **New options.** `surface = "pane"` (a flush raised fill); `UI.Divider`
+  `appearance = "strong"`; Button `appearance = "inverse"` and
+  `underline = "always" | "hover"`; Toggle `appearance = "plain"` and `textSize`;
+  DisclosureGroup `appearance = "outline"`, `textSize` and `indent`; TabView
+  `controlSize`; Sheet `placement = "adaptive"` (the side edge on a roomy pointer
+  screen).
+- **Fixed.** A labelled menu Picker with `valueAlignment = "start"` stays one line
+  at every width (and hugs with `sizing = "hug"`); a Button's `textSize` reaches
+  the label it draws beside an icon.
+
 ### Interaction and theme hardening
 
 - Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
