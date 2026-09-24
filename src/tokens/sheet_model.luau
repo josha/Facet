@@ -758,6 +758,13 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		Selection = color(x.selection or c.accent),
 		OnSelection = color(x.onSelection or c.onAccent),
 		Scrim = color(x.scrim or c.surface),
+		-- each plate at the disabled content opacity over the page, for a theme that
+		-- dims a disabled control whole (`extra.dimDisabledPlates`)
+		ControlDisabled = lerp(x.control, c.surface, x.disabledContentOpacity or 0.4),
+		ControlSelectedDisabled = lerp(x.controlSelected, c.surface, x.disabledContentOpacity or 0.4),
+		AccentDisabled = lerp(c.accent, c.surface, x.disabledContentOpacity or 0.4),
+		DangerDisabled = lerp((select(1, dangerPair(c))), c.surface, x.disabledContentOpacity or 0.4),
+		SelectionDisabled = lerp(x.selection or c.accent, c.surface, x.disabledContentOpacity or 0.4),
 		-- precomputed accent interaction states (bespoke path computes these
 		-- with Color3:Lerp at the edge; the sheet needs them as real tokens)
 		AccentHover = lerp(c.accent, WHITE, 0.12),
@@ -1373,6 +1380,34 @@ local function emitSelectionMark(emitRest: (Rule) -> (), emitHover: (Rule) -> ()
 	})
 end
 
+--[[ THE WHOLE-CONTROL DISABLED DIM — emitted only when a theme sets
+	`extra.dimDisabledPlates = true`. The plate then fades with its label: each fill
+	blends toward the page by `disabledContentOpacity`, keyed on the same engine
+	state the label dim rides. A quiet word keeps its own plate under a role, as at
+	rest. Last in the cascade, so no interaction state repaints a disabled plate. ]]
+local function emitDisabledPlates(emit: (Rule) -> (), selectionMarks: boolean)
+	local T = sheet_model.TAGS
+	local A = T.appearancePrefix
+	local D = chrome_slots.TAGS.stateDisabled
+	local function plate(name: string, selector: string, token: string)
+		emit({ name = `Disabled plate — {name}`, selector = selector, props = { BackgroundColor3 = token } })
+	end
+	plate("control", "TextButton:NonInteractable", "$ControlDisabled")
+	plate("selected", `TextButton.{T.selected}:NonInteractable`, "$ControlSelectedDisabled")
+	plate("accent", `TextButton.{T.surfacePrefix}accent:NonInteractable`, "$AccentDisabled")
+	plate("emphasis", `TextButton.{A}emphasis:NonInteractable`, "$AccentDisabled")
+	plate("soft", `TextButton.{A}soft:NonInteractable`, "$ControlSelectedDisabled")
+	plate("utility", `TextButton.{A}utility:NonInteractable`, "$Surface")
+	plate("destructive", "TextButton.facet-role-destructive:NonInteractable", "$DangerDisabled")
+	plate("destructive soft", `TextButton.facet-role-destructive.{A}soft:NonInteractable`, "$ControlSelectedDisabled")
+	plate("destructive utility", `TextButton.facet-role-destructive.{A}utility:NonInteractable`, "$Surface")
+	plate("chip box", `Frame.{T.surfacePrefix}chip.{D}`, "$ControlDisabled")
+	if selectionMarks then
+		plate("chosen", `TextButton.{T.selected}.{T.selectionMark}:NonInteractable`, "$SelectionDisabled")
+		plate("mark fill", `Frame.{T.selectionMark}.{D}`, "$SelectionDisabled")
+	end
+end
+
 export type BuildOpts = {
 	-- ordered; the FIRST theme is the base/default unless defaultTheme names another
 	themes: { { name: string, style: any } },
@@ -1953,6 +1988,10 @@ function sheet_model.build(opts: BuildOpts): Model
 			props = { TextTransparency = num(1) },
 		},
 	})
+
+	if x.dimDisabledPlates == true then
+		emitDisabledPlates(push, selectionMarks)
+	end
 
 	-- Layout-reference MIRRORS (§6.9 Fallback B): editor-VISIBLE, generator-
 	-- owned attributes regenerated on every apply. Editing them in the editor
@@ -4058,6 +4097,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextBox:NonInteractable",
 		props = { TextTransparency = num(baseExtra.disabledContentOpacity) },
 	})
+	if baseExtra.dimDisabledPlates == true then
+		emitDisabledPlates(function(rule: Rule)
+			emit("disabled", rule)
+		end, authoredSelection(package.style.themes))
+	end
 	-- ...and the SUBTREE a disabled container turned off — see the legacy builder's
 	-- note beside the same two rules. Emitted by every package, so a swap can never
 	-- leave a disabled panel's labels reading at full contrast.

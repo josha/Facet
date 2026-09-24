@@ -201,7 +201,7 @@ partner has had a shipped fallback since it existed.
 contract colours, using the same ramps it always uses — so a palette-only
 package can be a dozen lines.
 
-Three `extra` roles are optional and change nothing until you author them:
+Three `extra` colour roles are optional and change nothing until you author them:
 
 - `selection` / `onSelection` — the ink an on or chosen indicator paints and
   the colour that reads on it: the switch track and knob, the slider fill and
@@ -212,6 +212,9 @@ Three `extra` roles are optional and change nothing until you author them:
   native styling; without it those keep the selected-row wash.
 - `scrim` — the colour a modal backdrop dims toward (`scrimOpacity` is how
   much). Unset, it is `surface`.
+
+And one switch: `dimDisabledPlates = true` fades a disabled control's plate
+with its label (by `disabledContentOpacity`) instead of dimming the label alone.
 
 ### The metrics
 

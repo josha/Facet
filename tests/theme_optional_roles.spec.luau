@@ -187,3 +187,33 @@ describe("the selection mark: a chosen chip and a checked box wear an AUTHORED s
 		expect(find("/Indicator/Check$").decorationHint.selectionMark).toBe(true)
 	end)
 end)
+
+describe("the whole-control disabled dim is a theme opt-in", function()
+	it(
+		"Neutral dims only the label; `dimDisabledPlates` fades every plate toward the page, last in the cascade",
+		function()
+			expect(ruleNamed(sheet_model.buildPackage(snapshot.neutralPackage()), "Disabled plate — control")).toBeNil()
+			local pkg = authored({ dimDisabledPlates = true, disabledContentOpacity = 0.5 })
+			local model = sheet_model.buildPackage(pkg)
+			local colors = pkg.style.themes[1].colors
+			local expected = {
+				r = (colors.accent.r + colors.surface.r) / 2,
+				g = (colors.accent.g + colors.surface.g) / 2,
+				b = (colors.accent.b + colors.surface.b) / 2,
+			}
+			expect(same(model.themes[1].tokens.AccentDisabled, expected)).toBe(true)
+			local last = 0
+			for i, rule in model.rules do
+				if string.find(rule.selector, ":Hover", 1, true) or string.find(rule.selector, ":Press", 1, true) then
+					last = i
+				end
+			end
+			for _, name in { "control", "emphasis", "soft", "destructive", "chip box" } do
+				local rule = ruleNamed(model, "Disabled plate — " .. name)
+				expect(rule).never().toBeNil()
+				expect(table.find(model.rules, rule) > last).toBe(true)
+			end
+			expect(ruleNamed(model, "Disabled plate — emphasis").props.BackgroundColor3).toBe("$AccentDisabled")
+		end
+	)
+end)

@@ -799,6 +799,12 @@ every package — emits `Disabled subtree text`, which selects a `TextLabel`
 carrying the `facet-state-disabled` tag and dims it to that theme's own
 `disabledContentOpacity`.
 
+A theme that sets `extra.dimDisabledPlates = true` also fades the **plate**: every
+Button fill (standard, selected, accent, emphasis, soft, destructive, a selected
+chip) and a disabled checkbox box blend toward the page by the same
+`disabledContentOpacity`, so the whole control reads disabled. Unset (every shipped
+theme), only the label dims.
+
 Three consequences, all deliberate, none of them a bug to report:
 
 - **Authored pictures keep their own paint.** Give a picture a `tint` if it
