@@ -7988,7 +7988,8 @@ back through `metricsFromRecords`.
 
 `themes.neutral()` is the Facet Neutral snapshot (the `themeMetrics` default;
 its values are the literals the framework shipped before packages existed).
-`themes.neutralPackage()` is the compiled package behind it — pass it as `base`.
+`themes.neutralPackage()` is the compiled package behind it (themes `Dark` and
+`Light`) — pass it as `base`; a derived package inherits only its first theme.
 `themes.lintProperty(prop, scope?)` is the legal-property ruling: a theme rule
 may write only the native paint set, plus image chrome inside a nine-slice
 recipe (`scope = "chrome"`). `themes.SCHEMA` is the schema string this build

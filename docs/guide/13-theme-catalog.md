@@ -103,11 +103,10 @@ references (see [§13.5](#135-what-a-package-actually-costs)).
 | **Glossy Touch** | `GlossyTouch.rbxm` | Sky | the thumb-first skin: 44 px rows at every size class, 10/14 px radii, sliced plates | 14 images | 9.3 KB |
 | **Compact Pointer** | `CompactPointer.rbxm` | Aqua | the mouse-first partner to Glossy Touch: 24 px rows, 10 px spacing step, 13 px body | 12 images | 7.0 KB |
 
-\* Facet Neutral's *package* declares one theme, `Dark`. The Light variant is a
-second, native sheet — the screen target builds it only when it is running the
-built-in style. A game package carries no light variant to derive one from. So a
-package that wants two lights declares two themes, the way Classic Desktop
-declares Day and Night.
+\* Facet Neutral's package declares two themes, `Dark` (the default) and
+`Light`, so a picker lists both. A package derived from it inherits only the
+first as its floor: its own variant list is its own, so a package that wants a
+light variant declares it, the way Classic Desktop declares Day and Night.
 
 **Glossy Touch and Compact Pointer are a pair.** Hand them to `selectBy` together.
 One game then wears the thumb-sized skin on a phone and the dense one on a

@@ -39,6 +39,7 @@
 local pkg = require("./package")
 local chrome_slots = require("../tokens/chrome_slots")
 local defaultStyle = require("../tokens/default_style")
+local defaultLightStyle = require("../tokens/default_light_style")
 local styling = require("../tokens/styling")
 
 local snapshot = {}
@@ -145,7 +146,10 @@ local function neutralDefinition(): any
 		},
 		style = {
 			defaultTheme = "Dark",
-			themes = { { name = "Dark", colors = style.colors, extra = style.extra } },
+			themes = {
+				{ name = "Dark", colors = style.colors, extra = style.extra },
+				{ name = "Light", colors = defaultLightStyle.colors, extra = defaultLightStyle.extra },
+			},
 		},
 		metrics = {
 			typography = neutralTypography(),
