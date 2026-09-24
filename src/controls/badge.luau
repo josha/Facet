@@ -92,10 +92,13 @@ local function build(library: any, core: any, spec: any, owner: any)
 	if appearance == "status" then
 		table.insert(
 			content,
+			-- the mark sits on this badge's own plate: it takes the plate's lettering
+			-- (no page-colour cutout ring, which painted a dark ring on the plate)
 			statusIndicator.build(
 				library,
 				core,
-				{ id = "Mark", status = field("status"), controlSize = field("controlSize"), cutout = true }
+				{ id = "Mark", status = field("status"), controlSize = field("controlSize") },
+				if plated then letterTint else nil
 			).blueprint
 		)
 	end

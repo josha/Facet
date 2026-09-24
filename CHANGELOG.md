@@ -66,6 +66,10 @@ detail and every behaviour or path change.
   rung's `iconSize` (the rungs visibly differ), and the track's value axis is
   floored at `targetSizes.minimum`, so a slider in a hugging cell (vertical above
   all) keeps a draggable track.
+- **Badge status mark.** The status appearance's mark takes the plate's lettering
+  role and no longer carries a page-coloured cutout, which painted a dark ring on
+  the coloured plate (and left the equal-role mark invisible on it).
+- **Vote.** A read-only vote keeps the strip's `controlSize` rung.
 - **ProgressView.** A bar accepts `controlSize` as its track thickness (xsmall and
   compact thin, regular and large the theme track) and refuses it together with
   `height`; `showValue` on a ring is allowed at `controlSize = "large"` (the readout

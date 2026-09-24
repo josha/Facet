@@ -13938,8 +13938,8 @@ Every plated Badge owns a surface-less tinted Box; package badge-slot art remain
 available to existing `Text.surface = "badge"` sites. Absent, static and bound
 neutral all use control/content. Non-neutral statuses use StatusIndicator's pair;
 utility uses secondary lettering. The caption can shrink and requests disclosure.
-The status appearance gives its nested mark a page-color cutout so the mark
-remains distinct from the enclosing plate even when both use the same status role.
+The status appearance paints its nested mark in the plate's lettering role (no
+cutout ring), so the mark reads on the plate whatever surface the badge sits on.
 One semantic Text host supplies the ASCII fallback and optional managed art. Its
 width has an iconSizes.small floor and can grow for multi-character glyphs; its
 height hugs the caption line. Art is a square bounded by that line and small icon

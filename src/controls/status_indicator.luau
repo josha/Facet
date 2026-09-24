@@ -55,7 +55,7 @@ end
 local function whole(value, minimum)
 	return type(value) == "number" and value >= minimum and value < math.huge and value % 1 == 0
 end
-local function build(library: any, _core: any, spec: any, owner: any)
+local function build(library: any, _core: any, spec: any, owner: any, markTint: any?)
 	guard.assertKnownKeys("UI.StatusIndicator", spec, KEYS, "spec")
 	local UI, id = library.UI, spec.id or "StatusIndicator"
 	local counted, cap = spec.count ~= nil, spec.max or 99
@@ -105,7 +105,9 @@ local function build(library: any, _core: any, spec: any, owner: any)
 	local function corners(use)
 		return UI.cornersData(if use(facts).form == "square" then 0 else "pill")
 	end
-	local function plateTint(use)
+	-- a host that draws the mark on its own status plate (Badge) paints it in that
+	-- plate's lettering instead, since the status colour would vanish into it
+	local plateTint = markTint or function(use)
 		return { role = PLATE[use(facts).status], blend = 1 }
 	end
 	-- Shape is construction-only. Each owned branch builds an actual circle or
@@ -314,11 +316,11 @@ local function build(library: any, _core: any, spec: any, owner: any)
 	end
 	return { blueprint = root, dump = dump, semanticText = semantic, dispose = owner.dispose }
 end
-function status_indicator.build(library: any, core: any, spec: Spec)
+function status_indicator.build(library: any, core: any, spec: Spec, markTint: any?)
 	local parent = Compose.currentOwner()
 	local owner = if parent then parent.createChild() else core.owner.createChild()
 	local ok, result = pcall(Compose.withOwner, owner, function()
-		return build(library, core, spec, owner)
+		return build(library, core, spec, owner, markTint)
 	end)
 	if not ok then
 		owner.dispose()

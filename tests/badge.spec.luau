@@ -260,7 +260,10 @@ t.describe("Badge live content presence", function()
 end)
 
 t.describe("Badge status silhouette", function()
-	t.it("separates warning and error marks from their equal-role plate with a page-color cutout", function()
+	-- the mark sits ON the badge's own plate, so it reads in the plate's lettering
+	-- colour with no ring: a page-coloured cutout painted a dark ring on the plate
+	-- (owner report 2026-09-24; Foundation Badge1 draws the mark in the lettering)
+	t.it("paints the status mark in the plate's lettering, with no page-colour ring", function()
 		local themes = require("../src").themes
 		local snapshot = require("../src/themes/snapshot")
 		for _, package in
@@ -270,7 +273,7 @@ t.describe("Badge status silhouette", function()
 				(require("../examples/themes/fantasy_ornate").build(themes)),
 			}
 		do
-			for _, status in { "warning", "error" } do
+			for _, status in { "warning", "error", "accent", "neutral" } do
 				local w = world.new({ themeMetrics = snapshot.resolve(package) })
 				mount(w, { label = "Ready", appearance = "status", status = status })
 				local cutout, mark
@@ -284,16 +287,32 @@ t.describe("Badge status silhouette", function()
 						end
 					end
 				end
-				t.expect(cutout ~= nil).toBe(true)
-				t.expect(cutout.props.tint.role).toBe("surface")
-				t.expect(mark.props.tint.role).toBe(node(w, PLATE).props.tint.role)
-				t.expect(cutout.rect.w > mark.rect.w and cutout.rect.h > mark.rect.h).toBe(true)
+				t.expect(cutout).toBeNil()
+				local plate = node(w, PLATE).props.tint.role
+				t.expect(mark.props.tint.role).toBe(node(w, ROOT .. "/Label").props.tint.role)
+				t.expect(mark.rect.w > 0).toBe(true)
 				for _, theme in package.style.themes do
-					t.expect(theme.colors.surface).never().toEqual(theme.colors[mark.props.tint.role])
+					t.expect(theme.colors[plate]).never().toEqual(theme.colors[mark.props.tint.role])
 				end
 				w.close()
 			end
 		end
+	end)
+	t.it("an unplated (utility) badge keeps the status colour on its mark", function()
+		local w = world.new()
+		mount(w, { label = "Ready", appearance = "utility", status = "success" })
+		local mark
+		for path, value in w.adapter.liveNodes() do
+			if
+				string.find(path, "/Mark/", 1, true)
+				and string.sub(path, -5) == "/Mark"
+				and w.adapter.visibleOf(path)
+			then
+				mark = value
+			end
+		end
+		t.expect(mark == nil or mark.props.tint.role == "success").toBe(true)
+		w.close()
 	end)
 end)
 
