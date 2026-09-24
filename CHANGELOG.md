@@ -85,6 +85,10 @@ detail and every behaviour or path change.
 - **`controlSize = "xsmall"`** on every control that takes a rung. A theme may
   author `controlSizes.xsmall`; unset it is one step below `compact`. The plate
   paints under the touch floor and the footprint still reserves the target.
+- **Dense pointer rows.** A theme may author `targetSizes.pointer` (24 up to the
+  minimum): while the input is pointer-only, floating Menu and Picker menu rows and
+  rung-sized rows use it as their pitch and hit floor (`targetSizes.hit`), with no
+  overlap; touch or a gamepad appearing restores the minimum live. Neutral is unchanged.
 - **New options.** `surface = "pane"` (a flush raised fill); `UI.Divider`
   `appearance = "strong"`; Button `appearance = "inverse"` and
   `underline = "always" | "hover"`; Toggle `appearance = "plain"` and `textSize`;

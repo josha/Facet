@@ -643,7 +643,9 @@ solve — which is why installing or swapping a theme changes geometry without
 rebuilding a blueprint. A name is either a spacing step (`"xs"`, `"tight"`,
 `"s"`, `"m"`, `"l"`, `"xl"`, or the derived screen-edge step `"gutter"`) or a
 dotted path into the snapshot
-(`"targetSizes.minimum"`, `"controlSizes.large.height"`,
+(`"targetSizes.minimum"`, `"targetSizes.hit"` — the live hit floor, which a
+theme's optional `targetSizes.pointer` lowers while the input is pointer-only —
+`"controlSizes.large.height"`,
 `"controls.slider.thumbSize"`, `"strokes.hairline"`, `"radii.panel"`,
 `"controls.decorative.minimum"` — the theme-owned floor for a non-text decorative
 box with nothing of its own to measure, `"controls.focusRing.thickness"` — the
@@ -8496,8 +8498,11 @@ every adjacent pair, and a selected row's fill is the row itself — the theme's
 `accent` under an `onAccent` label, the one pair every theme guarantees at
 4.5:1. Under `sheet` the rows are unchanged.
 
-Each floating row is at least the target floor (`targetSizes.minimum`) tall, so
-two rows' hit rects never overlap. A plain row's label leads, exactly as a row
+Each floating row is at least the live hit floor (`targetSizes.hit`) tall, so
+two rows' hit rects never overlap. `targetSizes.hit` is `targetSizes.minimum`,
+except under a theme that authors `targetSizes.pointer`: while the input is
+pointer-only (no touch, no gamepad) it is that dense pitch, the rows drop their
+vertical inset, and they grow back the moment touch or a gamepad appears. A plain row's label leads, exactly as a row
 with a badge or a shortcut does; its `icon` stays the compact form of its words.
 
 It attaches to **any** node. `spec.trigger` is a node you authored; the

@@ -257,6 +257,15 @@ is the rung a dense toolbar or tag row asks for with `controlSize = "xsmall"`.
 Leave it out and it is one ladder step below `compact` (Neutral: 28/4/12). Its
 plate paints under the touch floor; the control still reserves the full target.
 
+**Dense rows for a mouse are opt-in.** `targetSizes.pointer` (24 up to
+`targetSizes.minimum`) is the row pitch and hit floor while the live input is
+pointer-only — no touch and no gamepad present. Floating Menu and Picker menu rows
+take it, as does any control on a rung whose plate is at or under it (an xsmall
+list row), and each row's hit area is exactly the row, so neighbours never overlap.
+The moment touch or a gamepad appears, mid-session too, rows grow back to
+`targetSizes.minimum`; they return to dense when the input is pointer-only again.
+Leave it out (Neutral does) and every row keeps the 44 floor.
+
 **The highlight shape is a token, not a guess.** `radii.selection` is the
 radius of every *selection highlight*: the segmented picker's sliding fill (an
 inset rounded rect floating inside its track) and a menu card's chosen-row
