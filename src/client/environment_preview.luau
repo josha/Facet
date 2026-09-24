@@ -2,6 +2,7 @@
 -- A platform fact sink with reversible developer preview overrides. Keep feeding
 -- source while previewing so Automatic restores current facts, not a boot snapshot.
 local profiles = require("../preview/device_profiles")
+local preferredText = require("./preferred_text")
 local environment_preview = {}
 local KEYS = {
 	"viewportRect",
@@ -14,6 +15,8 @@ local KEYS = {
 	"preferredInput",
 	"capabilities",
 	"viewingDistance",
+	"preferredTextOffset",
+	"preferredTransparency",
 }
 local INPUTS = {
 	pointer = {
@@ -39,6 +42,9 @@ function environment_preview.new(env: any): any
 		live[key] = copy(env:get(key):peek())
 	end
 	local profile, orientation, input = "automatic", "portrait", "automatic"
+	-- the engine's text-size preference by name (its fallback offset), and the
+	-- preferred transparency; "automatic" / nil follow the platform
+	local textSize, transparency = "automatic", nil
 	local depth = 0
 	local pending = {}
 	local function apply(onlyKeys: any?)
@@ -75,6 +81,12 @@ function environment_preview.new(env: any): any
 					facts[key] = value
 				end
 			end
+			if textSize ~= "automatic" then
+				facts.preferredTextOffset = preferredText.FALLBACK_OFFSETS[textSize]
+			end
+			if transparency ~= nil then
+				facts.preferredTransparency = transparency
+			end
 			for _, key in KEYS do
 				if onlyKeys == nil or profile ~= "automatic" or onlyKeys[key] then
 					env:set(key, copy(facts[key]))
@@ -109,6 +121,11 @@ function environment_preview.new(env: any): any
 			end
 		end)
 	end
+	-- every override back to automatic, over the latest platform facts
+	local function reset()
+		profile, orientation, input, textSize, transparency = "automatic", "portrait", "automatic", "automatic", nil
+		apply()
+	end
 	return {
 		source = source,
 		apply = function()
@@ -138,10 +155,24 @@ function environment_preview.new(env: any): any
 			apply()
 			return true
 		end,
-		dispose = function()
-			profile, input = "automatic", "automatic"
+		setTextSize = function(value: string): boolean
+			if value ~= "automatic" and preferredText.FALLBACK_OFFSETS[value] == nil then
+				return false
+			end
+			textSize = value
 			apply()
+			return true
 		end,
+		setTransparency = function(value: any): boolean
+			if value ~= "automatic" and not (type(value) == "number" and value >= 0 and value <= 1) then
+				return false
+			end
+			transparency = if value == "automatic" then nil else value
+			apply()
+			return true
+		end,
+		reset = reset,
+		dispose = reset,
 	}
 end
 return environment_preview

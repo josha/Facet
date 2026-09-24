@@ -33,7 +33,8 @@ local function goodDef(): any
 			schemaVersion = themes.SCHEMA,
 			version = "1.0.0",
 		},
-		style = copy(base.style),
+		-- one variant, as every case below assumes (Neutral also lists Light)
+		style = { defaultTheme = base.style.defaultTheme, themes = { copy(base.style.themes[1]) } },
 		metrics = copy(base.metrics),
 		chrome = copy(base.chrome),
 		assets = {},
@@ -107,6 +108,11 @@ describe("themes.define: derivation from a base package", function()
 		expect(pkg.metrics.controls.slider.thumbSize).toBe(20)
 		expect(pkg.style.themes[1].name).toBe("Dark")
 		expect(pkg.derivedFrom).toBe("facet-neutral")
+		-- G3: Neutral lists its Light variant, and a derived package's variant list
+		-- stays its own (the base's first variant is the only floor it inherits)
+		local neutralThemes = snapshot.neutralPackage().style.themes
+		expect(`{neutralThemes[1].name},{neutralThemes[2] and neutralThemes[2].name}`).toBe("Dark,Light")
+		expect(#pkg.style.themes).toBe(1)
 	end)
 
 	it("a derived package is gated exactly as strictly as a standalone one", function()

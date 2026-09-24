@@ -370,4 +370,50 @@ describe("error boundaries (§17 Phase 4)", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "no boundary here") ~= nil).toBe(true)
 	end)
+
+	-- G1: `app.controls.ErrorBoundary` is the public path; it reached the bare
+	-- structural constructor, so `view` became a reactive property and every
+	-- boundary showed its fallback, and a spelled `id` was refused.
+	it("app.controls: a healthy view renders, a throwing view falls back, id is accepted", function()
+		local w = require("./lib/world").new()
+		local AppUI = w.UI
+		local function paths(): string
+			return table.concat(w.adapter.paths(), " ")
+		end
+		w.present(function()
+			return AppUI.Screen({
+				AppUI.ErrorBoundary({
+					id = "Healthy",
+					view = function()
+						return AppUI.Text("Ok")({ text = "ok" })
+					end,
+					fallback = function()
+						return AppUI.Text("HealthyFallback")({ text = "fb" })
+					end,
+				}),
+				AppUI.ErrorBoundary("Broken")({
+					view = function(): any
+						error("factory exploded")
+					end,
+					fallback = function()
+						return AppUI.Text("BrokenFallback")({ text = "fb" })
+					end,
+				}),
+			})
+		end)
+		w.settle()
+		expect(string.find(paths(), "/Healthy/Ok", 1, true) ~= nil).toBe(true)
+		expect(string.find(paths(), "HealthyFallback", 1, true)).toBeFalsy()
+		expect(string.find(paths(), "/Broken/BrokenFallback", 1, true) ~= nil).toBe(true)
+		-- a primitive names itself through the constructor, and the refusal says so
+		-- rather than suggesting the very key it refused
+		local ok, err = pcall(function()
+			w.present(function()
+				return AppUI.Screen({ AppUI.Text({ id = "X", text = "t" }) })
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Did you mean 'id'", 1, true)).toBeFalsy()
+		expect(string.find(tostring(err), 'UI.Text("name")', 1, true) ~= nil).toBe(true)
+	end)
 end)

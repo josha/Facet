@@ -815,7 +815,14 @@ local THEMES: { { id: string, package: any?, themeName: string?, theme: any } } 
 	local out: { { id: string, package: any?, themeName: string?, theme: any } } = {}
 	local neutral = Facet.themes.neutralPackage()
 	for _, theme in neutral.style.themes do
-		table.insert(out, { id = `facet-neutral/{theme.name}`, package = nil, themeName = nil, theme = theme })
+		-- the default variant is the library style (no package); Light is picked by name
+		local default = theme.name == neutral.style.defaultTheme
+		table.insert(out, {
+			id = `facet-neutral/{theme.name}`,
+			package = if default then nil else neutral,
+			themeName = if default then nil else theme.name,
+			theme = theme,
+		})
 	end
 	local names = fs.readDir("examples/themes")
 	table.sort(names)

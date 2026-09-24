@@ -142,6 +142,11 @@ function scene.new(frames: any?)
 			end
 			local message = `Facet UI.{node.class}: unknown property '{key}'.`
 			local suggestions = schema.suggest(node.class, key)
+			if key == "id" then
+				-- the blueprint schema's universal `id` is not a property here
+				message ..= ` Name the node with UI.{node.class}("name")(\{ ... \}).`
+				suggestions = {}
+			end
 			if #suggestions > 0 then
 				message ..= ` Did you mean '{table.concat(suggestions, "', '")}'?`
 			end

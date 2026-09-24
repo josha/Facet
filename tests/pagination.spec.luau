@@ -24,7 +24,7 @@ local function mount(spec: any, opts: any?): any
 	w.present(function()
 		return UI.Screen("S")({
 			UI.VStack("Page")({
-				width = UI.fill(),
+				width = if o.hug then nil else UI.fill(),
 				gap = "s",
 				UI.Button("Before")({ label = "Before" }),
 				UI.Pagination("P")(spec),
@@ -213,6 +213,15 @@ describe("Pagination: fit, direction and focus", function()
 			expect(text(tiny)).toBe("previous Page 5000 of 9999 next")
 		end
 	)
+
+	-- G2: a hugging parent's width is the row the control drew, not an offer
+	it("a hugging parent settles on the same window a filling one shows at that width", function()
+		for _, w in { 800, 330, 190 } do
+			local filled = text(mount(controlled(5000, { pageCount = 9999 }), { w = w }))
+			local hugged = text(mount(controlled(5000, { pageCount = 9999 }), { w = w, hug = true }))
+			expect(`{w}:{hugged}`).toBe(`{w}:{filled}`)
+		end
+	end)
 
 	it("rtl reverses the row once and keeps previous/next meaning", function()
 		local spec, _, asked = controlled(5, { pageCount = 10, direction = "rtl" })

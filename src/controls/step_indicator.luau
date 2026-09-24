@@ -373,10 +373,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- ===== the measured fit ================================================
 	local env = if spec.env ~= nil then spec.env else surfaceEnv.find(core)
 	local offered = Compose.cell(math.huge)
-	local rowFits = ownedFormula(owner, function(use)
+	-- the row's width budget: what the row needs, whatever form is showing
+	local rowNeed = ownedFormula(owner, function(use)
 		local snap = use(snapshot)
 		if #snap.steps == 0 then
-			return true
+			return 0
 		end
 		local metrics = if env ~= nil then use(env:get("themeMetrics")) else themeSnapshot.neutral()
 		local facts = if env ~= nil then textFit.facts({ env = env, use = use }) else { scale = 1, offset = 0 }
@@ -392,7 +393,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local label = if sizing == "fill" then widest else alert.labelWidth(metrics, facts, step.label)
 			need += icon + gap * 3 + label + alert.buttonChromeX(metrics)
 		end
-		return need <= use(offered)
+		return need
+	end)
+	local rowFits = ownedFormula(owner, function(use)
+		return use(rowNeed) <= use(offered)
 	end)
 
 	-- the row and its underline, built only while there are steps to underline
@@ -480,7 +484,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	-- the root always takes its offer, which is what the fit measures: `sizing` is
-	-- only how the steps share it (a hugging root would measure its own summary)
+	-- only how the steps share it (a hugging root would measure its own summary).
+	-- Under a hugging parent the offer IS the root's natural width, so a hidden
+	-- budget holds that at the row's need (capped at the real offer, like any hug):
+	-- the measure never feeds back the form it chose.
 	local root = UI.VStack({
 		id = id,
 		width = UI.fill(),
@@ -493,6 +500,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				end),
 				thenView = rowView,
 				elseView = summaryView,
+			}),
+			UI.Box({
+				id = "Budget",
+				hidden = true,
+				width = Compose.formula(function(use)
+					return UI.hug({ min = use(rowNeed) })
+				end),
+				height = { type = "fixed", px = 0 },
 			}),
 		},
 	})

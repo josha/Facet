@@ -2077,6 +2077,31 @@ describe("Showcase display settings", function()
 		w.settings.apply()
 		expect(w.env:get("distanceProfile"):peek()).toBe("ten-foot")
 	end)
+
+	-- G5: one press returns every preview choice to Automatic
+	it("Reset everything to Automatic clears every preview choice", function()
+		local w = showcase()
+		w.chrome.request("settings")
+		w.settings.setPreview("tablet")
+		w.settings.setOrientation("landscape")
+		w.settings.setInput("gamepad")
+		w.settle()
+		local reset: string? = nil
+		for _, path in w.adapter.paths() do
+			if path:match("/Display/ResetAll$") then
+				reset = path
+			end
+		end
+		assert(reset, "no Reset everything button in the Display section")
+		w.adapter.node(reset).onActivate()
+		w.settle()
+		expect(w.settings.previewProfile:peek()).toBe("automatic")
+		expect(w.settings.previewOrientation:peek()).toBe("portrait")
+		expect(w.settings.previewInput:peek()).toBe("automatic")
+		expect(w.settings.viewingDistance:peek()).toBe("automatic")
+		expect(w.env:get("interactionClasses"):peek().primary).never().toBe("gamepad")
+		expect(#overflowsOf(w)).toBe(0)
+	end)
 end)
 
 describe("Pixel Quest display picker containment", function()

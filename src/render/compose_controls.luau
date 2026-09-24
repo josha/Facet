@@ -274,7 +274,9 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	api.background = UI.background
 	api.overlay = UI.overlay
 	api.badged = UI.badged
-	--[[ `UI.ForEach`/`UI.When` dispatch on `spec.transition` (Compose.keyed/
+	--[[ `UI.ErrorBoundary` takes the same route: the bare constructor would bind
+		`view`/`fallback` as reactive properties and always fall back.
+		`UI.ForEach`/`UI.When` dispatch on `spec.transition` (Compose.keyed/
 		Compose.show underneath, `../render/region_transitions.luau` when a
 		transition is declared) but that dispatch lives only on the INTERNAL
 		`UI` a native control's `build(library, core, spec)` receives —
@@ -298,11 +300,12 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	local REGION_SHAPES = {
 		ForEach = "{ items = <cell or formula>, key = <function or field name>, row = <function> }",
 		When = "{ condition = <cell or formula>, thenView = <function>, elseView = <function>? }",
+		ErrorBoundary = "{ view = <function>, fallback = <function> }",
 	}
-	for _, name in { "ForEach", "When" } do
+	local SHAPE_KEYS = { ForEach = "items", When = "condition", ErrorBoundary = "view" }
+	for name, schemaKey in SHAPE_KEYS do
 		local raw = runtime.constructors[name]
 		local domain = UI[name]
-		local schemaKey = if name == "ForEach" then "items" else "condition"
 		local shape = REGION_SHAPES[name]
 		-- the raw form still carries the class's own props (`transition`, and
 		-- `id` when the caller spells it in the table rather than in the name)

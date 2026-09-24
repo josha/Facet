@@ -559,8 +559,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					end
 				end
 			end
-			local r = rectOf(node.path)
-			if type(r) == "table" and r.w ~= offered:peek() then
+			-- the room is the viewport, except when the viewport IS the row: a hugging
+			-- parent sized it from the window it drew, so that width is not an offer
+			-- and feeding it back would narrow the window every round
+			local r, content = rectOf(node.path), rectOf(`{node.path}/Row`)
+			if type(r) == "table" and type(content) == "table" and r.w ~= content.w and r.w ~= offered:peek() then
 				offered:set(r.w)
 			end
 		end,

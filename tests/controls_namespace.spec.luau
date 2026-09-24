@@ -244,7 +244,8 @@ describe("the Controls namespace", function()
 	it("exports exactly the declared composite controls from an application, and nothing else", function()
 		local controls = require("./lib/world").new().UI
 		-- The structural constructors are public: a schema-shaped spec plays region transitions.
-		local declared: { [string]: boolean } = { ScrollView = true, Stage = true, ForEach = true, When = true }
+		local declared: { [string]: boolean } =
+			{ ScrollView = true, Stage = true, ForEach = true, When = true, ErrorBoundary = true }
 		for _, name in NAMES do
 			declared[name] = true
 			expect(`{name}: {type(rawget(controls, name))}`).toBe(`{name}: function`)

@@ -694,6 +694,17 @@ local function inherit(base: any, over: any): any
 	return out
 end
 
+-- A derived package's variant list is its own: the base's FIRST variant is the
+-- floor it inherits, never the base's further variants (Neutral's Light).
+local function firstVariant(style: any): any
+	if type(style) ~= "table" or type(style.themes) ~= "table" or #style.themes <= 1 then
+		return style
+	end
+	local out = table.clone(style)
+	out.themes = { style.themes[1] }
+	return out
+end
+
 -- deterministic FNV-1a over the canonical serialization (same algorithm as
 -- sheet_model.stampOf, so both stamps read alike in artifacts)
 local function stampOf(parts: { string }): string
@@ -1317,7 +1328,7 @@ function package.define(def: any): (any, any)
 	end
 	local merged: any = {
 		identity = def.identity,
-		style = if base ~= nil then inherit(base.style, def.style) else def.style,
+		style = if base ~= nil then inherit(firstVariant(base.style), def.style) else def.style,
 		metrics = if base ~= nil then inherit(base.metrics, def.metrics) else def.metrics,
 		chrome = if base ~= nil then inherit(base.chrome, def.chrome) else def.chrome,
 		assets = if base ~= nil then inherit(base.assets, def.assets) else def.assets,

@@ -1186,7 +1186,9 @@ describe("stabilization B'1: the plated indicator's option label pairs with its 
 		-- exactly these, which is the defect this rule closes. A package that
 		-- silently joins or leaves the list shows up in the diff.
 		table.sort(failedBefore)
-		expect(table.concat(failedBefore, ", ")).toBe("classic-desktop/Day, classic-desktop/Night, pixel-quest/Quest")
+		expect(table.concat(failedBefore, ", ")).toBe(
+			"classic-desktop/Day, classic-desktop/Night, facet-neutral/Light, pixel-quest/Quest"
+		)
 	end)
 
 	it("a SKINNED package COMPILES the lifted twin — which nothing reaches today, and say so", function()

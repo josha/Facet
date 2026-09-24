@@ -270,7 +270,7 @@ owner that owns its resources. Start with
 | `inputHint` | A reactive affordance label that follows the active input class. | [api](../reference/api.md#inputhint) |
 | `UI.activationGate` | While the gate reads closed, the first Activate at or under the node wakes the subtree instead of reaching what is under the press. | [api](../reference/api.md#activationgate) |
 | `UI.focusSection` | Groups a subtree into one broad navigation stop. | [api](../reference/api.md#focussection) |
-| `client.environment_preview` | Reversible live display and input previews, bounded by the host window. | [api](../reference/api.md#clientenvironment_preview) |
+| `client.environment_preview` | Reversible live display, input, text-size and transparency previews, bounded by the host window, with one reset. | [api](../reference/api.md#clientenvironment_preview) |
 | `newEnvironment` | Viewport, safe area, input class, text size, and an independent viewing-distance preference. | [api](../reference/api.md#newenvironment) |
 | `adaptive` | Size class, height class, orientation, columns, and card counts. | [api](../reference/api.md#adaptive) |
 | `composition` | The pure arrangement decision behind `UI.Composition`. | [api](../reference/api.md#composition-1) |

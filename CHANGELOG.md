@@ -49,6 +49,28 @@ detail and every behaviour or path change.
   plain Chips inside their target); Chip removal is edit mode; a switch paints
   no plate. Each is listed with its new path below.
 
+### Foundation lab gaps
+
+- **`UI.ErrorBoundary` on `app.controls` works.** It fell through to the bare
+  structural constructor, so every boundary showed its fallback and a spelled
+  `id` was refused. It now takes the same region dispatch as `UI.When` and
+  `UI.ForEach` (`{ view, fallback }`, named or with `id`). A primitive's refused
+  `id` names the naming form, `UI.Text("name")({ ... })`, instead of suggesting
+  `id`.
+- **Pagination and StepIndicator settle under a hugging parent.** Pagination no
+  longer feeds its own drawn row back as the offer (the solve never converged),
+  and StepIndicator holds its natural width at the row's budget, so a hugging
+  parent shows the same form a filling one does at that width.
+- **Facet Neutral's package declares `Light`.** `themes.neutralPackage()` lists
+  `Dark` and `Light`, so theme pickers offer both. A derived package inherits
+  only the base's first theme; its own theme list is unchanged.
+- **A TabView built later in a branch of a page is nested.** Nesting was decided
+  only while a page factory ran; a TabView mounted afterwards in a
+  `Compose.show`/`keyed` branch of the page claimed the app-level placement.
+- **`client.environment_preview`** gains `setTextSize`, `setTransparency` and
+  `reset()`; the showcase settings Display section gains "Reset everything to
+  Automatic".
+
 ### Interaction and theme hardening
 
 - Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.

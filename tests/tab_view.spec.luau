@@ -402,6 +402,12 @@ local function nestedWorld(opts: any?)
 				-- `r2` EXACTLY: the page's own top tab bar, built INSIDE the app
 				-- tab's content factory, which is also where laziness puts it
 				content = function()
+					if options.lazy then
+						-- G4: the page's tabs built LATER, inside a branch of the page
+						local build = options.lazy.build
+						options.lazy.build = nil
+						return UI.When({ id = "Lazy", condition = options.lazy.shown, thenView = build })
+					end
 					innerBuilds += 1
 					inner = harness.Controls.TabView(core, {
 						id = "Page",
@@ -456,6 +462,30 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		expect(w.adapter.node("/S/App/Content/Tab-discover/Page/TopHome/then/TopBandCenter/TopBand/Strip") ~= nil).toBe(
 			true
 		)
+	end)
+
+	it("a page TabView built later inside a branch of the page is nested too", function()
+		local lazy: any = { shown = Compose.cell(false) }
+		local w: any
+		lazy.build = function()
+			local tv = harness.Controls.TabView(w.core, {
+				id = "Page",
+				selection = w.innerSelection,
+				env = w.env,
+				tabs = {
+					{ id = "foryou", label = "For you", content = body("foryou") },
+					{ id = "charts", label = "Charts", content = body("charts") },
+				},
+			})
+			lazy.inner = tv
+			return tv.blueprint
+		end
+		w = nestedWorld({ viewport = PHONE, lazy = lazy })
+		lazy.shown:set(true)
+		w.pres.refresh()
+		expect(lazy.inner.dump().placementSource).toBe("nested")
+		expect(lazy.inner.dump().placement).toBe("topBar")
+		expect(w.outer.dump().nested).toBe(false)
 	end)
 
 	it("...and it stays the top bar when the POLICY would have said sidebar", function()
