@@ -85,7 +85,8 @@ end
 --[[ `opts` is PRIVATE to the pickers that present through a popover (no public
 	key): `tenFoot` also routes a ten-foot surface (`effectiveDisplaySize ==
 	"Large"`) to the sheet, which the sheet centres there; `hug` gives that sheet
-	the one `hug` detent, so a body pan scrolls the body and never the sheet. ]]
+	the one `hug` detent, so a body pan scrolls the body and never the sheet, and
+	no Close button (owner 2026-09-23). ]]
 local function build(Facet: any, core: any, spec: Spec, owner: any, opts: any?)
 	specGuard.assertKnownKeys("UI.Popover", spec, KEYS, "spec")
 	local tenFoot = opts ~= nil and opts.tenFoot == true
@@ -362,6 +363,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, opts: any?)
 				title = "",
 				detent = detent,
 				detents = if hug then { "hug" } else nil,
+				-- a picker's sheet closes by drag, scrim or B (and its own footer)
+				closeButton = if hug then false else nil,
 				env = env,
 				content = function()
 					return spec.content()

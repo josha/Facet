@@ -857,7 +857,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			elseif spec.header ~= false then
 				table.insert(regions, spec.header)
 			end
-			table.insert(regions, utilities(false))
+			-- nothing to size and no Close: no utility row at all
+			if spec.closeButton ~= false or #detents > 1 then
+				table.insert(regions, utilities(false))
+			end
 			table.insert(regions, body)
 		end
 		if #actions > 0 then

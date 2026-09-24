@@ -536,8 +536,8 @@ describe("ColorPicker: the well and its panel", function()
 			w.settle(3)
 			expect(w.record("P").dump().route).toBe("sheet")
 			expect(find(w, "/Actions/Done") ~= nil).toBe(true)
-			-- one size: no inert Size control
-			expect(w.adapter.visibleOf(must(w, "/Header/Size"))).toBe(false)
+			-- one size and no Close: no utility row at all
+			expect(find(w, "/Header/Size")).toBeNil()
 			-- a slow vertical drag on the plane moves brightness, never the sheet
 			w.adapter.tap(must(w, "/Modes/Indicator/Options/Opt2"))
 			w.settle(3)
@@ -678,6 +678,8 @@ describe("ColorPicker: the spectrum plane", function()
 				-- height class is compact, its width is not)
 				local route = w.record("P").dump().route
 				expect(`{where} {route}`).toBe(`{where} {if view.h > view.w then "sheet" else "popover"}`)
+				-- the sheet has no Close: drag, scrim, B and its footer close it (owner)
+				expect(`{where} {find(w, "/Header/Close")}`).toBe(`{where} nil`)
 				for _, path in w.record("P").dump().swatchPaths do
 					local r = w.adapter.node(path).rect
 					expect(`{where} {r.w >= 44 and r.h >= 44}`).toBe(`{where} true`)

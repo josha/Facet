@@ -979,6 +979,8 @@ describe("DateTimePicker: layout, routes and refusals", function()
 			expect(w.record("P").dump().route).toBe("sheet")
 			expect(w.adapter.node(must(w, "/Pane1/Weekdays/W1")).props.text).toBe("Mo")
 			expect(find(w, "/Actions/Done") ~= nil).toBe(true)
+			-- no Close in the sheet's header: drag, scrim, B and Done close it (owner)
+			expect(find(w, "/Header/Close")).toBeNil()
 			local tv = mount(
 				{ value = cell, onChange = change },
 				{ capabilities = PAD, preferredInput = "Gamepad", displaySize = "Large" }
