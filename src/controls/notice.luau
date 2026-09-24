@@ -135,7 +135,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		local message = selection.read(spec.message, use)
 		local copy = alert.labelWidth(metrics, facts, if type(message) == "string" then message else "")
-		local chrome = (themeSnapshot.resolveNumber(metrics, "targetSizes.minimum") or 44) * 2 + gap * 4
+		local carve = if emphasis or type(metrics.chromeInsets) ~= "table" then nil else metrics.chromeInsets.panel
+		local chrome = (themeSnapshot.resolveNumber(metrics, "targetSizes.minimum") or 44) * 2
+			+ gap * 4
+			+ (if type(carve) == "table" then (carve.left or 0) + (carve.right or 0) else 0)
 		return copy + need + chrome <= use(offered)
 	end)
 
@@ -234,21 +237,32 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return UI.HStack({ id = "Row", width = UI.fill(), gap = "s", align = "start", children = children })
 	end
 
+	-- the standard plate IS the Content stack, so a theme's frame carve (the shared
+	-- surface inset path) holds the icon, copy and accessories off the art; the
+	-- emphasis plate is a tint, which only a leaf Box paints
+	local children: { any } = {}
+	if emphasis then
+		table.insert(
+			children,
+			UI.Box({ id = "Plate", width = UI.fill(), height = UI.fill(), tint = { role = plateRole, blend = 1 } })
+		)
+	end
+	table.insert(
+		children,
+		UI.VStack({
+			id = "Content",
+			width = UI.fill(),
+			padding = "s",
+			surface = if emphasis then nil else "raised",
+			children = { row() },
+		})
+	)
 	local root = UI.ZStack({
 		id = id,
 		width = UI.fill(),
 		height = UI.hug(),
 		alignV = if placement == "affixed" then "start" else nil,
-		children = {
-			UI.Box({
-				id = "Plate",
-				width = UI.fill(),
-				height = UI.fill(),
-				surface = if emphasis then nil else "raised",
-				tint = if emphasis then { role = plateRole, blend = 1 } else nil,
-			}),
-			UI.VStack({ id = "Content", width = UI.fill(), padding = "s", children = { row() } }),
-		},
+		children = children,
 	})
 
 	-- ===== measured width, and the affixed reservation ====================

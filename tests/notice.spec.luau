@@ -369,3 +369,63 @@ describe("Notice: the Status tab's affixed banner", function()
 		expect(w.adapter.node(reset).rect.y).toBe(before)
 	end)
 end)
+
+describe("Notice: an art theme's frame carve holds the content", function()
+	-- the standard plate is the Content stack itself, so the shared surface inset
+	-- path (the panel carve) insets the icon, copy and accessories off the art
+	it("pixel, fantasy and glossy: every part sits inside the carve at every rung", function()
+		for _, name in { "pixel_quest", "fantasy_ornate", "glossy_mobile" } do
+			local metrics = Facet.themes.resolve(require(`../examples/themes/{name}`).build(Facet.themes), nil, {})
+			local carve = metrics.chromeInsets.panel or { left = 0, right = 0, top = 0, bottom = 0 }
+			for _, rung in { "xsmall", "compact", "regular", "large" } do
+				local w = world.new({
+					viewport = { x = 0, y = 0, w = 800, h = 600 },
+					reducedMotion = true,
+					themeMetrics = metrics,
+				})
+				local UI = w.UI
+				w.present(function()
+					return UI.Screen("S")({
+						UI.VStack("Page")({
+							width = UI.fill(),
+							UI.Notice("Conn")({
+								title = "Update available",
+								message = "A new track pack is ready.",
+								controlSize = rung,
+								actions = { { id = "Install", label = "Install", onActivate = function() end } },
+								onDismiss = function() end,
+							}),
+						}),
+					})
+				end)
+				w.settle(3)
+				-- the painted plate (the Content stack, or the root before this fix)
+				local box = (w.adapter.node(ROOT .. "/Content") or w.adapter.node(ROOT)).rect
+				for _, part in
+					{
+						"/Content/Row/Icon",
+						"/Content/Row/Body/Copy/Title",
+						"/Content/Row/Body/Copy/Message",
+						"/Content/Row/Close",
+					}
+				do
+					local node = w.adapter.node(ROOT .. part)
+					if node == nil then -- a sized control sits in its hit-floor wrapper
+						for _, path in w.adapter.paths() do
+							if string.sub(path, 1, #ROOT) == ROOT and string.sub(path, -6) == "/Close" then
+								node = w.adapter.node(path)
+							end
+						end
+					end
+					local r = assert(node, part).rect
+					local inside = r.x >= box.x + carve.left - 0.5
+						and r.y >= box.y + carve.top - 0.5
+						and r.x + r.w <= box.x + box.w - carve.right + 0.5
+						and r.y + r.h <= box.y + box.h - carve.bottom + 0.5
+					expect(`{name} {rung} {part}: {inside}`).toBe(`{name} {rung} {part}: true`)
+				end
+				w.close()
+			end
+		end
+	end)
+end)

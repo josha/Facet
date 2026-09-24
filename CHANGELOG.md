@@ -73,6 +73,9 @@ detail and every behaviour or path change.
   `controls.shortcutHint.capStroke` (default the hairline; 0 = a soft filled cap)
   and `controls.shortcutHint.capGap` (default `space.xs`); Neutral is unchanged. An
   all-optional control family may be absent from a package.
+- **Notice: the plate holds its content.** The standard plate is the content
+  stack itself (Snackbar's shape), so an art theme's frame carve insets the icon,
+  copy and accessories instead of letting them sit on the border.
 - **Grid rows keep room for their chrome.** A `UI.GridRow` wearing a surface
   whose theme `contentInsets` exceed its content (Pixel Quest's panel carve)
   collapsed its cells' text to zero height. The grid now reserves each row's inset
