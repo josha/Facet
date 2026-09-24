@@ -4901,8 +4901,9 @@ presenter's disclosure plate and `UI.RowActions`' floating menu also ask:
 1. **Place** on the preferred edge, `gap` px off the source.
 2. **Flip** to the opposite edge when the preferred placement crosses the safe
    box **and** the opposite one fits entirely. Both halves matter: it never flips
-   into a worse place, so a panel too tall for either side stays where it was
-   asked to go.
+   into a worse place. When neither side holds it, it goes **beside** the source
+   (the perpendicular edges, trailing or below first) if one holds it entirely;
+   only a panel that fits nowhere is left to `overflow`.
 3. **Shift** along the edge until the surface is inside the safe box.
 4. **Tail**: centre it on the *source*, keep it clear of the panel's own rounded
    corners, and **suppress it** when the shift has carried it off the source —
@@ -9430,7 +9431,10 @@ neighbouring month's grey days can be tapped but are never a stop. L1/R1 and
 Comma/Period page the month from any day (a hint names LB/RB while a pad is
 live), the header's arrows and month and year menus reach every month
 without a shoulder button, and paging stops at a month wholly outside `min` /
-`max`. A typed year has four digits, and on a 12-hour clock a typed hour from 1 to 12
+`max`. The month and year menus open on the shown one (marked, centred); the
+year menu lists only years inside `min`/`max` (an open side spans 100 years
+from the shown one), months outside the bounds are disabled, and a pick lands
+on the nearest open month. A typed year has four digits, and on a 12-hour clock a typed hour from 1 to 12
 needs AM or PM (0 and 13-23 read as 24-hour time); a typed range is two dates joined by its
 own " – " (or " - "). `time` adds hour
 and minute fields with steps on the `minuteStep` grid (AM/PM on a 12-hour
