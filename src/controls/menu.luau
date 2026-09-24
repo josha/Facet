@@ -829,13 +829,14 @@ local function build(Facet, core, spec, owner)
 		-- once per open/level rather than threaded through as another return
 		local isSheet = presentation == "sheet"
 		local rowIds: { string } = {}
-		-- a level with a selected row opens ON it: focus lands there and a scrolled
-		-- list centres it (owner 2026-09-23: the year menu opened at 1926)
+		-- a level with a selected row (a radio group's current value, not a check
+		-- toggle) opens ON it: focus lands there and a scrolled list centres it
+		-- (owner 2026-09-23: the year menu opened at 1926)
 		local landing: string? = nil
 		for _, item in itemsAt(chain) do
 			if item.divider ~= true then
 				table.insert(rowIds, `Item:{item.id}`)
-				if landing == nil and selectedByItem[item] ~= nil and selectedByItem[item]:peek() then
+				if landing == nil and item.selected ~= nil and selectedByItem[item]:peek() then
 					landing = `Item:{item.id}`
 				end
 			end
