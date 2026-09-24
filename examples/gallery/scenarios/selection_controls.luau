@@ -77,6 +77,19 @@ return {
 				enabled = enabled,
 			})
 		end
+		-- a bare toolbar checkbox: no row plate, label-sized words
+		local function plainCheckbox()
+			return UI.Toggle("PlainCheckbox")({
+				label = "Reduced motion",
+				value = checked,
+				presentation = "checkbox",
+				appearance = "plain",
+				controlSize = "compact",
+				textSize = "label",
+				width = UI.hug(),
+				enabled = enabled,
+			})
+		end
 		local function toggle()
 			return UI.Toggle("Boost")({
 				label = "Boost mode",
@@ -285,6 +298,8 @@ return {
 				heading("Check and toggle"),
 				caption("CapCheck", "Checkbox · mixed state"),
 				checkbox(),
+				caption("CapPlain", "Checkbox · plain, compact"),
+				plainCheckbox(),
 				caption("CapToggle", "Toggle · button presentation"),
 				toggle(),
 				heading("Choose a race group"),
