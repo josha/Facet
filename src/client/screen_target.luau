@@ -1604,6 +1604,11 @@ function screen_target.new(opts: Opts?)
 		-- a node is skinned once rather than built and rebuilt as its setup proceeds
 		handle.decorationHint = decorationHint
 		syncChrome(handle)
+		-- a selection mark's only paint is its tag: a plain Box carrying one has no
+		-- other write that would classify it
+		if nativeMode and type(decorationHint) == "table" and decorationHint.selectionMark == true then
+			syncTags(handle)
+		end
 		if contentPaint then
 			contentPaint.bind(handle)
 		end

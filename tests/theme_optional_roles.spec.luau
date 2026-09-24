@@ -190,6 +190,16 @@ describe("the selection mark: a chosen chip and a checked box wear an AUTHORED s
 		expect(find("/Indicator/Fill$").visible).toBe(true)
 		expect(find("/Indicator/Check$").decorationHint.selectionMark).toBe(true)
 	end)
+
+	it("the live adapter classifies a mark at create (a plain Box has no other tagging write)", function()
+		-- found live: the checkbox Fill mounted with no tags, so no rule reached it
+		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		local body = require("./lib/adapter_source").bodyOf(source, "function adapter.create(")
+		expect(string.find(source, "decorationHint.selectionMark == true then\n%s*syncTags%(handle%)") ~= nil).toBe(
+			true
+		)
+		expect(body ~= nil).toBe(true)
+	end)
 end)
 
 describe("the whole-control disabled dim is a theme opt-in", function()
