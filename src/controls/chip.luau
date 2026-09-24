@@ -260,23 +260,26 @@ function chip.build(Facet: any, core: any, spec: any)
 	local plateHeight = sizedHeight or { type = "minMax", min = "targetSizes.minimum" }
 	local radius = vocabulary.cornerRadiusFor(spec.corners or "pill")
 	local blueprint = UI.corners(
-		UI.Button({
-			id = id,
-			label = if editingSource ~= nil
-				then Compose.formula(function(use)
-					return if editingNow(use) then removeLabel else label
-				end)
-				elseif removable and selected == nil then removeLabel
-				else label,
-			selected = selected,
-			enabled = spec.enabled,
-			children = children,
-			animation = spec.animation,
-			controlSize = spec.controlSize,
-			appearance = appearance,
-			padding = sizedPadding,
-			height = plateHeight,
-		}),
+		chromeSlots.attachHint(
+			UI.Button({
+				id = id,
+				label = if editingSource ~= nil
+					then Compose.formula(function(use)
+						return if editingNow(use) then removeLabel else label
+					end)
+					elseif removable and selected == nil then removeLabel
+					else label,
+				selected = selected,
+				enabled = spec.enabled,
+				children = children,
+				animation = spec.animation,
+				controlSize = spec.controlSize,
+				appearance = appearance,
+				padding = sizedPadding,
+				height = plateHeight,
+			}),
+			{ selectionMark = true }
+		),
 		radius
 	)
 

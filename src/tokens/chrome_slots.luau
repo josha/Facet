@@ -966,6 +966,10 @@ export type Hint = {
 	-- the slot of the plate this text node paints over (`plateBeneath`); set by
 	-- the renderer, never by a control
 	onArt: string?,
+	-- this node is a chosen/checked mark the theme's authored `selection` ink paints
+	-- (a selected chip, a checkbox's fill and tick). No rule exists unless a theme
+	-- authors the role, so the node keeps its ordinary paint everywhere else.
+	selectionMark: boolean?,
 }
 
 -- attach(blueprint, hint) -> a NEW frozen blueprint carrying the hint. Mirrors
@@ -1008,6 +1012,7 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		iconSize = hint.iconSize,
 		footprint = hint.footprint,
 		contentOwnerDepth = hint.contentOwnerDepth,
+		selectionMark = hint.selectionMark,
 	})
 	if require("../vendor/compose/core").custodyOf(blueprint) == "owned" then
 		blueprint.meta = table.freeze(meta)
@@ -1081,6 +1086,9 @@ function chrome_slots.hintKey(hint: Hint?): string
 	end
 	if hint.onArt ~= nil then
 		table.insert(parts, "onArt=" .. hint.onArt)
+	end
+	if hint.selectionMark == true then
+		table.insert(parts, "selectionMark")
 	end
 	if type(hint.imageVariants) == "table" then
 		local states = {}

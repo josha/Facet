@@ -101,6 +101,9 @@ sheet_model.TAGS = table.freeze({
 	-- over artwork cannot lean on the theme's resting control fill, so it asks for
 	-- the strong opaque pair by name instead of hand-painting a scrim behind itself.
 	overMedia = "facet-over-media",
+	-- a chosen/checked mark painted with the theme's authored `selection` ink
+	-- (`chrome_slots.Hint.selectionMark`)
+	selectionMark = "facet-selection-mark",
 })
 
 -- the emphasis word that IS the default paint, named once: `classifyTags` skips it
@@ -353,6 +356,8 @@ export type ClassifyInput = {
 	over: string?,
 	-- the slot of the plate this text paints over (`chrome_slots.withPlateBeneath`)
 	onArt: string?,
+	-- a chosen/checked mark (`chrome_slots.Hint.selectionMark`)
+	selectionMark: boolean?,
 }
 
 function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
@@ -453,6 +458,9 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	end
 	if type(input.onArt) == "string" then
 		tags[chrome_slots.TAGS.onArtPrefix .. input.onArt] = true
+	end
+	if input.selectionMark == true then
+		tags[T.selectionMark] = true
 	end
 	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
 	-- including the class defaults: a rule that restates the class default is inert
@@ -1327,6 +1335,44 @@ local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -
 	rolePair("link", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
 end
 
+--[[ THE SELECTION MARK — painted only when a theme AUTHORS `extra.selection`.
+	A selected chip, a checkbox's fill and its tick then wear the selection ink
+	and its partner instead of the selected-row wash. No theme that leaves the
+	role out gets these rules, so its chips and checkboxes paint as before. The
+	hover rule keeps a hovered chosen chip chosen (after every per-word state). ]]
+local function authoredSelection(themes: { any }): boolean
+	for _, theme in themes do
+		if type(theme) == "table" and type(theme.extra) == "table" and theme.extra.selection ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
+local function emitSelectionMark(emitRest: (Rule) -> (), emitHover: (Rule) -> (), pointerLive: string)
+	local T = sheet_model.TAGS
+	emitRest({
+		name = "Selection mark — chosen",
+		selector = `TextButton.{T.selected}.{T.selectionMark}`,
+		props = { BackgroundColor3 = "$Selection", TextColor3 = "$OnSelection" },
+	})
+	emitRest({
+		name = "Selection mark — fill",
+		selector = `Frame.{T.selectionMark}`,
+		props = { BackgroundColor3 = "$Selection", BackgroundTransparency = num(0) },
+	})
+	emitRest({
+		name = "Selection mark — ink",
+		selector = `TextLabel.{T.selectionMark}`,
+		props = { TextColor3 = "$OnSelection" },
+	})
+	emitHover({
+		name = "Selection mark — chosen hover",
+		selector = `TextButton.{T.selected}.{T.selectionMark}.{pointerLive}:Hover`,
+		props = { BackgroundColor3 = "$Selection", TextColor3 = "$OnSelection" },
+	})
+end
+
 export type BuildOpts = {
 	-- ordered; the FIRST theme is the base/default unless defaultTheme names another
 	themes: { { name: string, style: any } },
@@ -1785,6 +1831,15 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- the compound role x appearance rules, immediately after the roles they must
 	-- beat (see emitVocabularyRoles)
 	emitVocabularyRoles(push)
+	local styles: { any } = {}
+	for _, entry in opts.themes do
+		table.insert(styles, entry.style)
+	end
+	local selectionMarks = authoredSelection(styles)
+	local markHover: { Rule } = {}
+	if selectionMarks then
+		emitSelectionMark(push, into(markHover), T.pointerLive)
+	end
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO — PRE-ARMED, exactly as
 	-- in `buildPackage` (director round 5). The base seed needs it for the same
@@ -1850,6 +1905,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- the same reason (see emitVocabularyStates). After the generic control ramp,
 	-- before the disabled group which must still beat every interaction state.
 	emitVocabularyStates(push, push, T.pointerLive)
+	pushAll(markHover)
 	pushAll({
 		{
 			name = "Disabled button",
@@ -3131,6 +3187,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	emitVocabularyRoles(function(rule: Rule)
 		emit("roles", rule)
 	end)
+	local markHover: { Rule } = {}
+	if authoredSelection(package.style.themes) then
+		emitSelectionMark(function(rule: Rule)
+			emit("roles", rule)
+		end, function(rule: Rule)
+			table.insert(markHover, rule)
+		end, T.pointerLive)
+	end
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
 	-- 2026-07-25). The three `Slot — <slot>` rules above are the ACCESSIBILITY
@@ -3766,6 +3830,9 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end, function(rule: Rule)
 		emit("press", rule)
 	end, T.pointerLive)
+	for _, rule in markHover do
+		emit("hover", rule)
+	end
 	-- Chrome interaction states. The decoration child is Active=false and can
 	-- never report a GuiState of its own, so the state is read from its PARENT
 	-- and reaches the child through the child combinator. One base image, four

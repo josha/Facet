@@ -180,10 +180,29 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 							return not item[3](use)
 						end),
 					}),
-					{ icon = item[2] }
+					{ icon = item[2], selectionMark = true }
 				)
 			)
 		end
+		-- the checked fill: invisible unless the theme authors a selection ink
+		table.insert(
+			marks,
+			1,
+			chrome.attachHint(
+				UI.corners(
+					UI.Box({
+						id = "Fill",
+						width = { type = "fill" },
+						height = { type = "fill" },
+						hidden = Compose.formula(function(use)
+							return not use(selected)
+						end),
+					}),
+					"control"
+				),
+				{ selectionMark = true }
+			)
+		)
 		return UI.corners(
 			UI.ZStack({
 				id = "Indicator",

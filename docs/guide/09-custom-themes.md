@@ -207,7 +207,9 @@ Three `extra` roles are optional and change nothing until you author them:
   the colour that reads on it: the switch track and knob, the slider fill and
   the tab underline. Unset, they are `accent` / `onAccent`. A theme that marks
   "on" with a neutral (a light ink on a dark theme) sets these and keeps its
-  accent for emphasis buttons.
+  accent for emphasis buttons. Authoring `selection` also paints a selected
+  `Chip` and a checked checkbox with it (plate and label, box and tick) under
+  native styling; without it those keep the selected-row wash.
 - `scrim` — the colour a modal backdrop dims toward (`scrimOpacity` is how
   much). Unset, it is `surface`.
 

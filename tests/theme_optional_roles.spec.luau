@@ -122,3 +122,68 @@ describe("optional palette roles: authored, every consumer follows", function()
 		expect(same(bar.tintColor, INK)).toBe(true)
 	end)
 end)
+
+describe("the selection mark: a chosen chip and a checked box wear an AUTHORED selection ink", function()
+	local function indexOf(model: any, name: string): number
+		for i, rule in model.rules do
+			if rule.name == name then
+				return i
+			end
+		end
+		return -1
+	end
+
+	it("no theme that leaves `selection` out gets a mark rule; an authoring one gets all four, hover last", function()
+		local neutral = sheet_model.buildPackage(snapshot.neutralPackage())
+		expect(ruleNamed(neutral, "Selection mark — chosen")).toBeNil()
+		expect(
+			ruleNamed(
+				sheet_model.build({ themes = { { name = "N", style = require("../src/tokens/default_style") } } }),
+				"Selection mark — chosen"
+			)
+		).toBeNil()
+		local model = sheet_model.buildPackage(authored({ selection = INK, onSelection = ON_INK }))
+		local chosen = ruleNamed(model, "Selection mark — chosen")
+		expect(chosen.selector).toBe("TextButton.facet-selected.facet-selection-mark")
+		expect(chosen.props.BackgroundColor3).toBe("$Selection")
+		expect(chosen.props.TextColor3).toBe("$OnSelection")
+		expect(ruleNamed(model, "Selection mark — fill").selector).toBe("Frame.facet-selection-mark")
+		expect(ruleNamed(model, "Selection mark — ink").props.TextColor3).toBe("$OnSelection")
+		expect(indexOf(model, "Selection mark — chosen") > indexOf(model, "Selected row")).toBe(true)
+		local hover = indexOf(model, "Selection mark — chosen hover")
+		expect(hover > indexOf(model, "Selected — hover")).toBe(true)
+		expect(hover > indexOf(model, "Utility — hover")).toBe(true)
+		expect(sheet_model.classifyTags({ selectionMark = true })["facet-selection-mark"]).toBe(true)
+	end)
+
+	it("a Chip and a checkbox Toggle carry the mark; the checkbox fill shows only while checked", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
+		local UI = w.UI
+		local on = Compose.cell(false)
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Col")({
+					UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) }),
+					UI.Toggle("Check")({ label = "Check", presentation = "checkbox", value = on }),
+				}),
+			})
+		end)
+		w.settle(5)
+		local function find(pattern: string): any
+			for _, path in w.adapter.paths() do
+				if string.match(path, pattern) then
+					return w.adapter.node(path)
+				end
+			end
+			return nil
+		end
+		expect(find("/Pick$").decorationHint.selectionMark).toBe(true)
+		local fill = find("/Indicator/Fill$")
+		expect(fill.decorationHint.selectionMark).toBe(true)
+		expect(fill.visible).toBe(false)
+		on:set(true)
+		w.settle(5)
+		expect(find("/Indicator/Fill$").visible).toBe(true)
+		expect(find("/Indicator/Check$").decorationHint.selectionMark).toBe(true)
+	end)
+end)
