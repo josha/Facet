@@ -120,7 +120,9 @@ describe("the measure memo replays the verdicts it cached", function()
 	it("seed 91: a cut label reports truncated = true, so its disclosure path survives", function()
 		local leaf = node("n51", "hstack", {
 			gap = 12,
-			width = { type = "minMax", min = 62, max = 185 },
+			-- capped at its floor: a hugging row now reserves what its fill text
+			-- measured, so the cut this pin needs comes from the leaf's own cap
+			width = { type = "minMax", min = 62, max = 62 },
 			height = { type = "fixed", px = 46 },
 			margin = { top = 20, right = 10, bottom = 2, left = 16 },
 		})

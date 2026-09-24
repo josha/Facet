@@ -1054,8 +1054,13 @@ return {
 			-- affordance is a Button (which would put three focus stops in a HUD that
 			-- has none), and this fixture is not allowed to invent art.
 			local taskProgress = { Compose.cell(0.2), Compose.cell(0.4), Compose.cell(0.6) }
+			-- a bar has no natural length, and in this hugging panel a `fill` child
+			-- measures as its content: the lane gives each bar one target of track
 			local function taskBar(i: number): any
-				return UI.ProgressView(`Task{i}`)({ value = taskProgress[i] })
+				return UI.HStack(`TaskLane{i}`)({
+					width = { type = "fill", min = { "targetSizes.minimum", "targetSizes.minimum" } },
+					UI.ProgressView(`Task{i}`)({ value = taskProgress[i] }),
+				})
 			end
 			local function taskRow(i: number): any
 				local key = `task{i}`

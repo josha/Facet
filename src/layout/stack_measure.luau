@@ -969,6 +969,14 @@ function stack_measure.contentSize(
 	end
 
 	ctx.childIterations += #fillList
+	-- THE FILL DEMAND: what the fill children measured, at the weight that gives
+	-- every one of them at least that much. A hugging parent hands this stack back
+	-- exactly what it reports, and arrange shares only that report's leftover, so
+	-- reporting less than the fill children measured (it used to report only their
+	-- declared floors) arranged a fill Text at 0 px after measuring it one line
+	-- wide — the "painted at a size nobody measured" family, found live in a hug
+	-- cell (Notice title/message painted as single letters outside their plate).
+	local perWeight = 0
 	for _, idx in fillList do
 		local child = children[idx]
 		local mt, mr, mb, ml = sides(child.margin)
@@ -976,7 +984,14 @@ function stack_measure.contentSize(
 		local childMain = if share == math.huge then math.huge else math.max(0, share - marginMain[idx])
 		local cw, ch = measure(ctx, child, if isH then childMain else innerMaxW, if isH then innerMaxH else childMain)
 		crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
+		-- a child held at its floor is served by the floor clamp, not by its weight
+		local d = dim(child, if isH then "w" else "h")
+		local measured = if isH then cw else ch
+		if measured > (d.min or 0) then
+			perWeight = math.max(perWeight, (measured + marginMain[idx]) / (d.weight or 1))
+		end
 	end
+	local fillDemand = math.ceil(math.min(perWeight * fillWeightSum, remaining))
 	--[[ THE MEMO IS FILLED HERE, AFTER EVERY PASS THAT COULD HAVE CHANGED A NUMBER,
 		and only when this container is still memoable. A hit refilled nothing: the
 		arrays it served from are the same tables, and every index it did NOT serve was
@@ -1068,7 +1083,7 @@ function stack_measure.contentSize(
 		local _, cross = baseline.line(deps.baseline, ctx, node, sizes, 1, n)
 		crossMax = math.max(crossMax, cross)
 	end
-	local contentMain = mainSum + fillMinimum + gaps + (if isH then pl + pr else pt + pb)
+	local contentMain = mainSum + math.max(fillMinimum, fillDemand) + gaps + (if isH then pl + pr else pt + pb)
 	local contentCross = crossMax + (if isH then pt + pb else pl + pr)
 	if isH then
 		return contentMain, contentCross
