@@ -320,7 +320,6 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				width = width,
 				height = height,
 				align = "start",
-				alignV = "start",
 				-- the informational step's inset, so every label starts on one line
 				padding = "xs",
 				controlSize = spec.controlSize,
