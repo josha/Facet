@@ -693,6 +693,18 @@ describe("authored presentation E — an authored scale survives a press", funct
 		expect(bare).toBe(0)
 	end)
 
+	it(
+		"a Button whose content is not under its instance does not dip (owner: the picker field shrank past its chevron)",
+		function()
+			local paint = fs.readFile("src/client/screen_paint.luau")
+			local body = adapter_source.bodyOf(paint, "local function dipCarriesContent(handle: any): boolean")
+			expect(string.find(body, "IsDescendantOf(handle.instance)", 1, true) ~= nil).toBe(true)
+			-- both dips (native + bespoke) ask it before they scale
+			local _, gated = string.gsub(paint, "and dipCarriesContent%(handle%)", "")
+			expect(gated).toBe(2)
+		end
+	)
+
 	it("the presentation authority RECORDS the resting scale at the moment it writes it", function()
 		local source = adapter_source.live()
 		local from = string.find(source, "local function applyPresentationPaint(handle: any, t: any)", 1, true)

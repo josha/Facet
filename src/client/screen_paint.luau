@@ -547,6 +547,27 @@ function screen_paint.new(ctx: any)
 		return handle.restingScale or 1
 	end
 
+	-- THE DIP SCALES ONE INSTANCE, SO IT MAY ONLY SCALE A BUTTON THAT DRAWS ITSELF
+	-- (owner 2026-09-23). A Button's content — an icon, a swatch, a value, a
+	-- chevron — is its own flat instances beside the plate, not under it, so the
+	-- dip shrank the plate toward its top-left under content that stayed put: a
+	-- 1400px picker field lost 21px on the right and its chevron hung outside.
+	-- Such a Button keeps its pressed paint and does not dip; a text-only Button
+	-- draws its label itself, and one hosting its content carries it along.
+	local function dipCarriesContent(handle: any): boolean
+		local prefix = handle.path .. "/"
+		for path, other in handlesByPath do
+			if
+				string.sub(path, 1, #prefix) == prefix
+				and other.instance ~= nil
+				and not other.instance:IsDescendantOf(handle.instance)
+			then
+				return false
+			end
+		end
+		return true
+	end
+
 	-- A neutral press-only UIScale suppresses UIShadow in the native engine.
 	-- Drop it after recovery; authored/motion scales keep their existing pivot
 	-- and lifetime, including the settled radial-menu rounding protection.
@@ -590,7 +611,7 @@ function screen_paint.new(ctx: any)
 			end
 		end
 		button.MouseButton1Down:Connect(function()
-			if not isReducedMotion() and not handle.suppressStates then
+			if not isReducedMotion() and not handle.suppressStates and dipCarriesContent(handle) then
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),
@@ -1218,7 +1239,12 @@ function screen_paint.new(ctx: any)
 		end)
 		button.MouseButton1Down:Connect(function()
 			setFill(pressedFill(), true, "pressed")
-			if handle.class ~= "Toggle" and not isReducedMotion() and not handle.suppressStates then
+			if
+				handle.class ~= "Toggle"
+				and not isReducedMotion()
+				and not handle.suppressStates
+				and dipCarriesContent(handle)
+			then
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),
