@@ -20,7 +20,11 @@ local function mount(spec: any, opts: any?): any
 	local UI = w.UI
 	w.present(function()
 		return UI.Screen("S")({
-			UI.VStack("Page")({ width = UI.fill(), gap = "s", UI.StepIndicator("Steps")(spec) }),
+			UI.VStack("Page")({
+				width = if o.hug then nil else UI.fill(),
+				gap = "s",
+				UI.StepIndicator("Steps")(spec),
+			}),
 		})
 	end)
 	w.settle(3)
@@ -306,6 +310,15 @@ describe("StepIndicator: the summary", function()
 		room:set(950)
 		w.settle(4)
 		expect(dump(w).form).toBe("row")
+	end)
+
+	-- G2: a hugging parent's width is the form the control drew, not an offer
+	it("a hugging parent settles on the same form a filling one shows at that width", function()
+		for _, w in { 900, 300 } do
+			local filled = dump(mount({ steps = workflow(), current = "ship" }, { w = w })).form
+			local hugged = dump(mount({ steps = workflow(), current = "ship" }, { w = w, hug = true })).form
+			expect(`{w}:{hugged}`).toBe(`{w}:{filled}`)
+		end
 	end)
 
 	it("a callback that removes the control leaves nothing open", function()
