@@ -1628,6 +1628,48 @@ describe("Slider `controlSize` on a vertical track", function()
 	end)
 end)
 
+describe("Slider in a hugging cell: a usable track, and the rung reads on the thumb", function()
+	local function cellSlider(axis: string, size: string?): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new({ ops = true })
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		local control = harness.Controls.Slider(core, {
+			id = "Vol",
+			label = "Vol",
+			value = Compose.cell(50),
+			min = 0,
+			max = 100,
+			axis = axis,
+			controlSize = size,
+		})
+		-- a hugging cell offers no length of its own on either axis
+		pres.present(UI.Screen({
+			id = "S",
+			children = { UI.VStack({ id = "Cell", align = "start", children = { control.blueprint } }) },
+		}))
+		pres.refresh()
+		local host = if size ~= nil then "/S/Cell/Vol/TrackHost+target/TrackHost" else "/S/Cell/Vol/TrackHost"
+		return adapter.node(host).rect, adapter.node(host .. "/Groove/Thumb").rect
+	end
+	for _, axis in { "x", "y" } do
+		it(`axis {axis}: the track keeps a target of travel`, function()
+			local track = cellSlider(axis, nil)
+			expect((if axis == "y" then track.h else track.w) >= 44).toBe(true)
+		end)
+	end
+	it("compact and large thumbs differ, and regular is the theme's thumb", function()
+		local _, compact = cellSlider("y", "compact")
+		local _, regular = cellSlider("y", "regular")
+		local _, large = cellSlider("y", "large")
+		local _, plain = cellSlider("y", nil)
+		expect(compact.w < regular.w and regular.w < large.w).toBe(true)
+		expect(regular.w).toBe(plain.w)
+	end)
+end)
+
 describe("Slider range: an illegal pair arriving at RUNTIME is quarantined, never fatal", function()
 	local function drive(next_: any, reason: string, overrides: any?)
 		local _, adapter, _, pres, value, control = mountRange(overrides)

@@ -287,7 +287,7 @@ return {
 				UI.Text("TiltCaption")({ text = "Tilt (a turned range)", textSize = "caption", role = "secondary" }),
 				UI.aspectRatio(
 					UI.ZStack("TiltStage")({
-						width = { type = "percent", fraction = 1, max = 320 },
+						width = { type = "percent", fraction = 1, max = 360 },
 						lineAlign = "center",
 						alignH = "center",
 						alignV = "center",

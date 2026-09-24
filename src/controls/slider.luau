@@ -558,13 +558,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 
 	local FILL = { type = "fill", weight = 1 }
+	-- the value axis floors at one target of travel: a hugging cell offers no
+	-- length, and a track that fills nothing cannot be dragged or read
+	local TRACK_LENGTH = { type = "fill", weight = 1, min = TRACK_HEIGHT }
 	-- a named rung paints a thinner track inside a reserved whole target
 	local trackThickness = vocabulary.deriveSize("UI.Slider", spec.controlSize, function(rung)
 		local path = vocabulary.metricPath(rung, "height")
 		return { type = "fixed", px = path or TRACK_HEIGHT }
 	end) or { type = "fixed", px = TRACK_HEIGHT }
 	local railThickness = { type = "fixed", px = RAIL_HEIGHT }
-	local thumbBox = { type = "fixed", px = THUMB_SIZE }
+	-- a named rung draws its thumb at the rung's icon size, so the ladder reads
+	local thumbBox = vocabulary.deriveSize("UI.Slider", spec.controlSize, function(rung)
+		return { type = "fixed", px = vocabulary.iconSizeFor(rung) or THUMB_SIZE }
+	end) or { type = "fixed", px = THUMB_SIZE }
 	-- a node's placement along the track: offset on the value axis from its anchor
 	local function along(lead: any, span: any?, thickness: any?): { [string]: any }
 		if vertical then
@@ -690,8 +696,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- upright and the row keeps its unrotated box (the caller reserves the room)
 	local trackHost: any = UI.ZStack({
 		id = "TrackHost",
-		width = if vertical then trackThickness else FILL,
-		height = if vertical then FILL else trackThickness,
+		width = if vertical then trackThickness else TRACK_LENGTH,
+		height = if vertical then TRACK_LENGTH else trackThickness,
 		rotation = spec.rotation,
 		children = trackHostChildren,
 	})
@@ -702,8 +708,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			core,
 			"TrackHost",
 			trackHost,
-			if vertical then nil else FILL,
-			if vertical then FILL else nil
+			if vertical then nil else TRACK_LENGTH,
+			if vertical then TRACK_LENGTH else nil
 		)
 	end
 
