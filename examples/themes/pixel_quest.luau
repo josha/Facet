@@ -224,6 +224,8 @@ local QUEST = {
 		-- the control art's centre as painted (assets/themes/plate-samples.json):
 		-- what a lifted label on this plate is paired against
 		controlArt = rgb(168, 114, 47),
+		-- ...and its stepper's pressed plate, where the +/- is picked
+		stepperArtPressed = rgb(107, 67, 38),
 		-- ...and the field's art, where its text and placeholder read
 		fieldArt = rgb(58, 44, 79),
 		-- ...and the panel's, where an author's text inside a raised box reads

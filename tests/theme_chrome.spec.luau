@@ -2179,6 +2179,19 @@ describe("text over another node's plate reads on that plate's art", function()
 		-- the role and appearance rules still win over the plate's default
 		expect(index[".facet-on-controlTextColor3"] < index["Link control"]).toBe(true)
 		expect(index[".facet-on-panel.facet-role-secondaryTextColor3"] > index["Secondary text"]).toBe(true)
+		-- a stepper's +/- art wears its label's colour over the package's own
+		-- icon tint (Pixel Quest paints increment/decrement accent green on wood)
+		local pixel = sheet_model.buildPackage(require("../examples/themes/pixel_quest").build(themes))
+		local at: { [string]: number } = {}
+		for i, rule in pixel.rules do
+			at[rule.name] = i
+			if rule.name == "On plate — stepper icon" then
+				expect(rule.props.ImageColor3).toBe("$OnControlChrome")
+			end
+		end
+		expect(
+			`{at["On plate — stepper icon"] ~= nil and at["On plate — stepper icon"] > at["Icon — increment"]}`
+		).toBe("true")
 		-- ...a flat package has no art, so no rule at all
 		for _, rule in sheet_model.buildPackage(classic()).rules do
 			expect(string.find(rule.selector, "facet-on-", 1, true)).toBeNil()

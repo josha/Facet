@@ -489,6 +489,38 @@
           "y0": 16,
           "y1": 20
         }
+      },
+      "stepper": {
+        "alpha": 1.0,
+        "asset": "pixel_stepper_plate_default",
+        "b": 47,
+        "file": "assets/themes/pixel-quest/pixel_stepper_plate_default.png",
+        "g": 114,
+        "r": 168,
+        "sha256": "8a2ad694c603fe39c01c506299fe19aabd9e3d21e938a79539358c1acddbfd5e",
+        "size": "28x28",
+        "sliceCenter": {
+          "x0": 12,
+          "x1": 16,
+          "y0": 12,
+          "y1": 16
+        }
+      },
+      "stepperPressed": {
+        "alpha": 1.0,
+        "asset": "pixel_stepper_plate_pressed",
+        "b": 38,
+        "file": "assets/themes/pixel-quest/pixel_stepper_plate_pressed.png",
+        "g": 67,
+        "r": 107,
+        "sha256": "f8d19fba17023b4daa9ebfbb04ffa92e11ff5d2b453b6224632d045d80204b68",
+        "size": "28x28",
+        "sliceCenter": {
+          "x0": 12,
+          "x1": 16,
+          "y0": 12,
+          "y1": 16
+        }
       }
     }
   },

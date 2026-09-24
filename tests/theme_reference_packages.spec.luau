@@ -1119,7 +1119,7 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 				seen += 1
 			end
 		end
-		expect(seen).toBe(30)
+		expect(seen).toBe(32)
 	end)
 
 	it("every package whose SELECTION slot is image art declares that art's colour", function()
@@ -1272,8 +1272,10 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 			local samples = doc.samples[pkg.identity.id]
 			local backed = false
 			local iconToken: { [string]: string } = {}
+			local stepperIcon = false
 			for _, rule in model.rules do
 				backed = backed or rule.name == "Chrome text — backing"
+				stepperIcon = stepperIcon or rule.name == "On plate — stepper icon"
 				local slot = string.match(rule.selector, "^%.facet%-on%-(%a+) > %.facet%-chrome%-icon$")
 				if slot ~= nil then
 					iconToken[slot] = string.sub(rule.props.ImageColor3, 2)
@@ -1328,16 +1330,32 @@ describe("RS-DIR12: a package's selected palette colour is what its selected ART
 						plate(samples.stepperPressed, t.ChromeTintPressed),
 					})
 				end
-				-- an icon on art wears its plate's label colour, every state
+				-- an icon on art wears its plate's label colour, every state; an icon
+				-- has no glyph backing, so it reads directly
 				for slot, token in iconToken do
 					if samples[slot] ~= nil then
-						add(states(`{slot} icon`, t[token], slot, "ChromeTint", 3))
+						for _, case in states(`{slot} icon`, t[token], slot, "ChromeTint", 3) do
+							table.insert(cases, { case[1], case[2], case[3], 3, true })
+						end
 					end
+				end
+				if stepperIcon and samples.stepperPressed ~= nil then
+					table.insert(
+						cases,
+						{ "stepper icon", t.OnControlChrome, plate(samples.stepper, t.ChromeTint), 3, true }
+					)
+					table.insert(cases, {
+						"stepper icon.pressed",
+						t.OnStepperChromePressed,
+						plate(samples.stepperPressed, t.ChromeTintPressed),
+						3,
+						true,
+					})
 				end
 				local worst, worstRole = math.huge, ""
 				for _, case in cases do
 					local ratio = tokens.contrastRatio(case[2], case[3])
-					if backed then
+					if backed and not case[5] then
 						ratio = math.max(ratio, tokens.contrastRatio(case[2], theme.colors.surface))
 					end
 					local floor = case[4] or FLOOR

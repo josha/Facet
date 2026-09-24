@@ -94,6 +94,8 @@ TARGETS = [
             "control": "pixel_plate_default",
             "field": "pixel_field",
             "panel": "pixel_panel",
+            "stepper": "pixel_stepper_plate_default",
+            "stepperPressed": "pixel_stepper_plate_pressed",
         },
     ),
     (

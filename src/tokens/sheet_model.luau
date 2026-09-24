@@ -3947,7 +3947,21 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		end
 	end
 	-- an icon picture on art wears the label's colour for that art: over another
-	-- node's plate, or on its own skinned node (a stepper's +/- art)
+	-- node's plate, or on its own skinned node — a stepper's +/- art too, whose
+	-- label is the control's (and its pressed plate's own, see the text rule)
+	if ninePlans.stepperPlate ~= nil or stacks.stepperPlate ~= nil then
+		local skinned = `.{chrome_slots.skinnedTagFor("stepperPlate")}`
+		emit("chrome", {
+			name = "On plate — stepper icon",
+			selector = `{skinned} > .{chrome_slots.ICON_PICTURE_TAG}`,
+			props = { ImageColor3 = "$OnControlChrome" },
+		})
+		emit("chrome", {
+			name = "On plate — stepper icon pressed",
+			selector = `{skinned}:Press > .{chrome_slots.ICON_PICTURE_TAG}`,
+			props = { ImageColor3 = "$OnStepperChromePressed" },
+		})
+	end
 	for _, entry in onArtRoles do
 		for _, prefix in { chrome_slots.TAGS.onArtPrefix, chrome_slots.TAGS.skinnedPrefix } do
 			emit("chrome", {
