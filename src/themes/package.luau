@@ -293,6 +293,9 @@ package.VALUE_HOST_METRICS = table.freeze({
 -- WCAG-derived accessibility floor. A theme may raise a target size; it can
 -- never lower one below the platform-agnostic minimum.
 package.MIN_TARGET_SIZE = 44
+-- the floor of an optional `targetSizes.pointer`: the dense row pitch and hit
+-- floor a theme may take while the live input is pointer-only (WCAG 2.5.8)
+package.MIN_POINTER_TARGET_SIZE = 24
 
 -- RESOLVABLE FONT FAMILIES. A typography role's family (which is also the
 -- chrome-text font, since the lifted label's rules take `fontOf(role)`) must be
@@ -1835,6 +1838,22 @@ function package.define(def: any): (any, any)
 			"metrics.targetSizes.minimum",
 			`targetSizes.minimum is {tostring(minimum)}; the accessibility floor is {package.MIN_TARGET_SIZE}`,
 			`raise it to at least {package.MIN_TARGET_SIZE} — the floor clamps UP, so a lower value would never take effect anyway`
+		)
+	end
+	local pointer = if type(metrics.targetSizes) == "table" then metrics.targetSizes.pointer else nil
+	if
+		pointer ~= nil
+		and (
+			not isFiniteNumber(pointer)
+			or pointer < package.MIN_POINTER_TARGET_SIZE
+			or (isFiniteNumber(minimum) and pointer > minimum)
+		)
+	then
+		reject(
+			"targetTooSmall",
+			"metrics.targetSizes.pointer",
+			`targetSizes.pointer is {tostring(pointer)}; it must lie between {package.MIN_POINTER_TARGET_SIZE} and targetSizes.minimum`,
+			"the dense row pitch applies only while the input is pointer-only; touch and gamepad keep targetSizes.minimum"
 		)
 	end
 

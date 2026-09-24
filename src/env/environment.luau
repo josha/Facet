@@ -359,7 +359,19 @@ local function build(core: any): Env
 		if themeSnapshot.isFrameworkDefault(committed) then
 			committed = themeSnapshot.neutral()
 		end
-		return themeSnapshot.forDisplay(committed, use(derived.effectiveDisplaySize))
+		local shown = themeSnapshot.forDisplay(committed, use(derived.effectiveDisplaySize))
+		-- DENSE ROWS: a package that authors `targetSizes.pointer` subscribes to
+		-- the live input and takes it only while no touch and no gamepad is present
+		local sizes = if type(shown) == "table" then shown.targetSizes else nil
+		if type(sizes) ~= "table" or sizes.pointer == nil then
+			return shown
+		end
+		local classes = use(derived.interactionClasses)
+		return if classes.pointer
+				and not classes.touch
+				and not classes.gamepad
+			then themeSnapshot.forPointer(shown)
+			else shown
 	end)
 	derived.effectiveTransparency = Compose.formula(function(use)
 		local raw = use(signals.preferredTransparency)

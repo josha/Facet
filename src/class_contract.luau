@@ -265,11 +265,18 @@ function contract.all(): { [string]: ControlContract }
 	return CONTROLS
 end
 
--- A theme can enlarge a target, but cannot shrink its declared minimum.
+-- A theme can enlarge a target, but cannot shrink its declared minimum — except
+-- through its `targetSizes.pointer`, which the environment's `forPointer` form
+-- makes the live `hit` floor only while the input is pointer-only (dense rows).
 function contract.effectiveHitFloor(class: string, metrics: any): number?
 	local c = contract.forClass(class)
 	local declared = if c ~= nil then c.minHitSize else nil
-	return if declared ~= nil then math.max(declared, metrics.targetSizes.minimum) else nil
+	if declared == nil then
+		return nil
+	end
+	local sizes = metrics.targetSizes
+	local floor = math.max(declared, sizes.minimum)
+	return if sizes.pointer ~= nil and sizes.hit == sizes.pointer and sizes.hit < floor then sizes.hit else floor
 end
 
 return contract
