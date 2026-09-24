@@ -103,7 +103,7 @@ describe("UI.Stage: strict authoring (a)", function()
 	end)
 
 	it("enforces the eight-surface vocabulary", function()
-		for _, surface in { "base", "raised", "control", "chip", "badge", "accent", "scrim", "plain" } do
+		for _, surface in { "base", "raised", "pane", "control", "chip", "badge", "accent", "scrim", "plain" } do
 			local ok = pcall(function()
 				UI.Stage({ id = "Preview", surface = surface })
 			end)
@@ -114,7 +114,7 @@ describe("UI.Stage: strict authoring (a)", function()
 		end)
 		expect(contains(err, "Stage.surface")).toBe(true)
 		-- the refusal names the WHOLE legal set (constitution §4)
-		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
+		expect(contains(err, "base | raised | pane | control | chip | badge | accent | scrim | plain")).toBe(true)
 	end)
 end)
 
