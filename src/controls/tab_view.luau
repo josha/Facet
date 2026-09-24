@@ -101,7 +101,24 @@ local TABVIEW_KEYS = specGuard.keySet({
 	"transition",
 })
 
-local BUILD_DEPTH = 0
+--[[ THE PAGE SCOPES. A TabView is nested when it is built under a page of
+	another one — during the page factory, or LATER, in a branch the page mounts
+	(a `Compose.show`/`keyed` row that appears after the factory returned).
+	Compose owners carry no parent link, so a page's owner marks every owner it
+	creates, down the tree; the mark dies with the owner (weak keys). ]]
+local PAGE_OWNERS: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local function markPage(pageOwner: any)
+	if PAGE_OWNERS[pageOwner] then
+		return
+	end
+	PAGE_OWNERS[pageOwner] = true
+	local createChild = pageOwner.createChild
+	pageOwner.createChild = function()
+		local child = createChild()
+		markPage(child)
+		return child
+	end
+end
 
 --[[ THE PAGE TRANSITION, RESOLVED BY THE FRAMEWORK'S OWN RESOLVER.
 
@@ -192,7 +209,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- READ THE DEPTH BEFORE ANYTHING ELSE CAN CHANGE IT. This is the whole
 	-- nesting decision, and it is a fact about WHERE THIS CALL IS, so it is taken
 	-- at the top of the call and never re-read.
-	local nested = BUILD_DEPTH > 0
+	local nested = PAGE_OWNERS[Compose.currentOwner()] == true
 
 	local selection = spec.selection
 	if not selectionModel.isWritable(selection) then
@@ -724,16 +741,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		-- `content` receives the page's Compose owner, as NavigationStack pages do.
 		local pageOwner = Compose.currentOwner()
 		local tabId = tab.id
-		-- THE BUILD STACK, raised for exactly the duration of the
-		-- caller's factory. `pcall` so a factory that throws still
-		-- lowers it: an unbalanced depth would make every later
-		-- TabView on the session think it was nested.
-		BUILD_DEPTH += 1
-		local ok, built = pcall(tab.content, pageOwner)
-		BUILD_DEPTH -= 1
-		if not ok then
-			error(built, 0)
-		end
+		markPage(pageOwner)
+		local built = tab.content(pageOwner)
 		mounted[tabId] = true
 		mountCount += 1
 		-- Release page bookkeeping with the page's owner.

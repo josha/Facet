@@ -130,8 +130,10 @@ local categories = UI.TabView {
 -- Return categories from your component; the mount owns both levels.
 ```
 
-Leave placement automatic at both levels. Building the inner control inside the
-outer content factory lets Facet resolve it to `topBar` through its nesting rule.
+Leave placement automatic at both levels. Building the inner control anywhere
+under an outer page — in its content factory, or later in a `UI.When`,
+`UI.ForEach`, `Compose.show` or `Compose.keyed` branch of that page — lets Facet
+resolve it to `topBar` through its nesting rule.
 The outer navigation can use a sidebar, top pills or compact bottom tabs according
 to space, input and viewing distance. Forcing both levels to `topBar` discards
 that adaptation. A segmented Picker is appropriate for a value or mode inside a
