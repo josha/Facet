@@ -5,6 +5,7 @@ local guard = require("../spec_guard")
 local contract = require("../class_contract")
 local selection = require("../selection_model")
 local contribution = require("../input/contribution")
+local richText = require("../layout/rich_text")
 local surfaceEnv = require("../env/surface_env")
 local menuRecipe = require("./menu_recipe")
 local shortcut = require("./button_shortcut")
@@ -22,6 +23,7 @@ local KEYS = guard.keySet({
 	"corners",
 	"over",
 	"trailingIcon",
+	"underline",
 	"compactLabel",
 	"children",
 	"enabled",
@@ -123,6 +125,14 @@ local function build(Facet, core, spec, owner)
 		"UI.Button.row cannot combine with children or image"
 	)
 	local imageForm = spec.image ~= nil
+	-- a link's underline: always, or while hovered or focused
+	assert(
+		spec.underline == nil or spec.underline == "always" or spec.underline == "hover",
+		`UI.Button: \`underline\` must be always | hover (got '{tostring(spec.underline)}')`
+	)
+	local underline = spec.underline
+	-- the controls that repaint on engagement track hover and painted focus
+	local engages = imageForm or underline == "hover"
 	assert(not imageForm or spec.children == nil, "UI.Button.image and children are alternative content forms")
 	assert(
 		imageForm or (spec.subtitle == nil and spec.imageAspectRatio == nil and spec.imageFraming == nil),
@@ -224,8 +234,8 @@ local function build(Facet, core, spec, owner)
 			end
 		end)
 	end
-	local focused = if imageForm then Compose.cell(false) else nil
-	local hovered = if imageForm then Compose.cell(false) else nil
+	local focused = if engages then Compose.cell(false) else nil
+	local hovered = if engages then Compose.cell(false) else nil
 	local hold, elapsed, hasRepeated = nil, 0, false
 	local suppressTap = false
 	local suppressSelectionEcho = false
@@ -425,7 +435,7 @@ local function build(Facet, core, spec, owner)
 		end
 	end
 	local function attachHover()
-		if imageForm and controller and rootNode and not hoverOff then
+		if engages and controller and rootNode and not hoverOff then
 			hoverOff = controller.attachContextGestures(rootNode.path, {
 				onHoverChanged = function(on)
 					hovered:set(on)
@@ -482,8 +492,25 @@ local function build(Facet, core, spec, owner)
 		)
 	end
 	local semanticIcons = (spec.icon ~= nil or spec.trailingIcon ~= nil) and spec.shape ~= "circle"
-	local hasContent = spec.children ~= nil or spec.row ~= nil or canBeBusy or imageForm or semanticIcons
+	local hasContent = spec.children ~= nil
+		or spec.row ~= nil
+		or canBeBusy
+		or imageForm
+		or semanticIcons
+		or underline ~= nil
+	assert(
+		underline == nil or (spec.children == nil and spec.row == nil and not imageForm and not semanticIcons),
+		"UI.Button: `underline` belongs to a text button (no children, row, image or icon)"
+	)
 	assert(spec.compactLabel == nil or not hasContent, "UI.Button.compactLabel requires a plain text button")
+	-- the label as markup: underlined always, or while engaged by a pointer or focus
+	local underlinedLabel = if underline ~= nil
+		then Compose.formula(function(use)
+			local words = richText.escape(selection.read(spec.label, use) or "")
+			local on = underline == "always" or (use(hovered :: any) or use(focused :: any))
+			return if on then `<u>{words}</u>` else words
+		end)
+		else nil
 	local content
 	if spec.row then
 		content = menuRecipe.semantic(UI, spec.label, spec.row)
@@ -492,7 +519,12 @@ local function build(Facet, core, spec, owner)
 			then table.clone(spec.children)
 			else {
 				chromeSlots.attachHint(
-					UI.Text({ id = "Label", text = spec.label or "", textSize = spec.textSize or "control" }),
+					UI.Text({
+						id = "Label",
+						text = if underline ~= nil then underlinedLabel else spec.label or "",
+						rich = if underline ~= nil then true else nil,
+						textSize = spec.textSize or "control",
+					}),
 					{ contentOwnerDepth = if imageForm then 3 else 1 }
 				),
 			}
@@ -705,13 +737,13 @@ local function build(Facet, core, spec, owner)
 				stop()
 			end
 		end,
-		bindController = if imageForm
+		bindController = if engages
 			then function(c)
 				controller = c
 				attachHover()
 			end
 			else nil,
-		bindFocusGraph = if imageForm
+		bindFocusGraph = if engages
 			then function(g, allowed)
 				graph = g
 				paintAllowed = allowed

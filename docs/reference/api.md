@@ -2030,7 +2030,7 @@ its outer surfaces. It does not change focus order or activation.
 
 
 `UI.Button{ id?, label (required), compactLabel?, disclose?, enabled?, selected?,
-role?, shape?, icon?, controlSize?, appearance?, over?, gap?, align?, help?, surface?, textSize?, padding?,
+role?, shape?, icon?, controlSize?, appearance?, underline?, over?, gap?, align?, help?, surface?, textSize?, padding?,
 focusable?, focusVisual?, traversalPriority?, onActivate?, children?,
 onPointerDown?, onPointerMove?, onPointerUp?, onPointerCancel? }` — activatable
 control.
@@ -2047,7 +2047,10 @@ emphasis only and composes with `role`, which stays the semantic channel:
 the paint an untagged button already has and earns no tag. Absent on both means
 today's paint, unchanged. `"inverse"` is a light plate on a dark theme (and the
 reverse): the theme's `extra.inverseSurface` / `onInverse` pair, unset
-`contentStrong` lettered in `surface`. **`over = "media"`** (construction-only) is the one tag
+`contentStrong` lettered in `surface`. **`underline`** (`"always" | "hover"`,
+construction-only, text buttons only) draws the label underlined — always, or while
+the pointer is over it or it holds painted focus; it is the usual cue on an
+`appearance = "link"` button. **`over = "media"`** (construction-only) is the one tag
 for a control drawn on top of artwork: it takes the theme's strong opaque surface
 and the content colour gated against it, instead of the caller painting a scrim.
 

@@ -275,6 +275,7 @@ export type ButtonSpec = {
 	over: "media"?,
 	name: string?,
 	trailingIcon: string?,
+	underline: ("always" | "hover")?, -- a text button's label underline (a link's cue)
 	id: string?,
 	label: bp.BoundEither<string, number>?,
 	compactLabel: (string | { text: string?, icon: string?, image: string?, prefer: boolean? })?,

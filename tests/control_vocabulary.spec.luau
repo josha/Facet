@@ -1154,3 +1154,27 @@ describe("a Button's textSize reaches the label it draws beside an icon", functi
 		expect(propsOf(w, pathOf(w, "Browse/Label")).textSize).toBe(14) -- the label role at Neutral
 	end)
 end)
+
+describe("a link's underline", function()
+	it('`underline = "hover"` underlines the label while hovered and clears it after', function()
+		local w = world.new({ preferredInput = "KeyboardAndMouse" })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack("Rows")({
+					UI.Button("More")({ label = "Learn & more", appearance = "link", underline = "hover" }),
+					UI.Button("Always")({ label = "Terms", appearance = "link", underline = "always" }),
+				}),
+			})
+		end)
+		local label = pathOf(w, "More/Label")
+		expect(propsOf(w, label).text).toBe("Learn &amp; more")
+		expect(propsOf(w, pathOf(w, "Always/Label")).text).toBe("<u>Terms</u>")
+		w.adapter.hover(pathOf(w, "More"))
+		w.settle(2)
+		expect(propsOf(w, label).text).toBe("<u>Learn &amp; more</u>")
+		w.adapter.unhover(pathOf(w, "More"))
+		w.settle(2)
+		expect(propsOf(w, label).text).toBe("Learn &amp; more")
+	end)
+end)
