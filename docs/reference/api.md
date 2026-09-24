@@ -9024,7 +9024,9 @@ scale is paint only: the card's box never changes, so the gutters around it must
 hold what a lifted card paints past its box. Size them with
 `Facet.layout.transformFootprint(w, h, 1.04, 0)`: a gutter at least the
 footprint's growth holds two neighbours lifted toward each other (the Cards
-scenario does this for both VirtualGrid gutters). Under reduced motion the card
+scenario does this for both VirtualGrid gutters), and a `UI.VirtualGrid` keeps
+half of each gutter at its outer edges, so a lifted card in a corner cell and
+its ring stay inside the grid's clip. Under reduced motion the card
 keeps only the shadow. At ten-foot distance the focus visual's own
 `tenFootFocusScale` is the lift, so the card does not scale a second time. In a `UI.VirtualGrid`, hand the card's `api.scale`
 to the cell's `ctx.stopScale` so the cell's focus stop, and its ring, grow with the card.

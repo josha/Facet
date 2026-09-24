@@ -781,6 +781,46 @@ describe("Card in a VirtualGrid: one browse stop, entry and Cancel", function()
 		expect(built.report().last).toBe("Last action: play g1")
 	end)
 
+	it("a lifted, ringed card in every corner cell stays inside the grid that clips it", function()
+		-- the gutters hold two neighbours' lift; each outer edge holds one, so the
+		-- ring (inset into the lifted rect) is never cut by the scroller's clip
+		local scenario = require("../examples/gallery/scenarios/cards") :: any
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 1280, h = 720 },
+			reducedMotion = true,
+			capabilities = { gamepad = true, keyboard = true, mouse = true },
+		})
+		local built =
+			scenario.build({ Facet = Facet, UI = w.UI, Compose = Compose, app = w.app, core = w.core, env = w.env })
+		w.present(built.screen)
+		w.settle(6)
+		local clip = w.adapter.node("/Cards/Games").rect
+		local function lifted(key: string): (number, number, number, number)
+			local hit = w.adapter.node(`/Cards/Games/Canvas/Band/W/[{key}]/Cell/Hit`).rect
+			local gw, gh = Facet.layout.transformFootprint(hit.w, hit.h, 1.04, 0)
+			local scroll = w.adapter.scrollPositionOf("/Cards/Games")
+			local y = hit.y - (if scroll ~= nil then scroll.y else 0)
+			return hit.x + (hit.w - gw) / 2, y + (hit.h - gh) / 2, gw, gh
+		end
+		local function inside(key: string): string
+			local x, y, gw, gh = lifted(key)
+			local ok = x >= clip.x
+				and y >= clip.y
+				and x + gw <= clip.x + clip.w + 0.01
+				and y + gh <= clip.y + clip.h + 0.01
+			return `{key} {ok}`
+		end
+		-- the first line's corners at the top of the canvas...
+		expect(inside("g1")).toBe("g1 true")
+		expect(inside("g4")).toBe("g4 true")
+		-- ...and the last line's at its end
+		w.adapter.driveScroll("/Cards/Games", { x = 0, y = 100000 })
+		w.settle(6)
+		clip = w.adapter.node("/Cards/Games").rect
+		expect(inside("g57")).toBe("g57 true")
+		expect(inside("g60")).toBe("g60 true")
+	end)
+
 	it("a thousand items keep the mounted cards, refs and owners bounded", function()
 		local g = gridWorld({ count = 1000 })
 		local function count(): number

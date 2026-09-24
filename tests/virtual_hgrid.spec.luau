@@ -283,6 +283,8 @@ describe("VirtualHGrid: the mounted band's lanes are the flow grid's own arithme
 					columns = LANES,
 					gap = 6,
 					rowGap = 0,
+					-- the virtual band's half-gutter edges (an outer edge holds one lift)
+					padding = { top = 3, bottom = 3 },
 					width = { type = "fill" },
 					height = { type = "fixed", px = CROSS },
 					children = kids,
@@ -341,7 +343,7 @@ describe("VirtualHGrid: the mounted band's lanes are the flow grid's own arithme
 			local w = world({ count = 20, gap = 6 })
 			local d = w.grid.dump()
 			expect(d.crossExtent).toBe(CROSS)
-			expect(d.laneWidth).toBe(math.floor((CROSS - 6 * (LANES - 1)) / LANES))
+			expect(d.laneWidth).toBe(math.floor((CROSS - 2 * 3 - 6 * (LANES - 1)) / LANES))
 			expect(d.laneWidth).toBe(w.cellRect("i1").h)
 			w.grid.dispose()
 		end
