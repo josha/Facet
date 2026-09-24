@@ -1817,6 +1817,26 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		expect(w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:y201") ~= nil).toBe(true)
 	end)
 
+	it(
+		"a menu opens on its selected row, centred in the scrolled list (owner: the year menu opened at 1926)",
+		function()
+			local year = Compose.cell(2026)
+			local items = {}
+			for y = 1926, 2126 do
+				table.insert(items, { id = `y{y}`, label = tostring(y), selected = year, value = y })
+			end
+			local w = world({ items = items })
+			open(w)
+			local path = "/Menu-M/Layer/Surface/Popup/Panel/List/Rows/Item:y2026"
+			expect(w.pres.focus.focused:peek()).toBe(path)
+			local list = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel/List")
+			local row = w.adapter.node(path).rect
+			local scrolled = (list.scrollPosition or { y = 0 }).y
+			local off = (row.y - scrolled + row.h / 2) - (list.rect.y + list.rect.h / 2)
+			expect(`centred={math.abs(off) <= 1}`).toBe("centred=true")
+		end
+	)
+
 	it("maxHeight bounds the whole panel and the rows scroll, with ids and activation intact", function()
 		local items = {}
 		local picked: { string } = {}

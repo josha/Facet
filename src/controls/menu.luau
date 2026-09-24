@@ -829,13 +829,37 @@ local function build(Facet, core, spec, owner)
 		-- once per open/level rather than threaded through as another return
 		local isSheet = presentation == "sheet"
 		local rowIds: { string } = {}
+		-- a level with a selected row opens ON it: focus lands there and a scrolled
+		-- list centres it (owner 2026-09-23: the year menu opened at 1926)
+		local landing: string? = nil
 		for _, item in itemsAt(chain) do
 			if item.divider ~= true then
 				table.insert(rowIds, `Item:{item.id}`)
+				if landing == nil and selectedByItem[item] ~= nil and selectedByItem[item]:peek() then
+					landing = `Item:{item.id}`
+				end
 			end
 		end
+		local panelController: any = nil
 		local function buildAttached()
 			return contribution.attach(buildPanel(presentation, chain), {
+				bindController = function(ctrl: any)
+					panelController = ctrl
+				end,
+				syncGeometry = function(rectOf: (string) -> any, rootNode: any?)
+					if landing == nil or rootNode == nil or panelController == nil or rowsOf(presentation) == "" then
+						return
+					end
+					local list = (if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`) .. "/List"
+					local row = `{list}/Rows/{landing}`
+					local band, at = rectOf(list), rectOf(row)
+					if type(band) ~= "table" or type(at) ~= "table" or band.h <= 0 then
+						return
+					end
+					landing = nil
+					-- a band-tall span centred on the row: the keep-visible rule then centres it
+					panelController.scrollToVisible(row, { x = 0, y = (at.h - band.h) / 2, w = at.w, h = band.h })
+				end,
 				--[[ ONE GROUP, AND IT IS WHAT MAKES THE ARROWS EXIST. The presenter
 				creates its HORIZONTAL Navigate action only when the surface has
 				navigation groups (`navigateH` is nil otherwise), so without this
@@ -924,6 +948,7 @@ local function build(Facet, core, spec, owner)
 				outsideTapCancel = true,
 				cancelPolicy = "none",
 				transition = { enter = direction or "slide-up", exit = "slide-down" },
+				initialFocus = if landing ~= nil then { id = landing } else nil,
 			})
 		else
 			--[[ D1 DOES THE PLACEMENT. Level 0 hangs under the trigger; a submenu
@@ -964,6 +989,7 @@ local function build(Facet, core, spec, owner)
 				scrim = "none",
 				outsideTapCancel = true,
 				cancelPolicy = "none",
+				initialFocus = if landing ~= nil then { id = landing } else nil,
 				-- the short fade-and-grow every pop-up menu materializes with; an
 				-- anchored surface with no pivot of its own grows from the corner it
 				-- hangs at (render/transitions `pivot` inference)
