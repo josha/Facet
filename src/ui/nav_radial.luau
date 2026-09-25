@@ -664,9 +664,48 @@ return function(
 									current:set(sector)
 								end
 							end)
+							local measure = ctx.text({
+								Name = "ContentMeasure",
+								Text = function(use: ComposeTypes.Use): string
+									local live = use(current)
+									return if live then read(live.item.label, use) or "" else ""
+								end,
+								Visible = false,
+								TextWrapped = false,
+							})
+							measure:AddTag("facet-type-control")
+							local natural = ctx.observe.TextBounds(measure)
+							Compose.watch(function(use: ComposeTypes.Use)
+								local live = use(current)
+								if not live then
+									return
+								end
+								local text = use(natural)
+								local iconSize = ctx.controlSize(nil, "iconSize", use)
+								local icon = live.item.icon ~= nil
+									or (live.item.compactLabel ~= nil and live.item.compactLabel.icon ~= nil)
+								local iconOnly = live.item.labelStyle == "icon"
+									or (live.item.compactLabel ~= nil and live.item.compactLabel.prefer == true)
+								local content = if iconOnly and icon
+									then V2.new(iconSize, iconSize)
+									elseif text.X <= 0 then nil
+									else V2.new(
+										text.X + (if icon then iconSize + ctx.metric("space.xs", use) else 0),
+										math.max(text.Y, if icon then iconSize else 0)
+									)
+								local previous: Vector2? = measures:peek()[live.key]
+								if
+									content and not (previous and previous.X == content.X and previous.Y == content.Y)
+								then
+									local nextMeasures = table.clone(measures:peek())
+									nextMeasures[live.key] = content
+									measures:set(nextMeasures)
+								end
+							end)
 							return Host.Frame("SectorSlot" .. key:peek())({
 								BackgroundTransparency = 1,
 								Visible = painted,
+								measure,
 								Interactable = function(use: ComposeTypes.Use)
 									return use(present) ~= nil
 								end,
@@ -811,43 +850,6 @@ return function(
 										return use(candidate) == currentSector(use).key
 									end)
 									local measured = ctx.observe.TextBounds(button)
-									local measure = ctx.text({
-										Name = "ContentMeasure",
-										Text = function(use: ComposeTypes.Use): string
-											return read(sector.item.label, use) or ""
-										end,
-										FontFace = ctx.observeStyled.FontFace(button),
-										TextSize = ctx.observeStyled.TextSize(button),
-										Visible = false,
-										TextWrapped = false,
-									})
-									surfaces.attach(button, { measure })
-									local natural = ctx.observe.TextBounds(measure)
-									Compose.watch(function(use: ComposeTypes.Use)
-										local live = currentSector(use)
-										local text = use(natural)
-										local iconSize = ctx.controlSize(nil, "iconSize", use)
-										local icon = live.item.icon ~= nil
-											or (live.item.compactLabel ~= nil and live.item.compactLabel.icon ~= nil)
-										local iconOnly = live.item.labelStyle == "icon"
-											or (live.item.compactLabel ~= nil and live.item.compactLabel.prefer == true)
-										local content: Vector2? = if iconOnly and icon
-											then V2.new(iconSize, iconSize)
-											elseif text.X <= 0 then nil
-											else V2.new(
-												text.X + (if icon then iconSize + ctx.metric("space.xs", use) else 0),
-												math.max(text.Y, if icon then iconSize else 0)
-											)
-										local previous: Vector2? = measures:peek()[live.key]
-										local same = if previous and content
-											then previous.X == content.X and previous.Y == content.Y
-											else previous == nil and content == nil
-										if not same then
-											local nextMeasures = table.clone(measures:peek())
-											nextMeasures[live.key] = content
-											measures:set(nextMeasures)
-										end
-									end)
 									local paint = Host.Path2D "Sector" {
 										Thickness = sector.outer - sector.inner,
 										Closed = false,

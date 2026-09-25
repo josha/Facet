@@ -584,5 +584,46 @@ t.describe("native radial interaction policies", function()
 			world.stop()
 		end
 	end)
+	t.it("measures each item once, outside the wedge it sizes, so a measurement never feeds back", function()
+		local items = {}
+		for index = 1, 4 do
+			table.insert(items, { id = "item" .. index, label = "Item " .. index, onSelect = function() end })
+		end
+		local world = setup({ isPresented = Compose.cell(false), items = items })
+		local V2 = world.engine.types.Vector2
+		local feedback = 0
+		local function follow(node)
+			if node:IsA("TextButton") then
+				node:GetPropertyChangedSignal("Size"):Connect(function()
+					for _, label in node:GetDescendants() do
+						if label.Name == "ContentMeasure" then
+							feedback += 1
+							assert(feedback < 200, "a measurement changed with the box it sizes")
+							label.TextBounds = V2.new(node.Size.X.Offset + 10, 20)
+						end
+					end
+				end)
+			end
+		end
+		world.screen.DescendantAdded:Connect(follow)
+		world.opened:set(true)
+		local measures = {}
+		for _, node in world.screen:GetDescendants() do
+			if node.Name == "ContentMeasure" then
+				table.insert(measures, node)
+				node.TextBounds = V2.new(60, 20)
+			end
+		end
+		t.expect(#measures).toBe(4)
+		for _, measure in measures do
+			local at = measure.Parent
+			while at and at ~= world.screen do
+				t.expect(at:IsA("TextButton") or at:IsA("CanvasGroup")).toBe(false)
+				at = at.Parent
+			end
+		end
+		t.expect(240 - world.find("item1").Position.Y.Offset).toBe(40 + (60 + 2 * 8) / 2)
+		world.stop()
+	end)
 end)
 return t

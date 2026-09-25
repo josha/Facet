@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A RadialMenu measures each item's label once, in a hidden label outside the wedge it sizes, and only records a real measurement. Before, the measure sat inside the wedge button and every live copy of a wedge wrote its own reading, which could raise "watch cascade did not settle" when the menu opened.
 - An open RadialMenu dims the page to at least 70 percent (the theme's `scrimOpacity` when higher). Before, it used the Dialog scrim (30 to 62 percent), and page text read clearly between the wedges.
 - The RadialMenu centre control is a round icon button that fills the hole and covers the launcher under it. Before, a 72 by 40 "Close" plate overlapped the launcher's own label and poked past the hole.
 - A RadialMenu ring without `ringWidth` is as thick as its measured labels and icons plus theme spacing, at least one touch target. Before, it filled the room up to a 240 pixel radius, far thicker than its labels.
