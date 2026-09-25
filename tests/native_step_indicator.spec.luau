@@ -108,6 +108,18 @@ t.describe("native StepIndicator", function()
 		world.stop()
 	end)
 
+	t.it("gives every fill cell one zero basis so the flex fill shares the row equally", function()
+		for _, pair in { { "fill", "Y" }, { "hug", "XY" } } do
+			local world = mount({ steps = workflow(), current = "ship", sizing = pair[1], onSelect = function() end })
+			for _, id in { "cart", "ship", "pay", "done" } do
+				local node = cell(world, id)
+				t.expect(`{pair[1]} {id} {node.AutomaticSize.Name} {node.Size.X.Scale} {node.Size.X.Offset}`)
+					.toBe(`{pair[1]} {id} {pair[2]} 0 0`)
+			end
+			world.stop()
+		end
+	end)
+
 	t.it("reserves space under the row so the underline never crosses the state word", function()
 		local world = mount({ steps = workflow(), current = "ship" })
 		local padding = world.find("Row"):FindFirstChildWhichIsA("UIPadding")

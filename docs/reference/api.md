@@ -1725,8 +1725,8 @@ description?, state?, navigable?, enabled? }`. `state` is `complete`,
   supply `onSelect`. Other steps are plain content and never selectable. A
   press on a permitted step calls `onSelect(id)` once. The control never
   writes `current`. Thus a refused step changes nothing.
-- `sizing` is `fill` (default, each step gets the share of the widest label)
-  or `hug` (each step gets its own label width). `listLabel` (default
+- `sizing` is `fill` (default, every step gets an equal share of the row) or
+  `hug` (each step gets its own width). `listLabel` (default
   "Steps"), `controlSize`, `enabled` and `controls` are optional. The control
   sets `controls.diagnostics()`.
 

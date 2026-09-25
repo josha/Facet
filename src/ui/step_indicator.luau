@@ -298,7 +298,7 @@ return function(
 					Name = `Step-{id}`,
 					LayoutOrder = index,
 					Size = D2.fromScale(0, 0),
-					AutomaticSize = E.AutomaticSize.XY,
+					AutomaticSize = if sizing == "fill" then E.AutomaticSize.Y else E.AutomaticSize.XY,
 				}
 				if permitted(step) then
 					local props: Inputs.ButtonProps = {
