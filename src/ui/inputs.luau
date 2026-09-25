@@ -768,6 +768,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		node = ctx.styled(Host.TextButton(p), "button")
 		activation.mark(node)
+		Compose.cleanup(activation.provide(node, activate))
 		if not rich then
 			sized(node)
 		end

@@ -1,4 +1,5 @@
 --!strict
+local activation = require("./activation")
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
@@ -248,6 +249,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			return Host.Frame(nativeProps)
 		end
 		local root: Frame
+		local contentFrame: Frame
 		local activeInput: InputObject?
 		local start: Vector2? = nil
 		local startOffset = 0
@@ -286,6 +288,17 @@ return function(ctx: Types.Context, UI: Controls): ()
 				drag:set(math.clamp(startOffset + delta.X, -maxTrailing, maxLeading))
 			end
 		end
+		local function tap(): ()
+			if read(open) ~= nil then
+				setOpen(nil)
+				return
+			end
+			for _, node in contentFrame:GetDescendants() do
+				if activation.trigger(node) then
+					return
+				end
+			end
+		end
 		local function finish()
 			if read(spec.enabled) == false then
 				start, axis = nil, nil
@@ -317,6 +330,63 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			start, axis = nil, nil
 			drag:set(nil)
+		end
+		local function release(): ()
+			local tapped = start ~= nil and axis == nil and committing:peek() == nil
+			finish()
+			if tapped and read(spec.enabled) ~= false then
+				tap()
+			end
+		end
+		local preferred = if ctx.config.userInputService
+			then ctx.observe(ctx.config.userInputService, "PreferredInput")
+			else nil
+		local function touchFirst(use: ComposeTypes.Use?): boolean
+			return preferred ~= nil and read(preferred, use) == E.PreferredInput.Touch
+		end
+		local panned = false
+		local stopPan: (() -> ())? = nil
+		local function settlePan(): ()
+			if stopPan then
+				return
+			end
+			stopPan = frames.onFrame(function()
+				if stopPan then
+					stopPan()
+					stopPan = nil
+				end
+				panned = false
+			end)
+		end
+		Compose.cleanup(function()
+			if stopPan then
+				stopPan()
+				stopPan = nil
+			end
+		end)
+		local function pan(positions: { Vector2 }, translation: Vector2, _: Vector2, state: Enum.UserInputState): ()
+			local position: Vector2? = positions[1]
+			if position == nil then
+				return
+			end
+			if state == E.UserInputState.Begin then
+				panned = true
+				begin(position - translation)
+				move(position)
+			elseif state == E.UserInputState.Change then
+				move(position)
+			elseif state == E.UserInputState.End then
+				finish()
+				settlePan()
+			else
+				cancelDrag()
+				settlePan()
+			end
+		end
+		local function swipeable(use: ComposeTypes.Use): boolean
+			return use(committing) == nil
+				and read(spec.enabled, use) ~= false
+				and (#actions("leading", use) + #actions("trailing", use)) > 0
 		end
 		local menuItems = Compose.formula(function(use: ComposeTypes.Use)
 			local result: { NavigationTypes.MenuItem<string> } = {}
@@ -372,6 +442,31 @@ return function(ctx: Types.Context, UI: Controls): ()
 					return D2.fromOffset(gutter + paintedOffset(use), 0)
 				end,
 				contentMenu :: ComposeTypes.Child,
+				Host.TextButton "SwipeGrip" {
+					Size = D2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					Text = "",
+					AutoButtonColor = false,
+					Selectable = false,
+					ZIndex = 4,
+					Visible = swipeable,
+					Activated = function()
+						if touchFirst() and not panned and start == nil then
+							tap()
+						end
+					end,
+					Host.UIDragDetector({
+						Enabled = function(use: ComposeTypes.Use)
+							return swipeable(use) and not touchFirst(use)
+						end,
+						DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
+						DragAxis = V2.new(1, 0),
+						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
+						DragStart = begin,
+						DragContinue = move,
+						DragEnd = release,
+					}),
+				},
 				Host.TextButton "DismissTray" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
@@ -390,20 +485,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end,
 				},
 			},
-			Host.UIDragDetector({
-				Enabled = function(use: ComposeTypes.Use)
-					return use(committing) == nil
-						and read(spec.enabled, use) ~= false
-						and (#actions("leading", use) + #actions("trailing", use)) > 0
-				end,
-				DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
-				DragAxis = V2.new(1, 0),
-				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-				DragStart = begin,
-				DragContinue = move,
-				DragEnd = finish,
-			}),
 		}))
+		contentFrame = assert(root:FindFirstChild("Content")) :: Frame
+		local grip = assert(contentFrame:FindFirstChild("SwipeGrip"))
+		runtime.connect(grip, "TouchPan", pan)
 		runtime.decorate(root, {
 			Size = function(use: ComposeTypes.Use)
 				local size = read(spec.Size, use) or D2.new(1, 0, 0, 44)

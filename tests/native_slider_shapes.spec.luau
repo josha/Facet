@@ -159,9 +159,9 @@ t.describe("native Slider axis", function()
 		w.value:set(90)
 		expect(thumb.Position.Y.Scale < before).toBe(true)
 		expect(fill.Size.Y.Scale).toBeCloseTo(0.9)
-		drag(w, w.track, v(w, 22, 20))
+		drag(w, w.track, v(w, 22, 29.6))
 		expect(w.value:peek()).toBe(90)
-		drag(w, w.track, v(w, 22, 150))
+		drag(w, w.track, v(w, 22, 135.2))
 		expect(w.value:peek()).toBe(30)
 		w.stop()
 	end)
@@ -324,13 +324,14 @@ t.describe("native Slider range", function()
 		local value = Compose.cell({ lower = 20, upper = 60 })
 		local w = world({
 			range = true,
+			step = 10,
 			value = value,
 			onChange = function(next: any, info: any)
 				table.insert(changes, `{info.thumb}:{next.upper}`)
 				value:set(next)
 			end,
 		})
-		drag(w, find(w.track, "HandleUpper"), v(w, 120, 22), { v(w, 140, 22), v(w, 160, 22), v(w, 180, 22) })
+		drag(w, find(w.track, "HandleUpper"), v(w, 117.6, 22), { v(w, 135.2, 22), v(w, 152.8, 22), v(w, 170.4, 22) })
 		expect(#w.commits).toBe(1)
 		expect(w.commits[1]).toBe("upper:20-90")
 		expect(table.concat(changes, " ")).toBe("upper:70 upper:80 upper:90")
@@ -402,13 +403,13 @@ t.describe("native Slider range", function()
 
 	t.it("an illegal pair arriving at run time keeps the last legal band and stays driveable", function()
 		for _, bad in { { lower = 90, upper = 10 }, 5, false, { lower = 50, upper = 52 } } :: { any } do
-			local w = world({ range = true, minGap = 10 })
+			local w = world({ range = true, minGap = 10, step = 10 })
 			w.value:set(bad)
 			expect(find(w.track, "HandleLower").Position.X.Scale).toBeCloseTo(0.2)
 			expect(find(w.track, "HandleUpper").Position.X.Scale).toBeCloseTo(0.6)
 			expect(w.node:GetAttribute("diagnostics") ~= "").toBe(true)
 			expect(type(w.value:peek()) ~= "table" or w.value:peek().lower ~= 20).toBe(true)
-			drag(w, find(w.track, "HandleLower"), v(w, 40, 22), { v(w, 60, 22) })
+			drag(w, find(w.track, "HandleLower"), v(w, 47.2, 22), { v(w, 64.8, 22) })
 			expect(pair(w)).toBe("30/60")
 			w.stop()
 		end
@@ -571,9 +572,83 @@ t.describe("native Slider thumb modes and custom art", function()
 		local content = find(w.track, "TrackContent")
 		expect(content.Size.X.Scale).toBe(1)
 		expect(content.Size.Y.Scale).toBe(1)
-		drag(w, w.track, v(w, 150, 22))
+		drag(w, w.track, v(w, 144, 22))
 		expect(w.value:peek()).toBe(75)
 		w.stop()
+	end)
+end)
+
+t.describe("native Slider knob travel", function()
+	local function span(node: any, extent: number): (number, number)
+		local centre = node.Position.X.Scale * 200 + node.Position.X.Offset
+		return centre - extent / 2, centre + extent / 2
+	end
+
+	t.it("the default knob stops flush with each end of the rail and the fill ends under its centre", function()
+		local w = world({ value = Compose.cell(0) })
+		local thumb, fill = find(w.track, "Thumb"), find(w.track, "Fill")
+		local left = span(thumb, 24)
+		expect(left).toBeCloseTo(0)
+		expect(fill.Size.X.Scale * 200 + fill.Size.X.Offset).toBeCloseTo(12)
+		w.value:set(100)
+		local _, right = span(thumb, 24)
+		expect(right).toBeCloseTo(200)
+		expect(fill.Size.X.Scale * 200 + fill.Size.X.Offset).toBeCloseTo(188)
+		drag(w, w.track, v(w, 100, 22))
+		expect(w.value:peek()).toBeCloseTo(50)
+		drag(w, w.track, v(w, 12, 22))
+		expect(w.value:peek()).toBeCloseTo(0)
+		w.stop()
+	end)
+
+	t.it("each range handle travels by the size of its own art", function()
+		local sides = { lower = 12, upper = 40 }
+		local w = world({
+			range = true,
+			value = Compose.cell({ lower = 0, upper = 100 }),
+			thumbContent = function(info: any)
+				local engine = engineLib.new()
+				local art = engine.new("Frame")
+				local side = sides[info.thumb]
+				art.Name = "Art_" .. info.thumb
+				art.AbsoluteSize = engine.types.Vector2.new(side, side)
+				return art
+			end,
+		})
+		local lower, upper = find(w.track, "HandleLower"), find(w.track, "HandleUpper")
+		local lowerLeft = span(lower, sides.lower)
+		local _, upperRight = span(upper, sides.upper)
+		expect(lowerLeft).toBeCloseTo(0)
+		expect(upperRight).toBeCloseTo(200)
+		local fill = find(w.track, "Fill")
+		local fillLeft = fill.Position.X.Scale * 200 + fill.Position.X.Offset
+		expect(fillLeft).toBeCloseTo(6)
+		expect(fillLeft + fill.Size.X.Scale * 200 + fill.Size.X.Offset).toBeCloseTo(180)
+		drag(w, upper, v(w, 180, 22), { v(w, 20 + 80, 22) })
+		expect(w.value:peek().upper).toBeCloseTo(50)
+		drag(w, lower, v(w, 6, 22), { v(w, 6 + 188 * 0.25, 22) })
+		expect(w.value:peek().lower).toBeCloseTo(25)
+		w.stop()
+	end)
+
+	t.it("a vertical and a rotated knob stop flush with the rail ends", function()
+		local w = world({ axis = "y", value = Compose.cell(0) })
+		local thumb = find(w.track, "Thumb")
+		local function centre(): number
+			return thumb.Position.Y.Scale * 200 + thumb.Position.Y.Offset
+		end
+		expect(centre() + 12).toBeCloseTo(200)
+		w.value:set(100)
+		expect(centre() - 12).toBeCloseTo(0)
+		drag(w, w.track, v(w, 22, 100))
+		expect(w.value:peek()).toBeCloseTo(50)
+		w.stop()
+		local turned = world({ rotation = 90, value = Compose.cell(50) })
+		drag(turned, turned.track, v(turned, 100, 22 + 88))
+		expect(turned.value:peek()).toBeCloseTo(100)
+		local _, right = span(find(turned.track, "Thumb"), 24)
+		expect(right).toBeCloseTo(200)
+		turned.stop()
 	end)
 end)
 

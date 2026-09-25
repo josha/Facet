@@ -3468,7 +3468,7 @@ t.describe("native parity reference applications", function()
 				local function swipe(id: string, distance: number)
 					local actions = find(find(body, id), "leading").Parent
 					actions.AbsoluteSize = vector(world.engine, 844, 44)
-					local detector = actions:FindFirstChildWhichIsA("UIDragDetector")
+					local detector = actions:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 					detector.DragStart.fire(vector(world.engine, 400, 20))
 					detector.DragContinue.fire(vector(world.engine, 400 + distance, 20))
 					detector.DragEnd.fire()

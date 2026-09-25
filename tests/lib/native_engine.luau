@@ -69,6 +69,7 @@ local function new(options: any?)
 		Released = true,
 		StateChanged = true,
 		TouchLongPress = true,
+		TouchPan = true,
 		AncestryChanged = true,
 		DescendantAdded = true,
 		DescendantRemoving = true,

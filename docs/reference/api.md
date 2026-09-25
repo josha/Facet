@@ -1079,6 +1079,15 @@ A readable value for one of them causes an error that names the option.
   less the `regular` icon size, so `regular` keeps the 24 pixel thumb.
 - The track is at least 44 pixels long. A cell that fits its content keeps a
   track that you can drag.
+- Each knob travels inside the rail by half of its own art size. At the
+  minimum, the left edge of the knob art is at the start of the rail. At the
+  maximum, the right edge is at the end of the rail. A vertical knob stops on
+  the bottom and the top of the rail. The control measures each knob
+  separately, so two custom knobs of different sizes both stop flush. For
+  `thumbContent`, the art is the first GuiObject that the function returns.
+  The fill ends at the centre of the knob. A press or a drag reads the value
+  from the same inset travel. With `thumb = "none"`, the travel is the full
+  rail.
 
 Losing the input class during a drag (a change of `PreferredInput`) restores
 the value, or the whole pair, from the start of the drag. The later move and
@@ -2119,6 +2128,17 @@ measured width.
 A mouse click or a touch outside an open row closes its tray. The row observes
 `UserInputService.InputBegan` only while its tray is open, and it does not
 consume the input. Thus the control under the pointer also receives the press.
+A transparent `SwipeGrip` button covers the row content while the row has
+actions. It holds the native UIDragDetector, so a drag that starts on a
+content Button also opens the tray. A press and release that moves less than
+8 pixels is a tap. The grip sends a tap to the first Facet Button in the
+content, and that Button activates as if the player pressed it. The grip is
+not a selection stop, so keyboard and gamepad selection still stop on the
+content. With touch input, the grip turns its UIDragDetector off and uses the
+native `TouchPan` gesture. Thus a vertical pan scrolls the list, and a
+horizontal pan opens the tray. A touch tap reaches the content Button through
+the grip.
+
 A tap or a click on the content of the open row closes the tray, and the
 content does not activate. While the tray is open, a transparent
 `DismissTray` button covers the row content and receives that press. A press

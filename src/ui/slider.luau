@@ -104,18 +104,25 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		return dx + size.X / 2, dy + size.Y / 2
 	end
-	local function fractionAt(
+	local function travelAt(
 		track: GuiObject,
 		position: Vector2 | Vector3,
 		vertical: boolean,
 		degrees: number
-	): number?
+	): (number, number)
 		local size = track.AbsoluteSize
 		local x, y = unrotate(track, position, degrees)
 		if vertical then
-			return if size.Y > 0 then 1 - y / size.Y else nil
+			return size.Y - y, size.Y
 		end
-		return if size.X > 0 then x / size.X else nil
+		return x, size.X
+	end
+	local function fractionAt(point: number, length: number, side: number): number?
+		local travel = length - side
+		if length <= 0 then
+			return nil
+		end
+		return if travel > 0 then (point - side / 2) / travel else 0.5
 	end
 	local function knob(
 		spec: Spec,
@@ -126,7 +133,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		dragging: ComposeTypes.Readable<boolean>,
 		shown: (ComposeTypes.Use) -> boolean,
 		vertical: boolean,
-		target: boolean
+		target: boolean,
+		extent: ComposeTypes.Cell<number>
 	): Frame
 		local knobSize = function(use: ComposeTypes.Use?): number
 			if spec.controlSize == nil then
@@ -148,15 +156,26 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			Name = name,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = function(use: ComposeTypes.Use)
-				local f = fraction(use)
-				return if vertical then D2.fromScale(0.5, 1 - f) else D2.fromScale(f, 0.5)
+				local f, side = fraction(use), use(extent)
+				return if vertical then D2.new(0.5, 0, 1 - f, (f - 0.5) * side) else D2.new(f, (0.5 - f) * side, 0.5, 0)
 			end,
 			Size = D2.fromOffset(size, size),
 			ZIndex = 3,
 		}
+		local function measure(art: GuiObject): ()
+			if spec.thumb == "none" then
+				return
+			end
+			local measured = ctx.observe(art, "AbsoluteSize")
+			Compose.watch(function(use: ComposeTypes.Use)
+				local box = use(measured) :: Vector2
+				local side = if vertical then box.Y else box.X
+				extent:set(if side > 0 then side else knobSize(use))
+			end)
+		end
 		local content = spec.thumbContent
 		if not target and not content then
-			return h.paintedPart({
+			local part = h.paintedPart({
 				Name = name,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = native.Position,
@@ -165,6 +184,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				ZIndex = 3,
 				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
+			measure(part)
+			return part
 		end
 		local mark: GuiObject
 		if content then
@@ -206,6 +227,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 		end
+		measure(if content then mark:FindFirstChildWhichIsA("GuiObject") or mark else mark)
 		if not target then
 			native.BackgroundTransparency = 1
 			native.Size = D2.fromOffset(0, 0)
@@ -276,6 +298,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			return turn or 0
 		end
 		local track: Frame
+		local extents: { [Thumb]: ComposeTypes.Cell<number> } = {}
+		local function extent(thumb: Thumb): ()
+			extents[thumb] = Compose.cell(if mode == "none" then 0 else KNOB)
+		end
+		if isRange then
+			extent("lower")
+			extent("upper")
+		else
+			extent("value")
+		end
+		local function extentOf(thumb: Thumb): ComposeTypes.Cell<number>
+			return assert(extents[thumb])
+		end
 		local dragging = Compose.cell(false)
 		local hovered = Compose.cell(false)
 		local selectedInside = Compose.cell(false)
@@ -406,7 +441,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			if active == nil then
 				return
 			end
-			local f = fractionAt(track, position, vertical, degrees())
+			local point, length = travelAt(track, position, vertical, degrees())
+			local f = fractionAt(point, length, extentOf(active.thumb):peek())
 			if f == nil then
 				return
 			end
@@ -427,18 +463,23 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			commit(active.thumb)
 		end
 		local function nearest(position: Vector2 | Vector3): Thumb
-			local f = fractionAt(track, position, vertical, degrees()) or 0
-			local value = model.min + math.clamp(f, 0, 1) * (model.max - model.min)
+			local point, length = travelAt(track, position, vertical, degrees())
 			local current = pair()
+			local function centre(thumb: Thumb): number
+				local side = extentOf(thumb):peek()
+				local value = if thumb == "lower" then current.lower else current.upper
+				return side / 2 + model.fraction(value) * math.max(0, length - side)
+			end
+			local low, high = centre("lower"), centre("upper")
 			if current.lower == current.upper then
-				if value < current.lower then
+				if point < low then
 					return "lower"
-				elseif value > current.upper then
+				elseif point > high then
 					return "upper"
 				end
 				return if current.lower <= model.min then "upper" else "lower"
 			end
-			return if math.abs(value - current.lower) <= math.abs(value - current.upper) then "lower" else "upper"
+			return if math.abs(point - low) <= math.abs(point - high) then "lower" else "upper"
 		end
 		local detector = Host.UIDragDetector "Drag" {
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
@@ -495,20 +536,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			local fill = ctx.styled(
 				Host.Frame "Fill" {
 					Size = function(use: ComposeTypes.Use)
-						local low, high
+						local low, high, lowShift, highShift
 						if isRange then
 							local current = pair(use)
 							low, high = fraction(current.lower), fraction(current.upper)
+							lowShift = (0.5 - low) * use(extentOf("lower"))
+							highShift = (0.5 - high) * use(extentOf("upper"))
 						else
-							low, high = 0, fraction(single(use))
+							low, high, lowShift = 0, fraction(single(use)), 0
+							highShift = (0.5 - high) * use(extentOf("value"))
 						end
 						return if vertical
-							then D2.new(0, thin(use), high - low, 0)
-							else D2.new(high - low, 0, 0, thin(use))
+							then D2.new(0, thin(use), high - low, highShift - lowShift)
+							else D2.new(high - low, highShift - lowShift, 0, thin(use))
 					end,
 					Position = function(use: ComposeTypes.Use)
 						local low = if isRange then fraction(pair(use).lower) else 0
-						return if vertical then D2.fromScale(0.5, 1 - low) else D2.fromScale(low, 0.5)
+						local shift = if isRange then (0.5 - low) * use(extentOf("lower")) else 0
+						return if vertical then D2.new(0.5, 0, 1 - low, -shift) else D2.new(low, shift, 0.5, 0)
 					end,
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, if vertical then 1 else 0.5),
 					ctx.corner(3),
@@ -537,7 +582,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					dragging,
 					shown,
 					vertical,
-					true
+					true,
+					extentOf(thumb)
 				)
 				runtime.mountFragment(function()
 					return {
@@ -568,7 +614,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return single(use)
 				end, function(use)
 					return fraction(single(use))
-				end, dragging, shown, vertical, false)
+				end, dragging, shown, vertical, false, extentOf("value"))
 			)
 		end
 		table.insert(trackChildren, detector)

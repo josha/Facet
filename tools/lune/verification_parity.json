@@ -497,7 +497,7 @@
     ],
     "contracts": 2846,
     "candidateCasesAtRecheck": 675,
-    "coveredButWeaker": 425
+    "coveredButWeaker": 423
   },
   "schema": "facet-verification-parity/1",
   "method": "Main cases were enumerated by loading tests/run.luau with registration recorded and execution suppressed. Every main spec was read and its cases were grouped into behavioral contracts. Each contract was classified against the candidate tests, api.md, the guides and src. Cited candidate case ids were checked against the candidate suite result.",
@@ -12458,18 +12458,22 @@
         "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion",
         "native_gallery_workflows::native gallery workflows::swipes the native mail list and deletes exactly the chosen message",
         "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
-        "native_parity_weaker_gallery::native parity weaker gallery::collections-101 gallery mail rows open one at a time, close explicitly and delete from the keyboard"
+        "native_parity_weaker_gallery::native parity weaker gallery::collections-101 gallery mail rows open one at a time, close explicitly and delete from the keyboard",
+        "native_collections::Compose native collections::swipes a Button row from a grip over the content and forwards a tap to the Button",
+        "native_collections::Compose native collections::hands touch swipes to the native pan gesture so a vertical pan stays with the scroller"
       ],
-      "weaker": "The swipe half needs a real drag: the Studio input tools send no InputChanged while the button is held, so the row UIDragDetector never starts.",
       "liveEvidence": {
-        "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
+        "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080) and iPhone 14 (touch) where the case sets it, Medium text; real input from UserInputService:CreateVirtualInput()",
         "artifacts": [
-          "artifacts/studio-live/needs_live_input-mail-swipe-and-tap-desktop-default.json"
+          "artifacts/studio-live/needs_live_input-mail-swipe-and-tap-desktop-default.json",
+          "artifacts/studio-live/live_bugs-desktop-default.json"
         ],
         "cases": [
-          "needs_live_input/mail-swipe-and-tap"
+          "needs_live_input/mail-swipe-and-tap",
+          "live_bugs/mail-row-grip",
+          "live_bugs/mail-row-touch-pan"
         ],
-        "observed": "A tap on a mail row marks it read."
+        "observed": "A real mouse drag that starts on the content Button of a mail row lands on the SwipeGrip and opens the trailing tray without marking the row read. A tap on the open row closes the tray. A tap on another row marks it read through the grip, and Return on the selected content Button marks a row read. With touch, a vertical pan over the rows scrolls the list and opens no tray, a horizontal pan opens the tray, and a tap marks a row read."
       }
     },
     {
@@ -45156,19 +45160,23 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_slider_shapes::native Slider thumb modes and custom art::a knob is told its own thumb in a range, and each handle wears one"
+        "native_slider_shapes::native Slider thumb modes and custom art::a knob is told its own thumb in a range, and each handle wears one",
+        "native_slider_shapes::native Slider knob travel::the default knob stops flush with each end of the rail and the fill ends under its centre",
+        "native_slider_shapes::native Slider knob travel::each range handle travels by the size of its own art",
+        "native_slider_shapes::native Slider knob travel::a vertical and a rotated knob stop flush with the rail ends"
       ],
       "family": "pickers",
-      "weaker": "Live evidence does not cover this part: Dragging a handle past the other to minGap needs a pointer drag.",
       "liveEvidence": {
-        "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080) or iPhone 14 where the case sets it, Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
+        "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080), Medium text; real mouse input from UserInputService:CreateVirtualInput()",
         "artifacts": [
-          "artifacts/studio-live/ports_pickers-desktop-default.json"
+          "artifacts/studio-live/ports_pickers-desktop-default.json",
+          "artifacts/studio-live/live_bugs-desktop-default.json"
         ],
         "cases": [
-          "ports_pickers/slider-range-live"
+          "ports_pickers/slider-range-live",
+          "live_bugs/range-knobs-flush"
         ],
-        "observed": "The live case ports_pickers/slider-range-live passed with 9 checks."
+        "observed": "On a rail from x 100 to 468, the 12 px lower knob starts at 100 and the 40 px upper knob ends at 468. The fill runs between the knob centres. The default 24 px knob and a vertical knob also stop flush at both rail ends. Real mouse drags read 50 at the middle of the inset travel, stop flush at both ends, and a lower drag past the upper knob stops at minGap (90 to 100)."
       }
     },
     {
