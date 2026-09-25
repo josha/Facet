@@ -89,16 +89,20 @@ t.describe("native gallery workflows", function()
 				t.expect(total <= width + 0.001 and total >= width - 10).toBe(true)
 			end
 		end
+		t.expect(find(node, "kb"):FindFirstChildWhichIsA("UISizeConstraint")).toBeNil()
 		local finalRow = find(node, "kbrow3")
 		t.expect(finalRow.Size.X.Scale).toBe(1)
 		local count = 0
 		for _, key in finalRow:GetChildren() do
 			if key:IsA("GuiButton") then
 				local command = key.Name == "key_Enter" or key.Name == "key_Back"
-				t.expect(key.AutomaticSize)
-					.toBe(if command then ctx.types.Enum.AutomaticSize.X else ctx.types.Enum.AutomaticSize.None)
+				t.expect(key.AutomaticSize).toBe(ctx.types.Enum.AutomaticSize.None)
 				local flex = key:FindFirstChildWhichIsA("UIFlexItem")
-				t.expect(if command then flex == nil else flex.FlexMode == ctx.types.Enum.UIFlexMode.Fill).toBe(true)
+				if command then
+					t.expect(`{flex.FlexMode.Name} {flex.GrowRatio}`).toBe("Custom 1.5")
+				else
+					t.expect(flex.FlexMode).toBe(ctx.types.Enum.UIFlexMode.Fill)
+				end
 				t.expect(key.TextWrapped).toBe(false)
 				t.expect(key.Size.Y.Offset).toBe(44)
 				count += 1

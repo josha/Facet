@@ -375,8 +375,7 @@ function example.build(ctx: any)
 				table.insert(board, tile)
 			end
 		end
-		local keyboard: { any } =
-			{ width = "fill", gap = "s", Host.UISizeConstraint({ MaxSize = Vector2.new(472, math.huge) }) }
+		local keyboard: { any } = { width = "fill", gap = "s" }
 		for ri, keys in KEYBOARD do
 			local units = #keys
 			local row: { any } = { width = "fill", gap = "xs" }
@@ -386,11 +385,11 @@ function example.build(ctx: any)
 					return if isCommand then nil else use(keysSig)[key] or "unknown"
 				end)
 				local button = UI.Button("key_" .. key) {
-					if ri == 3 and not isCommand then UI.fill() else nil,
+					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill(),
 					Size = if ri == 3
 						then UDim2.fromOffset(0, 44)
 						else UDim2.new(1 / units, -math.ceil(4 * (units - 1) / units), 0, 44),
-					AutomaticSize = if isCommand then Enum.AutomaticSize.X else Enum.AutomaticSize.None,
+					AutomaticSize = Enum.AutomaticSize.None,
 					TextSize = if isCommand then 14 else 16,
 					enabled = playingSig,
 					label = if key == "Enter"
