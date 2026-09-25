@@ -561,6 +561,35 @@ t.describe("native parity navigation", function()
 		t.expect(feed:GetAttribute("FacetLabel")).toBe("Feed")
 		world.stop()
 	end)
+	t.it("keeps a labelled tab's icon badge clear of its title under any UIScale", function()
+		local badge, iconOnly = Compose.cell(12 :: number?), Compose.cell(false)
+		local world = setup(function(UI, Host)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				iconOnly = iconOnly,
+				tabs = {
+					{ id = "home", content = page(Host, "home") },
+					{ id = "feed", label = "Feed", icon = "checkmark", badge = badge, content = page(Host, "feed") },
+				},
+			})
+		end)
+		local feed = find(find(world.screen, "Tabs"), "feed")
+		local glyph = feed:FindFirstChild("LeadingIcon", true)
+		local layout = glyph.Parent:FindFirstChildWhichIsA("UIListLayout")
+		local gap = layout.Padding.Offset
+		local scale = 1.2047
+		glyph.AbsoluteSize = world.engine.types.Vector2.new(glyph.Size.X.Offset * scale, glyph.Size.Y.Offset * scale)
+		local seal = feed:FindFirstChild("CornerBadge", true)
+		seal.AbsoluteSize = world.engine.types.Vector2.new(23.5 * scale, 24 * scale)
+		t.expect(layout.Padding.Offset >= 23.5 / 2 + 2).toBe(true)
+		badge:set(nil)
+		t.expect(layout.Padding.Offset).toBe(gap)
+		badge:set(3)
+		feed:FindFirstChild("CornerBadge", true).AbsoluteSize = seal.AbsoluteSize
+		iconOnly:set(true)
+		t.expect(layout.Padding.Offset).toBe(gap)
+		world.stop()
+	end)
 	t.it(
 		"underlines the selected top tab by default, fills bottom and sidebar tabs and follows the indicator",
 		function()

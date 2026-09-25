@@ -1596,6 +1596,11 @@ different setting. A tab with `enabled = false` stays in the strip, but no
 route selects it: a press, shoulder navigation and the collapsed menu skip or
 refuse it. A malformed tab indicator causes an error that names `indicator`.
 
+A tab with an `icon` and a `badge` shows the badge on the icon's top corner.
+When the tab also shows its label, the gap between the icon and the label
+grows to hold the half of the badge that sticks out past the icon. Thus the
+badge never covers the label.
+
 `textSize` defaults to `fit`. In a bottom bar each tab gets an equal share of
 the width, and its words shrink from the `control` type size toward the
 `caption` size to fit that share before the engine truncates them. The control

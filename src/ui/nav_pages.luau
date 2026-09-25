@@ -562,6 +562,49 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						runtime.mount(function()
 							return corner
 						end, glyph)
+						local holder = corner:FindFirstChild("Corner")
+						local flow = glyph.Parent and glyph.Parent:FindFirstChildWhichIsA("UIListLayout")
+						if holder and flow then
+							local sealWidth = Compose.cell(0)
+							local tracked: RBXScriptConnection?
+							local function track()
+								if tracked then
+									tracked:Disconnect()
+								end
+								local seal = holder:FindFirstChildWhichIsA("GuiObject")
+								local function measure()
+									sealWidth:set(if seal and seal.Parent == holder then seal.AbsoluteSize.X else 0)
+								end
+								tracked = if seal
+									then seal:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+									else nil
+								measure()
+							end
+							local added, removed = holder.ChildAdded:Connect(track), holder.ChildRemoved:Connect(track)
+							track()
+							Compose.cleanup(function()
+								added:Disconnect()
+								removed:Disconnect()
+								if tracked then
+									tracked:Disconnect()
+								end
+							end)
+							local icon = glyph :: GuiObject
+							local iconBox, iconSize = ctx.observe.AbsoluteSize(icon), ctx.observe.Size(icon)
+							local gap = flow.Padding.Offset
+							runtime.decorate(flow, {
+								Padding = function(use: ComposeTypes.Use): UDim
+									local width, box = use(sealWidth), use(iconBox).X
+									if width <= 0 or read(spec.iconOnly, use) then
+										return D.new(0, gap)
+									end
+									local side = (use(iconSize) :: UDim2).X.Offset
+									local ratio = if side > 0 and box > 0 then side / box else 1
+									local overhang = math.ceil(width / 2 * ratio)
+									return D.new(0, math.max(gap, overhang + ctx.metric("space.xs", use)))
+								end,
+							})
+						end
 					end
 					local indicator = tab.indicator
 					if indicator then

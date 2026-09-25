@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A labelled TabView tab with an icon badge widens the gap between its icon and its label to hold the badge. Before, the badge covered the start of the label by about 4 pixels.
 - The StepIndicator underline is placed as a fraction of the row width. Before, it was placed in pixels from absolute sizes, so under an ancestor `UIScale` (a TV) it was scaled twice and ran past its step.
 - A StepIndicator with `sizing = "hug"` changes to the summary and the Steps menu when its laid-out row is wider than its root. Before, it estimated the row from the label text, so on a phone the row ran off the screen.
 - Every StepIndicator step has the Button inset of its `controlSize`, whether or not it is a Button. Before, a step that was not a Button had no inset, so its cue sat on the cell edge.
