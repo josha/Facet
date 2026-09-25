@@ -498,15 +498,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			Size = if dynamic(ctx.config.theme) or dynamic(spec.controlSize) then controlSize else controlSize(),
 			AutomaticSize = E.AutomaticSize.XY,
 		}
-		if not rich then
-			local authored = spec.Size
-			if
-				typeof(authored) == "UDim2"
-				and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
-				and spec.AutomaticSize == nil
-			then
-				defaults.AutomaticSize = E.AutomaticSize.Y
-				defaults.TextWrapped = true
+		local authored = spec.Size
+		local bounded = typeof(authored) == "UDim2"
+			and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
+			and spec.AutomaticSize == nil
+			and spec.image == nil
+			and spec.row == nil
+			and spec.subtitle == nil
+			and spec.hint == nil
+		if bounded then
+			defaults.AutomaticSize = E.AutomaticSize.Y
+			if not rich then
+				defaults.TextWrapped = spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None
 			end
 		end
 		if enabledProperty ~= true then
@@ -783,6 +786,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					})
 					if name == "Title" then
 						sized(made)
+						if bounded then
+							made.TextTruncate = E.TextTruncate.AtEnd
+							runtime.mount(function()
+								return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink })
+							end, made)
+						end
 					end
 					return made
 				end
@@ -835,7 +844,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						return if hasText(description, use) then D2.fromScale(0, 0) else D2.fromScale(0, 0.5)
 					end,
 				})
-				else ctx.row(content, { Name = "Content", ZIndex = 1, Size = D2.fromScale(1, 1) })
+				else ctx.row(content, {
+					Name = "Content",
+					ZIndex = 1,
+					Size = D2.fromScale(1, 1),
+					AutomaticSize = if bounded then E.AutomaticSize.None else nil,
+				})
 			if not imageCard then
 				local layout = assert(contentFrame:FindFirstChildWhichIsA("UIListLayout"))
 				layout.VerticalAlignment = E.VerticalAlignment.Center

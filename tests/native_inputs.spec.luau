@@ -841,6 +841,31 @@ t.describe("native input controls", function()
 		stop()
 	end)
 
+	t.it(
+		"keeps an authored Button width: a truncating label stays on one line and an icon button does not grow",
+		function()
+			local node, stop, engine = world(function(UI, engine, runtime)
+				return runtime.constructors.Frame({
+					UI.Button "Plain" {
+						label = "Edit item",
+						TextTruncate = engine.types.Enum.TextTruncate.AtEnd,
+						Size = engine.types.UDim2.fromOffset(52, 40),
+					},
+					UI.Button "Iconed" { label = "Edit", icon = "edit", Size = engine.types.UDim2.fromOffset(52, 40) },
+				})
+			end)
+			local E = engine.types.Enum
+			local plain, iconed = find(node, "Plain"), find(node, "Iconed")
+			t.expect(`{plain.TextWrapped} {plain.TextTruncate.Name} {plain.AutomaticSize.Name}`).toBe("false AtEnd Y")
+			t.expect(iconed.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(find(iconed, "Content").AutomaticSize).toBe(E.AutomaticSize.None)
+			local title = find(iconed, "Title")
+			t.expect(title.TextTruncate).toBe(E.TextTruncate.AtEnd)
+			t.expect(title:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Shrink)
+			stop()
+		end
+	)
+
 	t.it("sizes a Toggle label from a pixel textSize or a type role", function()
 		local node, stop = world(function(UI, engine, runtime)
 			return runtime.constructors.Frame({

@@ -703,7 +703,10 @@ A text Button with a bounded width truncates its label at the end when the
 label does not fit its box. A Button whose width follows its label does not
 truncate. A text Button or Toggle with an authored `Size` that has a width, and no
 authored `AutomaticSize`, wraps its label inside that width and grows in
-height. Without an authored width, it hugs its label.
+height. With an authored `TextTruncate` other than `None`, it keeps one line
+and truncates instead. An icon Button with an authored width (and no image,
+row, subtitle or hint) keeps that width, and its label truncates at the end.
+Without an authored width, it hugs its label.
 
 ### Toggle
 
