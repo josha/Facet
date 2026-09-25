@@ -155,6 +155,20 @@ return function(
 		local cueSize = function(use: ComposeTypes.Use?): number
 			return (ctx.controlSize(spec.controlSize, "iconSize", use))
 		end
+		local function inset(side: "left" | "right" | "top" | "bottom", use: ComposeTypes.Use?): number
+			local package = read(ctx.config.theme, use)
+			local skin = package and package.chrome and package.chrome.control
+			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+			local floor = if side == "left" or side == "right"
+				then ctx.controlSize(spec.controlSize, "paddingX", use)
+				else 0
+			return math.max(floor, insets[side] or 0)
+		end
+		local function padding(side: "left" | "right" | "top" | "bottom")
+			return function(use: ComposeTypes.Use): UDim
+				return D.new(0, inset(side, use))
+			end
+		end
 		local measures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
 		local cells: { [string]: GuiObject } = {}
 		local cellMeasures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
@@ -277,6 +291,12 @@ return function(
 					Padding = function(use: ComposeTypes.Use)
 						return D.new(0, ctx.metric("space.s", use))
 					end,
+				}) :: Types.Child,
+				Host.UIPadding({
+					PaddingLeft = padding("left"),
+					PaddingRight = padding("right"),
+					PaddingTop = padding("top"),
+					PaddingBottom = padding("bottom"),
 				}) :: Types.Child,
 				cue :: Types.Child,
 				copy :: Types.Child,
@@ -442,10 +462,7 @@ return function(
 				return "row"
 			end
 			local gap, inner = ctx.metric("space.m", use), ctx.metric("space.s", use)
-			local package = read(ctx.config.theme, use)
-			local skin = package and package.chrome and package.chrome.control
-			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-			local padding = math.max(12, insets.left or 0) + math.max(12, insets.right or 0)
+			local sides = inset("left", use) + inset("right", use)
 			local all = use(measures)
 			local widest, total = 0, 0
 			for _, step in m.steps do
@@ -454,7 +471,7 @@ return function(
 				for _, bounds in ipairs(cellBounds) do
 					copyWidth = math.max(copyWidth, use(bounds).X)
 				end
-				local cell = cueSize(use) + inner + copyWidth + (if permitted(step) then padding else 0)
+				local cell = cueSize(use) + inner + copyWidth + sides
 				widest = math.max(widest, cell)
 				total += cell
 			end

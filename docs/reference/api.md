@@ -1725,6 +1725,8 @@ description?, state?, navigable?, enabled? }`. `state` is `complete`,
   supply `onSelect`. Other steps are plain content and never selectable. A
   press on a permitted step calls `onSelect(id)` once. The control never
   writes `current`. Thus a refused step changes nothing.
+- Every step has the same inset as a Button of its `controlSize`, whether it
+  is a Button or plain content. Thus every cue starts at the same place.
 - `sizing` is `fill` (default, every step gets an equal share of the row) or
   `hug` (each step gets its own width). `listLabel` (default
   "Steps"), `controlSize`, `enabled` and `controls` are optional. The control

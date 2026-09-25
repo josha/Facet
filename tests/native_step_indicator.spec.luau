@@ -120,6 +120,19 @@ t.describe("native StepIndicator", function()
 		end
 	end)
 
+	t.it("insets every cell by the control inset whether or not it is a Button", function()
+		for _, pair in { { "regular", 12 }, { "large", 16 } } do
+			local world =
+				mount({ steps = workflow(), current = "ship", controlSize = pair[1], onSelect = function() end })
+			for _, id in { "cart", "ship", "pay", "done" } do
+				local padding = cell(world, id):FindFirstChildWhichIsA("UIPadding")
+				local sides = if padding then `{padding.PaddingLeft.Offset} {padding.PaddingRight.Offset}` else "none"
+				t.expect(`{pair[1]} {id} {sides}`).toBe(`{pair[1]} {id} {pair[2]} {pair[2]}`)
+			end
+			world.stop()
+		end
+	end)
+
 	t.it("reserves space under the row so the underline never crosses the state word", function()
 		local world = mount({ steps = workflow(), current = "ship" })
 		local padding = world.find("Row"):FindFirstChildWhichIsA("UIPadding")
@@ -285,8 +298,8 @@ t.describe("native StepIndicator", function()
 		end
 		local steps = workflow()
 		steps[2].label = "A much longer shipping label"
-		local fill, fillRoot = mount({ steps = steps, current = "ship", sizing = "fill" }, 540)
-		local hug, hugRoot = mount({ steps = steps, current = "ship", sizing = "hug" }, 540)
+		local fill, fillRoot = mount({ steps = steps, current = "ship", sizing = "fill" }, 640)
+		local hug, hugRoot = mount({ steps = steps, current = "ship", sizing = "hug" }, 640)
 		for _, pair in { { fill, fillRoot }, { hug, hugRoot } } do
 			for _, node in pair[2]:GetDescendants() do
 				if node.Name == "Measure" then
