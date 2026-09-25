@@ -1198,6 +1198,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			return grid
 		end
 
+		local function centred(column: Frame): Frame
+			assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
+			return column
+		end
 		local function swatchesView(): Frame
 			local items = function(use: Use): { Item }
 				local list = table.clone(use(swatchList))
@@ -1225,7 +1229,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				)
 			end
 			table.insert(parts, gridView("Swatches", items, removing))
-			return ctx.column(parts, { Name = "Saved", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			return centred(
+				ctx.column(parts, { Name = "Saved", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			)
 		end
 
 		local function slidersView(): Frame
@@ -1246,7 +1252,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 
 		local function brickView(): Frame
 			local bricks = color.brick()
-			return ctx.column({
+			return centred(ctx.column({
 				ctx.styled(
 					ctx.row({
 						ctx.text({
@@ -1261,7 +1267,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				gridView("BrickGrid", function(): { Item }
 					return bricks
 				end, false),
-			}, { Name = "Brick", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			}, { Name = "Brick", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }))
 		end
 
 		local function numberField(
@@ -1293,7 +1299,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				enabled = function(use: Use): boolean
 					return interactive(use)
 				end,
-				Size = D2.new(1 / 3, -6, 0, 0),
+				Size = D2.fromScale(0, 0),
 				onCommit = function(n: number)
 					local next = with(n)
 					if next ~= nil and propose(next) then
@@ -1303,6 +1309,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			}
 			return UI.NumberInput(name)(props)
+		end
+		local function fieldsRow(fields: { Shared.Child }): Frame
+			local row =
+				ctx.row(fields, { Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			assert(row:FindFirstChildWhichIsA("UIListLayout")).HorizontalFlex = E.UIFlexAlignment.Fill
+			return row
 		end
 		local function rgbFields(): Frame
 			local function channel(index: number, words: string): GuiObject
@@ -1315,10 +1327,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return color.hsvOf(color.fromBytes(bytes[1], bytes[2], bytes[3]), canon:peek())
 				end)
 			end
-			return ctx.row(
-				{ channel(1, "R"), channel(2, "G"), channel(3, "B") },
-				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			return fieldsRow({ channel(1, "R"), channel(2, "G"), channel(3, "B") })
 		end
 		local function hsvFields(): Frame
 			local function channel(key: "h" | "s" | "v", words: string, max: number): GuiObject
@@ -1337,10 +1346,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return c
 				end)
 			end
-			return ctx.row(
-				{ channel("h", "H", 360), channel("s", "S", 100), channel("v", "V", 100) },
-				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			return fieldsRow({ channel("h", "H", 360), channel("s", "S", 100), channel("v", "V", 100) })
 		end
 		local function hexFields(): Frame
 			local text = Compose.cell("")
@@ -1358,6 +1364,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				label = "Hex",
 				value = text,
 				errorText = hexError,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
 				enabled = function(use: Use): boolean
 					return interactive(use)
 				end,
@@ -1378,10 +1386,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					text:set(formatted())
 				end,
 			}
-			return ctx.row(
-				{ UI.TextInput("FieldHex")(props) },
-				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			return fieldsRow({ UI.TextInput("FieldHex")(props) })
 		end
 		local function readoutView(): Frame
 			local builders: { [string]: () -> Frame } = { rgb = rgbFields, hsv = hsvFields, hex = hexFields }
@@ -1408,8 +1413,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				AutomaticSize = E.AutomaticSize.X,
 			}
 			local picker = UI.Picker("Format")(formatProps)
+			runtime.mount(function()
+				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+			end, picker)
 			local head = ctx.row({
-				swatch("Preview", D2.fromOffset(CELL, CELL), currentPaint),
+				swatch("Preview", D2.fromOffset(2 * CELL + GAP, CELL), currentPaint),
 				picker,
 			}, { Name = "Head", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 			assert(head:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center

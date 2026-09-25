@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.ColorPicker` readout: the preview is two cells wide, the RGB/HSV/Hex picker fills the rest of its row, and the fields share their row in equal columns (`HorizontalFlex`), with Hex across the whole row. The swatch and brick grids are centred in the panel. Before, the fields were sized by a fixed third minus 6 pixels and the grids sat at the leading edge.
 - `UI.ColorPicker` shows the Bricks technique by default when the controls' `types` has `BrickColor` (the default on Roblox). Before, the default was Swatches, Spectrum and Sliders, so the engine BrickColor palette was hidden unless `modes` listed `"brick"`. A well now names a colour that is a BrickColor by its brick name.
 - `UI.ColorPicker` swatch, brick and save cells are 44 by 44 squares with the theme's `radii.control` corner. Before, the button padding narrowed each swatch to a 20 pixel wide pill.
 - CollapsibleView expands in place again, as before 0.12. It is not a modal: there is no scrim, no presented layer and no outside catcher. The plate grows over the trigger, and the content fades in, in 0.25 seconds (reduced motion: at once). The collapsed summary is one line that truncates at the end, with a `chevron.down` affordance. The trigger, a tap on the plate, the Close button and Cancel (Escape, ButtonB) collapse it. The Table row More action is now a Popover.

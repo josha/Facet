@@ -1309,6 +1309,36 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 		expect(#w.cells("BrickGrid")).toBe(128)
 		w.stop()
 	end)
+
+	t.it("the readout leads with a wide preview and lays its fields out in equal columns", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local E = w.E
+		local preview = w.find("Readout/Head/Preview")
+		expect(preview.Size.X.Offset > preview.Size.Y.Offset).toBe(true)
+		expect(preview.Size.Y.Offset).toBe(44)
+		local format = w.find("Readout/Head/Format")
+		expect(format:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Fill)
+		local fields = w.find("Readout/Values/Fields")
+		expect(fields:FindFirstChildWhichIsA("UIListLayout").HorizontalFlex).toBe(E.UIFlexAlignment.Fill)
+		for _, name in { "FieldR", "FieldG", "FieldB" } do
+			local size = fields:FindFirstChild(name).Size
+			expect(`{name} {size.X.Scale} {size.X.Offset}`).toBe(`{name} 0 0`)
+		end
+		w.find("Readout/Head/Format/hex").Activated.fire()
+		expect(w.find("Readout/Values/Fields/FieldHex").Size.X.Scale).toBe(1)
+		w.stop()
+	end)
+
+	t.it("the technique centres its grids in the panel", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		for _, column in { "Saved", "Brick" } do
+			local layout = w.find(column):FindFirstChildWhichIsA("UIListLayout")
+			expect(`{column} {layout.HorizontalAlignment}`).toBe(`{column} {w.E.HorizontalAlignment.Center}`)
+		end
+		w.stop()
+	end)
 end)
 
 return nil

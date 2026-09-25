@@ -890,11 +890,15 @@ The panel holds these parts in order:
    more modes.
 2. `Body`: the `Technique` frame. Each technique stays mounted. The inactive
    techniques are not visible. The frame is as tall as the tallest technique,
-   so the panel keeps one height when the tab changes.
+   so the panel keeps one height when the tab changes. The swatch and brick
+   grids are centred in the panel.
 3. `Opacity`: present only with `alpha`.
 4. `Readout`: the `Preview` swatch, the `Format` picker (RGB, HSV and Hex) and
-   the fields. On a touch screen, the readout comes before the body, so the
-   finger does not cover it.
+   the fields. The preview is two cells wide and one cell tall, and the format
+   picker fills the rest of the row. The fields share the `Fields` row in equal
+   columns with a native `HorizontalFlex`, each with its label above it. The
+   `Hex` field takes the whole row. On a touch screen, the readout comes before
+   the body, so the finger does not cover it.
 5. `Actions`: Cancel and Apply, or Done on a sheet.
 
 #### Techniques
