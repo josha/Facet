@@ -135,6 +135,7 @@ controls(runtime).Chip : function
 controls(runtime).CollapsibleView : function
 controls(runtime).ColorPicker : function
 controls(runtime).ComboBox : function
+controls(runtime).Composition : function
 controls(runtime).DateTimePicker : function
 controls(runtime).Dialog : function
 controls(runtime).DisclosureGroup : function
@@ -158,6 +159,7 @@ controls(runtime).Popover : function
 controls(runtime).ProgressView : function
 controls(runtime).RadialMenu : function
 controls(runtime).Rating : function
+controls(runtime).Region : function
 controls(runtime).RowActions : function
 controls(runtime).Screen : function
 controls(runtime).ScrollView : function
@@ -193,6 +195,7 @@ type Adaptive
 type AdaptiveStackProps
 type AlertAction
 type AlertSpec
+type Anchor
 type App
 type AppOptions
 type AsyncImageProps
@@ -218,6 +221,7 @@ type ComboBoxSpec
 type Component
 type ComposeModule
 type ComposeRobloxModule
+type CompositionProps
 type ControlOptions
 type Controls
 type DateTimePickerProps
@@ -263,6 +267,7 @@ type RadialItem
 type RadialMenuSpec
 type RatingProps
 type Readable
+type RegionProps
 type RowAction
 type RowActionsSpec
 type Runtime

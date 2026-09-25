@@ -10,6 +10,7 @@ export type Kit = {
 	insets: (Shared.Value<Shared.Padding>?) -> UIPadding?,
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>),
 	list: (Shared.Flow, Shared.Value<boolean>) -> UIListLayout,
+	underTopbar: (GuiObject, ComposeTypes.Cell<number>) -> (),
 	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
 	stack: (
@@ -377,6 +378,24 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		return Host.Frame(
 			kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding) }, children)
 		)
+	end
+	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)
+		local gui = config.guiService
+		if gui == nil then
+			return
+		end
+		local topbar, position, parent =
+			ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(parent)
+			local band, top = use(topbar), use(position).Y
+			local ok, inset = pcall(gui.GetGuiInset, gui)
+			under:set(
+				if typeof(band) == "Rect" and frame:FindFirstAncestorWhichIsA("ScreenGui")
+					then math.max(0, band.Max.Y - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top)
+					else 0
+			)
+		end)
 	end
 	registry[ctx] = kit
 	return kit

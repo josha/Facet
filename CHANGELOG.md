@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Restored screen-anchored composition as `UI.Composition` and `UI.Region`. Regions anchor to the nine screen edges and corners in three reserved lanes, and to the free top bar strip through a native `TopbarSafeInsets` ScreenGui. When a lane does not fit, the least important region steps down to its next measured form, then hides if it may. A form change pops in unless motion is reduced. api.md "Migrating from 0.11" maps the 0.11 declarations.
 - A Card with `reveal = "automatic"` shows its actions on a panel plate directly below the body again: the primary action fills the row and More is a trailing `more` icon button (the Menu root, now named `More`, is that button). Before, the row floated with no plate, a gap above it, a hugging primary and a worded More trigger.
 - A theme plaque layer with `text = true` is title art. A Sheet or Dialog title shows in it, the plaque 9-slice grows around the title, and the header title hides. Without a title the plaque is not drawn. Before, Fantasy Ornate drew an empty plaque on every panel. The Fantasy Ornate plaque is now 9-sliced, with text insets inside its gold rim.
 - A skinned Sheet, Dialog, Popover, Menu or picker panel pads its content by the theme `panel` chrome `contentInsets`. Before, the panel's own padding beat the theme rule, so in Fantasy Ornate the Sheet title sat on the inner border and the Close button was clipped at the right edge.

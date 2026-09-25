@@ -546,6 +546,96 @@ UI.ViewThatFits "Actions" {
 }
 ```
 
+### Composition and Region
+
+`UI.Composition(spec) -> Frame` places ranked regions at the edges and
+corners of the screen, as a game HUD does. `UI.Region(spec) -> Frame` is one
+of those regions. Put the composition in a ScreenGui, or in any Frame that
+covers the area to use. It fills its parent. The ScreenGui `ScreenInsets`
+keeps it inside the device safe area. When the composition reaches into the
+`GuiService.TopbarInset` band, it adds the covered height to its top padding,
+as `Screen` does.
+
+```luau
+local hidden = Compose.cell(1)
+return UI.Composition "Hud" {
+	UI.Region "Score" { anchor = "top", rank = 1, UI.Text { text = "12 : 9" } },
+	UI.Region "Tasks" {
+		anchor = "left",
+		rank = 3,
+		mayDrop = true,
+		form = hidden,
+		UI.Text { text = "Win a round, land 25 hits" },
+		UI.Button { label = "Tasks 1/2" },
+	},
+	UI.Region "Objective" { anchor = "topbar", rank = 2, UI.Text { text = "Round 3" } },
+}
+```
+
+Composition options:
+
+- `gap`: the space between the regions of one zone, between the three lanes
+  and between the zones of one lane. The default is `s`.
+- `padding`: the space inside the edges. The default is `s`.
+- `topbar`: a boolean or a readable. The default is `true`. See `topbar` below.
+- The children are `UI.Region` nodes. A `UI.fill()` child is also allowed, so
+  the composition can take the free height of a stack.
+
+Region options:
+
+- `anchor` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
+  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
+- `rank` is required: a whole number, 1 or more. Rank 1 is the most
+  important region.
+- `mayDrop`: when `true`, the region can hide completely after its last form.
+- `form`: a writable cell. The composition writes the index of the form that
+  shows, or 0 when the region is hidden. Read it to offer the hidden content in
+  another place, such as a sheet.
+- The children are the forms of the region, richest first. At least one form
+  is necessary. Give each form a pixel or `hug` size. A form that fills its
+  parent has no size of its own.
+
+Layout:
+
+- Each anchor is a zone. A zone is a native Frame with an `AnchorPoint` and a
+  scale `Position` at its edge or corner. It hugs its regions and stacks them
+  in declaration order with a `UIListLayout`.
+- The screen has three lanes of equal width: left, center and right. Each lane
+  reserves its third. An empty lane does not give its width to the others, so
+  a zone stays at its edge.
+- A zone must fit the width of its lane. The zones of one lane must not
+  overlap vertically. The `center` zone stays centred and keeps `gap` from the
+  zones above and below it.
+
+Step-down:
+
+- Every form stays mounted. Roblox measures each form, also a hidden one. Only
+  the chosen form is visible. Its region has the `FacetForm` attribute.
+- When a lane does not fit, the region with the highest rank in the zones
+  that do not fit shows its next form. After its last form, a region with
+  `mayDrop` hides. With equal ranks, the later region gives way first.
+- The composition repeats this until every lane fits or no region can give
+  way. It never scales content down.
+- The decision uses only the measured sizes and the size of the composition.
+  Thus a rotation, a resize or a text size change gives the same forms as a
+  new mount of the same size.
+- A region that changes form scales from 0.94 to 1 in 0.15 seconds, Cubic
+  Out, from the edge of its zone. Its measurement holds until the motion ends,
+  so the motion cannot change the decision. Reduced motion removes the motion.
+
+`topbar`:
+
+- A region with `anchor = "topbar"` goes into the free strip of the Roblox top
+  bar, level with the Roblox buttons. The composition puts these regions in a
+  second ScreenGui with `ScreenInsets = TopbarSafeInsets`, in the parent of its
+  own ScreenGui. That ScreenGui has the same `DisplayOrder`, follows the
+  `Enabled` of the host and links the same StyleSheet. The regions stack
+  horizontally centred in the strip, and they step down when the strip is too
+  small.
+- When `topbar` is `false`, when `GuiService.TopbarInset` has no width, or
+  when the composition is not in a ScreenGui, these regions come first in the
+  `top` zone.
+
 ### fill
 
 `UI.fill(weight?) -> UIFlexItem` makes a child grow along the main axis of its
@@ -2994,6 +3084,23 @@ any value. Give it to a number field as `parse`. It accepts `+`, `-`, `*`, `/`,
 parentheses, the typographic signs `×`, `÷` and `−`, and blanks. It refuses a
 division by zero, an exponent, a hex number, more than 256 characters and more
 than 32 levels of nesting. It never compiles the text.
+
+## Migrating from 0.11
+
+The 0.11 screen-anchored composition maps to these 0.12 calls:
+
+| 0.11 | 0.12 |
+|---|---|
+| `UI.Composition { groups = Facet.composition.HUD_GROUPS, arrangements = { Facet.composition.HUD } }` | `UI.Composition {}`. The three HUD lanes and nine zones are the only layout. |
+| `UI.Region { group = "topRight", ... }` | `UI.Region { anchor = "topRight", ... }`. The nine zone names are the same. |
+| the `topbar` group with `rootPolicy = "bandSafeContent"` | `anchor = "topbar"`. The composition uses a native `TopbarSafeInsets` ScreenGui. |
+| `rank`, `mayDrop`, forms as children, richest first | The same. |
+| `holdsLane` | Always on. Each lane reserves its third of the width. |
+| `resolution.unshown`, `simplified` | The `form` cell of each region: 0 is hidden, 2 or more is simplified. |
+| `recover`, `expand`, `dismissButton` | Removed. Make a simplified form a Button that opens the full content, for example in a Sheet. |
+| `floor`, `sizing`, `weight`, `mayScroll`, `reserved`, `exclusions`, `maxMeasure`, spans, custom arrangements | Removed. Use native layout inside a form. Put chrome outside the composition, or give the composition a native `Size` and `Position`. |
+| `UI.Anchor` with `anchor` and offsets on each child | A native Frame with `AnchorPoint` and `Position`, or a one-region `UI.Composition`. |
+| `Facet.composition.resolve` | Removed. The decision runs on the measured native sizes. |
 
 ## Native targets and boundaries
 

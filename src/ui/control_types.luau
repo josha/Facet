@@ -23,6 +23,8 @@ export type Controls = {
 	ErrorBoundary: typeof(((nil :: unknown) :: Layout.LayoutControls).ErrorBoundary),
 	Divider: typeof(((nil :: unknown) :: Layout.LayoutControls).Divider),
 	Spacer: typeof(((nil :: unknown) :: Layout.LayoutControls).Spacer),
+	Composition: typeof(((nil :: unknown) :: Layout.LayoutControls).Composition),
+	Region: typeof(((nil :: unknown) :: Layout.LayoutControls).Region),
 	fill: typeof(((nil :: unknown) :: Layout.LayoutControls).fill),
 	Button: typeof(((nil :: unknown) :: Inputs.InputControls).Button),
 	Toggle: typeof(((nil :: unknown) :: Inputs.InputControls).Toggle),
