@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `app.refusal(control, spec)` returns the words that the constructor of `UI[control]` refuses `spec` with, or nil. It builds under a temporary Compose owner and mounts nothing. Facet now also uses `Compose.withRootOwner`.
 - The Snackbar reference lists each dismiss route and warns about a row with no Close, no `duration` and no action.
 - NavBar `surface` paints a background plate: `surface`, `panel` or `pane`.
 - An icon name that ends in `.fill` names the filled variant, for example `"star.fill"`. The art of the package for that name wins. Otherwise the regular icon draws.

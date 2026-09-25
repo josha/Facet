@@ -82,6 +82,7 @@ The app has these fields:
 | `runtime` | `options.runtime`, or a new runtime from `Facet.Roblox.createRuntime()`. |
 | `UI` | `Facet.controls(runtime, options)`. |
 | `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. It returns the stop function and the ScreenGui. |
+| `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
 | `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |
 
 `AppOptions` accepts every `controls` option (see [Factory options](#factory-options))

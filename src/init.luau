@@ -168,6 +168,7 @@ local USED = {
 	"switch",
 	"watch",
 	"withOwner",
+	"withRootOwner",
 }
 
 local recipes: { arithmetic: { parse: (unknown) -> number? } } =

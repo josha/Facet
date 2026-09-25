@@ -30,7 +30,15 @@ export type Action = {
 	busy: Value<boolean>?,
 	onActivate: () -> (),
 }
-export type DialogAction = Action & { keepOpen: boolean? }
+export type DialogAction = {
+	id: string,
+	label: Value<string>,
+	role: ActionRole?,
+	enabled: Value<boolean>?,
+	busy: Value<boolean>?,
+	keepOpen: boolean?,
+	onActivate: () -> (),
+}
 export type ActionLayout = "automatic" | "row" | "stacked"
 export type WidthPreset = "automatic" | "narrow" | "wide"
 export type Edge = "top" | "bottom" | "leading" | "trailing"

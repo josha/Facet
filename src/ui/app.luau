@@ -30,6 +30,7 @@ export type App = {
 	runtime: Types.Runtime,
 	UI: ControlTypes.Controls,
 	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
+	refusal: (control: string, spec: unknown) -> string?,
 	dispose: () -> (),
 }
 type RobloxModule = { createRuntime: () -> Types.Runtime }
@@ -105,6 +106,23 @@ return function(
 		table.insert(stops, release)
 		return release, (root :: unknown) :: ScreenGui
 	end
+	local function refusal(control: string, spec: unknown): string?
+		assert(not disposed, "Facet app.refusal: the app is disposed")
+		local construct = ((UI :: unknown) :: { [string]: (unknown) -> Instance })[control]
+		if construct == nil then
+			error(`Facet app.refusal: there is no control named '{tostring(control)}'`, 2)
+		end
+		local ok, failure = pcall(function()
+			Compose.withRootOwner(function()
+				Host.ScreenGui({ construct(spec) } :: Engine.ScreenGuiNativeProps)
+			end)
+		end)
+		if ok then
+			return nil
+		end
+		local text = tostring(failure)
+		return string.match(text, "^[^\n]-:%d+: (.*)$") or text
+	end
 	local function dispose()
 		if disposed then
 			return
@@ -117,5 +135,5 @@ return function(
 			runtime:dispose()
 		end
 	end
-	return freeze({ runtime = runtime, UI = UI, mount = mount, dispose = dispose })
+	return freeze({ runtime = runtime, UI = UI, mount = mount, refusal = refusal, dispose = dispose })
 end

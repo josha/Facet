@@ -2121,13 +2121,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					spec.labelPosition == nil or spec.labelPosition == "start" or spec.labelPosition == "end",
 					"Facet.ShortcutHint: labelPosition must be start or end"
 				)
-				local hint = UI.ShortcutHint({
+				local hint = UI.ShortcutHint(({
 					Name = "Keys",
 					action = spec.action,
 					keys = spec.keys,
 					separator = spec.separator,
 					controlSize = spec.controlSize,
-				} :: InputTypes.ShortcutHintProps)
+				} :: unknown) :: InputTypes.ShortcutHintProps)
 				local caption = ctx.styled(
 					ctx.text({ Name = "Label", Text = spec.label, AutomaticSize = E.AutomaticSize.XY }),
 					"secondary"

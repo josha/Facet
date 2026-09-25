@@ -15,7 +15,7 @@ local themes = {}
 themes.SCHEMA = "facet-theme/2"
 themes.TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control", "strong", "numeral" })
 themes.REQUIRED_TYPE_ROLES = themes.TYPE_ROLES
-themes.AVATAR_BACKGROUNDS = table.freeze({
+local AVATAR_BACKGROUNDS: { [string]: string } = table.freeze({
 	surface = "content",
 	surfaceStrong = "content",
 	control = "content",
@@ -1004,7 +1004,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
 		})
 	end
-	for role, ink in themes.AVATAR_BACKGROUNDS do
+	for role, ink in AVATAR_BACKGROUNDS do
 		local selector = ".facet-avatar-background-" .. role
 		rule(selector, { BackgroundColor3 = c(role), BackgroundTransparency = 0, TextColor3 = c(ink) })
 		rule(selector .. " > .facet-text", { TextColor3 = c(ink) })
