@@ -39,20 +39,20 @@ local function hud(UI: any, Host: any, forms: any, topbar: any?)
 		gap = 8,
 		padding = 0,
 		topbar = topbar,
-		region("Rounds", { anchor = "topLeft", rank = 1, form(Host, "RoundsFull") }),
+		region("Rounds", { zone = "topLeft", rank = 1, form(Host, "RoundsFull") }),
 		region("Tasks", {
-			anchor = "left",
+			zone = "left",
 			rank = 7,
 			mayDrop = true,
 			form(Host, "TasksFull"),
 			form(Host, "TasksChip"),
 		}),
-		region("Health", { anchor = "bottomLeft", rank = 5, form(Host, "HealthFull"), form(Host, "HealthChip") }),
-		region("Clock", { anchor = "top", rank = 2, form(Host, "ClockFull"), form(Host, "ClockChip") }),
-		region("Strip", { anchor = "topbar", rank = 6, form(Host, "Objective") }),
-		region("Rail", { anchor = "topRight", rank = 4, form(Host, "RailFull"), form(Host, "RailChip") }),
-		region("Readout", { anchor = "topRight", rank = 9, mayDrop = true, form(Host, "ReadoutText") }),
-		region("Actions", { anchor = "bottomRight", rank = 3, form(Host, "ActionsFull") }),
+		region("Health", { zone = "bottomLeft", rank = 5, form(Host, "HealthFull"), form(Host, "HealthChip") }),
+		region("Clock", { zone = "top", rank = 2, form(Host, "ClockFull"), form(Host, "ClockChip") }),
+		region("Strip", { zone = "topbar", rank = 6, form(Host, "Objective") }),
+		region("Rail", { zone = "topRight", rank = 4, form(Host, "RailFull"), form(Host, "RailChip") }),
+		region("Readout", { zone = "topRight", rank = 9, mayDrop = true, form(Host, "ReadoutText") }),
+		region("Actions", { zone = "bottomRight", rank = 3, form(Host, "ActionsFull") }),
 	}
 end
 
@@ -242,15 +242,15 @@ t.describe("Composition", function()
 		end
 		t.expect(string.find(
 			refusal(function(UI, Host)
-				return UI.Region { anchor = "middle", rank = 1, Host.Frame {} }
+				return UI.Region { zone = "middle", rank = 1, Host.Frame {} }
 			end),
-			"anchor",
+			"zone",
 			1,
 			true
 		) ~= nil).toBe(true)
 		t.expect(string.find(
 			refusal(function(UI, Host)
-				return UI.Region { anchor = "top", rank = 1.5, Host.Frame {} }
+				return UI.Region { zone = "top", rank = 1.5, Host.Frame {} }
 			end),
 			"rank",
 			1,
@@ -266,7 +266,7 @@ t.describe("Composition", function()
 		) ~= nil).toBe(true)
 		t.expect(string.find(
 			refusal(function(UI)
-				return UI.Region { anchor = "top", rank = 1 }
+				return UI.Region { zone = "top", rank = 1 }
 			end),
 			"form",
 			1,

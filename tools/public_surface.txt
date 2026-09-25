@@ -195,7 +195,6 @@ type Adaptive
 type AdaptiveStackProps
 type AlertAction
 type AlertSpec
-type Anchor
 type App
 type AppOptions
 type AsyncImageProps
@@ -303,3 +302,4 @@ type VoteSpec
 type WorldAnchor
 type WorldAnchorOptions
 type ZStackProps
+type Zone

@@ -84,7 +84,7 @@ export type DividerProps = Engine.FrameProps & {
 export type SpacerProps = Engine.FrameProps & {
 	minLength: Types.Value<Space>?,
 }
-export type Anchor =
+export type Zone =
 	"topLeft"
 	| "top"
 	| "topRight"
@@ -95,9 +95,7 @@ export type Anchor =
 	| "bottom"
 	| "bottomRight"
 	| "topbar"
-export type RegionProps =
-	Engine.FrameProps
-	& { anchor: Anchor, rank: number, mayDrop: boolean?, form: Types.Cell<number>? }
+export type RegionProps = Engine.FrameProps & { zone: Zone, rank: number, mayDrop: boolean?, form: Types.Cell<number>? }
 export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 export type LayoutControls = {
 	Screen: Types.Constructor<ScreenProps, Frame>,

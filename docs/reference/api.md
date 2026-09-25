@@ -559,16 +559,16 @@ as `Screen` does.
 ```luau
 local hidden = Compose.cell(1)
 return UI.Composition "Hud" {
-	UI.Region "Score" { anchor = "top", rank = 1, UI.Text { text = "12 : 9" } },
+	UI.Region "Score" { zone = "top", rank = 1, UI.Text { text = "12 : 9" } },
 	UI.Region "Tasks" {
-		anchor = "left",
+		zone = "left",
 		rank = 3,
 		mayDrop = true,
 		form = hidden,
 		UI.Text { text = "Win a round, land 25 hits" },
 		UI.Button { label = "Tasks 1/2" },
 	},
-	UI.Region "Objective" { anchor = "topbar", rank = 2, UI.Text { text = "Round 3" } },
+	UI.Region "Objective" { zone = "topbar", rank = 2, UI.Text { text = "Round 3" } },
 }
 ```
 
@@ -583,7 +583,7 @@ Composition options:
 
 Region options:
 
-- `anchor` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
+- `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
   `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
 - `rank` is required: a whole number, 1 or more. Rank 1 is the most
   important region.
@@ -597,8 +597,8 @@ Region options:
 
 Layout:
 
-- Each anchor is a zone. A zone is a native Frame with an `AnchorPoint` and a
-  scale `Position` at its edge or corner. It hugs its regions and stacks them
+- A zone is a native Frame with an `AnchorPoint` and a scale `Position` at
+  its edge or corner. It hugs its regions and stacks them
   in declaration order with a `UIListLayout`.
 - The screen has three lanes of equal width: left, center and right. Each lane
   reserves its third. An empty lane does not give its width to the others, so
@@ -630,7 +630,7 @@ Step-down:
 
 `topbar`:
 
-- A region with `anchor = "topbar"` goes into the free strip of the Roblox top
+- A region with `zone = "topbar"` goes into the free strip of the Roblox top
   bar, level with the Roblox buttons. The composition puts these regions in a
   second ScreenGui with `ScreenInsets = TopbarSafeInsets`, in the parent of its
   own ScreenGui. That ScreenGui has the same `DisplayOrder`, follows the
@@ -3100,8 +3100,8 @@ The 0.11 screen-anchored composition maps to these 0.12 calls:
 | 0.11 | 0.12 |
 |---|---|
 | `UI.Composition { groups = Facet.composition.HUD_GROUPS, arrangements = { Facet.composition.HUD } }` | `UI.Composition {}`. The three HUD lanes and nine zones are the only layout. |
-| `UI.Region { group = "topRight", ... }` | `UI.Region { anchor = "topRight", ... }`. The nine zone names are the same. |
-| the `topbar` group with `rootPolicy = "bandSafeContent"` | `anchor = "topbar"`. The composition uses a native `TopbarSafeInsets` ScreenGui. |
+| `UI.Region { group = "topRight", ... }` | `UI.Region { zone = "topRight", ... }`. The nine zone names are the same. |
+| the `topbar` group with `rootPolicy = "bandSafeContent"` | `zone = "topbar"`. The composition uses a native `TopbarSafeInsets` ScreenGui. |
 | `rank`, `mayDrop`, forms as children, richest first | The same. |
 | `holdsLane` | Always on. Each lane reserves its third of the width. |
 | `resolution.unshown`, `simplified` | The `form` cell of each region: 0 is hidden, 2 or more is simplified. |

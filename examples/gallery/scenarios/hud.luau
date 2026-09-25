@@ -355,10 +355,10 @@ return {
 				disc("Overflow" .. suffix, copy.round3, "more", steps.openOverflow),
 			}, 8, vertical)
 		end
-		local function region(id, anchor, rank, mayDrop, ...)
+		local function region(id, zone, rank, mayDrop, ...)
 			return UI.Region({
 				Name = id,
-				anchor = anchor,
+				zone = zone,
 				rank = rank,
 				mayDrop = mayDrop,
 				form = chosen[id],

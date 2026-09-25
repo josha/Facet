@@ -377,7 +377,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 260),
 				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }),
 				UI.Region "Subject" {
-					anchor = "center",
+					zone = "center",
 					rank = 1,
 					if item.kind == "world"
 						then stage
@@ -388,7 +388,7 @@ return {
 						},
 				},
 				UI.Region "LauncherCorner" {
-					anchor = if item.kind == "corner" then corner else "bottomLeft",
+					zone = if item.kind == "corner" then corner else "bottomLeft",
 					rank = 2,
 					menuNode,
 				},

@@ -7,7 +7,7 @@ local reducedMotion = require("./motion")
 local resolver = require("./composition_resolve")
 
 type Declared = {
-	anchor: Layout.Anchor,
+	zone: Layout.Zone,
 	rank: number,
 	mayDrop: boolean,
 	sizes: { ComposeTypes.Cell<Vector2> },
@@ -24,10 +24,10 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
 
 	UI.Region = ctx.construct("Region", function(spec: Layout.RegionProps): Frame
-		local anchor, rank = spec.anchor, spec.rank
+		local zone, rank = spec.zone, spec.rank
 		assert(
-			type(anchor) == "string" and resolver.CELLS[anchor] ~= nil,
-			"Facet Region anchor must be topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight or topbar"
+			type(zone) == "string" and resolver.CELLS[zone] ~= nil,
+			"Facet Region zone must be topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight or topbar"
 		)
 		assert(
 			type(rank) == "number" and rank >= 1 and rank % 1 == 0,
@@ -47,7 +47,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			return if reduced(use) then 1 else 0.94 + 0.06 * (1 - (1 - use(pop.progress)) ^ 3)
 		end)
 		local properties = (
-			ctx.props(spec, { "anchor", "rank", "mayDrop", "form" }, {
+			ctx.props(spec, { "zone", "rank", "mayDrop", "form" }, {
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = D2.new(),
@@ -96,7 +96,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			shown = current
 		end)
 		declared[node] = {
-			anchor = anchor :: Layout.Anchor,
+			zone = zone :: Layout.Zone,
 			rank = rank,
 			mayDrop = spec.mayDrop == true,
 			sizes = sizes,
@@ -106,7 +106,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		return node
 	end)
 
-	local function zone(
+	local function zoneFrame(
 		name: string,
 		column: number,
 		row: number,
@@ -186,11 +186,11 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		local members: { [string]: { Frame } } = {}
 		local stripRegions: { Frame } = {}
 		for order, region in regions do
-			local anchor = declared[region].anchor
+			local zone = declared[region].zone
 			region.LayoutOrder = order
-			local home = if anchor == "topbar" then "top" else anchor
+			local home = if zone == "topbar" then "top" else zone
 			members[home] = members[home] or {}
-			if anchor == "topbar" then
+			if zone == "topbar" then
 				table.insert(stripRegions, region)
 			else
 				table.insert(members[home], region)
@@ -198,11 +198,11 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
-		for anchor, children in members do
-			local cell = resolver.CELLS[anchor]
+		for zone, children in members do
+			local cell = resolver.CELLS[zone]
 			local frame =
-				zone(string.upper(string.sub(anchor, 1, 1)) .. string.sub(anchor, 2), cell[1], cell[2], gap, children)
-			zones[anchor] = frame
+				zoneFrame(string.upper(string.sub(zone, 1, 1)) .. string.sub(zone, 2), cell[1], cell[2], gap, children)
+			zones[zone] = frame
 			table.insert(placed, frame)
 		end
 		local safe = Host.Frame "Zones" {
@@ -315,7 +315,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 					local value = use(observed)
 					measured[form] = { x = value.X, y = value.Y }
 				end
-				list[index] = { anchor = entry.anchor, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
+				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
 			end
 			local band = if stripSize and riding(use) then use(stripSize) else nil
 			local chosen = resolver.resolve(

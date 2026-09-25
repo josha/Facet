@@ -61,7 +61,7 @@ local adaptive: Frame = UI.AdaptiveStack({ axis = "x" :: "x", gap = "s" })
 local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
 local chosen: Facet.Cell<number> = Compose.cell(1)
 local region: Frame = UI.Region("Tasks")({
-	anchor = "left" :: "left",
+	zone = "left" :: "left",
 	rank = 2,
 	mayDrop = true,
 	form = chosen,

@@ -138,6 +138,12 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 		ViewThatFits = function()
 			return { Host.Frame({}) }
 		end,
+		Region = function()
+			return { zone = "top", rank = 1, Host.Frame({}) }
+		end,
+		Composition = function()
+			return {}
+		end,
 		Alert = function()
 			return {
 				isPresented = Compose.cell(false),

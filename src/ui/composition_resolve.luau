@@ -1,5 +1,5 @@
 --!strict
-export type Anchor =
+export type Zone =
 	"topLeft"
 	| "top"
 	| "topRight"
@@ -11,7 +11,7 @@ export type Anchor =
 	| "bottomRight"
 	| "topbar"
 export type Declared = {
-	anchor: Anchor,
+	zone: Zone,
 	rank: number,
 	mayDrop: boolean,
 	sizes: { { x: number, y: number } },
@@ -30,11 +30,11 @@ local CELLS: { [string]: { number } } = {
 	topbar = { 2, 1 },
 }
 
-local function cellOf(anchor: string, riding: boolean): (number, number)
-	if anchor == "topbar" and riding then
+local function cellOf(zone: string, riding: boolean): (number, number)
+	if zone == "topbar" and riding then
 		return 0, 0
 	end
-	local cell = CELLS[anchor]
+	local cell = CELLS[zone]
 	return cell[1], cell[2]
 end
 
@@ -57,7 +57,7 @@ return {
 			local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } =
 				{}, {}, {}
 			for index, region in regions do
-				local column, row = cellOf(region.anchor, riding)
+				local column, row = cellOf(region.zone, riding)
 				local key = column * 4 + row
 				members[key] = members[key] or {}
 				table.insert(members[key], index)
