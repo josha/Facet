@@ -534,7 +534,7 @@ t.describe("native radial interaction policies", function()
 			world.opened:set(true)
 			local at = world.find("Center").Position
 			world.opened:set(false)
-			return at.X.Offset, at.Y.Offset
+			return at.X.Offset, at.Y.Offset + (4 + 12 + 4) / 2
 		end
 		local x, y = centre(140, 200)
 		t.expect(x).toBe(160)
@@ -566,6 +566,54 @@ t.describe("native radial interaction policies", function()
 			t.expect(math.abs(reach() - expected) <= 1).toBe(true)
 		end
 		world.stop()
+	end)
+	t.it("puts a small plate-less close and the highlighted name inside the hole over a full dark scrim", function()
+		for _, label in { false, "Leave the wheel" } do
+			local world = setup({
+				distribution = "compass",
+				centerLabel = if label then label else nil,
+				items = compass(function() end),
+			})
+			local scrim = world.find("DismissOutside")
+			t.expect(scrim:HasTag("facet-scrim") and scrim:HasTag("facet-radial-scrim") and scrim.Visible).toBe(true)
+			t.expect(scrim.Position.X.Offset < 0 and scrim.Position.Y.Offset < 0).toBe(true)
+			t.expect(scrim.Size.X.Scale >= 1 and scrim.Size.X.Offset >= -2 * scrim.Position.X.Offset).toBe(true)
+			t.expect(scrim.Size.Y.Scale >= 1 and scrim.Size.Y.Offset >= -2 * scrim.Position.Y.Offset).toBe(true)
+			local centre = world.find("Center")
+			local w, h = centre.Size.X.Offset, centre.Size.Y.Offset
+			t.expect(w).toBe(h)
+			t.expect(w >= 44 and w <= 1.2 * 44).toBe(true)
+			t.expect(centre:HasTag("facet-appearance-utility")).toBe(true)
+			t.expect(centre.Position.X.Offset).toBe(320)
+			local function inside(x, y)
+				return (x - 320) ^ 2 + (y - 240) ^ 2 <= 40 * 40 + 0.5
+			end
+			for _, dx in { -w / 2, w / 2 } do
+				for _, dy in { -h / 2, h / 2 } do
+					t.expect(inside(centre.Position.X.Offset + dx * 0.71, centre.Position.Y.Offset + dy * 0.71))
+						.toBe(true)
+				end
+			end
+			if label then
+				t.expect(centre.Text).toBe(label)
+			else
+				t.expect(centre.Text).toBe("")
+				t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+			end
+			local preview = world.find("SelectionPreview")
+			t.expect(preview.Text).toBe("N")
+			local px, py = preview.Position.X.Offset, preview.Position.Y.Offset
+			local pw, ph = preview.Size.X.Offset, preview.Size.Y.Offset
+			t.expect(preview.AnchorPoint.X == 0.5 and preview.AnchorPoint.Y == 0.5).toBe(true)
+			t.expect(pw > 0 and ph > 0).toBe(true)
+			for _, dx in { -pw / 2, pw / 2 } do
+				for _, dy in { -ph / 2, ph / 2 } do
+					t.expect(inside(px + dx, py + dy)).toBe(true)
+				end
+			end
+			t.expect(py - ph / 2 >= centre.Position.Y.Offset + h / 2).toBe(true)
+			world.stop()
+		end
 	end)
 end)
 return t

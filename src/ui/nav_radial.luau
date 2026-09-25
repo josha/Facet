@@ -956,7 +956,26 @@ return function(
 						back()
 					end
 				end
-				if spec.center ~= "empty" and spec.center ~= "content" then
+				local closing = spec.center ~= "empty" and spec.center ~= "content"
+				local function hub(
+					use: ComposeTypes.Use
+				): { close: number, closeY: number, labelY: number, labelW: number, labelH: number }
+					local inner = use(layout).inner
+					local gap = ctx.metric("space.xs", use)
+					local labelH = ctx.metric("typography.caption.size", use) + gap
+					local close = if closing then math.min(ctx.metric("targetSizes.minimum", use), 2 * inner - 4) else 0
+					local top = -(close + (if closing then gap else 0) + labelH) / 2
+					local labelTop = top + close + (if closing then gap else 0)
+					local edge = math.max(math.abs(labelTop), math.abs(labelTop + labelH))
+					return {
+						close = close,
+						closeY = top + close / 2,
+						labelY = labelTop + labelH / 2,
+						labelW = math.max(0, 2 * math.sqrt(math.max(0, inner * inner - edge * edge)) - 2 * gap),
+						labelH = labelH,
+					}
+				end
+				if closing then
 					local function centerName(use: ComposeTypes.Use): string
 						local depth = #use(path)
 						return read(spec.centerLabel, use)
@@ -977,6 +996,7 @@ return function(
 						UI.Button "Center" {
 							LayoutOrder = -1,
 							corners = "pill" :: "pill",
+							appearance = "utility",
 							name = centerName,
 							label = function(use: ComposeTypes.Use): string
 								return if use(fallback) then centerName(use) else read(spec.centerLabel, use) or ""
@@ -988,17 +1008,18 @@ return function(
 							end,
 							Position = function(use: ComposeTypes.Use)
 								local at = use(center)
-								return if use(fallback) then D2.fromOffset(0, 0) else D2.fromOffset(at.X, at.Y)
+								return if use(fallback)
+									then D2.fromOffset(0, 0)
+									else D2.fromOffset(at.X, at.Y + hub(use).closeY)
 							end,
 							AnchorPoint = function(use: ComposeTypes.Use)
 								return if use(fallback) then V2.zero else V2.new(0.5, 0.5)
 							end,
 							Size = function(use: ComposeTypes.Use)
-								local minimum = ctx.metric("targetSizes.minimum", use)
 								if use(fallback) then
-									return D2.new(1, -8, 0, minimum)
+									return D2.new(1, -8, 0, ctx.metric("targetSizes.minimum", use))
 								end
-								local diameter = math.max(minimum, 2 * use(layout).inner - 4)
+								local diameter = hub(use).close
 								return D2.fromOffset(diameter, diameter)
 							end,
 							ZIndex = 105,
@@ -1036,20 +1057,22 @@ return function(
 					if ring.list then
 						return D2.new(0.5, 0, 1, -8), V2.new(0.5, 1)
 					end
-					local at, room = use(center), use(panelSize)
-					local reach = reachOf(ring)
-					local x = math.clamp(at.X, 160, math.max(160, room.X - 160))
-					local below = at.Y + reach + 12
-					if below + 40 > room.Y then
-						return D2.fromOffset(x, at.Y - reach - 12), V2.new(0.5, 1)
-					end
-					return D2.fromOffset(x, below), V2.new(0.5, 0)
+					local at = use(center)
+					return D2.fromOffset(at.X, at.Y + hub(use).labelY), V2.new(0.5, 0.5)
 				end
 				surfaces.attach(panel, {
 					ctx.text({
 						Name = "SelectionPreview",
-						Size = D2.fromOffset(320, 0),
-						AutomaticSize = E.AutomaticSize.Y,
+						Size = function(use: ComposeTypes.Use): UDim2
+							if use(layout).list then
+								return D2.fromOffset(320, 0)
+							end
+							local place = hub(use)
+							return D2.fromOffset(place.labelW, place.labelH)
+						end,
+						AutomaticSize = function(use: ComposeTypes.Use)
+							return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
+						end,
 						Position = function(use: ComposeTypes.Use): UDim2
 							return (previewPlace(use))
 						end,
@@ -1059,7 +1082,10 @@ return function(
 						end,
 						TextXAlignment = E.TextXAlignment.Center,
 						LayoutOrder = 10000,
-						TextWrapped = true,
+						TextWrapped = function(use: ComposeTypes.Use)
+							return use(layout).list
+						end,
+						TextTruncate = E.TextTruncate.AtEnd,
 						Text = function(use: ComposeTypes.Use)
 							local key = use(candidate) or use(focus.current)
 							local entries = use(sectors)
@@ -1301,6 +1327,16 @@ return function(
 				local catcher = modal:FindFirstChild("DismissOutside")
 				if catcher then
 					catcher:AddTag("facet-radial-scrim")
+					runtime.decorate(catcher, {
+						Position = function(use: ComposeTypes.Use)
+							local size = use(viewport)
+							return D2.fromOffset(-size.X, -size.Y)
+						end,
+						Size = function(use: ComposeTypes.Use)
+							local size = use(viewport)
+							return D2.new(1, 2 * size.X, 1, 2 * size.Y)
+						end,
+					})
 				end
 				if spec.skin and spec.skin.background then
 					skin(modal, spec.skin.background)

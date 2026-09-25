@@ -810,36 +810,44 @@ t.describe("native paint strength: button content", function()
 					and top + button.Size.Y.Offset <= paint.Position.Y.Offset + paint.Size.Y.Offset + 0.5
 				assert(inside, where .. " content leaves its wedge")
 			end
+			local centre = find(root.Parent, "Center")
+			t.expect(#ownSlots(centre)).toBe(0)
 			stop()
 			h.dispose()
 		end
 	end)
 
-	t.it("dims the page behind an open ring to at least 70 percent in every shipped package and palette", function()
-		local packages = { themes.neutralPackage() }
-		for _, name in SHIPPED do
-			table.insert(packages, (shipped(name)))
-		end
-		for _, package in packages do
-			for _, palette in package.style.themes do
-				local h = harness({ reducedMotion = true })
-				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
-				local root, stop = mount(h, function()
-					return h.UI.RadialMenu({
-						isPresented = Compose.cell(true),
-						items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
-					})
-				end)
-				local scrim = find(root.Parent, "DismissOutside")
-				local where = `{package.identity.id}/{palette.name}`
-				local transparency = resolve(sheet, scrim, "BackgroundTransparency")
-				assert(transparency ~= nil and transparency <= 0.3 + 1e-6, `{where} ring scrim {transparency}`)
-				stop()
-				stopSheet()
-				h.dispose()
+	t.it(
+		"dims the page behind an open ring dark, to at least 80 percent, in every shipped package and palette",
+		function()
+			local packages = { themes.neutralPackage() }
+			for _, name in SHIPPED do
+				table.insert(packages, (shipped(name)))
+			end
+			for _, package in packages do
+				for _, palette in package.style.themes do
+					local h = harness({ reducedMotion = true })
+					local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+					local root, stop = mount(h, function()
+						return h.UI.RadialMenu({
+							isPresented = Compose.cell(true),
+							items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
+						})
+					end)
+					local scrim = find(root.Parent, "DismissOutside")
+					local where = `{package.identity.id}/{palette.name}`
+					local transparency = resolve(sheet, scrim, "BackgroundTransparency")
+					assert(transparency ~= nil and transparency <= 0.2 + 1e-6, `{where} ring scrim {transparency}`)
+					local tint = resolve(sheet, scrim, "BackgroundColor3")
+					local dark = luminance({ r = tint.R, g = tint.G, b = tint.B })
+					assert(dark <= 0.05, `{where} ring scrim colour luminance {dark}`)
+					stop()
+					stopSheet()
+					h.dispose()
+				end
 			end
 		end
-	end)
+	)
 
 	t.it("paints each wedge and its label as one readable pair in every shipped package and palette", function()
 		local packages = { themes.neutralPackage() }

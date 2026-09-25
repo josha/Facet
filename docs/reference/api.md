@@ -1801,9 +1801,11 @@ screen-point anchor connects the menu to an existing surface.
 
 An open ring is a modal surface on the same layer as Dialog and Menu. The
 theme scrim dims the page behind it and blocks its input. The ring's scrim is
-at least 70 percent opaque (the theme's `scrimOpacity` when that is higher), so
-page text does not compete with the wedge labels. The transparency preference
-scales it like every scrim. A still tap outside
+black and at least 80 percent opaque (the theme's `scrimOpacity` when that is
+higher), so page text does not compete with the wedge labels. It reaches past
+the ScreenGui's safe-area insets to the screen edges, the hole included, unless
+`centerPassThrough` is on. The transparency preference scales it like every
+scrim. A still tap outside
 the ring closes the menu. A press outside the ring that slides onto a wedge
 still selects it. With `centerPassThrough`, the page is not dimmed.
 
@@ -1823,12 +1825,13 @@ and an icon adds `iconSize` plus `space.xs`. The ring is never thinner than
 wide, and is never wider than the room. The same items and theme always give
 the same ring.
 
-The centre Back, Close or Home control is a round button that fills the hole
-(its diameter is the inner diameter less 4 pixels, at least one touch target),
-so it covers the launcher under it. It shows a close, back or first-page icon
-and keeps the word as its accessible name; a `centerLabel` shows that text,
-wrapped, instead. The scrim covers the whole screen, the hole included, unless
-`centerPassThrough` is on. In the list fallback the control is a full-width row.
+The centre Back, Close or Home control is a small round `utility` button, one
+touch target (`targetSizes.minimum`) across, with no theme control art. It
+shows a close, back or first-page icon and keeps the word as its accessible
+name; a `centerLabel` shows that text instead. The name of the highlighted item
+sits in the hole under it, on one caption line, truncated to the hole's width.
+Without a centre control the name is centred in the hole. In the list fallback
+the control is a full-width row and the name sits under the list.
 
 Without an `anchor`, the ring opens centred on its launcher. Before the
 launcher has a size, and with `launcher = false`, the `preset` sets the

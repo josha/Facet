@@ -869,7 +869,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		BorderSizePixel = 0,
 	})
 	rule(".facet-scrim.facet-radial-scrim", {
-		BackgroundTransparency = 1 - math.max(extra.scrimOpacity or 0.45, 0.7),
+		BackgroundColor3 = types.Color3.new(0, 0, 0),
+		BackgroundTransparency = 1 - math.max(extra.scrimOpacity or 0.45, 0.8),
 	})
 	for status, role in
 		{
