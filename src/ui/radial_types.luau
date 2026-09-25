@@ -69,6 +69,7 @@ export type RadialMenuSpec<V = string> = Types.FrameProps & {
 	onClose: (() -> ())?,
 	isPresented: ComposeTypes.Cell<boolean>?,
 	transition: boolean?,
+	scrim: ("dark" | "light" | "none")?,
 }
 export type RadialMenuBuilder = <V>(RadialMenuSpec<V>) -> Frame
 export type RadialMenuConstructor = RadialMenuBuilder & ((string) -> RadialMenuBuilder)

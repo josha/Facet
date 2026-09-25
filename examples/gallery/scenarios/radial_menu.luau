@@ -24,6 +24,7 @@ return {
 		local advanced = Compose.cell(false)
 		local passThrough = Compose.cell(false)
 		local centerPolicy = Compose.cell("empty")
+		local dim = Compose.cell("dark")
 		local lastAction = Compose.cell("ready")
 		local current, currentPresented = nil, nil
 		local worldState = nil
@@ -38,7 +39,9 @@ return {
 				{
 					id = use(selected) .. ":" .. tostring(use(skinned)) .. ":" .. use(centerPolicy) .. ":" .. tostring(
 						use(passThrough)
-					) .. ":" .. tostring(use(separate)) .. ":" .. use(fitting) .. ":" .. use(corner),
+					) .. ":" .. tostring(use(separate)) .. ":" .. use(fitting) .. ":" .. use(corner) .. ":" .. use(
+						dim
+					),
 					kind = use(selected),
 					skin = use(skinned),
 					separate = use(separate),
@@ -46,6 +49,7 @@ return {
 					corner = use(corner),
 					center = use(centerPolicy),
 					passThrough = use(passThrough),
+					scrim = use(dim),
 				},
 			}
 		end)
@@ -62,6 +66,7 @@ return {
 
 				center = "empty",
 				contentFit = item.fit,
+				scrim = item.scrim,
 				isPresented = presented,
 				ref = function(record)
 					menu = record
@@ -452,6 +457,15 @@ return {
 					UI.Toggle "PassThrough" {
 						label = "Allow taps through the center",
 						value = passThrough,
+					},
+					UI.Button "Scrim" {
+						label = Compose.formula(function(use)
+							return "Page dim: " .. use(dim)
+						end),
+						onActivate = function()
+							local order = { "dark", "light", "none" }
+							dim:set(order[(table.find(order, dim:peek()) :: number) % #order + 1])
+						end,
 					},
 					UI.Button "CenterPolicy" {
 						label = Compose.formula(function(use)

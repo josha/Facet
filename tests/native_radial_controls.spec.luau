@@ -567,6 +567,28 @@ t.describe("native radial interaction policies", function()
 		end
 		world.stop()
 	end)
+	t.it(
+		"scrim sets the ring's dim: dark by default, the theme scrim when light, none clear, and refuses other words",
+		function()
+			for _, case in
+				{ { nil, true, true }, { "dark", true, true }, { "light", true, false }, { "none", false, false } }
+			do
+				local world = setup({ distribution = "compass", scrim = case[1], items = compass(function() end) })
+				local scrim = world.find("DismissOutside")
+				t.expect(`{case[1]}:{scrim:HasTag("facet-scrim")}:{scrim:HasTag("facet-radial-scrim")}`)
+					.toBe(`{case[1]}:{case[2]}:{case[3]}`)
+				t.expect(scrim.Visible).toBe(true)
+				if case[1] == "none" then
+					t.expect(scrim.BackgroundTransparency).toBe(1)
+				end
+				world.stop()
+			end
+			local ok, message = pcall(setup, { scrim = "heavy", items = compass(function() end) })
+			t.expect(ok).toBe(false)
+			t.expect(string.find(tostring(message), "scrim", 1, true) ~= nil).toBe(true)
+		end
+	)
+
 	t.it("puts a small plate-less close and the highlighted name inside the hole over a full dark scrim", function()
 		for _, label in { false, "Leave the wheel" } do
 			local world = setup({

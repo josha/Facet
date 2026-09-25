@@ -50,6 +50,7 @@ return function(
 		choice(spec.center, "back", { "back", "root", "close", "content", "empty" }, "center")
 		choice(spec.completion, "close", { "close", "back", "root", "stay" }, "completion")
 		choice(spec.buttonSurface, "native", { "native", "none" }, "buttonSurface")
+		local scrim = choice(spec.scrim, "dark", { "dark", "light", "none" }, "scrim")
 		local motionReduced = reducedMotion(ctx)
 		local function reduced(use: ComposeTypes.Use?): boolean
 			return spec.transition == false or motionReduced(use)
@@ -283,6 +284,7 @@ return function(
 			"onClose",
 			"isPresented",
 			"transition",
+			"scrim",
 		}, {
 			Name = "RadialMenu",
 			BackgroundTransparency = 1,
@@ -1326,7 +1328,13 @@ return function(
 				)
 				local catcher = modal:FindFirstChild("DismissOutside")
 				if catcher then
-					catcher:AddTag("facet-radial-scrim")
+					if scrim == "dark" then
+						catcher:AddTag("facet-radial-scrim")
+					elseif scrim == "none" then
+						local clear = catcher :: GuiObject
+						clear:RemoveTag("facet-scrim")
+						clear.BackgroundTransparency = 1
+					end
 					runtime.decorate(catcher, {
 						Position = function(use: ComposeTypes.Use)
 							local size = use(viewport)

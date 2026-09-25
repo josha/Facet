@@ -1892,7 +1892,7 @@ The required `items` use the menu item model. The options are:
 `isPresented`, `label`, `launcher`, `preset`, `distribution`, `navigation`,
 `expansion`, `center`, `centerLabel`, `centerContent`, `centerPassThrough`,
 `anchor`, `follow`, `clearance`, `ringWidth`, `contentFit`, `gestureSelection`,
-`holdAction`, `enabled`, `onOpen` and `onClose`.
+`holdAction`, `enabled`, `scrim`, `onOpen` and `onClose`.
 
 The launcher is a round `more` button whose accessible name is
 `Quick actions`. With a `label`, the launcher is a text button that shows the
@@ -1915,7 +1915,9 @@ black and at least 80 percent opaque (the theme's `scrimOpacity` when that is
 higher), so page text does not compete with the wedge labels. It reaches past
 the ScreenGui's safe-area insets to the screen edges, the hole included, unless
 `centerPassThrough` is on. The transparency preference scales it like every
-scrim. A still tap outside
+scrim. `scrim` sets how much the open ring dims the page: `"dark"` (the
+default, as above), `"light"` (the theme scrim that a Dialog uses) or
+`"none"` (no dim; a tap outside still closes). A still tap outside
 the ring closes the menu. A press outside the ring that slides onto a wedge
 still selects it. With `centerPassThrough`, the page is not dimmed.
 
