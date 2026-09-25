@@ -12,6 +12,7 @@ type Declared = {
 	mayDrop: boolean,
 	sizes: { ComposeTypes.Cell<Vector2> },
 	form: ComposeTypes.Cell<number>,
+	animate: boolean,
 }
 
 local POP = 0.15
@@ -63,13 +64,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
-			local node = child :: GuiObject
-			runtime.decorate(node, {
-				Visible = function(use: ComposeTypes.Use): boolean
-					return use(form) == index
-				end,
-			})
-			local observed, settled = ctx.observe.AbsoluteSize(node), Compose.cell(V2.zero)
+			local observed, settled = ctx.observe.AbsoluteSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
 				if use(scale) == 1 then
@@ -77,6 +72,16 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end
 			end)
 			sizes[index] = settled
+			properties[index] = Host.Frame("Form" .. index)({
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+				Visible = function(use: ComposeTypes.Use): boolean
+					return use(form) == index
+				end,
+				child,
+			})
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
@@ -85,7 +90,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(form)
 			node:SetAttribute("FacetForm", current)
-			if shown ~= nil and current > 0 and current ~= shown and not reduced() then
+			if shown ~= nil and current > 0 and current ~= shown and declared[node].animate and not reduced() then
 				pop:restart()
 			end
 			shown = current
@@ -96,6 +101,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			mayDrop = spec.mayDrop == true,
 			sizes = sizes,
 			form = form,
+			animate = false,
 		}
 		return node
 	end)
@@ -244,7 +250,8 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			locate()
 			local band = if ctx.config.guiService then ctx.observe.TopbarInset(ctx.config.guiService) else nil
 			riding = function(use: ComposeTypes.Use): boolean
-				return read(spec.topbar, use) ~= false and use(holder) ~= nil and band ~= nil and use(band).Width > 0
+				local rect: Rect? = if band then use(band) else nil
+				return read(spec.topbar, use) ~= false and use(holder) ~= nil and rect ~= nil and rect.Width > 0
 			end
 			local topbarZone = Host.Frame "Topbar" {
 				BackgroundTransparency = 1,
@@ -296,6 +303,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			})
 		end
 		local box = ctx.observe.AbsoluteSize(safe)
+		local last: Vector2? = nil
 		local stripSize = if stripGui then ctx.observe.AbsoluteSize(stripGui) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local extent = use(box)
@@ -317,7 +325,10 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				list,
 				if band and band.X > 0 then { x = band.X, y = band.Y } else nil
 			)
+			local moved = last ~= nil and last.X > 0 and last ~= extent
+			last = extent
 			for index, region in regions do
+				declared[region].animate = moved
 				declared[region].form:set(chosen[index])
 			end
 		end)
