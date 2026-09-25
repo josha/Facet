@@ -205,7 +205,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				Size = knobBox,
 				Visible = visible,
 				ZIndex = 3,
-				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
+				Host.UICorner({ CornerRadius = ctx.round }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 			measure(part)
 			return part
@@ -246,7 +246,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				Position = D2.fromScale(0.5, 0.5),
 				Size = knobBox,
 				Visible = visible,
-				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
+				Host.UICorner({ CornerRadius = ctx.round }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 		end
 		measure(if content then mark:FindFirstChildWhichIsA("GuiObject") or mark else mark)
@@ -538,7 +538,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			return thickness(spec, use)
 		end
 		local function railCorner(): UICorner
-			return if contained then Host.UICorner({ CornerRadius = D.new(1, 0) }) else ctx.corner(3)
+			return if contained then Host.UICorner({ CornerRadius = ctx.round }) else ctx.corner(3)
 		end
 		local trackChildren: { ComposeTypes.Child } = {}
 		if spec.trackContent then

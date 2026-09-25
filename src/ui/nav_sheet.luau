@@ -602,7 +602,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return if from(use) == "bottom" then D2.fromOffset(36, 5) else D2.fromOffset(5, 36)
 					end,
 					BorderSizePixel = 0,
-					Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
+					Host.UICorner({ CornerRadius = ctx.round }),
 				},
 				"grabber"
 			) :: Types.Child,

@@ -609,8 +609,18 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		Compose.cleanup(stop)
 		return node
 	end
+	function ctx.round(use: ComposeTypes.Use?, radius: UDim?): UDim
+		return if ctx.metric("radii.pill", use) > 0 then radius or types.UDim.new(1, 0) else types.UDim.new(0, 0)
+	end
 	function ctx.corner(radius: number?): UICorner
-		return if radius then Host.UICorner({ CornerRadius = types.UDim.new(0, radius) }) else Host.UICorner({})
+		if radius == nil then
+			return Host.UICorner({})
+		end
+		return Host.UICorner({
+			CornerRadius = function(use: ComposeTypes.Use): UDim
+				return ctx.round(use, types.UDim.new(0, radius))
+			end,
+		})
 	end
 	function ctx.text(properties: Shared.TextLabelNativeProps?): TextLabel
 		local native: Shared.TextLabelNativeProps = {

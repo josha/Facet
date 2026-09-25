@@ -204,6 +204,7 @@ export type Context = {
 	construct: <F>(string, F) -> F & ((string) -> F),
 	styled: <N>(N & Instance, string) -> N & Instance,
 	padding: (number, number) -> UIPadding,
+	round: (ComposeTypes.Use?, UDim?) -> UDim,
 	corner: (number?) -> UICorner,
 	fade: (CanvasGroupNativeProps) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),

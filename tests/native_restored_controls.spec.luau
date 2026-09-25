@@ -447,7 +447,7 @@ t.describe("native restored controls: Image", function()
 		t.expect(root.ImageColor3).toBe(types.Color3.new(0, 1, 0))
 		local height = themes.neutralPackage().metrics.controlSizes.regular.height
 		t.expect(root.Size).toBe(types.UDim2.fromOffset(height, height))
-		t.expect(root:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(types.UDim.new(0.5, 0))
+		t.expect(root:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(types.UDim.new(1, 0))
 		t.expect(root:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio).toBe(1)
 		t.expect(root.BackgroundTransparency).toBe(1)
 		stop()

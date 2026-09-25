@@ -947,7 +947,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		TextColor3 = c("contentStrong"),
 		TextSize = package.metrics.typography.caption.size,
 	})
-	rule(".facet-shortcut-hint::UICorner", { CornerRadius = types.UDim.new(0, 6) })
+	rule(
+		".facet-shortcut-hint::UICorner",
+		{ CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) }
+	)
 	local families: { [string]: { [string]: number } } = package.metrics.controls or {}
 	local hintFamily: { [string]: number } = families.shortcutHint or {}
 	local capStroke = hintFamily.capStroke or package.metrics.strokes.hairline or 1
@@ -983,7 +986,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-check", { ImageColor3 = c("onSelection") })
 	rule(".facet-toggle-checkbox::UIStroke", { Color = c("contentSecondary"), Thickness = 1.5, Transparency = 0.2 })
 	rule(".facet-tooltip", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	rule(".facet-tooltip::UICorner", { CornerRadius = types.UDim.new(0, 6) })
+	rule(".facet-tooltip::UICorner", { CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) })
 	rule(".facet-tooltip::UIStroke", { Color = c("hairline"), Transparency = 0.4, Thickness = 1 })
 	rule(".facet-appearance-utility", { BackgroundTransparency = 1 })
 	rule(".facet-appearance-utility:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
@@ -1177,7 +1180,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-choice-current >> .facet-button-caption", { TextColor3 = c("accent") })
 	rule(".facet-choice-current >> .facet-icon", { ImageColor3 = c("accent") })
 	rule(".facet-segmented", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	local trackRadius = package.metrics.radii.control + 2
+	local trackRadius = if package.metrics.radii.control > 0 then package.metrics.radii.control + 2 else 0
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
 	rule(".facet-segmented::UIPadding", {
 		PaddingLeft = types.UDim.new(0, SEGMENT_INSET),

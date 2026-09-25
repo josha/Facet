@@ -1527,7 +1527,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Position = D2.fromScale(0.5, 0.5),
 							Size = D2.fromOffset(8, 8),
 							BorderSizePixel = 0,
-							Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
+							Host.UICorner({ CornerRadius = ctx.round }),
 						},
 						"page-dot"
 					)

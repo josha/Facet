@@ -375,7 +375,8 @@ t.describe("native parity classb keyboard", function()
 				end
 				t.expect(node:HasTag("facet-shape-circle")).toBe(true)
 				t.expect(#corners).toBe(1)
-				t.expect(corners[1].CornerRadius).toBe(T.UDim.new(1, 0))
+				local round = entry.package.metrics.radii.pill > 0
+				t.expect(corners[1].CornerRadius).toBe(if round then T.UDim.new(1, 0) else T.UDim.new(0, 0))
 				t.expect(aspects).toBe(1)
 			end
 			t.expect(find(world.screen, "Danger"):HasTag("facet-role-destructive")).toBe(true)

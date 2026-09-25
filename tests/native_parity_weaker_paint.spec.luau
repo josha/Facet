@@ -857,19 +857,15 @@ t.describe("native parity weaker paint", function()
 		end
 		for _, entry in packages() do
 			local radius = entry.package.metrics.radii.control
+			local track = if radius > 0 then radius + 2 else 0
 			for _, palette in entry.package.style.themes do
 				local sheet, _, stop = sheetFor(entry.package, { theme = palette.name })
 				local all = rules(sheet)
 				local label = `{entry.label}/{palette.name}`
 				t.expect(`{label} track {all[".facet-segmented::UICorner"].CornerRadius.Offset}`)
-					.toBe(`{label} track {radius + 2}`)
+					.toBe(`{label} track {track}`)
 				t.expect(`{label} segment {all[".facet-segment::UICorner"].CornerRadius.Offset}`)
-					.toBe(
-						`{label} segment {math.max(
-							0,
-							radius + 2 - all[".facet-segmented::UIPadding"].PaddingLeft.Offset
-						)}`
-					)
+					.toBe(`{label} segment {math.max(0, track - all[".facet-segmented::UIPadding"].PaddingLeft.Offset)}`)
 				t.expect(all[".facet-segmented-square >> .facet-segment::UICorner"].CornerRadius.Offset).toBe(0)
 				t.expect(
 					`{label} level halves differ {all[".facet-level-segment"].BackgroundColor3 ~= all[".facet-level-on"].BackgroundColor3}`

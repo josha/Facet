@@ -571,7 +571,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 		end
 		if spec.shape == "circle" then
-			table.insert(defaults, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
+			table.insert(defaults, Host.UICorner({ CornerRadius = ctx.round }))
 			table.insert(defaults, Host.UIAspectRatioConstraint({ AspectRatio = 1 }))
 		end
 		return Host.ImageLabel(ctx.props(spec, keys, defaults))
@@ -793,7 +793,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				TextXAlignment = E.TextXAlignment.Center,
 				Host.UICorner({
 					CornerRadius = function(use: ComposeTypes.Use)
-						return D.new(if form(use) == "square" then 0 else 1, 0)
+						return if form(use) == "square" then D.new(0, 0) else ctx.round(use)
 					end,
 				}) :: ComposeTypes.Child,
 				Compose.show(function(use: ComposeTypes.Use)
@@ -1286,7 +1286,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 									end
 									return ((index / count - value) % 1) * 0.85
 								end,
-								Host.UICorner({ CornerRadius = D.new(1, 0) }),
+								Host.UICorner({ CornerRadius = ctx.round }),
 							}),
 							"fill"
 						)
@@ -1487,7 +1487,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				},
 			}
 			if form == "circle" then
-				table.insert(native, Host.UICorner({ CornerRadius = D.new(1, 0) }))
+				table.insert(native, Host.UICorner({ CornerRadius = ctx.round }))
 			elseif spec.corners then
 				table.insert(
 					native,
@@ -1700,7 +1700,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			Text = "",
 			AutoButtonColor = false,
 			Selectable = spec.onActivate ~= nil,
-			Host.UICorner({ CornerRadius = D.new(1, 0) }),
+			Host.UICorner({ CornerRadius = ctx.round }),
 		})
 		local onActivate = spec.onActivate
 		if onActivate then
@@ -1795,7 +1795,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					Visible = function(use: ComposeTypes.Use)
 						return facts(use).presence == "inExperience"
 					end,
-					Host.UICorner({ CornerRadius = D.new(1, 0) }),
+					Host.UICorner({ CornerRadius = ctx.round }),
 					ctx.styled(
 						Host.UIStroke({
 							ApplyStrokeMode = E.ApplyStrokeMode.Border,
@@ -1812,7 +1812,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 							local inset = 2 * ringWidth(use)
 							return D2.new(1, -inset, 1, -inset)
 						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }),
+						Host.UICorner({ CornerRadius = ctx.round }),
 						ctx.styled(
 							Host.UIStroke({
 								ApplyStrokeMode = E.ApplyStrokeMode.Border,
@@ -1829,7 +1829,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		if image or userId or spec.resource then
 			runtime.mount(function()
 				return UI.AsyncImage({
-					imageProperties = { Host.UICorner({ CornerRadius = D.new(1, 0) }) },
+					imageProperties = { Host.UICorner({ CornerRadius = ctx.round }) },
 					Name = "Portrait",
 					loader = spec.loader,
 					onStatus = function(state: Media.ImageState, failure: unknown)
@@ -1848,7 +1848,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					placeholder = function(_state: ComposeTypes.Readable<Media.ImageState>): Instance
 						return Host.Frame({ BackgroundTransparency = 1, Size = D2.fromScale(1, 1) })
 					end,
-					Host.UICorner({ CornerRadius = D.new(1, 0) }),
+					Host.UICorner({ CornerRadius = ctx.round }),
 				})
 			end, root)
 		end
@@ -2032,7 +2032,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 								onOverflow()
 							end
 						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }),
+						Host.UICorner({ CornerRadius = ctx.round }),
 					},
 					"button"
 				)

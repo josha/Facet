@@ -743,7 +743,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local sourceParent = if source
 							then ctx.observe.Parent(source)
 							else Compose.cell(nil :: Instance?)
-						local corner = ctx.corner(0)
+						local corner = ctx.Host.UICorner({ CornerRadius = ctx.types.UDim.new(0, 0) })
 						local sourceCorner = if source then source:FindFirstChildWhichIsA("UICorner") else nil
 						local radius = if sourceCorner then sourceCorner.CornerRadius.Offset else 12
 						local snapshot = if source then source:Clone() else nil

@@ -38,9 +38,9 @@
     {
       "path": "src/ui/slider.luau",
       "rule": "radius",
-      "match": "return if contained then Host.UICorner({ CornerRadius = D.new(1, 0) }) else ctx.corner(3)",
+      "match": "return if contained then Host.UICorner({ CornerRadius = ctx.round }) else ctx.corner(3)",
       "status": "structural",
-      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau. A contained rail is as thick as the knob and rounds fully into a pill."
+      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau. A contained rail is as thick as the knob and rounds fully into a pill. Both go square when the theme's radii.pill is 0 (ctx.round)."
     },
     {
       "path": "src/ui/nav_menu.luau",

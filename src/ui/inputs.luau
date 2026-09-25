@@ -630,7 +630,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end
 			end
 			table.insert(p, Host.UIAspectRatioConstraint(aspect))
-			table.insert(p, Host.UICorner({ CornerRadius = D.new(1, 0) }))
+			table.insert(p, Host.UICorner({ CornerRadius = ctx.round }))
 		elseif spec.corners then
 			table.insert(
 				p,
@@ -1432,6 +1432,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local function sizedValue<T>(compute: (ComposeTypes.Use?) -> T): Shared.Value<T>
 				return if sizeLive then compute else compute()
 			end
+			local function rounded(compute: (ComposeTypes.Use?) -> UDim): Shared.Value<UDim>
+				return if sizeLive or dynamic(ctx.config.theme) then compute else compute()
+			end
 			local function boxed<T>(compute: (number) -> T): Shared.Value<T>
 				return sizedValue(function(use)
 					local _, side = track(use)
@@ -1452,12 +1455,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						else D2.fromOffset(12, 12),
 					Position = if presentation == "switch" then nil else D2.fromScale(0.5, 0.5),
 					Host.UICorner {
-						CornerRadius = if presentation == "switch"
-							then sizedValue(function(use)
-								local _, height = track(use)
-								return D.new(0, (height - 6) / 2)
-							end)
-							else D.new(0, 2),
+						CornerRadius = rounded(function(use)
+							local _, height = track(use)
+							return ctx.round(use, D.new(0, if presentation == "switch" then (height - 6) / 2 else 2))
+						end),
 					},
 				},
 				"toggle-mark"
@@ -1492,9 +1493,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							return D2.new(0, -reserve(use), 0.5, 0)
 						end),
 					Host.UICorner {
-						CornerRadius = sizedValue(function(use)
+						CornerRadius = rounded(function(use)
 							local _, height = track(use)
-							return D.new(0, if presentation == "switch" then height / 2 else 4)
+							return ctx.round(use, D.new(0, if presentation == "switch" then height / 2 else 4))
 						end),
 					} :: ComposeTypes.Child,
 					mark,

@@ -206,7 +206,7 @@ return function(
 							local state = if step then stateOf(step, read(model, use).current) else "upcoming"
 							return state ~= "complete" and state ~= "error"
 						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }) :: Types.Child,
+						Host.UICorner({ CornerRadius = ctx.round }) :: Types.Child,
 						Host.UIStroke({ ApplyStrokeMode = E.ApplyStrokeMode.Border }) :: Types.Child,
 						numberLabel :: Types.Child,
 					},
