@@ -1,0 +1,47 @@
+{
+  "name": "Facet Farm",
+  "emitLegacyScripts": true,
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Facet": {
+        "$path": "../../src"
+      },
+      "FacetFarm": {
+        "$className": "Folder",
+        "model": {
+          "$path": "model.luau"
+        },
+        "screens": {
+          "$path": "screens.luau"
+        },
+        "theme": {
+          "$path": "theme.luau"
+        },
+        "world": {
+          "$path": "world.luau"
+        }
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "FacetFarm": {
+          "$path": "main.client.luau"
+        }
+      }
+    },
+    "StarterGui": {
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
+    }
+  }
+}
