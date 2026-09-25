@@ -760,7 +760,10 @@ t.describe("decoration cost", function()
 				t.expect(skinned[call.target]).toBeNil()
 				skinned[call.target] = call.slot
 			end
+			local boxes = 0
 			for target, slot in skinned do
+				local expected = if target.ClassName == "TextBox" then 0 else 1
+				boxes += 1 - expected
 				local images = 0
 				for _, child in target:GetDescendants() do
 					if child.ClassName == "ImageLabel" and child.Name == slot .. "1" then
@@ -768,7 +771,7 @@ t.describe("decoration cost", function()
 						t.expect(child.Image).toBe("rbxassetid://30")
 					end
 				end
-				t.expect(images).toBe(1)
+				t.expect(images).toBe(expected)
 			end
 			local artImages = 0
 			for _, node in artRoot:GetDescendants() do
@@ -776,7 +779,7 @@ t.describe("decoration cost", function()
 					artImages += 1
 				end
 			end
-			t.expect(artImages).toBe(flatImages + #calls)
+			t.expect(artImages).toBe(flatImages + #calls - boxes)
 			stopArt()
 		end)
 		mutable.skin = original
