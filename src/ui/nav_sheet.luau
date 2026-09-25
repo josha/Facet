@@ -477,8 +477,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ZIndex = 2,
 			Text = "",
 			AutoButtonColor = false,
-			Selectable = #detents > 1,
-			Activated = cycle,
+			Selectable = function(use: ComposeTypes.Use)
+				return #detents > 1 or canDismiss(use)
+			end,
+			Activated = function()
+				if #detents > 1 then
+					cycle()
+				else
+					interactive("close")
+				end
+			end,
 			ctx.styled(
 				Host.Frame "Pill" {
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -491,7 +499,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			) :: Types.Child,
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
-			grabber:SetAttribute("AccessibleLabel", "Size: " .. word(selected(use).id))
+			grabber:SetAttribute(
+				"AccessibleLabel",
+				if #detents > 1 then "Resize: " .. word(selected(use).id) else "Close sheet"
+			)
 		end)
 		local handle = Host.Frame "DragHandle" {
 			BackgroundTransparency = 1,
@@ -504,20 +515,30 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local hero = spec.hero
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
-		local closeLabel: Types.Value<string> = if spec.closeButton == nil
-				or type(spec.closeButton) == "boolean"
-			then "Done"
-			else spec.closeButton :: Types.Value<string>
 		local function closeControl(): TextButton?
-			if spec.closeButton == false then
+			local explicit = spec.closeButton
+			local function activate()
+				close("close")
+			end
+			if explicit == false or (explicit == nil and indicator ~= "hidden") then
 				return nil
 			end
+			if explicit ~= nil and explicit ~= true then
+				return UI.Button "Close" {
+					label = explicit :: Types.Value<string>,
+					appearance = if overHero then "inverse" else "link",
+					LayoutOrder = 2,
+					onActivate = activate,
+				}
+			end
 			return UI.Button "Close" {
-				label = closeLabel,
-				appearance = if overHero then "inverse" else "link",
-				onActivate = function()
-					close("close")
-				end,
+				name = "Close",
+				icon = "close",
+				appearance = if overHero then "inverse" else nil,
+				LayoutOrder = 2,
+				Size = D2.fromOffset(44, 44),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = activate,
 			}
 		end
 		local function heroFrame(): Frame
@@ -588,6 +609,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.styled(
 						ctx.text({
 							Name = "Title",
+							LayoutOrder = 1,
 							Text = function(use: ComposeTypes.Use)
 								return read(spec.title, use) or ""
 							end,

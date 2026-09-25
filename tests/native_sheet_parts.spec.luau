@@ -176,19 +176,19 @@ t.describe("native Sheet: placement, width, title and close", function()
 	t.it("the Size control reads player words, never a detent id", function()
 		local w = mount({ detents = { "hug", "medium" } })
 		local grabber = w.find("Grabber")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
 		w.detent:set("hug")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Fit")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Fit")
 		w.stop()
 		local custom = mount({ detents = { { id = "compact", fraction = 0.3 }, "large" } }, { detent = "compact" })
-		t.expect(custom.find("Grabber"):GetAttribute("AccessibleLabel")).toBe("Size: Compact")
+		t.expect(custom.find("Grabber"):GetAttribute("AccessibleLabel")).toBe("Resize: Compact")
 		custom.stop()
 	end)
 end)
 
 t.describe("native Sheet: parts", function()
 	t.it("default parts: pinned title and utilities, one body scroller (the panel no longer scrolls)", function()
-		local w = mount()
+		local w = mount({ closeButton = true })
 		local room, body = w.find("Room"), w.find("SheetContent")
 		t.expect(w.find("Title").Parent.Name).toBe("Header")
 		t.expect(w.find("Close").Parent.Name).toBe("Header")
@@ -217,13 +217,14 @@ t.describe("native Sheet: parts", function()
 			header = built(function(_, Host)
 				return Host.TextLabel "Custom" { Text = "Lobby" }
 			end),
+			closeButton = true,
 		})
 		t.expect(w.find("Title")).toBeNil()
 		t.expect(w.find("Custom").Parent.Name).toBe("Header")
 		t.expect(w.find("Close").Parent.Name).toBe("Header")
 		t.expect(w.find("Grabber") ~= nil).toBe(true)
 		w.stop()
-		local bare = mount({ header = false })
+		local bare = mount({ header = false, closeButton = true })
 		t.expect(bare.find("Title")).toBeNil()
 		t.expect(bare.find("Close").Parent.Name).toBe("Header")
 		bare.stop()
@@ -256,6 +257,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("a room too small for the pinned regions unpins them into one scroller", function()
 		local w = mount({
+			closeButton = true,
 			actionLayout = "stacked",
 			actions = {
 				{ id = "One", label = "One", onActivate = noop },
@@ -303,7 +305,11 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("a sticky image hero stays pinned; header=false puts Close over it", function()
-		local w = mount({ header = false, hero = { image = "rbxassetid://1", height = 160, sticky = true } })
+		local w = mount({
+			header = false,
+			closeButton = true,
+			hero = { image = "rbxassetid://1", height = 160, sticky = true },
+		})
 		local hero = w.find("Hero")
 		t.expect(hero.Parent).toBe(w.find("Room"))
 		t.expect(hero.Size.Y.Offset).toBe(160)
@@ -319,6 +325,7 @@ t.describe("native Sheet: parts", function()
 	t.it("a scrolling content hero reserves the utility strip; utilities stay pinned", function()
 		local w = mount({
 			header = false,
+			closeButton = true,
 			hero = built(function(UI)
 				return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
 			end),
@@ -794,5 +801,42 @@ t.describe("native Sheet: gestures", function()
 		t.expect(after.live).toBe(baseline.live)
 		t.expect(after.connections).toBe(baseline.connections)
 		w.stop()
+	end)
+end)
+
+t.describe("native Sheet: the grabber is the close and resize control", function()
+	t.it("a sheet with a grabber shows no Close button; the grabber resizes or closes", function()
+		local w = mount()
+		t.expect(w.find("Close")).toBeNil()
+		local grabber = w.find("Grabber")
+		t.expect(grabber.Selectable).toBe(true)
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
+		grabber.Activated.fire()
+		t.expect(w.detent:peek()).toBe("large")
+		w.stop()
+		local single = mount({ detents = { "medium" } })
+		local only = single.find("Grabber")
+		t.expect(only.Selectable).toBe(true)
+		t.expect(only:GetAttribute("AccessibleLabel")).toBe("Close sheet")
+		only.Activated.fire()
+		t.expect(single.shown:peek()).toBe(false)
+		single.stop()
+	end)
+
+	t.it("a hidden grabber gets an icon-only Close in the header's trailing corner", function()
+		local w = mount({ dragIndicator = "hidden" })
+		local close = w.find("Close")
+		t.expect(close.Parent.Name).toBe("Header")
+		t.expect(close:GetAttribute("label")).toBe("Close")
+		t.expect(close.Text).toBe("")
+		t.expect(close.Size.X.Offset >= 44 and close.Size.Y.Offset >= 44).toBe(true)
+		t.expect(close.LayoutOrder > w.find("Title").LayoutOrder).toBe(true)
+		close.Activated.fire()
+		t.expect(w.shown:peek()).toBe(false)
+		w.stop()
+		local opted = mount({ closeButton = true })
+		t.expect(opted.find("Close"):GetAttribute("label")).toBe("Close")
+		t.expect(opted.find("Close").Text).toBe("")
+		opted.stop()
 	end)
 end)

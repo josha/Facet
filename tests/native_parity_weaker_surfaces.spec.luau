@@ -415,7 +415,7 @@ t.describe("presented surface strength", function()
 			t.expect(find(world.screen, "SheetPanel") ~= nil).toBe(true)
 			find(world.screen, "Grabber").Activated.fire()
 			t.expect(detent:peek()).toBe(if round == 1 then "large" else "medium")
-			find(world.screen, "Close").Activated.fire()
+			find(world.screen, "ModalBack").Pressed.fire()
 			t.expect(shown:peek()).toBe(false)
 			t.expect(live).toBe(0)
 			t.expect(find(world.screen, "SheetPanel")).toBe(nil)
@@ -467,6 +467,7 @@ t.describe("presented surface strength", function()
 				detent = detent,
 				detents = { { id = "peek", height = 60 }, { id = "sliver", fraction = 0.05 } },
 				title = "Peek",
+				dragIndicator = "hidden",
 				content = function()
 					return UI.Button "Inside" { label = "Inside" }
 				end,

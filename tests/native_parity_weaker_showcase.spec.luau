@@ -378,12 +378,12 @@ local function walkPlacements(module: any, cellOf: (any) -> any, ids: { string }
 		local close
 		for _, stop in inside do
 			t.expect(`{label} modal stop inside {within(stop, sheet)}`).toBe(`{label} modal stop inside true`)
-			if stop.Name == "Close" then
+			if stop.Name == "Close" or stop.Name == "Grabber" then
 				close = stop
 			end
 		end
 		t.expect(`{label} dismissal reachable {close ~= nil}`).toBe(`{label} dismissal reachable true`)
-		close.Activated.fire()
+		find(w.parent, "ModalBack", "InputAction").Pressed.fire()
 		t.expect(find(w.screen, "SheetPanel")).toBeNil()
 		w.stop()
 	end

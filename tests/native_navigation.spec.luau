@@ -1360,6 +1360,7 @@ t.describe("native navigation controls", function()
 				isPresented = presented,
 				detent = detent,
 				title = "Details",
+				closeButton = true,
 				interactiveDismissDisabled = true,
 				content = function()
 					return Host.ScrollingFrame "DetailBody" {}
@@ -1378,7 +1379,7 @@ t.describe("native navigation controls", function()
 		t.expect(find(world.screen, "Size")).toBe(nil)
 		t.expect(find(world.screen, "Close").Parent.Name).toBe("Header")
 		local grabber = find(world.screen, "Grabber")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
 		t.expect(grabber.Selectable).toBe(true)
 		t.expect(grabber.Size.Y.Offset >= 44 and grabber.Size.X.Offset >= 44).toBe(true)
 		grabber.Activated.fire()

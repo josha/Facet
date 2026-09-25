@@ -178,6 +178,10 @@ local function modal(screen: any): any
 	return nil
 end
 
+local function dismiss(w: any)
+	assert(find(w.screen, "ModalBack"), "no ModalBack").Pressed.fire()
+end
+
 local function press(node: any, ...: string)
 	local target = assert(within(node, ...), `no {table.concat({ ... }, "/")}`)
 	target.Activated.fire()
@@ -394,7 +398,7 @@ t.describe("native parity reference applications", function()
 			press(w.root, "Wisps", "emberwisp", "Open")
 			local sheet = assert(modal(w.screen))
 			t.expect(hasText(sheet, "Last seen in Mossholm")).toBe(true)
-			press(sheet, "Close")
+			dismiss(w)
 			t.expect(modal(w.screen)).toBeNil()
 			press(w.root, "Wisps", "frostwisp", "Open")
 			t.expect(hasText(assert(modal(w.screen)), "Not seen yet")).toBe(true)
@@ -831,7 +835,7 @@ t.describe("native parity reference applications", function()
 				steps.advance(orders.brewSeconds())
 				t.expect(orders.remaining(101)).toBe(0)
 				t.expect(orders.statusOf(101)).toBe("brewing")
-				press(sheet, "Close")
+				dismiss(w)
 				steps.collect(101)
 				t.expect(commands.status("finish:101"):peek()).toBe("pending")
 				steps.advance(LATENCY)
@@ -1754,7 +1758,7 @@ t.describe("native parity reference applications", function()
 				for _, notice in foyerSeed.notices do
 					t.expect(hasText(sheet, notice.bodyKeyless)).toBe(true)
 				end
-				press(sheet, "Close")
+				dismiss(w)
 				t.expect(modal(w.screen)).toBeNil()
 
 				local tiles = assert(within(pages(w), "home", "Sections", "picked", "Tiles"))

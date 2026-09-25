@@ -1332,7 +1332,7 @@ t.describe("native parity weaker focus", function()
 				if route == "back" then
 					action(target, "ModalBack").Pressed.fire()
 				else
-					find(panel, "Close").Activated.fire()
+					find(panel, "Done").Activated.fire()
 				end
 				t.expect(model.avatarSummary:peek()).toBe(false)
 				t.expect(find(target, "SheetPanel")).toBeNil()
@@ -1805,7 +1805,7 @@ t.describe("native parity weaker focus", function()
 		t.expect(grabber:IsA("GuiButton")).toBe(true)
 		t.expect(grabber.Selectable).toBe(true)
 		t.expect(grabber.Interactable).toBe(true)
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
 		world.gui.SelectedObject = grabber
 		t.expect(world.gui.SelectedObject).toBe(grabber)
 		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Touch })
@@ -1825,7 +1825,8 @@ t.describe("native parity weaker focus", function()
 				end,
 			})
 		end)
-		t.expect(find(single.screen, "Grabber").Selectable).toBe(false)
+		t.expect(find(single.screen, "Grabber").Selectable).toBe(true)
+		t.expect(find(single.screen, "Grabber"):GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		single.stop()
 	end)
 

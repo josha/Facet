@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Sheet with a grabber shows no Done button: the grabber closes and resizes the sheet, and it is always selectable. With the grabber hidden, the header shows an icon-only Close button (accessible name `Close`, 44 pixels). `closeButton = true` or a label still shows a close button.
 - A presented modal (Dialog, Menu, RadialMenu, Sheet and the others) selects its first control once the surface is shown, and a RadialMenu selects its first wedge, not its panel. Before, the selection was set in the hidden arrival frame, the engine warned "Setting GuiService.SelectedObject to invalid GuiObject" and the selection stayed outside the surface.
 - A RadialMenu without an `anchor` opens centred on its launcher, and a full ring moves inward to stay inside the presentation area. Before, it always opened in the middle of the screen, and an anchor near an edge shrank the ring or switched it to a list.
 - A RadialMenu wedge takes the selected paint whenever its label does: when it is focused, checked or selected, not only under the pointer. Before, the focused wedge kept the resting panel paint under the selected label color, so its label was unreadable in Glossy Touch and Pixel Quest.

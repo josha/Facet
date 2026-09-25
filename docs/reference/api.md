@@ -1855,8 +1855,13 @@ Layout options:
   padding.
 - `scrollPolicy`: `always` (the default) keeps the body scrolling at every
   height. `atLargestDetent` stops the body scroll below the tallest detent.
-- `closeButton`: `true` (the default), `false`, or a string or readable label
-  for the close button. The default label is `Done`.
+- `closeButton`: absent, `true`, `false`, or a string or readable label.
+  Absent shows no close button while the grabber shows, because the grabber
+  closes and resizes the sheet. With `dragIndicator = "hidden"`, absent shows
+  an icon-only close button in the trailing corner of the header. Its
+  accessible name is `Close`, and its target is 44 pixels. `true` always shows
+  that icon button. A label shows a text button with that label. `false` shows
+  none; Back, Escape and the backdrop still close the sheet.
 
 When the pinned regions and a short body do not fit the panel, every region
 moves into one scrolling column named `Room`. Thus each action stays
@@ -1872,8 +1877,10 @@ limits the drag resists. `interactiveDismissDisabled` holds the sheet near its
 lowest detent and blocks Back and the backdrop. An outside detent change
 during a drag ends the drag. Only one drag runs at a time.
 
-The grabber is also a selectable button that moves to the next detent. Its
-accessible label reads `Size: Medium`, and `Size: Fit` for `hug`. A bottom
+The grabber is also a selectable button. With more than one detent it moves
+to the next detent, and its accessible label reads `Resize: Medium`, or
+`Resize: Fit` for `hug`. With one detent it closes the sheet, and its label
+reads `Close sheet`. Return and the gamepad A button activate it. A bottom
 sheet slides up from the bottom and slides down when it closes. The sheet
 stays off screen until its room, width, text and height are the same for two
 frames, and then it starts to move. Thus the text has its final size and wrap
