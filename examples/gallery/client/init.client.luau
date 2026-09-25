@@ -82,6 +82,7 @@ local owner = Compose.createRootOwner(function()
 		reducedMotion = context.reducedMotion,
 		hover = context.hoverPreview,
 	})
+	context.sheet = sheet
 	context.UI = Facet.controls(runtime, {
 		viewport = viewport,
 		theme = theme,

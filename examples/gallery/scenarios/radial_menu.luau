@@ -61,7 +61,6 @@ return {
 				Name = "Commands",
 
 				center = "empty",
-				label = "Quick actions",
 				contentFit = item.fit,
 				isPresented = presented,
 				ref = function(record)
@@ -373,13 +372,27 @@ return {
 					current, currentPresented, worldState = nil, nil, nil
 				end
 			end)
-			local root = Host.Frame "Scene" {
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 0, 380),
-				if item.kind == "world" then stage else silhouette,
-				menuNode,
+			local corner = string.gsub(item.corner, "%-(%a)", string.upper)
+			return UI.Composition "Scene" {
+				Size = UDim2.new(1, 0, 0, 260),
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }),
+				UI.Region "Subject" {
+					anchor = "center",
+					rank = 1,
+					if item.kind == "world"
+						then stage
+						else Host.Frame "Orbit" {
+							BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(140, 120),
+							silhouette,
+						},
+				},
+				UI.Region "LauncherCorner" {
+					anchor = if item.kind == "corner" then corner else "bottomLeft",
+					rank = 2,
+					menuNode,
+				},
 			}
-			return root
 		end
 		local modes = {
 			{ value = "corner", label = "Corner commands" },
@@ -510,18 +523,23 @@ return {
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				CanvasSize = UDim2.fromOffset(0, 0),
 				ScrollBarThickness = 6,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 12),
-				}),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				table.unpack(content),
+				Host.Frame "Body" {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 12),
+					}),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					table.unpack(content),
+				},
 			}
 		end
 		return {

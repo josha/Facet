@@ -3,6 +3,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local hud = require("../examples/gallery/scenarios/hud")
+local measured = require("./lib/hud_measure")
 local selectionControls = require("../examples/gallery/scenarios/selection_controls")
 local Compose = Facet.Compose
 local themes = Facet.themes
@@ -111,9 +112,9 @@ local function inputCensus(root: any): string
 	for _, node in root:GetDescendants() do
 		if node:IsA("InputContext") and node.Enabled then
 			contexts += 1
-		elseif node:IsA("InputAction") and node.Enabled then
+		elseif node:IsA("InputAction") and node.Enabled and node.Parent.Enabled then
 			actions += 1
-		elseif node:IsA("InputBinding") then
+		elseif node:IsA("InputBinding") and node.Parent.Parent.Enabled then
 			table.insert(keys, node.KeyCode.Name)
 		end
 	end
@@ -302,19 +303,27 @@ t.describe("native parity classb keyboard", function()
 			return world, built, viewport
 		end
 		local landscape, portrait = { width = 844, height = 390 }, { width = 390, height = 844 }
+		local function settle(world: World, box: { number })
+			measured.measure(world.screen, world.engine, box)
+			world.engine.heartbeat.fire(1)
+		end
 		local fresh = hudWorld(landscape)
+		settle(fresh, measured.LANDSCAPE)
 		local wantRing, wantInput = ring(fresh, 80), inputCensus(fresh.parent)
 		t.expect(#wantRing > 3).toBe(true)
 		fresh.stop()
 		local live, built, viewport = hudWorld(landscape)
+		settle(live, measured.LANDSCAPE)
 		local start = ring(live, 80)
 		t.expect(start).toEqual(wantRing)
 		built.steps.openUrlBar()
 		viewport:set(portrait)
+		settle(live, measured.PORTRAIT)
 		local midway = ring(live, 80)
 		t.expect(table.concat(midway, ",") ~= table.concat(start, ",")).toBe(true)
 		built.steps.closeUrlBar()
 		viewport:set(landscape)
+		settle(live, measured.LANDSCAPE)
 		t.expect(ring(live, 80)).toEqual(wantRing)
 		t.expect(inputCensus(live.parent)).toBe(wantInput)
 		live.stop()

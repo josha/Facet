@@ -283,6 +283,9 @@ function screen.build(ctx: any)
 				end,
 			},
 			transition = false,
+			placement = function(use)
+				return if use(compact) then "none" else "automatic"
+			end,
 			Position = function(use)
 				return UDim2.fromOffset(0, toolbarHeight(use))
 			end,
@@ -416,6 +419,57 @@ function screen.build(ctx: any)
 			end,
 		}),
 	}
+	if ctx.inputTarget then
+		local titles = {}
+		for _, tab in tabs do
+			titles[tab.id] = tab.label
+		end
+		Host.ScreenGui "FacetGalleryMenu" {
+			ResetOnSpawn = false,
+			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+			ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets,
+			Enabled = compact,
+			Parent = ctx.inputTarget,
+			Host.StyleLink({ StyleSheet = ctx.sheet and Compose.static(ctx.sheet) }),
+			Host.Frame "Strip" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Host.UIPadding({ PaddingLeft = UDim.new(0, 8) }),
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Horizontal,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+				}),
+				UI.Menu "Demos" {
+					disclosure = true,
+					label = function(use)
+						return titles[use(selected)] or "Facet gallery"
+					end,
+					items = function(use)
+						local items = {}
+						for _, tab in tabs do
+							table.insert(items, {
+								id = tab.id,
+								label = tab.label,
+								marked = use(selected) == tab.id,
+								onSelect = function()
+									selected:set(tab.id)
+								end,
+							})
+						end
+						table.insert(items, {
+							id = "settings",
+							label = "Settings",
+							icon = "settings",
+							onSelect = function()
+								settingsOpen:set(true)
+							end,
+						})
+						return items
+					end,
+				},
+			},
+		}
+	end
 	root:AddTag("facet-surface")
 	return root
 end

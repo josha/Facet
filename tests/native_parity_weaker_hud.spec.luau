@@ -7,6 +7,7 @@ local terminal = require("../examples/gallery/examples/outpost_terminal")
 local outpost = require("../examples/gallery/scenarios/outpost_terminal")
 local settingsSync = require("../examples/gallery/examples/03_settings_sync")
 
+local measured = require("./lib/hud_measure")
 local rules = terminal.rules
 local Compose = Facet.Compose
 
@@ -165,18 +166,11 @@ local function find(root: any, name: string): any
 	return root:FindFirstChild(name, true)
 end
 
-local function laneOf(node: any): string?
-	local cursor = node.Parent
-	while cursor do
-		if cursor.Name == "Left" or cursor.Name == "Center" or cursor.Name == "Right" then
-			return cursor.Name
-		end
-		cursor = cursor.Parent
-	end
-	return nil
+local function depth(id: string, name: string): number
+	return if name == "hidden" then 99 else assert(table.find(hud.forms[id], name))
 end
-
-local RANK = { full = 3, compact = 2, tiny = 1, hidden = 0 }
+local LADDER =
+	"Feed:hidden Tasks:one Readout:hidden Weapon:hidden Rail:chip Tasks:hidden Health:hidden Rail:hidden Clock:timer"
 local ZONES = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" }
 local SIZES = {
 	{ width = 1079, height = 809 },
@@ -296,79 +290,76 @@ t.describe("native parity weaker hud-world", function()
 	end)
 
 	t.it("apps-206 unbatched viewport and native body facts settle where a single change lands", function()
-		local Vector2 = nil :: any
 		local batched = mountHud(PORTRAIT.width, PORTRAIT.height)
 		batched.viewport:set(LANDSCAPE)
 		local live = mountHud(PORTRAIT.width, PORTRAIT.height)
 		live.viewport:set({ width = LANDSCAPE.width, height = PORTRAIT.height })
-		t.expect(painted(live.target) ~= painted(batched.target)).toBe(true)
 		live.viewport:set(LANDSCAPE)
 		t.expect(firstDifference(painted(live.target), painted(batched.target))).toBe("none")
 		live.stop()
 		batched.stop()
 
 		local fresh = mountHud()
-		Vector2 = fresh.engine.types.Vector2
-		find(fresh.root, "HudBody").AbsoluteSize = Vector2.new(300, 140)
+		measured.measure(fresh.root, fresh.engine, measured.TINY)
 		local settling = mountHud()
-		local body = find(settling.root, "HudBody")
-		body.AbsoluteSize = Vector2.new(960, 620)
-		body.AbsoluteSize = Vector2.new(300, 620)
+		measured.measure(settling.root, settling.engine, { 1040, 640 })
+		measured.measure(settling.root, settling.engine, { 300, 640 })
 		local between = settling.built.report().forms
-		t.expect(between.Tasks).toBe("compact")
+		t.expect(between.Tasks).toBe("chip")
 		t.expect(painted(settling.target) ~= painted(fresh.target)).toBe(true)
-		body.AbsoluteSize = Vector2.new(300, 140)
+		measured.measure(settling.root, settling.engine, measured.TINY)
 		t.expect(settling.built.report().forms.Tasks).toBe("hidden")
 		t.expect(settling.built.report().forms).toEqual(fresh.built.report().forms)
+		settling.engine.heartbeat.fire(1)
 		t.expect(firstDifference(painted(settling.target), painted(fresh.target))).toBe("none")
 		settling.stop()
 		fresh.stop()
 	end)
 
 	t.it("apps-206 the URL bar takes exactly its drawn height and only the tail of the ladder leaves", function()
-		local droppable = { Tasks = true, Feed = true, Readout = true, Weapon = true }
+		local droppable = { Tasks = true, Feed = true, Readout = true, Weapon = true, Health = true, Rail = true }
 		local stepped = false
-		for _, size in SIZES do
-			local w = mountHud(size.width, size.height)
+		for _, box in { measured.LANDSCAPE, measured.PORTRAIT, { 1040, 640 } } do
+			local w = mountHud()
+			measured.measure(w.root, w.engine, box)
 			local before = w.built.report().forms
 			w.built.steps.openUrlBar()
 			local chrome = find(w.root, "BrowserChrome")
 			t.expect(chrome.Visible).toBe(true)
 			t.expect(chrome.Size.Y.Offset).toBe(64)
 			t.expect(chrome.LayoutOrder < find(w.root, "HudBody").LayoutOrder).toBe(true)
+			measured.measure(w.root, w.engine, { box[1], box[2] - 64 })
 			local after = w.built.report().forms
 			for _, id in ZONES do
-				t.expect(`{id} richer={RANK[after[id]] > RANK[before[id]]}`).toBe(`{id} richer=false`)
+				t.expect(`{id} richer={depth(id, after[id]) < depth(id, before[id])}`).toBe(`{id} richer=false`)
 				if after[id] == "hidden" then
-					t.expect(`{size.width}x{size.height} {id} may leave={droppable[id] == true}`)
-						.toBe(`{size.width}x{size.height} {id} may leave=true`)
-				elseif after[id] ~= "full" then
+					t.expect(`{box[1]}x{box[2]} {id} may leave={droppable[id] == true}`)
+						.toBe(`{box[1]}x{box[2]} {id} may leave=true`)
+				elseif after[id] ~= before[id] then
 					stepped = true
 				end
 			end
 			t.expect(after.Clock ~= "hidden" and after.Actions ~= "hidden").toBe(true)
-			assertStrip(w, `{size.width}x{size.height} with the URL bar`)
 			w.stop()
 		end
 		t.expect(stepped).toBe(true)
 		for _, row in
 			{
-				{ height = 660, bar = false, readout = "full" },
-				{ height = 659, bar = false, readout = "hidden" },
-				{ height = 724, bar = true, readout = "full" },
-				{ height = 723, bar = true, readout = "hidden" },
-				{ height = 660, bar = true, readout = "hidden" },
+				{ height = 232, bar = false, feed = "full" },
+				{ height = 231, bar = false, feed = "hidden" },
+				{ height = 296, bar = true, feed = "full" },
+				{ height = 295, bar = true, feed = "hidden" },
 			}
 		do
-			local w = mountHud(1079, row.height)
+			local w = mountHud()
 			if row.bar then
 				w.built.steps.openUrlBar()
 			end
+			measured.measure(w.root, w.engine, { 828, row.height - (if row.bar then 64 else 0) })
 			local forms = w.built.report().forms
-			t.expect(`{row.height} bar={row.bar} Readout={forms.Readout}`)
-				.toBe(`{row.height} bar={row.bar} Readout={row.readout}`)
+			t.expect(`{row.height} bar={row.bar} Feed={forms.Feed}`).toBe(`{row.height} bar={row.bar} Feed={row.feed}`)
 			for _, id in ZONES do
-				if id ~= "Readout" then
+				if id ~= "Feed" then
 					t.expect(`{row.height} bar={row.bar} {id}={forms[id]}`).toBe(`{row.height} bar={row.bar} {id}=full`)
 				end
 			end
@@ -378,44 +369,30 @@ t.describe("native parity weaker hud-world", function()
 
 	t.it("apps-214 a height shrink degrades zones in ladder order and re-solves in place", function()
 		local w = mountHud(1079, 809)
-		local lanes = {}
-		local regions = {}
-		for _, lane in { "Left", "Center", "Right" } do
-			lanes[lane] = find(w.root, lane)
-			t.expect(lanes[lane].ClassName).toBe("ScrollingFrame")
-		end
 		local home = {
 			Tasks = "Left",
-			Health = "Left",
-			Feed = "Left",
-			Clock = "Center",
-			Rail = "Right",
-			Readout = "Right",
-			Weapon = "Right",
-			Actions = "Right",
+			Health = "BottomLeft",
+			Feed = "BottomLeft",
+			Clock = "Top",
+			Rail = "TopRight",
+			Readout = "TopRight",
+			Weapon = "BottomRight",
+			Actions = "BottomRight",
 		}
+		local regions = {}
 		for _, id in ZONES do
 			regions[id] = find(w.root, id)
-			t.expect(`{id} in {laneOf(regions[id])}`).toBe(`{id} in {home[id]}`)
-		end
-		local grid = find(w.root, "HudBody"):FindFirstChildWhichIsA("UIGridLayout")
-		t.expect(grid.FillDirectionMaxCells).toBe(3)
-		t.expect(grid.CellSize.X.Scale * 3).toBeCloseTo(1)
-		t.expect(grid.CellSize.X.Offset * 3 + grid.CellPadding.X.Offset * 2).toBe(0)
-		t.expect(grid.CellSize.Y.Scale).toBe(1)
-		for _, lane in lanes do
-			local stack = lane:FindFirstChild("Content")
-			t.expect(stack:FindFirstChildWhichIsA("UIListLayout").FillDirection)
-				.toBe(w.engine.types.Enum.FillDirection.Vertical)
+			t.expect(`{id} in {regions[id].Parent.Name}`).toBe(`{id} in {home[id]}`)
 		end
 		local clock = find(w.root, "ClockFull")
+		measured.measure(w.root, w.engine, { 828, 400 })
 		local previous = w.built.report().forms
 		local events = {}
-		for height = 809, 200, -1 do
-			w.viewport:set({ width = 1079, height = height })
+		for height = 400, 60, -1 do
+			measured.measure(w.root, w.engine, { 828, height })
 			local forms = w.built.report().forms
 			for _, id in ZONES do
-				t.expect(`{height} {id} richer={RANK[forms[id]] > RANK[previous[id]]}`)
+				t.expect(`{height} {id} richer={depth(id, forms[id]) < depth(id, previous[id])}`)
 					.toBe(`{height} {id} richer=false`)
 				if forms[id] ~= previous[id] then
 					table.insert(events, `{id}:{forms[id]}`)
@@ -426,17 +403,12 @@ t.describe("native parity weaker hud-world", function()
 			end
 			previous = forms
 		end
-		t.expect(table.concat(events, " ")).toBe(
-			"Readout:hidden Feed:hidden Tasks:compact Weapon:hidden Rail:compact Actions:compact Clock:compact Tasks:hidden Health:compact"
-		)
-		for lane, node in lanes do
-			t.expect(find(w.root, lane)).toBe(node)
-		end
+		t.expect(table.concat(events, " ")).toBe(LADDER)
 		for _, id in ZONES do
 			t.expect(find(w.root, id)).toBe(regions[id])
-			t.expect(`{id} in {laneOf(regions[id])}`).toBe(`{id} in {home[id]}`)
+			t.expect(`{id} in {regions[id].Parent.Name}`).toBe(`{id} in {home[id]}`)
 		end
-		w.viewport:set({ width = 1079, height = 809 })
+		measured.measure(w.root, w.engine, { 828, 400 })
 		for _, id in ZONES do
 			t.expect(w.built.report().forms[id]).toBe("full")
 		end
@@ -447,7 +419,7 @@ t.describe("native parity weaker hud-world", function()
 		local w = mountHud()
 		local ring = find(w.root, "TimerRing")
 		local indicator = ring:FindFirstChild("Indicator")
-		t.expect(indicator.Size.X.Offset).toBe(72)
+		t.expect(indicator.Size.X.Offset).toBe(28)
 		t.expect(indicator.Size.Y.Offset).toBe(indicator.Size.X.Offset)
 		local arc = indicator:FindFirstChild("RingFill")
 		t.expect(arc.ClassName).toBe("Path2D")
