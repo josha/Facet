@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.ColorPicker` sizes its technique to the `Body` scroll window (`VerticalScrollBarInset = ScrollBar`, width from `AbsoluteWindowSize`). Before, the technique was 380 pixels wide in a 376 pixel window, so the last grid column and the slider values ("229" showed "22") were cut off under the scrollbar.
 - The DateTimePicker `CalendarSurface` adds the theme's panel carve to the calendar's size, and a surface that does not fit below the field opens above it. Before, in Pixel Quest the 24 pixel carve pushed the calendar inside a surface of the calendar's own size, so the Saturday column and the last week were cut and the frame art covered the header arrows.
 - The DateTimePicker field's `Entry`, `Show` and `Open` take the plate's height, and `Show` reads in the `body` text role like `Entry`. Before, they were fixed at 44 pixels, so at a small `controlSize` (and more on a TV) the selected `Show` painted past the field and pushed `Open` out of it, and a custom `format` field showed its words larger than a typed field.
 - A DateTimePicker range band runs unbroken across the days of the range in every theme. Before, the theme's button padding (12 pixels a side) also inset each calendar day's layers, so the band broke into slabs with a 24 pixel gap between days.

@@ -94,7 +94,7 @@ local function world(spec: any, options: any?): any
 	types.BrickColor = BrickShim
 	local UI: any = Facet.controls(
 		runtime,
-		{ types = types, services = { GuiService = gui, UserInputService = proxy }, guiService = gui } :: any
+		{ types = types, services = { GuiService = gui, UserInputService = proxy }, guiService = gui, theme = o.theme } :: any
 	)
 	local target = engine.new("Folder")
 	local Host = runtime.constructors
@@ -1337,6 +1337,26 @@ t.describe("native ColorPicker cells, tabs and readout", function()
 			local layout = w.find(column):FindFirstChildWhichIsA("UIListLayout")
 			expect(`{column} {layout.HorizontalAlignment}`).toBe(`{column} {w.E.HorizontalAlignment.Center}`)
 		end
+		w.stop()
+	end)
+end)
+
+t.describe("native ColorPicker panel fit", function()
+	local function pixel(): any
+		return (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
+	end
+
+	t.it("the technique fits the scroll window, never the width under the scrollbar", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, modes = { "swatches", "brick" } })
+		w.size(w.screen, 1200, 900)
+		w.size(w.find("Well"), 44, 44)
+		w.open()
+		local body = w.find("Body")
+		expect(body.VerticalScrollBarInset).toBe(w.E.ScrollBarInset.ScrollBar)
+		body.AbsoluteWindowSize = V2(376, 300)
+		local size = w.find("Technique").Size
+		expect(`{size.X.Scale} {size.X.Offset}`).toBe("0 376")
 		w.stop()
 	end)
 end)

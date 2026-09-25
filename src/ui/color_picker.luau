@@ -1505,6 +1505,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					BorderSizePixel = 0,
 					Selectable = false,
 					ScrollBarThickness = 4,
+					VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 					ScrollingDirection = E.ScrollingDirection.Y,
 					AutomaticCanvasSize = E.AutomaticSize.Y,
 					CanvasSize = D2.fromOffset(0, 0),
@@ -1514,6 +1515,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					end,
 					techniqueNode :: Shared.Child,
 				}
+				local window = ctx.observe.AbsoluteWindowSize(body :: ScrollingFrame)
+				runtime.decorate(techniqueNode, {
+					Size = function(use: Use)
+						local across = use(window).X
+						return if across > 0 then D2.fromOffset(across, tech(use)) else D2.new(1, 0, 0, tech(use))
+					end,
+				})
 			else
 				runtime.decorate(techniqueNode, { LayoutOrder = 3 })
 				body = techniqueNode
