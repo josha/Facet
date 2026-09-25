@@ -2871,8 +2871,9 @@ return function(
 							Host.Frame "Divider" {
 								BorderSizePixel = 0,
 								Size = function(use: ComposeTypes.Use)
-									return D2.new(0, ctx.metric("strokes.hairline", use), 1, 0)
+									return D2.fromOffset(ctx.metric("strokes.hairline", use), 0)
 								end,
+								Host.UIFlexItem({ ItemLineAlignment = E.ItemLineAlignment.Stretch }),
 							},
 							"divider"
 						),
