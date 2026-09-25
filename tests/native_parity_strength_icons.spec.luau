@@ -1514,7 +1514,7 @@ t.describe("sliced and bar art", function()
 		runtime:dispose()
 	end)
 
-	t.it("paints a nine-slice skin with the package's own image values and no sheet tint", function()
+	t.it("paints a nine-slice skin with the package's own image values and only the role tints", function()
 		local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
 		local asset = package.assets.parchment_panel
 		local engine = engineLib.new()
@@ -1535,15 +1535,17 @@ t.describe("sliced and bar art", function()
 		t.expect(image.ImageColor3).toBe(engine.types.Color3.new(1, 1, 1))
 		t.expect(image.ImageTransparency).toBe(0)
 		t.expect(image.BackgroundTransparency).toBe(1)
-		t.expect(#image:GetTags()).toBe(0)
+		t.expect(table.concat(image:GetTags(), ",")).toBe("facet-skin-art")
 		t.expect(target:HasTag("facet-skinned")).toBe(true)
 		local skinned = false
 		for _, rule in sheet:GetChildren() do
 			local properties = rule:GetProperties()
+			local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
+				or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
 			t.expect(
 				`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin", 1, true) ~= nil}`
 			)
-				.toBe(`{rule.Selector}: false`)
+				.toBe(`{rule.Selector}: {roleTint}`)
 			if rule.Selector == ".facet-skinned" then
 				skinned = true
 				t.expect(properties.BackgroundTransparency).toBe(1)

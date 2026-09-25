@@ -629,6 +629,11 @@ Presentation options:
   a theme's `control` chrome art paints only the other appearances. A Button
   whose `BackgroundTransparency` is 1 has no plate art either, so a
   transparent hit target never covers the content beneath it.
+  A destructive or `emphasis` Button keeps its role on skinned art. When the
+  label (`onDanger` or `onAccent`) is lighter than the fill (`danger` or
+  `accent`), the art is tinted with the fill. Otherwise the art is hidden and
+  the flat fill paints, so the label always meets its palette contrast. Skin
+  images have the `facet-skin-art` tag.
 - `controlSize`: `xsmall`, `compact`, `regular` or `large`. `xsmall` is one
   step below `compact` unless the theme package declares
   `metrics.controlSizes.xsmall`. With the neutral values it is 28 pixels high,

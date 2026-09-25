@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A destructive or `emphasis` Button on skinned `control` art paints its role again: the art is tinted with `danger` or `accent` when the label is lighter than that fill, and otherwise the flat fill replaces the art. Skin images have the `facet-skin-art` tag. Before, in Fantasy Parchment "Delete profile" showed plain parchment art under cream text.
 - A Button whose `BackgroundTransparency` is 1 (a transparent hit target laid over other content) takes no `control` chrome art. Before, in Fantasy Parchment the Match 3 tiles' hit buttons painted the plate art over each tile's glyph.
 - A row action with an `icon` sizes its tray from the painted label caption plus the icon. Before, it measured the empty text of the icon Button, so the tray stayed 88 pixels and the Playlist "Remove" label was cut off.
 - `UI.Table` rows paint `control` by default (alternate rows `controlHover`) with a strong hairline `Divider` under each row, and each heading is a standard Button, so Fantasy Parchment frames it with its `control` art (`parchment_button`) as before 0.12. Before, rows painted `surface` on a `surface` page, so rows, separators and the Parchment header frames were gone.

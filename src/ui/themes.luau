@@ -1206,6 +1206,19 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
+	local black = types.Color3.new(0, 0, 0)
+	for _, entry in
+		{ { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } :: { { string } }
+	do
+		local selector, fill, ink = entry[1], c(entry[2]) :: Color3, c(entry[3]) :: Color3
+		local tinted = contrast(ink, black) > contrast(fill, black)
+		rule(
+			selector .. " > #SkinBoundary >> .facet-skin-art",
+			{ ImageColor3 = if tinted then fill else types.Color3.new(1, 1, 1) }
+		)
+		rule(selector .. ".facet-skinned", { BackgroundTransparency = if tinted then 1 else 0 })
+		rule(selector .. " > #SkinBoundary", { Visible = tinted })
+	end
 	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
@@ -2015,6 +2028,7 @@ local function skin(
 			)
 		end
 		local node = Host.ImageLabel(properties)
+		node:AddTag("facet-skin-art")
 		if captionSource then
 			local current = captionSource
 			Compose.watch(function(use: ComposeTypes.Use)

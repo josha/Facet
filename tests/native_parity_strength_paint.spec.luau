@@ -165,7 +165,7 @@ local function contrast(first: any, second: any): number
 	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
 end
 
-type Compound = { class: string?, tags: { string }, state: string? }
+type Compound = { class: string?, name: string?, tags: { string }, state: string? }
 type Selector = { parts: { Compound }, combinators: { string }, pseudo: string? }
 
 local function compound(text: string): Compound
@@ -175,6 +175,7 @@ local function compound(text: string): Compound
 	end
 	return {
 		class = string.match(text, "^(%a%w*)"),
+		name = string.match(text, "#([%w_]+)"),
 		tags = tags,
 		state = string.match(text, ":(%a+)$"),
 	}
@@ -207,6 +208,9 @@ end
 
 local function matchesPart(part: Compound, node: any): boolean
 	if part.class and not node:IsA(part.class) then
+		return false
+	end
+	if part.name and node.Name ~= part.name then
 		return false
 	end
 	for _, tag in part.tags do
@@ -943,6 +947,66 @@ t.describe("native paint strength: skins", function()
 		t.expect(ownArt(find(root, "Bound"), "control")).toBe(nil)
 		stop()
 		h.dispose()
+	end)
+
+	t.it("tints destructive and emphasis plate art with their role and keeps the label readable (owner R15)", function()
+		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
+		local checked = {}
+		for _, name in SHIPPED do
+			local package = shipped(name)
+			local sample = (samples[(string.gsub(name, "_", "-"))] or {}).control
+			local h = harness({ theme = package })
+			local root, stop = mount(h, function()
+				return h.Host.Frame({
+					h.UI.Button({ Name = "Delete", label = "Delete", role = "destructive" }),
+					h.UI.Button({ Name = "Save", label = "Save", appearance = "emphasis" }),
+					h.UI.Button({ Name = "Reset", label = "Reset" }),
+				})
+			end)
+			local art = ownArt(find(root, "Reset"), "control")
+			if art then
+				for _, palette in package.style.themes do
+					local colors = paletteOf(palette)
+					local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+					t.expect(resolve(sheet, art, "ImageColor3")).toBe(nil)
+					local shapes = {}
+					for button, pair in { Delete = { "danger", "onDanger" }, Save = { "accent", "onAccent" } } do
+						local node, tint = find(root, button), colors[pair[1]]
+						local plateArt = ownArt(node, "control")
+						local tinted = resolve(sheet, plateArt, "ImageColor3")
+						if resolve(sheet, find(node, "SkinBoundary"), "Visible") then
+							t.expect(tinted).toBe(color(h.engine, tint))
+							local plate = if sample
+								then {
+									r = sample.r / 255 * tint.r,
+									g = sample.g / 255 * tint.g,
+									b = sample.b / 255 * tint.b,
+								}
+								else tint
+							t.expect(contrast(colors[pair[2]], plate) >= 4.5).toBe(true)
+							table.insert(shapes, button .. "=art")
+						else
+							t.expect(resolve(sheet, find(node, "SkinBoundary"), "Visible")).toBe(false)
+							t.expect(resolve(sheet, node, "BackgroundTransparency")).toBe(0)
+							t.expect(resolve(sheet, node, "BackgroundColor3")).toBe(color(h.engine, tint))
+							t.expect(contrast(colors[pair[2]], tint) >= 4.5).toBe(true)
+							table.insert(shapes, button .. "=flat")
+						end
+					end
+					table.sort(shapes)
+					table.insert(checked, `{name}/{palette.name}:{table.concat(shapes, ",")}`)
+					stopSheet()
+				end
+			end
+			stop()
+			h.dispose()
+		end
+		t.expect(table.concat(checked, " ")).toBe(
+			"compact_pointer/Aqua:Delete=art,Save=art fantasy_ornate/Grand Hall:Delete=art,Save=flat "
+				.. "fantasy_ornate/Crypt:Delete=art,Save=flat fantasy_parchment/Daylight:Delete=art,Save=art "
+				.. "fantasy_parchment/Candlelight:Delete=art,Save=flat glossy_touch/Sky:Delete=art,Save=art "
+				.. "pixel_quest/Quest:Delete=art,Save=flat"
+		)
 	end)
 
 	t.it("maps hover and press on each skinned part to that part's state art", function()
