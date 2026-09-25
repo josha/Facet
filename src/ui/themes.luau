@@ -741,7 +741,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-accent >> .facet-button-caption", { TextColor3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-caption", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-text", { TextTransparency = extra.disabledContentOpacity })
-	rule(".facet-skin-caption >> .facet-button-caption", { TextTransparency = 1 })
+	rule(".facet-skin-caption > Frame > Frame > .facet-button-caption", { TextTransparency = 1 })
 	rule(".facet-skin-caption-text", {
 		TextTransparency = 0,
 		TextColor3 = c("content"),

@@ -404,15 +404,42 @@ t.describe("native paint strength: button content", function()
 		end)
 		local button = find(root, "Plaque")
 		button:AddTag("facet-skin-caption")
-		local caption = h.engine.new("TextLabel")
-		caption:AddTag("facet-text")
-		caption:AddTag("facet-button-caption")
-		caption.Parent = button
+		local caption = find(button, "LabelBoundary")
+		caption = if caption then find(caption, "Label") else nil
+		if caption == nil then
+			local boundary, bounds = h.engine.new("Frame"), h.engine.new("Frame")
+			bounds.Parent, boundary.Parent = boundary, button
+			caption = h.engine.new("TextLabel")
+			caption:AddTag("facet-text")
+			caption:AddTag("facet-button-caption")
+			caption.Parent = bounds
+		end
 		t.expect(resolve(sheet, caption, "TextTransparency")).toBe(1)
 		button:RemoveTag("facet-skin-caption")
 		t.expect(resolve(sheet, caption, "TextTransparency")).toBe(extra.disabledContentOpacity)
-		caption:Destroy()
 		stopMount()
+		stop()
+		h.dispose()
+	end)
+
+	t.it("a skin that paints its own caption hides only its own button caption, not the captions inside it", function()
+		local h = harness()
+		local sheet, stop = sheetFor(h, themes.neutralPackage())
+		local panel = h.engine.new("Frame")
+		panel:AddTag("facet-skin-caption")
+		local function caption(parent: any): any
+			local boundary, bounds, label = h.engine.new("Frame"), h.engine.new("Frame"), h.engine.new("TextLabel")
+			label:AddTag("facet-text")
+			label:AddTag("facet-button-caption")
+			label.Parent, bounds.Parent, boundary.Parent = bounds, boundary, parent
+			return label
+		end
+		local own = caption(panel)
+		local room, actions, apply = h.engine.new("Frame"), h.engine.new("Frame"), h.engine.new("TextButton")
+		actions.Parent, room.Parent, apply.Parent = room, panel, actions
+		local inner = caption(apply)
+		t.expect(resolve(sheet, own, "TextTransparency")).toBe(1)
+		t.expect(resolve(sheet, inner, "TextTransparency")).toBe(0)
 		stop()
 		h.dispose()
 	end)

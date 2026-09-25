@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A skin that paints its own caption (a plaque) hides only its own button caption. Before, the rule matched every button caption inside the skinned surface, so a Fantasy Ornate Sheet showed its action, Done and Toggle labels as empty plates.
 - A text Button whose width follows its label no longer truncates it. With `TextTruncate` on such a width, the engine measured the truncated label and alternated between two widths every frame; in a skinned theme a long segmented Picker label raised hundreds of "Maximum event re-entrancy" errors. A bounded width still truncates.
 - A skinned control's painted caption rounds its width and height up to whole pixels. Before, a fractional text width (Pixel Quest) was cut down by the whole-pixel offset, so a label that fits showed as "Lab…" or "Automat…".
 - A stack keeps the rows of a `Compose.keyed` or `Compose.show` child in the directive's order, and a `LayoutOrder` set in a row orders it within that child. Before, every row got the child's own position, so keyed rows painted in an arbitrary order and a row's `LayoutOrder` was overwritten. A list with such a child spaces its positions by 65536.
