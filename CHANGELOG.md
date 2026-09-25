@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An icon name that ends in `.fill` names the filled variant, for example `"star.fill"`. The art of the package for that name wins. Otherwise the regular icon draws.
 - ShortcutHint takes `label`, the words for the action beside the keys, and `labelPosition`, `end` (the default) or `start`.
 - Skeleton `corners` takes `"control"` and `"panel"`, the radii of the theme package, beside a number of pixels, `"square"`, `"rounded"` and `"pill"`.
 - Slider `contained = true` makes the rail and the fill as thick as the knob, with round ends. The knob rides inside the rail, and the fill ends at its center.

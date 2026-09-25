@@ -2468,7 +2468,9 @@ weight. The derived role keeps the family, style, size and line height.
   does not declare `style.themes` gets only the first palette of its base. Thus
   a package derived from Neutral has one palette unless it declares more.
 - `checkCoverage(package, needs)` returns `{ ok, covered, missing }`.
-- `resolveIcon(package, name, state?)` resolves real image content.
+- `resolveIcon(package, name, state?)` resolves real image content. A name
+  that ends in `.fill`, such as `"star.fill"`, is the filled variant. The
+  package art for that name wins. Without it, the regular icon draws.
 - `createStyleSheet(runtime, packageOrReadable?, options?)` returns a native
   StyleSheet that Compose owns. See the list below.
 - `skin(runtime, packageOrReadable, slot, options?)` builds native control
