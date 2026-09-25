@@ -729,8 +729,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					else D2.fromOffset(0, 0)
 			end,
 			Size = function(use: ComposeTypes.Use)
-				return if use(placement) == "sidebar"
+				local place = use(placement)
+				return if place == "sidebar"
 					then D2.new(1, -(railWidth(use)), 1, 0)
+					elseif place == "none" then D2.fromScale(1, 1)
 					else D2.new(1, 0, 1, -52 - use(aboveHeight))
 			end,
 			Compose.LayerStack({
@@ -839,7 +841,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, { bar, layers })
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
-				return not use(collapsed)
+				return not use(collapsed) and use(placement) ~= "none"
 			end,
 		})
 		surfaces.attach(root, {

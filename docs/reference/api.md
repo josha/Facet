@@ -1662,7 +1662,10 @@ their transition. Keep durable page state in the model.
 
 Use `style = "sidebarAdaptable"` for peer destinations. The control shows a
 sidebar on a sufficiently wide native viewport. It shows a bottom bar on other
-viewports. `placement` sets an explicit choice. `railWidth`,
+viewports. `placement` sets an explicit choice. `placement = "none"` hides the
+bar and gives the page the whole view. Selection, shoulder navigation and
+`selection` changes still work; supply your own route to the other tabs, such
+as a Menu. `railWidth`,
 `sidebarPreference`, `sections`, accessories and
 `customization = { order, hidden }` refine the presentation. Required tabs
 cannot be hidden.
