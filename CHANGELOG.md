@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A Toggle switch follows `controlSize`. The track is the rung `iconSize` plus 4 pixels high and keeps the 38 by 24 proportion. The knob is 6 pixels smaller than the track. Before, every rung drew the 38 by 24 switch.
+
 ## 0.12.0 — Compose and native engine cutover
 
 - Menu parity with main. `trigger` attaches the menu to any node and returns that same node with no wrapper; its other native properties and a constructor name apply to that node. `label` and `trigger` together cause an error. `onOpen` and `onClose` run once for each open and close on every route, also for a change of `isPresented` and for unmount. `width` takes pixels, a `UDim`, a `UDim2` or a dimension table (`fixed`, `fill`, `hug`, `percent`, `minMax`, `content`) with pixels or theme metric names. The floating panel is one raised card: the panel owns the `radii.panel` corner, the hairline stroke and a raised shadow, the rows are flat and touch, a hairline separates each pair of adjacent rows, and a selected or checked row fills with `accent` under an `onAccent` label and icon. Each level scales from 0.96 and fades in from the corner where it hangs, and dips out faster. A sheet submenu slides in from the trailing side and Back slides from the leading side. Reduced motion removes the scale and the slide. The panel follows a moving trigger and stays inside the `GuiService:GetGuiInset()` insets when its screen ignores the inset. Placement reads the origin of the overlay on each solve, so a menu in an `IgnoreGuiInset` screen no longer sits one inset too high. A floating submenu has no Back row, and its parent level keeps the open row filled, the checks and the hairlines. RowActions, the HUD scenario, the selection scenario, the date picker and Virtual Monitors attach their menus to their own trigger nodes.

@@ -1277,34 +1277,49 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				or spec.trailingIcon ~= nil
 				or spec.image ~= nil
 			local trailing = spec.indicatorPosition == "trailing" or (spec.indicatorPosition == nil and spec.row ~= nil)
-			local sizedBox = presentation == "checkbox" and spec.controlSize ~= nil
-			local liveBox = sizedBox and (dynamic(ctx.config.theme) or dynamic(spec.controlSize))
-			local function boxSide(use: ComposeTypes.Use?): number
-				if not sizedBox then
-					return 24
+			local sized = spec.controlSize ~= nil
+			local sizeLive = sized and (dynamic(ctx.config.theme) or dynamic(spec.controlSize))
+			local function track(use: ComposeTypes.Use?): (number, number)
+				if not sized then
+					return if presentation == "switch" then 38 else 24, 24
 				end
-				return ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
+				if presentation == "switch" then
+					local height = ctx.controlSize(spec.controlSize, "iconSize", use) + 4
+					return math.round(38 * height / 24), height
+				end
+				local side = ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
+				return side, side
+			end
+			local function sizedValue<T>(compute: (ComposeTypes.Use?) -> T): Shared.Value<T>
+				return if sizeLive then compute else compute()
 			end
 			local function boxed<T>(compute: (number) -> T): Shared.Value<T>
-				if liveBox then
-					return function(use: ComposeTypes.Use): T
-						return compute(boxSide(use))
-					end
-				end
-				return compute(boxSide())
+				return sizedValue(function(use)
+					local _, side = track(use)
+					return compute(side)
+				end)
 			end
 			local function reserve(use: ComposeTypes.Use?): number
-				return (if presentation == "switch" then 38 else boxSide(use)) + 8
+				return (track(use)) + 8
 			end
 			local mark = ctx.styled(
 				Host.Frame "Mark" {
 					AnchorPoint = V2.new(0.5, 0.5),
-					Size = D2.fromOffset(
-						if presentation == "switch" then 18 else 12,
-						if presentation == "switch" then 18 else 12
-					),
+					Size = if presentation == "switch"
+						then sizedValue(function(use)
+							local _, height = track(use)
+							return D2.fromOffset(height - 6, height - 6)
+						end)
+						else D2.fromOffset(12, 12),
 					Position = if presentation == "switch" then nil else D2.fromScale(0.5, 0.5),
-					ctx.corner(if presentation == "switch" then 9 else 2),
+					Host.UICorner {
+						CornerRadius = if presentation == "switch"
+							then sizedValue(function(use)
+								local _, height = track(use)
+								return D.new(0, (height - 6) / 2)
+							end)
+							else D.new(0, 2),
+					},
 				},
 				"toggle-mark"
 			)
@@ -1327,17 +1342,22 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local indicator = ctx.styled(
 				Host.Frame({
 					Name = "Indicator",
-					Size = boxed(function(side: number): UDim2
-						return D2.fromOffset(if presentation == "switch" then 38 else side, side)
+					Size = sizedValue(function(use)
+						return D2.fromOffset(track(use))
 					end),
 					AnchorPoint = if rich then V2.zero else V2.new(0, 0.5),
 					Position = if rich
 						then D2.fromOffset(0, 0)
 						elseif trailing then D2.new(1, 8, 0.5, 0)
-						else boxed(function(side: number): UDim2
-							return D2.new(0, -((if presentation == "switch" then 38 else side) + 8), 0.5, 0)
+						else sizedValue(function(use)
+							return D2.new(0, -reserve(use), 0.5, 0)
 						end),
-					ctx.corner(if presentation == "switch" then 12 else 4) :: ComposeTypes.Child,
+					Host.UICorner {
+						CornerRadius = sizedValue(function(use)
+							local _, height = track(use)
+							return D.new(0, if presentation == "switch" then height / 2 else 4)
+						end),
+					} :: ComposeTypes.Child,
 					mark,
 					check,
 				} :: Shared.FrameNativeProps),

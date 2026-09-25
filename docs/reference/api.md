@@ -616,6 +616,10 @@ icon size of the rung plus the `xs` space. Without `controlSize` the box is 24
 pixels. The label, row, hint, enabled and common button styling
 options apply.
 
+`controlSize` also sizes the switch. The track is the rung `iconSize` plus 4
+pixels high, its width scales 38 by 24 to that height, and the knob is 6 pixels
+smaller than the track. Without `controlSize`, the switch is 38 by 24 pixels.
+
 A switch or checkbox Toggle paints no plate and takes no `control` art from a
 theme package. A settings row (a Toggle with `row`, `hint` or `icon`) has the
 `facet-toggle-settings` tag. Its horizontal padding is the padding of a
