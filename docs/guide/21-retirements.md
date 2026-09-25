@@ -324,7 +324,7 @@ The menu parity change moved three more contracts to class a. The cases are in `
 
 | Contract | Main cases | Restored behavior | Native implementation | Still weaker |
 |---|---:|---|---|---|
-| `navigation-2-48` | 6 | The floating panel is one raised card with flat rows, one hairline between each pair of rows and an accent fill under an `onAccent` label on a selected row. The sheet keeps its rows. | The `facet-menu`, `facet-menu-group`, `facet-menu-hairline` and `facet-menu-item.facet-selected` StyleSheet rules, `UICorner`, `UIStroke` and `UIShadow` | A list long enough to scroll rounds the ends of its content, not the ends of the viewport. |
+| `navigation-2-48` | 6 | The floating panel is one raised card with flat rows, one hairline between each pair of rows and an accent fill under an `onAccent` label on a selected row. The sheet keeps its rows. | The `facet-menu`, `facet-menu-group`, `facet-menu-hairline` and `facet-menu-item.facet-selected` StyleSheet rules, `UICorner`, `UIStroke` and `UIShadow` | A menu with no motion has no `MenuGroup`, so its scrolled rows are clipped square at the panel's rounded corners. |
 | `navigation-2-49` | 3 | Each level scales from 0.96 and fades in from the corner where it hangs, and dips out faster. A sheet submenu slides forward on entry and backward on Back. Reduced motion removes the travel. | `UIScale`, `CanvasGroup.GroupTransparency` and a Compose timeline | - |
 | `paint-61` | 1 | `trigger` attaches the menu to any node and returns that node. `label` and `trigger` together are refused. | Native events and input actions on the trigger node | - |
 

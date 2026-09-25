@@ -75,7 +75,7 @@ local CELLS = 42
 local CELL = 44
 local DISC = 32
 local GAP = 24
-local YEAR_SPAN = 10
+local YEAR_SPAN = 50
 local ROW = 44
 
 local function monthOf(d: CivilDate): CivilDate

@@ -1478,7 +1478,7 @@ interactive(
 	end,
 	{
 		afterDown = function(t, value)
-			local panel = value.panel
+			local panel = value.panel and value.panel:FindFirstChild("MenuScroll", true)
 			t.settle(10)
 			t.check("Down walks to the last row", selectedName() == "r12", selectedName())
 			if panel then

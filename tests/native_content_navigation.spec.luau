@@ -147,7 +147,7 @@ t.describe("native content navigation deltas", function()
 		place(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 400))
 		local rows = panel:FindFirstChild("MenuRows", true)
 		rows.AbsoluteSize = Vector2.new(220, 201 * 44)
-		t.expect(panel:IsA("ScrollingFrame")).toBe(true)
+		t.expect(panel:FindFirstChild("MenuScroll", true):IsA("ScrollingFrame")).toBe(true)
 		t.expect(panel.Size.Y.Offset <= 600 - 24).toBe(true)
 		t.expect(world.find("y201", panel) ~= nil).toBe(true)
 		world.stop()
@@ -171,8 +171,10 @@ t.describe("native content navigation deltas", function()
 			end
 		end
 		rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
+		local scroller = panel:FindFirstChild("MenuScroll", true)
 		panel.AbsoluteSize = Vector2.new(220, 400)
-		local center = panel.CanvasPosition.Y + 400 / 2
+		scroller.AbsoluteSize = Vector2.new(220, 400)
+		local center = scroller.CanvasPosition.Y + 400 / 2
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local top = if inset then inset.PaddingTop.Offset else 0
 		t.expect(math.abs(center - (top + 100 * pitch + 22)) <= 1).toBe(true)
@@ -205,18 +207,20 @@ t.describe("native content navigation deltas", function()
 		local pitch = 44 + gap
 		chosen.AbsoluteSize = Vector2.new(220, 44)
 		rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
+		local scroller = panel:FindFirstChild("MenuScroll", true)
 		panel.AbsoluteSize = Vector2.new(220, 400)
+		scroller.AbsoluteSize = Vector2.new(220, 400)
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local pad = if inset then inset.PaddingTop.Offset else 0
-		t.expect(panel.CanvasPosition.Y).toBe(math.max(0, pad + 100 * gap + 22 - 200))
-		rows.AbsolutePosition = Vector2.new(0, -panel.CanvasPosition.Y)
+		t.expect(scroller.CanvasPosition.Y).toBe(math.max(0, pad + 100 * gap + 22 - 200))
+		rows.AbsolutePosition = Vector2.new(0, -scroller.CanvasPosition.Y)
 		for _, row in rows:GetChildren() do
 			if row:IsA("GuiObject") then
 				row.AbsoluteSize = Vector2.new(220, 44)
 			end
 		end
 		layout.AbsoluteContentSize = Vector2.new(220, 201 * pitch)
-		local center = panel.CanvasPosition.Y + 400 / 2
+		local center = scroller.CanvasPosition.Y + 400 / 2
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local top = if inset then inset.PaddingTop.Offset else 0
 		t.expect(math.abs(center - (top + 100 * pitch + 22)) <= 1).toBe(true)

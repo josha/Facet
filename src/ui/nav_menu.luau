@@ -657,28 +657,33 @@ return function(
 				return D2.fromOffset(direction * SLIDE * (1 - level(use)), 0)
 			end,
 		})
-		local panel = Host.ScrollingFrame "MenuPanel" {
+		local scroller = Host.ScrollingFrame "MenuScroll" {
 			Selectable = false,
-			Size = D2.fromOffset(280, 0),
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
 			BorderSizePixel = 0,
 			AutomaticCanvasSize = E.AutomaticSize.Y,
 			CanvasSize = D2.fromOffset(0, 0),
 			ScrollingDirection = E.ScrollingDirection.Y,
 			ScrollBarThickness = 4,
+			rows,
+		}
+		local panel = Host.Frame "MenuPanel" {
+			Size = D2.fromOffset(280, 0),
+			BorderSizePixel = 0,
 			if shown
 				then ctx.styled(
 					Host.CanvasGroup "MenuGroup" {
 						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
+						Size = D2.fromScale(1, 1),
 						GroupTransparency = function(use: ComposeTypes.Use)
 							return 1 - shown(use)
 						end,
-						rows,
+						scroller,
 					},
 					"menu-group"
 				)
-				else rows,
+				else scroller,
 		}
 		if shown then
 			surfaces.attach(panel, {
@@ -942,6 +947,7 @@ return function(
 			end
 		end
 		Compose.cleanup(stopSettling)
+		local windowSize = ctx.observe.AbsoluteSize(scroller)
 		local rowLayout = rows:FindFirstChildWhichIsA("UIListLayout")
 		local laidOut = if rowLayout then ctx.observe.AbsoluteContentSize(rowLayout) else Compose.cell(V2.zero)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -955,20 +961,20 @@ return function(
 				centered = level
 				return
 			end
-			use(measured)
+			use(windowSize)
 			use(rowSize)
 			local row = rows:FindFirstChild(chosen)
 			if row == nil or not row:IsA("GuiObject") then
 				return
 			end
 			local function target(): number?
-				local window, canvas = panel.AbsoluteSize.Y, rows.AbsoluteSize.Y
+				local window, canvas = scroller.AbsoluteSize.Y, rows.AbsoluteSize.Y
 				if window <= 0 or canvas <= 0 or row.Parent ~= rows then
 					return nil
 				end
 				local gap = if rowLayout then rowLayout.Padding.Offset else 0
-				local top = rows.AbsolutePosition.Y - panel.AbsolutePosition.Y + panel.CanvasPosition.Y
-				canvas = math.max(canvas + top, panel.AbsoluteCanvasSize.Y)
+				local top = rows.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
+				canvas = math.max(canvas + top, scroller.AbsoluteCanvasSize.Y)
 				local inset = rows:FindFirstChildWhichIsA("UIPadding")
 				if inset then
 					local ok, styled = pcall(function(): UDim
@@ -997,7 +1003,7 @@ return function(
 			if first == nil then
 				return
 			end
-			panel.CanvasPosition = V2.new(panel.CanvasPosition.X, first)
+			scroller.CanvasPosition = V2.new(scroller.CanvasPosition.X, first)
 			centered = level
 			local services = ctx.config.services
 			local frames = services and services.RunService
@@ -1007,8 +1013,8 @@ return function(
 				settling = frames.Heartbeat:Connect(function()
 					remaining -= 1
 					local fresh = target()
-					if fresh and panel.CanvasPosition.Y ~= fresh then
-						panel.CanvasPosition = V2.new(panel.CanvasPosition.X, fresh)
+					if fresh and scroller.CanvasPosition.Y ~= fresh then
+						scroller.CanvasPosition = V2.new(scroller.CanvasPosition.X, fresh)
 					end
 					if remaining <= 0 then
 						stopSettling()

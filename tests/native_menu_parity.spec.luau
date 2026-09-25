@@ -380,6 +380,31 @@ t.describe("native menu parity with main", function()
 		stop()
 	end)
 
+	t.it("a 300-row menu fades through a window-sized group, never one as tall as its rows (owner)", function()
+		local world = labelled({ items = items(300), presentation = "menu" }, {})
+		local panel = open(world)
+		local rows = panel:FindFirstChild("MenuRows", true)
+		local groups = {}
+		for _, node in panel:GetDescendants() do
+			if node:IsA("CanvasGroup") and rows:IsDescendantOf(node) then
+				table.insert(groups, node)
+			end
+		end
+		t.expect(#groups).toBe(1)
+		local group = groups[1]
+		t.expect(group.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
+		t.expect(group.Size).toBe(UDim2.fromScale(1, 1))
+		local at = group.Parent
+		while at and at ~= panel do
+			t.expect(at:IsA("ScrollingFrame")).toBe(false)
+			at = at.Parent
+		end
+		t.expect(panel:IsA("ScrollingFrame")).toBe(false)
+		t.expect(rows.Parent:IsA("ScrollingFrame")).toBe(true)
+		t.expect(rows.Parent:IsDescendantOf(group)).toBe(true)
+		world.stop()
+	end)
+
 	t.it("grows each level from 0.96 at the corner it hangs at, fades in and dips out faster", function()
 		local world = labelled({ edge = "top", align = "end", items = NESTED, presentation = "menu" }, {})
 		local panel = open(world)

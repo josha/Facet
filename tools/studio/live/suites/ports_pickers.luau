@@ -2158,9 +2158,10 @@ add("picker-menu-scroll-live", { "post-pickers-049", "post-pickers-051", "post-p
 	t.stable(panel)
 	local p = t.rect(panel)
 	t.check("the menu panel is at most 220 px tall", p.h <= 220.5, p.h)
-	t.check("the rows scroll inside the panel", panel.AbsoluteCanvasSize.Y > panel.AbsoluteWindowSize.Y + 0.5, {
-		canvas = panel.AbsoluteCanvasSize.Y,
-		window = panel.AbsoluteWindowSize.Y,
+	local scroller = t.find(panel, "MenuScroll")
+	t.check("the rows scroll inside the panel", scroller.AbsoluteCanvasSize.Y > scroller.AbsoluteWindowSize.Y + 0.5, {
+		canvas = scroller.AbsoluteCanvasSize.Y,
+		window = scroller.AbsoluteWindowSize.Y,
 	})
 	local rows = partOf(panel, "MenuRows")
 	local cut = {}

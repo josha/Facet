@@ -268,12 +268,12 @@ t.describe("DateTimePicker: a single date", function()
 			end
 		end
 		table.sort(years)
-		expect(`{#years} {years[1]} {years[#years]}`).toBe("21 2016 2036")
+		expect(`{#years} {years[1]} {years[#years]}`).toBe("101 1976 2076")
 		expect(w.selected()).toBe(must(rows, "2026"))
-		must(rows, "2016").Activated.fire()
+		must(rows, "1976").Activated.fire()
 		must(w.picker(), "Year").Activated.fire()
 		rows = must(w.screen, "MenuRows")
-		expect(`{find(rows, "2006") ~= nil} {find(rows, "2005") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
+		expect(`{find(rows, "1926") ~= nil} {find(rows, "1925") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
 			"true false true"
 		)
 		w.stop()

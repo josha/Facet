@@ -1074,7 +1074,7 @@ shows, and a press does nothing. A day of the next or the previous month is
 dim. A press chooses it, but it is not selectable.
 
 The month menu disables a month outside the bounds. The year menu lists the
-years up to 10 before and 10 after the shown year, and only the years inside
+years up to 50 before and 50 after the shown year, and only the years inside
 `min` and `max`. Pick an end year to reach years further away. Each menu opens with the selection on the shown month or year.
 A choice moves the calendar to the nearest month inside the bounds. `Previous`
 and `Next` stop at a month that is fully outside the bounds.
@@ -1363,7 +1363,10 @@ menus keep the control-specific navigation of the menu.
   causes an error that names the field.
 - `maxHeight` bounds the whole floating panel in pixels. The panel is always
   bounded by the screen, and its rows scroll inside it. The row ids and the
-  activation do not change.
+  activation do not change. The `MenuPanel` Frame is the plate. It holds the
+  `MenuScroll` ScrollingFrame that holds `MenuRows`. When the menu fades, the
+  `MenuGroup` CanvasGroup sits between them and is the size of the panel, so
+  a long list never makes a tall group, and its text stays sharp.
 - A level whose `selected` group holds one of its rows opens with the
   selection on that row, and scrolls that row to the center of the list. A
   `checked` item does not move the landing.
