@@ -417,6 +417,40 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("measures a slot-filling row in layout units under a scaled ancestor", function()
+		local engine, runtime, UI, target = setup()
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(3),
+				key = key,
+				itemSize = 20,
+				measure = true,
+				render = function()
+					return runtime.constructors.Frame "Fill" { Size = engine.types.UDim2.fromScale(1, 1) }
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		local slot = node:FindFirstChild("1", true)
+		local fill = slot:FindFirstChild("Fill", true)
+		local writes = 0
+		local function relayout()
+			writes += 1
+			if writes > 40 then
+				return
+			end
+			local size = engine.types.Vector2.new(200 * 1.25, slot.Size.Y.Offset * 1.25)
+			slot.AbsoluteSize = size
+			fill.AbsoluteSize = size
+		end
+		slot:GetPropertyChangedSignal("Size"):Connect(relayout)
+		relayout()
+		t.expect(slot.Size.Y.Offset).toBe(20)
+		t.expect(writes).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("follows a readable follow policy while the viewport stays at the end", function()
 		local engine, runtime, UI, target = setup()
 		local source, follow = Compose.cell(records(10)), Compose.cell("none")

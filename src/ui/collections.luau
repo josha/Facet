@@ -340,12 +340,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 					if spec.measure then
 						local measuredNode = content:GetChildren()[#content:GetChildren()] :: GuiObject
 						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
+						local slot: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(node)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
 						local factor: ComposeTypes.Readable<number> = if lift
 							then observe.Scale(lift)
 							else Compose.cell(1)
 						Compose.watch(function(use: ComposeTypes.Use)
-							local scale = math.max(use(factor), 0.001)
+							local rendered = if horizontal then use(slot).X else use(slot).Y
+							local assigned = if horizontal then node.Size.X.Offset else node.Size.Y.Offset
+							local ancestors = if rendered > 0 and assigned > 0 then rendered / assigned else 1
+							local scale = math.max(use(factor) * ancestors, 0.001)
 							local extent = (if horizontal then use(size).X else use(size).Y) / scale
 							if extent > 0 and measured:peek()[key] ~= extent then
 								local nextSizes = table.clone(measured:peek())
