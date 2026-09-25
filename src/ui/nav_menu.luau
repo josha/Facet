@@ -26,6 +26,24 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
+	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Types.Value<T>
+		for index = 1, select("#", ...) do
+			local source = select(index, ...)
+			if Compose.isReadable(source) or type(source) == "function" then
+				return compute
+			end
+		end
+		return compute(nil)
+	end
+	local function optionLabels(options: unknown): { unknown }
+		local labels: { unknown } = {}
+		if type(options) == "table" and not Compose.isReadable(options) then
+			for _, option in options :: { { label: unknown } } do
+				table.insert(labels, option.label)
+			end
+		end
+		return labels
+	end
 	local function writable(cell: { set: unknown }, name: string)
 		assert(type(cell) == "table" and type(cell.set) == "function", name .. " requires a writable Compose cell")
 	end
@@ -1244,59 +1262,6 @@ return function(
 				end
 			end
 		end
-		local options = Compose.formula(function(use: ComposeTypes.Use)
-			local query = string.lower(tostring(read(spec.query, use) or ""))
-			local result: { Nav.PickerOption<V> } = {}
-			local seen: { [V | string]: boolean } = {}
-			local list: { Nav.PickerOption<V> } = read(spec.options, use)
-			for key in list do
-				assert(
-					type(key) == "number" and key >= 1 and key <= #list and key % 1 == 0,
-					"Picker options require a dense array"
-				)
-			end
-			for _, option in list do
-				for field in (option :: unknown) :: { [unknown]: unknown } do
-					assert(
-						type(field) == "string" and optionFields[field] == true,
-						`Unknown Picker option field {tostring(field)}`
-					)
-				end
-				assert(
-					option.description == nil or type(read(option.description, use)) == "string",
-					"Picker description must be text"
-				)
-				assert(
-					option.enabled == nil or type(read(option.enabled, use)) == "boolean",
-					"Picker option enabled must be a boolean"
-				)
-				assert(
-					option.icon == nil or type(read(option.icon, use)) == "string",
-					"Picker option icon must be an icon name"
-				)
-				local badge = read(option.badge, use)
-				assert(
-					badge == nil or type(badge) == "string" or type(badge) == "number",
-					"Picker option badge must be text or a number"
-				)
-				local key = option.id or option.value
-				assert(key ~= nil and not seen[key], "Picker options require unique values or ids")
-				seen[key] = true
-				assert(
-					type(read(option.label, use)) == "string" and string.find(read(option.label, use), "%S") ~= nil,
-					"Picker options require nonempty labels"
-				)
-				assert(
-					read(spec.iconOnly) ~= true or option.icon ~= nil,
-					"Picker.iconOnly requires an icon on each option"
-				)
-				local label = tostring(read(option.label, use) or "")
-				if query == "" or string.find(string.lower(label), query, 1, true) then
-					table.insert(result, option)
-				end
-			end
-			return result
-		end)
 		local declaredIndicator, declaredAxis, declaredSizing = read(spec.indicator), read(spec.axis), read(spec.sizing)
 		assert(
 			declaredIndicator == nil or table.find({ "automatic", "pill", "underline", "none" }, declaredIndicator),
@@ -1315,13 +1280,13 @@ return function(
 			local width = Compose.cell(0)
 			local measure = ctx.text({
 				Name = "LabelMeasure",
-				Text = function(use: ComposeTypes.Use)
+				Text = derive(function(use: ComposeTypes.Use?)
 					local labels = {}
 					for _, option in read(spec.options, use) do
 						table.insert(labels, tostring(read(option.label, use) or ""))
 					end
 					return table.concat(labels, "")
-				end,
+				end, spec.options, table.unpack(optionLabels(spec.options))),
 				TextSize = spec.textSize,
 				TextWrapped = false,
 				Visible = false,
@@ -1367,13 +1332,13 @@ return function(
 					render = function(current: ComposeTypes.Readable<Nav.PickerStyle>)
 						local presentation: Nav.PickerStyle = current:peek()
 						local automatic = props.AutomaticSize
-						local size = function(use: ComposeTypes.Use)
+						local size = derive(function(use: ComposeTypes.Use?)
 							local sizing = read(automatic, use)
 							return D2.fromScale(
 								if sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY then 0 else 1,
 								if sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY then 0 else 1
 							)
-						end
+						end, automatic)
 						if spec.multiple then
 							local child: Nav.MultiplePickerSpec<V> = {
 								options = spec.options,
@@ -1474,6 +1439,59 @@ return function(
 			end)
 			return container
 		end
+		local options = Compose.formula(function(use: ComposeTypes.Use)
+			local query = string.lower(tostring(read(spec.query, use) or ""))
+			local result: { Nav.PickerOption<V> } = {}
+			local seen: { [V | string]: boolean } = {}
+			local list: { Nav.PickerOption<V> } = read(spec.options, use)
+			for key in list do
+				assert(
+					type(key) == "number" and key >= 1 and key <= #list and key % 1 == 0,
+					"Picker options require a dense array"
+				)
+			end
+			for _, option in list do
+				for field in (option :: unknown) :: { [unknown]: unknown } do
+					assert(
+						type(field) == "string" and optionFields[field] == true,
+						`Unknown Picker option field {tostring(field)}`
+					)
+				end
+				assert(
+					option.description == nil or type(read(option.description, use)) == "string",
+					"Picker description must be text"
+				)
+				assert(
+					option.enabled == nil or type(read(option.enabled, use)) == "boolean",
+					"Picker option enabled must be a boolean"
+				)
+				assert(
+					option.icon == nil or type(read(option.icon, use)) == "string",
+					"Picker option icon must be an icon name"
+				)
+				local badge = read(option.badge, use)
+				assert(
+					badge == nil or type(badge) == "string" or type(badge) == "number",
+					"Picker option badge must be text or a number"
+				)
+				local key = option.id or option.value
+				assert(key ~= nil and not seen[key], "Picker options require unique values or ids")
+				seen[key] = true
+				assert(
+					type(read(option.label, use)) == "string" and string.find(read(option.label, use), "%S") ~= nil,
+					"Picker options require nonempty labels"
+				)
+				assert(
+					read(spec.iconOnly) ~= true or option.icon ~= nil,
+					"Picker.iconOnly requires an icon on each option"
+				)
+				local label = tostring(read(option.label, use) or "")
+				if query == "" or string.find(string.lower(label), query, 1, true) then
+					table.insert(result, option)
+				end
+			end
+			return result
+		end)
 		if style == "menu" then
 			local native: Types.FrameNativeProps = ctx.props(spec, pickerKeys)
 			local menuSpec: Nav.MenuSpec<V> = { items = {} }
@@ -1879,25 +1897,26 @@ return function(
 		local function across(use: ComposeTypes.Use?): boolean
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
+		local fixedOptions = not (Compose.isReadable(spec.options) or type(spec.options) == "function")
 		local children: { ComposeTypes.Child } = {
 			Host.UIListLayout({
-				FillDirection = function(use: ComposeTypes.Use)
+				FillDirection = derive(function(use: ComposeTypes.Use?)
 					return if style ~= "segmented" or read(spec.axis, use) == "y"
 						then E.FillDirection.Vertical
 						else E.FillDirection.Horizontal
-				end,
+				end, spec.axis),
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 4),
-				Wraps = function(use: ComposeTypes.Use)
+				Wraps = derive(function(use: ComposeTypes.Use?)
 					return style == "segmented" and read(spec.axis, use) ~= "y"
-				end,
-				HorizontalFlex = function(use: ComposeTypes.Use)
+				end, spec.axis),
+				HorizontalFlex = derive(function(use: ComposeTypes.Use?)
 					return if style == "segmented"
 							and read(spec.axis, use) ~= "y"
 							and read(spec.sizing, use) ~= "hug"
 						then E.UIFlexAlignment.Fill
 						else E.UIFlexAlignment.None
-				end,
+				end, spec.axis, spec.sizing),
 			}),
 		}
 		if spec.query then
@@ -1917,10 +1936,25 @@ return function(
 					local selected = function(use: ComposeTypes.Use)
 						return isSelected(use(source).value, use)
 					end
+					local current = source:peek()
+					local fixed = fixedOptions and spec.query == nil
+					local function labelOf(use: ComposeTypes.Use?): string
+						if read(spec.iconOnly, use) then
+							return ""
+						end
+						local option = if use then use(source) else source:peek()
+						local badge = read(option.badge, use)
+						local label: string = read(option.label, use)
+						return label .. (if badge ~= nil and badge ~= "" then " (" .. tostring(badge) .. ")" else "")
+					end
+					local function enabledOf(use: ComposeTypes.Use?): boolean
+						local option = if use then use(source) else source:peek()
+						return read(spec.enabled, use) ~= false and read(option.enabled, use) ~= false
+					end
 					local button = UI.Button({
-						Name = tostring(source:peek().id or source:peek().value),
-						LayoutOrder = index,
-						Size = function(use: ComposeTypes.Use)
+						Name = tostring(current.id or current.value),
+						LayoutOrder = if fixed then index:peek() else index,
+						Size = derive(function(use: ComposeTypes.Use?)
 							if across(use) then
 								return D2.fromScale(0, 1)
 							end
@@ -1928,22 +1962,21 @@ return function(
 								then ctx.controlSize(spec.controlSize, "height", use)
 								else 44
 							return D2.new(1, 0, 0, height)
-						end,
+						end, spec.axis, spec.controlSize, if spec.controlSize ~= nil
+							then ctx.config.theme
+							else nil),
 						AutomaticSize = if style ~= "segmented"
 							then E.AutomaticSize.Y
-							else function(use: ComposeTypes.Use)
+							else derive(function(use: ComposeTypes.Use?)
 								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.XY
-							end,
-						label = function(use: ComposeTypes.Use)
-							if read(spec.iconOnly, use) then
-								return ""
-							end
-							local option = use(source)
-							local badge = read(option.badge, use)
-							local label: string = read(option.label, use)
-							return label
-								.. (if badge ~= nil and badge ~= "" then " (" .. tostring(badge) .. ")" else "")
-						end,
+							end, spec.axis),
+						label = derive(
+							labelOf,
+							if fixed then nil else source,
+							spec.iconOnly,
+							current.badge,
+							current.label
+						),
 						subtitle = if source:peek().description ~= nil
 								or style == "radioGroup"
 								or Compose.isReadable(spec.options)
@@ -1963,9 +1996,7 @@ return function(
 								and indicator ~= "underline"
 								and (indicator ~= "none" or style == "segmented")
 						end,
-						enabled = function(use: ComposeTypes.Use)
-							return read(spec.enabled, use) ~= false and read(use(source).enabled, use) ~= false
-						end,
+						enabled = derive(enabledOf, if fixed then nil else source, spec.enabled, current.enabled),
 						haptic = function(use: ComposeTypes.Use)
 							return spec.multiple == true or not selected(use)
 						end,
@@ -2041,29 +2072,38 @@ return function(
 							end),
 						})
 					end
+					local underlined = Compose.isReadable(spec.indicator)
+						or type(spec.indicator) == "function"
+						or spec.indicator == "underline"
 					surfaces.attach(button, {
 						Host.UISizeConstraint({
-							MinSize = function(use: ComposeTypes.Use)
+							MinSize = derive(function(use: ComposeTypes.Use?)
 								return V2.new(44, if spec.controlSize ~= nil or across(use) then 0 else 44)
-							end,
+							end, spec.axis),
 						}),
-						Compose.show(function(use: ComposeTypes.Use)
-							return read(spec.indicator, use) == "underline" and selected(use)
-						end, function()
-							return ctx.styled(
-								Host.Frame "SelectionIndicator" {
-									BorderSizePixel = 0,
-									Size = D2.new(1, 0, 0, 2),
-									Position = D2.new(0, 0, 1, -2),
-									Selectable = false,
-								},
-								"selection-indicator"
-							)
-						end),
+						if underlined
+							then Compose.show(function(use: ComposeTypes.Use)
+								return read(spec.indicator, use) == "underline" and selected(use)
+							end, function()
+								return ctx.styled(
+									Host.Frame "SelectionIndicator" {
+										BorderSizePixel = 0,
+										Size = D2.new(1, 0, 0, 2),
+										Position = D2.new(0, 0, 1, -2),
+										Selectable = false,
+									},
+									"selection-indicator"
+								)
+							end)
+							else nil,
 					})
-					Compose.watch(function(use: ComposeTypes.Use)
-						button:SetAttribute("FacetLabel", read(use(source).label, use))
-					end)
+					if fixed and not (Compose.isReadable(current.label) or type(current.label) == "function") then
+						button:SetAttribute("FacetLabel", current.label)
+					else
+						Compose.watch(function(use: ComposeTypes.Use)
+							button:SetAttribute("FacetLabel", read(use(source).label, use))
+						end)
+					end
 					local family = if style == "segmented" then "facet-segment" else "facet-choice"
 					button:AddTag(family)
 					local content = button:FindFirstChild("Content")
@@ -2132,12 +2172,12 @@ return function(
 					end
 					return size
 				end
-				elseif style == "segmented" then function(use: ComposeTypes.Use)
+				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
 					if not across(use) then
 						return D2.new(1, 0, 0, 0)
 					end
 					return D2.new(if labelled then 0 else 1, 0, 0, ctx.controlSize(spec.controlSize, "height", use))
-				end
+				end, spec.axis, spec.controlSize, ctx.config.theme)
 				else D2.new(1, 0, 0, 0),
 			AutomaticSize = if strip
 				then function(use: ComposeTypes.Use): Enum.AutomaticSize
@@ -2147,12 +2187,12 @@ return function(
 					end
 					return sizing
 				end
-				elseif style == "segmented" then function(use: ComposeTypes.Use)
+				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
 					return if not across(use)
 						then E.AutomaticSize.Y
 						elseif labelled then E.AutomaticSize.X
 						else E.AutomaticSize.None
-				end
+				end, spec.axis)
 				else E.AutomaticSize.Y,
 		}
 		local p = if spec.label == nil then ctx.props(source, pickerKeys, defaults) else defaults
@@ -2164,9 +2204,9 @@ return function(
 			picker:AddTag("facet-segmented")
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {
-					MinSize = function(use: ComposeTypes.Use)
+					MinSize = derive(function(use: ComposeTypes.Use?)
 						return V2.new(0, if read(spec.axis, use) == "y" then 0 else 44 + 2 * segmentMetrics.inset)
-					end,
+					end, spec.axis),
 				},
 			})
 			if spec.corners then
@@ -2198,9 +2238,9 @@ return function(
 		picker.Name = "Options"
 		local label = ctx.text({
 			Name = "Label",
-			Text = function(use: ComposeTypes.Use)
+			Text = derive(function(use: ComposeTypes.Use?)
 				return read(spec.label, use) or ""
-			end,
+			end, spec.label),
 			Size = D2.new(if vertical then 1 else 0, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.Y else E.AutomaticSize.XY,
 			TextWrapped = vertical,

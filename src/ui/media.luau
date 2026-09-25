@@ -840,6 +840,27 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			assert(({ ltr = true, rtl = true, ttb = true, btt = true })[value], "Facet progress invalid fill direction")
 			return value :: Theme.FillDirection
 		end)
+		local function dynamic(source: unknown): boolean
+			return Compose.isReadable(source) or type(source) == "function"
+		end
+		local settled = not (
+			indeterminate
+			or trail ~= nil
+			or dynamic(spec.value)
+			or dynamic(spec.min)
+			or dynamic(spec.max)
+			or dynamic(spec.controlSize)
+			or dynamic(spec.thickness)
+			or dynamic(ctx.config.theme)
+		)
+		local function fixed<T>(body: (ComposeTypes.Use) -> T): Types.Value<T>
+			if not settled then
+				return body
+			end
+			return body(function<U>(source: ComposeTypes.Readable<U>): U
+				return source:peek()
+			end)
+		end
 		local function vertical(use: ComposeTypes.Use): boolean
 			return use(direction) == "ttb" or use(direction) == "btt"
 		end
@@ -850,7 +871,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		if presentation == "bar" then
 			local track: Engine.FrameNativeProps = {
 				Name = "Track",
-				Size = function(use: ComposeTypes.Use)
+				Size = fixed(function(use: ComposeTypes.Use)
 					local rung = read(spec.controlSize, use)
 					local thickness = read(spec.thickness, use)
 						or (
@@ -859,7 +880,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 								else metric("controls.progress.trackHeight", use)
 						)
 					return if vertical(use) then D2.new(0, thickness, 1, 0) else D2.new(1, 0, 0, thickness)
-				end,
+				end),
 				ClipsDescendants = false,
 			}
 			if trail then
@@ -898,13 +919,13 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						Host.Frame({
 							Name = "Fill" .. index,
 							ClipsDescendants = true,
-							AnchorPoint = function(use: ComposeTypes.Use)
+							AnchorPoint = fixed(function(use: ComposeTypes.Use)
 								return if reversed(use)
 									then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
 									else V2.new(0, 0)
-							end,
+							end),
 							BorderSizePixel = 0,
-							Size = function(use: ComposeTypes.Use)
+							Size = fixed(function(use: ComposeTypes.Use)
 								local fraction = if indeterminate
 									then 0.3
 									else math.clamp(use(progress) * count - (index - 1), 0, 1)
@@ -912,8 +933,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 								return if vertical(use)
 									then D2.new(1, 0, fraction / count, gap)
 									else D2.new(fraction / count, gap, 1, 0)
-							end,
-							Position = function(use: ComposeTypes.Use)
+							end),
+							Position = fixed(function(use: ComposeTypes.Use)
 								local position = if indeterminate
 									then (if motionReduced(use) then use(progress) * 0.7 else use(progress) * 1.3 - 0.3)
 									else (index - 1) / count
@@ -924,7 +945,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 									if vertical(use) then 0 else position,
 									if vertical(use) then position else 0
 								)
-							end,
+							end),
 						}),
 						"fill"
 					)
@@ -1148,16 +1169,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				"trail",
 				"controlSize",
 			}, {
-				Size = function(use: ComposeTypes.Use)
+				Size = fixed(function(use: ComposeTypes.Use)
 					return if presentation == "bar"
 						then (if vertical(use) then D2.fromOffset(24, 160) else D2.new(1, 0, 0, 0))
 						else D2.fromOffset(0, 0)
-				end,
-				AutomaticSize = function(use: ComposeTypes.Use)
+				end),
+				AutomaticSize = fixed(function(use: ComposeTypes.Use)
 					return if presentation == "bar"
 						then (if vertical(use) then E.AutomaticSize.None else E.AutomaticSize.Y)
 						else E.AutomaticSize.XY
-				end,
+				end),
 			})
 		)
 		if timeline then

@@ -47,6 +47,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	local dialogOrder = 0
 	local unskinned = setmetatable({} :: { [unknown]: boolean }, { __mode = "k" })
 	local roles: { [string]: boolean } = { default = true, cancel = true, destructive = true, onIndicator = true }
+	local roleTags: { [string]: string } = {}
+	for name in roles do
+		roleTags[name] = "facet-role-" .. name
+	end
 	local function dynamic(source: unknown): boolean
 		return Compose.isReadable(source) or type(source) == "function"
 	end
@@ -289,7 +293,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	end
 	local icon = ctx.icon
 
-	local buttonKeys = {
+	local buttonKeys = table.freeze({
 		"haptic",
 		"label",
 		"compactLabel",
@@ -323,8 +327,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		"onPointerCancel",
 		"textSize",
 		"underline",
-	}
+	})
 	local CONTROL_RUNGS = { "xsmall", "compact", "regular", "large" }
+	local rungTags: { string } = {}
+	for index, name in CONTROL_RUNGS do
+		rungTags[index] = "facet-size-" .. name
+	end
 	local typeRoles: { [string]: boolean } = {
 		caption = true,
 		label = true,
@@ -408,7 +416,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 
 		local node: TextButton
 		local iconState: ComposeTypes.Cell<ThemeTypes.SkinState>?
-		if spec.icon or spec.trailingIcon then
+		if
+			(spec.icon or spec.trailingIcon)
+			and (
+				ctx.iconVaries(spec.icon or (spec.row and spec.row.icon))
+				or ctx.iconVaries(spec.trailingIcon)
+				or (spec.row ~= nil and spec.onActivate ~= nil and ctx.iconVaries("chevron.trailing"))
+			)
+		then
 			local initial: ThemeTypes.SkinState = "default"
 			iconState = Compose.cell(initial)
 		end
@@ -444,14 +459,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				and (not input or not input:GetFocusedTextBox())
 		end
 		local guiService = ctx.config.services.GuiService
+		local lazyKeyboard = underline ~= "hover"
+		local enabledLive = dynamic(spec.enabled) or dynamic(spec.disabled) or dynamic(spec.busy)
 		local selectedForKeyboard: Shared.Value<boolean>
 		local fallbackSelection: ComposeTypes.Cell<boolean>?
-		if guiService then
-			local selected = ctx.observe(guiService, "SelectedObject")
-			selectedForKeyboard = function(use: ComposeTypes.Use)
+		local function observeSelection(): Shared.Value<boolean>
+			local selected = ctx.observe(assert(guiService), "SelectedObject")
+			return function(use: ComposeTypes.Use)
 				local target = read(selected, use)
 				return node and target == node or false
 			end
+		end
+		if guiService then
+			selectedForKeyboard = if lazyKeyboard then false else observeSelection()
 		else
 			fallbackSelection = Compose.cell(false)
 			selectedForKeyboard = assert(fallbackSelection)
@@ -476,13 +496,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local function controlSize(use)
 			return D2.fromOffset(0, ctx.controlSize(spec.controlSize, "height", use))
 		end
-		local p = props(spec, buttonKeys, {
+		local defaults: Shared.TextButtonNativeProps = {
 			Text = if rich then "" else spec.label or "",
 			Size = if dynamic(ctx.config.theme) or dynamic(spec.controlSize) then controlSize else controlSize(),
 			AutomaticSize = E.AutomaticSize.XY,
-			Selectable = enabledProperty,
-			Interactable = enabledProperty,
-		})
+		}
+		if enabledProperty ~= true then
+			defaults.Selectable = enabledProperty
+			defaults.Interactable = enabledProperty
+		end
+		local p = props(spec, buttonKeys, defaults)
 		local engaged = Compose.cell(false)
 		if underline ~= nil then
 			p.RichText = true
@@ -650,15 +673,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local description = row.description or spec.subtitle or spec.hint
 			if not (spec.shape == "circle" and spec.icon) then
 				local function caption(name: string, text: Shared.Value<string>): TextLabel
+					local live = dynamic(text)
+					local function words(use: ComposeTypes.Use?): string
+						return read(text, use) or ""
+					end
+					local function shown(use: ComposeTypes.Use?): boolean
+						local value = read(text, use)
+						return value ~= nil and value ~= ""
+					end
 					local made = ctx.text({
 						Name = name,
-						Text = function(use: ComposeTypes.Use)
-							return read(text, use) or ""
-						end,
-						Visible = function(use: ComposeTypes.Use)
-							local value = read(text, use)
-							return value ~= nil and value ~= ""
-						end,
+						Text = if live then words else words(),
+						Visible = if live then shown else shown(),
 						Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 						AutomaticSize = if imageCard then E.AutomaticSize.Y else E.AutomaticSize.XY,
 						TextWrapped = imageCard,
@@ -747,20 +773,26 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(p, contentFrame)
 		end
 		local keyboardAttached = false
-		table.insert(
-			p,
-			Compose.show(function(use: ComposeTypes.Use)
-				keyboardAttached = keyboardAttached or (read(selectedForKeyboard, use) == true and enabled(spec, use))
-				return keyboardAttached
-			end, function()
-				ctx.action(node, "Activate", { E.KeyCode.Return, E.KeyCode.Space }, function(use: ComposeTypes.Use)
-					return read(selectedForKeyboard, use) == true and shortcutActive(use)
-				end, activate, { priority = 5000 })
-				return Compose.fragment(function()
-					return {}
+		local function attachKeyboard()
+			ctx.action(node, "Activate", { E.KeyCode.Return, E.KeyCode.Space }, function(use: ComposeTypes.Use)
+				return read(selectedForKeyboard, use) == true and shortcutActive(use)
+			end, activate, { priority = 5000 })
+		end
+		if not lazyKeyboard then
+			table.insert(
+				p,
+				Compose.show(function(use: ComposeTypes.Use)
+					keyboardAttached = keyboardAttached
+						or (read(selectedForKeyboard, use) == true and enabled(spec, use))
+					return keyboardAttached
+				end, function()
+					attachKeyboard()
+					return Compose.fragment(function()
+						return {}
+					end)
 				end)
-			end)
-		)
+			)
+		end
 		local pressHaptic = ctx.config.pressHaptic
 		local hapticSwitch = p.PressHapticEffect == nil and pressHaptic ~= nil and dynamic(spec.haptic)
 		if p.PressHapticEffect == nil and pressHaptic and not hapticSwitch and read(spec.haptic) == true then
@@ -800,13 +832,48 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if spec.help ~= nil then
 			help.attach(ctx, node, spec.help)
 		end
-		if not guiService then
+		local owner = assert(Compose.currentOwner(), "Facet.Button requires a Compose owner")
+		local selectionWired = false
+		local function selectedLazily()
+			if selectionWired or owner.isDisposed() then
+				return
+			end
+			selectionWired = true
+			Compose.withOwner(owner, function()
+				if guiService then
+					selectedForKeyboard = observeSelection()
+				else
+					runtime.connect(node, "SelectionLost", function()
+						assert(fallbackSelection):set(false)
+					end)
+				end
+				if enabledLive then
+					Compose.watch(function(use: ComposeTypes.Use)
+						if not keyboardAttached and read(selectedForKeyboard, use) == true and enabled(spec, use) then
+							keyboardAttached = true
+							Compose.withOwner(owner, attachKeyboard)
+						end
+					end)
+				elseif enabled(spec) then
+					keyboardAttached = true
+					attachKeyboard()
+				end
+			end)
+		end
+		if lazyKeyboard and guiService then
+			ctx.whenSelected(guiService, node, selectedLazily)
+		elseif not guiService then
 			runtime.connect(node, "SelectionGained", function()
 				assert(fallbackSelection):set(true)
+				if lazyKeyboard then
+					selectedLazily()
+				end
 			end)
-			runtime.connect(node, "SelectionLost", function()
-				assert(fallbackSelection):set(false)
-			end)
+			if not lazyKeyboard then
+				runtime.connect(node, "SelectionLost", function()
+					assert(fallbackSelection):set(false)
+				end)
+			end
 		end
 		if not rich and ctx.config.theme ~= nil then
 			local function needsCaption(use)
@@ -905,12 +972,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local previousTags: { [string]: boolean } = {}
 		local previousAttributes: { [string]: boolean | string } = {}
 		local initialized = false
+		local initialTags: { [string]: boolean }? = nil
 		local function tag(name: string, active: boolean)
 			if previousTags[name] ~= active then
 				previousTags[name] = active
 				if active then
 					node:AddTag(name)
-				elseif initialized or node:HasTag(name) then
+				elseif initialized or (initialTags ~= nil and initialTags[name]) then
 					node:RemoveTag(name)
 				end
 			end
@@ -926,6 +994,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local available = enabled(spec, use)
 			local role, appearance = read(spec.role, use) or "default", read(spec.appearance, use) or "standard"
 			assert(roles[role], "Facet.Button: invalid semantic role")
+			if not initialized then
+				local present: { [string]: boolean } = {}
+				for _, name in node:GetTags() do
+					present[name] = true
+				end
+				initialTags = present
+			end
 			if iconState then
 				local state = read(guiState, use)
 				local visualState: ThemeTypes.SkinState = if not available
@@ -936,8 +1011,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					else "default"
 				iconState:set(visualState)
 			end
-			for name: string in roles do
-				tag("facet-role-" .. name, role == name)
+			for name: string, tagName in roleTags do
+				tag(tagName, role == name)
 			end
 			tag("facet-selected", selected)
 			tag("facet-busy", busy)
@@ -950,16 +1025,17 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			tag("facet-appearance-inverse", appearance == "inverse")
 			tag("facet-quiet-destructive", role == "destructive" and (appearance == "utility" or appearance == "link"))
 			local rung = read(spec.controlSize, use)
-			for _, name in CONTROL_RUNGS do
-				tag("facet-size-" .. name, rung == name)
+			for index, name in CONTROL_RUNGS do
+				tag(rungTags[index], rung == name)
 			end
 			attribute("selected", selected)
 			attribute("busy", busy)
 			attribute("appearance", appearance)
-			attribute("controlSize", read(spec.controlSize, use) or "regular")
+			attribute("controlSize", rung or "regular")
 			attribute("role", role)
 			attribute("label", read(spec.name or spec.label or "", use))
 			initialized = true
+			initialTags = nil
 		end
 		local stateIsDynamic = iconState ~= nil
 		for _, source in
@@ -1149,7 +1225,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						if presentation == "switch" then 18 else 12,
 						if presentation == "switch" then 18 else 12
 					),
-					Position = D2.fromScale(0.5, 0.5),
+					Position = if presentation == "switch" then nil else D2.fromScale(0.5, 0.5),
 					ctx.corner(if presentation == "switch" then 9 else 2),
 				},
 				"toggle-mark"
@@ -1271,12 +1347,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end
 					return if reactive then amount else amount()
 				end
-				local padding: Shared.UIPaddingNativeProps = {
-					PaddingLeft = paddingAmount("left"),
-					PaddingRight = paddingAmount("right"),
-					PaddingTop = paddingAmount("top"),
-					PaddingBottom = paddingAmount("bottom"),
-				}
+				local padding: Shared.UIPaddingNativeProps = {}
+				local fields = (padding :: unknown) :: { [string]: Shared.Value<UDim> }
+				local function inset(side: "left" | "right" | "top" | "bottom", key: string)
+					local amount = paddingAmount(side)
+					if reactive or ((amount :: unknown) :: UDim).Offset ~= 0 then
+						fields[key] = amount
+					end
+				end
+				inset("left", "PaddingLeft")
+				inset("right", "PaddingRight")
+				inset("top", "PaddingTop")
+				inset("bottom", "PaddingBottom")
 				table.insert(p, Host.UIPadding(padding))
 				table.insert(p, indicator)
 			end

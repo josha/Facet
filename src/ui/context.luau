@@ -90,6 +90,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return value :: T
 	end
 	ctx.read = (read :: unknown) :: Shared.Read
+	local function live(value: unknown): boolean
+		return Compose.isReadable(value) or type(value) == "function"
+	end
 	local defaultMetrics = themes.neutralPackage().metrics
 	local function metricAt(value: unknown, path: string): number?
 		for key in string.gmatch(path, "[^.]+") do
@@ -129,8 +132,52 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return ctx.metric("controlSizes." .. rung .. "." .. field, use)
 	end
+	type SharedObservation = { cell: ComposeTypes.Cell<unknown>, users: number, stop: () -> () }
+	local serviceNodes: { [Instance]: boolean } = {}
+	for _, service in (services :: unknown) :: { [string]: Instance } do
+		serviceNodes[service] = true
+	end
+	if config.guiService then
+		serviceNodes[config.guiService] = true
+	end
+	if config.userInputService then
+		serviceNodes[config.userInputService] = true
+	end
+	local sharedObservations: { [Instance]: { [string]: SharedObservation } } = {}
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
+		if serviceNodes[node] then
+			local byProperty = sharedObservations[node]
+			if byProperty == nil then
+				byProperty = {}
+				sharedObservations[node] = byProperty
+			end
+			local entry = byProperty[property]
+			if entry == nil then
+				local cell = Compose.cell(observation.readProperty(node, property))
+				local created: SharedObservation = {
+					cell = cell,
+					users = 0,
+					stop = observation.observeProperty(node, property, function()
+						cell:set(observation.readProperty(node, property))
+					end),
+				}
+				byProperty[property] = created
+				entry = created
+			end
+			local held = entry :: SharedObservation
+			Compose.cleanup(function()
+				held.users -= 1
+				if held.users == 0 then
+					held.stop()
+					if byProperty[property] == held then
+						byProperty[property] = nil
+					end
+				end
+			end)
+			held.users += 1
+			return held.cell
+		end
 		local value = Compose.cell(observation.readProperty(node, property))
 		Compose.cleanup(observation.observeProperty(node, property, function()
 			value:set(observation.readProperty(node, property))
@@ -138,6 +185,43 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return value
 	end
 	ctx.observe = (observe :: unknown) :: Shared.Observe
+	type SelectionWaiters = { waiting: { [Instance]: () -> () }, count: number, stop: (() -> ())? }
+	local selectionWaiters: { [Instance]: SelectionWaiters } = {}
+	function ctx.whenSelected(gui: Instance, node: Instance, callback: () -> ()): ()
+		local observation = assert(runtime.host.observation, "Roblox property observation is required")
+		local waiters = selectionWaiters[gui]
+		if waiters == nil then
+			waiters = { waiting = {}, count = 0, stop = nil }
+			selectionWaiters[gui] = waiters
+		end
+		local registry = waiters :: SelectionWaiters
+		Compose.cleanup(function()
+			if registry.waiting[node] == callback then
+				registry.waiting[node] = nil
+				registry.count -= 1
+				if registry.count == 0 and registry.stop then
+					registry.stop()
+					registry.stop = nil
+				end
+			end
+		end)
+		registry.waiting[node] = callback
+		registry.count += 1
+		if registry.stop == nil then
+			registry.stop = observation.observeProperty(gui, "SelectedObject", function()
+				local target = observation.readProperty(gui, "SelectedObject")
+				local waiting = if typeof(target) == "Instance" or type(target) == "table"
+					then registry.waiting[target :: Instance]
+					else nil
+				if waiting then
+					waiting()
+				end
+			end)
+		end
+		if rawequal(observation.readProperty(gui, "SelectedObject"), node) then
+			callback()
+		end
+	end
 	function ctx.pointerOnly(): (ComposeTypes.Use?) -> boolean
 		local input = config.userInputService
 		if input == nil then
@@ -280,10 +364,15 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local suggestion = if best then ` Did you mean '{best}'?` else ""
 		return `Facet UI.{building or "control"}: unknown option '{key}'.{suggestion}`
 	end
-	function ctx.props<P>(spec: P, behavioralKeys: { string } | { [string]: boolean }?, defaults: unknown?): P
-		local result: { [unknown]: unknown } = if type(defaults) == "table"
-			then table.clone(defaults :: { [unknown]: unknown })
-			else {}
+	local consumedSets = (
+		setmetatable({} :: { [unknown]: { [string]: boolean } }, { __mode = "k" }) :: unknown
+	) :: { [unknown]: { [string]: boolean } }
+	local function consumedFor(behavioralKeys: { string } | { [string]: boolean }?): { [string]: boolean }
+		local frozen = behavioralKeys ~= nil and table.isfrozen(behavioralKeys)
+		local cached = if frozen then consumedSets[behavioralKeys] else nil
+		if cached then
+			return cached
+		end
 		local consumed: { [string]: boolean } = { ref = true }
 		for key, value in ((behavioralKeys or {}) :: unknown) :: { [unknown]: unknown } do
 			if type(key) == "number" then
@@ -293,6 +382,16 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				consumed[key] = true
 			end
 		end
+		if frozen then
+			consumedSets[behavioralKeys] = consumed
+		end
+		return consumed
+	end
+	function ctx.props<P>(spec: P, behavioralKeys: { string } | { [string]: boolean }?, defaults: unknown?): P
+		local result: { [unknown]: unknown } = if type(defaults) == "table"
+			then table.clone(defaults :: { [unknown]: unknown })
+			else {}
+		local consumed = consumedFor(behavioralKeys)
 		for key, value in (spec :: unknown) :: { [unknown]: unknown } do
 			if type(key) == "number" then
 				result[#result + 1] = value
@@ -403,41 +502,72 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	function ctx.column(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, true)
 	end
+	function ctx.iconVaries(name: Shared.Value<string>?): boolean
+		if name == nil then
+			return false
+		end
+		if live(name) or live(config.theme) or live(config.icons) then
+			return true
+		end
+		local requested = name :: string
+		if requested == "" or string.match(requested, "^rbx") then
+			return false
+		end
+		local package: Theme.IconRegistry = ctx.read(config.theme) or {}
+		local overrides = ctx.read(config.icons)
+		if overrides then
+			package = table.clone(package)
+			package.icons = overrides
+		end
+		local resting = themes.resolveIcon(package, requested, "default")
+		return themes.resolveIcon(package, requested, "hover") ~= resting
+			or themes.resolveIcon(package, requested, "pressed") ~= resting
+			or themes.resolveIcon(package, requested, "selected") ~= resting
+			or themes.resolveIcon(package, requested, "disabled") ~= resting
+	end
 	function ctx.icon(
 		name: Shared.Value<string>,
 		properties: Shared.ImageLabelNativeProps?,
 		state: Shared.Value<Theme.SkinState>?
 	): ImageLabel
+		local function image(use: ComposeTypes.Use?): string
+			local requested = ctx.read(name, use)
+			if requested == "" then
+				return ""
+			end
+			local package: Theme.IconRegistry = ctx.read(config.theme, use) or {}
+			local overrides = ctx.read(config.icons, use)
+			if overrides then
+				package = table.clone(package)
+				package.icons = overrides
+			end
+			local asset = if type(requested) == "string" and string.match(requested, "^rbx")
+				then requested
+				else themes.resolveIcon(package, requested, ctx.read(state, use))
+			assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
+			return asset
+		end
 		local native: Shared.ImageLabelNativeProps = {
-			Image = function(use: ComposeTypes.Use)
-				local requested = ctx.read(name, use)
-				if requested == "" then
-					return ""
-				end
-				local package: Theme.IconRegistry = ctx.read(config.theme, use) or {}
-				local overrides = ctx.read(config.icons, use)
-				if overrides then
-					package = table.clone(package)
-					package.icons = overrides
-				end
-				local asset = if type(requested) == "string" and string.match(requested, "^rbx")
-					then requested
-					else themes.resolveIcon(package, requested, ctx.read(state, use))
-				assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
-				return asset
-			end,
+			Image = if live(name) or live(config.theme) or live(config.icons) or live(state) then image else image(),
 			BackgroundTransparency = 1,
-			Size = function(use: ComposeTypes.Use)
-				local size = ctx.controlSize(config.controlSize, "iconSize", use)
-				return types.UDim2.fromOffset(size, size)
-			end,
-			ResampleMode = function(use: ComposeTypes.Use)
-				local package = ctx.read(config.theme, use)
-				return if package and package.identity.rendering == "pixel"
-					then Enum.ResamplerMode.Pixelated
-					else Enum.ResamplerMode.Default
-			end,
 		}
+		local function iconSize(use: ComposeTypes.Use?): UDim2
+			local size = ctx.controlSize(config.controlSize, "iconSize", use)
+			return types.UDim2.fromOffset(size, size)
+		end
+		local function resample(use: ComposeTypes.Use?): Enum.ResamplerMode
+			local package = ctx.read(config.theme, use)
+			return if package and package.identity.rendering == "pixel"
+				then Enum.ResamplerMode.Pixelated
+				else Enum.ResamplerMode.Default
+		end
+		local themeLive = live(config.theme)
+		native.Size = if themeLive or live(config.controlSize) then iconSize else iconSize()
+		if themeLive then
+			native.ResampleMode = resample
+		elseif resample() ~= Enum.ResamplerMode.Default then
+			native.ResampleMode = resample()
+		end
 		local fields = (native :: unknown) :: { [unknown]: unknown }
 		for key, value in ((properties or {}) :: unknown) :: { [unknown]: unknown } do
 			fields[key] = value

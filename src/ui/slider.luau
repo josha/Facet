@@ -59,6 +59,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 	local function dynamic(source: unknown): boolean
 		return Compose.isReadable(source) or type(source) == "function"
 	end
+	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Shared.Value<T>
+		for index = 1, select("#", ...) do
+			if dynamic((select(index, ...))) then
+				return compute
+			end
+		end
+		return compute(nil)
+	end
+	local function enabledLive(spec: Spec): boolean
+		local state = (spec :: unknown) :: { enabled: unknown, disabled: unknown, busy: unknown }
+		return dynamic(state.enabled) or dynamic(state.disabled) or dynamic(state.busy)
+	end
+	local function enabledValue(spec: Spec): Shared.Value<boolean>
+		local function compute(use: ComposeTypes.Use?): boolean
+			return h.enabled(spec, use)
+		end
+		return if enabledLive(spec) then compute else compute(nil)
+	end
 	local function construction(spec: Spec)
 		for _, key in { "axis", "range", "minGap", "thumb", "tapToPosition" } do
 			local source = (spec :: { [unknown]: unknown })[key]
@@ -143,14 +161,17 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			local icon = ctx.controlSize(spec.controlSize, "iconSize", use)
 			return math.max(8, KNOB + icon - ctx.controlSize("regular", "iconSize", use))
 		end
-		local knobBox = function(use: ComposeTypes.Use): UDim2
+		local mode = spec.thumb or "always"
+		local sizeSources = if spec.controlSize == nil then nil else ctx.config.theme
+		local knobBox = derive(function(use: ComposeTypes.Use?): UDim2
 			local side = knobSize(use)
 			return D2.fromOffset(side, side)
-		end
-		local knobFloor = function(use: ComposeTypes.Use): Vector2
+		end, spec.controlSize, sizeSources)
+		local knobFloor = derive(function(use: ComposeTypes.Use?): Vector2
 			local side = knobSize(use)
 			return V2.new(side, side)
-		end
+		end, spec.controlSize, sizeSources)
+		local visible: Shared.Value<boolean>? = if mode == "always" then nil elseif mode == "none" then false else shown
 		local size = if target then 44 else KNOB
 		local native: Shared.FrameNativeProps = {
 			Name = name,
@@ -180,7 +201,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = native.Position,
 				Size = knobBox,
-				Visible = shown,
+				Visible = visible,
 				ZIndex = 3,
 				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
@@ -209,7 +230,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				Position = D2.fromScale(0.5, 0.5),
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
-				Visible = shown,
+				Visible = visible,
 				Host.UISizeConstraint({ MinSize = knobFloor }) :: ComposeTypes.Child,
 				Host.UIListLayout({
 					HorizontalAlignment = E.HorizontalAlignment.Center,
@@ -223,7 +244,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 				Size = knobBox,
-				Visible = shown,
+				Visible = visible,
 				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 		end
@@ -237,9 +258,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			return Host.Frame(native)
 		end
 		native.BackgroundTransparency = 1
-		native.Selectable = function(use: ComposeTypes.Use)
-			return h.enabled(spec, use)
-		end
+		native.Selectable = enabledValue(spec)
 		table.insert(native, mark)
 		return Host.Frame(native)
 	end
@@ -483,9 +502,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local detector = Host.UIDragDetector "Drag" {
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-			Enabled = function(use: ComposeTypes.Use)
-				return h.enabled(spec, use)
-			end,
+			Enabled = enabledValue(spec),
 			DragStart = function(position)
 				if not h.enabled(spec) then
 					return
@@ -503,7 +520,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local function fraction(value: number): number
 			return model.fraction(value)
 		end
-		local thin = function(use: ComposeTypes.Use)
+		local thin = function(use: ComposeTypes.Use?)
 			return thickness(spec, use)
 		end
 		local trackChildren: { ComposeTypes.Child } = {}
@@ -525,9 +542,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				trackChildren,
 				h.paintedPart({
 					Name = "Rail",
-					Size = function(use: ComposeTypes.Use)
+					Size = derive(function(use: ComposeTypes.Use?)
 						return if vertical then D2.new(0, thin(use), 1, 0) else D2.new(1, 0, 0, thin(use))
-					end,
+					end, spec.controlSize),
 					Position = D2.fromScale(if vertical then 0.5 else 0, 0.5),
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, 0.5),
 					ctx.corner(3),
@@ -628,11 +645,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return degrees(use)
 				end
 				else nil,
-			Selectable = if isRange
-				then false
-				else function(use: ComposeTypes.Use)
-					return h.enabled(spec, use)
-				end,
+			Selectable = if isRange then false else enabledValue(spec),
 		}
 		for _, child in trackChildren do
 			table.insert(trackProps, child)
@@ -669,11 +682,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				first = false
 			end)
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			if not h.enabled(spec, use) then
-				cancel()
-			end
-		end)
+		if enabledLive(spec) then
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not h.enabled(spec, use) then
+					cancel()
+				end
+			end)
+		end
 		if isRange then
 			for index = 1, 2 do
 				local thumb: Thumb = if index == 1 then "lower" else "upper"
