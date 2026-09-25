@@ -461,3 +461,67 @@ describe("Screen preserves normalized fill metrics", function()
 		expect(#w.controller.diagnostics()).toBe(0)
 	end)
 end)
+
+describe("a hugging stack reserves what its fill children measured", function()
+	-- a hug cell > fill row > [fixed icon, fill text]: the row reports the text it
+	-- measured, so arrange hands the text back that width and the cell contains it
+	local function cell(offer: number, text: string): any
+		return solve({
+			kind = "vstack",
+			id = "R",
+			width = fixed(offer),
+			height = fixed(400),
+			align = "start",
+			children = {
+				{
+					kind = "vstack",
+					id = "cell",
+					children = {
+						{
+							kind = "hstack",
+							id = "row",
+							width = fill(),
+							gap = 8,
+							children = {
+								{ kind = "box", id = "icon", width = fixed(20), height = fixed(20) },
+								{ kind = "text", id = "copy", text = text, textSize = 16, width = fill() },
+							},
+						},
+					},
+				},
+			},
+		}, offer, 400)
+	end
+	it("gives a fill text in a hugging row its natural width", function()
+		local r = cell(600, "A new track pack is ready.")
+		local copy, box = r.rects.copy.rect, r.rects.cell.rect
+		expect(copy.w > 100).toBe(true)
+		expect(box.w).toBe(28 + copy.w)
+		expect(copy.y + copy.h <= box.y + box.h).toBe(true)
+	end)
+	it("wraps a long fill text at the offer and keeps every line inside the cell", function()
+		local r = cell(160, "A deliberately long message that has to wrap inside a narrow hugging cell")
+		local copy, box = r.rects.copy.rect, r.rects.cell.rect
+		expect(copy.w > 60).toBe(true)
+		expect(copy.x + copy.w <= 160).toBe(true)
+		expect(copy.y + copy.h <= box.y + box.h).toBe(true)
+		expect(copy.h > 40).toBe(true)
+	end)
+	it("keeps a content stack's fill-box minima (no content, no growth)", function()
+		local r = solve({
+			kind = "vstack",
+			id = "R",
+			children = {
+				{
+					kind = "hstack",
+					id = "row",
+					children = {
+						{ kind = "box", id = "a", width = fill(44), height = fixed(10) },
+						{ kind = "box", id = "b", width = fill(), height = fixed(10) },
+					},
+				},
+			},
+		}, 200, 100)
+		expect(r.rects.row.rect.w).toBe(44)
+	end)
+end)

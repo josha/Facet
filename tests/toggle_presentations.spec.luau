@@ -742,6 +742,8 @@ t.describe("Toggle bound width", function()
 				end)
 				t.expect(ok).toBe(false)
 				t.expect(string.find(tostring(err), "width", 1, true) ~= nil).toBe(true)
+				-- ...and it points at the form that does hug its label
+				t.expect(string.find(tostring(err), "plain form", 1, true) ~= nil).toBe(true)
 				t.expect(w.adapter.liveCount()).toBe(0)
 			end
 		end

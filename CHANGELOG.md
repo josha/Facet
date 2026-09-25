@@ -49,6 +49,54 @@ detail and every behaviour or path change.
   plain Chips inside their target); Chip removal is edit mode; a switch paints
   no plate. Each is listed with its new path below.
 
+### Lab audit fixes
+
+- **A hugging stack reserves what its `fill` children measured.** A stack that
+  hugs its main axis used to report only its fill children's declared floors, so
+  arrange handed a fill `Text` zero width after measuring it one line wide: a
+  `UI.Notice` in a hugging cell painted its title and message as single letters
+  outside its plate. The report now includes the fill demand (weighted so each
+  fill child gets at least what it measured); fill boxes with no content are
+  unchanged. The HUD fixture's task bars (fill in a hugging panel, previously
+  zero wide) now sit in a lane floored at two targets.
+- **Menu submenu rows show their chevron.** The menu's own rows take the leading
+  content form, which dropped the `submenu` chevron; a submenu row now shows it in
+  every form.
+- **Slider rungs and track floor.** A named `controlSize` draws the thumb at the
+  rung's `iconSize` (the rungs visibly differ), and the track's value axis is
+  floored at `targetSizes.minimum`, so a slider in a hugging cell (vertical above
+  all) keeps a draggable track.
+- **Badge status mark.** The status appearance's mark takes the plate's lettering
+  role and no longer carries a page-coloured cutout, which painted a dark ring on
+  the coloured plate (and left the equal-role mark invisible on it).
+- **ShortcutHint keycaps are themeable.** Optional metrics
+  `controls.shortcutHint.capStroke` (default the hairline; 0 = a soft filled cap)
+  and `controls.shortcutHint.capGap` (default `space.xs`); Neutral is unchanged. An
+  all-optional control family may be absent from a package.
+- **One rung, one plate height.** At the same `controlSize`, the segmented
+  Picker's track now lands on the rung like a Button's plate (its segments give up
+  the track's frame carve instead of adding it), and a sized checkbox's box is the
+  rung's icon plus `xs` (fixed; its mark fits the box), so it grows with the ladder
+  and never outgrows the row. Pinned across Neutral and every shipped package by
+  `control_rung_heights`; six small-rung art deltas (fantasy, scifi) are recorded
+  there as owed.
+- **Notice: the plate holds its content.** The standard plate is the content
+  stack itself (Snackbar's shape), so an art theme's frame carve insets the icon,
+  copy and accessories instead of letting them sit on the border.
+- **Grid rows keep room for their chrome.** A `UI.GridRow` wearing a surface
+  whose theme `contentInsets` exceed its content (Pixel Quest's panel carve)
+  collapsed its cells' text to zero height. The grid now reserves each row's inset
+  vertically and the widest row inset horizontally, so the columns still align.
+- **StepIndicator.** A named `controlSize` floors the step marker at the rung's
+  icon size (regular = the theme's medium icon), so the rungs differ.
+- **Vote.** A read-only vote keeps the strip's `controlSize` rung.
+- **ProgressView.** A bar accepts `controlSize` as its track thickness (xsmall and
+  compact thin, regular and large the theme track) and refuses it together with
+  `height`; `showValue` on a ring is allowed at `controlSize = "large"` (the readout
+  centres in the ring when it fits, else stacks under it). The `height`-on-a-ring
+  refusal now names `controlSize`/`diameter`, and Toggle's content-width refusal
+  points at the plain form.
+
 ### Foundation lab gaps
 
 - **`UI.ErrorBoundary` on `app.controls` works.** It fell through to the bare

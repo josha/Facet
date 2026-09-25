@@ -153,6 +153,18 @@ describe("StepIndicator: the row", function()
 		expect(w.adapter.node(pay .. "/Copy/State").props.text).toBe("Upcoming")
 	end)
 
+	it("the rung sizes the step marker (regular is the theme's medium icon)", function()
+		local sizes = {}
+		for _, rung in { "compact", "regular", "large", "none" } do
+			local w =
+				mount({ steps = workflow(), current = "ship", controlSize = if rung == "none" then nil else rung })
+			sizes[rung] = w.adapter.node((find(w, "/Step-pay") :: string) .. "/Cue").rect.h
+		end
+		-- a floor: the small rungs stop at the number's own line
+		expect(sizes.compact <= sizes.regular and sizes.regular < sizes.large).toBe(true)
+		expect(sizes.regular).toBe(sizes.none)
+	end)
+
 	it("the number marker stays a circle at the largest text size", function()
 		local w = mount({ steps = workflow(), current = "ship" }, { w = 1600 })
 		w.env:set("preferredTextOffset", 14)

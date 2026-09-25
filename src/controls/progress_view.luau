@@ -25,6 +25,10 @@ local CIRCULAR_THICKNESS = "controls.progress.circularThickness"
 -- package's authored progress size, rather than selecting the regular rung.
 local SPINNER_DOT_RUNG = { xsmall = "space.xs", compact = "space.xs", regular = "space.s", large = "space.m" }
 local CIRCULAR_SIZE_RUNG = { xsmall = "space.s", compact = "space.m", regular = "space.l", large = "space.xl" }
+-- a bar's rung is its track thickness: the small rungs thin, regular/large the theme track
+local TRACK_HEIGHT_RUNG = { xsmall = "space.xs", compact = "space.xs", regular = TRACK_HEIGHT, large = TRACK_HEIGHT }
+-- the one ring rung whose size is guaranteed room for a centred or stacked readout
+local READOUT_RUNG = "large"
 
 local CIRCULAR_RADIUS = 0.8
 progress_view.CIRCULAR_RADIUS = CIRCULAR_RADIUS
@@ -110,8 +114,9 @@ local PRESENTATIONS: { [string]: Capability } = {
 		valueLabel = false,
 		sizeMetric = CIRCULAR_SIZE,
 		valueLabelAlt = "the ring is theme-sized and small by construction, so a readout has no size it is "
-			.. "guaranteed to fit inside it; put your own `UI.Text` beside the control, or use the default "
-			.. '`presentation = "bar"`, whose `showValue` sits beside the track',
+			.. 'guaranteed to fit inside it; give it `controlSize = "large"` or a `diameter`, put your own '
+			.. '`UI.Text` beside the control, or use the default `presentation = "bar"`, whose `showValue` '
+			.. "sits beside the track",
 	},
 	spinner = {
 		indeterminate = true,
@@ -145,8 +150,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 	end
 	vocabulary.assertSize("UI.ProgressView", spec.controlSize)
 	assert(
-		spec.controlSize == nil or presentation ~= "bar",
-		"UI.ProgressView.controlSize sizes an indicator; a bar uses height and its offered width"
+		spec.controlSize == nil or spec.height == nil,
+		"UI.ProgressView: give height or controlSize, not both (a bar's rung IS its track thickness)"
 	)
 	assert(spec.controlSize == nil or spec.diameter == nil, "UI.ProgressView: give diameter or controlSize, not both")
 	assert(
@@ -200,12 +205,20 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 	if spec.height ~= nil and not caps.hasTrack then
 		error(
 			`Facet UI.ProgressView: \`height\` is the BAR's track thickness, and a "{presentation}" has no `
-				.. "track — it would silently become this shape's own size instead. Drop it (the size is the "
+				.. "track — it would silently become this shape's own size instead. Size the shape with "
+				.. `\`controlSize\`{if presentation == "circular" then " or `diameter`" else ""} (absent, it is the `
 				.. `theme metric \`{tostring(caps.sizeMetric)}\`), or use the default \`presentation = "bar"\`.`,
 			0
 		)
 	end
-	if not indeterminate and spec.showValue ~= nil and not caps.valueLabel and spec.diameter == nil then
+	local readoutRung = presentation == "circular" and spec.controlSize == READOUT_RUNG
+	if
+		not indeterminate
+		and spec.showValue ~= nil
+		and not caps.valueLabel
+		and spec.diameter == nil
+		and not readoutRung
+	then
 		error(
 			`Facet UI.ProgressView: \`showValue\` has nowhere to go on a "{presentation}" — `
 				.. `{tostring(caps.valueLabelAlt)}.`,
@@ -287,7 +300,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		else Compose.formula(function(use)
 			return model.fraction(read(use))
 		end)
-	local env = if spec.trail or (spec.showValue and spec.diameter) then surface_env.find(core) else nil
+	local env = if spec.trail or (spec.showValue and presentation == "circular") then surface_env.find(core) else nil
 	local trailValue = if spec.trail
 		then progress_trail.native(Facet.runtime, fraction, spec.trail, if env then env:get("motionPolicy") else nil)
 		else nil
@@ -384,7 +397,10 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			local facts = if env
 				then text_fit.facts({ env = env, use = use })
 				else text_fit.facts({ metrics = theme_snapshot.neutral() })
-			local diameter = theme_snapshot.resolveNumber(facts.metrics, circularSize)
+			local diameter = theme_snapshot.resolveNumber(
+				facts.metrics,
+				if readoutRung then CIRCULAR_SIZE_RUNG[READOUT_RUNG] else circularSize
+			)
 			assert(diameter and diameter > 0, "UI.ProgressView.diameter must resolve to positive pixels")
 			local role = facts.metrics.type.label
 			local size = role.size * facts.scale
@@ -446,6 +462,9 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		})
 	end
 
+	local barHeight = vocabulary.deriveSize("UI.ProgressView", spec.controlSize, function(rung)
+		return { type = "fixed", px = TRACK_HEIGHT_RUNG[rung] or TRACK_HEIGHT }
+	end) or { type = "fixed", px = spec.height or TRACK_HEIGHT }
 	local function buildBar(): any
 		-- Trailing copy may shrink, but must not spend the track's entire offer.
 		-- Reserve the theme's smallest spacing for each segment plus its gaps.
@@ -494,7 +513,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 				UI.ZStack({
 					id = "Bar",
 					width = width,
-					height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
+					height = barHeight,
 					children = {
 						UI.HStack({
 							id = "Segments",
@@ -551,7 +570,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			UI.ZStack({
 				id = "Bar",
 				width = width,
-				height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
+				height = barHeight,
 				children = barChildren,
 			}),
 			{ slot = "barTrack" }
@@ -590,7 +609,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		)
 	end
 
-	local layout = if presentation == "circular" and spec.diameter ~= nil then UI.VStack else UI.HStack
+	local layout = if presentation == "circular" and (spec.diameter ~= nil or readoutRung) then UI.VStack else UI.HStack
 	api.blueprint = layout({
 		id = id,
 		gap = "s",

@@ -305,6 +305,20 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 		return selection.read(value, use)
 	end
 	local liveIcon = readable(row.icon)
+	--[[ THE SUBMENU CARET draws the framework's ASCII-safe glyph itself and carries
+		the semantic icon NAME beside it, so an installed theme package paints its art
+		over the character and a package that ships none still reads. ]]
+	local function chevron(): any
+		return chrome_slots.attachHint(
+			UI.Text({
+				id = "Chevron",
+				tint = row.labelTint,
+				text = themePackage.iconGlyph("chevron.trailing") or ">",
+				textSize = "control",
+			}),
+			{ icon = "chevron.trailing" }
+		)
+	end
 	-- see `platedSelection`: the tag is the SHEET's selection paint, and a card row
 	-- has already painted its own
 	local buttonSelected = if row.platedSelection == true then nil else row.selected
@@ -328,6 +342,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 			and row.trailing == nil
 			and row.avatar == nil
 			and row.value == nil
+			and row.submenu ~= true
 		local hug = row.wrap or plain
 		-- the indicator slot, placed leading (a desktop menu) or trailing (a
 		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
@@ -537,6 +552,11 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				table.insert(content, row.trailing)
 			end
 		end
+		-- a submenu row says so after its label in every form (the menu's own rows
+		-- take this content form, so the leaf-only chevron below never reached them)
+		if row.submenu == true then
+			table.insert(content, chevron())
+		end
 		if row.badge ~= nil and not cornerBadge then
 			-- a text row's badge is an inline trailing pill (`badge.seal`)
 			table.insert(content, badgeLib.seal(UI, "Badge", row.badge))
@@ -585,12 +605,8 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 		}
 	end
 	--[[ THE SUBMENU ROW: a CONTENT button (B-BTN1). The visible label moves into a
-		child so the chevron can sit after it, and `label` stays the semantic name.
-		The caret draws the framework's ASCII-safe glyph itself and carries the
-		semantic icon NAME beside it, so an installed theme package paints its art
-		over the character and a package that ships none still reads (the semantic-icon rule —
-		`disclosure_group`'s caret makes the identical argument). ]]
-	local glyph = themePackage.iconGlyph("chevron.trailing") or ">"
+		child so the chevron (`chevron` above) can sit after it, and `label` stays the
+		semantic name. ]]
 	return {
 		id = row.id,
 		label = row.label,
@@ -615,10 +631,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				textSize = "control",
 				width = { type = "fill", weight = 1 },
 			}),
-			chrome_slots.attachHint(
-				UI.Text({ id = "Chevron", tint = row.labelTint, text = glyph, textSize = "control" }),
-				{ icon = "chevron.trailing" }
-			),
+			chevron(),
 		},
 	}
 end

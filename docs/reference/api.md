@@ -860,7 +860,10 @@ presented screen; fills the presenter-resolved content rect (safe-area aware).
 `UI.VStack{ id?, gap?, padding?, align?, distribute?, wrap?, width?, height?, offsetX?, offsetY?, surface?, children? }`
 — vertical / horizontal stacks. Children with `fill` dims share leftover
 main-axis space by weight; `align` = `start | center | end | stretch | firstTextBaseline | lastTextBaseline` on the
-cross axis. Stack children never overlap along the stack axis.
+cross axis. Stack children never overlap along the stack axis. A stack that hugs
+its main axis reserves what its `fill` children measured (weighted so each gets at
+least that), so a fill `Text` in a hugging row keeps its natural width and wraps
+at the offer rather than being arranged at zero and painting outside its box.
 
 **`wrap = true` lets the children run onto more than one line** — Roblox's
 `UIListLayout.Wraps`, and a stack that does not fit its main axis wraps instead of
@@ -8129,7 +8132,9 @@ in a row, since `hint` and `row` cannot be combined. `row` and `children` cannot
 be combined, and `row.value` is refused because the toggle supplies it.
 
 Bindable `controlSize` uses the shared xsmall/compact/regular/large ladder; nil restores
-the default. Bare switches retain native track padding. A row's internal indicator
+the default. A checkbox's box is then the rung's `iconSize` plus `xs` (fixed, its mark
+fitted inside), so it grows with the ladder and never outgrows a row of controls at the
+same rung. Bare switches retain native track padding. A row's internal indicator
 has no independent focus or command: the row owns activation and model approval.
 Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
 to `trackInset + trackWidth + trackInset`; an authored value overrides that default.
@@ -9639,8 +9644,12 @@ Bound `controlSize` names the indicator's local space-based ladder: spinner dots
 compact/regular/large use space.xs/s/m (4/8/16 at Neutral); circular indicators use
 space.m/l/xl (16/24/40). Absent or nil preserves the package's authored progress
 metrics. Explicit regular derives its rung from spacing and may differ from those authored metrics. Every rendered dimension checks the rung before publication and recovers
-on a legal value. Bars have no sized indicator and refuse controlSize; circular
-views accept either an explicit diameter or a rung. `dump.endLabel` and
+on a legal value. A bar's rung is its track thickness: xsmall/compact use space.xs
+(4 at Neutral), regular/large the theme's `controls.progress.trackHeight`; a bar takes
+`height` or `controlSize`, not both. Circular views accept either an explicit diameter
+or a rung, and `showValue` on a ring needs a `diameter` or `controlSize = "large"`
+(the readout centres in the ring when it fits, else stacks under it); smaller rungs
+refuse it. `dump.endLabel` and
 `dump.controlSize` describe the requested source values.
 
 The native host owns its Compose timeline, and the control's lifetime is the
@@ -9894,7 +9903,9 @@ untinted key image. Explicit keys print the supplied words on every device.
 | `env` | Optional surface environment; supply it when the app serves ambiguous surfaces. |
 
 Caps use the theme's icon-size ladder plus `space.xs`, with a strong tinted plate,
-authored control corner and hairline. They have no package decoration slot and
+authored control corner and an outline of `controls.shortcutHint.capStroke` (optional
+metric, default the hairline; 0 draws a soft filled cap). A chord's caps sit
+`controls.shortcutHint.capGap` apart (optional, default `space.xs`). They have no package decoration slot and
 reserve no interactive hit floor. Letters grow with the text preference; native
 key images retain the theme-sized square. The mounted Compose owner disposes
 the display formulas and borrows the action system and caller values. The hint
@@ -9953,7 +9964,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the application's environment. |
 | `requiredMark` | `"required"` or `"optional"`: notation only. Required appends ` *` to the label's own words; optional paints nothing (put localized wording in `hint`). `required` keeps its reselect-policy meaning. |
 | `hint` / `errorText` | Strings or readables on one message line under the picker, whatever style is on screen. A non-empty `errorText` replaces the hint in the danger role beside the `status.error` mark and borders the menu trigger in danger; the picker does not move. |
-| `controlSize` | `compact`, `regular` or `large`. The menu trigger, the segments of a static strip and radio or inline rows take the rung's height and inset; the trigger and a static strip sit inside a reserved whole target (`<id>+target`). A live strip reads a bound rung once for its rows. |
+| `controlSize` | `compact`, `regular` or `large`. The menu trigger, the segments of a static strip and radio or inline rows take the rung's height and inset; the trigger and a static strip sit inside a reserved whole target (`<id>+target`). A tracked segmented strip's segments give up the track's frame carve, so the track itself lands on the rung like a Button plate. A live strip reads a bound rung once for its rows. |
 | `indicatorPosition` | `radioGroup` only, construction-time `leading` (default) or `trailing`: which edge of each row carries the radio mark. Other styles refuse it. |
 | `appearance` | Menu styles: `standard` (default paint), `contrast` (the emphasis plate) or `utility`. Segmented: `filled`, `stroke` or `utility`. Automatic takes all five and maps them onto the family on screen (standard or filled, contrast or stroke, utility); while it resolves to rows the intent is kept and paints nothing. Absent keeps each family's default; `inline`, `radioGroup` and `cards` refuse it. Bound words repaint in place; a word outside the family is refused and the last legal paint stays. |
 | `corners` | Construction-time `pill` or `square` for the menu trigger or a static segmented strip's outer ends, track and selected fill (`pill` is the reference `isCircular`). |
@@ -10424,7 +10435,7 @@ once, so reduced motion changes nothing.
 | `thumbContent(info)` | Called once per thumb at build; returns the knob node. `info = { thumb = "value" \| "lower" \| "upper", value, fraction, dragging, enabled }`, the last four readables. The knob sits in a handle floored at the theme's thumb size that grows to fit it; it drops only its own `sliderThumb` slot, and travel is measured from what is drawn. Refused with `thumbImage`. |
 | `trackContent()` | Called once at build; returns the track's node (a colour ramp), centred in the track and replacing the rail and its accent fill — the strip is the value's scale. Refused with `trackImage`. |
 | `rotation` | Bound degrees, default 0: paint-only about the track's centre. Presses are converted by the inverse angle at event time (scroll included); label and readout stay upright and the row keeps its unrotated layout box, so reserve room for the turned paint. Ancestor `scale` is not composed into input. |
-| `controlSize` | `"xsmall"`, `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
+| `controlSize` | `"xsmall"`, `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target, and the thumb drawn at the rung's `iconSize` (regular = Neutral's thumb); a vertical track keeps its full travel. |
 
 A range's two handles share one focus group: Tab visits both and then leaves,
 and keyboard arrows adjust the focused handle. On a gamepad-primary surface the
@@ -10434,7 +10445,10 @@ approaches from, before quantization (at the minimum the upper moves, at the
 maximum the lower); a gesture keeps its thumb and commits once, and losing the
 pointer and touch classes mid-drag restores the whole starting value. The range
 handles use capture-based dragging; the native detector serves the track. The
-label shrinks (its full text disclosed) before the track or readout does.
+label shrinks (its full text disclosed) before the track or readout does. The
+track's value axis is floored at `targetSizes.minimum`, so a slider in a hugging
+cell (a vertical one above all) keeps a draggable track instead of collapsing to
+its thumb.
 
 **There is no separate Knob control.** A handle's size, shadow, stroke, disabled
 look and icon come from the theme's `sliderThumb` slot (or `thumbImage`); an
@@ -13928,8 +13942,8 @@ Every plated Badge owns a surface-less tinted Box; package badge-slot art remain
 available to existing `Text.surface = "badge"` sites. Absent, static and bound
 neutral all use control/content. Non-neutral statuses use StatusIndicator's pair;
 utility uses secondary lettering. The caption can shrink and requests disclosure.
-The status appearance gives its nested mark a page-color cutout so the mark
-remains distinct from the enclosing plate even when both use the same status role.
+The status appearance paints its nested mark in the plate's lettering role (no
+cutout ring), so the mark reads on the plate whatever surface the badge sits on.
 One semantic Text host supplies the ASCII fallback and optional managed art. Its
 width has an iconSizes.small floor and can grow for multi-character glyphs; its
 height hugs the caption line. Art is a square bounded by that line and small icon
