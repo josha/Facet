@@ -54,7 +54,6 @@ local KEYS = {
 }
 local MODE_LABEL: { [string]: string } =
 	{ swatches = "Swatches", spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" }
-local DEFAULT_MODES: { Types.Mode } = { "swatches", "spectrum", "sliders" }
 local FORMATS = { { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" }, { value = "hex", label = "Hex" } }
 local CELL, GAP, PAD, SPACE, MARGIN = 44, 4, 12, 8, 8
 local MAX_COLUMNS = 8
@@ -269,7 +268,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		end
 		local modes: { string } = {}
 		do
-			local listed: unknown = spec.modes or DEFAULT_MODES
+			local listed: unknown = spec.modes
+				or if ctx.types.BrickColor
+					then { "swatches", "spectrum", "sliders", "brick" }
+					else { "swatches", "spectrum", "sliders" }
 			if Compose.isReadable(listed) or type(listed) ~= "table" or #(listed :: { unknown }) == 0 then
 				refuse(
 					'`modes` is a non-empty list of "swatches" | "spectrum" | "sliders" | "brick", fixed at construction.'

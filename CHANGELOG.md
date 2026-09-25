@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.ColorPicker` shows the Bricks technique by default when the controls' `types` has `BrickColor` (the default on Roblox). Before, the default was Swatches, Spectrum and Sliders, so the engine BrickColor palette was hidden unless `modes` listed `"brick"`. A well now names a colour that is a BrickColor by its brick name.
 - `UI.ColorPicker` swatch, brick and save cells are 44 by 44 squares with the theme's `radii.control` corner. Before, the button padding narrowed each swatch to a 20 pixel wide pill.
 - CollapsibleView expands in place again, as before 0.12. It is not a modal: there is no scrim, no presented layer and no outside catcher. The plate grows over the trigger, and the content fades in, in 0.25 seconds (reduced motion: at once). The collapsed summary is one line that truncates at the end, with a `chevron.down` affordance. The trigger, a tap on the plate, the Close button and Cancel (Escape, ButtonB) collapse it. The Table row More action is now a Popover.
 - Pixel Quest paints a selected segment, Chip, list or menu row and Toggle button as its wood plate turned over (pressed in) and tinted green, with a cream label. A chrome art state can now be `{ asset, rotation, tint }`, and a skin falls back to its `selected` art for a selected control in a state without its own art. Before, a selected Pixel segment was a flat green rounded rect.

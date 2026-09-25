@@ -828,7 +828,10 @@ UI.ColorPicker "KartPaint" {
 - `alpha` and `onAlphaChange(alpha)`: an opacity from 0 to 1. They add the
   `Opacity` slider, and the text becomes `#RRGGBBAA`.
 - `modes`: the techniques in tab order. Each is `swatches`, `spectrum`,
-  `sliders` or `brick`. The default is the first three. Set it at construction.
+  `sliders` or `brick`. The default is all four. Without `BrickColor` in the
+  controls' `types`, the default is the first three. Set it at construction.
+  With `brick`, a colour that is a BrickColor is named by that brick, for
+  example "Kart paint, Really red".
 - `swatches`: a list of Color3 values or `{ color, label? }` items, or a
   readable of one. The label or the hex text is the key of an item. Without
   it, the control shows a generated grid of 48 colours.
