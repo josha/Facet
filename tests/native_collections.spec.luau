@@ -1704,3 +1704,39 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 end)
+
+t.describe("Table compact width", function()
+	t.it("keeps every column in a narrow table and paints the header band across the whole width", function()
+		local engine, runtime, UI, target = setup()
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = { { id = 1, name = "Neon Straightaway", artist = "Chrome Coyote", rating = 4 } },
+				key = key,
+				reorderable = true,
+				onReorder = function() end,
+				columns = {
+					{ id = "name", label = "Name", minWidth = 90 },
+					{ id = "artist", label = "Artist", minWidth = 72 },
+					{ id = "rating", label = "Rating", width = 144, resizable = false },
+				},
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		local row = body:FindFirstChild("1", true)
+		for _, id in { "name", "artist", "rating" } do
+			t.expect(row:FindFirstChild(id, true).Visible).toBe(true)
+			t.expect(node:FindFirstChild("Header"):FindFirstChild(id).Visible).toBe(true)
+		end
+		local band = node:FindFirstChild("HeaderBand")
+		t.expect(band.Position.X.Offset).toBe(0)
+		t.expect(band.Size).toBe(engine.types.UDim2.new(1, 0, 0, node:FindFirstChild("Header").Size.Y.Offset))
+		t.expect(band:HasTag("facet-tablehead")).toBe(true)
+		row:FindFirstChild("Value", true).TextFits = false
+		local more = row:FindFirstChild("Details", true)
+		t.expect(more:FindFirstChild("Title", true) == nil or not more:FindFirstChild("Title", true).Visible).toBe(true)
+		t.expect(more:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+end)

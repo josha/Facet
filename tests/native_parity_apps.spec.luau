@@ -3316,7 +3316,7 @@ t.describe("native parity reference applications", function()
 						columns = {
 							{ id = "first", width = 120 },
 							{ id = "second", width = 140 },
-							{ id = "third", width = 160 },
+							{ id = "third", width = 160, priority = 3 },
 						},
 					})
 					local gutter = if reorderable then 56 else 0
@@ -4543,7 +4543,7 @@ t.describe("native parity reference applications", function()
 					onReorder = function() end,
 					columns = {
 						{ id = "a", width = 100 },
-						{ id = "b", width = 120 },
+						{ id = "b", width = 120, priority = 2 },
 					},
 				})
 			end)
@@ -4615,8 +4615,8 @@ t.describe("native parity reference applications", function()
 					itemSize = 40,
 					columns = {
 						{ id = "a", width = 100 },
-						{ id = "b", width = 100 },
-						{ id = "c", width = 100 },
+						{ id = "b", width = 100, priority = 2 },
+						{ id = "c", width = 100, priority = 3 },
 					},
 				})
 			end)

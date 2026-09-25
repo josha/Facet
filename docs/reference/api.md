@@ -2444,10 +2444,13 @@ VirtualList. A column has:
 - `resizable` and `sortable` (both true),
 - `value(item)` or `render(current, placement, key)`.
 
-A numeric `priority` collapses larger values first. `"always"` prevents
-collapse. The first column always stays visible. A Popover shows
-collapsed and natively truncated values through the More action of the row.
-The cell state stays retained.
+A column collapses only when it has a numeric `priority`. Larger values
+collapse first. The first column always stays visible. The other columns
+keep their `minWidth` and truncate their text, so a narrow table scrolls
+sideways and never loses a column. A Popover shows collapsed and natively
+truncated values through the icon-only More button of the row. The cell
+state stays retained. The header band spans the whole width of the table,
+over the reorder and edit gutters.
 
 Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
 `"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu

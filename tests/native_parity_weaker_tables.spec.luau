@@ -1114,8 +1114,8 @@ t.describe("native parity weaker tables", function()
 				widths = widths,
 				columns = {
 					{ id = "a", label = "A" },
-					{ id = "b", label = "B" },
-					{ id = "c", label = "C" },
+					{ id = "b", label = "B", priority = 2 },
+					{ id = "c", label = "C", priority = 3 },
 				},
 			})
 		end)

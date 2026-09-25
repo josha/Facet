@@ -502,7 +502,7 @@ t.describe("Table row paint", function()
 			end
 			return found
 		end
-		local header = find(find(w.screen, "Striped"), "Header")
+		local header = find(find(w.screen, "Striped"), "HeaderBand")
 		expect(header:HasTag("facet-tablehead")).toBe(true)
 		expect(header.BackgroundTransparency).toBe(0)
 		local striped = rowsOf("Striped")

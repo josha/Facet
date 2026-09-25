@@ -694,7 +694,7 @@ t.describe("native parity classb collections", function()
 			local world, body = tableWorld({
 				columns = {
 					{ id = "name", label = "Name", minWidth = 200 },
-					{ id = "laps", label = "Laps", width = 120, minWidth = 120 },
+					{ id = "laps", label = "Laps", width = 120, minWidth = 120, priority = 2 },
 				},
 			})
 			local header = find(world.node, "Header")

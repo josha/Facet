@@ -273,8 +273,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			for index, column in columns do
 				local width = resized[column.id] or column.width or column.minWidth or 48
 				needed += width
-				if index > 1 and column.priority ~= "always" then
-					table.insert(candidates, { id = column.id, width = width, priority = column.priority or index })
+				if index > 1 and type(column.priority) == "number" then
+					table.insert(candidates, { id = column.id, width = width, priority = column.priority })
 				end
 			end
 			table.sort(candidates, function(a, b)
@@ -466,6 +466,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return frame
 			end,
 		})
+		local reorderGutter = if spec.reorderable then 56 else 0
 		local headerLayout = lists.list({}, false)
 		local headerProps: Types.FrameProps = {
 			Name = "Header",
@@ -476,9 +477,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			headerLayout :: ComposeTypes.Child,
 			headerCells,
 		}
-		local header = ctx.styled(Host.Frame(headerProps), "TableHead")
+		local header = Host.Frame(headerProps)
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
-		local reorderGutter = if spec.reorderable then 56 else 0
 		local wrapReorder: ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame)?
 		local overlayReorder: ((boolean?) -> Frame)?
 		if spec.reorderable then
@@ -650,7 +650,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 								open:set(value)
 							end,
 							trigger = UI.Button "Details" {
-								label = "More",
+								icon = "more",
+								name = "More",
 								Size = D2.new(0, 48, 1, 0),
 								Position = D2.new(1, -48, 0, 0),
 								AutomaticSize = E.AutomaticSize.None,
@@ -788,7 +789,20 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end,
 				BackgroundTransparency = 1,
 				ClipsDescendants = spec.scrolls ~= false,
-				header :: ComposeTypes.Child,
+				ctx.styled(
+					Host.Frame({
+						Name = "HeaderBand",
+						Visible = spec.header ~= false,
+						Position = function(use: ComposeTypes.Use)
+							return D2.fromOffset(0, use(toolbarHeight))
+						end,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(1, 0, 0, use(headerHeight))
+						end,
+					}),
+					"TableHead"
+				) :: ComposeTypes.Child,
+				header,
 				Compose.show(function()
 					return editable
 				end, function()
