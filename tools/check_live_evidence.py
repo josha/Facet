@@ -428,7 +428,9 @@ class Checker:
         refs = record.get("resolvedBy")
         refs = [refs] if isinstance(refs, str) else refs
         floor = None
-        if not isinstance(refs, list) or not refs:
+        if refs is None:
+            refs = []
+        elif not isinstance(refs, list) or not refs:
             self.fail("schema", where, "'resolvedBy' must be a commit reference or a non-empty list of them")
             refs = []
         for ref in refs:
@@ -578,16 +580,22 @@ def first_resolved(data):
 
 
 def haptic_to_studio(data, _gap):
-    risk = next(risk for risk in data["pendingLiveRisks"] if "physical" in risk)
-    data["pendingLiveRisks"].remove(risk)
+    risk = next((risk for risk in data["pendingLiveRisks"] if "physical" in risk), None)
+    if risk is None:
+        risk = "Haptic motor output on a physical gamepad (planted by the selftest)"
+    else:
+        data["pendingLiveRisks"].remove(risk)
     record = copy.deepcopy(first_resolved(data))
     record["risk"] = risk
     data["resolvedLiveRisks"].append(record)
 
 
 def haptic_to_phone_only(data, _gap):
-    risk = next(risk for risk in data["pendingLiveRisks"] if "physical" in risk)
-    data["pendingLiveRisks"].remove(risk)
+    risk = next((risk for risk in data["pendingLiveRisks"] if "physical" in risk), None)
+    if risk is None:
+        risk = "Haptic motor output on a physical gamepad (planted by the selftest)"
+    else:
+        data["pendingLiveRisks"].remove(risk)
     record = copy.deepcopy(first_resolved(data))
     record["risk"] = risk
     record["evidence"]["host"] = "Physical phone device: Pixel 8, Roblox app"
@@ -662,6 +670,11 @@ def selftest():
     git_state = Git()
     today = datetime.date.today()
     head_sha = git("rev-parse", "HEAD").stdout.strip()
+    head_subject = git("log", "-1", "--format=%s", "HEAD").stdout.strip()
+
+    def early_fix(data, gap):
+        resolved_by(f"{head_sha[:8]} {head_subject}")(data, gap)
+        set_evidence("date", "2000-01-01")(data, gap)
     tomorrow = (today + datetime.timedelta(days=1)).isoformat()
     good_entry = {"artifact": GAP_CLOSURE, "stamp": "abc123", "observed": "Selection moved into the shown panel."}
     plants = [
@@ -677,7 +690,7 @@ def selftest():
         ("a baselineCommit that is not a commit", lambda data, _gap: data.update(baselineCommit="0" * 40), "commit"),
         ("resolved evidence dated tomorrow", set_evidence("date", tomorrow), "date"),
         ("resolved evidence with a non-ISO date", set_evidence("date", "23 September 2026"), "date"),
-        ("resolved evidence dated before its fix landed", set_evidence("date", "2026-01-01"), "date"),
+        ("resolved evidence dated before its fix landed", early_fix, "date"),
         ("a host that is neither Studio nor a device", set_evidence("host", "my laptop, 1280x720"), "host"),
         ("a physical host with no device class", set_evidence("host", "a physical device in the lab"), "host"),
         ("resolvedBy naming a commit that does not exist", resolved_by("deadbeef1 Fix something"), "commit"),

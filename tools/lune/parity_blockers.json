@@ -228,7 +228,6 @@
   "resolvedLiveRisks": [
     {
       "risk": "Actual native PreferredTransparency hot-swap",
-      "resolvedBy": "f1cc5e2c Honor the player's Background transparency preference",
       "evidence": {
         "date": "2026-09-23",
         "host": "Roblox Studio playtest, HD 720 (1280x720), studio sync stamp 9f7f1afa61f0",
@@ -243,11 +242,6 @@
     },
     {
       "risk": "Retained A→B→A transient/haptic/motion visibility and lifetime",
-      "resolvedBy": [
-        "abe7b0e2 Hand TabView selection to the new panel once it is visible",
-        "7337cbb8 Keep a coach mark queued while its tab is away",
-        "f1d9ca94 Pause repeating progress motion while it is off screen"
-      ],
       "evidence": {
         "date": "2026-09-23",
         "host": "Roblox Studio playtest, HD 720 (1280x720), studio sync stamps ba79a813, 55cb7f23, 789ba133",
@@ -265,9 +259,6 @@
     },
     {
       "risk": "Collection toolbar under phone/largest-text and compact landscape",
-      "resolvedBy": [
-        "7e89af75 Add a live Studio assertion harness and fix geometry found by it"
-      ],
       "evidence": {
         "date": "2026-09-24",
         "hosts": [
@@ -284,9 +275,6 @@
     },
     {
       "risk": "Shell measured reservation and Settings reachability under themes/largest text",
-      "resolvedBy": [
-        "47cf9657 Measure the gallery shell toolbar and align table headers with the edit gutter"
-      ],
       "evidence": {
         "date": "2026-09-24",
         "hosts": [
@@ -304,9 +292,6 @@
     },
     {
       "risk": "Haptic effect requests for Button press, completed click, selection and custom pulses",
-      "resolvedBy": [
-        "47cf9657 Measure the gallery shell toolbar and align table headers with the edit gutter"
-      ],
       "evidence": {
         "date": "2026-09-24",
         "hosts": [
@@ -323,10 +308,6 @@
     },
     {
       "risk": "Gamepad and Tab navigation parity with the main focus graph on every gallery and Virtual Monitors screen",
-      "resolvedBy": [
-        "3dcafedf Restore gamepad entry, Tab traversal and nearest-survivor selection on native GuiService",
-        "1348a39f Pass empty scroll containers, open submenus and scroll dialog bodies with the D-pad, and let the avatar settings panel release Up"
-      ],
       "evidence": {
         "date": "2026-09-24",
         "host": "Roblox Studio playtest, Xbox One emulated device 1920x1080, Controller Emulator (keyboard keys 2, 3, 4, 9, 0, 8, R, O, Q; stick W for Up)",
@@ -343,7 +324,6 @@
     },
     {
       "risk": "Haptic motor output on a physical phone for Button, selection and custom pulses",
-      "resolvedBy": "96a3b736 Sweep every control with real clicks and headless presses; fix the zero-size tilt stage and the table move; record phone haptics",
       "evidence": {
         "date": "2026-09-24",
         "host": "Physical phone: the maintainer played the published Facet Showcase place",
