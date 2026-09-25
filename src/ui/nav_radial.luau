@@ -680,6 +680,16 @@ return function(
 										local amount = 0.3 * (1 - use(arrival))
 										return (origin.x - live.x) * amount, (origin.y - live.y) * amount
 									end
+									local function chosen(use: ComposeTypes.Use): boolean
+										local live = currentSector(use)
+										return use(candidate) == live.key
+											or use(focus.current) == live.key
+											or read(live.item.checked, use) == true
+											or (
+												live.item.selected ~= nil
+												and read(live.item.selected, use) == live.item.value
+											)
+									end
 									local button = UI.Button({
 										Name = sector.id,
 										corners = if appearance == "buttons" then "pill" :: "pill" else nil,
@@ -746,16 +756,7 @@ return function(
 										enabled = function(use: ComposeTypes.Use)
 											return read(currentSector(use).item.enabled, use) ~= false
 										end,
-										selected = function(use: ComposeTypes.Use)
-											local live = currentSector(use)
-											return use(candidate) == live.key
-												or use(focus.current) == live.key
-												or read(live.item.checked, use) == true
-												or (
-													live.item.selected ~= nil
-													and read(live.item.selected, use) == live.item.value
-												)
-										end,
+										selected = chosen,
 										onActivate = function(input: InputObject?)
 											nativeActivate(currentSector(), input)
 										end,
@@ -780,7 +781,7 @@ return function(
 									}
 									ctx.styled(paint, "radial-sector")
 									Compose.watch(function(use: ComposeTypes.Use)
-										if use(candidate) == currentSector(use).key then
+										if chosen(use) then
 											paint:AddTag("facet-radial-candidate")
 										else
 											paint:RemoveTag("facet-radial-candidate")

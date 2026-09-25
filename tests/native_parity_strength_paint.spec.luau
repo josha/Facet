@@ -762,6 +762,43 @@ t.describe("native paint strength: button content", function()
 			end)
 		end).toThrow()
 	end)
+
+	t.it("paints each wedge and its label as one readable pair in every shipped package and palette", function()
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			for _, palette in package.style.themes do
+				local h = harness({ reducedMotion = true })
+				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+				local root, stop = mount(h, function()
+					return h.UI.RadialMenu({
+						isPresented = Compose.cell(true),
+						items = {
+							{ id = "alpha", label = "Alpha", onSelect = function() end },
+							{ id = "beta", label = "Beta", onSelect = function() end },
+						},
+					})
+				end)
+				local states = {}
+				for _, id in { "alpha", "beta" } do
+					local button = find(root.Parent, id)
+					local fill = resolve(sheet, find(button.Parent, "Sector"), "Color3")
+					local ink = resolve(sheet, button, "TextColor3")
+					local where = `{package.identity.id}/{palette.name}/{id}`
+					assert(fill ~= nil and ink ~= nil, where .. " wedge or label has no theme paint")
+					local ratio = contrast({ r = fill.R, g = fill.G, b = fill.B }, { r = ink.R, g = ink.G, b = ink.B })
+					assert(ratio >= 4.5, `{where} label contrast {ratio}`)
+					states[button:HasTag("facet-selected")] = true
+				end
+				t.expect(states[true] and states[false]).toBe(true)
+				stop()
+				stopSheet()
+				h.dispose()
+			end
+		end
+	end)
 end)
 
 t.describe("native paint strength: skins", function()

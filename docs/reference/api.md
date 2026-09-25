@@ -1761,6 +1761,10 @@ theme scrim dims the page behind it and blocks its input. A still tap outside
 the ring closes the menu. A press outside the ring that slides onto a wedge
 still selects it. With `centerPassThrough`, the page is not dimmed.
 
+A wedge takes the theme panel paint (`surfaceStrong`) and its label the
+content paint. A hovered, focused, checked or selected wedge takes the selected
+paint (`controlSelected`), the same state its label shows.
+
 ## Presented controls
 
 ### Alert
