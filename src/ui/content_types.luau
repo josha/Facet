@@ -82,6 +82,7 @@ export type CardSpec = Types.FrameProps & {
 	browseTarget: (() -> GuiObject?)?,
 	enabled: Value<boolean>?,
 	controls: CardControls?,
+	ringTarget: ("card" | "media")?,
 }
 export type BadgeValue = string | number | boolean
 export type Badged = (GuiObject, Value<BadgeValue?>, ("ltr" | "rtl")?) -> Frame

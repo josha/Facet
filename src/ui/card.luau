@@ -58,6 +58,10 @@ return function(
 			spec.imageFraming == nil or spec.imageFraming == "fit" or spec.imageFraming == "crop",
 			"Facet UI.Card: imageFraming must be fit or crop"
 		)
+		assert(
+			spec.ringTarget == nil or spec.ringTarget == "card" or spec.ringTarget == "media",
+			"Facet UI.Card: ringTarget must be card or media"
+		)
 		local reveal = spec.reveal or "automatic"
 		assert(reveal == "automatic" or reveal == "always", "Facet UI.Card: reveal must be automatic or always")
 		assert(
@@ -457,6 +461,7 @@ return function(
 			"browseTarget",
 			"enabled",
 			"controls",
+			"ringTarget",
 		}, {
 			Name = "Card",
 			BackgroundTransparency = 1,
@@ -494,6 +499,25 @@ return function(
 		}))
 		root = card
 		local extent = ctx.observe.AbsoluteSize(card)
+		if spec.onActivate then
+			local bodyExtent = ctx.observe.AbsoluteSize(body)
+			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
+			local ring = ctx.styled(
+				Host.Frame "CardRing" {
+					BackgroundTransparency = 1,
+					Visible = false,
+					Size = function(use: ComposeTypes.Use): UDim2
+						local bodyHeight = use(bodyExtent).Y
+						return D2.fromScale(1, if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1)
+					end,
+					Host.UICorner {},
+					Host.UIStroke { ApplyStrokeMode = E.ApplyStrokeMode.Border, Thickness = 2 },
+				},
+				"card-ring"
+			)
+			ring.Parent = card
+			body.SelectionImageObject = ring
+		end
 		if (spec :: { [unknown]: unknown }).Position == nil then
 			runtime.decorate(card, {
 				Position = function(use: ComposeTypes.Use): UDim2

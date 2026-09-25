@@ -2077,7 +2077,14 @@ engagement. It requires `title` and `image` (nonempty strings or readables).
 `imageAspectRatio` (default `16/9`),
 `imageFraming` (`fit` or `crop`), `onActivate`, `primaryAction = { label,
 icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
-(`automatic` or `always`), `browseTarget`, `enabled` and `controls`.
+(`automatic` or `always`), `browseTarget`, `enabled`, `ringTarget` and
+`controls`.
+
+With `onActivate`, the selection ring of the body surrounds the whole card: the
+artwork, the text and the action row. `ringTarget = "media"` rings only the
+artwork. The ring is the native `SelectionImageObject` of the body, a Frame
+with the `facet-card-ring` tag that the theme paints in `accent`. A selected
+action keeps its own ring.
 
 Use a Card for a game, a track or a kart, where the picture helps the player
 choose. For rows of text, use VirtualList or Table.

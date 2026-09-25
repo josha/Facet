@@ -2,7 +2,8 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engines = require("./lib/native_engine")
-local Vector2 = require("@lune/roblox").Vector2
+local Roblox = require("@lune/roblox")
+local Vector2, UDim2 = Roblox.Vector2, Roblox.UDim2
 local Compose = Facet.Compose
 local themes = Facet.themes
 local expect = t.expect
@@ -214,5 +215,44 @@ t.describe("Alert suppression", function()
 		expect(toggle.Parent).toBe(actions.Parent)
 		expect(toggle.LayoutOrder > actions.LayoutOrder).toBe(true)
 		w.stop()
+	end)
+end)
+
+t.describe("Card ring", function()
+	t.it("the body's selection image rings the whole card; ringTarget media rings the artwork", function()
+		for _, target in { "card", "media" } do
+			local w = world(function(UI)
+				return UI.Card "C" {
+					image = "rbxassetid://1",
+					title = "Track",
+					onActivate = function() end,
+					primaryAction = { label = "Play", onActivate = function() end },
+					ringTarget = if target == "media" then "media" else nil,
+					Size = UDim2.fromOffset(160, 0),
+				}
+			end)
+			w.step(5)
+			local body = find(w.screen, "Body")
+			local ring = body.SelectionImageObject
+			expect(ring ~= nil and ring.Name == "CardRing").toBe(true)
+			expect(ring:HasTag("facet-card-ring")).toBe(true)
+			find(w.screen, "C").AbsoluteSize = Vector2.new(160, 200)
+			body.AbsoluteSize = Vector2.new(160, 150)
+			find(w.screen, "Artwork").AbsoluteSize = Vector2.new(160, 90)
+			w.step()
+			expect(ring.Size.X.Scale).toBe(1)
+			if target == "card" then
+				expect(math.abs(ring.Size.Y.Scale - 200 / 150) < 1e-5).toBe(true)
+			else
+				expect(math.abs(ring.Size.Y.Scale - 90 / 150) < 1e-5).toBe(true)
+			end
+			w.stop()
+		end
+		expect(function()
+			local w = world(function(UI)
+				return UI.Card { image = "rbxassetid://1", title = "T", ringTarget = "shadow" }
+			end)
+			w.stop()
+		end).toThrow()
 	end)
 end)
