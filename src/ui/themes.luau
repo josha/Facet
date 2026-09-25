@@ -722,11 +722,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
 		local horizontal = if role == "button" then 12 elseif role == "badge" then 8 else 0
 		local vertical = if role == "badge" then 3 else 0
+		local function side(face: number, carve: number?): UDim
+			return types.UDim.new(0, if role == "badge" then math.max(face, carve or 0) else face + (carve or 0))
+		end
 		rule(".facet-" .. role .. "::UIPadding", {
-			PaddingLeft = types.UDim.new(0, math.max(horizontal, inset.left or 0)),
-			PaddingRight = types.UDim.new(0, math.max(horizontal, inset.right or 0)),
-			PaddingTop = types.UDim.new(0, math.max(vertical, inset.top or 0)),
-			PaddingBottom = types.UDim.new(0, math.max(vertical, inset.bottom or 0)),
+			PaddingLeft = side(horizontal, inset.left),
+			PaddingRight = side(horizontal, inset.right),
+			PaddingTop = side(vertical, inset.top),
+			PaddingBottom = side(vertical, inset.bottom),
 		})
 	end
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
@@ -738,8 +741,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-" .. pair[1], { BackgroundColor3 = c(pair[2]), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
 	rule(".facet-tablevalue::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
 	})
 	local function rungMetric(rung: string, field: string): number
 		local authored = (package.metrics.controlSizes or {})[rung]
@@ -755,26 +758,23 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	for _, rung in { "xsmall", "compact", "regular", "large" } do
 		local paddingX = rungMetric(rung, "paddingX")
 		rule(".facet-button.facet-size-" .. rung .. "::UIPadding", {
-			PaddingLeft = types.UDim.new(0, math.max(paddingX, buttonInsets.left or 0)),
-			PaddingRight = types.UDim.new(0, math.max(paddingX, buttonInsets.right or 0)),
+			PaddingLeft = types.UDim.new(0, paddingX + (buttonInsets.left or 0)),
+			PaddingRight = types.UDim.new(0, paddingX + (buttonInsets.right or 0)),
 		})
 	end
-	rule(
-		".facet-disclosure::UIPadding",
-		{ PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0) + 20) }
-	)
+	rule(".facet-disclosure::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
 	rule(".facet-button-described::UIPadding", {
-		PaddingTop = types.UDim.new(0, math.max(10, buttonInsets.top or 0)),
-		PaddingBottom = types.UDim.new(0, math.max(10, buttonInsets.bottom or 0)),
+		PaddingTop = types.UDim.new(0, 10 + (buttonInsets.top or 0)),
+		PaddingBottom = types.UDim.new(0, 10 + (buttonInsets.bottom or 0)),
 	})
 	rule(".facet-toggle-row::UIPadding", { PaddingLeft = types.UDim.new(0, 0), PaddingRight = types.UDim.new(0, 0) })
 	rule(".facet-toggle-settings::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
 	})
 	rule(".facet-slider-settings::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
 	})
 	local space: { [string]: number } = package.metrics.space or neutral.metrics.space
 	local rowGap = space.xs or neutral.metrics.space.xs
@@ -783,14 +783,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local paddingX = rungMetric(step, "paddingX")
 		local paddingY = math.max(0, (rungMetric(step, "height") - rungMetric(step, "iconSize") - rowGap) // 2)
 		rule(".facet-list-row" .. (if rung == "" then "" else ".facet-size-" .. rung) .. "::UIPadding", {
-			PaddingLeft = types.UDim.new(0, math.max(paddingX, buttonInsets.left or 0)),
-			PaddingRight = types.UDim.new(0, math.max(paddingX, buttonInsets.right or 0)),
+			PaddingLeft = types.UDim.new(0, paddingX + (buttonInsets.left or 0)),
+			PaddingRight = types.UDim.new(0, paddingX + (buttonInsets.right or 0)),
 			PaddingTop = types.UDim.new(0, math.max(paddingY, buttonInsets.top or 0)),
 			PaddingBottom = types.UDim.new(0, math.max(paddingY, buttonInsets.bottom or 0)),
 		})
 	end
 	rule(".facet-menu-dense::UIPadding", { PaddingTop = types.UDim.new(0, 0), PaddingBottom = types.UDim.new(0, 0) })
-	rule(".facet-busy::UIPadding", { PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0) + 20) })
+	rule(".facet-busy::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
 	rule(".facet-shape-circle::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),
 		PaddingRight = types.UDim.new(0, 0),
@@ -801,11 +801,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingLeft = types.UDim.new(0, 0),
 		PaddingRight = types.UDim.new(0, 0),
 		PaddingTop = types.UDim.new(0, 0),
-		PaddingBottom = types.UDim.new(0, math.max(10, buttonInsets.bottom or 0)),
+		PaddingBottom = types.UDim.new(0, 10 + (buttonInsets.bottom or 0)),
 	})
 	rule(".facet-button-media-body::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
 	})
 	rule(".facet-button-captioned", { TextTransparency = 1 })
 	rule(".facet-badge-captioned", { TextTransparency = 1 })

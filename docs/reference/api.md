@@ -648,8 +648,11 @@ Presentation options:
   player can still tap it. On a mouse-only device an `xsmall` button stays a
   28 pixel target. Use `xsmall` for dense pointer rows. A named step adds the `facet-size-<step>` tag. The theme
   StyleSheet then sets the left and right padding to
-  `controlSizes.<step>.paddingX`, or to the larger chrome inset. Without
-  `controlSize`, the button has no size tag and keeps the padding of 12.
+  `controlSizes.<step>.paddingX`. Without `controlSize`, the button has no
+  size tag and keeps the padding of 12. On skinned `control` art, the art's
+  carve (`chrome.control.contentInsets`) is added to that padding on each
+  side, so the label and a Menu or Picker disclosure icon sit inside the
+  frame. A framed TextInput adds the `field` carve the same way.
 - `textSize`: a type role (`caption`, `label`, `body`, `heading`, `title`,
   `control`, `strong` or `numeral`) or a number of pixels, or a readable of
   one. A role adds the `facet-type-<role>` tag to the label, and a number sets

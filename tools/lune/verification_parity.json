@@ -30936,7 +30936,7 @@
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
       "candidateCases": [
-        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+        "native_parity_weaker_paint::native parity weaker paint::pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included"
       ]
     },
     {
@@ -32933,7 +32933,7 @@
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
       "candidateCases": [
-        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+        "native_parity_weaker_paint::native parity weaker paint::pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included"
       ]
     },
     {
@@ -35536,7 +35536,7 @@
       "class": "a",
       "candidateCases": [
         "native_inputs::native input controls::isolates artwork and mirrored captions from native automatic sizing while following real padding",
-        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+        "native_parity_weaker_paint::native parity weaker paint::pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included"
       ],
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Medium text, and a second session at the Largest text size; a fixed stage size is the screen through a viewport cell and overlayParent",

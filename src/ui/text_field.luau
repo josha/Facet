@@ -87,6 +87,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local chrome = fieldChrome(ctx)
+	local function carved(face: number, side: "left" | "right" | "top" | "bottom"): (ComposeTypes.Use?) -> UDim
+		return function(use: ComposeTypes.Use?): UDim
+			local package = read(ctx.config.theme, use)
+			local recipe = package and package.chrome and package.chrome.field
+			local insets = (recipe and recipe.contentInsets or {}) :: { [string]: number? }
+			return D.new(0, face + (insets[side] or 0))
+		end
+	end
 	local function dynamic(source: unknown): boolean
 		return Compose.isReadable(source) or type(source) == "function"
 	end
@@ -743,7 +751,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 0,
-				ctx.padding(10, 4) :: ComposeTypes.Child,
+				Host.UIPadding({
+					PaddingLeft = carved(10, "left"),
+					PaddingRight = carved(10, "right"),
+					PaddingTop = carved(4, "top"),
+					PaddingBottom = carved(4, "bottom"),
+				}) :: ComposeTypes.Child,
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center

@@ -807,7 +807,7 @@ t.describe("native parity weaker paint", function()
 			stop()
 		end
 	end)
-	t.it("pads every role by the larger of its floor and the package's chrome insets, zero insets included", function()
+	t.it("pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included", function()
 		local cases = packages()
 		local bare = themes.neutralPackage()
 		bare.chrome = bare.chrome or {}
@@ -827,13 +827,18 @@ t.describe("native parity weaker paint", function()
 				local recipe = (entry.package.chrome or {})[floors.slot]
 				local inset = if recipe then recipe.contentInsets or {} else {}
 				local padding = all[".facet-" .. role .. "::UIPadding"]
+				local function side(floor: number, carve: number?): number
+					return if role == "button" or role == "field"
+						then floor + (carve or 0)
+						else math.max(floor, carve or 0)
+				end
 				t.expect(
 					`{entry.label} {role} {padding.PaddingLeft.Offset},{padding.PaddingRight.Offset},{padding.PaddingTop.Offset},{padding.PaddingBottom.Offset}`
 				).toBe(
-					`{entry.label} {role} {math.max(floors.x, inset.left or 0)},{math.max(floors.x, inset.right or 0)},{math.max(
+					`{entry.label} {role} {side(floors.x, inset.left)},{side(floors.x, inset.right)},{side(
 						floors.y,
-						inset.top or 0
-					)},{math.max(floors.y, inset.bottom or 0)}`
+						inset.top
+					)},{side(floors.y, inset.bottom)}`
 				)
 			end
 			stop()

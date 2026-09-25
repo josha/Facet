@@ -1615,12 +1615,12 @@ t.describe("native paint strength: theme sheets", function()
 			contentInsets = { left = 20, right = 14, top = 6, bottom = 9 },
 		}
 		package:set(inset)
-		t.expect(padding(".facet-button::UIPadding")).toEqual({ 20, 14, 6, 9 })
-		t.expect(padding(".facet-button > UIPadding")).toEqual({ 20, 14, 6, 9 })
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(UDim.new(0, 10))
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(UDim.new(0, 10))
-		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(UDim.new(0, 34))
-		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(UDim.new(0, 34))
+		t.expect(padding(".facet-button::UIPadding")).toEqual({ 32, 26, 6, 9 })
+		t.expect(padding(".facet-button > UIPadding")).toEqual({ 32, 26, 6, 9 })
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(UDim.new(0, 16))
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(UDim.new(0, 19))
+		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(UDim.new(0, 46))
+		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(UDim.new(0, 46))
 		t.expect(writes[ruleNode(sheet, ".facet-button::UIPadding")]).toBe(1)
 		t.expect(writes[ruleNode(sheet, ".facet-button > UIPadding")]).toBe(1)
 		t.expect(writes[ruleNode(sheet, ".facet-field::UIPadding")]).toBe(nil)
@@ -1640,7 +1640,7 @@ t.describe("native paint strength: theme sheets", function()
 		narrow.chrome = table.clone(same.chrome)
 		narrow.chrome.control = { kind = "nineSlice", asset = "plate", contentInsets = { left = 4, top = 2 } }
 		package:set(narrow)
-		t.expect(padding(".facet-button::UIPadding")).toEqual({ 12, 12, 2, 0 })
+		t.expect(padding(".facet-button::UIPadding")).toEqual({ 16, 12, 2, 0 })
 		table.clear(writes)
 		local metric = table.clone(narrow)
 		metric.metrics = table.clone(narrow.metrics)
@@ -2591,5 +2591,83 @@ t.describe("native paint strength: calendar day", function()
 			stop()
 			h.dispose()
 		end
+	end)
+end)
+
+t.describe("native paint strength: skinned control carve", function()
+	t.it("insets every skinned control's content past its art carve on every side at every rung", function()
+		local SIDES = { left = "PaddingLeft", right = "PaddingRight", top = "PaddingTop", bottom = "PaddingBottom" }
+		local function effective(sheet: any, node: any, property: string): number
+			local own = node:FindFirstChildWhichIsA("UIPadding")
+			if own and own[property].Offset ~= 0 then
+				return own[property].Offset
+			end
+			local styled = resolve(sheet, node, property, "UIPadding")
+			return if styled then styled.Offset else 0
+		end
+		local misses = {}
+		for _, name in { "pixel_quest", "fantasy_ornate", "fantasy_parchment" } do
+			local package = shipped(name)
+			local h = harness({ theme = package })
+			local sheet, stopSheet = sheetFor(h, package)
+			for _, rung in { "xsmall", "compact", "regular", "large" } do
+				local options = { { value = "a", label = "(default)" }, { value = "b", label = "Other" } }
+				local root, stop = mount(h, function()
+					return h.Host.Frame({
+						h.UI.Button({ Name = "Button", label = "Go", controlSize = rung }),
+						h.UI.Chip({ Name = "Chip", label = "Chip", selected = Compose.cell(false), controlSize = rung }),
+						h.UI.Picker({
+							Name = "Menu",
+							style = "menu",
+							controlSize = rung,
+							selected = Compose.cell("a"),
+							options = options,
+						}),
+						h.UI.Picker({
+							Name = "Segmented",
+							style = "segmented",
+							controlSize = rung,
+							selected = Compose.cell("a"),
+							options = options,
+						}),
+						h.UI.TextInput({ Name = "Field", value = Compose.cell("x"), controlSize = rung }),
+					})
+				end)
+				local controls = {
+					{ "Button", find(root, "Button"), "control", 1 },
+					{ "Chip", find(root, "Chip"), "control", 1 },
+					{ "Trigger", find(find(root, "Menu"), "Trigger"), "control", 1 },
+					{ "Segment", find(find(root, "Segmented"), "a"), "control", 1 },
+					{ "Field", find(find(root, "Field"), "Input"), "field", 1 },
+				}
+				for _, entry in controls do
+					local label, node, slot = entry[1], entry[2], entry[3]
+					local carve = package.chrome[slot].contentInsets
+					for side, property in SIDES do
+						local face = if side == "left" or side == "right" then 1 else 0
+						local value = effective(sheet, node, property)
+						if value < (carve[side] or 0) + face then
+							table.insert(misses, `{name}/{rung}/{label}.{side}={value}<{carve[side]}+{face}`)
+						end
+					end
+				end
+				local trigger = find(find(root, "Menu"), "Trigger")
+				local icon = find(trigger, "Disclosure")
+				local right = effective(sheet, trigger, "PaddingRight")
+				local iconRight = right - icon.Position.X.Offset
+				local iconLeft = iconRight + icon.Size.X.Offset
+				if iconRight < package.chrome.control.contentInsets.right + 1 or iconLeft > right then
+					table.insert(misses, `{name}/{rung}/Disclosure right={right} icon={iconRight}..{iconLeft}`)
+				end
+				local E = h.engine.types.Enum
+				if trigger.AutomaticSize ~= E.AutomaticSize.XY and trigger.AutomaticSize ~= E.AutomaticSize.Y then
+					table.insert(misses, `{name}/{rung}/Trigger does not grow around its label`)
+				end
+				stop()
+			end
+			stopSheet()
+			h.dispose()
+		end
+		t.expect(table.concat(misses, "\n")).toBe("")
 	end)
 end)

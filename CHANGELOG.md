@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- On skinned art, a Button, Chip, Menu or Picker trigger, segment, list row and framed TextInput add the art's carve (`contentInsets`) to their own padding on each side. Before, the padding was the larger of the two, so at a small step the label sat on the frame (Pixel Quest compact Picker "(default)" started on the left bevel), and a framed TextInput kept 10 and 4 pixels even when the carve was larger.
 - The RadialMenu centre is a small round plate-less close with the highlighted item's name under it inside the hole, and the ring's scrim is black, at least 80 percent, and reaches the screen edges. Before, the close was a skinned plate filling the hole, the name showed below the ring, and a 70 percent theme-coloured scrim left page text legible.
 - An image Button with an authored fixed height keeps its `imageAspectRatio` and centers the image in the space the text leaves. Before, the image filled that space and was cropped, so the Showcase driver cards cut off the head. A row Slider's root Frame is transparent; before, it painted the engine's default grey, so the Showcase "Music volume" row looked disabled. The Showcase driver cards show the chosen driver as selected.
 - A Button with an authored width stays inside it. An authored `TextTruncate` keeps a text label on one line and truncates it (before, it wrapped and grew, so the Showcase "Edit item" button showed "Ed ite" over its plate), and an icon Button keeps its width and truncates its label (before, it grew and pushed the row past its edge).

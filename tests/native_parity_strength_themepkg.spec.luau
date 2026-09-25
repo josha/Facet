@@ -1270,7 +1270,7 @@ t.describe("theme layer values and states", function()
 				stopRight()
 			end
 		end
-		local neutralSheet, stopNeutral = sheetFor(engine, runtime, themes.neutralPackage())
+		local neutralSheet, stopNeutral = sheetFor(engine, runtime, mapped)
 		local bareSheet, stopBare = sheetFor(engine, runtime, bare)
 		local secondSheet, stopSecond = sheetFor(engine, runtime, themes.define(variant("a")))
 		local expected = rulesSignature(neutralSheet)
@@ -1326,7 +1326,7 @@ t.describe("theme layer values and states", function()
 			for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
 				t.expect(circleRule:GetProperties()[side]).toBe(T.UDim.new(0, 0))
 			end
-			t.expect(buttonRule:GetProperties().PaddingLeft).toBe(T.UDim.new(0, 20))
+			t.expect(buttonRule:GetProperties().PaddingLeft).toBe(T.UDim.new(0, 32))
 			t.expect(circleRule.Priority > buttonRule.Priority).toBe(true)
 		end
 		stopSheet()
@@ -1428,7 +1428,7 @@ t.describe("theme sheet paint", function()
 			panel = { 10, 6, 4, 8 },
 			field = { 16, 14, 3, 5 },
 			badge = { 8, 11, 3, 6 },
-			button = { 18, 12, 12, 13 },
+			button = { 30, 21, 12, 13 },
 		}
 		for role, sides in expected do
 			for _, selector in { ".facet-" .. role .. "::UIPadding", ".facet-" .. role .. " > UIPadding" } do
@@ -1444,16 +1444,16 @@ t.describe("theme sheet paint", function()
 					)
 			end
 		end
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(T.UDim.new(0, 12))
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(T.UDim.new(0, 13))
-		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(T.UDim.new(0, 32))
-		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(T.UDim.new(0, 32))
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(T.UDim.new(0, 22))
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(T.UDim.new(0, 23))
+		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(T.UDim.new(0, 41))
+		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(T.UDim.new(0, 41))
 		stop()
 		local ornate, stopOrnate = sheetFor(engine, runtime, built("fantasy_ornate"))
 		t.expect(style(ornate, ".facet-panel::UIPadding").PaddingTop).toBe(T.UDim.new(0, 30))
 		t.expect(style(ornate, ".facet-field > UIPadding").PaddingLeft).toBe(T.UDim.new(0, 12))
 		t.expect(style(ornate, ".facet-badge::UIPadding").PaddingTop).toBe(T.UDim.new(0, 5))
-		t.expect(style(ornate, ".facet-button::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 14))
+		t.expect(style(ornate, ".facet-button::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 26))
 		stopOrnate()
 		local plain, stopPlain = sheetFor(engine, runtime, themes.neutralPackage())
 		t.expect(style(plain, ".facet-panel::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 0))
