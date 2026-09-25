@@ -2209,6 +2209,22 @@ collapse. The first column always stays visible. A shared CollapsibleView shows
 collapsed and natively truncated values through the More action of the row.
 The cell state stays retained.
 
+Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
+`"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu
+Picker in each cell. The column `value(item)`, or the field named by `id`, is the
+raw value: a string, a number, a boolean or the value of a menu option. `options`
+(`{ { value, label } }`) configures a menu. `min`, `max` and `step` configure a
+number. Each accepted edit calls the `onCellChange(rowKey, columnId, value)` of
+the table, which an editor column requires. The caller updates its rows, and a
+row change updates the cell. An edit that does not change the value proposes
+nothing. A refused edit shows the value of the row again. The editors keep
+their native routes: a click or a tap, Return or the A button starts a text
+edit, and Escape or the B button cancels it. A row that leaves the table, or
+scrolls out of a windowed table, releases its editors and discards an edit in
+progress. An editor with `render`, an unknown editor word, a menu without
+`options`, editor settings on a column without `editor`, and an editor column
+without `onCellChange` cause an error.
+
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
 `widths` is a map of column widths. `selection` is a key-set map.
 `selectionMode` is `single`, `multi` or `none`. When you supply

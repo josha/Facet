@@ -7,15 +7,21 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
+local tableEditors = require("./collection_table_editors")
 type Controls = {
 	Table: CollectionTypes.TableConstructor,
 	VirtualList: <V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
 	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
 	CollapsibleView: Types.Constructor<NavigationTypes.CollapsibleViewSpec, TextButton>,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
+	TextInput: Types.Constructor<InputTypes.TextInputProps, TextBox | Frame>,
+	NumberInput: Types.Constructor<InputTypes.NumberInputProps, TextBox | Frame>,
+	Toggle: Types.Constructor<InputTypes.ToggleProps, TextButton>,
+	Picker: NavigationTypes.PickerConstructor,
 }
 return function(ctx: Types.Context, UI: Controls): ()
 	local lists = layoutKit.of(ctx)
+	local editors = tableEditors(ctx, UI)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readSource = ctx.readSource
@@ -56,9 +62,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"snap",
 		"header",
 		"dragLabel",
+		"onCellChange",
 	}
 	local function create<V, K>(spec: CollectionTypes.TableOptions<V, K>, keyOf: (V, number) -> K): Frame
 		assert(spec.columns ~= nil, "Facet.Table requires columns")
+		Compose.watch(function(use: ComposeTypes.Use)
+			editors.check(read(spec.columns, use), spec.onCellChange)
+		end)
 		local sort: ComposeTypes.Cell<CollectionTypes.Sort?> = spec.sort or Compose.cell(nil :: CollectionTypes.Sort?)
 		local widths: ComposeTypes.Cell<{ [string]: number }> = spec.widths or Compose.cell({})
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
@@ -541,8 +551,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 							index: ComposeTypes.Readable<number>
 						)
 							local definition = column:peek()
-							local content = if definition.render
-								then definition.render(current, placement, key)
+							local render: CollectionTypes.RowRender<V, K>? = definition.render
+								or if definition.editor
+									then editors.render(definition, function(item: V): unknown
+										return field(item, definition)
+									end, assert(spec.onCellChange))
+									else nil
+							local content = if render
+								then render(current, placement, key)
 								else ctx.styled(
 									ctx.text({
 										Name = "Value",
@@ -557,7 +573,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 									}),
 									"TableValue"
 								)
-							if not definition.render then
+							if not render then
 								recordHeight(cellHeights, definition.id, content :: TextLabel, 16)
 								local fits = ctx.observe.TextFits(content :: TextLabel)
 								Compose.watch(function(use: ComposeTypes.Use)

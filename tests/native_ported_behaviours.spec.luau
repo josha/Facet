@@ -374,3 +374,101 @@ t.describe("app.refusal", function()
 		runtime:dispose()
 	end)
 end)
+
+t.describe("Table editable cells", function()
+	t.it("each editor proposes through onCellChange, a no-op commit proposes nothing, rows re-seed", function()
+		local rows = Compose.cell({
+			{ id = "a", name = "Ada", laps = 3, ready = false, tier = "gold" },
+			{ id = "b", name = "Bo", laps = 5, ready = true, tier = "silver" },
+		})
+		local proposals = {}
+		local w = world(function(UI)
+			return UI.Table "T" {
+				from = rows,
+				key = "id",
+				scrolls = false,
+				columns = {
+					{ id = "name", label = "Name", editor = "text" },
+					{ id = "laps", label = "Laps", editor = "number", min = 0, max = 99 },
+					{ id = "ready", label = "Ready", editor = "toggle" },
+					{
+						id = "tier",
+						label = "Tier",
+						editor = "menu",
+						options = { { value = "gold", label = "Gold" }, { value = "silver", label = "Silver" } },
+					},
+				},
+				onCellChange = function(key, column, value)
+					table.insert(proposals, `{key}.{column}={tostring(value)}`)
+					local nextRows = table.clone(rows:peek())
+					for index, row in nextRows do
+						if row.id == key then
+							local copy = table.clone(row)
+							copy[column] = value
+							nextRows[index] = copy
+						end
+					end
+					rows:set(nextRows)
+				end,
+			}
+		end)
+		w.step(3)
+		local function editor(column: string): any
+			local found
+			local function walk(node: any)
+				if found == nil and node.Name == "Editor" and node.Parent and node.Parent.Name == column then
+					found = node
+				end
+				for _, child in node:GetChildren() do
+					walk(child)
+				end
+			end
+			walk(w.screen)
+			return found
+		end
+		local name = editor("name")
+		local box = if name:IsA("TextBox") then name else name:FindFirstChildWhichIsA("TextBox", true)
+		expect(box.Text).toBe("Ada")
+		box:CaptureFocus()
+		box:ReleaseFocus(true)
+		expect(#proposals).toBe(0)
+		box:CaptureFocus()
+		box.Text = "Ava"
+		box:ReleaseFocus(true)
+		expect(proposals[1]).toBe("a.name=Ava")
+		expect(box.Text).toBe("Ava")
+		local laps = editor("laps")
+		local lapsBox = if laps:IsA("TextBox") then laps else laps:FindFirstChildWhichIsA("TextBox", true)
+		lapsBox:CaptureFocus()
+		lapsBox.Text = "120"
+		lapsBox:ReleaseFocus(true)
+		expect(proposals[#proposals]).toBe("a.laps=99")
+		local ready = editor("ready")
+		ready.Activated.fire()
+		expect(proposals[#proposals]).toBe("a.ready=true")
+		local tier = editor("tier")
+		local trigger = find(tier, "Trigger") or tier
+		trigger.Activated.fire()
+		w.step(10)
+		local option = find(w.screen, "silver")
+		expect(option ~= nil).toBe(true)
+		option.Activated.fire()
+		w.step(10)
+		expect(proposals[#proposals]).toBe("a.tier=silver")
+		rows:set({ { id = "a", name = "Zed", laps = 1, ready = false, tier = "silver" } })
+		w.step()
+		expect(box.Text).toBe("Zed")
+		expect(function()
+			w.UI.Table { from = rows, key = "id", columns = { { id = "x", editor = "text" } } }
+		end).toThrow()
+		expect(function()
+			w.UI.Table {
+				from = rows,
+				key = "id",
+				onCellChange = print,
+				columns = { { id = "x", editor = "menu" } },
+			}
+		end).toThrow()
+		w.stop()
+	end)
+end)

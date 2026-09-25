@@ -109,6 +109,11 @@ export type TableColumn<V, K> = {
 	sortable: boolean?,
 	value: ((item: V) -> unknown)?,
 	render: RowRender<V, K>?,
+	editor: ("text" | "number" | "toggle" | "menu")?,
+	options: { { value: unknown, label: Types.Value<string> } }?,
+	min: number?,
+	max: number?,
+	step: number?,
 }
 export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
 	from: Types.Value<{ V }>,
@@ -133,6 +138,7 @@ export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
 	followThreshold: number?,
 	reducedMotion: Types.Value<boolean>?,
 	editing: Types.Value<boolean>?,
+	onCellChange: ((key: K, column: string, value: unknown) -> ())?,
 	scrolls: boolean?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,
