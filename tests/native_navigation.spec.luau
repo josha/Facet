@@ -2980,7 +2980,7 @@ t.describe("native navigation controls", function()
 		t.expect(find(help, "PresentationScale").Scale).toBe(1)
 		t.expect(help.GroupTransparency).toBe(0)
 		plus.GuiState = world.engine.types.Enum.GuiState.Idle
-		world.engine.heartbeat.fire(0.05)
+		world.engine.heartbeat.fire(0.06)
 		t.expect(help.isDestroyed()).toBe(false)
 		world.engine.heartbeat.fire(0.06)
 		t.expect(help.isDestroyed()).toBe(true)

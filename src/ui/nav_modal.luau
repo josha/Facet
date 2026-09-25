@@ -530,19 +530,30 @@ return function(ctx: Types.Context): Nav.Surfaces
 
 	local function arrive(node: Instance): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
-		if frames == nil or not node:IsA("GuiObject") or not node.Visible then
+		if frames == nil then
 			return node
 		end
-		local surface = node :: GuiObject
-		surface.Visible = false
+		local surfaces: { GuiObject } = {}
+		local parts: { Instance } = if node:IsA("GuiObject") then { node } else node:GetChildren()
+		for _, part in parts do
+			if part:IsA("GuiObject") and part.Visible then
+				part.Visible = false
+				table.insert(surfaces, part)
+			end
+		end
+		if #surfaces == 0 then
+			return node
+		end
 		local connection: RBXScriptConnection? = nil
 		connection = frames.Heartbeat:Connect(function()
 			if connection then
 				connection:Disconnect()
 				connection = nil
 			end
-			if not surface.Visible then
-				surface.Visible = true
+			for _, surface in surfaces do
+				if not surface.Visible then
+					surface.Visible = true
+				end
 			end
 		end)
 		Compose.cleanup(function()
@@ -551,7 +562,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				connection = nil
 			end
 		end)
-		return surface
+		return node
 	end
 	local function overlay(
 		anchor: GuiObject,
@@ -667,35 +678,22 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local armed = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(wanted) and use(rest.progress) >= 1
 		end)
+		local short = ctx.metric("motion.fast")
+		local timing: Nav.MotionTiming = { enter = short, exit = short }
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
-				local amount = appearance(phase, POPOVER)
+				local amount = appearance(phase, timing)
 				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
 					or assert(anchor:FindFirstAncestorWhichIsA("LayerCollector"))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
-				local measure = ctx.text({
-					Name = "HelpMeasure",
-					Text = function(use: ComposeTypes.Use)
-						return ctx.read(text, use) or ""
-					end,
-					TextWrapped = false,
-					TextTransparency = 1,
-					Size = D2.fromOffset(0, 0),
-					AutomaticSize = E.AutomaticSize.None,
-				})
-				measure:AddTag("facet-type-caption")
-				local natural = ctx.observe.TextBounds(measure)
 				local label = ctx.text({
 					Name = "HelpText",
 					Text = function(use: ComposeTypes.Use)
 						return ctx.read(text, use) or ""
 					end,
 					TextWrapped = true,
-					Size = function(use: ComposeTypes.Use)
-						return D2.fromOffset(math.min(math.ceil(use(natural).X) + 1, 264), 0)
-					end,
-					AutomaticSize = E.AutomaticSize.Y,
+					Host.UISizeConstraint({ MaxSize = V2.new(264, math.huge) }) :: Types.Child,
 				})
 				label:AddTag("facet-type-caption")
 				local panelProps: Types.CanvasGroupNativeProps = {
@@ -742,8 +740,6 @@ return function(ctx: Types.Context): Nav.Surfaces
 					hint:AddTag("facet-secondary")
 					table.insert(panelProps, hint)
 				end
-				runtime.decorate(measure, { LayoutOrder = 4 })
-				table.insert(panelProps, measure)
 				local panel = Host.CanvasGroup(panelProps)
 				local measured = ctx.observe.AbsoluteSize(panel)
 				local edge = if structured and structured.edge then structured.edge else "top"
@@ -774,7 +770,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					return V2.new(solved.x, solved.y), origin
 				end)
 				return ctx.styled(panel, "tooltip")
-			end, { motion = POPOVER }),
+			end, { motion = timing }),
 		})
 	end)
 	return {

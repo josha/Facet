@@ -24,7 +24,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	type CalloutRegistration = { id: number, eligible: ComposeTypes.Readable<boolean>, priority: number }
 	local callouts = Compose.cell({} :: { CalloutRegistration })
-	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
 	local DIALOG: Nav.MotionTiming = { enter = 0.2, exit = 0.15 }
 	local REVEAL: Nav.MotionTiming = { enter = 0.25, exit = 0.2 }
 	local nextCallout = 0
@@ -975,9 +974,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				retire("seen")
 			end
 		end)
+		local short = ctx.metric("motion.fast")
+		local timing: Nav.MotionTiming = { enter = short, exit = short }
 		surfaces.attach(root, {
 			surfaces.overlay(spec.anchor, visible, function(phase: Nav.PresencePhase?)
-				local amount = surfaces.appearance(phase, POPOVER)
+				local amount = surfaces.appearance(phase, timing)
 				if spec.onShow then
 					local ok: boolean, failure: unknown = pcall(spec.onShow)
 					if not ok then
@@ -1230,7 +1231,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 				end
 				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow } else panel :: Instance
-			end, { motion = POPOVER }),
+			end, { motion = timing }),
 		})
 		return root
 	end)

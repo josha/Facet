@@ -252,7 +252,8 @@ cannot be interacted with, and the selection never stays on it.
 | TabView page change | Crossfade, 0.2 seconds, Quad Out. | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds, Cubic Out. A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds. |
 | Alert, Dialog, CollapsibleView | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
-| Callout, Button `help`, Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| Callout, Button `help` | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and a callout tail appear on the same first styled frame. | The reverse, over the same time. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
@@ -617,7 +618,8 @@ Presentation options:
   key chords such as `{ { "Ctrl", "K" }, { "F1" } }`. It is display text only
   and binds no key. `edge` (`top`, `bottom`, `leading` or `trailing`) and
   `align` (`start`, `center` or `end`) place the panel against the button. The
-  panel uses the anchored placement of `UI.Popover`. A malformed table stops
+  panel uses the anchored placement of `UI.Popover`. The body fits its text
+  up to 264 pixels wide and then wraps. A malformed table stops
   with an error that names `help`.
 - `compactLabel`: an alternative string or readable. The button uses it when a
   plain text button cannot fit its full label. It does not apply to icon, image

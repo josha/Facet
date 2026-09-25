@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Button `help` plate and a Callout appear as one unit over the theme's `motion.fast` (0.12 seconds by default; reduced motion shows them at once). The help body is capped at 264 pixels by a native `UISizeConstraint` instead of a hidden measuring label, which sat at the end of the plate; a callout tail now waits for the same first styled frame as its panel.
 - A segmented Picker keeps each segment inside the width of the strip, or of the row of a labelled strip, and a long label wraps inside that width. A segmented Picker with `query` causes an error. Before, an 80-character label grew its segment past the cell, and a search field and its strip painted under the next cell.
 - Table `editable = true` shows an Edit/Done button above the header that toggles `editing` (the same cell as row edit mode). With touch or gamepad input, editor cells accept edits only in edit mode; with mouse and keyboard they stay editable in place.
 - Table paints its header band and rows through the theme tags `facet-tablehead` and `facet-tablerow` (palette roles `tableHeader`, `tableRow`; `control` and `surface` by default). `alternatingRows = true` tags every second row `facet-tablerow-alternate` (`tableRowAlternate`, `surfaceStrong` by default). Before, the header and rows were transparent.

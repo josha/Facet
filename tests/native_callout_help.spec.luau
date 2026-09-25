@@ -645,3 +645,96 @@ t.describe("native Callout: layering", function()
 		lifted.stop()
 	end)
 end)
+
+t.describe("native help: the plate arrives as one unit", function()
+	local SHORT = 0.12
+	local function hovered(options: any?): any
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Post" {
+					label = "Post",
+					help = { title = "Save", body = "Saves your setup", shortcut = { { "Ctrl", "S" } }, edge = "top" },
+				},
+			})
+		end, options)
+		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+		w.gui.SelectedObject = w.find("Post")
+		w.advance(0.45)
+		return w
+	end
+
+	t.it("one CanvasGroup carries the only fade and scale, and the plate holds no extra text node", function()
+		local w = hovered()
+		local panel = w.find("Help")
+		t.expect(panel:IsA("CanvasGroup")).toBe(true)
+		local texts, scales = {}, 0
+		for _, node in panel:GetDescendants() do
+			if node:IsA("TextLabel") then
+				table.insert(texts, node.Name)
+			elseif node:IsA("UIScale") then
+				scales += 1
+				t.expect(node.Parent).toBe(panel)
+			elseif node:IsA("UIGradient") or node:IsA("CanvasGroup") then
+				error(`a second fade driver {node.Name}`)
+			end
+		end
+		table.sort(texts)
+		t.expect(table.concat(texts, ",")).toBe("HelpShortcut,HelpText,HelpTitle")
+		t.expect(scales).toBe(1)
+		local body = w.find("HelpText")
+		t.expect(body.TextWrapped).toBe(true)
+		t.expect(body.AutomaticSize).toBe(w.Enum.AutomaticSize.XY)
+		local cap = body:FindFirstChildWhichIsA("UISizeConstraint")
+		t.expect(cap ~= nil and cap.MaxSize.X).toBe(264)
+		w.stop()
+	end)
+
+	t.it("the fade and the scale run over the theme's short motion duration", function()
+		local w = hovered()
+		local panel = w.find("Help")
+		local scale = panel:FindFirstChildWhichIsA("UIScale")
+		w.advance(SHORT / 2)
+		t.expect(panel.GroupTransparency > 0 and panel.GroupTransparency < 1).toBe(true)
+		t.expect(scale.Scale > 0.9 and scale.Scale < 1).toBe(true)
+		w.advance(SHORT / 2)
+		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(scale.Scale).toBe(1)
+		w.stop()
+	end)
+
+	t.it("reduced motion shows the plate whole on its first frame", function()
+		local w = hovered({ reducedMotion = true })
+		local panel = w.find("Help")
+		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(panel:FindFirstChildWhichIsA("UIScale").Scale).toBe(1)
+		w.stop()
+	end)
+end)
+
+t.describe("native Callout: the plate and its tail arrive together", function()
+	t.it("the panel and the tail both wait for the first styled frame and fade over the short duration", function()
+		local w = overlay.new(function(UI, Host)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Name = "Editor",
+				Host.Frame({ Name = "Bar", anchor }),
+				UI.Callout "Tip" {
+					anchor = anchor,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end, { runService = true })
+		local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
+		t.expect(panel.Visible).toBe(false)
+		t.expect(arrow.Visible).toBe(false)
+		w.advance(0.06)
+		t.expect(panel.Visible).toBe(true)
+		t.expect(arrow.Visible).toBe(true)
+		w.advance(0.06)
+		t.expect(panel.GroupTransparency).toBe(0)
+		w.stop()
+	end)
+end)
