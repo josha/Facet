@@ -139,6 +139,7 @@ export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
 	reducedMotion: Types.Value<boolean>?,
 	editing: Types.Value<boolean>?,
 	onCellChange: ((key: K, column: string, value: unknown) -> ())?,
+	alternatingRows: Types.Value<boolean>?,
 	scrolls: boolean?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,

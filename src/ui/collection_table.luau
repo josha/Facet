@@ -63,6 +63,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"header",
 		"dragLabel",
 		"onCellChange",
+		"alternatingRows",
 	}
 	local function create<V, K>(spec: CollectionTypes.TableOptions<V, K>, keyOf: (V, number) -> K): Frame
 		assert(spec.columns ~= nil, "Facet.Table requires columns")
@@ -443,11 +444,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, use(headerHeight))
 			end,
-			BackgroundTransparency = 1,
 			headerLayout :: ComposeTypes.Child,
 			headerCells,
 		}
-		local header = Host.Frame(headerProps)
+		local header = ctx.styled(Host.Frame(headerProps), "TableHead")
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
 		local reorderGutter = if spec.reorderable then 56 else 0
 		local wrapReorder: ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame)?
@@ -609,7 +609,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local cellRow = row
 				local rowProps: Types.FrameProps = {
 					Name = "DisclosingRow",
-					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
 					cellRow :: ComposeTypes.Child,
 					Compose.show(function(use: ComposeTypes.Use)
@@ -672,7 +671,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 						}
 					end),
 				}
-				row = Host.Frame(rowProps)
+				row = ctx.styled(Host.Frame(rowProps), "TableRow")
+				local painted = row
+				Compose.watch(function(use: ComposeTypes.Use)
+					if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
+						painted:AddTag("facet-tablerow-alternate")
+					elseif painted:HasTag("facet-tablerow-alternate") then
+						painted:RemoveTag("facet-tablerow-alternate")
+					end
+				end)
 				if wrapReorder then
 					row = wrapReorder(row, current, key)
 				end

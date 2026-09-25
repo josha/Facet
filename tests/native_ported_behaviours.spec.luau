@@ -44,6 +44,7 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
 			theme = o.theme,
+			environment = o.environment,
 		} :: any
 	)
 	local stop, screen = runtime.mount(function()
@@ -470,6 +471,76 @@ t.describe("Table editable cells", function()
 				columns = { { id = "x", editor = "menu" } },
 			}
 		end).toThrow()
+		w.stop()
+	end)
+end)
+
+t.describe("Table row paint", function()
+	t.it("the header band and every row carry theme tags, and alternatingRows tags the even rows", function()
+		local rows = Compose.cell({ { id = "a", n = 3 }, { id = "b", n = 1 }, { id = "c", n = 2 } })
+		local sort = Compose.cell(nil)
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Table "Striped" {
+					from = rows,
+					key = "id",
+					scrolls = false,
+					sort = sort,
+					alternatingRows = true,
+					columns = { { id = "id" }, { id = "n" } },
+				},
+				UI.Table "Plain" { from = rows, key = "id", scrolls = false, columns = { { id = "id" } } },
+			}
+		end)
+		w.step(3)
+		local function rowsOf(name: string): { [string]: any }
+			local found = {}
+			for _, node in find(w.screen, name):GetDescendants() do
+				if node.Name == "DisclosingRow" then
+					found[node.Parent.Parent.Name] = node
+				end
+			end
+			return found
+		end
+		local header = find(find(w.screen, "Striped"), "Header")
+		expect(header:HasTag("facet-tablehead")).toBe(true)
+		expect(header.BackgroundTransparency).toBe(0)
+		local striped = rowsOf("Striped")
+		expect(striped.a:HasTag("facet-tablerow")).toBe(true)
+		expect(striped.a.BackgroundTransparency).toBe(0)
+		expect(striped.a:HasTag("facet-tablerow-alternate")).toBe(false)
+		expect(striped.b:HasTag("facet-tablerow-alternate")).toBe(true)
+		expect(striped.c:HasTag("facet-tablerow-alternate")).toBe(false)
+		sort:set({ column = "n", direction = "ascending" })
+		w.step(3)
+		expect(striped.c:HasTag("facet-tablerow-alternate")).toBe(true)
+		expect(striped.b:HasTag("facet-tablerow-alternate")).toBe(false)
+		for _, row in rowsOf("Plain") do
+			expect(row:HasTag("facet-tablerow")).toBe(true)
+			expect(row:HasTag("facet-tablerow-alternate")).toBe(false)
+		end
+		local sheet = sheetFor(w, themes.neutralPackage())
+		local function paint(selector: string): any
+			return rule(sheet, selector):GetProperties().BackgroundColor3
+		end
+		expect(paint(".facet-tablehead")).toBe(paint(".facet-control"))
+		expect(paint(".facet-tablerow")).toBe(paint(".facet-surface"))
+		expect(paint(".facet-tablerow-alternate")).toBe(paint(".facet-panel"))
+		local neutral = themes.neutralPackage()
+		local dark = neutral.style.themes[1]
+		local extra = table.clone(dark.extra :: any)
+		extra.tableHeader = { r = 0.9, g = 0.1, b = 0.1 }
+		extra.tableRow = { r = 0.1, g = 0.9, b = 0.1 }
+		extra.tableRowAlternate = { r = 0.1, g = 0.1, b = 0.9 }
+		local package = assert(themes.define({
+			base = neutral,
+			identity = { id = "rows", displayName = "Rows", schemaVersion = themes.SCHEMA, version = "1.0.0" },
+			style = { defaultTheme = "Ink", themes = { { name = "Ink", colors = dark.colors, extra = extra } } },
+		} :: any))
+		local authored = sheetFor(w, package)
+		expect(rule(authored, ".facet-tablehead"):GetProperties().BackgroundColor3.R).toBeCloseTo(0.9, 3)
+		expect(rule(authored, ".facet-tablerow"):GetProperties().BackgroundColor3.G).toBeCloseTo(0.9, 3)
+		expect(rule(authored, ".facet-tablerow-alternate"):GetProperties().BackgroundColor3.B).toBeCloseTo(0.9, 3)
 		w.stop()
 	end)
 end)

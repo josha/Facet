@@ -545,8 +545,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local colors = merge(neutral.style.themes[1].colors, palette.colors)
 	local extra = merge(neutral.style.themes[1].extra :: ThemeTypes.PaletteExtra, palette.extra)
 	local resolvedColors: { [string]: Color3? }, typefaces: { [string]: Font? } = {}, {}
-	local fallbacks: { [string]: string } =
-		{ selection = "accent", onSelection = "onAccent", inverseSurface = "contentStrong", onInverse = "surface" }
+	local fallbacks: { [string]: string } = {
+		selection = "accent",
+		onSelection = "onAccent",
+		inverseSurface = "contentStrong",
+		onInverse = "surface",
+		tableHeader = "control",
+		tableRow = "surface",
+		tableRowAlternate = "surfaceStrong",
+	}
 	local function source(role: string): ThemeTypes.RGB?
 		local value = (colors[role] or extra[role]) :: ThemeTypes.RGB?
 		local fallback = fallbacks[role]
@@ -691,6 +698,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
+	for tag, role in
+		{ tablehead = "tableHeader", tablerow = "tableRow", ["tablerow-alternate"] = "tableRowAlternate" } :: { [string]: string }
+	do
+		rule(".facet-" .. tag, { BackgroundColor3 = c(role), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	end
 	rule(".facet-tablevalue::UIPadding", {
 		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
 		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),

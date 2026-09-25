@@ -2296,6 +2296,11 @@ Sizes:
 - The native touch and gamepad minimum row height and header height is `44`.
 - Native text bounds can make both larger.
 
+The header band and each row paint a background through the theme tags
+`facet-tablehead` and `facet-tablerow`. `alternatingRows = true` also tags
+every second row `facet-tablerow-alternate`. The palette roles are
+`tableHeader`, `tableRow` and `tableRowAlternate`.
+
 `header = false` removes the header band. `scrolls = false` mounts all rows and
 sizes the table to its content. Otherwise, `mode` selects the Compose windowed
 or all lifetime. The collection measurement, status, controls, focus and
@@ -2583,6 +2588,9 @@ as before:
 - `inverseSurface` and `onInverse`: the plate and text of
   `appearance = "inverse"`. Without them they are `contentStrong` and
   `surface`.
+- `tableHeader`, `tableRow` and `tableRowAlternate`: the Table header band,
+  its rows and its alternate rows. Without them they are `control`, `surface`
+  and `surfaceStrong`.
 - `dimDisabledPlates = true`: a disabled Button fades its plate toward
   `surface` by `disabledContentOpacity`, in addition to its text. This applies
   to the standard, selected, emphasis, soft, inverse and destructive plates and
