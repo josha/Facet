@@ -123,8 +123,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		)
 		local depth = tabDepth
 		local nested = Compose.cell(depth > 0)
-		local statuses: { [string]: boolean } =
-			{ neutral = true, info = true, success = true, warning = true, error = true, accent = true }
+		local statuses: { [string]: boolean } = {
+			neutral = true,
+			info = true,
+			success = true,
+			warning = true,
+			error = true,
+			accent = true,
+			voice = true,
+			contrast = true,
+		}
 		local forms: { [string]: boolean } = { dot = true, ring = true, square = true, dash = true }
 		for _, tab in read(spec.tabs) do
 			local indicator = tab.indicator

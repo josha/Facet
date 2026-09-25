@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- StatusIndicator, Badge and a TabView tab indicator take `status = "voice"` and `"contrast"`. Voice uses the optional palette `extra.voice` color, which is halfway between `warning` and `danger` when a palette does not declare it. Contrast is a `contentStrong` mark with `surface` text.
 - A Toggle switch follows `controlSize`. The track is the rung `iconSize` plus 4 pixels high and keeps the 38 by 24 proportion. The knob is 6 pixels smaller than the track. Before, every rung drew the 38 by 24 switch.
 
 ## 0.12.0 — Compose and native engine cutover

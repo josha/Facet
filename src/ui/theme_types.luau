@@ -51,6 +51,7 @@ export type PaletteExtra = {
 	scrimOpacity: number?,
 	selection: RGB?,
 	onSelection: RGB?,
+	voice: RGB?,
 	scrim: RGB?,
 	inverseSurface: RGB?,
 	onInverse: RGB?,

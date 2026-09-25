@@ -543,7 +543,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	end
 	local function c(role: string): Color3?
 		if resolvedColors[role] == nil then
-			resolvedColors[role] = color(types, source(role))
+			local value = color(types, source(role))
+			if value == nil and role == "voice" then
+				value = (c("warning") :: Color3):Lerp(c("danger") :: Color3, 0.5)
+			end
+			resolvedColors[role] = value
 		end
 		return resolvedColors[role]
 	end
@@ -780,13 +784,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			warning = "warning",
 			error = "danger",
 			accent = "accent",
+			voice = "voice",
+			contrast = "contentStrong",
 		} :: { [string]: string }
 	do
 		local partner = if status == "neutral"
 			then "surface"
 			elseif status == "error" then "onDanger"
 			elseif status == "info" or status == "accent" then "onAccent"
-			elseif status == "warning" then "onWarning"
+			elseif status == "warning" or status == "voice" then "onWarning"
+			elseif status == "contrast" then "surface"
 			else "onSuccess"
 		rule(".facet-status-" .. status, { BackgroundColor3 = c(role), TextColor3 = c(partner) })
 		rule(".facet-status-" .. status .. " > .facet-status-ring", { Color = c(role) })

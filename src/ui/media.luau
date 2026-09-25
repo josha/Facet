@@ -54,7 +54,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			local requested = read(source, use)
 			local status = if requested == nil then "neutral" else requested
 			assert(
-				({ neutral = true, info = true, success = true, warning = true, error = true, accent = true })[status],
+				({
+					neutral = true,
+					info = true,
+					success = true,
+					warning = true,
+					error = true,
+					accent = true,
+					voice = true,
+					contrast = true,
+				})[status],
 				"Facet: invalid status"
 			)
 			if previous then
