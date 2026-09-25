@@ -2501,7 +2501,8 @@ VirtualGrid:
   selection.
 
 In `single` mode, each activation selects only that row, and the modifiers
-have no effect. Rows that `selectable` or `disabled` refuse are never selected.
+have no effect. A selected Table row carries the `facet-selected` tag, so the
+theme paints it in `controlSelected`. Rows that `selectable` or `disabled` refuse are never selected.
 
 `selectable(item)`, `disabled(item)`, `onActivate(item, key, input, clickCount)`
 and `rowActions(current, key)` specialize rows. `onActivate` receives the same
@@ -2555,8 +2556,11 @@ consume the input. Thus the control under the pointer also receives the press.
 A transparent `SwipeGrip` button covers the row content while the row has
 actions. It holds the native UIDragDetector, so a drag that starts on a
 content Button also opens the tray. A press and release that moves less than
-8 pixels is a tap. The grip sends a tap to the first Facet Button in the
-content, and that Button activates as if the player pressed it. The grip is
+8 pixels is a tap. In a selectable Table, VirtualList or VirtualGrid row, the
+grip sends the tap to the row, so the tap selects the row with the click rules
+of the collection, and a reorder handle or a cell Button does not activate.
+Otherwise the grip sends a tap to the first Facet Button in the content, and
+that Button activates as if the player pressed it. The grip is
 not a selection stop, so keyboard and gamepad selection still stop on the
 content. With touch input, the grip turns its UIDragDetector off and uses the
 native `TouchPan` gesture. Thus a vertical pan scrolls the list, and a

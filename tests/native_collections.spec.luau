@@ -1740,3 +1740,66 @@ t.describe("Table compact width", function()
 		runtime:dispose()
 	end)
 end)
+
+t.describe("Table row tap", function()
+	t.it("a tap on a swipeable reorderable row selects it with a band and never starts a move", function()
+		local engine, runtime, UI, target = setup()
+		local E = engine.types.Enum
+		local selection = Compose.cell({})
+		local rating = 0
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" } },
+				key = key,
+				selection = selection,
+				selectionMode = "multi",
+				reorderable = true,
+				onReorder = function() end,
+				columns = {
+					{ id = "name", label = "Name" },
+					{
+						id = "rating",
+						label = "Rating",
+						width = 100,
+						render = function()
+							return UI.Button "Star" {
+								label = "*",
+								onActivate = function()
+									rating += 1
+								end,
+							}
+						end,
+					},
+				},
+				rowActions = function()
+					return { trailing = { { id = "remove", label = "Remove", onActivate = function() end } } }
+				end,
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 200)
+		local function tap(rowKey: string, input: any?)
+			local rowNode = body:FindFirstChild("Items"):FindFirstChild(rowKey)
+			local grip = rowNode:FindFirstChild("SwipeGrip", true)
+			if input then
+				grip.InputBegan.fire(input)
+			end
+			local detector = grip:FindFirstChildWhichIsA("UIDragDetector")
+			detector.DragStart.fire(engine.types.Vector2.new(150, 20))
+			detector.DragEnd.fire()
+			return rowNode
+		end
+		local mouse = { UserInputType = E.UserInputType.MouseButton1, UserInputState = E.UserInputState.Begin }
+		local first = tap("1", mouse)
+		t.expect(selection:peek()).toEqual({ [1] = true })
+		t.expect(rating).toBe(0)
+		t.expect(node:FindFirstChild("DropFeedback", true)).toBeNil()
+		t.expect(first:FindFirstChild("DisclosingRow", true):HasTag("facet-selected")).toBe(true)
+		local second = tap("2", mouse)
+		t.expect(selection:peek()).toEqual({ [2] = true })
+		t.expect(first:FindFirstChild("DisclosingRow", true):HasTag("facet-selected")).toBe(false)
+		t.expect(second:FindFirstChild("DisclosingRow", true):HasTag("facet-selected")).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+end)

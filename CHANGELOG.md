@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A tap on a swipeable row of a selectable collection selects the row (a mouse click replaces the selection), and a selected Table row carries `facet-selected` for a `controlSelected` band. Before, the grip sent the tap to the first Button in the row, so a Playlist click started a keyboard move (✓ handle, drag label, a Drop button over the header) and nothing showed as selected.
 - `UI.Table` keeps every column in a narrow table: only a column with a numeric `priority` collapses, and the rest keep `minWidth` and truncate. The header band (`HeaderBand`, tag `facet-tablehead`) spans the whole table, and the row More button is icon-only. Before, the Playlist lost its Rating column in portrait, each row got a clipped "M…" button, and the band stopped short of the gutters.
 - A RadialMenu measures each item's label once, in a hidden label outside the wedge it sizes, and only records a real measurement. Before, the measure sat inside the wedge button and every live copy of a wedge wrote its own reading, which could raise "watch cascade did not settle" when the menu opened.
 - An open RadialMenu dims the page to at least 70 percent (the theme's `scrimOpacity` when higher). Before, it used the Dialog scrim (30 to 62 percent), and page text read clearly between the wedges.

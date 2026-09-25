@@ -1,4 +1,5 @@
 --!strict
+local activation = require("./activation")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
 local createSelection = require("./collection_selection")
@@ -308,29 +309,29 @@ return function(ctx: Types.Context, UI: Controls): ()
 							rendered,
 						}
 						if spec.onSelectionChange or spec.onActivate or spec.selection or spec.selectionMode then
-							table.insert(
-								children,
-								1,
-								Host.TextButton "RowHit" {
-									AnchorPoint = V2.new(0.5, 0.5),
-									Position = D2.fromScale(0.5, 0.5),
-									Size = D2.fromScale(1, 1),
-									Text = "",
-									BackgroundTransparency = 1,
-									Selectable = true,
-									Interactable = function(use: ComposeTypes.Use)
-										return not policy.disabled(spec.disabled, use(current))
+							local hit = Host.TextButton "RowHit" {
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.fromScale(1, 1),
+								Text = "",
+								BackgroundTransparency = 1,
+								Selectable = true,
+								Interactable = function(use: ComposeTypes.Use)
+									return not policy.disabled(spec.disabled, use(current))
+								end,
+								Activated = function(input: InputObject?, clicks: number?)
+									select(key, current, input, clicks)
+								end,
+								Attributes = {
+									FacetSelected = function(use: ComposeTypes.Use)
+										return read(selection, use)[key] == true
 									end,
-									Activated = function(input: InputObject?, clicks: number?)
-										select(key, current, input, clicks)
-									end,
-									Attributes = {
-										FacetSelected = function(use: ComposeTypes.Use)
-											return read(selection, use)[key] == true
-										end,
-									} :: EngineTypes.Attributes,
-								}
-							)
+								} :: EngineTypes.Attributes,
+							}
+							Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
+								select(key, current, input :: InputObject?, clicks :: number?)
+							end))
+							table.insert(children, 1, hit)
 						end
 						return Host.Frame(children)
 					end, node)

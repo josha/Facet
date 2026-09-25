@@ -716,6 +716,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 						painted:RemoveTag("facet-tablerow-alternate")
 					end
 				end)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local on = read(selection, use)[key] == true
+					if on ~= painted:HasTag("facet-selected") then
+						if on then
+							painted:AddTag("facet-selected")
+						else
+							painted:RemoveTag("facet-selected")
+						end
+					end
+				end)
 				if wrapReorder then
 					row = wrapReorder(row, current, key)
 				end

@@ -289,9 +289,17 @@ return function(ctx: Types.Context, UI: Controls): ()
 				drag:set(math.clamp(startOffset + delta.X, -maxTrailing, maxLeading))
 			end
 		end
-		local function tap(): ()
+		local pressed: InputObject?
+		local function tap(input: InputObject?): ()
 			if readSource(open) ~= nil then
 				setOpen(nil)
+				return
+			end
+			local host = root.Parent
+			local hit = if host and host:GetAttribute("FacetCollectionRow") == true
+				then host:FindFirstChild("RowHit")
+				else nil
+			if hit and activation.trigger(hit, input or pressed) then
 				return
 			end
 			for _, node in contentFrame:GetDescendants() do
@@ -450,9 +458,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Selectable = false,
 					ZIndex = 4,
 					Visible = swipeable,
-					Activated = function()
+					InputBegan = function(input: InputObject)
+						pressed = input
+					end,
+					Activated = function(input: InputObject?)
 						if touchFirst() and not panned and start == nil then
-							tap()
+							tap(input)
 						end
 					end,
 					Host.UIDragDetector({
