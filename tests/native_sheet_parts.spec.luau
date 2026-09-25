@@ -329,6 +329,8 @@ t.describe("native Sheet: parts", function()
 		t.expect(strip.Size.Y.Offset).toBe(44)
 		t.expect(strip.LayoutOrder < top.LayoutOrder).toBe(true)
 		t.expect(w.find("Close"):IsDescendantOf(w.find("Utilities"))).toBe(true)
+		t.expect(w.find("Close"):HasTag("facet-appearance-inverse")).toBe(true)
+		t.expect(w.find("Art"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset).toBe(16)
 		w.stop()
 	end)
 

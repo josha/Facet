@@ -55,7 +55,13 @@ return function(ctx: any, id: string, groups: { any })
 					end,
 					trailing = function(place)
 						return UI.Button "UseSidebar" {
-							label = if place == "topBar" then "Use sidebar" else nil,
+							label = if place == "topBar"
+								then function(use)
+									local viewport = ctx.viewport and use(ctx.viewport)
+									local narrow = viewport ~= nil and viewport.width > 0 and viewport.width < 600
+									return if narrow then "" else "Use sidebar"
+								end
+								else nil,
 							name = "Use sidebar",
 							appearance = "utility",
 							icon = "menu",

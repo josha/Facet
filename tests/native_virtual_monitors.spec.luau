@@ -318,7 +318,8 @@ t.describe("native virtual monitors", function()
 				model.step(0.1, false)
 			end
 			t.expect(find(target, "LaunchStatus").Text).toBe("Joined (simulated)")
-			find(find(play, "Alternatives"), "Trigger").Activated.fire()
+			local alternatives = find(play, "Alternatives");
+			(alternatives:FindFirstChild("Trigger", true) or alternatives).Activated.fire()
 			local private
 			for _, node in target:GetDescendants() do
 				if node.Name == "Private" and node:IsA("GuiButton") then

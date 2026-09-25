@@ -114,6 +114,13 @@ t.describe("native Snackbar: presentation", function()
 		c.shown:set(true)
 		t.expect(w.rows()).toBe(1)
 		t.expect(w.message()).toBe("Saved to your garage")
+		local plates = 0
+		for _, node in w.screen:GetDescendants() do
+			if node:HasTag("facet-snackbar") and node:HasTag("facet-floating") then
+				plates += 1
+			end
+		end
+		t.expect(plates).toBe(1)
 		w.find("Close").Activated.fire()
 		t.expect(c.changes).toEqual({ false })
 		t.expect(c.dismissed).toEqual({ "close" })

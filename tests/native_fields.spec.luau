@@ -340,6 +340,16 @@ t.describe("native field accessories", function()
 		w.stop()
 	end)
 
+	t.it("a plain search field draws its leading search mark", function()
+		local w = world(function(UI)
+			return UI.TextInput("Find")({ value = Compose.cell(""), presentation = "search" })
+		end)
+		local glyph = w.node:FindFirstChild("SearchIcon", true)
+		expect(glyph ~= nil).toBe(true)
+		expect(glyph.Selectable).toBe(false)
+		w.stop()
+	end)
+
 	t.it("a search field keeps its leading mark beside a trailing action, and refuses a second one", function()
 		local w = world(function(UI)
 			return UI.TextInput("Find")({

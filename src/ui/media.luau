@@ -1494,11 +1494,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				Text = function(use: ComposeTypes.Use)
 					return initials(facts(use).name)
 				end,
-				TextSize = function(use: ComposeTypes.Use)
-					return math.max(8, math.floor(diameter(use) * 0.4 + 0.5))
-				end,
+				TextScaled = true,
 				TextXAlignment = E.TextXAlignment.Center,
 				TextYAlignment = E.TextYAlignment.Center,
+				Host.UITextSizeConstraint({
+					MaxTextSize = function(use: ComposeTypes.Use)
+						return math.max(8, math.floor(diameter(use) * 0.4 + 0.5))
+					end,
+				}),
 			})
 		end, root)
 		local image, userId, onStatus = spec.image, spec.userId, spec.onStatus
@@ -1733,6 +1736,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		local owner = assert(Compose.currentOwner())
 		local moving = Compose.cell(false)
 		local visible = Compose.cell(true)
+		local near = Compose.cell(true)
 		local position = ctx.observe.AbsolutePosition(stage)
 		local size = ctx.observe.AbsoluteSize(stage)
 		local current: ScrollingFrame? = nil
@@ -1774,8 +1778,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				local top, box = use(origin), use(window)
 				if extent.X <= 0 or extent.Y <= 0 or box.X <= 0 or box.Y <= 0 then
 					visible:set(false)
+					near:set(false)
 					return
 				end
+				local reachX, reachY = box.X / 2, box.Y / 2
+				near:set(
+					at.X + extent.X > top.X - reachX
+						and at.X < top.X + box.X + reachX
+						and at.Y + extent.Y > top.Y - reachY
+						and at.Y < top.Y + box.Y + reachY
+				)
 				local width = math.min(at.X + extent.X, top.X + box.X) - math.max(at.X, top.X)
 				local height = math.min(at.Y + extent.Y, top.Y + box.Y) - math.max(at.Y, top.Y)
 				if width <= 0 or height <= 0 then
@@ -1812,6 +1824,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 			moving:set(false)
 			visible:set(true)
+			near:set(true)
 			if found then
 				local child = owner.createChild()
 				tracking = child
@@ -1825,7 +1838,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(visible) and not use(moving)
 		end),
-			visible
+			near
 	end
 
 	UI.Stage = ctx.construct("Stage", function(spec: Media.StageProps): ViewportFrame

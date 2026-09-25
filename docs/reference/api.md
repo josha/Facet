@@ -531,6 +531,10 @@ disabled or busy button cannot activate. The optional `repeatDelay` and
 `repeatInterval` have the defaults `0.4` and `0.1` seconds. `shortcut` supplies
 a key code and optional modifiers. `dialogAction` is `default` or `cancel`.
 
+A Button keeps the height of its `controlSize` when its `Size` has no height
+and its `AutomaticSize` grows on the Y axis. For example,
+`Size = UDim2.new(1, 0, 0, 0)` gives a full-width button of the control height.
+
 Presentation options:
 
 - `appearance`, `role`, `selected`, `name`, `hint` and `pop`. `appearance` is
@@ -1304,6 +1308,12 @@ SplitButton combines a primary `label` and `onActivate` action with the
 secondary `items` of the menu. Use it when the secondary operations supplement
 one clear primary action.
 
+With a mouse or a gamepad, the primary button and a chevron button sit side by
+side as one control. The chevron opens the menu, and its accessible name is
+`menuLabel` (default `More options`). With touch, SplitButton is one button
+with a trailing chevron: a tap runs the primary action, and a long press opens
+the menu.
+
 ### Picker
 
 Picker requires a writable `selected` and `options`. Each option has `value` and
@@ -1474,6 +1484,10 @@ content factories. It supplies page navigation, indicators, and previous and
 next actions. Use it for a sequential set of peer pages. TabView is for named
 destinations. NavigationStack is for a drill-down path.
 
+The indicators are a row of dots, one button per page, named by the page id.
+The current page's dot is painted in the accent colour. Each dot's accessible
+name is `Page n of m`. `indicators = false` hides them.
+
 While the selection is on a control in a page, Left and Right (and the D-pad
 Left and Right) page back and forward. The selection then moves into the new
 page. Up and Down leave the pages.
@@ -1576,6 +1590,10 @@ The required `items` use the menu item model. The options are:
 `anchor`, `follow`, `clearance`, `ringWidth`, `contentFit`, `gestureSelection`,
 `holdAction`, `enabled`, `onOpen` and `onClose`.
 
+The launcher is a round `more` button whose accessible name is
+`Quick actions`. With a `label`, the launcher is a text button that shows the
+label, and `icon` adds a glyph to it. `launcher = false` hides it.
+
 `holdAction` is a native InputAction Instance that the caller owns. The control
 subscribes to its `Pressed` and `Released` events. It does not accept an action
 name, and it does not define key bindings. Parent the action under a native
@@ -1657,7 +1675,9 @@ Layout options:
   `false` removes the title row.
 - `hero`: `{ image | content, aspectRatio | height, scaleMode?, background?,
   sticky? }`. A sticky hero stays pinned above the body. Otherwise it scrolls
-  with the body. With `header = false`, the close control sits over the hero.
+  with the body. With `header = false`, the close control sits over the hero
+  as an `inverse` button, so it reads on any art. Hero `content` is inset 16
+  pixels from the sides and 12 from the bottom.
 - `actions`: a list of `{ id, label, role?, enabled?, busy?, onActivate }`.
   They stay pinned below the body and never close the sheet. `actionLayout`
   is `automatic`, `row` or `stacked`. Cancel runs an enabled `role = "cancel"`
@@ -2309,11 +2329,11 @@ the nearest ScrollingFrame ancestor scrolls and for 0.15 seconds after, and
 while less than half of the stage shows in that scroll window. Without a
 ScrollingFrame ancestor it is true. Pause scene animation while `live` is
 false, so a scrolling feed does not write scene properties on each frame. With
-`lazy = true`, the stage builds its content when half of it first shows in the
-scroll window, also while the window scrolls, and the stages of one control
-set build one per frame. Its animation stays paused until `live` is true, and
-the last frame stays visible. A stage that does not show does not build its
-scene. The stage sets the attributes `FacetLive` and
+`lazy = true`, the stage builds its content when it comes within half a window
+of the scroll window, so a card never scrolls in empty. It builds also while
+the window scrolls, and the stages of one control set build one per frame. Its
+animation stays paused until `live` is true, and the last frame stays visible.
+A stage farther away than that does not build its scene. The stage sets the attributes `FacetLive` and
 `FacetBuilt`. Use the `Host.Part`, `Host.Model` and other native constructors of the
 same runtime. A 3D view inside a UI rectangle is not the same as 3D UI layout.
 

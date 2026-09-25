@@ -101,6 +101,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 		}
 
+		local headerContent = header:FindFirstChild("Content")
+		local headerLayout = headerContent and headerContent:FindFirstChildWhichIsA("UIListLayout")
+		if headerContent and headerLayout then
+			headerLayout.HorizontalAlignment = E.HorizontalAlignment.Left
+			local words = headerContent:FindFirstChild("Captions") or headerContent:FindFirstChild("Title")
+			if side == "trailing" and words then
+				runtime.mount(function()
+					return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+				end, words)
+			end
+		end
+
 		local reduce = reducedMotion(ctx)
 		local travel = runtime.tween(function(use: ComposeTypes.Use): number
 			return if use(spec.expanded) then 1 else 0
@@ -145,6 +157,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					local inset = Host.UIPadding({
 						PaddingTop = ctx.types.UDim.new(0, 8),
+						PaddingBottom = ctx.types.UDim.new(0, 8),
 						PaddingLeft = if indent == nil
 							then nil
 							else function(use: ComposeTypes.Use)

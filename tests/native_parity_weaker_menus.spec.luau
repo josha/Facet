@@ -671,6 +671,22 @@ t.describe("native parity weaker menus", function()
 		world.stop()
 	end)
 
+	t.it("draws a compact segmented strip at the compact rung, not the touch floor", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Laps" {
+					style = "segmented",
+					controlSize = "compact",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "3" }, { value = "b", label = "5" } },
+				},
+			})
+		end)
+		local floor = find(world.root, "Laps"):FindFirstChild("TargetFloor", true)
+		t.expect(floor.MinSize.Y < 50).toBe(true)
+		world.stop()
+	end)
+
 	t.it("wraps an explicit segmented strip inside the width of its labelled row", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({

@@ -715,6 +715,37 @@ t.describe("native plain Toggle", function()
 end)
 
 t.describe("native outline DisclosureGroup", function()
+	t.it("leads its header with the title, and a trailing chevron sits at the far edge", function()
+		local world = screen(nil, function(UI, Host)
+			return Host.Frame({
+				UI.DisclosureGroup("Lead")({
+					label = "Inputs",
+					expanded = Compose.cell(false),
+					content = function()
+						return Host.TextLabel({ Text = "Button" })
+					end,
+				}),
+				UI.DisclosureGroup("Trail")({
+					label = "Inputs",
+					chevronPosition = "trailing",
+					expanded = Compose.cell(false),
+					content = function()
+						return Host.TextLabel({ Text = "Button" })
+					end,
+				}),
+			})
+		end)
+		local E = Enum
+		for _, name in { "Lead", "Trail" } do
+			local content = world.find(name):FindFirstChild("Content", true)
+			t.expect(content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+				.toBe(E.HorizontalAlignment.Left)
+		end
+		local title = world.find("Trail"):FindFirstChild("Title", true)
+		t.expect(title:FindFirstChildWhichIsA("UIFlexItem") ~= nil).toBe(true)
+		world.stop()
+	end)
+
 	t.it("keeps the gap above the body inside the clipped reveal, so a collapse ends without a step", function()
 		local world = screen(nil, function(UI, Host)
 			return UI.DisclosureGroup("G")({
@@ -730,6 +761,7 @@ t.describe("native outline DisclosureGroup", function()
 		local reveal = world.find("Reveal")
 		t.expect(reveal.ClipsDescendants).toBe(true)
 		t.expect(world.find("RevealFade"):FindFirstChildWhichIsA("UIPadding").PaddingTop.Offset).toBe(8)
+		t.expect(world.find("RevealFade"):FindFirstChildWhichIsA("UIPadding").PaddingBottom.Offset).toBe(8)
 		world.stop()
 	end)
 

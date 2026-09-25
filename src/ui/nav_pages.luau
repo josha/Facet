@@ -1398,19 +1398,39 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			)
 		end
 		if spec.indicators ~= false then
-			local options: { Nav.PickerOption<string> } = {}
+			local dots: { ComposeTypes.Child } = {}
 			for index, page in spec.pages do
-				table.insert(options, { value = page.id, label = tostring(index) })
+				local id = page.id
+				local dot = UI.Button(id)({
+					name = `Page {index} of {#spec.pages}`,
+					LayoutOrder = index,
+					Size = D2.fromOffset(28, 44),
+					AutomaticSize = E.AutomaticSize.None,
+					selected = function(use: ComposeTypes.Use): boolean
+						return use(spec.selection) == id
+					end,
+					onActivate = function()
+						spec.selection:set(id)
+					end,
+				})
+				dot:AddTag("facet-page-indicator")
+				runtime.mount(function()
+					return ctx.styled(
+						Host.Frame "Dot" {
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							Size = D2.fromOffset(8, 8),
+							BorderSizePixel = 0,
+							Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
+						},
+						"page-dot"
+					)
+				end, dot)
+				table.insert(dots, dot)
 			end
-			table.insert(
-				footer,
-				UI.Picker "Indicators" {
-					selected = spec.selection,
-					options = options,
-					multiple = false :: false,
-					style = "segmented" :: "segmented",
-				}
-			)
+			local row = ctx.row(dots, { Name = "Indicators" })
+			assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = ctx.types.UDim.new(0, 0)
+			table.insert(footer, row)
 		end
 		if spec.controls ~= false then
 			table.insert(

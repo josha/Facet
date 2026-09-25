@@ -123,6 +123,8 @@ return {
 					UI.Label "Icon" {
 						title = opts.iconLabel or opts.title,
 						icon = opts.icon,
+						presentation = "iconOnly",
+						iconSize = 32,
 					}
 				)
 			end
@@ -168,6 +170,7 @@ return {
 				AutomaticSize = Enum.AutomaticSize.Y,
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
+					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
 				}),

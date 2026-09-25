@@ -526,7 +526,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				spec.FocusLost(enterPressed, input)
 			end
 		end
-		table.insert(nativeProps, ctx.padding(if framed then 0 else 10, 6))
+		local padding = ctx.padding(if framed then 0 else 10, 6)
+		if spec.presentation == "search" and not framed then
+			padding.PaddingLeft = D.new(0, 40)
+		end
+		table.insert(nativeProps, padding)
 
 		local messageNode: TextLabel?
 		if mayReject and not framed then
@@ -594,6 +598,17 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			else nil
 		if clear and not framed then
 			table.insert(nativeProps, clear)
+		end
+		if spec.presentation == "search" and not framed then
+			table.insert(
+				nativeProps,
+				ctx.icon("facet:search", {
+					Name = "SearchIcon",
+					Size = D2.fromOffset(18, 18),
+					AnchorPoint = V2.new(0, 0.5),
+					Position = D2.new(0, -28, 0.5, 0),
+				})
+			)
 		end
 		node = ctx.styled(Host.TextBox(nativeProps), "text")
 		if not framed then
