@@ -2041,7 +2041,7 @@ render owner.
 | `measure` | `false`; set to observe the rendered native `AbsoluteSize`. |
 | `measured` | An optional readable map from key to extent; overrides observed measurements. |
 | `follow` | `none` or `end`, or a readable of one, with an optional `followThreshold`. |
-| `status` | An optional writable Compose collection status cell. |
+| `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
 

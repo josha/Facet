@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A VirtualList, VirtualGrid or Table `status` cell that starts as `nil` is filled with the empty status record. Before, the collection raised "attempt to index nil with 'total'".
 - Divider paints its hairline in every theme. Before, the Divider wrote `BackgroundTransparency = 1` itself, which beats the `facet-divider` rule, so no line showed.
 - A Dialog, Sheet or Callout hero or media with `aspectRatio` keeps its height with a native `UIAspectRatioConstraint`. Before, it measured its own size and set its height, and a Dialog with a hero raised thousands of "Maximum event re-entrancy depth exceeded" errors when it opened.
 - A tap outside a Popover closes it. Before, the outside test used the full-screen popup layer, so no tap was outside and the popover stayed open.

@@ -110,7 +110,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Compose.cell({ offset = 0, size = 0 })
 		local cross, mountedVersion = Compose.cell(0), Compose.cell(0)
 		local status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus> = spec.status
-			or Compose.cell({
+			or Compose.cell((nil :: unknown) :: ComposeTypes.OrderedCollectionStatus)
+		if status:peek() == nil then
+			status:set({
 				mode = "windowed",
 				direction = "vertical",
 				total = 0,
@@ -124,6 +126,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				following = false,
 				measured = 0,
 			} :: ComposeTypes.OrderedCollectionStatus)
+		end
 		local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
 		local selectionMode: "none" | "single" | "multi" = spec.selectionMode

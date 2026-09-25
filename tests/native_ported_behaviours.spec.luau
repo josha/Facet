@@ -532,3 +532,27 @@ t.describe("lab-found defects", function()
 		w.stop()
 	end)
 end)
+
+t.describe("collection status seed", function()
+	t.it("a status cell that starts empty is filled with the empty status record", function()
+		for _, kind in { "VirtualList", "Table" } do
+			local status = Compose.cell(nil)
+			local w = world(function(UI, Host)
+				if kind == "Table" then
+					return UI.Table { from = { { id = "a" } }, key = "id", columns = { { id = "id" } }, status = status }
+				end
+				return UI.VirtualList {
+					from = { { id = "a" } },
+					key = "id",
+					status = status,
+					render = function()
+						return Host.Frame {}
+					end,
+				}
+			end)
+			w.step(2)
+			expect(type(status:peek()) == "table" and type(status:peek().total) == "number").toBe(true)
+			w.stop()
+		end
+	end)
+end)
