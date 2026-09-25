@@ -3120,6 +3120,16 @@ input is a gamepad, and is transparent after mouse or touch input. Call it
 inside a component and put the returned Frame (an invisible paint probe) in
 the ScreenGui that holds the StyleSheet link. `app.mount` does this for you.
 
+### focusSection
+
+`UI.focusSection(group)` remembers the item last selected inside the GuiObject
+`group`. When the selection enters the group from outside it, for example a
+gamepad or arrow key moving Left from a detail pane into a sidebar, it lands on
+that item instead of the one the engine finds nearest, while the item is still
+in the group, `Selectable` and visible. Call it inside a component or a Compose
+owner; it stops when the owner ends. It reads `GuiService.SelectedObject` and
+adds no input binding.
+
 ### environment
 
 `UI.environment(source?) -> Environment` returns readables of the engine facts

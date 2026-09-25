@@ -252,6 +252,7 @@ t.describe("public surface registration", function()
 			scrollTo = "ScrollOptions",
 			scrollToVisible = "ScrollOptions",
 			focusRing = "Environment",
+			focusSection = "Environment",
 		}
 		local signatures = { fill = "fill: (weight: number?) -> UIFlexItem" }
 		local count = 0

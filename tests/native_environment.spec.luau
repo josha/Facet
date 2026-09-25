@@ -606,3 +606,40 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 end)
+
+t.describe("focusSection", function()
+	t.it("returns the selection to the item last selected in the section when it enters from outside", function()
+		local w = world()
+		local screen = w.engine.new("ScreenGui")
+		local function button(name: string, parent: any): any
+			local node = w.engine.new("TextButton")
+			node.Name = name
+			node.Selectable = true
+			node.Parent = parent
+			return node
+		end
+		local outline, detail = w.engine.new("Frame"), w.engine.new("Frame")
+		outline.Parent, detail.Parent = screen, screen
+		local rows = { button("Row1", outline), button("Row2", outline), button("Row3", outline) }
+		local field = button("Field", detail)
+		local stop = owned(w.runtime, function()
+			w.UI.focusSection(outline)
+		end)
+		w.gui.SelectedObject = rows[1]
+		w.gui.SelectedObject = rows[3]
+		w.gui.SelectedObject = field
+		w.gui.SelectedObject = rows[1]
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		w.gui.SelectedObject = rows[2]
+		t.expect(w.gui.SelectedObject).toBe(rows[2])
+		rows[2].Parent = nil
+		w.gui.SelectedObject = field
+		w.gui.SelectedObject = rows[1]
+		t.expect(w.gui.SelectedObject).toBe(rows[1])
+		stop()
+		w.gui.SelectedObject = field
+		w.gui.SelectedObject = rows[3]
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		w.stop()
+	end)
+end)

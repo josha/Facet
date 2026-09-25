@@ -10,6 +10,7 @@ local function Screen(): Frame
 	local moved: boolean = UI.scrollTo(list, "top", options)
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
 	local ring: Frame = UI.focusRing(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
+	UI.focusSection(list)
 	return UI.Screen({
 		ring :: any,
 		UI.Text({

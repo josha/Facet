@@ -275,6 +275,32 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return environment
 	end
 
+	UI.focusSection = function(group: GuiObject)
+		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")
+		local gui = config.guiService
+		if gui == nil then
+			return
+		end
+		local selected = ctx.observe.SelectedObject(gui)
+		local last: GuiObject? = nil
+		local inside = false
+		local function usable(node: GuiObject): boolean
+			return node:IsDescendantOf(group) and node.Selectable and node.Visible
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			local current = use(selected) :: GuiObject?
+			local entered = current ~= nil and current:IsDescendantOf(group)
+			if entered and not inside and last ~= nil and last ~= current and usable(last) then
+				inside = true
+				gui.SelectedObject = last
+				return
+			end
+			inside = entered
+			if entered then
+				last = current
+			end
+		end)
+	end
 	UI.worldAnchor = function(options: Env.WorldAnchorOptions): Env.WorldAnchor
 		assert(type(options) == "table", "Facet UI.worldAnchor expects an options table")
 		for key in (options :: unknown) :: { [unknown]: unknown } do

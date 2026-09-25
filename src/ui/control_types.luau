@@ -79,6 +79,7 @@ export type Controls = {
 	ColorPicker: typeof(((nil :: unknown) :: Colors.ColorPickerControls).ColorPicker),
 	environment: typeof(((nil :: unknown) :: Env.EnvironmentControls).environment),
 	focusRing: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusRing),
+	focusSection: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusSection),
 	worldAnchor: typeof(((nil :: unknown) :: Env.EnvironmentControls).worldAnchor),
 	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
 	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),

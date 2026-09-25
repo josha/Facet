@@ -65,6 +65,11 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			},
 		}
 		root:AddTag("facet-surface")
+		-- Left from an app page returns to the app that is open in the sidebar.
+		local sidebar = (root:FindFirstChild("Apps") :: any):FindFirstChild("Tabs")
+		if sidebar then
+			UI.focusSection(sidebar)
+		end
 		return root
 	end
 end
