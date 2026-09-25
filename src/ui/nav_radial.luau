@@ -396,7 +396,6 @@ return function(
 				freezeCenter = function()
 					frozenCenter:set(center:peek())
 				end
-				local measures: ComposeTypes.Cell<{ [string]: Vector2? }> = Compose.cell({})
 				local layout = Compose.formula(function(use: ComposeTypes.Use): Radial.Layout<V>
 					local size, at, inner = use(viewport), use(centerTarget), use(innerTarget)
 					local start, sweep = geometry.arc(spec.preset or "donut")
@@ -412,6 +411,25 @@ return function(
 					local ring = inner
 					local minimum = ctx.metric("targetSizes.minimum", use)
 					local padding = ctx.metric("space.s", use)
+					local textSize = ctx.metric("typography.control.size", use)
+					local iconSize = ctx.controlSize(nil, "iconSize", use)
+					local gap = ctx.metric("space.xs", use)
+					local function estimate(item: Radial.RadialItemBase<V>): (number, number)
+						local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
+						if
+							icon
+							and (
+								item.labelStyle == "icon"
+								or (item.compactLabel ~= nil and item.compactLabel.prefer == true)
+							)
+						then
+							return iconSize, iconSize
+						end
+						local label = read(item.label, use) or ""
+						local width = (utf8.len(label) or #label) * textSize * 0.6
+						return width + (if icon then iconSize + gap else 0),
+							math.max(textSize, if icon then iconSize else 0)
+					end
 					local navigation, expansion = spec.navigation or "replace", spec.expansion or "fan"
 					local currentStart, currentSweep = start, sweep
 					local function append(): { Radial.Sector<V> }
@@ -474,23 +492,25 @@ return function(
 						local distribution = if #prefix == 0 then spec.distribution or "even" else "even"
 						local levelBand = band
 						if type(ringWidth) ~= "number" then
-							local known, extent = use(measures), 0
-							local base = table.concat(prefix, "/") .. "/"
+							local extent, target = 0, 0
 							for _, probe in
 								geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + 1)
 							do
-								local content = known[base .. probe.id]
-								if content then
-									local angle = math.rad(probe.angle)
-									extent = math.max(
-										extent,
-										math.abs(content.X * math.sin(angle)) + math.abs(content.Y * math.cos(angle))
-									)
+								local width, height = estimate(probe.item)
+								local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
+								local hw, hh = width / 2 + padding, height / 2 + padding
+								local middle = ri + math.abs(hw * ux) + math.abs(hh * uy)
+								for _, dx in { -hw, hw } do
+									for _, dy in { -hh, hh } do
+										local x, y = middle * ux + dx, middle * uy + dy
+										extent = math.max(extent, math.sqrt(x * x + y * y) - ri)
+									end
 								end
+								local chord = 2 * math.sin(math.rad(math.min(probe.span, 180) / 2)) * 0.86
+								target = math.max(target, 2 * (minimum / chord - ri))
 							end
-							if extent > 0 then
-								levelBand = math.clamp(extent + 2 * padding, minimum, math.max(minimum, band))
-							end
+							local wanted = 2 * math.ceil(math.max(extent, target) / 2)
+							levelBand = math.clamp(wanted, minimum, math.max(minimum, band))
 						end
 						ring = ri + levelBand + 4
 						local sectors =
@@ -664,48 +684,9 @@ return function(
 									current:set(sector)
 								end
 							end)
-							local measure = ctx.text({
-								Name = "ContentMeasure",
-								Text = function(use: ComposeTypes.Use): string
-									local live = use(current)
-									return if live then read(live.item.label, use) or "" else ""
-								end,
-								Visible = false,
-								TextWrapped = false,
-							})
-							measure:AddTag("facet-type-control")
-							local natural = ctx.observe.TextBounds(measure)
-							Compose.watch(function(use: ComposeTypes.Use)
-								local live = use(current)
-								if not live then
-									return
-								end
-								local text = use(natural)
-								local iconSize = ctx.controlSize(nil, "iconSize", use)
-								local icon = live.item.icon ~= nil
-									or (live.item.compactLabel ~= nil and live.item.compactLabel.icon ~= nil)
-								local iconOnly = live.item.labelStyle == "icon"
-									or (live.item.compactLabel ~= nil and live.item.compactLabel.prefer == true)
-								local content = if iconOnly and icon
-									then V2.new(iconSize, iconSize)
-									elseif text.X <= 0 then nil
-									else V2.new(
-										text.X + (if icon then iconSize + ctx.metric("space.xs", use) else 0),
-										math.max(text.Y, if icon then iconSize else 0)
-									)
-								local previous: Vector2? = measures:peek()[live.key]
-								if
-									content and not (previous and previous.X == content.X and previous.Y == content.Y)
-								then
-									local nextMeasures = table.clone(measures:peek())
-									nextMeasures[live.key] = content
-									measures:set(nextMeasures)
-								end
-							end)
 							return Host.Frame("SectorSlot" .. key:peek())({
 								BackgroundTransparency = 1,
 								Visible = painted,
-								measure,
 								Interactable = function(use: ComposeTypes.Use)
 									return use(present) ~= nil
 								end,

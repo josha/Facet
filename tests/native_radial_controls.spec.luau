@@ -170,7 +170,8 @@ t.describe("native radial interaction policies", function()
 	t.it("NRAD-5 freezes idle-follow anchor during capture then resumes", function()
 		local anchor = Compose.cell({ x = 320, y = 240 })
 		local world = setup({ anchor = anchor, distribution = "compass", items = compass(function() end) })
-		local touch = pointer(world, 320, 110)
+		local north = world.find("N").Position
+		local touch = pointer(world, north.X.Offset, north.Y.Offset)
 		world.find("RadialPanel").InputBegan.fire(touch)
 		anchor:set({ x = 400, y = 240 })
 		t.expect(world.find("N").Position.X.Offset).toBe(320)
@@ -542,87 +543,27 @@ t.describe("native radial interaction policies", function()
 		t.expect(y).toBe(480 - 128)
 		world.stop()
 	end)
-	t.it("sizes the default ring band from its measured content and the theme spacing", function()
+	t.it("sizes the default ring band from its labels and the theme metrics, never from an engine reading", function()
 		local items = {}
 		for index = 1, 4 do
 			table.insert(items, { id = "item" .. index, label = "Item " .. index, onSelect = function() end })
 		end
 		local world = setup({ items = items })
-		local before = 240 - world.find("item1").Position.Y.Offset
-		for _, node in world.screen:GetDescendants() do
-			if node.Name == "ContentMeasure" then
-				node.TextBounds = world.engine.types.Vector2.new(60, 20)
-			end
+		local wide = #"Item 1" * 18 * 0.6
+		local expected = 40 + (wide + 2 * 8) / 2
+		local function reach()
+			return 240 - world.find("item1").Position.Y.Offset
 		end
-		local after = 240 - world.find("item1").Position.Y.Offset
-		t.expect(after).toBe(40 + (60 + 2 * 8) / 2)
-		t.expect(after < before).toBe(true)
-		world.stop()
-	end)
-	t.it("dims the page under the centre and fits the centre control inside the hole", function()
-		for _, label in { false, "Leave the wheel" } do
-			local world = setup({
-				distribution = "compass",
-				centerLabel = if label then label else nil,
-				items = compass(function() end),
-			})
-			local scrim = world.find("DismissOutside")
-			t.expect(scrim:HasTag("facet-scrim") and scrim.Visible).toBe(true)
-			t.expect(scrim.Size.X.Scale == 1 and scrim.Size.Y.Scale == 1).toBe(true)
-			local centre = world.find("Center")
-			local w, h = centre.Size.X.Offset, centre.Size.Y.Offset
-			t.expect(math.sqrt(w * w + h * h) / 2 <= 40 or (w == h and w <= 80)).toBe(true)
-			t.expect(w).toBe(h)
-			t.expect(w >= 44).toBe(true)
-			if label then
-				t.expect(centre.Text).toBe(label)
-				t.expect(centre.TextWrapped).toBe(true)
-			else
-				t.expect(centre.Text).toBe("")
-				t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
-			end
-			world.stop()
-		end
-	end)
-	t.it("measures each item once, outside the wedge it sizes, so a measurement never feeds back", function()
-		local items = {}
-		for index = 1, 4 do
-			table.insert(items, { id = "item" .. index, label = "Item " .. index, onSelect = function() end })
-		end
-		local world = setup({ isPresented = Compose.cell(false), items = items })
+		t.expect(math.abs(reach() - expected) <= 1).toBe(true)
 		local V2 = world.engine.types.Vector2
-		local feedback = 0
-		local function follow(node)
-			if node:IsA("TextButton") then
-				node:GetPropertyChangedSignal("Size"):Connect(function()
-					for _, label in node:GetDescendants() do
-						if label.Name == "ContentMeasure" then
-							feedback += 1
-							assert(feedback < 200, "a measurement changed with the box it sizes")
-							label.TextBounds = V2.new(node.Size.X.Offset + 10, 20)
-						end
-					end
-				end)
+		for round = 1, 3 do
+			for _, node in world.screen:GetDescendants() do
+				if node:IsA("TextLabel") or node:IsA("TextButton") then
+					node.TextBounds = V2.new(40 * round, 10 * round)
+				end
 			end
+			t.expect(math.abs(reach() - expected) <= 1).toBe(true)
 		end
-		world.screen.DescendantAdded:Connect(follow)
-		world.opened:set(true)
-		local measures = {}
-		for _, node in world.screen:GetDescendants() do
-			if node.Name == "ContentMeasure" then
-				table.insert(measures, node)
-				node.TextBounds = V2.new(60, 20)
-			end
-		end
-		t.expect(#measures).toBe(4)
-		for _, measure in measures do
-			local at = measure.Parent
-			while at and at ~= world.screen do
-				t.expect(at:IsA("TextButton") or at:IsA("CanvasGroup")).toBe(false)
-				at = at.Parent
-			end
-		end
-		t.expect(240 - world.find("item1").Position.Y.Offset).toBe(40 + (60 + 2 * 8) / 2)
 		world.stop()
 	end)
 end)

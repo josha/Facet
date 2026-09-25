@@ -1806,11 +1806,14 @@ The wedge is the item. Its icon and label are a plate-less `utility` button
 with no theme control art, sized to the largest box that fits inside the wedge
 and clipped to it.
 
-Without `ringWidth`, each ring is as thick as its widest measured content
-across the ring (the label and icon box, projected on each wedge's direction)
-plus `space.s` on both sides. It is never thinner than `targetSizes.minimum`
-and never wider than the room. Before the text is measured, the ring fills the
-room.
+Without `ringWidth`, each ring is just thick enough to hold every item's
+label and icon box, with `space.s` around it, at the item's direction. The box
+is estimated from theme metrics, not measured: the label is its character
+count times 0.6 of `typography.control.size` wide and one control line tall,
+and an icon adds `iconSize` plus `space.xs`. The ring is never thinner than
+`targetSizes.minimum`, is thick enough for each wedge to be one touch target
+wide, and is never wider than the room. The same items and theme always give
+the same ring.
 
 The centre Back, Close or Home control is a round button that fills the hole
 (its diameter is the inner diameter less 4 pixels, at least one touch target),

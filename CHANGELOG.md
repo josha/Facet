@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A RadialMenu sizes its default ring from theme metrics and its labels' length, with no text measurement, and keeps each wedge one touch target wide. Before, the ring read measured text bounds, and opening it could raise "watch cascade did not settle".
 - `themes.skin` draws no art images into a TextBox target (the recipe shadow still applies), so an unframed TextInput in a skinned theme keeps the flat `facet-field` plate. Before, the `field` art was a child of the TextBox and Roblox drew it over the typed text and placeholder (Fantasy Parchment Playlist "Filter tracks").
 - An off switch's knob uses `content` when `onSelection` has less than 3:1 contrast on the `control` track (Fantasy Parchment, Neutral Light, Classic Desktop, Glossy Mobile, Sci-Fi HUD). Before, a cream or white knob on a pale track made the off switch invisible.
 - A destructive or `emphasis` Button on skinned `control` art paints its role again: the art is tinted with `danger` or `accent` when the label is lighter than that fill, and otherwise the flat fill replaces the art. Skin images have the `facet-skin-art` tag. Before, in Fantasy Parchment "Delete profile" showed plain parchment art under cream text.
