@@ -256,6 +256,29 @@ t.describe("DateTimePicker: a single date", function()
 		w.stop()
 	end)
 
+	t.it("the year menu is a bounded window on the shown year, never thousands of blurred rows (owner)", function()
+		local cell, _, change = caller(D(2026, 9, 5))
+		local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
+		must(w.picker(), "Year").Activated.fire()
+		local rows = must(w.screen, "MenuRows")
+		local years = {}
+		for _, row in rows:GetChildren() do
+			if tonumber(row.Name) then
+				table.insert(years, tonumber(row.Name))
+			end
+		end
+		table.sort(years)
+		expect(`{#years} {years[1]} {years[#years]}`).toBe("21 2016 2036")
+		expect(w.selected()).toBe(must(rows, "2026"))
+		must(rows, "2016").Activated.fire()
+		must(w.picker(), "Year").Activated.fire()
+		rows = must(w.screen, "MenuRows")
+		expect(`{find(rows, "2006") ~= nil} {find(rows, "2005") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
+			"true false true"
+		)
+		w.stop()
+	end)
+
 	t.it("a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck", function()
 		local cell, seen, change = caller(D(2026, 9, 10), false)
 		local w = mount({

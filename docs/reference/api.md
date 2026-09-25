@@ -1071,9 +1071,9 @@ grid. It is selectable, its label ends with "unavailable", its `Strike` line
 shows, and a press does nothing. A day of the next or the previous month is
 dim. A press chooses it, but it is not selectable.
 
-The month menu disables a month outside the bounds. The year menu lists only
-the years inside `min` and `max`. A side with no bound lists 100 years from
-the shown year. Each menu opens with the selection on the shown month or year.
+The month menu disables a month outside the bounds. The year menu lists the
+years up to 10 before and 10 after the shown year, and only the years inside
+`min` and `max`. Pick an end year to reach years further away. Each menu opens with the selection on the shown month or year.
 A choice moves the calendar to the nearest month inside the bounds. `Previous`
 and `Next` stop at a month that is fully outside the bounds.
 

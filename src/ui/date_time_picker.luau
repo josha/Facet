@@ -75,7 +75,7 @@ local CELLS = 42
 local CELL = 44
 local DISC = 32
 local GAP = 24
-local YEAR_SPAN = 100
+local YEAR_SPAN = 10
 local ROW = 44
 
 local function monthOf(d: CivilDate): CivilDate
@@ -1134,7 +1134,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				local centre = use(viewMonth).year
 				local lo, hi = use(minDate), use(maxDate)
 				local list = {}
-				for y = if lo then lo.year else centre - YEAR_SPAN, if hi then hi.year else centre + YEAR_SPAN do
+				local first = math.max(centre - YEAR_SPAN, if lo then lo.year else -math.huge)
+				for y = first, math.min(centre + YEAR_SPAN, if hi then hi.year else math.huge) do
 					table.insert(list, {
 						value = y,
 						label = tostring(y),
