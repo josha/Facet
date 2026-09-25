@@ -193,3 +193,26 @@ t.describe("Avatar faces, in-experience ring and background", function()
 		w.stop()
 	end)
 end)
+
+t.describe("Alert suppression", function()
+	t.it("the do-not-ask-again checkbox sits below the actions", function()
+		local w = world(function(UI)
+			return UI.Alert {
+				isPresented = Compose.cell(true),
+				title = "Delete save?",
+				suppression = { isSuppressed = Compose.cell(false) },
+				actions = {
+					{ id = "Delete", label = "Delete", role = "destructive" },
+					{ id = "Keep", label = "Keep", role = "cancel" },
+				},
+			}
+		end)
+		w.step(30)
+		local toggle = find(w.screen, "Suppression")
+		local actions = find(w.screen, "Actions")
+		expect(find(find(w.screen, "AlertContent"), "Suppression")).toBe(nil)
+		expect(toggle.Parent).toBe(actions.Parent)
+		expect(toggle.LayoutOrder > actions.LayoutOrder).toBe(true)
+		w.stop()
+	end)
+end)

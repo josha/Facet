@@ -484,15 +484,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if spec.content then
 					table.insert(contents, spec.content(payload))
 				end
-				if spec.suppression then
-					table.insert(
-						contents,
-						UI.Toggle "Suppression" {
-							value = spec.suppression.isSuppressed,
-							label = spec.suppression.label or "Do not show again",
-						}
-					)
-				end
 				local contentRoot = ctx.column(
 					contents,
 					{ Name = "AlertContent", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
@@ -551,7 +542,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					labelWidths:set(total)
 				end)
-				local actionBar = Host.Frame(actionProps)
+				local actionBar: GuiObject = Host.Frame(actionProps)
+				if spec.suppression then
+					actionBar = ctx.column({
+						actionBar,
+						UI.Toggle "Suppression" {
+							value = spec.suppression.isSuppressed,
+							label = spec.suppression.label or "Do not show again",
+						},
+					}, { Name = "AlertFooter", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+				end
 				local actionSize = ctx.observe.AbsoluteSize(actionBar)
 				local function chrome(use: ComposeTypes.Use): number
 					local package = read(ctx.config.theme, use)
