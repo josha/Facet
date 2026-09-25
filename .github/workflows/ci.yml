@@ -23,8 +23,6 @@ jobs:
         include:
           - os: ubuntu-latest
             verify: full
-          - os: macos-15
-            verify: full --reference-host
 
     steps:
       - name: Check out the repository

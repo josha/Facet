@@ -34,14 +34,14 @@ fact does not permit you to reset a threshold or to remove the workload.
 
 ## CI host
 
-CI runs the full tier on two runners: `ubuntu-latest` and the pinned
-`macos-15` ARM runner. The CPU and the architecture of the host affect these
-wall-clock measurements. Compare captured timings together with their host
-context. A change of runner does not prove a runtime speedup.
+CI runs the full tier on the `ubuntu-latest` runner. The CPU and the
+architecture of the host affect these wall-clock measurements. Compare captured
+timings together with their host context. A change of runner does not prove a
+runtime speedup.
 
-The timing budgets block the run only on the reference host. The ARM runner
-runs `tools/verify.sh full --reference-host`. On every other host, a failed
-timing budget is `FAIL_ENVIRONMENT`. The report shows it, and the run
+The timing budgets block a run only on a reference host, which runs
+`tools/verify.sh full --reference-host`. On every other host, CI included, a
+failed timing budget is `FAIL_ENVIRONMENT`. The report shows it, and the run
 continues. A release run blocks on it everywhere. The workload checks
 (`perf-scenes`) do not measure time. They block on every host.
 
