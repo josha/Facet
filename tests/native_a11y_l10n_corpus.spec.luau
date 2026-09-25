@@ -334,6 +334,12 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	ViewThatFits = function(Host)
 		return { Host.TextLabel { Text = "Wide" }, Host.TextLabel { Text = "Narrow" } }
 	end,
+	Region = function(Host)
+		return { zone = "top", rank = 1, Host.TextLabel { Text = "Score" } }
+	end,
+	Composition = function()
+		return {}
+	end,
 	ZStack = function()
 		return {}
 	end,

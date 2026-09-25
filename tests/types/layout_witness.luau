@@ -60,7 +60,21 @@ local dividerProps: Facet.DividerProps =
 local divider: Frame = UI.Divider(dividerProps)
 local spacerProps: Facet.SpacerProps = { minLength = "m" }
 local spacer: Frame = UI.Spacer(spacerProps)
+local adaptive: Frame = UI.AdaptiveStack({ axis = "x" :: "x", gap = "s" })
+local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
+local chosen: Facet.Cell<number> = Compose.cell(1)
+local region: Frame = UI.Region("Tasks")({
+	zone = "left" :: "left",
+	rank = 2,
+	mayDrop = true,
+	form = chosen,
+	UI.Text({ text = "Tasks" }),
+})
+local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
 return {
+	adaptive = adaptive,
+	fits = fits,
+	hud = hud,
 	screen = screen,
 	named = named,
 	column = column,

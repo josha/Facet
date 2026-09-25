@@ -36,6 +36,8 @@ local function within(node: any, ancestor: any): boolean
 	return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 end
 
+local measured = require("./lib/hud_measure")
+
 local function V2(w: any, x: number, y: number): any
 	return w.engine.types.Vector2.new(x, y)
 end
@@ -667,17 +669,21 @@ t.describe("native parity weaker showcase", function()
 		"mech2-90 mounts the HUD at main's eleven viewports, recovers every stepped-down zone and settles each rotation like a fresh mount",
 		function()
 			local fresh = {}
+			local function box(view: any): { number }
+				return { view[2] - 16, view[3] - 150 }
+			end
 			for _, view in HUD_VIEWS do
 				local w, built, root = scenarioWorld("hud", {
 					viewport = { width = view[2], height = view[3] },
 					input = view[4],
 				})
+				measured.measure(root, w.engine, box(view))
 				local forms, unshown = built.report().forms, built.report().unshown
 				local label = `{view[1]} {view[2]}x{view[3]}`
 				for _, zone in HUD_ZONES do
 					local regions = 0
 					for _, node in root:GetDescendants() do
-						if node.Name == zone and node.Parent and node.Parent.Name == "Content" then
+						if node.Name == zone and node:GetAttribute("FacetForm") ~= nil then
 							regions += 1
 						end
 					end
@@ -686,10 +692,7 @@ t.describe("native parity weaker showcase", function()
 					t.expect(`{label} {zone} unshown {table.find(unshown, zone) ~= nil}`)
 						.toBe(`{label} {zone} unshown {expected}`)
 				end
-				local body = find(root, "HudBody")
-				body.AbsoluteSize = V2(w, view[2] - 24, view[3] - 140)
-				t.expect(same(built.report().forms, forms)).toBe(true)
-				find(root, "Overflow").Activated.fire(input(w, "touch"))
+				built.steps.openOverflow()
 				t.expect(built.report().overflowOpen).toBe(true)
 				t.expect(`{label} recovered {hudShown(root)}`).toBe(`{label} recovered {#unshown}`)
 				if #unshown == 0 then
@@ -710,6 +713,7 @@ t.describe("native parity weaker showcase", function()
 			end
 			for _, view in order do
 				w.ctx.viewport:set({ width = view[2], height = view[3] })
+				measured.measure(root, w.engine, box(view))
 				t.expect(`{view[1]} rotated {same(built.report().forms, fresh[view[1]])}`)
 					.toBe(`{view[1]} rotated true`)
 				for _, zone in HUD_ZONES do
@@ -727,7 +731,7 @@ t.describe("native parity weaker showcase", function()
 			local neutral = Facet.themes.neutralPackage()
 			local function decided(theme: any, text: string?, body: { number }): any
 				local w, built, root = scenarioWorld("hud", { theme = theme, text = text })
-				find(root, "HudBody").AbsoluteSize = V2(w, body[1], body[2])
+				measured.measure(root, w.engine, body)
 				local forms = built.report().forms
 				w.stop()
 				return forms
@@ -735,17 +739,16 @@ t.describe("native parity weaker showcase", function()
 			for _, step in { { neutral, ornate }, { ornate, neutral } } do
 				for _, bodies in { { { 1040, 640 }, { 330, 250 } }, { { 330, 250 }, { 1040, 640 } } } do
 					local w, built, root = scenarioWorld("hud", { theme = step[1] })
-					local body = find(root, "HudBody")
-					body.AbsoluteSize = V2(w, bodies[1][1], bodies[1][2])
+					measured.measure(root, w.engine, bodies[1])
 					local before = built.report().forms
 					w.ctx.theme:set(step[2])
 					t.expect(same(built.report().forms, before)).toBe(true)
-					body.AbsoluteSize = V2(w, bodies[2][1], bodies[2][2])
+					measured.measure(root, w.engine, bodies[2])
 					local want = decided(step[2], nil, bodies[2])
 					t.expect(same(want, before)).toBe(false)
 					t.expect(same(built.report().forms, want)).toBe(true)
 					w.gui.PreferredTextSize = w.engine.types.Enum.PreferredTextSize.Largest
-					body.AbsoluteSize = V2(w, bodies[1][1], bodies[1][2])
+					measured.measure(root, w.engine, bodies[1])
 					t.expect(same(built.report().forms, decided(step[2], "Largest", bodies[1]))).toBe(true)
 					w.stop()
 				end

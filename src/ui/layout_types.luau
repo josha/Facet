@@ -84,6 +84,19 @@ export type DividerProps = Engine.FrameProps & {
 export type SpacerProps = Engine.FrameProps & {
 	minLength: Types.Value<Space>?,
 }
+export type Zone =
+	"topLeft"
+	| "top"
+	| "topRight"
+	| "left"
+	| "center"
+	| "right"
+	| "bottomLeft"
+	| "bottom"
+	| "bottomRight"
+	| "topbar"
+export type RegionProps = Engine.FrameProps & { zone: Zone, rank: number, mayDrop: boolean?, form: Types.Cell<number>? }
+export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 export type LayoutControls = {
 	Screen: Types.Constructor<ScreenProps, Frame>,
 	VStack: Types.Constructor<StackProps, Frame>,
@@ -96,6 +109,8 @@ export type LayoutControls = {
 	ErrorBoundary: Types.Constructor<ErrorBoundaryProps, Frame>,
 	Divider: Types.Constructor<DividerProps, Frame>,
 	Spacer: Types.Constructor<SpacerProps, Frame>,
+	Composition: Types.Constructor<CompositionProps, Frame>,
+	Region: Types.Constructor<RegionProps, Frame>,
 	fill: (weight: number?) -> UIFlexItem,
 }
 return {}

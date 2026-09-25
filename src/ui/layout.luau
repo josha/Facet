@@ -64,21 +64,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		}
 		local frame =
 			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
-		local gui = ctx.config.guiService
-		if gui then
-			local topbar, position, parent =
-				ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
-			Compose.watch(function(use: ComposeTypes.Use)
-				use(parent)
-				local band, top = use(topbar), use(position).Y
-				local ok, inset = pcall(gui.GetGuiInset, gui)
-				under:set(
-					if typeof(band) == "Rect" and frame:FindFirstAncestorWhichIsA("ScreenGui")
-						then math.max(0, band.Max.Y - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top)
-						else 0
-				)
-			end)
-		end
+		kit.underTopbar(frame, under)
 		return frame
 	end)
 

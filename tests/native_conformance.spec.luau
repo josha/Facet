@@ -37,6 +37,12 @@ local fixtures = {
 	ViewThatFits = function(Host)
 		return { Host.Frame({}) }
 	end,
+	Region = function(Host)
+		return { zone = "top", rank = 1, Host.Frame({}) }
+	end,
+	Composition = function()
+		return {}
+	end,
 	Button = function()
 		return { label = "Press" }
 	end,

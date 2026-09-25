@@ -1034,6 +1034,41 @@ t.describe("native navigation controls", function()
 		t.expect(retired).toBe(built)
 	end)
 
+	t.it("hides the bar and gives the content the whole view with placement none", function()
+		local selected, placement = Compose.cell("one"), Compose.cell("none")
+		local world = setup(function(UI, Host)
+			return UI.TabView({
+				selection = selected,
+				style = "sidebarAdaptable",
+				placement = placement,
+				tabs = {
+					{
+						id = "one",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+					{
+						id = "two",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			})
+		end)
+		local root = find(world.screen, "TabView")
+		root.AbsoluteSize = world.engine.types.Vector2.new(844, 332)
+		local T = world.engine.types
+		t.expect(find(root, "Tabs").Visible).toBe(false)
+		t.expect(find(root, "Content").Position).toBe(T.UDim2.fromOffset(0, 0))
+		t.expect(find(root, "Content").Size).toBe(T.UDim2.fromScale(1, 1))
+		placement:set("topBar")
+		t.expect(find(root, "Tabs").Visible).toBe(true)
+		t.expect(find(root, "Content").Position).toBe(T.UDim2.fromOffset(0, 52))
+		world.stop()
+	end)
+
 	t.it("removes dynamically deleted tab owners and preserves the selected survivor", function()
 		local selection, tabs, disposed = Compose.cell("one"), nil, 0
 		local world = setup(function(UI, Host)
