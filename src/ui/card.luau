@@ -389,6 +389,7 @@ return function(
 						action.onActivate()
 					end
 				end,
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Types.Child,
 			})
 			primaryButton = button
 			local states = table.clone(actionStates:peek())
@@ -400,18 +401,15 @@ return function(
 			local more = UI.Menu({
 				Name = "More",
 				LayoutOrder = 2,
-				label = menu.label or "More",
+				trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }) :: GuiObject,
 				items = menu.items,
 				isPresented = menuOpen,
 				enabled = enabled,
 			})
-			local trigger = more:FindFirstChild("Trigger")
-			if trigger and trigger:IsA("GuiObject") then
-				moreTrigger = trigger
-				local states = table.clone(actionStates:peek())
-				table.insert(states, holding(trigger))
-				actionStates:set(states)
-			end
+			moreTrigger = more
+			local states = table.clone(actionStates:peek())
+			table.insert(states, holding(more))
+			actionStates:set(states)
 			table.insert(rowChildren, more :: Types.Child)
 		end
 		local rowProps: Types.FrameNativeProps = {
@@ -431,7 +429,26 @@ return function(
 		for _, child in rowChildren do
 			table.insert(rowProps, child)
 		end
+		rowProps.ZIndex = 2
+		if reveal == "automatic" then
+			local function side(use: ComposeTypes.Use): UDim
+				return D.new(0, ctx.metric("space.s", use))
+			end
+			table.insert(
+				rowProps,
+				Host.UIPadding({ PaddingLeft = side, PaddingRight = side, PaddingTop = side, PaddingBottom = side })
+			)
+		end
 		local row = Host.Frame(rowProps)
+		local plateLayer = ctx.styled(
+			Host.Frame({
+				Name = "Plate",
+				Size = D2.fromScale(1, 1),
+				Visible = reveal == "automatic",
+				Host.UICorner({}) :: Types.Child,
+			}),
+			"panel"
+		)
 		local plate = Host.CanvasGroup "Reveal" {
 			LayoutOrder = 2,
 			BackgroundTransparency = 1,
@@ -444,6 +461,7 @@ return function(
 				end
 				return 1 - use(fade)
 			end,
+			plateLayer :: Types.Child,
 			row :: Types.Child,
 		}
 		local liftScale = Host.UIScale({ Name = "Lift", Scale = scale })
@@ -490,7 +508,7 @@ return function(
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, ctx.metric("space.xs", use))
+					return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else 0)
 				end,
 			}) :: Types.Child,
 			liftScale :: Types.Child,

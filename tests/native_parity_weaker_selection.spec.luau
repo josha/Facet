@@ -492,7 +492,7 @@ t.describe("native parity weaker selection", function()
 			table.insert(walk, `{selected(world)}:{revealed()}`)
 		end
 		t.expect(walk[1]).toBe("Primary:true")
-		t.expect(walk[2]).toBe("Trigger:true")
+		t.expect(walk[2]).toBe("More:true")
 		t.expect(walk[3]).toBe("Next:false")
 		tab(world, true)
 		t.expect(selected(world)).toBe("Body")

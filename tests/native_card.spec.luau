@@ -70,7 +70,7 @@ local function primary(world: any): any
 end
 
 local function more(world: any): any
-	return world.find("More"):FindFirstChild("Trigger")
+	return world.find("More")
 end
 
 local function hover(root: any, inside: boolean)
@@ -494,6 +494,36 @@ t.describe("native Card", function()
 		world.stop()
 	end)
 
+	t.it("seats Play and a trailing More icon on a plate directly beneath the body", function()
+		local world, root = mount(cardSpec({}))
+		local E = world.engine.types.Enum
+		t.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(0)
+		local reveal = plate(world)
+		local paint = reveal:FindFirstChild("Plate")
+		t.expect(paint ~= nil and paint:HasTag("facet-panel")).toBe(true)
+		t.expect(paint.Size).toBe(UDim2.fromScale(1, 1))
+		local row = reveal:FindFirstChild("Row")
+		t.expect(row.ZIndex > paint.ZIndex).toBe(true)
+		t.expect(row:FindFirstChildWhichIsA("UIPadding") ~= nil).toBe(true)
+		local play, trigger = primary(world), more(world)
+		t.expect(play.Parent).toBe(row)
+		t.expect(play:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Fill)
+		t.expect(trigger.Parent).toBe(row)
+		t.expect(trigger.LayoutOrder > play.LayoutOrder).toBe(true)
+		t.expect(trigger:GetAttribute("label")).toBe("More")
+		t.expect(trigger:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		t.expect(trigger:FindFirstChild("Title", true)).toBeNil()
+		world.stop()
+	end)
+
+	t.it("keeps an always row unplated below the body with a gap", function()
+		local world, root = mount(cardSpec({}, { reveal = "always" }))
+		t.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset > 0).toBe(true)
+		t.expect(plate(world):FindFirstChild("Plate").Visible).toBe(false)
+		t.expect(plate(world):FindFirstChild("Row"):FindFirstChildWhichIsA("UIPadding")).toBeNil()
+		world.stop()
+	end)
+
 	t.it("follows a live change of the measured envelope while revealed", function()
 		local world, root, controls = mount(cardSpec({}, { Size = UDim2.fromOffset(240, 0) }))
 		hover(root, true)
@@ -637,7 +667,7 @@ t.describe("native Card", function()
 		for _, side in { "Up", "Down", "Left", "Right" } do
 			t.expect(row["SelectionBehavior" .. side].Name).toBe("Stop")
 		end
-		local trigger = card:FindFirstChild("More", true):FindFirstChild("Trigger")
+		local trigger = card:FindFirstChild("More", true)
 		g.world.gui.SelectedObject = trigger
 		trigger.Activated.fire()
 		t.expect(attr(card, "MenuOpen")).toBe(true)
@@ -658,7 +688,7 @@ t.describe("native Card", function()
 		local g = gridWorld(12)
 		g.world.gui.SelectedObject = g.hit("i1")
 		g.hit("i1").Activated.fire()
-		local trigger = g.card("i1"):FindFirstChild("More", true):FindFirstChild("Trigger")
+		local trigger = g.card("i1"):FindFirstChild("More", true)
 		g.world.gui.SelectedObject = trigger
 		trigger.Activated.fire()
 		t.expect(attr(g.card("i1"), "MenuOpen")).toBe(true)

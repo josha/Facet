@@ -1018,7 +1018,6 @@ local function cardIn(t: any, games: any, key: string): any
 		return nil
 	end
 	local card = t.find(cell, "Card")
-	local more = card and t.find(card, "More")
 	return {
 		cell = cell,
 		card = card,
@@ -1026,7 +1025,7 @@ local function cardIn(t: any, games: any, key: string): any
 		body = card and card:FindFirstChild("Body"),
 		reveal = card and card:FindFirstChild("Reveal"),
 		primary = card and t.find(card, "Primary"),
-		more = more and t.find(more, "Trigger"),
+		more = card and t.find(card, "More"),
 	}
 end
 

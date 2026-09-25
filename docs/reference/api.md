@@ -2322,8 +2322,11 @@ choose. For rows of text, use VirtualList or Table.
   on one of its actions, its menu is open, its actions are entered, or the
   `browseTarget` is selected. A card with no body action and no
   `browseTarget` has no stop of its own, so it shows its actions at rest.
-- The plate is a CanvasGroup below the body in the card's own layout. It is
-  always laid out, so the card size never changes and the siblings never move.
+- The plate is a CanvasGroup directly below the body in the card's own layout.
+  With `automatic`, it paints a panel surface under the action row. The
+  primary action fills the row and More is an icon button at its end. With
+  `always`, the row has no plate and sits a small gap below the body. The plate
+  is always laid out, so the card size never changes and the siblings never move.
   At rest it is transparent and not `Interactable`, so its actions take no
   press and no selection. The fade uses a Compose tween, so a quick reversal
   continues from the current value. Reduced motion shows and hides it
