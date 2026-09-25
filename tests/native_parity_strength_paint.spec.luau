@@ -2254,3 +2254,39 @@ t.describe("native paint strength: pixel quest selected plate", function()
 		t.expect(withLink({ asset = "art", tint = "green" })).toBe(false)
 	end)
 end)
+
+t.describe("native paint strength: table rows", function()
+	t.it("an alternate row resolves to tableRowAlternate in every shipped package and palette", function()
+		local h = harness()
+		local root, stopTable = mount(h, function()
+			return h.UI.Table({
+				from = { { id = "a" }, { id = "b" } },
+				key = "id",
+				scrolls = false,
+				alternatingRows = true,
+				columns = { { id = "id" } },
+			})
+		end)
+		local alternate = tagged(root, "facet-tablerow-alternate")[1]
+		local plain = find(root, "a")
+		t.expect(alternate ~= nil).toBe(true)
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			for _, palette in package.style.themes do
+				local sheet, stop = sheetFor(h, package, { theme = palette.name })
+				t.expect(resolve(sheet, alternate, "BackgroundColor3"))
+					.toBe(style(sheet, ".facet-tablerow-alternate").BackgroundColor3)
+				t.expect(resolve(sheet, tagged(plain, "facet-tablerow")[1], "BackgroundColor3"))
+					.toBe(style(sheet, ".facet-tablerow").BackgroundColor3)
+				stop()
+			end
+		end
+		stopTable()
+		h.dispose()
+	end)
+
+end)
+end)

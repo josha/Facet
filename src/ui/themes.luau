@@ -722,10 +722,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
-	for tag, role in
-		{ tablehead = "tableHeader", tablerow = "tableRow", ["tablerow-alternate"] = "tableRowAlternate" } :: { [string]: string }
+	for _, pair in
+		{ { "tablehead", "tableHeader" }, { "tablerow", "tableRow" }, { "tablerow-alternate", "tableRowAlternate" } }
 	do
-		rule(".facet-" .. tag, { BackgroundColor3 = c(role), BackgroundTransparency = 0, BorderSizePixel = 0 })
+		rule(".facet-" .. pair[1], { BackgroundColor3 = c(pair[2]), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
 	rule(".facet-tablevalue::UIPadding", {
 		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
