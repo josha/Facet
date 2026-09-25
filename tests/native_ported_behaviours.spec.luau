@@ -589,3 +589,22 @@ t.describe("bounded text buttons", function()
 		end
 	)
 end)
+
+t.describe("outline disclosure header", function()
+	t.it("an outline DisclosureGroup header leads with its chevron and label", function()
+		local w = world(function(UI)
+			return UI.DisclosureGroup "Tree" {
+				label = "Components",
+				appearance = "outline",
+				expanded = Compose.cell(false),
+				content = function()
+					return UI.Text { text = "Body" }
+				end,
+			}
+		end)
+		local header = find(w.screen, "Header")
+		local layout = find(header, "Content"):FindFirstChildWhichIsA("UIListLayout")
+		expect(layout.HorizontalAlignment.Name).toBe("Left")
+		w.stop()
+	end)
+end)

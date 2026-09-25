@@ -1764,8 +1764,9 @@ outer layout, use the native properties on their returned roots. See
 
 DisclosureGroup `appearance` is `plain` (the default), `contained`, `divided`
 or `outline`. The root has the `facet-disclosure-<appearance>` tag. `outline`
-is a tree row: the header does not get the `facet-selected` tag while the group
-is expanded, and it keeps focus and activation. `textSize` is a type role or a
+is a tree row: the header starts its chevron and label at the leading edge, it
+does not get the `facet-selected` tag while the group is expanded, and it keeps
+focus and activation. `textSize` is a type role or a
 number of pixels for the header label, as on Button. `indent` is a spacing step
 (`xs`, `s`, `m`, `l` or `xl`) or a number of pixels. It adds a left UIPadding to
 `RevealFade`, so nested groups read as an outline.

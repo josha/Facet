@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An `outline` DisclosureGroup header starts its chevron and label at the leading edge, like the rows under it. Before, they were centered.
 - A text Button or Toggle with an authored width wraps its label and grows in height, and a label that cannot fit its box truncates at the end. Before, a long label painted past the control or was cut in the middle of a letter.
 - A VirtualList, VirtualGrid or Table `status` cell that starts as `nil` is filled with the empty status record. Before, the collection raised "attempt to index nil with 'total'".
 - Divider paints its hairline in every theme. Before, the Divider wrote `BackgroundTransparency = 1` itself, which beats the `facet-divider` rule, so no line showed.

@@ -92,6 +92,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = D2.new(1, 0, 0, 44),
 			selected = if spec.appearance == "outline" then nil else spec.expanded,
 			appearance = if spec.appearance == "outline" then "utility" else nil,
+			TextXAlignment = if spec.appearance == "outline" then E.TextXAlignment.Left else nil,
 			onActivate = function()
 				local value = not spec.expanded:peek()
 				spec.expanded:set(value)
