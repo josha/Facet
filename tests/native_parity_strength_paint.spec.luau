@@ -274,7 +274,14 @@ local function skinPackage(slots: { [string]: any }): any
 end
 
 local function ownArt(node: any, slot: string): any
-	for _, child in node:GetChildren() do
+	local children = node:GetChildren()
+	local fade = node:FindFirstChild("Fade")
+	if fade and fade.ClassName == "CanvasGroup" then
+		for _, child in fade:GetChildren() do
+			table.insert(children, child)
+		end
+	end
+	for _, child in children do
 		if string.sub(child.Name, -8) == "Boundary" or (child.ClassName == "Folder" and child.Name == "Chrome") then
 			local art = find(child, slot .. "1")
 			if art then
@@ -287,7 +294,14 @@ end
 
 local function ownSlots(node: any): { string }
 	local out = {}
-	for _, child in node:GetChildren() do
+	local children = node:GetChildren()
+	local fade = node:FindFirstChild("Fade")
+	if fade and fade.ClassName == "CanvasGroup" then
+		for _, child in fade:GetChildren() do
+			table.insert(children, child)
+		end
+	end
+	for _, child in children do
 		if string.sub(child.Name, -8) == "Boundary" or (child.ClassName == "Folder" and child.Name == "Chrome") then
 			for _, image in child:GetDescendants() do
 				if image.ClassName == "ImageLabel" and image.Visible then
@@ -1118,7 +1132,7 @@ t.describe("native paint strength: skins", function()
 		for _, entry in expected do
 			local node, slot = entry[1], entry[2]
 			t.expect(node ~= nil).toBe(true)
-			t.expect(ownSlots(node)).toEqual({ slot })
+			t.expect(`{slot}: {table.concat(ownSlots(node), ",")}`).toBe(`{slot}: {slot}`)
 			t.expect(ownArt(node, slot) ~= nil or find(node, slot .. "1") ~= nil).toBe(true)
 			t.expect((ownArt(node, slot) or find(node, slot .. "1")).Image).toBe(assets[slot])
 			t.expect(node:HasTag("facet-skinned")).toBe(true)
