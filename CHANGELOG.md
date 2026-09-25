@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A pointer or gamepad `UI.SplitButton` is one plate: the primary action and an icon-only chevron segment joined by a hairline, with shared outer corners and one piece of `control` art in a skinned theme. Before, it drew two separate buttons with a gap. The chevron segment keeps a 44 pixel floor and shows `menuLabel` as its help text.
 - A skinned plate that lays out its children (a framed TextInput, a panel) keeps its chrome art in a `Chrome` folder, outside the list layout. Before, the list placed the art as a child, so a Pixel Quest search field painted its plate left of the field.
 - The theme `toggleTrack` and `toggleKnob` art paints a switch only. Before, a checkbox took the switch art and lost its outline, so a Pixel Quest checkbox drew as a small bar.
 - `app.mount` into a PlayerGui replaces the engine selection glow with one theme focus ring (`PlayerGui.SelectionImageObject`): a thin inner `accent` stroke with the control corner, thicker on a `Large` display, shown only after keyboard or gamepad input. Before, a pointer-opened menu row showed the thick engine glow on top of its own highlight.

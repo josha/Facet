@@ -2773,6 +2773,7 @@ return function(
 		end
 		local function primary()
 			return UI.Button "Primary" {
+				appearance = "utility",
 				label = spec.label,
 				onActivate = spec.onActivate,
 				enabled = spec.enabled,
@@ -2826,23 +2827,45 @@ return function(
 				end, function()
 					local row = ctx.row({
 						primary(),
+						ctx.styled(
+							Host.Frame "Divider" {
+								BorderSizePixel = 0,
+								Size = function(use: ComposeTypes.Use)
+									return D2.new(0, ctx.metric("strokes.hairline", use), 1, 0)
+								end,
+							},
+							"divider"
+						),
 						UI.Menu "Alternatives" {
 							trigger = function(): GuiObject
 								return UI.Button "Trigger" {
+									appearance = "utility",
 									icon = "chevron.down",
 									name = spec.menuLabel or "More options",
+									help = spec.menuLabel or "More options",
 									enabled = enabled,
 									onActivate = function()
 										opened:set(true)
 									end,
+									Host.UISizeConstraint({
+										MinSize = function(use: ComposeTypes.Use)
+											return V2.new(ctx.metric("targetSizes.minimum", use), 0)
+										end,
+									}),
 								}
 							end,
 							items = spec.items,
 							enabled = enabled,
 							isPresented = opened,
 						},
+					}, { Name = "Split" })
+					assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 0)
+					row:ResetPropertyToDefault("BackgroundTransparency")
+					ctx.skin(ctx.styled(row, "control"), "control", {
+						disabled = function(use: ComposeTypes.Use)
+							return not enabled(use)
+						end,
 					})
-					assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 2)
 					return row
 				end),
 			})

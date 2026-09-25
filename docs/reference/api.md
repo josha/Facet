@@ -1349,9 +1349,12 @@ SplitButton combines a primary `label` and `onActivate` action with the
 secondary `items` of the menu. Use it when the secondary operations supplement
 one clear primary action.
 
-With a mouse or a gamepad, the primary button and a chevron button sit side by
-side as one control. The chevron opens the menu, and its accessible name is
-`menuLabel` (default `More options`). With touch, SplitButton is one button
+With a mouse or a gamepad, SplitButton is one control plate with two parts:
+the primary action and a narrow chevron segment, joined by a hairline. Only the
+outer corners are round. Each part is its own focus stop and is at least 44
+pixels. The chevron opens the menu. Its accessible name and help text are
+`menuLabel` (default `More options`). A skinned theme paints its `control` art
+once across the whole plate. With touch, SplitButton is one button
 with a trailing chevron: a tap runs the primary action, and a long press opens
 the menu.
 

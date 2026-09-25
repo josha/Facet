@@ -1991,3 +1991,62 @@ t.describe("native paint strength: value and status paint", function()
 		h.dispose()
 	end)
 end)
+
+t.describe("native paint strength: split button", function()
+	local function split(h: Harness): (any, () -> ())
+		return mount(h, function()
+			return h.Host.Frame({
+				h.UI.Button({ Name = "Plain", label = "Plain" }),
+				h.UI.SplitButton "Split" {
+					label = "Start race",
+					onActivate = function() end,
+					items = { { id = "practice", label = "Practice", onSelect = function() end } },
+				},
+			})
+		end)
+	end
+
+	t.it("joins the primary and an icon-only menu segment on one plate", function()
+		local package = themes.neutralPackage()
+		local h = harness({ theme = package })
+		local root, stop = split(h)
+		local sheet, stopSheet = sheetFor(h, package)
+		local primary, segment = find(root, "Primary"), find(root, "Alternatives")
+		local plate = primary.Parent
+		t.expect(segment.Parent).toBe(plate)
+		t.expect(plate:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(0)
+		local divider = find(plate, "Divider")
+		t.expect(primary.LayoutOrder < divider.LayoutOrder and divider.LayoutOrder < segment.LayoutOrder).toBe(true)
+		t.expect(resolve(sheet, plate, "BackgroundTransparency")).toBe(0)
+		t.expect(resolve(sheet, plate, "CornerRadius", "UICorner"))
+			.toBe(resolve(sheet, find(root, "Plain"), "CornerRadius", "UICorner"))
+		t.expect(resolve(sheet, primary, "BackgroundTransparency")).toBe(1)
+		t.expect(resolve(sheet, segment, "BackgroundTransparency")).toBe(1)
+		t.expect(segment.Text).toBe("")
+		t.expect(find(segment, "Title")).toBe(nil)
+		t.expect(find(segment, "LeadingIcon") ~= nil).toBe(true)
+		t.expect(segment:GetAttribute("label")).toBe("More options")
+		t.expect(primary.Size.Y.Offset).toBe(find(root, "Plain").Size.Y.Offset)
+		t.expect(segment.Size.Y.Offset).toBe(primary.Size.Y.Offset)
+		t.expect(primary.Size.Y.Offset >= 44).toBe(true)
+		t.expect(segment:FindFirstChildWhichIsA("UISizeConstraint").MinSize.X >= 44).toBe(true)
+		t.expect(primary.Selectable ~= false and segment.Selectable ~= false).toBe(true)
+		segment.Activated.fire()
+		t.expect(find(root.Parent or root, "MenuPanel") ~= nil).toBe(true)
+		stopSheet()
+		stop()
+		h.dispose()
+	end)
+
+	t.it("paints skinned plate art across the whole split, not per segment", function()
+		local package = skinPackage({ control = "rbxassetid://123" })
+		local h = harness({ theme = package })
+		local root, stop = split(h)
+		local primary = find(root, "Primary")
+		t.expect(ownSlots(primary.Parent)).toEqual({ "control" })
+		t.expect(ownSlots(primary)).toEqual({})
+		t.expect(ownSlots(find(root, "Alternatives"))).toEqual({})
+		stop()
+		h.dispose()
+	end)
+end)
