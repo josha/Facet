@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A tap outside a Popover closes it. Before, the outside test used the full-screen popup layer, so no tap was outside and the popover stayed open.
 - The `environment` factory option previews device facts: `preferredInput`, `touchEnabled`, `mouseEnabled`, `gamepadEnabled`, `keyboardEnabled`, `preferredTextSize`, `displaySize` and `viewportSize`. Each is a value or a readable, and `nil` follows the engine. Every control and `UI.environment()` read the preview. The gallery settings use it for the input and text-size previews.
 - Table editable cells. A column `editor` of `text`, `number`, `toggle` or `menu` shows the matching field control in each cell. Each accepted edit calls `onCellChange(rowKey, columnId, value)`, and the caller updates its rows. An edit that changes nothing proposes nothing.
 - `app.refusal(control, spec)` returns the words that the constructor of `UI[control]` refuses `spec` with, or nil. It builds under a temporary Compose owner and mounts nothing. Facet now also uses `Compose.withRootOwner`.

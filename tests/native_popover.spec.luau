@@ -94,6 +94,23 @@ t.describe("native Popover: the caller's fact decides, proposals ask", function(
 		w.stop()
 	end)
 
+	t.it("an outside tap closes a popover whose full-screen popup layer covers the tap", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change))
+		open:set(true)
+		local panel = w.find("Panel")
+		panel.Parent.AbsoluteSize = Vector2.new(800, 600)
+		w.find("DismissOutside").Parent.AbsoluteSize = Vector2.new(800, 600)
+		panel.AbsolutePosition = Vector2.new(10, 10)
+		panel.AbsoluteSize = Vector2.new(200, 100)
+		w.find("DismissOutside").Activated.fire({ Position = Vector2.new(100, 50) })
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		w.find("DismissOutside").Activated.fire({ Position = Vector2.new(700, 500) })
+		t.expect(w.find("Panel")).toBeNil()
+		t.expect(table.concat(log.dismissed, ",")).toBe("outside")
+		w.stop()
+	end)
+
 	t.it("Cancel, an outside tap and a press on the trigger each close with their own reason, once", function()
 		for _, case in { "cancel", "outside", "trigger" } do
 			local open, log, change = caller()
