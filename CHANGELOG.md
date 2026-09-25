@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A `utility` or `link` Button takes no `control` chrome art. Before, a skinned theme (Pixel Quest, Fantasy) painted a full plate on every utility row, link and outline DisclosureGroup header.
 - A skin that paints its own caption (a plaque) hides only its own button caption. Before, the rule matched every button caption inside the skinned surface, so a Fantasy Ornate Sheet showed its action, Done and Toggle labels as empty plates.
 - A text Button whose width follows its label no longer truncates it. With `TextTruncate` on such a width, the engine measured the truncated label and alternated between two widths every frame; in a skinned theme a long segmented Picker label raised hundreds of "Maximum event re-entrancy" errors. A bounded width still truncates.
 - A skinned control's painted caption rounds its width and height up to whole pixels. Before, a fractional text width (Pixel Quest) was cut down by the whole-pixel offset, so a label that fits showed as "Lab…" or "Automat…".

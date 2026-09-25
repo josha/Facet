@@ -651,3 +651,30 @@ t.describe("StepIndicator room", function()
 		w.stop()
 	end)
 end)
+
+t.describe("plate-less appearances in skinned themes", function()
+	t.it("utility and link Buttons take no control skin; a standard Button does", function()
+		local package = themes.neutralPackage()
+		package.assets = package.assets or {}
+		package.assets.controlArt = { content = "rbxassetid://123" }
+		package.chrome.control = { kind = "nineSlice", asset = "controlArt" }
+		local appearance = Compose.cell("utility")
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Button "Plated" { label = "Go" },
+				UI.Button "Utility" { label = "Row", appearance = "utility" },
+				UI.Button "Link" { label = "More", appearance = "link" },
+				UI.Button "Live" { label = "Live", appearance = appearance },
+			}
+		end, { theme = package })
+		expect(find(w.screen, "Plated"):FindFirstChild("SkinBoundary") ~= nil).toBe(true)
+		expect(find(w.screen, "Utility"):FindFirstChild("SkinBoundary")).toBeNil()
+		expect(find(w.screen, "Link"):FindFirstChild("SkinBoundary")).toBeNil()
+		expect(find(w.screen, "Live"):FindFirstChild("SkinBoundary")).toBeNil()
+		appearance:set("standard")
+		expect(find(w.screen, "Live"):FindFirstChild("SkinBoundary") ~= nil).toBe(true)
+		appearance:set("link")
+		expect(find(w.screen, "Live"):FindFirstChild("SkinBoundary")).toBeNil()
+		w.stop()
+	end)
+end)

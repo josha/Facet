@@ -979,7 +979,6 @@ t.describe("native paint strength: skins", function()
 		local slider = find(root, "Slider")
 		local nodes = {
 			find(root, "Soft"),
-			find(root, "Utility"),
 			find(root, "Primary"),
 			find(root, "Danger"),
 			find(find(root, "Segmented"), "a"),
@@ -989,6 +988,7 @@ t.describe("native paint strength: skins", function()
 			find(slider, "Fill"),
 		}
 		t.expect(find(find(root, "Segmented"), "a"):HasTag("facet-segment-current")).toBe(true)
+		t.expect(find(root, "Utility"):HasTag("facet-skinned")).toBe(false)
 		local function sweep(expectSkinned: boolean)
 			for _, node in nodes do
 				t.expect(node:HasTag("facet-skinned")).toBe(expectSkinned)

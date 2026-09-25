@@ -1024,12 +1024,27 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 
 		if not unskinned[spec] then
-			ctx.skin(node, "control", {
-				selected = spec.selected,
-				disabled = function(use: ComposeTypes.Use)
-					return not enabled(spec, use)
-				end,
-			})
+			local function skin()
+				ctx.skin(node, "control", {
+					selected = spec.selected,
+					disabled = function(use: ComposeTypes.Use)
+						return not enabled(spec, use)
+					end,
+				})
+			end
+			local function plated(use: ComposeTypes.Use?): boolean
+				local appearance = read(spec.appearance, use)
+				return appearance ~= "utility" and appearance ~= "link"
+			end
+			if dynamic(spec.appearance) then
+				Compose.watch(function(use: ComposeTypes.Use)
+					if plated(use) then
+						skin()
+					end
+				end)
+			elseif plated() then
+				skin()
+			end
 		end
 
 		local guiState = if iconState then ctx.observe.GuiState(node) else nil

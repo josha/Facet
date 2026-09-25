@@ -560,7 +560,8 @@ Presentation options:
   light plate on a dark theme, and a dark plate on a light theme. It uses the
   `inverseSurface` and `onInverse` colors of the palette. Without them it uses
   `contentStrong` with `surface` text. The button has the
-  `facet-appearance-inverse` tag.
+  `facet-appearance-inverse` tag. A `utility` or `link` Button has no plate:
+  a theme's `control` chrome art paints only the other appearances.
 - `controlSize`: `xsmall`, `compact`, `regular` or `large`. `xsmall` is one
   step below `compact` unless the theme package declares
   `metrics.controlSizes.xsmall`. With the neutral values it is 28 pixels high,
