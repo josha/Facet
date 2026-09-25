@@ -728,8 +728,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						Host.ImageLabel "Image" {
 							Image = spec.image,
 							BackgroundTransparency = 1,
-							Size = if live
-								then function(use: ComposeTypes.Use)
+							AnchorPoint = if hugs then nil else V2.new(0.5, 0.5),
+							Position = if hugs then nil else D2.fromScale(0.5, 0.5),
+							Size = if not hugs
+								then D2.fromScale(1, 1)
+								elseif live then function(use: ComposeTypes.Use)
 									return D2.new(1, 0, 1, radius(use))
 								end
 								else D2.new(1, 0, 1, radius()),
@@ -741,6 +744,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 									end
 									else D.new(0, radius()),
 							}),
+							if hugs
+								then nil
+								else Host.UIAspectRatioConstraint({
+									AspectRatio = spec.imageAspectRatio or 16 / 9,
+									AspectType = E.AspectType.FitWithinMaxSize,
+								}),
 						},
 					}
 				)

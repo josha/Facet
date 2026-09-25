@@ -45,6 +45,7 @@ return {
 		local tokens = signal({ "Rain", "No assists", "Friends" })
 		local editingTags = signal(false)
 		local chosenTags = signal({} :: { [string]: boolean })
+		local driver = signal(nil :: string?)
 		local mounted = false
 		local seconds = 0
 		local readRung = function(): string?
@@ -243,6 +244,7 @@ return {
 		end
 		local function reset()
 			tokens:set({ "Rain", "No assists", "Friends" })
+			driver:set(nil)
 			editingTags:set(false)
 			chosenTags:set({})
 			setRung("compact")
@@ -422,7 +424,11 @@ return {
 					imageAspectRatio = 1,
 					imageFraming = "crop",
 					enabled = enabled,
+					selected = function(use)
+						return use(driver) == name
+					end,
 					onActivate = function()
+						driver:set(name)
 						status:set(name .. " selected.")
 					end,
 				})

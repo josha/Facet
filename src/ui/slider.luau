@@ -860,6 +860,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			table.insert(parts, readout)
 		end
 		local native = ctx.props(spec, SLIDER_KEYS, {
+			BackgroundTransparency = 1,
 			Size = if vertical then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.X else E.AutomaticSize.Y,
 		})
