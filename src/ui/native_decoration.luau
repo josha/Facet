@@ -2,6 +2,19 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 type Insets = { [string]: UDim }
+local depth = 0
+local function follow(apply: () -> ())
+	if depth > 0 and task then
+		task.defer(apply)
+		return
+	end
+	depth += 1
+	local ok, failure = pcall(apply :: () -> unknown)
+	depth -= 1
+	if not ok then
+		error(failure, 0)
+	end
+end
 
 return function(
 	Compose: typeof(ComposeTypes),
@@ -74,13 +87,17 @@ return function(
 	table.insert(
 		connections,
 		target:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			size:set(target.AbsoluteSize)
+			follow(function()
+				size:set(target.AbsoluteSize)
+			end)
 		end)
 	)
 	table.insert(
 		connections,
 		boundary:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			scale:set(boundary.AbsoluteSize)
+			follow(function()
+				scale:set(boundary.AbsoluteSize)
+			end)
 		end)
 	)
 	local function childChanged(child: Instance)
