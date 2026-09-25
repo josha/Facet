@@ -153,6 +153,46 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		serviceNodes[config.userInputService] = true
 	end
 	local sharedObservations: { [Instance]: { [string]: SharedObservation } } = {}
+	local preview: { [string]: unknown } = (config.environment or {}) :: { [string]: unknown }
+	local PREVIEWED: { [string]: { key: string, enum: string? } } = {
+		PreferredInput = { key = "preferredInput", enum = "PreferredInput" },
+		TouchEnabled = { key = "touchEnabled" },
+		MouseEnabled = { key = "mouseEnabled" },
+		GamepadEnabled = { key = "gamepadEnabled" },
+		KeyboardEnabled = { key = "keyboardEnabled" },
+		PreferredTextSize = { key = "preferredTextSize", enum = "PreferredTextSize" },
+		ViewportDisplaySize = { key = "displaySize", enum = "DisplaySize" },
+	}
+	local previewKeys: { [string]: boolean } = { viewportSize = true }
+	for _, entry in PREVIEWED do
+		previewKeys[entry.key] = true
+	end
+	for key in preview do
+		assert(previewKeys[key], `Facet.controls: unknown environment option '{tostring(key)}'`)
+	end
+	local function previewed(property: string, engine: ComposeTypes.Readable<unknown>): ComposeTypes.Readable<unknown>
+		local entry = PREVIEWED[property]
+		local source = if entry then preview[entry.key] else nil
+		if source == nil then
+			return engine
+		end
+		local enumName = entry.enum
+		return Compose.formula(function(use: ComposeTypes.Use): unknown
+			local value = ctx.read(source, use)
+			if value == nil then
+				return use(engine)
+			end
+			if enumName and type(value) == "string" then
+				return assert(
+					((Enum :: unknown) :: { [string]: { FromName: (unknown, string) -> EnumItem? } })[enumName]:FromName(
+						value
+					),
+					`Facet.controls: environment {entry.key} '{value}' is not a {enumName}`
+				)
+			end
+			return value
+		end)
+	end
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
 		if serviceNodes[node] then
@@ -185,7 +225,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 			end)
 			held.users += 1
-			return held.cell
+			return (previewed(property, held.cell) :: unknown) :: ComposeTypes.Cell<unknown>
 		end
 		local value = Compose.cell(observation.readProperty(node, property))
 		Compose.cleanup(observation.observeProperty(node, property, function()

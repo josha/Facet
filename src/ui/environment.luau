@@ -60,7 +60,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			node = if world then ((world :: unknown) :: { CurrentCamera: Instance? }).CurrentCamera else nil
 		end
 		local property = if node and node:IsA("GuiBase2d") then "AbsoluteSize" else "ViewportSize"
-		local raw = watched(node, property, V2.zero)
+		local engineSize = watched(node, property, V2.zero)
+		local forced = if source == nil and config.environment then config.environment.viewportSize else nil
+		local raw: ComposeTypes.Readable<unknown> = if forced == nil
+			then engineSize
+			else Compose.formula(function(use: ComposeTypes.Use): unknown
+				local size = ctx.read(forced, use)
+				return if size == nil then use(engineSize) else size
+			end)
 		local last: Vector2 = V2.zero
 		local viewportSize: ComposeTypes.Readable<Vector2> = Compose.formula(function(use: ComposeTypes.Use): Vector2
 			local size = use(raw)

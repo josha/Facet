@@ -226,6 +226,16 @@ document their own write-then-notify behavior below.
   Sheet, which then dismisses, and a failure from a Callout `onShow`. It also
   receives a failure that an `ErrorBoundary` without its own `onError`
   contains.
+- `environment`: a preview of the device facts. Each field is a value or a
+  readable. `nil` follows the engine. `preferredInput` (a `PreferredInput` or
+  its name), `touchEnabled`, `mouseEnabled`, `gamepadEnabled` and
+  `keyboardEnabled` replace the `UserInputService` facts that every control
+  reads. `preferredTextSize` and `displaySize` (a `PreferredTextSize` or a
+  `DisplaySize`, or its name) replace the `GuiService` facts. `viewportSize`
+  replaces the camera viewport of `UI.environment()` without a source. Use it
+  for a preview in a catalog or a gallery. The engine input still arrives:
+  a mouse click still works in a touch preview. An unknown field causes an
+  error.
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. A callout and a help
   plate place themselves inside `overlayParent` when you set it.
@@ -2518,8 +2528,8 @@ weight. The derived role keeps the family, style, size and line height.
     GuiService.
   - `hover`: a boolean or a readable. When it is `false`, the sheet leaves out
     the `:Hover` rules, so a tapped control does not keep a hover tint. Press
-    paint stays. If you omit it, the sheet leaves out hover paint while
-    UserInputService.PreferredInput is Touch.
+    paint stays. If you omit it, or the readable gives `nil`, the sheet leaves
+    out hover paint while UserInputService.PreferredInput is Touch.
 - Colors and opacity use native StyleRule transitions. The default duration is
   `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
   omitted. The easing is Quad Out. The same timing applies across rules. Native

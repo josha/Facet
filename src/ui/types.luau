@@ -140,6 +140,17 @@ export type Config = {
 	reducedMotion: Value<boolean>?,
 	pressHaptic: HapticEffect?,
 	onError: ((unknown) -> ())?,
+	environment: EnvironmentPreview?,
+}
+export type EnvironmentPreview = {
+	preferredInput: Value<(Enum.PreferredInput | string)?>?,
+	touchEnabled: Value<boolean?>?,
+	mouseEnabled: Value<boolean?>?,
+	gamepadEnabled: Value<boolean?>?,
+	keyboardEnabled: Value<boolean?>?,
+	preferredTextSize: Value<(Enum.PreferredTextSize | string)?>?,
+	displaySize: Value<(Enum.DisplaySize | string)?>?,
+	viewportSize: Value<Vector2?>?,
 }
 export type ResolvedConfig = Config & { services: Services }
 export type Read = <T>(Value<T>, Use?) -> T

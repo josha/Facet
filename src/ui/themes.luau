@@ -1260,8 +1260,8 @@ local function createStyleSheet(
 			end)
 		end
 	end
-	local hover = settings.hover
-	if hover == nil then
+	local hover: Engine.Value<boolean>? = nil
+	do
 		local globals = getfenv(0)
 		local input = globals.game and globals.game:GetService("UserInputService")
 		if input then
@@ -1480,7 +1480,11 @@ local function createStyleSheet(
 	Compose.watch(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use) or neutral
 		local current = compiledRules(package, read(settings.theme, use))
-		if read(hover, use) == false then
+		local hovering = read(settings.hover, use)
+		if hovering == nil then
+			hovering = read(hover, use)
+		end
+		if hovering == false then
 			current = withoutHover(current)
 		end
 		local timing = timingFor(package, use)

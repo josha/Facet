@@ -20,6 +20,32 @@ function screen.configure(ctx)
 			return { width = size.width / scale, height = size.height / scale }
 		end)
 	end
+	ctx.inputPreview = Compose.cell("automatic")
+	ctx.textPreview = Compose.cell("automatic")
+	local function forced(input: string)
+		return function(use)
+			local preview = use(ctx.inputPreview)
+			return if preview == "automatic" then nil else preview == input
+		end
+	end
+	ctx.environment = {
+		preferredInput = function(use)
+			local preview = use(ctx.inputPreview)
+			return if preview == "automatic" then nil else preview
+		end,
+		touchEnabled = forced("Touch"),
+		gamepadEnabled = forced("Gamepad"),
+		mouseEnabled = forced("KeyboardAndMouse"),
+		keyboardEnabled = forced("KeyboardAndMouse"),
+		preferredTextSize = function(use)
+			local preview = use(ctx.textPreview)
+			return if preview == "automatic" then nil else preview
+		end,
+	}
+	ctx.hoverPreview = function(use)
+		local preview = use(ctx.inputPreview)
+		return if preview == "automatic" then nil else preview == "KeyboardAndMouse"
+	end
 	ctx.motionPreference = Compose.cell(nil)
 	local gui = ctx.guiService
 	local nativeReduced = Compose.cell(gui and gui.ReducedMotionEnabled == true or false)
@@ -351,10 +377,35 @@ function screen.build(ctx: any)
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 					}),
-					UI.Text({
+					UI.Picker({
 						LayoutOrder = 8,
+						Name = "InputPreview",
+						label = "Input preview",
+						selected = ctx.inputPreview,
+						options = {
+							{ value = "automatic", label = "Automatic" },
+							{ value = "KeyboardAndMouse", label = "Keyboard and mouse" },
+							{ value = "Touch", label = "Touch" },
+							{ value = "Gamepad", label = "Gamepad" },
+						},
+					}),
+					UI.Picker({
+						LayoutOrder = 9,
+						Name = "TextPreview",
+						label = "Text size preview",
+						selected = ctx.textPreview,
+						options = {
+							{ value = "automatic", label = "Automatic" },
+							{ value = "Medium", label = "Medium" },
+							{ value = "Large", label = "Large" },
+							{ value = "Larger", label = "Larger" },
+							{ value = "Largest", label = "Largest" },
+						},
+					}),
+					UI.Text({
+						LayoutOrder = 10,
 						Name = "NativePreview",
-						text = "In Studio, use Device Emulator for screen size, orientation and touch, and Controller Emulator for gamepad. Roblox Settings controls text size and accessibility preferences.",
+						text = "The input and text size previews change what the controls read; your real input still works. In Studio, use Device Emulator for screen size and orientation.",
 						textRole = "caption",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 0),

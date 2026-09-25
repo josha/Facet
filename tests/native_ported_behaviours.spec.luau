@@ -472,3 +472,48 @@ t.describe("Table editable cells", function()
 		w.stop()
 	end)
 end)
+
+t.describe("environment preview", function()
+	t.it("the environment option overrides the observed engine facts for controls and UI.environment", function()
+		local engine: any = engines.new()
+		local input = engine.new("UserInputService")
+		local gui = engine.new("GuiService")
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local forced = Compose.cell("Touch")
+		local size = Compose.cell(engine.types.Vector2.new(390, 844))
+		local UI: any = Facet.controls(
+			runtime,
+			{
+				types = engine.types,
+				services = { GuiService = gui, UserInputService = input },
+				environment = {
+					preferredInput = forced,
+					touchEnabled = true,
+					viewportSize = size,
+					preferredTextSize = "Largest",
+					displaySize = "Large",
+				},
+			} :: any
+		)
+		local seen: any
+		local stop = runtime.mount(function()
+			seen = UI.environment()
+			return runtime.constructors.Folder({})
+		end, engine.new("Folder"))
+		expect(seen.interactionClasses:peek().primary).toBe("touch")
+		expect(seen.sizeClass:peek()).toBe("compact")
+		expect(seen.preferredTextSize:peek()).toBe("Largest")
+		expect(seen.displaySize:peek()).toBe("Large")
+		forced:set("Gamepad")
+		expect(seen.interactionClasses:peek().primary).toBe("gamepad")
+		forced:set(nil)
+		expect(seen.interactionClasses:peek().primary).toBe("touch")
+		size:set(engine.types.Vector2.new(1920, 1080))
+		expect(seen.sizeClass:peek()).toBe("wide")
+		stop()
+		expect(function()
+			Facet.controls(runtime, { types = engine.types, environment = { inputKind = "Touch" } } :: any)
+		end).toThrow()
+		runtime:dispose()
+	end)
+end)
