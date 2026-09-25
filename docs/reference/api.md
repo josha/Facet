@@ -688,6 +688,8 @@ during a commit, the commit stops. `numericValue` does not change and
 The other options are `placeholder`, `multiline`, `invalid`, `enabled`,
 `disabled`, `clearButton` and `clearButtonMode` (`never`, `always`,
 `whileEditing` or `unlessEditing`). Native TextBox properties stay available.
+The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
+`close` icon and no text. Its accessible name is "Clear".
 
 - `readOnly`: a boolean or a readable boolean. A read-only field stays
   selectable, keeps full contrast and can take focus. `TextEditable` is false,

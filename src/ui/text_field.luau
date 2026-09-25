@@ -576,7 +576,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		)
 		local clear = if mode ~= "never"
 			then UI.Button "Clear" {
-				label = "Clear",
+				name = "Clear",
+				icon = "close",
+				appearance = "utility",
 				Size = D2.fromOffset(44, 44),
 				AutomaticSize = E.AutomaticSize.None,
 				AnchorPoint = if framed then nil else V2.new(1, 0.5),
