@@ -220,6 +220,7 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 			then function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, length(ctx, height, use))
 			end
+			elseif media.aspectRatio then D2.new(1, 0, 0, 100000)
 			else D2.fromScale(1, 0),
 	}
 	for _, child in children do
