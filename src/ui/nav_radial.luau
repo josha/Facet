@@ -396,6 +396,7 @@ return function(
 				freezeCenter = function()
 					frozenCenter:set(center:peek())
 				end
+				local measures: ComposeTypes.Cell<{ [string]: Vector2? }> = Compose.cell({})
 				local layout = Compose.formula(function(use: ComposeTypes.Use): Radial.Layout<V>
 					local size, at, inner = use(viewport), use(centerTarget), use(innerTarget)
 					local start, sweep = geometry.arc(spec.preset or "donut")
@@ -408,6 +409,9 @@ return function(
 					local items = read(spec.items, use)
 					local prefix: { string } = {}
 					local levels: { { Radial.Sector<V> } } = {}
+					local ring = inner
+					local minimum = ctx.metric("targetSizes.minimum", use)
+					local padding = ctx.metric("space.s", use)
 					local navigation, expansion = spec.navigation or "replace", spec.expansion or "fan"
 					local currentStart, currentSweep = start, sweep
 					local function append(): { Radial.Sector<V> }
@@ -466,15 +470,31 @@ return function(
 								table.insert(shown, navigationItem)
 							end
 						end
-						local ri = inner + #levels * (band + 4)
-						local sectors = geometry.sectors(
-							shown,
-							currentStart,
-							currentSweep,
-							if #prefix == 0 then spec.distribution or "even" else "even",
-							ri,
-							ri + band
-						)
+						local ri = ring
+						local distribution = if #prefix == 0 then spec.distribution or "even" else "even"
+						local levelBand = band
+						if type(ringWidth) ~= "number" then
+							local known, extent = use(measures), 0
+							local base = table.concat(prefix, "/") .. "/"
+							for _, probe in
+								geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + 1)
+							do
+								local content = known[base .. probe.id]
+								if content then
+									local angle = math.rad(probe.angle)
+									extent = math.max(
+										extent,
+										math.abs(content.X * math.sin(angle)) + math.abs(content.Y * math.cos(angle))
+									)
+								end
+							end
+							if extent > 0 then
+								levelBand = math.clamp(extent + 2 * padding, minimum, math.max(minimum, band))
+							end
+						end
+						ring = ri + levelBand + 4
+						local sectors =
+							geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + levelBand)
 						for _, sector in sectors do
 							sector.path = table.clone(prefix)
 							sector.key = table.concat(prefix, "/") .. "/" .. sector.id
@@ -500,7 +520,7 @@ return function(
 						table.insert(prefix, id)
 						items = read(parent.item.children, use)
 						if navigation == "replace" then
-							levels = {}
+							levels, ring = {}, inner
 							currentStart, currentSweep = start, sweep
 						elseif expansion == "fan" then
 							currentSweep = math.min(sweep, math.max(parent.span, #items * 32))
@@ -791,6 +811,43 @@ return function(
 										return use(candidate) == currentSector(use).key
 									end)
 									local measured = ctx.observe.TextBounds(button)
+									local measure = ctx.text({
+										Name = "ContentMeasure",
+										Text = function(use: ComposeTypes.Use): string
+											return read(sector.item.label, use) or ""
+										end,
+										FontFace = ctx.observeStyled.FontFace(button),
+										TextSize = ctx.observeStyled.TextSize(button),
+										Visible = false,
+										TextWrapped = false,
+									})
+									surfaces.attach(button, { measure })
+									local natural = ctx.observe.TextBounds(measure)
+									Compose.watch(function(use: ComposeTypes.Use)
+										local live = currentSector(use)
+										local text = use(natural)
+										local iconSize = ctx.controlSize(nil, "iconSize", use)
+										local icon = live.item.icon ~= nil
+											or (live.item.compactLabel ~= nil and live.item.compactLabel.icon ~= nil)
+										local iconOnly = live.item.labelStyle == "icon"
+											or (live.item.compactLabel ~= nil and live.item.compactLabel.prefer == true)
+										local content: Vector2? = if iconOnly and icon
+											then V2.new(iconSize, iconSize)
+											elseif text.X <= 0 then nil
+											else V2.new(
+												text.X + (if icon then iconSize + ctx.metric("space.xs", use) else 0),
+												math.max(text.Y, if icon then iconSize else 0)
+											)
+										local previous: Vector2? = measures:peek()[live.key]
+										local same = if previous and content
+											then previous.X == content.X and previous.Y == content.Y
+											else previous == nil and content == nil
+										if not same then
+											local nextMeasures = table.clone(measures:peek())
+											nextMeasures[live.key] = content
+											measures:set(nextMeasures)
+										end
+									end)
 									local paint = Host.Path2D "Sector" {
 										Thickness = sector.outer - sector.inner,
 										Closed = false,

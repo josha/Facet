@@ -105,6 +105,7 @@ t.describe("native parity weak3 h2: radial content fit", function()
 		for _, mode in { "default", "both", "none" } do
 			local world = radialWorld({
 				distribution = "compass",
+				ringWidth = 180,
 				contentFit = if mode == "default" then nil else mode,
 				items = iconItems({ "N", "E" }),
 			})
@@ -121,7 +122,12 @@ t.describe("native parity weak3 h2: radial content fit", function()
 	t.it("offers independent radial and angular axes and an unchanged full-ring none mode", function()
 		local results: { [string]: any } = {}
 		for _, mode in { "none", "radial", "angular", "both" } do
-			local world = radialWorld({ distribution = "compass", contentFit = mode, items = iconItems({ "N", "E" }) })
+			local world = radialWorld({
+				distribution = "compass",
+				ringWidth = 180,
+				contentFit = mode,
+				items = iconItems({ "N", "E" }),
+			})
 			results[mode] = paintOf(world, "N")
 			world.stop()
 		end
@@ -192,7 +198,7 @@ t.describe("native parity weak3 h2: radial content fit", function()
 	end)
 	t.it("keeps the full logical sector as the gesture target outside the fitted paint", function()
 		local fired = {}
-		local world = radialWorld({ distribution = "compass", items = iconItems({ "N", "E" }, fired) })
+		local world = radialWorld({ distribution = "compass", ringWidth = 180, items = iconItems({ "N", "E" }, fired) })
 		local paint = paintOf(world, "N")
 		local cx, cy = centerOf(world)
 		local sector = geometry.sectors({ { id = "N", slot = "N" } }, 0, 360, "compass", 40, 220)[1]

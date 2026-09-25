@@ -1791,6 +1791,12 @@ The wedge is the item. Its icon and label are a plate-less `utility` button
 with no theme control art, sized to the largest box that fits inside the wedge
 and clipped to it.
 
+Without `ringWidth`, each ring is as thick as its widest measured content
+across the ring (the label and icon box, projected on each wedge's direction)
+plus `space.s` on both sides. It is never thinner than `targetSizes.minimum`
+and never wider than the room. Before the text is measured, the ring fills the
+room.
+
 Without an `anchor`, the ring opens centred on its launcher. Before the
 launcher has a size, and with `launcher = false`, the `preset` sets the
 position. A full ring (`donut` or `circle`) then moves inward until its inner

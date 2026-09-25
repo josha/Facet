@@ -542,5 +542,22 @@ t.describe("native radial interaction policies", function()
 		t.expect(y).toBe(480 - 128)
 		world.stop()
 	end)
+	t.it("sizes the default ring band from its measured content and the theme spacing", function()
+		local items = {}
+		for index = 1, 4 do
+			table.insert(items, { id = "item" .. index, label = "Item " .. index, onSelect = function() end })
+		end
+		local world = setup({ items = items })
+		local before = 240 - world.find("item1").Position.Y.Offset
+		for _, node in world.screen:GetDescendants() do
+			if node.Name == "ContentMeasure" then
+				node.TextBounds = world.engine.types.Vector2.new(60, 20)
+			end
+		end
+		local after = 240 - world.find("item1").Position.Y.Offset
+		t.expect(after).toBe(40 + (60 + 2 * 8) / 2)
+		t.expect(after < before).toBe(true)
+		world.stop()
+	end)
 end)
 return t
