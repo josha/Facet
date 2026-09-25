@@ -153,7 +153,7 @@ local QUEST = {
 		onWarning = INK,
 	},
 	extra = {
-		-- The wood art (mean 168, 114, 47) and the flat plate sit at 0.78 of it, so cream ink reads on them (4.95:1).
+
 		control = rgb(131, 89, 37),
 		artTint = { r = 0.78, g = 0.78, b = 0.78 },
 		controlHover = TAN,

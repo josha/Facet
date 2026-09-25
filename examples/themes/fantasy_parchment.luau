@@ -71,7 +71,7 @@ local CANDLELIGHT = {
 		onSelected = VELLUM,
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
-		-- The parchment art is light; by candlelight it darkens so cream ink reads on it (field 8.2:1, placeholder 4.9:1).
+
 		artTint = { r = 0.3, g = 0.3, b = 0.3 },
 
 		focusGlow = rgb(248, 196, 96),

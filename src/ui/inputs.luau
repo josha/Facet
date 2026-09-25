@@ -518,8 +518,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		local p = props(spec, buttonKeys, defaults)
 		if bounded and spec.label ~= nil and spec.shape ~= "circle" then
-			-- An authored width keeps one em of label room inside the theme padding and carve, so a
-			-- narrow Button grows a little rather than truncating its label to nothing.
 			table.insert(
 				p,
 				Host.UISizeConstraint({
@@ -643,8 +641,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(p, Host.UIScale "Pop" { Scale = popScale })
 		end
 		if spec.busy ~= nil then
-			-- The dots' room is a direct write on a real UIPadding: the engine does not re-fit a hugging
-			-- parent when only a StyleSheet ::UIPadding changes. Not busy writes the default, so the sheet rules.
 			table.insert(
 				p,
 				Host.UIPadding({

@@ -73,6 +73,7 @@ local helpers: { [string]: boolean } = {
 	scrollTo = true,
 	scrollToVisible = true,
 	focusRing = true,
+	focusSection = true,
 }
 
 local function world(module: any, options: Options?): World

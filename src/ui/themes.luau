@@ -1112,7 +1112,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-quiet-destructive:Press", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-button-caption", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-icon", { ImageColor3 = c("danger") })
-	-- Quiet ink on a control plate (a segment, a tab on art) only where it reads at 4.5:1.
+
 	local track, quiet, loud = c("control") :: Color3, c("contentSecondary") :: Color3, c("content") :: Color3
 	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
 		then quiet
@@ -1217,9 +1217,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
-	-- Rules that only some packages need are still emitted by every package, with no properties where
-	-- they do not apply: one rule set for every package, so a theme swap re-sets rules and never
-	-- creates or destroys them.
+
 	for _, slot in { "control", "field", "panel" } do
 		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
 	end

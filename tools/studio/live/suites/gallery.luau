@@ -191,7 +191,7 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 		local shell = gallery():FindFirstChild("Gallery")
 		local toolbar = shell and shell:FindFirstChild("Toolbar")
 		local compact = toolbar == nil or not t.visible(toolbar)
-		-- Compact: the toolbar and tab bar give way to the Demos menu (with Settings) in the top bar strip.
+
 		local strip = gallery().Parent:FindFirstChild("FacetGalleryMenu")
 		local screen = if compact and strip then t.rect(strip) else screenRect(t)
 		local settings = if compact
