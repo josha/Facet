@@ -5,10 +5,12 @@ local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
+local reducedMotion = require("./motion")
 export type Editor<V, K> = {
 	wrap: (GuiObject, ComposeTypes.Readable<V>, K) -> Frame,
 	overlay: (boolean?) -> Frame,
-	gutter: ComposeTypes.Readable<number>,
+	leading: ComposeTypes.Readable<number>,
+	trailing: ComposeTypes.Readable<number>,
 	press: (K, InputObject) -> (),
 }
 type Move<V, K> = {
@@ -47,12 +49,13 @@ return function<V, K>(
 		local kind = if preferred then use(preferred) else nil
 		return kind == nil or read(editing, use) == true
 	end)
-	local gutter = Compose.formula(function(use: ComposeTypes.Use): number
-		if not use(controlsShown) then
-			return 0
-		end
-		return (if reorderable then 56 else 0) + (if deletable then 44 else 0)
+	local leading = Compose.formula(function(use: ComposeTypes.Use): number
+		return if deletable and use(controlsShown) then 44 else 0
 	end)
+	local trailing = Compose.formula(function(use: ComposeTypes.Use): number
+		return if reorderable and use(controlsShown) then 44 else 0
+	end)
+	local motionReduced = reducedMotion(ctx)
 	local horizontal = spec.direction == "horizontal"
 	local function axis(position: Vector2): number
 		return if horizontal then position.X else position.Y
@@ -229,11 +232,20 @@ return function<V, K>(
 			toggle()
 		end
 		local armed = false
+		local confirming = Compose.cell(false)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if not use(controlsShown) and confirming:peek() then
+				confirming:set(false)
+			end
+		end)
 		local handleProps: InputTypes.ButtonProps = {
 			Name = "Move",
-			Visible = controlsShown,
-			Position = D2.fromOffset(if deletable then 44 else 0, 0),
-			Size = D2.new(0, 56, 1, 0),
+			Visible = function(use: ComposeTypes.Use)
+				return use(controlsShown) and not use(confirming)
+			end,
+			AnchorPoint = V2.new(1, 0),
+			Position = D2.fromScale(1, 0),
+			Size = D2.new(0, 44, 1, 0),
 			AutomaticSize = E.AutomaticSize.None,
 			appearance = "utility",
 			label = "",
@@ -303,27 +315,61 @@ return function<V, K>(
 				end
 			end)
 		end
-		local removerProps: InputTypes.ButtonProps = {
-			Name = "Delete",
-			label = "",
+		local function deletableRow(use: ComposeTypes.Use): boolean
+			local item = use(current)
+			return policy.allows(spec.rowDeletable, item) and not policy.disabled(spec.disabled, item)
+		end
+		local minusProps: InputTypes.ButtonProps = {
+			Name = "Minus",
+			label = "−",
 			name = "Delete",
-			icon = "trash",
+			shape = "circle" :: "circle",
 			role = "destructive" :: InputTypes.ButtonRole,
-			appearance = "utility",
+			appearance = "emphasis",
+			AnchorPoint = V2.new(0.5, 0.5),
+			Position = D2.new(0, 22, 0.5, 0),
+			Size = D2.fromOffset(28, 28),
 			Visible = controlsShown,
-			Size = D2.new(0, 44, 1, 0),
-			AutomaticSize = E.AutomaticSize.None,
-			enabled = function(use: ComposeTypes.Use)
-				return policy.allows(spec.rowDeletable, use(current))
-					and not policy.disabled(spec.disabled, use(current))
-			end,
+			enabled = deletableRow,
 			onActivate = function()
+				confirming:set(not confirming:peek())
+			end,
+		}
+		local confirmProps: InputTypes.ButtonProps = {
+			Name = "Delete",
+			label = "Delete",
+			role = "destructive" :: InputTypes.ButtonRole,
+			appearance = "emphasis",
+			AnchorPoint = V2.new(1, 0),
+			Position = D2.fromScale(1, 0),
+			Size = D2.new(0, 88, 1, 0),
+			AutomaticSize = E.AutomaticSize.None,
+			Visible = function(use: ComposeTypes.Use)
+				return use(controlsShown) and use(confirming)
+			end,
+			enabled = deletableRow,
+			onActivate = function()
+				confirming:set(false)
 				if spec.onDelete then
 					spec.onDelete({ key })
 				end
 			end,
 		}
-		local remover = if deletable then UI.Button(removerProps) else nil
+		local minus = if deletable then UI.Button(minusProps) else nil
+		local confirm = if deletable then UI.Button(confirmProps) else nil
+		local function rightOf(use: ComposeTypes.Use): number
+			return if use(confirming) then 88 else use(trailing)
+		end
+		local left = ctx.runtime.spring(function(use: ComposeTypes.Use)
+			return use(leading)
+		end, { period = 0.2, damping = 1 })
+		local right = ctx.runtime.spring(rightOf, { period = 0.2, damping = 1 })
+		local function edges(use: ComposeTypes.Use): Vector2
+			if motionReduced(use) then
+				return V2.new(use(leading), rightOf(use))
+			end
+			return V2.new(use(left), use(right))
+		end
 		local nativeProps: Types.FrameProps = {
 			Name = "Reorderable",
 			Size = D2.fromScale(1, 1),
@@ -336,20 +382,20 @@ return function<V, K>(
 			} :: EngineTypes.Attributes,
 			Host.Frame "Cells" {
 				Position = function(use: ComposeTypes.Use)
-					return D2.fromOffset(use(gutter), 0)
+					return D2.fromOffset(math.floor(edges(use).X + 0.5), 0)
 				end,
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(1, -use(gutter), 1, 0)
+					local at = edges(use)
+					return D2.new(1, -math.floor(at.X + at.Y + 0.5), 1, 0)
 				end,
 				BackgroundTransparency = 1,
 				row,
 			},
 		}
-		if handle then
-			table.insert(nativeProps, handle)
-		end
-		if remover then
-			table.insert(nativeProps, remover)
+		for _, control in { handle, minus, confirm } :: { GuiObject? } do
+			if control then
+				table.insert(nativeProps, control)
+			end
 		end
 		return Host.Frame(nativeProps)
 	end
@@ -655,5 +701,5 @@ return function<V, K>(
 		end
 		return root
 	end
-	return { wrap = wrap, overlay = overlay, gutter = gutter, press = press }
+	return { wrap = wrap, overlay = overlay, leading = leading, trailing = trailing, press = press }
 end

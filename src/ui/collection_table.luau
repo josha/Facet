@@ -470,7 +470,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 		})
 		local editor: reorder.Editor<V, K>? = nil
 		local function reorderGutter(use: ComposeTypes.Use): number
-			return if editor then use(editor.gutter) else 0
+			return if editor then use(editor.leading) else 0
+		end
+		local function trailingGutter(use: ComposeTypes.Use): number
+			return if editor then use(editor.trailing) else 0
 		end
 		local headerLayout = lists.list({}, false)
 		local headerProps: Types.FrameProps = {
@@ -505,7 +508,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			mode = if spec.scrolls == false then "all" :: ComposeTypes.OrderedCollectionMode else spec.mode,
 			ScrollingDirection = E.ScrollingDirection.XY,
 			CanvasSize = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(headerExtent).X + reorderGutter(use), use(contentExtent))
+				return D2.fromOffset(use(headerExtent).X + reorderGutter(use) + trailingGutter(use), use(contentExtent))
 			end,
 			from = ordered,
 			key = keyOf,
@@ -711,8 +714,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 						}
 					end),
 				}
-				row = ctx.styled(Host.Frame(rowProps), "TableRow")
-				local painted = row
+				row = Host.Frame(rowProps)
+				if editor then
+					row = editor.wrap(row, current, key)
+				end
+				local painted = ctx.styled(row, "TableRow")
 				Compose.watch(function(use: ComposeTypes.Use)
 					if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
 						painted:AddTag("facet-tablerow-alternate")
@@ -730,9 +736,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 					end
 				end)
-				if editor then
-					row = editor.wrap(row, current, key)
-				end
 				local actions = if spec.rowActions then spec.rowActions(current, key) else nil
 				if actions then
 					local actionSpec: CollectionTypes.RowActionsSpec =
@@ -752,10 +755,22 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end,
 		}
 		body = UI.VirtualList(bodySpec)
-		local position, window = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
+		local unit = Host.Frame({
+			Name = "LayoutUnit",
+			Size = D2.fromOffset(1, 1),
+			BackgroundTransparency = 1,
+			Visible = false,
+		})
+		local position, rendered = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
+		local unitSize = ctx.observe.AbsoluteSize(unit)
+		local window = Compose.formula(function(use: ComposeTypes.Use): Vector2
+			local scale = use(unitSize).X
+			local size = use(rendered)
+			return if scale > 0 then size / scale else size
+		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(position)
-			viewportWidth:set(use(window).X - reorderGutter(use))
+			viewportWidth:set(use(window).X - reorderGutter(use) - trailingGutter(use))
 			coordinator:set(nil)
 		end)
 		local scrolledX = Compose.formula(function(use: ComposeTypes.Use): number
@@ -769,10 +784,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local width = use(window).X
 				return if width > 0
 					then D2.fromOffset(
-						math.max(0, width - reorderGutter(use) - use(disclosureWidth)),
+						math.max(0, width - reorderGutter(use) - trailingGutter(use) - use(disclosureWidth)),
 						use(headerHeight)
 					)
-					else D2.new(1, -reorderGutter(use) - use(disclosureWidth), 0, use(headerHeight))
+					else D2.new(
+						1,
+						-reorderGutter(use) - trailingGutter(use) - use(disclosureWidth),
+						0,
+						use(headerHeight)
+					)
 			end,
 		})
 		return ctx.styled(
@@ -784,15 +804,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end,
 				BackgroundTransparency = 1,
 				ClipsDescendants = spec.scrolls ~= false,
+				unit :: ComposeTypes.Child,
 				ctx.styled(
 					Host.Frame({
 						Name = "HeaderBand",
 						Visible = spec.header ~= false,
 						Position = function(use: ComposeTypes.Use)
-							return D2.fromOffset(reorderGutter(use), use(toolbarHeight))
+							return D2.fromOffset(0, use(toolbarHeight))
 						end,
 						Size = function(use: ComposeTypes.Use)
-							return D2.new(1, -reorderGutter(use), 0, use(headerHeight))
+							return D2.new(1, 0, 0, use(headerHeight))
 						end,
 					}),
 					"TableHead"

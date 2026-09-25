@@ -794,7 +794,7 @@ t.describe("native parity weaker tables", function()
 				end
 			end
 			local header = w.node:FindFirstChild("Header")
-			local gutter = if reorderable then 56 else 0
+			local gutter = 0
 			t.expect(header.Position.X.Offset).toBe(gutter)
 			for _, rowKey in { "1", "2", "3" } do
 				expectAligned(w.node, rowKey, { "a", "b" })

@@ -967,7 +967,7 @@ t.describe("native parity classb collections", function()
 		end
 	)
 	t.it(
-		"collections-189 a deletable table in edit mode gives each row its own leading Delete that deletes that row",
+		"collections-189 a deletable table in edit mode gives each row a leading minus that reveals its Delete",
 		function()
 			local deleted = {}
 			local editing = Compose.cell(true)
@@ -981,18 +981,21 @@ t.describe("native parity classb collections", function()
 			})
 			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
 			for _, key in { "r1", "r2", "r3" } do
-				local minus = find(rowFrame(body, key), "Delete")
+				local minus = find(rowFrame(body, key), "Minus")
 				t.expect(minus ~= nil and minus:IsA("GuiButton") and minus.Visible).toBe(true)
-				t.expect(minus.Position.X.Offset).toBe(0)
-				t.expect(find(rowFrame(body, key), "Cells").Position.X.Offset).toBe(minus.Size.X.Offset)
-				t.expect(minus.Size.Y.Scale).toBe(1)
+				t.expect(minus.Position.X.Scale).toBe(0)
+				t.expect(find(rowFrame(body, key), "Cells").Position.X.Offset).toBe(44)
 			end
-			local minus = find(rowFrame(body, "r2"), "Delete")
+			local minus = find(rowFrame(body, "r2"), "Minus")
 			select(world, minus)
 			minus.Activated.fire(inputOf(world, "Gamepad1", "ButtonA"), 1)
+			t.expect(deleted).toEqual({})
+			local confirm = find(rowFrame(body, "r2"), "Delete")
+			t.expect(confirm.Visible).toBe(true)
+			confirm.Activated.fire(inputOf(world, "Gamepad1", "ButtonA"), 1)
 			t.expect(deleted).toEqual({ "r2" })
 			editing:set(false)
-			t.expect(find(rowFrame(body, "r2"), "Delete").Visible).toBe(false)
+			t.expect(find(rowFrame(body, "r2"), "Minus").Visible).toBe(false)
 			t.expect(find(rowFrame(body, "r2"), "Cells").Position.X.Offset).toBe(0)
 			world.stop()
 		end

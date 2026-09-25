@@ -14072,7 +14072,7 @@
       "nativeMechanism": "Native GuiService spatial navigation",
       "nativeEvidence": "none",
       "candidateCases": [
-        "native_parity_classb_collections::native parity classb collections::collections-189 a deletable table in edit mode gives each row its own leading Delete that deletes that row"
+        "native_parity_classb_collections::native parity classb collections::collections-189 a deletable table in edit mode gives each row a leading minus that reveals its Delete"
       ]
     },
     {

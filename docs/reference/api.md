@@ -2590,8 +2590,9 @@ keep their `minWidth` and truncate their text, so a narrow table scrolls
 sideways and never loses a column. A Popover shows collapsed and natively
 truncated values through the row's icon-only `more` (…) button, named
 "More actions". The cell
-state stays retained. The header band spans the columns (it starts after the
-edit gutter) and shows a hairline divider between headings.
+state stays retained. The header band spans the whole row, edit controls
+included, and shows a hairline divider between headings; the headings sit over
+their columns.
 
 Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
 `"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu
@@ -2620,9 +2621,12 @@ single rows. The paths per input:
   selected rows.
 - Touch and gamepad: a Table without a supplied `editing` shows a toolbar
   with an `Edit` button (`Done` while editing; its width fits the wider word).
-  Edit mode shows a leading `Delete` button (deletable) and a move handle
-  (reorderable) on each row; a handle drags, or Return or the A button starts
-  a move that the arrows or D-pad place and Return, A or `Drop` ends. The X
+  Edit mode shows, inside each row band, a round red minus at the leading
+  edge (deletable) and a move handle at the trailing edge (reorderable); the
+  row content slides to make room (instantly with reduced motion). The minus
+  reveals a `Delete` button at the trailing edge, which confirms. A handle
+  drags, or Return or the A button starts a move that the arrows or D-pad
+  place and Return, A or `Drop` ends. The X
   button removes the selected rows, and L1 and R1 move them by one slot. A
   VirtualList reads the `editing` cell that you supply and show your own
   Edit control.
