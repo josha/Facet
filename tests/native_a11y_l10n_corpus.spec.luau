@@ -351,6 +351,9 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	StatusIndicator = function()
 		return { status = "success", count = 3 }
 	end,
+	Path = function()
+		return { points = Facet.pathShapes.needle(45), role = "accent" }
+	end,
 	ProgressView = function()
 		return { value = Compose.cell(0.5), label = "Loading" }
 	end,

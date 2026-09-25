@@ -304,6 +304,9 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 		StatusIndicator = function()
 			return { status = "info" }
 		end,
+		Path = function()
+			return { points = Facet.pathShapes.ring() }
+		end,
 		Stepper = function()
 			return { value = Compose.cell(1), max = 5 }
 		end,

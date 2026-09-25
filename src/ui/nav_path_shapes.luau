@@ -58,4 +58,4 @@ function path_shapes.needle(angleDeg: number, opts: { innerRadius: number?, radi
 	return { pt(rInner), pt(rOuter) }
 end
 
-return path_shapes
+return table.freeze(path_shapes)

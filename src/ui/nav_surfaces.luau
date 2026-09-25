@@ -454,6 +454,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								Name = "Title",
 								Text = title,
 								TextWrapped = true,
+								TextXAlignment = E.TextXAlignment.Center,
 								LayoutOrder = titleOrder,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
@@ -472,6 +473,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								Name = "Message",
 								Text = message,
 								TextWrapped = true,
+								TextXAlignment = E.TextXAlignment.Center,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
 							}),
@@ -495,6 +497,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					contents,
 					{ Name = "AlertContent", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
 				)
+				local contentLayout = contentRoot:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+				if contentLayout then
+					contentLayout.HorizontalAlignment = E.HorizontalAlignment.Center
+				end
 				local contentSize = ctx.observe.AbsoluteSize(contentRoot)
 				local actionProps: Types.FrameNativeProps = {
 					Name = "Actions",

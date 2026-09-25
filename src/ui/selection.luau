@@ -141,6 +141,10 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		end
 		local at = if selected then table.find(list, selected) else nil
 		local target = if at then list[(at - 1 + step) % #list + 1] elseif step < 0 then list[#list] else list[1]
+		local editing = if input and input.GetFocusedTextBox then input:GetFocusedTextBox() else nil
+		if editing and editing ~= target then
+			editing:ReleaseFocus(false)
+		end
 		gui.SelectedObject = target
 	end
 
@@ -214,16 +218,21 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		return nil
 	end
 
-	local acquire = Compose.createSharedResource(function()
-		if gui == nil or input == nil or not gui.GetPropertyChangedSignal then
-			return nil
+	local acquire = Compose.createSharedResource(function(): (nil, (() -> ())?)
+		local service = gui
+		local keys = input
+		if service == nil or keys == nil then
+			return nil, nil
 		end
-		local selectedObject = ctx.observe.SelectedObject(gui)
+		if not service.GetPropertyChangedSignal then
+			return nil, nil
+		end
+		local selectedObject = ctx.observe.SelectedObject(service)
 		local record: Snapshot? = nil
 		local pending = false
 		local function recover(): ()
 			pending = false
-			local current = gui.SelectedObject
+			local current = service.SelectedObject
 			if current and shown(current) then
 				return
 			end
@@ -236,7 +245,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			end
 			local target = survivor(previous)
 			if target then
-				gui.SelectedObject = target
+				service.SelectedObject = target
 			end
 		end
 		local wake = Compose.cell(0)
@@ -261,12 +270,23 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			local child = owner.createChild()
 			tracking = child
 			Compose.withOwner(child, function()
-				local parent = ctx.observe.Parent(current)
-				local visible = ctx.observe.Visible(current)
+				local sources: { ComposeTypes.Readable<unknown> } = { ctx.observe.Parent(current) }
+				local at: Instance? = current
+				while at do
+					if at:IsA("GuiObject") then
+						table.insert(sources, ctx.observe.Visible(at))
+						table.insert(sources, ctx.observe.Interactable(at))
+					elseif at:IsA("LayerCollector") then
+						table.insert(sources, ctx.observe.Enabled(at))
+						break
+					end
+					at = at.Parent
+				end
 				Compose.watch(function(use: ComposeTypes.Use)
-					use(parent)
-					use(visible)
-					if gui.SelectedObject == current and not shown(current) then
+					for _, source in sources do
+						use(source)
+					end
+					if service.SelectedObject == current and not shown(current) then
 						schedule()
 					end
 				end)
@@ -321,7 +341,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 				if from == nil or not shown(from) or from:IsDescendantOf(container) then
 					return false
 				end
-				gui.SelectedObject = beyond(container, from) or from
+				service.SelectedObject = beyond(container, from) or from
 				return true
 			end
 			local from = if record then record.node else nil
@@ -357,7 +377,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 					end
 				end
 			end
-			gui.SelectedObject = target
+			service.SelectedObject = target
 			return true
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -374,7 +394,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 				schedule()
 			end
 		end)
-		runtime.connect(input, "InputBegan", function(event: InputObject)
+		runtime.connect(keys, "InputBegan", function(event: InputObject)
 			if table.find(directionKeys, event.KeyCode) then
 				enter()
 			end
@@ -395,15 +415,15 @@ return function(ctx: Shared.Context): (Instance) -> ()
 					Name = "Traverse",
 					Type = E.InputActionType.Bool,
 					Pressed = function()
-						local back = input.IsKeyDown ~= nil
-							and (input:IsKeyDown(E.KeyCode.LeftShift) or input:IsKeyDown(E.KeyCode.RightShift))
+						local back = keys.IsKeyDown ~= nil
+							and (keys:IsKeyDown(E.KeyCode.LeftShift) or keys:IsKeyDown(E.KeyCode.RightShift))
 						traverse(if back then -1 else 1)
 					end,
 					ctx.Host.InputBinding({ KeyCode = E.KeyCode.Tab }),
 				}),
 			})
 		end
-		return nil
+		return nil, nil
 	end)
 
 	return function(node: Instance): ()

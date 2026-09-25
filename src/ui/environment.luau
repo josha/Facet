@@ -159,8 +159,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			use(topbar)
 			local insets: Env.SafeInsets = { top = 0, left = 0, bottom = 0, right = 0 }
 			if gui then
+				local service: GuiService = gui
 				local ok, topLeft, bottomRight = pcall(function()
-					return gui:GetGuiInset()
+					return service:GetGuiInset()
 				end)
 				if ok and typeof(topLeft) == "Vector2" and typeof(bottomRight) == "Vector2" then
 					insets = { top = topLeft.Y, left = topLeft.X, bottom = bottomRight.Y, right = bottomRight.X }
@@ -195,11 +196,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			isTall = derived(function(use): boolean
 				return use(heightClass) == "tall"
 			end),
-			isLandscape = derived(function(use): boolean
+			isLandscape = derived(function(use: ComposeTypes.Use): boolean
 				local size = use(viewportSize)
 				return size.X > size.Y
 			end),
-			axis = (derived(function(use): "x" | "y"
+			axis = (derived(function(use: ComposeTypes.Use): "x" | "y"
 				return adaptive.axisFor(use(viewportWidth))
 			end) :: unknown) :: ComposeTypes.Readable<"x" | "y">,
 			atLeast = atLeast,
@@ -236,10 +237,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		)
 		local world = (scene() :: unknown) :: Scene?
 		local function sample(): Env.WorldAnchorPoint
+			local place = world
 			local found = (ctx.read(options.target) :: unknown) :: Instance?
 			local chosen = (ctx.read(options.camera) :: unknown) :: Projector?
-			local camera = chosen or (if world then world.CurrentCamera else nil)
-			if found == nil or camera == nil or world == nil then
+			local camera = chosen or (if place then place.CurrentCamera else nil)
+			if found == nil or camera == nil or place == nil then
 				return { visible = false }
 			end
 			assert(
@@ -247,7 +249,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				"Facet UI.worldAnchor: target must be a BasePart, Model or Player"
 			)
 			local target: Instance? = if found:IsA("Player") then (found :: Player).Character else found
-			if target == nil or not target:IsDescendantOf((world :: unknown) :: Instance) then
+			if target == nil or not target:IsDescendantOf((place :: unknown) :: Instance) then
 				return { visible = false }
 			end
 			local frame: CFrame, size: Vector3
@@ -261,7 +263,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			if options.occlusion then
 				local origin = camera.CFrame.Position
-				local hit = world:Raycast(origin, frame.Position - origin)
+				local hit = place:Raycast(origin, frame.Position - origin)
 				if hit and hit.Instance ~= target and not hit.Instance:IsDescendantOf(target) then
 					return { visible = false, occluded = true }
 				end
@@ -352,6 +354,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		if Compose.currentOwner() then
 			Compose.cleanup(dispose)
 		end
-		return freeze({ anchor = anchor, dispose = dispose })
+		local handle: Env.WorldAnchor = { anchor = anchor, dispose = dispose }
+		return freeze(handle)
 	end
 end

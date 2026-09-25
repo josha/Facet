@@ -17,6 +17,8 @@ and styling. This reference describes the `0.12.0` surface.
 | `COMPOSE_COMMIT` | The full Compose commit of the pinned copy. The Facet tests use this commit. |
 | `civilDate` | Calendar arithmetic, words and fixed-offset instants for civil dates. See [Civil dates](#civil-dates). |
 | `adaptive` | Pure size, height, orientation, axis and column decisions. See [Adaptive environment](#adaptive-environment). |
+| `pathShapes` | Normalized arc, ring and needle points for `UI.Path`. See [Path shapes](#path-shapes). |
+| `richText` | `escape` for player and server text inside rich text. See [Text](#text). |
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
 | `bind(Compose, Roblox)` | Returns a Facet table whose `controls` and `themes` use the Compose core module and the Compose Roblox module that you give. See [Your own Compose](#your-own-compose). |
 
@@ -462,6 +464,10 @@ default is the regular control height of the theme package. `aspectRatio` adds
 a `UIAspectRatioConstraint` to the grid layout, which sets the cell height
 from the cell width. `align` (`start`, `center` or `end`) aligns the cells
 horizontally. The grid fills the width and hugs the height by default.
+`flow = "column"` fills each column from top to bottom before the next column.
+The grid keeps `columns` columns and sets the rows from the number of children,
+so a new child moves the others to keep the columns even. The default is
+`flow = "row"`.
 
 ### fill
 
@@ -547,8 +553,11 @@ Presentation options:
   step below `compact` unless the theme package declares
   `metrics.controlSizes.xsmall`. With the neutral values it is 28 pixels high,
   with a `paddingX` of 4 and an `iconSize` of 12. The native button is its hit
-  area, so an `xsmall` button is a 28 pixel target. Use it only for dense
-  pointer rows. A named step adds the `facet-size-<step>` tag. The theme
+  area. When the device has touch or a gamepad, a `TargetFloor`
+  `UISizeConstraint` keeps a button with a smaller step at least
+  `targetSizes.minimum` (44 pixels in the neutral package) on both axes, so a
+  player can still tap it. On a mouse-only device an `xsmall` button stays a
+  28 pixel target. Use `xsmall` for dense pointer rows. A named step adds the `facet-size-<step>` tag. The theme
   StyleSheet then sets the left and right padding to
   `controlSizes.<step>.paddingX`, or to the larger chrome inset. Without
   `controlSize`, the button has no size tag and keeps the padding of 12.
@@ -2261,11 +2270,12 @@ press.
 
 | Control | Main contract |
 |---|---|
-| `Text` | Plain text in a native TextLabel. `text` is required. `textRole` (or `textSize` as a role name) is one of `TYPE_ROLES`. `textSize` is also a pixel number or a fit form. `role` is `secondary` or `content`. Also `truncate`, `textAlign`, `wrap`, `rich`, `direction`, `tint`, and native text properties. See [Text](#text). |
+| `Text` | Plain text in a native TextLabel. `text` is required. `textRole` (or `textSize` as a role name) is one of `TYPE_ROLES`. `textSize` is also a pixel number or a fit form. `role` is `secondary` or `content`. Also `truncate`, `lines`, `textAlign`, `wrap`, `rich`, `direction`, `tint`, and native text properties. See [Text](#text). |
 | `Label` | An icon and a title in a row. `title` is required, and it is the accessible name. Also `icon`, `presentation`, `iconSize`, `textSize`, `gap` and `iconPosition`. See [Label](#label). |
 | `Image` | A native ImageLabel. `image`, `tint`, `scaleMode`, `tileSize`, `sliceCenter`, `sliceScale`, `resample` and `shape`. See [Image](#image). |
 | `Badge` | `label`, `status`, an optional icon and position, appearance, corners and control size. The icon and the label share one pill. The status appearance keeps a neutral pill and shows the status as a leading dot. |
 | `StatusIndicator` | `status`: `neutral`, `info`, `success`, `warning`, `error` or `accent`. `form`: dot, ring, square or dash. Optional `count`, `max`, `diameter` and `name`. The `name` sets the accessible label. A ring is a native inner stroke in the status color. A count grows into a pill that is never narrower than it is tall. |
+| `Path` | A stroked vector path on a native `Path2D`, for simple vector icons, arcs and gauge needles. `points` is required: a list, or a readable of a list, of normalized points from `Facet.pathShapes`, at most 100. A new list moves the same stroke. `role` is `content` (the default), `secondary` or `accent`, and the StyleSheet colours the stroke from the active palette. `tint` sets a colour that no role names. `thickness` is pixels or a theme metric name; without it the engine default applies. `closed` joins the last point to the first. `width` and `height` set a square or rectangular box in pixels. The engine strokes a path and does not fill it, and a path has no transparency of its own. |
 | `ProgressView` | `value`, `min` (0), `max` (1). `presentation`: bar, circular or spinner. label and endLabel, showValue and format, diameter, thickness, segments, and an optional trail `{ delay, duration }`. The endLabel shows after the value. With a label, a bar shows the value and the endLabel on the label row. Segments require the bar presentation. Diameter requires circular or spinner. A trail holds on damage, settles over its duration, and snaps on healing or reduced motion. A circular value is centered when the native text bounds fit. Otherwise it shows below the ring. A circular ring with no thickness uses 8 percent of its diameter, and not less than the theme metric. On a bar, `controlSize` sets the track thickness: `xsmall` and `compact` use `space.xs`, and `regular` and `large` use `controls.progress.trackHeight`. A bar refuses `controlSize` together with `thickness`, and a ring or a spinner refuses it together with `diameter`. `endLabel` must be a string. |
 | `Skeleton` | A loading placeholder with a configurable form and line count. |
 | `AsyncImage` | An image or source, an optional resource or loader, a placeholder, a failure label and a status callback. `imageProperties` forwards native properties and children to the inner ImageLabel. |
@@ -2291,6 +2301,20 @@ or `textRole` instead.
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
 - `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
+- `lines = n` shows at most `n` lines. The text fills the width, wraps, and
+  ends with an ellipsis when it needs more lines. The box hugs shorter text.
+  The limit follows the text size, the line height and the vertical padding.
+  `lines` cannot combine with a middle cut or a fitted text size.
+
+To put player names or server strings into rich text, escape them with
+`Facet.richText.escape(s)`. It replaces `&`, `<`, `>`, `"` and `'` with their
+RichText entities. It does not filter the text; the game still uses the
+platform filtering rules.
+
+```luau
+local name = "Ann <3"
+UI.Text { rich = true, text = "<b>" .. Facet.richText.escape(name) .. "</b> joined" }
+```
 
 #### Text fit
 
@@ -2548,6 +2572,31 @@ local date, why = civil.parse("02/30/2026")
 if date == nil then
     print(why)
 end
+```
+
+## Path shapes
+
+`Facet.pathShapes` makes the normalized points that `UI.Path` strokes. The points
+are in a unit box, with the angle 0 at 12 o'clock and positive angles clockwise.
+
+- `pathShapes.arc(startDeg, sweepDeg, { segments?, radius? })` makes a circular
+  arc.
+- `pathShapes.ring({ radius? })` makes a full circle from four exact quarters.
+- `pathShapes.needle(angleDeg, { innerRadius?, radius? })` makes one straight
+  segment from `innerRadius` to `radius` at `angleDeg`.
+- `pathShapes.MAX_CONTROL_POINTS` is 100, the limit of the engine `Path2D`.
+  A shape that needs more points is refused when you make it.
+
+```luau
+local speed = Compose.cell(0.5)
+UI.Path "Needle" {
+	points = function(use)
+		return Facet.pathShapes.needle(use(speed) * 270 - 135, { innerRadius = 0.2 })
+	end,
+	role = "accent",
+	thickness = 3,
+	width = 64,
+}
 ```
 
 ## Adaptive environment

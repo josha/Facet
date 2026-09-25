@@ -39,7 +39,7 @@ A theme package contains these fields:
 | `icons` | Semantic icon names mapped to image content or declared assets. |
 | `assets` | Art declarations with content ids and optional slice geometry. |
 | `chrome` | Native or image-based skin recipes for semantic control slots. |
-| `rules` | Additional native `{ selector, properties }` rules. |
+| `rules` | Additional native `{ selector, properties }` rules. A property value `{ role = "content" }` takes that palette colour, so the rule follows a palette change. |
 
 Each palette has `name`, `colors` and `extra`.
 

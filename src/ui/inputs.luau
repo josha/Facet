@@ -2,6 +2,7 @@
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion")
 local decoration = require("./native_decoration")
+local richText = require("./rich_text")
 local help = require("./help")
 local activation = require("./activation")
 local valueModel = require("./input_value")
@@ -349,17 +350,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		strong = true,
 		numeral = true,
 	}
-	local function escapeRich(words: string): string
-		return (
-			string.gsub(words, "[&<>\"']", {
-				["&"] = "&amp;",
-				["<"] = "&lt;",
-				[">"] = "&gt;",
-				['"'] = "&quot;",
-				["'"] = "&apos;",
-			})
-		)
-	end
+	local escapeRich = richText.escape
 	UI.Button = ctx.construct("Button", function(spec: InputTypes.ButtonProps): TextButton
 		assert(
 			spec.onActivate == nil or type(spec.onActivate) == "function",
@@ -655,6 +646,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if rich then
 			local content: { ComposeTypes.Child } = {}
 			local imageCard = spec.image ~= nil
+			local rungIcon: Shared.Value<UDim2>? = nil
+			if spec.controlSize ~= nil then
+				local function iconSide(use: ComposeTypes.Use?): UDim2
+					local side = ctx.controlSize(spec.controlSize, "iconSize", use)
+					return D2.fromOffset(side, side)
+				end
+				rungIcon = if dynamic(ctx.config.theme) or dynamic(spec.controlSize) then iconSide else iconSide()
+			end
 			if imageCard then
 				assert(
 					type(spec.imageAspectRatio or 16 / 9) == "number" and (spec.imageAspectRatio or 16 / 9) > 0,
@@ -684,6 +683,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					content,
 					icon(leading, {
 						Name = "LeadingIcon",
+						Size = rungIcon,
 						Visible = if dynamic(leading)
 							then function(use: ComposeTypes.Use): boolean
 								return read(leading, use) ~= ""
@@ -745,7 +745,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				table.insert(content, icon("chevron.trailing", { Name = "Disclosure" }, iconState))
 			end
 			if spec.trailingIcon then
-				table.insert(content, icon(spec.trailingIcon, { Name = "TrailingIcon" }, iconState))
+				table.insert(content, icon(spec.trailingIcon, { Name = "TrailingIcon", Size = rungIcon }, iconState))
 			end
 			local contentFrame = if imageCard
 				then ctx.column(content, {
@@ -1204,6 +1204,20 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				sink = spec.dialogAction ~= nil or modified,
 			})
 		end
+		if spec.controlSize ~= nil and ctx.config.userInputService ~= nil then
+			local floor = ctx.touchFloor()
+			runtime.mount(function()
+				return Host.UISizeConstraint "TargetFloor" {
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						local minimum = floor(use)
+						if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
+							return V2.zero
+						end
+						return V2.new(minimum, minimum)
+					end,
+				}
+			end, node)
+		end
 
 		return node
 	end)
@@ -1373,7 +1387,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				local label: GuiObject = title
 				local described = row.description ~= nil or spec.hint ~= nil
 				if described then
-					label = ctx.column({ label, ctx.text({ Text = row.description or spec.hint }) })
+					label = ctx.column({
+						label,
+						ctx.text({
+							Name = "Description",
+							Text = row.description or spec.hint,
+							Size = if spec.row then D2.fromScale(1, 0) else D2.fromOffset(0, 0),
+							AutomaticSize = if spec.row then E.AutomaticSize.Y else E.AutomaticSize.XY,
+							TextWrapped = spec.row ~= nil,
+						}),
+					}, if spec.row then { Size = D2.fromScale(0, 0), AutomaticSize = E.AutomaticSize.Y } else nil)
 				end
 				local leading = spec.icon or row.icon
 				p.icon = nil
@@ -1540,7 +1563,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Size = D2.fromScale(0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
 					TextXAlignment = E.TextXAlignment.Left,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: ComposeTypes.Child,
+					ctx.styled(Host.UIPadding({}), "stepper-inset") :: ComposeTypes.Child,
 				})
 			)
 		end

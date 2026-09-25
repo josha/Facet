@@ -1497,6 +1497,7 @@ t.describe("native parity paint", function()
 			["facet-badge-"] = { "standard", "status", "utility" },
 			["facet-disclosure-"] = { "plain", "contained", "divided" },
 			["facet-size-"] = { "xsmall", "compact", "regular", "large" },
+			["facet-path-"] = { "content", "secondary", "accent" },
 		}
 		local found = {}
 		for prefix in prefixes do

@@ -20,6 +20,8 @@ local DateTimePickerTypes = require("@self/ui/date_time_picker_types")
 local ColorPickerTypes = require("@self/ui/color_picker_types")
 local arithmetic = require("@self/ui/arithmetic")
 local adaptive = require("@self/ui/adaptive")
+local pathShapes = require("@self/ui/nav_path_shapes")
+local richText = require("@self/ui/rich_text")
 local EnvironmentTypes = require("@self/ui/environment_types")
 local freeze = require("@self/ui/freeze")
 export type ButtonProps = InputTypes.ButtonProps
@@ -66,6 +68,8 @@ export type LabelProps = MediaTypes.LabelProps
 export type ImageProps = MediaTypes.ImageProps
 export type BadgeProps = MediaTypes.BadgeProps
 export type StatusIndicatorProps = MediaTypes.StatusIndicatorProps
+export type PathProps = MediaTypes.PathProps
+export type PathPoint = MediaTypes.PathPoint
 export type ProgressViewProps = MediaTypes.ProgressViewProps
 export type SkeletonProps = MediaTypes.SkeletonProps
 export type ImageResource = MediaTypes.ImageResource
@@ -136,6 +140,8 @@ export type Facet = {
 	themes: ThemeTypes.Themes,
 	civilDate: CivilTypes.Module,
 	adaptive: adaptive.Adaptive,
+	pathShapes: typeof(pathShapes),
+	richText: typeof(richText),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
 }
@@ -197,6 +203,8 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		themes = themes,
 		civilDate = civilDate,
 		adaptive = adaptive,
+		pathShapes = pathShapes,
+		richText = richText,
 		recipes = recipes,
 		bind = bind,
 	})

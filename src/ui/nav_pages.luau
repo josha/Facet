@@ -6,6 +6,12 @@ local Media = require("./media_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion")
+type SelectionLinks = {
+	NextSelectionLeft: GuiObject?,
+	NextSelectionRight: GuiObject?,
+	NextSelectionUp: GuiObject?,
+	NextSelectionDown: GuiObject?,
+}
 
 type Controls = {
 	TabView: Types.Constructor<Nav.TabViewSpec, Frame>,
@@ -279,6 +285,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local bookmarks: { [string]: GuiObject? } = {}
 		local bookmarkPaths: { [string]: { string } } = {}
 		local tabButtons: { [string]: TextButton } = {}
+		local tabLinks = Compose.cell(0)
 		local tabMeasures: { [string]: { position: ComposeTypes.Readable<Vector2>, size: ComposeTypes.Readable<Vector2> } } =
 			{}
 		local gui = surfaces.service("GuiService")
@@ -609,8 +616,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						position = ctx.observe.AbsolutePosition(button),
 						size = ctx.observe.AbsoluteSize(button),
 					}
+					tabLinks:set(tabLinks:peek() + 1)
 					Compose.cleanup(function()
 						tabButtons[tab.id], tabMeasures[tab.id] = nil, nil
+						tabLinks:set(tabLinks:peek() + 1)
 					end)
 					if next(sectionLabels) then
 						return ctx.column({
@@ -648,6 +657,32 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			bar:SetAttribute("FacetEntry", use(spec.selection))
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(tabLinks)
+			local vertical = use(placement) == "sidebar"
+			local order: { TextButton } = {}
+			for _, tab in use(visibleTabs) do
+				local button = tabButtons[tab.id]
+				if button and button.Parent then
+					local live = read(spec.enabled, use) ~= false and tabEnabled(tab.id, use)
+					if live then
+						table.insert(order, button)
+					else
+						local links = (button :: unknown) :: SelectionLinks
+						links.NextSelectionLeft, links.NextSelectionRight = nil, nil
+						links.NextSelectionUp, links.NextSelectionDown = nil, nil
+					end
+				end
+			end
+			for index, button in order do
+				local before: GuiObject?, after: GuiObject? = order[index - 1], order[index + 1]
+				local links = (button :: unknown) :: SelectionLinks
+				links.NextSelectionLeft = if vertical then nil else before
+				links.NextSelectionRight = if vertical then nil else after
+				links.NextSelectionUp = if vertical then before else nil
+				links.NextSelectionDown = if vertical then after else nil
+			end
 		end)
 		local barSize, barPosition = ctx.observe.AbsoluteSize(bar), ctx.observe.AbsolutePosition(bar)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -1351,6 +1386,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				layout:JumpTo(pageNodes[id])
 				changing = false
 			end
+		end)
+		local size = ctx.observe.AbsoluteSize(pages)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local box = use(size)
+			if box.X <= 0 or not use(parent) then
+				return
+			end
+			local animated = layout.Animated
+			layout.Animated = false
+			changing = true
+			layout:JumpTo(pageNodes[spec.selection:peek()])
+			changing = false
+			layout.Animated = animated
 		end)
 		local gui = surfaces.service("GuiService")
 		local current = ctx.observe.CurrentPage(layout)

@@ -7,7 +7,13 @@ local layoutKit = require("./layout_kit")
 local selection = require("./selection")
 
 type ModalPortal = { node: Instance, anchor: Instance }
-type ActionSettings = { onReleased: (() -> ())?, priority: number?, sink: boolean?, capture: boolean? }
+type ActionSettings = {
+	onReleased: (() -> ())?,
+	priority: number?,
+	sink: boolean?,
+	capture: boolean?,
+	group: string?,
+}
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
 	local config: Shared.Config = if options then table.clone(options) else {}
@@ -264,6 +270,21 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				return minimum
 			end
 			return pointer
+		end
+	end
+	function ctx.touchFloor(): (ComposeTypes.Use?) -> number
+		local input = config.userInputService
+		if input == nil then
+			return function()
+				return 0
+			end
+		end
+		local touch, gamepad = ctx.observe.TouchEnabled(input), ctx.observe.GamepadEnabled(input)
+		return function(use: ComposeTypes.Use?): number
+			if ctx.readSource(touch, use) ~= true and ctx.readSource(gamepad, use) ~= true then
+				return 0
+			end
+			return ctx.metric("targetSizes.minimum", use)
 		end
 	end
 	local shiftRoutes = (
@@ -646,6 +667,15 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return inModal
 	end
+	type ActionGroup = {
+		context: InputContext,
+		parent: ComposeTypes.Cell<Instance?>,
+		available: ComposeTypes.Cell<boolean>,
+	}
+	local actionGroups: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } } = setmetatable(
+		{},
+		{ __mode = "k" }
+	) :: any
 	function ctx.action(
 		node: Instance,
 		name: string,
@@ -656,61 +686,81 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	)
 		local settings: ActionSettings = actionSettings or {}
 		local owner = assert(Compose.currentOwner(), "Facet action requires a Compose owner")
-		local parent = Compose.cell(nil :: Instance?)
-		local available = Compose.cell(false)
-		local ancestryOwner: ComposeTypes.Owner?
-		local function locate()
-			if owner.isDisposed() then
-				return
+		local group: ActionGroup? = nil
+		if settings.group then
+			local byNode = actionGroups[owner]
+			if byNode == nil then
+				byNode = setmetatable({}, { __mode = "k" }) :: any
+				actionGroups[owner] = byNode
 			end
-			if ancestryOwner then
-				ancestryOwner.dispose()
-				ancestryOwner = nil
+			local named = (byNode :: any)[node]
+			if named == nil then
+				named = {}
+				(byNode :: any)[node] = named
 			end
-			local inputParent: Instance? = config.inputParent
-			if inputParent == nil then
-				local root: Instance? = node
-				while root and not root:IsA("LayerCollector") do
-					root = root.Parent
-				end
-				if root == nil then
-					parent:set(nil :: Instance?)
-					available:set(false)
+			group = named[settings.group]
+		end
+		local parent: ComposeTypes.Cell<Instance?>
+		local available: ComposeTypes.Cell<boolean>
+		if group then
+			parent, available = group.parent, group.available
+		else
+			parent = Compose.cell(nil :: Instance?)
+			available = Compose.cell(false)
+			local ancestryOwner: ComposeTypes.Owner?
+			local function locate()
+				if owner.isDisposed() then
 					return
 				end
-			end
-			local childOwner = owner.createChild()
-			ancestryOwner = childOwner
-			Compose.withOwner(childOwner, function()
-				local sources: { ComposeTypes.Readable<boolean> } = {}
-				local at: Instance? = node
-				local collector: Instance? = nil
-				while at do
-					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe.Visible(at))
-						table.insert(sources, ctx.observe.Interactable(at))
-					elseif at:IsA("LayerCollector") then
-						collector = at
-						table.insert(sources, ctx.observe.Enabled(at))
-						break
-					end
-					at = at.Parent
+				if ancestryOwner then
+					ancestryOwner.dispose()
+					ancestryOwner = nil
 				end
-				local target: Instance? = if inputParent then inputParent else collector
-				parent:set(target)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local enabled = true
-					for _, source in sources do
-						if use(source) == false then
-							enabled = false
-						end
+				local inputParent: Instance? = config.inputParent
+				if inputParent == nil then
+					local root: Instance? = node
+					while root and not root:IsA("LayerCollector") do
+						root = root.Parent
 					end
-					available:set(enabled)
+					if root == nil then
+						parent:set(nil :: Instance?)
+						available:set(false)
+						return
+					end
+				end
+				local childOwner = owner.createChild()
+				ancestryOwner = childOwner
+				Compose.withOwner(childOwner, function()
+					local sources: { ComposeTypes.Readable<boolean> } = {}
+					local at: Instance? = node
+					local collector: Instance? = nil
+					while at do
+						if at:IsA("GuiObject") then
+							table.insert(sources, ctx.observe.Visible(at))
+							table.insert(sources, ctx.observe.Interactable(at))
+						elseif at:IsA("LayerCollector") then
+							collector = at
+							table.insert(sources, ctx.observe.Enabled(at))
+							break
+						end
+						at = at.Parent
+					end
+					local target: Instance? = if inputParent then inputParent else collector
+					parent:set(target)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local enabled = true
+						for _, source in sources do
+							if use(source) == false then
+								enabled = false
+							end
+						end
+						available:set(enabled)
+					end)
 				end)
-			end)
+			end
+			locate()
+			runtime.connect(node, "AncestryChanged", locate)
 		end
-		locate()
-		runtime.connect(node, "AncestryChanged", locate)
 		local gui = config.guiService
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local p: Shared.InputActionNativeProps = {
@@ -747,13 +797,33 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and ctx.read(enabledSource, use) ~= false
 				and ctx.available(node, use)
 		end
-		local context = Host.InputContext("Facet" .. name)({
-			Parent = parent,
-			Priority = settings.priority or 2000,
-			Sink = settings.sink ~= false,
-			Enabled = enabled,
-			action,
-		})
+		local context: InputContext
+		if group then
+			context = group.context
+			runtime.decorate(action, { Enabled = enabled })
+			action.Parent = context
+		elseif settings.group then
+			runtime.decorate(action, { Enabled = enabled })
+			context = Host.InputContext("Facet" .. settings.group)({
+				Parent = parent,
+				Priority = settings.priority or 2000,
+				Sink = settings.sink ~= false,
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return use(parent) ~= nil and use(available)
+				end,
+				action,
+			})
+			local byNode = (actionGroups[owner] :: any)[node]
+			byNode[settings.group] = { context = context, parent = parent, available = available }
+		else
+			context = Host.InputContext("Facet" .. name)({
+				Parent = parent,
+				Priority = settings.priority or 2000,
+				Sink = settings.sink ~= false,
+				Enabled = enabled,
+				action,
+			})
+		end
 		local inputService = config.userInputService
 		if settings.capture and gui and selection and inputService then
 			local steering: { [string]: string } = {}

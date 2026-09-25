@@ -440,6 +440,36 @@ t.describe("native parity weaker actions", function()
 		stop()
 	end)
 
+	t.it("cancels a Fahrenheit edit back to the value it started with and ends the edit", function()
+		local built, node, stop = mountGallery("01_temperature_converter", "example")
+		local field, preview = find(node, "Fahrenheit"), find(node, "Preview")
+		field:CaptureFocus()
+		field.Text = "5"
+		t.expect(built.fahrenheitText()).toBe("5")
+		local cancel
+		local top = node
+		while top.Parent do
+			top = top.Parent
+		end
+		for _, item in top:GetDescendants() do
+			if item:IsA("InputAction") and item.Name == "Cancel" then
+				cancel = item
+			end
+		end
+		t.expect(cancel ~= nil).toBe(true)
+		local keys = {}
+		for _, binding in cancel:GetChildren() do
+			keys[binding.KeyCode.Name] = true
+		end
+		t.expect(keys.ButtonB).toBe(true)
+		cancel.Pressed.fire()
+		t.expect(field.Text).toBe("")
+		t.expect(built.fahrenheitText()).toBe("")
+		t.expect(preview.Text).toBe("Preview: —")
+		t.expect(field:IsFocused()).toBe(false)
+		stop()
+	end)
+
 	t.it("filters the playlist from typed text, keeps row identity and never navigates the table", function()
 		local built, node, stop, ctx = mountGallery("02_playlist_table", "example")
 		local E = ctx.types.Enum

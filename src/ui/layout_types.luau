@@ -49,6 +49,7 @@ export type GridProps = Engine.FrameProps & {
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,
 	columns: Types.Value<number>,
+	flow: ("row" | "column")?,
 	gap: Types.Value<Space>?,
 	rowGap: Types.Value<Space>?,
 	cellHeight: Types.Value<number>?,

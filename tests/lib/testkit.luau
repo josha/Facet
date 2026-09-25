@@ -199,11 +199,13 @@ function testkit.run(options: RunOptions?): boolean
 				continue
 			end
 			local caseStart = os.clock()
-			local ok, err = pcall(function()
+			local ok, err = xpcall(function()
 				for _, hook in beforeEachHooks do
 					hook()
 				end
 				case.fn()
+			end, function(e)
+				return tostring(e) .. "\n" .. debug.traceback()
 			end)
 
 			for _, hook in afterEachHooks do

@@ -75,6 +75,8 @@ to select a control. Then read the exact contract of that control in the
 | Row swipe and context actions | `UI.RowActions` |
 | Plain text, and an icon with a title | `UI.Text`, `UI.Label` |
 | Compact status | `UI.Badge`, `UI.StatusIndicator` |
+| Vector strokes: simple icons, arcs and gauge needles | `UI.Path`, `Facet.pathShapes` |
+| Escape player text for rich text | `Facet.richText.escape` |
 | Progress and loading | `UI.ProgressView`, `UI.Skeleton` |
 | Images with scale, tile and nine-slice modes | `UI.Image` |
 | Async image state and cancellation | `UI.AsyncImage` |

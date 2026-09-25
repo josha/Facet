@@ -70,9 +70,10 @@ end
 local function action(root: any, name: string): any
 	local winner
 	for _, node in root:GetDescendants() do
-		if node:IsA("InputContext") and node.Name == "Facet" .. name and node.Enabled then
+		local inner = if node:IsA("InputContext") and node.Enabled then node:FindFirstChild(name) else nil
+		if inner and inner:IsA("InputAction") and inner.Enabled ~= false then
 			if winner == nil or node.Priority > winner.Parent.Priority then
-				winner = node:FindFirstChild(name)
+				winner = inner
 			end
 		end
 	end
@@ -82,7 +83,7 @@ end
 local function contexts(root: any, name: string): { any }
 	local found = {}
 	for _, node in root:GetDescendants() do
-		if node:IsA("InputContext") and node.Name == "Facet" .. name then
+		if node:IsA("InputContext") and node:FindFirstChild(name) then
 			table.insert(found, node)
 		end
 	end
@@ -1613,9 +1614,17 @@ t.describe("native parity weaker focus", function()
 			binding.KeyCode, binding.DisplayName = engine.types.Enum.KeyCode.Return, ""
 			binding.PrimaryModifier = engine.types.Enum.KeyCode.LeftShift
 			inputAction.PreferredBinding = binding
-			return runtime.constructors.ScreenGui({ UI.ShortcutHint("Hint")({ action = inputAction }) })
+			local rightAction, rightBinding = engine.new("InputAction"), engine.new("InputBinding")
+			rightBinding.KeyCode, rightBinding.DisplayName = engine.types.Enum.KeyCode.J, ""
+			rightBinding.PrimaryModifier = engine.types.Enum.KeyCode.RightShift
+			rightAction.PreferredBinding = rightBinding
+			return runtime.constructors.ScreenGui({
+				UI.ShortcutHint("Hint")({ action = inputAction }),
+				UI.ShortcutHint("Right")({ action = rightAction }),
+			})
 		end, engine.new("Folder"))
-		t.expect(find(screen, "Key").Text).toBe("Shift+Enter")
+		t.expect(find(find(screen, "Hint"), "Key").Text).toBe("Shift+Enter")
+		t.expect(find(find(screen, "Right"), "Key").Text).toBe("Shift+J")
 		t.expect(find(screen, "Glyph")).toBeNil()
 		stop()
 		runtime:dispose()

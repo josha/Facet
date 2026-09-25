@@ -6,6 +6,7 @@ local Inputs = require("./input_types")
 local Media = require("./media_types")
 local Content = require("./content_types")
 local fieldChrome = require("./field_chrome")
+local activation = require("./activation")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
 
@@ -320,11 +321,10 @@ return function(
 			for _, item in items do
 				if item.divider ~= true then
 					local action = actionItem(item)
-					if
-						action.selected ~= nil
-						and read(action.selected) == action.value
-						and read(action.enabled) ~= false
-					then
+					local chosen = if action.selected ~= nil
+						then read(action.selected) == action.value
+						else read(action.marked) == true
+					if chosen and read(action.enabled) ~= false then
 						return tostring(item.id)
 					end
 				end
@@ -1260,7 +1260,11 @@ return function(
 				trigger,
 			}))
 			if allows("activate") then
-				runtime.connect(trigger, "Activated", open)
+				if activation.marked(trigger) then
+					Compose.cleanup(activation.listen(trigger, open))
+				else
+					runtime.connect(trigger, "Activated", open)
+				end
 			end
 		elseif authored == nil then
 			local triggerProps: Inputs.ButtonProps = {
@@ -1336,7 +1340,11 @@ return function(
 				surfaces.attach(trigger, children)
 			end
 			if allows("activate") then
-				runtime.connect(trigger, "Activated", open)
+				if activation.marked(trigger) then
+					Compose.cleanup(activation.listen(trigger, open))
+				else
+					runtime.connect(trigger, "Activated", open)
+				end
 			end
 		end
 		local available = surfaces.available(root)
@@ -2023,6 +2031,8 @@ return function(
 					local floor = ctx.controlSize(spec.controlSize, "height", use)
 					return D2.new(base.X.Scale, base.X.Offset, base.Y.Scale, math.max(base.Y.Offset, floor))
 				end
+				triggerProps.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
+				triggerProps.ClipsDescendants = true
 			end
 			triggerProps.controlSize = spec.controlSize
 			triggerProps.corners = spec.corners

@@ -361,7 +361,10 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									return presenceWords[use(model.presence)]
 								end,
 							},
-							UI.Text "DisplayName" { text = displayName, textRole = "strong" },
+							UI.Text "DisplayName" {
+								text = "Signed in as <b>" .. Facet.richText.escape(displayName) .. "</b>",
+								rich = true,
+							},
 						},
 						UI.Picker "Presence" {
 							selected = model.presence,
@@ -693,16 +696,28 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			local points = {}
 			for day = 0, 6 do
 				local wobble = ((selected.index * (day + 1) * 37) % 23) / 23
-				table.insert(points, types.Path2DControlPoint.new(D2.fromScale(day / 6, 1 - (0.25 + 0.5 * wobble))))
+				table.insert(
+					points,
+					{ x = day / 6, y = 1 - (0.25 + 0.5 * wobble), inX = 0, inY = 0, outX = 0, outY = 0 }
+				)
 			end
-			local path = Host.Path2D "TrendLine" {
-				Thickness = 3,
-				Color3 = function(use)
-					return if use(model.dark) then C3.fromRGB(144, 220, 190) else C3.fromRGB(45, 86, 65)
-				end,
+			return UI.HStack "Sparkline" {
+				width = "fill",
+				gap = "s",
+				align = "center",
+				UI.Path "TrendLine" {
+					points = points,
+					role = "accent",
+					thickness = 3,
+					Size = D2.new(1, -52, 0, 40),
+				},
+				UI.Path "RatingArc" {
+					points = Facet.pathShapes.arc(0, selected.percent * 3.6, { radius = 0.8 }),
+					role = "secondary",
+					thickness = 4,
+					width = 40,
+				},
 			}
-			path:SetControlPoints(points)
-			return Host.Frame "Sparkline" { Size = D2.new(1, 0, 0, 40), BackgroundTransparency = 1, path }
 		end
 		local tab = function(use)
 			return use(model.detailTab)

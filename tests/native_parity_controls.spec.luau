@@ -1269,7 +1269,7 @@ t.describe("native parity controls", function()
 			local function contextsIn(root: any, name: string): { any }
 				local found = {}
 				for _, node in root:GetDescendants() do
-					if node:IsA("InputContext") and node.Name == "Facet" .. name then
+					if node:IsA("InputContext") and node:FindFirstChild(name) then
 						table.insert(found, node)
 					end
 				end
@@ -1277,8 +1277,9 @@ t.describe("native parity controls", function()
 			end
 			local function fire(name: string)
 				for _, context in contextsIn(world.root, name) do
-					if context.Enabled then
-						context:FindFirstChild(name).Pressed.fire()
+					local inner = context:FindFirstChild(name)
+					if context.Enabled and inner.Enabled ~= false then
+						inner.Pressed.fire()
 						return
 					end
 				end

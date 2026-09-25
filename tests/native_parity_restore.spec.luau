@@ -388,6 +388,7 @@ t.describe("native parity restore: Facet Neutral Light", function()
 					return rule:GetProperties().TextColor3
 				end
 			end
+
 			return nil
 		end
 		local function expected(palette: any): any
@@ -823,6 +824,55 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		end
 	end)
 
+	t.it("clamps wrapped text to a number of lines and ends it with an ellipsis", function()
+		local w, label = labelWorld({ text = string.rep("word ", 60), lines = 2, TextSize = 16 })
+		t.expect(label.TextWrapped).toBe(true)
+		t.expect(label.TextTruncate).toBe(w.engine.types.Enum.TextTruncate.AtEnd)
+		t.expect(label.AutomaticSize).toBe(w.engine.types.Enum.AutomaticSize.Y)
+		local clamp = label:FindFirstChild("LineClamp")
+		t.expect(clamp.MaxSize.Y).toBe(math.ceil(2 * 16 * label.LineHeight))
+		label.TextSize = 20
+		t.expect(clamp.MaxSize.Y).toBe(math.ceil(2 * 20 * label.LineHeight))
+		w.stop()
+		t.expect(pcall(labelWorld, { text = "x", lines = 0 })).toBe(false)
+		t.expect(pcall(labelWorld, { text = "x", lines = 2, truncate = "middle" })).toBe(false)
+	end)
+
+	t.it("forwards rich text and refuses a non-boolean flag or a middle cut", function()
+		local w, label = labelWorld({ text = "<b>Win</b>", rich = true })
+		t.expect(label.RichText).toBe(true)
+		t.expect(label.Text).toBe("<b>Win</b>")
+		w.stop()
+		t.expect(Facet.richText.escape(`<b>Ann & "Bo"'s</b>`))
+			.toBe("&lt;b&gt;Ann &amp; &quot;Bo&quot;&apos;s&lt;/b&gt;")
+		t.expect(Facet.richText.escape("plain words")).toBe("plain words")
+		t.expect(table.isfrozen(Facet.richText)).toBe(true)
+		t.expect(pcall(labelWorld, { text = "x", rich = "yes" })).toBe(false)
+		t.expect(pcall(labelWorld, { text = "x", rich = true, truncate = "middle" })).toBe(false)
+	end)
+
+	t.it("cuts the middle to the padded text area, not the outer box", function()
+		local w = world(function(UI, Host, engine)
+			return UI.Text {
+				text = VALUE,
+				truncate = "middle",
+				TextSize = 16,
+				Host.UIPadding {
+					PaddingLeft = engine.types.UDim.new(0, 20),
+					PaddingRight = engine.types.UDim.new(0, 20),
+				},
+			}
+		end, nil, { measureText = measure })
+		local label = w.screen:FindFirstChildWhichIsA("TextLabel", true)
+		resize(w, label, 120)
+		local painted = label.Text
+		t.expect(glyphWidth(painted, label.TextSize) <= 80).toBe(true)
+		t.expect(string.find(painted, ELLIPSIS, 1, true) ~= nil).toBe(true)
+		label:FindFirstChildWhichIsA("UIPadding"):Destroy()
+		t.expect(glyphWidth(label.Text, label.TextSize) > 80).toBe(true)
+		w.stop()
+	end)
+
 	t.it("paints the whole value when it fits and the bare mark when nothing fits", function()
 		local w, label = labelWorld({ text = "Lap 3", truncate = "middle" })
 		resize(w, label, 400)
@@ -937,5 +987,70 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 				t.expect(string.find(tostring(message), "cap and floor", 1, true) ~= nil).toBe(true)
 			end
 		end
+	end)
+end)
+
+t.describe("native parity restore: Path", function()
+	local shapes = Facet.pathShapes
+
+	t.it("strokes pathShapes points on a native Path2D and follows new points without a remount", function()
+		local points = Compose.cell(shapes.arc(0, 90))
+		local w = world(function(UI)
+			return UI.Path "Gauge" { points = points, width = 64 }
+		end)
+		local frame = w.screen:FindFirstChild("Gauge")
+		local stroke = frame:FindFirstChild("Stroke")
+		t.expect(stroke.ClassName).toBe("Path2D")
+		t.expect(frame.Size).toBe(w.engine.types.UDim2.fromOffset(64, 64))
+		local first = shapes.arc(0, 90)
+		t.expect(#stroke:GetControlPoints()).toBe(#first)
+		local top = stroke:GetControlPoints()[1].Position
+		t.expect(top).toBe(w.engine.types.UDim2.fromScale(first[1].x, first[1].y))
+		points:set(shapes.needle(90, { innerRadius = 0.2 }))
+		t.expect(#stroke:GetControlPoints()).toBe(2)
+		t.expect(frame:FindFirstChild("Stroke")).toBe(stroke)
+		w.stop()
+	end)
+
+	t.it("takes its colour from a theme role or a tint, and its thickness from pixels or a metric", function()
+		local role = Compose.cell("accent")
+		local w = world(function(UI, Host, engine)
+			return Host.Frame {
+				UI.Path "Role" { points = shapes.ring(), role = role, thickness = 3, closed = true },
+				UI.Path "Plain" { points = shapes.ring() },
+				UI.Path "Tinted" {
+					points = shapes.ring(),
+					tint = engine.types.Color3.fromRGB(10, 200, 30),
+					thickness = "strokes.hairline",
+				},
+			}
+		end)
+		local roleStroke = w.screen:FindFirstChild("Role", true):FindFirstChild("Stroke")
+		t.expect(roleStroke:HasTag("facet-path")).toBe(true)
+		t.expect(roleStroke:HasTag("facet-path-accent")).toBe(true)
+		t.expect(roleStroke.Thickness).toBe(3)
+		t.expect(roleStroke.Closed).toBe(true)
+		role:set("secondary")
+		t.expect(roleStroke:HasTag("facet-path-accent")).toBe(false)
+		t.expect(roleStroke:HasTag("facet-path-secondary")).toBe(true)
+		local plain = w.screen:FindFirstChild("Plain", true):FindFirstChild("Stroke")
+		t.expect(plain:HasTag("facet-path-content")).toBe(true)
+		t.expect(plain.Closed).toBe(false)
+		local tinted = w.screen:FindFirstChild("Tinted", true):FindFirstChild("Stroke")
+		t.expect(tinted.Color3).toBe(w.engine.types.Color3.fromRGB(10, 200, 30))
+		t.expect(tinted.Thickness > 0).toBe(true)
+		w.stop()
+	end)
+
+	t.it("refuses missing points, more than the engine's 100 points and an unknown role", function()
+		t.expect(pcall(world, function(UI)
+			return UI.Path({} :: any)
+		end)).toBe(false)
+		t.expect(pcall(world, function(UI)
+			return UI.Path { points = shapes.arc(0, 360, { segments = 99 }), role = "danger" :: any }
+		end)).toBe(false)
+		t.expect(pcall(shapes.arc, 0, 360, { segments = 100 })).toBe(false)
+		t.expect(shapes.MAX_CONTROL_POINTS).toBe(100)
+		t.expect(table.isfrozen(shapes)).toBe(true)
 	end)
 end)

@@ -99,6 +99,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		runtime.decorate(node, { Attributes = values })
 	end
 	local function build(control: string, spec: Spec): TextBox | Frame
+		local invalidSource: ComposeTypes.Readable<boolean>? = spec.invalid
 		assert(type(read(spec.value)) == "string", `Facet.{control}: value must resolve to a string`)
 		assert(
 			writable(spec.value) or type(spec.onChange) == "function",
@@ -235,8 +236,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local function markInvalid(value: boolean, message: string?): ()
 			invalid:set(value)
 			validationMessage:set(if value then message or "Check this value." else "")
-			if writable(spec.invalid) then
-				(spec.invalid :: ComposeTypes.Cell<boolean>):set(value)
+			if writable(invalidSource) then
+				(invalidSource :: ComposeTypes.Cell<boolean>):set(value)
 			end
 			if value and errorTimeline and errorReduced and not errorReduced() then
 				errorTimeline:restart()
@@ -476,10 +477,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local moved: { Instance } = {}
 			for index = #source, 1, -1 do
 				local child = source[index]
-				local node = if typeof(child) == "Instance"
-						or (type(child) == "table" and (child :: { [string]: unknown }).IsA ~= nil)
-					then child :: Instance
-					else nil
+				local instanceLike = typeof(child) == "Instance"
+					or (type(child) == "table" and (child :: { [string]: unknown }).IsA ~= nil)
+				local node = if instanceLike then child :: Instance else nil
 				if node and (node:IsA("UIFlexItem") or node:IsA("UISizeConstraint")) then
 					table.insert(moved, 1, node)
 					table.remove(source :: { unknown }, index)
@@ -710,7 +710,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						LayoutOrder = order,
 						Size = D2.fromOffset(44, 44),
 						AutomaticSize = E.AutomaticSize.None,
-						enabled = function(use: ComposeTypes.Use)
+						enabled = function(use: ComposeTypes.Use): boolean
 							if not editable(use) then
 								return false
 							end

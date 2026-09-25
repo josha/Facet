@@ -190,6 +190,11 @@ function pixel_quest.definition(themes: any): any
 			standardIcons = false,
 		},
 		style = { defaultTheme = "Quest", themes = { { name = "Quest", colors = QUEST.colors, extra = QUEST.extra } } },
+		rules = {
+			{ selector = ".facet-tab-item", properties = { TextColor3 = { role = "content" } } },
+			{ selector = ".facet-tab-item.facet-selected", properties = { TextColor3 = { role = "onSelected" } } },
+			{ selector = ".facet-tab-filled", properties = { TextColor3 = { role = "onAccent" } } },
+		},
 		metrics = {
 			typography = typography(),
 			space = { xs = 4, s = 8, m = 16, l = 24, xl = 40 },
