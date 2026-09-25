@@ -69,20 +69,29 @@ return {
 				end
 			end
 			local failing: { [number]: boolean } = {}
-			local function fail(key: number)
+			local function fail(key: number, wider: number?)
 				for _, index in members[key] or ({} :: { number }) do
-					failing[index] = true
+					local form = forms[index]
+					local size = if form > 0 then regions[index].sizes[form] else nil
+					if wider == nil or (size and size.x > wider) then
+						failing[index] = true
+					end
 				end
 			end
-			if strip and ((zoneW[0] or 0) > strip.x or (zoneH[0] or 0) > strip.y) then
-				fail(0)
+			local function check(key: number, width: number, tall: number)
+				if (zoneH[key] or 0) > tall then
+					fail(key)
+				elseif (zoneW[key] or 0) > width then
+					fail(key, width)
+				end
+			end
+			if strip then
+				check(0, strip.x, strip.y)
 			end
 			for column = 1, 3 do
 				local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
 				for _, key in { top, middle, bottom } do
-					if (zoneW[key] or 0) > lane or (zoneH[key] or 0) > height then
-						fail(key)
-					end
+					check(key, lane, height)
 				end
 				local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
 				if h2 > 0 then

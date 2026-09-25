@@ -65,7 +65,7 @@ local SIZES = {
 	ClockFull = { 170, 60 },
 	ClockChip = { 80, 44 },
 	Objective = { 130, 32 },
-	RailFull = { 110, 132 },
+	RailFull = { 130, 132 },
 	RailChip = { 80, 44 },
 	ReadoutText = { 110, 16 },
 	ActionsFull = { 44, 148 },
@@ -157,15 +157,16 @@ t.describe("Composition", function()
 		stop()
 	end)
 
-	t.it("keeps each lane to a third of the width, stepping a region wider than its lane", function()
+	t.it("keeps each lane to a third of the width, stepping only a region wider than its lane", function()
 		local root, engine, forms, _, stop = mount()
 		sized(engine, root:FindFirstChild("Zones"), 390, 780)
 		local chosen = forms.peek()
 		t.expect(chosen.Tasks).toBe(2)
 		t.expect(chosen.Clock).toBe(2)
-		t.expect(chosen.Rail).toBe(1)
+		t.expect(chosen.Rail).toBe(2)
 		t.expect(chosen.Rounds).toBe(1)
 		t.expect(chosen.Health).toBe(2)
+		t.expect(chosen.Readout).toBe(1)
 		stop()
 	end)
 

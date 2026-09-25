@@ -614,6 +614,8 @@ Step-down:
 - When a lane does not fit, the region with the highest rank in the zones
   that do not fit shows its next form. After its last form, a region with
   `mayDrop` hides. With equal ranks, the later region gives way first.
+- When a zone is too wide, only its regions that are wider than the lane give
+  way. A narrow region cannot make the zone narrower.
 - The composition repeats this until every lane fits or no region can give
   way. It never scales content down.
 - The decision uses only the measured sizes and the size of the composition.
