@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A DateTimePicker range band runs unbroken across the days of the range in every theme. Before, the theme's button padding (12 pixels a side) also inset each calendar day's layers, so the band broke into slabs with a 24 pixel gap between days.
 - `UI.focusRing(playerGui)` installs the theme focus ring on any screen (the gallery now uses it); `app.mount` calls it. Before, only `Facet.app` screens had the ring, so the Showcase still showed the engine glow after a mouse click.
 - A Card with `reveal = "automatic"` shows its actions on a panel plate directly below the body again: the primary action fills the row and More is a trailing `more` icon button (the Menu root, now named `More`, is that button). Before, the row floated with no plate, a gap above it, a hugging primary and a worded More trigger.
 - A theme plaque layer with `text = true` is title art. A Sheet or Dialog title shows in it, the plaque 9-slice grows around the title, and the header title hides. Without a title the plaque is not drawn. Before, Fantasy Ornate drew an empty plaque on every panel. The Fantasy Ornate plaque is now 9-sliced, with text insets inside its gold rim.

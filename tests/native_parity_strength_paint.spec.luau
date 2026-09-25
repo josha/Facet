@@ -2316,3 +2316,40 @@ t.describe("native paint strength: table rows", function()
 		h.dispose()
 	end)
 end)
+
+t.describe("native paint strength: calendar day", function()
+	t.it("a calendar day keeps no button inset in any theme, so its range band meets the next day (owner)", function()
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			local h = harness({ theme = package })
+			local range = Compose.cell({
+				start = { year = 2026, month = 9, day = 8 },
+				finish = { year = 2026, month = 9, day = 17 },
+			})
+			local root, stop = mount(h, function()
+				return h.UI.DateTimePicker("P")({
+					selection = "range",
+					style = "inline",
+					range = range,
+					onRangeChange = function(r: any)
+						range:set(r)
+					end,
+				})
+			end)
+			local sheet, stopSheet = sheetFor(h, package)
+			local day = tagged(root, "facet-calendar-day")[10]
+			local sides = {}
+			for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
+				local value = resolve(sheet, day, side, "UIPadding")
+				table.insert(sides, if value then value.Offset else 0)
+			end
+			t.expect(table.concat(sides, " ")).toBe("0 0 0 0")
+			stopSheet()
+			stop()
+			h.dispose()
+		end
+	end)
+end)

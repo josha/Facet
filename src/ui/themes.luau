@@ -1165,6 +1165,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-accent >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-calendar-day", { BackgroundTransparency = 1 })
+	rule(".facet-calendar-day::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-calendar-day:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
 	rule(".facet-calendar-day:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
 	rule(".facet-calendar-band", { BackgroundColor3 = c("controlSelected"), BackgroundTransparency = 0 })
