@@ -2256,6 +2256,14 @@ progress. An editor with `render`, an unknown editor word, a menu without
 `options`, editor settings on a column without `editor`, and an editor column
 without `onCellChange` cause an error.
 
+`editable = true` adds a toolbar above the header with an `Edit` button. The
+button toggles the `editing` cell, or its own cell when you supply none, and
+reads `Done` while editing. The same cell puts rows with `rowActions` in edit
+mode. With touch or gamepad input, the editor cells accept edits only while
+editing. With mouse and keyboard, they accept edits at all times. An
+`editable` table needs the header, and a supplied `editing` must be a
+writable cell.
+
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
 `widths` is a map of column widths. `selection` is a key-set map.
 `selectionMode` is `single`, `multi` or `none`. When you supply

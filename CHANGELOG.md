@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Table `editable = true` shows an Edit/Done button above the header that toggles `editing` (the same cell as row edit mode). With touch or gamepad input, editor cells accept edits only in edit mode; with mouse and keyboard they stay editable in place.
 - Table paints its header band and rows through the theme tags `facet-tablehead` and `facet-tablerow` (palette roles `tableHeader`, `tableRow`; `control` and `surface` by default). `alternatingRows = true` tags every second row `facet-tablerow-alternate` (`tableRowAlternate`, `surfaceStrong` by default). Before, the header and rows were transparent.
 - An image Button hugs its image and text in height (240 pixels wide by default), with the image flush to the top edge, clipped to the top corners, and the text inset from the sides and bottom. With an authored fixed height the image fills what the text leaves. Before, the image took 55% of a fixed 260-pixel plate, sat inset and narrower than the plate on a wide card, and left an empty band under the text.
 - `UI.Screen` keeps its content below the engine top bar. It adds the part of the `GuiService.TopbarInset` band that covers it to its top padding, with `IgnoreGuiInset` on or off. Its background still fills the screen. Before, a Screen in a ScreenGui that ignores the inset put its first row under the Roblox menu and chat buttons.

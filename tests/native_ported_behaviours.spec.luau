@@ -545,6 +545,83 @@ t.describe("Table row paint", function()
 	end)
 end)
 
+t.describe("Table edit mode", function()
+	local function editableTable(input: string, editing: any?): (any, { string })
+		local rows = Compose.cell({ { id = "a", ready = false } })
+		local proposals = {}
+		local w = world(function(UI)
+			return UI.Table "T" {
+				from = rows,
+				key = "id",
+				scrolls = false,
+				editable = true,
+				editing = editing,
+				columns = { { id = "id" }, { id = "ready", editor = "toggle" } },
+				onCellChange = function(key, column, value)
+					table.insert(proposals, `{key}.{column}={tostring(value)}`)
+				end,
+			}
+		end, { environment = { preferredInput = input } })
+		w.step(3)
+		return w, proposals
+	end
+	local function editorOf(w: any): any
+		for _, node in w.screen:GetDescendants() do
+			if node.Name == "Editor" and node.Parent and node.Parent.Name == "ready" then
+				return node
+			end
+		end
+		return nil
+	end
+	t.it("touch and gamepad cells edit only after Edit; Done ends the edit mode", function()
+		for _, input in { "Touch", "Gamepad" } do
+			local w, proposals = editableTable(input)
+			local button = find(w.screen, "Edit")
+			expect(button ~= nil).toBe(true)
+			expect(button.Text).toBe("Edit")
+			editorOf(w).Activated.fire()
+			expect(#proposals).toBe(0)
+			button.Activated.fire()
+			w.step()
+			expect(button.Text).toBe("Done")
+			editorOf(w).Activated.fire()
+			expect(proposals[1]).toBe("a.ready=true")
+			button.Activated.fire()
+			w.step()
+			expect(button.Text).toBe("Edit")
+			editorOf(w).Activated.fire()
+			expect(#proposals).toBe(1)
+			w.stop()
+		end
+	end)
+	t.it("a pointer edits cells in place, and Edit writes the caller's editing cell", function()
+		local editing = Compose.cell(false)
+		local w, proposals = editableTable("KeyboardAndMouse", editing)
+		editorOf(w).Activated.fire()
+		expect(proposals[1]).toBe("a.ready=true")
+		find(w.screen, "Edit").Activated.fire()
+		expect(editing:peek()).toBe(true)
+		w.stop()
+	end)
+	t.it("a table without editable has no Edit button and keeps its cells live", function()
+		local w = world(function(UI)
+			return UI.Table "T" { from = { { id = "a" } }, key = "id", scrolls = false, columns = { { id = "id" } } }
+		end, { environment = { preferredInput = "Touch" } })
+		w.step(3)
+		expect(find(w.screen, "Edit")).toBe(nil)
+		expect(function()
+			w.UI.Table {
+				from = { { id = "a" } },
+				key = "id",
+				editable = true,
+				header = false,
+				columns = { { id = "id" } },
+			}
+		end).toThrow()
+		w.stop()
+	end)
+end)
+
 t.describe("environment preview", function()
 	t.it("the environment option overrides the observed engine facts for controls and UI.environment", function()
 		local engine: any = engines.new()

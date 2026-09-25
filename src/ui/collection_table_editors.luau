@@ -46,7 +46,8 @@ return function(ctx: Types.Context, UI: Controls)
 	function editors.render<V, K>(
 		column: CollectionTypes.TableColumn<V, K>,
 		raw: (V) -> unknown,
-		onCellChange: (key: K, column: string, value: unknown) -> ()
+		onCellChange: (key: K, column: string, value: unknown) -> (),
+		enabled: (ComposeTypes.Use) -> boolean
 	): CollectionTypes.RowRender<V, K>
 		return function(current: ComposeTypes.Readable<V>, _placement, key: K): GuiObject
 			local function value(use: ComposeTypes.Use?): unknown
@@ -70,6 +71,7 @@ return function(ctx: Types.Context, UI: Controls)
 						return value(use) == true
 					end,
 					onChange = propose,
+					enabled = enabled,
 				} :: unknown) :: InputTypes.ToggleProps)
 			end
 			if editor == "menu" then
@@ -82,6 +84,7 @@ return function(ctx: Types.Context, UI: Controls)
 					style = "menu",
 					options = column.options,
 					selected = selected,
+					enabled = enabled,
 					onChanging = function(nextValue: unknown): boolean
 						propose(nextValue)
 						return false
@@ -106,6 +109,7 @@ return function(ctx: Types.Context, UI: Controls)
 					Name = "Editor",
 					value = draft,
 					numericValue = numeric,
+					enabled = enabled,
 					min = column.min,
 					max = column.max,
 					step = column.step,
@@ -120,6 +124,7 @@ return function(ctx: Types.Context, UI: Controls)
 			return UI.TextInput({
 				Name = "Editor",
 				value = draft,
+				enabled = enabled,
 				onCommit = function(nextValue: string)
 					propose(nextValue)
 					draft:set(text())
