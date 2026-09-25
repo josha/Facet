@@ -24,6 +24,12 @@ local fixtures = {
 	Grid = function()
 		return { columns = 2 }
 	end,
+	AdaptiveStack = function()
+		return { gap = "s" }
+	end,
+	ViewThatFits = function(Host)
+		return { Host.Frame({}) }
+	end,
 	Button = function()
 		return { label = "Press" }
 	end,

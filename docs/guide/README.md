@@ -37,6 +37,7 @@ to select a control. Then read the exact contract of that control in the
 | Control constructors | `Facet.controls(runtime, options?)` |
 | A runtime, controls and a themed ScreenGui mount in one call | `Facet.app(options?)`; `app.mount(Component)`; `app.dispose()` |
 | Screen roots, stacks and layers | `UI.Screen`, `UI.VStack`, `UI.HStack`, `UI.ZStack` |
+| Layouts that adapt to their space | `UI.AdaptiveStack`, `UI.ViewThatFits` |
 | Scrolling content and grids | `UI.ScrollView`, `UI.Grid` |
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |

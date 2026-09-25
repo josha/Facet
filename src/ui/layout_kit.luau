@@ -9,14 +9,14 @@ export type Kit = {
 	spacing: (Shared.Value<Shared.Space>?, ComposeTypes.Use?) -> number,
 	insets: (Shared.Value<Shared.Padding>?) -> UIPadding?,
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>),
-	list: (Shared.Flow, boolean) -> UIListLayout,
+	list: (Shared.Flow, Shared.Value<boolean>) -> UIListLayout,
 	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
 	stack: (
 		{ ComposeTypes.Child },
 		Shared.FrameNativeProps?,
 		Shared.Flow,
-		boolean,
+		Shared.Value<boolean>,
 		Shared.Extent?,
 		Shared.Extent?
 	) -> Frame,
@@ -147,9 +147,21 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local function edge<T>(value: Shared.Align | Shared.Distribute, start: T, center: T, finish: T): T
 		return if value == "center" then center elseif value == "end" then finish else start
 	end
-	function kit.list(flow: Shared.Flow, vertical: boolean): UIListLayout
+	function kit.list(flow: Shared.Flow, vertical: Shared.Value<boolean>): UIListLayout
+		local function column(use: ComposeTypes.Use?): boolean
+			return read(vertical, use) == true
+		end
+		local steady = not live(vertical)
+		local function uses(onColumn: unknown, onRow: unknown): boolean
+			if steady then
+				return if column(nil) then onColumn ~= nil else onRow ~= nil
+			end
+			return onColumn ~= nil or onRow ~= nil
+		end
 		local native: Shared.UIListLayoutNativeProps = {
-			FillDirection = if vertical then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
+			FillDirection = derive(function(use)
+				return if column(use) then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal
+			end, vertical),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}
 		if flow.gap ~= nil then
@@ -159,74 +171,69 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			native.Wraps = flow.wrap
 		end
 		local H, V = Enum.HorizontalAlignment, Enum.VerticalAlignment
-		if flow.align ~= nil then
-			local function align(use: ComposeTypes.Use?): Shared.Align
-				local value: Shared.Align? = read(flow.align, use)
-				assert(
-					value == nil or valid(value, { start = true, center = true, ["end"] = true, stretch = true }),
-					"Facet align must be start, center, end or stretch"
-				)
-				return if value == nil then "start" else value
-			end
-			if vertical then
-				native.HorizontalAlignment = derive(function(use)
-					return edge(align(use), H.Left, H.Center, H.Right)
-				end, flow.align)
-			else
-				native.VerticalAlignment = derive(function(use)
-					return edge(align(use), V.Top, V.Center, V.Bottom)
-				end, flow.align)
-			end
-			if live(flow.align) or align(nil) == "stretch" then
-				native.ItemLineAlignment = derive(function(use)
-					return if align(use) == "stretch"
-						then Enum.ItemLineAlignment.Stretch
-						else Enum.ItemLineAlignment.Automatic
-				end, flow.align)
-				local cross = derive(function(use)
-					return if align(use) == "stretch" then Enum.UIFlexAlignment.Fill else Enum.UIFlexAlignment.None
-				end, flow.align)
-				if vertical then
-					native.HorizontalFlex = cross
-				else
-					native.VerticalFlex = cross
-				end
-			end
+		local function align(use: ComposeTypes.Use?): Shared.Align
+			local value: Shared.Align? = read(flow.align, use)
+			assert(
+				value == nil or valid(value, { start = true, center = true, ["end"] = true, stretch = true }),
+				"Facet align must be start, center, end or stretch"
+			)
+			return if value == nil then "start" else value
 		end
-		if flow.distribute ~= nil then
-			local spread = {
-				spaceBetween = Enum.UIFlexAlignment.SpaceBetween,
-				spaceAround = Enum.UIFlexAlignment.SpaceAround,
-				spaceEvenly = Enum.UIFlexAlignment.SpaceEvenly,
-			}
-			local function distribute(use: ComposeTypes.Use?): Shared.Distribute
-				local value: Shared.Distribute? = read(flow.distribute, use)
-				assert(
-					value == nil
-						or valid(value, { start = true, center = true, ["end"] = true })
-						or valid(value, { spaceBetween = true, spaceAround = true, spaceEvenly = true }),
-					"Facet distribute must be start, center, end, spaceBetween, spaceAround or spaceEvenly"
-				)
-				return if value == nil then "start" else value
+		local spread = {
+			spaceBetween = Enum.UIFlexAlignment.SpaceBetween,
+			spaceAround = Enum.UIFlexAlignment.SpaceAround,
+			spaceEvenly = Enum.UIFlexAlignment.SpaceEvenly,
+		}
+		local function distribute(use: ComposeTypes.Use?): Shared.Distribute
+			local value: Shared.Distribute? = read(flow.distribute, use)
+			assert(
+				value == nil
+					or valid(value, { start = true, center = true, ["end"] = true })
+					or valid(value, { spaceBetween = true, spaceAround = true, spaceEvenly = true }),
+				"Facet distribute must be start, center, end, spaceBetween, spaceAround or spaceEvenly"
+			)
+			return if value == nil then "start" else value
+		end
+		if uses(flow.align, flow.distribute) then
+			native.HorizontalAlignment = derive(function(use)
+				return edge(if column(use) then align(use) else distribute(use), H.Left, H.Center, H.Right)
+			end, vertical, flow.align, flow.distribute)
+		end
+		if uses(flow.distribute, flow.align) then
+			native.VerticalAlignment = derive(function(use)
+				return edge(if column(use) then distribute(use) else align(use), V.Top, V.Center, V.Bottom)
+			end, vertical, flow.align, flow.distribute)
+		end
+		local cross = if flow.align ~= nil and (live(flow.align) or align(nil) == "stretch") then flow.align else nil
+		local main = if flow.distribute ~= nil and (live(flow.distribute) or spread[distribute(nil)])
+			then flow.distribute
+			else nil
+		if cross ~= nil then
+			native.ItemLineAlignment = derive(function(use)
+				return if align(use) == "stretch"
+					then Enum.ItemLineAlignment.Stretch
+					else Enum.ItemLineAlignment.Automatic
+			end, flow.align)
+		end
+		local function flex(use: ComposeTypes.Use?, stretching: boolean): Enum.UIFlexAlignment
+			if stretching then
+				return if cross ~= nil and align(use) == "stretch"
+					then Enum.UIFlexAlignment.Fill
+					else Enum.UIFlexAlignment.None
 			end
-			local function flex(use: ComposeTypes.Use?): Enum.UIFlexAlignment
-				return spread[distribute(use)] or Enum.UIFlexAlignment.None
-			end
-			if vertical then
-				native.VerticalAlignment = derive(function(use)
-					return edge(distribute(use), V.Top, V.Center, V.Bottom)
-				end, flow.distribute)
-				if live(flow.distribute) or spread[distribute(nil)] then
-					native.VerticalFlex = derive(flex, flow.distribute)
-				end
-			else
-				native.HorizontalAlignment = derive(function(use)
-					return edge(distribute(use), H.Left, H.Center, H.Right)
-				end, flow.distribute)
-				if live(flow.distribute) or spread[distribute(nil)] then
-					native.HorizontalFlex = derive(flex, flow.distribute)
-				end
-			end
+			return if main ~= nil
+				then spread[distribute(use)] or Enum.UIFlexAlignment.None
+				else Enum.UIFlexAlignment.None
+		end
+		if uses(cross, main) then
+			native.HorizontalFlex = derive(function(use)
+				return flex(use, column(use))
+			end, vertical, cross, main)
+		end
+		if uses(main, cross) then
+			native.VerticalFlex = derive(function(use)
+				return flex(use, not column(use))
+			end, vertical, cross, main)
 		end
 		return Host.UIListLayout(native)
 	end
@@ -356,7 +363,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		children: { ComposeTypes.Child },
 		properties: Shared.FrameNativeProps?,
 		flow: Shared.Flow,
-		vertical: boolean,
+		vertical: Shared.Value<boolean>,
 		width: Shared.Extent?,
 		height: Shared.Extent?
 	): Frame

@@ -265,6 +265,161 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return node
 	end)
 
+	local function scrolls(holder: Instance?, horizontal: boolean): boolean
+		if holder == nil or not holder:IsA("ScrollingFrame") then
+			return false
+		end
+		local direction = (holder :: ScrollingFrame).ScrollingDirection
+		return direction == E.ScrollingDirection.XY
+			or direction == (if horizontal then E.ScrollingDirection.X else E.ScrollingDirection.Y)
+	end
+	local function tracked(
+		node: GuiObject,
+		sizes: { [GuiObject]: ComposeTypes.Cell<Vector2> },
+		parents: { [GuiObject]: ComposeTypes.Cell<Instance?> },
+		members: ComposeTypes.Cell<number>
+	)
+		sizes[node] = ctx.observe.AbsoluteSize(node)
+		parents[node] = ctx.observe.Parent(node)
+		members:update(function(count: number): number
+			return count + 1
+		end)
+	end
+
+	UI.AdaptiveStack = ctx.construct("AdaptiveStack", function(spec: Layout.AdaptiveStackProps): Frame
+		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
+		local flow: Types.Flow = {
+			gap = spec.gap,
+			padding = spec.padding,
+			align = spec.align,
+			distribute = spec.distribute,
+			width = spec.width,
+			height = spec.height,
+		}
+		local axis = spec.axis
+		if axis ~= nil then
+			local function column(use: ComposeTypes.Use?): boolean
+				local value = read(axis, use)
+				assert(value == "x" or value == "y", "Facet AdaptiveStack axis must be x or y")
+				return value == "y"
+			end
+			local vertical: Types.Value<boolean> = if Compose.isReadable(axis) or type(axis) == "function"
+				then column
+				else column(nil)
+			return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
+		end
+		local vertical = Compose.cell(false)
+		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
+		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
+		local shown = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<boolean> }
+		local members = Compose.cell(0)
+		local size, automatic = kit.extent(flow, "fill", "hug")
+		local layout = kit.list(flow, vertical)
+		local native: Engine.FrameNativeProps = {
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = size,
+			AutomaticSize = automatic,
+		}
+		local node =
+			Host.Frame(kit.assemble(native, properties, { layout, kit.insets(spec.padding) }, children, function(child)
+				shown[child] = ctx.observe.Visible(child)
+				tracked(child, sizes, parents, members)
+			end))
+		local box, holder, content =
+			ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node), ctx.observe.AbsoluteContentSize(layout)
+		local rowNeed, lastCount = 0, 0
+		local retried: string?, refused: string? = nil, nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(members)
+			local width, row = use(box).X, use(content).X
+			if scrolls(use(holder), true) then
+				vertical:set(false)
+				return
+			end
+			local padding = node:FindFirstChildWhichIsA("UIPadding")
+			local offered = if padding then width - padding.PaddingLeft.Offset - padding.PaddingRight.Offset else width
+			local count, total = 0, 0
+			for child, extent in sizes do
+				if use(parents[child]) == node and use(shown[child]) then
+					count += 1
+					if child.Size.X.Scale == 0 and child:FindFirstChildWhichIsA("UIFlexItem") == nil then
+						total += use(extent).X
+					end
+				end
+			end
+			local key = `{total}/{count}/{offered}`
+			if not vertical:peek() then
+				rowNeed = row
+				if rowNeed > offered then
+					refused = retried
+				end
+			elseif read(spec.align, use) ~= "stretch" then
+				rowNeed = if key == refused
+					then math.huge
+					else total + kit.spacing(spec.gap, use) * math.max(count - 1, 0)
+			elseif count ~= lastCount then
+				rowNeed = 0
+			end
+			lastCount = count
+			if width > 0 then
+				if vertical:peek() and rowNeed <= offered then
+					retried = key
+				end
+				vertical:set(rowNeed > offered)
+			end
+		end)
+		return node
+	end)
+
+	UI.ViewThatFits = ctx.construct("ViewThatFits", function(spec: Layout.ViewThatFitsProps): Frame
+		local properties, children = split(spec, { "width", "height" })
+		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
+		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
+		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
+		local members = Compose.cell(0)
+		local box: Types.Box = { width = spec.width, height = spec.height }
+		local size, automatic = kit.extent(box, "fill", "hug")
+		local native: Engine.FrameNativeProps = {
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = size,
+			AutomaticSize = automatic,
+		}
+		local node = Host.Frame(kit.assemble(native, properties, { kit.list({}, true) }, children, function(child)
+			tracked(child, sizes, parents, members)
+		end))
+		local offered, holder = ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(members)
+			local offer, parent = use(offered), use(holder)
+			local openX = read(spec.width, use) == "hug" or offer.X <= 0 or scrolls(parent, true)
+			local height = read(spec.height, use)
+			local openY = height == nil or height == "hug" or offer.Y <= 0 or scrolls(parent, false)
+			local candidates: { GuiObject } = {}
+			for child in sizes do
+				if use(parents[child]) == node then
+					table.insert(candidates, child)
+				end
+			end
+			table.sort(candidates, function(a, b)
+				return a.LayoutOrder < b.LayoutOrder
+			end)
+			local winner = candidates[#candidates]
+			for _, child in candidates do
+				local extent = use(sizes[child])
+				if (openX or extent.X <= offer.X) and (openY or extent.Y <= offer.Y) then
+					winner = child
+					break
+				end
+			end
+			for _, child in candidates do
+				child.Visible = child == winner
+			end
+		end)
+		return node
+	end)
+
 	UI.ErrorBoundary = ctx.construct("ErrorBoundary", function(spec: Layout.ErrorBoundaryProps): Frame
 		assert(type(spec.view) == "function", "Facet ErrorBoundary requires a view function")
 		assert(type(spec.fallback) == "function", "Facet ErrorBoundary requires a fallback function")

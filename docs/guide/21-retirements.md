@@ -237,7 +237,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 ### 27. Layout arrangements
 
 - Main promised: `UI.Composition` and `UI.Region` arrangements, spans and step-down, and `UI.AdaptiveStack`, which turned its axis by space.
-- Decision: Accepted. Native layout does this: a `UIListLayout` with `Wraps`, a `FillDirection` bound to `UI.environment`, and `UIFlexItem`. [Adaptive recipes](15-adaptive-recipes.md) shows the patterns.
+- Decision: Partly restored. `UI.AdaptiveStack` turns its axis by space again, and `UI.ViewThatFits` shows the first candidate that fits (`native_adaptive_layout`). Both measure with native `AbsoluteSize` and `AbsoluteContentSize`. `UI.Composition` and `UI.Region` stay retired: a game uses a `UIListLayout` with `Wraps` and `UIFlexItem`. [Adaptive recipes](15-adaptive-recipes.md) shows the patterns.
 
 ### 28. Margins, size caps and aspect with fill
 

@@ -488,6 +488,61 @@ The grid keeps `columns` columns and sets the rows from the number of children,
 so a new child moves the others to keep the columns even. The default is
 `flow = "row"`.
 
+### AdaptiveStack
+
+`UI.AdaptiveStack(spec) -> Frame` is a stack that changes its axis. The
+children stay mounted when it turns, so they keep their state, focus and
+scroll position. Options: `axis`, `gap`, `padding`, `align`, `distribute`,
+`width` and `height`. The props type is `AdaptiveStackProps`.
+
+- `axis` is `"x"` or `"y"` and can be bound. The stack then turns when the
+  value changes. Any other value causes an error.
+- Without `axis`, the stack is a row while the row fits its width and a column
+  when it does not. It fills the width and hugs the height by default.
+- The row width is the `AbsoluteContentSize` of its `UIListLayout` while it is
+  a row. As a column it adds the widths of the visible children and the gaps.
+  A child with a `UIFlexItem` or a scale width, such as a `Divider`, counts
+  as no width.
+- When a column turns into a row that does not fit, it turns back and stays a
+  column until its width or its children change. So the stack never flips on
+  every frame.
+- With `align = "stretch"` a column keeps the row width that it last measured,
+  because stretched children fill the column. It measures the row again when a
+  child is added or removed.
+- The stack compares against its width inside its `padding`. Directly in a
+  `ScrollView` that scrolls horizontally, the width is unbounded and the stack
+  stays a row.
+- `align` stays on the cross axis and `distribute` on the main axis when the
+  stack turns. `Divider` and `Spacer` children turn with it.
+
+```luau
+UI.AdaptiveStack "Actions" { gap = "s", save, cancel, help }
+```
+
+### ViewThatFits
+
+`UI.ViewThatFits(spec) -> Frame` shows the first child that fits and hides the
+others. Each child is a candidate, in order of preference. The last candidate
+shows when none fits. It needs at least one candidate. Options: `width` and
+`height`. The props type is `ViewThatFitsProps`.
+
+- A candidate fits when its `AbsoluteSize` is not larger than the size of the
+  container. Roblox measures every candidate, also a hidden one. Facet only
+  sets `Visible`.
+- Give the candidates a `hug` or a pixel width. A candidate that fills the
+  width always fits.
+- The container fills the width and hugs the height by default. An axis that
+  hugs is unbounded, so only the width is tested. With a bounded `height`, the
+  height is tested too. Directly in a `ScrollView`, the scroll axis is
+  unbounded and the first candidate shows.
+
+```luau
+UI.ViewThatFits "Actions" {
+    UI.HStack { gap = "s", save, cancel, help },
+    UI.VStack { gap = "xs", save, cancel, help },
+}
+```
+
 ### fill
 
 `UI.fill(weight?) -> UIFlexItem` makes a child grow along the main axis of its

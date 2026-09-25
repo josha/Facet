@@ -132,6 +132,12 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 		Grid = function()
 			return { columns = 2 }
 		end,
+		AdaptiveStack = function()
+			return {}
+		end,
+		ViewThatFits = function()
+			return { Host.Frame({}) }
+		end,
 		Alert = function()
 			return {
 				isPresented = Compose.cell(false),

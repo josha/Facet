@@ -21,6 +21,21 @@ return UI.HStack "Actions" {
 order of the children. Wrapping changes the geometry. It does not change what
 an action means.
 
+## A row that becomes a column
+
+```luau
+return UI.AdaptiveStack "Actions" {
+    gap = "s",
+    UI.Button { label = "Save", onActivate = save },
+    UI.Button { label = "Preview", onActivate = preview },
+}
+```
+
+The stack is a row while the row fits its width and a column when it does
+not. The buttons stay mounted when it turns. To choose between two different
+arrangements, give `UI.ViewThatFits` the candidates in order of preference.
+It shows the first candidate that fits.
+
 ## Read native bounds
 
 A column count that follows the width needs the native bounds. Read them in

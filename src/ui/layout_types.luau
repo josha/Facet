@@ -56,6 +56,19 @@ export type GridProps = Engine.FrameProps & {
 	aspectRatio: Types.Value<number>?,
 	align: Types.Value<Edge>?,
 }
+export type AdaptiveStackProps = Engine.FrameProps & {
+	padding: Types.Value<Padding>?,
+	width: Types.Value<Extent>?,
+	height: Types.Value<Extent>?,
+	gap: Types.Value<Space>?,
+	align: Types.Value<Align>?,
+	distribute: Types.Value<Distribute>?,
+	axis: Types.Value<"x" | "y">?,
+}
+export type ViewThatFitsProps = Engine.FrameProps & {
+	width: Types.Value<Extent>?,
+	height: Types.Value<Extent>?,
+}
 export type ErrorBoundaryProps = Engine.FrameProps & {
 	view: () -> Types.Child,
 	fallback: (failure: unknown, retry: () -> ()) -> Types.Child,
@@ -78,6 +91,8 @@ export type LayoutControls = {
 	ZStack: Types.Constructor<ZStackProps, Frame>,
 	ScrollView: Types.Constructor<ScrollViewProps, ScrollingFrame>,
 	Grid: Types.Constructor<GridProps, Frame>,
+	AdaptiveStack: Types.Constructor<AdaptiveStackProps, Frame>,
+	ViewThatFits: Types.Constructor<ViewThatFitsProps, Frame>,
 	ErrorBoundary: Types.Constructor<ErrorBoundaryProps, Frame>,
 	Divider: Types.Constructor<DividerProps, Frame>,
 	Spacer: Types.Constructor<SpacerProps, Frame>,

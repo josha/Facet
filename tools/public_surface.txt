@@ -122,6 +122,7 @@ themes : table
   themes.neutralPackage : function
   themes.resolveIcon : function
   themes.skin : function
+controls(runtime).AdaptiveStack : function
 controls(runtime).Alert : function
 controls(runtime).AsyncImage : function
 controls(runtime).Avatar : function
@@ -177,6 +178,7 @@ controls(runtime).Text : function
 controls(runtime).TextInput : function
 controls(runtime).Toggle : function
 controls(runtime).VStack : function
+controls(runtime).ViewThatFits : function
 controls(runtime).VirtualGrid : function
 controls(runtime).VirtualList : function
 controls(runtime).Vote : function
@@ -188,6 +190,7 @@ controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
 controls(runtime).worldAnchor : function
 type Adaptive
+type AdaptiveStackProps
 type AlertAction
 type AlertSpec
 type App
@@ -290,6 +293,7 @@ type TextProps
 type ThemePackage
 type ToggleProps
 type Use
+type ViewThatFitsProps
 type VoteSpec
 type WorldAnchor
 type WorldAnchorOptions

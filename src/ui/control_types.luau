@@ -18,6 +18,8 @@ export type Controls = {
 	ZStack: typeof(((nil :: unknown) :: Layout.LayoutControls).ZStack),
 	ScrollView: typeof(((nil :: unknown) :: Layout.LayoutControls).ScrollView),
 	Grid: typeof(((nil :: unknown) :: Layout.LayoutControls).Grid),
+	AdaptiveStack: typeof(((nil :: unknown) :: Layout.LayoutControls).AdaptiveStack),
+	ViewThatFits: typeof(((nil :: unknown) :: Layout.LayoutControls).ViewThatFits),
 	ErrorBoundary: typeof(((nil :: unknown) :: Layout.LayoutControls).ErrorBoundary),
 	Divider: typeof(((nil :: unknown) :: Layout.LayoutControls).Divider),
 	Spacer: typeof(((nil :: unknown) :: Layout.LayoutControls).Spacer),
