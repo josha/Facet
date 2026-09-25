@@ -191,6 +191,7 @@ return {
 						center = UI.TextInput "Search" { value = query, placeholder = COPY.search },
 						trailing = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
 						surface = "panel",
+						padding = 8,
 					},
 					UI.Popover "About" {
 						LayoutOrder = 6,
