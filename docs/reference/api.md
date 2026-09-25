@@ -1031,8 +1031,10 @@ does not start a drag, so a tap there still picks.
 
 The field is the `Field` plate in the field chrome. When the preferred input
 is keyboard and mouse, the field holds a native TextBox named `Entry`.
-Otherwise, it holds a button named `Show`. The calendar button `Open` is at
-the trailing edge of the plate.
+Otherwise, it holds a button named `Show`. The calendar button `Open` is a
+44 by 44 pixel square inside the plate at its trailing edge, with no plate of
+its own. `Show` and `Open` fill the plate from edge to edge, share its corners,
+and the plate clips their hover and press highlights.
 
 `Entry` takes the numeric form of the locale when focus leaves it. A year has
 four digits. A typed range is two dates with " – " or " - " between them. If

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The DateTimePicker calendar icon `Open` sits inside the field at its trailing edge again: a 44 pixel square that shares the field's corners, and the field clips the `Show` and `Open` highlights. Before, `Open` was a separate round button inset from the end of the field.
 - The DateTimePicker year menu lists at most 10 years on each side of the shown year, inside `min` and `max`. Before, a far bound listed every year to it (2,126 rows for `min` year 1), and the menu's fade group grew taller than the engine renders sharply, so the year text blurred.
 - The `row` form of Button, Toggle and Slider is one list row (`facet-list-row`): the leading icon, a `Captions` column that fills the width, then the trailing parts. Its minimum height is the `controlSize` height, and its padding follows the rung on all four sides. Before, a Toggle or Slider row had no top and bottom padding, a Slider row had no minimum height, and `controlSize` did not change the padding of any row. A row description is secondary text in every form. A Slider row now names its title `Title`.
 - `UI.ColorPicker` readout: the preview is two cells wide, the RGB/HSV/Hex picker fills the rest of its row, and the fields share their row in equal columns (`HorizontalFlex`), with Hex across the whole row. The swatch and brick grids are centred in the panel. Before, the fields were sized by a fixed third minus 6 pixels and the grids sat at the leading edge.

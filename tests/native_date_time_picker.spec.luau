@@ -279,6 +279,34 @@ t.describe("DateTimePicker: a single date", function()
 		w.stop()
 	end)
 
+	t.it(
+		"the field's calendar icon is a 44 px square at the plate's trailing edge, highlights clipped (owner)",
+		function()
+			for _, input in { "pointer", "touch" } do
+				local cell, _, change = caller(D(2026, 9, 5))
+				local w = mount({ value = cell, onChange = change }, { input = input })
+				local plate = must(w.picker(), "Field")
+				local open = w.opener()
+				expect(open.Parent).toBe(plate)
+				expect(open:HasTag("facet-shape-circle")).toBe(false)
+				expect(open.Size).toBe(w.engine.types.UDim2.fromOffset(44, 44))
+				expect(plate.ClipsDescendants).toBe(true)
+				local pad = plate:FindFirstChildWhichIsA("UIPadding")
+				expect(`{pad.PaddingLeft.Offset} {pad.PaddingRight.Offset}`).toBe("0 0")
+				local layout = plate:FindFirstChildWhichIsA("UIListLayout")
+				expect(layout.Padding.Offset).toBe(0)
+				local last = 0
+				for _, child in plate:GetChildren() do
+					if child:IsA("GuiObject") and child ~= open then
+						last = math.max(last, child.LayoutOrder)
+					end
+				end
+				expect(open.LayoutOrder > last).toBe(true)
+				w.stop()
+			end
+		end
+	)
+
 	t.it("a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck", function()
 		local cell, seen, change = caller(D(2026, 9, 10), false)
 		local w = mount({

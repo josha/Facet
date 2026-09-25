@@ -1651,7 +1651,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					LayoutOrder = 2,
 					icon = "calendar",
 					name = "Choose a date",
-					shape = "circle" :: "circle",
+					Size = D2.fromOffset(ROW, ROW),
+					AutomaticSize = E.AutomaticSize.None,
+					corners = spec.corners,
 					appearance = "utility",
 					enabled = function(use: Use)
 						return interactive(use)
@@ -1679,6 +1681,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						return interactive(use)
 					end,
 					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+					ctx.padding(12, 0) :: Shared.Child,
 				}
 				ctx.styled(box, "text")
 				entry = box
@@ -1719,6 +1722,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					Size = D2.new(0, 0, 0, ROW),
 					AutomaticSize = E.AutomaticSize.None,
 					TextXAlignment = E.TextXAlignment.Left,
+					corners = spec.corners,
 					appearance = "utility",
 					enabled = function(use: Use)
 						return interactive(use)
@@ -1738,11 +1742,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 0,
-				ctx.padding(10, 0) :: Shared.Child,
+				ClipsDescendants = true,
+				ctx.padding(0, 0) :: Shared.Child,
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center
-			layout.Padding = D.new(0, 4)
+			layout.Padding = D.new(0, 0)
 			ctx.styled(plate, "text-input")
 			local failure = chrome.errorOf(chromeSpec, typedError)
 			chrome.paint("DateTimePicker", plate, chromeSpec, function(use: Use?): boolean
