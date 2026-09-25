@@ -433,6 +433,7 @@ return {
 									label = "Edit item",
 									Size = UDim2.new(1, -174, 0, 40),
 									onActivate = noop,
+									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink }),
 								}),
 								UI.Button({
 									LayoutOrder = 2,

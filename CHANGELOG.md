@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Button with an authored width and a label keeps at least one `control` em of label room inside its padding and the theme carve (a `UISizeConstraint` `MinSize`), so it grows a little rather than truncating the label to nothing. Before, a 52 pixel Button in Fantasy Parchment had 4 pixels for its label and showed an empty plate (Showcase "Edit item" ladder).
 - A busy Button reserves the room for its dots on a real `UIPadding` (a direct `PaddingRight` write), so a hugging parent grows with it. Before, only the StyleSheet `::UIPadding` changed, the engine did not re-fit the hugging parent, and the dots painted past a hugging cell (a busy `link` Button in a Stack).
 - `UI.RadialMenu` takes `scrim = "dark" | "light" | "none"`: the default dark dim, the theme scrim that a Dialog uses, or no dim (a tap outside still closes). The Showcase RadialMenu demo cycles it under More options ("Page dim").
 - The `UI.Table` row More button is the `more` (…) icon named "More actions" (its `label` attribute), and still opens the Popover of truncated values. Before, it was named "More".

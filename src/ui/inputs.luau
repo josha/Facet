@@ -517,6 +517,27 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			defaults.Interactable = enabledProperty
 		end
 		local p = props(spec, buttonKeys, defaults)
+		if bounded and spec.label ~= nil and spec.shape ~= "circle" then
+			-- An authored width keeps one em of label room inside the theme padding and carve, so a
+			-- narrow Button grows a little rather than truncating its label to nothing.
+			table.insert(
+				p,
+				Host.UISizeConstraint({
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						local package = read(ctx.config.theme, use)
+						local skin = package and package.chrome and package.chrome.control
+						local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+						return V2.new(
+							2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+								+ (carve.left or 0)
+								+ (carve.right or 0)
+								+ ctx.metric("typography.control.size", use),
+							0
+						)
+					end,
+				})
+			)
+		end
 		if not rich and p.TextTruncate == nil then
 			local automatic = p.AutomaticSize
 			local function truncate(use: ComposeTypes.Use?): Enum.TextTruncate

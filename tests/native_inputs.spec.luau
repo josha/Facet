@@ -4,6 +4,7 @@ local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
 local context = require("../src/ui/context")
 local register = require("../src/ui/inputs")
+local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 
 local function world(build, configure)
@@ -184,6 +185,23 @@ t.describe("native input controls", function()
 		t.expect(request).toBe(false)
 		t.expect(value:peek()).toBe(true)
 		stop()
+	end)
+
+	t.it("an authored-width Button keeps one em of label room inside the theme padding", function()
+		for _, case in { { "neutral", nil, 0 }, { "parchment", "fantasy_parchment", 24 } } do
+			local package = if case[2] then require("../examples/themes/" .. case[2]).build(Facet.themes) else nil
+			local node, stop = world(function(UI, engine)
+				return UI.Button({ label = "Ed", Size = engine.types.UDim2.fromOffset(52, 40) })
+			end, function()
+				return { theme = package }
+			end)
+			local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
+			t.expect(limit ~= nil).toBe(true)
+			local metrics = (package or Facet.themes.neutralPackage()).metrics
+			local em, paddingX = metrics.typography.control.size, metrics.controlSizes.regular.paddingX
+			t.expect(`{case[1]}:{limit.MinSize.X}`).toBe(`{case[1]}:{2 * paddingX + case[3] + em}`)
+			stop()
+		end
 	end)
 
 	t.it("a busy Button reserves its dots on a real UIPadding, so a hugging parent grows with it", function()
