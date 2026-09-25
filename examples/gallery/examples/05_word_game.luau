@@ -363,14 +363,27 @@ function example.build(ctx: any)
 				}
 				fill:AddTag("facet-control")
 				statusTag(fill, state)
-				local outline = Host.UIStroke "ActiveRow" {
-					Thickness = 2,
+				local outline = Host.UIStroke "Cursor" {
+					Thickness = 1,
+					Transparency = 0.35,
 					Enabled = function(use)
-						return use(playingSig) and use(activeSig) == rr
+						return use(playingSig) and use(state) == "caret"
 					end,
 				}
 				outline:AddTag("facet-status-ring")
-				local tile = UI.ZStack(`tile{r}_{c}`) { width = "fill", height = "fill", fill, outline }
+				local typedRing = Host.UIStroke "TypedRing" { Thickness = 2 }
+				typedRing:AddTag("facet-status-ring")
+				local typed = Host.Frame "Typed" {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					Visible = function(use)
+						return use(state) == "filled"
+					end,
+					Host.UICorner({}),
+					typedRing,
+				}
+				typed:AddTag("facet-status-neutral")
+				local tile = UI.ZStack(`tile{r}_{c}`) { width = "fill", height = "fill", fill, typed, outline }
 				tile:AddTag("facet-status-accent")
 				table.insert(board, tile)
 			end

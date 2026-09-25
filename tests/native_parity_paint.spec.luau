@@ -1413,17 +1413,20 @@ t.describe("native parity paint", function()
 		local game, node, stop = start(ctx, word)
 		game.restart(seed)
 		local function outlined(row: number): boolean
-			local enabled = nil
+			local count = 0
 			for column = 1, word.rules.COLS do
-				local outline = find(find(node, `tile{row}_{column}`), "ActiveRow")
+				local tile = find(node, `tile{row}_{column}`)
+				local outline = find(tile, "Cursor")
 				t.expect(outline.ClassName).toBe("UIStroke")
 				t.expect(outline:HasTag("facet-status-ring")).toBe(true)
-				if enabled == nil then
-					enabled = outline.Enabled
+				if outline.Enabled then
+					count += 1
+					t.expect(game.mark(row, column)).toBe("_")
 				end
-				t.expect(outline.Enabled).toBe(enabled)
+				t.expect(find(tile, "Typed").Visible).toBe(column <= #game.row(row) and game.activeRow() == row)
 			end
-			return enabled == true
+			t.expect(count <= 1).toBe(true)
+			return count == 1
 		end
 		t.expect(outlined(1)).toBe(true)
 		t.expect(outlined(2)).toBe(false)
@@ -1433,6 +1436,7 @@ t.describe("native parity paint", function()
 		for _, letter in { "U", "L", "E", "S" } do
 			game.press(letter)
 		end
+		t.expect(outlined(1)).toBe(false)
 		local function key(letter: string): any
 			return find(node, "key_" .. letter)
 		end
