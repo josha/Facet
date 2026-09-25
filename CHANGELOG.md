@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Snackbar reference lists each dismiss route and warns about a row with no Close, no `duration` and no action.
 - NavBar `surface` paints a background plate: `surface`, `panel` or `pane`.
 - An icon name that ends in `.fill` names the filled variant, for example `"star.fill"`. The art of the package for that name wins. Otherwise the regular icon draws.
 - ShortcutHint takes `label`, the words for the action beside the keys, and `labelPosition`, `end` (the default) or `start`.

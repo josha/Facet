@@ -1950,6 +1950,12 @@ slides up and fades in to enter, and slides down and fades out to leave. A
 leaving row cannot be interacted with. Under reduced motion it arrives and
 leaves at once.
 
+A player dismisses a row with Close, Cancel (Escape or the B button) on a
+selected row, or the action when its handler proposes false. `duration` hides it
+after the timeout. There is no swipe. A row with `closeButton = false`, no
+`duration` and no action gives a pointer or touch player no way to dismiss it,
+so keep Close unless the row times out or its action hides it.
+
 To show a snackbar from code, mount a `UI.Snackbar` with `runtime.mount`. The
 stop function that the mount returns releases the row and reports `cancel`.
 
