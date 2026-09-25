@@ -943,7 +943,8 @@ takes the larger side, and its `Body` ScrollingFrame scrolls. The panel never
 covers the well. On a touch screen narrower than 600 pixels, the panel is a
 sheet at the bottom of the screen with a Done button. On a ten-foot screen,
 the panel is a sheet at the center of the screen. The `placement` attribute is
-`bottom`, `top`, `right`, `left`, `sheet` or `center`.
+`bottom`, `top`, `right`, `left`, `sheet` or `center`. A skinned theme's panel `contentInsets` pad the panel,
+and the panel grows by them, so the grid keeps 8 columns inside the art.
 
 The panel holds these parts in order:
 

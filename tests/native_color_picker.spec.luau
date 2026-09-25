@@ -1395,6 +1395,23 @@ t.describe("native ColorPicker panel fit", function()
 		w.stop()
 	end)
 
+	t.it("a skinned panel keeps its eight columns and its height inside the art's content insets", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local package = pixel()
+		local carve = package.chrome.panel.contentInsets
+		local w = world({ value = cell, onChange = change, modes = { "swatches", "brick" } }, { theme = package })
+		w.size(w.screen, 1200, 1200)
+		w.size(w.find("Well"), 44, 44)
+		w.open()
+		w.size(w.find("Modes"), 380, 44)
+		w.size(w.find("Readout"), 380, 140)
+		w.size(w.find("ShowSwatches"), 380, 290)
+		w.size(w.find("ShowBricks"), 380, 800)
+		local panel = w.find("Panel")
+		expect(panel.Size.X.Offset).toBe(8 * 44 + 7 * 4 + carve.left + carve.right)
+		expect(panel.Size.Y.Offset).toBe(44 + 140 + 800 + 2 * 8 + carve.top + carve.bottom)
+		w.stop()
+	end)
 end)
 
 return nil

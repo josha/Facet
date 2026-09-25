@@ -57,7 +57,7 @@ local MODE_LABEL: { [string]: string } =
 local FORMATS = { { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" }, { value = "hex", label = "Hex" } }
 local CELL, GAP, PAD, SPACE, MARGIN = 44, 4, 12, 8, 8
 local MAX_COLUMNS = 8
-local PANEL_WIDTH = MAX_COLUMNS * CELL + (MAX_COLUMNS - 1) * GAP + 2 * PAD
+local GRID_WIDTH = MAX_COLUMNS * CELL + (MAX_COLUMNS - 1) * GAP
 local RING, BUBBLE, STRIP = 20, 44, 12
 local STICK_SPEED, DEADZONE = 0.6, 0.2
 local CHECKER_CELLS = 24
@@ -1675,7 +1675,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						count += 1
 					end
 				end
-				return total + (count - 1) * SPACE + (if overlay then 2 * PAD else 0)
+				return total
+					+ (count - 1) * SPACE
+					+ (
+						if overlay
+							then surfaces.inset(PAD, "top", nil, use) + surfaces.inset(PAD, "bottom", nil, use)
+							else 0
+					)
 			end
 			return { panel = panel, chrome = chromeHeight, tech = tallest }
 		end
@@ -1694,10 +1700,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local corner = use(at) - use(origin)
 			local size = use(bounds)
 			local natural = view.chrome(use) + view.tech(use)
+			local wide = GRID_WIDTH + surfaces.inset(PAD, "left", nil, use) + surfaces.inset(PAD, "right", nil, use)
 			if sheet(use) then
 				local h = if offer.Y > 0 then math.min(natural, offer.Y - 2 * PAD) else natural
 				if tenFoot then
-					local w = if offer.X > 0 then math.min(PANEL_WIDTH, offer.X - 2 * PAD) else PANEL_WIDTH
+					local w = if offer.X > 0 then math.min(wide, offer.X - 2 * PAD) else wide
 					return {
 						edge = "center",
 						x = math.max(PAD, (offer.X - w) / 2),
@@ -1708,7 +1715,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 				return { edge = "sheet", x = PAD, y = math.max(PAD, offer.Y - h - PAD), w = offer.X - 2 * PAD, h = h }
 			end
-			local w = if offer.X > 0 then math.min(PANEL_WIDTH, math.max(CELL, offer.X - 2 * MARGIN)) else PANEL_WIDTH
+			local w = if offer.X > 0 then math.min(wide, math.max(CELL, offer.X - 2 * MARGIN)) else wide
 			local below = offer.Y - (corner.Y + size.Y + GAP) - MARGIN
 			local above = corner.Y - GAP - MARGIN
 			local x = math.clamp(corner.X, MARGIN, math.max(MARGIN, offer.X - w - MARGIN))

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.ColorPicker` sizes its anchored panel around the theme's panel `contentInsets` (the padding the shared panel skin applies). Before, it assumed 12 pixel padding, so in Pixel Quest the panel was 24 pixels short and its content ran onto the frame art.
 - `UI.ColorPicker` Sliders: the Hue, Saturation and Brightness labels share the widest label's width (from `TextBounds`), so the tracks line up. Before, each track started after its own label.
 - `UI.ColorPicker`: in a scrolling panel body, an inactive technique reserves at most the height of the body. Before, the Swatches tab kept the Bricks tab's 800 pixel height and scrolled into empty space.
 - `UI.ColorPicker` sizes its technique to the `Body` scroll window (`VerticalScrollBarInset = ScrollBar`, width from `AbsoluteWindowSize`). Before, the technique was 380 pixels wide in a 376 pixel window, so the last grid column and the slider values ("229" showed "22") were cut off under the scrollbar.
