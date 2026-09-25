@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.ColorPicker` Sliders: the Hue, Saturation and Brightness labels share the widest label's width (from `TextBounds`), so the tracks line up. Before, each track started after its own label.
 - `UI.ColorPicker`: in a scrolling panel body, an inactive technique reserves at most the height of the body. Before, the Swatches tab kept the Bricks tab's 800 pixel height and scrolled into empty space.
 - `UI.ColorPicker` sizes its technique to the `Body` scroll window (`VerticalScrollBarInset = ScrollBar`, width from `AbsoluteWindowSize`). Before, the technique was 380 pixels wide in a 376 pixel window, so the last grid column and the slider values ("229" showed "22") were cut off under the scrollbar.
 - The DateTimePicker `CalendarSurface` adds the theme's panel carve to the calendar's size, and a surface that does not fit below the field opens above it. Before, in Pixel Quest the 24 pixel carve pushed the calendar inside a surface of the calendar's own size, so the Saturday column and the last week were cut and the frame art covered the header arrows.

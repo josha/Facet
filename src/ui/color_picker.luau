@@ -1235,7 +1235,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		end
 
 		local function slidersView(): Frame
-			return ctx.column({
+			local sliders = {
 				hueSlider(),
 				channelSlider("Saturation", "Saturation", 100, function(c: Hsv): number
 					return c.s
@@ -1247,7 +1247,31 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end, function(c: Hsv, f: number): Hsv
 					return { h = c.h, s = c.s, v = f }
 				end),
-			}, { Name = "Sliders", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			}
+			local labels: { TextLabel } = {}
+			local bounds: { ComposeTypes.Readable<Vector2> } = {}
+			for _, slider in sliders do
+				local label = slider:FindFirstChild("Label") :: TextLabel
+				table.insert(labels, label)
+				table.insert(bounds, ctx.observe.TextBounds(label))
+			end
+			for _, label in labels do
+				local padding = label:FindFirstChildWhichIsA("UIPadding")
+				local inset = if padding then padding.PaddingLeft.Offset + padding.PaddingRight.Offset else 0
+				runtime.decorate(label, {
+					Size = function(use: Use)
+						local widest = 0
+						for _, size in bounds do
+							widest = math.max(widest, use(size).X)
+						end
+						return D2.fromOffset(math.ceil(widest) + inset, 0)
+					end,
+				})
+			end
+			return ctx.column(
+				sliders,
+				{ Name = "Sliders", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
+			)
 		end
 
 		local function brickView(): Frame

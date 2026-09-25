@@ -1360,6 +1360,22 @@ t.describe("native ColorPicker panel fit", function()
 		w.stop()
 	end)
 
+	t.it("the Sliders tracks start at one x: the labels share the widest label's column", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
+		local widths = { Hue = 24, Saturation = 70, Brightness = 76 }
+		for name, width in widths do
+			w.find(`Sliders/{name}/Label`).TextBounds = V2(width, 18)
+		end
+		for name in widths do
+			local label = w.find(`Sliders/{name}/Label`)
+			local pad = label:FindFirstChildWhichIsA("UIPadding")
+			local inset = pad.PaddingLeft.Offset + pad.PaddingRight.Offset
+			expect(`{name} {label.Size.X.Offset}`).toBe(`{name} {76 + inset}`)
+		end
+		w.stop()
+	end)
+
 	t.it("an inactive technique reserves at most the body's room, so a short one never scrolls", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
 		local w = world({ value = cell, onChange = change, modes = { "swatches", "brick" } })
@@ -1378,6 +1394,7 @@ t.describe("native ColorPicker panel fit", function()
 		expect(w.find("Body").Size.Y.Offset).toBe(body)
 		w.stop()
 	end)
+
 end)
 
 return nil

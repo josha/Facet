@@ -975,7 +975,8 @@ The panel holds these parts in order:
   two native layers. `Hue` has a white-to-hue UIGradient across. `Value` has
   a black UIGradient that fades in downward. A UIDragDetector on `Surface`
   sets saturation and brightness 1:1. The hue track is a rainbow UIGradient.
-- `sliders`: the `Hue`, `Saturation` and `Brightness` sliders.
+- `sliders`: the `Hue`, `Saturation` and `Brightness` sliders. Their labels
+  share the width of the widest label, so the three tracks start at one x.
 - `brick`: the 128 engine BrickColors in the `BrickGrid`, and the name of the
   chosen brick in `NameField` above the grid.
 
