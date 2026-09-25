@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.Screen` keeps its content below the engine top bar. It adds the part of the `GuiService.TopbarInset` band that covers it to its top padding, with `IgnoreGuiInset` on or off. Its background still fills the screen. Before, a Screen in a ScreenGui that ignores the inset put its first row under the Roblox menu and chat buttons.
 - A pointer or gamepad `UI.SplitButton` is one plate: the primary action and an icon-only chevron segment joined by a hairline, with shared outer corners and one piece of `control` art in a skinned theme. Before, it drew two separate buttons with a gap. The chevron segment keeps a 44 pixel floor and shows `menuLabel` as its help text.
 - A skinned plate that lays out its children (a framed TextInput, a panel) keeps its chrome art in a `Chrome` folder, outside the list layout. Before, the list placed the art as a child, so a Pixel Quest search field painted its plate left of the field.
 - The theme `toggleTrack` and `toggleKnob` art paints a switch only. Before, a checkbox took the switch art and lost its outline, so a Pixel Quest checkbox drew as a small bar.

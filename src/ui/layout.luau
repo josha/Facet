@@ -41,15 +41,45 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 
 	UI.Screen = ctx.construct("Screen", function(spec: Layout.ScreenProps): Frame
 		local properties, children = split(spec, { "gap", "padding", "align", "distribute", "width", "height" })
+		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
+		local under = Compose.cell(0)
 		local flow: Types.Flow = {
 			gap = spec.gap,
 			align = spec.align,
 			distribute = spec.distribute,
-			padding = if spec.padding == nil then "m" else spec.padding,
+			padding = function(use: ComposeTypes.Use): Types.Padding
+				local value = read(base, use)
+				local sides: Types.Sides = if type(value) == "table"
+					then value :: Types.Sides
+					else { top = value, right = value, bottom = value, left = value }
+				return {
+					top = kit.spacing(sides.top, use) + use(under),
+					right = sides.right,
+					bottom = sides.bottom,
+					left = sides.left,
+				}
+			end,
 			width = spec.width,
 			height = spec.height,
 		}
-		return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
+		local frame =
+			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
+		local gui = ctx.config.guiService
+		if gui then
+			local topbar, position, parent =
+				ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(parent)
+				local band, top = use(topbar), use(position).Y
+				local ok, inset = pcall(gui.GetGuiInset, gui)
+				under:set(
+					if typeof(band) == "Rect" and frame:FindFirstAncestorWhichIsA("ScreenGui")
+						then math.max(0, band.Max.Y - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top)
+						else 0
+				)
+			end)
+		end
+		return frame
 	end)
 
 	UI.ZStack = ctx.construct("ZStack", function(spec: Layout.ZStackProps): Frame

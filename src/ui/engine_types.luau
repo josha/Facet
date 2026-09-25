@@ -3423,6 +3423,7 @@ export type Observe = {
 	TextWrapped: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
 	TextXAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextXAlignment>,
 	TextYAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextYAlignment>,
+	TopbarInset: (GuiService) -> Compose.Cell<Rect>,
 	TouchEnabled: (UserInputService) -> Compose.Cell<boolean>,
 	Visible: (GuiObject) -> Compose.Cell<boolean>,
 }

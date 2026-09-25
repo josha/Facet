@@ -418,6 +418,59 @@ t.describe("native layout primitives", function()
 			end)
 			t.expect(child(bare, "UIPadding").PaddingLeft).toBe(engine.types.UDim.new(0, 0))
 		end)
+
+		t.it("keeps its content below the engine top bar, the background still fills", function()
+			for _, ignoresInset in { true, false } do
+				local engine: any = engineLib.new()
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local gui = engine.new("GuiService")
+				local T = engine.types
+				local insetTop = if ignoresInset then 58 else 36
+				gui.GetGuiInset = function()
+					return T.Vector2.new(0, insetTop), T.Vector2.zero
+				end
+				gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+				local UI =
+					Facet.controls(runtime, { types = T, guiService = gui, services = { GuiService = gui } } :: any)
+				local layer = engine.new("ScreenGui")
+				layer.IgnoreGuiInset = ignoresInset
+				local root: any
+				runtime.mount(function()
+					root = UI.Screen { UI.Text { text = "A" } }
+					return root
+				end, layer)
+				root.AbsolutePosition = T.Vector2.new(0, if ignoresInset then -58 else 0)
+				local padding = child(root, "UIPadding")
+				t.expect(padding.PaddingTop).toBe(T.UDim.new(0, 16 + 58 - insetTop - root.AbsolutePosition.Y))
+				t.expect(padding.PaddingLeft).toBe(T.UDim.new(0, 16))
+				t.expect(root.Size).toBe(T.UDim2.fromScale(1, 1))
+				gui.TopbarInset = T.Rect.new(0, 0, 0, 0)
+				t.expect(padding.PaddingTop).toBe(T.UDim.new(0, 16))
+				gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+				root.AbsolutePosition = T.Vector2.new(0, 200)
+				t.expect(padding.PaddingTop).toBe(T.UDim.new(0, 16))
+				runtime:dispose()
+			end
+		end)
+
+		t.it("ignores the top bar on a SurfaceGui", function()
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local T = engine.types
+			gui.GetGuiInset = function()
+				return T.Vector2.zero, T.Vector2.zero
+			end
+			gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+			local UI = Facet.controls(runtime, { types = T, guiService = gui, services = { GuiService = gui } } :: any)
+			local root: any
+			runtime.mount(function()
+				root = UI.Screen {}
+				return root
+			end, engine.new("SurfaceGui"))
+			t.expect(child(root, "UIPadding").PaddingTop).toBe(T.UDim.new(0, 16))
+			runtime:dispose()
+		end)
 	end)
 
 	t.describe("ZStack", function()

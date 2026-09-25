@@ -414,8 +414,13 @@ return UI.Screen "Settings" {
 `UI.Screen(spec) -> Frame` is the root of a screen. It fills its parent
 (`width` and `height` are `"fill"`) and stacks its children vertically. It has
 `padding = "m"` by default. The ScreenGui `ScreenInsets` property keeps the
-screen inside the device safe area. Options: `gap`, `padding`, `align`,
-`distribute`, `width` and `height`.
+screen inside the device safe area. The content never sits under the engine top
+bar: when the screen reaches into the `GuiService.TopbarInset` band, the covered
+height is added to the top padding. This holds with `IgnoreGuiInset` on or off.
+The band covers the full width, as `CoreUISafeInsets` does. The background of
+the screen still fills its parent. A Screen in a SurfaceGui takes no top bar
+padding. Options: `gap`, `padding`, `align`, `distribute`, `width` and
+`height`.
 
 ### VStack and HStack
 
