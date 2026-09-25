@@ -2425,7 +2425,8 @@ without `onCellChange` cause an error.
 
 `editable = true` adds a toolbar above the header with an `Edit` button. The
 button toggles the `editing` cell, or its own cell when you supply none, and
-reads `Done` while editing. The same cell puts rows with `rowActions` in edit
+reads `Done` while editing. Its width fits the wider word, so it does not
+change. The same cell puts rows with `rowActions` in edit
 mode. With touch or gamepad input, the editor cells accept edits only while
 editing. With mouse and keyboard, they accept edits at all times. An
 `editable` table needs the header, and a supplied `editing` must be a

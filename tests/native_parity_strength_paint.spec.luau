@@ -2288,5 +2288,31 @@ t.describe("native paint strength: table rows", function()
 		h.dispose()
 	end)
 
-end)
+	t.it("the Edit button reserves the width of both Edit and Done in its own font", function()
+		local h = harness()
+		local root, stopTable = mount(h, function()
+			return h.UI.Table({
+				from = { { id = "a" } },
+				key = "id",
+				scrolls = false,
+				editable = true,
+				columns = { { id = "id" } },
+			})
+		end)
+		local button = find(root, "Edit")
+		local reserve = find(button, "WidthReserve")
+		t.expect(reserve ~= nil).toBe(true)
+		local words = {}
+		for _, label in reserve:GetChildren() do
+			if label:IsA("TextLabel") then
+				t.expect(label.TextTransparency).toBe(1)
+				t.expect(label.Visible).toBe(true)
+				table.insert(words, label.Text)
+			end
+		end
+		table.sort(words)
+		t.expect(table.concat(words, ",")).toBe("Done,Edit")
+		stopTable()
+		h.dispose()
+	end)
 end)

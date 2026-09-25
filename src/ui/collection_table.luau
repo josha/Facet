@@ -792,26 +792,46 @@ return function(ctx: Types.Context, UI: Controls): ()
 				Compose.show(function()
 					return editable
 				end, function()
+					local button = UI.Button("Edit")({
+						label = function(use: ComposeTypes.Use): string
+							return if read(editing, use) then "Done" else "Edit"
+						end,
+						appearance = "utility",
+						AnchorPoint = V2.new(1, 0),
+						Position = D2.fromScale(1, 0),
+						Size = D2.new(0, 0, 1, 0),
+						AutomaticSize = E.AutomaticSize.X,
+						onActivate = function()
+							local cell = (editing :: unknown) :: ComposeTypes.Cell<boolean>
+							cell:set(not cell:peek())
+						end,
+					})
+					local font, size = ctx.observeStyled.FontFace(button), ctx.observeStyled.TextSize(button)
+					local function reserve(word: string): TextLabel
+						return ctx.text({
+							Name = word,
+							Text = word,
+							TextTransparency = 1,
+							FontFace = font,
+							TextSize = size,
+						})
+					end
+					runtime.mount(function()
+						return Host.Frame({
+							Name = "WidthReserve",
+							BackgroundTransparency = 1,
+							AutomaticSize = E.AutomaticSize.XY,
+							reserve("Edit") :: ComposeTypes.Child,
+							reserve("Done"),
+						})
+					end, button)
 					return Host.Frame({
 						Name = "Toolbar",
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
 							return D2.new(1, 0, 0, use(toolbarHeight))
 						end,
-						UI.Button("Edit")({
-							label = function(use: ComposeTypes.Use): string
-								return if read(editing, use) then "Done" else "Edit"
-							end,
-							appearance = "utility",
-							AnchorPoint = V2.new(1, 0),
-							Position = D2.fromScale(1, 0),
-							Size = D2.new(0, 0, 1, 0),
-							AutomaticSize = E.AutomaticSize.X,
-							onActivate = function()
-								local cell = (editing :: unknown) :: ComposeTypes.Cell<boolean>
-								cell:set(not cell:peek())
-							end,
-						}),
+						button :: ComposeTypes.Child,
 					})
 				end),
 				body,
