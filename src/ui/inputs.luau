@@ -622,6 +622,21 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(p, Host.UIScale "Pop" { Scale = popScale })
 		end
 		if spec.busy ~= nil then
+			-- The dots' room is a direct write on a real UIPadding: the engine does not re-fit a hugging
+			-- parent when only a StyleSheet ::UIPadding changes. Not busy writes the default, so the sheet rules.
+			table.insert(
+				p,
+				Host.UIPadding({
+					PaddingRight = function(use: ComposeTypes.Use): UDim
+						if read(spec.busy, use) ~= true then
+							return D.new(0, 0)
+						end
+						local package = read(ctx.config.theme, use)
+						local skin = package and package.chrome and package.chrome.control
+						return D.new(0, 32 + (if skin and skin.contentInsets then skin.contentInsets.right or 0 else 0))
+					end,
+				})
+			)
 			table.insert(
 				p,
 				Compose.show(function(use: ComposeTypes.Use)

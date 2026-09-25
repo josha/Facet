@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A busy Button reserves the room for its dots on a real `UIPadding` (a direct `PaddingRight` write), so a hugging parent grows with it. Before, only the StyleSheet `::UIPadding` changed, the engine did not re-fit the hugging parent, and the dots painted past a hugging cell (a busy `link` Button in a Stack).
 - `UI.RadialMenu` takes `scrim = "dark" | "light" | "none"`: the default dark dim, the theme scrim that a Dialog uses, or no dim (a tap outside still closes). The Showcase RadialMenu demo cycles it under More options ("Page dim").
 - The `UI.Table` row More button is the `more` (…) icon named "More actions" (its `label` attribute), and still opens the Popover of truncated values. Before, it was named "More".
 - A palette extra `artTint` multiplies the `control`, `field` and `panel` chrome art. Fantasy Parchment Candlelight darkens its parchment to 0.3 and Pixel Quest its wood to 0.78 (the flat `control` plate matches), so text on the art reads at 4.5:1: before, Candlelight field text was 1.1:1 on light parchment and Pixel Quest cream on wood 3.3:1. A skinned inactive tab uses `contentSecondary` only where it reads at 4.5:1 on `control`, otherwise `content`. Fantasy Parchment Daylight and Glossy Touch have a darker `contentSecondary` so a placeholder or quiet tab reads at 4.5:1 on their art.
