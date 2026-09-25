@@ -15,14 +15,8 @@ permissions:
 jobs:
   verify:
     name: Verify
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            verify: full
 
     steps:
       - name: Check out the repository
@@ -78,13 +72,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts/verify
-          tools/verify.sh ${{ matrix.verify }} --explain 2>&1 | tee artifacts/verify/ci.log
+          tools/verify.sh full --explain 2>&1 | tee artifacts/verify/ci.log
 
       - name: Save verification diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verification-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/verify/
             artifacts/phase-4/
