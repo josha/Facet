@@ -475,6 +475,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local headerLayout = lists.list({}, false)
 		local headerProps: Types.FrameProps = {
 			Name = "Header",
+			BackgroundTransparency = 1,
 			Visible = spec.header ~= false,
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, use(headerHeight))

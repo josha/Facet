@@ -1767,6 +1767,7 @@ t.describe("Table compact width", function()
 		t.expect(band.Position.X.Offset).toBe(gutter)
 		t.expect(band.Size).toBe(engine.types.UDim2.new(1, -gutter, 0, node:FindFirstChild("Header").Size.Y.Offset))
 		t.expect(band:HasTag("facet-tablehead")).toBe(true)
+		t.expect(node:FindFirstChild("Header").BackgroundTransparency).toBe(1)
 		row:FindFirstChild("Value", true).TextFits = false
 		local more = row:FindFirstChild("Details", true)
 		t.expect(more:FindFirstChild("Title", true) == nil or not more:FindFirstChild("Title", true).Visible).toBe(true)
