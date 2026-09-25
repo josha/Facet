@@ -438,21 +438,35 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local height = dragHeight:peek() or current.start
 			local speed = velocity(current.samples)
 			local choice = release.choose(stops(), height, speed, selected().id, canDismiss())
-			if choice ~= "dismiss" then
-				launch(height, speed)
-			end
-			endSession()
 			if choice == "dismiss" then
-				if request == nil or request("drag") then
-					if request == nil then
-						spec.isPresented:set(false)
-					end
-				else
+				session = nil
+				if request == nil then
+					spec.isPresented:set(false)
+				elseif not request("drag") then
 					select(selected().id)
 				end
 				return
 			end
+			launch(height, speed)
+			endSession()
 			select(choice)
+		end
+		if phase then
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not use(phase.exiting) and session == nil then
+					dragHeight:set(nil)
+				end
+			end)
+		end
+		local function lowest(use: ComposeTypes.Use?): number
+			local out = math.huge
+			for _, d in detents do
+				out = math.min(out, heightOf(d, use))
+			end
+			return out
+		end
+		local function standing(use: ComposeTypes.Use?): number
+			return math.max(painted(use), lowest(use))
 		end
 		local watchedDetent = spec.detent:peek()
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -828,7 +842,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return pad("top", use) + pad("bottom", use)
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
-			return math.max(0, painted(use) - chrome(use))
+			return math.max(0, standing(use) - chrome(use))
 		end, true)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
@@ -899,13 +913,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local anchorX, anchorY = anchors(use)
-				local y = if anchorY == 1 then -keyboard(use) else -keyboard(use) / 2
+				local y = (if anchorY == 1 then -keyboard(use) else -keyboard(use) / 2) + standing(use) - painted(use)
 				local dx, dy = travel(use)
 				return D2.new(anchorX, dx, anchorY, y + dy)
 			end,
 			AutomaticSize = E.AutomaticSize.None,
 			Size = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(panelWidth), painted(use))
+				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
 		})
 		local layout = panel:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?

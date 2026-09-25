@@ -1872,7 +1872,10 @@ Native drag detection resizes the sheet. The grabber detector starts a drag at
 once. A second detector on the panel starts a drag only after 6 pixels, or 14
 pixels on touch. A release goes to the detent nearest to the released height
 plus 0.15 seconds of its velocity. A hold before the release has no velocity.
-A drag below 70 percent of the lowest detent dismisses the sheet. Past the
+Below the lowest detent the whole sheet moves down instead of getting shorter,
+so the header, the body and the pinned actions move together. A drag below 70
+percent of the lowest detent dismisses the sheet, and the exit slide starts
+where the drag left it. Past the
 limits the drag resists. `interactiveDismissDisabled` holds the sheet near its
 lowest detent and blocks Back and the backdrop. An outside detent change
 during a drag ends the drag. Only one drag runs at a time.
