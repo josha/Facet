@@ -1736,38 +1736,38 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end
 		if spec.presence then
 			runtime.mount(function()
-				return ctx.styled(
-					Host.Frame "PresenceRing" {
-						BackgroundTransparency = 1,
-						Size = D2.fromScale(1, 1),
-						ZIndex = 2,
-						Visible = function(use: ComposeTypes.Use)
-							return facts(use).presence == "inExperience"
-						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }),
+				return Host.Frame "PresenceRing" {
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					ZIndex = 2,
+					Visible = function(use: ComposeTypes.Use)
+						return facts(use).presence == "inExperience"
+					end,
+					Host.UICorner({ CornerRadius = D.new(1, 0) }),
+					ctx.styled(
 						Host.UIStroke({
 							ApplyStrokeMode = E.ApplyStrokeMode.Border,
 							BorderStrokePosition = E.BorderStrokePosition.Inner,
 							Thickness = 2,
 						}),
+						"avatar-ring"
+					),
+					Host.Frame "Gap" {
+						BackgroundTransparency = 1,
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+						Size = D2.new(1, -4, 1, -4),
+						Host.UICorner({ CornerRadius = D.new(1, 0) }),
 						ctx.styled(
-							Host.Frame "Gap" {
-								BackgroundTransparency = 1,
-								AnchorPoint = V2.new(0.5, 0.5),
-								Position = D2.fromScale(0.5, 0.5),
-								Size = D2.new(1, -4, 1, -4),
-								Host.UICorner({ CornerRadius = D.new(1, 0) }),
-								Host.UIStroke({
-									ApplyStrokeMode = E.ApplyStrokeMode.Border,
-									BorderStrokePosition = E.BorderStrokePosition.Inner,
-									Thickness = 2,
-								}),
-							},
+							Host.UIStroke({
+								ApplyStrokeMode = E.ApplyStrokeMode.Border,
+								BorderStrokePosition = E.BorderStrokePosition.Inner,
+								Thickness = 2,
+							}),
 							"avatar-ring-gap"
 						),
 					},
-					"avatar-ring"
-				)
+				}
 			end, root)
 		end
 		local image, userId, onStatus = spec.image, spec.userId, spec.onStatus

@@ -502,20 +502,26 @@ return function(
 		if spec.onActivate then
 			local bodyExtent = ctx.observe.AbsoluteSize(body)
 			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
-			local ring = ctx.styled(
-				Host.Frame "CardRing" {
-					BackgroundTransparency = 1,
-					Visible = false,
-					Size = function(use: ComposeTypes.Use): UDim2
-						local bodyHeight = use(bodyExtent).Y
-						return D2.fromScale(1, if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1)
+			local paint =
+				ctx.styled(Host.Frame "CardRingPaint" { Visible = false, Size = D2.fromOffset(0, 0) }, "card-ring")
+			paint.Parent = card
+			local ring = Host.Frame "CardRing" {
+				BackgroundTransparency = 1,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local bodyHeight = use(bodyExtent).Y
+					return D2.fromScale(1, if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1)
+				end,
+				Host.UICorner {
+					CornerRadius = function(use: ComposeTypes.Use): UDim
+						return D.new(0, ctx.metric("radii.panel", use))
 					end,
-					Host.UICorner {},
-					Host.UIStroke { ApplyStrokeMode = E.ApplyStrokeMode.Border, Thickness = 2 },
 				},
-				"card-ring"
-			)
-			ring.Parent = card
+				Host.UIStroke {
+					ApplyStrokeMode = E.ApplyStrokeMode.Border,
+					Thickness = 2,
+					Color = ctx.observeStyled.BackgroundColor3(paint) :: ComposeTypes.Readable<Color3>,
+				},
+			}
 			body.SelectionImageObject = ring
 		end
 		if (spec :: { [unknown]: unknown }).Position == nil then
