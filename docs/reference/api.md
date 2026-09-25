@@ -1877,6 +1877,14 @@ limits the drag resists. `interactiveDismissDisabled` holds the sheet near its
 lowest detent and blocks Back and the backdrop. An outside detent change
 during a drag ends the drag. Only one drag runs at a time.
 
+The grabber sits on the edge that the sheet came from. A bottom or center
+sheet has a horizontal bar at the top. A side sheet from the right has a
+vertical bar on its left edge, and a side sheet from the left has one on its
+right edge. The content keeps 28 pixels clear on that side. On a side sheet,
+a drag of the grabber toward the sheet's edge moves the whole sheet. A release
+past a third of the width, or faster than 600 pixels a second, closes it.
+Otherwise it slides back.
+
 The grabber is also a selectable button. With more than one detent it moves
 to the next detent, and its accessible label reads `Resize: Medium`, or
 `Resize: Fit` for `hug`. With one detent it closes the sheet, and its label

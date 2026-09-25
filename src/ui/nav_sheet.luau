@@ -193,6 +193,31 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 		local extent = Compose.cell(V2.new(0, 720))
+		local pointer: (ComposeTypes.Use) -> boolean = function()
+			return false
+		end
+		if declared == "adaptive" and input and input.GetPropertyChangedSignal then
+			local mouse, touch = ctx.observe.MouseEnabled(input), ctx.observe.TouchEnabled(input)
+			pointer = function(use: ComposeTypes.Use): boolean
+				return use(mouse) == true and use(touch) ~= true
+			end
+		end
+		local placed = Compose.formula(function(use: ComposeTypes.Use): string
+			if declared == "adaptive" then
+				return if use(extent).X >= 600 and pointer(use) then "side" else "bottom"
+			end
+			return if declared == "automatic" then "bottom" else declared
+		end)
+		local function from(use: ComposeTypes.Use?): string
+			return if read(placed, use) == "side" then edge else "bottom"
+		end
+		local indicator = spec.dragIndicator or "automatic"
+		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
+		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
+		local function pad(side: string, use: ComposeTypes.Use?): number
+			local reserve = indicator ~= "hidden" and RESERVED[from(use)] == side
+			return BASE[side] + (if reserve then HANDLE + 8 else 0)
+		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
 				or function<T>(source: ComposeTypes.Readable<T>): T
@@ -382,18 +407,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				table.remove(current.samples, 1)
 			end
 		end
-		local function velocity(current: Session): number
-			local count = #current.samples
+		local function velocity(samples: { { height: number, at: number } }): number
+			local count = #samples
 			if count < 2 then
 				return 0
 			end
-			local last = current.samples[count]
+			local last = samples[count]
 			local first = last
 			for index = count - 1, 1, -1 do
-				if last.at - current.samples[index].at > 0.1 then
+				if last.at - samples[index].at > 0.1 then
 					break
 				end
-				first = current.samples[index]
+				first = samples[index]
 			end
 			local span = last.at - first.at
 			if span < 1 / 240 or now() - last.at > 0.1 then
@@ -411,7 +436,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return
 			end
 			local height = dragHeight:peek() or current.start
-			local speed = velocity(current)
+			local speed = velocity(current.samples)
 			local choice = release.choose(stops(), height, speed, selected().id, canDismiss())
 			if choice ~= "dismiss" then
 				launch(height, speed)
@@ -442,20 +467,85 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		Compose.cleanup(function()
 			session = nil
 		end)
+		local pull = Compose.cell(0)
+		local pulling: { origin: number, samples: { { height: number, at: number } } }? = nil
+		local held = Compose.cell(false)
+		local pulled = runtime.tween(function(use: ComposeTypes.Use)
+			return use(pull)
+		end, {
+			seconds = 0.2,
+			reducedMotion = function(use: ComposeTypes.Use): boolean
+				return use(held) or reduce(use)
+			end,
+		})
+		local function toward(): number
+			return if edge == "left" then -1 else 1
+		end
+		local function pullTo(x: number)
+			local current = pulling
+			if current == nil then
+				return
+			end
+			local amount = math.max(0, (x - current.origin) * toward())
+			pull:set(if canDismiss() then amount else amount * 0.2)
+			table.insert(current.samples, { height = pull:peek(), at = now() })
+		end
+		local function release()
+			local current = pulling
+			pulling = nil
+			if current == nil then
+				return
+			end
+			held:set(false)
+			local amount = pull:peek()
+			local width = math.min(parts.width(ctx, spec.width), extent:peek().X)
+			if canDismiss() and (amount > width / 3 or velocity(current.samples) > 600) then
+				if request == nil then
+					spec.isPresented:set(false)
+					return
+				elseif request("drag") then
+					return
+				end
+			end
+			pull:set(0)
+		end
+		Compose.cleanup(function()
+			pulling = nil
+		end)
 		local function detector(name: string, source: "grip" | "panel"): Instance
+			local function sideways(): boolean
+				return source == "grip" and from() ~= "bottom"
+			end
 			return Host.UIDragDetector({
 				Name = name,
 				DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
-				DragAxis = V2.new(0, 1),
+				DragAxis = function(use: ComposeTypes.Use)
+					return if source == "grip" and from(use) ~= "bottom" then V2.new(1, 0) else V2.new(0, 1)
+				end,
 				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 				DragStart = function(position: Vector2)
-					grab(source, position.Y)
+					if sideways() then
+						if pulling == nil then
+							pulling = { origin = position.X, samples = {} }
+							held:set(true)
+						end
+					else
+						grab(source, position.Y)
+					end
 				end,
 				DragContinue = function(position: Vector2)
-					move(source, position.Y)
+					if sideways() then
+						pullTo(position.X)
+					else
+						move(source, position.Y)
+					end
 				end,
 				DragEnd = function()
-					finish(source)
+					if sideways() then
+						release()
+					else
+						finish(source)
+					end
 				end,
 			})
 		end
@@ -468,11 +558,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return true
 		end)
-		local indicator = spec.dragIndicator or "automatic"
 		local grabber = Host.TextButton "Grabber" {
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
-			Size = D2.fromOffset(88, 44),
+			Size = function(use: ComposeTypes.Use)
+				return if from(use) == "bottom" then D2.fromOffset(88, 44) else D2.fromOffset(44, 88)
+			end,
 			BackgroundTransparency = 1,
 			ZIndex = 2,
 			Text = "",
@@ -491,7 +582,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Host.Frame "Pill" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
-					Size = D2.fromOffset(36, 5),
+					Size = function(use: ComposeTypes.Use)
+						return if from(use) == "bottom" then D2.fromOffset(36, 5) else D2.fromOffset(5, 36)
+					end,
 					BorderSizePixel = 0,
 					Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
 				},
@@ -506,7 +599,21 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end)
 		local handle = Host.Frame "DragHandle" {
 			BackgroundTransparency = 1,
-			Size = D2.new(1, 0, 0, HANDLE),
+			ZIndex = 2,
+			AnchorPoint = function(use: ComposeTypes.Use)
+				return V2.new(if from(use) == "left" then 1 else 0, 0)
+			end,
+			Position = function(use: ComposeTypes.Use)
+				local side = from(use)
+				if side == "bottom" then
+					return D2.fromOffset(0, pad("top", use) - HANDLE - 8)
+				end
+				local inset = pad(RESERVED[side], use) - HANDLE - 8
+				return if side == "left" then D2.new(1, -inset, 0, 0) else D2.fromOffset(inset, 0)
+			end,
+			Size = function(use: ComposeTypes.Use)
+				return if from(use) == "bottom" then D2.new(1, 0, 0, HANDLE) else D2.new(0, HANDLE, 1, 0)
+			end,
 			Visible = indicator ~= "hidden",
 			detector("UIDragDetector", "grip"),
 			grabber :: Instance,
@@ -718,7 +825,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return use(contentSize).Y + extra
 		end
 		local chrome = function(use: ComposeTypes.Use): number
-			return (if indicator == "hidden" then 0 else HANDLE) + 24 + 8
+			return pad("top", use) + pad("bottom", use)
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
 			return math.max(0, painted(use) - chrome(use))
@@ -743,21 +850,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Active = tallest,
 			})
 		end
-		local pointer: (ComposeTypes.Use) -> boolean = function()
-			return false
-		end
-		if declared == "adaptive" and input and input.GetPropertyChangedSignal then
-			local mouse, touch = ctx.observe.MouseEnabled(input), ctx.observe.TouchEnabled(input)
-			pointer = function(use: ComposeTypes.Use): boolean
-				return use(mouse) == true and use(touch) ~= true
-			end
-		end
-		local placed = Compose.formula(function(use: ComposeTypes.Use): string
-			if declared == "adaptive" then
-				return if use(extent).X >= 600 and pointer(use) then "side" else "bottom"
-			end
-			return if declared == "automatic" then "bottom" else declared
-		end)
 		local function anchors(use: ComposeTypes.Use): (number, number)
 			local placement = use(placed)
 			return if placement == "side" then (if edge == "left" then 0 else 1) else 0.5,
@@ -767,12 +859,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function travel(use: ComposeTypes.Use): (number, number)
 			local rest = 1 - shown(use)
 			if rest <= 0 then
-				return 0, 0
+				return if use(placed) == "side" then toward() * use(pulled) else 0, 0
 			end
 			local placement = use(placed)
 			if placement == "side" then
-				local width = use(panelWidth)
-				return rest * (if edge == "left" then -width else width), 0
+				local shift = use(pulled)
+				return toward() * (shift + (use(panelWidth) - shift) * rest), 0
 			end
 			if placement == "center" then
 				return 0, 0
@@ -780,9 +872,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return 0, math.ceil(painted(use) * rest)
 		end
 		local panel = ctx.column({
-			handle,
+			Host.Folder "Grip" { handle },
 			room.frame,
-			ctx.padding(16, 12),
+			Host.UIPadding({
+				PaddingTop = function(use: ComposeTypes.Use)
+					return ctx.types.UDim.new(0, pad("top", use))
+				end,
+				PaddingBottom = function(use: ComposeTypes.Use)
+					return ctx.types.UDim.new(0, pad("bottom", use))
+				end,
+				PaddingLeft = function(use: ComposeTypes.Use)
+					return ctx.types.UDim.new(0, pad("left", use))
+				end,
+				PaddingRight = function(use: ComposeTypes.Use)
+					return ctx.types.UDim.new(0, pad("right", use))
+				end,
+			}),
 			ctx.corner(),
 			detector("PanelDrag", "panel") :: Instance,
 		}, {
