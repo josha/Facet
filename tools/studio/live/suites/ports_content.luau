@@ -1124,7 +1124,7 @@ interactive(
 interactive(
 	"card-keys-enter-and-stay-inside",
 	{ "post-card-11", "post-card-23" },
-	"afterReturn: with the g1 cell selected, press Return once; afterRight: press Right once; afterRightAgain: press Right once; afterDown: press Down once",
+	"afterReturn: with the g1 cell selected, press Return or ButtonA once; afterRight: press Right once; afterRightAgain: press Right once; afterDown: press Down once; afterBack: press ButtonB; then press ButtonA and Right to reach More; afterMenuY: press ButtonY; afterMenuBack: press ButtonB",
 	function(t)
 		local value = {}
 		local _, built, games = cardsMount(t)
@@ -1161,17 +1161,28 @@ interactive(
 		afterDown = function(t, value)
 			local parts = value.parts
 			t.check("Down stays inside the card", within(GuiService.SelectedObject, parts.card), selectedName())
-			local controls = value.built.controls.g1
-			if controls and controls.leaveActions then
-				controls.leaveActions()
-				t.settle(6)
-				t.check(
-					"leaving the actions returns to the cell",
-					GuiService.SelectedObject == parts.hit,
-					selectedName()
-				)
-				t.check("the cell stays revealed", parts.card:GetAttribute("FacetRevealed") == true)
-			end
+		end,
+		afterBack = function(t, value)
+			local parts = value.parts
+			t.check("ButtonB leaves the actions for the cell", GuiService.SelectedObject == parts.hit, selectedName())
+			t.check("the cell stays revealed after Back", parts.card:GetAttribute("FacetRevealed") == true)
+			t.check("the card reports it left the actions", parts.card:GetAttribute("FacetEntered") ~= true)
+		end,
+		afterMenuY = function(t, value)
+			local parts = value.parts
+			t.check("ButtonY on More opens the card menu", parts.card:GetAttribute("FacetMenuOpen") == true)
+			t.check(
+				"the selection leaves the card for the menu",
+				not within(GuiService.SelectedObject, parts.card),
+				selectedName()
+			)
+			t.check("the card stays revealed while its menu is open", parts.card:GetAttribute("FacetRevealed") == true)
+		end,
+		afterMenuBack = function(t, value)
+			local parts = value.parts
+			t.check("ButtonB closes the card menu", parts.card:GetAttribute("FacetMenuOpen") ~= true)
+			t.check("ButtonB returns the selection to More", GuiService.SelectedObject == parts.more, selectedName())
+			t.check("the card stays revealed after the menu closes", parts.card:GetAttribute("FacetRevealed") == true)
 			GuiService.SelectedObject = nil
 		end,
 	}
@@ -1847,10 +1858,21 @@ add("containers-recipes-draw-as-described", {
 		t.near("09 the plate is 56 tall", styled.AbsoluteSize.Y, 56, 0.5)
 		local corner = styled:FindFirstChildWhichIsA("UICorner")
 		local stroke = styled:FindFirstChildWhichIsA("UIStroke")
-		t.check("09 the plate is rounded 16", corner ~= nil and corner.CornerRadius.Offset == 16)
+		local radii = corner
+			and {
+				corner.TopLeftRadius.Offset,
+				corner.TopRightRadius.Offset,
+				corner.BottomLeftRadius.Offset,
+				corner.BottomRightRadius.Offset,
+			}
+		t.check(
+			"09 the plate rounds its top-left and bottom-right corners by 16 and keeps the other two square",
+			radii ~= nil and radii[1] == 16 and radii[2] == 0 and radii[3] == 0 and radii[4] == 16,
+			radii
+		)
 		t.check("09 the plate has a 2 px stroke", stroke ~= nil and stroke.Thickness == 2)
 		t.check("09 the plate has a shadow", styled:FindFirstChild("Shadow") ~= nil)
-		t.note("09", "a UICorner rounds every corner with one radius; per-corner radii are not native")
+		t.note("09 CornerRadius beside the per-corner radii", corner and tostring(corner.CornerRadius))
 	end
 	t.cleanup()
 	local stageTwo = t.mount(function(UI: any, Host: any)
@@ -1919,7 +1941,7 @@ add("containers-recipes-draw-as-described", {
 	if hidden then
 		GuiService.SelectedObject = hidden
 		t.settle(2)
-		t.note("05 selection after selecting a button in a hidden group", selectedName())
+		t.check("05 a hidden group never takes the selection", GuiService.SelectedObject ~= hidden, selectedName())
 	end
 	GuiService.SelectedObject = nil
 end)
@@ -2009,5 +2031,53 @@ interactive(
 		end,
 	}
 )
+
+add("recipe-dividers-start-at-the-text", { "post-recipes-10" }, function(t)
+	local stage = scenario(t, "recipes_common", { size = Vector2.new(390, 844), frames = 30 })
+	local card = t.find(stage, "Dividers")
+	t.check("the divider card mounts", card ~= nil)
+	if not card then
+		return
+	end
+	local scroller = card:FindFirstAncestorWhichIsA("ScrollingFrame")
+	if scroller then
+		scroller.CanvasPosition = Vector2.new(
+			0,
+			math.max(0, card.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y - 40)
+		)
+		t.settle(10)
+	end
+	local box = t.rect(card)
+	t.check("one bounded card holds every line: at most 360 wide", box.w <= 360.5, box.w)
+	t.check("the card is on the 390 px screen", box.x >= -0.5 and box.r <= 390.5, box)
+	local function line(name: string): any
+		local divider = t.find(card, name)
+		return divider and t.find(divider, "Line")
+	end
+	local full, leading, trailing, both, heavy =
+		line("DividerFull"), line("DividerLeading"), line("DividerTrailing"), line("DividerBoth"), line("DividerHeavy")
+	local leadingRow = t.find(card, "DividerLeading")
+	local text = leadingRow and t.find(t.find(leadingRow, "Row"), "Title")
+	t.check(
+		"every line and the leading title are found",
+		(full and leading and trailing and both and heavy and text) ~= nil
+	)
+	if not (full and leading and trailing and both and heavy and text) then
+		return
+	end
+	local f, l, r, b, h = t.rect(full), t.rect(leading), t.rect(trailing), t.rect(both), t.rect(heavy)
+	local inset = t.rect(text).x - t.rect(t.find(leadingRow, "Row")).x
+	t.note("text inset", inset)
+	t.check("the inset is the icon and its gap, not zero", inset > 8, inset)
+	t.near("a leading inset starts at the text", l.x, t.rect(text).x, 0.5)
+	t.near("a leading inset starts one icon and gap in", l.x - f.x, inset, 0.5)
+	t.near("a leading inset keeps the full trailing end", l.r, f.r, 0.5)
+	t.near("a trailing inset keeps the full leading start", r.x, f.x, 0.5)
+	t.near("a trailing inset stops one icon and gap short", r.r, f.r - inset, 0.5)
+	t.near("both insets start where the leading one does", b.x, l.x, 0.5)
+	t.near("both insets end where the trailing one does", b.r, r.r, 0.5)
+	t.check("the full line sits inside the card", f.x >= box.x - 0.5 and f.r <= box.r + 0.5, { f, box })
+	t.near("the heavy line is three hairlines", h.h, 3 * f.h, 0.5)
+end)
 
 return cases

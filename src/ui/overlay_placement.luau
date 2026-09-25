@@ -1,4 +1,5 @@
 --!strict
+local freeze = require("./freeze")
 local placement = {}
 
 export type Rect = { x: number, y: number, w: number, h: number }
@@ -28,9 +29,9 @@ export type Placement = {
 	tailSuppressed: boolean,
 }
 
-local EDGES = table.freeze({ top = true, bottom = true, leading = true, trailing = true })
-local ALIGNS = table.freeze({ start = true, center = true, ["end"] = true })
-local OPPOSITE = table.freeze({ top = "bottom", bottom = "top", left = "right", right = "left" })
+local EDGES: { [string]: boolean } = freeze({ top = true, bottom = true, leading = true, trailing = true })
+local ALIGNS: { [string]: boolean } = freeze({ start = true, center = true, ["end"] = true })
+local OPPOSITE: { [string]: string } = freeze({ top = "bottom", bottom = "top", left = "right", right = "left" })
 
 function placement.assertEdge(edge: unknown, where: string)
 	if edge ~= nil and (type(edge) ~= "string" or not EDGES[edge]) then

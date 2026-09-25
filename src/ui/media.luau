@@ -41,8 +41,9 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		if not Compose.isReadable(source) and type(source) ~= "function" then
 			return if source == nil then fallback else source :: T
 		end
+		local live = source :: Types.Value<T>
 		return function(use: ComposeTypes.Use)
-			local value = read(source, use)
+			local value = read(live, use)
 			return if value == nil then fallback else value
 		end
 	end
@@ -69,12 +70,13 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 	end
 	local function textRole(node: TextLabel, role: Types.Value<Media.TextRole>?): TextLabel
 		if not Compose.isReadable(role) and type(role) ~= "function" then
-			node:AddTag(roleTag(read(role)))
+			node:AddTag(roleTag(role :: Media.TextRole?))
 			return node
 		end
+		local live = role :: Types.Value<Media.TextRole>
 		local previous: string?
 		Compose.watch(function(use: ComposeTypes.Use)
-			local tag = roleTag(read(role, use))
+			local tag = roleTag(read(live, use))
 			if previous then
 				node:RemoveTag(previous)
 			end
@@ -109,7 +111,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			return text
 		end
 		local offsets: { number } = {}
-		for position in utf8.codes(text) do
+		for position, _ in utf8.codes(text) do
 			table.insert(offsets, position)
 		end
 		local total = #offsets
@@ -283,14 +285,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end
 		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults)), roleSource)
 		if cut then
-			local measured = ctx.observe(label, "AbsoluteSize")
+			local measured = ctx.observe.AbsoluteSize(label)
 			local width = Compose.formula(function(use: ComposeTypes.Use): number
 				return use(measured).X
 			end)
-			local textSize = ctx.observe(label, "TextSize")
-			local face = ctx.observe(label, "FontFace")
-			local styledSize = ctx.observeStyled(label, "TextSize")
-			local styledFace = ctx.observeStyled(label, "FontFace")
+			local textSize = ctx.observe.TextSize(label)
+			local face = ctx.observe.FontFace(label)
+			local styledSize = ctx.observeStyled.TextSize(label)
+			local styledFace = ctx.observeStyled.FontFace(label)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = read(source, use) or ""
 				use(textSize)
@@ -720,10 +722,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				)
 			)
 		end
-		local node = ctx.styled(ctx.styled(Host.TextLabel(native), "text"), "badge")
+		local node = ctx.styled(Host.TextLabel(native), "text")
+		ctx.styled(node, "badge")
 		statusTag(node, spec.status)
 		if spec.count ~= nil and spec.Size ~= nil then
-			local absolute: ComposeTypes.Readable<Vector2> = ctx.observe(node, "AbsoluteSize")
+			local absolute: ComposeTypes.Readable<Vector2> = ctx.observe.AbsoluteSize(node)
 			runtime.mount(function()
 				return Host.UISizeConstraint({
 					MinSize = function(use: ComposeTypes.Use)
@@ -757,6 +760,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		assert(
 			presentation ~= "bar" or spec.controlSize == nil or spec.thickness == nil,
 			"Facet ProgressView: give thickness or controlSize, not both (a bar's rung is its track thickness)"
+		)
+		assert(
+			presentation == "bar" or spec.controlSize == nil or spec.diameter == nil,
+			"Facet ProgressView: give diameter or controlSize, not both (a ring's rung is its diameter)"
+		)
+		assert(
+			spec.endLabel == nil or type(read(spec.endLabel)) == "string",
+			"Facet ProgressView endLabel must be a string"
 		)
 		local count = spec.segments or 1
 		assert(
@@ -1015,8 +1026,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					table.insert(
 						native,
 						ctx.styled(
-							Host.Frame({
-								Name = "Segment" .. index,
+							Host.Frame("Segment" .. index)({
 								AnchorPoint = V2.new(0.5, 0.5),
 								BorderSizePixel = 0,
 								Position = D2.fromScale(0.5 + math.cos(angle) * 0.4, 0.5 + math.sin(angle) * 0.4),
@@ -1088,7 +1098,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 			content = Host.Frame(native)
 			if readout and presentation == "circular" then
-				local bounds = ctx.observe(readout, "TextBounds")
+				local bounds = ctx.observe.TextBounds(readout)
 				local centered = Compose.formula(function(use: ComposeTypes.Use)
 					local measured, innerDiameter = use(bounds), diameter(use) * 0.6
 					return measured.X <= innerDiameter and measured.Y <= innerDiameter
@@ -1187,7 +1197,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return root
 	end)
 
-	local skeletonClock = Compose.createSharedResource(function()
+	local skeletonClock = Compose.createSharedResource(function(): (Types.Playback, (() -> ())?)
 		local clock = runtime.timeline({ duration = 1.4, repeats = math.huge })
 		local motionReduced = reducedMotion(ctx)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -1197,7 +1207,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				clock:play()
 			end
 		end)
-		return clock
+		return clock, nil
 	end)
 	UI.Skeleton = ctx.construct("Skeleton", function(spec: Media.SkeletonProps): Frame
 		local form = spec.form or "box"
@@ -1282,7 +1292,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			"dimmed",
 			"imageProperties",
 		}, { BackgroundTransparency = 1, Size = D2.fromOffset(48, 48) }))
-		local imageOptions: Engine.ImageLabelProps = ctx.props(spec.imageProperties or {}, {}, {
+		local imageProperties: Engine.ImageLabelProps = spec.imageProperties or {}
+		local imageOptions: Engine.ImageLabelProps = ctx.props(imageProperties, {}, {
 			Name = "Image",
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -1307,13 +1318,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					return use(state) ~= "ready"
 				end,
 			}
-			if spec.placeholder then
+			local custom = spec.placeholder
+			if custom then
 				table.insert(
 					placeholder,
 					Compose.show(function(use: ComposeTypes.Use)
 						return use(state) ~= "ready"
 					end, function()
-						return spec.placeholder(state)
+						return custom(state)
 					end)
 				)
 			end
@@ -1441,8 +1453,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			Selectable = spec.onActivate ~= nil,
 			Host.UICorner({ CornerRadius = D.new(1, 0) }),
 		})
-		if spec.onActivate then
-			native.Activated = spec.onActivate
+		local onActivate = spec.onActivate
+		if onActivate then
+			native.Activated = function()
+				onActivate()
+			end
 		end
 		local root = ctx.styled(Host.TextButton(native), "avatar")
 		if spec.backplate then
@@ -1486,7 +1501,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				TextYAlignment = E.TextYAlignment.Center,
 			})
 		end, root)
-		if spec.image or spec.userId or spec.resource then
+		local image, userId, onStatus = spec.image, spec.userId, spec.onStatus
+		if image or userId or spec.resource then
 			runtime.mount(function()
 				return UI.AsyncImage({
 					imageProperties = { Host.UICorner({ CornerRadius = D.new(1, 0) }) },
@@ -1494,18 +1510,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					loader = spec.loader,
 					onStatus = function(state: Media.ImageState, failure: unknown)
 						pictured:set(state == "ready")
-						if spec.onStatus then
-							spec.onStatus(state, failure)
+						if onStatus then
+							onStatus(state, failure)
 						end
 					end,
 					resource = spec.resource,
 					Size = D2.fromScale(1, 1),
 					image = function(use: ComposeTypes.Use)
-						return if spec.image
-							then read(spec.image, use)
-							else "rbxthumb://type=AvatarHeadShot&id="
-								.. tostring(read(spec.userId, use))
-								.. "&w=150&h=150"
+						return if image
+							then read(image, use)
+							else "rbxthumb://type=AvatarHeadShot&id=" .. tostring(read(userId, use)) .. "&w=150&h=150"
 					end,
 					placeholder = function(_state: ComposeTypes.Readable<Media.ImageState>): Instance
 						return Host.Frame({ BackgroundTransparency = 1, Size = D2.fromScale(1, 1) })
@@ -1514,7 +1528,12 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				})
 			end, root)
 		end
-		if spec.presence and spec.presenceMark ~= false and spec.form ~= "icon" then
+		local presence = spec.presence
+		if presence and spec.presenceMark ~= false and spec.form ~= "icon" then
+			local marks: { [string]: "dot" | "ring" | "square" | "dash" } =
+				{ online = "dot", away = "dash", busy = "square", offline = "ring" }
+			local statuses: { [string]: Media.Status } =
+				{ online = "success", away = "warning", busy = "error", offline = "neutral" }
 			runtime.mount(function()
 				return UI.StatusIndicator "Presence" {
 					diameter = 12,
@@ -1522,17 +1541,15 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					Visible = function(use: ComposeTypes.Use)
 						return facts(use).presence ~= nil
 					end,
-					form = function(use: ComposeTypes.Use)
-						return ({ online = "dot", away = "dash", busy = "square", offline = "ring" })[facts(use).presence]
-							or "dot"
+					form = function(use: ComposeTypes.Use): "dot" | "ring" | "square" | "dash"
+						local current = facts(use).presence
+						return if current then marks[current] or "dot" else "dot"
 					end,
 					AnchorPoint = V2.new(1, 1),
 					Position = D2.fromScale(1, 1),
-					status = function(use: ComposeTypes.Use)
-						return ({ online = "success", away = "warning", busy = "error", offline = "neutral" })[read(
-							spec.presence,
-							use
-						)] or "neutral"
+					status = function(use: ComposeTypes.Use): Media.Status
+						local current = read(presence, use)
+						return if current then statuses[current] or "neutral" else "neutral"
 					end,
 				}
 			end, root)
@@ -1654,7 +1671,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				return #use(items) > maximum
 			end, function()
 				return ctx.styled(
-					Host.TextButton({
+					Host.TextButton "Overflow" {
 						Attributes = {
 							AccessibleLabel = (function(use: ComposeTypes.Use): string
 								local label = read(spec.overflowLabel, use)
@@ -1665,7 +1682,6 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 								return label or tostring(#use(items) - maximum) .. " more players"
 							end) :: Engine.Value<Engine.AttributeValue?>,
 						},
-						Name = "Overflow",
 						Size = function(use: ComposeTypes.Use)
 							local pixels = size(use)
 							return D2.fromOffset(pixels, pixels)
@@ -1676,9 +1692,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						end,
 						Selectable = spec.onOverflow ~= nil,
 						AutoButtonColor = false,
-						Activated = spec.onOverflow or function() end,
+						Activated = function()
+							local onOverflow = spec.onOverflow
+							if onOverflow then
+								onOverflow()
+							end
+						end,
 						Host.UICorner({ CornerRadius = D.new(1, 0) }),
-					}),
+					},
 					"button"
 				)
 			end)
@@ -1712,14 +1733,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		local owner = assert(Compose.currentOwner())
 		local moving = Compose.cell(false)
 		local visible = Compose.cell(true)
-		local position = ctx.observe(stage, "AbsolutePosition")
-		local size = ctx.observe(stage, "AbsoluteSize")
+		local position = ctx.observe.AbsolutePosition(stage)
+		local size = ctx.observe.AbsoluteSize(stage)
 		local current: ScrollingFrame? = nil
 		local tracking: ComposeTypes.Owner? = nil
 		local function track(frame: ScrollingFrame)
-			local canvas = ctx.observe(frame, "CanvasPosition")
-			local origin = ctx.observe(frame, "AbsolutePosition")
-			local window = ctx.observe(frame, "AbsoluteWindowSize")
+			local canvas = ctx.observe.CanvasPosition(frame)
+			local origin = ctx.observe.AbsolutePosition(frame)
+			local window = ctx.observe.AbsoluteWindowSize(frame)
 			local last = canvas:peek()
 			local lastMove = -math.huge
 			local stopWatch: (() -> ())? = nil
@@ -1731,15 +1752,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = use(canvas)
-				if value == last or frames == nil then
+				local clock = frames
+				if value == last or clock == nil then
 					return
 				end
 				last = value
-				lastMove = frames.now()
+				lastMove = clock.now()
 				moving:set(true)
 				if stopWatch == nil then
-					stopWatch = frames.onFrame(function()
-						if frames.now() - lastMove >= SETTLE_SECONDS then
+					stopWatch = clock.onFrame(function()
+						if clock.now() - lastMove >= SETTLE_SECONDS then
 							halt()
 							moving:set(false)
 						end

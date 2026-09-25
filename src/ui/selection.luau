@@ -218,7 +218,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		if gui == nil or input == nil or not gui.GetPropertyChangedSignal then
 			return nil
 		end
-		local selectedObject = ctx.observe(gui, "SelectedObject")
+		local selectedObject = ctx.observe.SelectedObject(gui)
 		local record: Snapshot? = nil
 		local pending = false
 		local function recover(): ()
@@ -261,8 +261,8 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			local child = owner.createChild()
 			tracking = child
 			Compose.withOwner(child, function()
-				local parent = ctx.observe(current, "Parent")
-				local visible = ctx.observe(current, "Visible")
+				local parent = ctx.observe.Parent(current)
+				local visible = ctx.observe.Visible(current)
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(parent)
 					use(visible)

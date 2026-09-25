@@ -276,7 +276,8 @@ function check_links.check(opts: Opts?): { ok: boolean, problems: { string }, co
 		local line = 1
 		local consumed = 1
 
-		for start, inside in string.gmatch(prose, "()%[[^%[%]]*%]%(%s*([^)]*)%)") do
+		for start, labelText, inside in string.gmatch(prose, "()%[([^%[%]]*)%]%(%s*([^)]*)%)") do
+			local label = string.sub(raw :: string, start, start + #labelText - 1)
 			local _, breaks = string.gsub(string.sub(prose, consumed, start), "\n", "")
 			line += breaks
 			consumed = start
@@ -325,6 +326,22 @@ function check_links.check(opts: Opts?): { ok: boolean, problems: { string }, co
 				continue
 			end
 
+			if
+				(fragment == nil or fragment == "")
+				and string.match(targetDoc, "%.md$") ~= nil
+				and string.match(label, "^`[^`]+`$") ~= nil
+				and string.find(label, "/", 1, true) == nil
+				and string.match(label, "%.md`$") == nil
+				and string.match(label, "%.luau`$") == nil
+				and string.match(label, "%.json`$") == nil
+			then
+				table.insert(
+					problems,
+					`{doc}:{line}: {label} names a specific part of {targetDoc} but links to the top of the `
+						.. "page; add the heading anchor"
+				)
+			end
+
 			if fragment ~= nil and fragment ~= "" and string.match(targetDoc, "%.md$") ~= nil then
 				local anchors = anchorSetOf(targetDoc)
 				if anchors ~= nil then
@@ -364,6 +381,7 @@ function check_links.selftest(): { ok: boolean, problems: { string } }
 		.. "\n\n[a file that is not there](docs/guide/00-does-not-exist.md)\n"
 		.. "\n[the internal plan](docs/plans/distribution-readiness.md)\n"
 		.. '\n[the internal plan](docs/handoff/a-handoff.md "why it exists")\n'
+		.. "\n[`Facet.bind`](docs/reference/api.md)\n"
 
 	local widened = "docs/MAINTAINERS.md"
 	if not fs.isFile(widened) then
@@ -397,6 +415,15 @@ function check_links.selftest(): { ok: boolean, problems: { string } }
 	end
 	if not sawTitled then
 		table.insert(problems, "a planted TITLED link into archived material was not reported")
+	end
+	local sawBare = false
+	for _, problem in result.problems do
+		if string.find(problem, "`Facet.bind` names a specific part", 1, true) ~= nil then
+			sawBare = true
+		end
+	end
+	if not sawBare then
+		table.insert(problems, "a planted code-name link without a heading anchor was not reported")
 	end
 	local sawWidened = false
 	for _, problem in result.problems do

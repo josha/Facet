@@ -1485,6 +1485,17 @@ local function phoneChecks(t: any, where: string, root: any, layer: any, portrai
 		)
 		t.inside(`{where}: Apply inside the screen`, apply, layer, 1)
 	else
+		local small = {}
+		for i = 1, 42 do
+			local cell = days:FindFirstChild(`D{i}`)
+			if cell and cell.Selectable then
+				local c = t.rect(cell)
+				if c.w < 43.5 or c.h < 43.5 or c.x < l.x - 0.5 or c.r > l.r + 0.5 then
+					table.insert(small, { cell.Name, c.w, c.h, c.x, c.r })
+				end
+			end
+		end
+		t.check(`{where}: every day cell is at least 44x44 and inside the screen width`, #small == 0, small)
 		t.check(`{where}: the calendar is capped to the screen height`, s.h <= l.h - 16 + 1, { s.h, l.h })
 		surface.CanvasPosition = Vector2.new(0, surface.AbsoluteCanvasSize.Y)
 		t.settle(4)
@@ -1555,6 +1566,18 @@ add("dtp-panel-hugs", { "post-pickers-158" }, function(t)
 	t.note("preferred input", tostring(game:GetService("UserInputService").PreferredInput))
 	local c = t.rect(calendar)
 	t.near("the header is one 44 px line", header.AbsoluteSize.Y, 44, 0.5)
+	local rule = partOf(calendar, "HeaderRule")
+	local weekdays = partOf(partOf(panes, "Pane1"), "Weekdays")
+	if rule and weekdays then
+		t.near(
+			"no caption sits between the rule and the weekdays",
+			weekdays.AbsolutePosition.Y - (rule.AbsolutePosition.Y + rule.AbsoluteSize.Y),
+			16,
+			1
+		)
+	else
+		t.check("the HeaderRule and the weekdays were found", false)
+	end
 	t.near("the side inset is 16 px", panes.AbsolutePosition.X - c.x, 16, 1)
 	local lowest, shown = -math.huge, {}
 	for _, child in calendar:GetChildren() do
@@ -1868,7 +1891,7 @@ local function labelX(row: any, words: string): number?
 end
 
 add("toggle-row-align", { "post-pickers-097", "post-pickers-133" }, function(t)
-	for _, themeName in { "Neutral", "PixelQuest" } do
+	for _, themeName in { "Neutral", "PixelQuest", "FantasyOrnate" } do
 		local package = themeNamed(t, themeName)
 		if not package then
 			t.note(`{themeName}`, "theme package is not in ReplicatedStorage.FacetThemes; skipped")
@@ -1935,7 +1958,7 @@ end)
 interactive(
 	"chip-edit-live",
 	{ "post-pickers-075", "post-pickers-079" },
-	"afterDelete: press the Delete key once (the Friends chip holds the selection)",
+	"afterDelete: press Delete or ButtonX once (the Friends chip holds the selection)",
 	function(t)
 		local value: any = {}
 		local stage = t.mount(function(UI, Host, Compose)
@@ -2023,7 +2046,7 @@ interactive(
 		GuiService.SelectedObject = row:FindFirstChild("Friends")
 		t.settle(4)
 		t.check("the last chip Friends holds the selection", selectedName() == "Friends", selectedName())
-		t.note("gamepad", "ButtonX removal is not driven; Delete runs the same RemoveChip action")
+		t.note("removal key", "the driver presses Delete or ButtonX; live.press records the delivered input")
 		return value
 	end,
 	{
@@ -2949,6 +2972,27 @@ add("color-phone-sheet-apply-on-screen", { "post-pickers-182" }, function(t)
 							well = t.rect(well),
 						}
 					)
+					local seen = t.clipped(apply)
+					t.check(`{where}: Apply is at least 44 px tall`, apply.AbsoluteSize.Y >= 43.5, apply.AbsoluteSize)
+					t.check(
+						`{where}: Apply is fully on screen`,
+						seen ~= nil and math.abs(seen.h - apply.AbsoluteSize.Y) <= 0.5,
+						seen
+					)
+					t.inside(`{where}: Apply inside the screen`, apply, layer, 1)
+					local small = {}
+					for _, node in panel:GetDescendants() do
+						if
+							node:IsA("GuiObject")
+							and t.visible(node)
+							and t.clipped(node) ~= nil
+							and (node:IsA("GuiButton") or node.Name == "Track" or node.Name == "Input" or node.Name == "Surface")
+							and (node.AbsoluteSize.X < 43.5 or node.AbsoluteSize.Y < 43.5)
+						then
+							table.insert(small, { node.Name, node.AbsoluteSize })
+						end
+					end
+					t.check(`{where}: every target is at least 44x44`, #small == 0, small)
 				end
 			end
 			opens[mode]:set(false)
@@ -3024,6 +3068,116 @@ add("dtp-ten-foot", { "post-pickers-159" }, function(t)
 		"B cannot be sent by the input tools, so closing with B and the return of selection to the calendar icon are not checked"
 	)
 end)
+
+interactive(
+	"dtp-ten-foot-pad-open-and-back",
+	{ "post-pickers-159", "post-pickers-144", "post-pickers-145" },
+	"afterOpen: press ButtonA once (the calendar icon holds the selection); afterBack: press ButtonB once",
+	function(t)
+		local value: any = {}
+		if not tenFootCheck(t) then
+			return value
+		end
+		local stage, root, layer = datePicker(t, function(Compose)
+			return singleSpec(Compose, {})
+		end)
+		value.stage, value.root, value.layer = stage, root, layer
+		value.open = if root then visibleNamed(t, root, "Open") else nil
+		if not found(t, "the calendar icon was found", { "open" }, { open = value.open }) then
+			return value
+		end
+		GuiService.SelectedObject = value.open
+		t.settle(2)
+		t.check("the calendar icon holds the selection", GuiService.SelectedObject == value.open, selectedName())
+		return value
+	end,
+	{
+		afterOpen = function(t, value)
+			t.settle(12)
+			local surface = surfaceOf(t, value.layer)
+			t.check("ButtonA on the calendar icon opens the calendar", surface ~= nil)
+			t.check(
+				"the calendar routes to a sheet",
+				value.root:GetAttribute("route") == "sheet",
+				value.root:GetAttribute("route")
+			)
+			local selected = GuiService.SelectedObject
+			t.check(
+				"selection lands inside the calendar",
+				surface ~= nil and selected ~= nil and selected:IsDescendantOf(surface),
+				if selected then selected:GetFullName() else "nil"
+			)
+		end,
+		afterBack = function(t, value)
+			t.settle(12)
+			t.check("ButtonB closes the calendar", visibleNamed(t, value.layer, "CalendarSurface") == nil)
+			t.check(
+				"the selection returns to the calendar icon",
+				GuiService.SelectedObject == value.open,
+				selectedName()
+			)
+			GuiService.SelectedObject = nil
+		end,
+	}
+)
+
+interactive(
+	"color-ten-foot-pad-open-and-back",
+	{ "post-pickers-178" },
+	"afterOpen: press ButtonA once (the well holds the selection); afterBack: press ButtonB once",
+	function(t)
+		local value: any = {}
+		if not tenFootCheck(t) then
+			return value
+		end
+		local stage = t.mount(function(UI, Host, Compose)
+			return Host.Frame "Box" {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(40, 40),
+				Size = UDim2.fromOffset(44, 44),
+				UI.ColorPicker("Well")((colorSpec(Compose, { modes = { "spectrum", "swatches" } }))),
+			}
+		end, { frames = 20 })
+		value.layer = layerOf(stage)
+		value.well = t.find(stage, "Well")
+		local target = value.well
+		if target and not (target:IsA("GuiObject") and target.Selectable) then
+			for _, node in target:GetDescendants() do
+				if node:IsA("GuiButton") and node.Selectable and t.visible(node) then
+					target = node
+					break
+				end
+			end
+		end
+		value.target = target
+		if not found(t, "the well was found", { "target" }, { target = target }) then
+			return value
+		end
+		GuiService.SelectedObject = target
+		t.settle(2)
+		t.check("the well holds the selection", GuiService.SelectedObject == target, selectedName())
+		return value
+	end,
+	{
+		afterOpen = function(t, value)
+			t.settle(12)
+			local panel = openPanel(t, value.layer)
+			t.check("ButtonA on the well opens the colour panel", panel ~= nil)
+			local selected = GuiService.SelectedObject
+			t.check(
+				"selection lands inside the panel",
+				panel ~= nil and selected ~= nil and selected:IsDescendantOf(panel),
+				if selected then selected:GetFullName() else "nil"
+			)
+		end,
+		afterBack = function(t, value)
+			t.settle(12)
+			t.check("ButtonB closes the colour panel", visibleNamed(t, value.layer, "ColorPickerModal") == nil)
+			t.check("the selection returns to the well", GuiService.SelectedObject == value.target, selectedName())
+			GuiService.SelectedObject = nil
+		end,
+	}
+)
 
 interactive(
 	"color-ten-foot-center",

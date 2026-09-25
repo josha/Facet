@@ -132,8 +132,8 @@ return {
 			}
 		end
 		local function multi()
-			return UI.Menu "Tags" {
-				trigger = UI.Button "Trigger" {
+			return UI.Menu {
+				trigger = UI.Button "Tags" {
 					label = "Scenery filters",
 					enabled = enabled,
 					onActivate = function() end,

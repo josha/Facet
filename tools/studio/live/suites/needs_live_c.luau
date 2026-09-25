@@ -290,6 +290,117 @@ end, {
 	end,
 })
 
+add("gallery-previews-keep-page-and-pad-routes", { "apps2-225" }, function(t)
+	local live = (require :: any)(script.Parent.Parent)
+	local Compose = t.Facet.Compose
+	local size = Compose.cell(Vector2.new(1280, 800))
+	local stage, context = t.gallery({ size = size, demo = "all-controls" })
+	t.settle(20)
+	local basics, inputs = visibleNamed(t, stage, "basics"), visibleNamed(t, stage, "inputs")
+	if not (basics and inputs) then
+		t.check("Basics and Inputs buttons found", false)
+		return
+	end
+	for _, preview in
+		{
+			{ name = "phone", size = Vector2.new(390, 844) },
+			{ name = "tablet", size = Vector2.new(820, 1180) },
+			{ name = "desktop", size = Vector2.new(1280, 800) },
+			{ name = "tv", size = Vector2.new(1920, 1080) },
+		}
+	do
+		for _, distance in { "automatic", "near", "ten-foot" } do
+			local where = `{preview.name} {distance}`
+			size:set(preview.size)
+			context.viewingDistance:set(distance)
+			t.settle(20)
+			t.check(`{where} the page tab is the same instance`, visibleNamed(t, stage, "basics") == basics)
+			t.check(`{where} the category tab is the same instance`, visibleNamed(t, stage, "inputs") == inputs)
+			GuiService.SelectedObject = basics
+			t.settle(2)
+			local one = game:GetService("HttpService"):JSONDecode(live.press({ "DPadRight" }))
+			t.check(`{where} real DPadRight from Basics selects Writing`, selectedName() == "writing", one.selections)
+			GuiService.SelectedObject = inputs
+			t.settle(2)
+			local two = game:GetService("HttpService"):JSONDecode(live.press({ "DPadRight" }))
+			t.check(`{where} real DPadRight from Inputs selects Actions`, selectedName() == "actions", two.selections)
+			GuiService.SelectedObject = nil
+		end
+	end
+	context.viewingDistance:set("automatic")
+end)
+
+add("card-rail-distant-and-shelves", { "mech3-20" }, function(t)
+	local live = (require :: any)(script.Parent.Parent)
+	local http = game:GetService("HttpService")
+	local results = {}
+	for _, run in
+		{
+			{ name = "phone near", size = Vector2.new(390, 844), distance = "near" },
+			{ name = "desktop near", size = Vector2.new(1920, 1080), distance = "near" },
+			{ name = "desktop distant", size = Vector2.new(1920, 1080), distance = "ten-foot" },
+		}
+	do
+		local stage, context = t.gallery({ size = run.size, demo = "collections" })
+		context.viewingDistance:set(run.distance)
+		t.settle(20)
+		for _, tab in { "grids", "cards" } do
+			local button = visibleNamed(t, stage, tab)
+			if button then
+				GuiService.SelectedObject = button
+				t.settle(2)
+				live.press({ "ButtonA" })
+				t.settle(20)
+			end
+		end
+		local rail = visibleNamed(t, stage, "Rail")
+		local weekend = visibleNamed(t, stage, "WeekendRail")
+		t.check(`{run.name} the Rail and WeekendRail shelves show`, rail ~= nil and weekend ~= nil)
+		if rail and weekend then
+			t.stable(rail)
+			local window = t.rect(rail)
+			local count, width = 0, 0
+			for _, node in rail:GetDescendants() do
+				if node:IsA("GuiObject") and string.match(node.Name, "^Card_c%d+$") and t.visible(node) then
+					local r = t.rect(node)
+					if r.x >= window.x - 0.5 and r.r <= window.r + 0.5 then
+						count += 1
+						width = r.w
+					end
+				end
+			end
+			results[run.name] = { perView = count, width = width }
+			t.note(`{run.name} cards per view and card width`, results[run.name])
+			local first = rail:FindFirstChild("Card_c1", true)
+			if first then
+				GuiService.SelectedObject = first
+				t.settle(2)
+				local moved = http:JSONDecode(live.press({ "DPadDown" }))
+				local now = GuiService.SelectedObject
+				t.check(
+					`{run.name} real DPadDown moves from the first shelf to the Weekend shelf`,
+					now ~= nil and now:IsDescendantOf(weekend),
+					moved.selections
+				)
+			else
+				t.check(`{run.name} the first card is mounted`, false)
+			end
+		end
+		GuiService.SelectedObject = nil
+		t.cleanup()
+	end
+	local phone, near, far = results["phone near"], results["desktop near"], results["desktop distant"]
+	if phone and near and far then
+		t.check("a phone shows one card per view", phone.perView == 1, phone)
+		t.check("the distant preview draws larger cards", far.width > near.width, { near = near, far = far })
+		t.check(
+			"the distant preview shows fewer cards per view",
+			far.perView < near.perView,
+			{ near = near, far = far }
+		)
+	end
+end)
+
 local PICKER_STYLES = { "automatic", "segmented", "inline", "radioGroup", "navigationLink", "menu" }
 local PICKER_SIZES = {
 	Vector2.new(390, 844),
@@ -297,6 +408,157 @@ local PICKER_SIZES = {
 	Vector2.new(1080, 810),
 	Vector2.new(1280, 720),
 	Vector2.new(1920, 1080),
+}
+
+add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
+	local live = (require :: any)(script.Parent.Parent)
+	local stage = t.mount(function(UI, _, Compose)
+		return UI.RadialMenu({
+			isPresented = Compose.cell(true),
+			items = {
+				{
+					id = "Branch",
+					label = "Branch",
+					children = {
+						{ id = "Leaf", label = "Leaf", completion = "stay" },
+						{ id = "Twig", label = "Twig", completion = "stay" },
+					},
+				},
+				{ id = "Other", label = "Other", completion = "stay" },
+			},
+		})
+	end, { size = Vector2.new(900, 700), reducedMotion = false, frames = 30 })
+	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local retiring = visibleNamed(t, gui, "Sector-Branch")
+	local button = retiring and retiring:FindFirstChild("Branch", true)
+	if not (retiring and button) then
+		t.check("the Branch sector and its button were found", false)
+		return
+	end
+	GuiService.SelectedObject = button
+	t.settle(2)
+	t.check("the Branch button holds the selection", GuiService.SelectedObject == button, selectedName())
+	local pressed = live.press({ "ButtonA" }, 2)
+	t.note("activation", pressed)
+	t.check("ButtonA keeps the retiring sector mounted while it fades", retiring.Parent ~= nil)
+	t.check("the retiring sector stops taking input", retiring.Parent and not (retiring.Parent :: any).Interactable)
+	GuiService.SelectedObject = button
+	t.note("a script can still set the selection on the retiring button", selectedName())
+	local away = game:GetService("HttpService"):JSONDecode(live.press({ "DPadRight" }, 2))
+	t.check(
+		"one real D-pad press moves the selection off the retiring button",
+		GuiService.SelectedObject ~= button,
+		away.selections
+	)
+	local walked = live.press({ "DPadRight", "DPadDown", "DPadLeft", "DPadRight", "DPadDown" }, 2)
+	t.note("walk", walked)
+	local shared = game:GetService("HttpService"):JSONDecode(walked)
+	local landed = false
+	for _, entry in shared.selections do
+		if string.find(entry, ">Branch$") then
+			landed = true
+		end
+	end
+	t.check("real D-pad presses never land on the retiring button", not landed, shared.selections)
+	t.settle(40)
+	t.check("the retiring sector is released after its fade", retiring.Parent == nil)
+	GuiService.SelectedObject = nil
+end)
+
+add("playlist-pad-reorder-and-tray-walk", { "apps2-39" }, function(t)
+	local live = (require :: any)(script.Parent.Parent)
+	local UserInputService = game:GetService("UserInputService")
+	local virtual = (UserInputService :: any):CreateVirtualInput()
+	local inset = GuiService:GetGuiInset()
+	local function drag(from: Vector2, to: Vector2)
+		virtual:SendMousePosition(from + inset)
+		t.settle(2)
+		virtual:SendMouseButton(from + inset, Enum.UserInputType.MouseButton1, true)
+		t.settle(2)
+		for index = 1, 12 do
+			virtual:SendMousePosition(from:Lerp(to, index / 12) + inset)
+			t.settle(1)
+		end
+		virtual:SendMouseButton(to + inset, Enum.UserInputType.MouseButton1, false)
+		t.settle(4)
+	end
+	local built
+	local stage = t.mount(function(UI, Host, Compose, env)
+		local ctx = t.context(UI, Host, Compose, env)
+		local folder = game:GetService("ReplicatedStorage"):WaitForChild("FacetExamples")
+		built = (require :: any)(folder:WaitForChild("02_playlist_table")).build(ctx)
+		return built.screen()
+	end, { size = Vector2.new(1100, 700), frames = 30 })
+	local function ids(): string
+		local out = {}
+		for _, track in built.baseRows:peek() do
+			table.insert(out, track.id)
+		end
+		return table.concat(out, ",")
+	end
+	local body = t.find(stage, "Body")
+	local neon = body and body:FindFirstChild("neon", true)
+	local handle = neon and neon:FindFirstChild("Move", true)
+	if not handle then
+		t.check("the neon row Move handle was found", false)
+		return
+	end
+	GuiService.SelectedObject = handle
+	t.settle(2)
+	local grabbed = live.press({ "ButtonA" })
+	t.note("grab", grabbed)
+	t.check("ButtonA on the Move handle grabs the row", selectedName() == "Drop", selectedName())
+	local moved = live.press({ "DPadDown", "DPadDown", "ButtonA" })
+	t.note("move and drop", moved)
+	t.check("DPadDown twice then ButtonA drops neon two rows lower", ids() == "drift,turbo,neon,pit,photo,apex", ids())
+	GuiService.SelectedObject = nil
+	t.settle(6)
+	local first = built.baseRows:peek()[1].id
+	local row = body:FindFirstChild(first, true)
+	local hit = row and row:FindFirstChild("RowHit", true)
+	if not (row and hit) then
+		t.check("the first row and its hit were found", false)
+		return
+	end
+	local at, size = hit.AbsolutePosition, hit.AbsoluteSize
+	local y = at.Y + size.Y / 2
+	drag(Vector2.new(at.X + size.X - 8, y), Vector2.new(at.X + size.X * 0.6, y))
+	t.settle(30)
+	local trailing = row:FindFirstChild("trailing", true)
+	local remove = trailing and trailing:FindFirstChild("remove", true)
+	t.check(
+		"a real mouse swipe opens the trailing tray",
+		remove ~= nil and t.visible(remove),
+		remove and remove.AbsoluteSize
+	)
+	local rating = built.ratingFor(first)
+	local before = rating:peek()
+	GuiService.SelectedObject = hit
+	t.settle(2)
+	local walk = live.press({
+		"DPadRight",
+		"DPadRight",
+		"DPadRight",
+		"DPadRight",
+		"DPadRight",
+		"DPadRight",
+		"DPadRight",
+		"DPadRight",
+	})
+	t.note("walk", walk)
+	t.note("rating before and after", { before, rating:peek() })
+	t.check("the pad walk pushes the rating to its maximum", rating:peek() == 5, rating:peek())
+	t.check(
+		"the pad walk continues past the rating into the tray's Remove",
+		GuiService.SelectedObject == remove,
+		selectedName()
+	)
+	GuiService.SelectedObject = nil
+end)
+
+local SHORT_OPTIONS = {
+	{ value = "a", label = "Open" },
+	{ value = "b", label = "Club" },
 }
 
 add("picker-style-sweep", { "navigation-3-85" }, function(t)
@@ -322,7 +584,7 @@ add("picker-style-sweep", { "navigation-3-85" }, function(t)
 							label = "Handling",
 							style = style,
 							selected = Compose.cell("b"),
-							options = options,
+							options = if style == "segmented" then SHORT_OPTIONS else options,
 							isPresented = opened,
 							query = if style == "navigationLink" then Compose.cell("") else nil,
 							LayoutOrder = 1,

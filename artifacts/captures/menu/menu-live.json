@@ -1,0 +1,41 @@
+{
+  "schema": "facet-menu-live/1",
+  "date": "2026-09-24",
+  "host": "Roblox Studio 0.740 playtest of the Facet Showcase built from parity/menu (own place file menu-live.rbxl, not published), Xbox One device frame 1920x1080, KeyboardAndMouse, GuiService inset 0,87",
+  "input": "UserInputService:CreateVirtualInput(): SendMousePosition, SendMouseButton (MouseButton1 and MouseButton2). SendKey refuses Escape and ButtonB, which CoreGui owns.",
+  "probe": "A Facet.app screen with IgnoreGuiInset and Sibling ZIndexBehavior, one UI.Menu with trigger = UI.Button \"Opener\", width = { type = \"hug\", min = 240, max = 320 }, onOpen and onClose, a checked row, a selection group with a section title, a submenu, a divider and a destructive row.",
+  "cases": [
+    {
+      "id": "trigger-and-callbacks",
+      "observed": "A right-click and a left-click on the authored Opener open the menu. onOpen and onClose run once each (log open,close). The returned node is the Opener. The panel is 240 wide from the hug minimum."
+    },
+    {
+      "id": "one-card",
+      "observed": "The panel is one card: styled radius 12 (radii.panel), a 1 pixel hairline stroke, flat 44 pixel rows that touch, a hairline over follow, grid and sort and none after the section title or the divider. Follow replies and As list are filled with accent 0.17,0.38,0.82 under a white label and check."
+    },
+    {
+      "id": "materialize-and-dismiss",
+      "observed": "Open samples scale/transparency per frame: 0.960/1.00, 0.977/0.58, 0.982/0.46, 0.988/0.29, 0.993/0.17, 0.997/0.08, 0.999/0.03, 1.000/0.00. The panel stays at 120,141, the trigger's bottom leading corner, so it grows from that corner. A tap outside: 1.000/0.00, 0.982/0.44, 0.971/0.72, 0.965/0.88, 0.961/0.97, gone, faster than the entry."
+    },
+    {
+      "id": "cascade-submenu",
+      "observed": "Sort by opens its level at 408,141 and it grows from its top leading corner 0.960 to 1.000 with a fade. The parent level keeps the Sort by row filled, left-aligned rows, the checks and the hairlines. There is no Back row in the floating menu. Left returns to the root level."
+    },
+    {
+      "id": "sheet-slide",
+      "observed": "With presentation = sheet, Sort by moves the rows from +32 to 0 in about 0.12 seconds (32, 29, 26 ... 1, 0). Back moves them from -32 to 0. The sheet rows keep their gaps, have no hairlines and the Back row shows."
+    },
+    {
+      "id": "reduced-motion",
+      "observed": "With reducedMotion = true the panel opens at scale 1.000 and transparency 0, a submenu keeps scale 1.000, and the sheet rows stay at offset 0 on entry."
+    },
+    {
+      "id": "follow-and-safe-area",
+      "observed": "With edge = top and the trigger under the topbar (absolute -67), the panel sits at absolute 8, the first row below the GuiService inset (local 95 = 87 + 8). Moving the trigger while open moves the panel with it: t660,173->p660,221 ... t840,353->p840,64 (it takes the preferred top edge once it fits). At the bottom right corner the panel is clamped to 1671 = 1919 - 8 - 240 and hangs above the trigger."
+    },
+    {
+      "id": "layer-origin",
+      "observed": "Found live: the modal AbsolutePosition in an IgnoreGuiInset screen (0,-87) did not reach the placement through its change signal, so the panel sat 87 pixels too high. Placement now reads the modal origin on each solve."
+    }
+  ]
+}

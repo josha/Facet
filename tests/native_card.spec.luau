@@ -421,6 +421,18 @@ t.describe("native Card", function()
 		primary(world).GuiState = world.engine.types.Enum.GuiState.Idle
 		t.expect(attr(root, "Revealed")).toBe(false)
 		world.stop()
+		local held, heldRoot = mount(cardSpec({}))
+		local Enum = held.engine.types.Enum
+		local button = primary(held)
+		hover(heldRoot, true)
+		button.InputBegan.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
+		button.GuiState = Enum.GuiState.Press
+		hover(heldRoot, false)
+		button.GuiState = Enum.GuiState.Idle
+		t.expect(attr(heldRoot, "Revealed")).toBe(true)
+		button.InputEnded.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
+		t.expect(attr(heldRoot, "Revealed")).toBe(false)
+		held.stop()
 	end)
 
 	t.it("keeps the actions at rest while touch is present and runs the body on the first tap", function()
@@ -814,6 +826,39 @@ t.describe("native Card", function()
 		t.expect(sent:FindFirstChild("CornerBadge", true)).toBeNil()
 		t.expect(sent.Text).toBe("Sent (2)")
 		world.stop()
+		local pickers = worlds.new(function(UI, Host)
+			return Host.Frame({
+				UI.Picker("Icons")({
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Inbox", icon = "menu", badge = 3 },
+						{ value = "b", label = "Sent", icon = "flag" },
+					},
+				}),
+				UI.Picker("Words")({
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "Inbox", badge = 3 }, { value = "b", label = "Sent" } },
+				}),
+			})
+		end)
+		local icons = pickers.find("Icons")
+		local iconSeal = pickers.find("a", icons):FindFirstChild("CornerBadge", true)
+		t.expect(iconSeal ~= nil and iconSeal.Text == "3").toBe(true)
+		t.expect(iconSeal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil).toBe(true)
+		local shown = {}
+		for _, node in pickers.find("a", icons):GetDescendants() do
+			if (node:IsA("TextLabel") or node:IsA("TextButton")) and node.Name ~= "CornerBadge" and node.Text ~= "" then
+				table.insert(shown, node.Text)
+			end
+		end
+		t.expect(table.concat(shown, ",")).toBe("Inbox")
+		t.expect(pickers.find("b", icons):FindFirstChild("CornerBadge", true)).toBeNil()
+		local words = pickers.find("a", pickers.find("Words"))
+		t.expect(words:FindFirstChild("CornerBadge", true)).toBeNil()
+		t.expect(words.Text).toBe("Inbox (3)")
+		pickers.stop()
 	end)
 
 	t.it("keeps the mounted cards and their controls bounded across a thousand items", function()

@@ -1579,6 +1579,22 @@ t.describe("native parity weaker rows", function()
 		world.stop()
 	end)
 
+	t.it("apps2-39 keeps a selected Move handle out of the engine drag so ButtonA grabs the row", function()
+		local _, node, world = mountGallery("../examples/gallery/examples/02_playlist_table")
+		local body = find(node, "Body")
+		body.AbsoluteWindowSize = V2(world, 900, 600)
+		local handle = find(body:FindFirstChild("neon", true), "Move")
+		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
+		t.expect(detector.Enabled).toBe(true)
+		world.gui.SelectedObject = handle
+		t.expect(detector.Enabled).toBe(false)
+		world.gui.SelectedObject = find(body:FindFirstChild("drift", true), "Move")
+		t.expect(detector.Enabled).toBe(true)
+		world.gui.SelectedObject = nil
+		t.expect(detector.Enabled).toBe(true)
+		world.stop()
+	end)
+
 	t.it("apps2-38 selects playlist rows additively by touch and reorders by a touch handle drag", function()
 		local built, node, world = mountGallery("../examples/gallery/examples/02_playlist_table")
 		local E = world.engine.types.Enum

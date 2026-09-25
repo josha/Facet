@@ -1,6 +1,7 @@
 --!strict
 export type Hsv = { h: number, s: number, v: number }
 export type Swatch = { color: Color3, label: string?, key: string }
+type Ranked = { swatch: Swatch, order: { number } }
 export type Engine = { Color3: typeof(Color3), BrickColor: typeof(BrickColor)? }
 export type ColorValue = {
 	byte: (number) -> number,
@@ -98,7 +99,7 @@ return function(engine: Engine): ColorValue
 			return brickCache
 		end
 		local palette = assert(engine.BrickColor, "Facet ColorPicker: the brick mode requires BrickColor")
-		local out: { { swatch: Swatch, order: { number } } } = {}
+		local out: { Ranked } = {}
 		for i = 0, 127 do
 			local brick = palette.palette(i)
 			local c = brick.Color
@@ -108,7 +109,7 @@ return function(engine: Engine): ColorValue
 				order = { if s < 0.08 then 0 else 1, if s < 0.08 then 0 else h, v, i },
 			})
 		end
-		table.sort(out, function(a, b)
+		table.sort(out, function(a: Ranked, b: Ranked): boolean
 			for k = 1, 4 do
 				if a.order[k] ~= b.order[k] then
 					return a.order[k] < b.order[k]

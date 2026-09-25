@@ -101,7 +101,7 @@ def generate(definitions, schema):
     result[insert_at:insert_at] = shared_lines
     datatypes = 'UDim UDim2 Vector2 Vector3 Color3 CFrame Enum Font Rect ColorSequence ColorSequenceKeypoint NumberSequence NumberSequenceKeypoint NumberRange Path2DControlPoint FloatCurveKey TweenInfo'.split()
     result += ['export type RobloxTypes = {', *[f'\t{name}: typeof({name}),' for name in datatypes], '\tBrickColor: typeof(BrickColor)?,', '}', '']
-    observed = set('AbsoluteContentSize AbsolutePosition AbsoluteSize AbsoluteWindowSize CanvasPosition CurrentPage DisplayImage DisplayName Enabled FontFace GamepadEnabled GuiState Interactable KeyCode KeyboardEnabled MouseEnabled Parent Position PreferredBinding PreferredInput PreferredTransparency PrimaryModifier ReducedMotionEnabled SecondaryModifier SelectedObject Size Text TextBounds TextFits TextSize TextColor3 TextXAlignment TextYAlignment TextWrapped RichText TextScaled TextTruncate LineHeight TouchEnabled Visible OnScreenKeyboardVisible OnScreenKeyboardSize AbsoluteCanvasSize Scale CursorPosition'.split())
+    observed = set('AbsoluteContentSize AbsolutePosition AbsoluteSize AbsoluteWindowSize CanvasPosition CurrentPage DisplayImage DisplayName Enabled FontFace GamepadEnabled GuiState Interactable KeyCode KeyboardEnabled MouseEnabled Parent Position PreferredBinding PreferredInput PreferredTextSize PreferredTransparency PrimaryModifier ReducedMotionEnabled SecondaryModifier SelectedObject Size Text TextBounds TextFits TextSize TextColor3 TextXAlignment TextYAlignment TextWrapped RichText TextScaled TextTruncate LineHeight TouchEnabled Visible OnScreenKeyboardVisible OnScreenKeyboardSize AbsoluteCanvasSize Scale CursorPosition'.split())
     groups = {}
     observed_classes = set('GuiBase2d GuiObject GuiService UserInputService LayerCollector Instance InputAction InputBinding InputContext TextLabel TextBox TextButton ScrollingFrame UIGridStyleLayout UIPageLayout UIScale'.split())
     for name, entry in sorted(entries.items()):
@@ -110,15 +110,15 @@ def generate(definitions, schema):
         for key, native in entry['fields'].items():
             if key in observed and not native.startswith('RBXScriptSignal'):
                 groups.setdefault((native_type(native), name), []).append(key)
-    merged = {}
+    members = {}
     for (native, name), keys in groups.items():
-        merged.setdefault((native, tuple(sorted(keys))), []).append(name)
-    observations = []
-    for (native, keys), names in sorted(merged.items(), key=lambda item: (sorted(item[1])[0], item[0][0])):
-        owner = ' | '.join(sorted(names))
-        members = ' | '.join(f'\"{key}\"' for key in keys)
-        observations.append(f'(({owner}, {members}) -> Compose.Cell<{native}>)')
-    result += ['export type Observe = ' + '\n\t& '.join(observations), '']
+        for key in keys:
+            members.setdefault(key, {}).setdefault(native, []).append(name)
+    result += ['export type Observe = {']
+    for key, natives in sorted(members.items()):
+        signatures = [f'(({" | ".join(sorted(names))}) -> Compose.Cell<{native}>)' for native, names in sorted(natives.items())]
+        result.append(f'\t{key}: {" & ".join(signatures)},')
+    result += ['}', '']
     result += ['export type Host = {']
     for name in CLASSES:
         if name in {'GuiObject', 'GuiButton'}:

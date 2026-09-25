@@ -23,7 +23,7 @@ return function<V, K>(
 		end
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local existing = read(selection, use)
+		local existing = use(selection)
 		if next(existing) == nil then
 			return
 		end
@@ -75,7 +75,7 @@ return function<V, K>(
 			return false
 		end
 		local selected: CollectionTypes.Selection<K> = {}
-		local current = read(selection)
+		local current = selection:peek()
 		for key in base do
 			if current[key] then
 				selected[key] = true
@@ -110,7 +110,7 @@ return function<V, K>(
 		end
 		local selected: CollectionTypes.Selection<K> = {}
 		if held(toggle) or input == nil or input.UserInputType ~= E.UserInputType.MouseButton1 then
-			local current = read(selection)
+			local current = selection:peek()
 			for other, on in current do
 				if on and other ~= key then
 					selected[other] = true
@@ -130,7 +130,7 @@ return function<V, K>(
 			return
 		end
 		if anchor == nil or assert(controls.indexOfKey)(anchor :: K) == nil then
-			local selected = table.clone(read(selection))
+			local selected = table.clone(selection:peek())
 			selected[from] = true
 			anchorAt(from, selected)
 		end

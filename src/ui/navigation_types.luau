@@ -37,6 +37,18 @@ export type MenuItemBase = {
 export type MenuAvatar = { name: string, image: string?, userId: number? }
 export type MenuEdge = "top" | "bottom" | "leading" | "trailing"
 export type MenuAlign = "start" | "center" | "end"
+export type MenuDimLength = number | string
+export type MenuDim = {
+	type: "fixed" | "fill" | "hug" | "percent" | "content" | "minMax",
+	px: MenuDimLength?,
+	weight: number?,
+	fraction: number?,
+	offset: number?,
+	min: MenuDimLength?,
+	preferred: MenuDimLength?,
+	max: MenuDimLength?,
+}
+export type MenuWidth = number | UDim | UDim2 | MenuDim
 export type MenuAction<V = string> =
 	(MenuItemBase & {
 		children: Value<{ MenuItem<V> }>,
@@ -66,7 +78,6 @@ export type MenuSpec<V = string> = Types.FrameProps & {
 	query: ComposeTypes.Cell<string>?,
 	label: Value<string>?,
 	trigger: GuiObject | (() -> GuiObject)?,
-
 	disclosure: boolean?,
 	triggers: { MenuTrigger }?,
 	presentation: Value<"automatic" | "menu" | "sheet">?,
@@ -77,7 +88,7 @@ export type MenuSpec<V = string> = Types.FrameProps & {
 	isPresented: ComposeTypes.Cell<boolean>?,
 	edge: MenuEdge?,
 	align: MenuAlign?,
-	width: Value<number>?,
+	width: Value<MenuWidth>?,
 	maxHeight: number?,
 }
 export type PickerOption<V = string> = {
@@ -344,11 +355,11 @@ export type Surfaces = {
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Value<boolean>, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,
 	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Appearance,
-	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2)) -> (),
+	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), number?) -> (),
 	sheetModal: ((SheetSpec, SheetRequest, PresencePhase?) -> Frame)?,
 }
 export type PickerConstructor = (<V>(PickerSpec<V>) -> GuiObject) & ((string) -> <V>(PickerSpec<V>) -> GuiObject)
-export type MenuConstructor = (<V>(MenuSpec<V>) -> Frame) & ((string) -> <V>(MenuSpec<V>) -> Frame)
+export type MenuConstructor = (<V>(MenuSpec<V>) -> GuiObject) & ((string) -> <V>(MenuSpec<V>) -> GuiObject)
 export type SplitButtonConstructor = (<V>(SplitButtonSpec<V>) -> Frame) & ((string) -> <V>(SplitButtonSpec<V>) -> Frame)
 export type AlertConstructor = (<P>(AlertSpec<P>) -> Frame) & ((string) -> <P>(AlertSpec<P>) -> Frame)
 export type NavigationStackConstructor =

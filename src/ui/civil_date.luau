@@ -1,5 +1,6 @@
 --!strict
 local Types = require("./civil_date_types")
+local freeze = require("./freeze")
 export type CivilDate = Types.CivilDate
 export type Range = Types.Range
 export type Locale = Types.Locale
@@ -26,7 +27,7 @@ local english: Locale = {
 	separator = "/",
 	hourCycle = 12,
 }
-civil_date.ENGLISH = table.freeze(english)
+civil_date.ENGLISH = freeze(english)
 
 local function int(v: unknown): boolean
 	return type(v) == "number" and v == v and v % 1 == 0 and math.abs(v) < 2 ^ 31
@@ -130,7 +131,7 @@ function civil_date.weekday(d: CivilDate): number
 end
 
 function civil_date.monthGrid(year: number, month: number, weekStart: number): { CivilDate }
-	local first = { year = year, month = month, day = 1 }
+	local first: CivilDate = { year = year, month = month, day = 1 }
 	local lead = (civil_date.weekday(first) - weekStart) % 7
 	local start = civil_date.toDays(first) - lead
 	local out = {}

@@ -644,12 +644,11 @@ t.describe("native parity paint", function()
 		local count = #sheet:GetChildren()
 		t.expect(control:GetProperties().CornerRadius).toBe(UDim.new(0, 8))
 		t.expect(panel:GetProperties().CornerRadius).toBe(UDim.new(0, 12))
-		for _, role in
-			{ "surface", "control", "field", "button", "badge", "track", "skeleton", "avatar", "menu", "tab" }
-		do
+		for _, role in { "surface", "control", "field", "button", "badge", "track", "skeleton", "avatar", "tab" } do
 			t.expect(style(sheet, ".facet-" .. role .. "::UICorner").CornerRadius).toBe(UDim.new(0, 8))
 		end
 		t.expect(style(sheet, ".facet-sheet::UICorner").CornerRadius).toBe(UDim.new(0, 12))
+		t.expect(style(sheet, ".facet-menu::UICorner").CornerRadius).toBe(UDim.new(0, 12))
 		t.expect(style(sheet, ".facet-segmented::UICorner").CornerRadius).toBe(UDim.new(0, 10))
 		local retuned = themes.neutralPackage()
 		retuned.metrics.radii.control = 14
@@ -1317,36 +1316,43 @@ t.describe("native parity paint", function()
 			return ctx.Host.ScreenGui("DemoScreen")({ built.screen() })
 		end, engine.new("Folder"))
 		local UDim = engine.types.UDim
-		local function check(package: any)
-			local m, hairline = package.metrics.space.m, package.metrics.strokes.hairline
+		local Vector2 = engine.types.Vector2
+		local function check(package: any, textAt: number)
+			local hairline = package.metrics.strokes.hairline
 			local expected = {
 				DividerFull = { 0, 0 },
-				DividerLeading = { m, 0 },
-				DividerTrailing = { 0, m },
-				DividerBoth = { m, m },
+				DividerLeading = { textAt, 0 },
+				DividerTrailing = { 0, textAt },
+				DividerBoth = { textAt, textAt },
 				DividerHeavy = { 0, 0 },
 			}
 			for name, sides in expected do
 				local divider = find(root, name)
+				local row = find(divider, "Row")
+				t.expect(find(row, "Icon") ~= nil).toBe(true)
+				local title = find(row, "Title")
+				row.AbsolutePosition = Vector2.new(40, 100)
+				title.AbsolutePosition = Vector2.new(40 + textAt, 100)
 				local padding = find(divider, "Pad"):FindFirstChildWhichIsA("UIPadding")
-				t.expect(padding.PaddingLeft).toBe(UDim.new(0, sides[1]))
-				t.expect(padding.PaddingRight).toBe(UDim.new(0, sides[2]))
+				t.expect(`{name} {padding.PaddingLeft.Offset},{padding.PaddingRight.Offset}`)
+					.toBe(`{name} {sides[1]},{sides[2]}`)
 				t.expect(padding.PaddingTop).toBe(UDim.new(0, 0))
 				local line = find(divider, "Line")
 				t.expect(line:HasTag("facet-divider")).toBe(true)
 				t.expect(line.Size.Y.Offset).toBe(if name == "DividerHeavy" then 3 * hairline else hairline)
 			end
+			local card = find(root, "Dividers")
+			t.expect(card:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.X).toBe(360)
+			t.expect(card:HasTag("facet-panel")).toBe(true)
 		end
-		check(theme:peek())
+		check(theme:peek(), 28)
 		local pointer = shipped("compact_pointer")
 		theme:set(pointer)
-		t.expect(pointer.metrics.space.m ~= 16).toBe(true)
-		check(pointer)
+		check(pointer, 24)
 		local thick = themes.neutralPackage()
 		thick.metrics.strokes.hairline = 2
-		thick.metrics.space.m = 22
 		theme:set(thick)
-		check(thick)
+		check(thick, 30)
 		local sheet, stopSheet = sheetFor(harness(), thick)
 		t.expect(style(sheet, ".facet-divider").BackgroundTransparency).toBe(0.92)
 		stopSheet()
@@ -1530,6 +1536,7 @@ t.describe("native parity paint", function()
 			["facet-disclosure-plain"] = true,
 			["facet-disclosure-contained"] = true,
 			["facet-disclosure-divided"] = true,
+			["facet-disclosure-group"] = true,
 		}
 		for hook in hooks do
 			t.expect(literals[hook]).toBe(true)

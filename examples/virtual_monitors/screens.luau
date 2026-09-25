@@ -223,6 +223,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			end,
 		}
 		local presenceWords = { online = "Online", away = "Away", busy = "Busy" }
+		local menuShown = Compose.cell(false)
 		local root = UI.ZStack(name)({
 			width = "fill",
 			height = "fill",
@@ -236,14 +237,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					title = if name == "Chat" then "Assistant" else name,
 					titleSize = "heading",
 					Visible = function(use)
-						return not (collapsed and use(collapsed))
+						return use(menuShown) or not (collapsed and use(collapsed))
 					end,
 					trailing = UI.HStack "HeaderActions" {
 						gap = "s",
 						align = "center",
 						UI.HStack(chrome),
-						UI.Menu "ActionsMenu" {
-							trigger = UI.Button "MenuButton" {
+						UI.Menu {
+							trigger = UI.Button "ActionsMenu" {
 								icon = "more",
 								name = "Menu",
 								shape = "circle",
@@ -251,6 +252,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							},
 							Visible = function(use)
 								return not wide(use)
+							end,
+							onOpen = function()
+								menuShown:set(true)
+							end,
+							onClose = function()
+								menuShown:set(false)
 							end,
 							items = {
 								{ id = "Presentation", label = "Switch presentation", onSelect = model.toggleMode },
@@ -827,12 +834,20 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			UI.HStack "DetailsTabs" {
 				width = "fill",
 				gap = "s",
-				button("AboutTab", "About", function()
-					model.detailTab:set("about")
-				end),
-				button("SimilarTab", "Similar games", function()
-					model.detailTab:set("similar")
-				end),
+				UI.Picker "DetailSection" {
+					selected = model.detailTab,
+					onChange = function(value)
+						model.detailTab:set(value)
+					end,
+					style = "segmented",
+					sizing = "hug",
+					Size = D2.fromOffset(0, 44),
+					AutomaticSize = E.AutomaticSize.X,
+					options = {
+						{ value = "about", label = "About" },
+						{ value = "similar", label = "Similar games" },
+					},
+				},
 				UI.Spacer "TabsGap" { minLength = "s" },
 				button("SaveDetail", saveAction(current).label, function()
 					model.save(current:peek())
@@ -1006,7 +1021,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		end
 		local savedShelf = button("Saved", "Saved", function()
 			model.shelf:set("saved")
-		end)
+		end, {
+			selected = function(use)
+				return use(model.shelf) == "saved"
+			end,
+		})
 		local shelves = UI.HStack "Shelves" {
 			width = function(use)
 				return if short(use) and not compact(use) then "hug" else "fill"
@@ -1015,7 +1034,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			align = "center",
 			button("Browse", "Browse", function()
 				model.shelf:set("browse")
-			end),
+			end, {
+				selected = function(use)
+					return use(model.shelf) == "browse"
+				end,
+			}),
 			UI.badged(savedShelf, function(use)
 				return #use(model.savedGames)
 			end),
@@ -1245,7 +1268,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				end))
 			end),
 			Compose.show(function(use)
-				return use(model.shelf) == "saved"
+				return use(model.shelf) == "saved" and #use(model.savedGames) > 0
 			end, function()
 				return feedFrame(UI.Table "SavedGames" {
 					from = model.savedGames,

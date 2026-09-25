@@ -275,10 +275,11 @@ t.describe("native selection marks", function()
 	t.it("a chosen Chip, a checked box and a selected link row wear the authored ink, also under hover", function()
 		local package = authored({ selection = INK, onSelection = ON_INK })
 		local sheet, stopSheet = sheetOf(package)
+		local checked = Compose.cell(false)
 		local world = screen(package, function(UI)
 			return UI.VStack({
 				UI.Chip("Pick")({ label = "Pick", selected = Compose.cell(true) }),
-				UI.Toggle("Check")({ label = "Check", presentation = "checkbox", value = Compose.cell(true) }),
+				UI.Toggle("Check")({ label = "Check", presentation = "checkbox", value = checked }),
 				UI.Button("Link")({ label = "Tracks", appearance = "link", selected = true }),
 			})
 		end)
@@ -291,6 +292,10 @@ t.describe("native selection marks", function()
 		t.expect(hover.Priority > lastPriority(sheet, ".facet-button:Hover")).toBe(true)
 		t.expect(hover.Priority > ruleOf(sheet, ".facet-selected").Priority).toBe(true)
 		local indicator = world.find("Check"):FindFirstChild("Indicator", true)
+		t.expect(indicator:HasTag("facet-toggle-on")).toBe(false)
+		t.expect(indicator:FindFirstChild("Check").Visible).toBe(false)
+		t.expect(same(resolve(sheet, indicator, "BackgroundColor3"), INK)).toBe(false)
+		checked:set(true)
 		t.expect(indicator:HasTag("facet-toggle-on")).toBe(true)
 		t.expect(same(resolve(sheet, indicator, "BackgroundColor3"), INK)).toBe(true)
 		local tick = indicator:FindFirstChild("Check")
@@ -372,6 +377,73 @@ t.describe("native strong divider, pane and utility outline", function()
 		t.expect(ruleOf(dimmed, ".facet-scrim"):GetProperties().BackgroundTransparency).toBe(0.275)
 		stopDim()
 		runtime:dispose()
+		local neutralSheet, stopNeutral = sheetOf(themes.neutralPackage())
+		local strong = Compose.cell("strong")
+		local world = screen(themes.neutralPackage(), function(UI)
+			return UI.VStack({ UI.Divider("Edge")({ appearance = strong }) })
+		end)
+		local edge = world.find("Edge")
+		t.expect(edge:HasTag("facet-divider")).toBe(true)
+		t.expect(edge:HasTag("facet-divider-strong")).toBe(true)
+		t.expect(math.abs(resolve(neutralSheet, edge, "BackgroundTransparency") - 0.76) < 1e-9).toBe(true)
+		strong:set("standard")
+		t.expect(edge:HasTag("facet-divider-strong")).toBe(false)
+		t.expect(math.abs(resolve(neutralSheet, edge, "BackgroundTransparency") - 0.92) < 1e-9).toBe(true)
+		world.stop()
+		stopNeutral()
+	end)
+
+	t.it("the see-through backgrounds are a measured set, and the preference moves only the scrim", function()
+		local function census(preference: number): { [string]: number }
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local found: { [string]: number } = {}
+			local stop, sheet = runtime.mount(function()
+				return themes.createStyleSheet(
+					runtime,
+					themes.neutralPackage(),
+					{ types = engine.types, preferredTransparency = preference, reducedMotion = true } :: any
+				)
+			end, engine.new("Folder"))
+			for _, node in sheet:GetDescendants() do
+				if node.ClassName == "StyleRule" then
+					local value = node:GetProperties().BackgroundTransparency
+					if type(value) == "number" and value > 0 and value < 1 then
+						found[node.Selector] = value
+					end
+				end
+			end
+			stop()
+			runtime:dispose()
+			return found
+		end
+		local full, half = census(1), census(0.5)
+		local names: { string } = {}
+		for selector in full do
+			table.insert(names, selector)
+		end
+		table.sort(names)
+		t.expect(table.concat(names, " ")).toBe(table.concat({
+			".facet-appearance-soft",
+			".facet-appearance-soft:Hover",
+			".facet-appearance-soft:Press",
+			".facet-choice-current",
+			".facet-choice-current:Hover",
+			".facet-choice-current:Press",
+			".facet-divider",
+			".facet-divider-strong",
+			".facet-grabber",
+			".facet-menu-hairline",
+			".facet-scrim",
+		}, " "))
+		local moved: { string } = {}
+		for _, selector in names do
+			if math.abs(full[selector] - (half[selector] or -1)) > 1e-9 then
+				table.insert(moved, selector)
+			end
+		end
+		t.expect(table.concat(moved, " ")).toBe(".facet-scrim")
+		t.expect(math.abs(half[".facet-scrim"] - full[".facet-scrim"] * 0.5) < 1e-9).toBe(true)
 	end)
 
 	t.it("a pane is the raised fill with no corner and no edge", function()

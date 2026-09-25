@@ -366,7 +366,7 @@ return {
 							Padding = D.new(0, 8),
 							SortOrder = E.SortOrder.LayoutOrder,
 						}),
-						UI.Menu "HudActions" {
+						UI.Menu {
 							trigger = UI.Button "HudActionsTrigger" {
 								label = "",
 								name = copy.round1,
@@ -374,8 +374,6 @@ return {
 								shape = "circle",
 								Size = D2.fromOffset(44, 44),
 							},
-							AutomaticSize = E.AutomaticSize.None,
-							Size = D2.fromOffset(44, 44),
 							items = {
 								{ id = "damage", label = "Take damage", onSelect = steps.takeDamage },
 								{ id = "heal", label = "Restore health", onSelect = steps.heal },

@@ -21,6 +21,7 @@ local ColorPickerTypes = require("@self/ui/color_picker_types")
 local arithmetic = require("@self/ui/arithmetic")
 local adaptive = require("@self/ui/adaptive")
 local EnvironmentTypes = require("@self/ui/environment_types")
+local freeze = require("@self/ui/freeze")
 export type ButtonProps = InputTypes.ButtonProps
 export type ToggleProps = InputTypes.ToggleProps
 export type TextInputProps = InputTypes.TextInputProps
@@ -164,7 +165,7 @@ local USED = {
 }
 
 local recipes: { arithmetic: { parse: (unknown) -> number? } } =
-	table.freeze({ arithmetic = table.freeze({ parse = arithmetic.parse }) })
+	freeze({ arithmetic = freeze({ parse = arithmetic.parse }) })
 
 local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 	local fields = (core :: unknown) :: { [string]: unknown }
@@ -182,7 +183,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 	end
 	local themes = bindThemes(core)
 	local surface: Facet
-	surface = table.freeze({
+	surface = freeze({
 		VERSION = VERSION,
 		COMPOSE_COMMIT = COMPOSE_COMMIT,
 		Compose = core,

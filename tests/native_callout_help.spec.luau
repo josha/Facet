@@ -326,9 +326,14 @@ t.describe("native Callout: rich parts", function()
 				}),
 			})
 		end)
-		local ok = pcall(overlay.find(w.find("CalloutPanel"), "Again").Activated.fire)
+		local first = w.find("CalloutPanel")
+		local ok = pcall(overlay.find(first, "Again").Activated.fire)
 		t.expect(ok).toBe(false)
-		t.expect(#w.findAll("CalloutPanel")).toBe(1)
+		t.expect(generation:peek()).toBe(2)
+		local panels = w.findAll("CalloutPanel")
+		t.expect(#panels).toBe(1)
+		t.expect(panels[1] ~= first).toBe(true)
+		t.expect(overlay.find(panels[1], "Body") ~= nil).toBe(true)
 		t.expect(#reports).toBe(0)
 		w.stop()
 	end)
@@ -592,5 +597,52 @@ t.describe("native help: the structured form and the live plate", function()
 		w.screen.AbsoluteSize = Vector2.new(500, 600)
 		t.expect(panel.Position.X.Offset + 200 <= 500 - 8).toBe(true)
 		w.stop()
+	end)
+end)
+
+t.describe("native Callout: layering", function()
+	t.it("paints above the modal layer that holds its anchor and stays under modals elsewhere", function()
+		local w = overlay.new(function(UI, Host)
+			local plain = UI.Button "Plain" { label = "+" }
+			local held = UI.Button "Held" { label = "+" }
+			return Host.Folder({
+				Name = "Root",
+				Host.Frame({ Name = "Page", ZIndex = 1, plain }),
+				Host.Frame({ Name = "Modal", ZIndex = 100, held }),
+				UI.Callout "Low" {
+					anchor = plain,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end)
+		local panel = w.find("CalloutPanel")
+		t.expect(panel ~= nil).toBe(true)
+		t.expect(panel.ZIndex).toBe(95)
+		w.stop()
+		local lifted = overlay.new(function(UI, Host)
+			local held = UI.Button "Held" { label = "+" }
+			return Host.Folder({
+				Name = "Root",
+				Host.Frame({ Name = "Modal", ZIndex = 100, held }),
+				UI.Callout "High" {
+					anchor = held,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end)
+		local high = lifted.find("CalloutPanel")
+		t.expect(high ~= nil).toBe(true)
+		t.expect(high:HasTag("facet-floating")).toBe(true)
+		t.expect(high.ZIndex > 100).toBe(true)
+		local arrow = lifted.find("Arrow")
+		if arrow then
+			t.expect(arrow.ZIndex > 100).toBe(true)
+			t.expect(arrow.ZIndex < high.ZIndex).toBe(true)
+		end
+		lifted.stop()
 	end)
 end)

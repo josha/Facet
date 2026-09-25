@@ -152,6 +152,21 @@ t.describe("native lab audit: ProgressView rungs", function()
 		end)
 		t.expect(ok).toBe(false)
 		t.expect(string.find(tostring(err), "not both", 1, true) ~= nil).toBe(true)
+		for _, spec in
+			{
+				{ presentation = "circular", value = 0.5, diameter = 64, controlSize = "regular" },
+				{ presentation = "spinner", controlSize = "huge" },
+				{ value = 0.5, endLabel = 7 },
+				{ value = 0.5, endLabel = Compose.cell(7 :: any) },
+			} :: { { [string]: any } }
+		do
+			t.expect(worlds.mountError(function(UI)
+				return UI.ProgressView("P")(spec)
+			end) ~= nil).toBe(true)
+		end
+		t.expect(worlds.mountError(function(UI)
+			return UI.ProgressView("P")({ value = 0.5, endLabel = "Done" })
+		end)).toBeNil()
 	end)
 end)
 
@@ -176,33 +191,78 @@ t.describe("native lab audit: Vote and one rung plate height", function()
 		t.expect(heights["true/large"]).toBe(heights["false/large"])
 		t.expect(heights["true/compact"] < heights["true/large"]).toBe(true)
 	end)
-	for _, name in { "neutral", "pixel_quest", "fantasy_ornate", "scifi_hud" } do
+	for _, name in
+		{
+			"neutral",
+			"classic_desktop",
+			"compact_pointer",
+			"fantasy_ornate",
+			"fantasy_parchment",
+			"glossy_mobile",
+			"glossy_touch",
+			"pixel_quest",
+			"scifi_hud",
+		}
+	do
 		t.it(`{name}: a Button, the segmented track and a checkbox land on one rung height`, function()
+			local boxes: { number } = {}
 			for _, rung in { "xsmall", "compact", "regular", "large" } do
+				local options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } }
 				local w = worlds.new(function(UI, Host)
 					return Host.Frame({
 						Name = "Row",
 						UI.Button("B")({ label = "Settings", controlSize = rung }),
+						UI.Picker("PM")({
+							label = "Theme:",
+							style = "menu",
+							controlSize = rung,
+							selected = Compose.cell("a"),
+							options = options,
+						}),
 						UI.Picker("PS")({
 							style = "segmented",
 							controlSize = rung,
 							selected = Compose.cell("a"),
-							options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+							options = options,
 						}),
+						UI.TextInput("TI")({ value = Compose.cell("x"), controlSize = rung }),
 						UI.Toggle("TK")({
 							label = "Motion",
 							presentation = "checkbox",
 							controlSize = rung,
 							value = Compose.cell(false),
 						}),
+						UI.Toggle("TC")({
+							label = "Reduced Motion",
+							presentation = "checkbox",
+							appearance = "plain",
+							controlSize = rung,
+							value = Compose.cell(false),
+						}),
+						UI.Toggle("TS")({ label = "Music", controlSize = rung, value = Compose.cell(false) }),
 					})
 				end, { theme = package(name) })
 				local button = w.find("B").Size.Y.Offset
 				t.expect(`{rung} {button > 0}`).toBe(`{rung} true`)
-				t.expect(`{rung} {w.find("PS").Size.Y.Offset}`).toBe(`{rung} {button}`)
-				t.expect(`{rung} {w.find("TK").Size.Y.Offset}`).toBe(`{rung} {button}`)
+				local plated = {
+					menu = w.find("Trigger", w.find("PM")),
+					segmented = w.find("PS"),
+					field = w.find("Input", w.find("TI")),
+					checkbox = w.find("TK"),
+				}
+				for key, node in plated do
+					t.expect(`{rung} {key} {node.Size.Y.Offset}`).toBe(`{rung} {key} {button}`)
+				end
+				for _, key in { "TC", "TS" } do
+					t.expect(`{rung} {key} {w.find(key).Size.Y.Offset <= button}`).toBe(`{rung} {key} true`)
+				end
+				local box = w.find("Indicator", w.find("TC")).Size
+				t.expect(`{rung} {box.X.Offset == box.Y.Offset and box.Y.Offset <= button}`).toBe(`{rung} true`)
+				table.insert(boxes, box.Y.Offset)
 				w.stop()
 			end
+			t.expect(boxes[1] <= boxes[2] and boxes[2] <= boxes[3] and boxes[3] <= boxes[4]).toBe(true)
+			t.expect(boxes[1] < boxes[4]).toBe(true)
 		end)
 	end
 end)

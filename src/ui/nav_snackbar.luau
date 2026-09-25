@@ -270,7 +270,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 
 	local function trackReturn()
 		if gui and gui.GetPropertyChangedSignal then
-			local selection = ctx.observe(gui, "SelectedObject")
+			local selection = ctx.observe.SelectedObject(gui)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local selected = use(selection)
 				if selected == nil then
@@ -292,8 +292,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if layer == nil then
 			return Host.Folder "Detached" {}
 		end
-		local extent = ctx.observe(layer, "AbsoluteSize")
-		local origin = ctx.observe(layer, "AbsolutePosition")
+		local extent = ctx.observe.AbsoluteSize(layer)
+		local origin = ctx.observe.AbsolutePosition(layer)
 		local closable = spec.closeButton ~= false
 		local constrained = spec.action ~= nil or closable
 		local function cap(use: ComposeTypes.Use): number
@@ -310,7 +310,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			AutomaticSize = E.AutomaticSize.None,
 			Visible = false,
 		})
-		local natural = ctx.observe(measure, "TextBounds")
+		local natural = ctx.observe.TextBounds(measure)
 		local actionWidth = Compose.cell(0)
 		local chrome = function(use: ComposeTypes.Use): number
 			local package = ctx.read(ctx.config.theme, use)
@@ -389,7 +389,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 				end,
 			}
-			local size = ctx.observe(button, "AbsoluteSize")
+			local size = ctx.observe.AbsoluteSize(button)
 			Compose.watch(function(use: ComposeTypes.Use)
 				actionWidth:set(use(size).X)
 			end)
@@ -457,7 +457,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(row, "panel")
 		surfaces.skin(row, "panel")
 		local gone = Compose.cell(0)
-		local reduced = if gui then ctx.observe(gui, "ReducedMotionEnabled") else Compose.cell(false)
+		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
 		local shown = Compose.cell(false)
 		local slide = runtime.tween(function(use: ComposeTypes.Use)
 			return if phase and use(phase.exiting) then 0 elseif use(shown) then 1 else 0
@@ -468,7 +468,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return use(slide)
 		end
-		local measured = ctx.observe(row, "AbsoluteSize")
+		local measured = ctx.observe.AbsoluteSize(row)
 		runtime.decorate(row, {
 			Position = function(use: ComposeTypes.Use)
 				local travel = (1 - amount(use)) * (use(measured).Y + 16)
@@ -481,13 +481,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return not (phase and use(phase.exiting))
 			end,
 		})
-		local state = ctx.observe(row, "GuiState")
+		local state = ctx.observe.GuiState(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			rec.hovered = use(state) == E.GuiState.Hover
 		end)
 		rec.row = row
 		local token = {}
-		local at = ctx.observe(row, "AbsolutePosition")
+		local at = ctx.observe.AbsolutePosition(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(measured)
 			local offset = use(origin)
@@ -507,7 +507,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end)
 		local selection: ComposeTypes.Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
-			then ctx.observe(gui, "SelectedObject")
+			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		ctx.action(row, "SnackbarCancel", { E.KeyCode.ButtonB, E.KeyCode.Escape }, function(use: ComposeTypes.Use)
 			local selected = use(selection)
@@ -519,7 +519,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				gui.SelectedObject = back
 			end
 		end, { priority = 2500 })
-		local parent = ctx.observe(row, "Parent")
+		local parent = ctx.observe.Parent(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(parent) then
 				shown:set(true)

@@ -361,6 +361,90 @@ add("chrome-insets-reserve-native-padding", { "themes-P2-20", "themes-P2-26" }, 
 	end
 end)
 
+add("panel-insets-reserve-native-padding", { "themes-P2-20" }, function(t)
+	for _, theme in t.themes do
+		local recipe = theme.package.chrome and theme.package.chrome.panel
+		local inset = if recipe then recipe.contentInsets or {} else {}
+		local stage = t.mount(function(UI, _, Compose)
+			return UI.Alert({
+				isPresented = Compose.cell(true),
+				title = "Replace the save?",
+				message = "Your changes to this slot are not saved yet.",
+				actions = { { id = "stay", label = "Stay", role = "cancel" }, { id = "go", label = "Replace" } },
+			})
+		end, { theme = theme.package, size = Vector2.new(800, 600) })
+		local panel
+		for _, node in stage.Parent:GetDescendants() do
+			if node.Name == "AlertPanel" and node:IsA("GuiObject") and t.visible(node) then
+				panel = node
+			end
+		end
+		if not panel then
+			t.check(`{theme.name} alert panel shown`, false)
+			t.cleanup()
+			continue
+		end
+		t.stable(panel)
+		local left, right, top, bottom = paddingOf(panel)
+		t.check(`{theme.name} the panel wears the facet-panel tag`, panel:HasTag("facet-panel"), panel:GetTags())
+		t.near(`{theme.name} panel left padding is the panel inset`, left, math.max(0, inset.left or 0), 0.5)
+		t.near(`{theme.name} panel right padding is the panel inset`, right, math.max(0, inset.right or 0), 0.5)
+		t.near(`{theme.name} panel top padding is the panel inset`, top, math.max(0, inset.top or 0), 0.5)
+		t.near(`{theme.name} panel bottom padding is the panel inset`, bottom, math.max(0, inset.bottom or 0), 0.5)
+		local layout = panel:FindFirstChild("AlertLayout")
+		if layout then
+			local r = t.rect(panel)
+			t.inside(
+				`{theme.name} the alert content sits inside the panel padding`,
+				layout,
+				{ x = r.x + left, y = r.y + top, r = r.r - right, b = r.b - bottom, w = 0, h = 0 },
+				1
+			)
+		else
+			t.check(`{theme.name} alert layout found`, false)
+		end
+		t.cleanup()
+	end
+end)
+
+add("chrome-zero-inset-full-bleed", { "themes-P2-26" }, function(t)
+	local tested = 0
+	for _, theme in t.themes do
+		local chrome = theme.package.chrome
+		local control = chrome and chrome.control
+		if not control or control.kind == "native" or control.kind == "none" then
+			continue
+		end
+		local package = table.clone(theme.package)
+		package.chrome = table.clone(chrome)
+		local bare = table.clone(control)
+		bare.contentInsets = { left = 0, right = 0, top = 0, bottom = 0 }
+		package.chrome.control = bare
+		local stage = t.mount(function(UI)
+			return UI.Button "Plain" { label = "Continue", Size = UDim2.fromOffset(240, 44) }
+		end, { theme = package, size = Vector2.new(420, 300) })
+		local node = t.find(stage, "Plain")
+		local lifted = node and t.find(node, "LabelBounds")
+		if not lifted then
+			t.check(`{theme.name} lifted label found`, false)
+			t.cleanup()
+			continue
+		end
+		tested += 1
+		t.stable(lifted)
+		local n, l = t.rect(node), t.rect(lifted)
+		local left, right, top, bottom = paddingOf(node)
+		t.note(`{theme.name} zero inset: button padding`, { left, right, top, bottom })
+		t.near(`{theme.name} zero inset: no top padding`, top, 0, 0.5)
+		t.near(`{theme.name} zero inset: no bottom padding`, bottom, 0, 0.5)
+		t.near(`{theme.name} zero inset: the lifted label spans the button height`, l.h, n.h, 1)
+		t.near(`{theme.name} zero inset: the lifted label starts at the text padding floor`, l.x, n.x + left, 1)
+		t.near(`{theme.name} zero inset: the lifted label ends at the text padding floor`, l.r, n.r - right, 1)
+		t.cleanup()
+	end
+	t.check("at least one skinned control package was tested", tested > 0, tested)
+end)
+
 add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 	for _, theme in t.themes do
 		t.mount(function(UI, Host, Compose)

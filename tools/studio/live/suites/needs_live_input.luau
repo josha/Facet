@@ -139,10 +139,23 @@ add("sidebar-dpad-to-collections", { "apps-193" }, function(t)
 	GuiService.SelectedObject = tab
 	t.settle(2)
 	t.check("all-controls tab selected", selectedName() == "all-controls", selectedName())
+	local peer = tabs and tabs:FindFirstChild("collections", true)
+	local across = tab ~= nil
+		and peer ~= nil
+		and peer.AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
+	t.note("demo strip axis", if across then "horizontal: press DPadRight" else "vertical: press DPadDown")
 	return {}
 end, {
 	afterDown = function(t)
 		t.check("one DPadDown selects the collections tab", selectedName() == "collections", selectedName())
+		GuiService.SelectedObject = nil
+	end,
+	afterRight = function(t)
+		t.check(
+			"one DPadRight along the demo strip selects the collections tab",
+			selectedName() == "collections",
+			selectedName()
+		)
 		GuiService.SelectedObject = nil
 	end,
 }, true)
@@ -397,6 +410,15 @@ end, {
 			outside = outside,
 			now = selectedName(),
 		})
+		table.clear(value.visited)
+	end,
+	afterBack = function(t, value)
+		t.check("ButtonB dismisses the sheet", value.sheet:peek() == false, value.sheet:peek())
+		t.check(
+			"Back returns the selection to the control that held it",
+			selectedName() == "Background",
+			selectedName()
+		)
 		value.connection:Disconnect()
 		GuiService.SelectedObject = nil
 	end,
@@ -444,6 +466,11 @@ end, {
 			value.visited
 		)
 		t.check("Up stays inside the alert", within(GuiService.SelectedObject, value.panel), selectedName())
+		table.clear(value.visited)
+	end,
+	afterActivate = function(t, value)
+		t.check("ButtonA on an alert action closes the alert", value.alert:peek() == false, value.alert:peek())
+		t.check("the selection returns to the control that held it", selectedName() == "Background", selectedName())
 		value.connection:Disconnect()
 		GuiService.SelectedObject = nil
 	end,
@@ -481,6 +508,16 @@ end, {
 	end,
 	afterLeft = function(t, value)
 		t.check("Left selects Cancel", selectedName() == "Cancel", value.visited)
+	end,
+	afterBack = function(t, value)
+		local open = false
+		for _, node in value.gui:GetDescendants() do
+			if node.Name == "Cancel" and node:IsA("GuiButton") and t_visible(node) then
+				open = true
+			end
+		end
+		t.check("ButtonB dismisses the dialog", not open)
+		t.check("Back returns the selection to Delete", selectedName() == "Delete", selectedName())
 		value.connection:Disconnect()
 		GuiService.SelectedObject = nil
 	end,

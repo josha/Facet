@@ -8,6 +8,7 @@ local Theme = require("./theme_types")
 local parts = require("./overlay_parts")
 local reservations = require("./reservations")
 local reducedMotion = require("./motion")
+local freeze = require("./freeze")
 
 type Controls = {
 	Notice: Types.Constructor<Overlay.NoticeSpec, Frame>,
@@ -38,16 +39,16 @@ local NAV_KEYS = {
 	"gap",
 	"padding",
 }
-local SEVERITIES = table.freeze({
+local SEVERITIES: { [string]: string } = freeze({
 	info = "status.info",
 	success = "status.success",
 	warning = "status.warning",
 	error = "status.error",
 })
 
-local REVEAL = table.freeze({ enter = 0.25, exit = 0.2 })
+local REVEAL: { enter: number, exit: number } = freeze({ enter = 0.25, exit = 0.2 })
 
-local ICON_TAGS = table.freeze({
+local ICON_TAGS: { [string]: string } = freeze({
 	info = "facet-icon-info",
 	success = "facet-icon-success",
 	warning = "facet-icon-warning",
@@ -192,7 +193,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			AutomaticSize = E.AutomaticSize.None,
 			Visible = false,
 		})
-		local natural = ctx.observe(measure, "TextBounds")
+		local natural = ctx.observe.TextBounds(measure)
 		Compose.watch(function(use: ComposeTypes.Use)
 			copyNatural:set(math.ceil(use(natural).X))
 		end)
@@ -238,7 +239,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				list.Wraps = true
 				list.VerticalAlignment = E.VerticalAlignment.Center
 			end
-			local rowSize = ctx.observe(row, "AbsoluteSize")
+			local rowSize = ctx.observe.AbsoluteSize(row)
 			Compose.watch(function(use: ComposeTypes.Use)
 				accessoryWidth:set(use(rowSize).X)
 			end)
@@ -362,7 +363,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return UD.new(0, panelCarve(use).bottom)
 			end,
 		})
-		local bodyExtent = ctx.observe(body, "AbsoluteSize")
+		local bodyExtent = ctx.observe.AbsoluteSize(body)
 		local function settled(use: ComposeTypes.Use): boolean
 			return progress(use) >= 1
 		end
@@ -406,7 +407,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(root, "notice")
 		ctx.styled(root, if emphasis then "status-" .. severity else "panel")
 		root:SetAttribute("NoticeSeverity", severity)
-		local extent = ctx.observe(root, "AbsoluteSize")
+		local extent = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			offered:set(use(extent).X)
 		end)
@@ -416,7 +417,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if placement == "affixed" then
 			local owner = assert(Compose.currentOwner())
 			local token = {}
-			local at = ctx.observe(root, "AbsolutePosition")
+			local at = ctx.observe.AbsolutePosition(root)
 			local layerOwner: ComposeTypes.Owner? = nil
 			local current: Instance? = nil
 			local function locate()
@@ -438,8 +439,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return
 					end
 					current = layer
-					local origin = ctx.observe(layer, "AbsolutePosition")
-					local height = ctx.observe(layer, "AbsoluteSize")
+					local origin = ctx.observe.AbsolutePosition(layer)
+					local height = ctx.observe.AbsoluteSize(layer)
 					local function publish()
 						local box = root.AbsoluteSize
 						local paints = box.X > 0 and box.Y > 0 and root.Visible
@@ -640,11 +641,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			surfaces.attach(root, { ctx.padding(space(spec.padding, "s"), space(spec.padding, "s")) })
 		end
 		if trailingFrame then
-			local box = ctx.observe(root, "AbsoluteSize")
-			local sides = ctx.observe(trailingFrame, "AbsoluteSize")
-			local main = ctx.observe(primaryFrame, "AbsoluteSize")
-			local middle = ctx.observe(centerFrame, "AbsoluteSize")
-			local natural = if titleMeasure then ctx.observe(titleMeasure, "TextBounds") else nil
+			local box = ctx.observe.AbsoluteSize(root)
+			local sides = ctx.observe.AbsoluteSize(trailingFrame)
+			local main = ctx.observe.AbsoluteSize(primaryFrame)
+			local middle = ctx.observe.AbsoluteSize(centerFrame)
+			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
 			Compose.watch(function(use: ComposeTypes.Use)
 				local width = use(box).X
 				if width <= 0 then

@@ -73,7 +73,7 @@ def public_controls():
 
 def facet_members():
     source = read(FACET_INIT)
-    match = re.search(r"table\.freeze\(\{(.*?)\n\t*\}\)\n\t*return surface", source, re.S)
+    match = re.search(r"(?:table\.)?freeze\(\{(.*?)\n\t*\}\)\n\t*return surface", source, re.S)
     if match is None:
         print(f"check_call_shape_drift: FAIL_ENVIRONMENT no export table in {FACET_INIT}")
         sys.exit(2)

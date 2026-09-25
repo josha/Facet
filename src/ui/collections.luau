@@ -18,6 +18,7 @@ type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 return function(ctx: Types.Context, UI: Controls): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readSource = ctx.readSource
 	local props, observe = ctx.props, ctx.observe
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
@@ -334,10 +335,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 					wireSelection(content, key)
 					if spec.measure then
 						local measuredNode = content:GetChildren()[#content:GetChildren()] :: GuiObject
-						local size: ComposeTypes.Cell<Vector2> = observe(measuredNode, "AbsoluteSize")
+						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
 						local factor: ComposeTypes.Readable<number> = if lift
-							then observe(lift, "Scale")
+							then observe.Scale(lift)
 							else Compose.cell(1)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local scale = math.max(use(factor), 0.001)
@@ -437,8 +438,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return overlayReorder(true)
 			end, root)
 		end
-		local size: ComposeTypes.Cell<Vector2> = observe(root, "AbsoluteWindowSize")
-		local position: ComposeTypes.Cell<Vector2> = observe(root, "CanvasPosition")
+		local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteWindowSize(root)
+		local position: ComposeTypes.Cell<Vector2> = observe.CanvasPosition(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local dimensions, at = use(size), use(position)
 			local offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge(use))
@@ -581,7 +582,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			spec.focus.last = focusScope.last
 			spec.focus.isFocused = focusScope.isFocused
 		end
-		local parent = observe(root, "Parent")
+		local parent = observe.Parent(root)
 		local function restoreFocus(key: K?): ()
 			if
 				gui == nil
@@ -631,7 +632,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			restoreFocus(focusScope.current:peek())
 		end)
 		local selected: ComposeTypes.Cell<GuiObject?> = if gui
-			then observe(gui, "SelectedObject")
+			then observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local node = use(selected)
@@ -688,7 +689,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end)
 		local function eligible(use: ComposeTypes.Use): boolean
-			local node = read(selected, use)
+			local node = readSource(selected, use)
 			if node == nil or not belongsTo(node, root) then
 				return false
 			end

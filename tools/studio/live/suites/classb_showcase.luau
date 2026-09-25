@@ -274,6 +274,46 @@ add("vm-phone-avatar-and-assistant", { "apps2-279" }, function(t)
 	end
 end)
 
+add("vm-saved-shelf-takes-the-column", { "apps2-283" }, function(t)
+	for _, size in { Vector2.new(1920, 1080), Vector2.new(1280, 720), Vector2.new(920, 640) } do
+		local where = `{size.X}x{size.Y}`
+		local value = monitors(t, size, "Discover")
+		local stage, model = value.stage, value.model
+		local body = t.find(stage, "DiscoverBody")
+		local games = t.find(stage, "Games")
+		t.check(`{where} the Discover body and the Games grid mount`, body ~= nil and games ~= nil)
+		if not (body and games) then
+			t.cleanup()
+			continue
+		end
+		t.stable(games)
+		local grid = t.rect(games)
+		local items = model.catalog.items:peek()
+		model.toggleSaved(items[1].id)
+		model.toggleSaved(items[2].id)
+		model.shelf:set("saved")
+		t.settle(30)
+		local saved = t.find(stage, "SavedGames")
+		t.check(`{where} the Games grid unmounts on the Saved shelf`, t.find(stage, "Games") == nil)
+		t.check(`{where} the Saved table mounts`, saved ~= nil)
+		if saved then
+			t.stable(saved)
+			local r = t.rect(saved)
+			t.note(`{where} grid and saved heights`, { grid = grid.h, saved = r.h })
+			t.check(
+				`{where} the Saved table is at least 0.9 of the Games grid height`,
+				r.h >= grid.h * 0.9,
+				{ grid = grid.h, saved = r.h }
+			)
+			t.inside(`{where} the Saved table stays inside the Discover body`, saved, body, 1)
+		end
+		model.shelf:set("browse")
+		t.settle(30)
+		t.check(`{where} the Games grid returns on the Browse shelf`, t.find(stage, "Games") ~= nil)
+		t.cleanup()
+	end
+end)
+
 add("vm-detail-information-scrolls", { "apps2-282" }, function(t)
 	for _, size in { Vector2.new(920, 640), Vector2.new(393, 852), Vector2.new(1920, 1080) } do
 		local where = `{size.X}x{size.Y}`

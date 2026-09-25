@@ -22,20 +22,19 @@ return function(
 		table.insert(flowProps, child)
 	end
 	local flow = Host.Frame(flowProps)
-	local size = ctx.observe(flow, "AbsoluteSize")
+	local size = ctx.observe.AbsoluteSize(flow)
 	props.AutomaticCanvasSize = E.AutomaticSize.None
 	props.CanvasSize = function(use: ComposeTypes.Use)
 		return D2.fromOffset(0, use(size).Y)
 	end
 	table.insert(
 		props,
-		Host.Frame({
-			Name = "Measure",
+		Host.Frame "Measure" {
 			BackgroundTransparency = 1,
 			Size = if hug then D2.fromOffset(0, MEASURE) else D2.new(1, 0, 0, MEASURE),
 			AutomaticSize = if hug then E.AutomaticSize.X else E.AutomaticSize.None,
 			flow,
-		})
+		}
 	)
 	return Host.ScrollingFrame(props), flow, size
 end

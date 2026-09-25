@@ -171,7 +171,7 @@ end
 
 local function read<T>(source: Engine.Value<T>, use: ComposeTypes.Use?): T
 	if type(source) == "function" then
-		return (source :: (ComposeTypes.Use) -> T)(use or function(value)
+		return (source :: (ComposeTypes.Use) -> T)(use or function<U>(value: ComposeTypes.Readable<U>): U
 			return value:peek()
 		end)
 	end
@@ -469,8 +469,8 @@ function themes.checkCoverage(
 end
 
 function themes.resolveIcon(package: ThemeTypes.IconRegistry, name: string, state: ThemeTypes.SkinState?): string?
-	local assets = package.assets or {}
-	local entry: ThemeTypes.IconEntry? = (package.icons or {})[name] or icons.ART[name]
+	local assets: { [string]: ThemeTypes.Asset } = package.assets or {}
+	local entry: unknown = (package.icons or {})[name] or icons.ART[name]
 	if type(entry) == "table" and ((entry :: unknown) :: { default: unknown }).default ~= nil then
 		local variants = (entry :: unknown) :: { [string]: string | ThemeTypes.IconAsset }
 		entry = variants[state or "default"] or variants.default
@@ -481,10 +481,8 @@ function themes.resolveIcon(package: ThemeTypes.IconRegistry, name: string, stat
 	if type(entry) ~= "table" then
 		return nil
 	end
-	local asset = entry :: ThemeTypes.IconAsset
-	if asset.asset then
-		asset = assets[asset.asset]
-	end
+	local icon = entry :: ThemeTypes.IconAsset
+	local asset: ThemeTypes.Asset? = if icon.asset then assets[icon.asset] else icon
 	return if asset then asset.contentId or asset.content else nil
 end
 
@@ -513,14 +511,15 @@ local function font(types: Engine.RobloxTypes, value: ThemeTypes.FontSpec | Font
 	if typeof(value) == "Font" then
 		return value
 	end
-	local family = value.family or "BuilderSans"
+	local spec = value :: ThemeTypes.FontSpec
+	local family = spec.family or "BuilderSans"
 	if not string.find(family, "://", 1, true) then
 		family = "rbxasset://fonts/families/" .. family .. ".json"
 	end
 	return types.Font.new(
 		family,
-		((types.Enum.FontWeight :: unknown) :: { [string]: Enum.FontWeight })[value.weight or "Regular"],
-		((types.Enum.FontStyle :: unknown) :: { [string]: Enum.FontStyle })[value.style or "Normal"]
+		((types.Enum.FontWeight :: unknown) :: { [string]: Enum.FontWeight })[spec.weight or "Regular"],
+		((types.Enum.FontStyle :: unknown) :: { [string]: Enum.FontStyle })[spec.style or "Normal"]
 	)
 end
 
@@ -552,11 +551,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		if typeof(value) == "Font" then
 			return value
 		end
-		local key = (value.family or "BuilderSans")
+		local spec = value :: ThemeTypes.FontSpec
+		local key = (spec.family or "BuilderSans")
 			.. ":"
-			.. (value.weight or "Regular")
+			.. (spec.weight or "Regular")
 			.. ":"
-			.. (value.style or "Normal")
+			.. (spec.style or "Normal")
 		if typefaces[key] == nil then
 			typefaces[key] = font(types, value)
 		end
@@ -628,7 +628,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			elseif role == "panel" or role == "menu" or role == "sheet" then "surfaceStrong"
 			else "control"
 		rule(".facet-" .. role, { BackgroundColor3 = c(paletteRole), BackgroundTransparency = 0, BorderSizePixel = 0 })
-		local radius = if role == "panel" or role == "sheet"
+		local radius = if role == "panel"
+				or role == "sheet"
+				or role == "menu"
 			then package.metrics.radii.panel
 			else package.metrics.radii.control
 		rule(".facet-" .. role .. "::UICorner", { CornerRadius = types.UDim.new(0, radius) })
@@ -652,7 +654,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-" .. role, { BackgroundColor3 = c(ink), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
 	for role, slot in { button = "control", field = "field", badge = "badge", panel = "panel" } :: { [string]: string } do
-		local recipe = (package.chrome or {})[slot]
+		local chrome = package.chrome
+		local recipe = if chrome then chrome[slot] else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
 		local horizontal = if role == "button" then 12 elseif role == "badge" then 8 else 0
 		local vertical = if role == "badge" then 3 else 0
@@ -915,7 +918,33 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu-destructive:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
 	rule(".facet-menu-destructive >> .facet-button-caption", { TextColor3 = c("danger") })
 	rule(".facet-menu-destructive >> .facet-icon", { ImageColor3 = c("danger") })
-	rule(".facet-menu::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
+	rule(".facet-menu::UIStroke", {
+		Color = c("hairline"),
+		Transparency = 0.3,
+		Thickness = 1,
+		ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
+	})
+	rule(".facet-menu::UIShadow", {
+		BlurRadius = types.UDim.new(0, 14),
+		Transparency = 0.35,
+		Offset = types.UDim2.fromOffset(0, 3),
+	})
+	rule(".facet-menu-group::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.panel) })
+	rule(
+		".facet-menu-hairline",
+		{ BackgroundColor3 = c("hairline"), BackgroundTransparency = extra.hairlineOpacity, BorderSizePixel = 0 }
+	)
+	for _, state in { "", ":Hover", ":Press" } do
+		rule(".facet-menu-item.facet-selected" .. state, {
+			BackgroundTransparency = 0,
+			BackgroundColor3 = c("accent"),
+			TextColor3 = c("onAccent"),
+		})
+	end
+	rule(".facet-menu-item.facet-selected >> .facet-button-caption", { TextColor3 = c("onAccent") })
+	rule(".facet-menu-item.facet-selected >> .facet-text", { TextColor3 = c("onAccent") })
+	rule(".facet-menu-item.facet-selected >> .facet-icon", { ImageColor3 = c("onAccent") })
+	rule(".facet-floating::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
 	rule(".facet-step-circle::UIStroke", { Color = c("contentSecondary"), Thickness = 1 })
 	rule(".facet-invalid::UIStroke", { Color = c("danger"), Thickness = 1 })
 	rule(".facet-date-time-picker", { BackgroundTransparency = 1 })
@@ -1052,14 +1081,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local dim = extra.disabledContentOpacity or 0.4
 		local page = source("surface")
 		local function faded(role: string): Color3?
-			local plate = source(role)
-			if plate == nil or page == nil then
+			local plate, base = source(role), page
+			if plate == nil or base == nil then
 				return c(role)
 			end
 			return types.Color3.new(
-				plate.r + (page.r - plate.r) * dim,
-				plate.g + (page.g - plate.g) * dim,
-				plate.b + (page.b - plate.b) * dim
+				plate.r + (base.r - plate.r) * dim,
+				plate.g + (base.g - plate.g) * dim,
+				plate.b + (base.b - plate.b) * dim
 			)
 		end
 		for _, entry in
@@ -1358,8 +1387,7 @@ local function createStyleSheet(
 		end
 		record.timing = timing
 	end
-	local sheet = Host.StyleSheet({
-		Name = settings.name or "FacetTheme",
+	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
 			from = ids,
 			render = function(current: ComposeTypes.Readable<string>)
@@ -1423,11 +1451,19 @@ local function variantAsset(value: ThemeTypes.AssetSource?, state: ThemeTypes.Sk
 	if type(value) ~= "table" then
 		return nil
 	end
-	if ((value :: unknown) :: { asset: unknown }).asset ~= nil then
-		return (value :: { asset: string }).asset
+	local linked = ((value :: unknown) :: { asset: unknown }).asset
+	if linked ~= nil then
+		return linked :: string
 	end
 	local variants = value :: ThemeTypes.AssetVariants
-	local selected = variants[state] or variants.default
+	local selected = (
+		if state == "hover"
+			then variants.hover
+			elseif state == "pressed" then variants.pressed
+			elseif state == "selected" then variants.selected
+			elseif state == "disabled" then variants.disabled
+			else nil
+	) or variants.default
 	return if type(selected) == "table" then selected.asset else selected
 end
 
@@ -1468,7 +1504,8 @@ local function skin(
 	local D2, V2 = types.UDim2, types.Vector2
 	if not Compose.isReadable(packageOrReadable) and type(packageOrReadable) ~= "function" then
 		local package = read(packageOrReadable) or neutral
-		local recipe = (package.chrome or {})[slot]
+		local chrome = package.chrome
+		local recipe = if chrome then chrome[slot] else nil
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 			local root = Host.Frame "Skin" {
 				Size = settings.Size or D2.fromScale(1, 1),
@@ -1520,7 +1557,8 @@ local function skin(
 	local compiled: { CompiledLayers } = {}
 	local function buildLayers(use: ComposeTypes.Use): { ImageLayer }
 		local package = read(packageOrReadable, use) or neutral
-		local recipe = (package.chrome or {})[slot]
+		local chrome = package.chrome
+		local recipe = if chrome then chrome[slot] else nil
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 			return {}
 		end
@@ -1839,7 +1877,8 @@ local function skin(
 	end)
 	local shadow = Compose.formula(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use) or neutral
-		local recipe = (package.chrome or {})[slot]
+		local chrome = package.chrome
+		local recipe = if chrome then chrome[slot] else nil
 		local value = if recipe then recipe.shadow else nil
 		if type(value) == "string" then
 			value = (package.style.shadows or {})[value] or shadowPresets[value]

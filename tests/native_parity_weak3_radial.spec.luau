@@ -118,6 +118,29 @@ t.describe("radial ring arrival motion", function()
 		end
 	end)
 
+	t.it("a held D-pad stays on one ring stop because the ring pins engine selection", function()
+		local world = setup(function(UI)
+			return UI.RadialMenu({
+				isPresented = Compose.cell(true),
+				appearance = "buttons",
+				items = {
+					{ id = "North", label = "North" },
+					{ id = "East", label = "East" },
+					{ id = "South", label = "South" },
+					{ id = "West", label = "West" },
+				},
+			})
+		end, false)
+		world.step(0.2)
+		local north = find(world.root, "North")
+		world.gui.SelectedObject = north
+		world.step(0.05)
+		for _, direction in { "Up", "Down", "Left", "Right" } do
+			t.expect(`{direction}: {tostring(north["NextSelection" .. direction] == north)}`).toBe(`{direction}: true`)
+		end
+		world.stop()
+	end)
+
 	t.it("a slot added to an open ring slides in from the center", function()
 		local items = Compose.cell({
 			{ id = "Wave", label = "Wave", onSelect = function() end },

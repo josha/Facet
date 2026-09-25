@@ -6,6 +6,7 @@ local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local release = require("./sheet_release")
+local freeze = require("./freeze")
 
 type Controls = {
 	Sheet: Types.Constructor<Nav.SheetSpec, Frame>,
@@ -42,13 +43,16 @@ local KEYS = {
 	"contentInset",
 	"scrollPolicy",
 }
-local PLACEMENTS = table.freeze({ automatic = true, adaptive = true, bottom = true, side = true, center = true })
+local PLACEMENTS: { [string]: boolean } =
+	freeze({ automatic = true, adaptive = true, bottom = true, side = true, center = true })
 local HANDLE = 20
-local SHEET = table.freeze({ enter = 0.3, exit = 0.2 })
+local SHEET: { enter: number, exit: number } = freeze({ enter = 0.3, exit = 0.2 })
 local SETTLE_LIMIT = 20
+local SETTLE_PERIOD = 0.4
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
+	local readSource = ctx.readSource
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local frames = runtime.host.frames
 	local function now(): number
@@ -170,10 +174,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local edge = spec.edge or "right"
 		local gui = surfaces.service("GuiService")
 		local input = surfaces.service("UserInputService")
-		local reduced = if gui then ctx.observe(gui, "ReducedMotionEnabled") else Compose.cell(false)
+		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
 		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 				and input.GetPropertyChangedSignal
-			then ctx.observe(input, "PreferredInput")
+			then ctx.observe.PreferredInput(input)
 			else nil
 		local function reduce(use: ComposeTypes.Use?): boolean
 			return read(ctx.config.reducedMotion, use) == true or read(reduced, use) == true
@@ -182,8 +186,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return 0
 		end
 		if input and input.GetPropertyChangedSignal then
-			local visible = ctx.observe(input, "OnScreenKeyboardVisible")
-			local size = ctx.observe(input, "OnScreenKeyboardSize")
+			local visible = ctx.observe.OnScreenKeyboardVisible(input)
+			local size = ctx.observe.OnScreenKeyboardSize(input)
 			keyboard = function(use: ComposeTypes.Use): number
 				return if use(visible) == true then use(size).Y else 0
 			end
@@ -203,7 +207,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function heightOf(d: Detent, use: ComposeTypes.Use?): number
 			local room = available(use)
 			local want = if d.hug
-				then read(hugHeight, use) or minimum(use)
+				then readSource(hugHeight, use) or minimum(use)
 				elseif d.fraction then room * d.fraction
 				else assert(d.height)
 			return math.min(room, math.max(minimum(use), want))
@@ -221,7 +225,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local lastValid = if byId[spec.detent:peek()] then spec.detent:peek() else detents[1].id
 		local function selected(use: ComposeTypes.Use?): Detent
-			local id = read(spec.detent, use)
+			local id = readSource(spec.detent, use)
 			local found = byId[id]
 			if found then
 				lastValid = id
@@ -239,13 +243,57 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return not use(ready)
 			end,
 		})
+		local settling: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
+		local stopSettle: (() -> ())? = nil
 		local function painted(use: ComposeTypes.Use?): number
-			local drag = read(dragHeight, use)
+			local drag = readSource(dragHeight, use)
 			if drag then
 				return drag
 			end
-			return if reduce(use) then heightOf(selected(use), use) else read(motion, use)
+			if reduce(use) then
+				return heightOf(selected(use), use)
+			end
+			local settle = if use then use(settling) else settling:peek()
+			return if settle then settle else read(motion, use)
 		end
+		local function halt()
+			local stop = stopSettle
+			stopSettle = nil
+			if stop then
+				stop()
+			end
+			settling:set(nil)
+		end
+		local function launch(from: number, speed: number)
+			halt()
+			if frames == nil or reduce() then
+				return
+			end
+			local position, velocity = from, speed
+			local stiffness, damping = (2 * math.pi / SETTLE_PERIOD) ^ 2, 4 * math.pi / SETTLE_PERIOD
+			settling:set(position)
+			stopSettle = frames.onFrame(function(delta: number)
+				local target = heightOf(selected())
+				local remaining = math.min(delta, 0.25)
+				while remaining > 0 do
+					local step = math.min(remaining, 1 / 120)
+					remaining -= step
+					velocity += (-stiffness * (position - target) - damping * velocity) * step
+					local nextPosition = position + velocity * step
+					if (nextPosition - target) * (position - target) <= 0 then
+						position, velocity = target, 0
+						break
+					end
+					position = nextPosition
+				end
+				if math.abs(position - target) < 0.5 and math.abs(velocity) < 5 then
+					halt()
+					return
+				end
+				settling:set(position)
+			end)
+		end
+		Compose.cleanup(halt)
 		local canDismiss = function(use: ComposeTypes.Use?): boolean
 			return read(spec.interactiveDismissDisabled, use) ~= true
 		end
@@ -298,6 +346,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			}
 			local current = assert(session)
 			if current.acquired then
+				halt()
 				dragHeight:set(current.start)
 				table.insert(current.samples, { height = current.start, at = now() })
 			end
@@ -314,6 +363,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				current.acquired = true
 				current.origin += if y > current.origin then current.slop else -current.slop
+				halt()
 				dragHeight:set(current.start)
 				table.insert(current.samples, { height = current.start, at = now() })
 			end
@@ -363,6 +413,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local height = dragHeight:peek() or current.start
 			local speed = velocity(current)
 			local choice = release.choose(stops(), height, speed, selected().id, canDismiss())
+			if choice ~= "dismiss" then
+				launch(height, speed)
+			end
 			endSession()
 			if choice == "dismiss" then
 				if request == nil or request("drag") then
@@ -416,8 +469,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return true
 		end)
 		local indicator = spec.dragIndicator or "automatic"
-		local grabber = Host.TextButton({
-			Name = "Grabber",
+		local grabber = Host.TextButton "Grabber" {
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
 			Size = D2.fromOffset(88, 44),
@@ -437,18 +489,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				},
 				"grabber"
 			) :: Types.Child,
-		})
+		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			grabber:SetAttribute("AccessibleLabel", "Size: " .. word(selected(use).id))
 		end)
-		local handle = Host.Frame({
-			Name = "DragHandle",
+		local handle = Host.Frame "DragHandle" {
 			BackgroundTransparency = 1,
 			Size = D2.new(1, 0, 0, HANDLE),
 			Visible = indicator ~= "hidden",
 			detector("UIDragDetector", "grip"),
 			grabber :: Instance,
-		})
+		}
 		local regions: { GuiObject } = {}
 		local hero = spec.hero
 		local sticky = hero ~= nil and hero.sticky == true
@@ -496,20 +547,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				table.insert(children, node)
 				surfaces.attach(frame, {
-					Host.Frame({
-						Name = "Art",
+					Host.Frame "Art" {
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
 						table.unpack(children),
-					}),
+					},
 				})
 			end
 			if overHero then
 				local close = closeControl()
 				if close then
 					surfaces.attach(frame, {
-						Host.Frame({
-							Name = "Utilities",
+						Host.Frame "Utilities" {
 							BackgroundTransparency = 1,
 							AnchorPoint = V2.new(1, 0),
 							Position = D2.fromScale(1, 0),
@@ -517,7 +566,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							AutomaticSize = E.AutomaticSize.XY,
 							ZIndex = 3,
 							close,
-						}),
+						},
 					})
 				end
 			end
@@ -636,7 +685,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end, press).frame
 			)
 		end
-		local contentSize = ctx.observe(bodyLayout, "AbsoluteContentSize")
+		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)
 		local extra = if hero == nil or sticky then inset * 2 else 0
 		local function natural(use: ComposeTypes.Use): number
 			return use(contentSize).Y + extra
@@ -671,7 +720,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return false
 		end
 		if declared == "adaptive" and input and input.GetPropertyChangedSignal then
-			local mouse, touch = ctx.observe(input, "MouseEnabled"), ctx.observe(input, "TouchEnabled")
+			local mouse, touch = ctx.observe.MouseEnabled(input), ctx.observe.TouchEnabled(input)
 			pointer = function(use: ComposeTypes.Use): boolean
 				return use(mouse) == true and use(touch) ~= true
 			end
@@ -761,7 +810,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			exiting = if phase then phase.exiting else nil,
 			appearance = shown,
 		})
-		local size = ctx.observe(overlay, "AbsoluteSize")
+		local size = ctx.observe.AbsoluteSize(overlay)
 		local measured = Compose.cell(false)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local value = use(size)
@@ -771,7 +820,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end)
 		if frames and not ready:peek() then
-			local panelSize = ctx.observe(panel, "AbsoluteSize")
+			local panelSize = ctx.observe.AbsoluteSize(panel)
 			local function textExtent(): number
 				local total = 0
 				for _, node in panel:GetDescendants() do

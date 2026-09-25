@@ -4,6 +4,7 @@ local Types = require("./types")
 local ControlTypes = require("./control_types")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
+local freeze = require("./freeze")
 
 export type Component = () -> ComposeTypes.Child
 export type AppOptions = {
@@ -81,6 +82,10 @@ return function(
 			if props.ResetOnSpawn == nil then
 				props.ResetOnSpawn = false
 			end
+			if props.ZIndexBehavior == nil then
+				local enums = if settings.types then settings.types.Enum else Enum
+				props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
+			end
 			props[1] = sheet
 			props[2] = Links.StyleLink({ StyleSheet = Compose.static(sheet) })
 			props[3] = component()
@@ -112,5 +117,5 @@ return function(
 			runtime:dispose()
 		end
 	end
-	return table.freeze({ runtime = runtime, UI = UI, mount = mount, dispose = dispose })
+	return freeze({ runtime = runtime, UI = UI, mount = mount, dispose = dispose })
 end

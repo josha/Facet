@@ -18,6 +18,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local behavior = {
 		"from",
@@ -96,7 +97,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end)
 		local input = ctx.config.userInputService
 		local preferredInput: ComposeTypes.Readable<Enum.PreferredInput>? = if input
-			then ctx.observe(input, "PreferredInput")
+			then ctx.observe.PreferredInput(input)
 			else nil
 		local minimumRow = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.itemSize ~= nil then
@@ -130,8 +131,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			extra: number
 		): ()
 			local observed: ComposeTypes.Readable<Vector2> = if node:IsA("TextLabel")
-				then ctx.observe(node, "TextBounds")
-				else ctx.observe(node, "TextBounds")
+				then ctx.observe.TextBounds(node)
+				else ctx.observe.TextBounds(node)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local bounds = use(observed)
 				local height = bounds.Y + extra
@@ -222,7 +223,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end)
 		local collapsed = Compose.formula(function(use: ComposeTypes.Use)
-			local columns, offer, resized = read(spec.columns, use), use(viewportWidth), read(widths, use)
+			local columns, offer, resized = read(spec.columns, use), use(viewportWidth), readSource(widths, use)
 			local hidden: { [string]: boolean } = {}
 			local candidates: { { id: string, width: number, priority: number } } = {}
 			local needed = 0
@@ -266,7 +267,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			use: ComposeTypes.Use
 		): number?
 			local column = use(current)
-			return read(widths, use)[column.id] or column.width
+			return readSource(widths, use)[column.id] or column.width
 		end
 		local function columnFrame(
 			current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
@@ -321,7 +322,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					appearance = "utility",
 					TextXAlignment = E.TextXAlignment.Left,
 					label = function(use: ComposeTypes.Use)
-						local value, order = use(current), read(sort, use)
+						local value, order = use(current), readSource(sort, use)
 						local suffix = if order and order.column == value.id
 							then (if order.direction == "descending" then " ↓" else " ↑")
 							else ""
@@ -331,7 +332,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						return use(current).sortable ~= false
 					end,
 					onActivate = function()
-						local order = read(sort)
+						local order = readSource(sort)
 						local descending = order and order.column == column.id and order.direction == "ascending"
 						local nextSort: CollectionTypes.Sort = {
 							column = column.id,
@@ -380,7 +381,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							end,
 							DragContinue = function(position)
 								local value = current:peek()
-								local nextWidths = table.clone(read(widths))
+								local nextWidths = table.clone(readSource(widths))
 								nextWidths[value.id] = math.clamp(
 									startingWidth + position.X - startingPosition,
 									value.minWidth or 48,
@@ -404,7 +405,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end)
 					local function adjust(delta: number): ()
 						local value = current:peek()
-						local nextWidths = table.clone(read(widths))
+						local nextWidths = table.clone(readSource(widths))
 						nextWidths[value.id] = math.clamp(
 							(nextWidths[value.id] or frame.AbsoluteSize.X) + delta,
 							value.minWidth or 48,
@@ -434,7 +435,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			headerCells,
 		}
 		local header = Host.Frame(headerProps)
-		local headerExtent = ctx.observe(headerLayout, "AbsoluteContentSize")
+		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
 		local reorderGutter = if spec.reorderable then 56 else 0
 		local wrapReorder: ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame)?
 		local overlayReorder: ((boolean?) -> Frame)?
@@ -558,7 +559,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 								)
 							if not definition.render then
 								recordHeight(cellHeights, definition.id, content :: TextLabel, 16)
-								local fits = ctx.observe(content :: TextLabel, "TextFits")
+								local fits = ctx.observe.TextFits(content :: TextLabel)
 								Compose.watch(function(use: ComposeTypes.Use)
 									local id = use(column).id
 									local hidden = use(fits) == false
@@ -667,7 +668,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					local wrapped = UI.RowActions(actionSpec)
 					local content = wrapped:FindFirstChild("Content")
 					if content and content:IsA("GuiObject") then
-						local size: ComposeTypes.Readable<UDim2> = ctx.observe(content, "Size")
+						local size: ComposeTypes.Readable<UDim2> = ctx.observe.Size(content)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local gutter = math.max(0, -use(size).X.Offset)
 							if (editGutters:peek()[key] or 0) ~= gutter then
@@ -694,7 +695,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end,
 		}
 		body = UI.VirtualList(bodySpec)
-		local position, window = ctx.observe(body, "CanvasPosition"), ctx.observe(body, "AbsoluteWindowSize")
+		local position, window = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(position)
 			viewportWidth:set(use(window).X - reorderGutter - use(editGutter))

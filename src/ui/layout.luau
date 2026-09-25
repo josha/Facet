@@ -80,7 +80,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 					node.ZIndex = index
 				end
 				if aligned then
-					placed[node] = ctx.observe(node, "AbsoluteSize")
+					placed[node] = ctx.observe.AbsoluteSize(node)
 					members:update(function(count: number): number
 						return count + 1
 					end)
@@ -99,7 +99,8 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 						local extent = use(observed)
 						table.insert(nodes, node)
 						extents[node] = extent
-						widest, tallest = math.max(widest, extent.X), math.max(tallest, extent.Y)
+						widest = math.max(widest, extent.X)
+						tallest = math.max(tallest, extent.Y)
 					end
 				end
 				for _, node in nodes do
@@ -299,7 +300,6 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 		local native: Engine.FrameNativeProps = {
 			Name = "Divider",
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 		}
 		local node = ctx.styled(Host.Frame(ctx.props(spec, { "axis", "thickness", "appearance" }, native)), "divider")

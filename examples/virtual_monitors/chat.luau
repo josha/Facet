@@ -86,13 +86,13 @@ return function(ctx)
 		local observation = runtime.host.observation
 		local serial = 0
 		local function refresh()
-			serial += 1
-			local ticket = serial
 			local text = label.ContentText
 			local widthNow = label.AbsoluteSize.X
 			if text == "" or widthNow <= 0 then
 				return
 			end
+			serial += 1
+			local ticket = serial
 			task.spawn(function()
 				local size = label:GetStyled("TextSize")
 				local params = Instance.new("GetTextBoundsParams")
@@ -108,10 +108,12 @@ return function(ctx)
 				end
 				local lines = math.max(1, math.round(bounds.Y / size))
 				local height = size + (lines - 1) * size * label:GetStyled("LineHeight")
-				label.Size = D2.new(1, 0, 0, math.round(height))
+				if height > 0 then
+					label.AutomaticSize = E.AutomaticSize.None
+					label.Size = D2.new(1, 0, 0, math.round(height))
+				end
 			end)
 		end
-		label.AutomaticSize = E.AutomaticSize.None
 		Compose.cleanup(observation.observeProperty(label, "ContentText", refresh))
 		Compose.cleanup(observation.observeProperty(label, "AbsoluteSize", refresh))
 		refresh()
@@ -397,15 +399,14 @@ return function(ctx)
 						return #use(chat.messages) > 0
 					end,
 				}),
-				UI.Menu "Conversation" {
+				UI.Menu {
 					trigger = button("ConversationMenu", "Conversation", function() end, {
 						compactLabel = "Thread",
 						Size = D2.fromOffset(146, 40),
 						AutomaticSize = E.AutomaticSize.None,
 					}),
 					items = conversationItems,
-					Size = D2.fromOffset(146, 40),
-					AutomaticSize = E.AutomaticSize.None,
+					width = { type = "hug", min = 220, max = 320 },
 				},
 			},
 			UI.ZStack "Thread" {

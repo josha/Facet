@@ -223,6 +223,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 				}
 			end)
 			t.expect(gui.ClassName).toBe("ScreenGui")
+			t.expect(gui.ZIndexBehavior).toBe(engine.types.Enum.ZIndexBehavior.Sibling)
 			t.expect(gui.Parent).toBe(playerGui)
 			t.expect(gui.ResetOnSpawn).toBe(false)
 			local sheet = gui:FindFirstChildWhichIsA("StyleSheet")

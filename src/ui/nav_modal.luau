@@ -24,14 +24,14 @@ return function(ctx: Types.Context): Nav.Surfaces
 
 	local function selecting(): (ComposeTypes.Use) -> boolean
 		local active = gui ~= nil and gui.SelectedObject ~= nil
-		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe(input, "PreferredInput") else nil
+		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		return function(use: ComposeTypes.Use): boolean
 			return active or (preferred ~= nil and use(preferred) == E.PreferredInput.Gamepad)
 		end
 	end
 
 	local function preference(): (ComposeTypes.Use) -> number
-		local source = if gui and gui.GetPropertyChangedSignal then ctx.observe(gui, "PreferredTransparency") else nil
+		local source = if gui and gui.GetPropertyChangedSignal then ctx.observe.PreferredTransparency(gui) else nil
 		return function(use: ComposeTypes.Use): number
 			local value = if source then use(source) else 1
 			return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
@@ -110,10 +110,12 @@ return function(ctx: Types.Context): Nav.Surfaces
 	local function popover(
 		panel: GuiObject,
 		amount: Nav.Appearance,
-		place: (ComposeTypes.Use) -> (Vector2, Vector2)
+		place: (ComposeTypes.Use) -> (Vector2, Vector2),
+		from: number?
 	): ()
+		local rest = from or 0.9
 		local function scale(use: ComposeTypes.Use): number
-			return 0.9 + 0.1 * amount(use)
+			return rest + (1 - rest) * amount(use)
 		end
 		runtime.decorate(panel, {
 			Position = function(use: ComposeTypes.Use)
@@ -210,6 +212,35 @@ return function(ctx: Types.Context): Nav.Surfaces
 			ZIndex = spec.ZIndex or 101,
 		})
 		local root: Frame
+		local function near(point: Vector2): boolean
+			local boxes: { GuiObject } = { panel }
+			if root and root.AbsoluteSize.X > 0 then
+				local full = panel.AbsoluteSize.X >= root.AbsoluteSize.X - 1
+					and panel.AbsoluteSize.Y >= root.AbsoluteSize.Y - 1
+				if full then
+					boxes = {}
+					for _, child in panel:GetChildren() do
+						if child:IsA("GuiObject") and child.Visible then
+							table.insert(boxes, child)
+						end
+					end
+				end
+			end
+			for _, box in boxes do
+				local at, size = box.AbsolutePosition, box.AbsoluteSize
+				if
+					size.X > 0
+					and size.Y > 0
+					and point.X >= at.X - 24
+					and point.X <= at.X + size.X + 24
+					and point.Y >= at.Y - 24
+					and point.Y <= at.Y + size.Y + 24
+				then
+					return true
+				end
+			end
+			return false
+		end
 		local back = function()
 			if root and not ctx.available(root) then
 				return
@@ -244,16 +275,8 @@ return function(ctx: Types.Context): Nav.Surfaces
 					if root and not ctx.available(root) then
 						return
 					end
-					if input and input.Position and panel.AbsoluteSize.X > 0 and panel.AbsoluteSize.Y > 0 then
-						local point, at, size = input.Position, panel.AbsolutePosition, panel.AbsoluteSize
-						if
-							point.X >= at.X - 24
-							and point.X <= at.X + size.X + 24
-							and point.Y >= at.Y - 24
-							and point.Y <= at.Y + size.Y + 24
-						then
-							return
-						end
+					if input and input.Position and near(V2.new(input.Position.X, input.Position.Y)) then
+						return
 					end
 					if ctx.read(spec.outsideDismiss) ~= false and ctx.read(spec.canDismiss) ~= false then
 						if spec.onOutside then
@@ -286,6 +309,22 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 		end
 		local released = false
+		local landed = false
+		local owned = false
+		local function reclaimable(selected: Instance?): boolean
+			if selected == nil or selected.Parent == nil or within(selected, root) then
+				return true
+			end
+			if not owned or selected == previous then
+				return false
+			end
+			for _, scope in ctx.modalScopes:peek() do
+				if scope ~= root and within(selected, scope) then
+					return false
+				end
+			end
+			return true
+		end
 		local locked: Instance? = nil
 		local function unlock()
 			local layer = locked
@@ -328,8 +367,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 			ctx.modalScopes:set(remaining)
 			if gui then
-				local selected = gui.SelectedObject
-				if selected == nil or selected.Parent == nil or within(selected, root) then
+				if reclaimable(gui.SelectedObject) then
 					gui.SelectedObject = if previous
 							and previous.Parent ~= nil
 							and not within(previous, root)
@@ -349,6 +387,8 @@ return function(ctx: Types.Context): Nav.Surfaces
 						previous = selected
 					end
 					claim()
+					landed = false
+					owned = false
 					if gui and selected then
 						gui.SelectedObject = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
 					end
@@ -364,17 +404,18 @@ return function(ctx: Types.Context): Nav.Surfaces
 			{ priority = spec.priority or 2000 }
 		)
 		if gui then
-			local mounted = ctx.observe(root, "Parent")
+			local guiService: GuiService = gui
+			local mounted = ctx.observe.Parent(root)
 			local ancestry = Compose.cell(0)
 			runtime.connect(root, "AncestryChanged", function()
 				ancestry:set(ancestry:peek() + 1)
 			end)
-			local rootInteractive = ctx.observe(root, "Interactable")
-			local panelInteractive = ctx.observe(panel, "Interactable")
+			local rootInteractive = ctx.observe.Interactable(root)
+			local panelInteractive = ctx.observe.Interactable(panel)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if not use(rootInteractive) or not use(panelInteractive) then
-					if within(gui.SelectedObject, root) then
-						gui.SelectedObject = if previous
+					if reclaimable(guiService.SelectedObject) then
+						guiService.SelectedObject = if previous
 								and previous.Parent ~= nil
 								and not within(previous, root)
 							then previous
@@ -385,11 +426,43 @@ return function(ctx: Types.Context): Nav.Surfaces
 					and use(ancestry) >= 0
 					and not (exiting and use(exiting))
 					and focusIn(use)
-					and not within(gui.SelectedObject, root)
+					and not within(guiService.SelectedObject, root)
 				then
 					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
 					pcall(function()
-						gui.SelectedObject = target
+						guiService.SelectedObject = target
+					end)
+				end
+			end)
+			local selection = ctx.observe.SelectedObject(gui)
+			local extent = ctx.observe.AbsoluteSize(panel)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local selected = use(selection) :: Instance?
+				use(extent)
+				local scopes = use(ctx.modalScopes)
+				if within(selected, root) then
+					landed = true
+					owned = true
+					return
+				end
+				if not released and not (exiting and exiting:peek()) and root.Interactable and panel.Interactable then
+					owned = false
+				end
+				if
+					landed
+					or scopes[#scopes] ~= root
+					or not use(mounted)
+					or (exiting and use(exiting))
+					or not use(rootInteractive)
+					or not use(panelInteractive)
+					or not focusIn(use)
+				then
+					return
+				end
+				local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 then
+					pcall(function()
+						guiService.SelectedObject = target
 					end)
 				end
 			end)
@@ -434,12 +507,12 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local attached = false
 				while at do
 					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe(at, "Visible"))
-						table.insert(sources, ctx.observe(at, "Interactable"))
+						table.insert(sources, ctx.observe.Visible(at))
+						table.insert(sources, ctx.observe.Interactable(at))
 					end
 					if at:IsA("LayerCollector") then
 						attached = true
-						table.insert(sources, ctx.observe(at, "Enabled"))
+						table.insert(sources, ctx.observe.Enabled(at))
 						break
 					end
 					at = at.Parent
@@ -552,9 +625,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 			then value :: Inputs.HelpSpec
 			else nil
 		local text: Types.Value<string> = if structured then structured.body else value :: Types.Value<string>
-		local state = ctx.observe(anchor, "GuiState")
-		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe(gui, "SelectedObject") else nil
-		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe(input, "PreferredInput") else nil
+		local state = ctx.observe.GuiState(anchor)
+		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
+		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local wanted = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local kind = if preferred then use(preferred) else nil
 			if kind == E.PreferredInput.Touch then
@@ -579,8 +652,8 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local amount = appearance(phase, POPOVER)
 				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
 					or assert(anchor:FindFirstAncestorWhichIsA("LayerCollector"))
-				local at, bounds = ctx.observe(anchor, "AbsolutePosition"), ctx.observe(anchor, "AbsoluteSize")
-				local extent, origin = ctx.observe(layer, "AbsoluteSize"), ctx.observe(layer, "AbsolutePosition")
+				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
+				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
 				local measure = ctx.text({
 					Name = "HelpMeasure",
 					Text = function(use: ComposeTypes.Use)
@@ -592,7 +665,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					AutomaticSize = E.AutomaticSize.None,
 				})
 				measure:AddTag("facet-type-caption")
-				local natural = ctx.observe(measure, "TextBounds")
+				local natural = ctx.observe.TextBounds(measure)
 				local label = ctx.text({
 					Name = "HelpText",
 					Text = function(use: ComposeTypes.Use)
@@ -652,7 +725,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				runtime.decorate(measure, { LayoutOrder = 4 })
 				table.insert(panelProps, measure)
 				local panel = Host.CanvasGroup(panelProps)
-				local measured = ctx.observe(panel, "AbsoluteSize")
+				local measured = ctx.observe.AbsoluteSize(panel)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
 				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)

@@ -1380,7 +1380,7 @@ t.describe("control motion policy and lifetime", function()
 			local stop, screen = w.mount(function(UI, Host)
 				return motionScene(UI, Host, state)
 			end)
-			local row = find(screen, "RowBody").Parent.Parent.Parent
+			local row = find(screen, "RowBody").Parent.Parent
 			row.AbsoluteSize = w.engine.types.Vector2.new(320, 44)
 			w.step(0.6)
 			local sheetPanel = find(screen, "SheetPanel")
@@ -1458,7 +1458,7 @@ t.describe("control motion policy and lifetime", function()
 			local stop = w.runtime.mount(function()
 				return w.runtime.constructors.ScreenGui({ motionScene(w.UI, w.runtime.constructors, state) })
 			end, target)
-			local row = find(target, "RowBody").Parent.Parent.Parent
+			local row = find(target, "RowBody").Parent.Parent
 			row.AbsoluteSize = w.engine.types.Vector2.new(320, 44)
 			w.step(0.05)
 			find(target, "Go").Activated.fire()

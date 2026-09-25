@@ -112,7 +112,12 @@ return {
 				Name = "Styled",
 				BorderSizePixel = 0,
 				Size = UDim2.fromOffset(120, 56),
-				Host.UICorner({ CornerRadius = UDim.new(0, 16) }),
+				Host.UICorner({
+					TopLeftRadius = UDim.new(0, 16),
+					TopRightRadius = UDim.new(0, 0),
+					BottomLeftRadius = UDim.new(0, 0),
+					BottomRightRadius = UDim.new(0, 16),
+				}),
 				Host.UIStroke({ Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
 				Host.UIShadow({ Name = "Shadow" }),
 			})

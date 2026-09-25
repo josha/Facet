@@ -473,6 +473,21 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			for _, key in ROOT_KEYS do
 				target[key], source[key] = source[key], nil
 			end
+			local moved: { Instance } = {}
+			for index = #source, 1, -1 do
+				local child = source[index]
+				local node = if typeof(child) == "Instance"
+						or (type(child) == "table" and (child :: { [string]: unknown }).IsA ~= nil)
+					then child :: Instance
+					else nil
+				if node and (node:IsA("UIFlexItem") or node:IsA("UISizeConstraint")) then
+					table.insert(moved, 1, node)
+					table.remove(source :: { unknown }, index)
+				end
+			end
+			for _, child in moved do
+				table.insert(rootProps :: { unknown }, child)
+			end
 			nativeProps.Name = "Field"
 			nativeProps.BackgroundTransparency = 1
 			nativeProps.Size = if spec.visibleLines
@@ -591,8 +606,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local function slot(name: string, order: number, content: Instance)
 				table.insert(
 					parts,
-					Host.Frame({
-						Name = name,
+					Host.Frame(name)({
 						LayoutOrder = order,
 						BackgroundTransparency = 1,
 						Size = D2.fromOffset(0, 0),
@@ -637,10 +651,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end,
 				}, { node :: ComposeTypes.Child })
 				local viewport = editor :: ScrollingFrame
-				local caret = ctx.observe(node, "CursorPosition")
-				local drawn = ctx.observe(node, "TextBounds")
-				local window = ctx.observe(viewport, "AbsoluteWindowSize")
-				local canvas = ctx.observe(viewport, "AbsoluteCanvasSize")
+				local caret = ctx.observe.CursorPosition(node)
+				local drawn = ctx.observe.TextBounds(node)
+				local window = ctx.observe.AbsoluteWindowSize(viewport)
+				local canvas = ctx.observe.AbsoluteCanvasSize(viewport)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local at, extent, view, full = tonumber(use(caret)) or -1, use(drawn), use(window), use(canvas)
 					if at < 1 or extent.Y <= 0 or view.Y <= 0 then
@@ -742,16 +756,48 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			})
 		end
 
+		local drawnHeight: ComposeTypes.Readable<number>
+		if spec.multiline == true then
+			local shown = ctx.observe.Text(node)
+			local measure = ctx.text({
+				Name = "Measure",
+				Text = function(use: ComposeTypes.Use): string
+					local text = use(shown)
+					return if string.sub(text, -1) == "\n" then text .. " " else text
+				end,
+				Size = D2.new(1, 0, 0, 100000),
+				AutomaticSize = E.AutomaticSize.None,
+				Visible = false,
+				TextWrapped = true,
+				TextTransparency = 1,
+				TextXAlignment = E.TextXAlignment.Left,
+				TextYAlignment = E.TextYAlignment.Top,
+				FontFace = ctx.observeStyled.FontFace(node),
+				TextSize = ctx.observeStyled.TextSize(node),
+				LineHeight = ctx.observeStyled.LineHeight(node),
+			})
+			runtime.mount(function()
+				return measure
+			end, node)
+			local measured = ctx.observe.TextBounds(measure)
+			drawnHeight = Compose.formula(function(use: ComposeTypes.Use): number
+				return use(measured).Y
+			end)
+		else
+			local bounds = ctx.observe.TextBounds(node)
+			drawnHeight = Compose.formula(function(use: ComposeTypes.Use): number
+				return use(bounds).Y
+			end)
+		end
 		if spec.multiline == true and not messageNode then
-			local bounds = ctx.observe(node, "TextBounds")
 			Compose.watch(function(use: ComposeTypes.Use)
-				textHeight:set(use(bounds).Y)
+				textHeight:set(use(drawnHeight))
 			end)
 		end
 		if messageNode then
-			local bounds, messageBounds = ctx.observe(node, "TextBounds"), ctx.observe(messageNode, "TextBounds")
+			local messageBounds = ctx.observe.TextBounds(messageNode)
 			Compose.watch(function(use: ComposeTypes.Use)
-				textHeight:set(use(bounds).Y)
+				textHeight:set(use(drawnHeight))
 				messageHeight:set(use(messageBounds).Y)
 			end)
 		end
@@ -790,13 +836,27 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			cancel,
 			{ priority = 10000 }
 		)
-		local nativeEditingAvailable = ctx.observe(editingContext, "Enabled")
+		local nativeEditingAvailable = ctx.observe.Enabled(editingContext)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if not use(nativeEditingAvailable) and editing:peek() then
 				editing:set(false)
 				releaseFocus()
 			end
 		end)
+		local inputService = ctx.config.services.UserInputService
+		if inputService then
+			local touchLive = ctx.observe.TouchEnabled(inputService)
+			local keyboardLive = ctx.observe.KeyboardEnabled(inputService)
+			local hadTouch = touchLive:peek() == true
+			Compose.watch(function(use: ComposeTypes.Use)
+				local touchNow = use(touchLive) == true
+				local keyboardNow = use(keyboardLive) == true
+				if hadTouch and not touchNow and not keyboardNow and editing:peek() then
+					releaseFocus()
+				end
+				hadTouch = touchNow
+			end)
+		end
 		runtime.connect(node, "ReturnPressedFromOnScreenKeyboard", function()
 			if spec.multiline ~= true then
 				commit("submit")
@@ -934,7 +994,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end)
 			local input = ctx.config.services.UserInputService
 			if input then
-				local preferred = ctx.observe(input, "PreferredInput")
+				local preferred = ctx.observe.PreferredInput(input)
 				local first = true
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(preferred)

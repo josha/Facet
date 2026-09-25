@@ -16,7 +16,7 @@ function scaffold.plan(kind: string, name: string): Plan
 		edits = {
 			{
 				path = "src/ui/init.luau",
-				before = "\ttable.freeze(UI)",
+				before = "\treturn freeze(UI)",
 				insert = `\trequire("@self/{name}")(ctx, UI)\n`,
 			},
 			{

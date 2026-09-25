@@ -96,7 +96,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		return read(spec.value) == nextValue
 	end
-	local function attributes(node, values)
+	local function attributes(node: Instance, values: Shared.Attributes): Instance
 		runtime.decorate(node, { Attributes = values })
 		return node
 	end
@@ -152,7 +152,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local target = guiService and guiService.SelectedObject
 		local selected = Compose.cell(target ~= nil and (target == node or target:IsDescendantOf(node)))
 		if guiService then
-			local nativeSelection = ctx.observe(guiService, "SelectedObject")
+			local nativeSelection = ctx.observe.SelectedObject(guiService)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local target = use(nativeSelection)
 				local inside = target ~= nil and (target == node or target:IsDescendantOf(node))
@@ -196,7 +196,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							stopRepeat()
 						end
 					end)
-					local function bind(name, keys, source, direction, arrow: boolean?)
+					local function bind(
+						name: string,
+						keys: Shared.ActionBindings,
+						source: Shared.Value<boolean>,
+						direction: number,
+						arrow: boolean?
+					)
 						local action: InputAction
 						action = ctx.action(node, name, keys, source, function()
 							if arrow and landing then
@@ -441,7 +447,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			local live = enabled(spec)
 			if live and node and ctx.available(node) and spec.onActivate then
-				if popTimeline and popReduced and not held and not popReduced() then
+				if popTimeline and popScale and popReduced and not held and not popReduced() then
 					popStart:set(popScale:peek())
 					popTimeline:restart()
 				end
@@ -464,9 +470,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local selectedForKeyboard: Shared.Value<boolean>
 		local fallbackSelection: ComposeTypes.Cell<boolean>?
 		local function observeSelection(): Shared.Value<boolean>
-			local selected = ctx.observe(assert(guiService), "SelectedObject")
+			local selected = ctx.observe.SelectedObject(assert(guiService))
 			return function(use: ComposeTypes.Use)
-				local target = read(selected, use)
+				local target = use(selected)
 				return node and target == node or false
 			end
 		end
@@ -607,8 +613,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						table.insert(
 							dots,
 							ctx.styled(
-								Host.Frame({
-									Name = `Dot{index}`,
+								Host.Frame(`Dot{index}`)({
 									Size = D2.fromOffset(4, 4),
 									Position = D2.fromOffset((index - 1) * 6, 7),
 									BorderSizePixel = 0,
@@ -770,6 +775,25 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end
 				end
 			end
+			local glyph = if leading
+					and not imageCard
+					and not spec.row
+					and not description
+				then contentFrame:FindFirstChild("LeadingIcon")
+				else nil
+			if glyph and spec.AutomaticSize == E.AutomaticSize.None and label == "" then
+				contentFrame.AutomaticSize = E.AutomaticSize.None
+				local box = ctx.observe.AbsoluteSize(contentFrame)
+				runtime.mount(function()
+					return Host.UISizeConstraint({
+						MaxSize = function(use: ComposeTypes.Use): Vector2
+							local room = use(box)
+							local side = math.max(1, math.min(room.X, room.Y))
+							return V2.new(side, side)
+						end,
+					})
+				end, glyph)
+			end
 			table.insert(p, contentFrame)
 		end
 		local keyboardAttached = false
@@ -805,7 +829,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			sized(node)
 		end
 		if underline == "hover" then
-			local state = ctx.observe(node, "GuiState")
+			local state = ctx.observe.GuiState(node)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local now = use(state)
 				engaged:set(
@@ -890,17 +914,17 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Size = D2.fromScale(1, 1),
 					AutomaticSize = E.AutomaticSize.None,
 					ZIndex = 1,
-					Text = ctx.observe(node, "Text"),
-					TextColor3 = ctx.observeStyled(node, "TextColor3"),
-					FontFace = ctx.observeStyled(node, "FontFace"),
-					TextSize = ctx.observeStyled(node, "TextSize"),
-					TextXAlignment = ctx.observeStyled(node, "TextXAlignment"),
-					TextYAlignment = ctx.observeStyled(node, "TextYAlignment"),
-					TextWrapped = ctx.observeStyled(node, "TextWrapped"),
-					RichText = ctx.observeStyled(node, "RichText"),
-					TextScaled = ctx.observeStyled(node, "TextScaled"),
-					TextTruncate = ctx.observeStyled(node, "TextTruncate"),
-					LineHeight = ctx.observeStyled(node, "LineHeight"),
+					Text = ctx.observe.Text(node),
+					TextColor3 = ctx.observeStyled.TextColor3(node),
+					FontFace = ctx.observeStyled.FontFace(node),
+					TextSize = ctx.observeStyled.TextSize(node),
+					TextXAlignment = ctx.observeStyled.TextXAlignment(node),
+					TextYAlignment = ctx.observeStyled.TextYAlignment(node),
+					TextWrapped = ctx.observeStyled.TextWrapped(node),
+					RichText = ctx.observeStyled.RichText(node),
+					TextScaled = ctx.observeStyled.TextScaled(node),
+					TextTruncate = ctx.observeStyled.TextTruncate(node),
+					LineHeight = ctx.observeStyled.LineHeight(node),
 				}
 				local boundary = decoration(
 					Compose,
@@ -937,20 +961,20 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		if spec.compactLabel then
 			assert(not rich, "Facet.Button: compactLabel requires a text button")
-			local size = ctx.observe(node, "AbsoluteSize")
+			local size = ctx.observe.AbsoluteSize(node)
 			local measure: TextLabel
 			runtime.mount(function()
 				measure = ctx.text({
 					Name = "FullLabelMeasure",
 					Text = spec.label,
-					FontFace = ctx.observeStyled(node, "FontFace"),
-					TextSize = ctx.observeStyled(node, "TextSize"),
+					FontFace = ctx.observeStyled.FontFace(node),
+					TextSize = ctx.observeStyled.TextSize(node),
 					Visible = false,
 					TextWrapped = false,
 				})
 				return measure
 			end, node)
-			local bounds = ctx.observe(measure, "TextBounds")
+			local bounds = ctx.observe.TextBounds(measure)
 			runtime.decorate(node, {
 				Text = function(use: ComposeTypes.Use)
 					local compact = use(size).X > 0 and use(bounds).X > use(size).X - 24
@@ -968,7 +992,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			})
 		end
 
-		local guiState = if iconState then ctx.observe(node, "GuiState") else nil
+		local guiState = if iconState then ctx.observe.GuiState(node) else nil
 		local previousTags: { [string]: boolean } = {}
 		local previousAttributes: { [string]: boolean | string } = {}
 		local initialized = false
@@ -1078,16 +1102,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					)
 				then
 					held, repeated, elapsed = true, false, 0
-					if spec.onPointerDown then
-						spec.onPointerDown(input)
+					local pointerDown = spec.onPointerDown
+					if pointerDown then
+						pointerDown(input)
 					end
 				end
 			end)
 			runtime.connect(node, "InputEnded", function(input)
 				if held then
 					held = false
-					if spec.onPointerUp then
-						spec.onPointerUp(input)
+					local pointerUp = spec.onPointerUp
+					if pointerUp then
+						pointerUp(input)
 					end
 				end
 			end)
@@ -1129,10 +1155,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				then { E.KeyCode.LeftShift, E.KeyCode.RightShift }
 				else { noKey }
 			for _, shift in shifts do
-				table.insert(
-					bindings,
+				bindings[#bindings + 1] =
 					{ KeyCode = assert(E.KeyCode:FromName(shortcut.keyCode)), PrimaryModifier = shift }
-				)
 			end
 		end
 		if spec.dialogAction then
@@ -1144,18 +1168,21 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end
 			end
 			if not duplicate then
-				table.insert(bindings, { KeyCode = key })
+				bindings[#bindings + 1] = { KeyCode = key }
 			end
 		end
 		if #bindings > 0 then
-			local priority = 2000
+			local modified = spec.shortcut ~= nil
+				and spec.shortcut.modifiers ~= nil
+				and spec.shortcut.modifiers.shift == true
+			local priority = if modified then 2001 else 2000
 			if spec.dialogAction then
 				dialogOrder += 1
 				priority -= dialogOrder
 			end
 			ctx.action(node, "Shortcut", bindings, shortcutActive, activate, {
 				priority = priority,
-				sink = spec.dialogAction ~= nil,
+				sink = spec.dialogAction ~= nil or modified,
 			})
 		end
 
@@ -1205,7 +1232,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				spec.onChange(value)
 			else
 				if writable(spec.mixed) then
-					(spec.mixed :: ComposeTypes.Cell<boolean>):set(false)
+					((spec.mixed :: unknown) :: ComposeTypes.Cell<boolean>):set(false)
 				end
 				(spec.value :: ComposeTypes.Cell<boolean>):set(value)
 			end
@@ -1217,7 +1244,25 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				or spec.trailingIcon ~= nil
 				or spec.image ~= nil
 			local trailing = spec.indicatorPosition == "trailing" or (spec.indicatorPosition == nil and spec.row ~= nil)
-			local reserve = (if presentation == "switch" then 38 else 24) + 8
+			local sizedBox = presentation == "checkbox" and spec.controlSize ~= nil
+			local liveBox = sizedBox and (dynamic(ctx.config.theme) or dynamic(spec.controlSize))
+			local function boxSide(use: ComposeTypes.Use?): number
+				if not sizedBox then
+					return 24
+				end
+				return ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
+			end
+			local function boxed<T>(compute: (number) -> T): Shared.Value<T>
+				if liveBox then
+					return function(use: ComposeTypes.Use): T
+						return compute(boxSide(use))
+					end
+				end
+				return compute(boxSide())
+			end
+			local function reserve(use: ComposeTypes.Use?): number
+				return (if presentation == "switch" then 38 else boxSide(use)) + 8
+			end
 			local mark = ctx.styled(
 				Host.Frame "Mark" {
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -1235,7 +1280,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Name = "Check",
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
-					Size = D2.fromOffset(16, 16),
+					Size = boxed(function(side: number): UDim2
+						local tick = math.floor(side * 2 / 3 + 0.5)
+						return D2.fromOffset(tick, tick)
+					end),
 					BackgroundTransparency = 1,
 					Visible = false,
 				})
@@ -1246,12 +1294,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local indicator = ctx.styled(
 				Host.Frame({
 					Name = "Indicator",
-					Size = D2.fromOffset(if presentation == "switch" then 38 else 24, 24),
+					Size = boxed(function(side: number): UDim2
+						return D2.fromOffset(if presentation == "switch" then 38 else side, side)
+					end),
 					AnchorPoint = if rich then V2.zero else V2.new(0, 0.5),
 					Position = if rich
 						then D2.fromOffset(0, 0)
 						elseif trailing then D2.new(1, 8, 0.5, 0)
-						else D2.new(0, -reserve, 0.5, 0),
+						else boxed(function(side: number): UDim2
+							return D2.new(0, -((if presentation == "switch" then 38 else side) + 8), 0.5, 0)
+						end),
 					ctx.corner(if presentation == "switch" then 12 else 4) :: ComposeTypes.Child,
 					mark,
 					check,
@@ -1311,7 +1363,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
 					end, label)
 				end
-				local columns: { GuiObject } = if trailing then { label, indicator } else { indicator, label }
+				local columns: { ComposeTypes.Child } = if trailing then { label, indicator } else { indicator, label }
 				if leading then
 					table.insert(columns, 1, ctx.icon(leading, { Name = "LeadingIcon" }))
 				end
@@ -1333,15 +1385,21 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			else
 				p.Text = spec.Text or spec.label or ""
 				p.TextXAlignment = spec.TextXAlignment or E.TextXAlignment.Left
-				local reactive = dynamic(ctx.config.theme) or dynamic(spec.controlSize)
+				local reactive = dynamic(ctx.config.theme) or dynamic(spec.controlSize) or liveBox
 				local function paddingAmount(side: "left" | "right" | "top" | "bottom"): Shared.Value<UDim>
 					local function amount(use: ComposeTypes.Use?): UDim
 						local package = read(ctx.config.theme, use)
 						local skin = package and package.chrome and package.chrome.control
 						local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-						local offset = insets[side] or 0
+						local offset = (
+							if side == "left"
+								then insets.left
+								elseif side == "right" then insets.right
+								elseif side == "top" then insets.top
+								else insets.bottom
+						) or 0
 						if (trailing and side == "right") or (not trailing and side == "left") then
-							offset += reserve
+							offset += reserve(use)
 						end
 						return D.new(0, offset)
 					end
@@ -1415,13 +1473,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			button:AddTag("facet-stepper-button")
 			return button
 		end
+		local controlInsets: Shared.Sides = { left = 2, right = 2 }
 		local controls = ctx.styled(
 			Host.Frame "Controls" {
 				LayoutOrder = 2,
 				Size = D2.fromOffset(0, 44),
 				AutomaticSize = E.AutomaticSize.X,
 				lists.list({ align = "center" }, false) :: ComposeTypes.Child,
-				lists.insets({ left = 2, right = 2 }) :: ComposeTypes.Child,
+				lists.insets(controlInsets) :: ComposeTypes.Child,
 				stepButton("Decrease", "decrement", -1, function(use: ComposeTypes.Use)
 					return enabled(spec, use) and read(spec.value, use) > model.min
 				end),
@@ -1530,8 +1589,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		assert(table.find({ "bar", "glyph", "image" }, segment), "Facet.LevelPicker: invalid segment")
 		assert(segment == "glyph" or spec.glyphs == nil, "Facet.LevelPicker: glyphs require glyph segments")
 		assert(segment == "image" or spec.images == nil, "Facet.LevelPicker: images require image segments")
-		local markSize = ({ small = 20, medium = 28, large = 36 })[spec.starSize or spec.segmentSize or "small"]
-		assert(markSize, "Facet.LevelPicker: invalid size")
+		local markSizes: { [string]: number } = { small = 20, medium = 28, large = 36 }
+		local markSize =
+			assert(markSizes[spec.starSize or spec.segmentSize or "small"], "Facet.LevelPicker: invalid size")
 		local glyphs: InputTypes.Glyphs = spec.glyphs or { filled = "★", empty = "☆" }
 		local function interactive(use)
 			return enabled(spec, use) and spec.readOnly ~= true
@@ -1546,35 +1606,48 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local filled = function(use: ComposeTypes.Use)
 				return read(spec.value, use) >= index
 			end
-			local native: Shared.TextLabelNativeProps & Shared.ImageLabelNativeProps & Shared.FrameNativeProps = {
-				Name = `Level{index}`,
-				Size = D2.fromOffset(markSize, markSize),
-				BackgroundTransparency = 1,
-				Selectable = false,
-			}
+			local name, size = `Level{index}`, D2.fromOffset(markSize, markSize)
 			local mark: GuiObject
 			local paint: "TextColor3" | "ImageColor3" | "BackgroundColor3"
 			if segment == "glyph" then
-				native.TextSize = markSize
-				native.TextXAlignment = E.TextXAlignment.Center
-				native.Text = function(use: ComposeTypes.Use)
-					return if filled(use) then glyphs.filled else glyphs.empty
-				end
-				mark, paint = ctx.text(native), "TextColor3"
+				mark, paint =
+					ctx.text({
+						Name = name,
+						Size = size,
+						BackgroundTransparency = 1,
+						Selectable = false,
+						TextSize = markSize,
+						TextXAlignment = E.TextXAlignment.Center,
+						Text = function(use: ComposeTypes.Use)
+							return if filled(use) then glyphs.filled else glyphs.empty
+						end,
+					}), "TextColor3"
 			elseif segment == "image" then
+				local images = spec.images
 				assert(
-					spec.images and spec.images.filled and spec.images.empty,
+					images and images.filled and images.empty,
 					"Facet.LevelPicker: image segments require filled and empty images"
 				)
-				native.Image = function(use: ComposeTypes.Use)
-					return if filled(use) then spec.images.filled else spec.images.empty
-				end
-				mark, paint = Host.ImageLabel(native), "ImageColor3"
+				mark, paint =
+					Host.ImageLabel({
+						Name = name,
+						Size = size,
+						BackgroundTransparency = 1,
+						Selectable = false,
+						Image = function(use: ComposeTypes.Use)
+							return if filled(use) then images.filled else images.empty
+						end,
+					}), "ImageColor3"
 			else
-				native.BackgroundTransparency = nil
-				native.Size = D2.fromOffset(markSize, math.round(markSize * (0.3 + 0.7 * index / count)))
-				table.insert(native, ctx.corner(2))
-				mark, paint = ctx.styled(Host.Frame(native), "level-segment"), "BackgroundColor3"
+				mark, paint =
+					ctx.styled(
+						Host.Frame(name)({
+							Size = D2.fromOffset(markSize, math.round(markSize * (0.3 + 0.7 * index / count))),
+							Selectable = false,
+							ctx.corner(2),
+						}),
+						"level-segment"
+					), "BackgroundColor3"
 				local bar = mark
 				Compose.watch(function(use: ComposeTypes.Use)
 					if filled(use) then
@@ -1725,7 +1798,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end)
 		local input = ctx.config.services.UserInputService
 		if input then
-			local preference = ctx.observe(input, "PreferredInput")
+			local preference = ctx.observe.PreferredInput(input)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(preference) == E.PreferredInput.Gamepad then
 					cancel()
@@ -1758,9 +1831,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			return spec.selected == nil or read(spec.editing, use) == true
 		end
-		local p = table.clone(
-			spec :: Shared.TextButtonNativeProps & InputTypes.ButtonVisualOptions & InputTypes.ButtonInputOptions
-		) :: InputTypes.ButtonProps & {
+		local p = (table.clone(spec) :: unknown) :: InputTypes.ButtonProps & {
 			onToggle: ((boolean) -> ())?,
 			onRemove: (() -> ())?,
 			editing: Shared.Value<boolean>?,
@@ -1778,11 +1849,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local function candidate(): GuiObject?
 			if node.Parent then
 				local siblings = node.Parent:GetChildren()
-				local ordinal = {}
+				local ordinal: { [Instance]: number } = {}
 				for index, sibling in siblings do
 					ordinal[sibling] = index
 				end
-				table.sort(siblings, function(a, b)
+				table.sort(siblings, function(a: Instance, b: Instance): boolean
 					local first = if a:IsA("GuiObject") then a.LayoutOrder else 0
 					local second = if b:IsA("GuiObject") then b.LayoutOrder else 0
 					return if first == second then ordinal[a] < ordinal[b] else first < second
@@ -1907,14 +1978,29 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			local holding = false
 			local function removalHeld(): boolean
 				local input = ctx.config.services.UserInputService
-				local probe = (input :: unknown) :: { IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)? }?
+				local probe = (input :: unknown) :: {
+					IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
+					GetConnectedGamepads: ((UserInputService) -> { Enum.UserInputType })?,
+					IsGamepadButtonDown: ((UserInputService, Enum.UserInputType, Enum.KeyCode) -> boolean)?,
+				}?
 				if input == nil or probe == nil or probe.IsKeyDown == nil then
 					return false
 				end
-				return input:IsKeyDown(E.KeyCode.Delete) or input:IsKeyDown(E.KeyCode.Backspace)
+				if input:IsKeyDown(E.KeyCode.Delete) or input:IsKeyDown(E.KeyCode.Backspace) then
+					return true
+				end
+				if probe.GetConnectedGamepads == nil or probe.IsGamepadButtonDown == nil then
+					return false
+				end
+				for _, pad in input:GetConnectedGamepads() do
+					if input:IsGamepadButtonDown(pad, E.KeyCode.ButtonX) then
+						return true
+					end
+				end
+				return false
 			end
 			local focused: ComposeTypes.Readable<GuiObject?> = if gui
-				then ctx.observe(gui, "SelectedObject")
+				then ctx.observe.SelectedObject(gui)
 				else Compose.cell(nil :: GuiObject?)
 			local wasFocused = false
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -2004,7 +2090,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				action and action.IsA and action:IsA("InputAction"),
 				"Facet.ShortcutHint: action must be a native InputAction"
 			)
-			local binding = ctx.observe(action, "PreferredBinding")
+			local binding = ctx.observe.PreferredBinding(action)
 			local keyNames: { [string]: string } = {
 				Return = "Enter",
 				KeypadEnter = "Enter",
@@ -2029,13 +2115,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use)
 						local value = use(binding)
-						return if value then { value } else {}
+						local list: { InputBinding } = if value then { value } else {}
+						return list
 					end,
 					render = function(_, _, current: InputBinding)
-						local name, key = ctx.observe(current, "DisplayName"), ctx.observe(current, "KeyCode")
+						local name, key = ctx.observe.DisplayName(current), ctx.observe.KeyCode(current)
 						local primary, secondary =
-							ctx.observe(current, "PrimaryModifier"), ctx.observe(current, "SecondaryModifier")
-						local image = ctx.observe(current, "DisplayImage")
+							ctx.observe.PrimaryModifier(current), ctx.observe.SecondaryModifier(current)
+						local image = ctx.observe.DisplayImage(current)
 						local input = ctx.config.services.UserInputService
 						local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
 							local content = use(image)
@@ -2064,7 +2151,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 											else "ImageContent",
 									}
 								end,
-								render = function(_, _, kind)
+								render = function(_, _, kind: string): GuiObject
 									if kind ~= "text" then
 										local native: Shared.ImageLabelNativeProps = {
 											Name = "Glyph",
@@ -2087,17 +2174,20 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 									end
 									return ctx.text({
 										Name = "Key",
-										Text = function(use: ComposeTypes.Use)
+										Text = function(use: ComposeTypes.Use): string
 											local custom = use(name)
 											if custom and custom ~= "" then
 												return custom
 											end
-											local keys = {}
+											local keys: { string } = {}
+											local service = input
 											for _, code in { use(primary), use(secondary), use(key) } do
 												if code and code ~= noKey then
 													local ok, found = true, ""
-													if input and input.GetStringForKeyCode then
-														ok, found = pcall(input.GetStringForKeyCode, input, code)
+													if service and service.GetStringForKeyCode then
+														ok, found = pcall(function(): string
+															return service:GetStringForKeyCode(code)
+														end)
 													end
 													local text = if ok and type(found) == "string" then found else ""
 													if text == "" then

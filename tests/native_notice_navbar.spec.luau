@@ -50,11 +50,26 @@ t.describe("native Notice: inline copy, accessories and close", function()
 	end)
 
 	t.it("the link and actions sit beside the copy when there is room and move below it when there is not", function()
+		local pressed: { string } = {}
 		local w = mount(function(UI)
 			return UI.Notice "Sync" {
 				message = "Your changes are not synced",
-				link = { label = "Details", onActivate = function() end },
-				actions = { { id = "Retry", label = "Retry", onActivate = function() end } },
+				link = {
+					label = "Details",
+					onActivate = function()
+						table.insert(pressed, "Details")
+					end,
+				},
+				actions = {
+					{
+						id = "Retry",
+						label = "Retry",
+						role = "default",
+						onActivate = function()
+							table.insert(pressed, "Retry")
+						end,
+					},
+				},
 			}
 		end)
 		local notice = w.find("Sync")
@@ -67,6 +82,11 @@ t.describe("native Notice: inline copy, accessories and close", function()
 		notice.AbsoluteSize = Vector2.new(390, 110)
 		t.expect(layout.FillDirection).toBe(w.Enum.FillDirection.Vertical)
 		t.expect(notice:GetAttribute("NoticeAccessories")).toBe("below")
+		overlay.find(notice, "Retry").Activated.fire()
+		overlay.find(notice, "Link").Activated.fire()
+		t.expect(table.concat(pressed, ",")).toBe("Retry,Details")
+		t.expect(w.find("Sync")).toBe(notice)
+		t.expect(notice.Parent ~= nil).toBe(true)
 		w.stop()
 	end)
 

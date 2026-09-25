@@ -18,6 +18,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
+	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local behavior = {
 		"content",
@@ -58,11 +59,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local function bandWidth(edge: string, use: ComposeTypes.Use?): number
 			local count, width = #actions(edge, use), read(spec.actionWidth or 88, use)
-			local measuredWidths = read(actionWidths, use)
+			local measuredWidths = readSource(actionWidths, use)
 			for _, action in actions(edge :: RowEdge, use) do
 				width = math.max(width, measuredWidths[edge .. ":" .. action.id] or 0)
 			end
-			return math.min(width * count, read(dimensions, use).X)
+			return math.min(width * count, readSource(dimensions, use).X)
 		end
 		local function setOpen(edge: RowEdge?): ()
 			if spec.coordinator and edge then
@@ -75,14 +76,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			local edge = read(open, use) :: RowEdge?
+			local edge = readSource(open, use) :: RowEdge?
 			if edge ~= nil and #actions(edge, use) == 0 then
 				setOpen(nil)
 			end
 		end)
 		if spec.coordinator then
 			Compose.watch(function(use: ComposeTypes.Use)
-				if read(open, use) ~= nil and spec.coordinator:peek() ~= rowToken then
+				if readSource(open, use) ~= nil and spec.coordinator:peek() ~= rowToken then
 					spec.coordinator:set(rowToken)
 				end
 			end)
@@ -90,7 +91,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local active = use(spec.coordinator)
 				if active ~= rowToken then
 					menuOpen:set(false)
-					if read(open) ~= nil then
+					if readSource(open) ~= nil then
 						setOpen(nil)
 					end
 				end
@@ -167,7 +168,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			if read(open, use) ~= nil and fired then
+			if readSource(open, use) ~= nil and fired then
 				fired = false
 				committing:set(nil)
 			end
@@ -229,7 +230,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							end,
 						}
 						local button = UI.Button(buttonProps)
-						local bounds = ctx.observe(button, "TextBounds")
+						local bounds = ctx.observe.TextBounds(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size, action = use(bounds), use(current)
 							local width = (if size then size.X else 0)
@@ -289,7 +290,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		local function tap(): ()
-			if read(open) ~= nil then
+			if readSource(open) ~= nil then
 				setOpen(nil)
 				return
 			end
@@ -309,9 +310,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if value ~= nil and value ~= 0 and axis == "horizontal" and dimensions:peek().X > 0 then
 				local edge: RowEdge = if value > 0 then "leading" else "trailing"
 				local available = actions(edge)
-				local fullSwipe = if type(spec.fullSwipe) == "table"
-					then spec.fullSwipe[edge] ~= false
-					else spec.fullSwipe ~= false
+				local choice = spec.fullSwipe
+				local fullSwipe = if type(choice) == "table"
+					then (if edge == "leading" then choice.leading else choice.trailing) ~= false
+					else choice ~= false
 				local width = dimensions:peek().X
 				if fullSwipe and #available > 0 and width > 0 and math.abs(value) >= width * 0.7 then
 					execute(available[1], edge)
@@ -339,10 +341,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		local preferred = if ctx.config.userInputService
-			then ctx.observe(ctx.config.userInputService, "PreferredInput")
+			then ctx.observe.PreferredInput(ctx.config.userInputService)
 			else nil
 		local function touchFirst(use: ComposeTypes.Use?): boolean
-			return preferred ~= nil and read(preferred, use) == E.PreferredInput.Touch
+			return preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Touch
 		end
 		local panned = false
 		local stopPan: (() -> ())? = nil
@@ -415,13 +417,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 				setOpen(nil)
 			end
 		end)
-		local contentMenu = UI.Menu "ContextActions" {
+		local contentMenu = UI.Menu {
 			trigger = content,
 			items = menuItems,
 			isPresented = menuOpen,
 			triggers = {},
-			Size = D2.fromScale(1, 1),
-			AutomaticSize = E.AutomaticSize.None,
 			onOpen = function()
 				setOpen(nil)
 			end,
@@ -476,10 +476,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Selectable = false,
 					ZIndex = 5,
 					Visible = function(use: ComposeTypes.Use)
-						return read(open, use) ~= nil and use(committing) == nil
+						return readSource(open, use) ~= nil and use(committing) == nil
 					end,
 					Activated = function()
-						if read(open) ~= nil and committing:peek() == nil then
+						if readSource(open) ~= nil and committing:peek() == nil then
 							setOpen(nil)
 						end
 					end,
@@ -503,7 +503,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				)
 			end,
 		})
-		local measured = ctx.observe(root, "AbsoluteSize")
+		local measured = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			dimensions:set(use(measured))
 		end)
@@ -559,7 +559,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
-				if read(open, use) == nil then
+				if readSource(open, use) == nil then
 					release()
 				elseif listening == nil then
 					listening = service.InputBegan:Connect(function(input: InputObject)
@@ -567,7 +567,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						if
 							(kind == E.UserInputType.MouseButton1 or kind == E.UserInputType.Touch)
 							and committing:peek() == nil
-							and read(open) ~= nil
+							and readSource(open) ~= nil
 							and outside(input)
 						then
 							setOpen(nil)
@@ -584,18 +584,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end)
 		local gui = ctx.config.guiService
 		local selected: ComposeTypes.Cell<GuiObject?> = if gui
-			then ctx.observe(gui, "SelectedObject")
+			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		local function scope(): Instance
 			local host = root.Parent
 			return if host and host:GetAttribute("FacetCollectionRow") == true then host else root
 		end
 		local function eligible(use: ComposeTypes.Use): boolean
-			local node = read(selected, use)
+			local node = readSource(selected, use)
 			return node ~= nil
 				and node:IsDescendantOf(scope())
 				and read(spec.enabled, use) ~= false
-				and read(committing, use) == nil
+				and readSource(committing, use) == nil
 				and not (node:IsA("TextBox") and node:IsFocused())
 		end
 		ctx.action(
@@ -607,7 +607,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			{ priority = 300 }
 		)
 		ctx.action(root, "RowActionsClose", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
-			return eligible(use) and (read(open, use) ~= nil or use(menuOpen))
+			return eligible(use) and (readSource(open, use) ~= nil or use(menuOpen))
 		end, function()
 			menuOpen:set(false)
 			setOpen(nil)
@@ -630,25 +630,19 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		ctx.action(root, "RowActionsDelete", { E.KeyCode.Delete, E.KeyCode.Backspace }, function(use: ComposeTypes.Use)
-			return eligible(use) and read(open, use) == nil and not use(menuOpen) and destructive(use) ~= nil
+			return eligible(use) and readSource(open, use) == nil and not use(menuOpen) and destructive(use) ~= nil
 		end, delete, { priority = 300 })
-		ctx.action(
-			root,
-			"RowActionsToggle",
-			{
-				{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.LeftShift },
-				{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.RightShift },
-			},
-			eligible,
-			function()
-				if menuOpen:peek() then
-					menuOpen:set(false)
-				else
-					reveal()
-				end
-			end,
-			{ priority = 300 }
-		)
+		local toggleKeys: { Types.InputBindingNativeProps } = {
+			{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.LeftShift },
+			{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.RightShift },
+		}
+		ctx.action(root, "RowActionsToggle", toggleKeys, eligible, function()
+			if menuOpen:peek() then
+				menuOpen:set(false)
+			else
+				reveal()
+			end
+		end, { priority = 300 })
 		ctx.shiftRoute(root, function()
 			if read(spec.enabled) == false then
 				return
@@ -679,7 +673,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							onActivate = delete,
 						}
 						local button = UI.Button(buttonProps)
-						local bounds = ctx.observe(button, "TextBounds")
+						local bounds = ctx.observe.TextBounds(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size = use(bounds)
 							editWidth:set(math.min(use(dimensions).X, math.max(72, (if size then size.X else 0) + 32)))

@@ -19,7 +19,7 @@ export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
 export type RobloxTypes = Engine.RobloxTypes
 export type Observe = Engine.Observe
-export type Playback = { play: (self: Playback) -> (), pause: (self: Playback) -> () }
+export type Playback = typeof(((nil :: unknown) :: Runtime).timeline())
 export type ControlSize = "xsmall" | "compact" | "regular" | "large"
 export type SpaceStep = "xs" | "s" | "m" | "l" | "xl"
 export type Space = number | SpaceStep | string
@@ -142,14 +142,10 @@ export type Config = {
 	onError: ((unknown) -> ())?,
 }
 export type ResolvedConfig = Config & { services: Services }
-export type Read =
-	(<T>(ComposeTypes.Cell<T>, Use?) -> T)
-	& (<T>(ComposeTypes.Formula<T>, Use?) -> T)
-	& (<T>(ComposeTypes.Readable<T>, Use?) -> T)
-	& (<T>(ComposeTypes.Body<T>, Use?) -> T)
-	& (<T>(Value<T>, Use?) -> T)
+export type Read = <T>(Value<T>, Use?) -> T
 export type ModalPortal = { node: Instance, anchor: Instance }
 export type ActionBinding = string | Enum.KeyCode | InputBindingNativeProps
+export type ActionBindings = { ActionBinding } | { Enum.KeyCode } | { InputBindingNativeProps } | { string }
 export type ActionSettings = { priority: number?, sink: boolean?, onReleased: (() -> ())?, capture: boolean? }
 export type SkinStateOptions = { disabled: Value<boolean>?, selected: Value<boolean>? }
 export type Context = {
@@ -160,6 +156,7 @@ export type Context = {
 	config: ResolvedConfig,
 	metrics: { textSize: number, controlHeight: number, gap: number, cornerRadius: number },
 	read: Read,
+	readSource: <T>(Readable<T>, Use?) -> T,
 	metric: (string, Use?) -> number,
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
@@ -187,7 +184,7 @@ export type Context = {
 	action: (
 		Instance,
 		string,
-		{ ActionBinding },
+		ActionBindings,
 		Value<boolean>?,
 		() -> (),
 		ActionSettings?

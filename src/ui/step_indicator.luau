@@ -3,6 +3,7 @@ local Types = require("./types")
 local Content = require("./content_types")
 local Inputs = require("./input_types")
 local Nav = require("./navigation_types")
+local ThemeTypes = require("./theme_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
 local reducedMotion = require("./motion")
@@ -154,7 +155,7 @@ return function(
 		local cueSize = function(use: ComposeTypes.Use?): number
 			return (ctx.controlSize(spec.controlSize, "iconSize", use))
 		end
-		local measures = Compose.cell({} :: { [string]: ComposeTypes.Readable<Vector2> })
+		local measures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
 		local cells: { [string]: GuiObject } = {}
 		local cellMeasures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
 		local function content(id: string): { Types.Child }
@@ -166,11 +167,10 @@ return function(
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 			})
-			local numberBounds = ctx.observe(numberLabel, "TextBounds")
-			local numberSize = ctx.observeStyled(numberLabel, "TextSize")
-			local numberExtent = ctx.observe(numberLabel, "AbsoluteSize")
-			local cue = Host.Frame({
-				Name = "Cue",
+			local numberBounds = ctx.observe.TextBounds(numberLabel)
+			local numberSize = ctx.observeStyled.TextSize(numberLabel)
+			local numberExtent = ctx.observe.AbsoluteSize(numberLabel)
+			local cue = Host.Frame "Cue" {
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
@@ -184,8 +184,7 @@ return function(
 				end,
 				Host.UIAspectRatioConstraint({ AspectRatio = 1 }) :: Types.Child,
 				ctx.styled(
-					Host.Frame({
-						Name = "Circle",
+					Host.Frame "Circle" {
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
 						Visible = function(use: ComposeTypes.Use): boolean
@@ -196,7 +195,7 @@ return function(
 						Host.UICorner({ CornerRadius = D.new(1, 0) }) :: Types.Child,
 						Host.UIStroke({ ApplyStrokeMode = E.ApplyStrokeMode.Border }) :: Types.Child,
 						numberLabel :: Types.Child,
-					}),
+					},
 					"step-circle"
 				) :: Types.Child,
 				ctx.icon("checkmark", {
@@ -215,7 +214,7 @@ return function(
 						return step ~= nil and stateOf(step, read(model, use).current) == "error"
 					end,
 				}) :: Types.Child,
-			})
+			}
 			local label = ctx.text({
 				Name = "Label",
 				LayoutOrder = 1,
@@ -258,9 +257,12 @@ return function(
 					return if step then step.label else ""
 				end,
 			})
-			local measured = ctx.observe(measure, "TextBounds")
 			local next = table.clone(measures:peek())
-			next[id] = measured
+			next[id] = {
+				ctx.observe.TextBounds(measure),
+				ctx.observe.TextBounds(state),
+				ctx.observe.TextBounds(description),
+			}
 			measures:set(next)
 			Compose.cleanup(function()
 				local remaining = table.clone(measures:peek())
@@ -349,7 +351,7 @@ return function(
 				end
 				cells[id] = node
 				local next = table.clone(cellMeasures:peek())
-				next[id] = { ctx.observe(node, "AbsolutePosition"), ctx.observe(node, "AbsoluteSize") }
+				next[id] = { ctx.observe.AbsolutePosition(node), ctx.observe.AbsoluteSize(node) }
 				cellMeasures:set(next)
 				Compose.cleanup(function()
 					if cells[id] == node then
@@ -379,8 +381,7 @@ return function(
 		local springWidth = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).width
 		end, { period = 0.25, damping = 1 })
-		local row = Host.Frame({
-			Name = "Row",
+		local row = Host.Frame "Row" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
@@ -394,8 +395,13 @@ return function(
 					return D.new(0, ctx.metric("space.m", use))
 				end,
 			}) :: Types.Child,
+			Host.UIPadding({
+				PaddingBottom = function(use: ComposeTypes.Use)
+					return D.new(0, ctx.metric("space.xs", use) + 2)
+				end,
+			}) :: Types.Child,
 			rowItems,
-		})
+		}
 		local underline = ctx.styled(
 			Host.Frame({
 				Name = "Underline",
@@ -416,15 +422,14 @@ return function(
 			}),
 			"selection-indicator"
 		)
-		local strip = Host.Frame({
-			Name = "Strip",
+		local strip = Host.Frame "Strip" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			row :: Types.Child,
 			underline :: Types.Child,
-		})
-		local stripPosition = ctx.observe(strip, "AbsolutePosition")
+		}
+		local stripPosition = ctx.observe.AbsolutePosition(strip)
 		Compose.watch(function(use: ComposeTypes.Use)
 			stripX:set(use(stripPosition).X)
 		end)
@@ -437,12 +442,19 @@ return function(
 				return "row"
 			end
 			local gap, inner = ctx.metric("space.m", use), ctx.metric("space.s", use)
+			local package = read(ctx.config.theme, use)
+			local skin = package and package.chrome and package.chrome.control
+			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+			local padding = math.max(12, insets.left or 0) + math.max(12, insets.right or 0)
 			local all = use(measures)
 			local widest, total = 0, 0
 			for _, step in m.steps do
-				local measure = all[step.id]
-				local labelWidth = if measure then use(measure).X else 0
-				local cell = cueSize(use) + inner + labelWidth
+				local copyWidth = 0
+				local cellBounds: { ComposeTypes.Readable<Vector2> } = all[step.id] or {}
+				for _, bounds in ipairs(cellBounds) do
+					copyWidth = math.max(copyWidth, use(bounds).X)
+				end
+				local cell = cueSize(use) + inner + copyWidth + (if permitted(step) then padding else 0)
 				widest = math.max(widest, cell)
 				total += cell
 			end
@@ -523,7 +535,7 @@ return function(
 				return use(form) == "summary"
 			end,
 		})
-		local size = ctx.observe(root, "AbsoluteSize")
+		local size = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			offered:set(use(size).X)
 		end)
