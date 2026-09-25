@@ -381,6 +381,36 @@ t.describe("native menu parity with main", function()
 		stop()
 	end)
 
+	t.it("a skinned panel sizes to its rows plus the art carve and keeps them in its content box (owner)", function()
+		for _, name in { "pixel_quest", "fantasy_ornate" } do
+			local package = (require :: any)("../examples/themes/" .. name).build(Facet.themes)
+			local carve = package.chrome.panel.contentInsets
+			for _, count in { 3, 30 } do
+				local world = labelled({ items = items(count), presentation = "menu" }, { theme = package })
+				local panel = open(world)
+				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
+				local rows = panel:FindFirstChild("MenuRows", true)
+				rows.AbsoluteSize = Vector2.new(220, count * 44)
+				local padding = panel:FindFirstChildWhichIsA("UIPadding")
+				t.expect(
+					`{padding.PaddingLeft.Offset} {padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset}`
+				).toBe(`{carve.left} {carve.top} {carve.right} {carve.bottom}`)
+				local at = rows.Parent
+				while at ~= panel do
+					if at ~= rows.Parent or at:IsA("ScrollingFrame") then
+						t.expect(`{at.Name} {at.Size} {at.Position}`)
+							.toBe(`{at.Name} {UDim2.fromScale(1, 1)} {UDim2.new()}`)
+					end
+					at = at.Parent
+				end
+				local want = math.min(count * 44 + carve.top + carve.bottom, 600 - 24)
+				t.expect(`{name} {count} {panel.Size.Y.Offset}`).toBe(`{name} {count} {want}`)
+				t.expect(panel.Size.X.Offset).toBe(220 + carve.left + carve.right)
+				world.stop()
+			end
+		end
+	end)
+
 	t.it("a 300-row menu fades through a window-sized group, never one as tall as its rows (owner)", function()
 		local world = labelled({ items = items(300), presentation = "menu" }, {})
 		local panel = open(world)

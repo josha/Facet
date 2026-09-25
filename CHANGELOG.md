@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A floating Menu or Picker menu on skinned panel art is its rows plus the art carve on each side, up to `maxHeight` or the screen. Before, the panel was only as tall and wide as its rows, so the carve padding squeezed them: in Pixel Quest a three-row Picker scrolled with its first and last rows cut.
 - On skinned art, a Button, Chip, Menu or Picker trigger, segment, list row and framed TextInput add the art's carve (`contentInsets`) to their own padding on each side. Before, the padding was the larger of the two, so at a small step the label sat on the frame (Pixel Quest compact Picker "(default)" started on the left bevel), and a framed TextInput kept 10 and 4 pixels even when the carve was larger.
 - The RadialMenu centre is a small round plate-less close with the highlighted item's name under it inside the hole, and the ring's scrim is black, at least 80 percent, and reaches the screen edges. Before, the close was a skinned plate filling the hole, the name showed below the ring, and a 70 percent theme-coloured scrim left page text legible.
 - An image Button with an authored fixed height keeps its `imageAspectRatio` and centers the image in the space the text leaves. Before, the image filled that space and was cropped, so the Showcase driver cards cut off the head. A row Slider's root Frame is transparent; before, it painted the engine's default grey, so the Showcase "Music volume" row looked disabled. The Showcase driver cards show the chosen driver as selected.

@@ -844,9 +844,12 @@ return function(
 		end
 		runtime.decorate(panel, {
 			Size = function(use: ComposeTypes.Use)
+				local function carve(side: string): number
+					return surfaces.inset(0, side, nil, use)
+				end
 				local _, insetTop, _, insetBottom = insets(use)
 				local height = math.min(
-					use(rowSize).Y,
+					use(rowSize).Y + carve("top") + carve("bottom"),
 					math.max(44, use(extent).Y - 24 - insetTop - insetBottom),
 					if spec.maxHeight then math.max(60, spec.maxHeight) else math.huge
 				)
@@ -854,7 +857,7 @@ return function(
 					local insetLeft, _, insetRight = insets(use)
 					return D2.new(1, -24 - insetLeft - insetRight, 0, height)
 				end
-				return D2.fromOffset(panelWidth(use), height)
+				return D2.fromOffset(panelWidth(use) + carve("left") + carve("right"), height)
 			end,
 		})
 		if shown then

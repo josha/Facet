@@ -1455,7 +1455,9 @@ menus keep the control-specific navigation of the menu.
   the rows. The width never goes past the room of the screen. A malformed width
   causes an error that names the field.
 - `maxHeight` bounds the whole floating panel in pixels. The panel is always
-  bounded by the screen, and its rows scroll inside it. The row ids and the
+  bounded by the screen, and its rows scroll inside it. On skinned panel art,
+  the panel is its rows plus the art carve (`chrome.panel.contentInsets`) on
+  each side, and the rows scroll inside the carve. The row ids and the
   activation do not change. The `MenuPanel` Frame is the plate. It holds the
   `MenuScroll` ScrollingFrame that holds `MenuRows`. When the menu fades, the
   `MenuGroup` Frame sits between them and is the size of the panel, so
