@@ -293,15 +293,20 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		local pressed: InputObject?
+		local function collectionRow(): Instance?
+			local host = root.Parent
+			while host and host:GetAttribute("FacetCollectionRow") ~= true do
+				host = host.Parent
+			end
+			return host
+		end
 		local function tap(input: InputObject?): ()
 			if readSource(open) ~= nil then
 				setOpen(nil)
 				return
 			end
-			local host = root.Parent
-			local hit = if host and host:GetAttribute("FacetCollectionRow") == true
-				then host:FindFirstChild("RowHit")
-				else nil
+			local host = collectionRow()
+			local hit = if host then host:FindFirstChild("RowHit") else nil
 			if hit and activation.trigger(hit, input or pressed) then
 				return
 			end
@@ -463,10 +468,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Visible = swipeable,
 					InputBegan = function(input: InputObject)
 						pressed = input
-						local host = root.Parent
-						local hit = if host and host:GetAttribute("FacetCollectionRow") == true
-							then host:FindFirstChild("RowHit")
-							else nil
+						local host = collectionRow()
+						local hit = if host then host:FindFirstChild("RowHit") else nil
 						if hit then
 							activation.press(hit, input)
 						end
@@ -608,8 +611,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 		local function scope(): Instance
-			local host = root.Parent
-			return if host and host:GetAttribute("FacetCollectionRow") == true then host else root
+			return collectionRow() or root
 		end
 		local function eligible(use: ComposeTypes.Use): boolean
 			local node = readSource(selected, use)

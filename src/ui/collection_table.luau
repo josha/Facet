@@ -718,10 +718,20 @@ return function(ctx: Types.Context, UI: Controls): ()
 					rowProps.BackgroundTransparency = 1
 				end
 				row = Host.Frame(rowProps)
+				local disclosing = row
+				local actions = if spec.rowActions then spec.rowActions(current, key) else nil
+				if actions then
+					local actionSpec: CollectionTypes.RowActionsSpec =
+						table.clone(actions) :: CollectionTypes.RowActionsSpec
+					actionSpec.content, actionSpec.coordinator = row, coordinator
+					actionSpec.Size = D2.fromScale(1, 1)
+					actionSpec.reducedMotion = spec.reducedMotion
+					row = UI.RowActions(actionSpec)
+				end
 				if editor then
 					row = editor.wrap(row, current, key, true)
 				end
-				local painted = ctx.styled(row, "TableRow")
+				local painted = ctx.styled(if editor then row else disclosing, "TableRow")
 				Compose.watch(function(use: ComposeTypes.Use)
 					if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
 						painted:AddTag("facet-tablerow-alternate")
@@ -739,15 +749,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 					end
 				end)
-				local actions = if spec.rowActions then spec.rowActions(current, key) else nil
-				if actions then
-					local actionSpec: CollectionTypes.RowActionsSpec =
-						table.clone(actions) :: CollectionTypes.RowActionsSpec
-					actionSpec.content, actionSpec.coordinator = row, coordinator
-					actionSpec.Size = D2.fromScale(1, 1)
-					actionSpec.reducedMotion = spec.reducedMotion
-					row = UI.RowActions(actionSpec)
-				end
 				if editor then
 					local press = editor.press
 					Compose.cleanup(activation.providePress(row, function(value: InputObject)

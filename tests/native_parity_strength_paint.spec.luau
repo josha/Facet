@@ -2070,6 +2070,17 @@ t.describe("native paint strength: theme sheets", function()
 		local band = find(root, "Reorderable")
 		local inner = find(root, "DisclosingRow")
 		local minus, confirm = find(root, "Minus"), find(root, "Delete")
+		local function underSwipe(node: any): boolean
+			local cursor = node.Parent
+			while cursor do
+				if cursor:HasTag("facet-rowactions") then
+					return true
+				end
+				cursor = cursor.Parent
+			end
+			return false
+		end
+		t.expect(underSwipe(minus) or underSwipe(confirm) or underSwipe(find(root, "Move"))).toBe(false)
 		for _, entry in
 			{
 				{ id = "neutral", package = themes.neutralPackage() },

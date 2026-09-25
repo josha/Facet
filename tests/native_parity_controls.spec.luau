@@ -1334,16 +1334,19 @@ t.describe("native parity controls", function()
 			end
 			return nil
 		end
+		local function handleOf(rowKey: number): any
+			return body:FindFirstChild(tostring(rowKey), true):FindFirstChild("Move", true)
+		end
 		for rowKey = 1, 4 do
-			t.expect(row(rowKey):FindFirstChild("Move", true) ~= nil).toBe(true)
+			t.expect(handleOf(rowKey) ~= nil).toBe(true)
 		end
 		editing:set(true)
 		for rowKey = 1, 4 do
 			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
-			t.expect(row(rowKey):FindFirstChild("Move", true) ~= nil).toBe(true)
+			t.expect(handleOf(rowKey) ~= nil).toBe(true)
 		end
 		editing:set(false)
-		local handle = row(2):FindFirstChild("Move", true)
+		local handle = handleOf(2)
 		local reorder = handle:FindFirstChildWhichIsA("UIDragDetector")
 		reorder.DragStart.fire(V2(world, 10, 50))
 		reorder.DragContinue.fire(V2(world, 10, 150))
