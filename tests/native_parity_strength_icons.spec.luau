@@ -1542,10 +1542,10 @@ t.describe("sliced and bar art", function()
 			local properties = rule:GetProperties()
 			local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
 				or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
+				or rule.Selector == ".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art"
 			t.expect(
-				`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin", 1, true) ~= nil}`
-			)
-				.toBe(`{rule.Selector}: {roleTint}`)
+				`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin-art", 1, true) ~= nil}`
+			).toBe(`{rule.Selector}: {roleTint}`)
 			if rule.Selector == ".facet-skinned" then
 				skinned = true
 				t.expect(properties.BackgroundTransparency).toBe(1)

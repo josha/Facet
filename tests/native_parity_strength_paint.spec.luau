@@ -1837,9 +1837,10 @@ t.describe("native paint strength: theme sheets", function()
 			end
 		end
 		table.sort(pinned)
-		t.expect(hashed).toBe(14)
+		t.expect(hashed).toBe(15)
 		t.expect(table.concat(pinned, " ")).toBe(
 			"compact-pointer/Aqua=content fantasy-ornate/Crypt=content fantasy-ornate/Grand Hall=content "
+				.. "fantasy-parchment/Candlelight=onSelected fantasy-parchment/Daylight=onSelected "
 				.. "glossy-touch/Sky=onSelected pixel-quest/Quest=onSelected"
 		)
 	end)
@@ -2492,6 +2493,115 @@ t.describe("native paint strength: pixel quest selected plate", function()
 		t.expect(withLink({ asset = "art", rotation = 90 })).toBe(false)
 		t.expect(withLink({ asset = "art", tint = { r = 2, g = 1, b = 1 } })).toBe(false)
 		t.expect(withLink({ asset = "art", tint = "green" })).toBe(false)
+	end)
+
+	t.it("paints every selected plate in every skinned package with its selected art at its sibling's size", function()
+		local function selectedLink(package: any): any
+			local control = package.chrome.control
+			local layers = if control.kind == "layered" then control.layers else { control }
+			for _, layer in layers do
+				local link = if type(layer.asset) == "table" then layer.asset.selected else nil
+				if link ~= nil then
+					return if type(link) == "string" then { asset = link } else link
+				end
+			end
+			return nil
+		end
+		local covered = {}
+		for _, name in { "compact_pointer", "fantasy_ornate", "fantasy_parchment", "glossy_touch", "pixel_quest" } do
+			local package = shipped(name)
+			local link = selectedLink(package)
+			t.expect(link ~= nil).toBe(true)
+			if link then
+				local asset = package.assets[link.asset]
+				local h = harness({ theme = package })
+				local sheet, stopSheet = sheetFor(h, package)
+				local tint = color(h.engine, link.tint or { r = 1, g = 1, b = 1 })
+				local function picker(style: string, extra: { [string]: any }?): any
+					local props: { [string]: any } = {
+						Name = style .. ((extra or {}).axis or ""),
+						style = style,
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "Rally" }, { value = "b", label = "Road" } },
+					}
+					for key, value in extra or {} do
+						props[key] = value
+					end
+					return h.UI.Picker(props)
+				end
+				local function row(label: string, on: boolean): any
+					local node = h.UI.Button({ Name = label, label = label, selected = on })
+					node:AddTag("facet-menu-item")
+					return node
+				end
+				local root, stop = mount(h, function()
+					return h.Host.Frame({
+						picker("segmented"),
+						picker("inline"),
+						picker("radioGroup"),
+						picker("cards"),
+						picker("cards", { axis = "x" }),
+						h.UI.Chip({ Name = "ChipOn", label = "Rain", selected = Compose.cell(true) }),
+						h.UI.Chip({ Name = "ChipOff", label = "Snow", selected = Compose.cell(false) }),
+						h.UI.Toggle({
+							Name = "ToggleOn",
+							label = "On",
+							presentation = "button",
+							value = Compose.cell(true),
+						}),
+						h.UI.Toggle({
+							Name = "ToggleOff",
+							label = "Off",
+							presentation = "button",
+							value = Compose.cell(false),
+						}),
+						row("RowOn", true),
+						row("RowOff", false),
+					})
+				end)
+				local pairs = {
+					{ find(root, "segmented"), "a", "b" },
+					{ find(root, "inline"), "a", "b" },
+					{ find(root, "radioGroup"), "a", "b" },
+					{ find(root, "cards"), "Card-a", "Card-b" },
+					{ find(root, "cardsx"), "Card-a", "Card-b" },
+					{ root, "ChipOn", "ChipOff" },
+					{ root, "ToggleOn", "ToggleOff" },
+					{ root, "RowOn", "RowOff" },
+				}
+				for _, entry in pairs do
+					local on, off = find(entry[1], entry[2]), find(entry[1], entry[3])
+					if not on:HasTag("facet-selected") then
+						on = find(on, "Toggle") or on
+					end
+					local label = `{name}/{entry[1].Name}/{entry[2]}`
+					t.expect(label .. ":" .. tostring(on:HasTag("facet-selected"))).toBe(label .. ":true")
+					t.expect(off:HasTag("facet-selected")).toBe(false)
+					local art = ownArt(on, "control")
+					t.expect(art ~= nil).toBe(true)
+					t.expect(art.Image).toBe(asset.content or asset.contentId)
+					t.expect(art.Rotation).toBe(link.rotation or 0)
+					t.expect(resolve(sheet, art, "ImageColor3") or art.ImageColor3).toBe(tint)
+					t.expect(label .. ":" .. tostring(resolve(sheet, art.Parent.Parent, "Visible") ~= false))
+						.toBe(label .. ":true")
+					t.expect(label .. ":" .. tostring(resolve(sheet, on, "BackgroundTransparency")))
+						.toBe(label .. ":" .. tostring(resolve(sheet, off, "BackgroundTransparency")))
+					t.expect(on.Size).toBe(off.Size)
+					t.expect(on.AutomaticSize).toBe(off.AutomaticSize)
+					for _, property in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
+						t.expect(resolve(sheet, on, property, "UIPadding"))
+							.toBe(resolve(sheet, off, property, "UIPadding"))
+					end
+					t.expect(resolve(sheet, on, "Thickness", "UIStroke"))
+						.toBe(resolve(sheet, off, "Thickness", "UIStroke"))
+					table.insert(covered, label)
+				end
+				stop()
+				stopSheet()
+				h.dispose()
+			end
+		end
+		t.expect(#covered).toBe(40)
 	end)
 end)
 

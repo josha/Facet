@@ -11,6 +11,8 @@ local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
+local SELECTED_TINT = { r = 0.68, g = 0.78, b = 0.9 }
+
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
 local SIZES = { caption = 11, label = 12, body = 13, control = 13, heading = 17, title = 22 }
 
@@ -44,7 +46,7 @@ local AQUA = {
 		controlHover = rgb(238, 244, 252),
 		controlPressed = rgb(220, 226, 234),
 
-		controlSelected = rgb(163, 191, 230),
+		controlSelected = rgb(149, 173, 207),
 		contentSecondary = rgb(96, 104, 116),
 		hairline = rgb(140, 148, 160),
 		hairlineOpacity = 0.9,
@@ -198,6 +200,7 @@ function compact_pointer.definition(themes: any): any
 					default = "compact_button_default",
 					hover = "compact_button_hover",
 					pressed = "compact_button_pressed",
+					selected = { asset = "compact_button_pressed", tint = SELECTED_TINT },
 				},
 				contentInsets = { top = 2, right = 8, bottom = 2, left = 8 },
 				fallback = "native",

@@ -1574,7 +1574,8 @@ selection plate. Opening a menu puts the selection on the chosen row.
 
 The `cards` style shows each option as a card with the `facet-card-option`
 tag: the icon, the label, the description, `meta` and `badge`. The chosen card
-has the emphasis plate. With `axis = "x"`, the cards wrap onto more lines.
+has the emphasis plate and is selected, so a skinned theme shows its selected
+art. With `axis = "x"`, the cards wrap onto more lines.
 With `required = false`, activating the chosen card again sets `selected` to
 `nil`.
 
@@ -2879,10 +2880,15 @@ state (`default`, `hover`, `pressed`, `selected`, `disabled`). A state can also
 be `{ asset, rotation, tint }`. `rotation = 180` turns the art over, so a
 nine-slice frame with a centred slice rect shows its bevel pressed in. `tint`
 is an RGB that multiplies the art (`ImageColor3`). When the `control` slot has
-`selected` art, a selected segment keeps that art instead of the flat `accent`
-fill, and every skinned selected control paints its label in `onSelected`. Pixel
-Quest uses this: its selected plate is the wood plate turned over and tinted
-green.
+`selected` art, every skinned selected plate shows that art and never a flat
+fill: a segment, a Picker row or card, a Chip, a Toggle button, a menu row and a
+pill tab. The plate keeps the size of its unselected siblings, and its label is
+`onSelected`. Each shipped skinned package has a selected piece. Pixel Quest
+turns its wood plate over and tints it green. Fantasy Ornate turns its jewelled
+selection plate over, so it sits inset in its gold trim. Fantasy Parchment turns
+its parchment plate over and inks it dark brown, with a vellum label. Glossy
+Touch uses its blue gel selection plate. Compact Pointer uses its pressed button
+tinted blue.
 
 The metrics also have optional entries:
 

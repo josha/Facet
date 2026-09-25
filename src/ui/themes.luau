@@ -1229,14 +1229,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
-	local selectedArt = false
+	local selectedArt: ThemeTypes.AssetLink? = nil
 	local plateLayers: { ThemeTypes.SkinLayer } = if plate == nil
 		then {}
 		elseif plate.kind == "layered" then plate.layers or {}
 		else { plate }
 	for _, layer in plateLayers do
-		if type(layer.asset) == "table" and (layer.asset :: ThemeTypes.AssetVariants).selected ~= nil then
-			selectedArt = true
+		if type(layer.asset) == "table" then
+			selectedArt = selectedArt or (layer.asset :: ThemeTypes.AssetVariants).selected
 		end
 	end
 	if not selectedArt then
@@ -1301,7 +1301,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	if selectedArt then
-		rule(".facet-skinned.facet-selected", { TextColor3 = onSelected })
+		local tint = if type(selectedArt) == "table" then selectedArt.tint else nil
+		rule(".facet-skinned.facet-selected", { BackgroundTransparency = 1, TextColor3 = onSelected })
+		rule(".facet-skinned.facet-selected > #SkinBoundary", { Visible = true })
+		rule(
+			".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art",
+			{ ImageColor3 = color(types, tint) or types.Color3.new(1, 1, 1) }
+		)
 		rule(".facet-skinned.facet-selected >> .facet-button-caption", { TextColor3 = onSelected })
 		rule(".facet-skinned.facet-selected >> .facet-text", { TextColor3 = onSelected })
 		rule(".facet-skinned.facet-selected >> .facet-icon", { ImageColor3 = onSelected })

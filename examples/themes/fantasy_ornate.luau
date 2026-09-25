@@ -378,6 +378,7 @@ function fantasy_ornate.definition(themes: any): any
 							default = "ornate_button_default",
 							hover = "ornate_button_hover",
 							pressed = "ornate_button_pressed",
+							selected = { asset = "ornate_selection_selected", rotation = 180 },
 							error = "ornate_selection_selected",
 						},
 					},

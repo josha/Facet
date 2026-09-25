@@ -36,12 +36,12 @@
       },
       "selected": {
         "alpha": 1.0,
-        "asset": "compact_button_hover",
-        "b": 254,
-        "file": "assets/themes/compact-pointer/compact_button_hover.png",
-        "g": 246,
-        "r": 240,
-        "sha256": "bc1a1fe331fecb828e2891cbc22ece47d3cdc65fff34f9656b0456a49548e807",
+        "asset": "compact_button_pressed",
+        "b": 230,
+        "file": "assets/themes/compact-pointer/compact_button_pressed.png",
+        "g": 222,
+        "r": 219,
+        "sha256": "9b4534b00e39a2acb5e3f5413451fdb40d84b2417b80605cae1b8f6f0a77d9b4",
         "size": "32x22",
         "sliceCenter": {
           "x0": 8,
@@ -126,6 +126,22 @@
         "g": 213,
         "r": 234,
         "sha256": "eb6c830ef98788444111117c91009c7c09860a23b019906e65041018d4d924b8",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "selected": {
+        "alpha": 1.0,
+        "asset": "parchment_button",
+        "b": 146,
+        "file": "assets/themes/fantasy-parchment/parchment_button.png",
+        "g": 187,
+        "r": 210,
+        "sha256": "45c106d28d28ae75ac96074bffa03e37defd8e60100575547f53706d3679f882",
         "size": "64x64",
         "sliceCenter": {
           "x0": 16,

@@ -693,11 +693,13 @@ t.describe("reference art packages", function()
 		for _, state in { "default", "hover", "pressed", "error" } do
 			t.expect(package.assets[fill[state]] ~= nil).toBe(true)
 		end
+		t.expect(fill.selected.asset).toBe("ornate_selection_selected")
+		t.expect(fill.selected.rotation).toBe(180)
 		local count = 0
 		for _ in fill do
 			count += 1
 		end
-		t.expect(count).toBe(4)
+		t.expect(count).toBe(5)
 		for slot, states in
 			{
 				selection = chrome.selection.layers[1].asset,

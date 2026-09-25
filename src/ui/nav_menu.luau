@@ -2200,6 +2200,7 @@ return function(
 							appearance = function(use: ComposeTypes.Use): string
 								return if chosen(use) then "emphasis" else "standard"
 							end,
+							selected = chosen,
 							enabled = function(use: ComposeTypes.Use)
 								return read(spec.enabled, use) ~= false and read(use(source).enabled, use) ~= false
 							end,

@@ -50,13 +50,13 @@ TARGETS = [
         "compact-pointer",
         "compact_pointer",
         "compact-pointer",
-        {"selected": "compact_button_hover", "control": "compact_button_default", "field": "compact_field"},
+        {"selected": "compact_button_pressed", "control": "compact_button_default", "field": "compact_field"},
     ),
     (
         "fantasy-parchment",
         "fantasy_parchment",
         "fantasy-parchment",
-        {"control": "parchment_button", "field": "parchment_field"},
+        {"selected": "parchment_button", "control": "parchment_button", "field": "parchment_field"},
     ),
 ]
 

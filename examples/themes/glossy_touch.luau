@@ -208,7 +208,11 @@ function glossy_touch.definition(themes: any): any
 
 			control = {
 				kind = "nineSlice",
-				asset = { default = "glossy_button_default", pressed = "glossy_button_pressed" },
+				asset = {
+					default = "glossy_button_default",
+					pressed = "glossy_button_pressed",
+					selected = "glossy_selection_selected",
+				},
 				contentInsets = { top = 8, right = 14, bottom = 8, left = 14 },
 				fallback = "native",
 			},
