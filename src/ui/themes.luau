@@ -729,6 +729,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, 0),
 		PaddingBottom = types.UDim.new(0, 0),
 	})
+	rule(".facet-button-media::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, math.max(10, buttonInsets.bottom or 0)),
+	})
+	rule(".facet-button-media-body::UIPadding", {
+		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+	})
 	rule(".facet-button-captioned", { TextTransparency = 1 })
 	rule(".facet-badge-captioned", { TextTransparency = 1 })
 	rule(".facet-badge-caption", { TextTransparency = 0 })

@@ -667,6 +667,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if rich then
 			local content: { ComposeTypes.Child } = {}
 			local imageCard = spec.image ~= nil
+			local hugs = false
 			local rungIcon: Shared.Value<UDim2>? = nil
 			if spec.controlSize ~= nil then
 				local function iconSide(use: ComposeTypes.Use?): UDim2
@@ -680,20 +681,48 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					type(spec.imageAspectRatio or 16 / 9) == "number" and (spec.imageAspectRatio or 16 / 9) > 0,
 					"Facet.Button: imageAspectRatio must be positive"
 				)
-				p.Size = spec.Size or D2.fromOffset(240, 260)
-				p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.None
+				local authored = spec.Size
+				local fixed = dynamic(authored)
+					or (authored ~= nil and ((authored :: UDim2).Y.Scale ~= 0 or (authored :: UDim2).Y.Offset ~= 0))
+				p.Size = authored or D2.fromOffset(240, 0)
+				p.AutomaticSize = spec.AutomaticSize or (if fixed then E.AutomaticSize.None else E.AutomaticSize.Y)
+				hugs = spec.AutomaticSize == E.AutomaticSize.Y
+					or spec.AutomaticSize == E.AutomaticSize.XY
+					or (spec.AutomaticSize == nil and not fixed)
+				local function radius(use: ComposeTypes.Use?): number
+					return if read(spec.corners, use) == "square" then 0 else ctx.metric("radii.control", use)
+				end
+				local live = dynamic(ctx.config.theme) or dynamic(spec.corners)
 				table.insert(
 					content,
-					Host.ImageLabel "Image" {
-						Image = spec.image,
+					Host.Frame "Media" {
 						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0.55, 0),
-						ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
-						Host.UIAspectRatioConstraint({
-							AspectRatio = spec.imageAspectRatio or 16 / 9,
-							DominantAxis = E.DominantAxis.Width,
-							AspectType = E.AspectType.FitWithinMaxSize,
-						}),
+						BorderSizePixel = 0,
+						ClipsDescendants = true,
+						Size = if hugs then D2.new(1, 0, 0, 100000) else D2.fromScale(1, 0),
+						if hugs
+							then Host.UIAspectRatioConstraint({
+								AspectRatio = spec.imageAspectRatio or 16 / 9,
+								DominantAxis = E.DominantAxis.Width,
+							})
+							else Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+						Host.ImageLabel "Image" {
+							Image = spec.image,
+							BackgroundTransparency = 1,
+							Size = if live
+								then function(use: ComposeTypes.Use)
+									return D2.new(1, 0, 1, radius(use))
+								end
+								else D2.new(1, 0, 1, radius()),
+							ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
+							Host.UICorner({
+								CornerRadius = if live
+									then function(use: ComposeTypes.Use)
+										return D.new(0, radius(use))
+									end
+									else D.new(0, radius()),
+							}),
+						},
 					}
 				)
 			end
@@ -746,6 +775,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						AutomaticSize = if imageCard then E.AutomaticSize.Y else E.AutomaticSize.XY,
 					})
 					else caption("Title", label)
+				if imageCard then
+					captions:AddTag("facet-button-media-body")
+				end
 				if spec.row then
 					local descriptionNode = captions:FindFirstChild("Description")
 					if descriptionNode then
@@ -772,8 +804,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				then ctx.column(content, {
 					Name = "Content",
 					ZIndex = 1,
-					Size = D2.fromScale(1, 1),
-					AutomaticSize = E.AutomaticSize.None,
+					Size = if hugs then D2.fromScale(1, 0) else D2.fromScale(1, 1),
+					AutomaticSize = if hugs then E.AutomaticSize.Y else E.AutomaticSize.None,
 					ClipsDescendants = true,
 				})
 				elseif spec.row then ctx.row(content, {
@@ -863,6 +895,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			p.PressHapticEffect = Compose.static(pressHaptic)
 		end
 		node = ctx.styled(Host.TextButton(p), "button")
+		if rich and spec.image ~= nil then
+			node:AddTag("facet-button-media")
+		end
 		activation.mark(node)
 		Compose.cleanup(activation.provide(node, activate))
 		if not rich then

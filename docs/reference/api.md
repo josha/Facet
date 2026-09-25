@@ -595,7 +595,11 @@ Presentation options:
   only keeps that axis and matches the other axis to it.
 - `icon` and `trailingIcon`.
 - `image`, `imageAspectRatio` (default `16/9`) and `imageFraming` (`fit` or
-  `crop`).
+  `crop`). An image button is 240 pixels wide by default. Its height hugs the
+  image and the text. The image fills the width at `imageAspectRatio`, sits
+  flush with the top edge and follows the top corners of the plate. The text
+  keeps the button side insets and a bottom inset. With an authored fixed
+  height, the image fills the height the text leaves.
 - `subtitle` and `row = { title, description, value, icon }`. A row button
   fills its width. It shows `icon` on the leading edge, the title and the
   description, and `value` as secondary text on the trailing edge. When the

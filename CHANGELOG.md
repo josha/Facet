@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An image Button hugs its image and text in height (240 pixels wide by default), with the image flush to the top edge, clipped to the top corners, and the text inset from the sides and bottom. With an authored fixed height the image fills what the text leaves. Before, the image took 55% of a fixed 260-pixel plate, sat inset and narrower than the plate on a wide card, and left an empty band under the text.
 - `UI.Screen` keeps its content below the engine top bar. It adds the part of the `GuiService.TopbarInset` band that covers it to its top padding, with `IgnoreGuiInset` on or off. Its background still fills the screen. Before, a Screen in a ScreenGui that ignores the inset put its first row under the Roblox menu and chat buttons.
 - A pointer or gamepad `UI.SplitButton` is one plate: the primary action and an icon-only chevron segment joined by a hairline, with shared outer corners and one piece of `control` art in a skinned theme. Before, it drew two separate buttons with a gap. The chevron segment keeps a 44 pixel floor and shows `menuLabel` as its help text.
 - A skinned plate that lays out its children (a framed TextInput, a panel) keeps its chrome art in a `Chrome` folder, outside the list layout. Before, the list placed the art as a child, so a Pixel Quest search field painted its plate left of the field.
