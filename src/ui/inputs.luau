@@ -499,7 +499,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			AutomaticSize = E.AutomaticSize.XY,
 		}
 		if not rich then
-			defaults.TextTruncate = E.TextTruncate.AtEnd
 			local authored = spec.Size
 			if
 				typeof(authored) == "UDim2"
@@ -515,6 +514,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			defaults.Interactable = enabledProperty
 		end
 		local p = props(spec, buttonKeys, defaults)
+		if not rich and p.TextTruncate == nil then
+			local automatic = p.AutomaticSize
+			local function truncate(use: ComposeTypes.Use?): Enum.TextTruncate
+				local sizing = read(automatic, use)
+				return if sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
+					then E.TextTruncate.None
+					else E.TextTruncate.AtEnd
+			end
+			p.TextTruncate = if dynamic(automatic) then truncate else truncate()
+		end
 		local engaged = Compose.cell(false)
 		if underline ~= nil then
 			p.RichText = true

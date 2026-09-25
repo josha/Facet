@@ -617,8 +617,9 @@ The pointer callbacks are `onPointerDown`, `onPointerUp` and `onPointerCancel`.
 Each callback works alone. `onPointerCancel` runs when a held pointer leaves
 the button.
 
-A text Button truncates its label at the end when the label does not fit its
-box. A text Button or Toggle with an authored `Size` that has a width, and no
+A text Button with a bounded width truncates its label at the end when the
+label does not fit its box. A Button whose width follows its label does not
+truncate. A text Button or Toggle with an authored `Size` that has a width, and no
 authored `AutomaticSize`, wraps its label inside that width and grows in
 height. Without an authored width, it hugs its label.
 

@@ -120,8 +120,8 @@ return function(
 	end)
 	runtime.decorate(container, {
 		Size = function(use)
-			local box = use(bounds)
-			return D2.fromOffset(box.width, box.height)
+			local box: { width: number, height: number } = use(bounds)
+			return D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))
 		end,
 		Position = function(use)
 			local box = use(bounds)

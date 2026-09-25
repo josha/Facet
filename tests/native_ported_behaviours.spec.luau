@@ -588,6 +588,27 @@ t.describe("bounded text buttons", function()
 			w.stop()
 		end
 	)
+
+	t.it("a text button whose width follows its label never truncates it", function()
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Button "Hug" { label = "Go" },
+				UI.Toggle "Wide" { value = Compose.cell(false), label = "Label", Size = UDim2.fromScale(1, 0) },
+				UI.Picker "Segments" {
+					style = "segmented",
+					label = "Mode",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = string.rep("long ", 16) }, { value = "b", label = "B" } },
+				},
+			}
+		end)
+		expect(find(w.screen, "Hug").TextTruncate.Name).toBe("None")
+		expect(find(w.screen, "Wide").TextTruncate.Name).toBe("AtEnd")
+		local segment = find(find(w.screen, "Segments"), "a")
+		expect(segment.AutomaticSize.Name).toBe("X")
+		expect(segment.TextTruncate.Name).toBe("None")
+		w.stop()
+	end)
 end)
 
 t.describe("outline disclosure header", function()
