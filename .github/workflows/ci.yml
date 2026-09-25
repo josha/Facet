@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }})
+    name: Verify
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
