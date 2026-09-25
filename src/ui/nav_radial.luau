@@ -593,6 +593,7 @@ return function(
 						return use(fallback) or not spec.centerPassThrough
 					end,
 					Interactable = opened,
+					Selectable = false,
 					CanvasSize = D2.fromOffset(0, 0),
 					AutomaticCanvasSize = function(use: ComposeTypes.Use)
 						return if use(fallback) then E.AutomaticSize.Y else E.AutomaticSize.None

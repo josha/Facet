@@ -332,6 +332,9 @@ these rules:
 - Entry. When nothing is selected, the first D-pad press selects the first
   control of the active screen in layout order. An open modal is the active
   screen. The press does not move a selection that already exists.
+- Presentation. A modal presented while a control is selected, or while a
+  gamepad is the preferred input, selects its first control. It waits until
+  the surface is shown, so it never selects a hidden control.
 - Tab and Shift+Tab. Tab selects the next control in layout order.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
   stays inside an open modal. It skips hidden, disabled and removed controls.

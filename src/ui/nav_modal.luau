@@ -46,6 +46,16 @@ return function(ctx: Types.Context): Nav.Surfaces
 		end
 		return false
 	end
+	local function displayed(node: Instance): boolean
+		local at: Instance? = node
+		while at and not at:IsA("LayerCollector") do
+			if at:IsA("GuiObject") and not at.Visible then
+				return false
+			end
+			at = at.Parent
+		end
+		return at ~= nil
+	end
 	local function firstSelectable(node: Instance, preferred: string?): GuiObject?
 		if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) then
 			return nil
@@ -406,6 +416,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				ancestry:set(ancestry:peek() + 1)
 			end)
 			local rootInteractive = ctx.observe.Interactable(root)
+			local rootVisible = ctx.observe.Visible(root)
 			local panelInteractive = ctx.observe.Interactable(panel)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if not use(rootInteractive) or not use(panelInteractive) then
@@ -418,15 +429,18 @@ return function(ctx: Types.Context): Nav.Surfaces
 					end
 				elseif
 					use(mounted)
+					and use(rootVisible)
 					and use(ancestry) >= 0
 					and not (exiting and use(exiting))
 					and focusIn(use)
 					and not within(guiService.SelectedObject, root)
 				then
 					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
-					pcall(function()
-						guiService.SelectedObject = target
-					end)
+					if target and displayed(target) then
+						pcall(function()
+							guiService.SelectedObject = target
+						end)
+					end
 				end
 			end)
 			local selection = ctx.observe.SelectedObject(gui)
@@ -447,6 +461,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					landed
 					or scopes[#scopes] ~= root
 					or not use(mounted)
+					or not use(rootVisible)
 					or (exiting and use(exiting))
 					or not use(rootInteractive)
 					or not use(panelInteractive)
@@ -455,7 +470,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					return
 				end
 				local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
-				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 then
+				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 and displayed(target) then
 					pcall(function()
 						guiService.SelectedObject = target
 					end)
