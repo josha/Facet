@@ -321,6 +321,12 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	HStack = function()
 		return { gap = "s" }
 	end,
+	AdaptiveStack = function()
+		return { gap = "s" }
+	end,
+	ViewThatFits = function(Host)
+		return { Host.TextLabel { Text = "Wide" }, Host.TextLabel { Text = "Narrow" } }
+	end,
 	ZStack = function()
 		return {}
 	end,
