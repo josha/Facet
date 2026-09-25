@@ -1651,7 +1651,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					LayoutOrder = 2,
 					icon = "calendar",
 					name = "Choose a date",
-					Size = D2.fromOffset(ROW, ROW),
+					Size = D2.new(0, ROW, 1, 0),
 					AutomaticSize = E.AutomaticSize.None,
 					corners = spec.corners,
 					appearance = "utility",
@@ -1672,7 +1672,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					PlaceholderText = spec.placeholder or "",
 					ClearTextOnFocus = false,
 					BackgroundTransparency = 1,
-					Size = D2.new(0, 0, 0, ROW),
+					Size = D2.new(1, -ROW, 1, 0),
 					TextXAlignment = E.TextXAlignment.Left,
 					TextEditable = function(use: Use)
 						return interactive(use)
@@ -1680,7 +1680,6 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					Selectable = function(use: Use)
 						return interactive(use)
 					end,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 					ctx.padding(12, 0) :: Shared.Child,
 				}
 				ctx.styled(box, "text")
@@ -1719,9 +1718,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						local s = use(valueText)
 						return if s ~= "" then s else spec.placeholder or ""
 					end,
-					Size = D2.new(0, 0, 0, ROW),
+					Size = D2.new(1, -ROW, 1, 0),
 					AutomaticSize = E.AutomaticSize.None,
 					TextXAlignment = E.TextXAlignment.Left,
+					textSize = "body",
 					corners = spec.corners,
 					appearance = "utility",
 					enabled = function(use: Use)
@@ -1730,7 +1730,6 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					onActivate = function()
 						requestPresented(true)
 					end,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 				})
 				tagWhile(show, "facet-secondary", function(use: Use)
 					return use(valueText) == ""
@@ -1739,8 +1738,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end)
 			local plate = ctx.row({ entryView, showView, calendarButton() }, {
 				Name = "Field",
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
+				Size = D2.new(1, 0, 0, ROW),
+				AutomaticSize = E.AutomaticSize.None,
 				BackgroundTransparency = 0,
 				ClipsDescendants = true,
 				ctx.padding(0, 0) :: Shared.Child,

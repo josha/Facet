@@ -105,6 +105,7 @@ local function world(build: (any, any) -> any, options: any?): any
 		runtime,
 		{
 			types = engine.types,
+			theme = o.theme,
 			services = { GuiService = gui, UserInputService = input },
 			onError = function(message)
 				table.insert(errors, message)
@@ -280,7 +281,7 @@ t.describe("DateTimePicker: a single date", function()
 	end)
 
 	t.it(
-		"the field's calendar icon is a 44 px square at the plate's trailing edge, highlights clipped (owner)",
+		"the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped (owner)",
 		function()
 			for _, input in { "pointer", "touch" } do
 				local cell, _, change = caller(D(2026, 9, 5))
@@ -289,7 +290,7 @@ t.describe("DateTimePicker: a single date", function()
 				local open = w.opener()
 				expect(open.Parent).toBe(plate)
 				expect(open:HasTag("facet-shape-circle")).toBe(false)
-				expect(open.Size).toBe(w.engine.types.UDim2.fromOffset(44, 44))
+				expect(open.Size).toBe(w.engine.types.UDim2.new(0, 44, 1, 0))
 				expect(plate.ClipsDescendants).toBe(true)
 				local pad = plate:FindFirstChildWhichIsA("UIPadding")
 				expect(`{pad.PaddingLeft.Offset} {pad.PaddingRight.Offset}`).toBe("0 0")
@@ -306,6 +307,51 @@ t.describe("DateTimePicker: a single date", function()
 			end
 		end
 	)
+
+	t.it("the field's parts take the field's height at every control size (owner: TV xsmall)", function()
+		for _, input in { "pointer", "touch" } do
+			for _, rung in { "xsmall", "large", "none" } do
+				local cell, _, change = caller(D(2026, 9, 5))
+				local w = mount({
+					value = cell,
+					onChange = change,
+					label = "Race day",
+					controlSize = if rung == "none" then nil else rung,
+				}, { input = input })
+				local plate = must(w.picker(), "Field")
+				if rung == "none" then
+					expect(`{plate.Size.Y.Offset} {plate.AutomaticSize.Name}`).toBe("44 None")
+				end
+				for _, part in plate:GetChildren() do
+					if part:IsA("GuiObject") then
+						expect(`{part.Name} {part.Size.Y.Scale} {part.Size.Y.Offset}`).toBe(`{part.Name} 1 0`)
+					end
+				end
+				expect(w.opener().Size.X.Offset).toBe(44)
+				w.stop()
+			end
+		end
+	end)
+
+	t.it("a custom format shows one Show button that reads in the field's text role (owner)", function()
+		for _, input in { "pointer", "touch" } do
+			local cell, _, change = caller(D(2026, 9, 5))
+			local w = mount({
+				value = cell,
+				onChange = change,
+				format = function(d: any): string
+					return `{d.day}/{d.month}/{d.year}`
+				end,
+			}, { input = input })
+			local plate = must(w.picker(), "Field")
+			local shows = all(plate, "Show")
+			expect(#shows).toBe(1)
+			expect(shows[1].Text).toBe("5/9/2026")
+			expect(shows[1]:HasTag("facet-type-body")).toBe(true)
+			expect(shows[1].Size).toBe(w.engine.types.UDim2.new(1, -44, 1, 0))
+			w.stop()
+		end
+	end)
 
 	t.it("a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck", function()
 		local cell, seen, change = caller(D(2026, 9, 10), false)
