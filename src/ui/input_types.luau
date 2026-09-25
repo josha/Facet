@@ -267,6 +267,8 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
 	keys: Value<{ { string } }>?,
 	separator: Value<string>?,
 	controlSize: Value<Shared.ControlSize>?,
+	label: Value<string>?,
+	labelPosition: ("start" | "end")?,
 }
 export type ShortcutHintProps = ShortcutHintImplementationProps & ShortcutHintSource
 export type InputControls = {

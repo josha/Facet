@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- ShortcutHint takes `label`, the words for the action beside the keys, and `labelPosition`, `end` (the default) or `start`.
 - Skeleton `corners` takes `"control"` and `"panel"`, the radii of the theme package, beside a number of pixels, `"square"`, `"rounded"` and `"pill"`.
 - Slider `contained = true` makes the rail and the fill as thick as the knob, with round ends. The knob rides inside the rail, and the fill ends at its center.
 - The selection ring of a Card body surrounds the whole card, including the action row. `ringTarget = "media"` rings only the artwork. The ring is the native `SelectionImageObject` of the body, painted by the `facet-card-ring` theme rule.

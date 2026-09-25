@@ -293,3 +293,36 @@ t.describe("Skeleton corners", function()
 		w.stop()
 	end)
 end)
+
+t.describe("ShortcutHint label", function()
+	t.it("the label sits after the keys by default and before them with labelPosition start", function()
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.ShortcutHint "End" { keys = { { "E" } }, label = "Interact" },
+				UI.ShortcutHint "Start" { keys = { { "Q" } }, label = "Back", labelPosition = "start" },
+			}
+		end)
+		local function order(root: any): string
+			local names = {}
+			for _, child in root:GetChildren() do
+				if child:IsA("GuiObject") then
+					table.insert(names, { child.LayoutOrder, child.Name })
+				end
+			end
+			table.sort(names, function(a, b)
+				return a[1] < b[1]
+			end)
+			local out = {}
+			for _, entry in names do
+				table.insert(out, entry[2])
+			end
+			return table.concat(out, ",")
+		end
+		local ending, starting = find(w.screen, "End"), find(w.screen, "Start")
+		expect(order(ending)).toBe("Keys,Label")
+		expect(order(starting)).toBe("Label,Keys")
+		expect(find(ending, "Label").Text).toBe("Interact")
+		expect(find(ending, "Keys").Text).toBe("E")
+		w.stop()
+	end)
+end)

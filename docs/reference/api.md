@@ -1222,6 +1222,11 @@ also takes an optional `separator` and `controlSize`. The default separator is
 cap outline. Without it, the outline is `strokes.hairline`. A value of 0 draws
 no outline.
 
+`label` shows the words for the action beside the keys in the secondary text
+color, such as `label = "Interact"`. `labelPosition` is `end` (the default,
+after the keys) or `start`. With a label, ShortcutHint returns a row Frame that
+holds the keys, named `Keys`, and the `Label`.
+
 ## Menus and navigation
 
 ### Menu and SplitButton

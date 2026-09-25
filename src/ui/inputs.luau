@@ -2116,6 +2116,36 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			assert((spec.action == nil) ~= (spec.keys == nil), "Facet.ShortcutHint: supply action or keys")
 			assert(spec.action == nil or spec.separator == nil, "Facet.ShortcutHint: separator applies only to keys")
 			local semantic = { "action", "keys", "separator", "controlSize" }
+			if spec.label ~= nil then
+				assert(
+					spec.labelPosition == nil or spec.labelPosition == "start" or spec.labelPosition == "end",
+					"Facet.ShortcutHint: labelPosition must be start or end"
+				)
+				local hint = UI.ShortcutHint({
+					Name = "Keys",
+					action = spec.action,
+					keys = spec.keys,
+					separator = spec.separator,
+					controlSize = spec.controlSize,
+				} :: InputTypes.ShortcutHintProps)
+				local caption = ctx.styled(
+					ctx.text({ Name = "Label", Text = spec.label, AutomaticSize = E.AutomaticSize.XY }),
+					"secondary"
+				)
+				return ctx.row(
+					if spec.labelPosition == "start" then { caption, hint } else { hint, caption },
+					props(
+						spec :: Shared.GuiObjectNativeProps,
+						{ "action", "keys", "separator", "controlSize", "label", "labelPosition" },
+						{
+							Name = "ShortcutHint",
+							Size = D2.fromOffset(0, 0),
+							AutomaticSize = E.AutomaticSize.XY,
+							BackgroundTransparency = 1,
+						}
+					) :: Shared.FrameNativeProps
+				)
+			end
 			if spec.keys then
 				return ctx.styled(
 					ctx.text(props(spec, semantic, {
