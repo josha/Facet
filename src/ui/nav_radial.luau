@@ -87,6 +87,7 @@ return function(
 		local branchOrigin: { path: string, x: number, y: number }? = nil
 		local interacting = Compose.cell(false)
 		local capture: InputObject?
+		local pressedAt: Vector3?
 		local analog, held = false, false
 		local suppressedInput: InputObject?
 		local suppressedUntil: number?
@@ -215,13 +216,13 @@ return function(
 		local function isPointer(input: InputObject): boolean
 			return input.UserInputType == E.UserInputType.MouseButton1 or input.UserInputType == E.UserInputType.Touch
 		end
-		local function beginPointer(input: InputObject)
+		local function beginPointer(input: InputObject, onPanel: boolean?)
 			if not capture and opened:peek() and isPointer(input) and aimPointer then
 				suppressedInput, suppressedUntil = nil, nil
 				if aimPointer(input.Position, false, true) == false then
 					return
 				end
-				capture = input
+				capture, pressedAt = input, if onPanel then input.Position else nil
 				if freezeCenter then
 					freezeCenter()
 				end
@@ -942,16 +943,20 @@ return function(
 					skin(centerButton, spec.skin and spec.skin.center)
 				end
 				local panelSize = ctx.observe.AbsoluteSize(panel)
+				local function reachOf(ring: Radial.Layout<V>): number
+					local reach = ring.inner
+					for _, sector in ring.sectors do
+						reach = math.max(reach, sector.outer)
+					end
+					return reach
+				end
 				local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 					local ring = use(layout)
 					if ring.list then
 						return D2.new(0.5, 0, 1, -8), V2.new(0.5, 1)
 					end
 					local at, room = use(center), use(panelSize)
-					local reach = ring.inner
-					for _, sector in ring.sectors do
-						reach = math.max(reach, sector.outer)
-					end
+					local reach = reachOf(ring)
 					local x = math.clamp(at.X, 160, math.max(160, room.X - 160))
 					local below = at.Y + reach + 12
 					if below + 40 > room.Y then
@@ -996,6 +1001,11 @@ return function(
 					end
 					candidate:set(if sector then sector.key else nil)
 					return sector
+				end
+				local function beyond(position: Vector3): boolean
+					local ring = layout:peek()
+					local at = center:peek() + origin:peek()
+					return not ring.list and V2.new(position.X - at.X, position.Y - at.Y).Magnitude > reachOf(ring)
 				end
 				aimPointer = function(
 					position: Vector3,
@@ -1086,7 +1096,9 @@ return function(
 						gui.SelectedObject = buttons[key]
 					end
 				end
-				runtime.connect(panel, "InputBegan", beginPointer)
+				runtime.connect(panel, "InputBegan", function(input: InputObject)
+					beginPointer(input, true)
+				end)
 				local inputService = surfaces.service("UserInputService")
 				runtime.connect(inputService or panel, "InputChanged", function(input: InputObject)
 					if
@@ -1121,9 +1133,13 @@ return function(
 							cancel()
 							return
 						end
-						local sector = assert(aimPointer)(input.Position, true)
+						local still = pressedAt and (input.Position - pressedAt).Magnitude < 8
+						local outside = still and beyond(pressedAt :: Vector3) and beyond(input.Position)
+						local sector = if outside then nil else assert(aimPointer)(input.Position, true)
 						cancel()
-						if type(sector) == "table" then
+						if outside then
+							close()
+						elseif type(sector) == "table" then
 							nativeActivate(sector, input, "gesture")
 						end
 					end
@@ -1190,9 +1206,17 @@ return function(
 						end, { priority = 2200, capture = true, group = "Radial" })
 					end
 				end
-				local modal = surfaces.modal(function()
-					return panel
-				end, back, { backgroundTransparency = 1 })
+				local modal = surfaces.modal(
+					function()
+						return panel
+					end,
+					back,
+					{
+						appearance = function(use: ComposeTypes.Use?): number
+							return 1 - if use then transparency(use) else 0
+						end,
+					}
+				)
 				if spec.skin and spec.skin.background then
 					skin(modal, spec.skin.background)
 				end

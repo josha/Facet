@@ -1756,6 +1756,11 @@ their model. The geometry is specific to this control. It does not add a second
 general layout or input system. A native GuiObject anchor or a projected
 screen-point anchor connects the menu to an existing surface.
 
+An open ring is a modal surface on the same layer as Dialog and Menu. The
+theme scrim dims the page behind it and blocks its input. A still tap outside
+the ring closes the menu. A press outside the ring that slides onto a wedge
+still selects it. With `centerPassThrough`, the page is not dimmed.
+
 ## Presented controls
 
 ### Alert

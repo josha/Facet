@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An open RadialMenu dims the page behind it with the theme scrim, and a still tap outside the ring closes it. Before, the page showed at full strength between the wedges and a tap outside did nothing.
 - Restored `UI.AdaptiveStack` and `UI.ViewThatFits` with native measurement. AdaptiveStack turns its axis from a bound `axis`, or without `axis` becomes a column when its row does not fit. ViewThatFits shows the first candidate whose `AbsoluteSize` fits the container and hides the others.
 - A text field placeholder takes the theme's `contentSecondary` colour. Before, it kept the engine's grey, which almost vanished on a light skinned field (Fantasy Parchment).
 - The TextInput clear button shows the `close` icon with the accessible name "Clear" on a plate-less `utility` Button. Before, it showed the word "Clear" truncated to "C…" in its 44 px box.
