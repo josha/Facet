@@ -170,6 +170,7 @@ t.describe("native settings rows share one list row", function()
 			expect(`{form} description: {description and description:HasTag("facet-secondary")}`).toBe(
 				`{form} description: true`
 			)
+			expect(`{form} wraps: {description.TextWrapped} {description.Size.X.Scale}`).toBe(`{form} wraps: true 1`)
 			stop()
 		end
 	end)

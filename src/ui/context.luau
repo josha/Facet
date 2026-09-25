@@ -588,6 +588,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			if caption.Name == "Description" then
 				caption:AddTag("facet-secondary")
 			end
+			if caption:IsA("TextLabel") then
+				caption.Size = types.UDim2.fromScale(1, 0)
+				caption.AutomaticSize = Enum.AutomaticSize.Y
+				caption.TextWrapped = true
+			end
 		end
 		local columns: { ComposeTypes.Child } = table.clone(parts.leading or {})
 		table.insert(
