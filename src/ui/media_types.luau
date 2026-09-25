@@ -13,13 +13,13 @@ export type TextSize = number | TextRole | TextFit
 export type TextAlign = "start" | "center" | "end"
 export type TextProps = Engine.TextLabelNativeProps & {
 	ref: ((TextLabel) -> ())?,
-	text: Types.Value<string>,
+	text: Types.ValueString,
 	textRole: Types.Value<TextRole>?,
 	role: Types.Value<"secondary" | "content">?,
 	truncate: ("end" | "middle")?,
 	textSize: TextSize?,
 	textAlign: Types.Value<TextAlign>?,
-	wrap: Types.Value<boolean>?,
+	wrap: Types.ValueBoolean?,
 	rich: boolean?,
 	direction: ("auto" | "ltr" | "rtl")?,
 	tint: Types.Value<Color3>?,
@@ -28,7 +28,7 @@ export type TextProps = Engine.TextLabelNativeProps & {
 export type LabelPresentation = "titleAndIcon" | "titleOnly" | "iconOnly"
 export type LabelProps = Engine.FrameProps & {
 	ref: ((Frame) -> ())?,
-	title: Types.Value<string>,
+	title: Types.ValueString,
 	icon: string?,
 	presentation: LabelPresentation?,
 	iconSize: (number | string)?,
@@ -39,7 +39,7 @@ export type LabelProps = Engine.FrameProps & {
 export type ScaleMode = "fit" | "fill" | "crop" | "stretch" | "tile" | "slice"
 export type ImageProps = Engine.ImageLabelProps & {
 	ref: ((ImageLabel) -> ())?,
-	image: Types.Value<string>?,
+	image: Types.ValueString?,
 	tint: Types.Value<Color3>?,
 	scaleMode: Types.Value<ScaleMode>?,
 	tileSize: { width: number, height: number }?,
@@ -49,9 +49,9 @@ export type ImageProps = Engine.ImageLabelProps & {
 	shape: ("rect" | "circle")?,
 }
 export type BadgeProps = Types.TextLabelProps & {
-	label: Types.Value<string>?,
+	label: Types.ValueString?,
 	name: string?,
-	icon: Types.Value<string>?,
+	icon: Types.ValueString?,
 	iconPosition: "leading" | "trailing"?,
 	status: Types.Value<Status>?,
 	appearance: Types.Value<"standard" | "status" | "utility">?,
@@ -63,7 +63,7 @@ export type StatusIndicatorProps = Types.TextLabelProps & {
 	form: Types.Value<"dot" | "ring" | "square" | "dash">?,
 	count: Types.Value<number?>?,
 	max: number?,
-	diameter: Types.Value<number>?,
+	diameter: Types.ValueNumber?,
 	controlSize: Types.Value<ControlSize>?,
 	cutout: boolean?,
 	name: string?,
@@ -72,7 +72,7 @@ export type PathPoint = { x: number, y: number, inX: number, inY: number, outX: 
 export type PathProps = Engine.FrameProps & {
 	points: Types.Value<{ PathPoint }>,
 	thickness: Types.Value<number | string>?,
-	closed: Types.Value<boolean>?,
+	closed: Types.ValueBoolean?,
 	role: Types.Value<"content" | "secondary" | "accent">?,
 	tint: Types.Value<Color3>?,
 	width: number?,
@@ -80,16 +80,16 @@ export type PathProps = Engine.FrameProps & {
 }
 export type Trail = { delay: number?, duration: number? }
 export type ProgressViewProps = Engine.FrameProps & {
-	value: Types.Value<number>?,
-	min: Types.Value<number>?,
-	max: Types.Value<number>?,
+	value: Types.ValueNumber?,
+	min: Types.ValueNumber?,
+	max: Types.ValueNumber?,
 	presentation: "bar" | "circular" | "spinner"?,
-	label: Types.Value<string>?,
-	endLabel: Types.Value<string>?,
+	label: Types.ValueString?,
+	endLabel: Types.ValueString?,
 	showValue: boolean?,
 	format: ((value: number) -> string)?,
-	diameter: Types.Value<number>?,
-	thickness: Types.Value<number>?,
+	diameter: Types.ValueNumber?,
+	thickness: Types.ValueNumber?,
 	segments: number?,
 	trail: Trail?,
 	controlSize: Types.Value<ControlSize>?,
@@ -119,23 +119,23 @@ export type AsyncImageProps = Engine.FrameProps & {
 	resource: ComposeTypes.AcquireSharedResource<ImageResource>?,
 	loader: ImageLoader?,
 	onStatus: ImageStatusCallback?,
-	failureLabel: Types.Value<string>?,
+	failureLabel: Types.ValueString?,
 	placeholder: ((state: ComposeTypes.Readable<ImageState>) -> Instance)?,
-	dimmed: Types.Value<boolean>?,
+	dimmed: Types.ValueBoolean?,
 	imageProperties: Types.ImageLabelProps?,
 }
 export type Presence = "online" | "away" | "busy" | "offline" | "inExperience"
 export type AvatarProps = Types.TextButtonProps & {
-	name: Types.Value<string>,
+	name: Types.ValueString,
 	image: Types.Value<string?>?,
-	userId: Types.Value<number>?,
+	userId: Types.ValueNumber?,
 	resource: ComposeTypes.AcquireSharedResource<ImageResource>?,
 	loader: ImageLoader?,
 	onStatus: ImageStatusCallback?,
 	presence: Types.Value<Presence?>?,
-	presenceLabel: Types.Value<string>?,
+	presenceLabel: Types.ValueString?,
 	presenceMark: boolean?,
-	diameter: Types.Value<number>?,
+	diameter: Types.ValueNumber?,
 	controlSize: Types.Value<ControlSize>?,
 	form: "standard" | "icon"?,
 	backplate: boolean?,
@@ -155,12 +155,12 @@ export type AvatarMember = {
 export type AvatarGroupProps = Engine.FrameProps & {
 	items: Types.Value<{ AvatarMember }>,
 	max: number?,
-	diameter: Types.Value<number>?,
+	diameter: Types.ValueNumber?,
 	controlSize: Types.Value<ControlSize>?,
 	form: "standard" | "icon"?,
 	layout: "stacked" | "spread"?,
 	overflow: "count" | "ellipsis"?,
-	overflowLabel: Types.Value<string>?,
+	overflowLabel: Types.ValueString?,
 	onOverflow: (() -> ())?,
 }
 export type StageProps = Types.ViewportFrameProps & {
@@ -171,7 +171,7 @@ export type StageProps = Types.ViewportFrameProps & {
 	) -> (() -> ())?)?,
 	lazy: boolean?,
 	camera: Camera | Types.Value<CFrame>?,
-	fieldOfView: Types.Value<number>?,
+	fieldOfView: Types.ValueNumber?,
 }
 export type MediaControls = {
 	Text: Types.Constructor<TextProps, GuiObject>,

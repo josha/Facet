@@ -12,6 +12,9 @@ export type Use = ComposeTypes.Use
 export type Child = ComposeTypes.Child
 export type Dispose = ComposeTypes.Dispose
 export type Value<T> = Engine.Value<T>
+export type ValueString = Engine.ValueString
+export type ValueBoolean = Engine.ValueBoolean
+export type ValueNumber = Engine.ValueNumber
 
 export type Constructor<P, N> = Engine.Constructor<P, N>
 export type Host = Engine.Host
@@ -41,7 +44,7 @@ export type Flow = {
 	gap: Value<Space>?,
 	align: Value<Align>?,
 	distribute: Value<Distribute>?,
-	wrap: Value<boolean>?,
+	wrap: Engine.ValueBoolean?,
 }
 
 export type BillboardGuiProps = Engine.BillboardGuiProps
@@ -137,7 +140,7 @@ export type Config = {
 	controlSize: Value<ControlSize>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
-	reducedMotion: Value<boolean>?,
+	reducedMotion: Engine.ValueBoolean?,
 	pressHaptic: HapticEffect?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
@@ -172,9 +175,9 @@ export type ListRow = {
 	controlSize: Value<ControlSize>?,
 }
 export type SkinStateOptions = {
-	disabled: Value<boolean>?,
-	selected: Value<boolean>?,
-	label: Value<string>?,
+	disabled: Engine.ValueBoolean?,
+	selected: Engine.ValueBoolean?,
+	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
 }
 export type Context = {
@@ -203,13 +206,13 @@ export type Context = {
 	padding: (number, number) -> UIPadding,
 	corner: (number?) -> UICorner,
 	fade: (CanvasGroupNativeProps) -> Frame,
-	fadeTo: (Instance, Value<number>) -> (),
+	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,
 	column: ({ Child }, FrameNativeProps?) -> Frame,
 	listRow: (ListRow) -> (Frame, Value<UDim2>, (GuiObject) -> ()),
-	icon: (Value<string>, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,
-	iconVaries: (Value<string>?) -> boolean,
+	icon: (Engine.ValueString, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,
+	iconVaries: (Engine.ValueString?) -> boolean,
 	modalScopes: Cell<{ Instance }>,
 	modalPortals: Cell<{ ModalPortal }>,
 	modalPortal: (Instance, Instance) -> (),
@@ -218,7 +221,7 @@ export type Context = {
 		Instance,
 		string,
 		ActionBindings,
-		Value<boolean>?,
+		Engine.ValueBoolean?,
 		() -> (),
 		ActionSettings?
 	) -> (InputAction, InputContext),

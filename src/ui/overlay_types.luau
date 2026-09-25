@@ -24,18 +24,18 @@ export type Hero = {
 export type ActionRole = "default" | "cancel" | "destructive"
 export type Action = {
 	id: string,
-	label: Value<string>,
+	label: Types.ValueString,
 	role: ActionRole?,
-	enabled: Value<boolean>?,
-	busy: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
+	busy: Types.ValueBoolean?,
 	onActivate: () -> (),
 }
 export type DialogAction = {
 	id: string,
-	label: Value<string>,
+	label: Types.ValueString,
 	role: ActionRole?,
-	enabled: Value<boolean>?,
-	busy: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
+	busy: Types.ValueBoolean?,
 	keepOpen: boolean?,
 	onActivate: () -> (),
 }
@@ -46,13 +46,13 @@ export type Align = "start" | "center" | "end"
 
 export type DialogDismissReason = "close" | "outside" | "cancel" | "action"
 export type DialogSpec = Types.FrameProps & {
-	isPresented: Value<boolean>,
+	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((DialogDismissReason) -> ())?,
-	title: Value<string>?,
+	title: Types.ValueString?,
 	content: (() -> Instance)?,
 	hero: Media?,
-	actionLabel: Value<string>?,
+	actionLabel: Types.ValueString?,
 	actions: { DialogAction }?,
 	actionLayout: ActionLayout?,
 	closeButton: boolean?,
@@ -65,7 +65,7 @@ export type DialogConstructor = ((DialogSpec) -> Frame) & ((string) -> (DialogSp
 export type PopoverDismissReason = "cancel" | "outside" | "trigger" | "anchorLost"
 export type PopoverSource = { node: GuiObject } | { rect: Rect }
 export type PopoverSpec = Types.FrameProps & {
-	isPresented: Value<boolean>,
+	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((PopoverDismissReason) -> ())?,
 	trigger: GuiButton?,
@@ -79,14 +79,14 @@ export type PopoverSpec = Types.FrameProps & {
 	maxWidth: number?,
 	maxHeight: number?,
 	compact: ("sheet" | "popover")?,
-	title: Value<string>?,
+	title: Types.ValueString?,
 }
 
 export type SnackbarDismissReason = "action" | "close" | "timeout" | "superseded" | "cancel"
-export type SnackbarAction = { label: Value<string>, onActivate: () -> () }
+export type SnackbarAction = { label: Types.ValueString, onActivate: () -> () }
 export type SnackbarSpec = Types.FrameProps & {
-	isPresented: Value<boolean>,
-	message: Value<string>,
+	isPresented: Types.ValueBoolean,
+	message: Types.ValueString,
 	icon: string?,
 	action: SnackbarAction?,
 	closeButton: boolean?,
@@ -98,13 +98,13 @@ export type SnackbarSpec = Types.FrameProps & {
 
 export type NoticeSeverity = "info" | "success" | "warning" | "error"
 export type NoticeSpec = Types.FrameProps & {
-	message: Value<string>,
-	title: Value<string>?,
+	message: Types.ValueString,
+	title: Types.ValueString?,
 	severity: NoticeSeverity?,
 	appearance: ("standard" | "emphasis")?,
 	placement: ("inline" | "affixed")?,
 	icon: (boolean | string)?,
-	link: { label: Value<string>, onActivate: () -> () }?,
+	link: { label: Types.ValueString, onActivate: () -> () }?,
 	actions: { Action }?,
 	onDismiss: (() -> ())?,
 	controlSize: Value<Types.ControlSize>?,
@@ -113,7 +113,7 @@ export type NoticeSpec = Types.FrameProps & {
 export type NavBarSpec = Types.FrameProps & {
 	onBack: (() -> ())?,
 	backLabel: string?,
-	title: Value<string>?,
+	title: Types.ValueString?,
 	titleSize: string?,
 	leading: GuiObject?,
 	center: GuiObject?,

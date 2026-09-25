@@ -8,18 +8,18 @@ type Value<T> = Types.Value<T>
 export type Diagnostics = { diagnostics: (() -> { string })? }
 export type PaginationForm = "numbers" | "arrows" | "label"
 export type PaginationSpec = Types.FrameProps & {
-	page: Value<number>,
+	page: Types.ValueNumber,
 	onChange: (number) -> (),
 	pageCount: Value<number?>?,
-	hasNext: Value<boolean>?,
-	hasPrevious: Value<boolean>?,
+	hasNext: Types.ValueBoolean?,
+	hasPrevious: Types.ValueBoolean?,
 	siblingCount: number?,
 	boundaryCount: number?,
 	showFirstLast: boolean?,
 	form: PaginationForm?,
 	direction: ("ltr" | "rtl")?,
 	controlSize: Value<Types.ControlSize>?,
-	enabled: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
 export type StepState = "complete" | "current" | "upcoming" | "error"
@@ -38,27 +38,27 @@ export type StepIndicatorSpec = Types.FrameProps & {
 	sizing: ("fill" | "hug")?,
 	listLabel: string?,
 	controlSize: Value<Types.ControlSize>?,
-	enabled: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
 export type VoteValue = "up" | "down" | "none"
 export type VoteSpec = Types.FrameProps & {
 	value: Value<VoteValue>,
 	onChange: ((VoteValue) -> ())?,
-	summary: Value<string>?,
-	readOnly: Value<boolean>?,
+	summary: Types.ValueString?,
+	readOnly: Types.ValueBoolean?,
 	controlSize: Value<Types.ControlSize>?,
-	enabled: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
 	controls: Diagnostics?,
 }
 export type CardAction = {
-	label: Value<string>,
-	icon: Value<string>?,
+	label: Types.ValueString,
+	icon: Types.ValueString?,
 	onActivate: () -> (),
-	enabled: Value<boolean>?,
-	busy: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
+	busy: Types.ValueBoolean?,
 }
-export type CardMenu = { items: Value<{ Nav.MenuItem<string> }>, label: Value<string>? }
+export type CardMenu = { items: Value<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
 export type CardControls = Diagnostics & {
 	enterActions: (() -> boolean)?,
 	leaveActions: (() -> ())?,
@@ -69,10 +69,10 @@ export type CardControls = Diagnostics & {
 	revealExtent: ComposeTypes.Readable<{ body: number }>?,
 }
 export type CardSpec = Types.FrameProps & {
-	image: Value<string>?,
+	image: Types.ValueString?,
 	artwork: (() -> GuiObject)?,
-	title: Value<string>,
-	caption: Value<string>?,
+	title: Types.ValueString,
+	caption: Types.ValueString?,
 	imageAspectRatio: number?,
 	imageFraming: ("fit" | "crop")?,
 	onActivate: ((input: InputObject?) -> ())?,
@@ -80,7 +80,7 @@ export type CardSpec = Types.FrameProps & {
 	menu: CardMenu?,
 	reveal: ("automatic" | "always")?,
 	browseTarget: (() -> GuiObject?)?,
-	enabled: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
 	controls: CardControls?,
 	ringTarget: ("card" | "media")?,
 }

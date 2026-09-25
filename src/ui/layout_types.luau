@@ -18,7 +18,7 @@ export type StackProps = Engine.FrameProps & {
 	gap: Types.Value<Space>?,
 	align: Types.Value<Align>?,
 	distribute: Types.Value<Distribute>?,
-	wrap: Types.Value<boolean>?,
+	wrap: Types.ValueBoolean?,
 }
 export type ScreenProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
@@ -48,12 +48,12 @@ export type GridProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,
-	columns: Types.Value<number>,
+	columns: Types.ValueNumber,
 	flow: ("row" | "column")?,
 	gap: Types.Value<Space>?,
 	rowGap: Types.Value<Space>?,
-	cellHeight: Types.Value<number>?,
-	aspectRatio: Types.Value<number>?,
+	cellHeight: Types.ValueNumber?,
+	aspectRatio: Types.ValueNumber?,
 	align: Types.Value<Edge>?,
 }
 export type AdaptiveStackProps = Engine.FrameProps & {
