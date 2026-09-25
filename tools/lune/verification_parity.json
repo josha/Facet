@@ -24877,7 +24877,7 @@
       "mainCases": 9,
       "class": "a",
       "candidateCases": [
-        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds"
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds and keeps the image ratio"
       ],
       "liveEvidence": {
         "host": "Roblox Studio playtest with the device emulator (touch)",
