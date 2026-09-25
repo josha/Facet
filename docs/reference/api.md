@@ -1109,7 +1109,9 @@ plate. Nothing commits. An empty text proposes an empty value.
 The panel opens below the field, aligned to its leading edge. If there is not
 sufficient room below, the panel opens above the field. The panel stays 8
 pixels from the screen edges. The `CalendarSurface` ScrollingFrame holds the
-calendar. It is never taller than the screen, so a tall calendar scrolls. On a touch screen narrower than 600 pixels, the
+calendar. A skinned theme's panel carve (`chrome.panel.contentInsets`) is added
+around the calendar, so the art never covers it. The surface is never taller
+than the screen, so a tall calendar scrolls. On a touch screen narrower than 600 pixels, the
 panel is a sheet at the bottom of the screen with a Done button. On a ten-foot
 screen, the panel is a sheet at the center of the screen. The panel is a native
 modal. A tap outside the panel, B or Escape closes it. When it closes, the

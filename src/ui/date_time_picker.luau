@@ -1860,8 +1860,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					})
 					runtime.decorate(surface, {
 						Size = function(use: Use)
+							local function carve(side: string): number
+								return surfaces.inset(0, side, nil, use)
+							end
 							local offer = use(extent) :: Vector2
-							local height = (use(content) :: Vector2).Y
+							local height = (use(content) :: Vector2).Y + carve("top") + carve("bottom")
 							if offer.Y > 0 then
 								height = math.min(height, offer.Y - 16)
 							end
@@ -1869,7 +1872,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 								return D2.new(1, -24, 0, height)
 							end
 							local width = if use(dual) then 2 * 7 * CELL + GAP else 7 * CELL
-							return D2.fromOffset(width + 32, height)
+							return D2.fromOffset(width + 32 + carve("left") + carve("right"), height)
 						end,
 						Position = function(use: Use)
 							local at, size, offer, box, offset =
