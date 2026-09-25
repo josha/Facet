@@ -12,6 +12,16 @@ export type SkinOptions = ThemeTypes.SkinOptions
 export type Themes = ThemeTypes.Themes
 
 local themes = {}
+local function contrast(first: Color3, second: Color3): number
+	local function luminance(value: Color3): number
+		local function linear(channel: number): number
+			return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
+		end
+		return 0.2126 * linear(value.R) + 0.7152 * linear(value.G) + 0.0722 * linear(value.B)
+	end
+	local a, b = luminance(first), luminance(second)
+	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
+end
 themes.SCHEMA = "facet-theme/2"
 themes.TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control", "strong", "numeral" })
 themes.REQUIRED_TYPE_ROLES = themes.TYPE_ROLES
@@ -1134,11 +1144,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, SEGMENT_INSET),
 		PaddingBottom = types.UDim.new(0, SEGMENT_INSET),
 	})
-	rule(".facet-segment", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
+	local track, quiet, loud = c("control") :: Color3, c("contentSecondary") :: Color3, c("content") :: Color3
+	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
+		then quiet
+		else loud
+	rule(".facet-segment", { BackgroundTransparency = 1, TextColor3 = segmentInk })
 	rule(".facet-segment::UICorner", { CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) })
 	rule(".facet-segmented-pill >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(1, 0) })
 	rule(".facet-segmented-square >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(0, 0) })
-	rule(".facet-segment >> .facet-button-caption", { TextColor3 = c("contentSecondary") })
+	rule(".facet-segment >> .facet-button-caption", { TextColor3 = segmentInk })
 	rule(
 		".facet-segment:Hover",
 		{ BackgroundTransparency = 0, BackgroundColor3 = c("controlHover"), TextColor3 = c("content") }

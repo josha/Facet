@@ -1412,6 +1412,31 @@ t.describe("native ColorPicker panel fit", function()
 		expect(panel.Size.Y.Offset).toBe(44 + 140 + 800 + 2 * 8 + carve.top + carve.bottom)
 		w.stop()
 	end)
+
+	t.it("an inactive segment's ink is the readable of the theme's secondary and primary ink on the track", function()
+		local function lum(c: any): number
+			local function linear(v: number): number
+				return if v <= 0.04045 then v / 12.92 else ((v + 0.055) / 1.055) ^ 2.4
+			end
+			return 0.2126 * linear(c.R) + 0.7152 * linear(c.G) + 0.0722 * linear(c.B)
+		end
+		local function ratio(a: any, b: any): number
+			local x, y = lum(a), lum(b)
+			return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05)
+		end
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local segment = w.find("Modes/brick")
+		for name, package in { neutral = Facet.themes.neutralPackage(), pixel = pixel() } do
+			local _, sheet = w.runtime.mount(function()
+				return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types } :: any)
+			end, w.engine.new("Folder"))
+			local ink = styleRules.resolve(sheet, segment, "TextColor3")
+			local track = styleRules.resolve(sheet, w.find("Modes/Presentation"), "BackgroundColor3")
+			expect(`{name} {ratio(ink, track) >= 3}`).toBe(`{name} true`)
+		end
+		w.stop()
+	end)
 end)
 
 return nil

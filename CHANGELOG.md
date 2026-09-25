@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An inactive segmented Picker segment uses `contentSecondary` ink only when it reaches 4.5:1 on the `control` track (or beats `content`); otherwise it uses `content`. Before, Pixel Quest showed tan on wood (1.9:1, now cream at 3.3:1), and Classic Desktop Night and Fantasy Parchment Daylight were below 4.5:1.
 - `UI.ColorPicker` sizes its anchored panel around the theme's panel `contentInsets` (the padding the shared panel skin applies). Before, it assumed 12 pixel padding, so in Pixel Quest the panel was 24 pixels short and its content ran onto the frame art.
 - `UI.ColorPicker` Sliders: the Hue, Saturation and Brightness labels share the widest label's width (from `TextBounds`), so the tracks line up. Before, each track started after its own label.
 - `UI.ColorPicker`: in a scrolling panel body, an inactive technique reserves at most the height of the body. Before, the Swatches tab kept the Bricks tab's 800 pixel height and scrolled into empty space.
