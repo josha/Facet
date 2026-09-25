@@ -621,11 +621,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local side = from(use)
+				local carve = surfaces.inset(0, RESERVED[side], nil, use)
 				if side == "bottom" then
-					return D2.fromOffset(0, pad("top", use) - HANDLE - 8)
+					return D2.fromOffset(0, carve)
 				end
-				local inset = pad(RESERVED[side], use) - HANDLE - 8
-				return if side == "left" then D2.new(1, -inset, 0, 0) else D2.fromOffset(inset, 0)
+				return if side == "left" then D2.new(1, -carve, 0, 0) else D2.fromOffset(carve, 0)
 			end,
 			Size = function(use: ComposeTypes.Use)
 				return if from(use) == "bottom" then D2.new(1, 0, 0, HANDLE) else D2.new(0, HANDLE, 1, 0)
@@ -891,15 +891,20 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return 0, math.ceil(painted(use) * rest)
 		end
-		local panel = ctx.column({
-			Host.Folder "Grip" { handle },
-			room.frame,
-			ctx.padding(BASE.left, BASE.top),
-			ctx.corner(),
-			detector("PanelDrag", "panel") :: Instance,
-		}, {
+		local column = ctx.column({ room.frame, ctx.padding(BASE.left, BASE.top) }, {
+			Name = "SheetColumn",
+			BackgroundTransparency = 1,
+			AutomaticSize = E.AutomaticSize.None,
+			Size = D2.fromScale(1, 1),
+		})
+		local layout = column:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+		if layout then
+			layout.Padding = ctx.types.UDim.new(0, 8)
+		end
+		local panelProps: Types.FrameNativeProps = {
 			Name = "SheetPanel",
 			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
 			AnchorPoint = function(use: ComposeTypes.Use)
 				local anchorX, anchorY = anchors(use)
 				return V2.new(anchorX, anchorY)
@@ -914,11 +919,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = function(use: ComposeTypes.Use)
 				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
-		})
-		local layout = panel:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
-		if layout then
-			layout.Padding = ctx.types.UDim.new(0, 8)
+		}
+		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
+			table.insert(panelProps, child)
 		end
+		local panel = Host.Frame(panelProps)
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {
@@ -928,6 +933,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			},
 		})
 		surfaces.skin(panel, nil, {
+			padding = column:FindFirstChildWhichIsA("UIPadding"),
 			reserve = reserve,
 			title = if spec.header == nil then spec.title else nil,
 			onCaption = function(on: boolean)

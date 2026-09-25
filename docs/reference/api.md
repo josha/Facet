@@ -1912,7 +1912,10 @@ during a drag ends the drag. Only one drag runs at a time.
 The grabber sits on the edge that the sheet came from. A bottom or center
 sheet has a horizontal bar at the top. A side sheet from the right has a
 vertical bar on its left edge, and a side sheet from the left has one on its
-right edge. The content keeps 28 pixels clear on that side. On a side sheet,
+right edge. The grabber sits in its own gutter at that edge, just inside the inner edge
+of the theme's panel art (`contentInsets`), centred along the edge. The
+content reserves only the gutter, 20 pixels plus an 8 pixel gap, on that side
+and keeps equal padding on the other sides. On a side sheet,
 a drag of the grabber toward the sheet's edge moves the whole sheet. A release
 past a third of the width, or faster than 600 pixels a second, closes it.
 Otherwise it slides back.

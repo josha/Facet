@@ -343,6 +343,7 @@ export type OverlayOptions = {
 	failure: ((unknown) -> Instance)?,
 }
 export type PanelSkin = {
+	padding: UIPadding?,
 	reserve: ((string, ComposeTypes.Use) -> number)?,
 	title: Value<string>?,
 	onCaption: ((boolean) -> ())?,

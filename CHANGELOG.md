@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Sheet grabber sits in its own gutter just inside the panel art's inner edge. Before, the panel padding also moved the grabber, so a Fantasy side sheet drew its bar about 140 pixels in from the frame, inside the content.
 - A labelled TabView tab with an icon badge widens the gap between its icon and its label to hold the badge. Before, the badge covered the start of the label by about 4 pixels.
 - The StepIndicator underline is placed as a fraction of the row width. Before, it was placed in pixels from absolute sizes, so under an ancestor `UIScale` (a TV) it was scaled twice and ran past its step.
 - A StepIndicator with `sizing = "hug"` changes to the summary and the Steps menu when its laid-out row is wider than its root. Before, it estimated the row from the label text, so on a phone the row ran off the screen.
