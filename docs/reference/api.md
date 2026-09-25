@@ -2672,8 +2672,9 @@ Sizes:
 - Native text bounds can make both larger.
 
 The header band and each row paint a rounded band (`radii.control`) through
-the theme tags `facet-tablehead` and `facet-tablerow`; rows sit 2 pixels
-apart, and a selected row is the same band in `controlSelected`.
+the theme tags `facet-tablehead` and `facet-tablerow`; a 1 pixel inner
+`surface` stroke separates adjacent rows, and a selected row is the same band
+in `controlSelected`.
 `alternatingRows = true` also tags every second row `facet-tablerow-alternate`.
 The palette roles are `tableHeader`, `tableRow` and `tableRowAlternate`. Each
 heading is a standard Button without a plate (`facet-tableheading`) on the

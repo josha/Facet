@@ -642,8 +642,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local cellRow = row
 				local rowProps: Types.FrameProps = {
 					Name = "DisclosingRow",
-					Position = D2.fromOffset(0, 1),
-					Size = D2.new(1, 0, 1, -2),
+					Size = D2.fromScale(1, 1),
 					cellRow :: ComposeTypes.Child,
 					Compose.show(function(use: ComposeTypes.Use)
 						return use(disclosureWidth) > 0
