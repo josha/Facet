@@ -1735,6 +1735,9 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end, root)
 		end
 		if spec.presence then
+			local function ringWidth(use: ComposeTypes.Use): number
+				return 2 * metric("strokes.hairline", use)
+			end
 			runtime.mount(function()
 				return Host.Frame "PresenceRing" {
 					BackgroundTransparency = 1,
@@ -1748,7 +1751,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						Host.UIStroke({
 							ApplyStrokeMode = E.ApplyStrokeMode.Border,
 							BorderStrokePosition = E.BorderStrokePosition.Inner,
-							Thickness = 2,
+							Thickness = ringWidth,
 						}),
 						"avatar-ring"
 					),
@@ -1756,13 +1759,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						BackgroundTransparency = 1,
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
-						Size = D2.new(1, -4, 1, -4),
+						Size = function(use: ComposeTypes.Use)
+							local inset = 2 * ringWidth(use)
+							return D2.new(1, -inset, 1, -inset)
+						end,
 						Host.UICorner({ CornerRadius = D.new(1, 0) }),
 						ctx.styled(
 							Host.UIStroke({
 								ApplyStrokeMode = E.ApplyStrokeMode.Border,
 								BorderStrokePosition = E.BorderStrokePosition.Inner,
-								Thickness = 2,
+								Thickness = ringWidth,
 							}),
 							"avatar-ring-gap"
 						),

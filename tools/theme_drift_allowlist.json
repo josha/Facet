@@ -8,20 +8,6 @@
       "reason": "The activity dots are fixed 4x4 px circles; radius 2 is half the dot, a shape rather than a theme corner size."
     },
     {
-      "path": "src/ui/inputs.luau",
-      "rule": "radius",
-      "match": "ctx.corner(if presentation == \"switch\" then 9 else 2)",
-      "status": "no-metric",
-      "reason": "The switch thumb radius 9 is half its fixed 18 px size; the 12 px checkbox mark radius 2 has no theme metric because radii covers control and panel surfaces only."
-    },
-    {
-      "path": "src/ui/inputs.luau",
-      "rule": "radius",
-      "match": "ctx.corner(if presentation == \"switch\" then 12 else 4)",
-      "status": "no-metric",
-      "reason": "The switch track radius 12 is half its fixed 24 px height, a capsule; the 24 px checkbox box radius 4 has no theme metric because radii covers control and panel surfaces only."
-    },
-    {
       "path": "src/ui/media.luau",
       "rule": "stroke",
       "match": "return math.max(2, math.floor(size(use) / 6 + 0.5))",
@@ -52,9 +38,9 @@
     {
       "path": "src/ui/slider.luau",
       "rule": "radius",
-      "match": "ctx.corner(3),",
+      "match": "return if contained then Host.UICorner({ CornerRadius = D.new(1, 0) }) else ctx.corner(3)",
       "status": "structural",
-      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau."
+      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau. A contained rail is as thick as the knob and rounds fully into a pill."
     },
     {
       "path": "src/ui/nav_menu.luau",
@@ -111,6 +97,13 @@
       "match": "Host.UIStroke({ Thickness = 1 }) :: Shared.Child,",
       "status": "no-metric",
       "reason": "The today ring on a calendar day disc has no theme metric; its colour comes from the theme rule."
+    },
+    {
+      "path": "src/ui/card.luau",
+      "rule": "stroke",
+      "match": "Thickness = 2,",
+      "status": "no-metric",
+      "reason": "The Card selection ring is a 2 px focus ring, the width of the engine selection outline; the theme strokes cover only the hairline."
     }
   ]
 }
