@@ -426,7 +426,7 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t)
 	local stage, context = t.gallery({ demo = "all-controls" })
 	t.settle(10)
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local settings = visibleNamed(t, gui, "Settings") or visibleNamed(t, gui, "CompactSettings")
+	local settings = visibleNamed(t, gui, "Settings")
 	t.check("the Settings chrome button is visible", settings ~= nil)
 	if not settings then
 		return

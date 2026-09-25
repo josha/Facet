@@ -320,19 +320,6 @@ function screen.build(ctx: any)
 			tabs = tabs,
 			style = "sidebarAdaptable",
 			retention = "top",
-			accessories = {
-				foot = function()
-					return UI.Button "CompactSettings" {
-						label = "Settings",
-						icon = "settings",
-						appearance = "utility",
-						Visible = compact,
-						onActivate = function()
-							settingsOpen:set(not settingsOpen:peek())
-						end,
-					}
-				end,
-			},
 			transition = false,
 			placement = function(use)
 				return if use(compact) then "none" else "automatic"
