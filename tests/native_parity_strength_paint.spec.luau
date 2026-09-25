@@ -990,12 +990,8 @@ t.describe("native paint strength: skins", function()
 				for _, palette in package.style.themes do
 					local colors, extra = paletteOf(palette)
 					local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
-					t.expect(resolve(sheet, art, "ImageColor3")).toBe(
-						if extra.artTint
-							then color(h.engine, extra.artTint)
-							elseif name == "fantasy_parchment" then h.engine.types.Color3.new(1, 1, 1)
-							else nil
-					)
+					t.expect(resolve(sheet, art, "ImageColor3"))
+						.toBe(if extra.artTint then color(h.engine, extra.artTint) else nil)
 					local shapes = {}
 					for button, pair in { Delete = { "danger", "onDanger" }, Save = { "accent", "onAccent" } } do
 						local node, tint = find(root, button), colors[pair[1]]

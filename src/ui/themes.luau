@@ -1217,14 +1217,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
-	for _, theme in package.style.themes do
-		if type(theme.extra) == "table" and theme.extra.artTint ~= nil then
-			-- Every palette of the package gets the rule (one rule set per package), untinted without artTint.
-			for _, slot in { "control", "field", "panel" } do
-				rule(".facet-skin-art-" .. slot, { ImageColor3 = c("artTint") or types.Color3.new(1, 1, 1) })
-			end
-			break
-		end
+	-- Rules that only some packages need are still emitted by every package, with no properties where
+	-- they do not apply: one rule set for every package, so a theme swap re-sets rules and never
+	-- creates or destroys them.
+	for _, slot in { "control", "field", "panel" } do
+		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
 	end
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 	local selectedArt: ThemeTypes.AssetLink? = nil
@@ -1265,23 +1262,27 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			TextColor3 = if pressed then onSelected else nil,
 		})
 		rule(selector .. " > #SkinBoundary", { Visible = tinted or pressed })
-		if pressed and selectedLink and art then
-			rule(selector .. " > #SkinBoundary >> #control" .. selectedLayer, {
-				Image = art.content or art.contentId or "",
-				Rotation = selectedLink.rotation or 0,
-				ImageColor3 = color(types, selectedLink.tint) or white,
-			})
-			rule(selector .. ".facet-skinned >> .facet-button-caption", { TextColor3 = onSelected })
-			rule(selector .. ".facet-skinned >> .facet-text", { TextColor3 = onSelected })
-			rule(selector .. ".facet-skinned >> .facet-icon", { ImageColor3 = onSelected })
-		end
+		local swapped = pressed and selectedLink ~= nil and art ~= nil
+		rule(
+			selector .. " > #SkinBoundary >> #control" .. math.max(selectedLayer, 1),
+			if swapped
+					and selectedLink
+					and art
+				then {
+					Image = art.content or art.contentId or "",
+					Rotation = selectedLink.rotation or 0,
+					ImageColor3 = color(types, selectedLink.tint) or white,
+				}
+				else {}
+		)
+		rule(selector .. ".facet-skinned >> .facet-button-caption", if swapped then { TextColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-text", if swapped then { TextColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-icon", if swapped then { ImageColor3 = onSelected } else {})
 	end
 	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
-	if not selectedArt then
-		rule(".facet-segment-current.facet-skinned", { BackgroundTransparency = 0 })
-		rule(".facet-segment-current > #SkinBoundary", { Visible = false })
-	end
+	rule(".facet-segment-current.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
+	rule(".facet-segment-current > #SkinBoundary", if selectedArt then {} else { Visible = false })
 	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	local authoredSelection = false
@@ -1339,17 +1340,21 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			rule(".facet-selection-mark.facet-selected.facet-disabled", { BackgroundColor3 = faded("selection") })
 		end
 	end
-	if selectedArt then
+	do
+		local on = selectedArt ~= nil
 		local tint = if selectedLink then selectedLink.tint else nil
-		rule(".facet-skinned.facet-selected", { BackgroundTransparency = 1, TextColor3 = onSelected })
-		rule(".facet-skinned.facet-selected > #SkinBoundary", { Visible = true })
+		rule(
+			".facet-skinned.facet-selected",
+			if on then { BackgroundTransparency = 1, TextColor3 = onSelected } else {}
+		)
+		rule(".facet-skinned.facet-selected > #SkinBoundary", if on then { Visible = true } else {})
 		rule(
 			".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art",
-			{ ImageColor3 = color(types, tint) or types.Color3.new(1, 1, 1) }
+			if on then { ImageColor3 = color(types, tint) or types.Color3.new(1, 1, 1) } else {}
 		)
-		rule(".facet-skinned.facet-selected >> .facet-button-caption", { TextColor3 = onSelected })
-		rule(".facet-skinned.facet-selected >> .facet-text", { TextColor3 = onSelected })
-		rule(".facet-skinned.facet-selected >> .facet-icon", { ImageColor3 = onSelected })
+		rule(".facet-skinned.facet-selected >> .facet-button-caption", if on then { TextColor3 = onSelected } else {})
+		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
+		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
 	end
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})

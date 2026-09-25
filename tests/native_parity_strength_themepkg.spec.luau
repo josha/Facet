@@ -608,6 +608,41 @@ t.describe("reference theme packages", function()
 		end
 	end)
 
+	t.it("gives every shipped package and palette the same core rule ids, so a theme swap mounts no rule", function()
+		local engine, runtime = world()
+		local function ids(package: any, palette: string?): { [string]: string }
+			local sheet, stop = sheetFor(engine, runtime, package, { theme = palette })
+			local names = {}
+			for _, node in sheet:GetChildren() do
+				names[node.Name] = node.Selector
+			end
+			stop()
+			return names
+		end
+		local base = ids(themes.neutralPackage(), nil)
+		for _, name in SHIPPED do
+			local package = built(name)
+			local own: { [string]: boolean } = {}
+			for _, definition in package.rules or {} do
+				own[definition.selector] = true
+			end
+			for _, palette in package.style.themes do
+				local names, odd = ids(package, palette.name), {}
+				for id in base do
+					if names[id] == nil then
+						table.insert(odd, "-" .. id)
+					end
+				end
+				for id, selector in names do
+					if base[id] == nil and not own[selector] and not string.find(selector, "::UIGradient", 1, true) then
+						table.insert(odd, "+" .. id)
+					end
+				end
+				t.expect(`{name}/{palette.name}:{table.concat(odd, " ")}`).toBe(`{name}/{palette.name}:`)
+			end
+		end
+	end)
+
 	t.it("compiles every reference package to the same complete rule set twice and paints each palette", function()
 		local engine, runtime = world()
 		for _, name in REFERENCE do

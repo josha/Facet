@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Every theme package compiles the same core StyleSheet rules; a rule that only some packages need (selected art, a pressed emphasis swap, the segment fallback, `artTint`) is emitted with no properties where it does not apply. A theme swap re-sets rules and never creates or destroys them: the headless `theme-swap-assets` scene went from 0.93 to about 0.44 ms (p95), under its 0.559 ms budget.
 - `UI.focusSection(group)`: when the selection enters `group` from outside (Left from a detail pane into a sidebar), it returns to the item last selected there, while that item is still selectable. The Foundation lab outline uses it.
 - A Button with an authored width and a label keeps at least one `control` em of label room inside its padding and the theme carve (a `UISizeConstraint` `MinSize`), so it grows a little rather than truncating the label to nothing. Before, a 52 pixel Button in Fantasy Parchment had 4 pixels for its label and showed an empty plate (Showcase "Edit item" ladder).
 - A busy Button reserves the room for its dots on a real `UIPadding` (a direct `PaddingRight` write), so a hugging parent grows with it. Before, only the StyleSheet `::UIPadding` changed, the engine did not re-fit the hugging parent, and the dots painted past a hugging cell (a busy `link` Button in a Stack).
