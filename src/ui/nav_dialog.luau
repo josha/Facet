@@ -192,6 +192,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					table.insert(regions, parts.media(ctx, spec.hero, "Hero"))
 				end
 				local header: { Types.Child } = {}
+				local plaqued = Compose.cell(false)
 				if spec.title ~= nil then
 					local title = spec.title
 					local heading = ctx.text({
@@ -203,7 +204,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						Visible = function(use: ComposeTypes.Use)
-							return not blank(read(title, use))
+							return not blank(read(title, use)) and not use(plaqued)
 						end,
 						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 					})
@@ -352,7 +353,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					"dialog"
 				)
 				ctx.styled(panel, "panel")
-				surfaces.skin(panel, "panel")
+				surfaces.skin(panel, "panel", {
+					title = spec.title,
+					onCaption = function(on: boolean)
+						plaqued:set(on)
+					end,
+				})
 				local initial: string? = if cancelAction and parts.usable(ctx, cancelAction)
 					then cancelAction.id
 					else nil

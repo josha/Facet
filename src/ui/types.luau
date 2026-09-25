@@ -171,7 +171,12 @@ export type ListRow = {
 	described: boolean,
 	controlSize: Value<ControlSize>?,
 }
-export type SkinStateOptions = { disabled: Value<boolean>?, selected: Value<boolean>? }
+export type SkinStateOptions = {
+	disabled: Value<boolean>?,
+	selected: Value<boolean>?,
+	label: Value<string>?,
+	onCaption: ((boolean) -> ())?,
+}
 export type Context = {
 	runtime: Runtime,
 	Host: Host,

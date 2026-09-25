@@ -342,6 +342,11 @@ export type OverlayOptions = {
 	identity: ((ComposeTypes.Use) -> number)?,
 	failure: ((unknown) -> Instance)?,
 }
+export type PanelSkin = {
+	reserve: ((string, ComposeTypes.Use) -> number)?,
+	title: Value<string>?,
+	onCaption: ((boolean) -> ())?,
+}
 export type Surfaces = {
 	service: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),
 	within: (Instance?, Instance) -> boolean,
@@ -351,7 +356,7 @@ export type Surfaces = {
 	attach: <N>(N & Instance, { Types.Child }) -> N & Instance,
 	available: (GuiObject) -> ComposeTypes.Readable<boolean>,
 	centered: (GuiObject, number) -> GuiObject,
-	skin: (GuiObject, string?, ((string, ComposeTypes.Use) -> number)?) -> GuiObject,
+	skin: (GuiObject, string?, PanelSkin?) -> GuiObject,
 	inset: (number, string, string?, ComposeTypes.Use?) -> number,
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Value<boolean>, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,

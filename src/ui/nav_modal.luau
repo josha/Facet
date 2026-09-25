@@ -94,8 +94,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 			else carve.right
 		return math.max(authored, value or 0)
 	end
-	local function skin(panel: GuiObject, slot: string?, extra: ((string, ComposeTypes.Use) -> number)?): GuiObject
-		ctx.skin(panel, slot or "panel")
+	local function skin(panel: GuiObject, slot: string?, options: Nav.PanelSkin?): GuiObject
+		local settings: Nav.PanelSkin = options or {}
+		local extra = settings.reserve
+		ctx.skin(panel, slot or "panel", { label = settings.title, onCaption = settings.onCaption })
 		local padding = panel:FindFirstChildWhichIsA("UIPadding")
 		if padding and (ctx.config.theme ~= nil or extra) then
 			local function side(name: string, authored: UDim): (ComposeTypes.Use) -> UDim

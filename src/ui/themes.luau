@@ -1660,6 +1660,20 @@ type MountedImage = {
 	visible: boolean,
 }
 
+local function grown(types: Engine.RobloxTypes, value: ImageLayer, fit: Vector2): UDim2
+	local size = value.Size
+	if not value.text or fit.X <= 0 then
+		return size
+	end
+	local inset: ThemeTypes.Insets = value.textInsets or {}
+	return types.UDim2.new(
+		size.X.Scale,
+		math.max(size.X.Offset, math.ceil(fit.X) + (inset.left or 0) + (inset.right or 0)),
+		size.Y.Scale,
+		math.max(size.Y.Offset, math.ceil(fit.Y) + (inset.top or 0) + (inset.bottom or 0))
+	)
+end
+
 local function skin(
 	Compose: typeof(ComposeTypes),
 	runtime: ComposeTypes.Runtime,
@@ -1883,13 +1897,12 @@ local function skin(
 				local horizontal = edge == "top" or edge == "bottom"
 				local endPoint = edge == "bottom" or edge == "right"
 				local overhang = layer.overhang or 0
+				local reach = (if horizontal then size.h else size.w) / 2 - overhang
+				local offset = if endPoint then -reach else reach
 				local position = if horizontal
-					then D2.new(0.5, 0, if endPoint then 1 else 0, if endPoint then overhang else -overhang)
-					else D2.new(if endPoint then 1 else 0, if endPoint then overhang else -overhang, 0.5, 0)
-				local anchor = if horizontal
-					then V2.new(0.5, if endPoint then 1 else 0)
-					else V2.new(if endPoint then 1 else 0, 0.5)
-				image(layer, name, D2.fromOffset(size.w, size.h), position, anchor)
+					then D2.new(0.5, 0, if endPoint then 1 else 0, offset)
+					else D2.new(if endPoint then 1 else 0, offset, 0.5, 0)
+				image(layer, name, D2.fromOffset(size.w, size.h), position, V2.new(0.5, 0.5))
 			else
 				image(layer, name)
 			end
@@ -1897,10 +1910,15 @@ local function skin(
 		return finish()
 	end
 	local target = settings.target
+	local function labelled(use: ComposeTypes.Use?): boolean
+		local label = settings.label
+		return label ~= nil and (read(label, use) or "") ~= ""
+	end
 	local function createImage(initial: ImageLayer): MountedImage
+		local shown = not initial.text or labelled()
 		local properties: Engine.ImageLabelNativeProps = {
 			Name = initial.id,
-			Visible = true,
+			Visible = shown,
 			Image = initial.Image,
 			Size = initial.Size,
 			Position = initial.Position,
@@ -1917,13 +1935,14 @@ local function skin(
 			ImageColor3 = initial.ImageColor3,
 		}
 		local captionSource: ComposeTypes.Cell<ImageLayer>?
+		local fit = Compose.cell(V2.new(0, 0))
 		if settings.label then
 			local current = Compose.cell(initial)
 			captionSource = current
 			table.insert(
 				properties,
 				Compose.show(function(use: ComposeTypes.Use)
-					return use(current).text == true
+					return use(current).text == true and labelled(use)
 				end, function()
 					local padding: Engine.UIPaddingNativeProps = {
 						PaddingLeft = function(use: ComposeTypes.Use)
@@ -1952,11 +1971,31 @@ local function skin(
 						Host.UIPadding(padding),
 					}
 					label:AddTag("facet-skin-caption-text")
+					local observation = runtime.host.observation
+					if observation then
+						Compose.cleanup(observation.observeProperty(label, "TextBounds", function()
+							fit:set(label.TextBounds)
+						end))
+					end
+					fit:set(label.TextBounds)
+					Compose.cleanup(function()
+						fit:set(V2.new(0, 0))
+					end)
 					return label
 				end)
 			)
 		end
-		return { node = Host.ImageLabel(properties), properties = initial, caption = captionSource, visible = true }
+		local node = Host.ImageLabel(properties)
+		if captionSource then
+			local current = captionSource
+			Compose.watch(function(use: ComposeTypes.Use)
+				local size = grown(types, use(current), use(fit))
+				if node.Size ~= size then
+					node.Size = size
+				end
+			end)
+		end
+		return { node = node, properties = initial, caption = captionSource, visible = shown }
 	end
 	local function applyImage(record: MountedImage, value: ImageLayer?, visible: boolean)
 		local node, previous = record.node, record.properties
@@ -2002,7 +2041,7 @@ local function skin(
 				node.ImageColor3 = value.ImageColor3
 			end
 			local caption = record.caption
-			if caption and (value.text ~= previous.text or value.textInsets ~= previous.textInsets) then
+			if caption and value ~= previous then
 				caption:set(value)
 			end
 			record.properties = value
@@ -2043,20 +2082,25 @@ local function skin(
 			end
 			slots:set(nextSlots)
 		end
+		local titled = labelled(use)
 		for index, record in mounted do
-			applyImage(record, active[index], active[index] ~= nil)
+			local layer = active[index]
+			applyImage(record, layer, layer ~= nil and (not layer.text or titled))
+		end
+		local plaque = false
+		for _, layer in active do
+			if layer.text and titled then
+				plaque = true
+			end
+		end
+		if settings.onCaption then
+			settings.onCaption(plaque)
 		end
 		if target then
-			local plaque = false
 			if #active > 0 then
 				target:AddTag("facet-skinned")
 			else
 				target:RemoveTag("facet-skinned")
-			end
-			for _, layer in active do
-				if layer.text then
-					plaque = true
-				end
 			end
 			if plaque then
 				target:AddTag("facet-skin-caption")

@@ -217,6 +217,7 @@ export type SkinOptions = {
 	types: Engine.RobloxTypes?,
 	target: GuiObject?,
 	label: Engine.Value<string>?,
+	onCaption: ((boolean) -> ())?,
 	state: Engine.Value<SkinState>?,
 	selected: Engine.Value<boolean>?,
 	direction: Engine.Value<FillDirection>?,

@@ -1038,10 +1038,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
-				label = if node:IsA("TextButton")
-					then ctx.observe.Text(node)
-					elseif node:IsA("TextLabel") then ctx.observe.Text(node)
+				label = if stateOptions.label ~= nil
+					then stateOptions.label
+					elseif node:IsA("TextButton") or node:IsA("TextLabel") then ctx.observe.Text(node)
 					else nil,
+				onCaption = stateOptions.onCaption,
 				state = function(use: ComposeTypes.Use)
 					if ctx.read(stateOptions.disabled, use) == true then
 						return "disabled"

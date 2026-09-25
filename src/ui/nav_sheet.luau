@@ -635,6 +635,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			grabber :: Instance,
 		}
 		local regions: { GuiObject } = {}
+		local plaqued = Compose.cell(false)
 		local hero = spec.hero
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
@@ -733,6 +734,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						ctx.text({
 							Name = "Title",
 							LayoutOrder = 1,
+							Visible = function(use: ComposeTypes.Use)
+								return not use(plaqued)
+							end,
 							Text = function(use: ComposeTypes.Use)
 								return read(spec.title, use) or ""
 							end,
@@ -923,7 +927,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 			},
 		})
-		surfaces.skin(panel, nil, reserve)
+		surfaces.skin(panel, nil, {
+			reserve = reserve,
+			title = if spec.header == nil then spec.title else nil,
+			onCaption = function(on: boolean)
+				plaqued:set(on)
+			end,
+		})
 		local overlay = surfaces.modal(function()
 			return panel
 		end, function()

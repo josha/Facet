@@ -111,7 +111,13 @@ local ASSETS = {
 	ornate_corner_tr = { content = "rbxassetid://108150811338158", preload = "install", fallback = "native" },
 	ornate_corner_bl = { content = "rbxassetid://130569583845489", preload = "install", fallback = "native" },
 	ornate_corner_br = { content = "rbxassetid://86251498610726", preload = "install", fallback = "native" },
-	ornate_plaque = { content = "rbxassetid://117707325909741", preload = "install", fallback = "native" },
+	ornate_plaque = {
+		content = "rbxassetid://117707325909741",
+		sliceCenter = { x0 = 16, y0 = 16, x1 = 160, y1 = 40 },
+		sliceScale = 1,
+		preload = "install",
+		fallback = "native",
+	},
 
 	ornate_button_default = {
 		content = "rbxassetid://112835782358182",
@@ -272,7 +278,7 @@ local PANEL_LAYERS = {
 		edge = "top",
 		overhang = 20,
 		text = true,
-		textInsets = { top = 8, right = 16, bottom = 6, left = 16 },
+		textInsets = { top = 13, right = 16, bottom = 15, left = 16 },
 	},
 }
 

@@ -1007,3 +1007,62 @@ t.describe("native panels: a skinned panel keeps its content inside the art carv
 		w.stop()
 	end)
 end)
+
+t.describe("native panels: the theme title plaque carries the surface title", function()
+	local bindThemes = require("../src/ui/themes")
+	local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
+	local PLAQUE = fantasy.assets.ornate_plaque.content
+	local function plaque(root: any): any
+		for _, node in root:GetDescendants() do
+			if node:IsA("ImageLabel") and node.Image == PLAQUE then
+				return node
+			end
+		end
+		return nil
+	end
+
+	t.it("a titled Sheet paints its title in the plaque, and the header title steps aside", function()
+		local w = mount({ title = "Filters" }, { theme = fantasy })
+		local art = plaque(w.find("SheetPanel"))
+		t.expect(art.Visible).toBe(true)
+		t.expect(overlay.find(art, "PlaqueCaption").Text).toBe("Filters")
+		t.expect(w.find("SheetPanel"):HasTag("facet-skin-caption")).toBe(true)
+		t.expect(w.find("Title").Visible).toBe(false)
+		w.stop()
+	end)
+
+	t.it("a surface without a title draws no plaque", function()
+		local w = overlay.new(function(UI, Host)
+			return UI.Dialog "Plain" {
+				isPresented = Compose.cell(true),
+				onPresentedChange = noop,
+				content = function()
+					return Host.TextLabel "Line" { Text = "Body" }
+				end,
+			}
+		end, { theme = fantasy })
+		local art = plaque(w.find("Panel"))
+		t.expect(art.Visible).toBe(false)
+		t.expect(overlay.find(art, "PlaqueCaption")).toBeNil()
+		t.expect(w.find("Panel"):HasTag("facet-skin-caption")).toBe(false)
+		w.stop()
+	end)
+
+	t.it("the plaque grows around its title, centred on its edge, and never shrinks below its art", function()
+		local w = mount({ title = "Filters" }, { theme = fantasy })
+		local art = plaque(w.find("SheetPanel"))
+		t.expect(art.AnchorPoint).toBe(w.Vector2.new(0.5, 0.5))
+		t.expect(art.Position).toBe(w.engine.types.UDim2.new(0.5, 0, 0, 0))
+		local caption = overlay.find(art, "PlaqueCaption")
+		local insets = caption:FindFirstChildWhichIsA("UIPadding")
+		local across = insets.PaddingLeft.Offset + insets.PaddingRight.Offset
+		local down = insets.PaddingTop.Offset + insets.PaddingBottom.Offset
+		t.expect(art.ScaleType).toBe(w.Enum.ScaleType.Slice)
+		t.expect(insets.PaddingTop.Offset >= 13 and insets.PaddingBottom.Offset >= 15).toBe(true)
+		caption.TextBounds = w.Vector2.new(300.4, 38)
+		t.expect(art.Size).toBe(w.engine.types.UDim2.fromOffset(301 + across, 38 + down))
+		caption.TextBounds = w.Vector2.new(20, 10)
+		t.expect(art.Size).toBe(w.engine.types.UDim2.fromOffset(176, 40))
+		w.stop()
+	end)
+end)

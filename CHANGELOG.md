@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A theme plaque layer with `text = true` is title art. A Sheet or Dialog title shows in it, the plaque 9-slice grows around the title, and the header title hides. Without a title the plaque is not drawn. Before, Fantasy Ornate drew an empty plaque on every panel. The Fantasy Ornate plaque is now 9-sliced, with text insets inside its gold rim.
 - A skinned Sheet, Dialog, Popover, Menu or picker panel pads its content by the theme `panel` chrome `contentInsets`. Before, the panel's own padding beat the theme rule, so in Fantasy Ornate the Sheet title sat on the inner border and the Close button was clipped at the right edge.
 - A Sheet dragged below its lowest detent moves down as one piece, and a drag dismissal slides out from where it was released. Before, the panel got shorter from the top, so the pinned actions stayed put while the body collapsed, and a dismissal jumped back to full height first.
 - A Sheet grabber sits on the edge that the sheet came from: a bar at the top of a bottom sheet, a vertical bar on the left edge of a sheet from the right, and on the right edge of one from the left. The content reserves that side. Dragging a side grabber toward its edge moves the whole sheet and closes it past a third of the width.
