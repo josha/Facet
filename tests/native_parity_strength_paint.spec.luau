@@ -1906,6 +1906,45 @@ t.describe("native paint strength: theme sheets", function()
 		h.dispose()
 	end)
 
+	t.it("shows an off switch's knob against its track in every shipped package and palette (owner R19)", function()
+		local h = harness()
+		local on = Compose.cell(false)
+		local root, stop = mount(h, function()
+			return h.UI.Toggle({ Name = "Url", label = "URL bar", value = on })
+		end)
+		local indicator = find(root, "Indicator")
+		local knob = find(indicator, "Mark")
+		local entries = { { id = "neutral", package = themes.neutralPackage() } }
+		for _, name in SHIPPED do
+			table.insert(entries, { id = name, package = (shipped(name)) })
+		end
+		local weak = {}
+		for _, entry in entries do
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local sheet, stopSheet = sheetFor(h, entry.package, { theme = palette.name })
+				on:set(false)
+				local ink = resolve(sheet, knob, "BackgroundColor3")
+				local track = resolve(sheet, indicator, "BackgroundColor3")
+				local measured = contrast(
+					{ r = ink.R, g = ink.G, b = ink.B },
+					{ r = track.R, g = track.G, b = track.B }
+				)
+				local art = entry.package.chrome.toggleKnob
+				if measured < 3 and (art == nil or art.kind == "native" or art.kind == "none") then
+					table.insert(weak, `{entry.id}/{palette.name}`)
+				end
+				on:set(true)
+				local selection = extra.onSelection or colors.onAccent
+				t.expect(resolve(sheet, knob, "BackgroundColor3")).toBe(color(h.engine, selection))
+				stopSheet()
+			end
+		end
+		t.expect(table.concat(weak, " ")).toBe("")
+		stop()
+		h.dispose()
+	end)
+
 	t.it("paints every text field placeholder with contentSecondary, readable on the field plate", function()
 		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
 		local h = harness()

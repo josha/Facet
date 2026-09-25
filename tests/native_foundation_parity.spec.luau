@@ -187,7 +187,7 @@ t.describe("native optional palette roles", function()
 		end
 		t.expect(
 			same(
-				ruleOf(sheet, ".facet-toggle-switch >> .facet-toggle-mark"):GetProperties().BackgroundColor3,
+				ruleOf(sheet, ".facet-toggle-on >> .facet-toggle-mark"):GetProperties().BackgroundColor3,
 				colors.onAccent
 			)
 		).toBe(true)
@@ -214,9 +214,7 @@ t.describe("native optional palette roles", function()
 			t.expect(`{selector} {same(ruleOf(sheet, selector):GetProperties().BackgroundColor3, INK)}`)
 				.toBe(`{selector} true`)
 		end
-		for _, selector in
-			{ ".facet-toggle-switch >> .facet-toggle-mark", ".facet-toggle-checkbox >> .facet-toggle-mark" }
-		do
+		for _, selector in { ".facet-toggle-on >> .facet-toggle-mark", ".facet-toggle-checkbox >> .facet-toggle-mark" } do
 			t.expect(same(ruleOf(sheet, selector):GetProperties().BackgroundColor3, ON_INK)).toBe(true)
 		end
 		t.expect(same(ruleOf(sheet, ".facet-toggle-check"):GetProperties().ImageColor3, ON_INK)).toBe(true)

@@ -533,7 +533,7 @@ t.describe("native parity paint", function()
 					t.expect(properties.BackgroundColor3).toBe(color(h.engine, extra.control))
 				end
 				t.expect(style(sheet, ".facet-toggle-on").BackgroundColor3).toBe(color(h.engine, colors.accent))
-				t.expect(style(sheet, ".facet-toggle-switch >> .facet-toggle-mark").BackgroundColor3)
+				t.expect(style(sheet, ".facet-toggle-on >> .facet-toggle-mark").BackgroundColor3)
 					.toBe(color(h.engine, colors.onAccent))
 				t.expect(style(sheet, ".facet-toggle-check").ImageColor3).toBe(color(h.engine, colors.onAccent))
 				t.expect(style(sheet, ".facet-level-on").BackgroundColor3).toBe(color(h.engine, colors.accent))

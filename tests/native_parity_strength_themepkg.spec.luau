@@ -261,7 +261,7 @@ t.describe("shipped theme contrast", function()
 				t.expect(style(sheet, ".facet-segment-current").BackgroundColor3).toBe(accent)
 				t.expect(style(sheet, ".facet-segment-current >> .facet-button-caption").TextColor3).toBe(onAccent)
 				t.expect(style(sheet, ".facet-tab-filled >> .facet-button-caption").TextColor3).toBe(onAccent)
-				t.expect(style(sheet, ".facet-toggle-switch >> .facet-toggle-mark").BackgroundColor3).toBe(onAccent)
+				t.expect(style(sheet, ".facet-toggle-on >> .facet-toggle-mark").BackgroundColor3).toBe(onAccent)
 				t.expect(
 					ruleNode(sheet, ".facet-role-onIndicator >> .facet-button-caption").Priority
 						> ruleNode(sheet, ".facet-button-caption").Priority

@@ -953,8 +953,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-plain", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-indicator", { BackgroundColor3 = c("control"), BackgroundTransparency = 0 })
 	rule(".facet-toggle-on", { BackgroundColor3 = c("selection") })
-	rule(".facet-toggle-switch >> .facet-toggle-mark", { BackgroundColor3 = c("onSelection") })
-	rule(".facet-toggle-checkbox >> .facet-toggle-mark", { BackgroundColor3 = c("onSelection") })
+	local knob, offTrack, loudKnob = c("onSelection") :: Color3, c("control") :: Color3, c("content") :: Color3
+	local offKnob = if contrast(knob, offTrack) >= 3
+			or contrast(knob, offTrack) >= contrast(loudKnob, offTrack)
+		then knob
+		else loudKnob
+	rule(".facet-toggle-switch >> .facet-toggle-mark", { BackgroundColor3 = offKnob })
+	rule(".facet-toggle-checkbox >> .facet-toggle-mark", { BackgroundColor3 = knob })
+	rule(".facet-toggle-on >> .facet-toggle-mark", { BackgroundColor3 = knob })
 	rule(".facet-toggle-check", { ImageColor3 = c("onSelection") })
 	rule(".facet-toggle-checkbox::UIStroke", { Color = c("contentSecondary"), Thickness = 1.5, Transparency = 0.2 })
 	rule(".facet-tooltip", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })

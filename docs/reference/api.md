@@ -726,7 +726,9 @@ Button row starts.
 
 The checked mark of a switch and a checkbox uses the `selection` color of the
 palette, and its knob or tick uses `onSelection`. Without them, it uses
-`accent` and `onAccent`.
+`accent` and `onAccent`. An off switch's knob also uses `onSelection`
+when it has at least 3:1 contrast on the `control` track. Otherwise the
+knob uses `content`, so the off switch stays visible.
 
 `appearance = "plain"` makes a switch or checkbox a bare row. The row does not
 get the `facet-selected` tag, so only the mark shows the state. The row has the
