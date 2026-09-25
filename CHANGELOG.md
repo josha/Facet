@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A skinned Sheet, Dialog, Popover, Menu or picker panel pads its content by the theme `panel` chrome `contentInsets`. Before, the panel's own padding beat the theme rule, so in Fantasy Ornate the Sheet title sat on the inner border and the Close button was clipped at the right edge.
 - A Sheet dragged below its lowest detent moves down as one piece, and a drag dismissal slides out from where it was released. Before, the panel got shorter from the top, so the pinned actions stayed put while the body collapsed, and a dismissal jumped back to full height first.
 - A Sheet grabber sits on the edge that the sheet came from: a bar at the top of a bottom sheet, a vertical bar on the left edge of a sheet from the right, and on the right edge of one from the left. The content reserves that side. Dragging a side grabber toward its edge moves the whole sheet and closes it past a third of the width.
 - A Sheet with a grabber shows no Done button: the grabber closes and resizes the sheet, and it is always selectable. With the grabber hidden, the header shows an icon-only Close button (accessible name `Close`, 44 pixels). `closeButton = true` or a label still shows a close button.

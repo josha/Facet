@@ -214,9 +214,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local indicator = spec.dragIndicator or "automatic"
 		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
 		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
+		local function reserve(side: string, use: ComposeTypes.Use?): number
+			return if indicator ~= "hidden" and RESERVED[from(use)] == side then HANDLE + 8 else 0
+		end
 		local function pad(side: string, use: ComposeTypes.Use?): number
-			local reserve = indicator ~= "hidden" and RESERVED[from(use)] == side
-			return BASE[side] + (if reserve then HANDLE + 8 else 0)
+			return surfaces.inset(BASE[side], side, nil, use) + reserve(side, use)
 		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
@@ -735,8 +737,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return read(spec.title, use) or ""
 							end,
 							TextWrapped = true,
-							Size = D2.fromOffset(0, 0),
-							AutomaticSize = E.AutomaticSize.XY,
+							Size = D2.new(1, 0, 0, 0),
+							AutomaticSize = E.AutomaticSize.Y,
 							Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 						}),
 						"type-heading"
@@ -888,20 +890,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local panel = ctx.column({
 			Host.Folder "Grip" { handle },
 			room.frame,
-			Host.UIPadding({
-				PaddingTop = function(use: ComposeTypes.Use)
-					return ctx.types.UDim.new(0, pad("top", use))
-				end,
-				PaddingBottom = function(use: ComposeTypes.Use)
-					return ctx.types.UDim.new(0, pad("bottom", use))
-				end,
-				PaddingLeft = function(use: ComposeTypes.Use)
-					return ctx.types.UDim.new(0, pad("left", use))
-				end,
-				PaddingRight = function(use: ComposeTypes.Use)
-					return ctx.types.UDim.new(0, pad("right", use))
-				end,
-			}),
+			ctx.padding(BASE.left, BASE.top),
 			ctx.corner(),
 			detector("PanelDrag", "panel") :: Instance,
 		}, {
@@ -934,7 +923,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 			},
 		})
-		surfaces.skin(panel)
+		surfaces.skin(panel, nil, reserve)
 		local overlay = surfaces.modal(function()
 			return panel
 		end, function()

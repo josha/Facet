@@ -944,3 +944,66 @@ t.describe("native Sheet: the whole sheet moves as one unit", function()
 		w.stop()
 	end)
 end)
+
+t.describe("native panels: a skinned panel keeps its content inside the art carve", function()
+	local bindThemes = require("../src/ui/themes")
+	local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
+	local function sides(padding: any): string
+		return `{padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset} {padding.PaddingLeft.Offset}`
+	end
+
+	t.it("a skinned Sheet insets header, body and actions by the carve; the grabber sits inside it", function()
+		local w = mount({ actions = { { id = "Apply", label = "Apply", onActivate = noop } } }, { theme = fantasy })
+		local panel = w.find("SheetPanel")
+		t.expect(sides(panel:FindFirstChildWhichIsA("UIPadding"))).toBe("58 30 30 30")
+		t.expect(w.find("DragHandle").Position.Y.Offset).toBe(30)
+		w.stop()
+		local side = mount({ placement = "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
+		t.expect(sides(side.find("SheetPanel"):FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 58")
+		t.expect(side.find("DragHandle").Position.X.Offset).toBe(30)
+		side.stop()
+	end)
+
+	t.it("a wrapping Sheet title takes its height at the width it gets, so it never runs into the body", function()
+		local w = mount({ closeButton = true })
+		local title = w.find("Title")
+		t.expect(title.TextWrapped).toBe(true)
+		t.expect(title.AutomaticSize).toBe(w.Enum.AutomaticSize.Y)
+		t.expect(title.Size.X.Scale).toBe(1)
+		w.stop()
+	end)
+
+	t.it("a skinned Dialog and Popover inset by the carve and follow a live theme change", function()
+		local theme = Compose.cell(fantasy)
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				UI.Dialog "Confirm" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					title = "Leave?",
+					content = function()
+						return Host.TextLabel "Line" { Text = "Body" }
+					end,
+				},
+				UI.Popover "Tip" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function()
+						return Host.TextLabel "PopLine" { Text = "Body" }
+					end,
+				},
+			})
+		end, { theme = theme })
+		local dialog = w.find("Panel")
+		local popover = w.find("PopLine")
+		while popover.Name ~= "Panel" do
+			popover = popover.Parent
+		end
+		t.expect(sides(dialog:FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 30")
+		t.expect(sides(popover:FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 30")
+		theme:set(bindThemes(Compose).neutralPackage())
+		t.expect(sides(dialog:FindFirstChildWhichIsA("UIPadding"))).toBe("16 16 16 16")
+		w.stop()
+	end)
+end)

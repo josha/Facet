@@ -406,24 +406,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return D2.fromOffset(use(width), 0)
 			end,
 		}
-		local function inset(side: "left" | "right" | "top" | "bottom"): (ComposeTypes.Use) -> UDim
-			return function(use: ComposeTypes.Use): UDim
-				local package = ctx.read(ctx.config.theme, use)
-				local chrome = if package and package.chrome then package.chrome.panel else nil
-				local insets = if chrome then chrome.contentInsets else nil
-				local value = if insets then insets[side] else nil
-				return UD.new(0, math.max(8, value or 0))
-			end
-		end
-		table.insert(
-			rowProps,
-			Host.UIPadding({
-				PaddingLeft = inset("left"),
-				PaddingRight = inset("right"),
-				PaddingTop = inset("top"),
-				PaddingBottom = inset("bottom"),
-			})
-		)
+		table.insert(rowProps, ctx.padding(8, 8))
 		table.insert(rowProps, ctx.corner())
 		table.insert(
 			rowProps,

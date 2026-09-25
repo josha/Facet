@@ -1776,6 +1776,11 @@ ScreenGui keeps that area inside the safe area. Corner presets are not moved.
 
 ## Presented controls
 
+A presented panel with a theme skin keeps its content inside the art. Sheet,
+Dialog, Popover, Snackbar, Menu and the picker panels pad their content by the
+theme's `panel` chrome `contentInsets` on each side, and never by less than
+their own padding. The padding follows a live theme change.
+
 ### Alert
 
 Supply a writable boolean `isPresented`, or a writable `item` cell where `nil`

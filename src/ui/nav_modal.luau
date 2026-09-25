@@ -80,8 +80,39 @@ return function(ctx: Types.Context): Nav.Surfaces
 		Compose.cleanup(stop)
 		return node
 	end
-	local function skin(panel: GuiObject, slot: string?): GuiObject
+	local function inset(authored: number, side: string, slot: string?, use: ComposeTypes.Use?): number
+		local package = ctx.read(ctx.config.theme, use)
+		local recipe = if package and package.chrome then package.chrome[slot or "panel"] else nil
+		local carve = if recipe then recipe.contentInsets else nil
+		if carve == nil then
+			return authored
+		end
+		local value = if side == "top"
+			then carve.top
+			elseif side == "bottom" then carve.bottom
+			elseif side == "left" then carve.left
+			else carve.right
+		return math.max(authored, value or 0)
+	end
+	local function skin(panel: GuiObject, slot: string?, extra: ((string, ComposeTypes.Use) -> number)?): GuiObject
 		ctx.skin(panel, slot or "panel")
+		local padding = panel:FindFirstChildWhichIsA("UIPadding")
+		if padding and (ctx.config.theme ~= nil or extra) then
+			local function side(name: string, authored: UDim): (ComposeTypes.Use) -> UDim
+				return function(use: ComposeTypes.Use): UDim
+					return ctx.types.UDim.new(
+						0,
+						inset(authored.Offset, name, slot, use) + (if extra then extra(name, use) else 0)
+					)
+				end
+			end
+			runtime.decorate(padding, {
+				PaddingTop = side("top", padding.PaddingTop),
+				PaddingBottom = side("bottom", padding.PaddingBottom),
+				PaddingLeft = side("left", padding.PaddingLeft),
+				PaddingRight = side("right", padding.PaddingRight),
+			})
+		end
 		return panel
 	end
 
@@ -791,6 +822,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 	return {
 		modal = modal,
 		skin = skin,
+		inset = inset,
 		centered = centered,
 		attach = attach,
 		service = service :: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),
