@@ -1423,8 +1423,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			else
 				updateIndicator()
 			end
-			ctx.skin(indicator, "toggleTrack", { selected = p.selected })
-			ctx.skin(mark, "toggleKnob", { selected = p.selected })
+			if presentation == "switch" then
+				ctx.skin(indicator, "toggleTrack", { selected = p.selected })
+				ctx.skin(mark, "toggleKnob", { selected = p.selected })
+			end
 			if rich then
 				p.Text = ""
 				local row: InputTypes.Row = spec.row or {}

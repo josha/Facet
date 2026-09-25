@@ -982,13 +982,13 @@ t.describe("native paint strength: skins", function()
 			find(root, "Primary"),
 			find(root, "Danger"),
 			find(find(root, "Segmented"), "a"),
-			box,
 			find(slider, "Thumb"),
 			find(slider, "Rail"),
 			find(slider, "Fill"),
 		}
 		t.expect(find(find(root, "Segmented"), "a"):HasTag("facet-segment-current")).toBe(true)
 		t.expect(find(root, "Utility"):HasTag("facet-skinned")).toBe(false)
+		t.expect(box:HasTag("facet-skinned")).toBe(false)
 		local function sweep(expectSkinned: boolean)
 			for _, node in nodes do
 				t.expect(node:HasTag("facet-skinned")).toBe(expectSkinned)
@@ -1007,7 +1007,7 @@ t.describe("native paint strength: skins", function()
 			end
 		end
 		sweep(true)
-		t.expect(resolve(sheet, box, "Transparency", "UIStroke")).toBe(1)
+		t.expect(resolve(sheet, box, "Transparency", "UIStroke")).toBe(0.2)
 		local menu = h.engine.new("Frame")
 		menu:AddTag("facet-menu")
 		menu:AddTag("facet-skinned")

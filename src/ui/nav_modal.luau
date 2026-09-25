@@ -71,12 +71,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		return node
 	end
 	local function skin(panel: GuiObject, slot: string?): GuiObject
-		local _, art = ctx.skin(panel, slot or "panel")
-		if art and panel:FindFirstChildWhichIsA("UIListLayout") then
-			local decoration = Host.Folder "Chrome" {}
-			attach(panel, { decoration })
-			art.Parent = decoration
-		end
+		ctx.skin(panel, slot or "panel")
 		return panel
 	end
 

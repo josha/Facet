@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A skinned plate that lays out its children (a framed TextInput, a panel) keeps its chrome art in a `Chrome` folder, outside the list layout. Before, the list placed the art as a child, so a Pixel Quest search field painted its plate left of the field.
+- The theme `toggleTrack` and `toggleKnob` art paints a switch only. Before, a checkbox took the switch art and lost its outline, so a Pixel Quest checkbox drew as a small bar.
 - `app.mount` into a PlayerGui replaces the engine selection glow with one theme focus ring (`PlayerGui.SelectionImageObject`): a thin inner `accent` stroke with the control corner, thicker on a `Large` display, shown only after keyboard or gamepad input. Before, a pointer-opened menu row showed the thick engine glow on top of its own highlight.
 - A `utility` or `link` Button takes no `control` chrome art. Before, a skinned theme (Pixel Quest, Fantasy) painted a full plate on every utility row, link and outline DisclosureGroup header.
 - A skin that paints its own caption (a plaque) hides only its own button caption. Before, the rule matched every button caption inside the skinned surface, so a Fantasy Ornate Sheet showed its action, Done and Toggle labels as empty plates.

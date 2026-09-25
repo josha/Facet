@@ -719,3 +719,49 @@ t.describe("the focus ring", function()
 		runtime:dispose()
 	end)
 end)
+
+t.describe("skins on laid-out plates", function()
+	t.it("a skinned plate that lays out its children keeps its art out of the list", function()
+		local package = themes.neutralPackage()
+		package.assets = package.assets or {}
+		package.assets.fieldArt = { content = "rbxassetid://123" }
+		package.chrome.field = { kind = "nineSlice", asset = "fieldArt" }
+		local w = world(function(UI)
+			return UI.TextInput "Search" { value = Compose.cell(""), placeholder = "Search", label = "Find" }
+		end, { theme = package })
+		local plate = find(w.screen, "Input")
+		expect(plate:FindFirstChildWhichIsA("UIListLayout") ~= nil).toBe(true)
+		local boundary = find(plate, "SkinBoundary")
+		expect(boundary ~= nil).toBe(true)
+		expect(boundary.Parent.ClassName).toBe("Folder")
+		expect(boundary.Parent.Parent).toBe(plate)
+		w.stop()
+	end)
+end)
+
+t.describe("toggle art", function()
+	t.it("the switch track and knob art paint a switch, never a checkbox box", function()
+		local package = themes.neutralPackage()
+		package.assets = package.assets or {}
+		package.assets.trackArt = { content = "rbxassetid://123" }
+		package.assets.knobArt = { content = "rbxassetid://124" }
+		package.chrome.toggleTrack = { kind = "nineSlice", asset = "trackArt" }
+		package.chrome.toggleKnob = { kind = "nineSlice", asset = "knobArt" }
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Toggle "Switch" { value = Compose.cell(true), label = "On" },
+				UI.Toggle "Box" {
+					value = Compose.cell(true),
+					label = "Box",
+					presentation = "checkbox",
+					controlSize = "compact",
+				},
+			}
+		end, { theme = package })
+		expect(find(find(w.screen, "Switch"), "Indicator"):HasTag("facet-skinned")).toBe(true)
+		local box = find(find(w.screen, "Box"), "Indicator")
+		expect(box:HasTag("facet-skinned")).toBe(false)
+		expect(find(box, "SkinBoundary")).toBeNil()
+		w.stop()
+	end)
+end)

@@ -1004,6 +1004,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				ZIndex = 0,
 			})
 		end, node)
+		if art and node:FindFirstChildWhichIsA("UIGridStyleLayout") then
+			local _, chrome = runtime.mount(function()
+				return Host.Folder "Chrome" {}
+			end, node);
+			(art :: GuiObject).Parent = chrome :: Instance
+		end
 		return dispose, art :: GuiObject?
 	end
 
