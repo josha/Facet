@@ -710,7 +710,7 @@ t.describe("native parity classb collections", function()
 				for _, node in world.engine.made do
 					local at = node.Parent
 					while node.Name == "FullValue" and at ~= nil do
-						if at.Name == "Modal" then
+						if at.Name == "PopoverModal" then
 							return node
 						end
 						at = at.Parent

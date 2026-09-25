@@ -1402,11 +1402,11 @@ t.describe("native parity navigation", function()
 			end
 			world.stop()
 		end
-		local expanded = Compose.cell(true)
 		local world = setup(function(UI, Host)
-			return UI.CollapsibleView({
-				label = "More",
-				expanded = expanded,
+			return UI.Dialog({
+				isPresented = Compose.cell(true),
+				onPresentedChange = function() end,
+				title = "More",
 				content = function()
 					return Host.Frame({})
 				end,

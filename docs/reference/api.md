@@ -251,13 +251,14 @@ cannot be interacted with, and the selection never stays on it.
 | NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent to the leading edge and dims. Critically damped spring with a 0.3 second period, visually complete in approximately 0.35 seconds. | Pop is the reverse. |
 | TabView page change | Crossfade, 0.2 seconds, Quad Out. | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds, Cubic Out. A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds. |
-| Alert, Dialog, CollapsibleView | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
+| Alert, Dialog | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
 | Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
 | Callout, Button `help` | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and a callout tail appear on the same first styled frame. | The reverse, over the same time. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
 | DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
+| CollapsibleView | The plate height opens from 0 over the trigger, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
 | RadialMenu slot | A slot that enters an open ring fades in and moves from 30 percent of the distance toward its origin to its position, 0.16 seconds. The origin is the parent item for a branch and the center for other slots. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
@@ -277,7 +278,7 @@ cannot be interacted with, and the selection never stays on it.
 
 ### Modal input
 
-Dialog, Alert, Sheet, Popover, Menu, CollapsibleView and the other modal
+Dialog, Alert, Sheet, Popover, Menu and the other modal
 surfaces put an Active full-screen root and an Active scrim button over the
 layer. Thus a press, a tap or a drag under the modal does not reach the
 content below.
@@ -1777,10 +1778,31 @@ content in the document flow. The content is in a clipped Frame named
 `Reveal` that holds a CanvasGroup named `RevealFade`. The height of `Reveal`
 opens with the motion, and then follows the content with `AutomaticSize`.
 The chevron keeps its `chevron.trailing` and `chevron.down` art and turns
-between them. CollapsibleView opens its content as a larger presented surface
-in a CanvasGroup named `ExpandedPresentation`, with the Dialog motion. For
-outer layout, use the native properties on their returned roots. See
-[Motion](#motion).
+between them. For outer layout, use the native properties on their returned
+roots. See [Motion](#motion).
+
+CollapsibleView returns its trigger, a Button. It is not a modal. It has no
+scrim, no presented layer and no outside catcher.
+
+- Collapsed, the trigger shows `label` on one line. The label truncates at
+  the end (`TextTruncate.AtEnd`) and shrinks in the row (a `UIFlexItem` in
+  `Shrink` mode). A `chevron.down` trailing icon is the More affordance. Pass
+  `trailingIcon` to replace it.
+- When `expanded` is true, a plate named `Expanded` opens over the trigger, at
+  the position and width of the trigger. The page does not move. The plate
+  clips its content, and its height opens with the motion. Then it follows the
+  content with `AutomaticSize`. The content is in a CanvasGroup named
+  `ExpandedFade` that fades in. The trigger is raised by one `ZIndex` while it
+  is open, so the plate paints over its siblings.
+- If the trigger has the selection, the selection moves into the plate: to
+  `initialFocus` if you give it, otherwise to the first selectable node.
+- The trigger (A, Return or a tap), a tap on the plate, the Close button and
+  Cancel (Escape or ButtonB) collapse it. The selection goes back to the
+  trigger.
+- `dismissButton = false` hides Close unless the preferred input is a gamepad.
+- Reduced motion opens and closes the plate at once.
+- The plate is inside the trigger. An ancestor with `ClipsDescendants`, such
+  as a ScrollingFrame, clips it. Give the trigger room below it.
 
 DisclosureGroup `appearance` is `plain` (the default), `contained`, `divided`
 or `outline`. The root has the `facet-disclosure-<appearance>` tag. `outline`
@@ -2241,7 +2263,7 @@ VirtualList. A column has:
 - `value(item)` or `render(current, placement, key)`.
 
 A numeric `priority` collapses larger values first. `"always"` prevents
-collapse. The first column always stays visible. A shared CollapsibleView shows
+collapse. The first column always stays visible. A Popover shows
 collapsed and natively truncated values through the More action of the row.
 The cell state stays retained.
 

@@ -59,6 +59,37 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
+	local function revealMotion(
+		expanded: ComposeTypes.Cell<boolean>
+	): ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>)
+		local reduce = reducedMotion(ctx)
+		local travel = runtime.tween(function(use: ComposeTypes.Use): number
+			return if use(expanded) then 1 else 0
+		end, {
+			seconds = function(_: ComposeTypes.Use): number
+				return if expanded:peek() then REVEAL.enter else REVEAL.exit
+			end,
+			ease = Compose.easing.outCubic,
+		})
+		local function progress(use: ComposeTypes.Use?): number
+			if reduce(use) then
+				return if read(expanded, use) then 1 else 0
+			end
+			return read(travel, use)
+		end
+		return progress, Compose.formula(function(use: ComposeTypes.Use): boolean
+			return progress(use) <= 0
+		end)
+	end
+	local function unroll(progress: (ComposeTypes.Use?) -> number, natural: ComposeTypes.Readable<Vector2>)
+		return function(use: ComposeTypes.Use): Enum.AutomaticSize
+			return if progress(use) >= 1 then E.AutomaticSize.Y else E.AutomaticSize.None
+		end, function(use: ComposeTypes.Use): number?
+			local amount = progress(use)
+			return if amount >= 1 then nil else math.floor(use(natural).Y * amount + 0.5)
+		end
+	end
+
 	UI.DisclosureGroup = ctx.construct("DisclosureGroup", function(spec: Nav.DisclosureGroupSpec): Frame
 		assert(
 			type(spec.expanded) == "table" and spec.expanded.set,
@@ -113,24 +144,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 
-		local reduce = reducedMotion(ctx)
-		local travel = runtime.tween(function(use: ComposeTypes.Use): number
-			return if use(spec.expanded) then 1 else 0
-		end, {
-			seconds = function(_: ComposeTypes.Use): number
-				return if spec.expanded:peek() then REVEAL.enter else REVEAL.exit
-			end,
-			ease = Compose.easing.outCubic,
-		})
-		local function progress(use: ComposeTypes.Use?): number
-			if reduce(use) then
-				return if read(spec.expanded, use) then 1 else 0
-			end
-			return read(travel, use)
-		end
-		local closed = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return progress(use) <= 0
-		end)
+		local progress, closed = revealMotion(spec.expanded)
 		local caret = header:FindFirstChild(if side == "leading" then "LeadingIcon" else "TrailingIcon", true)
 		if caret and caret:IsA("GuiObject") then
 			runtime.decorate(caret, {
@@ -181,7 +195,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						node,
 					}
 					surfaces.attach(fade, { inset :: Types.Child })
-					local natural = ctx.observe.AbsoluteSize(fade)
+					local automatic, height = unroll(progress, ctx.observe.AbsoluteSize(fade))
 					local reveal = Host.Frame "Reveal" {
 						BackgroundTransparency = 1,
 						ClipsDescendants = true,
@@ -189,14 +203,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Interactable = function(use: ComposeTypes.Use)
 							return not use(phase.exiting)
 						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if progress(use) >= 1 then E.AutomaticSize.Y else E.AutomaticSize.None
-						end,
+						AutomaticSize = automatic,
 						Size = function(use: ComposeTypes.Use)
-							local amount = progress(use)
-							return if amount >= 1
-								then D2.new(1, 0, 0, 0)
-								else D2.new(1, 0, 0, math.floor(use(natural).Y * amount + 0.5))
+							return D2.new(1, 0, 0, height(use) or 0)
 						end,
 						fade,
 					}
@@ -266,66 +275,125 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		buttonSpec.initialFocus = nil
 		buttonSpec.dismissButton = nil
 		buttonSpec.ref = nil
+		buttonSpec.trailingIcon = spec.trailingIcon or "chevron.down"
 		buttonSpec.onActivate = function()
 			spec.expanded:set(not spec.expanded:peek())
 		end
 		local root = UI.Button(buttonSpec)
+		local gui = surfaces.service("GuiService")
 		local input = surfaces.service("UserInputService")
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local progress, closed = revealMotion(spec.expanded)
+		local function collapse()
+			spec.expanded:set(false)
+		end
+		local title = root:FindFirstChild("Title", true)
+		if title and title:IsA("TextLabel") then
+			runtime.decorate(title, { TextTruncate = E.TextTruncate.AtEnd, TextWrapped = false })
+			runtime.mount(function()
+				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink })
+			end, title)
+		end
+		local caret = root:FindFirstChild("TrailingIcon", true)
+		if spec.trailingIcon == nil and caret and caret:IsA("GuiObject") then
+			runtime.decorate(caret, {
+				Rotation = function(use: ComposeTypes.Use)
+					return 180 * progress(use)
+				end,
+			})
+		end
+		runtime.decorate(root, {
+			ZIndex = function(use: ComposeTypes.Use)
+				local base = read(spec.ZIndex, use) or 1
+				return if use(spec.expanded) or not use(closed) then base + 1 else base
+			end,
+		})
+		ctx.action(root, "CollapsibleCollapse", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
+			return use(spec.expanded)
+		end, collapse, { priority = 300 })
+		local rootBox, rootAt = ctx.observe.AbsoluteSize(root), ctx.observe.AbsolutePosition(root)
 		surfaces.attach(root, {
-			surfaces.overlay(root, spec.expanded, function(phase: Nav.PresencePhase?)
-				local function close()
-					spec.expanded:set(false)
-				end
-				local shown = surfaces.appearance(phase, DIALOG)
-				return surfaces.modal(
-					function()
-						local sheet = surfaces.skin(ctx.styled(
-							ctx.column({
-								ctx.text({ Text = spec.label }),
-								body(spec.content),
-								Compose.show(function(use: ComposeTypes.Use)
-									return read(spec.dismissButton, use) ~= false
-										or use(preferred) == E.PreferredInput.Gamepad
-								end, function()
-									return UI.Button "Close" { label = "Close", onActivate = close }
-								end),
-								ctx.padding(16, 16),
-								ctx.corner(),
-							}, {
-								Name = "Expanded",
-								BackgroundTransparency = 0,
-								Size = D2.new(1, 0, 0, 0),
-								AutomaticSize = E.AutomaticSize.Y,
-							}),
-							"panel"
-						))
-						return surfaces.centered(
-							Host.CanvasGroup "ExpandedPresentation" {
-								BackgroundTransparency = 1,
-								GroupTransparency = function(use: ComposeTypes.Use)
-									return 1 - shown(use)
-								end,
-								sheet :: Instance,
-								Host.UIScale "PresentationScale" {
-									Scale = function(use: ComposeTypes.Use)
-										return 0.94 + 0.06 * shown(use)
-									end,
-								} :: Instance,
-							},
-							640
-						)
+			Compose.presence(spec.expanded, function(phase: Nav.PresencePhase)
+				local fade = Host.CanvasGroup "ExpandedFade" {
+					BackgroundTransparency = 1,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					GroupTransparency = function(use: ComposeTypes.Use)
+						return 1 - progress(use)
 					end,
-					close,
-					{
-						initialFocus = spec.initialFocus,
-						exiting = if phase then phase.exiting else nil,
-						appearance = shown,
-					}
-				)
-			end, { motion = DIALOG }),
+					ctx.column({
+						body(spec.content),
+						Compose.show(function(use: ComposeTypes.Use)
+							return read(spec.dismissButton, use) ~= false or use(preferred) == E.PreferredInput.Gamepad
+						end, function()
+							return UI.Button "Close" { label = "Close", onActivate = collapse }
+						end),
+						ctx.padding(16, 16),
+					}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }),
+				}
+				local automatic, height = unroll(progress, ctx.observe.AbsoluteSize(fade))
+				local plate = surfaces.skin(ctx.styled(
+					Host.TextButton "Expanded" {
+						Text = "",
+						AutoButtonColor = false,
+						Selectable = false,
+						BackgroundTransparency = 0,
+						ClipsDescendants = true,
+						Interactable = function(use: ComposeTypes.Use)
+							return not use(phase.exiting)
+						end,
+						AutomaticSize = automatic,
+						Size = function(use: ComposeTypes.Use)
+							return D2.fromOffset(use(rootBox).X, height(use) or 0)
+						end,
+						Activated = collapse,
+						fade,
+						ctx.corner(),
+					},
+					"panel"
+				))
+				local anchor = Host.Frame "ExpandedAnchor" {
+					BackgroundTransparency = 1,
+					Size = D2.fromOffset(0, 0),
+					plate,
+				}
+				local anchorAt = ctx.observe.AbsolutePosition(anchor)
+				runtime.decorate(plate, {
+					Position = function(use: ComposeTypes.Use)
+						local offset = use(rootAt) - use(anchorAt)
+						return D2.fromOffset(offset.X, offset.Y)
+					end,
+				})
+				local moved = false
+				local placed = ctx.observe.Parent(anchor)
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(placed) and gui and not moved and gui.SelectedObject == root then
+						moved = true
+						gui.SelectedObject = surfaces.firstSelectable(plate, spec.initialFocus)
+							or surfaces.firstSelectable(plate)
+							or root
+					end
+				end)
+				local function handBack()
+					local selected = if gui then gui.SelectedObject else nil
+					if gui and selected and (selected.Parent == nil or surfaces.within(selected, anchor)) then
+						gui.SelectedObject = if root.Parent then root else nil
+					end
+				end
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(phase.exiting) then
+						handBack()
+					end
+				end)
+				Compose.cleanup(handBack)
+				return anchor
+			end, {
+				exit = function()
+					return { completed = closed }
+				end,
+			}),
 		})
 		return root
 	end)

@@ -7,12 +7,13 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
+local OverlayTypes = require("./overlay_types")
 local tableEditors = require("./collection_table_editors")
 type Controls = {
 	Table: CollectionTypes.TableConstructor,
 	VirtualList: <V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
 	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
-	CollapsibleView: Types.Constructor<NavigationTypes.CollapsibleViewSpec, TextButton>,
+	Popover: Types.Constructor<OverlayTypes.PopoverSpec, GuiObject>,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
 	TextInput: Types.Constructor<InputTypes.TextInputProps, TextBox | Frame>,
 	NumberInput: Types.Constructor<InputTypes.NumberInputProps, TextBox | Frame>,
@@ -642,12 +643,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Compose.show(function(use: ComposeTypes.Use)
 						return use(disclosureWidth) > 0
 					end, function()
-						return UI.CollapsibleView "Details" {
-							label = "More",
-							expanded = Compose.cell(false),
-							Size = D2.new(0, 48, 1, 0),
-							Position = D2.new(1, -48, 0, 0),
-							AutomaticSize = E.AutomaticSize.None,
+						local open = Compose.cell(false)
+						return UI.Popover {
+							isPresented = open,
+							onPresentedChange = function(value: boolean)
+								open:set(value)
+							end,
+							trigger = UI.Button "Details" {
+								label = "More",
+								Size = D2.new(0, 48, 1, 0),
+								Position = D2.new(1, -48, 0, 0),
+								AutomaticSize = E.AutomaticSize.None,
+							} :: GuiButton,
 							content = function(): Instance
 								return ctx.column({
 									Compose.keyed({

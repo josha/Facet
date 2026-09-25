@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- CollapsibleView expands in place again, as before 0.12. It is not a modal: there is no scrim, no presented layer and no outside catcher. The plate grows over the trigger, and the content fades in, in 0.25 seconds (reduced motion: at once). The collapsed summary is one line that truncates at the end, with a `chevron.down` affordance. The trigger, a tap on the plate, the Close button and Cancel (Escape, ButtonB) collapse it. The Table row More action is now a Popover.
 - Pixel Quest paints a selected segment, Chip, list or menu row and Toggle button as its wood plate turned over (pressed in) and tinted green, with a cream label. A chrome art state can now be `{ asset, rotation, tint }`, and a skin falls back to its `selected` art for a selected control in a state without its own art. Before, a selected Pixel segment was a flat green rounded rect.
 - A Button `help` plate and a Callout appear as one unit over the theme's `motion.fast` (0.12 seconds by default; reduced motion shows them at once). The help body is capped at 264 pixels by a native `UISizeConstraint` instead of a hidden measuring label, which sat at the end of the plate; a callout tail now waits for the same first styled frame as its panel.
 - A segmented Picker keeps each segment inside the width of the strip, or of the row of a labelled strip, and a long label wraps inside that width. A segmented Picker with `query` causes an error. Before, an 80-character label grew its segment past the cell, and a search field and its strip painted under the next cell.

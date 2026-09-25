@@ -1523,7 +1523,7 @@ t.describe("virtual monitors surface strength", function()
 			t.expect(find(world.target, "TurnTips").Text).toBe(
 				"Turn step sets the increment for Rotation and both Turn buttons. Use the stepper to choose 15°, 30°, 45° or 90°."
 			)
-			find(world.target, "DismissOutside").Activated.fire({ Position = V.new(4, 4) })
+			find(world.target, "Expanded").Activated.fire()
 			t.expect(model.avatarTipsExpanded:peek()).toBe(false)
 			t.expect(find(world.target, "TurnTips")).toBe(nil)
 			t.expect(find(world.target, "Expanded")).toBe(nil)
