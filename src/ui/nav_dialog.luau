@@ -96,9 +96,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 		parts.checkMedia(where, spec.hero)
-		local actions: { Overlay.Action } = spec.actions or {}
-		parts.checkActions(ctx, where, spec.actions, math.huge)
-		local cancelAction: Overlay.Action? = nil
+		local actions: { Overlay.DialogAction } = spec.actions or {}
+		parts.checkActions(ctx, where, spec.actions, math.huge, nil, true)
+		local cancelAction: Overlay.DialogAction? = nil
 		for _, action in actions do
 			if action.role == "cancel" then
 				cancelAction = action
@@ -151,7 +151,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end, nextValue)
 			return accepted
 		end
-		local function press(action: Overlay.Action)
+		local function press(action: Overlay.DialogAction)
 			if not parts.usable(ctx, action) then
 				return
 			end
@@ -161,6 +161,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					closing = nil
 				end
 			end)
+			if wanted() and not action.keepOpen then
+				propose(false, "action")
+			end
 		end
 		local function cancel()
 			if cancelAction and parts.usable(ctx, cancelAction) then

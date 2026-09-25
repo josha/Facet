@@ -1654,7 +1654,7 @@ Motion options:
 
 The alert clears a writable `error` on dismissal. Use an alert for a brief
 decision. `icon`, `severity`, suppression and custom content refine the
-presentation.
+presentation. The `suppression` checkbox sits below the actions.
 
 ### Sheet
 
@@ -1792,8 +1792,8 @@ runtime.mount(function()
             title = "Leave the race?",
             content = function() return UI.Text { text = "Your lap will not count." } end,
             actions = {
-                { id = "Stay", label = "Stay", role = "cancel", onActivate = function() open:set(false) end },
-                { id = "Leave", label = "Leave", role = "destructive", onActivate = function() open:set(false) end },
+                { id = "Retry", label = "Retry", keepOpen = true, onActivate = function() print("retry") end },
+                { id = "Leave", label = "Leave", role = "destructive", onActivate = function() print("left") end },
             },
         },
     }
@@ -1806,9 +1806,14 @@ The dialog closes only when the fact changes. A refused proposal keeps the same
 panel and selection. Without `onPresentedChange`, set `closeButton = false`.
 Then the backdrop and Cancel do nothing.
 
-Actions never close the dialog. Each action runs its `onActivate`. A false that
-the caller accepts in that callback reports `action`. Cancel runs an enabled
-`role = "cancel"` action first. Otherwise Cancel proposes false. The one
+An action press closes the dialog by default. It runs its `onActivate`, and
+then proposes `onPresentedChange(false)`, as the close button does, so a
+refused proposal keeps the dialog open. An accepted close reports `action`, and
+so does a false that the caller accepts in the callback. An action with
+`keepOpen = true` runs its `onActivate` and proposes nothing. Use it for Apply
+or Next. An action that raises an error proposes nothing. Sheet, Notice
+and Callout actions refuse `keepOpen`. Cancel runs an enabled `role = "cancel"`
+action first. Otherwise Cancel proposes false. The one
 `role = "default"` action answers Return. A disabled or busy action does not
 run. `onDismiss(reason)` reports each closure once, after its cleanup:
 `close`, `outside`, `cancel` or `action`. The caller's own false and owner

@@ -112,7 +112,8 @@ t.describe("native Dialog: the caller's fact decides", function()
 		local w = mount(standard(open, log, change))
 		w.find("ModalBack").Pressed.fire()
 		t.expect(table.concat(log.pressed, ",")).toBe("Stay")
-		t.expect(w.find("Panel") ~= nil).toBe(true)
+		t.expect(w.find("Panel")).toBe(nil)
+		t.expect(table.concat(log.dismissed, ",")).toBe("action")
 		w.stop()
 		local open2, log2, change2 = caller()
 		local w2 = mount(standard(open2, log2, change2, {
@@ -147,7 +148,53 @@ t.describe("native Dialog: the caller's fact decides", function()
 		w.stop()
 	end)
 
-	t.it("an action never closes by itself, and a throwing one leaves the bookkeeping sound", function()
+	t.it("an action press proposes the close after its callback; keepOpen opts out", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change, {
+			actions = {
+				{
+					id = "Apply",
+					label = "Apply",
+					keepOpen = true,
+					onActivate = function()
+						table.insert(log.pressed, "Apply")
+					end,
+				},
+				{
+					id = "Leave",
+					label = "Leave",
+					onActivate = function()
+						table.insert(log.pressed, "Leave")
+					end,
+				},
+			},
+		}))
+		actionButton(w, "Apply").Activated.fire()
+		t.expect(#log.changes).toBe(0)
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		actionButton(w, "Leave").Activated.fire()
+		t.expect(table.concat(log.pressed, ",")).toBe("Apply,Leave")
+		t.expect(#log.changes == 1 and log.changes[1] == false).toBe(true)
+		t.expect(table.concat(log.dismissed, ",")).toBe("action")
+		w.stop()
+		local refused, refusedLog, refuse = caller(false)
+		local kept = mount(standard(refused, refusedLog, refuse))
+		actionButton(kept, "Leave").Activated.fire()
+		t.expect(#refusedLog.changes == 1 and refusedLog.changes[1] == false).toBe(true)
+		t.expect(kept.find("Panel") ~= nil).toBe(true)
+		t.expect(table.concat(refusedLog.dismissed, ",")).toBe("")
+		kept.stop()
+		t.expect(function()
+			parts.checkActions(
+				{} :: any,
+				"UI.Sheet",
+				{ { id = "A", label = "A", keepOpen = true, onActivate = print } },
+				2
+			)
+		end).toThrow()
+	end)
+
+	t.it("a throwing action proposes nothing and leaves the bookkeeping sound", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change, {
 			actions = {

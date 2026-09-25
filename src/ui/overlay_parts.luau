@@ -21,6 +21,7 @@ parts.WIDTHS = WIDTHS
 local MEDIA_KEYS = table.freeze({ "aspectRatio", "background", "height", "image", "scaleMode" })
 local HERO_KEYS = table.freeze({ "aspectRatio", "background", "content", "height", "image", "scaleMode", "sticky" })
 local ACTION_KEYS = table.freeze({ "busy", "enabled", "id", "label", "onActivate", "role" })
+local DIALOG_ACTION_KEYS = table.freeze({ "busy", "enabled", "id", "keepOpen", "label", "onActivate", "role" })
 local SCALE_MODES: { [string]: boolean } = freeze({ fit = true, crop = true, stretch = true })
 local ROLES: { [string]: boolean } = freeze({ default = true, cancel = true, destructive = true })
 
@@ -116,7 +117,8 @@ function parts.checkActions(
 	where: string,
 	actions: unknown,
 	max: number,
-	reserved: { string }?
+	reserved: { string }?,
+	closes: boolean?
 ): number
 	if actions == nil then
 		return 0
@@ -131,7 +133,10 @@ function parts.checkActions(
 			error(`Facet {where}: each action must be a table with id, label and onActivate`, 0)
 		end
 		local action = entry :: { [string]: unknown }
-		parts.known(where, action, ACTION_KEYS, "action")
+		parts.known(where, action, if closes then DIALOG_ACTION_KEYS else ACTION_KEYS, "action")
+		if action.keepOpen ~= nil and type(action.keepOpen) ~= "boolean" then
+			error(`Facet {where}: action keepOpen must be a boolean`, 0)
+		end
 		local id = action.id
 		if type(id) ~= "string" or id == "" or seen[id] or string.find(id, "/", 1, true) then
 			error(`Facet {where}: every action needs a unique string id without '/'`, 0)

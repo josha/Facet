@@ -30,6 +30,7 @@ export type Action = {
 	busy: Value<boolean>?,
 	onActivate: () -> (),
 }
+export type DialogAction = Action & { keepOpen: boolean? }
 export type ActionLayout = "automatic" | "row" | "stacked"
 export type WidthPreset = "automatic" | "narrow" | "wide"
 export type Edge = "top" | "bottom" | "leading" | "trailing"
@@ -44,7 +45,7 @@ export type DialogSpec = Types.FrameProps & {
 	content: (() -> Instance)?,
 	hero: Media?,
 	actionLabel: Value<string>?,
-	actions: { Action }?,
+	actions: { DialogAction }?,
 	actionLayout: ActionLayout?,
 	closeButton: boolean?,
 	width: WidthPreset?,

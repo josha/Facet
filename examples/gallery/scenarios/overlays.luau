@@ -307,7 +307,6 @@ return {
 								role = "destructive",
 								onActivate = function()
 									note("Last: left the race")
-									dialogOpen:set(false)
 								end,
 							},
 						},
