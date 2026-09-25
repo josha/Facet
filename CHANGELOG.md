@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The `UI.Table` row More button is the `more` (…) icon named "More actions" (its `label` attribute), and still opens the Popover of truncated values. Before, it was named "More".
 - A palette extra `artTint` multiplies the `control`, `field` and `panel` chrome art. Fantasy Parchment Candlelight darkens its parchment to 0.3 and Pixel Quest its wood to 0.78 (the flat `control` plate matches), so text on the art reads at 4.5:1: before, Candlelight field text was 1.1:1 on light parchment and Pixel Quest cream on wood 3.3:1. A skinned inactive tab uses `contentSecondary` only where it reads at 4.5:1 on `control`, otherwise `content`. Fantasy Parchment Daylight and Glossy Touch have a darker `contentSecondary` so a placeholder or quiet tab reads at 4.5:1 on their art.
 - A segmented Picker bounds its segments by its row's width in layout units under a scaled ancestor (the TV device preview). Before, it used the scaled pixel width, so a long segment could be wider than its line and the wrapping row flipped between two layouts on every change, raising "Maximum event re-entrancy depth exceeded" from skinned segments.
 - A `measure` collection (List, Grid, VirtualList, Table) reads a row's size in layout units under a scaled ancestor (a UIScale, the TV device preview). Before, it stored the scaled pixels as the row height, so a row that fills its slot grew by the scale on every pass, to billions of pixels, and raised "Maximum event re-entrancy depth exceeded".

@@ -664,7 +664,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							end,
 							trigger = UI.Button "Details" {
 								icon = "more",
-								name = "More",
+								name = "More actions",
 								Size = D2.new(0, 48, 1, 0),
 								Position = D2.new(1, -48, 0, 0),
 								AutomaticSize = E.AutomaticSize.None,

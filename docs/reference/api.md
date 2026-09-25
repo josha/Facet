@@ -2584,7 +2584,8 @@ A column collapses only when it has a numeric `priority`. Larger values
 collapse first. The first column always stays visible. The other columns
 keep their `minWidth` and truncate their text, so a narrow table scrolls
 sideways and never loses a column. A Popover shows collapsed and natively
-truncated values through the icon-only More button of the row. The cell
+truncated values through the row's icon-only `more` (…) button, named
+"More actions". The cell
 state stays retained. The header band spans the whole width of the table,
 over the reorder and edit gutters.
 
