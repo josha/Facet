@@ -85,7 +85,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		properties.Interactable = function(use: ComposeTypes.Use)
 			return use(state).top
 		end
-		local panel = Host.CanvasGroup(properties)
+		local panel = ctx.fade(properties)
 		local parent = ctx.observe.Parent(panel)
 		Compose.watch(function(use: ComposeTypes.Use)
 			mounted:set(use(parent) ~= nil)

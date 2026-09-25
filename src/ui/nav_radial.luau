@@ -844,7 +844,8 @@ return function(
 											paint:RemoveTag("facet-radial-candidate")
 										end
 									end)
-									local wrapper = Host.CanvasGroup("Sector-" .. sector.id)({
+									local wrapper = ctx.fade({
+										Name = "Sector-" .. sector.id,
 										BackgroundTransparency = 1,
 										GroupTransparency = function(use: ComposeTypes.Use)
 											return if reduced(use)

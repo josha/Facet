@@ -162,13 +162,6 @@ return function(ctx: Types.Context): Nav.Surfaces
 				return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
 			end,
 		})
-		if panel:IsA("CanvasGroup") then
-			runtime.decorate(panel, {
-				GroupTransparency = function(use: ComposeTypes.Use)
-					return 1 - amount(use)
-				end,
-			})
-		end
 		attach(panel, { Host.UIScale "PresentationScale" { Scale = scale } })
 	end
 	local function attached(anchor: GuiObject): boolean
@@ -746,6 +739,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 				label:AddTag("facet-type-caption")
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = "Help",
+					GroupTransparency = function(use: ComposeTypes.Use)
+						return 1 - amount(use)
+					end,
 					AutomaticSize = E.AutomaticSize.XY,
 					Size = D2.fromOffset(0, 0),
 					ZIndex = 96,
@@ -788,7 +784,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					hint:AddTag("facet-secondary")
 					table.insert(panelProps, hint)
 				end
-				local panel = Host.CanvasGroup(panelProps)
+				local panel = ctx.fade(panelProps)
 				local measured = ctx.observe.AbsoluteSize(panel)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"

@@ -7,7 +7,7 @@ local demoTabs = require("../examples/gallery/scenarios/demo_tabs")
 local Compose = Facet.Compose
 
 local function find(root, name, class)
-	if root.Name == name and (not class or root:IsA(class)) then
+	if root.Name == name and (not class or root:IsA(class)) and not root:GetAttribute("FacetTabPage") then
 		return root
 	end
 	for _, child in root:GetChildren() do
@@ -283,7 +283,12 @@ t.describe("native gallery shell parity", function()
 				local function tabViewOf(node: any): any
 					local at = node.Parent
 					while
-						at and not (at:IsA("Frame") and (at.Name == "Categories" or scenarioGroup(scenario, at.Name)))
+						at
+						and not (
+							at:IsA("Frame")
+							and not at:GetAttribute("FacetTabPage")
+							and (at.Name == "Categories" or scenarioGroup(scenario, at.Name))
+						)
 					do
 						at = at.Parent
 					end

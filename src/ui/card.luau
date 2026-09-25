@@ -449,7 +449,8 @@ return function(
 			}),
 			"panel"
 		)
-		local plate = Host.CanvasGroup "Reveal" {
+		local plate = ctx.fade {
+			Name = "Reveal",
 			LayoutOrder = 2,
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),

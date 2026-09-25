@@ -673,7 +673,8 @@ return function(
 			BorderSizePixel = 0,
 			if shown
 				then ctx.styled(
-					Host.CanvasGroup "MenuGroup" {
+					ctx.fade {
+						Name = "MenuGroup",
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
 						GroupTransparency = function(use: ComposeTypes.Use)

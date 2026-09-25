@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local Compose = Facet.Compose
@@ -412,12 +413,12 @@ t.describe("native menu parity with main", function()
 		local scale = world.find("PresentationScale", panel)
 		local group = world.find("MenuGroup", panel)
 		t.expect(scale.Scale).toBe(0.96)
-		t.expect(group.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(group)).toBe(1)
 		local shrink = 1 - scale.Scale
 		t.expect(panel.Position.X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
 		t.expect(panel.Position.Y.Offset).toBeCloseTo(96 + 200 * shrink, 1)
 		local enter = 0
-		while group.GroupTransparency > 0.05 and enter < 60 do
+		while fadeKit.of(group) > 0.05 and enter < 60 do
 			world.engine.heartbeat.fire(FRAME)
 			enter += 1
 		end
@@ -428,14 +429,14 @@ t.describe("native menu parity with main", function()
 		t.expect(panel.Position).toBe(UDim2.fromOffset(280, 96))
 		world.find("adjust", panel).Activated.fire()
 		t.expect(scale.Scale).toBe(0.96)
-		t.expect(group.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(group)).toBe(1)
 		for _ = 1, 30 do
 			world.engine.heartbeat.fire(FRAME)
 		end
 		t.expect(scale.Scale).toBe(1)
 		world.find("DismissOutside", world.screen.Parent).Activated.fire()
 		local exit = 0
-		while not panel.isDestroyed() and group.GroupTransparency < 0.95 and exit < 60 do
+		while not panel.isDestroyed() and fadeKit.of(group) < 0.95 and exit < 60 do
 			world.engine.heartbeat.fire(FRAME)
 			exit += 1
 		end
@@ -470,10 +471,10 @@ t.describe("native menu parity with main", function()
 		local world = labelled({ items = NESTED, presentation = "menu" })
 		local panel = open(world)
 		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
-		t.expect(world.find("MenuGroup", panel).GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(0)
 		world.find("adjust", panel).Activated.fire()
 		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
-		t.expect(world.find("MenuGroup", panel).GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(0)
 		world.stop()
 	end)
 

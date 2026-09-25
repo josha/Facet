@@ -436,7 +436,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				}
 			)
 		end
-		local row = ctx.styled(Host.CanvasGroup(rowProps), "snackbar")
+		local row = ctx.styled(ctx.fade(rowProps), "snackbar")
 		ctx.styled(row, "panel")
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
@@ -452,14 +452,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return use(slide)
 		end
+		ctx.fadeTo(row, function(use: ComposeTypes.Use)
+			return 1 - amount(use)
+		end)
 		local measured = ctx.observe.AbsoluteSize(row)
 		runtime.decorate(row, {
 			Position = function(use: ComposeTypes.Use)
 				local travel = (1 - amount(use)) * (use(measured).Y + 16)
 				return D2.new(0.5, 0, 1, -16 + travel + use(gone))
-			end,
-			GroupTransparency = function(use: ComposeTypes.Use)
-				return 1 - amount(use)
 			end,
 			Interactable = function(use: ComposeTypes.Use)
 				return not (phase and use(phase.exiting))

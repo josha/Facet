@@ -559,6 +559,56 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
 		return assert(layout.insets(sides))
 	end
+	local fades: { [Instance]: ComposeTypes.Cell<{ Shared.Value<number> }> } = setmetatable({}, { __mode = "k" }) :: any
+	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
+		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade"):set({ value })
+	end
+	function ctx.fade(properties: Shared.CanvasGroupNativeProps): Frame
+		local fields = (properties :: unknown) :: { [unknown]: unknown }
+		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
+		fields.GroupTransparency = nil
+		local node = Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
+		fades[node] = source
+		local function amount(use: ComposeTypes.Use): number
+			return read(use(source)[1] :: Shared.Value<number>, use) or 0
+		end
+		local shown = ctx.observe.Visible(node)
+		local stop = runtime.mountFragment(function()
+			return {
+				Host.UIGradient "FadePaint" {
+					Transparency = function(use: ComposeTypes.Use)
+						return types.NumberSequence.new(amount(use))
+					end,
+				},
+				Compose.show(function(use: ComposeTypes.Use)
+					return use(shown) and amount(use) > 0
+				end, function()
+					local automatic = node.AutomaticSize
+					local freeX = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
+					local freeY = automatic == Enum.AutomaticSize.Y or automatic == Enum.AutomaticSize.XY
+					local group = Host.CanvasGroup "Fade" {
+						BackgroundTransparency = 1,
+						Size = types.UDim2.fromScale(if freeX then 0 else 1, if freeY then 0 else 1),
+						AutomaticSize = automatic,
+						GroupTransparency = amount,
+					}
+					for _, child: Instance in node:GetChildren() do
+						if child:IsA("GuiBase2d") or child:IsA("Folder") or child:IsA("UIGridStyleLayout") then
+							(child :: Instance).Parent = group
+						end
+					end
+					Compose.cleanup(function()
+						for _, child in group:GetChildren() do
+							child.Parent = node
+						end
+					end)
+					return group
+				end),
+			}
+		end, node)
+		Compose.cleanup(stop)
+		return node
+	end
 	function ctx.corner(radius: number?): UICorner
 		return if radius then Host.UICorner({ CornerRadius = types.UDim.new(0, radius) }) else Host.UICorner({})
 	end

@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local placement = require("../src/ui/overlay_placement")
@@ -664,10 +665,10 @@ t.describe("native help: the plate arrives as one unit", function()
 		return w
 	end
 
-	t.it("one CanvasGroup carries the only fade and scale, and the plate holds no extra text node", function()
+	t.it("one fade carries the only fade and scale, and the plate holds no extra text node", function()
 		local w = hovered()
 		local panel = w.find("Help")
-		t.expect(panel:IsA("CanvasGroup")).toBe(true)
+		t.expect(panel.ClassName).toBe("Frame")
 		local texts, scales = {}, 0
 		for _, node in panel:GetDescendants() do
 			if node:IsA("TextLabel") then
@@ -675,7 +676,7 @@ t.describe("native help: the plate arrives as one unit", function()
 			elseif node:IsA("UIScale") then
 				scales += 1
 				t.expect(node.Parent).toBe(panel)
-			elseif node:IsA("UIGradient") or node:IsA("CanvasGroup") then
+			elseif node.Parent ~= panel and (node:IsA("UIGradient") or node:IsA("CanvasGroup")) then
 				error(`a second fade driver {node.Name}`)
 			end
 		end
@@ -695,10 +696,10 @@ t.describe("native help: the plate arrives as one unit", function()
 		local panel = w.find("Help")
 		local scale = panel:FindFirstChildWhichIsA("UIScale")
 		w.advance(SHORT / 2)
-		t.expect(panel.GroupTransparency > 0 and panel.GroupTransparency < 1).toBe(true)
+		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1).toBe(true)
 		t.expect(scale.Scale > 0.9 and scale.Scale < 1).toBe(true)
 		w.advance(SHORT / 2)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		t.expect(scale.Scale).toBe(1)
 		w.stop()
 	end)
@@ -706,7 +707,7 @@ t.describe("native help: the plate arrives as one unit", function()
 	t.it("reduced motion shows the plate whole on its first frame", function()
 		local w = hovered({ reducedMotion = true })
 		local panel = w.find("Help")
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		t.expect(panel:FindFirstChildWhichIsA("UIScale").Scale).toBe(1)
 		w.stop()
 	end)
@@ -734,7 +735,7 @@ t.describe("native Callout: the plate and its tail arrive together", function()
 		t.expect(panel.Visible).toBe(true)
 		t.expect(arrow.Visible).toBe(true)
 		w.advance(0.06)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		w.stop()
 	end)
 end)

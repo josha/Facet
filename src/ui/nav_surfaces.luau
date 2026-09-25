@@ -185,7 +185,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								)
 							end,
 					})
-					local fade = Host.CanvasGroup "RevealFade" {
+					local fade = ctx.fade {
+						Name = "RevealFade",
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -316,7 +317,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local rootBox, rootAt = ctx.observe.AbsoluteSize(root), ctx.observe.AbsolutePosition(root)
 		surfaces.attach(root, {
 			Compose.presence(spec.expanded, function(phase: Nav.PresencePhase)
-				local fade = Host.CanvasGroup "ExpandedFade" {
+				local fade = ctx.fade {
+					Name = "ExpandedFade",
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
@@ -659,7 +661,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					runtime.decorate(scroll, { AnchorPoint = V2.new(0.5, 0), Position = D2.fromScale(0.5, 0) })
 					surfaces.attach(actionBar, { Host.UISizeConstraint "ReadableWidth" { MaxSize = readable } })
 					surfaces.attach(scroll, { Host.UISizeConstraint "ReadableWidth" { MaxSize = readable } })
-					layout = Host.CanvasGroup "AlertLayout" {
+					layout = Host.Frame "AlertLayout" {
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
 							local destination = use(offer)
@@ -678,7 +680,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					)
 				end
 				local panel = ctx.styled(
-					Host.CanvasGroup "AlertPanel" {
+					ctx.fade {
+						Name = "AlertPanel",
 						BackgroundTransparency = 0,
 						BorderSizePixel = 0,
 						Size = D2.fromScale(1, 1),
@@ -693,11 +696,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				surfaces.skin(panel, "panel")
 				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG) else nil
 				if shown then
-					runtime.decorate(panel, {
-						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - shown(use)
-						end,
-					})
+					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
+						return 1 - shown(use)
+					end)
 					surfaces.attach(panel, {
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
@@ -802,7 +803,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								AutomaticSize = E.AutomaticSize.None,
 							})
 							surfaces.attach(panel, {
-								Host.CanvasGroup "SourcePreview" {
+								ctx.fade {
+									Name = "SourcePreview",
 									BackgroundTransparency = 1,
 									Size = D2.fromScale(1, 1),
 									Interactable = false,
@@ -821,7 +823,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Interactable = function(use: ComposeTypes.Use)
 								return not use(phase.exiting) and amount(use) >= 0.65
 							end,
-							GroupTransparency = 0,
 						})
 						runtime.decorate(panel, {
 							AnchorPoint = V2.zero,
@@ -840,10 +841,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									size.Y + (destination.Y - size.Y) * t
 								)
 							end,
-							GroupTransparency = function(use: ComposeTypes.Use)
-								return if use(sourceParent) then 0 else 1 - amount(use)
-							end,
 						})
+						ctx.fadeTo(panel, function(use: ComposeTypes.Use)
+							return if use(sourceParent) then 0 else 1 - amount(use)
+						end)
 						runtime.decorate(corner, {
 							CornerRadius = function(use: ComposeTypes.Use)
 								return ctx.types.UDim.new(0, radius * (1 - amount(use)))
@@ -858,10 +859,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							end,
 						})
 					else
+						ctx.fadeTo(panel, function(use: ComposeTypes.Use)
+							return 1 - amount(use)
+						end)
 						runtime.decorate(panel, {
-							GroupTransparency = function(use: ComposeTypes.Use)
-								return 1 - amount(use)
-							end,
 							Position = function(use: ComposeTypes.Use)
 								local size, at, box, offset, t =
 									use(offer), use(sourcePosition), use(sourceSize), use(origin), amount(use)
@@ -1168,7 +1169,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				table.insert(rows, ctx.padding(12, 12))
 				local panel = ctx.styled(
-					Host.CanvasGroup "CalloutPanel" {
+					ctx.fade {
+						Name = "CalloutPanel",
+						GroupTransparency = function(use: ComposeTypes.Use)
+							return 1 - amount(use)
+						end,
 						Size = D2.fromOffset(280, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						ctx.corner() :: Types.Child,

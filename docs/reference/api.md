@@ -263,6 +263,10 @@ cannot be interacted with, and the selection never stays on it.
 | RadialMenu slot | A slot that enters an open ring fades in and moves from 30 percent of the distance toward its origin to its position, 0.16 seconds. The origin is the parent item for a branch and the center for other slots. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
 
+- A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
+  the faded node's children. When the fade ends, the children move back and
+  the group is removed, so settled text and art are never rasterised. A
+  `UIGradient` named `FadePaint` fades the node's own paint.
 - Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
   all of this motion. The change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer
@@ -1447,8 +1451,8 @@ menus keep the control-specific navigation of the menu.
   bounded by the screen, and its rows scroll inside it. The row ids and the
   activation do not change. The `MenuPanel` Frame is the plate. It holds the
   `MenuScroll` ScrollingFrame that holds `MenuRows`. When the menu fades, the
-  `MenuGroup` CanvasGroup sits between them and is the size of the panel, so
-  a long list never makes a tall group, and its text stays sharp.
+  `MenuGroup` Frame sits between them and is the size of the panel, so
+  a long list never makes a tall fade group, and its text stays sharp.
 - A level whose `selected` group holds one of its rows opens with the
   selection on that row, and scrolls that row to the center of the list. A
   `checked` item does not move the landing.
@@ -1969,7 +1973,7 @@ reduced motion the sheet appears at rest after the same wait. See
 
 Both require a writable `expanded` and `content`. DisclosureGroup expands its
 content in the document flow. The content is in a clipped Frame named
-`Reveal` that holds a CanvasGroup named `RevealFade`. The height of `Reveal`
+`Reveal` that holds a Frame named `RevealFade`, which fades. The height of `Reveal`
 opens with the motion, and then follows the content with `AutomaticSize`.
 The chevron keeps its `chevron.trailing` and `chevron.down` art and turns
 between them. For outer layout, use the native properties on their returned
@@ -1985,7 +1989,7 @@ scrim, no presented layer and no outside catcher.
 - When `expanded` is true, a plate named `Expanded` opens over the trigger, at
   the position and width of the trigger. The page does not move. The plate
   clips its content, and its height opens with the motion. Then it follows the
-  content with `AutomaticSize`. The content is in a CanvasGroup named
+  content with `AutomaticSize`. The content is in a Frame named
   `ExpandedFade` that fades in. The trigger is raised by one `ZIndex` while it
   is open, so the plate paints over its siblings.
 - If the trigger has the selection, the selection moves into the plate: to
@@ -2100,7 +2104,7 @@ Other options:
 A dialog needs a title, content, a hero, an action label or actions. The
 height is the layer height less the keyboard height and the margins. When the
 pinned regions and a short body do not fit, every region moves into one
-scrolling column named `Room`. The panel is a CanvasGroup. It scales from
+scrolling column named `Room`. The panel is a Frame. It scales from
 0.94 and fades in with its scrim. See [Motion](#motion).
 
 ### Popover
@@ -2198,7 +2202,7 @@ A row with an action or a close button uses `controls.snackbar.maxWidth`,
 bounded by the layer. The action moves below long text. Arrival never takes the
 selection. Cancel on a selected row returns the selection to the content, also
 when the caller refuses. A visible row sets the `FacetInsetBottom` attribute on
-its layer until it has slid out. The row is a CanvasGroup named `Snack`. It
+its layer until it has slid out. The row is a Frame named `Snack`. It
 slides up and fades in to enter, and slides down and fades out to leave. A
 leaving row cannot be interacted with. Under reduced motion it arrives and
 leaves at once.
@@ -2379,7 +2383,7 @@ choose. For rows of text, use VirtualList or Table.
   on one of its actions, its menu is open, its actions are entered, or the
   `browseTarget` is selected. A card with no body action and no
   `browseTarget` has no stop of its own, so it shows its actions at rest.
-- The plate is a CanvasGroup directly below the body in the card's own layout.
+- The plate is a Frame directly below the body in the card's own layout.
   With `automatic`, it paints a panel surface under the action row. The
   primary action fills the row and More is an icon button at its end. With
   `always`, the row has no plate and sits a small gap below the body. The plate

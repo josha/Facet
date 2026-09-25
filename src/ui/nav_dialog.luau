@@ -327,7 +327,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				local shown = surfaces.appearance(phase, DIALOG)
 				local panel = ctx.styled(
-					Host.CanvasGroup "Panel" {
+					ctx.fade {
+						Name = "Panel",
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = function(use: ComposeTypes.Use)
 							return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)

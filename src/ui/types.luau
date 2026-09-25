@@ -202,6 +202,8 @@ export type Context = {
 	styled: <N>(N & Instance, string) -> N & Instance,
 	padding: (number, number) -> UIPadding,
 	corner: (number?) -> UICorner,
+	fade: (CanvasGroupNativeProps) -> Frame,
+	fadeTo: (Instance, Value<number>) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,
 	column: ({ Child }, FrameNativeProps?) -> Frame,

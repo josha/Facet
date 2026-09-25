@@ -296,7 +296,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			table.insert(bodyProps, limit)
 			local body = parts.scroller(ctx, bodyProps, { list, content }, { hug = true })
 			local panel = ctx.styled(
-				Host.CanvasGroup "Panel" {
+				ctx.fade {
+					Name = "Panel",
+					GroupTransparency = function(use: ComposeTypes.Use)
+						return 1 - amount(use)
+					end,
 					BackgroundTransparency = 0,
 					BorderSizePixel = 0,
 					Size = D2.fromOffset(0, 0),
