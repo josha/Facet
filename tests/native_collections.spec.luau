@@ -1803,3 +1803,22 @@ t.describe("Table row tap", function()
 		runtime:dispose()
 	end)
 end)
+
+t.describe("Row action tray width", function()
+	t.it("an icon action's tray fits its painted label and icon", function()
+		local engine, runtime, UI, target = setup()
+		local stop, actions = runtime.mount(function()
+			return UI.RowActions({
+				content = button(UI, Compose.cell({ label = "Row" })),
+				open = Compose.cell("trailing"),
+				trailing = { { id = "remove", label = "Remove", icon = "trash", role = "destructive" } },
+			})
+		end, target)
+		actions.AbsoluteSize = engine.types.Vector2.new(500, 40)
+		local remove = actions:FindFirstChild("remove", true)
+		remove:FindFirstChild("Title", true).TextBounds = engine.types.Vector2.new(60, 20)
+		t.expect(actions:FindFirstChild("trailing").Size.X.Offset).toBe(60 + 32 + 20 + 8)
+		stop()
+		runtime:dispose()
+	end)
+end)

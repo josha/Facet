@@ -2538,7 +2538,8 @@ follow options also apply.
 `leading` or `trailing`. `onOpenChange` is controlled.
 
 `actionWidth` has a minimum default of `88`. Native label bounds can make the
-action tray larger. Full swipe is on by default. You can set it for each edge.
+action tray larger. Each action is as wide as its painted label, plus its icon
+and gap when it has an `icon`, plus 32 pixels. Full swipe is on by default. You can set it for each edge.
 A row with no measured width does not open or run an action from a swipe.
 A shared `coordinator` cell lets only one row be open. When a row opens,
 through a gesture or a write to its `open` cell, the other rows close.

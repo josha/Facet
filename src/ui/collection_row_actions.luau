@@ -230,7 +230,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 							end,
 						}
 						local button = UI.Button(buttonProps)
-						local bounds = ctx.observe.TextBounds(button)
+						local caption = button:FindFirstChild("Title", true)
+						local bounds = if caption and caption:IsA("TextLabel")
+							then ctx.observe.TextBounds(caption)
+							else ctx.observe.TextBounds(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size, action = use(bounds), use(current)
 							local width = (if size then size.X else 0)
@@ -684,7 +687,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 							onActivate = delete,
 						}
 						local button = UI.Button(buttonProps)
-						local bounds = ctx.observe.TextBounds(button)
+						local caption = button:FindFirstChild("Title", true)
+						local bounds = if caption and caption:IsA("TextLabel")
+							then ctx.observe.TextBounds(caption)
+							else ctx.observe.TextBounds(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size = use(bounds)
 							editWidth:set(math.min(use(dimensions).X, math.max(72, (if size then size.X else 0) + 32)))
