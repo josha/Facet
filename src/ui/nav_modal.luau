@@ -533,6 +533,31 @@ return function(ctx: Types.Context): Nav.Surfaces
 		return value
 	end
 
+	local function arrive(node: Instance): Instance
+		local frames = ctx.config.services and ctx.config.services.RunService
+		if frames == nil or not node:IsA("GuiObject") or not node.Visible then
+			return node
+		end
+		local surface = node :: GuiObject
+		surface.Visible = false
+		local connection: RBXScriptConnection? = nil
+		connection = frames.Heartbeat:Connect(function()
+			if connection then
+				connection:Disconnect()
+				connection = nil
+			end
+			if not surface.Visible then
+				surface.Visible = true
+			end
+		end)
+		Compose.cleanup(function()
+			if connection then
+				connection:Disconnect()
+				connection = nil
+			end
+		end)
+		return surface
+	end
 	local function overlay(
 		anchor: GuiObject,
 		presented: Types.Value<boolean>,
@@ -582,12 +607,12 @@ return function(ctx: Types.Context): Nav.Surfaces
 								return {
 									Host.Folder({
 										Compose.boundary(function()
-											return build(phase)
+											return arrive(build(phase))
 										end, options.failure),
 									}),
 								}
 							end
-							return { build(phase) }
+							return { arrive(build(phase)) }
 						end),
 					}
 				end

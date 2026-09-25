@@ -169,7 +169,9 @@ TabView crossfades its pages. Sheet slides up. Alert, Dialog and
 CollapsibleView scale and fade in. Callout, Button `help`, Menu and Popover
 scale and fade from their anchor. Snackbar slides up and fades in.
 DisclosureGroup and Notice open their height. Each exit plays the reverse,
-faster. Reduced motion removes this motion. To use a
+faster. A presented surface shows from the frame after it mounts, when the
+theme StyleSheet has styled it, so its text never draws at the engine default
+size first. Reduced motion removes this motion. To use a
 crossfade in NavigationStack or TabView, supply `transition` with Compose tween
 options. To remove the motion, supply `transition = false`. The
 [motion table](../reference/api.md#motion) gives each duration and curve.
