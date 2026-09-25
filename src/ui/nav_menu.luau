@@ -1523,6 +1523,10 @@ return function(
 			"Facet UI.Picker: valueAlignment must be start or end"
 		)
 		assert(
+			spec.query == nil or declaredStyle ~= "segmented",
+			"Facet UI.Picker: a segmented picker takes no query. Use navigationLink or menu for a searchable list"
+		)
+		assert(
 			spec.indicatorPosition == nil or declaredStyle == "radioGroup",
 			"Facet UI.Picker: indicatorPosition belongs to the radioGroup style"
 		)
@@ -2280,6 +2284,7 @@ return function(
 		local function across(use: ComposeTypes.Use?): boolean
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
+		local room = Compose.cell(math.huge)
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local textService = surfaces.service("GuiService") :: GuiService?
@@ -2408,6 +2413,7 @@ return function(
 							else nil,
 						icon = liveIcon(source),
 						TextSize = spec.textSize,
+						TextWrapped = if style == "segmented" then true else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
 							then "checkmark"
 							else nil,
@@ -2547,6 +2553,11 @@ return function(
 							MinSize = derive(function(use: ComposeTypes.Use?)
 								return V2.new(44, if spec.controlSize ~= nil or across(use) then 0 else 44)
 							end, spec.axis),
+							MaxSize = if style == "segmented"
+								then function(use: ComposeTypes.Use): Vector2
+									return V2.new(math.max(44, use(room) - 2 * segmentMetrics.inset), math.huge)
+								end
+								else nil,
 						}),
 						if underlined
 							then Compose.show(function(use: ComposeTypes.Use)
@@ -2574,6 +2585,24 @@ return function(
 					local family = if style == "segmented" then "facet-segment" else "facet-choice"
 					button:AddTag(family)
 					if style == "segmented" then
+						local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
+						local function captionRoom(use: ComposeTypes.Use): Vector2
+							local package = read(ctx.config.theme, use)
+							local recipe = if package and package.chrome then package.chrome.control else nil
+							local insets = if recipe then recipe.contentInsets else nil
+							local side = ctx.controlSize(spec.controlSize, "paddingX", use)
+							local chrome = math.max(side, if insets then insets.left or 0 else 0)
+								+ math.max(side, if insets then insets.right or 0 else 0)
+								+ if glyph then ctx.controlSize(spec.controlSize, "iconSize", use) + 8 else 0
+							return V2.new(math.max(0, use(room) - 2 * segmentMetrics.inset - chrome), math.huge)
+						end
+						for _, name in { "Title", "Description" } do
+							local caption = button:FindFirstChild(name, true)
+							if caption and caption:IsA("TextLabel") then
+								caption.TextWrapped = true
+								surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = captionRoom }) })
+							end
+						end
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
@@ -2683,6 +2712,13 @@ return function(
 		local picker = Host.Frame(p)
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
+			if not labelled then
+				local extent = ctx.observe.AbsoluteSize(picker)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local width = (use(extent) :: Vector2).X
+					room:set(if width > 0 then width else math.huge)
+				end)
+			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {
 					MinSize = derive(function(use: ComposeTypes.Use?)
@@ -2748,6 +2784,10 @@ return function(
 		layout.Padding = D.new(0, 16)
 		layout.Wraps = true
 		local rowSize = ctx.observe.AbsoluteSize(row)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local width = (use(rowSize) :: Vector2).X
+			room:set(if width > 0 then width else math.huge)
+		end)
 		surfaces.attach(picker, {
 			Host.UISizeConstraint({
 				MaxSize = function(use: ComposeTypes.Use)

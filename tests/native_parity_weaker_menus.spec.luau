@@ -687,6 +687,111 @@ t.describe("native parity weaker menus", function()
 		world.stop()
 	end)
 
+	local LONG = string.rep("Long segment label ", 5):sub(1, 80)
+	local function segmentLimits(picker: any): ({ any }, number)
+		local segments = {}
+		for _, node in picker:GetDescendants() do
+			if node:HasTag("facet-segment") then
+				table.insert(segments, node)
+			end
+		end
+		local widest = 0
+		for _, segment in segments do
+			local cap = math.huge
+			for _, constraint in segment:GetChildren() do
+				if constraint.ClassName == "UISizeConstraint" then
+					cap = math.min(cap, constraint.MaxSize.X)
+				end
+			end
+			widest = math.max(widest, cap)
+		end
+		return segments, widest
+	end
+	local function captionsWrap(segment: any, bound: number): boolean
+		if segment.Text ~= "" then
+			return segment.TextWrapped and string.find(tostring(segment.TextTruncate), "None", 1, true) ~= nil
+		end
+		for _, node in segment:GetDescendants() do
+			if node:IsA("TextLabel") and node.Text ~= "" then
+				local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
+				if not node.TextWrapped or limit == nil or limit.MaxSize.X > bound then
+					return false
+				end
+			end
+		end
+		return true
+	end
+
+	t.it("bounds a long segment label by the width of an unlabelled segmented strip", function()
+		for _, readable in { false, true } do
+			local options = {
+				{ value = "a", label = LONG },
+				{ value = "b", label = "Rally" },
+			}
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Mode" {
+						style = "segmented",
+						selected = Compose.cell("a"),
+						options = if readable then Compose.cell(options) else options,
+					},
+				})
+			end)
+			local picker = find(world.root, "Mode")
+			picker.AbsoluteSize = V2(world, 300, 50)
+			local segments, widest = segmentLimits(picker)
+			t.expect(#segments).toBe(2)
+			t.expect(widest <= 294).toBe(true)
+			for _, segment in segments do
+				t.expect(captionsWrap(segment, 294)).toBe(true)
+			end
+			picker.AbsoluteSize = V2(world, 1000, 50)
+			t.expect(select(2, segmentLimits(picker))).toBe(994)
+			world.stop()
+		end
+	end)
+
+	t.it("bounds a long segment label by the row width of a labelled segmented picker", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Mode" {
+					label = "Mode",
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = LONG }, { value = "b", label = "Drift" } },
+				},
+			})
+		end)
+		local row = find(world.root, "Mode")
+		row.AbsoluteSize = V2(world, 300, 100)
+		local segments, widest = segmentLimits(find(row, "Options"))
+		t.expect(#segments).toBe(2)
+		t.expect(widest <= 294).toBe(true)
+		for _, segment in segments do
+			t.expect(captionsWrap(segment, 294)).toBe(true)
+		end
+		world.stop()
+	end)
+
+	t.it("refuses a search query on a segmented Picker", function()
+		local ok, message = pcall(function()
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Mode" {
+						style = "segmented",
+						query = Compose.cell(""),
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "Road" }, { value = "b", label = "Rally" } },
+					},
+				})
+			end)
+			world.stop()
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(message), "Facet UI.Picker: a segmented picker takes no query", 1, true) ~= nil)
+			.toBe(true)
+	end)
+
 	t.it("wraps an explicit segmented strip inside the width of its labelled row", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({

@@ -1392,7 +1392,10 @@ measured width and the native PreferredInput:
 A `label` shows on the leading edge of a horizontal segmented row, with the
 control at its natural width on the trailing edge. A horizontal segmented strip
 wraps its segments onto more lines when they do not fit in the width of the
-row. The label shows above a vertical
+row. A segment is never wider than the strip, or than the row of a labelled
+strip. A label that does not fit wraps inside that width. A segmented picker
+takes no `query` and causes an error: a strip shows every option at once, so
+use `navigationLink` or `menu` for a searchable list. The label shows above a vertical
 segmented, inline or radio group control. A menu shows the label on the leading
 edge of the row and the value on the trailing edge.
 
