@@ -52,6 +52,7 @@ local function fixture(build)
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
 			reducedMotion = ctx.reducedMotion,
+			environment = ctx.environment,
 		})
 		return ctx.Host.ScreenGui "GalleryTest" { build(ctx) }
 	end, target)
@@ -126,6 +127,67 @@ t.describe("native gallery shell parity", function()
 		t.expect(built.report().active).toBe("other")
 		ctx.pageVisible:set(false)
 		t.expect(contexts.other.pageVisible:peek()).toBe(false)
+		stop()
+	end)
+
+	t.it("previews a phone, tablet or TV as a device frame that feeds the gallery environment", function()
+		local env
+		local ctx, root, stop = fixture(function(context)
+			context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			context.load = function(_, name)
+				return {
+					build = function(page)
+						return {
+							screen = function()
+								return page.Host.Frame({ Name = name })
+							end,
+						}
+					end,
+				}
+			end
+			env = context.UI.environment()
+			return gallery.build(context)
+		end)
+		local surface = find(root, "Gallery")
+		local scale = find(surface, "ViewingDistance", "UIScale")
+		local function expectDevice(width, height, display, input)
+			t.expect(surface.Size.X.Offset).toBe(width)
+			t.expect(surface.Size.Y.Offset).toBe(height)
+			t.expect(surface.Size.X.Scale).toBe(0)
+			t.expect(env.viewportSize:peek().X).toBe(width)
+			t.expect(env.viewportSize:peek().Y).toBe(height)
+			t.expect(ctx.previewViewport:peek().width).toBe(width)
+			t.expect(ctx.sceneViewport:peek().height).toBe(height)
+			t.expect(env.displaySize:peek()).toBe(display)
+			t.expect(env.effectiveInput:peek()).toBe(input)
+		end
+		find(root, "Settings", "TextButton").Activated.fire()
+		t.expect(find(root, "DevicePreview") ~= nil).toBe(true)
+		t.expect(find(root, "OrientationPreview")).toBe(nil)
+		ctx.devicePreview:set("phone")
+		expectDevice(389, 762, "Small", "Touch")
+		t.expect(find(root, "OrientationPreview") ~= nil).toBe(true)
+		t.expect(surface:HasTag("facet-floating")).toBe(true)
+		ctx.orientationPreview:set("landscape")
+		expectDevice(762, 389, "Small", "Touch")
+		ctx.devicePreview:set("tablet")
+		expectDevice(1024, 768, "Small", "Touch")
+		ctx.orientationPreview:set("portrait")
+		expectDevice(768, 1024, "Small", "Touch")
+		t.expect(math.abs(scale.Scale - 720 / 1024) < 0.000001).toBe(true)
+		ctx.devicePreview:set("tv")
+		expectDevice(1920, 1080, "Large", "Gamepad")
+		t.expect(find(root, "OrientationPreview")).toBe(nil)
+		t.expect(math.abs(scale.Scale - 2 / 3) < 0.000001).toBe(true)
+		ctx.inputPreview:set("KeyboardAndMouse")
+		t.expect(env.effectiveInput:peek()).toBe("KeyboardAndMouse")
+		ctx.inputPreview:set("automatic")
+		ctx.devicePreview:set("automatic")
+		t.expect(surface.Size.X.Scale).toBe(1)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(ctx.previewViewport:peek().width).toBe(1280)
+		t.expect(env.effectiveInput:peek()).toBe("KeyboardAndMouse")
+		t.expect(surface:HasTag("facet-floating")).toBe(false)
 		stop()
 	end)
 

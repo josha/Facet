@@ -1,6 +1,11 @@
 --!strict
 local catalogue = require("./demo_picker")
 local screen = {}
+local DEVICES = {
+	phone = { width = 389, height = 762, displaySize = "Small", input = "Touch", rotates = true },
+	tablet = { width = 768, height = 1024, displaySize = "Small", input = "Touch", rotates = true },
+	tv = { width = 1920, height = 1080, displaySize = "Large", input = "Gamepad" },
+}
 screen.list = catalogue.list
 screen.next = catalogue.next
 screen.boot = catalogue.boot
@@ -9,30 +14,65 @@ function screen.configure(ctx)
 	local Compose = ctx.Compose
 	ctx.themeName = ctx.themeName or Compose.cell("Neutral")
 	ctx.viewingDistance = Compose.cell("automatic")
-	ctx.previewScale = Compose.formula(function(use)
-		return if use(ctx.viewingDistance) == "ten-foot" then 1.5 else 1
+	ctx.devicePreview = Compose.cell("automatic")
+	ctx.orientationPreview = Compose.cell("portrait")
+	ctx.device = Compose.formula(function(use)
+		local device = DEVICES[use(ctx.devicePreview)]
+		if device and device.rotates and use(ctx.orientationPreview) == "landscape" then
+			return {
+				width = device.height,
+				height = device.width,
+				displaySize = device.displaySize,
+				input = device.input,
+			}
+		end
+		return device
 	end)
 	local display = ctx.viewport
-	if display then
-		ctx.sceneViewport = Compose.formula(function(use)
+	local gui = ctx.guiService
+	local inset = 0
+	if gui then
+		pcall(function()
+			inset = gui:GetGuiInset().Y
+		end)
+	end
+	ctx.previewScale = Compose.formula(function(use)
+		local device = use(ctx.device)
+		if device and display then
 			local size = use(display)
-			local scale = use(ctx.previewScale)
+			return math.min(1, size.width / device.width, (size.height - inset) / device.height)
+		end
+		return if use(ctx.viewingDistance) == "ten-foot" then 1.5 else 1
+	end)
+	if display then
+		ctx.previewViewport = Compose.formula(function(use)
+			local device = use(ctx.device)
+			return if device then { width = device.width, height = device.height } else use(display)
+		end)
+		ctx.sceneViewport = Compose.formula(function(use)
+			local size = use(ctx.previewViewport)
+			local scale = if use(ctx.device) then 1 else use(ctx.previewScale)
 			return { width = size.width / scale, height = size.height / scale }
 		end)
 	end
 	ctx.inputPreview = Compose.cell("automatic")
 	ctx.textPreview = Compose.cell("automatic")
+	local function previewInput(use)
+		local preview = use(ctx.inputPreview)
+		if preview ~= "automatic" then
+			return preview
+		end
+		local device = use(ctx.device)
+		return device and device.input
+	end
 	local function forced(input: string)
 		return function(use)
-			local preview = use(ctx.inputPreview)
-			return if preview == "automatic" then nil else preview == input
+			local preview = previewInput(use)
+			return if preview == nil then nil else preview == input
 		end
 	end
 	ctx.environment = {
-		preferredInput = function(use)
-			local preview = use(ctx.inputPreview)
-			return if preview == "automatic" then nil else preview
-		end,
+		preferredInput = previewInput,
 		touchEnabled = forced("Touch"),
 		gamepadEnabled = forced("Gamepad"),
 		mouseEnabled = forced("KeyboardAndMouse"),
@@ -41,13 +81,17 @@ function screen.configure(ctx)
 			local preview = use(ctx.textPreview)
 			return if preview == "automatic" then nil else preview
 		end,
+		displaySize = function(use)
+			local device = use(ctx.device)
+			return device and device.displaySize
+		end,
+		viewportSize = function(use)
+			local device = use(ctx.device)
+			return device and ctx.types.Vector2.new(device.width, device.height)
+		end,
 	}
-	ctx.hoverPreview = function(use)
-		local preview = use(ctx.inputPreview)
-		return if preview == "automatic" then nil else preview == "KeyboardAndMouse"
-	end
+	ctx.hoverPreview = forced("KeyboardAndMouse")
 	ctx.motionPreference = Compose.cell(nil)
-	local gui = ctx.guiService
 	local nativeReduced = Compose.cell(gui and gui.ReducedMotionEnabled == true or false)
 	if gui then
 		local connection = gui:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
@@ -159,6 +203,7 @@ function screen.build(ctx: any)
 			local ok, result = pcall(function()
 				local definition = ctx.load(demo.kind, demo.module)
 				local pageContext = table.clone(ctx)
+				pageContext.viewport = ctx.previewViewport
 				pageContext.pageVisible = Compose.formula(function(use)
 					return use(selected) == demo.id
 				end)
@@ -201,7 +246,7 @@ function screen.build(ctx: any)
 		return if a.value == "Neutral" then true elseif b.value == "Neutral" then false else a.label < b.label
 	end)
 	local compact = Compose.formula(function(use)
-		local viewport = ctx.viewport and use(ctx.viewport)
+		local viewport = ctx.previewViewport and use(ctx.previewViewport)
 		return viewport ~= nil and viewport.height > 0 and viewport.height < 480
 	end)
 	local measuredToolbar = Compose.cell(56)
@@ -254,7 +299,13 @@ function screen.build(ctx: any)
 		toolbarSize:Disconnect()
 	end)
 	local root = Host.Frame "Gallery" {
+		AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
 		Size = function(use)
+			local device = use(ctx.device)
+			if device then
+				return UDim2.fromOffset(device.width, device.height)
+			end
 			local inverse = 1 / use(ctx.previewScale)
 			return UDim2.fromScale(inverse, inverse)
 		end,
@@ -379,6 +430,33 @@ function screen.build(ctx: any)
 					}),
 					UI.Picker({
 						LayoutOrder = 8,
+						Name = "DevicePreview",
+						label = "Device preview",
+						selected = ctx.devicePreview,
+						options = {
+							{ value = "automatic", label = "Automatic" },
+							{ value = "phone", label = "Phone" },
+							{ value = "tablet", label = "Tablet" },
+							{ value = "tv", label = "TV" },
+						},
+					}),
+					Compose.show(function(use)
+						local device = DEVICES[use(ctx.devicePreview)]
+						return device ~= nil and device.rotates == true
+					end, function()
+						return UI.Picker({
+							LayoutOrder = 9,
+							Name = "OrientationPreview",
+							label = "Orientation",
+							selected = ctx.orientationPreview,
+							options = {
+								{ value = "portrait", label = "Portrait" },
+								{ value = "landscape", label = "Landscape" },
+							},
+						})
+					end),
+					UI.Picker({
+						LayoutOrder = 10,
 						Name = "InputPreview",
 						label = "Input preview",
 						selected = ctx.inputPreview,
@@ -390,7 +468,7 @@ function screen.build(ctx: any)
 						},
 					}),
 					UI.Picker({
-						LayoutOrder = 9,
+						LayoutOrder = 11,
 						Name = "TextPreview",
 						label = "Text size preview",
 						selected = ctx.textPreview,
@@ -403,9 +481,9 @@ function screen.build(ctx: any)
 						},
 					}),
 					UI.Text({
-						LayoutOrder = 10,
+						LayoutOrder = 12,
 						Name = "NativePreview",
-						text = "The input and text size previews change what the controls read; your real input still works. In Studio, use Device Emulator for screen size and orientation.",
+						text = "A device preview frames the gallery at that screen size and reads its display size and input: Phone and Tablet are touch, TV is a large display with a gamepad. The input and text size previews change what the controls read; your real input still works.",
 						textRole = "caption",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -417,6 +495,13 @@ function screen.build(ctx: any)
 		}),
 	}
 	root:AddTag("facet-surface")
+	Compose.watch(function(use)
+		if use(ctx.device) then
+			root:AddTag("facet-floating")
+		else
+			root:RemoveTag("facet-floating")
+		end
+	end)
 	return root
 end
 return screen
