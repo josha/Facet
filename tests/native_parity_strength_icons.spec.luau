@@ -1563,7 +1563,7 @@ t.describe("sliced and bar art", function()
 		end
 	)
 
-	t.it("centres end caps on the track edge, centres the centrepiece and defaults the fill to ltr", function()
+	t.it("fits end caps inside the track ends, centres the centrepiece and defaults the fill to ltr", function()
 		local package = themes.neutralPackage()
 		package.assets = {
 			fill = { content = "rbxassetid://1" },
@@ -1580,8 +1580,9 @@ t.describe("sliced and bar art", function()
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
+		local thickness = Compose.cell(18)
 		local stop, root = runtime.mount(function()
-			return UI.ProgressView({ value = 0.01 })
+			return UI.ProgressView({ value = 0.01, thickness = thickness })
 		end, engine.new("Folder"))
 		local fill = root:FindFirstChild("Fill1", true)
 		t.expect(fill.AnchorPoint).toBe(engine.types.Vector2.new(0, 0))
@@ -1591,11 +1592,13 @@ t.describe("sliced and bar art", function()
 		t.expect(skin.Size.X.Scale).toBe(100)
 		t.expect(skin.Size.Y.Scale).toBe(1)
 		local start, finish = root:FindFirstChild("barCap-start", true), root:FindFirstChild("barCap-end", true)
+
 		for _, cap in { start, finish } do
-			t.expect(cap.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
 			t.expect(cap.Position.Y.Scale).toBe(0.5)
-			t.expect(cap.Size).toBe(engine.types.UDim2.fromOffset(28, 36))
+			t.expect(cap.Size).toBe(engine.types.UDim2.fromOffset(14, 18))
 		end
+		t.expect(start.AnchorPoint).toBe(engine.types.Vector2.new(0, 0.5))
+		t.expect(finish.AnchorPoint).toBe(engine.types.Vector2.new(1, 0.5))
 		t.expect(start.Position.X.Scale).toBe(0)
 		t.expect(finish.Position.X.Scale).toBe(1)
 		t.expect(start.Image).toBe("rbxassetid://2")
@@ -1603,7 +1606,7 @@ t.describe("sliced and bar art", function()
 		local center = root:FindFirstChild("barCenter", true)
 		t.expect(center.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
 		t.expect(center.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
-		t.expect(center.Size).toBe(engine.types.UDim2.fromOffset(36, 28))
+		t.expect(center.Size).toBe(engine.types.UDim2.fromOffset(23, 18))
 		for _, direction in { "ttb", "btt", "rtl" } do
 			local next = table.clone(package)
 			next.chrome = table.clone(package.chrome)
@@ -1611,7 +1614,7 @@ t.describe("sliced and bar art", function()
 			selected:set(next)
 			t.expect(center.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
 			for _, cap in { start, finish } do
-				t.expect(cap.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
+				t.expect(cap.AnchorPoint).toBe(engine.types.Vector2.new(cap.Position.X.Scale, cap.Position.Y.Scale))
 			end
 			if direction == "rtl" then
 				t.expect(start.Position).toBe(engine.types.UDim2.fromScale(1, 0.5))
@@ -1629,6 +1632,13 @@ t.describe("sliced and bar art", function()
 		selected:set(sharedCap)
 		t.expect(start.Image).toBe("rbxassetid://5")
 		t.expect(finish.Image).toBe("rbxassetid://5")
+
+		thickness:set(36)
+		root:FindFirstChild("Track", true).AbsoluteSize = engine.types.Vector2.new(200, 72)
+		t.expect(start.Size).toBe(engine.types.UDim2.fromOffset(25, 32))
+		t.expect(root:FindFirstChild("FillClip", true).Size).toBe(engine.types.UDim2.new(1, -50, 1, 0))
+		thickness:set(8)
+		t.expect(start.Visible or finish.Visible or center.Visible).toBe(false)
 		stop()
 		runtime:dispose()
 	end)
@@ -1644,7 +1654,7 @@ t.describe("sliced and bar art", function()
 		package.chrome.barTrack = { kind = "nineSlice", asset = "track" }
 		package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
 		package.chrome.barCap = { kind = "nineSlice", asset = "cap", size = { w = 12, h = 12 } }
-		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 16, h = 16 } }
+		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 12, h = 12 } }
 		local engine = engineLib.new()
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
@@ -1657,7 +1667,9 @@ t.describe("sliced and bar art", function()
 		local track = root:FindFirstChild("Track", true)
 		local clip = track:FindFirstChild("FillClip")
 		t.expect(clip.ClipsDescendants).toBe(true)
-		t.expect(clip.Size).toBe(engine.types.UDim2.fromScale(1, 1))
+
+		t.expect(clip.Size).toBe(engine.types.UDim2.new(1, -12, 1, 0))
+		t.expect(clip.Position).toBe(engine.types.UDim2.fromOffset(6, 0))
 		t.expect(clip.BackgroundTransparency).toBe(1)
 		t.expect(track.ClipsDescendants).toBe(false)
 		local fill = clip:FindFirstChild("Fill1")
@@ -1676,6 +1688,7 @@ t.describe("sliced and bar art", function()
 			end
 			t.expect(branch ~= clip).toBe(true)
 			t.expect(branch.ClipsDescendants).toBe(false)
+			t.expect(branch.ZIndex > clip.ZIndex).toBe(true)
 		end
 		local assembly = { track, clip, fill }
 		for _, node in track:GetDescendants() do

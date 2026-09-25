@@ -1659,7 +1659,7 @@ t.describe("native parity weaker values", function()
 		local value = Compose.cell(0.4)
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.ProgressView("Bar")({ value = value }),
+				UI.ProgressView("Bar")({ value = value, thickness = 24 }),
 				UI.Toggle("Switch")({ value = Compose.cell(true), label = "Music" }),
 				UI.Stepper("Count")({ value = Compose.cell(2), min = 0, max = 10 }),
 			})
@@ -1678,7 +1678,7 @@ t.describe("native parity weaker values", function()
 			t.expect(cap.Image).toBe("rbxassetid://41")
 			t.expect(cap.ScaleType).toBe(world.types.Enum.ScaleType.Stretch)
 			t.expect(cap.Size).toBe(world.types.UDim2.fromOffset(20, 24))
-			t.expect(cap.AnchorPoint).toBe(world.types.Vector2.new(0.5, 0.5))
+			t.expect(cap.AnchorPoint).toBe(world.types.Vector2.new(cap.Position.X.Scale, 0.5))
 		end
 		local center = artwork(bar, "barCenter")
 		t.expect(center.Size).toBe(world.types.UDim2.fromOffset(30, 18))

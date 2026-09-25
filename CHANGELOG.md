@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A ProgressView bar's `barCap` and `barCenter` art fits its track: it scales down to the track's cross thickness and to a quarter of its length (never above its declared `size`; the length is read in layout units, so a scaled ancestor does not change it), the caps anchor inward at the track's ends and paint over the fill, and the fill runs between the caps. Below half its declared size the art is dropped. Before, each cap was centred on a track end at its declared size, so Pixel Quest's 40 pixel hearts hung 20 pixels past a HUD bar over the task names, the reward pills and the health plate's frame, and the fill ran under them.
 - In a Table edit mode the row band is the edit wrap (it paints `tableRow`), the inner row is transparent, and the minus and the revealed Delete paint the `danger` role. Before, the inner row showed the engine's default grey and both controls painted `accent` (blue). Pixel Quest has a darker `tableRowAlternate` so alternate rows keep cream text at 4.5:1.
 - A skin decoration that resizes inside another decoration's resize defers its write (`task.defer`), so decoration size handlers never nest. Before, a layout that flipped during a device preview change (the Foundation lab strip, phone to automatic) nested the handlers until Roblox raised "Maximum event re-entrancy depth exceeded" (390 messages per switch).
 - Word game example: only the cursor cell (the next letter slot) has a subtle accent outline, and a typed letter has the neutral filled-cell border. Before, every cell of the current row was outlined.

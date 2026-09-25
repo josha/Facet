@@ -1075,17 +1075,41 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end
 		local content: GuiObject
 		if presentation == "bar" then
+			local function thickness(use: ComposeTypes.Use): number
+				local rung = read(spec.controlSize, use)
+				return read(spec.thickness, use)
+					or (
+						if rung == "xsmall" or rung == "compact"
+							then metric("space.xs", use)
+							else metric("controls.progress.trackHeight", use)
+					)
+			end
+
+			local measured = Compose.cell(V2.zero)
+			local function ornament(slot: string, use: ComposeTypes.Use): (number, number)
+				local package = read(ctx.config.theme, use)
+				local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer })[slot] else nil
+				if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
+					return 1, 0
+				end
+				local size = if type(recipe.size) == "table" then recipe.size else { w = 16, h = 16 }
+				local along, cross = size.w, size.h
+				if vertical(use) then
+					along, cross = cross, along
+				end
+				local pixels, box = thickness(use), use(measured)
+				local length, depth = if vertical(use) then box.Y else box.X, if vertical(use) then box.X else box.Y
+				local fit = math.min(1, pixels / cross)
+				if depth > 0 then
+					fit = math.min(fit, length * pixels / depth / 4 / along)
+				end
+				return if fit < 0.5 then 0 else fit, if fit < 0.5 then 0 else math.round(along * fit)
+			end
 			local track: Engine.FrameNativeProps = {
 				Name = "Track",
 				Size = fixed(function(use: ComposeTypes.Use)
-					local rung = read(spec.controlSize, use)
-					local thickness = read(spec.thickness, use)
-						or (
-							if rung == "xsmall" or rung == "compact"
-								then metric("space.xs", use)
-								else metric("controls.progress.trackHeight", use)
-						)
-					return if vertical(use) then D2.new(0, thickness, 1, 0) else D2.new(1, 0, 0, thickness)
+					local pixels = thickness(use)
+					return if vertical(use) then D2.new(0, pixels, 1, 0) else D2.new(1, 0, 0, pixels)
 				end),
 				ClipsDescendants = false,
 			}
@@ -1157,8 +1181,20 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					)
 				)
 			end
-			local clipped: Engine.FrameNativeProps =
-				{ Name = "FillClip", Size = D2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true }
+			local clipped: Engine.FrameNativeProps = {
+				Name = "FillClip",
+
+				Size = function(use: ComposeTypes.Use)
+					local _, cap = ornament("barCap", use)
+					return if vertical(use) then D2.new(1, 0, 1, -2 * cap) else D2.new(1, -2 * cap, 1, 0)
+				end,
+				Position = function(use: ComposeTypes.Use)
+					local _, cap = ornament("barCap", use)
+					return if vertical(use) then D2.fromOffset(0, cap) else D2.fromOffset(cap, 0)
+				end,
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
+			}
 			for _, child in ipairs(track) do
 				table.insert(clipped, child)
 			end
@@ -1167,6 +1203,10 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 			table.insert(track, Host.Frame(clipped))
 			content = skin(ctx.styled(Host.Frame(track), "track"), "barTrack")
+			local trackSize = ctx.observe.AbsoluteSize(content)
+			Compose.watch(function(use: ComposeTypes.Use)
+				measured:set(use(trackSize))
+			end)
 			for _, fill in content:GetDescendants() do
 				if string.match(fill.Name, "^Fill%d+$") then
 					local fillIndex = tonumber(string.match(fill.Name, "%d+$")) :: number
@@ -1195,8 +1235,17 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				direction = function(use: ComposeTypes.Use): Theme.FillDirection
 					return use(direction) :: Theme.FillDirection
 				end,
+				fit = function(use: ComposeTypes.Use): number
+					return (ornament("barCap", use))
+				end,
+				ZIndex = 2,
 			})
-			skin(content, "barCenter")
+			skin(content, "barCenter", {
+				fit = function(use: ComposeTypes.Use): number
+					return (ornament("barCenter", use))
+				end,
+				ZIndex = 2,
+			})
 		else
 			local diameter = function(use: ComposeTypes.Use)
 				return read(spec.diameter, use)

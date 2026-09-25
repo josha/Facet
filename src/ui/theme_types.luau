@@ -222,6 +222,7 @@ export type SkinOptions = {
 	state: Engine.Value<SkinState>?,
 	selected: Engine.ValueBoolean?,
 	direction: Engine.Value<FillDirection>?,
+	fit: Engine.ValueNumber?,
 	Size: Engine.Value<UDim2>?,
 	Position: Engine.Value<UDim2>?,
 	AnchorPoint: Engine.Value<Vector2>?,

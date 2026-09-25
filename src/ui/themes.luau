@@ -1850,6 +1850,7 @@ local function skin(
 		state: ThemeTypes.SkinState,
 		selected: boolean,
 		direction: string?,
+		fit: number?,
 		layers: { ImageLayer },
 	}
 	local compiled: { CompiledLayers } = {}
@@ -1864,12 +1865,14 @@ local function skin(
 		local state = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
 		local selected = read(settings.selected, use) == true
 		local direction = if slot == "barCap" then read(settings.direction, use) or "ltr" else nil
+		local fit = read(settings.fit, use)
 		for _, cached in compiled do
 			if
 				cached.package == package
 				and cached.state == state
 				and cached.selected == selected
 				and cached.direction == direction
+				and cached.fit == fit
 			then
 				return cached.layers
 			end
@@ -1882,6 +1885,7 @@ local function skin(
 					state = state :: ThemeTypes.SkinState,
 					selected = selected,
 					direction = direction,
+					fit = fit,
 					layers = output,
 				}
 				table.insert(compiled, 1, snapshot)
@@ -1940,19 +1944,25 @@ local function skin(
 		end
 		if slot == "barCap" or slot == "barCenter" then
 			local size = if type(recipe.size) == "table" then recipe.size else { w = 16, h = 16 }
+			local vertical = direction == "ttb" or direction == "btt"
+			local scale = fit or 1
+			if scale <= 0 then
+				return finish()
+			end
+			local box = D2.fromOffset(math.round(size.w * scale), math.round(size.h * scale))
 			if slot == "barCenter" then
-				image(recipe, "barCenter", D2.fromOffset(size.w, size.h), D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5))
+				image(recipe, "barCenter", box, D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5))
 			else
-				local vertical = direction == "ttb" or direction == "btt"
 				local reverse = direction == "rtl" or direction == "btt"
 				for _, endpoint in { "start", "end" } do
 					local position = if (endpoint == "end") ~= reverse then 1 else 0
+					local at = V2.new(if vertical then 0.5 else position, if vertical then position else 0.5)
 					image(
 						recipe,
 						"barCap-" .. endpoint,
-						D2.fromOffset(size.w, size.h),
-						D2.fromScale(if vertical then 0.5 else position, if vertical then position else 0.5),
-						V2.new(0.5, 0.5),
+						box,
+						D2.fromScale(at.X, at.Y),
+						at,
 						(if endpoint == "start" then recipe.startAsset else recipe.endAsset) or recipe.asset
 					)
 				end

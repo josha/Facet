@@ -1993,7 +1993,7 @@ t.describe("lifetime parity strength", function()
 			}
 			package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
 			package.chrome.barCap =
-				{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 28, h = 36 } }
+				{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 6, h = 6 } }
 			local w = controlWorld({ theme = package })
 			local before = census(w.engine)
 			local value = Compose.cell(0.25)

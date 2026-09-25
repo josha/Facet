@@ -37922,7 +37922,7 @@
       "class": "a",
       "candidateCases": [
         "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
-        "native_parity_strength_icons::sliced and bar art::centres end caps on the track edge, centres the centrepiece and defaults the fill to ltr"
+        "native_parity_strength_icons::sliced and bar art::fits end caps inside the track ends, centres the centrepiece and defaults the fill to ltr"
       ]
     },
     {
