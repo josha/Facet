@@ -1156,7 +1156,10 @@ t.describe("native parity paint", function()
 				local plate = entry.selected
 				if plate then
 					local package = shipped((string.gsub(key, "-", "_")))
-					local art = { r = plate.r / 255, g = plate.g / 255, b = plate.b / 255 }
+					local asset = package.chrome.control.asset
+					local link = if type(asset) == "table" then asset.selected else nil
+					local tint = if type(link) == "table" and link.tint then link.tint else { r = 1, g = 1, b = 1 }
+					local art = { r = plate.r / 255 * tint.r, g = plate.g / 255 * tint.g, b = plate.b / 255 * tint.b }
 					for _, palette in package.style.themes do
 						local colors, extra = paletteOf(package, palette)
 						t.expect(contrast(extra.onSelected or colors.content, art) >= 4.5).toBe(true)

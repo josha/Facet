@@ -1001,6 +1001,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					end
 					return "default"
 				end,
+				selected = function(use: ComposeTypes.Use)
+					return ctx.read(stateOptions.selected, use) == true
+				end,
 				ZIndex = 0,
 			})
 		end, node)

@@ -87,7 +87,7 @@ export type Asset = {
 	preload: string?,
 	fallback: string?,
 }
-export type AssetLink = string | { asset: string }
+export type AssetLink = string | { asset: string, rotation: number?, tint: RGB? }
 export type AssetVariants = {
 	default: AssetLink?,
 	hover: AssetLink?,
@@ -218,6 +218,7 @@ export type SkinOptions = {
 	target: GuiObject?,
 	label: Engine.Value<string>?,
 	state: Engine.Value<SkinState>?,
+	selected: Engine.Value<boolean>?,
 	direction: Engine.Value<FillDirection>?,
 	Size: Engine.Value<UDim2>?,
 	Position: Engine.Value<UDim2>?,

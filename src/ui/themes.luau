@@ -340,6 +340,28 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 	end
 	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
 	local shadows: { [string]: ThemeTypes.Shadow } = package.style.shadows or {}
+	local function checkLinks(value: unknown, path: string)
+		if type(value) ~= "table" then
+			return
+		end
+		local link = value :: { rotation: unknown, tint: unknown }
+		if link.rotation ~= nil and link.rotation ~= 0 and link.rotation ~= 180 then
+			table.insert(errors, { field = path .. ".rotation", message = "Art rotation must be 0 or 180" })
+		end
+		local tint = link.tint :: { [string]: unknown }
+		if tint ~= nil then
+			for _, channel in { "r", "g", "b" } do
+				local amount = if type(tint) == "table" then tint[channel] else nil
+				if type(amount) ~= "number" or (amount :: number) < 0 or (amount :: number) > 1 then
+					table.insert(errors, { field = path .. ".tint", message = "Art tint needs r, g and b from 0 to 1" })
+					break
+				end
+			end
+		end
+		for key, child in value :: { [unknown]: unknown } do
+			checkLinks(child, path .. "." .. tostring(key))
+		end
+	end
 	for slot, recipe in chrome do
 		local shadow = recipe.shadow
 		if type(shadow) == "string" and shadows[shadow] == nil and shadowPresets[shadow] == nil then
@@ -348,6 +370,7 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 				{ field = "chrome." .. slot .. ".shadow", message = "Unknown shadow preset " .. shadow }
 			)
 		end
+		checkLinks(recipe, "chrome." .. slot)
 	end
 	if #errors > 0 then
 		return nil, { ok = false, errors = errors, missing = {}, contrast = {} }
@@ -1135,8 +1158,21 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
-	rule(".facet-segment-current.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-segment-current > #SkinBoundary", { Visible = false })
+	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
+	local selectedArt = false
+	local plateLayers: { ThemeTypes.SkinLayer } = if plate == nil
+		then {}
+		elseif plate.kind == "layered" then plate.layers or {}
+		else { plate }
+	for _, layer in plateLayers do
+		if type(layer.asset) == "table" and (layer.asset :: ThemeTypes.AssetVariants).selected ~= nil then
+			selectedArt = true
+		end
+	end
+	if not selectedArt then
+		rule(".facet-segment-current.facet-skinned", { BackgroundTransparency = 0 })
+		rule(".facet-segment-current > #SkinBoundary", { Visible = false })
+	end
 	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	local authoredSelection = false
@@ -1193,6 +1229,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		if authoredSelection then
 			rule(".facet-selection-mark.facet-selected.facet-disabled", { BackgroundColor3 = faded("selection") })
 		end
+	end
+	if selectedArt then
+		rule(".facet-skinned.facet-selected", { TextColor3 = onSelected })
+		rule(".facet-skinned.facet-selected >> .facet-button-caption", { TextColor3 = onSelected })
+		rule(".facet-skinned.facet-selected >> .facet-text", { TextColor3 = onSelected })
+		rule(".facet-skinned.facet-selected >> .facet-icon", { ImageColor3 = onSelected })
 	end
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
@@ -1538,27 +1580,36 @@ local function createStyleSheet(
 	return sheet
 end
 
-local function variantAsset(value: ThemeTypes.AssetSource?, state: ThemeTypes.SkinState): string?
+local function variantAsset(
+	value: ThemeTypes.AssetSource?,
+	state: ThemeTypes.SkinState,
+	selected: boolean
+): (string?, { rotation: number?, tint: ThemeTypes.RGB? })
 	if type(value) == "string" then
-		return value
+		return value, {}
 	end
 	if type(value) ~= "table" then
-		return nil
+		return nil, {}
 	end
 	local linked = ((value :: unknown) :: { asset: unknown }).asset
 	if linked ~= nil then
-		return linked :: string
+		return linked :: string, value :: any
 	end
 	local variants = value :: ThemeTypes.AssetVariants
-	local selected = (
+	local chosen = (
 		if state == "hover"
 			then variants.hover
 			elseif state == "pressed" then variants.pressed
 			elseif state == "selected" then variants.selected
 			elseif state == "disabled" then variants.disabled
 			else nil
-	) or variants.default
-	return if type(selected) == "table" then selected.asset else selected
+	)
+		or (if selected then variants.selected else nil)
+		or variants.default
+	if type(chosen) == "table" then
+		return chosen.asset, chosen
+	end
+	return chosen, {}
 end
 
 type ImageLayer = {
@@ -1577,6 +1628,8 @@ type ImageLayer = {
 	SliceCenter: Rect,
 	SliceScale: number,
 	ResampleMode: Enum.ResamplerMode,
+	Rotation: number,
+	ImageColor3: Color3,
 }
 
 type MountedImage = {
@@ -1645,6 +1698,7 @@ local function skin(
 	type CompiledLayers = {
 		package: ThemeTypes.ThemePackage,
 		state: ThemeTypes.SkinState,
+		selected: boolean,
 		direction: string?,
 		layers: { ImageLayer },
 	}
@@ -1657,17 +1711,28 @@ local function skin(
 			return {}
 		end
 		local state = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
+		local selected = read(settings.selected, use) == true
 		local direction = if slot == "barCap" then read(settings.direction, use) or "ltr" else nil
 		for _, cached in compiled do
-			if cached.package == package and cached.state == state and cached.direction == direction then
+			if
+				cached.package == package
+				and cached.state == state
+				and cached.selected == selected
+				and cached.direction == direction
+			then
 				return cached.layers
 			end
 		end
 		local output: { ImageLayer } = {}
 		local function finish(): { ImageLayer }
 			if deeplyFrozen(package, {}) then
-				local snapshot: CompiledLayers =
-					{ package = package, state = state :: ThemeTypes.SkinState, direction = direction, layers = output }
+				local snapshot: CompiledLayers = {
+					package = package,
+					state = state :: ThemeTypes.SkinState,
+					selected = selected,
+					direction = direction,
+					layers = output,
+				}
 				table.insert(compiled, 1, snapshot)
 				if #compiled > 2 then
 					table.remove(compiled)
@@ -1683,7 +1748,7 @@ local function skin(
 			anchor: Vector2?,
 			source: ThemeTypes.AssetSource?
 		)
-			local assetName = variantAsset(source or layer.asset, state :: ThemeTypes.SkinState)
+			local assetName, link = variantAsset(source or layer.asset, state :: ThemeTypes.SkinState, selected)
 			local asset = assetName and (package.assets or {})[assetName]
 			if not asset then
 				return
@@ -1704,6 +1769,8 @@ local function skin(
 				SliceCenter = types.Rect.new(0, 0, 0, 0),
 				SliceScale = 1,
 				ResampleMode = types.Enum.ResamplerMode.Default,
+				Rotation = link.rotation or 0,
+				ImageColor3 = color(types, link.tint) or types.Color3.new(1, 1, 1),
 			}
 			if layer.kind == "tile" or layer.tile then
 				local tile = layer.tileSize or { w = layer.tile or 32, h = layer.tile or 32 }
@@ -1825,6 +1892,8 @@ local function skin(
 			SliceCenter = initial.SliceCenter,
 			SliceScale = initial.SliceScale,
 			ResampleMode = initial.ResampleMode,
+			Rotation = initial.Rotation,
+			ImageColor3 = initial.ImageColor3,
 		}
 		local captionSource: ComposeTypes.Cell<ImageLayer>?
 		if settings.label then
@@ -1904,6 +1973,12 @@ local function skin(
 			end
 			if value.ResampleMode ~= previous.ResampleMode then
 				node.ResampleMode = value.ResampleMode
+			end
+			if value.Rotation ~= previous.Rotation then
+				node.Rotation = value.Rotation
+			end
+			if value.ImageColor3 ~= previous.ImageColor3 then
+				node.ImageColor3 = value.ImageColor3
 			end
 			local caption = record.caption
 			if caption and (value.text ~= previous.text or value.textInsets ~= previous.textInsets) then

@@ -36,7 +36,7 @@ accent ramps — `RED_D #7A1F22 / RED #C8402F / RED_L #E8735A` and
 
 | File | Size (px) | Design px | Nine-slice border | Role | Slot / state |
 |---|---|---|---|---|---|
-| `pixel_plate_default.png` | 36×36 | 9×9 | 16 (4 dp) | wood plate, corner rivets | `control.asset.default` / `selection.asset.default` |
+| `pixel_plate_default.png` | 36×36 | 9×9 | 16 (4 dp) | wood plate, corner rivets | `control.asset.default` / `selection.asset.default`; `control.asset.selected` reuses it turned 180° (`rotation`, bevel pressed in; the 16..20 slice rect is centred, so the turn keeps every border) and tinted green (`tint`), no new art |
 | `pixel_plate_selected.png` | 36×36 | 9×9 | 16 (4 dp) | light gilt plate, double ring, notched corners, ruby studs | `selection.asset.selected` |
 | `pixel_plate_ornament.png` | 24×24 | 6×6 | — | ruby jewel ornament | `selection` → `layers kind="corners"` on the SELECTED state |
 | `pixel_blank.png` | 24×24 | 6×6 | — | **entirely transparent** | the same `corners` layer's `default` — see note 3 |

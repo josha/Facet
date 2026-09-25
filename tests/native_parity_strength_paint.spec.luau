@@ -1612,15 +1612,19 @@ t.describe("native paint strength: theme sheets", function()
 				for _, palette in package.style.themes do
 					local colors, extra = paletteOf(palette)
 					local accent = colors.accent
-					local tint = {
-						r = 1 + (accent.r - 1) * 0.35,
-						g = 1 + (accent.g - 1) * 0.35,
-						b = 1 + (accent.b - 1) * 0.35,
-					}
+					local asset = package.chrome.control.asset
+					local link = if type(asset) == "table" then asset.selected else nil
+					local declared = if type(link) == "table" then link.tint else nil
+					local tint = declared
+						or {
+							r = 1 + (accent.r - 1) * 0.35,
+							g = 1 + (accent.g - 1) * 0.35,
+							b = 1 + (accent.b - 1) * 0.35,
+						}
 					local tinted = { r = art.r * tint.r, g = art.g * tint.g, b = art.b * tint.b }
-					t.expect(distance(extra.controlSelected, tinted) <= 0.12).toBe(true)
+					t.expect(distance(extra.controlSelected, tinted) <= if declared then 1 / 255 else 0.12).toBe(true)
 					local label = extra.onSelected or colors.content
-					t.expect(contrast(label, art) >= 4.5).toBe(true)
+					t.expect(contrast(label, if declared then tinted else art) >= 4.5).toBe(true)
 					t.expect(contrast(label, extra.controlSelected) >= 4.5).toBe(true)
 					table.insert(pinned, `{key}/{palette.name}={if extra.onSelected then "onSelected" else "content"}`)
 				end
@@ -2089,5 +2093,78 @@ t.describe("native paint strength: media button", function()
 		stop()
 		stopSheet()
 		h.dispose()
+	end)
+end)
+
+t.describe("native paint strength: pixel quest selected plate", function()
+	t.it("paints every selected Pixel Quest plate as the wood frame turned over and tinted green", function()
+		local package = shipped("pixel_quest")
+		local plate = package.assets.pixel_plate_default
+		local link = package.chrome.control.asset.selected
+		t.expect(link.asset).toBe("pixel_plate_default")
+		t.expect(link.rotation).toBe(180)
+		t.expect(plate.sliceCenter.x0 + plate.sliceCenter.x1).toBe(36)
+		t.expect(plate.sliceCenter.y0 + plate.sliceCenter.y1).toBe(36)
+		local h = harness({ theme = package })
+		local sheet, stopSheet = sheetFor(h, package)
+		local green = color(h.engine, link.tint)
+		local _, extra = paletteOf(package.style.themes[1])
+		local ink = color(h.engine, extra.onSelected)
+		local root, stop = mount(h, function()
+			return h.Host.Frame({
+				h.UI.Picker({
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+				}),
+				h.UI.Picker({
+					style = "inline",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+				}),
+				h.UI.Chip({ Name = "Chip", label = "Rain", selected = Compose.cell(true) }),
+				h.UI.Toggle({ Name = "Toggle", label = "On", presentation = "button", value = Compose.cell(true) }),
+				h.UI.Button({ Name = "Row", label = "Row", selected = true }),
+			})
+		end)
+		local chosen = tagged(root, "facet-selected")
+		t.expect(#chosen >= 5).toBe(true)
+		for _, node in chosen do
+			local art = ownArt(node, "control")
+			t.expect(art.Image).toBe(plate.content)
+			for _, state in { "Idle", "Hover" } do
+				setState(h, node, state)
+				t.expect(art.Rotation).toBe(180)
+				t.expect(art.ImageColor3).toBe(green)
+			end
+			setState(h, node, "Idle")
+			t.expect(resolve(sheet, art.Parent.Parent, "Visible") ~= false).toBe(true)
+			t.expect(resolve(sheet, node, "BackgroundTransparency")).toBe(1)
+			t.expect(resolve(sheet, node, "TextColor3")).toBe(ink)
+			for _, caption in tagged(node, "facet-button-caption") do
+				t.expect(resolve(sheet, caption, "TextColor3")).toBe(ink)
+			end
+		end
+		for _, node in tagged(root, "facet-segment") do
+			if not node:HasTag("facet-selected") then
+				t.expect(ownArt(node, "control").Rotation).toBe(0)
+			end
+		end
+		stop()
+		stopSheet()
+		h.dispose()
+	end)
+
+	t.it("rejects a state link that turns a plate a quarter or tints outside zero to one", function()
+		local function withLink(selected: any): boolean
+			local definition: any = { identity = { id = "x" }, assets = { art = { content = "rbxassetid://1" } } }
+			definition.chrome = { control = { kind = "nineSlice", asset = { default = "art", selected = selected } } }
+			local package = themes.define(definition)
+			return package ~= nil
+		end
+		t.expect(withLink({ asset = "art", rotation = 180, tint = { r = 0.5, g = 1, b = 0.5 } })).toBe(true)
+		t.expect(withLink({ asset = "art", rotation = 90 })).toBe(false)
+		t.expect(withLink({ asset = "art", tint = { r = 2, g = 1, b = 1 } })).toBe(false)
+		t.expect(withLink({ asset = "art", tint = "green" })).toBe(false)
 	end)
 end)

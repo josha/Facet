@@ -44,7 +44,7 @@ TARGETS = [
         "pixel-quest",
         "pixel_quest",
         "pixel-quest",
-        {"selected": "pixel_plate_selected", "control": "pixel_plate_default"},
+        {"selected": "pixel_plate_default", "control": "pixel_plate_default"},
     ),
     (
         "compact-pointer",

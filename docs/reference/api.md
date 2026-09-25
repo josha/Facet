@@ -2535,7 +2535,9 @@ weight. The derived role keeps the family, style, size and line height.
   recursively frozen. Callbacks, cycles and malformed definitions are rejected.
   A type role needs a positive size. Each `metrics.space` step needs a pixel
   size of 0 or more. A chrome shadow name must be a
-  package shadow or a preset (`raised` or `overlay`). Each palette pair needs a
+  package shadow or a preset (`raised` or `overlay`). A chrome art link
+  `rotation` must be 0 or 180, and its `tint` needs `r`, `g` and `b` from 0
+  to 1. Each palette pair needs a
   contrast of at least 4.5:1, which includes `onSelected` (or `content`) on
   `controlSelected`.
   Color channels and semantic contrast pairs are validated. A package that
@@ -2548,8 +2550,9 @@ weight. The derived role keeps the family, style, size and line height.
 - `createStyleSheet(runtime, packageOrReadable?, options?)` returns a native
   StyleSheet that Compose owns. See the list below.
 - `skin(runtime, packageOrReadable, slot, options?)` builds native control
-  artwork. The options include `state`, `target`, `label`, `ZIndex` and injected
-  `types`.
+  artwork. The options include `state`, `selected`, `target`, `label`, `ZIndex`
+  and injected `types`. When a state has no art of its own and `selected` is
+  true, the skin uses the `selected` art before the `default` art.
 
 `createStyleSheet` contract:
 
@@ -2616,6 +2619,16 @@ Two tags need no control. `facet-pane` paints the `surfaceStrong` fill with no
 corner and no stroke, for a sidebar or a split pane. Add
 `facet-divider-strong` next to `facet-divider` for a heavier rule, such as a
 pane edge.
+
+A chrome slot names its art with `asset`: one asset name, or one name per
+state (`default`, `hover`, `pressed`, `selected`, `disabled`). A state can also
+be `{ asset, rotation, tint }`. `rotation = 180` turns the art over, so a
+nine-slice frame with a centred slice rect shows its bevel pressed in. `tint`
+is an RGB that multiplies the art (`ImageColor3`). When the `control` slot has
+`selected` art, a selected segment keeps that art instead of the flat `accent`
+fill, and every skinned selected control paints its label in `onSelected`. Pixel
+Quest uses this: its selected plate is the wood plate turned over and tinted
+green.
 
 The metrics also have optional entries:
 

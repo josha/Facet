@@ -19,6 +19,7 @@ local RED = rgb(122, 31, 34)
 local GRN = rgb(79, 168, 63)
 
 local LEAF = rgb(44, 104, 44)
+local PRESSED_TINT = { r = 0.35, g = 0.95, b = 0.35 }
 local GOLD = rgb(224, 160, 40)
 
 local UNIT = 4
@@ -157,8 +158,8 @@ local QUEST = {
 		controlHover = TAN,
 		controlPressed = rgb(107, 67, 38),
 
-		controlSelected = rgb(163, 148, 71),
-		onSelected = INK,
+		controlSelected = rgb(59, 108, 16),
+		onSelected = CREAM,
 		contentSecondary = TAN,
 		hairline = INK,
 		hairlineOpacity = 0.2,
@@ -243,7 +244,10 @@ function pixel_quest.definition(themes: any): any
 
 			control = {
 				kind = "nineSlice",
-				asset = "pixel_plate_default",
+				asset = {
+					default = "pixel_plate_default",
+					selected = { asset = "pixel_plate_default", rotation = 180, tint = PRESSED_TINT },
+				},
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},

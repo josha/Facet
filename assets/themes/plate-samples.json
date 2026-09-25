@@ -140,12 +140,12 @@
       },
       "selected": {
         "alpha": 1.0,
-        "asset": "pixel_plate_selected",
-        "b": 96,
-        "file": "assets/themes/pixel-quest/pixel_plate_selected.png",
-        "g": 168,
-        "r": 215,
-        "sha256": "e7fe796149d3ef6769924fc2bb4640bb7a48c9fe3610ba73c0b7d094a176da90",
+        "asset": "pixel_plate_default",
+        "b": 47,
+        "file": "assets/themes/pixel-quest/pixel_plate_default.png",
+        "g": 114,
+        "r": 168,
+        "sha256": "0cca342563e5ba04e85bafdaa37032db68cfd0e686910f9ba509d47ef2132138",
         "size": "36x36",
         "sliceCenter": {
           "x0": 16,
