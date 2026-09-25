@@ -74,9 +74,7 @@ return function(ctx: any, options: any)
 		rows:set(remaining)
 		moves:set(moves:peek() + 1)
 	end
-	local function edit()
-		local value = not editing:peek()
-		editing:set(value)
+	local function markEditing(value)
 		local nextRows = {}
 		for index, item in rows:peek() do
 			local nextItem = table.clone(item)
@@ -84,6 +82,10 @@ return function(ctx: any, options: any)
 			nextRows[index] = nextItem
 		end
 		rows:set(nextRows)
+	end
+	local function edit()
+		editing:set(not editing:peek())
+		markEditing(editing:peek())
 	end
 	local function actions(key)
 		return {
@@ -308,6 +310,13 @@ return function(ctx: any, options: any)
 				end
 				else nil
 			if options.editable then
+				common.editable, common.alternatingRows = true, true
+				Compose.watch(function(use)
+					local first = rows:peek()[1]
+					if first and (first.editing == true) ~= use(editing) then
+						markEditing(editing:peek())
+					end
+				end)
 				common.onCellChange = function(key, column, value)
 					local nextRows = table.clone(rows:peek())
 					for index, item in nextRows do
@@ -389,7 +398,7 @@ return function(ctx: any, options: any)
 				jump(if options.mail then 4 else 50)
 			end)
 		end
-		if options.mail or options.entrants then
+		if options.mail or (options.entrants and not options.editable) then
 			command("Edit", function(use)
 				return if use(editing) then "Done" else "Edit"
 			end, edit)
