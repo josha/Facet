@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A DateTimePicker day number on the range band has the `facet-calendar-banded` tag and paints in `onSelected`, the ink of `controlSelected`. Before, it stayed `content`, so a theme whose selected fill is dark (Glossy Touch, Fantasy Parchment) drew dark numbers on a dark band.
 - Every selected plate in a skinned theme uses the theme's selected art: a segment, a Picker row, radio row or card, a Chip, a Toggle button and a menu row, at the size of its unselected siblings. The chosen Picker card is now `selected` too; before, it was a flat accent rect wider than its siblings in Pixel Quest. Fantasy Ornate, Fantasy Parchment, Glossy Touch and Compact Pointer now have a selected piece made from their own art (Parchment's selected label is vellum on inked parchment; Compact Pointer's `controlSelected` is the tinted pressed button).
 - A floating Menu or Picker menu on skinned panel art is its rows plus the art carve on each side, up to `maxHeight` or the screen. Before, the panel was only as tall and wide as its rows, so the carve padding squeezed them: in Pixel Quest a three-row Picker scrolled with its first and last rows cut.
 - On skinned art, a Button, Chip, Menu or Picker trigger, segment, list row and framed TextInput add the art's carve (`contentInsets`) to their own padding on each side. Before, the padding was the larger of the two, so at a small step the label sat on the frame (Pixel Quest compact Picker "(default)" started on the left bevel), and a framed TextInput kept 10 and 4 pixels even when the carve was larger.

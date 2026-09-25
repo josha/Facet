@@ -1209,6 +1209,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-today::UIStroke", { Color = c("accent"), Thickness = 1 })
 	rule(".facet-calendar-strike", { BackgroundColor3 = c("contentSecondary"), BackgroundTransparency = 0 })
 	rule(".facet-calendar-number", { FontFace = f({ weight = "SemiBold" }) })
+	rule(".facet-calendar-banded", { TextColor3 = onSelected })
 	rule(".facet-calendar-dim", { TextColor3 = c("contentSecondary"), FontFace = f({ weight = "Regular" }) })
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })

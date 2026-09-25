@@ -1198,7 +1198,9 @@ sends the message to the `onError` factory option.
 The theme paints the calendar through these tags: `facet-calendar-day`,
 `facet-calendar-band`, `facet-calendar-disc`, `facet-calendar-end`,
 `facet-calendar-today`, `facet-calendar-strike`, `facet-calendar-number`,
-`facet-calendar-dim`, `facet-calendar-chosen` and `facet-calendar-chosen-end`.
+`facet-calendar-banded`, `facet-calendar-dim`, `facet-calendar-chosen` and
+`facet-calendar-chosen-end`. The band is `controlSelected`, and a day number on
+it (`facet-calendar-banded`) is `onSelected`.
 
 ### Settings rows
 

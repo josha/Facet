@@ -2702,6 +2702,49 @@ t.describe("native paint strength: calendar day", function()
 			h.dispose()
 		end
 	end)
+
+	t.it("paints a day number on the range band in onSelected, readable on controlSelected", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = shipped(name)
+			local h = harness({ theme = package })
+			local range = Compose.cell({
+				start = { year = 2026, month = 9, day = 8 },
+				finish = { year = 2026, month = 9, day = 17 },
+			})
+			local root, stop = mount(h, function()
+				return h.UI.DateTimePicker("P")({
+					selection = "range",
+					style = "inline",
+					range = range,
+					onRangeChange = function(r: any)
+						range:set(r)
+					end,
+				})
+			end)
+			for _, palette in package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+				local banded = 0
+				for _, number in tagged(root, "facet-calendar-number") do
+					local band = find(number.Parent, "Band")
+					if band and band.Visible and not number:HasTag("facet-calendar-chosen-end") then
+						local ink = resolve(sheet, number, "TextColor3")
+						t.expect(ink).toBe(color(h.engine, extra.onSelected or colors.content))
+						local fill = extra.controlSelected
+						t.expect(contrast({ r = ink.R, g = ink.G, b = ink.B }, fill) >= 4.5).toBe(true)
+						banded += 1
+					end
+				end
+				t.expect(banded >= 8).toBe(true)
+				checked += 1
+				stopSheet()
+			end
+			stop()
+			h.dispose()
+		end
+		t.expect(checked >= 8).toBe(true)
+	end)
 end)
 
 t.describe("native paint strength: skinned control carve", function()
