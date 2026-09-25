@@ -528,8 +528,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			"Facet UI.Slider: contained must be a boolean"
 		)
 		local contained = spec.contained == true
-		local thin = function(use: ComposeTypes.Use?)
-			local knob = if contained then read(extentOf(if isRange then "lower" else "value"), use) else 0
+		local thin = function(use: ComposeTypes.Use?): number
+			local knob: number = if contained
+				then read(extentOf(if isRange then "lower" else "value") :: any, use) :: number
+				else 0
 			if knob > 0 then
 				return knob
 			end

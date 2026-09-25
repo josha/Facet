@@ -1474,7 +1474,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			else
 				p.Text = spec.Text or spec.label or ""
 				p.TextXAlignment = spec.TextXAlignment or E.TextXAlignment.Left
-				local reactive = dynamic(ctx.config.theme) or dynamic(spec.controlSize) or liveBox
+				local reactive = dynamic(ctx.config.theme) or dynamic(spec.controlSize) or sizeLive
 				local function paddingAmount(side: "left" | "right" | "top" | "bottom"): Shared.Value<UDim>
 					local function amount(use: ComposeTypes.Use?): UDim
 						local package = read(ctx.config.theme, use)

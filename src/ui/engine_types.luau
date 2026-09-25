@@ -3383,6 +3383,7 @@ export type Observe = {
 	AbsolutePosition: (GuiBase2d) -> Compose.Cell<Vector2>,
 	AbsoluteSize: (GuiBase2d) -> Compose.Cell<Vector2>,
 	AbsoluteWindowSize: (ScrollingFrame) -> Compose.Cell<Vector2>,
+	BackgroundColor3: (GuiObject) -> Compose.Cell<Color3>,
 	CanvasPosition: (ScrollingFrame) -> Compose.Cell<Vector2>,
 	CurrentPage: (UIPageLayout) -> Compose.Cell<GuiObject>,
 	CursorPosition: (TextBox) -> Compose.Cell<number>,
