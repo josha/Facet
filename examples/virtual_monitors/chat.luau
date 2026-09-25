@@ -73,6 +73,50 @@ return function(ctx)
 			spin:pause()
 		end
 	end)
+	local textService = (function()
+		local ok, service = pcall(function()
+			return (game :: any):GetService("TextService")
+		end)
+		return if ok then service else nil
+	end)()
+	local function measuredHeight(label)
+		if textService == nil then
+			return label
+		end
+		local observation = runtime.host.observation
+		local serial = 0
+		local function refresh()
+			serial += 1
+			local ticket = serial
+			local text = label.ContentText
+			local widthNow = label.AbsoluteSize.X
+			if text == "" or widthNow <= 0 then
+				return
+			end
+			task.spawn(function()
+				local size = label:GetStyled("TextSize")
+				local params = Instance.new("GetTextBoundsParams")
+				params.Text = text
+				params.Font = label:GetStyled("FontFace")
+				params.Size = size
+				params.Width = widthNow
+				local ok, bounds = pcall(function()
+					return textService:GetTextBoundsAsync(params)
+				end)
+				if not ok or ticket ~= serial or label.Parent == nil then
+					return
+				end
+				local lines = math.max(1, math.round(bounds.Y / size))
+				local height = size + (lines - 1) * size * label:GetStyled("LineHeight")
+				label.Size = D2.new(1, 0, 0, math.round(height))
+			end)
+		end
+		label.AutomaticSize = E.AutomaticSize.None
+		Compose.cleanup(observation.observeProperty(label, "ContentText", refresh))
+		Compose.cleanup(observation.observeProperty(label, "AbsoluteSize", refresh))
+		refresh()
+		return label
+	end
 	local function message(current)
 		local id = current:peek().id
 		local isUser = current:peek().role == "user"
@@ -130,7 +174,7 @@ return function(ctx)
 							diameter = 18,
 						}
 					end),
-					content({}),
+					measuredHeight(content({})),
 					Compose.show(function(use)
 						return use(current).content ~= "" and not use(streamingHere)
 					end, function()
