@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Divider paints its hairline in every theme. Before, the Divider wrote `BackgroundTransparency = 1` itself, which beats the `facet-divider` rule, so no line showed.
 - A Dialog, Sheet or Callout hero or media with `aspectRatio` keeps its height with a native `UIAspectRatioConstraint`. Before, it measured its own size and set its height, and a Dialog with a hero raised thousands of "Maximum event re-entrancy depth exceeded" errors when it opened.
 - A tap outside a Popover closes it. Before, the outside test used the full-screen popup layer, so no tap was outside and the popover stayed open.
 - The `environment` factory option previews device facts: `preferredInput`, `touchEnabled`, `mouseEnabled`, `gamepadEnabled`, `keyboardEnabled`, `preferredTextSize`, `displaySize` and `viewportSize`. Each is a value or a readable, and `nil` follows the engine. Every control and `UI.environment()` read the preview. The gallery settings use it for the input and text-size previews.

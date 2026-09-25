@@ -1492,7 +1492,17 @@ t.describe("native parity paint", function()
 		local expanded: { [string]: { string } } = {
 			["facet-"] = {},
 			["facet-role-"] = { "default", "cancel", "destructive", "onIndicator" },
-			["facet-status-"] = { "neutral", "info", "success", "warning", "error", "accent" },
+			["facet-status-"] = { "neutral", "info", "success", "warning", "error", "accent", "voice", "contrast" },
+			["facet-avatar-background-"] = {
+				"surface",
+				"surfaceStrong",
+				"control",
+				"contentStrong",
+				"accent",
+				"success",
+				"warning",
+				"danger",
+			},
 			["facet-type-"] = table.clone(themes.TYPE_ROLES) :: any,
 			["facet-badge-"] = { "standard", "status", "utility" },
 			["facet-disclosure-"] = { "plain", "contained", "divided" },

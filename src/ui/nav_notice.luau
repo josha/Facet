@@ -542,7 +542,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.title ~= nil and not parts.bound(ctx, spec.title, "string") then
 			error(`Facet {where}: title must be a string or a bound string`, 0)
 		end
-		if spec.surface ~= nil and spec.surface ~= "surface" and spec.surface ~= "panel" and spec.surface ~= "pane" then
+		local plate = ({ surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" })[spec.surface or ""]
+		if spec.surface ~= nil and plate == nil then
 			error(`Facet {where}: surface must be surface, panel or pane`, 0)
 		end
 		local gap = function(use: ComposeTypes.Use?): number
@@ -636,8 +637,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				AutomaticSize = E.AutomaticSize.Y,
 			})
 		)
-		if spec.surface then
-			ctx.styled(root, spec.surface)
+		if plate then
+			root:AddTag(plate)
 		end
 		local list = root:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
 		if list then
