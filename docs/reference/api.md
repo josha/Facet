@@ -2970,6 +2970,11 @@ as before:
   `surface` by `disabledContentOpacity`, in addition to its text. This applies
   to the standard, selected, emphasis, soft, inverse and destructive plates and
   to the Toggle indicator. Without it only the text dims.
+- `artTint`: multiplies the `control`, `field` and `panel` chrome art of
+  that palette, so one art set serves a light and a dark palette. Fantasy
+  Parchment Candlelight darkens its parchment to 0.3 so cream text reads on
+  it. Without it the art is untinted. A selected, emphasis or destructive
+  plate keeps its own tint.
 - `strongHairlineOpacity`: the transparency of `facet-divider-strong`. Without
   it, the strong divider is three times as visible as the hairline (0.76 with
   the neutral 0.92).

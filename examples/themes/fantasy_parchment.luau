@@ -37,7 +37,7 @@ local DAYLIGHT = {
 		controlPressed = rgb(198, 176, 138),
 		controlSelected = INKED,
 		onSelected = VELLUM,
-		contentSecondary = rgb(110, 92, 66),
+		contentSecondary = rgb(100, 82, 58),
 		hairline = rgb(88, 68, 44),
 
 		focusGlow = rgb(214, 154, 46),
@@ -71,6 +71,8 @@ local CANDLELIGHT = {
 		onSelected = VELLUM,
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
+		-- The parchment art is light; by candlelight it darkens so cream ink reads on it (field 8.2:1, placeholder 4.9:1).
+		artTint = { r = 0.3, g = 0.3, b = 0.3 },
 
 		focusGlow = rgb(248, 196, 96),
 		hairlineOpacity = 0.7,

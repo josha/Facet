@@ -59,6 +59,7 @@ export type PaletteExtra = {
 	tableRow: RGB?,
 	tableRowAlternate: RGB?,
 	dimDisabledPlates: boolean?,
+	artTint: RGB?,
 	strongHairlineOpacity: number?,
 	chromeGradient: { [string]: Gradient }?,
 }

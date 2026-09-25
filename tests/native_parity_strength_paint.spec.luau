@@ -988,9 +988,14 @@ t.describe("native paint strength: skins", function()
 			local art = ownArt(find(root, "Reset"), "control")
 			if art then
 				for _, palette in package.style.themes do
-					local colors = paletteOf(palette)
+					local colors, extra = paletteOf(palette)
 					local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
-					t.expect(resolve(sheet, art, "ImageColor3")).toBe(nil)
+					t.expect(resolve(sheet, art, "ImageColor3")).toBe(
+						if extra.artTint
+							then color(h.engine, extra.artTint)
+							elseif name == "fantasy_parchment" then h.engine.types.Color3.new(1, 1, 1)
+							else nil
+					)
 					local shapes = {}
 					for button, pair in { Delete = { "danger", "onDanger" }, Save = { "accent", "onAccent" } } do
 						local node, tint = find(root, button), colors[pair[1]]
@@ -1990,50 +1995,98 @@ t.describe("native paint strength: theme sheets", function()
 		h.dispose()
 	end)
 
-	t.it("paints every text field placeholder with contentSecondary, readable on the field plate", function()
+	t.it(
+		"paints every text field placeholder with contentSecondary, and field text and placeholder clear 4.5:1 on the tinted field art",
+		function()
+			local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
+			local h = harness()
+			local root, stopProbes = mount(h, function()
+				return h.Host.Frame({
+					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Search" },
+					h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
+				})
+			end)
+			local boxes = {}
+			for _, node in root:GetDescendants() do
+				if node.ClassName == "TextBox" then
+					table.insert(boxes, node)
+				end
+			end
+			t.expect(#boxes).toBe(2)
+			local entries = { { id = "neutral", package = themes.neutralPackage() } }
+			for _, name in SHIPPED do
+				table.insert(entries, { id = name, package = (shipped(name)) })
+			end
+			local sampled, unreadable = 0, {}
+			for _, entry in entries do
+				local art = (samples[(string.gsub(entry.id, "_", "-"))] or {}).field
+				for _, palette in entry.package.style.themes do
+					local colors, extra = paletteOf(palette)
+					local secondary = extra.contentSecondary or colors.contentSecondary
+					local tint = extra.artTint or { r = 1, g = 1, b = 1 }
+					local plate = if art
+						then { r = art.r / 255 * tint.r, g = art.g / 255 * tint.g, b = art.b / 255 * tint.b }
+						else extra.control
+					if art then
+						sampled += 1
+					end
+					local sheet, stop = sheetFor(h, entry.package, { theme = palette.name })
+					for _, box in boxes do
+						t.expect(resolve(sheet, box, "PlaceholderColor3")).toBe(color(h.engine, secondary))
+					end
+					if art and (contrast(secondary, plate) < 4.5 or contrast(colors.content, plate) < 4.5) then
+						table.insert(unreadable, `{entry.id}/{palette.name}`)
+					end
+					stop()
+				end
+			end
+			t.expect(sampled).toBe(7)
+			t.expect(table.concat(unreadable, " ")).toBe("")
+			stopProbes()
+			h.dispose()
+		end
+	)
+
+	t.it("an inactive tab on control art reads at 4.5:1 on the art after the palette's artTint", function()
 		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
 		local h = harness()
-		local root, stopProbes = mount(h, function()
-			return h.Host.Frame({
-				h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Search" },
-				h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
-			})
-		end)
-		local boxes = {}
-		for _, node in root:GetDescendants() do
-			if node.ClassName == "TextBox" then
-				table.insert(boxes, node)
-			end
+		local tab = h.engine.new("TextButton")
+		for _, tag in { "facet-button", "facet-tab-item", "facet-skinned" } do
+			tab:AddTag(tag)
 		end
-		t.expect(#boxes).toBe(2)
-		local entries = { { id = "neutral", package = themes.neutralPackage() } }
+		local caption = h.engine.new("TextLabel")
+		caption:AddTag("facet-text")
+		caption:AddTag("facet-button-caption")
+		caption.Parent = tab
+		local art = h.engine.new("ImageLabel")
+		art:AddTag("facet-skin-art")
+		art:AddTag("facet-skin-art-control")
+		art.Parent = tab
+		local checked, unreadable = 0, {}
 		for _, name in SHIPPED do
-			table.insert(entries, { id = name, package = (shipped(name)) })
-		end
-		local sampled, unreadable = 0, {}
-		for _, entry in entries do
-			local art = (samples[(string.gsub(entry.id, "_", "-"))] or {}).field
-			for _, palette in entry.package.style.themes do
-				local colors, extra = paletteOf(palette)
-				local secondary = extra.contentSecondary or colors.contentSecondary
-				local plate = if art then { r = art.r / 255, g = art.g / 255, b = art.b / 255 } else extra.control
-				if art then
-					sampled += 1
+			local package = shipped(name)
+			local sample = (samples[(string.gsub(name, "_", "-"))] or {}).control
+			if sample then
+				for _, palette in package.style.themes do
+					local _, extra = paletteOf(palette)
+					local sheet, stop = sheetFor(h, package, { theme = palette.name })
+					local tint = resolve(sheet, art, "ImageColor3") or h.engine.types.Color3.new(1, 1, 1)
+					local ink = resolve(sheet, caption, "TextColor3")
+					if extra.artTint then
+						t.expect(tint).toBe(color(h.engine, extra.artTint))
+					end
+					local plate =
+						{ r = sample.r / 255 * tint.R, g = sample.g / 255 * tint.G, b = sample.b / 255 * tint.B }
+					checked += 1
+					if contrast({ r = ink.R, g = ink.G, b = ink.B }, plate) < 4.5 then
+						table.insert(unreadable, `{name}/{palette.name}`)
+					end
+					stop()
 				end
-				local sheet, stop = sheetFor(h, entry.package, { theme = palette.name })
-				for _, box in boxes do
-					t.expect(resolve(sheet, box, "PlaceholderColor3")).toBe(color(h.engine, secondary))
-				end
-				if contrast(secondary, plate) < 3 then
-					table.insert(unreadable, `{entry.id}/{palette.name}`)
-					t.expect(contrast(colors.content, plate) < 3).toBe(true)
-				end
-				stop()
 			end
 		end
-		t.expect(sampled).toBe(7)
-		t.expect(table.concat(unreadable, " ")).toBe("fantasy_parchment/Candlelight")
-		stopProbes()
+		t.expect(checked).toBe(7)
+		t.expect(table.concat(unreadable, " ")).toBe("")
 		h.dispose()
 	end)
 

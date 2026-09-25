@@ -1112,8 +1112,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-quiet-destructive:Press", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-button-caption", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-icon", { ImageColor3 = c("danger") })
+	-- Quiet ink on a control plate (a segment, a tab on art) only where it reads at 4.5:1.
+	local track, quiet, loud = c("control") :: Color3, c("contentSecondary") :: Color3, c("content") :: Color3
+	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
+		then quiet
+		else loud
 	rule(".facet-tab-item", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
 	rule(".facet-tab-item >> .facet-button-caption", { TextColor3 = c("contentSecondary") })
+	rule(".facet-tab-item.facet-skinned", { TextColor3 = segmentInk })
+	rule(".facet-tab-item.facet-skinned >> .facet-button-caption", { TextColor3 = segmentInk })
 	rule(".facet-tab-item:Hover", { BackgroundTransparency = 1, TextColor3 = c("content") })
 	rule(".facet-tab-item:Hover >> .facet-button-caption", { TextColor3 = c("content") })
 	rule(".facet-tab-item:Press", { BackgroundTransparency = 1, TextColor3 = c("content") })
@@ -1160,10 +1167,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, SEGMENT_INSET),
 		PaddingBottom = types.UDim.new(0, SEGMENT_INSET),
 	})
-	local track, quiet, loud = c("control") :: Color3, c("contentSecondary") :: Color3, c("content") :: Color3
-	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
-		then quiet
-		else loud
 	rule(".facet-segment", { BackgroundTransparency = 1, TextColor3 = segmentInk })
 	rule(".facet-segment::UICorner", { CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) })
 	rule(".facet-segmented-pill >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(1, 0) })
@@ -1214,6 +1217,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
+	for _, theme in package.style.themes do
+		if type(theme.extra) == "table" and theme.extra.artTint ~= nil then
+			-- Every palette of the package gets the rule (one rule set per package), untinted without artTint.
+			for _, slot in { "control", "field", "panel" } do
+				rule(".facet-skin-art-" .. slot, { ImageColor3 = c("artTint") or types.Color3.new(1, 1, 1) })
+			end
+			break
+		end
+	end
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 	local selectedArt: ThemeTypes.AssetLink? = nil
 	local selectedLayer = 0
@@ -2070,6 +2082,7 @@ local function skin(
 		end
 		local node = Host.ImageLabel(properties)
 		node:AddTag("facet-skin-art")
+		node:AddTag("facet-skin-art-" .. slot)
 		if captionSource then
 			local current = captionSource
 			Compose.watch(function(use: ComposeTypes.Use)

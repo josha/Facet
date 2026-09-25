@@ -61,6 +61,8 @@ Each palette has `name`, `colors` and `extra`.
 - `dimDisabledPlates = true` fades the plate of a disabled control with its
   text, by `disabledContentOpacity`. Without it only the text dims.
   `strongHairlineOpacity` sets how visible `facet-divider-strong` is.
+  `artTint` multiplies the control, field and panel art of a palette, for a
+  dark palette over light art.
 - The required type roles are caption, label, body, heading, title, control,
   strong and numeral.
 

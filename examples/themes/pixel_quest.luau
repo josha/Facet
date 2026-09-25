@@ -12,7 +12,6 @@ end
 
 local INK = rgb(22, 18, 31)
 local SHADE = rgb(58, 44, 79)
-local WOOD = rgb(168, 114, 47)
 local TAN = rgb(215, 168, 96)
 local CREAM = rgb(244, 230, 192)
 local RED = rgb(122, 31, 34)
@@ -154,7 +153,9 @@ local QUEST = {
 		onWarning = INK,
 	},
 	extra = {
-		control = WOOD,
+		-- The wood art (mean 168, 114, 47) and the flat plate sit at 0.78 of it, so cream ink reads on them (4.95:1).
+		control = rgb(131, 89, 37),
+		artTint = { r = 0.78, g = 0.78, b = 0.78 },
 		controlHover = TAN,
 		controlPressed = rgb(107, 67, 38),
 

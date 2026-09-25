@@ -47,7 +47,7 @@ local SKY = {
 
 		controlSelected = rgb(20, 81, 194),
 		onSelected = rgb(255, 255, 255),
-		contentSecondary = rgb(88, 100, 120),
+		contentSecondary = rgb(76, 88, 108),
 		hairline = rgb(36, 56, 86),
 		hairlineOpacity = 0.8,
 		scrimOpacity = 0.35,

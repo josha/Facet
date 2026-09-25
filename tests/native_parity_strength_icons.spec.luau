@@ -1514,47 +1514,51 @@ t.describe("sliced and bar art", function()
 		runtime:dispose()
 	end)
 
-	t.it("paints a nine-slice skin with the package's own image values and only the role tints", function()
-		local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
-		local asset = package.assets.parchment_panel
-		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
-		local target, root, sheet
-		local stop = runtime.mount(function()
-			target = runtime.constructors.Frame({})
-			root = themes.skin(runtime, package, "panel", { types = engine.types, target = target })
-			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-			return runtime.constructors.Frame({ target, root, sheet })
-		end, engine.new("Folder"))
-		local image = root:FindFirstChild("panel1", true)
-		t.expect(image.Image).toBe(asset.contentId)
-		t.expect(image.Image).toBe("rbxassetid://78012779616687")
-		t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Slice)
-		t.expect(image.SliceCenter).toBe(engine.types.Rect.new(40, 40, 104, 104))
-		t.expect(image.SliceScale).toBe(asset.sliceScale)
-		t.expect(image.ImageColor3).toBe(engine.types.Color3.new(1, 1, 1))
-		t.expect(image.ImageTransparency).toBe(0)
-		t.expect(image.BackgroundTransparency).toBe(1)
-		t.expect(table.concat(image:GetTags(), ",")).toBe("facet-skin-art")
-		t.expect(target:HasTag("facet-skinned")).toBe(true)
-		local skinned = false
-		for _, rule in sheet:GetChildren() do
-			local properties = rule:GetProperties()
-			local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
-				or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
-				or rule.Selector == ".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art"
-			t.expect(
-				`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin-art", 1, true) ~= nil}`
-			).toBe(`{rule.Selector}: {roleTint}`)
-			if rule.Selector == ".facet-skinned" then
-				skinned = true
-				t.expect(properties.BackgroundTransparency).toBe(1)
+	t.it(
+		"paints a nine-slice skin with the package's own image values and only the role and palette art tints",
+		function()
+			local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
+			local asset = package.assets.parchment_panel
+			local engine = engineLib.new()
+			local runtime = Roblox.createRuntime(engine)
+			local target, root, sheet
+			local stop = runtime.mount(function()
+				target = runtime.constructors.Frame({})
+				root = themes.skin(runtime, package, "panel", { types = engine.types, target = target })
+				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
+				return runtime.constructors.Frame({ target, root, sheet })
+			end, engine.new("Folder"))
+			local image = root:FindFirstChild("panel1", true)
+			t.expect(image.Image).toBe(asset.contentId)
+			t.expect(image.Image).toBe("rbxassetid://78012779616687")
+			t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Slice)
+			t.expect(image.SliceCenter).toBe(engine.types.Rect.new(40, 40, 104, 104))
+			t.expect(image.SliceScale).toBe(asset.sliceScale)
+			t.expect(image.ImageColor3).toBe(engine.types.Color3.new(1, 1, 1))
+			t.expect(image.ImageTransparency).toBe(0)
+			t.expect(image.BackgroundTransparency).toBe(1)
+			t.expect(table.concat(image:GetTags(), ",")).toBe("facet-skin-art,facet-skin-art-panel")
+			t.expect(target:HasTag("facet-skinned")).toBe(true)
+			local skinned = false
+			for _, rule in sheet:GetChildren() do
+				local properties = rule:GetProperties()
+				local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
+					or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
+					or rule.Selector == ".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art"
+					or string.match(rule.Selector, "^%.facet%-skin%-art%-%a+$") ~= nil
+				t.expect(
+					`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin-art", 1, true) ~= nil}`
+				).toBe(`{rule.Selector}: {roleTint}`)
+				if rule.Selector == ".facet-skinned" then
+					skinned = true
+					t.expect(properties.BackgroundTransparency).toBe(1)
+				end
 			end
+			t.expect(skinned).toBe(true)
+			stop()
+			runtime:dispose()
 		end
-		t.expect(skinned).toBe(true)
-		stop()
-		runtime:dispose()
-	end)
+	)
 
 	t.it("centres end caps on the track edge, centres the centrepiece and defaults the fill to ltr", function()
 		local package = themes.neutralPackage()
