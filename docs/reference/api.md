@@ -1744,7 +1744,9 @@ circle keeps an aspect ratio of 1 at every text size. The row stretches its
 cells to one height with a native `ItemLineAlignment`.
 
 The underline is a `facet-selection-indicator` frame. It moves to the new
-current step on a spring. Reduced motion places it immediately. The root has
+current step on a spring. Reduced motion places it immediately. Its position
+and width are fractions of the row width, so an ancestor `UIScale` (the TV
+scale) does not scale it twice. The root has
 the attributes `FacetCurrent`, `FacetSummary`, `FacetForm` (`row` or
 `summary`) and `FacetListOpen`.
 

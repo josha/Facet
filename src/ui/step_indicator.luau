@@ -384,16 +384,17 @@ return function(
 				return node
 			end,
 		})
-		local stripX = Compose.cell(0)
+		local stripBox = Compose.cell({ x = 0, width = 0 })
 		local reduced = reducedMotion(ctx)
 		local target = Compose.formula(function(use: ComposeTypes.Use): { x: number, width: number, shown: boolean }
 			local m = use(model)
 			local measured = if m.current then use(cellMeasures)[m.current] else nil
-			if measured == nil then
+			local box = use(stripBox)
+			if measured == nil or box.width <= 0 then
 				return { x = 0, width = 0, shown = false }
 			end
 			local at, size = use(measured[1]), use(measured[2])
-			return { x = at.X - use(stripX), width = size.X, shown = true }
+			return { x = (at.X - box.x) / box.width, width = size.X / box.width, shown = true }
 		end)
 		local springX = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).x
@@ -435,11 +436,11 @@ return function(
 				end,
 				Position = function(use: ComposeTypes.Use)
 					local x = if reduced(use) then use(target).x else use(springX)
-					return D2.new(0, x, 1, 0)
+					return D2.new(x, 0, 1, 0)
 				end,
 				Size = function(use: ComposeTypes.Use)
 					local width = if reduced(use) then use(target).width else use(springWidth)
-					return D2.fromOffset(width, 2)
+					return D2.new(width, 0, 0, 2)
 				end,
 			}),
 			"selection-indicator"
@@ -451,9 +452,9 @@ return function(
 			row :: Types.Child,
 			underline :: Types.Child,
 		}
-		local stripPosition = ctx.observe.AbsolutePosition(strip)
+		local stripPosition, stripSize = ctx.observe.AbsolutePosition(strip), ctx.observe.AbsoluteSize(strip)
 		Compose.watch(function(use: ComposeTypes.Use)
-			stripX:set(use(stripPosition).X)
+			stripBox:set({ x = use(stripPosition).X, width = use(stripSize).X })
 		end)
 		local root: Frame
 		local offered = Compose.cell(0)

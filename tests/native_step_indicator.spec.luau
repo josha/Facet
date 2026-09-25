@@ -34,6 +34,15 @@ local function cell(world: any, id: string): any
 	return world.find(`Step-{id}`)
 end
 
+local function drawn(world: any, scale: number): string
+	local strip, underline = world.find("Strip"), world.find("Underline")
+	local left = strip.AbsolutePosition.X
+		+ underline.Position.X.Scale * strip.AbsoluteSize.X
+		+ underline.Position.X.Offset * scale
+	local width = underline.Size.X.Scale * strip.AbsoluteSize.X + underline.Size.X.Offset * scale
+	return `{math.round(left * 10) / 10} {math.round(width * 10) / 10}`
+end
+
 t.describe("native StepIndicator", function()
 	t.it("makes only navigable, enabled steps with onSelect into Buttons and the rest into content", function()
 		local world = mount({ steps = workflow(), current = "ship", onSelect = function() end })
@@ -68,14 +77,14 @@ t.describe("native StepIndicator", function()
 		}, 900, { reducedMotion = true })
 		local strip = world.find("Strip")
 		strip.AbsolutePosition = world.V2(10, 0)
+		world.resize(strip, 900, 80)
 		local positions = { cart = 10, ship = 200, pay = 400, done = 600 }
 		for id, x in positions do
 			cell(world, id).AbsolutePosition = world.V2(x, 0)
 			world.resize(cell(world, id), 150, 60)
 		end
-		local underline = world.find("Underline")
 		local function under(id: string): boolean
-			return underline.Position.X.Offset == positions[id] - 10 and underline.Size.X.Offset == 150
+			return drawn(world, 1) == `{positions[id]} 150`
 		end
 		t.expect(under("ship")).toBe(true)
 		t.expect(root:GetAttribute("FacetSummary")).toBe("Step 2 of 4 — Shipping")
@@ -91,6 +100,17 @@ t.describe("native StepIndicator", function()
 		t.expect(under("pay")).toBe(true)
 		cell(world, "pay").Activated.fire()
 		t.expect(#asked).toBe(2)
+		world.stop()
+	end)
+
+	t.it("draws the underline on its step under an ancestor UIScale", function()
+		local world = mount({ steps = workflow(), current = "ship" }, 1200, { reducedMotion = true })
+		local strip = world.find("Strip")
+		strip.AbsolutePosition = world.V2(12, 0)
+		world.resize(strip, 1204.7, 96)
+		cell(world, "ship").AbsolutePosition = world.V2(695.1, 0)
+		world.resize(cell(world, "ship"), 269, 72)
+		t.expect(drawn(world, 1.2047)).toBe("695.1 269")
 		world.stop()
 	end)
 
