@@ -300,6 +300,31 @@ t.describe("native segmented picker track", function()
 		end
 	end)
 
+	t.it("bounds segments in layout units under a scaled ancestor", function()
+		local w = world(function(UI)
+			return UI.Picker "P" {
+				style = "segmented",
+				label = "Mode",
+				selected = Compose.cell("easy"),
+				options = THREE,
+			}
+		end)
+		local row = find(w.screen, "P")
+		find(row, "Unit").AbsoluteSize = w.V2.new(1.25, 1.25)
+		row.AbsoluteSize = w.V2.new(375, 60)
+		local options = find(row, "Options")
+		local segment = find(options, "easy"):FindFirstChildWhichIsA("UISizeConstraint")
+		expect(segment.MaxSize.X).toBe(300 - 6)
+		local bound
+		for _, child in options:GetChildren() do
+			if child:IsA("UISizeConstraint") and child.Name ~= "TargetFloor" then
+				bound = child
+			end
+		end
+		expect(bound.MaxSize.X).toBe(300)
+		w.stop()
+	end)
+
 	t.it("a caller's fixed 44 point track keeps the segments inside it", function()
 		local w = world(function(UI, _, engine)
 			return UI.Picker "P" {

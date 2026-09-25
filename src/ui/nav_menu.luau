@@ -2296,6 +2296,18 @@ return function(
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
 		local room = Compose.cell(math.huge)
+		local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
+			local extent = ctx.observe.AbsoluteSize(node)
+			local _, units = runtime.mount(function()
+				return Host.Folder "Units" { Host.Frame "Unit" { Size = D2.fromOffset(1, 1), Visible = false } }
+			end, node)
+			local pixel = ctx.observe.AbsoluteSize((units :: Instance):FindFirstChild("Unit") :: GuiObject)
+			return Compose.formula(function(use: ComposeTypes.Use): number
+				local unit = (use(pixel) :: Vector2).X
+				local width = (use(extent) :: Vector2).X / (if unit > 0 then unit else 1)
+				return if width > 0 then width else math.huge
+			end)
+		end
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local textService = surfaces.service("GuiService") :: GuiService?
@@ -2724,10 +2736,9 @@ return function(
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if not labelled then
-				local extent = ctx.observe.AbsoluteSize(picker)
+				local width = layoutWidth(picker)
 				Compose.watch(function(use: ComposeTypes.Use)
-					local width = (use(extent) :: Vector2).X
-					room:set(if width > 0 then width else math.huge)
+					room:set(use(width))
 				end)
 			end
 			surfaces.attach(picker, {
@@ -2794,16 +2805,14 @@ return function(
 		layout.VerticalAlignment = E.VerticalAlignment.Center
 		layout.Padding = D.new(0, 16)
 		layout.Wraps = true
-		local rowSize = ctx.observe.AbsoluteSize(row)
+		local width = layoutWidth(row)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local width = (use(rowSize) :: Vector2).X
-			room:set(if width > 0 then width else math.huge)
+			room:set(use(width))
 		end)
 		surfaces.attach(picker, {
 			Host.UISizeConstraint({
 				MaxSize = function(use: ComposeTypes.Use)
-					local width = (use(rowSize) :: Vector2).X
-					return V2.new(if width > 0 then width else math.huge, math.huge)
+					return V2.new(use(width), math.huge)
 				end,
 			}),
 		})

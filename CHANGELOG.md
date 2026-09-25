@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A segmented Picker bounds its segments by its row's width in layout units under a scaled ancestor (the TV device preview). Before, it used the scaled pixel width, so a long segment could be wider than its line and the wrapping row flipped between two layouts on every change, raising "Maximum event re-entrancy depth exceeded" from skinned segments.
 - A `measure` collection (List, Grid, VirtualList, Table) reads a row's size in layout units under a scaled ancestor (a UIScale, the TV device preview). Before, it stored the scaled pixels as the row height, so a row that fills its slot grew by the scale on every pass, to billions of pixels, and raised "Maximum event re-entrancy depth exceeded".
 - An `emphasis` plate (a primary Button, a `contrast` menu Picker trigger, a chosen Picker card) in a skinned package whose accent is too light to tint under its label shows the theme's selected art with an `onSelected` label. Before, Pixel Quest, Fantasy Ornate and Fantasy Parchment Candlelight hid the art and painted a flat accent rounded rect; Parchment Daylight now matches Candlelight.
 - A DateTimePicker day number on the range band has the `facet-calendar-banded` tag and paints in `onSelected`, the ink of `controlSelected`. Before, it stayed `content`, so a theme whose selected fill is dark (Glossy Touch, Fantasy Parchment) drew dark numbers on a dark band.
