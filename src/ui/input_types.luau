@@ -176,6 +176,7 @@ export type SliderOptions = {
 	trackContent: (() -> Instance)?,
 	rotation: NumberValue?,
 	controlSize: SizeValue?,
+	contained: boolean?,
 }
 export type SliderImplementationProps = Shared.FrameProps & ValueOptions & SliderOptions & {
 	enabled: Value<boolean>?,

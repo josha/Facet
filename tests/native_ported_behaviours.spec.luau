@@ -256,3 +256,25 @@ t.describe("Card ring", function()
 		end).toThrow()
 	end)
 end)
+
+t.describe("Slider contained", function()
+	t.it("contained paints a knob-thick pill rail and fill", function()
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Slider "Plain" { value = Compose.cell(0.5) },
+				UI.Slider "Contained" { value = Compose.cell(0.5), contained = true },
+			}
+		end)
+		local plain = find(find(w.screen, "Plain"), "Rail")
+		local rail = find(find(w.screen, "Contained"), "Rail")
+		local fill = find(find(w.screen, "Contained"), "Fill")
+		expect(plain.Size.Y.Offset).toBe(6)
+		expect(rail.Size.Y.Offset).toBe(24)
+		expect(fill.Size.Y.Offset).toBe(24)
+		expect(find(rail, "UICorner").CornerRadius.Scale).toBe(1)
+		expect(function()
+			w.UI.Slider { value = Compose.cell(0.5), contained = "yes" }
+		end).toThrow()
+		w.stop()
+	end)
+end)

@@ -45,6 +45,7 @@ local SLIDER_KEYS = {
 	"trackContent",
 	"rotation",
 	"controlSize",
+	"contained",
 }
 local THICKNESS: { [string]: number } = { xsmall = 3, compact = 4, regular = 6, large = 8 }
 local KNOB = 24
@@ -522,8 +523,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local function fraction(value: number): number
 			return model.fraction(value)
 		end
+		assert(
+			spec.contained == nil or type(spec.contained) == "boolean",
+			"Facet UI.Slider: contained must be a boolean"
+		)
+		local contained = spec.contained == true
 		local thin = function(use: ComposeTypes.Use?)
+			if contained then
+				return read(extentOf(if isRange then "lower" else "value"), use)
+			end
 			return thickness(spec, use)
+		end
+		local function railCorner(): UICorner
+			return if contained then Host.UICorner({ CornerRadius = D.new(1, 0) }) else ctx.corner(3)
 		end
 		local trackChildren: { ComposeTypes.Child } = {}
 		if spec.trackContent then
@@ -545,10 +557,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					Name = "Rail",
 					Size = derive(function(use: ComposeTypes.Use?)
 						return if vertical then D2.new(0, thin(use), 1, 0) else D2.new(1, 0, 0, thin(use))
-					end, spec.controlSize),
+					end, spec.controlSize, if contained then thin else nil),
 					Position = D2.fromScale(if vertical then 0.5 else 0, 0.5),
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, 0.5),
-					ctx.corner(3),
+					railCorner(),
 				}, spec.trackImage, "slider-rail", "sliderTrack")
 			)
 			local fill = ctx.styled(
@@ -574,7 +586,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 						return if vertical then D2.new(0.5, 0, 1 - low, -shift) else D2.new(low, shift, 0.5, 0)
 					end,
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, if vertical then 1 else 0.5),
-					ctx.corner(3),
+					railCorner(),
 				},
 				"slider-fill"
 			)

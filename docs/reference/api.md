@@ -1086,6 +1086,10 @@ repeat stops when the engine gives the held input to a higher-priority input
 context, for example a gameplay binding with `Sink`. The next change needs a
 new press.
 
+`contained = true` makes the rail and the fill as thick as the knob, with round
+ends, so the knob rides inside the rail. The fill ends at the center of the
+knob.
+
 Slider shapes. `axis`, `range`, `minGap` and `thumb` are construction options.
 A readable value for one of them causes an error that names the option.
 
