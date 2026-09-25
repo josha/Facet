@@ -705,6 +705,8 @@ return function(
 									local button = UI.Button({
 										Name = sector.id,
 										corners = if appearance == "buttons" then "pill" :: "pill" else nil,
+										appearance = if appearance == "wedges" then "utility" else nil,
+										ClipsDescendants = appearance == "wedges",
 										label = function(use: ComposeTypes.Use)
 											local live = currentSector(use)
 											return if not live.list
@@ -762,7 +764,7 @@ return function(
 												return D2.fromOffset(diameter, diameter)
 											end
 											local bounds = geometry.labelBounds(live, 40)
-											return D2.fromOffset(math.max(40, bounds.w), math.max(36, bounds.h))
+											return D2.fromOffset(bounds.w, bounds.h)
 										end,
 										TextWrapped = true,
 										enabled = function(use: ComposeTypes.Use)
@@ -779,6 +781,9 @@ return function(
 										ZIndex = 105,
 									})
 									buttons[sector.key] = button
+									if appearance == "wedges" then
+										ctx.styled(button, "radial-item")
+									end
 									Compose.cleanup(function()
 										buttons[sector.key] = nil
 									end)

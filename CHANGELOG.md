@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A RadialMenu wedge item is its icon and label only, inside its wedge. Before, each item was a full Button plate on top of the wedge; in a skinned theme (Pixel Quest) the plates overflowed the wedges.
 - Showcase: Gallery settings has a Device preview (Phone, Tablet, TV) and an Orientation choice again. It frames the gallery at 389x762, 768x1024 or 1920x1080 (scaled down to fit) and feeds `viewportSize`, `displaySize` and the input to the `environment` option: Phone and Tablet are Small and Touch, TV is Large and Gamepad. An Input preview choice still wins.
 - A Sheet grabber sits in its own gutter just inside the panel art's inner edge. Before, the panel padding also moved the grabber, so a Fantasy side sheet drew its bar about 140 pixels in from the frame, inside the content.
 - A labelled TabView tab with an icon badge widens the gap between its icon and its label to hold the badge. Before, the badge covered the start of the label by about 4 pixels.

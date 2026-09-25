@@ -1045,6 +1045,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu-item.facet-selected >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-radial-sector", { Color3 = c("surfaceStrong") })
 	rule(".facet-radial-sector.facet-radial-candidate", { Color3 = c("controlSelected") })
+	rule(".facet-radial-item::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-page-indicator", { BackgroundTransparency = 1 })
 	rule(".facet-page-indicator:Hover", { BackgroundTransparency = 1 })
 	rule(".facet-page-indicator:Press", { BackgroundTransparency = 1 })

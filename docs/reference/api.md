@@ -1787,6 +1787,9 @@ still selects it. With `centerPassThrough`, the page is not dimmed.
 A wedge takes the theme panel paint (`surfaceStrong`) and its label the
 content paint. A hovered, focused, checked or selected wedge takes the selected
 paint (`controlSelected`), the same state its label shows.
+The wedge is the item. Its icon and label are a plate-less `utility` button
+with no theme control art, sized to the largest box that fits inside the wedge
+and clipped to it.
 
 Without an `anchor`, the ring opens centred on its launcher. Before the
 launcher has a size, and with `launcher = false`, the `preset` sets the

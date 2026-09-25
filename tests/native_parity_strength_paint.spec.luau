@@ -763,6 +763,40 @@ t.describe("native paint strength: button content", function()
 		end).toThrow()
 	end)
 
+	t.it("draws each wedge item as plate-less content inside its own wedge, even in a skinned package", function()
+		for _, package in { themes.neutralPackage(), (shipped("pixel_quest")), (shipped("fantasy_ornate")) } do
+			local h = harness({ reducedMotion = true, theme = package })
+			local items = {}
+			for index = 1, 12 do
+				table.insert(items, {
+					id = "item" .. index,
+					label = "Item " .. index,
+					icon = if index % 2 == 0 then "checkmark" else nil,
+					onSelect = function() end,
+				})
+			end
+			local root, stop = mount(h, function()
+				return h.UI.RadialMenu({ isPresented = Compose.cell(true), items = items })
+			end)
+			for index = 1, 12 do
+				local button = find(root.Parent, "item" .. index)
+				local where = `{package.identity.id}/item{index}`
+				t.expect(#ownSlots(button)).toBe(0)
+				t.expect(button:HasTag("facet-appearance-utility")).toBe(true)
+				local paint = find(button.Parent, "Paint")
+				local left = button.Position.X.Offset - button.Size.X.Offset / 2
+				local top = button.Position.Y.Offset - button.Size.Y.Offset / 2
+				local inside = left >= paint.Position.X.Offset - 0.5
+					and top >= paint.Position.Y.Offset - 0.5
+					and left + button.Size.X.Offset <= paint.Position.X.Offset + paint.Size.X.Offset + 0.5
+					and top + button.Size.Y.Offset <= paint.Position.Y.Offset + paint.Size.Y.Offset + 0.5
+				assert(inside, where .. " content leaves its wedge")
+			end
+			stop()
+			h.dispose()
+		end
+	end)
+
 	t.it("paints each wedge and its label as one readable pair in every shipped package and palette", function()
 		local packages = { themes.neutralPackage() }
 		for _, name in SHIPPED do
