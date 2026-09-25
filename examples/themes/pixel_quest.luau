@@ -156,6 +156,7 @@ local QUEST = {
 
 		control = rgb(131, 89, 37),
 		artTint = { r = 0.78, g = 0.78, b = 0.78 },
+		tableRowAlternate = rgb(112, 76, 31),
 		controlHover = TAN,
 		controlPressed = rgb(107, 67, 38),
 

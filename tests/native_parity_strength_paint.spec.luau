@@ -2043,6 +2043,85 @@ t.describe("native paint strength: theme sheets", function()
 		end
 	)
 
+	t.it("paints a table row from the theme row role and every delete control in the danger role", function()
+		local h = harness()
+		local root, stop = mount(h, function()
+			return h.UI.Table({
+				from = { { id = "a", name = "Neon" } },
+				key = "id",
+				editing = Compose.cell(true),
+				reorderable = true,
+				onReorder = function() end,
+				deletable = true,
+				onDelete = function() end,
+				columns = { { id = "name", label = "Name" } },
+				rowActions = function()
+					return {
+						trailing = {
+							{ id = "remove", label = "Remove", role = "destructive", onActivate = function() end },
+						},
+					}
+				end,
+			})
+		end)
+		local body = find(root, "Body")
+		body.AbsoluteWindowSize = h.engine.types.Vector2.new(400, 200)
+		body.AbsoluteSize = h.engine.types.Vector2.new(400, 200)
+		local band = find(root, "Reorderable")
+		local inner = find(root, "DisclosingRow")
+		local minus, confirm = find(root, "Minus"), find(root, "Delete")
+		for _, entry in
+			{
+				{ id = "neutral", package = themes.neutralPackage() },
+				{ id = "classic_desktop", package = (shipped("classic_desktop")) },
+			}
+		do
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local sheet, stopSheet = sheetFor(h, entry.package, { theme = palette.name })
+				local row = extra.tableRow or extra.control
+				t.expect(`{entry.id}/{palette.name}:{tostring(resolve(sheet, band, "BackgroundColor3"))}`)
+					.toBe(`{entry.id}/{palette.name}:{tostring(color(h.engine, row))}`)
+				t.expect(resolve(sheet, band, "BackgroundTransparency")).toBe(0)
+				t.expect(band.BackgroundTransparency).toBe(0)
+				t.expect(inner.BackgroundTransparency).toBe(1)
+				for _, control in { minus, confirm } do
+					t.expect(control:HasTag("facet-accent")).toBe(false)
+					t.expect(resolve(sheet, control, "BackgroundColor3")).toBe(color(h.engine, colors.danger))
+				end
+				stopSheet()
+			end
+		end
+		stop()
+		h.dispose()
+	end)
+
+	t.it("keeps table row, alternate row, header and selected row text at 4.5:1 in every shipped palette", function()
+		local weak = {}
+		local entries = { { id = "neutral", package = themes.neutralPackage() } }
+		for _, name in SHIPPED do
+			table.insert(entries, { id = name, package = (shipped(name)) })
+		end
+		for _, entry in entries do
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local pairs = {
+					row = { colors.content, extra.tableRow or extra.control },
+					alternate = { colors.content, extra.tableRowAlternate or extra.controlHover },
+					header = { colors.content, extra.tableHeader or extra.control },
+					selected = { extra.onSelected or colors.content, extra.controlSelected },
+				}
+				for name, pair in pairs do
+					if pair[1] and pair[2] and contrast(pair[1], pair[2]) < 4.5 then
+						table.insert(weak, `{entry.id}/{palette.name}:{name}`)
+					end
+				end
+			end
+		end
+		table.sort(weak)
+		t.expect(table.concat(weak, " ")).toBe("")
+	end)
+
 	t.it("pads a skinned control plate by its art carve, so HUD chips keep their content inside the frame", function()
 		local h = harness()
 		local package = shipped("fantasy_parchment")

@@ -714,9 +714,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 						}
 					end),
 				}
+				if editor then
+					rowProps.BackgroundTransparency = 1
+				end
 				row = Host.Frame(rowProps)
 				if editor then
-					row = editor.wrap(row, current, key)
+					row = editor.wrap(row, current, key, true)
 				end
 				local painted = ctx.styled(row, "TableRow")
 				Compose.watch(function(use: ComposeTypes.Use)

@@ -7,7 +7,7 @@ local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local reducedMotion = require("./motion")
 export type Editor<V, K> = {
-	wrap: (GuiObject, ComposeTypes.Readable<V>, K) -> Frame,
+	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
 	overlay: (boolean?) -> Frame,
 	leading: ComposeTypes.Readable<number>,
 	trailing: ComposeTypes.Readable<number>,
@@ -210,7 +210,7 @@ return function<V, K>(
 	local selectedObject: ComposeTypes.Readable<unknown>? = if ctx.config.guiService
 		then ctx.observe.SelectedObject(ctx.config.guiService)
 		else nil
-	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K): Frame
+	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K, painted: boolean?): Frame
 		local handleNode: Instance? = nil
 		local function toggle()
 			if moving:peek() then
@@ -325,7 +325,6 @@ return function<V, K>(
 			name = "Delete",
 			shape = "circle" :: "circle",
 			role = "destructive" :: InputTypes.ButtonRole,
-			appearance = "emphasis",
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.new(0, 22, 0.5, 0),
 			Size = D2.fromOffset(28, 28),
@@ -339,7 +338,6 @@ return function<V, K>(
 			Name = "Delete",
 			label = "Delete",
 			role = "destructive" :: InputTypes.ButtonRole,
-			appearance = "emphasis",
 			AnchorPoint = V2.new(1, 0),
 			Position = D2.fromScale(1, 0),
 			Size = D2.new(0, 88, 1, 0),
@@ -373,7 +371,7 @@ return function<V, K>(
 		local nativeProps: Types.FrameProps = {
 			Name = "Reorderable",
 			Size = D2.fromScale(1, 1),
-			BackgroundTransparency = 1,
+			BackgroundTransparency = if painted then nil else 1,
 			Attributes = {
 				FacetDragging = function(use: ComposeTypes.Use)
 					local move = use(moving)
