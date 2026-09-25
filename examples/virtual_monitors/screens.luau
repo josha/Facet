@@ -239,10 +239,11 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					Visible = function(use)
 						return use(menuShown) or not (collapsed and use(collapsed))
 					end,
-					trailing = UI.HStack "HeaderActions" {
+					trailing = UI.AdaptiveStack "HeaderActions" {
+						axis = "x",
 						gap = "s",
 						align = "center",
-						UI.HStack(chrome),
+						UI.ViewThatFits "ChromeFit" { width = "hug", UI.HStack(chrome) },
 						UI.Menu {
 							trigger = UI.Button "ActionsMenu" {
 								icon = "more",

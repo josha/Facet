@@ -9,7 +9,9 @@ local function Screen(): Frame
 	local list = Instance.new("ScrollingFrame")
 	local moved: boolean = UI.scrollTo(list, "top", options)
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
+	local ring: Frame = UI.focusRing(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
 	return UI.Screen({
+		ring :: any,
 		UI.Text({
 			text = function(use: Facet.Use): string
 				return `{use(env.sizeClass)} {moved} {shown} {use(anchor.anchor) ~= nil}`

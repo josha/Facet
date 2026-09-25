@@ -24,6 +24,9 @@ local column: Frame = UI.VStack({
 	UI.Button({ label = "Save" }),
 })
 local row: Frame = UI.HStack("Toolbar")(stackProps)
+local adaptiveProps: Facet.AdaptiveStackProps = { gap = "s", axis = "x" :: "x" }
+local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
+local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
 local layers: Frame = UI.ZStack({ alignH = "center" :: "center", alignV = "end" :: "end", padding = "s" })
 local page: ScrollingFrame = UI.ScrollView({
 	axis = "y" :: "y",

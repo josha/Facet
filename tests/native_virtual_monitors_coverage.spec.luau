@@ -177,6 +177,9 @@ t.describe("native virtual monitors coverage", function()
 		runtime:dispose()
 
 		local entry = entryFields()
+		if entry["Facet.app"] then
+			entry["UI.focusRing"] = true
+		end
 		local missing, total = {}, 0
 		local function check(prefix: string, names: { string })
 			for _, name in names do

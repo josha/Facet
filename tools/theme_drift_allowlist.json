@@ -99,7 +99,7 @@
       "reason": "The Card selection ring is a 2 px focus ring, the width of the engine selection outline; the theme strokes cover only the hairline."
     },
     {
-      "path": "src/ui/app.luau",
+      "path": "src/ui/environment.luau",
       "rule": "stroke",
       "match": "return if use(env.displaySize) == \"Large\" then 4 else 2",
       "status": "no-metric",

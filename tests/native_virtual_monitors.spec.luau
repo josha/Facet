@@ -659,7 +659,7 @@ t.describe("native virtual monitors", function()
 			local discover, model, types = world.Discover, world.model, world.types
 			find(discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
 			local card = engage(find(discover, "Game_3"))
-			find(find(card, "More"), "Trigger").Activated.fire()
+			find(card, "More").Activated.fire()
 			local panel = find(world.target, "MenuPanel")
 			t.expect(find(panel, "Share") ~= nil).toBe(true)
 			t.expect(find(panel, "Report"):GetAttribute("role")).toBe("destructive")
