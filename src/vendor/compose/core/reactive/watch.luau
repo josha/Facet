@@ -30,6 +30,7 @@ type Watch = {
 	retry: boolean?,
 	derived: boolean?,
 	queued: boolean,
+	guarded: boolean,
 	run: (self: Scheduled) -> ...unknown,
 
 	reactor: Reactor,
@@ -45,6 +46,8 @@ WATCH.derived = false
 WATCH.sink = false
 
 WATCH.enqueueSettle = false
+
+WATCH.guarded = false
 
 local FUSE_AT = 8
 type Dispose = Types.Dispose
@@ -85,12 +88,20 @@ local function run(scheduled: Scheduled)
 		return
 	end
 	if self.state == Graph.CHECK then
-		self.retry = true
-		local moved = Graph.dependenciesMoved(self)
-		self.retry = false
-		if not moved then
-			self.state = Graph.CLEAN
-			return
+		if self.guarded then
+			local checked, moved = pcall(Graph.dependenciesMoved, self)
+			if checked and not moved then
+				self.state = Graph.CLEAN
+				return
+			end
+		else
+			self.retry = true
+			local moved = Graph.dependenciesMoved(self)
+			self.retry = false
+			if not moved then
+				self.state = Graph.CLEAN
+				return
+			end
 		end
 	end
 	evaluateQueued(self)
@@ -113,9 +124,7 @@ local function create(reactor: Reactor, body: Body): Watch
 	}, WATCH) :: any
 end
 
-local function watch(reactor: Reactor, body: Body, label: string?): Dispose
-	local self = create(reactor, body)
-
+local function start(self: Watch, label: string?): Dispose
 	if statsOn.enabled then
 		profile.born(self, label)
 	end
@@ -133,6 +142,16 @@ local function watch(reactor: Reactor, body: Body, label: string?): Dispose
 		Graph.release(self)
 		self.queued = false
 	end
+end
+
+local function watch(reactor: Reactor, body: Body, label: string?): Dispose
+	return start(create(reactor, body), label)
+end
+
+local function watchGuarded(reactor: Reactor, body: Body, label: string?): Dispose
+	local self = create(reactor, body)
+	self.guarded = true
+	return start(self, label)
 end
 
 local function watchStatic<T>(reactor: Reactor, producer: Types.Readable<T>, body: (value: T) -> ()): Dispose
@@ -227,6 +246,7 @@ end
 
 return {
 	watch = watch,
+	watchGuarded = watchGuarded,
 	watchStatic = watchStatic,
 	watchTerminal = watchTerminal,
 	sample = sample,

@@ -4,6 +4,7 @@ local Types = require "../reactive/types"
 local Inspect = require "./inspect"
 local Reactor = require "../reactive/reactor"
 local watchModule = require "../reactive/watch"
+local Graph = require "../reactive/graph"
 
 type Dispose = Types.Dispose
 type Scope = Types.Use
@@ -68,6 +69,21 @@ local function releaseEntry(entry: Entry, failures: { unknown })
 	if not settled then
 		table.insert(failures, later)
 	end
+end
+
+export type RunScope = { scope: Owner, base: number }
+
+local runScopes: { [unknown]: RunScope } = setmetatable({}, { __mode = "k" }) :: any
+local activationDepth: () -> number = function(): number
+	return 0
+end
+
+local function installActivationDepth(depth: () -> number)
+	activationDepth = depth
+end
+
+local function runScopeOf(consumer: unknown): RunScope?
+	return runScopes[consumer]
 end
 
 local function createOwner(inherited: Reactor.Reactor?): Owner
@@ -244,12 +260,14 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		if boundary == nil then
 			return startWatch(watchModule.watchStatic, producer, body, afterDispose)
 		end
-		return startWatch(watchModule.watchStatic, producer, function(value: T)
-			local ok, err: unknown = pcall(body, value)
+		return startWatch(watchModule.watchGuarded, function(use: Types.Use)
+			local ok, err: unknown = pcall(function()
+				body(use(producer))
+			end)
 			if not ok then
 				boundary.report(err)
 			end
-		end, afterDispose)
+		end, nil, afterDispose)
 	end
 
 	local function ownedWatchTerminal(body: (use: Types.Use) -> (), afterDispose: Dispose?): Dispose
@@ -268,20 +286,65 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		end, nil, afterDispose)
 	end
 
+	local function scopedRuns(body: (use: Types.Use) -> (), afterDispose: Dispose?): ((use: Types.Use) -> (), Dispose)
+		local run: Owner? = nil
+		local scope = setmetatable({}, {
+			__index = function(_: unknown, key: string): unknown
+				local current = run
+				if current == nil then
+					current = createChild()
+					run = current
+				end
+				return ((current :: any) :: { [string]: unknown })[key]
+			end,
+		}) :: any
+		local function release()
+			local current = run
+			if current ~= nil then
+				run = nil
+				current.dispose()
+			end
+		end
+		local record: RunScope = { scope = scope :: Owner, base = 0 }
+		local registered = false
+		local function scoped(use: Types.Use)
+			if run ~= nil then
+				release()
+			end
+			if not registered then
+				local consumer = Graph.evaluationContext()
+				if consumer ~= nil then
+					runScopes[consumer] = record
+					registered = true
+				end
+			end
+			record.base = activationDepth()
+			body(use)
+		end
+		local function released()
+			release()
+			if afterDispose ~= nil then
+				afterDispose()
+			end
+		end
+		return scoped, released
+	end
+
 	local function ownedWatch(body: (use: Types.Use) -> (), label: string?, afterDispose: Dispose?): Dispose
 		if Inspect.isActive() then
 			Inspect.watch(owner)
 		end
+		local scoped, released = scopedRuns(body, afterDispose)
 		local boundary = owner.boundary
 		if boundary == nil then
-			return startWatch(watchModule.watch, body, label, afterDispose)
+			return startWatch(watchModule.watch, scoped, label, released)
 		end
-		return startWatch(watchModule.watch, function(use: Types.Use)
-			local ok, err: unknown = pcall(body, use)
+		return startWatch(watchModule.watchGuarded, function(use: Types.Use)
+			local ok, err: unknown = pcall(scoped, use)
 			if not ok then
 				boundary.report(err)
 			end
-		end, label, afterDispose)
+		end, label, released)
 	end
 
 	owner = {
@@ -314,4 +377,6 @@ end
 
 return {
 	createOwner = createOwner,
+	installActivationDepth = installActivationDepth,
+	runScopeOf = runScopeOf,
 }

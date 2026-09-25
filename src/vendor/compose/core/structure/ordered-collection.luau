@@ -247,7 +247,10 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		if existing ~= nil then
 			return existing
 		end
-		local list = builtFor :: { V }
+		local list = builtFor
+		if list == nil then
+			return {}
+		end
 		local map: { [K]: number } = {}
 		for index = 1, #list do
 			map[keyOf(list[index], index)] = index

@@ -2,6 +2,7 @@
 
 local Diagnostics = require "../diagnostics"
 local Owner = require "./owner"
+local Graph = require "../reactive/graph"
 local Types = require "../reactive/types"
 
 type Dispose = Types.Dispose
@@ -11,6 +12,13 @@ type Activation = { owner: Owner.Owner, thread: thread }
 local activations: { Activation } = {}
 
 local function current(): Owner.Owner?
+	local context = Graph.evaluationContext()
+	if context ~= nil then
+		local record = Owner.runScopeOf(context)
+		if record ~= nil and #activations <= record.base then
+			return record.scope
+		end
+	end
 	local running = coroutine.running()
 	local inherited: Owner.Owner? = nil
 	for index = #activations, 1, -1 do
@@ -101,6 +109,8 @@ local function runWith1<T>(owner: Owner.Owner, body: () -> T): T
 	end
 	return result
 end
+
+Owner.installActivationDepth(depth)
 
 local function resetForTests()
 	table.clear(activations)
