@@ -444,12 +444,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			return false
 		end
 		local function commit()
-			if disposed or draft or spec.onCommit == nil then
+			local onCommit = spec.onCommit
+			if disposed or draft or onCommit == nil then
 				return
 			end
 			local value = held:peek()
 			if value ~= nil then
-				spec.onCommit(value)
+				onCommit(value)
 			end
 		end
 		local function apply()
@@ -1199,11 +1200,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				table.insert(
 					parts,
 					UI.Button("Edit")({
-						label = function(use: Use)
+						label = function(use: Use): string
 							return if use(editing) then "Done" else "Edit"
 						end,
 						appearance = "link",
-						enabled = function(use: Use)
+						enabled = function(use: Use): boolean
 							return interactive(use)
 						end,
 						onActivate = function()
@@ -1278,7 +1279,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				min = 0,
 				max = max,
 				precision = 0,
-				enabled = function(use: Use)
+				enabled = function(use: Use): boolean
 					return interactive(use)
 				end,
 				Size = D2.new(1 / 3, -6, 0, 0),
@@ -1346,7 +1347,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				label = "Hex",
 				value = text,
 				errorText = hexError,
-				enabled = function(use: Use)
+				enabled = function(use: Use): boolean
 					return interactive(use)
 				end,
 				onCommit = function(typed: string)
@@ -1753,11 +1754,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			layout.VerticalAlignment = E.VerticalAlignment.Center
 			layout.HorizontalAlignment = if labelled then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
 			local well = UI.Button("Well")({
-				name = function(use: Use)
+				name = function(use: Use): string
 					return semanticName(use)
 				end,
 				appearance = if labelled then nil else "utility",
-				enabled = function(use: Use)
+				enabled = function(use: Use): boolean
 					return enabled(use)
 				end,
 				Size = function(use: Use)
@@ -1903,7 +1904,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			} :: Shared.Attributes,
 		})
-		return ctx.styled(root, "color-picker")
+		local picker: Frame = root
+		return ctx.styled(picker, "color-picker")
 	end
 
 	local constructor = ctx.construct("ColorPicker", build)

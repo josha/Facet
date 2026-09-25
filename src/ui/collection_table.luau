@@ -321,14 +321,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 					AutomaticSize = E.AutomaticSize.None,
 					appearance = "utility",
 					TextXAlignment = E.TextXAlignment.Left,
-					label = function(use: ComposeTypes.Use)
+					label = function(use: ComposeTypes.Use): string
 						local value, order = use(current), readSource(sort, use)
 						local suffix = if order and order.column == value.id
 							then (if order.direction == "descending" then " ↓" else " ↑")
 							else ""
 						return tostring(read(value.label or value.id, use)) .. suffix
 					end,
-					enabled = function(use: ComposeTypes.Use)
+					enabled = function(use: ComposeTypes.Use): boolean
 						return use(current).sortable ~= false
 					end,
 					onActivate = function()

@@ -525,6 +525,40 @@ t.describe("native layout primitives", function()
 			stop()
 		end)
 
+		t.it("fills columns first with flow column and follows the child count", function()
+			local root, engine, stop = build(nil, function(UI, Host)
+				return UI.Grid "Board" {
+					columns = 2,
+					flow = "column",
+					Host.Frame { Name = "A" },
+					Host.Frame { Name = "B" },
+					Host.Frame { Name = "C" },
+					Host.Frame { Name = "D" },
+					Host.Frame { Name = "E" },
+				}
+			end)
+			local E = engine.types.Enum
+			local grid = child(root, "UIGridLayout")
+			t.expect(grid.FillDirection).toBe(E.FillDirection.Vertical)
+			t.expect(grid.FillDirectionMaxCells).toBe(3)
+			t.expect(grid.CellSize.X.Scale).toBeCloseTo(1 / 2)
+			local extra = engine.new("Frame")
+			extra.Parent = root
+			local more = engine.new("Frame")
+			more.Parent = root
+			t.expect(grid.FillDirectionMaxCells).toBe(4)
+			more.Parent = nil
+			extra.Parent = nil
+			t.expect(grid.FillDirectionMaxCells).toBe(3)
+			stop()
+			t.expect(mentions(
+				refusal(function(UI)
+					return UI.Grid { columns = 2, flow = "diagonal" :: any }
+				end),
+				"flow must be row or column"
+			)).toBe(true)
+		end)
+
 		t.it("takes a separate row gap, a cell height and an aspect ratio", function()
 			local columns = Compose.cell(2)
 			local root, engine, stop = build(nil, function(UI)

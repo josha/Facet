@@ -409,6 +409,52 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("snaps the showing page into place without motion when the pages frame resizes", function()
+		local world = setup(function(UI, Host)
+			return UI.PageView({
+				selection = Compose.cell("two"),
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) },
+					{ id = "two", title = "Two", content = Host.Frame({}) },
+				},
+			})
+		end)
+		local layout = find(world.screen, "PagesLayout")
+		local writes = {}
+		layout:GetPropertyChangedSignal("Animated"):Connect(function()
+			table.insert(writes, tostring(layout.Animated))
+		end)
+		t.expect(layout.Animated).toBe(true)
+		find(world.screen, "Pages").AbsoluteSize = world.engine.types.Vector2.new(640, 240)
+		t.expect(table.concat(writes, ",")).toBe("false,true")
+		t.expect(layout.CurrentPage.Name).toBe("two")
+		world.stop()
+	end)
+
+	t.it("pages in a clipped frame with no scroll bar and shows one dot per page", function()
+		local world = setup(function(UI, Host)
+			return UI.PageView({
+				selection = Compose.cell("one"),
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) },
+					{ id = "two", title = "Two", content = Host.Frame({}) },
+					{ id = "three", title = "Three", content = Host.Frame({}) },
+				},
+			})
+		end)
+		local pages = find(world.screen, "Pages")
+		t.expect(pages.ClassName).toBe("Frame")
+		t.expect(pages.ClipsDescendants).toBe(true)
+		local dots = 0
+		for _, child in find(world.screen, "Indicators"):GetChildren() do
+			if child:HasTag("facet-page-indicator") then
+				dots += 1
+			end
+		end
+		t.expect(dots).toBe(3)
+		world.stop()
+	end)
+
 	t.it("pages by direction from a control inside the showing page", function()
 		local selection = Compose.cell("one")
 		local world = setup(function(UI, Host)
@@ -804,6 +850,25 @@ t.describe("native navigation controls", function()
 				})
 			end)
 		end).toThrow()
+	end)
+
+	t.it("reveals a disclosure at once under reduced motion, with no frame of travel", function()
+		local expanded = Compose.cell(false)
+		local world = setup(function(UI)
+			return UI.DisclosureGroup({
+				expanded = expanded,
+				label = "Details",
+				content = function()
+					return UI.Button "Inside" { label = "Inside" }
+				end,
+			})
+		end)
+		world.gui.ReducedMotionEnabled = true
+		expanded:set(true)
+		local reveal = find(world.screen, "Reveal")
+		t.expect(reveal.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.Y)
+		t.expect(find(world.screen, "Inside") ~= nil).toBe(true)
+		world.stop()
 	end)
 
 	t.it("returns disclosure focus before unmounting its content", function()

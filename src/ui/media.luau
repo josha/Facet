@@ -8,6 +8,7 @@ local Theme = require("./theme_types")
 local ComposeTypes = require("../vendor/compose/core")
 local bindThemes = require("./themes")
 local pathShapes = require("./nav_path_shapes")
+local decoration = require("./native_decoration")
 export type MediaControls = Media.MediaControls
 
 local SETTLE_SECONDS = 0.15
@@ -174,6 +175,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		"rich",
 		"direction",
 		"tint",
+		"lines",
 	}
 	local ALIGN: { [string]: Enum.TextXAlignment } = {
 		start = E.TextXAlignment.Left,
@@ -232,6 +234,13 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			"Facet Text: set the type role one time, with textSize or textRole"
 		)
 		local fit = if pixels == nil and sizeRole == nil then fitOf(size :: Media.TextFit?) else nil
+		local lines = spec.lines
+		assert(
+			lines == nil or (type(lines) == "number" and lines >= 1 and lines % 1 == 0),
+			"Facet Text lines must be a whole number, 1 or more"
+		)
+		assert(lines == nil or not cut, "Facet Text lines cannot combine with a middle cut")
+		assert(lines == nil or fit == nil, "Facet Text lines cannot combine with a fitted text size")
 		local defaults: Engine.TextLabelNativeProps = {
 			Text = if cut then read(source) or "" else bind(source, ""),
 		}
@@ -264,6 +273,12 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		elseif truncate == "end" then
 			defaults.TextTruncate = E.TextTruncate.AtEnd
 		end
+		if lines then
+			defaults.Size = D2.fromScale(1, 0)
+			defaults.AutomaticSize = E.AutomaticSize.Y
+			defaults.TextWrapped = true
+			defaults.TextTruncate = E.TextTruncate.AtEnd
+		end
 		local roleSource: Types.Value<Media.TextRole>? = sizeRole or spec.textRole
 		if fit then
 			local function scale(bound: Media.TextFitBound, use: ComposeTypes.Use): number
@@ -284,10 +299,58 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			})
 		end
 		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults)), roleSource)
+		if lines then
+			local styledSize = ctx.observeStyled.TextSize(label)
+			local styledLine = ctx.observeStyled.LineHeight(label)
+			runtime.mount(function()
+				return Host.UISizeConstraint({
+					Name = "LineClamp",
+					MaxSize = function(use: ComposeTypes.Use): Vector2
+						local inset = label:FindFirstChildWhichIsA("UIPadding")
+						local vertical = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
+						return V2.new(math.huge, math.ceil(lines * use(styledSize) * use(styledLine)) + vertical)
+					end,
+				})
+			end, label)
+		end
 		if cut then
 			local measured = ctx.observe.AbsoluteSize(label)
+			local insets = Compose.cell({ left = D.new(0, 0), right = D.new(0, 0) })
+			local sideConnections: { RBXScriptConnection } = {}
+			local function paddingChanged()
+				for _, connection in sideConnections do
+					connection:Disconnect()
+				end
+				table.clear(sideConnections)
+				local inset = label:FindFirstChildWhichIsA("UIPadding")
+				local function refresh()
+					insets:set(
+						if inset
+							then { left = inset.PaddingLeft, right = inset.PaddingRight }
+							else { left = D.new(0, 0), right = D.new(0, 0) }
+					)
+				end
+				if inset then
+					table.insert(sideConnections, inset:GetPropertyChangedSignal("PaddingLeft"):Connect(refresh))
+					table.insert(sideConnections, inset:GetPropertyChangedSignal("PaddingRight"):Connect(refresh))
+				end
+				refresh()
+			end
+			runtime.connect(label, "ChildAdded", paddingChanged)
+			runtime.connect(label, "ChildRemoved", paddingChanged)
+			Compose.cleanup(function()
+				for _, connection in sideConnections do
+					connection:Disconnect()
+				end
+			end)
+			paddingChanged()
 			local width = Compose.formula(function(use: ComposeTypes.Use): number
-				return use(measured).X
+				local box = use(measured).X
+				local inset = use(insets)
+				return math.max(
+					0,
+					box - inset.left.Scale * box - inset.left.Offset - inset.right.Scale * box - inset.right.Offset
+				)
 			end)
 			local textSize = ctx.observe.TextSize(label)
 			local face = ctx.observe.FontFace(label)
@@ -610,6 +673,57 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end, pill)
 		end
 		skin(pill, "badge")
+		if (pill :: Instance) == (node :: Instance) and ctx.config.theme ~= nil then
+			local function needsCaption(use: ComposeTypes.Use?): boolean
+				local package = read(ctx.config.theme, use)
+				local recipe = package and package.chrome and package.chrome.badge
+				return recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
+			end
+			local function lifted()
+				Compose.cleanup(function()
+					node:RemoveTag("facet-badge-captioned")
+				end)
+				local label = ctx.styled(
+					ctx.text({
+						Name = "Label",
+						Size = D2.fromScale(1, 1),
+						AutomaticSize = E.AutomaticSize.None,
+						ZIndex = 1,
+						Text = ctx.observe.Text(node),
+						TextColor3 = ctx.observeStyled.TextColor3(node),
+						FontFace = ctx.observeStyled.FontFace(node),
+						TextSize = ctx.observeStyled.TextSize(node),
+						TextXAlignment = ctx.observeStyled.TextXAlignment(node),
+						TextYAlignment = ctx.observeStyled.TextYAlignment(node),
+					}),
+					"badge-caption"
+				)
+				local boundary = decoration(Compose, runtime, types, node, label, { inset = true })
+				Compose.watch(function(use: ComposeTypes.Use)
+					local visible = needsCaption(use)
+					boundary.Visible = visible
+					if visible then
+						node:AddTag("facet-badge-captioned")
+					else
+						node:RemoveTag("facet-badge-captioned")
+					end
+				end)
+				return boundary
+			end
+			if Compose.isReadable(ctx.config.theme) or type(ctx.config.theme) == "function" then
+				local attached = false
+				runtime.mountFragment(function()
+					return {
+						Compose.show(function(use: ComposeTypes.Use)
+							attached = attached or needsCaption(use)
+							return attached
+						end, lifted),
+					}
+				end, node)
+			elseif needsCaption() then
+				runtime.mount(lifted, node)
+			end
+		end
 		return pill
 	end)
 
@@ -743,6 +857,78 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 		end)
 		return node
+	end)
+
+	UI.Path = ctx.construct("Path", function(spec: Media.PathProps): Frame
+		assert(spec.points ~= nil, "Facet Path requires points")
+		local width, height = spec.width, spec.height
+		assert(width == nil or (type(width) == "number" and width > 0), "Facet Path width must be a positive number")
+		assert(
+			height == nil or (type(height) == "number" and height > 0),
+			"Facet Path height must be a positive number"
+		)
+		local stroke: Engine.Path2DNativeProps = {
+			Name = "Stroke",
+			Closed = function(use: ComposeTypes.Use): boolean
+				return read(spec.closed, use) == true
+			end,
+		}
+		if spec.thickness ~= nil then
+			stroke.Thickness = function(use: ComposeTypes.Use): number
+				local value = read(spec.thickness, use)
+				if type(value) == "string" then
+					return metric(value, use)
+				end
+				assert(
+					type(value) == "number" and value > 0,
+					"Facet Path thickness must be a positive number or a theme metric name"
+				)
+				return value
+			end
+		end
+		if spec.tint ~= nil then
+			stroke.Color3 = function(use: ComposeTypes.Use): Color3
+				return read(spec.tint, use) :: Color3
+			end
+		end
+		local path = ctx.styled(Host.Path2D(stroke), "path")
+		local previousRole: string?
+		Compose.watch(function(use: ComposeTypes.Use)
+			local role = read(spec.role, use) or "content"
+			assert(
+				role == "content" or role == "secondary" or role == "accent",
+				"Facet Path role must be content, secondary or accent"
+			)
+			if previousRole then
+				path:RemoveTag(previousRole)
+			end
+			previousRole = "facet-path-" .. role
+			path:AddTag(previousRole :: string)
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local points = read(spec.points, use) :: { Media.PathPoint }
+			assert(type(points) == "table", "Facet Path points must be a list of pathShapes points")
+			assert(#points <= pathShapes.MAX_CONTROL_POINTS, "Facet Path takes at most 100 control points")
+			local native: { Path2DControlPoint } = {}
+			for _, point in points do
+				table.insert(
+					native,
+					types.Path2DControlPoint.new(
+						D2.fromScale(point.x, point.y),
+						D2.fromScale(point.inX, point.inY),
+						D2.fromScale(point.outX, point.outY)
+					)
+				)
+			end
+			path:SetControlPoints(native)
+		end)
+		local props = ctx.props(spec, { "points", "thickness", "closed", "role", "tint", "width", "height" }, {
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = if width or height then D2.fromOffset(width or height or 0, height or width or 0) else nil,
+		})
+		table.insert(props, path)
+		return Host.Frame(props)
 	end)
 
 	UI.ProgressView = ctx.construct("ProgressView", function(spec: Media.ProgressViewProps): Frame

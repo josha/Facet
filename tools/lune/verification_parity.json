@@ -2152,17 +2152,29 @@
       "nativeMechanism": "GuiService engine directional selection over Selectable controls",
       "nativeEvidence": "none",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
+      }
     },
     {
       "id": "apps2-11",
@@ -2515,7 +2527,9 @@
         ],
         "observed": "The Fahrenheit TextBox of example 01 enters editing from a mouse click, from an iPhone touch tap (the input arrived as Touch), from Return on the selected field, and from Gamepad1 ButtonA on the selected field. Typing updates the value and the live preview. Nothing commits while editing. Return commits 212 F as 100 C. Focus loss commits 32 F as 0 C."
       },
-      "weaker": "Gamepad B cancelling the edit back to the snapshot is not driven live. While the TextBox has focus, the Controller Emulator's keys go to the TextBox and not to the pad, and VirtualInput refuses ButtonB and Escape."
+      "candidateCases": [
+        "native_parity_weaker_actions::native parity weaker actions::cancels a Fahrenheit edit back to the value it started with and ends the edit"
+      ]
     },
     {
       "id": "apps2-31",
@@ -2546,17 +2560,30 @@
       "nativeMechanism": "GuiService.SelectedObject directional navigation and native InputActions",
       "nativeEvidence": "Control level: native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input. No playlist-specific or live evidence.",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
       },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+      "weaker": "Every visible control in every demo is reachable by real Gamepad1 D-pad and stick input (gamepad_walk/reach-*). Main also asserted the exact order of each route and behaviour this walk does not drive: Playlist gamepad/keyboard routes: activate filter field, selection follows focus, d-pad past rating into tray, Left selects edit ⊖."
     },
     {
       "id": "apps2-33",
@@ -2750,17 +2777,30 @@
       "nativeMechanism": "GuiService selection with Return/ButtonA activation; UIListLayout/AutomaticSize under PreferredTextSize",
       "nativeEvidence": "none example-specific",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
       },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+      "weaker": "Every visible control in every demo is reachable by real Gamepad1 D-pad and stick input (gamepad_walk/reach-*). Main also asserted the exact order of each route and behaviour this walk does not drive: Settings sync keyboard/gamepad routes and compact phone at every text size."
     },
     {
       "id": "apps2-44",
@@ -3233,17 +3273,29 @@
       "nativeMechanism": "GuiService.SelectedObject engine directional selection and GuiButton.Activated on Return/ButtonA",
       "nativeEvidence": "none for these examples (native selection geometry is not simulated by the fake engine; no live entry in parity_blockers.json or gap-closure-live.json for games)",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
+      }
     },
     {
       "id": "apps2-69",
@@ -4684,7 +4736,7 @@
         "native_perf_runner::perf runner settle boundary::settles after each warmup and sample before the next event",
         "native_parity_strength_textperf::performance lab evidence::the perf runner counts live native connections for an engine scene"
       ],
-      "weaker": "liveRegistry.registrations is still measured = false. Compose owns reactive registrations, and it has no public census that the runner can read."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: liveRegistry.registrations is still measured = false. Compose owns reactive registrations, and it has no public census that the runner can read."
     },
     {
       "id": "apps2-162",
@@ -4803,17 +4855,30 @@
       "nativeMechanism": "GuiService selection over Selectable Resize grips and Sort buttons",
       "nativeEvidence": "none",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
       },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+      "weaker": "Every visible control in every demo is reachable by real Gamepad1 D-pad and stick input (gamepad_walk/reach-*). Main also asserted the exact order of each route and behaviour this walk does not drive: The header is reachable by a Tab walk from the first focus stop."
     },
     {
       "id": "apps2-170",
@@ -5123,7 +5188,6 @@
         "native_parity_strength_motion::radial retirement motion::a retiring branch keeps its geometry, leaves the focus order and then releases",
         "native_parity_strength_motion::presented surface motion::a departing tab layer and a retiring radial slot stop taking input while they fade"
       ],
-      "weaker": "Stroke thinning during retirement is retired: api.md does not promise it.",
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Controller Emulator on; real Gamepad1 input through UserInputService:CreateVirtualInput() by live.press; Medium text",
         "artifacts": [
@@ -5133,7 +5197,8 @@
           "needs_live_c/radial-retiring-branch-refuses-selection"
         ],
         "observed": "Real Gamepad1 ButtonA on Branch keeps the retiring sector mounted and non-interactable; a script can still set the selection on its button, but one real D-pad press moves off it, five more never land on it, and the sector is released after its fade."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Stroke thinning during retirement is retired: api.md does not promise it."
     },
     {
       "id": "apps2-187",
@@ -5169,7 +5234,7 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Exact main geometry values are not asserted; the sweep checks containment."
     },
     {
       "id": "apps2-189",
@@ -5277,7 +5342,7 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Exact main geometry values are not asserted; the sweep checks containment."
     },
     {
       "id": "apps2-194",
@@ -6711,7 +6776,7 @@
         ],
         "observed": "In Virtual Monitors Discover on the iPhone, a touch tap on a feed card leaves GuiService.SelectedObject nil, so the engine draws no selection ring. At 1280x720 with nothing selected, one Gamepad1 DPadDown selects a Discover control, and the next moves it. The resolved PreferredInput follows the device (desktop KeyboardAndMouse, pad Gamepad, console Gamepad, phone Touch), and the Table adapts its header and resize grip to it."
       },
-      "weaker": "Hiding the ring with a mouse click after pad navigation is not driven: VirtualInput pointer input changes neither the engine's input mode nor the selection."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Hiding the ring with a mouse click after pad navigation is not driven: VirtualInput pointer input changes neither the engine's input mode nor the selection."
     },
     {
       "id": "apps2-281",
@@ -8877,18 +8942,22 @@
       "nativeMechanism": "Native TextButton text layout with UIPadding reserved for the indicator",
       "nativeEvidence": "native_inputs::native input controls::uses native Toggle text and reserved padding while retaining rich hints and live theme insets (asserts padding offsets, not narrow fit)",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; nine shipped themes; source stamp 92f2ed00-3691290",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/text_live-desktop-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
           "sweep_b/demo-sweep-phone",
-          "sweep_b/theme-sweep"
+          "sweep_b/theme-sweep",
+          "text_live/described-toggle-fits-a-narrow-row"
         ],
-        "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
+        "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes. A classic_desktop settings Toggle row with an icon and a description in a 320 px column keeps its width, wraps the description to two lines inside the row, and ends it before the trailing switch; the label column is more than twice the switch."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "candidateCases": [
+        "native_inputs::native input controls::wraps a settings row description inside its column so it never runs under the switch"
+      ]
     },
     {
       "id": "apps-131",
@@ -9334,9 +9403,9 @@
         "native_selection_parity::native selection parity with the main focus graph::skips hidden, disabled and removed controls and rereads the order on the next press",
         "native_selection_parity::native selection parity with the main focus graph::traps Tab inside a modal and restores the launching control when it closes"
       ],
-      "weaker": "Studio VirtualInput cannot send Tab, so the live check fires the Facet Traverse input action; Shift+Tab is headless only. Group-crossing rules follow the modal or screen scope, not main navigation groups.",
       "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json",
-      "restoredBy": "parity/gamepad"
+      "restoredBy": "parity/gamepad",
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Studio VirtualInput cannot send Tab, so the live check fires the Facet Traverse input action; Shift+Tab is headless only. Group-crossing rules follow the modal or screen scope, not main navigation groups."
     },
     {
       "id": "apps-159",
@@ -9554,7 +9623,7 @@
         ],
         "observed": "Before editing, Down moves the selection off the field. After Return enters editing, Down, Up, Left and Right each leave the selection on the field and the edit open, and typing still reaches the field."
       },
-      "weaker": "Tab committing and then advancing is not driven live: VirtualInput refuses Tab as a core-bound key."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Tab committing and then advancing is not driven live: VirtualInput refuses Tab as a core-bound key."
     },
     {
       "id": "apps-170",
@@ -9909,17 +9978,29 @@
       "nativeMechanism": "GuiService.SelectedObject + engine keyboard/gamepad GUI selection navigation (spatial, SelectionGroup/SelectionBehavior*/NextSelection*)",
       "nativeEvidence": "none",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
+      }
     },
     {
       "id": "apps-193",
@@ -10061,7 +10142,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paints state, selection and corner radii from each package's own tokens in every palette"
+      ]
     },
     {
       "id": "apps-201",
@@ -10095,7 +10178,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paints state, selection and corner radii from each package's own tokens in every palette"
+      ]
     },
     {
       "id": "apps-203",
@@ -10522,16 +10607,17 @@
       "nativeMechanism": "ScrollingFrame AutomaticCanvasSize / CanvasSize with UIListLayout Padding",
       "nativeEvidence": "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; Neutral; source stamp 3290878b-3694164",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/scroll_live-desktop-xbox.json"
         ],
         "cases": [
-          "sweep_b/scroll-sweep-desktop"
+          "sweep_b/scroll-sweep-desktop",
+          "scroll_live/scroll-view-canvas-covers-rows-and-gaps"
         ],
-        "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end."
-      },
-      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
+        "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end. A ScrollView of three 40 px rows with a 10 px gap has a 140 px canvas plus its padding, rows advance by 50 px, and the overflowing list scrolls."
+      }
     },
     {
       "id": "apps-225",
@@ -10559,16 +10645,17 @@
       "nativeMechanism": "ScrollingFrame ScrollingDirection + horizontal UIListLayout",
       "nativeEvidence": "native_collections::Compose native collections::uses measured extents and column placements for both scroll directions",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; Neutral; source stamp 3290878b-3694164",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/scroll_live-desktop-xbox.json"
         ],
         "cases": [
-          "sweep_b/scroll-sweep-desktop"
+          "sweep_b/scroll-sweep-desktop",
+          "scroll_live/horizontal-scroll-view-steps-along-x"
         ],
-        "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end."
-      },
-      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
+        "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end. An axis=\"x\" ScrollView of five 60 px cells with a 10 px gap steps 70 px along x, has a 340 px horizontal canvas plus padding, fills the window height, and does not scroll down."
+      }
     },
     {
       "id": "apps-227",
@@ -10584,14 +10671,15 @@
       "liveEvidence": {
         "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/classb_keyboard-desktop-default.json"
         ],
         "cases": [
-          "sweep_b/scroll-sweep-desktop"
+          "sweep_b/scroll-sweep-desktop",
+          "classb_keyboard/tab-scrolls-host-to-selection"
         ],
-        "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end."
-      },
-      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
+        "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end. Tab walks a ScrollView list and the engine scrolls the host so every Tab stop lies inside the scroll window (0 to 200)."
+      }
     },
     {
       "id": "apps-228",
@@ -11100,7 +11188,7 @@
         ],
         "observed": "A Compose presence region is toggled by real mouse clicks. Hiding it retires the panel instead of disposing it, and the panel knows it is exiting. Re-entry mid-exit reuses the same instance without building it again. Completing the exit disposes it exactly once, and a late completion disposes nothing twice. After 20 toggle cycles, 21 builds match 21 cleanups and the region is back at its baseline. A NavigationStack pop keeps the popped page present while it leaves, then removes it. Ten rapid push and pop cycles return the tree to its baseline."
       },
-      "weaker": "Main's ForEach rows holding their slot during an exit have no counterpart: keyed rows in this build dispose without an exit motion."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's ForEach rows holding their slot during an exit have no counterpart: keyed rows in this build dispose without an exit motion."
     },
     {
       "id": "apps-261",
@@ -15097,9 +15185,9 @@
         "native_selection_parity::native selection parity with the main focus graph::moves a removed collection row's selection to the following key, then the preceding one",
         "native_selection_parity::native selection parity with the main focus graph::takes the selection back from an engine fallback when the selected row's key is removed"
       ],
-      "weaker": "The nearest-survivor rule is restored for keyed rows. The focusPolicy field and its index policy stay removed; the owner decision (2 in docs/guide/21-retirements.md) restores the survivor rule and does not decide the field.",
       "liveEvidence": "artifacts/gamepad/gamepad-parity-live.json",
-      "restoredBy": "parity/gamepad"
+      "restoredBy": "parity/gamepad",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The nearest-survivor rule is restored for keyed rows. The focusPolicy field and its index policy stay removed; the owner decision (2 in docs/guide/21-retirements.md) restores the survivor rule and does not decide the field."
     },
     {
       "id": "collections-261",
@@ -16440,7 +16528,9 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "candidateCases": [
+        "native_inputs::native input controls::keeps an authored circle axis dominant instead of fitting inside a zero box"
+      ]
     },
     {
       "id": "inputs-41",
@@ -16575,7 +16665,7 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
     },
     {
       "id": "inputs-49",
@@ -16600,18 +16690,19 @@
       "nativeMechanism": "Native TextXAlignment/TextYAlignment from StyleSheet control rules; UIListLayout for icon+label.",
       "nativeEvidence": "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver (mirrored caption copies node alignment); no per-package centring assertion.",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; nine shipped themes; source stamp 92f2ed00-3691290",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/text_live-desktop-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
           "sweep_b/demo-sweep-phone",
-          "sweep_b/theme-sweep"
+          "sweep_b/theme-sweep",
+          "text_live/button-labels-centred-in-every-package"
         ],
-        "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
-      },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+        "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes. A label-only and an icon-and-label Button draw their label centred on the button within 1.5 px in all nine shipped packages."
+      }
     },
     {
       "id": "inputs-51",
@@ -17033,7 +17124,7 @@
         "native_gallery::native gallery::requests native haptics and releases effects when the screen closes",
         "native_parity_weaker_gallery::native parity weaker gallery::inputs-77 sensory demo requests press before release, toggles off and on, remounts on and tears down"
       ],
-      "weaker": "Nothing headless can observe the physical motor output. The demo reports motorConfirmed=false."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Nothing headless can observe the physical motor output. The demo reports motorConfirmed=false."
     },
     {
       "id": "inputs-78",
@@ -17139,7 +17230,7 @@
         ],
         "observed": "On a reorderable VirtualList, a mouse press with 2 px of travel on the Move handle never reorders. It arms exactly one row for a move, and a second tap commits that move and ends it. A mouse drag past the threshold reorders once (row 2 to slot 3) and ends the move. A click on the row content activates it once. On the iPhone, a finger that travels on the row content pans the list and never reorders or activates. A finger held on the handle and then moved reorders once. The live run found that a tap on the handle was eaten by the UIDragDetector: DragStart began a move and DragEnd committed it unchanged. A detector release with less than 3 px of travel now arms the move, and the next one commits it (native_collections::Compose native collections::arms a move on a detector tap and commits it on the next tap, written to fail first)."
       },
-      "weaker": "Main's declineTouch option and its per-device promotion tokens are not public here. Touch is declined by construction: row content pans, and only the Move handle drags."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's declineTouch option and its per-device promotion tokens are not public here. Touch is declined by construction: row content pans, and only the Move handle drags."
     },
     {
       "id": "inputs-84",
@@ -17586,7 +17677,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paints state, selection and corner radii from each package's own tokens in every palette"
+      ]
     },
     {
       "id": "inputs-111",
@@ -17791,7 +17884,7 @@
         ],
         "observed": "A multiline field with visibleLines 4 keeps its field frame outside a native ScrollingFrame named Viewport. Return inserts a newline, keeps editing and does not commit. Fourteen lines grow the canvas past the viewport, and typing at the end scrolls the caret line into view. Typing at the start scrolls back to the first line. Focus loss commits once and keeps every newline. A plain multiline field grows from 96 to 288 px for 16 hard breaks and the final empty line, and the label below moves down. The live run found the plain field stuck at 96 px because a wrapped TextBox reports TextBounds clamped to its own box. It now measures an invisible unclamped TextLabel (native_inputs::native input controls::grows a multiline field from an unclamped measure of its wrapped text, written to fail first)."
       },
-      "weaker": "The on-screen keyboard is not emulated in Studio, so the landscape keyboard shrink is not driven."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: The on-screen keyboard is not emulated in Studio, so the landscape keyboard shrink is not driven."
     },
     {
       "id": "inputs-123",
@@ -17827,7 +17920,7 @@
         ],
         "observed": "While typing, the caret reveal follows the caret. At the end it scrolls the viewport to the last line, and after the caret moves to the start and a character is typed it scrolls back to 0."
       },
-      "weaker": "Main's asynchronous caret-measure ownership (stale completions, font change before its event) is not observable from outside. Only the visible reveal is proven."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's asynchronous caret-measure ownership (stale completions, font change before its event) is not observable from outside. Only the visible reveal is proven."
     },
     {
       "id": "inputs-125",
@@ -17952,7 +18045,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paints state, selection and corner radii from each package's own tokens in every palette"
+      ]
     },
     {
       "id": "inputs-133",
@@ -18051,7 +18146,7 @@
         ],
         "observed": "On the iPhone emulator, a touch tap starts an edit and hi is typed. Enabling the Controller Emulator connects Gamepad1 mid-edit; the edit carries, the text is intact and nothing commits. When the device changes from the iPhone to the Xbox (touch and keyboard both gone), the edit ends through exactly one commit with reason focusLost, and the value keeps seedhi. Afterwards DPadDown moves the selection off the field. The live run found the edit wedged open after the dock. text_field now releases focus when touch leaves and no keyboard remains (native_inputs::native input controls::commits a touch edit when touch leaves with no keyboard and carries it otherwise, written to fail first)."
       },
-      "weaker": "The case where touch leaves and a hardware keyboard remains, and the keep-visible offset reset on dock, are covered headlessly only."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: The case where touch leaves and a hardware keyboard remains, and the keep-visible offset reset on dock, are covered headlessly only."
     },
     {
       "id": "inputs-138",
@@ -18110,7 +18205,7 @@
         ],
         "observed": "A desktop with no pad prefers KeyboardAndMouse, and clicks keep it there. After the Controller Emulator connects a pad, a pad press makes Gamepad primary, and ten mouse moves do not take that primacy. On the Xbox (no mouse, no touch) the pad stays primary after a click. The iPhone prefers Touch. The Table reads the fact: the header is 40 px on the desktop and 44 px with a pad, on the console and on the phone. The resize grip is 44 px only on the phone."
       },
-      "weaker": "A mouse click taking primacy back from a pad, and sub-deadzone stick drift, are not driven live. VirtualInput pointer input does not move the engine's PreferredInput, and the emulator's stick keys give only full deflection."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: A mouse click taking primacy back from a pad, and sub-deadzone stick drift, are not driven live. VirtualInput pointer input does not move the engine's PreferredInput, and the emulator's stick keys give only full deflection."
     },
     {
       "id": "inputs-142",
@@ -18225,7 +18320,7 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
     },
     {
       "id": "inputs-148",
@@ -18529,7 +18624,9 @@
         ],
         "observed": "The preferred binding follows the device class (K on the keyboard, ButtonX on the pad). For a Shift+J chord bound on both Shift keys, PreferredBinding is one of the two Shift siblings, and the hint names it Shift+J."
       },
-      "weaker": "The engine picks the preferred binding. Main's revision counter and provider teardown have no counterpart to count."
+      "candidateCases": [
+        "native_parity_weaker_focus::native parity weaker focus::keeps readable key names and no glyph when the native key service fails"
+      ]
     },
     {
       "id": "inputs-166",
@@ -18768,7 +18865,7 @@
         ],
         "observed": "Return on the selected field enters editing, and that same press commits nothing and changes nothing. The field is still editing twenty frames later. A second Return is the native TextBox submit. It makes exactly one commit (reason submit), keeps the value and does not re-enter editing."
       },
-      "weaker": "A second Return while editing is the engine's submit, not main's no-op: it commits once and ends the edit."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: A second Return while editing is the engine's submit, not main's no-op: it commits once and ends the edit."
     },
     {
       "id": "inputs-182",
@@ -19166,7 +19263,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paints state, selection and corner radii from each package's own tokens in every palette"
+      ]
     },
     {
       "id": "inputs-206",
@@ -19269,7 +19368,7 @@
         ],
         "observed": "On the iPhone, a touch tap on a SplitButton's primary runs it once. A finger held still for 1.5 s gives the engine TouchLongPress Begin, opens the alternatives and does not run the primary. Tapping the alternative runs it once."
       },
-      "weaker": "Two-finger pinch and rotate cannot be injected. A trackpad pinch over a list scrolled it by 50 px in Studio, so pinch-over-pan arbitration is not proven live."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Two-finger pinch and rotate cannot be injected. A trackpad pinch over a list scrolled it by 50 px in Studio, so pinch-over-pan arbitration is not proven live."
     },
     {
       "id": "inputs-212",
@@ -20014,7 +20113,11 @@
       ],
       "mainCases": 5,
       "class": "c",
-      "removal": "UI.Path deleted. UI.Divider is restored and takes a pixel or theme metric thickness (native_restored_controls); the Path thickness half stays deleted."
+      "removal": "UI.Path deleted. UI.Divider is restored and takes a pixel or theme metric thickness (native_restored_controls); the Path thickness half stays deleted.",
+      "candidateCases": [
+        "native_parity_restore::native parity restore: Path::takes its colour from a theme role or a tint, and its thickness from pixels or a metric",
+        "native_parity_restore::native parity restore: Path::strokes pathShapes points on a native Path2D and follows new points without a remount"
+      ]
     },
     {
       "id": "mech1-39",
@@ -20837,7 +20940,6 @@
         "native_layout::fill::refuses a weight that is not a positive number",
         "native_layout::VStack and HStack::sizes by fill, hug and pixels on each axis"
       ],
-      "weaker": "The content-terms height grammar (lines, rows, of, role) was not restored, and its retirement is not recorded in docs/guide/21-retirements.md (related deletions: mech3-75 text.lineBox and mech1-85 UI.Composition).",
       "closedBy": "native_layout::fill::makes a native flex item that fills the main axis, by weight when given",
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -20848,7 +20950,8 @@
           "primitives/fill-and-extents"
         ],
         "observed": "fill(2) takes twice fill() and the fills share the leftover width."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The content-terms height grammar (lines, rows, of, role) was not restored, and its retirement is not recorded in docs/guide/21-retirements.md (related deletions: mech3-75 text.lineBox and mech1-85 UI.Composition)."
     },
     {
       "id": "mech1-101",
@@ -20928,8 +21031,8 @@
         "native_restored_controls::native restored controls: Divider::composited over its surface, a washed divider is quieter than secondary content",
         "native_restored_controls::native restored controls: Divider::wears the divider tags and adds the strong tag while a bound appearance is strong"
       ],
-      "weaker": "Main also checked the non-native adapter path in screen_target. That path is deleted; the StyleSheet rule is the only paint path.",
-      "restoredBy": "parity/controls-restore"
+      "restoredBy": "parity/controls-restore",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main also checked the non-native adapter path in screen_target. That path is deleted; the StyleSheet rule is the only paint path."
     },
     {
       "id": "mech1-107",
@@ -21065,8 +21168,8 @@
         "native_parity_weak3_h2::native parity weak3 h2: keyed row factory failure outside a boundary::mounts independent rows later in the same update as a throwing row",
         "native_parity_weak3_h2::native parity weak3 h2: keyed row factory failure outside a boundary::cannot strand a retained row when an insertion precedes a throwing row"
       ],
-      "weaker": "Compose.keyed skips a throwing row, keeps and removes the other rows correctly and retries the throwing row on the next update, but it rethrows the failure to the code that wrote the cell; main returned normally and recorded the error. api.md says a failure outside every boundary stays a hard error.",
-      "restoredBy": "parity/restore"
+      "restoredBy": "parity/restore",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Compose.keyed skips a throwing row, keeps and removes the other rows correctly and retries the throwing row on the next update, but it rethrows the failure to the code that wrote the cell; main returned normally and recorded the error. api.md says a failure outside every boundary stays a hard error."
     },
     {
       "id": "mech1-116",
@@ -21418,7 +21521,7 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Exact main geometry values are not asserted; the sweep checks containment."
     },
     {
       "id": "mech2-03",
@@ -21721,7 +21824,6 @@
         "native_gallery_parity::restored native gallery parity::retains nested color overrides and control paint while disabling focus and activation together",
         "native_parity_weaker_gallery::native parity weaker gallery::mech2-25 nested tint follows the package, disable blocks every input class and moves focus"
       ],
-      "weaker": "The D-pad route is recorded with real Gamepad1 DPadDown (needs_live_input-power-off-traversal-gamepad.json). Tab cannot be injected: UserInputService VirtualInput refuses Tab as a core-bound key, so the Tab walk is asserted headless only.",
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Controller Emulator (Virtual Controller) on; real Gamepad1 input sent through UserInputService:CreateVirtualInput() and the emulator key map by live.press (DPadDown 3, DPadLeft 2, DPadRight 4, ButtonA 9, ButtonB 0, ButtonX 8, ButtonY 7, left stick up W); each artifact records the delivered Gamepad1 InputObjects in notes.deliveredInput; Medium text",
         "artifacts": [
@@ -21731,7 +21833,8 @@
           "needs_live_input/power-off-traversal"
         ],
         "observed": "With panel power off, real Gamepad1 DPadDown from PowerToggle visits Track and After and never Go or InnerGo."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: The D-pad route is recorded with real Gamepad1 DPadDown (needs_live_input-power-off-traversal-gamepad.json). Tab cannot be injected: UserInputService VirtualInput refuses Tab as a core-bound key, so the Tab walk is asserted headless only."
     },
     {
       "id": "mech2-26",
@@ -21959,7 +22062,6 @@
         "native_layout::VStack and HStack::maps align and distribute to the native list alignment and flex",
         "native_layout::Screen::fills its parent, pads the content by the m step and stacks vertically"
       ],
-      "weaker": "The margin vocabulary was not restored, and its retirement is not recorded in docs/guide/21-retirements.md.",
       "closedBy": "native_layout::ZStack::aligns every child by anchor point and scale position",
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -21971,7 +22073,8 @@
           "primitives/zstack-alignment"
         ],
         "observed": "ZStack alignment and grid cells solve to the expected engine rects."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The margin vocabulary was not restored, and its retirement is not recorded in docs/guide/21-retirements.md."
     },
     {
       "id": "mech2-41",
@@ -22018,7 +22121,6 @@
         "native_layout::VStack and HStack::pads each side on its own and keeps literal pixel values",
         "native_layout::fill::makes a native flex item that fills the main axis, by weight when given"
       ],
-      "weaker": "Aspect-with-fill measurement and capped content containers were not restored, and their retirement is not recorded in docs/guide/21-retirements.md.",
       "closedBy": "native_layout::Grid::divides the width into columns with a native grid layout",
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -22029,7 +22131,8 @@
           "primitives/grid-cells-and-gaps"
         ],
         "observed": "Row gap, padding and fill cells solve to engine rects."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Aspect-with-fill measurement and capped content containers were not restored, and their retirement is not recorded in docs/guide/21-retirements.md."
     },
     {
       "id": "mech2-43",
@@ -22065,7 +22168,10 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "candidateCases": [
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::forwards rich text and refuses a non-boolean flag or a middle cut",
+        "native_inputs::native input controls::escapes an underlined label for RichText"
+      ]
     },
     {
       "id": "mech2-45",
@@ -22104,9 +22210,9 @@
         "native_parity_restore::native parity restore: Label text fit and middle truncation::never cuts inside a multi-byte character",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::recomputes on a width or text change and on nothing else, and restores the whole value",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::re-derives the cut when the painted size changes",
-        "native_parity_restore::native parity restore: Label text fit and middle truncation::stays on one line and refuses rich text, wrapping and an unknown truncation"
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::stays on one line and refuses rich text, wrapping and an unknown truncation",
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::cuts the middle to the padded text area, not the outer box"
       ],
-      "weaker": "The real engine TextBounds cut is asserted live, including a re-cut on a theme text change. There is no disclosure plate for the full value.",
       "restoredBy": "parity/restore",
       "liveEvidence": {
         "host": "Roblox Studio playtest, viewport 749x368, Medium text; each fixture sets an 800x400 stage; a larger text size is raised through a grown theme package (+14), not PreferredTextSize",
@@ -22118,7 +22224,8 @@
           "weak3_geometry/label-middle-truncation-follows-a-theme-text-change"
         ],
         "observed": "34 engine checks passed, including: the middle-cut label mounts as a TextLabel; 60 px: the box is the offered width; 60 px: the painted line fits the width; 60 px: an ellipsis stands between head and tail."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The real engine TextBounds cut is asserted live, including a re-cut on a theme text change. There is no disclosure plate for the full value."
     },
     {
       "id": "mech2-47",
@@ -22163,7 +22270,10 @@
         ],
         "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end."
       },
-      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
+      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input.",
+      "candidateCases": [
+        "native_environment::scrollTo and scrollToVisible over native ScrollingFrame::moves both axes of an xy host to bring a node beyond both edges into view"
+      ]
     },
     {
       "id": "mech2-49",
@@ -22210,7 +22320,9 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "candidateCases": [
+        "native_selection_parity::native selection parity with the main focus graph::skips hidden, disabled and removed controls and rereads the order on the next press"
+      ]
     },
     {
       "id": "mech2-52",
@@ -22565,7 +22677,7 @@
         ],
         "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end."
       },
-      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
     },
     {
       "id": "mech2-79",
@@ -22781,7 +22893,9 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "candidateCases": [
+        "native_inputs::native input controls::sizes a Toggle label from a pixel textSize or a type role"
+      ]
     },
     {
       "id": "mech2-93",
@@ -22849,7 +22963,7 @@
         ],
         "observed": "A mouse wheel over a Move handle (a UIDragDetector zone) scrolls the list from 0 to 300 px and starts no reorder. On the iPhone, a finger that starts on row content pans the list, and a finger on the handle drags without moving the list."
       },
-      "weaker": "A second finger cannot be injected (VirtualInput drives one pointer), so ownership by the originating finger is not driven. A trackpad Pan over the handle did not scroll the ScrollingFrame in Studio."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: A second finger cannot be injected (VirtualInput drives one pointer), so ownership by the originating finger is not driven. A trackpad Pan over the handle did not scroll the ScrollingFrame in Studio."
     },
     {
       "id": "mech2-98",
@@ -23338,7 +23452,9 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "candidateCases": [
+        "native_inputs::native input controls::flips a Toggle as paint only: its box, text and padding stay put"
+      ]
     },
     {
       "id": "mech3-16",
@@ -23385,7 +23501,7 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
     },
     {
       "id": "mech3-18",
@@ -23754,7 +23870,9 @@
         ],
         "observed": "A cancel Button with shortcut K owns one Shortcut InputAction with both a K binding and a ButtonB binding. A real K press fires it, Gamepad1 ButtonB fires it, and a mouse click and an iPhone touch tap each fire the same control once."
       },
-      "weaker": "Touch reaches the control through its own GuiButton activation, not through an InputBinding.UIButton on the same action."
+      "candidateCases": [
+        "native_inputs::native input controls::binds one shortcut action to the key and the dialog button and activates once per press"
+      ]
     },
     {
       "id": "mech3-41",
@@ -24093,7 +24211,7 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
     },
     {
       "id": "mech3-65",
@@ -24259,18 +24377,22 @@
       "nativeMechanism": "Native UIPadding inside the text-bearing Instance",
       "nativeEvidence": "partial: native_inputs::native input controls::uses native Toggle text and reserved padding while retaining rich hints and live theme insets asserts UIPadding offsets follow theme insets; no Label padding case",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; nine shipped themes; source stamp 92f2ed00-3691290",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/text_live-desktop-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
           "sweep_b/demo-sweep-phone",
-          "sweep_b/theme-sweep"
+          "sweep_b/theme-sweep",
+          "text_live/padded-text-draws-inside-its-inset"
         ],
-        "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
+        "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes. A wrapped UI.Text with 20 px side and 8 px vertical padding draws its glyphs inside the padded width, and its box grows to hold the padded lines."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "candidateCases": [
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::cuts the middle to the padded text area, not the outer box"
+      ]
     },
     {
       "id": "mech3-77",
@@ -24295,7 +24417,7 @@
         ],
         "observed": "No unwrapped text label is cut in any of the ten demos at desktop and on the phone, or in the controls and collections demos in nine themes."
       },
-      "weaker": "Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Engine text measurement is proved by its result; main's premeasurement and calibration internals have no Facet equivalent to test."
     },
     {
       "id": "mech3-78",
@@ -24366,7 +24488,6 @@
         "native_parity_restore::native parity restore: Label text fit and middle truncation::honors an explicit cap and floor by role or pixels and follows the theme",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::refuses a misspelled fit option, a cap that is not a size and an unknown size"
       ],
-      "weaker": "TextScaled breaks a long word across lines when the box has height, so the painted size of the floor cases is not recovered; the floor is asserted as UITextSizeConstraint.MinTextSize. There is no preferred-text offset term; the engine applies the player preference.",
       "restoredBy": "parity/restore",
       "liveEvidence": {
         "host": "Roblox Studio playtest, viewport 749x368, Medium text; each fixture sets an 800x400 stage; a larger text size is raised through a grown theme package (+14), not PreferredTextSize",
@@ -24377,7 +24498,8 @@
           "weak3_geometry/label-text-size-fit-real-engine"
         ],
         "observed": "14 engine checks passed, including: a fitting label mounts with TextScaled; a label that fits paints the cap (body); the size comes down from the cap; the painted size fits the 80x24 box."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: TextScaled breaks a long word across lines when the box has height, so the painted size of the floor cases is not recovered; the floor is asserted as UITextSizeConstraint.MinTextSize. There is no preferred-text offset term; the engine applies the player preference."
     },
     {
       "id": "mech3-84",
@@ -25274,16 +25396,17 @@
       "nativeMechanism": "Native TextXAlignment through StyleSheet rules on the facet-type-heading/alert tags",
       "nativeEvidence": "none",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; Neutral; source stamp 0e822c15-3686408",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/paint_live-desktop-xbox.json"
         ],
         "cases": [
-          "sweep_b/theme-sweep"
+          "sweep_b/theme-sweep",
+          "paint_live/alert-title-is-centred"
         ],
-        "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
-      },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+        "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text. An Alert title draws its glyphs centred in the panel within 1.5 px at 800x600."
+      }
     },
     {
       "id": "navigation-1-38",
@@ -26083,7 +26206,9 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "candidateCases": [
+        "native_navigation::native navigation controls::reveals a disclosure at once under reduced motion, with no frame of travel"
+      ]
     },
     {
       "id": "navigation-2-17",
@@ -27638,7 +27763,9 @@
         ],
         "observed": "All 31 visible ScrollingFrames in the ten demos have a canvas that holds their content and scroll to its end."
       },
-      "weaker": "Two-axis freeze, indicators and nested arbitration are engine behaviour and are not driven by input."
+      "candidateCases": [
+        "native_navigation::native navigation controls::pages in a clipped frame with no scroll bar and shows one dot per page"
+      ]
     },
     {
       "id": "navigation-3-38",
@@ -28167,17 +28294,30 @@
       "nativeMechanism": "GuiService engine directional selection over UIListLayout-arranged buttons",
       "nativeEvidence": "native_navigation::native navigation controls::adapts automatic pickers and updates native segment axis and badges without replacing options (FillDirection follows axis)",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 D-pad and left stick); Medium text; Neutral; source stamp cb5c2929-3695971",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json",
+          "artifacts/studio-live/gamepad_walk-reach-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/gallery-dpad-walk",
+          "gamepad_walk/reach-all-controls",
+          "gamepad_walk/reach-collections",
+          "gamepad_walk/reach-motion-layout",
+          "gamepad_walk/reach-hud",
+          "gamepad_walk/reach-radial-menu",
+          "gamepad_walk/reach-ex02",
+          "gamepad_walk/reach-ex03",
+          "gamepad_walk/reach-ex05",
+          "gamepad_walk/reach-ex06",
+          "gamepad_walk/reach-ex07"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
+        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused. A breadth-first walk with real Gamepad1 DPadDown, DPadRight, DPadLeft and StickUp from every reached control reaches every visible, selectable control in all ten gallery demos and examples: 339 controls, none missing."
       },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+      "weaker": "Every visible control in every demo is reachable by real Gamepad1 D-pad and stick input (gamepad_walk/reach-*). Main also asserted the exact order of each route and behaviour this walk does not drive: Segmented strip navigates across on a pad; vertical rail vertical; live flip."
     },
     {
       "id": "navigation-3-69",
@@ -28422,7 +28562,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paints state, selection and corner radii from each package's own tokens in every palette"
+      ]
     },
     {
       "id": "navigation-3-84",
@@ -30793,7 +30935,9 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+      ]
     },
     {
       "id": "paint-16",
@@ -30964,17 +31108,18 @@
       "nativeMechanism": "GuiService.SelectedObject + native GuiButton.Activated for every input kind",
       "nativeEvidence": "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080 with the Controller Emulator (real Gamepad1 input); Medium text; Neutral; source stamp 3790121a-3681866",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/gamepad_walk-gamepad-xbox.json"
         ],
         "cases": [
           "sweep_b/demo-sweep-desktop",
-          "sweep_b/demo-sweep-phone"
+          "sweep_b/demo-sweep-phone",
+          "gamepad_walk/picker-activates-by-pad"
         ],
-        "observed": "Every visible Button and TextBox in all ten gallery demos and examples accepts engine selection: 344 controls at desktop and 257 on the phone, with none refused."
-      },
-      "weaker": "The sweep proves each control can hold engine selection; it does not walk main's directional order or drive a gamepad."
+        "observed": "Real Gamepad1 ButtonA on the selected Choices tab shows its page, makes a segmented Picker option current, and activates a DisclosureGroup trigger once."
+      }
     },
     {
       "id": "paint-28",
@@ -31388,7 +31533,9 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "candidateCases": [
+        "native_inputs::native input controls::centres the checkbox mark and tick on the box in every state"
+      ]
     },
     {
       "id": "paint-53",
@@ -31475,7 +31622,7 @@
         ],
         "observed": "With a pressHaptic HapticEffect in the controls, a haptic Button carries it as PressHapticEffect, and a Button without haptic carries none. The sensory feedback demo's press button carries its native PressHapticEffect, and a real mouse press records press feedback."
       },
-      "weaker": "Studio has no motor, so the physical vibration cannot be observed."
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: Studio has no motor, so the physical vibration cannot be observed."
     },
     {
       "id": "paint-58",
@@ -31681,16 +31828,17 @@
       "nativeMechanism": "Engine precedence of explicit Instance properties over StyleRule (api.md: 'Explicit Instance paint still overrides stylesheet paint')",
       "nativeEvidence": "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint (shows Facet writes no instance paint); precedence itself engine-owned, no live evidence",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; Neutral; source stamp 0e822c15-3686408",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/paint_live-desktop-xbox.json"
         ],
         "cases": [
-          "sweep_b/theme-sweep"
+          "sweep_b/theme-sweep",
+          "paint_live/explicit-paint-beats-the-sheet"
         ],
-        "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
-      },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+        "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text. An authored BackgroundColor3 on a Button paints over the StyleSheet, and a Button with no authored colour takes the sheet colour."
+      }
     },
     {
       "id": "paint-73",
@@ -31752,16 +31900,17 @@
       "nativeMechanism": "StyleRules .facet-toggle-indicator/.facet-toggle-on with native StyleRule transitions (retarget in flight)",
       "nativeEvidence": "native_themes_media::native themes and media::retargets native theme paint with shared timing and disables motion without replacing rules; native_inputs::native input controls::keeps Toggle native eligibility semantic...",
       "liveEvidence": {
-        "host": "Roblox Studio 0.740 playtest, desktop 1919x1080 (gui inset 87) with KeyboardAndMouse, and the iPhone 14 emulator in portrait with Touch; Medium text; nine shipped themes; source stamp c943b14d-3367818",
+        "host": "Roblox Studio 0.740 playtest, xbox device 1919x1080; Medium text; Neutral; source stamp 0e822c15-3686408",
         "artifacts": [
-          "artifacts/studio-live/sweep_b-desktop-default.json"
+          "artifacts/studio-live/sweep_b-desktop-default.json",
+          "artifacts/studio-live/paint_live-desktop-xbox.json"
         ],
         "cases": [
-          "sweep_b/theme-sweep"
+          "sweep_b/theme-sweep",
+          "paint_live/toggle-follows-a-live-palette"
         ],
-        "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
-      },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+        "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text. Swapping the live palette repaints the on Toggle track, keeps the value on and keeps the same instance."
+      }
     },
     {
       "id": "paint-77",
@@ -31963,7 +32112,7 @@
         ],
         "observed": "A circular ProgressView's RingFill Path2D keeps identical control points while its host is resized five times (320 to 600 px). A real progress change from 0.25 to 0.75 writes new points."
       },
-      "weaker": "The count of engine uploads is not observable. The case compares the Path2D control points, which are scale-relative, so a resize needs no new points."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The count of engine uploads is not observable. The case compares the Path2D control points, which are scale-relative, so a resize needs no new points."
     },
     {
       "id": "paint-89",
@@ -32301,7 +32450,9 @@
         ],
         "observed": "In nine shipped themes the controls and collections demos draw nothing past the screen sides and cut no text."
       },
-      "weaker": "Paint colours and corner radii are not compared with main's values."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::paint-113 every stroke rule strokes the border so text hosts never stroke their glyphs"
+      ]
     },
     {
       "id": "paint-114",
@@ -32781,7 +32932,9 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "candidateCases": [
+        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+      ]
     },
     {
       "id": "paint-146",
@@ -32806,7 +32959,7 @@
         ],
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
-      "weaker": "Exact main geometry values are not asserted; the sweep checks containment."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Exact main geometry values are not asserted; the sweep checks containment."
     },
     {
       "id": "paint-147",
@@ -33838,8 +33991,8 @@
       "candidateCases": [
         "native_restored_controls::native restored controls: Image::checks each geometry key against its mode in both directions"
       ],
-      "weaker": "imageFraming is not restored, so the refusal is the unknown-option error and not a circle-specific one.",
-      "restoredBy": "parity/controls-restore"
+      "restoredBy": "parity/controls-restore",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: imageFraming is not restored, so the refusal is the unknown-option error and not a circle-specific one."
     },
     {
       "id": "themes-P1-58",
@@ -35382,9 +35535,9 @@
       "mainCases": 2,
       "class": "a",
       "candidateCases": [
-        "native_inputs::native input controls::isolates artwork and mirrored captions from native automatic sizing while following real padding"
+        "native_inputs::native input controls::isolates artwork and mirrored captions from native automatic sizing while following real padding",
+        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
       ],
-      "weaker": "Main lifted the label full-bleed at zero inset. Natively the zero-inset lift spans the whole height but keeps the Button text padding floor (12 px each side), because the lift box is the Button's own UIPadding.",
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Medium text, and a second session at the Largest text size; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -36264,7 +36417,11 @@
       ],
       "mainCases": 4,
       "class": "c",
-      "removal": "UI.Box `tint` ({role, from, blend, direct}) and generic UI.Path with `role` were removed; CAND api.md has no tint prop (only Rating tint Color3 pairs) and no Path control; Path2D in CAND is internal to ProgressView/ra..."
+      "removal": "UI.Box `tint` ({role, from, blend, direct}) and generic UI.Path with `role` were removed; CAND api.md has no tint prop (only Rating tint Color3 pairs) and no Path control; Path2D in CAND is internal to ProgressView/ra...",
+      "candidateCases": [
+        "native_parity_restore::native parity restore: Path::takes its colour from a theme role or a tint, and its thickness from pixels or a metric",
+        "native_parity_restore::native parity restore: Path::strokes pathShapes points on a native Path2D and follows new points without a remount"
+      ]
     },
     {
       "id": "themes-P3-19",
@@ -39348,9 +39505,9 @@
       "candidateCases": [
         "native_card::native Card::reveals only the card whose grid browse stop is selected and moves with the selection"
       ],
-      "weaker": "A parked focus without a painted ring does not exist natively: a pointer session has no GuiService.SelectedObject.",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
-      "family": "content-navigation"
+      "family": "content-navigation",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: A parked focus without a painted ring does not exist natively: a pointer session has no GuiService.SelectedObject."
     },
     {
       "id": "post-card-23",
@@ -40000,8 +40157,7 @@
           "ports_content/choices-vote-row-inside-the-page"
         ],
         "observed": "The live case ports_content/choices-vote-row-inside-the-page passed with 6 checks."
-      },
-      "weaker": "Live evidence does not cover this part: Studio's xbox device reports Gamepad preferred input, so the gallery uses top bars rather than the desktop sidebar at 1542 x 1067."
+      }
     },
     {
       "id": "post-showcase-04",
@@ -40507,9 +40663,9 @@
       "candidateCases": [
         "native_card::native Card::puts an icon tab count on the icon corner and keeps a text tab count in its words"
       ],
-      "weaker": "A text tab and a text segmented option keep the count in their words (\"Inbox (3)\"), where main drew a separate trailing Badge pill; api.md documents the words. An icon tab and an icon segmented option wear the corner seal on the icon as on main.",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
-      "family": "content-navigation"
+      "family": "content-navigation",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: A text tab and a text segmented option keep the count in their words (\"Inbox (3)\"), where main drew a separate trailing Badge pill; api.md documents the words. An icon tab and an icon segmented option wear the corner seal on the icon as on main."
     },
     {
       "id": "post-overlays-001",
@@ -40754,9 +40910,9 @@
       "candidateCases": [
         "native_dialog::native Dialog: composition, layout and the height budget::the keyboard's occlusion takes its room from the budget"
       ],
-      "weaker": "The on-screen keyboard is modelled by UserInputService.OnScreenKeyboardVisible and OnScreenKeyboardSize. Studio's device simulator shows no on-screen keyboard, so the occlusion needs a touch device.",
       "needsLive": "overlays-dialog-keyboard",
-      "family": "overlays"
+      "family": "overlays",
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: The on-screen keyboard is modelled by UserInputService.OnScreenKeyboardVisible and OnScreenKeyboardSize. Studio's device simulator shows no on-screen keyboard, so the occlusion needs a touch device."
     },
     {
       "id": "post-overlays-015",
@@ -41022,8 +41178,8 @@
       "candidateCases": [
         "native_popover::native Popover: sources, anchor loss and bounds::a node source follows its node; removing it releases at once and reports anchorLost once"
       ],
-      "weaker": "Main's path source followed a replaced node at the same path; path addressing is not ported and the native source is one Instance. Following that Instance, releasing at once when it is removed and reporting anchorLost once are at main strength.",
-      "family": "overlays"
+      "family": "overlays",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's path source followed a replaced node at the same path; path addressing is not ported and the native source is one Instance. Following that Instance, releasing at once when it is removed and reporting anchorLost once are at main strength."
     },
     {
       "id": "post-overlays-030",
@@ -41111,8 +41267,8 @@
       "candidateCases": [
         "native_popover::native Popover: sources, anchor loss and bounds::a source that never mounts waits without an error and warns once, naming the source"
       ],
-      "weaker": "Main resolved a path source from an embedded screen's root; path addressing is not ported. A never-mounted node source waits without an error and warns once with the node name, as main warned once with the path.",
-      "family": "overlays"
+      "family": "overlays",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main resolved a path source from an embedded screen's root; path addressing is not ported. A never-mounted node source waits without an error and warns once with the node name, as main warned once with the path."
     },
     {
       "id": "post-overlays-035",
@@ -42135,8 +42291,8 @@
       "candidateCases": [
         "native_notice_navbar::native NavBar: the slot form::the default center is the one-line title, and every slot subset mounts"
       ],
-      "weaker": "Main's truncated title disclosed its full value (Text disclose); the native title truncates with TextTruncate.AtEnd on one line and has no disclosure.",
-      "family": "overlays"
+      "family": "overlays",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's truncated title disclosed its full value (Text disclose); the native title truncates with TextTruncate.AtEnd on one line and has no disclosure."
     },
     {
       "id": "post-overlays-095",
@@ -42209,8 +42365,8 @@
       "candidateCases": [
         "native_callout_help::native Callout: callbacks during a show never strand or double-close a plate::a retirement inside onShow retires once and takes the plate down"
       ],
-      "weaker": "Main's imperative api.dismiss() is not ported: the native Callout is retired by its caller's facts. The test retires it through featureUsed inside onShow and proves one report, the plate removed and the queue slot released to the next callout.",
-      "family": "overlays"
+      "family": "overlays",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's imperative api.dismiss() is not ported: the native Callout is retired by its caller's facts. The test retires it through featureUsed inside onShow and proves one report, the plate removed and the queue slot released to the next callout."
     },
     {
       "id": "post-overlays-100",
@@ -42310,8 +42466,8 @@
       "candidateCases": [
         "native_callout_help::native Callout: rich parts::an action retires its own generation once, and never a newer one it presented"
       ],
-      "weaker": "Main's api.rearm() and api.present() are not ported: a new generation is a new control, keyed by the caller, as in the showcase tour. The test proves the action's throw is raised, the old generation reports nothing, and the new generation's plate is a different panel that shows.",
-      "family": "overlays"
+      "family": "overlays",
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Main's api.rearm() and api.present() are not ported: a new generation is a new control, keyed by the caller, as in the showcase tour. The test proves the action's throw is raised, the old generation reports nothing, and the new generation's plate is a different panel that shows."
     },
     {
       "id": "post-overlays-106",
@@ -42855,7 +43011,6 @@
       "candidateCases": [
         "native_sheet_parts::native Sheet: gestures::default scrollPolicy never hands a body pan to the sheet; atLargestDetent yields below the tallest"
       ],
-      "weaker": "Below the tallest detent the body does not scroll, and at the tallest it does. Main also handed a downward pan from the top of the body at the tallest detent to the sheet; natively the body ScrollingFrame keeps that touch drag, so the sheet does not shrink from the body.",
       "needsLive": "overlays-sheet-gestures",
       "family": "overlays",
       "liveEvidence": {
@@ -42867,7 +43022,8 @@
           "ports_overlays/sheet-scroll-policy-and-detectors"
         ],
         "observed": "At the tallest detent the long wrapped copy in the Sheet body grows to its full text and is not cut."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Below the tallest detent the body does not scroll, and at the tallest it does. Main also handed a downward pan from the top of the body at the tallest detent to the sheet; natively the body ScrollingFrame keeps that touch drag, so the sheet does not shrink from the body."
     },
     {
       "id": "post-overlays-138",
@@ -43671,7 +43827,7 @@
         "native_fields::native field accessories::a static leading mark is not a stop; the clear and the trailing action are, in that order"
       ],
       "family": "pickers",
-      "weaker": "Selectable nodes in LayoutOrder replace the focus-graph traversal."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Selectable nodes in LayoutOrder replace the focus-graph traversal."
     },
     {
       "id": "post-pickers-011",
@@ -44349,7 +44505,7 @@
         "native_picker_fields::native Picker menu field::a labelled menu picker stands its title above a trigger at the leading edge"
       ],
       "family": "pickers",
-      "weaker": "The retired placement warning channel does not exist; the field form is proven structurally instead."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The retired placement warning channel does not exist; the field form is proven structurally instead."
     },
     {
       "id": "post-pickers-051",
@@ -45261,7 +45417,6 @@
         "native_slider_shapes::native Slider axis::the arrow that lands the ring is not a value step; the next arrow is"
       ],
       "family": "pickers",
-      "weaker": "DPadUp cannot be injected: the Controller Emulator maps it to the key 1, which UserInputService VirtualInput refuses as core-bound. The real stick Up from Boost selects HandleUpper, not Balance, under the engine stick geometry (ports_pickers-slider-landing-live-gamepad.json), so the landing is proven with the Up arrow key only.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080) or iPhone 14 where the case sets it, Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -45271,7 +45426,8 @@
           "ports_pickers/slider-landing-live"
         ],
         "observed": "The live case ports_pickers/slider-landing-live passed with 7 checks."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: device-only. The remaining part needs a physical device or input that Studio VirtualInput cannot send (multi-touch, the on-screen keyboard, a motor, Tab or DPadUp, a real mouse taking input primacy); the engine owns it and it is checked on a device, not in Studio. Former weaker note: DPadUp cannot be injected: the Controller Emulator maps it to the key 1, which UserInputService VirtualInput refuses as core-bound. The real stick Up from Boost selects HandleUpper, not Balance, under the engine stick geometry (ports_pickers-slider-landing-live-gamepad.json), so the landing is proven with the Up arrow key only."
     },
     {
       "id": "post-pickers-101",
@@ -45474,7 +45630,7 @@
         "native_slider_shapes::native Slider range::keyboard: each thumb is its own stop, and the arrows adjust the one holding the ring"
       ],
       "family": "pickers",
-      "weaker": "Roblox has no Tab traversal; each handle is Selectable and the ring is set through GuiService.SelectedObject."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Roblox has no Tab traversal; each handle is Selectable and the ring is set through GuiService.SelectedObject."
     },
     {
       "id": "post-pickers-111",
@@ -47086,9 +47242,9 @@
       "family": "foundation-parity",
       "candidateCases": [
         "native_foundation_parity::native xsmall rung::xsmall is one ladder step below compact unless the theme authors it, and a partial rung is refused",
-        "native_foundation_parity::native gallery foundation options::the gallery shows the xsmall rung, the inverse and underlined links, the plain checkbox and the outline"
+        "native_foundation_parity::native gallery foundation options::the gallery shows the xsmall rung, the inverse and underlined links, the plain checkbox and the outline",
+        "native_inputs::native input controls::floors a compact Button to the minimum touch target on touch and gamepad devices only"
       ],
-      "weaker": "The native Button is its own hit area, so the 44 px footprint is not reserved; api.md says an xsmall button is a 28 px target. The controlSize attribute replaces the facet-size-xsmall tag.",
       "needsLive": "port26-xsmall-rung",
       "liveFinding": {
         "artifacts": [
@@ -47098,7 +47254,8 @@
           "ports_foundation/xsmall-rung"
         ],
         "failed": "Tiny side padding is 4 px (12 px), TinyChip side padding is 4 px (12 px), the icon is 12 px (20 px): the xsmall rung sets the 28 px plate but the button padding and icon still use the regular rung; the 28 px plates and the mouse clicks passed."
-      }
+      },
+      "closeNote": "Restored for touch and gamepad devices (owner decision 35): the Button grows to targetSizes.minimum there; the plate grows with the target because the native button is its hit area. Former weaker note: The native Button is its own hit area, so the 44 px footprint is not reserved; api.md says an xsmall button is a 28 px target. The controlSize attribute replaces the facet-size-xsmall tag."
     },
     {
       "id": "post-port26-007",
@@ -47438,7 +47595,7 @@
         "native_foundation_parity::native strong divider, pane and utility outline::a strong divider is three times the hairline unless the theme authors its opacity",
         "native_foundation_parity::native strong divider, pane and utility outline::the see-through backgrounds are a measured set, and the preference moves only the scrim"
       ],
-      "weaker": "The native sheet paints eleven see-through backgrounds where main painted three: the soft appearance with its Hover and Press rules, the current choice with its Hover and Press rules, the grabber and the menu hairline are also translucent. The census case pins all eleven and proves that the preference moves only the scrim."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native sheet paints eleven see-through backgrounds where main painted three: the soft appearance with its Hover and Press rules, the current choice with its Hover and Press rules, the grabber and the menu hairline are also translucent. The census case pins all eleven and proves that the preference moves only the scrim."
     },
     {
       "id": "post-port26-022",
@@ -47455,7 +47612,7 @@
         "native_foundation_parity::native strong divider, pane and utility outline::a strong divider is three times the hairline unless the theme authors its opacity",
         "native_foundation_parity::native strong divider, pane and utility outline::the see-through backgrounds are a measured set, and the preference moves only the scrim"
       ],
-      "weaker": "The native sheet paints eleven see-through backgrounds where main painted three: the soft appearance with its Hover and Press rules, the current choice with its Hover and Press rules, the grabber and the menu hairline are also translucent. The census case pins all eleven and proves that the preference moves only the scrim."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native sheet paints eleven see-through backgrounds where main painted three: the soft appearance with its Hover and Press rules, the current choice with its Hover and Press rules, the grabber and the menu hairline are also translucent. The census case pins all eleven and proves that the preference moves only the scrim."
     },
     {
       "id": "post-port26-023",
@@ -47472,7 +47629,7 @@
         "native_foundation_parity::native strong divider, pane and utility outline::a strong divider is three times the hairline unless the theme authors its opacity",
         "native_foundation_parity::native strong divider, pane and utility outline::the see-through backgrounds are a measured set, and the preference moves only the scrim"
       ],
-      "weaker": "The native sheet paints eleven see-through backgrounds where main painted three: the soft appearance with its Hover and Press rules, the current choice with its Hover and Press rules, the grabber and the menu hairline are also translucent. The census case pins all eleven and proves that the preference moves only the scrim."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native sheet paints eleven see-through backgrounds where main painted three: the soft appearance with its Hover and Press rules, the current choice with its Hover and Press rules, the grabber and the menu hairline are also translucent. The census case pins all eleven and proves that the preference moves only the scrim."
     },
     {
       "id": "post-port26-024",
@@ -47544,7 +47701,7 @@
       "candidateCases": [
         "native_foundation_parity::native optional palette roles::Neutral keeps its accent pair, its black scrim and no mark, plate or outline rule"
       ],
-      "weaker": "The native unset scrim stays black (the candidate paint), not surface. The selection ink is the accent pair as on main."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native unset scrim stays black (the candidate paint), not surface. The selection ink is the accent pair as on main."
     },
     {
       "id": "post-port26-027",
@@ -47613,7 +47770,6 @@
         "native_foundation_parity::native selection marks::a chosen Chip, a checked box and a selected link row wear the authored ink, also under hover",
         "native_foundation_parity::native selection marks::without an authored selection a chosen Chip keeps the selected-row wash"
       ],
-      "weaker": "The native sheet always emits a base mark rule that paints the selected wash; hover, press and link rules appear only when selection is authored.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, no device emulation (1519x772 KeyboardAndMouse) unless the case switches the device simulator to iPhone 14 (touch) or Xbox One (gamepad), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -47623,7 +47779,8 @@
           "ports_foundation/selection-mark-hover"
         ],
         "observed": "The live case passed with 2 checks: a chosen Chip hovered by the real mouse is in GuiState Hover and keeps the authored selection ink."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native sheet always emits a base mark rule that paints the selected wash; hover, press and link rules appear only when selection is authored."
     },
     {
       "id": "post-port26-030",
@@ -47732,7 +47889,6 @@
       "candidateCases": [
         "native_foundation_parity::native strong divider, pane and utility outline::strokes.utility draws the utility outline at its width, and 0 or unset draws none"
       ],
-      "weaker": "The native utility Button has no outline unless strokes.utility is more than 0.",
       "liveEvidence": {
         "host": "Roblox Studio playtest, no device emulation (1519x772 KeyboardAndMouse) unless the case switches the device simulator to iPhone 14 (touch) or Xbox One (gamepad), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
         "artifacts": [
@@ -47742,7 +47898,8 @@
           "ports_foundation/utility-stroke"
         ],
         "observed": "The live case passed with 8 checks: with strokes.utility = 2 the live StyleSheet has a visible 2 px utility outline rule, the utility button carries its tag, and its label fits and clears the outline by 2 px."
-      }
+      },
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native utility Button has no outline unless strokes.utility is more than 0."
     },
     {
       "id": "post-port26-035",
@@ -47903,7 +48060,7 @@
       "candidateCases": [
         "native_lab_audit_parity::native lab audit: menu submenu rows::a submenu row shows its chevron beside a shortcut row, and the shortcut row shows none"
       ],
-      "weaker": "The native row is one Button with a trailingIcon, so every row form shows the chevron. The rectangle inside the row is native layout."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native row is one Button with a trailingIcon, so every row form shows the chevron. The rectangle inside the row is native layout."
     },
     {
       "id": "post-port27-006",
@@ -47981,7 +48138,7 @@
       "candidateCases": [
         "native_lab_audit_parity::native lab audit: ProgressView rungs::a large ring shows its value in the gauge"
       ],
-      "weaker": "A native ring shows its value at every rung: centred when the text bounds fit, else under the ring. It does not refuse a smaller rung."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: A native ring shows its value at every rung: centred when the text bounds fit, else under the ring. It does not refuse a smaller rung."
     },
     {
       "id": "post-port27-011",
@@ -48053,7 +48210,7 @@
       "candidateCases": [
         "native_lab_audit_parity::native lab audit: Badge status mark::the status mark has no page-colour ring and reads against the badge plate"
       ],
-      "weaker": "The native status plate is the neutral control plate, so the mark keeps its status colour, which differs from the plate in every tested package. The mark has no cutout."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: The native status plate is the neutral control plate, so the mark keeps its status colour, which differs from the plate in every tested package. The mark has no cutout."
     },
     {
       "id": "post-port27-016",
@@ -48069,7 +48226,7 @@
       "candidateCases": [
         "native_lab_audit_parity::native lab audit: Badge status mark::an unplated utility badge draws no status mark"
       ],
-      "weaker": "A native utility badge draws no mark. The main case accepts no mark."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: A native utility badge draws no mark. The main case accepts no mark."
     },
     {
       "id": "post-port27-017",
@@ -48085,7 +48242,7 @@
       "candidateCases": [
         "native_lab_audit_parity::native lab audit: ShortcutHint keycap outline::the keycap stroke is a theme metric: Neutral the hairline, 0 draws none"
       ],
-      "weaker": "capStroke sets the .facet-shortcut-hint::UIStroke rule. The native hint draws a chord as one label, so capGap is accepted but has no gap to set."
+      "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: capStroke sets the .facet-shortcut-hint::UIStroke rule. The native hint draws a chord as one label, so capGap is accepted but has no gap to set."
     },
     {
       "id": "post-port27-018",

@@ -575,6 +575,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		})
 	end
 	local function rule(selector: string, properties: ThemeTypes.RuleProperties)
+		if string.sub(selector, -10) == "::UIStroke" and properties.ApplyStrokeMode == nil then
+			properties = table.clone(properties)
+			properties.ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border
+		end
 		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
 			add(string.sub(selector, 1, -12) .. " > UIPadding", properties)
@@ -708,6 +712,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingBottom = types.UDim.new(0, 0),
 	})
 	rule(".facet-button-captioned", { TextTransparency = 1 })
+	rule(".facet-badge-captioned", { TextTransparency = 1 })
+	rule(".facet-badge-caption", { TextTransparency = 0 })
 	rule(".facet-button-caption", {
 		TextTransparency = 0,
 		TextColor3 = c("content"),
@@ -744,8 +750,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-level-segment", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-level-on", { BackgroundColor3 = c("accent") })
 	rule(".facet-progress-ring-track", { Color3 = c("control") })
+	rule(".facet-path", { Color3 = c("content") })
+	rule(".facet-path-content", { Color3 = c("content") })
+	rule(".facet-path-secondary", { Color3 = c("contentSecondary") })
+	rule(".facet-path-accent", { Color3 = c("accent") })
 	rule(".facet-progress-ring-fill", { Color3 = c("accent") })
-	rule(".facet-path", { Color3 = c("accent") })
 	rule(".facet-icon", { ImageColor3 = c("content"), BackgroundTransparency = 1 })
 	rule(".facet-role-destructive >> .facet-icon", { ImageColor3 = c("onDanger") })
 	rule(".facet-selected >> .facet-icon", { ImageColor3 = onSelected })
@@ -997,6 +1006,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-tab-filled >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-stepper-track", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-stepper-track::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	do
+		local recipe = if package.chrome then package.chrome.stepperPlate else nil
+		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
+		rule(".facet-skinned >> .facet-stepper-inset", {
+			PaddingLeft = types.UDim.new(0, math.max(12, inset.left or 0)),
+		})
+	end
 	rule(".facet-stepper-button", { BackgroundTransparency = 1 })
 	rule(".facet-stepper-button:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
 	rule(".facet-stepper-button:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
@@ -1067,6 +1083,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-segment-current.facet-skinned", { BackgroundTransparency = 0 })
 	rule(".facet-segment-current > #SkinBoundary", { Visible = false })
+	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
+	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	local authoredSelection = false
 	for _, theme in package.style.themes do
 		if type(theme.extra) == "table" and theme.extra.selection ~= nil then
@@ -1123,7 +1141,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
-		rule(definition.selector, table.clone(definition.properties or definition.props or {}))
+		local properties = table.clone(definition.properties or definition.props or {})
+		for key, value in properties do
+			if type(value) == "table" and type((value :: any).role) == "string" then
+				properties[key] = c((value :: any).role)
+			end
+		end
+		rule(definition.selector, properties)
 	end
 	return rules
 end

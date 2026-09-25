@@ -153,9 +153,12 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	UI.Grid = ctx.construct("Grid", function(spec: Layout.GridProps): Frame
 		local properties, children = split(
 			spec,
-			{ "columns", "gap", "rowGap", "cellHeight", "aspectRatio", "align", "padding", "width", "height" }
+			{ "columns", "flow", "gap", "rowGap", "cellHeight", "aspectRatio", "align", "padding", "width", "height" }
 		)
 		local size, automatic = kit.extent(spec, "fill", "hug")
+		local flow = spec.flow or "row"
+		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
+		local cells = Compose.cell(0)
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
 			assert(
@@ -166,9 +169,13 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 		local layout: Engine.UIGridLayoutNativeProps = {
 			SortOrder = E.SortOrder.LayoutOrder,
-			FillDirection = E.FillDirection.Horizontal,
+			FillDirection = if flow == "column" then E.FillDirection.Vertical else E.FillDirection.Horizontal,
 			FillDirectionMaxCells = function(use: ComposeTypes.Use): number
-				return columns(use)
+				local count = columns(use)
+				if flow == "column" then
+					return math.max(1, math.ceil(use(cells) / count))
+				end
+				return count
 			end,
 			CellPadding = function(use: ComposeTypes.Use): UDim2
 				local gap = kit.spacing(spec.gap, use)
@@ -208,9 +215,24 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		return Host.Frame(
+		local node = Host.Frame(
 			kit.assemble(native, properties, { Host.UIGridLayout(layout), kit.insets(spec.padding) }, children)
 		)
+		if flow == "column" then
+			local function count()
+				local total = 0
+				for _, child in node:GetChildren() do
+					if child:IsA("GuiObject") then
+						total += 1
+					end
+				end
+				cells:set(total)
+			end
+			runtime.connect(node, "ChildAdded", count)
+			runtime.connect(node, "ChildRemoved", count)
+			count()
+		end
+		return node
 	end)
 
 	UI.ErrorBoundary = ctx.construct("ErrorBoundary", function(spec: Layout.ErrorBoundaryProps): Frame

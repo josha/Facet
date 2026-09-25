@@ -72,6 +72,9 @@ local badgeProps: Facet.BadgeProps = { label = "Ready", status = "success" :: "s
 local badge: GuiObject = UI.Badge(badgeProps)
 local statusProps: Facet.StatusIndicatorProps = { status = "success" :: "success" }
 local status: GuiObject = UI.StatusIndicator(statusProps)
+local pathProps: Facet.PathProps = { points = Facet.pathShapes.arc(0, 90), role = "accent" :: "accent", thickness = 2 }
+local path: Frame = UI.Path(pathProps)
+local escaped: string = Facet.richText.escape("<b>")
 local progress: GuiObject = UI.ProgressView({ value = value, min = 0, max = 1 })
 local skeletonProps: Facet.SkeletonProps = { form = "line" :: "line" }
 local skeleton: GuiObject = UI.Skeleton(skeletonProps)
@@ -302,6 +305,7 @@ local mounted: { GuiObject } = {
 	label,
 	badge,
 	status,
+	path,
 	progress,
 	skeleton,
 	image,
@@ -346,4 +350,5 @@ local mounted: { GuiObject } = {
 	actions,
 }
 local _civil = civilDay
+local _escaped = escaped
 return mounted

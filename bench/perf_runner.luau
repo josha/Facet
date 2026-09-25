@@ -251,7 +251,11 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local wallSeconds = os.clock() - wallStart
 	local allocGrowthKb = gcinfo() - heapFloorKb
 
-	local registrations: any = blind("Compose owns registrations; no private runtime census")
+	local registrations: any = blind("the scene exposes no Compose application owner")
+	local owner = if type(state.core) == "table" then state.core.owner else nil
+	if type(owner) == "table" and type(owner.size) == "function" then
+		registrations = owner.size()
+	end
 	local instances: any = blind("scene exposes no native engine boundary")
 	local adapterHandlers: any = blind("native engine connection allocation requires engine capture")
 	local liveConnections: any = registrations

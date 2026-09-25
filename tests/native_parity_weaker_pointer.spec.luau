@@ -20,8 +20,11 @@ end
 
 local function action(root: any, name: string): any
 	for _, child in root:GetChildren() do
-		if child:IsA("InputContext") and child.Name == "Facet" .. name and child.Enabled then
-			return child:FindFirstChild(name)
+		if child:IsA("InputContext") and child.Enabled then
+			local found = child:FindFirstChild(name)
+			if found and found.Enabled ~= false then
+				return found
+			end
 		end
 	end
 	return nil

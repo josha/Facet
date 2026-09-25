@@ -18,6 +18,9 @@ where.
   884 of these cases. One case moved to class c, because `api.md`
   no longer makes its promise. 3 cases remain. Only a live check with a
   real drag can close them. See [Gap list](#gap-list).
+- 76 contracts still have a `weaker` field in the ledger. Each
+  one needs a live Studio check; none needs a product decision. The owner
+  decisions in [Retirements](21-retirements.md) close the rest.
 - 408 of the 3,908 covered cases have a weaker
   candidate assertion. Usually one candidate case replaces several main
   edge cases.

@@ -415,7 +415,15 @@ def run():
         producers.append({"id": name, "exitCode": result.returncode, "status": status, "environment": entry["environment"], "replaces": entry["replaces"], "seconds": time.monotonic() - started, "log": f"artifacts/verify/native/{name}.log"})
         print(f"{name}: {status} ({time.monotonic() - started:.1f}s)", flush=True)
         if result.returncode:
-            print((ARTIFACTS / f"{name}.log").read_text()[-5000:], flush=True)
+            text = (ARTIFACTS / f"{name}.log").read_text()
+            lines = text.splitlines()
+            failed = [index for index, line in enumerate(lines) if "\u2717" in line]
+            if failed:
+                print(f"{name}: {len(failed)} failed case(s):", flush=True)
+                for index in failed[:40]:
+                    for line in lines[index:index + 3]:
+                        print(f"  {line.strip()}", flush=True)
+            print(text[-5000:], flush=True)
     if any(entry["id"] == "suite" for entry in producers):
         suite_path = ARTIFACTS / "suite.json"
         case_failures = []

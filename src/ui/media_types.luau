@@ -23,6 +23,7 @@ export type TextProps = Engine.TextLabelNativeProps & {
 	rich: boolean?,
 	direction: ("auto" | "ltr" | "rtl")?,
 	tint: Types.Value<Color3>?,
+	lines: number?,
 }
 export type LabelPresentation = "titleAndIcon" | "titleOnly" | "iconOnly"
 export type LabelProps = Engine.FrameProps & {
@@ -66,6 +67,16 @@ export type StatusIndicatorProps = Types.TextLabelProps & {
 	controlSize: Types.Value<ControlSize>?,
 	cutout: boolean?,
 	name: string?,
+}
+export type PathPoint = { x: number, y: number, inX: number, inY: number, outX: number, outY: number }
+export type PathProps = Engine.FrameProps & {
+	points: Types.Value<{ PathPoint }>,
+	thickness: Types.Value<number | string>?,
+	closed: Types.Value<boolean>?,
+	role: Types.Value<"content" | "secondary" | "accent">?,
+	tint: Types.Value<Color3>?,
+	width: number?,
+	height: number?,
 }
 export type Trail = { delay: number?, duration: number? }
 export type ProgressViewProps = Engine.FrameProps & {
@@ -165,6 +176,7 @@ export type MediaControls = {
 	Image: Types.Constructor<ImageProps, GuiObject>,
 	Badge: Types.Constructor<BadgeProps, GuiObject>,
 	StatusIndicator: Types.Constructor<StatusIndicatorProps, TextLabel>,
+	Path: Types.Constructor<PathProps, Frame>,
 	ProgressView: Types.Constructor<ProgressViewProps, Frame>,
 	Skeleton: Types.Constructor<SkeletonProps, Frame>,
 	AsyncImage: Types.Constructor<AsyncImageProps, Frame>,

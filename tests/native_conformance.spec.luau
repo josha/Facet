@@ -81,6 +81,9 @@ local fixtures = {
 	StatusIndicator = function()
 		return { status = "success" }
 	end,
+	Path = function()
+		return { points = Facet.pathShapes.ring() }
+	end,
 	ProgressView = function()
 		return { value = Compose.cell(0.5) }
 	end,

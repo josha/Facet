@@ -68,6 +68,30 @@ local function pointer(world, x, y)
 	}
 end
 t.describe("native radial interaction policies", function()
+	t.it("keeps the ring's aim, commit and direction actions in one input context", function()
+		local picked = {}
+		local world = setup({
+			distribution = "compass",
+			items = compass(function(id)
+				table.insert(picked, id)
+			end),
+		})
+		world.step(0.1)
+		local context = world.find("FacetRadial")
+		t.expect(context ~= nil and context:IsA("InputContext")).toBe(true)
+		local names = {}
+		for _, action in context:GetChildren() do
+			table.insert(names, action.Name)
+		end
+		table.sort(names)
+		t.expect(table.concat(names, ",")).toBe("Radial-down,Radial-left,Radial-right,Radial-up,RadialAim,RadialCommit")
+		t.expect(world.find("FacetRadialCommit")).toBeNil()
+		world.opened:set(false)
+		world.step(0.5)
+		t.expect(world.find("FacetRadial")).toBeNil()
+		world.stop()
+	end)
+
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")

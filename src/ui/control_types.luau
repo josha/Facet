@@ -54,6 +54,7 @@ export type Controls = {
 	Image: typeof(((nil :: unknown) :: Media.MediaControls).Image),
 	Badge: typeof(((nil :: unknown) :: Media.MediaControls).Badge),
 	StatusIndicator: typeof(((nil :: unknown) :: Media.MediaControls).StatusIndicator),
+	Path: typeof(((nil :: unknown) :: Media.MediaControls).Path),
 	ProgressView: typeof(((nil :: unknown) :: Media.MediaControls).ProgressView),
 	Skeleton: typeof(((nil :: unknown) :: Media.MediaControls).Skeleton),
 	AsyncImage: typeof(((nil :: unknown) :: Media.MediaControls).AsyncImage),

@@ -146,7 +146,13 @@ export type Read = <T>(Value<T>, Use?) -> T
 export type ModalPortal = { node: Instance, anchor: Instance }
 export type ActionBinding = string | Enum.KeyCode | InputBindingNativeProps
 export type ActionBindings = { ActionBinding } | { Enum.KeyCode } | { InputBindingNativeProps } | { string }
-export type ActionSettings = { priority: number?, sink: boolean?, onReleased: (() -> ())?, capture: boolean? }
+export type ActionSettings = {
+	priority: number?,
+	sink: boolean?,
+	onReleased: (() -> ())?,
+	capture: boolean?,
+	group: string?,
+}
 export type SkinStateOptions = { disabled: Value<boolean>?, selected: Value<boolean>? }
 export type Context = {
 	runtime: Runtime,
@@ -161,6 +167,7 @@ export type Context = {
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
+	touchFloor: () -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),

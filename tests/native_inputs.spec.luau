@@ -810,6 +810,125 @@ t.describe("native input controls", function()
 		t.expect(action.Pressed.count()).toBe(0)
 	end)
 
+	t.it("binds one shortcut action to the key and the dialog button and activates once per press", function()
+		local actions = 0
+		local node, stop = world(function(UI)
+			return UI.Button({
+				label = "Close",
+				shortcut = { keyCode = "K" },
+				dialogAction = "cancel",
+				onActivate = function()
+					actions += 1
+				end,
+			})
+		end)
+		local action = find(node.Parent, "Shortcut")
+		local keys = {}
+		for _, binding in action:GetChildren() do
+			table.insert(keys, binding.KeyCode.Name)
+		end
+		table.sort(keys)
+		t.expect(table.concat(keys, ",")).toBe("ButtonB,K")
+		action.Pressed.fire()
+		t.expect(actions).toBe(1)
+		node.Activated.fire()
+		t.expect(actions).toBe(2)
+		stop()
+	end)
+
+	t.it("sizes a Toggle label from a pixel textSize or a type role", function()
+		local node, stop = world(function(UI, engine, runtime)
+			return runtime.constructors.Frame({
+				UI.Toggle "Pixels" { label = "Sound", value = Compose.cell(false), textSize = 24 },
+				UI.Toggle "Role" { label = "Music", value = Compose.cell(false), textSize = "heading" },
+			})
+		end)
+		t.expect(find(node, "Pixels").TextSize).toBe(24)
+		t.expect(find(node, "Role"):HasTag("facet-type-heading")).toBe(true)
+		stop()
+	end)
+
+	t.it("flips a Toggle as paint only: its box, text and padding stay put", function()
+		local value = Compose.cell(false)
+		local node, stop = world(function(UI)
+			return UI.Toggle({ label = "Sound", value = value })
+		end)
+		local function shape()
+			return `{node.Size} {node.AutomaticSize.Name} {node.Text} {node.TextWrapped}`
+		end
+		local before = shape()
+		t.expect(node.TextWrapped).toBe(false)
+		value:set(true)
+		t.expect(shape()).toBe(before)
+		value:set(false)
+		t.expect(shape()).toBe(before)
+		stop()
+	end)
+
+	t.it("centres the checkbox mark and tick on the box in every state", function()
+		local value = Compose.cell(false)
+		local node, stop, engine = world(function(UI)
+			return UI.Toggle({ label = "Agree", presentation = "checkbox", value = value })
+		end)
+		local centre = engine.types.Vector2.new(0.5, 0.5)
+		local middle = engine.types.UDim2.fromScale(0.5, 0.5)
+		for _, state in { false, true, false } do
+			value:set(state)
+			for _, name in { "Mark", "Check" } do
+				local glyph = find(node, name)
+				t.expect(glyph.AnchorPoint).toBe(centre)
+				t.expect(glyph.Position).toBe(middle)
+			end
+		end
+		stop()
+	end)
+
+	t.it("wraps a settings row description inside its column so it never runs under the switch", function()
+		local node, stop, engine = world(function(UI)
+			return UI.Toggle({
+				row = { title = "Show hints", description = "Adds a short line of help under each control" },
+				value = Compose.cell(true),
+			})
+		end)
+		local description = find(node, "Description")
+		t.expect(description.TextWrapped).toBe(true)
+		t.expect(description.Size).toBe(engine.types.UDim2.fromScale(1, 0))
+		t.expect(description.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
+		t.expect(description.Parent.Size).toBe(engine.types.UDim2.fromScale(0, 0))
+		stop()
+	end)
+
+	t.it("floors a compact Button to the minimum touch target on touch and gamepad devices only", function()
+		local input
+		local node, stop, engine = world(function(UI)
+			return UI.Button({ label = "Tip", controlSize = "xsmall" })
+		end, function(engine)
+			input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			input.TouchEnabled = true
+			return { services = { UserInputService = input } }
+		end)
+		local floor = node:FindFirstChild("TargetFloor")
+		local minimum = require("../src/ui/themes")(Compose).neutralPackage().metrics.targetSizes.minimum
+		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(minimum, minimum))
+		input.TouchEnabled = false
+		t.expect(floor.MinSize).toBe(engine.types.Vector2.zero)
+		input.GamepadEnabled = true
+		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(minimum, minimum))
+		stop()
+	end)
+
+	t.it("escapes an underlined label for RichText", function()
+		local node, stop = world(function(UI)
+			return UI.Button({ label = "a<b", underline = "always" })
+		end)
+		t.expect(node.RichText).toBe(true)
+		t.expect(node.Text).toBe("<u>a&lt;b</u>")
+		stop()
+	end)
+
 	t.it("clamps a fixed-size button's icon to its content box and never to zero", function()
 		local node, stop, engine = world(function(UI, host, runtime)
 			return runtime.constructors.Frame({

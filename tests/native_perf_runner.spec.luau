@@ -76,8 +76,8 @@ describe("perf runner — record schema (§14.3)", function()
 		expect(type(rec.allocRateKbPerSec)).toBe("number")
 		expect(type(rec.heapSlopeKbPerIter)).toBe("number")
 
-		expect(rec.liveRegistry.registrations.measured).toBe(false)
-		expect(rec.liveConnections.measured).toBe(false)
+		expect(rec.liveRegistry.registrations).toBeGreaterThanOrEqual(1)
+		expect(rec.liveConnections).toBe(rec.liveRegistry.registrations)
 
 		expect(rec.async.dropped).toBe(0)
 		expect(rec.async.stale).toBe(0)

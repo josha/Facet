@@ -103,8 +103,15 @@ civilDate : table(frozen)
   civilDate.weekday : function
   civilDate.within : function
 controls : function
+pathShapes : table(frozen)
+  pathShapes.MAX_CONTROL_POINTS : number
+  pathShapes.arc : function
+  pathShapes.needle : function
+  pathShapes.ring : function
 recipes : table(frozen)
   recipes.arithmetic : table(frozen)
+richText : table(frozen)
+  richText.escape : function
 themes : table
   themes.REQUIRED_TYPE_ROLES : table(frozen)
   themes.SCHEMA : string
@@ -144,6 +151,7 @@ controls(runtime).Notice : function
 controls(runtime).NumberInput : function
 controls(runtime).PageView : function
 controls(runtime).Pagination : function
+controls(runtime).Path : function
 controls(runtime).Picker : function
 controls(runtime).Popover : function
 controls(runtime).ProgressView : function
@@ -242,6 +250,8 @@ type Owner
 type Padding
 type PageViewSpec
 type PaginationSpec
+type PathPoint
+type PathProps
 type PickerOption
 type PickerSpec
 type PopoverSpec

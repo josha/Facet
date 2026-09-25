@@ -1163,7 +1163,7 @@ return function(
 						{ "Thumbstick1" },
 						opened,
 						function() end,
-						{ priority = 2200 }
+						{ priority = 2200, group = "Radial" }
 					)
 					runtime.decorate(axis, { Type = E.InputActionType.Direction2D, StateChanged = aimAnalog })
 					ctx.action(panel, "RadialCommit", { "ButtonA", "Return" }, function(use: ComposeTypes.Use)
@@ -1171,7 +1171,7 @@ return function(
 					end, function()
 						local selected = assert(candidateSector)()
 						nativeActivate(selected, nil, "action")
-					end, { priority = 2200 })
+					end, { priority = 2200, group = "Radial" })
 					local directionalKeys: { [ComposeTypes.FocusDirection]: { Types.ActionBinding } } = {
 						left = { "Left", "DPadLeft" },
 						right = { "Right", "DPadRight" },
@@ -1187,7 +1187,7 @@ return function(
 							if gui and key and buttons[key] then
 								gui.SelectedObject = buttons[key]
 							end
-						end, { priority = 2200, capture = true })
+						end, { priority = 2200, capture = true, group = "Radial" })
 					end
 				end
 				local modal = surfaces.modal(function()

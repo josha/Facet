@@ -17,7 +17,7 @@ The baseline is `main` at `a8c88956`. The branch is `codex/compose-ui-simplifica
 | Class c: the feature or the code is deleted | 851 | 6010 |
 | Restored before the merge: moved from class b or c to class a | 21 | 177 |
 | Parts of covered contracts that the strengthening work retired | 117 | - |
-| Owner decisions (next section) | 21 | - |
+| Owner decisions (next section) | 34 | - |
 
 Most class c contracts tested the deleted solver, renderer, focus graph, input system, presenter and paint layer. Their retirement is correct when the public API no longer makes the promise. The next section lists the retirements that a player or a game author can see.
 
@@ -214,6 +214,71 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Evidence: the haptic request is proven headless (`native_inputs`), and a physical phone felt the press haptic in the published showcase.
 - Decision: engine-owned. The Roblox `HapticEffect` and `PressHapticEffect` drive the motor. `tools/lune/parity_blockers.json` records it under `engineOwnedLiveRisks`.
 
+### 23. Vector paths
+
+- Main promised: `UI.Path` strokes normalized points on a native `Path2D`, and `Facet.pathShapes` makes arcs, rings and needles.
+- Decision: Restored. `UI.Path` takes `points`, `role` or `tint`, `thickness` in pixels or a metric name, and `closed`. `Facet.pathShapes` has `arc`, `ring`, `needle` and `MAX_CONTROL_POINTS`. Tests: `native_parity_restore` (Path) and the live case `paint_live/path-strokes-in-theme-roles` in nine packages.
+
+### 24. Grid column flow
+
+- Main promised: a grid that fills each column before the next.
+- Decision: Restored. `UI.Grid { flow = "column" }` fills columns first and sets its rows from the number of children. Test: `native_layout` (Grid).
+
+### 25. Content-based heights
+
+- Main promised: a height given in lines, rows, another node (`of`) or a type role.
+- Decision: Restored in part. `UI.Text { lines = n }` shows at most `n` lines and ends with an ellipsis. The `rows`, `of` and `role` height forms are accepted as retired: a game sets a pixel height, `AutomaticSize` or a `UISizeConstraint`. Test: `native_parity_restore` (Label text fit and middle truncation).
+
+### 26. Rich text escaping
+
+- Main promised: `Facet.richText.escape` for player names and server strings in rich text.
+- Decision: Restored. Tests: `native_parity_restore` (Label text fit and middle truncation).
+
+### 27. Layout arrangements
+
+- Main promised: `UI.Composition` and `UI.Region` arrangements, spans and step-down, and `UI.AdaptiveStack`, which turned its axis by space.
+- Decision: Accepted. Native layout does this: a `UIListLayout` with `Wraps`, a `FillDirection` bound to `UI.environment`, and `UIFlexItem`. [Adaptive recipes](15-adaptive-recipes.md) shows the patterns.
+
+### 28. Margins, size caps and aspect with fill
+
+- Main promised: outer margins, minimum and maximum sizes, and an aspect ratio on a filling child.
+- Decision: Accepted. A game uses the container `gap` and `padding`, a native `UISizeConstraint`, and a native `UIAspectRatioConstraint`.
+
+### 29. Conditional and list helpers
+
+- Main promised: `UI.When`, `UI.ForEach` and `UI.ForPairs` with an enter and exit `transition`, and a shared element named by `transition.source`.
+- Decision: Accepted. `Compose.show`, `Compose.keyed` and `Compose.presence` do this. `Compose.presence` gives a region an `exiting` phase and holds its removal until an exit animation completes. The shared-element transition is not replaced.
+
+### 30. Foreign hosts and spec types
+
+- Main promised: `UI.Foreign` adopted an existing instance, and `ButtonSpec` and `ScrollViewSpec` named option tables.
+- Decision: Accepted. A game makes the instance with a Host constructor and releases it with `Compose.cleanup`. The option types are `ButtonProps` and the layout props.
+
+### 31. Full text of a truncated title
+
+- Main promised: a truncated title showed its full value on request.
+- Decision: Accepted. A title truncates with the native `TextTruncate.AtEnd`. A game that needs the full value shows it in a Callout or a detail view.
+
+### 32. Imperative Callout and path sources
+
+- Main promised: `api.dismiss`, `api.rearm` and `api.present` on a Callout, and a Popover source addressed by a path.
+- Decision: Accepted. A Callout follows its caller's facts, and a new generation is a new keyed control. A Popover source is one Instance.
+
+### 33. Paint differences in the native StyleSheet
+
+- Main promised: three see-through backgrounds in a compiled sheet, a surface scrim, a default utility outline, a separate count pill on a text tab, and related paint details.
+- Decision: Accepted. The native StyleSheet paints each state with its own rule, and `api.md` documents the native paint.
+
+### 34. Main-internal assertions and device-only checks
+
+- Main promised: assertions on machinery that the cutover deleted, for example text premeasurement and calibration, the solver's exact rectangles, the gesture arbiter and the upload count of a path.
+- Decision: Accepted. `api.md` does not promise this machinery. The candidate proves the visible result. Contracts that need a physical device or an input that Studio cannot send (multi-touch, the on-screen keyboard, a motor, Tab and DPadUp) are checked on a device. Each contract has a `closeNote` in `tools/lune/verification_parity.json`.
+
+### 35. Minimum touch targets
+
+- Main promised: a compact or xsmall control keeps a 44 pixel hit footprint for touch.
+- Decision: Restored for touch and gamepad devices. A Button with a `controlSize` below the minimum target grows to `targetSizes.minimum` on both axes when the device has touch or a gamepad. The native button is its hit area, so the plate grows with the target; main painted a smaller plate inside a larger footprint. On a mouse-only device the compact size stays. Test: `native_inputs` (floors a compact Button to the minimum touch target).
+
 ## Restored before the merge
 
 These contracts moved from class c to class a. The cases are in `tests/native_parity_restore.spec.luau`. Each contract in `tools/lune/verification_parity.json` has `restoredBy` set to `parity/restore`.
@@ -394,7 +459,7 @@ Each line gives the contract id, the main case count and the main specs, the pro
 - `mech1-128` (20 main cases; `flow_wrap`). Main promised: Wrap prop authoring, stretch refusal, placement audit, gallery sweep. Deleted: VStack/HStack wrap prop, placement audit and cross-overflow diagnostics deleted.. Replacement test: none; the feature is deleted.
 - `mech1-136` (12 main cases; `fractional_offsets`). Main promised: Anchor fractional offsets. Deleted: UI.Anchor deleted; native UDim2 scale+offset.. Replacement test: none; the feature is deleted.
 - `mech1-37` (4 main cases; `authoring`). Main promised: overflow = clip implies clipChildren. Deleted: overflow/clipChildren props deleted; native ClipsDescendants.. Replacement test: none; the feature is deleted.
-- `mech1-38` (5 main cases; `authoring`). Main promised: Divider/Path thickness metric names. Deleted: UI.Path deleted. UI.Divider is restored and takes a pixel or theme metric thickness (native_restored_controls); the Path thickness half stays deleted. Replacement test: none; the feature is deleted.
+- `mech1-38` (5 main cases; `authoring`). Main promised: Divider/Path thickness metric names. Deleted: UI.Path deleted. UI.Divider is restored and takes a pixel or theme metric thickness (native_restored_controls). UI.Path is restored and takes a pixel or theme metric thickness. Replacement test: native_parity_restore::native parity restore: Path::takes its colour from a theme role or a tint, and its thickness from pixels or a metric.
 - `mech1-39` (4 main cases; `authoring`). Main promised: surface = badge intrinsic minimum. Deleted: Box surface floor deleted; UI.Badge sizes itself natively (StatusIndicator count pill tested in native_themes_media).. Replacement test: a candidate test covers the surviving part (see reason).
 - `mech1-44` (19 main cases; `baseline_spacer`). Main promised: Text baseline alignment and spacer minimums. Deleted: Baseline alignment deleted; Roblox layouts have no baseline alignment and no doc promises it. UI.Spacer is restored as a UIFlexItem fill with a minLength floor (native_restored_controls); the solver overflow diagnostics for spacer minima stay deleted. Replacement test: none; the feature is deleted.
 - `mech1-85` (107 main cases; `composition`). Main promised: UI.Composition arrangements, step-down, floors, spans, scroll region, eligibility. Deleted: UI.Composition/Region deleted; no doc promise (guide 14-choosing-controls: use native stacks).. Replacement test: none; the feature is deleted.
@@ -856,7 +921,7 @@ Each line gives the contract id, the main case count and the main specs, the pro
 - `themes-P2-59` (3 main cases; `theme_icons_applied`). Main promised: Glyph suppression tag, its cascade position, and the lift dying with the glyph. Deleted: The iconArt suppression tag, the 'Semantic icon replaces the glyph' rule and syncChromeText are removed. Icons are always ImageLabels.. Replacement test: none; the feature is deleted.
 - `themes-P2-64` (4 main cases; `theme_icons_applied`). Main promised: Image-property sheet authority, no Image in icon rules, a declared instance-family registry, tag before parent. Deleted: render/authority and bespokeInstances are removed. CAND deliberately writes Image, ScaleType, SliceCenter, TileSize and ResampleMode on skin and icon instances (themes.skin and ctx.icon). This is a reversal of main's .... Replacement test: none; the feature is deleted.
 - `themes-P2-67` (1 main case; `theme_icons_applied`). Main promised: Releasing fallback lettering restores the art once. Deleted: screen_paint releaseTint and the letterRole machinery are removed.. Replacement test: none; the feature is deleted.
-- `themes-P3-18` (4 main cases; `theme_paint_repaint`). Main promised: tint channel and role-less UI.Path repaint on a theme commit. Deleted: UI.Box `tint` ({role, from, blend, direct}) and generic UI.Path with `role` were removed; CAND api.md has no tint prop (only Rating tint Color3 pairs) and no Path control; Path2D in CAND is internal to ProgressView/ra.... Replacement test: none; the feature is deleted.
+- `themes-P3-18` (4 main cases; `theme_paint_repaint`). Main promised: tint channel and role-less UI.Path repaint on a theme commit. UI.Path is restored: a StyleSheet rule colours its stroke by role, so a theme or palette change repaints it, and `tint` sets a colour that no role names. The UI.Box tint layers stay deleted. Replacement test: native_parity_restore::native parity restore: Path::takes its colour from a theme role or a tint, and its thickness from pixels or a metric.
 - `themes-P3-19` (3 main cases; `theme_paint_repaint`). Main promised: Live adapter source contract: setActiveTheme -> refreshThemedPaint ordering. Deleted: MAIN src/client screen_paint/adapter (setActiveTheme, refreshThemedPaint, applyPathRole, applyTint) deleted; no adapter in CAND.. Replacement test: none; the feature is deleted.
 - `themes-P4-02` (6 main cases; `theme_layer_application`). Main promised: Rule-owned layer paint: tag-before-parent, per-corner second tag, no adapter paint writes, class-rule wrapper, GetStyled addressable. Deleted: The screen_target adapter, chrome_slots.layerBoxes tags and rule-owned layer paint are gone (no src/client, src/tokens in CAND). CAND themes.skin writes Image/ScaleType/SliceCenter/TileSize directly onto Compose-owned.... Replacement test: none; the feature is deleted.
 - `themes-P4-12` (4 main cases; `theme_layer_application`). Main promised: Node tag bookkeeping: stack yield, error state, classifyTags single builder, yield child-combinator rule. Deleted: syncTags/classifyTags, the caret stack-yield rule and the 'error' tag state are gone; SkinState in src/ui/theme_types.luau is default/hover/pressed/selected/disabled only. Not promised.. Replacement test: none; the feature is deleted.
