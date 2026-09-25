@@ -61,73 +61,6 @@ return function(
 	local Links = (runtime.constructors :: unknown) :: StyleLinkHost
 	local stops: { () -> () } = {}
 	local disposed = false
-	local enums = if settings.types then settings.types.Enum else Enum
-	local D2 = if settings.types then settings.types.UDim2 else UDim2
-	local function styledCell<T>(node: Instance, property: string): ComposeTypes.Cell<T>
-		local value = Compose.cell((node :: any):GetStyled(property))
-		local connection = (node :: any):GetStyledPropertyChangedSignal(property):Connect(function()
-			value:set((node :: any):GetStyled(property))
-		end)
-		Compose.cleanup(function()
-			connection:Disconnect()
-		end)
-		return value
-	end
-	local function focusRing(playerGui: PlayerGui): Frame
-		local services: { [string]: any } = (settings.services or {}) :: any
-		local input: UserInputService? = settings.userInputService or services.UserInputService
-		if input == nil then
-			local game = getfenv(0).game
-			input = if game then game:GetService("UserInputService") else nil
-		end
-		local keyed = Compose.cell(false)
-		local function heard(event: InputObject)
-			local kind = event.UserInputType
-			if kind == enums.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") then
-				keyed:set(true)
-			elseif kind == enums.UserInputType.Touch or string.find(kind.Name, "^Mouse") then
-				keyed:set(false)
-			end
-		end
-		if input then
-			local began = input.InputBegan:Connect(heard)
-			local changed = input.InputChanged:Connect(heard)
-			Compose.cleanup(function()
-				began:Disconnect()
-				changed:Disconnect()
-			end)
-		end
-		local env = UI.environment()
-		local corner = Host.UICorner({})
-		local paint = Host.Frame({ Name = "FocusRingPaint", Visible = false, Size = D2.fromOffset(0, 0), corner })
-		paint:AddTag("facet-focus-ring")
-		local color: ComposeTypes.Cell<Color3> = styledCell(paint, "BackgroundColor3")
-		local radius: ComposeTypes.Cell<UDim> = styledCell(corner, "CornerRadius")
-		local ring = Host.Frame({
-			Name = "FacetFocusRing",
-			BackgroundTransparency = 1,
-			Size = D2.fromScale(1, 1),
-			Host.UICorner({ CornerRadius = radius }) :: ComposeTypes.Child,
-			Host.UIStroke({
-				ApplyStrokeMode = enums.ApplyStrokeMode.Border,
-				BorderStrokePosition = enums.BorderStrokePosition.Inner,
-				Color = color,
-				Thickness = function(use: ComposeTypes.Use): number
-					return if use(env.displaySize) == "Large" then 4 else 2
-				end,
-				Transparency = function(use: ComposeTypes.Use): number
-					return if use(keyed) or use(env.effectiveInput) == "Gamepad" then 0 else 1
-				end,
-			}),
-		})
-		playerGui.SelectionImageObject = ring
-		Compose.cleanup(function()
-			if playerGui.SelectionImageObject == ring then
-				(playerGui :: any).SelectionImageObject = nil
-			end
-		end)
-		return paint
-	end
 	local function mount(component: Component, parent: Instance?): (() -> (), ScreenGui)
 		assert(not disposed, "Facet app.mount: the app is disposed")
 		assert(type(component) == "function", "Facet app.mount: expected a component function")
@@ -151,13 +84,14 @@ return function(
 				props.ResetOnSpawn = false
 			end
 			if props.ZIndexBehavior == nil then
+				local enums = if settings.types then settings.types.Enum else Enum
 				props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
 			end
 			props[1] = sheet
 			props[2] = Links.StyleLink({ StyleSheet = Compose.static(sheet) })
 			props[3] = component()
 			if target:IsA("PlayerGui") then
-				props[4] = focusRing(target :: PlayerGui)
+				props[4] = UI.focusRing(target :: PlayerGui)
 			end
 			return Host.ScreenGui((props :: unknown) :: Engine.ScreenGuiNativeProps)
 		end, target)

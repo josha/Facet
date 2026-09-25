@@ -94,6 +94,7 @@ local owner = Compose.createRootOwner(function()
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 			sheet,
 			Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
+			context.UI.focusRing(players.LocalPlayer:WaitForChild("PlayerGui")),
 			gallery.build(context),
 		}
 	end, players.LocalPlayer:WaitForChild("PlayerGui"))

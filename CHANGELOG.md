@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.focusRing(playerGui)` installs the theme focus ring on any screen (the gallery now uses it); `app.mount` calls it. Before, only `Facet.app` screens had the ring, so the Showcase still showed the engine glow after a mouse click.
 - A Card with `reveal = "automatic"` shows its actions on a panel plate directly below the body again: the primary action fills the row and More is a trailing `more` icon button (the Menu root, now named `More`, is that button). Before, the row floated with no plate, a gap above it, a hugging primary and a worded More trigger.
 - A theme plaque layer with `text = true` is title art. A Sheet or Dialog title shows in it, the plaque 9-slice grows around the title, and the header title hides. Without a title the plaque is not drawn. Before, Fantasy Ornate drew an empty plaque on every panel. The Fantasy Ornate plaque is now 9-sliced, with text insets inside its gold rim.
 - A skinned Sheet, Dialog, Popover, Menu or picker panel pads its content by the theme `panel` chrome `contentInsets`. Before, the panel's own padding beat the theme rule, so in Fantasy Ornate the Sheet title sat on the inner border and the Close button was clipped at the right edge.

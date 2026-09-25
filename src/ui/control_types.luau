@@ -76,6 +76,7 @@ export type Controls = {
 	DateTimePicker: typeof(((nil :: unknown) :: Dates.DateTimePickerControls).DateTimePicker),
 	ColorPicker: typeof(((nil :: unknown) :: Colors.ColorPickerControls).ColorPicker),
 	environment: typeof(((nil :: unknown) :: Env.EnvironmentControls).environment),
+	focusRing: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusRing),
 	worldAnchor: typeof(((nil :: unknown) :: Env.EnvironmentControls).worldAnchor),
 	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
 	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),

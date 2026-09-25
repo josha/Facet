@@ -3385,6 +3385,7 @@ export type Observe = {
 	AbsoluteWindowSize: (ScrollingFrame) -> Compose.Cell<Vector2>,
 	BackgroundColor3: (GuiObject) -> Compose.Cell<Color3>,
 	CanvasPosition: (ScrollingFrame) -> Compose.Cell<Vector2>,
+	CornerRadius: (UICorner) -> Compose.Cell<UDim>,
 	CurrentPage: (UIPageLayout) -> Compose.Cell<GuiObject>,
 	CursorPosition: (TextBox) -> Compose.Cell<number>,
 	DisplayImage: (InputBinding) -> Compose.Cell<Content>,

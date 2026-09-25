@@ -40,6 +40,7 @@ to select a control. Then read the exact contract of that control in the
 | Layouts that adapt to their space | `UI.AdaptiveStack`, `UI.ViewThatFits` |
 | Scrolling content and grids | `UI.ScrollView`, `UI.Grid` |
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
+| One theme focus ring in place of the engine selection glow | `UI.focusRing` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
 | Screen anchors for world objects | `UI.worldAnchor` |
 | Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |

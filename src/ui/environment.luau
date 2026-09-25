@@ -52,6 +52,58 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return services.Workspace
 	end
 
+	UI.focusRing = function(playerGui: PlayerGui): Frame
+		assert(Compose.currentOwner() ~= nil, "Facet UI.focusRing must run inside a component or Compose owner")
+		local Host, E, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim2
+		local input = (config.services :: unknown) :: { UserInputService: UserInputService? }
+		local keyed = Compose.cell(false)
+		local function heard(event: InputObject)
+			local kind = event.UserInputType
+			if kind == E.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") then
+				keyed:set(true)
+			elseif kind == E.UserInputType.Touch or string.find(kind.Name, "^Mouse") then
+				keyed:set(false)
+			end
+		end
+		local service = input.UserInputService
+		if service then
+			local began = service.InputBegan:Connect(heard)
+			local changed = service.InputChanged:Connect(heard)
+			Compose.cleanup(function()
+				began:Disconnect()
+				changed:Disconnect()
+			end)
+		end
+		local env = UI.environment()
+		local corner = Host.UICorner({})
+		local paint = Host.Frame({ Name = "FocusRingPaint", Visible = false, Size = D2.fromOffset(0, 0), corner })
+		paint:AddTag("facet-focus-ring")
+		local ring = Host.Frame({
+			Name = "FacetFocusRing",
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
+			Host.UICorner({ CornerRadius = ctx.observeStyled.CornerRadius(corner) }) :: ComposeTypes.Child,
+			Host.UIStroke({
+				ApplyStrokeMode = E.ApplyStrokeMode.Border,
+				BorderStrokePosition = E.BorderStrokePosition.Inner,
+				Color = ctx.observeStyled.BackgroundColor3(paint),
+				Thickness = function(use: ComposeTypes.Use): number
+					return if use(env.displaySize) == "Large" then 4 else 2
+				end,
+				Transparency = function(use: ComposeTypes.Use): number
+					return if use(keyed) or use(env.effectiveInput) == "Gamepad" then 0 else 1
+				end,
+			}),
+		})
+		playerGui.SelectionImageObject = ring
+		Compose.cleanup(function()
+			if playerGui.SelectionImageObject == ring then
+				(playerGui :: any).SelectionImageObject = nil
+			end
+		end)
+		return paint
+	end
+
 	UI.environment = function(source: Env.EnvironmentSource?): Env.Environment
 		assert(Compose.currentOwner() ~= nil, "Facet UI.environment must run inside a component or Compose owner")
 		local node: Instance? = source

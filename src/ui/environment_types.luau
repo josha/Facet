@@ -61,6 +61,7 @@ export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
 export type EnvironmentControls = {
 	environment: (source: EnvironmentSource?) -> Environment,
+	focusRing: (playerGui: PlayerGui) -> Frame,
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,
 	scrollToVisible: (node: GuiObject, rect: ScrollRect?, options: ScrollOptions?) -> boolean,

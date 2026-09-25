@@ -71,6 +71,7 @@ local helpers: { [string]: boolean } = {
 	worldAnchor = true,
 	scrollTo = true,
 	scrollToVisible = true,
+	focusRing = true,
 }
 
 local function world(module: any, options: Options?): World

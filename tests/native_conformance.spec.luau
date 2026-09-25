@@ -1,7 +1,14 @@
 --!strict
 local t = require("./lib/testkit")
-local HELPERS =
-	{ fill = true, badged = true, environment = true, worldAnchor = true, scrollTo = true, scrollToVisible = true }
+local HELPERS = {
+	fill = true,
+	badged = true,
+	environment = true,
+	worldAnchor = true,
+	scrollTo = true,
+	scrollToVisible = true,
+	focusRing = true,
+}
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local Compose = Facet.Compose

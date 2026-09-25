@@ -186,6 +186,7 @@ controls(runtime).ZStack : function
 controls(runtime).badged : function
 controls(runtime).environment : function
 controls(runtime).fill : function
+controls(runtime).focusRing : function
 controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
 controls(runtime).worldAnchor : function
