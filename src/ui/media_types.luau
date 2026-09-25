@@ -98,7 +98,7 @@ export type SkeletonProps = Engine.FrameProps & {
 	form: "box" | "circle" | "line"?,
 	lines: number?,
 	controlSize: Types.Value<ControlSize>?,
-	corners: Types.Value<Corners>?,
+	corners: Types.Value<Corners | "control" | "panel">?,
 }
 export type ImageState = "loading" | "ready" | "failed"
 export type ImageResource = {

@@ -1451,8 +1451,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 							if value == "square" then
 								return D.new(0, 0)
 							end
-							if value == "rounded" then
+							if value == "rounded" or value == "control" then
 								return D.new(0, metric("radii.control", use))
+							end
+							if value == "panel" then
+								return D.new(0, metric("radii.panel", use))
 							end
 							assert(type(value) == "number" and value >= 0, "Facet Skeleton invalid corners")
 							return D.new(0, value)

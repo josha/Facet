@@ -278,3 +278,18 @@ t.describe("Slider contained", function()
 		w.stop()
 	end)
 end)
+
+t.describe("Skeleton corners", function()
+	t.it("control and panel read the theme radii", function()
+		local package = themes.neutralPackage()
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Skeleton "Control" { corners = "control" },
+				UI.Skeleton "Panel" { corners = "panel" },
+			}
+		end, { theme = package })
+		expect(find(find(w.screen, "Control"), "UICorner").CornerRadius.Offset).toBe(package.metrics.radii.control)
+		expect(find(find(w.screen, "Panel"), "UICorner").CornerRadius.Offset).toBe(package.metrics.radii.panel)
+		w.stop()
+	end)
+end)
