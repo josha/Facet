@@ -2337,6 +2337,39 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("marks the filled current sidebar tab selected, so a skinned theme paints its selected art", function()
+		local selected = Compose.cell("a")
+		local world = setup(function(UI, Host)
+			return UI.TabView "Sidebar" {
+				selection = selected,
+				placement = "sidebar",
+				tabs = {
+					{
+						id = "a",
+						label = "Alpha",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+					{
+						id = "b",
+						label = "Beta",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			}
+		end)
+		local tabs = find(world.screen, "Tabs")
+		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(true)
+		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(false)
+		selected:set("b")
+		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(false)
+		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(true)
+		world.stop()
+	end)
+
 	t.it("renders sidebar sections and collapsed tab destinations through the shared menu", function()
 		local selected = Compose.cell("a")
 		local world = setup(function(UI, Host)

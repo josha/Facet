@@ -477,7 +477,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return read(spec.enabled, use) ~= false and read(use(current).enabled, use) ~= false
 						end,
 						selected = function(use: ComposeTypes.Use)
-							return use(spec.selection) == tab.id and read(spec.indicator, use) == "pill"
+							local indicator = read(spec.indicator, use)
+							if use(spec.selection) ~= tab.id or indicator == "none" then
+								return false
+							end
+							local place = use(placement)
+							return indicator == "pill" or place == "sidebar" or string.find(place, "bottom") ~= nil
 						end,
 						onActivate = function()
 							select(tab.id)
