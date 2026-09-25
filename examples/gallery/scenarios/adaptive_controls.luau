@@ -187,19 +187,26 @@ return {
 			{ value = "compose", label = "Compose", icon = "edit" },
 			{ value = "more", label = "More", icon = "more" },
 		}
+		local function plate(node)
+			node:AddTag("facet-control")
+			ctx.runtime.mount(function()
+				return ctx.Facet.themes.skin(ctx.runtime, ctx.theme, "control", { types = ctx.types, target = node })
+			end, node)
+			return node
+		end
 		local function screen()
 			local stats, tiles = {}, {}
 			for i = 1, 12 do
-				local stat = label("Stat" .. i, "S" .. i, "caption")
-				ctx.runtime.decorate(stat, {
-					Size = UDim2.fromOffset(72, 30),
-					LayoutOrder = i,
+				local value = label("Value", "S" .. i, "caption")
+				ctx.runtime.decorate(value, {
+					Size = UDim2.fromScale(1, 1),
 					AutomaticSize = Enum.AutomaticSize.None,
 					TextXAlignment = Enum.TextXAlignment.Center,
-					BackgroundTransparency = 0,
 				})
-				stat:AddTag("facet-control")
-				table.insert(stats, stat)
+				table.insert(
+					stats,
+					plate(Host.Frame({ Name = "Stat" .. i, LayoutOrder = i, Size = UDim2.fromOffset(72, 30), value }))
+				)
 			end
 			for i, count in { "3", "9", "1", "7" } do
 				local tile = Host.Frame({
@@ -214,8 +221,7 @@ return {
 						Position = UDim2.new(1, -6, 0, 6),
 					},
 				})
-				tile:AddTag("facet-control")
-				table.insert(tiles, tile)
+				table.insert(tiles, plate(tile))
 			end
 			local media = Host.Frame "Media" {
 				Size = UDim2.new(1, 0, 0, 0),
@@ -505,27 +511,24 @@ return {
 									HorizontalFlex = Enum.UIFlexAlignment.Fill,
 									Padding = UDim.new(0, 6),
 								}),
-								Host.Frame({
+								plate(Host.Frame({
 									LayoutOrder = 1,
 									Name = "Optional",
 									Size = UDim2.fromOffset(140, 24),
-									BackgroundColor3 = Color3.fromRGB(55, 75, 115),
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 2 }),
-								}),
-								Host.Frame({
+								})),
+								plate(Host.Frame({
 									LayoutOrder = 2,
 									Name = "Useful",
 									Size = UDim2.fromOffset(140, 24),
-									BackgroundColor3 = Color3.fromRGB(70, 90, 130),
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 1 }),
-								}),
-								Host.Frame({
+								})),
+								plate(Host.Frame({
 									LayoutOrder = 3,
 									Name = "Essential",
 									Size = UDim2.fromOffset(140, 16),
-									BackgroundColor3 = Color3.fromRGB(85, 110, 155),
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.None }),
-								}),
+								})),
 							},
 							label("SpecTitle", "Row grid", "caption"),
 							Host.Frame "Specs" {

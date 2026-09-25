@@ -159,6 +159,32 @@ t.describe("native gallery workflows", function()
 		t.expect(built.report().volume).toBe(6)
 		stop()
 	end)
+	t.it("paints the adaptive chips, count tiles and layout bars with the theme's control plate (owner R18)", function()
+		local ctx, _, target = nativeContext()
+		ctx.theme = Compose.cell((require("../examples/themes/fantasy_parchment").build(Facet.themes)))
+		local stop, node = ctx.runtime.mount(function()
+			return ctx.Host.ScreenGui "DemoScreen" { load("fixture", "adaptive_controls").build(ctx).screen() }
+		end, target)
+		local names = { "Tile1", "Tile4", "Optional", "Useful", "Essential" }
+		for i = 1, 12 do
+			table.insert(names, "Stat" .. i)
+		end
+		for _, name in names do
+			local plate = find(node, name)
+			t.expect(`{name} {plate:HasTag("facet-control")} {plate:HasTag("facet-skinned")}`).toBe(`{name} true true`)
+			local art = find(plate, "control1")
+			t.expect(art.Image).toBe("rbxassetid://87220434497053")
+			local parent = art.Parent
+			while parent ~= plate.Parent do
+				local lettered = parent:IsA("TextLabel") or parent:IsA("TextButton")
+				t.expect(`{name} art inside text {lettered and parent.Text ~= ""}`).toBe(`{name} art inside text false`)
+				parent = parent.Parent
+			end
+		end
+		stop()
+		ctx.runtime:dispose()
+	end)
+
 	t.it("reflows one recipe action set and preserves controlled checks and keyed chips", function()
 		local built, node, stop, ctx = mount("recipes_common")
 		local actions = find(node, "Actions")
