@@ -38,6 +38,7 @@ local NAV_KEYS = {
 	"trailing",
 	"gap",
 	"padding",
+	"surface",
 }
 local SEVERITIES: { [string]: string } = freeze({
 	info = "status.info",
@@ -541,6 +542,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.title ~= nil and not parts.bound(ctx, spec.title, "string") then
 			error(`Facet {where}: title must be a string or a bound string`, 0)
 		end
+		if spec.surface ~= nil and spec.surface ~= "surface" and spec.surface ~= "panel" and spec.surface ~= "pane" then
+			error(`Facet {where}: surface must be surface, panel or pane`, 0)
+		end
 		local gap = function(use: ComposeTypes.Use?): number
 			return space(spec.gap, "s", use)
 		end
@@ -632,6 +636,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				AutomaticSize = E.AutomaticSize.Y,
 			})
 		)
+		if spec.surface then
+			ctx.styled(root, spec.surface)
+		end
 		local list = root:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
 		if list then
 			runtime.decorate(list, {

@@ -112,6 +112,7 @@ export type NavBarSpec = Types.FrameProps & {
 	trailing: GuiObject?,
 	gap: number?,
 	padding: number?,
+	surface: ("surface" | "panel" | "pane")?,
 }
 
 export type OverlayControls = {

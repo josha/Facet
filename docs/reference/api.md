@@ -1987,7 +1987,9 @@ Content that must avoid the notice reads the attribute and pads by it.
 ### NavBar
 
 `UI.NavBar` returns the bar Frame: `{ onBack?, backLabel?, title?, titleSize?,
-leading?, center?, trailing?, gap?, padding? }`.
+leading?, center?, trailing?, gap?, padding?, surface? }`. `surface` paints a
+background plate: `surface`, `panel` or `pane`, the theme roles of the same
+names.
 
 The first row holds Back, `leading` and a `center` that fills the remaining
 width. Without `center`, the title shows on one line and truncates. `trailing`

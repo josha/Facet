@@ -338,3 +338,20 @@ t.describe("filled icon names", function()
 		expect(themes.resolveIcon(package, "nothing.fill")).toBe(nil)
 	end)
 end)
+
+t.describe("NavBar surface", function()
+	t.it("surface paints a plate through the theme role tag", function()
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.NavBar "Bar" { title = "Garage", surface = "panel" },
+				UI.NavBar "Bare" { title = "Garage" },
+			}
+		end)
+		expect(find(w.screen, "Bar"):HasTag("facet-panel")).toBe(true)
+		expect(find(w.screen, "Bare"):HasTag("facet-panel")).toBe(false)
+		expect(function()
+			w.UI.NavBar { title = "X", surface = "glass" }
+		end).toThrow()
+		w.stop()
+	end)
+end)
