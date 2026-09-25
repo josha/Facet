@@ -148,3 +148,48 @@ t.describe("voice and contrast statuses", function()
 		w.stop()
 	end)
 end)
+
+t.describe("Avatar faces, in-experience ring and background", function()
+	t.it("an icon face replaces the initials, also for a group member", function()
+		local w = world(function(UI)
+			return UI.VStack {
+				UI.Avatar "Guest" { name = "Guest Player", icon = "person" },
+				UI.AvatarGroup "Group" { items = { { id = "g", name = "Guest", icon = "person" } } },
+			}
+		end)
+		local guest = find(w.screen, "Guest")
+		expect(find(guest, "Face") ~= nil).toBe(true)
+		expect(find(guest, "Initials").Visible).toBe(false)
+		local member = find(find(w.screen, "Group"), "g")
+		expect(find(member, "Face") ~= nil).toBe(true)
+		expect(find(member, "Initials").Visible).toBe(false)
+		expect(function()
+			w.UI.Avatar { name = "A", icon = "person", image = "rbxassetid://1" }
+		end).toThrow()
+		w.stop()
+	end)
+
+	t.it("inExperience rings the face in accent with a surface gap and no corner mark", function()
+		local presence = Compose.cell("inExperience")
+		local w = world(function(UI)
+			return UI.Avatar "A" { name = "Ada", presence = presence, background = "success" }
+		end)
+		local avatar = find(w.screen, "A")
+		local ring = find(avatar, "PresenceRing")
+		expect(ring.Visible).toBe(true)
+		expect(ring:HasTag("facet-avatar-ring")).toBe(true)
+		expect(find(ring, "Gap"):HasTag("facet-avatar-ring-gap")).toBe(true)
+		expect(find(avatar, "Presence").Visible).toBe(false)
+		expect(avatar:HasTag("facet-avatar-background-success")).toBe(true)
+		presence:set("online")
+		expect(ring.Visible).toBe(false)
+		expect(find(avatar, "Presence").Visible).toBe(true)
+		local sheet = sheetFor(w, themes.neutralPackage())
+		expect(rule(sheet, ".facet-avatar-ring::UIStroke"):GetProperties().Transparency).toBe(0)
+		expect(rule(sheet, ".facet-avatar-background-success") ~= nil).toBe(true)
+		expect(function()
+			w.UI.Avatar { name = "A", background = "rainbow" }
+		end).toThrow()
+		w.stop()
+	end)
+end)

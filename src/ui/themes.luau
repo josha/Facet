@@ -15,6 +15,16 @@ local themes = {}
 themes.SCHEMA = "facet-theme/2"
 themes.TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control", "strong", "numeral" })
 themes.REQUIRED_TYPE_ROLES = themes.TYPE_ROLES
+themes.AVATAR_BACKGROUNDS = table.freeze({
+	surface = "content",
+	surfaceStrong = "content",
+	control = "content",
+	contentStrong = "surface",
+	accent = "onAccent",
+	success = "onSuccess",
+	warning = "onWarning",
+	danger = "onDanger",
+})
 
 local function copy<T>(value: T): T
 	if type(value) ~= "table" then
@@ -990,6 +1000,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
 		})
 	end
+	for role, ink in themes.AVATAR_BACKGROUNDS do
+		local selector = ".facet-avatar-background-" .. role
+		rule(selector, { BackgroundColor3 = c(role), BackgroundTransparency = 0, TextColor3 = c(ink) })
+		rule(selector .. " > .facet-text", { TextColor3 = c(ink) })
+		rule(selector .. " > .facet-icon", { ImageColor3 = c(ink) })
+	end
+	rule(".facet-avatar-ring::UIStroke", { Color = c("accent"), Transparency = 0 })
+	rule(".facet-avatar-ring-gap::UIStroke", { Color = c("surface"), Transparency = 0 })
 	rule(".facet-quiet-destructive", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive:Hover", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive:Press", { TextColor3 = c("danger") })

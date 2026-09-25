@@ -124,7 +124,7 @@ export type AsyncImageProps = Engine.FrameProps & {
 	dimmed: Types.Value<boolean>?,
 	imageProperties: Types.ImageLabelProps?,
 }
-export type Presence = "online" | "away" | "busy" | "offline"
+export type Presence = "online" | "away" | "busy" | "offline" | "inExperience"
 export type AvatarProps = Types.TextButtonProps & {
 	name: Types.Value<string>,
 	image: Types.Value<string?>?,
@@ -139,6 +139,8 @@ export type AvatarProps = Types.TextButtonProps & {
 	controlSize: Types.Value<ControlSize>?,
 	form: "standard" | "icon"?,
 	backplate: boolean?,
+	icon: Types.Value<string?>?,
+	background: string?,
 	onActivate: (() -> ())?,
 }
 export type AvatarMember = {
@@ -146,6 +148,7 @@ export type AvatarMember = {
 	name: string,
 	image: string?,
 	userId: number?,
+	icon: string?,
 	resource: ComposeTypes.AcquireSharedResource<ImageResource>?,
 	presence: Presence?,
 }

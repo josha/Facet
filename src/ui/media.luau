@@ -1638,6 +1638,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			"loader",
 			"onStatus",
 			"resource",
+			"icon",
+			"background",
 		}, {
 			Size = function(use: ComposeTypes.Use)
 				local pixels = diameter(use)
@@ -1654,15 +1656,33 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				onActivate()
 			end
 		end
+		assert(spec.background == nil or table.find({
+			"surface",
+			"surfaceStrong",
+			"control",
+			"contentStrong",
+			"accent",
+			"success",
+			"warning",
+			"danger",
+		}, spec.background) ~= nil, "Facet Avatar background must be a palette role such as accent or success")
+		assert(
+			spec.icon == nil or not (spec.image or spec.userId or spec.resource),
+			"Facet Avatar takes one face: image, userId, resource or icon"
+		)
 		local root = ctx.styled(Host.TextButton(native), "avatar")
 		if spec.backplate then
 			ctx.styled(root, "accent")
+		end
+		if spec.background then
+			root:AddTag("facet-avatar-background-" .. spec.background)
 		end
 		local function facts(use: ComposeTypes.Use)
 			local name, presence = read(spec.name, use), read(spec.presence, use)
 			assert(type(name) == "string" and name ~= "", "Facet Avatar name must be nonempty")
 			assert(
-				presence == nil or ({ online = true, away = true, busy = true, offline = true })[presence],
+				presence == nil
+					or ({ online = true, away = true, busy = true, offline = true, inExperience = true })[presence],
 				"Facet Avatar invalid presence"
 			)
 			return {
@@ -1683,7 +1703,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			return ctx.text({
 				Name = "Initials",
 				Visible = function(use: ComposeTypes.Use)
-					return not use(pictured)
+					return not use(pictured) and read(spec.icon, use) == nil
 				end,
 				Size = D2.fromScale(1, 1),
 				Text = function(use: ComposeTypes.Use)
@@ -1699,6 +1719,54 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				}),
 			})
 		end, root)
+		if spec.icon ~= nil then
+			runtime.mount(function()
+				return ctx.icon(function(use: ComposeTypes.Use)
+					return read(spec.icon, use) or ""
+				end, {
+					Name = "Face",
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = D2.fromScale(0.5, 0.5),
+					Size = D2.fromScale(0.6, 0.6),
+				})
+			end, root)
+		end
+		if spec.presence then
+			runtime.mount(function()
+				return ctx.styled(
+					Host.Frame "PresenceRing" {
+						BackgroundTransparency = 1,
+						Size = D2.fromScale(1, 1),
+						ZIndex = 2,
+						Visible = function(use: ComposeTypes.Use)
+							return facts(use).presence == "inExperience"
+						end,
+						Host.UICorner({ CornerRadius = D.new(1, 0) }),
+						Host.UIStroke({
+							ApplyStrokeMode = E.ApplyStrokeMode.Border,
+							BorderStrokePosition = E.BorderStrokePosition.Inner,
+							Thickness = 2,
+						}),
+						ctx.styled(
+							Host.Frame "Gap" {
+								BackgroundTransparency = 1,
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.new(1, -4, 1, -4),
+								Host.UICorner({ CornerRadius = D.new(1, 0) }),
+								Host.UIStroke({
+									ApplyStrokeMode = E.ApplyStrokeMode.Border,
+									BorderStrokePosition = E.BorderStrokePosition.Inner,
+									Thickness = 2,
+								}),
+							},
+							"avatar-ring-gap"
+						),
+					},
+					"avatar-ring"
+				)
+			end, root)
+		end
 		local image, userId, onStatus = spec.image, spec.userId, spec.onStatus
 		if image or userId or spec.resource then
 			runtime.mount(function()
@@ -1737,7 +1805,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					diameter = 12,
 					cutout = true,
 					Visible = function(use: ComposeTypes.Use)
-						return facts(use).presence ~= nil
+						local presence = facts(use).presence
+						return presence ~= nil and presence ~= "inExperience"
 					end,
 					form = function(use: ComposeTypes.Use): "dot" | "ring" | "square" | "dash"
 						local current = facts(use).presence
@@ -1844,18 +1913,27 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						name = function(use: ComposeTypes.Use)
 							return use(current).name
 						end,
-						image = function(use: ComposeTypes.Use)
-							local item = use(current)
-							return item.image
-								or (
-									if item.userId
-										then "rbxthumb://type=AvatarHeadShot&id=" .. tostring(item.userId) .. "&w=150&h=150"
-										else ""
-								)
-						end,
+						image = if current:peek().icon
+							then nil
+							else function(use: ComposeTypes.Use)
+								local item = use(current)
+								return item.image
+									or (
+										if item.userId
+											then "rbxthumb://type=AvatarHeadShot&id="
+												.. tostring(item.userId)
+												.. "&w=150&h=150"
+											else ""
+									)
+							end,
 						presence = function(use: ComposeTypes.Use): Media.Presence?
 							return use(current).presence :: Media.Presence?
 						end,
+						icon = if current:peek().icon
+							then function(use: ComposeTypes.Use): string?
+								return use(current).icon
+							end
+							else nil,
 						diameter = size,
 						presenceMark = spec.layout == "spread",
 						LayoutOrder = index,

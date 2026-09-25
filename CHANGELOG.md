@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Avatar takes `icon`, an icon name drawn in place of the initials, such as `"person"` for a guest. An AvatarGroup member takes `icon` too. `presence = "inExperience"` draws an opaque `accent` ring with a `surface` gap inside the edge of the face, and no corner mark. `background` paints the plate in a palette role and the initials and icon in its partner color.
 - StatusIndicator, Badge and a TabView tab indicator take `status = "voice"` and `"contrast"`. Voice uses the optional palette `extra.voice` color, which is halfway between `warning` and `danger` when a palette does not declare it. Contrast is a `contentStrong` mark with `surface` text.
 - A Toggle switch follows `controlSize`. The track is the rung `iconSize` plus 4 pixels high and keeps the 38 by 24 proportion. The knob is 6 pixels smaller than the track. Before, every rung drew the 38 by 24 switch.
 
