@@ -142,6 +142,73 @@ return function(ctx: any, options: any)
 		end
 		return result
 	end)
+	local function mailBody(current, key, sender)
+		local function words(field)
+			return function(use)
+				return use(current)[field]
+			end
+		end
+		return Host.Frame({
+			Name = "Mail",
+			Size = D2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.UIPadding({ PaddingLeft = D.new(0, 4), PaddingRight = D.new(0, 4) }),
+			Host.UIListLayout({
+				FillDirection = E.FillDirection.Horizontal,
+				VerticalAlignment = E.VerticalAlignment.Center,
+				SortOrder = E.SortOrder.LayoutOrder,
+				Padding = D.new(0, 8),
+			}),
+			UI.StatusIndicator "Unread" {
+				LayoutOrder = 1,
+				form = "dot",
+				status = "accent",
+				name = "Unread",
+				Visible = function(use)
+					return not use(readRows)[key]
+				end,
+			},
+			Host.Frame({
+				Name = "Text",
+				LayoutOrder = 2,
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(0, 1),
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				Host.UIListLayout({
+					SortOrder = E.SortOrder.LayoutOrder,
+					VerticalAlignment = E.VerticalAlignment.Center,
+					Padding = D.new(0, 2),
+				}),
+				UI.Text "From" {
+					LayoutOrder = 1,
+					Visible = sender,
+					text = words("from"),
+					textRole = "body",
+					truncate = "end",
+				},
+				UI.Text "Subject" { LayoutOrder = 2, text = words("subject"), textRole = "label", truncate = "end" },
+				UI.Text "Preview" {
+					LayoutOrder = 3,
+					text = words("preview"),
+					textRole = "caption",
+					role = "secondary",
+					truncate = "end",
+				},
+			}),
+			UI.Image "Flag" {
+				LayoutOrder = 3,
+				Size = D2.fromOffset(16, 16),
+				tint = ctx.types.Color3.fromRGB(214, 64, 56),
+				image = function(use)
+					local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
+					return ctx.Facet.themes.resolveIcon(package, "flag") or ""
+				end,
+				Visible = function(use)
+					return use(flaggedRows)[key] == true
+				end,
+			},
+		})
+	end
 	local function row(current, placement, key)
 		mounted:set(mounted:peek() + 1)
 		built:set(built:peek() + 1)
@@ -190,35 +257,36 @@ return function(ctx: any, options: any)
 				},
 			})
 		end
-		local button = UI.Button({
-			Name = "Item_" .. key,
-			label = function(use)
-				local item = use(current)
-				if options.mail then
-					return (if use(readRows)[key] then "Read · " else "Unread · ")
-						.. (if use(flaggedRows)[key] then "Flagged · " else "")
-						.. item.subject
-				end
-				return item.label
-			end,
-			subtitle = if options.mail
-				then function(use)
-					return use(current).from .. "\n" .. use(current).preview
-				end
-				else nil,
-			TextSize = function(use)
-				return 16 + use(textOffset)
-			end,
-			TextWrapped = true,
-			Size = D2.fromScale(1, 1),
-			AutomaticSize = E.AutomaticSize.None,
-			onActivate = function()
-				selected:set(key)
-				if options.mail then
+		local button = if options.mail
+			then UI.Button({
+				Name = "Item_" .. key,
+				label = "",
+				name = function(use)
+					return use(current).subject .. " from " .. use(current).from
+				end,
+				Size = D2.fromScale(1, 1),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = function()
+					selected:set(key)
 					markRead(key)
-				end
-			end,
-		})
+				end,
+				mailBody(current, key, true),
+			})
+			else UI.Button({
+				Name = "Item_" .. key,
+				label = function(use)
+					return use(current).label
+				end,
+				TextSize = function(use)
+					return 16 + use(textOffset)
+				end,
+				TextWrapped = true,
+				Size = D2.fromScale(1, 1),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = function()
+					selected:set(key)
+				end,
+			})
 		if options.actions then
 			local spec = actions(key)
 			spec.Size, spec.content = D2.fromScale(1, 1), button
@@ -303,7 +371,7 @@ return function(ctx: any, options: any)
 					markRead(key)
 				end
 			end
-			common.itemSize = if options.mail then 100 else nil
+			common.itemSize = if options.mail then 76 else nil
 			common.rowActions = if options.actions
 				then function(_, key)
 					return actions(key)
@@ -345,18 +413,7 @@ return function(ctx: any, options: any)
 						label = "Subject",
 						minWidth = 160,
 						render = function(current, _, key)
-							return UI.Text "Message" {
-								text = function(use)
-									return (if use(readRows)[key] then "Read · " else "Unread · ")
-										.. (if use(flaggedRows)[key] then "Flagged · " else "")
-										.. use(current).subject
-										.. "\n"
-										.. use(current).preview
-								end,
-								TextWrapped = true,
-								Size = D2.fromScale(1, 1),
-								BackgroundTransparency = 1,
-							}
+							return mailBody(current, key, false)
 						end,
 					},
 				}
@@ -366,7 +423,7 @@ return function(ctx: any, options: any)
 			common.render = row
 			common.itemSize = if options.horizontal
 				then 160
-				elseif options.mail then 112
+				elseif options.mail then 76
 				elseif options.measure then 76
 				else function(use)
 					return 64 + use(textOffset) * 2

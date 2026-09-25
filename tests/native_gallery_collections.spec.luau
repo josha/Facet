@@ -144,20 +144,40 @@ t.describe("native gallery collections", function()
 		local list = find(node, "Mail_list")
 		local body = find(list, "Collection")
 		viewport(body, engine, 700, 240)
-		t.expect(contains(find(list, "Row_m1"), "Unread · Kickoff notes")).toBe(true)
-		t.expect(contains(find(list, "Row_m2"), "Read · Order confirmed")).toBe(true)
-		t.expect(contains(find(list, "Row_m3"), "Unread · Flagged · Weekly digest")).toBe(true)
-		t.expect(contains(find(list, "Row_m1"), "Ari Foyer")).toBe(true)
-		t.expect(contains(find(list, "Row_m1"), "Quick recap from the sync")).toBe(true)
+		local function mail(row)
+			return {
+				unread = find(row, "Unread").Visible,
+				flagged = find(row, "Flag").Visible,
+				from = find(row, "From").Text,
+				subject = find(row, "Subject").Text,
+				preview = find(row, "Preview").Text,
+			}
+		end
+		t.expect(mail(find(list, "Row_m1"))).toEqual({
+			unread = true,
+			flagged = false,
+			from = "Ari Foyer",
+			subject = "Kickoff notes",
+			preview = "Quick recap from the sync — three follow-ups, none urgent.",
+		})
+		t.expect(mail(find(list, "Row_m2")).unread).toBe(false)
+		t.expect(mail(find(list, "Row_m3")).flagged).toBe(true)
+		t.expect(contains(find(list, "Row_m1"), "Unread · ")).toBe(false)
+		t.expect(find(find(list, "Row_m1"), "Flag"):IsA("ImageLabel")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "Unread"):IsA("GuiObject")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "Subject"):HasTag("facet-type-label")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "Preview"):HasTag("facet-type-caption")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "From"):HasTag("facet-type-body")).toBe(true)
+		t.expect(built.report().surfaces.list.status.extent).toBe(6 * 76 + 5 * 8)
 		for _ = 1, 2 do
 			swipe(find(list, "Row_m1"), engine, 10, 300)
 		end
 		t.expect(built.report().surfaces.list.read.m1).toBe(true)
-		t.expect(contains(find(list, "Row_m1"), "Read · Kickoff notes")).toBe(true)
+		t.expect(mail(find(list, "Row_m1")).unread).toBe(false)
 		local row = find(list, "Row_m1")
 		swipe(row, engine, 240, 100)
 		find(row, "flag").Activated.fire()
-		t.expect(contains(row, "Read · Flagged · Kickoff notes")).toBe(true)
+		t.expect(mail(row).flagged).toBe(true)
 		find(list, "Jump").Activated.fire()
 		t.expect(body.CanvasPosition.Y > 0).toBe(true)
 		t.expect(built.report().surfaces.list.status.total).toBe(6)
@@ -182,7 +202,8 @@ t.describe("native gallery collections", function()
 		find(find(body, "m1"), "RowHit").Activated.fire()
 		t.expect(built.report().surfaces.table.read.m1).toBe(true)
 		t.expect(built.report().surfaces.list.read.m1).toBe(false)
-		t.expect(contains(find(body, "m1"), "Read · Kickoff notes")).toBe(true)
+		t.expect(find(find(body, "m1"), "Unread").Visible).toBe(false)
+		t.expect(find(find(body, "m2"), "Subject").Text).toBe("Order confirmed")
 		t.expect(find(find(body, "m1"), "Move").Interactable).toBe(false)
 		find(page, "Edit").Activated.fire()
 		local handle = find(find(body, "m1"), "Move")
