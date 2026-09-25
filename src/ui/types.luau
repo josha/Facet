@@ -164,6 +164,13 @@ export type ActionSettings = {
 	capture: boolean?,
 	group: string?,
 }
+export type ListRow = {
+	leading: { Child }?,
+	captions: { GuiObject },
+	trailing: { Child }?,
+	described: boolean,
+	controlSize: Value<ControlSize>?,
+}
 export type SkinStateOptions = { disabled: Value<boolean>?, selected: Value<boolean>? }
 export type Context = {
 	runtime: Runtime,
@@ -193,6 +200,7 @@ export type Context = {
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,
 	column: ({ Child }, FrameNativeProps?) -> Frame,
+	listRow: (ListRow) -> (Frame, Value<UDim2>, (GuiObject) -> ()),
 	icon: (Value<string>, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,
 	iconVaries: (Value<string>?) -> boolean,
 	modalScopes: Cell<{ Instance }>,

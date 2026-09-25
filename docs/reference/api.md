@@ -607,7 +607,7 @@ Presentation options:
   description, and `value` as secondary text on the trailing edge. When the
   button has `onActivate` and no `trailingIcon`, it also shows a disclosure
   chevron. `value` and `icon` are static strings. `hint` shows as a second
-  line of text below the label.
+  line of text below the label. See [Settings rows](#settings-rows).
 - `haptic`: a boolean or a readable. When it is true, the button plays the
   `pressHaptic` of the controls. The default is false. See [Haptics](#haptics).
 - `help`: one sentence that describes the action. It shows in a small panel
@@ -1104,6 +1104,25 @@ The theme paints the calendar through these tags: `facet-calendar-day`,
 `facet-calendar-band`, `facet-calendar-disc`, `facet-calendar-end`,
 `facet-calendar-today`, `facet-calendar-strike`, `facet-calendar-number`,
 `facet-calendar-dim`, `facet-calendar-chosen` and `facet-calendar-chosen-end`.
+
+### Settings rows
+
+The `row` form of Button, Toggle and Slider is one list row. The row has the
+`facet-list-row` tag and one `Content` frame. `Content` holds the
+`LeadingIcon`, then a `Captions` column that fills the width, then the
+trailing parts. `Captions` holds the `Title` and the `Description`. The
+description is secondary text. The trailing part is the value and chevron of
+a Button, the switch of a Toggle, or nothing on a Slider. A Slider puts its
+value next to its title and its track below the description.
+
+A row fills its width. Its minimum height is the `controlSize` height, and it
+grows with its content. The row takes the `facet-size-<step>` tag of its
+`controlSize`, or no size tag for `regular`. Its left and right padding is
+the `paddingX` of the step. Its top and bottom padding is half of the step
+height minus its `iconSize` and the `xs` space, so a one-line row keeps the
+step height. When the `control` chrome of the theme has a larger inset, the
+row uses the inset.
+A row draws no separator. Put a `Divider` between rows when a list needs one.
 
 ### Stepper and Slider
 

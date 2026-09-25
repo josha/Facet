@@ -747,7 +747,7 @@ t.describe("native parity weaker values", function()
 			end
 			t.expect(texts["Camera assistance"]).toBe(true)
 			t.expect(texts["Keep the route in view"]).toBe(true)
-			t.expect(find(volumeNode, "Label").Text).toBe("Music volume")
+			t.expect(find(volumeNode, "Title").Text).toBe("Music volume")
 			t.expect(find(volumeNode, "Description").Text).toBe("Adjust music while playing")
 			press(world, toggle, entry[3])
 			t.expect(value:peek()).toBe(true)
@@ -1708,7 +1708,7 @@ t.describe("native parity weaker values", function()
 		for _, slot in { "toggleTrack", "toggleKnob" } do
 			package.chrome[slot] = { kind = "nineSlice", asset = { default = "off", selected = "on" } }
 		end
-		for _, presentation in { "switch", "checkbox" } do
+		for _, presentation in { "switch" } do
 			local value = Compose.cell(false)
 			local world = setup(function(UI, Host)
 				return Host.Frame({

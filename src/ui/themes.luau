@@ -730,19 +730,19 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
 		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
 	})
-	local function rungPadding(rung: string): number
+	local function rungMetric(rung: string, field: string): number
 		local authored = (package.metrics.controlSizes or {})[rung]
-		if authored and type(authored.paddingX) == "number" then
-			return authored.paddingX
+		if authored and type(authored[field]) == "number" then
+			return authored[field]
 		end
 		local fallback = neutral.metrics.controlSizes[rung]
 		if fallback then
-			return fallback.paddingX
+			return fallback[field]
 		end
-		return math.max(0, 2 * rungPadding("compact") - rungPadding("regular"))
+		return math.max(0, 2 * rungMetric("compact", field) - rungMetric("regular", field))
 	end
 	for _, rung in { "xsmall", "compact", "regular", "large" } do
-		local paddingX = rungPadding(rung)
+		local paddingX = rungMetric(rung, "paddingX")
 		rule(".facet-button.facet-size-" .. rung .. "::UIPadding", {
 			PaddingLeft = types.UDim.new(0, math.max(paddingX, buttonInsets.left or 0)),
 			PaddingRight = types.UDim.new(0, math.max(paddingX, buttonInsets.right or 0)),
@@ -756,6 +756,28 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, math.max(10, buttonInsets.top or 0)),
 		PaddingBottom = types.UDim.new(0, math.max(10, buttonInsets.bottom or 0)),
 	})
+	rule(".facet-toggle-row::UIPadding", { PaddingLeft = types.UDim.new(0, 0), PaddingRight = types.UDim.new(0, 0) })
+	rule(".facet-toggle-settings::UIPadding", {
+		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+	})
+	rule(".facet-slider-settings::UIPadding", {
+		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+	})
+	local space: { [string]: number } = package.metrics.space or neutral.metrics.space
+	local rowGap = space.xs or neutral.metrics.space.xs
+	for _, rung in { "", "xsmall", "compact", "regular", "large" } do
+		local step = if rung == "" then "regular" else rung
+		local paddingX = rungMetric(step, "paddingX")
+		local paddingY = math.max(0, (rungMetric(step, "height") - rungMetric(step, "iconSize") - rowGap) // 2)
+		rule(".facet-list-row" .. (if rung == "" then "" else ".facet-size-" .. rung) .. "::UIPadding", {
+			PaddingLeft = types.UDim.new(0, math.max(paddingX, buttonInsets.left or 0)),
+			PaddingRight = types.UDim.new(0, math.max(paddingX, buttonInsets.right or 0)),
+			PaddingTop = types.UDim.new(0, math.max(paddingY, buttonInsets.top or 0)),
+			PaddingBottom = types.UDim.new(0, math.max(paddingY, buttonInsets.bottom or 0)),
+		})
+	end
 	rule(".facet-menu-dense::UIPadding", { PaddingTop = types.UDim.new(0, 0), PaddingBottom = types.UDim.new(0, 0) })
 	rule(".facet-busy::UIPadding", { PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0) + 20) })
 	rule(".facet-shape-circle::UIPadding", {
@@ -915,15 +937,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-row.facet-selected >> .facet-text", { TextColor3 = c("content") })
 	rule(".facet-toggle-row.facet-selected >> .facet-icon", { ImageColor3 = c("content") })
 	rule(".facet-toggle-plain", { BackgroundTransparency = 1 })
-	rule(".facet-toggle-row::UIPadding", { PaddingLeft = types.UDim.new(0, 0), PaddingRight = types.UDim.new(0, 0) })
-	rule(".facet-toggle-settings::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
-	})
-	rule(".facet-slider-settings::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
-	})
 	rule(".facet-toggle-indicator", { BackgroundColor3 = c("control"), BackgroundTransparency = 0 })
 	rule(".facet-toggle-on", { BackgroundColor3 = c("selection") })
 	rule(".facet-toggle-switch >> .facet-toggle-mark", { BackgroundColor3 = c("onSelection") })

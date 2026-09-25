@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The `row` form of Button, Toggle and Slider is one list row (`facet-list-row`): the leading icon, a `Captions` column that fills the width, then the trailing parts. Its minimum height is the `controlSize` height, and its padding follows the rung on all four sides. Before, a Toggle or Slider row had no top and bottom padding, a Slider row had no minimum height, and `controlSize` did not change the padding of any row. A row description is secondary text in every form. A Slider row now names its title `Title`.
 - `UI.ColorPicker` readout: the preview is two cells wide, the RGB/HSV/Hex picker fills the rest of its row, and the fields share their row in equal columns (`HorizontalFlex`), with Hex across the whole row. The swatch and brick grids are centred in the panel. Before, the fields were sized by a fixed third minus 6 pixels and the grids sat at the leading edge.
 - `UI.ColorPicker` shows the Bricks technique by default when the controls' `types` has `BrickColor` (the default on Roblox). Before, the default was Swatches, Spectrum and Sliders, so the engine BrickColor palette was hidden unless `modes` listed `"brick"`. A well now names a colour that is a BrickColor by its brick name.
 - `UI.ColorPicker` swatch, brick and save cells are 44 by 44 squares with the theme's `radii.control` corner. Before, the button padding narrowed each swatch to a 20 pixel wide pill.

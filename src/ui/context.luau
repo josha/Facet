@@ -583,6 +583,58 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	function ctx.column(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, true)
 	end
+	function ctx.listRow(parts: Shared.ListRow): (Frame, Shared.Value<UDim2>, (GuiObject) -> ())
+		for _, caption in parts.captions do
+			if caption.Name == "Description" then
+				caption:AddTag("facet-secondary")
+			end
+		end
+		local columns: { ComposeTypes.Child } = table.clone(parts.leading or {})
+		table.insert(
+			columns,
+			ctx.column(parts.captions, {
+				Name = "Captions",
+				Size = types.UDim2.new(0, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }) :: ComposeTypes.Child,
+			})
+		)
+		table.move(parts.trailing or {}, 1, #(parts.trailing or {}), #columns + 1, columns)
+		local content = ctx.row(columns, {
+			Name = "Content",
+			ZIndex = 1,
+			Size = types.UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			AnchorPoint = if parts.described then types.Vector2.zero else types.Vector2.new(0, 0.5),
+			Position = types.UDim2.fromScale(0, if parts.described then 0 else 0.5),
+		})
+		assert(content:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = Enum.VerticalAlignment.Center
+		local rung: Shared.Value<Shared.ControlSize>? = parts.controlSize
+		local function height(use: ComposeTypes.Use?): UDim2
+			return types.UDim2.new(1, 0, 0, ctx.controlSize(rung, "height", use))
+		end
+		local size = if live(config.theme) or live(rung) then height else height()
+		return content,
+			size,
+			function(node: GuiObject)
+				node:AddTag("facet-list-row")
+				local function tagRung(use: ComposeTypes.Use?)
+					local current = ctx.read(rung, use)
+					for _, name in { "xsmall", "compact", "regular", "large" } do
+						if current == name then
+							node:AddTag("facet-size-" .. name)
+						elseif node:HasTag("facet-size-" .. name) then
+							node:RemoveTag("facet-size-" .. name)
+						end
+					end
+				end
+				if live(rung) then
+					Compose.watch(tagRung)
+				else
+					tagRung()
+				end
+			end
+	end
 	function ctx.iconVaries(name: Shared.Value<string>?): boolean
 		if name == nil then
 			return false

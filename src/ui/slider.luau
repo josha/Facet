@@ -802,6 +802,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			})
 		end
 		local parts: { ComposeTypes.Child } = {}
+		local captions: { GuiObject } = {}
 		if spec.row then
 			local row = spec.row
 			local header = { readout }
@@ -810,7 +811,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					header,
 					1,
 					ctx.text({
-						Name = "Label",
+						Name = "Title",
 						Text = row.title or spec.label,
 						Size = D2.fromOffset(0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -820,12 +821,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				)
 			end
 			table.insert(
-				parts,
+				captions,
 				ctx.row(header, { Name = "Header", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 			)
 			if row.description then
 				table.insert(
-					parts,
+					captions,
 					ctx.text({
 						Name = "Description",
 						Text = row.description,
@@ -835,7 +836,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					})
 				)
 			end
-			table.insert(parts, track)
+			table.insert(captions, track)
 		else
 			if spec.label then
 				table.insert(
@@ -864,22 +865,29 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		})
 		local node: Frame
 		if spec.row and not vertical then
-			local body = ctx.column(parts, {
-				Name = "Body",
-				Size = D2.new(0, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+			local content, size, mark = ctx.listRow({
+				leading = if spec.row.icon then { ctx.icon(spec.row.icon, { Name = "LeadingIcon" }) } else nil,
+				captions = captions,
+				described = true,
+				controlSize = spec.controlSize,
 			})
-			local columns: { ComposeTypes.Child } = { body, Host.UIPadding({}) }
-			if spec.row.icon then
-				table.insert(columns, 1, ctx.icon(spec.row.icon, { Name = "LeadingIcon" }))
+			if spec.Size == nil then
+				native.Size = size
+				native.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
 			end
-			node = ctx.styled(ctx.row(columns, native), "slider")
-			assert(node:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Top
+			table.insert(native, content)
+			table.insert(native, Host.UIPadding({}))
+			node = ctx.styled(Host.Frame(native), "slider")
+			mark(node)
 			node:AddTag("facet-slider-settings")
 		else
-			node =
-				ctx.styled(if spec.row or vertical then ctx.column(parts, native) else ctx.row(parts, native), "slider")
+			node = ctx.styled(
+				if spec.row
+					then ctx.column(captions :: { any }, native)
+					elseif vertical then ctx.column(parts, native)
+					else ctx.row(parts, native),
+				"slider"
+			)
 		end
 		if vertical then
 			local layout = assert(node:FindFirstChildWhichIsA("UIListLayout"))

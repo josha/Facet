@@ -569,12 +569,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 		end
 
-		if spec.row and spec.Size == nil then
-			p.Size = function(use: ComposeTypes.Use)
-				return D2.new(1, 0, 0, ctx.controlSize(spec.controlSize, "height", use))
-			end
-			p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
-		elseif spec.Size ~= nil and spec.shape ~= "circle" then
+		if spec.Size ~= nil and spec.shape ~= "circle" then
 			local given = spec.Size
 			local sizing = spec.AutomaticSize
 			local function floored(use: ComposeTypes.Use?): UDim2
@@ -664,6 +659,27 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end)
 			)
 		end
+		local markRow: ((GuiObject) -> ())? = nil
+		local function listRow(
+			content: { ComposeTypes.Child },
+			lead: number,
+			captions: { GuiObject },
+			described: boolean
+		): Frame
+			local frame, size, mark = ctx.listRow({
+				leading = table.move(content, 1, lead, 1, {}),
+				captions = captions,
+				trailing = table.move(content, lead + 1, #content, 1, {}),
+				described = described,
+				controlSize = spec.controlSize,
+			})
+			if spec.Size == nil then
+				p.Size = size
+				p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
+			end
+			markRow = mark
+			return frame
+		end
 		if rich then
 			local content: { ComposeTypes.Child } = {}
 			local imageCard = spec.image ~= nil
@@ -744,6 +760,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			local label = row.title or spec.label or (if leading then nil else spec.name) or ""
 			local description = row.description or spec.subtitle or spec.hint
+			local lead = #content
+			local rowCaptions: { GuiObject } = {}
 			local wordless = leading ~= nil and description == nil and not dynamic(label) and label == ""
 			if not (spec.shape == "circle" and spec.icon) and not wordless then
 				local function caption(name: string, text: Shared.Value<string>): TextLabel
@@ -768,26 +786,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end
 					return made
 				end
-				local captions = if description
-					then ctx.column({ caption("Title", label), caption("Description", description) }, {
-						Name = "Captions",
-						Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
-						AutomaticSize = if imageCard then E.AutomaticSize.Y else E.AutomaticSize.XY,
-					})
-					else caption("Title", label)
-				if imageCard then
-					captions:AddTag("facet-button-media-body")
-				end
 				if spec.row then
-					local descriptionNode = captions:FindFirstChild("Description")
-					if descriptionNode then
-						descriptionNode:AddTag("facet-secondary")
+					rowCaptions = { caption("Title", label) }
+					if description then
+						table.insert(rowCaptions, caption("Description", description))
 					end
-					runtime.mount(function()
-						return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
-					end, captions)
+				else
+					local captions = if description
+						then ctx.column({ caption("Title", label), caption("Description", description) }, {
+							Name = "Captions",
+							Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
+							AutomaticSize = if imageCard then E.AutomaticSize.Y else E.AutomaticSize.XY,
+						})
+						else caption("Title", label)
+					if imageCard then
+						captions:AddTag("facet-button-media-body")
+					end
+					table.insert(content, captions)
 				end
-				table.insert(content, captions)
 				if row.value ~= nil then
 					local value = caption("Value", row.value)
 					value:AddTag("facet-secondary")
@@ -808,14 +824,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					AutomaticSize = if hugs then E.AutomaticSize.Y else E.AutomaticSize.None,
 					ClipsDescendants = true,
 				})
-				elseif spec.row then ctx.row(content, {
-					Name = "Content",
-					ZIndex = 1,
-					Size = D2.fromScale(1, 0),
-					AutomaticSize = E.AutomaticSize.Y,
-					AnchorPoint = if description then V2.zero else V2.new(0, 0.5),
-					Position = if description then D2.fromScale(0, 0) else D2.fromScale(0, 0.5),
-				})
+				elseif spec.row then listRow(content, lead, rowCaptions, description ~= nil)
 				elseif description then ctx.row(content, {
 					Name = "Content",
 					ZIndex = 1,
@@ -897,6 +906,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		node = ctx.styled(Host.TextButton(p), "button")
 		if rich and spec.image ~= nil then
 			node:AddTag("facet-button-media")
+		end
+		if markRow then
+			markRow(node)
 		end
 		activation.mark(node)
 		Compose.cleanup(activation.provide(node, activate))
@@ -1327,6 +1339,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				return read(spec.value, use) or read(spec.mixed, use) == true
 			end
 		p.ref = nil
+		local markRow: ((GuiObject) -> ())? = nil
 		if plain then
 			p.selected, p.appearance = nil, nil
 		end
@@ -1465,7 +1478,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			if rich then
 				p.Text = ""
 				local row: InputTypes.Row = spec.row or {}
-				local title = ctx.text({ Text = row.title or spec.label or "" })
+				local title = ctx.text({ Name = "Title", Text = row.title or spec.label or "" })
 				local labelSize = read(spec.textSize)
 				assert(
 					labelSize == nil or typeRoles[labelSize :: string] or type(labelSize) == "number",
@@ -1477,51 +1490,47 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					title.TextSize = labelSize
 				end
 				p.textSize = nil
-				local label: GuiObject = title
+				local captions: { GuiObject } = { title }
 				local described = row.description ~= nil or spec.hint ~= nil
 				if described then
-					label = ctx.column({
-						label,
+					table.insert(
+						captions,
 						ctx.text({
 							Name = "Description",
 							Text = row.description or spec.hint,
 							Size = if spec.row then D2.fromScale(1, 0) else D2.fromOffset(0, 0),
 							AutomaticSize = if spec.row then E.AutomaticSize.Y else E.AutomaticSize.XY,
 							TextWrapped = spec.row ~= nil,
-						}),
-					}, if spec.row then { Size = D2.fromScale(0, 0), AutomaticSize = E.AutomaticSize.Y } else nil)
+						})
+					)
 				end
 				local leading = spec.icon or row.icon
 				p.icon = nil
+				local icons: { ComposeTypes.Child } = if leading
+					then { ctx.icon(leading, { Name = "LeadingIcon" }) }
+					else {}
 				if spec.row then
-					runtime.mount(function()
-						return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
-					end, label)
-				end
-				local columns: { ComposeTypes.Child } = if trailing then { label, indicator } else { indicator, label }
-				if leading then
-					table.insert(columns, 1, ctx.icon(leading, { Name = "LeadingIcon" }))
-				end
-				table.insert(
-					p,
-					ctx.row(
-						columns,
-						if spec.row
-							then {
-								Name = "Content",
-								Size = D2.fromScale(1, 0),
-								AutomaticSize = E.AutomaticSize.Y,
-								AnchorPoint = if described then V2.zero else V2.new(0, 0.5),
-								Position = if described then D2.fromScale(0, 0) else D2.fromScale(0, 0.5),
-							}
-							else nil
-					)
-				)
-				if spec.row and spec.Size == nil then
-					p.Size = function(use: ComposeTypes.Use)
-						return D2.new(1, 0, 0, ctx.controlSize(spec.controlSize, "height", use))
+					if not trailing then
+						table.insert(icons, indicator)
 					end
-					p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
+					local content, size, mark = ctx.listRow({
+						leading = icons,
+						captions = captions,
+						trailing = if trailing then { indicator } else nil,
+						described = described,
+						controlSize = spec.controlSize,
+					})
+					table.insert(p, content)
+					if spec.Size == nil then
+						p.Size = size
+						p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
+					end
+					markRow = mark
+				else
+					local label: GuiObject = if described then ctx.column(captions) else title
+					table.insert(icons, if trailing then label else indicator)
+					table.insert(icons, if trailing then indicator else label)
+					table.insert(p, ctx.row(icons))
 				end
 			else
 				p.Text = spec.Text or spec.label or ""
@@ -1569,6 +1578,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			unskinned[p] = true
 		end
 		local toggle = ctx.styled(UI.Button(p), "toggle")
+		if markRow then
+			markRow(toggle)
+		end
 		if presentation ~= "button" then
 			toggle:AddTag("facet-toggle-row")
 			if plain then
