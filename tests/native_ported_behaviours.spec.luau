@@ -608,3 +608,25 @@ t.describe("outline disclosure header", function()
 		w.stop()
 	end)
 end)
+
+t.describe("StepIndicator room", function()
+	t.it("the underline sits below the copy, and a long description counts toward the fit", function()
+		local w = world(function(UI)
+			return UI.StepIndicator "Steps" {
+				steps = {
+					{ id = "a", label = "Cart" },
+					{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
+				},
+				current = "a",
+				sizing = "hug",
+			}
+		end)
+		local root = find(w.screen, "Steps")
+		local row = find(root, "Row")
+		expect(row:FindFirstChildWhichIsA("UIPadding").PaddingBottom.Offset >= 2).toBe(true)
+		root.AbsoluteSize = Vector2.new(300, 80)
+		w.step()
+		expect(root:GetAttribute("FacetForm")).toBe("summary")
+		w.stop()
+	end)
+end)
