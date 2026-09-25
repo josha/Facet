@@ -225,18 +225,11 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 	for _, child in children do
 		table.insert(props, child)
 	end
-	local frame = Host.Frame(props)
 	local ratio = media.aspectRatio
 	if ratio and not height then
-		local measured = ctx.observe.AbsoluteSize(frame)
-		ctx.runtime.decorate(frame, {
-			Size = function(use: ComposeTypes.Use)
-				local width = (use(measured) :: Vector2).X
-				return D2.new(1, 0, 0, math.floor(width / ratio + 0.5))
-			end,
-		})
+		table.insert(props, Host.UIAspectRatioConstraint({ AspectRatio = ratio, DominantAxis = E.DominantAxis.Width }))
 	end
-	return frame
+	return Host.Frame(props)
 end
 
 export type ActionGroup = { frame: Frame, stacked: ComposeTypes.Readable<boolean> }
