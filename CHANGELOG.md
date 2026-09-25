@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A StepIndicator with `sizing = "hug"` changes to the summary and the Steps menu when its laid-out row is wider than its root. Before, it estimated the row from the label text, so on a phone the row ran off the screen.
 - Every StepIndicator step has the Button inset of its `controlSize`, whether or not it is a Button. Before, a step that was not a Button had no inset, so its cue sat on the cell edge.
 - A StepIndicator with `sizing = "fill"` gives every step an equal width. Before, each step got its own width plus an equal share of the spare room, so the cells differed.
 - An inactive segmented Picker segment uses `contentSecondary` ink only when it reaches 4.5:1 on the `control` track (or beats `content`); otherwise it uses `content`. Before, Pixel Quest showed tan on wood (1.9:1, now cream at 3.3:1), and Classic Desktop Night and Fantasy Parchment Daylight were below 4.5:1.

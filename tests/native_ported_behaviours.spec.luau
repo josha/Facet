@@ -787,7 +787,7 @@ t.describe("StepIndicator room", function()
 					{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
 				},
 				current = "a",
-				sizing = "hug",
+				sizing = "fill",
 			}
 		end)
 		local root = find(w.screen, "Steps")

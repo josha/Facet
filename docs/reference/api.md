@@ -1734,8 +1734,10 @@ description?, state?, navigable?, enabled? }`. `state` is `complete`,
 
 A malformed snapshot at construction causes an error. A later malformed
 snapshot keeps the last legal one, with a warning and a diagnostic line. The
-control measures its root width and the label text. When the steps do not
-fit, the row changes to the summary and a Steps Menu. The menu lists every
+control measures its root width. With `fill` it compares that width with the
+widest step text times the step count. With `hug` it compares that width with
+the laid-out row (the row `UIListLayout.AbsoluteContentSize`). When the steps
+do not fit, the row changes to the summary and a Steps Menu. The menu lists every
 step. Permitted steps select through the same `onSelect`. The menu closes
 when your `current` changes, so a refused step leaves it open. The number
 circle keeps an aspect ratio of 1 at every text size. The row stretches its

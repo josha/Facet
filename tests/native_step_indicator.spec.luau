@@ -291,6 +291,7 @@ t.describe("native StepIndicator", function()
 		for _, sizing in { "fill", "hug" } do
 			local world, root = mount({ steps = workflow(), current = "ship", sizing = sizing }, 150)
 			measureAll(world, root, 60)
+			world.find("Row"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = world.V2(600, 60)
 			t.expect(`{sizing} {root:GetAttribute("FacetForm")}`).toBe(`{sizing} summary`)
 			world.resize(root, 950, 80)
 			t.expect(`{sizing} {root:GetAttribute("FacetForm")}`).toBe(`{sizing} row`)
@@ -307,14 +308,27 @@ t.describe("native StepIndicator", function()
 				end
 			end
 		end
+		hug.find("Row"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = hug.V2(600, 60)
 		t.expect(fillRoot:GetAttribute("FacetForm")).toBe("summary")
 		t.expect(hugRoot:GetAttribute("FacetForm")).toBe("row")
 		fill.stop()
 		hug.stop()
 	end)
 
-	t.it("measures the whole cell, not the label alone, before it draws the row", function()
-		for _, sizing in { "fill", "hug" } do
+	t.it("switches a hug row to the summary when the laid-out row is wider than its offer", function()
+		local world, root =
+			mount({ steps = workflow(), current = "ship", sizing = "hug", onSelect = function() end }, 400)
+		measureAll(world, root, 10)
+		local layout = world.find("Row"):FindFirstChildWhichIsA("UIListLayout")
+		layout.AbsoluteContentSize = world.V2(520, 60)
+		t.expect(root:GetAttribute("FacetForm")).toBe("summary")
+		layout.AbsoluteContentSize = world.V2(380, 60)
+		t.expect(root:GetAttribute("FacetForm")).toBe("row")
+		world.stop()
+	end)
+
+	t.it("measures the whole fill cell, not the label alone, before it draws the row", function()
+		for _, sizing in { "fill" } do
 			local world, root =
 				mount({ steps = workflow(), current = "ship", sizing = sizing, onSelect = function() end }, 484)
 			for _, node in root:GetDescendants() do

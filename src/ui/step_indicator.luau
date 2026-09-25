@@ -401,20 +401,22 @@ return function(
 		local springWidth = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).width
 		end, { period = 0.25, damping = 1 })
+		local rowLayout = Host.UIListLayout({
+			FillDirection = E.FillDirection.Horizontal,
+			SortOrder = E.SortOrder.LayoutOrder,
+			VerticalAlignment = E.VerticalAlignment.Top,
+			ItemLineAlignment = E.ItemLineAlignment.Stretch,
+			HorizontalFlex = if sizing == "fill" then E.UIFlexAlignment.Fill else E.UIFlexAlignment.None,
+			Padding = function(use: ComposeTypes.Use)
+				return D.new(0, ctx.metric("space.m", use))
+			end,
+		})
+		local laidOut = ctx.observe.AbsoluteContentSize(rowLayout)
 		local row = Host.Frame "Row" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Horizontal,
-				SortOrder = E.SortOrder.LayoutOrder,
-				VerticalAlignment = E.VerticalAlignment.Top,
-				ItemLineAlignment = E.ItemLineAlignment.Stretch,
-				HorizontalFlex = if sizing == "fill" then E.UIFlexAlignment.Fill else E.UIFlexAlignment.None,
-				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, ctx.metric("space.m", use))
-				end,
-			}) :: Types.Child,
+			rowLayout :: Types.Child,
 			Host.UIPadding({
 				PaddingBottom = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.xs", use) + 2)
@@ -461,10 +463,13 @@ return function(
 			if #m.steps == 0 or width <= 0 then
 				return "row"
 			end
+			if sizing == "hug" then
+				return if use(laidOut).X <= width then "row" else "summary"
+			end
 			local gap, inner = ctx.metric("space.m", use), ctx.metric("space.s", use)
 			local sides = inset("left", use) + inset("right", use)
 			local all = use(measures)
-			local widest, total = 0, 0
+			local widest = 0
 			for _, step in m.steps do
 				local copyWidth = 0
 				local cellBounds: { ComposeTypes.Readable<Vector2> } = all[step.id] or {}
@@ -473,10 +478,8 @@ return function(
 				end
 				local cell = cueSize(use) + inner + copyWidth + sides
 				widest = math.max(widest, cell)
-				total += cell
 			end
-			local need = (if sizing == "fill" then widest * #m.steps else total) + gap * (#m.steps - 1)
-			return if need <= width then "row" else "summary"
+			return if widest * #m.steps + gap * (#m.steps - 1) <= width then "row" else "summary"
 		end)
 		local listOpen = Compose.cell(false)
 		Compose.watch(function(use: ComposeTypes.Use)
