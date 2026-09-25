@@ -951,7 +951,9 @@ The panel holds these parts in order:
    more modes.
 2. `Body`: the `Technique` frame. Each technique stays mounted. The inactive
    techniques are not visible. The frame is as tall as the tallest technique,
-   so the panel keeps one height when the tab changes. The swatch and brick
+   so the panel keeps one height when the tab changes. In a scrolling body,
+   an inactive technique reserves at most the height of the body, so a short
+   technique has nothing below it to scroll to. The swatch and brick
    grids are centred in the panel.
 3. `Opacity`: present only with `alpha`.
 4. `Readout`: the `Preview` swatch, the `Format` picker (RGB, HSV and Hex) and

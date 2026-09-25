@@ -1456,12 +1456,19 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			for _, show in shows do
 				table.insert(heights, ctx.observe.AbsoluteSize(show))
 			end
-			local function tech(use: Use): number
-				local tallest = 0
-				for _, size in heights do
-					tallest = math.max(tallest, use(size).Y)
+			local function reserve(use: Use, cap: number): number
+				local active, tallest = use(modeCell), 0
+				for index, size in heights do
+					local h = use(size).Y
+					tallest = math.max(tallest, if modes[index] == active then h else math.min(h, cap))
 				end
 				return tallest
+			end
+			local function tallest(use: Use): number
+				return reserve(use, math.huge)
+			end
+			local function tech(use: Use): number
+				return reserve(use, use(room))
 			end
 			technique.Size = function(use: Use)
 				return D2.new(1, 0, 0, tech(use))
@@ -1646,7 +1653,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 				return total + (count - 1) * SPACE + (if overlay then 2 * PAD else 0)
 			end
-			return { panel = panel, chrome = chromeHeight, tech = tech }
+			return { panel = panel, chrome = chromeHeight, tech = tallest }
 		end
 
 		local function place(
