@@ -206,7 +206,7 @@ return {
 					PaddingRight = UDim.new(0, 8),
 				}),
 				menu,
-				UI.Label "Routes" {
+				UI.Text "Routes" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -237,7 +237,7 @@ return {
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
 					BackgroundTransparency = 1,
@@ -250,7 +250,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 2,
 					Name = "Body",
 					BackgroundTransparency = 1,
@@ -296,7 +296,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
 					}),
-					UI.Label "Title" {
+					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -307,7 +307,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Label "Intro" {
+					UI.Text "Intro" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -356,7 +356,7 @@ return {
 							},
 							selected = idiom,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 2,
 							Name = "IdiomNote",
 							BackgroundTransparency = 1,
@@ -374,7 +374,7 @@ return {
 					readout("State", COPY.stateTitle, stateLine),
 					readout("Counts", COPY.countsTitle, countsLine),
 					readout("Ran", COPY.ranTitle, ran),
-					UI.Label "DepthNote" {
+					UI.Text "DepthNote" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),

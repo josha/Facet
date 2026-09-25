@@ -36,7 +36,7 @@ return {
 			return value
 		end
 		local function label(name, text, order, size)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				text = text,
 				TextSize = size or 18,
@@ -57,14 +57,14 @@ return {
 				local perView = math.max(1, math.floor((available - 40) / 240))
 				return math.max(1, math.floor((available - 40) / perView))
 			end)
-			local nameProbe = UI.Label "NameMeasure" {
+			local nameProbe = UI.Text "NameMeasure" {
 				Visible = false,
 				text = "Livery 000",
 				textRole = "label",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			}
-			local badgeProbe = UI.Label "BadgeMeasure" {
+			local badgeProbe = UI.Text "BadgeMeasure" {
 				Visible = false,
 				text = "Endurance",
 				textRole = "caption",
@@ -140,7 +140,7 @@ return {
 								}),
 								track,
 							},
-							UI.Label "Name" {
+							UI.Text "Name" {
 								text = function(use)
 									return use(current).name
 								end,
@@ -152,7 +152,7 @@ return {
 								TextTruncate = E.TextTruncate.AtEnd,
 								BackgroundTransparency = 1,
 							},
-							UI.Label "Badge" {
+							UI.Text "Badge" {
 								text = function(use)
 									return use(current).badge
 								end,

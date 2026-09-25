@@ -726,9 +726,9 @@ t.describe("native parity paint", function()
 		local role = Compose.cell("title")
 		local root, stopLabels = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Label({ Name = "Plain", text = "a" }),
-				h.UI.Label({ Name = "Bound", text = "b", textRole = role }),
-				h.UI.Label({ Name = "Fixed", text = "c", textRole = "numeral" }),
+				h.UI.Text({ Name = "Plain", text = "a" }),
+				h.UI.Text({ Name = "Bound", text = "b", textRole = role }),
+				h.UI.Text({ Name = "Fixed", text = "c", textRole = "numeral" }),
 			})
 		end)
 		t.expect(find(root, "Plain"):HasTag("facet-type-body")).toBe(true)
@@ -1027,7 +1027,7 @@ t.describe("native parity paint", function()
 		end
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.Label({ text = "Close", icon = "close" }),
+				h.UI.Label({ title = "Close", icon = "close" }),
 				h.UI.Button({ label = "Go", icon = "checkmark", role = "destructive" }),
 				h.UI.Badge({ label = "New", icon = "checkmark", status = "success" }),
 			})
@@ -1545,7 +1545,7 @@ t.describe("native parity paint", function()
 				h.UI.ProgressView({ value = 0.5, presentation = "circular" }),
 				h.UI.Badge({ label = "B", icon = "checkmark", status = "warning", appearance = "status" }),
 				h.UI.Button({ label = "Go", appearance = "soft", role = "destructive", subtitle = "More" }),
-				h.UI.Label({ text = "L", textRole = "heading", role = "secondary" }),
+				h.UI.Text({ text = "L", textRole = "heading", role = "secondary" }),
 				h.UI.Picker({
 					selected = Compose.cell("a"),
 					style = "segmented",

@@ -41,7 +41,7 @@ local function Settings()
             value = enabled,
             onChange = function(nextValue) enabled:set(nextValue) end,
         },
-        UI.Label { text = status },
+        UI.Text { text = status },
     }
 end
 ```
@@ -71,7 +71,7 @@ return UI.VStack {
     gap = "s",
     UI.Toggle { label = "Show details", value = detailsOpen },
     Compose.show(detailsOpen, function()
-        return UI.Label { text = "Changes are saved to this session." }
+        return UI.Text { text = "Changes are saved to this session." }
     end),
 }
 ```
@@ -121,7 +121,7 @@ local function Profile()
     local name = Compose.cell("")
     return UI.Screen "Profile" {
         gap = "m",
-        UI.Label { text = "Profile", textRole = "title" },
+        UI.Text { text = "Profile", textRole = "title" },
         UI.ScrollView "Form" {
             gap = "s",
             UI.TextInput { value = name, placeholder = "Name" },

@@ -25,7 +25,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
 				}),
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -160,7 +160,7 @@ return {
 					}),
 					Section({
 						title = "Equipment",
-						footer = UI.Label({
+						footer = UI.Text({
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -206,7 +206,7 @@ return {
 									PaddingLeft = UDim.new(0, 8),
 									PaddingRight = UDim.new(0, 8),
 								}),
-								UI.Label({
+								UI.Text({
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),

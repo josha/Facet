@@ -35,7 +35,7 @@ return {
 			end
 
 			local board = {
-				UI.Label "BoardNote" {
+				UI.Text "BoardNote" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -57,7 +57,7 @@ return {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(0, 140, 0, 56),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							UI.Label "Label" {
+							UI.Text "Label" {
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -103,7 +103,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label "Title" {
+				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -145,7 +145,7 @@ return {
 						end,
 					}),
 				},
-				UI.Label "MarkupHeading" {
+				UI.Text "MarkupHeading" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -156,7 +156,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "Plain" {
+				UI.Text "Plain" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -172,7 +172,7 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Label "Marked" {
+				UI.Text "Marked" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -189,7 +189,7 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Label "Bold" {
+				UI.Text "Bold" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -206,7 +206,7 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Label "Heavy" {
+				UI.Text "Heavy" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -223,7 +223,7 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Label "Escaped" {
+				UI.Text "Escaped" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -234,7 +234,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "Rtl" {
+				UI.Text "Rtl" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -244,7 +244,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "CutHeading" {
+				UI.Text "CutHeading" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -255,7 +255,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "CutEnd" {
+				UI.Text "CutEnd" {
 					ref = function(node)
 						nodes.CutEnd = node
 					end,
@@ -270,7 +270,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "CutMiddle" {
+				UI.Text "CutMiddle" {
 					ref = function(node)
 						nodes.CutMiddle = node
 					end,
@@ -285,7 +285,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "PictureHeading" {
+				UI.Text "PictureHeading" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -326,7 +326,7 @@ return {
 						Image = ART,
 					}),
 				},
-				UI.Label "BoardHeading" {
+				UI.Text "BoardHeading" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),

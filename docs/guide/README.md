@@ -41,7 +41,7 @@ to select a control. Then read the exact contract of that control in the
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
 | Screen anchors for world objects | `UI.worldAnchor` |
-| Main-axis fill | `UI.fill` |
+| Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |
 | Failure containment with fallback content | `UI.ErrorBoundary` |
 | One reactive graph with the game's own Compose | `Facet.bind(Compose, Roblox)`; `Facet.COMPOSE_COMMIT` |
 | Semantic native styling and art | `Facet.themes` |
@@ -73,8 +73,10 @@ to select a control. Then read the exact contract of that control in the
 | A count or dot seal on a host's corner | `UI.badged` |
 | Sorting, selection, resizing and row reorder | `UI.Table` |
 | Row swipe and context actions | `UI.RowActions` |
-| Text and compact status | `UI.Label`, `UI.Badge`, `UI.StatusIndicator` |
+| Plain text, and an icon with a title | `UI.Text`, `UI.Label` |
+| Compact status | `UI.Badge`, `UI.StatusIndicator` |
 | Progress and loading | `UI.ProgressView`, `UI.Skeleton` |
+| Images with scale, tile and nine-slice modes | `UI.Image` |
 | Async image state and cancellation | `UI.AsyncImage` |
 | Identity groups | `UI.Avatar`, `UI.AvatarGroup` |
 | Embedded 3D content | `UI.Stage` |

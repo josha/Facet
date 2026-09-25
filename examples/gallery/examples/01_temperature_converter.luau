@@ -36,8 +36,8 @@ function example.build(ctx: any)
 		return UI.Screen "TempConverter" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				UI.Label "Title" { text = "Fahrenheit → Celsius", textRole = "title" },
-				UI.Label "Prompt" { text = "Enter a temperature in °F:", textRole = "label", role = "secondary" },
+				UI.Text "Title" { text = "Fahrenheit → Celsius", textRole = "title" },
+				UI.Text "Prompt" { text = "Enter a temperature in °F:", textRole = "label", role = "secondary" },
 				UI.TextInput "Fahrenheit" {
 					value = fahrenheit,
 					placeholder = "e.g. 212",
@@ -46,7 +46,7 @@ function example.build(ctx: any)
 						celsius:set(toCelsius(text))
 					end,
 				},
-				UI.Label "Preview" {
+				UI.Text "Preview" {
 					role = "secondary",
 					text = function(use)
 						local c = use(liveCelsius)
@@ -55,7 +55,7 @@ function example.build(ctx: any)
 							else string.format("Preview: %g °C  (live, as you type)", c)
 					end,
 				},
-				UI.Label "Result" {
+				UI.Text "Result" {
 					textRole = "heading",
 					text = function(use)
 						local c = use(celsius)

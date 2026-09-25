@@ -261,13 +261,13 @@ add(
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					HorizontalFlex = Enum.UIFlexAlignment.Fill,
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "Wrap",
 					text = string.rep("Wrap this sentence. ", 6),
 					TextWrapped = true,
 					LayoutOrder = 1,
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "Cut",
 					text = string.rep("Truncate this sentence. ", 6),
 					TextWrapped = false,
@@ -276,13 +276,13 @@ add(
 					Size = UDim2.new(1, 0, 0, 0),
 					LayoutOrder = 2,
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "Unknown",
 					text = "Unknown family text",
 					FontFace = Font.new("rbxasset://fonts/families/DoesNotExist.json"),
 					LayoutOrder = 3,
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "Rtl",
 					text = "مرحبا بالعالم",
 					TextDirection = Enum.TextDirection.RightToLeft,

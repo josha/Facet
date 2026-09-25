@@ -59,8 +59,8 @@ t.describe("native layout primitives", function()
 		t.it("build a plain Frame with a list layout and number the children in declaration order", function()
 			local root, engine, stop = build(nil, function(UI)
 				return UI.VStack {
-					UI.Label { text = "One" },
-					UI.Label { text = "Two" },
+					UI.Text { text = "One" },
+					UI.Text { text = "Two" },
 					UI.Button { label = "Three", onActivate = function() end },
 				}
 			end)
@@ -87,7 +87,7 @@ t.describe("native layout primitives", function()
 
 		t.it("lays an HStack out horizontally and accepts a constructor name", function()
 			local root, engine, stop = build(nil, function(UI)
-				return UI.HStack "Toolbar" { gap = 4, UI.Label { text = "A" } }
+				return UI.HStack "Toolbar" { gap = 4, UI.Text { text = "A" } }
 			end)
 			t.expect(root.Name).toBe("Toolbar")
 			t.expect(child(root, "UIListLayout").FillDirection).toBe(engine.types.Enum.FillDirection.Horizontal)
@@ -97,7 +97,7 @@ t.describe("native layout primitives", function()
 
 		t.it("resolves gap and padding spacing steps from the theme package", function()
 			local root, engine, stop = build(nil, function(UI)
-				return UI.VStack { gap = "s", padding = "m", UI.Label { text = "A" } }
+				return UI.VStack { gap = "s", padding = "m", UI.Text { text = "A" } }
 			end)
 			local space = themes.neutralPackage().metrics.space
 			local padding = child(root, "UIPadding")
@@ -125,7 +125,7 @@ t.describe("native layout primitives", function()
 		t.it("moves gap and padding when the theme package changes", function()
 			local theme = Compose.cell(themes.neutralPackage())
 			local root, engine, stop = build({ theme = theme }, function(UI)
-				return UI.VStack { gap = "s", padding = { left = "m" }, UI.Label { text = "A" } }
+				return UI.VStack { gap = "s", padding = { left = "m" }, UI.Text { text = "A" } }
 			end)
 			local D = engine.types.UDim
 			local layout, padding = child(root, "UIListLayout"), child(root, "UIPadding")
@@ -141,7 +141,7 @@ t.describe("native layout primitives", function()
 		t.it("maps align and distribute to the native list alignment and flex", function()
 			local align = Compose.cell("center")
 			local root, engine, stop = build(nil, function(UI)
-				return UI.HStack { align = align, distribute = "spaceBetween", UI.Label { text = "A" } }
+				return UI.HStack { align = align, distribute = "spaceBetween", UI.Text { text = "A" } }
 			end)
 			local E = engine.types.Enum
 			local layout = child(root, "UIListLayout")
@@ -257,11 +257,11 @@ t.describe("native layout primitives", function()
 			local shown = Compose.cell(false)
 			local root, _, stop = build(nil, function(UI)
 				return UI.VStack {
-					UI.Label { text = "First" },
+					UI.Text { text = "First" },
 					Compose.show(shown, function()
-						return UI.Label { text = "Middle" }
+						return UI.Text { text = "Middle" }
 					end),
-					UI.Label { text = "Last" },
+					UI.Text { text = "Last" },
 				}
 			end)
 			shown:set(true)
@@ -313,13 +313,13 @@ t.describe("native layout primitives", function()
 		t.it("refuses a weight that is not a positive number", function()
 			t.expect(mentions(
 				refusal(function(UI)
-					return UI.HStack { UI.Label { text = "A", UI.fill(0) } }
+					return UI.HStack { UI.Text { text = "A", UI.fill(0) } }
 				end),
 				"positive"
 			)).toBe(true)
 			t.expect(mentions(
 				refusal(function(UI)
-					return UI.HStack { UI.Label { text = "A", UI.fill(-1) } }
+					return UI.HStack { UI.Text { text = "A", UI.fill(-1) } }
 				end),
 				"positive"
 			)).toBe(true)
@@ -328,8 +328,8 @@ t.describe("native layout primitives", function()
 		t.it("makes a native flex item that fills the main axis, by weight when given", function()
 			local root, engine, stop = build(nil, function(UI)
 				return UI.HStack {
-					UI.Label { text = "A", UI.fill() },
-					UI.Label { text = "B", UI.fill(2) },
+					UI.Text { text = "A", UI.fill() },
+					UI.Text { text = "B", UI.fill(2) },
 				}
 			end)
 			local E = engine.types.Enum
@@ -350,7 +350,7 @@ t.describe("native layout primitives", function()
 	t.describe("Screen", function()
 		t.it("fills its parent, pads the content by the m step and stacks vertically", function()
 			local root, engine, stop = build(nil, function(UI)
-				return UI.Screen "Home" { gap = "s", UI.Label { text = "A" } }
+				return UI.Screen "Home" { gap = "s", UI.Text { text = "A" } }
 			end)
 			local E = engine.types.Enum
 			t.expect(root.Name).toBe("Home")
@@ -440,7 +440,7 @@ t.describe("native layout primitives", function()
 	t.describe("ScrollView", function()
 		t.it("sizes vertical content to the scroll window with a list layout and automatic canvas", function()
 			local root, engine, stop = build(nil, function(UI)
-				return UI.ScrollView "Page" { gap = "s", padding = "m", UI.Label { text = "A" }, UI.Label { text = "B" } }
+				return UI.ScrollView "Page" { gap = "s", padding = "m", UI.Text { text = "A" }, UI.Text { text = "B" } }
 			end)
 			local E, D2 = engine.types.Enum, engine.types.UDim2
 			t.expect(root.ClassName).toBe("ScrollingFrame")
@@ -467,7 +467,7 @@ t.describe("native layout primitives", function()
 
 		t.it("stretches the children across the scroll window when align is stretch", function()
 			local root, engine, stop = build(nil, function(UI)
-				return UI.ScrollView { align = "stretch", UI.Label { text = "A" } }
+				return UI.ScrollView { align = "stretch", UI.Text { text = "A" } }
 			end)
 			local layout = child(root, "UIListLayout")
 			t.expect(layout.ItemLineAlignment).toBe(engine.types.Enum.ItemLineAlignment.Stretch)

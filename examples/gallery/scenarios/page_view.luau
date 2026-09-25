@@ -43,7 +43,7 @@ return {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 16),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
@@ -85,7 +85,7 @@ return {
 								return path
 							end)(),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 3,
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
@@ -129,7 +129,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 16),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -141,7 +141,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -170,7 +170,7 @@ return {
 						selection = selected,
 						pages = pages,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 4,
 						Name = "Picked",
 						BackgroundTransparency = 1,

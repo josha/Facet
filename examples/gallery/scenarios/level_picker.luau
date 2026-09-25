@@ -57,7 +57,7 @@ return {
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 1,
 					Name = "Label",
 					BackgroundTransparency = 1,
@@ -70,7 +70,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 2,
 					Name = "Hint",
 					BackgroundTransparency = 1,
@@ -143,7 +143,7 @@ return {
 		local function screen()
 			local page: { any } = {
 
-				UI.Label "Title" {
+				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -154,7 +154,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label "Intro" {
+				UI.Text "Intro" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -186,7 +186,7 @@ return {
 						PaddingLeft = UDim.new(0, 8),
 						PaddingRight = UDim.new(0, 8),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 1,
 						Name = "ReadoutTitle",
 						BackgroundTransparency = 1,
@@ -199,7 +199,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 2,
 						Name = "ReadoutBody",
 						BackgroundTransparency = 1,
@@ -216,7 +216,7 @@ return {
 			)
 			table.insert(
 				page,
-				UI.Label "Note" {
+				UI.Text "Note" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),

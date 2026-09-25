@@ -45,7 +45,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
 					BackgroundTransparency = 1,
@@ -58,7 +58,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 2,
 					Name = "Note",
 					BackgroundTransparency = 1,
@@ -162,7 +162,7 @@ return {
 							}),
 						}
 					end, function()
-						return UI.Label "ReadyCopy" {
+						return UI.Text "ReadyCopy" {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),

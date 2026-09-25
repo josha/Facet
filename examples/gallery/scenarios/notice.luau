@@ -63,14 +63,14 @@ return {
 		}
 
 		local function label(name: string, text: any, order: number, role: string?): any
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				LayoutOrder = order,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Text = text,
+				text = text,
 				textRole = role,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,

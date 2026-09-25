@@ -245,14 +245,14 @@ return {
 						PaddingBottom = UDim.new(0, 12),
 					}),
 					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
-					UI.Label({
+					UI.Text({
 
 						text = "Outpost 7 — World terminal",
 						textRole = "heading",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 54),
 					}),
-					UI.Label({
+					UI.Text({
 
 						text = connectionState,
 						TextWrapped = true,
@@ -261,7 +261,7 @@ return {
 					button("Character", "Enter the outpost", steps.loadCharacter),
 					button("Exit", "Leave console", steps.exitCancel),
 					button("Restore", "Restore console", steps.restoreConsole),
-					UI.Label({
+					UI.Text({
 
 						text = function(use)
 							return `Last exit: {use(lastExit)}`

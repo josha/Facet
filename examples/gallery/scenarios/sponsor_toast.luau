@@ -193,8 +193,8 @@ return {
 					AutomaticCanvasSize = E.AutomaticSize.Y,
 					CanvasSize = D2.new(),
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
-					UI.Label({ text = "Toasts", textRole = "title" }),
-					UI.Label({
+					UI.Text({ text = "Toasts", textRole = "title" }),
+					UI.Text({
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",
 						TextWrapped = true,
 					}),
@@ -262,7 +262,7 @@ return {
 							presses:set(presses:peek() + 1)
 						end,
 					},
-					UI.Label "Status" {
+					UI.Text "Status" {
 						text = function(use)
 							use(rows)
 							local r = report()
@@ -322,7 +322,7 @@ return {
 							local natural = Compose.cell(0)
 							local measurements = {}
 							for _, field in { "title", "detail" } do
-								local text = UI.Label({
+								local text = UI.Text({
 									Name = "Measure_" .. field,
 									text = function(use)
 										return use(current)[field]
@@ -389,7 +389,7 @@ return {
 									PaddingBottom = D.new(0, 8),
 								}),
 								Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 4) }),
-								UI.Label "Title" {
+								UI.Text "Title" {
 									textRole = "strong",
 									text = function(use)
 										return use(current).title
@@ -398,7 +398,7 @@ return {
 									Size = D2.new(1, 0, 0, 0),
 									AutomaticSize = E.AutomaticSize.Y,
 								},
-								UI.Label "Detail" {
+								UI.Text "Detail" {
 									role = "secondary",
 									text = function(use)
 										return use(current).detail

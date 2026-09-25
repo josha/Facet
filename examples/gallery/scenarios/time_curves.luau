@@ -51,7 +51,7 @@ return {
 			toggle(panel, counts.panel)
 		end
 		local function label(name, text)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				text = text,
 				TextWrapped = true,

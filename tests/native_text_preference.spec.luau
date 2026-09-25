@@ -24,7 +24,7 @@ t.describe("native text preference updates", function()
 				end,
 				itemSize = 56,
 				render = function(current)
-					return UI.Label({
+					return UI.Text({
 						text = function(use)
 							return use(current).label
 						end,

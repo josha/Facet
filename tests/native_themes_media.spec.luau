@@ -32,7 +32,7 @@ t.describe("native themes and media", function()
 		local sheet, label
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, selected, { types = engine.types })
-			label = UI.Label({ text = "Themed" })
+			label = UI.Text({ text = "Themed" })
 			return runtime.constructors.Frame({
 				sheet,
 				runtime.constructors.StyleLink({ StyleSheet = Compose.static(sheet) }),
@@ -823,7 +823,7 @@ t.describe("native themes and media", function()
 		local ctx = context(Compose, runtime, { types = engine.types, theme = package })
 		local UI = media(ctx)
 		local stop, root = runtime.mount(function()
-			return UI.Label({ text = "Find", icon = "facet:search" })
+			return UI.Label({ title = "Find", icon = "facet:search" })
 		end, engine.new("Folder"))
 		local icon = root:FindFirstChildWhichIsA("ImageLabel")
 		t.expect(string.match(icon.Image, "^rbxassetid://") ~= nil).toBe(true)
@@ -1490,7 +1490,7 @@ t.describe("native themes and media", function()
 				description = "Choose an avatar color",
 				expanded = expanded,
 				content = function()
-					return UI.Label({ Text = "Controls" })
+					return UI.Text({ text = "Controls" })
 				end,
 			})
 			return runtime.constructors.Frame({ sheet, disclosure })
@@ -1649,26 +1649,19 @@ t.describe("native themes and media", function()
 		local engine, runtime, UI = setup()
 		local stop, root = runtime.mount(function()
 			return runtime.constructors.Frame({
-				UI.Label "Plain" { text = "Plain" },
-				UI.Label "Iconic" { text = "Iconic", icon = "rbxassetid://1" },
+				UI.Text "Plain" { text = "Plain" },
+				UI.Label "Iconic" { title = "Iconic", icon = "rbxassetid://1" },
 			})
 		end, engine.new("Folder"))
 		local plain, iconic = root:FindFirstChild("Plain"), root:FindFirstChild("Iconic")
 		t.expect(plain.ClassName).toBe("TextLabel")
 		t.expect(iconic.ClassName).toBe("Frame")
 		t.expect(iconic:FindFirstChildWhichIsA("TextLabel").Text).toBe("Iconic")
-		local row = string.match(fs.readFile("docs/reference/api.md"), "\n| `Label` |([^\n]*)")
-		t.expect(row ~= nil and string.find(row, "Without an icon, it returns a TextLabel.", 1, true) ~= nil).toBe(true)
-		t.expect(
-			row ~= nil
-				and string.find(
-						row,
-						"With an icon, it returns a Frame row that holds the icon and a TextLabel.",
-						1,
-						true
-					)
-					~= nil
-		).toBe(true)
+		local api = fs.readFile("docs/reference/api.md")
+		t.expect(string.find(api, "`UI.Text(spec) -> TextLabel`", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(api, "`UI.Label(spec) -> Frame`", 1, true) ~= nil).toBe(true)
+		t.expect(iconic:FindFirstChild("Title").ClassName).toBe("TextLabel")
+		t.expect(iconic:FindFirstChild("Icon").ClassName).toBe("ImageLabel")
 		stop()
 		runtime:dispose()
 	end)

@@ -10,7 +10,7 @@ return function(ctx)
 		return Host.Frame({
 			Size = T.UDim2.fromScale(1, 1),
 			UI.Toggle "PerformanceHaptics" { label = "Request native haptics", value = enabled },
-			UI.Label({ text = readout, Position = T.UDim2.fromOffset(0, 40), Size = T.UDim2.new(1, 0, 0, 40) }),
+			UI.Text({ text = readout, Position = T.UDim2.fromOffset(0, 40), Size = T.UDim2.new(1, 0, 0, 40) }),
 			anchor,
 		})
 	end

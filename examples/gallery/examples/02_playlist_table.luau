@@ -285,15 +285,15 @@ function example.build(ctx: any)
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
-				UI.Label "Title" { text = "Playlist", textRole = "title" },
+				UI.Text "Title" { text = "Playlist", textRole = "title" },
 				UI.TextInput "Filter" {
 					value = filterText,
 					presentation = "search",
 					placeholder = "Filter tracks",
 				},
-				UI.Label "Hint" { text = hintText, textRole = "caption", TextWrapped = true },
-				UI.Label "NowPlaying" { text = nowPlayingText, textRole = "caption", TextWrapped = true },
-				UI.Label "Widths" { text = widthsText, textRole = "caption", TextWrapped = true },
+				UI.Text "Hint" { text = hintText, textRole = "caption", TextWrapped = true },
+				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption", TextWrapped = true },
+				UI.Text "Widths" { text = widthsText, textRole = "caption", TextWrapped = true },
 				tracks,
 				UI.Button "Restore" {
 					label = "Restore the original playlist",

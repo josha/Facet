@@ -797,7 +797,7 @@ function example.build(ctx: any)
 					UI.ZStack(`cell{r}_{c}`)({
 						width = 44,
 						height = 44,
-						UI.Label "mark" { text = mark, textRole = "caption" },
+						UI.Text "mark" { text = mark, textRole = "caption" },
 						UI.Button "tap" {
 							Size = UDim2.fromScale(1, 1),
 							label = function(use: Use)
@@ -877,18 +877,18 @@ function example.build(ctx: any)
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
-				UI.Label "Title" { text = "Facet Crossword", textRole = "title", TextWrapped = true },
+				UI.Text "Title" { text = "Facet Crossword", textRole = "title", TextWrapped = true },
 				UI.HStack "Stats" {
 					wrap = true,
 					gap = "m",
 					width = "fill",
-					UI.Label "Score" { text = scoreText },
-					UI.Label "Progress" { text = progressText },
+					UI.Text "Score" { text = scoreText },
+					UI.Text "Progress" { text = progressText },
 				},
-				UI.Label "Hint" { text = hintText, TextWrapped = true },
-				UI.Label "Word" { text = wordText, TextWrapped = true },
+				UI.Text "Hint" { text = hintText, TextWrapped = true },
+				UI.Text "Word" { text = wordText, TextWrapped = true },
 				UI.Grid "board"(cells),
-				UI.Label "RackLabel" { text = "Your rack", TextWrapped = true },
+				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
 				UI.Grid "rack"(rackTiles),
 				UI.HStack "Actions" {
 					gap = "s",

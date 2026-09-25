@@ -17,8 +17,9 @@ callbacks.
 | Presentation | Alert, Dialog, Sheet, Popover, DisclosureGroup, CollapsibleView, Callout |
 | Feedback | Notice, Snackbar |
 | Data | VirtualList, VirtualGrid, Table, RowActions |
-| Information | Label, Badge, StatusIndicator, ProgressView, Skeleton, ShortcutHint |
-| Media | AsyncImage, Avatar, AvatarGroup, Stage |
+| Layout | Screen, VStack, HStack, ZStack, ScrollView, Grid, Spacer, Divider |
+| Information | Text, Label, Badge, StatusIndicator, ProgressView, Skeleton, ShortcutHint |
+| Media | Image, AsyncImage, Avatar, AvatarGroup, Stage |
 
 ## Callbacks
 

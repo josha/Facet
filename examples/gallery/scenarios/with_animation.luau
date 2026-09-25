@@ -45,7 +45,7 @@ return {
 			return C3.new(rgb.r, rgb.g, rgb.b)
 		end
 		local function label(name, text)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				text = text,
 				TextWrapped = true,
@@ -105,7 +105,7 @@ return {
 						BackgroundColor3 = C3.new(1, 1, 1),
 						BorderSizePixel = 0,
 					},
-					UI.Label "CardCaption" {
+					UI.Text "CardCaption" {
 						text = "The card grows; this pip keeps its size.",
 						Position = D2.fromOffset(40, 8),
 						Size = D2.new(1, -48, 1, -16),
@@ -131,7 +131,7 @@ return {
 						BackgroundColor3 = function(use)
 							return color(use, "accent")
 						end,
-						UI.Label({ text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center }),
+						UI.Text({ text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center }),
 					},
 				},
 				Host.CanvasGroup "WrappedFade" {

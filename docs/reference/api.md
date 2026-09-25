@@ -357,7 +357,7 @@ local sound = Compose.cell(true)
 local function save() print("Saved") end
 return UI.Screen "Settings" {
     gap = "s",
-    UI.Label { text = "Settings", textRole = "title" },
+    UI.Text { text = "Settings", textRole = "title" },
     UI.ScrollView "Page" {
         gap = "s",
         UI.Toggle { label = "Sound", value = sound },
@@ -466,11 +466,38 @@ horizontally. The grid fills the width and hugs the height by default.
 
 `UI.fill(weight?) -> UIFlexItem` makes a child grow along the main axis of its
 stack. Put the result in the children of the control:
-`UI.Label { text = "Name", UI.fill() }`. Without a weight, the item uses
+`UI.Text { text = "Name", UI.fill() }`. Without a weight, the item uses
 `UIFlexMode.Fill`. With a weight, it uses `UIFlexMode.Custom` with that
 `GrowRatio` and `ShrinkRatio`. The weight must be a positive number. For the
 cross axis, use `align = "stretch"` on the stack or `width = "fill"` on a
 container.
+
+### Divider
+
+`UI.Divider(spec) -> Frame` is a hairline that separates the items of a stack.
+It gets its direction from the stack that holds it. In a `VStack` it is a
+horizontal line that fills the width. In an `HStack` it is a vertical line that
+fills the height. When the stack changes its `FillDirection`, the line turns
+with it. `axis = "y"` makes a horizontal line and `axis = "x"` makes a vertical
+line, whatever the parent is. A native `Size` replaces the computed size.
+
+- `thickness` is a number of pixels or a theme metric name, such as
+  `"strokes.hairline"` or a spacing step. The default is the `strokes.hairline`
+  metric of the theme package.
+- `appearance` is `"standard"` (the default) or `"strong"`, and can be bound.
+  The line has the `facet-divider` tag. The theme paints it in the hairline
+  colour at `extra.hairlineOpacity`. `"strong"` adds the `facet-divider-strong`
+  tag, which paints at `extra.strongHairlineOpacity` for a pane edge.
+
+### Spacer
+
+`UI.Spacer(spec) -> Frame` takes the free space along the main axis of its
+stack. It is a transparent Frame with a `UIFlexItem` in `Fill` mode.
+`minLength` is a number of pixels or a spacing step, such as `"m"`, and can be
+bound. It is the length that the spacer keeps when there is no free space. The
+default is 0. The spacer gets its axis from the stack that holds it. A native
+`Size` replaces the computed size. Use `UI.fill()` to make an existing child
+grow instead.
 
 ### ErrorBoundary
 
@@ -1669,7 +1696,7 @@ runtime.mount(function()
             onPresentedChange = function(nextValue) open:set(nextValue) end,
             onDismiss = function(reason) print(reason) end,
             title = "Leave the race?",
-            content = function() return UI.Label { label = "Your lap will not count." } end,
+            content = function() return UI.Text { text = "Your lap will not count." } end,
             actions = {
                 { id = "Stay", label = "Stay", role = "cancel", onActivate = function() open:set(false) end },
                 { id = "Leave", label = "Leave", role = "destructive", onActivate = function() open:set(false) end },
@@ -1728,7 +1755,7 @@ runtime.mount(function()
             onPresentedChange = function(nextValue) open:set(nextValue) end,
             trigger = UI.Button { label = "About scoring" },
             maxWidth = 320,
-            content = function() return UI.Label { label = "Laps score by position." } end,
+            content = function() return UI.Text { text = "Laps score by position." } end,
         },
     }
 end, playerGui)
@@ -2153,7 +2180,9 @@ press.
 
 | Control | Main contract |
 |---|---|
-| `Label` | `text` or `label`, icon and iconPosition, textRole and role, `truncate`, `textSize`, and native text properties. `textRole` is one of `TYPE_ROLES`. Another value causes an error. Without an icon, it returns a TextLabel. With an icon, it returns a Frame row that holds the icon and a TextLabel. Native properties then apply to that Frame, so give it Frame properties only. See [Label text fit](#label-text-fit). |
+| `Text` | Plain text in a native TextLabel. `text` is required. `textRole` (or `textSize` as a role name) is one of `TYPE_ROLES`. `textSize` is also a pixel number or a fit form. `role` is `secondary` or `content`. Also `truncate`, `textAlign`, `wrap`, `rich`, `direction`, `tint`, and native text properties. See [Text](#text). |
+| `Label` | An icon and a title in a row. `title` is required, and it is the accessible name. Also `icon`, `presentation`, `iconSize`, `textSize`, `gap` and `iconPosition`. See [Label](#label). |
+| `Image` | A native ImageLabel. `image`, `tint`, `scaleMode`, `tileSize`, `sliceCenter`, `sliceScale`, `resample` and `shape`. See [Image](#image). |
 | `Badge` | `label`, `status`, an optional icon and position, appearance, corners and control size. The icon and the label share one pill. The status appearance keeps a neutral pill and shows the status as a leading dot. |
 | `StatusIndicator` | `status`: `neutral`, `info`, `success`, `warning`, `error` or `accent`. `form`: dot, ring, square or dash. Optional `count`, `max`, `diameter` and `name`. The `name` sets the accessible label. A ring is a native inner stroke in the status color. A count grows into a pill that is never narrower than it is tall. |
 | `ProgressView` | `value`, `min` (0), `max` (1). `presentation`: bar, circular or spinner. label and endLabel, showValue and format, diameter, thickness, segments, and an optional trail `{ delay, duration }`. The endLabel shows after the value. With a label, a bar shows the value and the endLabel on the label row. Segments require the bar presentation. Diameter requires circular or spinner. A trail holds on damage, settles over its duration, and snaps on healing or reduced motion. A circular value is centered when the native text bounds fit. Otherwise it shows below the ring. A circular ring with no thickness uses 8 percent of its diameter, and not less than the theme metric. On a bar, `controlSize` sets the track thickness: `xsmall` and `compact` use `space.xs`, and `regular` and `large` use `controls.progress.trackHeight`. A bar refuses `controlSize` together with `thickness`. |
@@ -2163,7 +2192,26 @@ press.
 | `AvatarGroup` | `items` with id, name, image, userId and presence, and an optional `resource` shared-resource acquire function. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. |
 | `Stage` | A native ViewportFrame. A `camera` CFrame or a borrowed Camera, `fieldOfView`, `content(runtime, world, live)` for 3D content that Compose owns, and `lazy`. |
 
-### Label text fit
+### Text
+
+`UI.Text(spec) -> TextLabel` shows plain text. `text` is a string, a readable
+or a function of `use`. It is required. `label` and the native `Text` cause an
+error, and so do `color` and `font`, because the theme owns them. Use `role`
+or `textRole` instead.
+
+- `textRole` sets the type role tag, for example `facet-type-title`. The
+  default is `body`. `textSize` can give the role instead, as a role name.
+  Both together cause an error.
+- `textSize` as a number sets `TextSize` in pixels. `"fit"` and
+  `{ fit = { cap, floor } }` fit the text to its box. See below.
+- `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
+  removes it. `role` can be bound.
+- `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
+  be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
+- `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
+- `tint` sets `TextColor3` for a colour that no role gives.
+
+#### Text fit
 
 `truncate = "end"` sets the native `TextTruncate.AtEnd`. `truncate = "middle"`
 keeps the start and the end of the value and puts an ellipsis between them,
@@ -2207,6 +2255,47 @@ the last frame stays visible. A stage that does not show does not build its
 scene. The stage sets the attributes `FacetLive` and
 `FacetBuilt`. Use the `Host.Part`, `Host.Model` and other native constructors of the
 same runtime. A 3D view inside a UI rectangle is not the same as 3D UI layout.
+
+### Label
+
+`UI.Label(spec) -> Frame` shows an icon and a title in a row. The title is the
+accessible name in every presentation. The root has the `AccessibleLabel`
+attribute, which follows a bound title.
+
+- `title` is required. Its first value must be a string that is not empty. It
+  can be a readable or a function of `use`. A `Title` child (a `UI.Text`)
+  shows it.
+- `icon` is a semantic icon name or an asset id. An `Icon` child shows it. An
+  unknown semantic name causes an error.
+- `presentation` is `titleAndIcon` (the default), `titleOnly` or `iconOnly`.
+  Another value causes an error. Without an icon, every presentation shows the
+  title only, because an empty square is worse than a word. The root has the
+  `FacetPresentation` attribute with the presentation that shows.
+- `iconSize` is a number of pixels or a theme metric name. The default is the
+  icon size of the regular control size. `textSize` is a number of pixels or a
+  type role, default `body`. `gap` is a number of pixels or a spacing step.
+- `iconPosition` is `leading` (the default) or `trailing`.
+- `text` and `label` cause an error. Use `UI.Text` for plain text.
+
+### Image
+
+`UI.Image(spec) -> ImageLabel` shows an image. `image` is an asset string and
+can be bound. It can be empty. The default size is a square of the regular
+control height. A native `Size` replaces it.
+
+- `tint` sets `ImageColor3`.
+- `scaleMode` is `fit`, `fill`, `crop`, `stretch`, `tile` or `slice`, and
+  sets `ScaleType`. `fill` and `crop` both give `Crop`. It can be bound, but a
+  bound mode cannot be `tile` or `slice`.
+- `tile` requires `tileSize = { width, height }` in whole pixels above zero.
+  `slice` requires `sliceCenter = { x0, y0, x1, y1 }`, the centre rectangle in
+  source pixels, and takes an optional `sliceScale` above zero (default 1). A
+  geometry key without its mode, or a mode without its geometry, causes an
+  error.
+- `resample` is `default` or `pixelated` and sets `ResampleMode`. It can be
+  bound.
+- `shape = "circle"` adds a `UICorner` of half the size and a square
+  `UIAspectRatioConstraint`. A circle cannot use `slice`.
 
 ### badged
 

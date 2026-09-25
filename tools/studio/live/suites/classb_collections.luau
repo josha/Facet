@@ -84,7 +84,7 @@ add("cross-axis-fills-the-window", { "collections-29" }, function(t)
 					itemSize = 120,
 					direction = "horizontal",
 					render = function(current)
-						return UI.Label({ text = current:peek().name })
+						return UI.Text({ text = current:peek().name })
 					end,
 				},
 			},
@@ -97,7 +97,7 @@ add("cross-axis-fills-the-window", { "collections-29" }, function(t)
 					key = "id",
 					itemSize = 48,
 					render = function(current)
-						return UI.Label({ text = current:peek().name })
+						return UI.Text({ text = current:peek().name })
 					end,
 				},
 			},
@@ -335,7 +335,7 @@ local function clampCase(t: any, direction: string, kind: string)
 			itemSize = 40,
 			direction = direction,
 			render = function(current)
-				return UI.Label({ Name = "Text", text = current:peek().name, Size = UDim2.fromScale(1, 1) })
+				return UI.Text({ Name = "Text", text = current:peek().name, Size = UDim2.fromScale(1, 1) })
 			end,
 			Size = if direction == "horizontal" then UDim2.fromOffset(470, 300) else UDim2.fromOffset(300, 190),
 		}
@@ -426,7 +426,7 @@ add("tray-actions-meet-the-touch-floor", { "collections-60" }, function(t)
 		return UI.RowActions "Row" {
 			open = Compose.cell("trailing"),
 			Size = UDim2.new(0, 400, 0, 44),
-			content = UI.Label({ text = "Row" }),
+			content = UI.Text({ text = "Row" }),
 			trailing = {
 				{ id = "flag", label = "Flag" },
 				{ id = "delete", label = "Delete", role = "destructive" },
@@ -957,7 +957,7 @@ interactive("horizontal-list-keys", { "collections-254" }, function(t)
 				table.insert(value.activations, { item.id, if input then input.KeyCode.Name else "nil" })
 			end,
 			render = function(current)
-				return UI.Label({ text = current:peek().name })
+				return UI.Text({ text = current:peek().name })
 			end,
 		}
 	end, { size = Vector2.new(800, 400), frames = 20 })

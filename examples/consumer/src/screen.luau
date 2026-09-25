@@ -11,13 +11,13 @@ function screen.build(Facet: any, UI: any)
 				gap = "s",
 				width = "fill",
 				align = "stretch",
-				UI.Label "Title" { text = "Facet consumer", textRole = "title" },
-				UI.Label "Blurb" {
+				UI.Text "Title" { text = "Facet consumer", textRole = "title" },
+				UI.Text "Blurb" {
 					text = "One component, local state, one theme. Press Bump and watch the count follow.",
 					textRole = "caption",
 					TextWrapped = true,
 				},
-				UI.Label "Count" {
+				UI.Text "Count" {
 					text = function(use)
 						return if use(count) == 1 then "1 tap" else `{use(count)} taps`
 					end,

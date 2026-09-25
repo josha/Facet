@@ -800,7 +800,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 	end
 	local function labelWorld(spec: { [string]: any }, options: { [string]: any }?): (World, any)
 		local w = world(function(UI)
-			return UI.Label(spec)
+			return UI.Text(spec)
 		end, options, { measureText = measure })
 		local label = w.screen:FindFirstChildWhichIsA("TextLabel", true)
 		return w, label
@@ -864,7 +864,7 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		w.stop()
 	end)
 
-	t.it("re-derives the cut when the painted size changes and cuts an icon label beside its icon", function()
+	t.it("re-derives the cut when the painted size changes", function()
 		local size = Compose.cell(16)
 		local w, label = labelWorld({ text = VALUE, truncate = "middle", TextSize = size })
 		resize(w, label, 160)
@@ -873,13 +873,6 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		t.expect(label.Text ~= at16).toBe(true)
 		t.expect(glyphWidth(label.Text, 8) <= 160).toBe(true)
 		w.stop()
-		local iconWorld, iconLabel = labelWorld({ text = VALUE, truncate = "middle", icon = "checkmark" })
-		t.expect(iconLabel:FindFirstChildWhichIsA("UIFlexItem") ~= nil).toBe(true)
-		resize(iconWorld, iconLabel, 60)
-		t.expect(string.find(iconLabel.Text, ELLIPSIS, 1, true) ~= nil).toBe(true)
-		t.expect(glyphWidth(iconLabel.Text, iconLabel.TextSize) <= 60).toBe(true)
-		t.expect(string.sub(iconLabel.Text, -2)).toBe("14")
-		iconWorld.stop()
 	end)
 
 	t.it("stays on one line and refuses rich text, wrapping and an unknown truncation", function()
@@ -934,8 +927,8 @@ t.describe("native parity restore: Label text fit and middle truncation", functi
 		t.expect(pixels:FindFirstChildWhichIsA("UITextSizeConstraint").MinTextSize).toBe(12)
 	end)
 
-	t.it("refuses a misspelled fit option, a cap that is not a size and a plain size", function()
-		for _, textSize in { { fit = { max = 24 } }, { fit = { cap = true } }, 18, "body" } :: { any } do
+	t.it("refuses a misspelled fit option, a cap that is not a size and an unknown size", function()
+		for _, textSize in { { fit = { max = 24 } }, { fit = { cap = true } }, -1, "huge" } :: { any } do
 			local ok, message = pcall(function()
 				labelWorld({ text = "x", textSize = textSize })
 			end)

@@ -107,7 +107,7 @@ t.describe("native documentation", function()
 			env.items = env.rows
 			for _, key in { "renderCard", "Catalog", "ItemDetails" } do
 				env[key] = function()
-					return UI.Label({ text = "Content" })
+					return UI.Text({ text = "Content" })
 				end
 			end
 			env.script = { Destroying = engine.heartbeat }

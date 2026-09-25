@@ -519,7 +519,7 @@ same change fixes it.
 |---|---|---|
 | `B11` | `src/ui/nav_menu.luau` | A Picker with `indicator = "none"` removed every selection cue. The chosen option now keeps its static current tags. |
 | `B12` | `src/ui/themes.luau` | The transparency preference scaled dividers, soft fills, current-choice fills and package rules. At preference 0, an accent caption sat on an opaque accent fill. Now the preference scales only the scrim. |
-| `B13` | `src/ui/media.luau` | Label accepted an unknown `textRole` and added an inert tag. Now it causes an error. |
+| `B13` | `src/ui/media.luau` | The plain-text Label, now `UI.Text`, accepted an unknown `textRole` and added an inert tag. Now it causes an error. |
 | `B14` | `src/ui/themes.luau` | A package that set `body` and `control` but not `strong` or `numeral` got the neutral face for them. Now `define` derives them from the package face. |
 | `E1` | `examples/gallery/examples/05_word_game.luau` | The word-game keys and the active row did not show their state. The keys now use Button appearances, and the active row has an outline. The caret has the empty color, so the caret mark is the cue. |
 | `E4` | `examples/gallery/scenarios/status_indicator.luau` | The guide label used `textRole = "secondary"`. It now uses `role = "secondary"`. |
@@ -887,8 +887,8 @@ contract has `restoredBy` set to `parity/restore`.
 | `UI.ErrorBoundary` on `Compose.boundary` | `mech1-115` | 8 | The presenter critical screen is not restored. |
 | Table and list multi-select keys | `collections-150`, `collections-198` | 6 | A plain arrow moves the focus and does not select. |
 | RowActions tray closes on an outside tap | `collections-78`, `collections-90`, `collections-285` | 13 | A press on the content of the open row keeps the tray open. |
-| Label `textSize = "fit"` | `mech3-83` | 18 | The engine picks the size through `TextScaled`. The headless engine does not scale text. |
-| Label `truncate = "middle"` | `mech2-46` | 14 | The headless engine measures with a fixed glyph width. |
+| Text `textSize = "fit"` | `mech3-83` | 18 | The engine picks the size through `TextScaled`. The headless engine does not scale text. |
+| Text `truncate = "middle"` | `mech2-46` | 14 | The headless engine measures with a fixed glyph width. |
 
 Facet Neutral's `Light` palette is newer than the baseline. Its contract
 `post-lab-02` moves from class d to class a. `native_parity_restore` checks

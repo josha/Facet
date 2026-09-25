@@ -866,7 +866,7 @@ t.describe("lifetime parity strength", function()
 					Compose.show(shown, function()
 						return w.UI.RowActions "Row" {
 							open = open,
-							content = w.UI.Label({ text = "Message" }),
+							content = w.UI.Text({ text = "Message" }),
 							trailing = {
 								{
 									id = "Delete",
@@ -980,7 +980,7 @@ t.describe("lifetime parity strength", function()
 						opens[id] = opens[id] or Compose.cell(nil :: string?)
 						return w.UI.RowActions "Actions" {
 							open = opens[id],
-							content = w.UI.Label({
+							content = w.UI.Text({
 								text = function(use)
 									return use(current).label
 								end,
@@ -1241,7 +1241,7 @@ t.describe("lifetime parity strength", function()
 				child.own(function()
 					released += 1
 				end)
-				return w.Host.Frame({ w.UI.Label({ text = "Owned" }) })
+				return w.Host.Frame({ w.UI.Text({ text = "Owned" }) })
 			end, w.root)
 			source:set(1)
 			t.expect(calls).toBe(2)
@@ -1253,7 +1253,7 @@ t.describe("lifetime parity strength", function()
 			t.expect(calls).toBe(2)
 			local again = Compose.cell("a")
 			local stopAgain, label = w.runtime.mount(function()
-				return w.UI.Label({ text = again })
+				return w.UI.Text({ text = again })
 			end, w.root)
 			again:set("b")
 			t.expect(label.Text).toBe("b")

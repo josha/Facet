@@ -208,8 +208,20 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 		DisclosureGroup = function()
 			return { expanded = Compose.cell(false), content = content }
 		end,
+		Text = function()
+			return { text = "Text" }
+		end,
 		Label = function()
-			return { text = "Label" }
+			return { title = "Label", icon = "checkmark" }
+		end,
+		Image = function()
+			return { image = "rbxassetid://1" }
+		end,
+		Divider = function()
+			return {}
+		end,
+		Spacer = function()
+			return { minLength = "m" }
 		end,
 		LevelPicker = function()
 			return { value = Compose.cell(1) }
@@ -388,9 +400,9 @@ t.describe("native parity gaps", function()
 				end,
 			},
 			{
-				"Facet UI.Label: unknown option 'zzzzzz'.",
+				"Facet UI.Text: unknown option 'zzzzzz'.",
 				function(UI)
-					return UI.Label({ text = "Go", zzzzzz = true })
+					return UI.Text({ text = "Go", zzzzzz = true })
 				end,
 			},
 			{
@@ -418,15 +430,15 @@ t.describe("native parity gaps", function()
 			},
 		}
 		table.insert(cases, {
-			"Facet UI.Label: set the text one time. Use text, and remove label and Text.",
+			"Facet UI.Text: set the text with text. Remove label and Text.",
 			function(UI)
-				return UI.Label({ text = "a", label = "b" })
+				return UI.Text({ text = "a", label = "b" })
 			end,
 		})
 		table.insert(cases, {
-			"Facet UI.Label: set the text one time.",
+			"Facet UI.Text: set the text with text.",
 			function(UI)
-				return UI.Label({ text = "a", Text = "b" })
+				return UI.Text({ text = "a", Text = "b" })
 			end,
 		})
 		table.insert(cases, {
@@ -440,7 +452,7 @@ t.describe("native parity gaps", function()
 			t.expect(message ~= nil and string.find(message, case[1], 1, true) ~= nil).toBe(true)
 		end
 		local unrelated = mountError(function(UI)
-			return UI.Label({ text = "Go", zzzzzz = true })
+			return UI.Text({ text = "Go", zzzzzz = true })
 		end)
 		t.expect(unrelated ~= nil and string.find(unrelated, "Did you mean", 1, true) == nil).toBe(true)
 	end)

@@ -204,7 +204,7 @@ add("touch-drag-scrolls-reorderable-list", { "collections-11" }, function(t)
 			end,
 			Size = UDim2.fromOffset(320, 220),
 			render = function(current)
-				return UI.Label({
+				return UI.Text({
 					Name = "Cell" .. current:peek().id,
 					text = "Row " .. current:peek().id,
 					Size = UDim2.fromScale(1, 1),
@@ -268,7 +268,7 @@ add("tray-grows-with-text-size", { "collections-53" }, function(t)
 	local value = {}
 	local stage = t.mount(function(UI, _, Compose)
 		return UI.RowActions "Row" {
-			content = UI.Label({ text = "Message", Size = UDim2.fromScale(1, 1) }),
+			content = UI.Text({ text = "Message", Size = UDim2.fromScale(1, 1) }),
 			open = Compose.cell("trailing"),
 			trailing = { { id = "delete", label = "Delete", role = "destructive", onActivate = function() end } },
 			Size = UDim2.fromOffset(360, 56),

@@ -78,7 +78,7 @@ return {
 		end
 
 		local function heading(id: string, text: string): any
-			return UI.Label({
+			return UI.Text({
 				Name = id,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -92,7 +92,7 @@ return {
 			})
 		end
 		local function note(id: string, text: string): any
-			return UI.Label({
+			return UI.Text({
 				Name = id,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -121,14 +121,14 @@ return {
 				table.insert(
 					children,
 					UI.Label "Icon" {
-						text = opts.iconLabel or opts.title,
+						title = opts.iconLabel or opts.title,
 						icon = opts.icon,
 					}
 				)
 			end
 			table.insert(
 				children,
-				UI.Label "Title" {
+				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -142,7 +142,7 @@ return {
 			)
 			table.insert(
 				children,
-				UI.Label "Message" {
+				UI.Text "Message" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -211,7 +211,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 1,
 					Name = "Label",
 					BackgroundTransparency = 1,
@@ -356,7 +356,7 @@ return {
 						end
 					end,
 					content = function()
-						return UI.Label "Body" {
+						return UI.Text "Body" {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),

@@ -159,7 +159,7 @@ return function(ctx: any, options: any)
 					PaddingBottom = D.new(0, 10),
 				}),
 				Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
-				UI.Label "PostTitle" {
+				UI.Text "PostTitle" {
 					LayoutOrder = 1,
 					text = function(use)
 						return use(current).label
@@ -173,7 +173,7 @@ return function(ctx: any, options: any)
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 				},
-				UI.Label "PostBody" {
+				UI.Text "PostBody" {
 					LayoutOrder = 2,
 					text = function(use)
 						return use(current).description
@@ -323,7 +323,7 @@ return function(ctx: any, options: any)
 						label = "Subject",
 						minWidth = 160,
 						render = function(current, _, key)
-							return UI.Label "Message" {
+							return UI.Text "Message" {
 								text = function(use)
 									return (if use(readRows)[key] then "Read · " else "Unread · ")
 										.. (if use(flaggedRows)[key] then "Flagged · " else "")
@@ -422,7 +422,7 @@ return function(ctx: any, options: any)
 			BackgroundTransparency = 1,
 			table.unpack(buttons),
 		}
-		local titleProbe = UI.Label "TitleLineMeasure" {
+		local titleProbe = UI.Text "TitleLineMeasure" {
 			Visible = false,
 			text = "Ag",
 			TextSize = function(use)
@@ -431,7 +431,7 @@ return function(ctx: any, options: any)
 			AutomaticSize = E.AutomaticSize.XY,
 			Size = D2.fromOffset(0, 0),
 		}
-		local bodyProbe = UI.Label "BodyLineMeasure" {
+		local bodyProbe = UI.Text "BodyLineMeasure" {
 			Visible = false,
 			text = "Ag",
 			TextSize = function(use)
@@ -478,7 +478,7 @@ return function(ctx: any, options: any)
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
-					UI.Label "Title" {
+					UI.Text "Title" {
 						LayoutOrder = 1,
 						Visible = function(use)
 							local viewport = ctx.viewport and use(ctx.viewport)
@@ -492,7 +492,7 @@ return function(ctx: any, options: any)
 						BackgroundTransparency = 1,
 					},
 					actionsFrame,
-					UI.Label "Status" {
+					UI.Text "Status" {
 						LayoutOrder = 3,
 						text = function(use)
 							local snapshot, count = use(status), 0

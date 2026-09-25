@@ -64,7 +64,7 @@ return {
 						PaddingTop = D.new(0, 8),
 						PaddingBottom = D.new(0, 8),
 					}),
-					UI.Label({
+					UI.Text({
 						text = item.label,
 						TextWrapped = true,
 						Size = D2.new(1, 0, 0, 0),
@@ -114,7 +114,7 @@ return {
 					PaddingBottom = D.new(0, 12),
 				}),
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
-				UI.Label "Heading" {
+				UI.Text "Heading" {
 					text = function(use)
 						local g = use(geometry)
 						return string.format("%s · %d px · %d columns", name, g.width, g.columns)
@@ -156,8 +156,8 @@ return {
 					CanvasSize = D2.new(),
 					BackgroundTransparency = 1,
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
-					UI.Label({ text = "One screen, three containers", textRole = "title" }),
-					UI.Label({
+					UI.Text({ text = "One screen, three containers", textRole = "title" }),
+					UI.Text({
 						text = "Each panel reads its own width; its cells use the actual space inside the frame.",
 						TextWrapped = true,
 					}),

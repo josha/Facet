@@ -101,16 +101,17 @@
     },
     "icons-media": {
       "mainCases": 255,
-      "a": 120,
+      "a": 122,
       "aWeaker": 2,
       "b": 37,
-      "c": 98,
+      "c": 96,
       "d": 0,
       "candidateSpecs": {
         "native_themes_media": 64,
         "native_parity_media": 11,
         "native_stress": 5,
-        "native_public_surface": 4
+        "native_public_surface": 4,
+        "native_restored_controls": 1
       }
     },
     "reference-apps": {
@@ -359,17 +360,18 @@
     },
     "paint-theming": {
       "mainCases": 726,
-      "a": 211,
+      "a": 216,
       "aWeaker": 8,
       "b": 33,
-      "c": 445,
+      "c": 440,
       "d": 0,
       "candidateSpecs": {
         "native_themes_media": 54,
         "native_parity_paint": 44,
         "native_inputs": 14,
         "native_navigation": 10,
-        "native_parity_media": 3
+        "native_parity_media": 3,
+        "native_restored_controls": 3
       }
     },
     "navigation-containers": {
@@ -464,8 +466,8 @@
   "baselineCommit": "a8c8895673c0745506908b66dc89f8cead6b66f3",
   "totals": {
     "afterNewTestsByClass": {
-      "a": 4119,
-      "c": 6021,
+      "a": 4126,
+      "c": 6014,
       "b": 1301,
       "d": 3
     },
@@ -476,8 +478,8 @@
       "b": 1581
     },
     "contractsByClass": {
-      "a": 1735,
-      "c": 855,
+      "a": 1737,
+      "c": 853,
       "b": 255,
       "d": 1
     },
@@ -19187,7 +19189,7 @@
       ],
       "mainCases": 10,
       "class": "c",
-      "removal": "UI.AdaptiveStack and UI.Divider deleted; native UIListLayout.FillDirection bound by a cell replaces them (not a Facet promise)."
+      "removal": "UI.AdaptiveStack deleted; native UIListLayout.FillDirection bound by a cell replaces it. UI.Divider is restored and follows the FillDirection of its stack (native_restored_controls), but the AdaptiveStack axis flip stays deleted."
     },
     {
       "id": "mech1-04",
@@ -19634,7 +19636,7 @@
       ],
       "mainCases": 5,
       "class": "c",
-      "removal": "UI.Divider and UI.Path deleted."
+      "removal": "UI.Path deleted. UI.Divider is restored and takes a pixel or theme metric thickness (native_restored_controls); the Path thickness half stays deleted."
     },
     {
       "id": "mech1-39",
@@ -19703,7 +19705,7 @@
       ],
       "mainCases": 19,
       "class": "c",
-      "removal": "Baseline alignment and UI.Spacer deleted; Roblox layouts have no baseline alignment and no doc promises it."
+      "removal": "Baseline alignment deleted; Roblox layouts have no baseline alignment and no doc promises it. UI.Spacer is restored as a UIFlexItem fill with a minLength floor (native_restored_controls); the solver overflow diagnostics for spacer minima stay deleted."
     },
     {
       "id": "mech1-45",
@@ -20532,8 +20534,14 @@
         "divider_hairline"
       ],
       "mainCases": 5,
-      "class": "c",
-      "removal": "UI.Divider deleted."
+      "class": "a",
+      "candidateCases": [
+        "native_restored_controls::native restored controls: Divider::spends the transparency the hairline strokes spend in every shipped package",
+        "native_restored_controls::native restored controls: Divider::composited over its surface, a washed divider is quieter than secondary content",
+        "native_restored_controls::native restored controls: Divider::wears the divider tags and adds the strong tag while a bound appearance is strong"
+      ],
+      "weaker": "Main also checked the non-native adapter path in screen_target. That path is deleted; the StyleSheet rule is the only paint path.",
+      "restoredBy": "parity/controls-restore"
     },
     {
       "id": "mech1-107",
@@ -21708,7 +21716,7 @@
         "native_parity_restore::native parity restore: Label text fit and middle truncation::paints the whole value when it fits and the bare mark when nothing fits",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::never cuts inside a multi-byte character",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::recomputes on a width or text change and on nothing else, and restores the whole value",
-        "native_parity_restore::native parity restore: Label text fit and middle truncation::re-derives the cut when the painted size changes and cuts an icon label beside its icon",
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::re-derives the cut when the painted size changes",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::stays on one line and refuses rich text, wrapping and an unknown truncation"
       ],
       "weaker": "The real engine TextBounds cut is asserted live, including a re-cut on a theme text change. There is no disclosure plate for the full value.",
@@ -23714,7 +23722,7 @@
       ],
       "mainCases": 23,
       "class": "c",
-      "removal": "UI.Text `disclose`, the renderer disclosure plate and adapter zones deleted; api.md has no disclose option"
+      "removal": "UI.Text is restored, but its `disclose` option, the renderer disclosure plate and the adapter zones stay deleted; api.md has no disclose option."
     },
     {
       "id": "mech3-72",
@@ -23877,7 +23885,7 @@
       "candidateCases": [
         "native_parity_restore::native parity restore: Label text fit and middle truncation::fits the text to its box between the role size and the caption floor",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::honors an explicit cap and floor by role or pixels and follows the theme",
-        "native_parity_restore::native parity restore: Label text fit and middle truncation::refuses a misspelled fit option, a cap that is not a size and a plain size"
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::refuses a misspelled fit option, a cap that is not a size and an unknown size"
       ],
       "weaker": "TextScaled breaks a long word across lines when the box has height, so the painted size of the floor cases is not recovered; the floor is asserted as UITextSizeConstraint.MinTextSize. There is no preferred-text offset term; the engine applies the player preference.",
       "restoredBy": "parity/restore",
@@ -24176,7 +24184,7 @@
       ],
       "mainCases": 23,
       "class": "c",
-      "removal": "UI.ZStack/UI.Box/UI.Image deleted; Button shape='circle' survives and is covered by native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes. Note stale exam..."
+      "removal": "UI.Box and the circle ZStack deleted; Button shape='circle' survives and is covered by native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes. UI.Image is restored with shape = \"circle\" (native_restored_controls)."
     },
     {
       "id": "navigation-1-01",
@@ -30285,7 +30293,7 @@
       ],
       "mainCases": 3,
       "class": "c",
-      "removal": "Facet animation modifiers and UI.Text over-media classification deleted; motion is Compose timelines per api.md."
+      "removal": "Facet animation modifiers and the UI.Text over-media classification deleted; motion is Compose timelines per api.md. UI.Text is restored without `over`."
     },
     {
       "id": "paint-19",
@@ -30384,7 +30392,7 @@
       ],
       "mainCases": 1,
       "class": "c",
-      "removal": "UI.Text and over-media tag deleted."
+      "removal": "The UI.Text over-media tag deleted. UI.Text is restored without `over`."
     },
     {
       "id": "paint-26",
@@ -33214,8 +33222,12 @@
         "image_framing"
       ],
       "mainCases": 2,
-      "class": "c",
-      "removal": "UI.Image with shape/scaleMode/imageFraming deleted (no UI.Image in CAND src/ui; api.md has no Image control)."
+      "class": "a",
+      "candidateCases": [
+        "native_restored_controls::native restored controls: Image::checks each geometry key against its mode in both directions"
+      ],
+      "weaker": "imageFraming is not restored, so the refusal is the unknown-option error and not a circle-specific one.",
+      "restoredBy": "parity/controls-restore"
     },
     {
       "id": "themes-P1-58",
@@ -33252,7 +33264,7 @@
       ],
       "mainCases": 1,
       "class": "c",
-      "removal": "Background framing through the solver deleted with UI.Image/UI.background."
+      "removal": "Background framing through the solver deleted with UI.background and imageFraming. UI.Image is restored without imageFraming."
     },
     {
       "id": "themes-P1-61",
@@ -34785,7 +34797,7 @@
       ],
       "mainCases": 3,
       "class": "c",
-      "removal": "UI.Text, the `surface` prop and chrome_slots.LIFTED_TEXT_CLASSES and centresLiftedText are removed. CAND Badge is a native TextLabel or pill with engine-centred text."
+      "removal": "The UI.Text `surface` prop, chrome_slots.LIFTED_TEXT_CLASSES and centresLiftedText are removed. UI.Text is restored without `surface`. CAND Badge is a native TextLabel or pill with engine-centred text."
     },
     {
       "id": "themes-P2-28",

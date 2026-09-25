@@ -49,10 +49,10 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "Title",
 					LayoutOrder = 1,
-					Text = copy.title,
+					text = copy.title,
 					textRole = "heading",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -66,10 +66,10 @@ return {
 					current = current,
 					onSelect = select,
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "NarrowTitle",
 					LayoutOrder = 4,
-					Text = copy.narrow,
+					text = copy.narrow,
 					textRole = "label",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,

@@ -46,7 +46,7 @@ return {
 							status = status,
 							name = word,
 						},
-						UI.Label "Name" {
+						UI.Text "Name" {
 							LayoutOrder = 2,
 							text = string.upper(string.sub(word, 1, 1)) .. string.sub(word, 2),
 						},
@@ -62,8 +62,8 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label "Title" { text = "Status marks", textRole = "heading" },
-				UI.Label "Guide" {
+				UI.Text "Title" { text = "Status marks", textRole = "heading" },
+				UI.Text "Guide" {
 					text = "Shapes carry meaning alongside color. Counts stop growing at 99+.",
 					role = "secondary",
 				},

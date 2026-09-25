@@ -48,8 +48,8 @@ return {
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				CanvasSize = UDim2.new(),
 				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
-				UI.Label({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }),
-				UI.Label({
+				UI.Text({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }),
+				UI.Text({
 					LayoutOrder = 2,
 					text = "The same plates and opacity. One CanvasGroup composites the image before fading it; separate groups reveal every overlap.",
 				}),
@@ -65,7 +65,7 @@ return {
 					}),
 					table.unpack(choices),
 				}),
-				UI.Label({ LayoutOrder = 4, text = "One group" }),
+				UI.Text({ LayoutOrder = 4, text = "One group" }),
 				Host.CanvasGroup({
 					LayoutOrder = 5,
 					Name = "OneGroup",
@@ -76,7 +76,7 @@ return {
 					end,
 					plates(false),
 				}),
-				UI.Label({ LayoutOrder = 6, text = "Three groups" }),
+				UI.Text({ LayoutOrder = 6, text = "Three groups" }),
 				Host.Frame({
 					LayoutOrder = 7,
 					Name = "ManyGroups",
@@ -98,7 +98,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 64),
 					BackgroundColor3 = colors[1],
 					GroupTransparency = fade,
-					UI.Label({ text = "Compose owns the tween; CanvasGroup owns the compositing." }),
+					UI.Text({ text = "Compose owns the tween; CanvasGroup owns the compositing." }),
 				}),
 			}
 		end

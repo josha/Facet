@@ -34,10 +34,10 @@ return {
 			end
 		end
 		local function caption(name: string, text, order: number, role: string?)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				LayoutOrder = order,
-				Text = text,
+				text = text,
 				textRole = role or "body",
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,

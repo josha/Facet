@@ -93,8 +93,8 @@ add("billboard-nameplate", { "mech3-08" }, function(t)
 				gap = 4,
 				width = "fill",
 				height = "fill",
-				UI.Label "Name" { text = "Razz Raccoon", TextSize = 18 },
-				UI.Label "Health" { text = health, TextSize = 14 },
+				UI.Text "Name" { text = "Razz Raccoon", TextSize = 18 },
+				UI.Text "Health" { text = health, TextSize = 14 },
 			},
 		}
 		return billboard
@@ -263,7 +263,7 @@ add("collapsible-safe-edges", { "navigation-2-06" }, function(t)
 					expanded = expanded,
 					Size = UDim2.new(1, 0, 0, 44),
 					content = function()
-						return UI.Label {
+						return UI.Text {
 							text = string.rep("Course details ", 30),
 							TextWrapped = true,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -308,7 +308,7 @@ interactive("navigation-back-pointer", { "navigation-3-19" }, function(t)
 			root = {
 				title = "Start",
 				content = function()
-					return UI.Label { text = "Root" }
+					return UI.Text { text = "Root" }
 				end,
 			},
 			destinations = {
@@ -418,7 +418,7 @@ add("pageview-fixed-in-scroller", { "navigation-3-48" }, function(t)
 						id = "one",
 						title = "One",
 						content = function()
-							return UI.Label { text = "Course details" }
+							return UI.Text { text = "Course details" }
 						end,
 					},
 				},
@@ -599,14 +599,14 @@ add("tab-reorder-keeps-page-geometry", { "navigation-4-58" }, function(t)
 					id = "feed",
 					label = "Feed",
 					content = function()
-						return UI.Label { text = "Feed" }
+						return UI.Text { text = "Feed" }
 					end,
 				},
 				{
 					id = "me",
 					label = "Me",
 					content = function()
-						return UI.Label { text = "Me" }
+						return UI.Text { text = "Me" }
 					end,
 				},
 			},
@@ -676,8 +676,8 @@ add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 						label = "Home",
 						content = function()
 							return UI.HStack "HomeBody" {
-								UI.Label { text = "a considerably wider body than a phone offers" },
-								UI.Label { text = "and a second one after it, for good measure" },
+								UI.Text { text = "a considerably wider body than a phone offers" },
+								UI.Text { text = "and a second one after it, for good measure" },
 							}
 						end,
 					},
@@ -685,7 +685,7 @@ add("tab-content-stretches-page", { "navigation-5-20" }, function(t)
 						id = "feed",
 						label = "Feed",
 						content = function()
-							return UI.Label { text = "Feed" }
+							return UI.Text { text = "Feed" }
 						end,
 					},
 				},
@@ -731,7 +731,7 @@ add("progress-track-centring", { "paint-35" }, function(t)
 			width = "fill",
 			gap = 16,
 			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true },
-			UI.Label "Cap" { text = "Save changes" },
+			UI.Text "Cap" { text = "Save changes" },
 		}
 	end, { size = Vector2.new(400, 400), frames = 12 })
 	local root = t.find(stage, "Down")

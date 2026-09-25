@@ -291,7 +291,7 @@ function example.build(ctx: any)
 	end
 
 	local function measure(name: string, sample: string, size: number)
-		local probe = UI.Label(name) {
+		local probe = UI.Text(name) {
 			Visible = false,
 			text = sample,
 			TextSize = size,
@@ -335,7 +335,7 @@ function example.build(ctx: any)
 				local fill = Host.Frame "fill" {
 					Size = UDim2.fromScale(1, 1),
 					Host.UICorner({}),
-					UI.Label "ch" {
+					UI.Text "ch" {
 						text = function(use)
 							return use(rowsSig)[rr].letters:sub(cc, cc)
 						end,
@@ -346,7 +346,7 @@ function example.build(ctx: any)
 						end,
 						TextXAlignment = Enum.TextXAlignment.Center,
 					},
-					UI.Label "mark" {
+					UI.Text "mark" {
 						text = function(use)
 							return TILE_MARK[use(state)]
 						end,
@@ -425,8 +425,8 @@ function example.build(ctx: any)
 		return UI.ScrollView "page" {
 			gap = "s",
 			align = "center",
-			UI.Label "Title" { text = "Facet Wordle", textRole = "title" },
-			UI.Label "Status" {
+			UI.Text "Title" { text = "Facet Wordle", textRole = "title" },
+			UI.Text "Status" {
 				text = statusSig,
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -436,7 +436,7 @@ function example.build(ctx: any)
 			UI.Grid "board"(board),
 			letterProbe,
 			markProbe,
-			UI.Label "Legend" { text = "v correct   ~ present   x absent", textRole = "caption" },
+			UI.Text "Legend" { text = "v correct   ~ present   x absent", textRole = "caption" },
 			UI.VStack "kb"(keyboard),
 			UI.Button "Restart" {
 				label = "New game",

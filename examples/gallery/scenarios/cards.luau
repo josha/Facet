@@ -102,10 +102,10 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
 				}),
-				UI.Label({
+				UI.Text({
 					Name = "Last",
 					LayoutOrder = 1,
-					Text = last,
+					text = last,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextTruncate = Enum.TextTruncate.AtEnd,

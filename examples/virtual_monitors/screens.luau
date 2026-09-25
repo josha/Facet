@@ -40,7 +40,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		return spec
 	end
 	local function words(name, value, role, props)
-		return UI.Label(merged({
+		return UI.Text(merged({
 			Name = name,
 			text = value,
 			textRole = role or "body",
@@ -110,7 +110,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		return Compose.boundary(function()
 			return UI.Stage(spec)
 		end, function()
-			return UI.Label({
+			return UI.Text({
 				Name = name .. "Unavailable",
 				text = "Preview unavailable",
 				textRole = "label",
@@ -354,7 +354,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									return presenceWords[use(model.presence)]
 								end,
 							},
-							UI.Label "DisplayName" { text = displayName, textRole = "strong" },
+							UI.Text "DisplayName" { text = displayName, textRole = "strong" },
 						},
 						UI.Picker "Presence" {
 							selected = model.presence,
@@ -805,6 +805,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				end,
 			},
 			words("Description", selected.description),
+			UI.Divider "CreatorRule" {},
 			UI.HStack "Creator" {
 				width = "fill",
 				gap = "s",
@@ -821,9 +822,10 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						}
 					end,
 				},
-				UI.Label "CreatorName" { text = selected.creator, textRole = "label", UI.fill() },
+				UI.Text "CreatorName" { text = selected.creator, textRole = "label", UI.fill() },
 			},
 			UI.HStack "DetailsTabs" {
+				width = "fill",
 				gap = "s",
 				button("AboutTab", "About", function()
 					model.detailTab:set("about")
@@ -831,6 +833,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				button("SimilarTab", "Similar games", function()
 					model.detailTab:set("similar")
 				end),
+				UI.Spacer "TabsGap" { minLength = "s" },
 				button("SaveDetail", saveAction(current).label, function()
 					model.save(current:peek())
 				end),
@@ -859,7 +862,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							end,
 						}
 					end),
-					words("TrendHeading", "Players this week", "label"),
+					UI.Label "TrendHeading" { title = "Players this week", icon = "person", textSize = "label" },
 					sparkline(),
 					quiet("Rating", selected.rating .. " recommend this game · " .. selected.players, "label"),
 					words("YourRating", "Your rating", "label"),
@@ -1016,7 +1019,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			UI.badged(savedShelf, function(use)
 				return #use(model.savedGames)
 			end),
-			UI.Label "Count" {
+			UI.Text "Count" {
 				text = function(use)
 					return `{#use(model.visibleGames)} games`
 				end,
@@ -1152,6 +1155,21 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									words("FeaturedTitle", item.title, "heading"),
 									quiet("FeaturedDescription", item.description, "body"),
 									quiet("FeaturedFacts", item.rating .. " recommend  ·  " .. item.players),
+									UI.HStack "FeaturedCreator" {
+										gap = "xs",
+										align = "center",
+										UI.Image "FeaturedCreatorImage" {
+											image = item.creatorImage,
+											shape = "circle",
+											scaleMode = "crop",
+											Size = D2.fromOffset(24, 24),
+										},
+										quiet("FeaturedCreatorName", item.creator, "label", {
+											Size = D2.fromOffset(0, 0),
+											AutomaticSize = E.AutomaticSize.XY,
+											TextWrapped = false,
+										}),
+									},
 								},
 								UI.Badge "FeaturedBadge" {
 									label = "Featured",

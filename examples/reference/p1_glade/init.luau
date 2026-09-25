@@ -388,7 +388,7 @@ function Glade.build(ctx)
 					{ id = "keeper", label = "Keeper", content = keeper },
 				},
 			},
-			UI.Label({
+			UI.Text({
 				text = notice,
 				Position = D2.new(0, 16, 1, -60),
 				Size = D2.new(1, -32, 0, 56),

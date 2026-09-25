@@ -79,7 +79,7 @@ local function labelHolder(t: any, text: any, width: any, extra: { [string]: any
 				local value = if Compose.isReadable(width) then use(width) else width
 				return UDim2.fromOffset(value, 40)
 			end,
-			UI.Label(spec),
+			UI.Text(spec),
 		})
 	end, options or { size = Vector2.new(800, 400) })
 end
@@ -167,7 +167,7 @@ add("label-middle-truncation-follows-a-theme-text-change", { "mech2-46" }, funct
 			Name = "Holder",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(160, 60),
-			UI.Label({ Name = "Cut", text = COASTAL, truncate = "middle" }),
+			UI.Text({ Name = "Cut", text = COASTAL, truncate = "middle" }),
 		})
 	end, { size = Vector2.new(800, 400) })
 	local label = t.find(stage, "Cut")
@@ -230,7 +230,7 @@ local function fitBox(t: any, text: string, w: number, h: number, textSize: any,
 			Name = "Box",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(w, h),
-			UI.Label({ Name = "Cta", text = text, textSize = textSize }),
+			UI.Text({ Name = "Cta", text = text, textSize = textSize }),
 		})
 	end, { size = Vector2.new(800, 400), theme = theme })
 	return t.find(stage, "Cta")

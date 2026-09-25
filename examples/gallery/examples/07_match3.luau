@@ -779,16 +779,16 @@ local function build(ctx: any)
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
-				UI.Label "Title" { text = "Facet Match-3", textRole = "title", TextWrapped = true },
-				UI.Label "Hint" { text = hint, TextWrapped = true },
+				UI.Text "Title" { text = "Facet Match-3", textRole = "title", TextWrapped = true },
+				UI.Text "Hint" { text = hint, TextWrapped = true },
 				UI.HStack "Stats" {
 					gap = "m",
 					wrap = true,
-					UI.Label "Score" { text = scoreText },
-					UI.Label "Moves" { text = movesText },
+					UI.Text "Score" { text = scoreText },
+					UI.Text "Moves" { text = movesText },
 				},
 				boardView(),
-				UI.Label "ArtStatus" { text = artStatus, TextWrapped = true },
+				UI.Text "ArtStatus" { text = artStatus, TextWrapped = true },
 				UI.HStack "Art" {
 					wrap = true,
 					gap = "s",

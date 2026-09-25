@@ -50,7 +50,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
 					BackgroundTransparency = 1,
@@ -63,7 +63,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 2,
 					Name = "Note",
 					BackgroundTransparency = 1,
@@ -112,7 +112,7 @@ return {
 						end,
 					}),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 4,
 					Name = "LiveHeading",
 					BackgroundTransparency = 1,
@@ -131,7 +131,7 @@ return {
 					action = liveAction,
 					controlSize = rung,
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 6,
 					Name = "ExplicitHeading",
 					BackgroundTransparency = 1,
@@ -151,8 +151,8 @@ return {
 					separator = separator,
 					controlSize = rung,
 				}),
-				UI.Label({ LayoutOrder = 8, Name = "BoundLabel", text = title, icon = "checkmark" }),
-				UI.Label({
+				UI.Label({ LayoutOrder = 8, Name = "BoundLabel", title = title, icon = "checkmark" }),
+				UI.Text({
 					LayoutOrder = 9,
 					Name = "CustomHeading",
 					BackgroundTransparency = 1,
@@ -224,7 +224,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Compose.show(guide, function()
-						return UI.Label "GuideText" {
+						return UI.Text "GuideText" {
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),

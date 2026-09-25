@@ -49,7 +49,7 @@ local function inspect(entry)
 			return Host.Frame({
 				sheet,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-				UI.Label({ text = "Theme artifact" }),
+				UI.Text({ text = "Theme artifact" }),
 				button,
 			})
 		end, engine.new("Folder"))

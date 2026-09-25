@@ -866,7 +866,7 @@ t.describe("DateTimePicker: the gallery tab", function()
 				Name = "Pickers",
 				Host.UIListLayout({}),
 				UI.Toggle("Refuse")({ label = "Refuse changes", value = refuse }),
-				UI.Label("Committed")({
+				UI.Text("Committed")({
 					text = function(use: any): string
 						return `Committed: {use(committed)}`
 					end,

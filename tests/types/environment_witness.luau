@@ -10,7 +10,7 @@ local function Screen(): Frame
 	local moved: boolean = UI.scrollTo(list, "top", options)
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
 	return UI.Screen({
-		UI.Label({
+		UI.Text({
 			text = function(use: Facet.Use): string
 				return `{use(env.sizeClass)} {moved} {shown} {use(anchor.anchor) ~= nil}`
 			end,

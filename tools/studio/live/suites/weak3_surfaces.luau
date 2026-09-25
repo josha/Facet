@@ -204,7 +204,7 @@ add("dialog-actions-stack-and-row", { "post-overlays-015" }, function(t)
 				onPresentedChange = noop,
 				title = "Leave the race?",
 				content = function()
-					return UI.Label({
+					return UI.Text({
 						Name = "Line",
 						text = "Your lap will not count.",
 						TextWrapped = true,
@@ -754,7 +754,7 @@ add("outline-disclosure-indent", { "post-port26-014" }, function(t)
 				indent = "m",
 				expanded = Compose.cell(true),
 				content = function()
-					return UI.Label({ Name = "Row", text = "Button", AutomaticSize = Enum.AutomaticSize.XY })
+					return UI.Text({ Name = "Row", text = "Button", AutomaticSize = Enum.AutomaticSize.XY })
 				end,
 			},
 		}
@@ -913,7 +913,7 @@ add("sheet-adaptive-side-edge", { "post-port26-024" }, function(t)
 					placement = "adaptive",
 					title = "Inspector",
 					content = function()
-						return UI.Label({ Name = "Copy", text = "Details", AutomaticSize = Enum.AutomaticSize.XY })
+						return UI.Text({ Name = "Copy", text = "Details", AutomaticSize = Enum.AutomaticSize.XY })
 					end,
 				},
 			}

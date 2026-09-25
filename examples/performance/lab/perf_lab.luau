@@ -344,7 +344,7 @@ function lab.build(ctx, modules)
 						for index = 1, math.min(item.count, 1000) do
 							table.insert(
 								properties,
-								UI.Label({ text = `Row {index}`, Size = T.UDim2.fromOffset(60, 24) })
+								UI.Text({ text = `Row {index}`, Size = T.UDim2.fromOffset(60, 24) })
 							)
 						end
 						table.insert(children, Host.Frame(properties))
@@ -456,7 +456,7 @@ function lab.build(ctx, modules)
 		}),
 		Host.UIListLayout({ SortOrder = T.Enum.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 8) }),
 		toolbar,
-		UI.Label({
+		UI.Text({
 			text = readout,
 			LayoutOrder = 2,
 			Size = T.UDim2.new(1, 0, 0, 40),

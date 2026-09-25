@@ -173,7 +173,7 @@ local function screen()
 		Name = "Canary",
 		sheet,
 		Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-		UI.Label("Title")({ text = title }),
+		UI.Text("Title")({ text = title }),
 		UI.Button("Go")({
 			label = "Go",
 			onActivate = function()

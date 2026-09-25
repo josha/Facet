@@ -122,13 +122,13 @@ return {
 			team:set(list)
 		end
 		local function text(name: string, words: any, role: string)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Text = words,
+				text = words,
 				textRole = role,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -184,12 +184,12 @@ return {
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Padding = UDim.new(0, 16),
 					}),
-					UI.Label({
+					UI.Text({
 						Name = "TrimLabel",
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						AutomaticSize = Enum.AutomaticSize.XY,
-						Text = COPY.trim,
+						text = COPY.trim,
 					}),
 					UI.ColorPicker "Trim" {
 						LayoutOrder = 2,

@@ -24,7 +24,7 @@ return {
 				Size = UDim2.fromOffset(200, 96),
 				BackgroundColor3 = Color3.fromRGB(42, 70, 120),
 				BackgroundTransparency = transparency,
-				UI.Label({ text = name, TextColor3 = Color3.new(1, 1, 1) }),
+				UI.Text({ text = name, TextColor3 = Color3.new(1, 1, 1) }),
 			})
 		end
 		local function screen()
@@ -34,11 +34,11 @@ return {
 				AutomaticCanvasSize = Enum.AutomaticSize.Y,
 				CanvasSize = UDim2.new(),
 				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
-				UI.Label({ text = "Background transparency", TextSize = 24 }),
-				UI.Label({
+				UI.Text({ text = "Background transparency", TextSize = 24 }),
+				UI.Text({
 					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",
 				}),
-				UI.Label "Reading" {
+				UI.Text "Reading" {
 					text = function(use)
 						return `Your setting: {math.round(use(preference) * 100)}%`
 					end,

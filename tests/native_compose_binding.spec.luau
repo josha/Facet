@@ -62,7 +62,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 					toggle = UI.Toggle({ value = checked, presentation = "checkbox", label = "Enabled" })
 					return toggle
 				end),
-				UI.Label({
+				UI.Text({
 					text = function(use)
 						return `{use(caption)} {use(doubled)}`
 					end,
@@ -131,10 +131,10 @@ t.describe("Facet on the consumer's Compose instance", function()
 		local UI = Facet.controls(runtime, { types = engine.types })
 		local message = failure(function()
 			runtime.mount(function()
-				return UI.Label({ text = Core.cell("Foreign") })
+				return UI.Text({ text = Core.cell("Foreign") })
 			end, engine.new("ScreenGui"))
 		end)
-		t.expect(string.find(message, "Facet UI.Label", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(message, "Facet UI.Text", 1, true) ~= nil).toBe(true)
 		t.expect(string.find(message, "'text'", 1, true) ~= nil).toBe(true)
 		t.expect(string.find(message, "Facet.bind", 1, true) ~= nil).toBe(true)
 		local nested = failure(function()
@@ -149,7 +149,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 		t.expect(string.find(nested, "'items.checked'", 1, true) ~= nil).toBe(true)
 		local native = Facet.Compose.cell("Native")
 		local stop, node = runtime.mount(function()
-			return UI.Label({ text = native })
+			return UI.Text({ text = native })
 		end, engine.new("ScreenGui"))
 		t.expect(node.Text).toBe("Native")
 		stop()
@@ -207,7 +207,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 				end)
 				return UI.Screen "Counter" {
 					gap = "s",
-					UI.Label "Count" {
+					UI.Text "Count" {
 						text = function(use)
 							return `Count {use(count)}`
 						end,
@@ -244,7 +244,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 			t.expect(find(gui, "Count").Text).toBe("Count 1")
 			local secondParent = engine.new("Folder")
 			local second = app.mount(function()
-				return UI.Label { text = "Second" }
+				return UI.Text { text = "Second" }
 			end, secondParent)
 			t.expect(#secondParent:GetChildren()).toBe(1)
 			stop()
@@ -255,7 +255,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 			app.dispose()
 			t.expect(#secondParent:GetChildren()).toBe(0)
 			local stopLate, late = runtime.mount(function()
-				return UI.Label({ text = "Late" })
+				return UI.Text({ text = "Late" })
 			end, engine.new("Folder"))
 			t.expect(late.Text).toBe("Late")
 			stopLate()
@@ -263,7 +263,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 			t.expect(string.find(
 				failure(function()
 					app.mount(function()
-						return UI.Label({ text = "Late" })
+						return UI.Text({ text = "Late" })
 					end)
 				end),
 				"Facet app.mount: the app is disposed",
@@ -280,7 +280,7 @@ t.describe("Facet on the consumer's Compose instance", function()
 				screen = { Name = "Desk", DisplayOrder = 7, ResetOnSpawn = true },
 			})
 			local stopStyled, desk = styled.mount(function()
-				return styled.UI.Label({ text = "Desk" })
+				return styled.UI.Text({ text = "Desk" })
 			end)
 			t.expect(desk.Name).toBe("Desk")
 			t.expect(desk.DisplayOrder).toBe(7)

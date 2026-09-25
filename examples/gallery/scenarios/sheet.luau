@@ -79,7 +79,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 16),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -91,7 +91,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -102,7 +102,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 3,
 						Name = "Status",
 						BackgroundTransparency = 1,
@@ -147,24 +147,24 @@ return {
 					hero = {
 						height = 140,
 						background = Color3.fromRGB(44, 98, 210),
-						content = UI.Label({
+						content = UI.Text({
 							Name = "Banner",
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Text = copy.lobby,
+							text = copy.lobby,
 							textRole = "title",
 							TextWrapped = true,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					},
 					content = function()
-						return UI.Label({
+						return UI.Text({
 							Name = "LobbyBody",
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							Text = copy.lobbyBody,
+							text = copy.lobbyBody,
 							TextWrapped = true,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						})
@@ -206,12 +206,12 @@ return {
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
 							}),
-							UI.Label({
+							UI.Text({
 								LayoutOrder = 1,
 								BackgroundTransparency = 1,
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
-								Text = copy.filtersBody,
+								text = copy.filtersBody,
 								TextWrapped = true,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
@@ -255,7 +255,7 @@ return {
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
 							}),
-							UI.Label({
+							UI.Text({
 								LayoutOrder = 1,
 								Name = "Description",
 								BackgroundTransparency = 1,
@@ -267,7 +267,7 @@ return {
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Label({
+							UI.Text({
 								LayoutOrder = 2,
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
@@ -284,7 +284,7 @@ return {
 								label = copy.join,
 								value = membership,
 							}),
-							UI.Label({
+							UI.Text({
 								LayoutOrder = 4,
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,

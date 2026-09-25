@@ -11,7 +11,7 @@ local screen: Frame = UI.Screen({
 	gap = gap,
 	padding = "l",
 	distribute = "spaceBetween" :: "spaceBetween",
-	UI.Label({ text = "Title" }),
+	UI.Text({ text = "Title" }),
 })
 local named: Frame = UI.Screen("Home")({ padding = 0 })
 local column: Frame = UI.VStack({
@@ -52,6 +52,11 @@ local props: Facet.ScreenProps = { padding = padding, width = extent }
 local zProps: Facet.ZStackProps = { alignH = "start" :: "start" }
 local scrollProps: Facet.ScrollViewProps = { axis = "xy" :: "xy" }
 local gridProps: Facet.GridProps = { columns = 2 }
+local dividerProps: Facet.DividerProps =
+	{ axis = "x" :: "x", thickness = "strokes.hairline", appearance = "strong" :: "strong" }
+local divider: Frame = UI.Divider(dividerProps)
+local spacerProps: Facet.SpacerProps = { minLength = "m" }
+local spacer: Frame = UI.Spacer(spacerProps)
 return {
 	screen = screen,
 	named = named,
@@ -68,4 +73,6 @@ return {
 	zProps = zProps,
 	scrollProps = scrollProps,
 	gridProps = gridProps,
+	divider = divider,
+	spacer = spacer,
 }

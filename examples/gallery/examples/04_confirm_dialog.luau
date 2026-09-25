@@ -49,14 +49,14 @@ function example.build(ctx: any)
 			UI.ScrollView "Page" {
 				gap = "s",
 				align = "stretch",
-				UI.Label "Title" {
+				UI.Text "Title" {
 					textRole = "title",
 					TextWrapped = true,
 					text = function(use)
 						return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 					end,
 				},
-				UI.Label "Outcome" { text = outcome, TextWrapped = true },
+				UI.Text "Outcome" { text = outcome, TextWrapped = true },
 				UI.Button "Delete" { label = "Delete Save", enabled = hasSave, onActivate = openDialog },
 				UI.Button "Restore" { label = "Restore the save", onActivate = restore },
 			},

@@ -309,7 +309,7 @@ function workloads.create(ctx, name, dataset)
 	local function lifecycle()
 		local volume, quality, selected = Compose.cell(50), Compose.cell(2), Compose.cell("medium")
 		local children = {
-			UI.Label({ text = "Settings" }),
+			UI.Text({ text = "Settings" }),
 			UI.Slider({
 				label = "Volume",
 				value = volume,
@@ -602,7 +602,7 @@ function workloads.create(ctx, name, dataset)
 			local sheet =
 				ctx.Facet.themes.createStyleSheet(runtime, state.palette, { types = types, theme = state.themeName })
 			state.themeControls = {
-				themed.Label "Head" { text = "Garage", TextSize = 20 },
+				themed.Text "Head" { text = "Garage", TextSize = 20 },
 				themed.Button "Go" { label = "Go", onActivate = function() end },
 				themed.Toggle "Flag" { label = "Flag", value = Compose.cell(true) },
 				themed.ProgressView "Bar" { value = 0.6 },

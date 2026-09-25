@@ -546,7 +546,7 @@ local function formScreen(UI: any, Compose: any): any
 	return UI.Screen "S" {
 		UI.ScrollView "Form" {
 			gap = "s",
-			UI.Label "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
+			UI.Text "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
 			UI.TextInput "Name" { value = Compose.cell(""), placeholder = PSEUDO, Size = UDim2.new(1, 0, 0, 44) },
 			UI.Slider "Volume" { label = PSEUDO, value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 },
 			UI.TextInput "Email" {
@@ -554,7 +554,7 @@ local function formScreen(UI: any, Compose: any): any
 				placeholder = PSEUDO_SECONDARY,
 				Size = UDim2.new(1, 0, 0, 44),
 			},
-			UI.Label "Note" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
+			UI.Text "Note" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
 			UI.TextInput "City" {
 				value = Compose.cell(""),
 				placeholder = PSEUDO_SECONDARY,
@@ -565,7 +565,7 @@ local function formScreen(UI: any, Compose: any): any
 				placeholder = PSEUDO_SECONDARY,
 				Size = UDim2.new(1, 0, 0, 44),
 			},
-			UI.Label "Terms" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
+			UI.Text "Terms" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
 			UI.Toggle "Sound" { label = PSEUDO, value = Compose.cell(true) },
 			UI.HStack "Actions" {
 				gap = "s",
@@ -757,7 +757,7 @@ add("mixed-script-lines-grow-monotonically", { "apps-255" }, function(t)
 			local where = `{themeName} +{offset}`
 			local stage = t.mount(function(UI)
 				local function line(name: string, text: string): any
-					return UI.Label(name)({ text = text, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) })
+					return UI.Text(name)({ text = text, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) })
 				end
 				return UI.Screen "S" { line("Cjk", CJK), line("Emoji", EMOJI), line("Mixed", MIXED) }
 			end, { size = Vector2.new(390, 844), theme = grown(t, base, offset), frames = 12 })
@@ -794,7 +794,7 @@ add("mixed-script-lines-grow-monotonically", { "apps-255" }, function(t)
 		for _, offset in { 0, 14 } do
 			local stage = t.mount(function(UI)
 				return UI.Screen "S" {
-					UI.Label "Line" { text = MIXED, TextWrapped = true, Size = UDim2.fromOffset(300, 0) },
+					UI.Text "Line" { text = MIXED, TextWrapped = true, Size = UDim2.fromOffset(300, 0) },
 				}
 			end, { size = Vector2.new(390, 400), theme = grown(t, themeNamed(t, themeName), offset), frames = 12 })
 			t.settle(4)

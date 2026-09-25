@@ -905,7 +905,7 @@ t.describe("native parity weaker tables", function()
 						label = "Racer",
 						sortable = false,
 						render = function(current)
-							return UI.Label("Custom")({
+							return UI.Text("Custom")({
 								text = function(use)
 									return use(current).name
 								end,

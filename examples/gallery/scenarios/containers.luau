@@ -28,7 +28,7 @@ return {
 		local reserved = Compose.cell(true)
 		local presses = Compose.cell(0)
 		local function heading(name: string, text: string)
-			return UI.Label({ Name = name, text = text, textRole = "label" })
+			return UI.Text({ Name = name, text = text, textRole = "label" })
 		end
 		local function tile(name: string, width: number?, height: number?, extra: any?)
 			local node = Host.Frame({
@@ -102,7 +102,7 @@ return {
 						UI.VStack({
 							Name = "Inner",
 							gap = "xs",
-							UI.Label({ Name = "Child", text = copy.child }),
+							UI.Text({ Name = "Child", text = copy.child }),
 							tile("Bar", 40),
 						}),
 					})
@@ -144,7 +144,7 @@ return {
 				Name = "Containers",
 				gap = "m",
 				padding = "m",
-				UI.Label({ Name = "Title", text = copy.title, textRole = "heading" }),
+				UI.Text({ Name = "Title", text = copy.title, textRole = "heading" }),
 				heading("GroupTitle", copy.group),
 				group,
 				UI.Toggle({ Name = "GroupEnabled", label = copy.disable, value = groupEnabled }),

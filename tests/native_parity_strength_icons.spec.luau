@@ -1014,7 +1014,7 @@ t.describe("semantic icons", function()
 		t.expect(themes.resolveIcon(custom, "facet:search")).toBe("rbxassetid://31")
 		local engine, runtime, UI = setup({ theme = custom })
 		local stop, root = runtime.mount(function()
-			return UI.Label({ text = "Find", icon = "facet:search" })
+			return UI.Label({ title = "Find", icon = "facet:search" })
 		end, engine.new("Folder"))
 		t.expect(root:FindFirstChildWhichIsA("ImageLabel").Image).toBe("rbxassetid://31")
 		stop()
@@ -1026,7 +1026,7 @@ t.describe("semantic icons", function()
 		local selected = Compose.cell(themes.neutralPackage())
 		local engine, runtime, UI = setup({ theme = selected, controlSize = rung })
 		local stop, root = runtime.mount(function()
-			return UI.Label({ text = "Find", icon = "facet:search" })
+			return UI.Label({ title = "Find", icon = "facet:search" })
 		end, engine.new("Folder"))
 		local icon = root:FindFirstChildWhichIsA("ImageLabel")
 		for name, size in { compact = 16, regular = 20, large = 24 } do
@@ -1056,7 +1056,7 @@ t.describe("semantic icons", function()
 				label = "Advanced",
 				expanded = expanded,
 				content = function()
-					return UI.Label({ text = "Body" })
+					return UI.Text({ text = "Body" })
 				end,
 			})
 		end, engine.new("Folder"))
@@ -1128,8 +1128,8 @@ t.describe("semantic icons", function()
 		local engine, runtime, UI = setup({ theme = selected })
 		local stop, root = runtime.mount(function()
 			return runtime.constructors.Frame({
-				UI.Label "Up" { text = "Up", icon = "increment" },
-				UI.Label "Down" { text = "Down", icon = "decrement" },
+				UI.Label "Up" { title = "Up", icon = "increment" },
+				UI.Label "Down" { title = "Down", icon = "decrement" },
 			})
 		end, engine.new("Folder"))
 		local up = root:FindFirstChild("Up"):FindFirstChildWhichIsA("ImageLabel")
@@ -1384,8 +1384,8 @@ t.describe("icon layout", function()
 		local engine, runtime, UI = setup({ theme = package })
 		local stop, root = runtime.mount(function()
 			return runtime.constructors.Frame({
-				UI.Label "Leading" { text = "Save", icon = "checkmark" },
-				UI.Label "Trailing" { text = "Next", icon = "chevron.trailing", iconPosition = "trailing", gap = gap },
+				UI.Label "Leading" { title = "Save", icon = "checkmark" },
+				UI.Label "Trailing" { title = "Next", icon = "chevron.trailing", iconPosition = "trailing", gap = gap },
 			})
 		end, engine.new("Folder"))
 		for name, expected in { Leading = { "icon", "text" }, Trailing = { "text", "icon" } } do

@@ -76,7 +76,7 @@ return {
 					Size = D2.new(1, 0, 0, 56),
 					BackgroundColor3 = C3.fromRGB(32, 45, 65),
 					BorderSizePixel = 0,
-					UI.Label({
+					UI.Text({
 						text = "HUD reservation — markers stay below this band",
 						Size = D2.fromScale(1, 1),
 						TextWrapped = true,
@@ -100,12 +100,12 @@ return {
 				AutomaticCanvasSize = E.AutomaticSize.Y,
 				CanvasSize = D2.new(),
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
-				UI.Label({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }),
+				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }),
 				map,
 				UI.Toggle "Move" { label = "Move objective offscreen", value = shifted },
 				UI.Toggle "Crowd" { label = "Bring markers together", value = crowded },
 				UI.Toggle "Hide" { label = "Occlude supplies", value = hidden },
-				UI.Label "Selected" { text = selected, TextWrapped = true },
+				UI.Text "Selected" { text = selected, TextWrapped = true },
 			}
 		end
 		return {

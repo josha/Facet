@@ -68,12 +68,12 @@ return {
 			speed:set(120)
 		end
 		local function caption(name: string, text: string, role: string?)
-			return UI.Label(name)({
+			return UI.Text(name)({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Text = text,
+				text = text,
 				textRole = role,
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
@@ -90,7 +90,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -122,7 +122,7 @@ return {
 					},
 					UI.Button "Reset" { LayoutOrder = 2, label = "Reset", appearance = "utility", onActivate = reset },
 				},
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -134,7 +134,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -160,7 +160,7 @@ return {
 						saved:set(text:peek())
 					end,
 				},
-				UI.Label "Saved" {
+				UI.Text "Saved" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -170,7 +170,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -193,7 +193,7 @@ return {
 						return name
 					end,
 					render = function(name)
-						return UI.Label({
+						return UI.Text({
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -207,7 +207,7 @@ return {
 						})
 					end,
 				}),
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -228,7 +228,7 @@ return {
 					enabled = enabled,
 					ref = keep("Laps"),
 				},
-				UI.Label "Committed" {
+				UI.Text "Committed" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -257,12 +257,12 @@ return {
 					end,
 					ref = keep("Fee"),
 				},
-				UI.Label "CommittedFee" {
+				UI.Text "CommittedFee" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Text = function(use)
+					text = function(use)
 						return "Committed fee: " .. use(feeReason)
 					end,
 					TextWrapped = true,
@@ -300,12 +300,12 @@ return {
 					},
 					ref = keep("Handle"),
 				},
-				UI.Label "Pasted" {
+				UI.Text "Pasted" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					Text = function(use)
+					text = function(use)
 						return "Paste pressed " .. tostring(use(pasted)) .. " times"
 					end,
 					TextWrapped = true,

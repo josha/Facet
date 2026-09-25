@@ -134,7 +134,7 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
 								}),
-								UI.Label({
+								UI.Text({
 									LayoutOrder = 1,
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
@@ -165,7 +165,7 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
 								}),
-								UI.Label "ResultsHeading" {
+								UI.Text "ResultsHeading" {
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),
@@ -206,7 +206,7 @@ return {
 									Compose.show(function(use)
 										return #use(matches) == 0
 									end, function()
-										return UI.Label({
+										return UI.Text({
 											BackgroundTransparency = 1,
 											BorderSizePixel = 0,
 											Size = UDim2.new(1, 0, 0, 0),
@@ -221,7 +221,7 @@ return {
 							}),
 						}
 						return page({
-							UI.Label({
+							UI.Text({
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -279,7 +279,7 @@ return {
 												SortOrder = Enum.SortOrder.LayoutOrder,
 												Padding = UDim.new(0, 8),
 											}),
-											UI.Label({
+											UI.Text({
 												LayoutOrder = 1,
 												Name = "Label",
 												BackgroundTransparency = 1,
@@ -292,7 +292,7 @@ return {
 												TextYAlignment = Enum.TextYAlignment.Top,
 												TextXAlignment = Enum.TextXAlignment.Left,
 											}),
-											UI.Label({
+											UI.Text({
 												LayoutOrder = 2,
 												Name = "Value",
 												BackgroundTransparency = 1,
@@ -312,7 +312,7 @@ return {
 												Size = UDim2.new(0, 0, 0, 0),
 												AutomaticSize = Enum.AutomaticSize.XY,
 											}),
-											UI.Label({
+											UI.Text({
 												LayoutOrder = 4,
 												Name = "Unit",
 												BackgroundTransparency = 1,
@@ -338,7 +338,7 @@ return {
 												Padding = UDim.new(0, 8),
 												Wraps = true,
 											}),
-											UI.Label({
+											UI.Text({
 												LayoutOrder = 1,
 												BackgroundTransparency = 1,
 												BorderSizePixel = 0,
@@ -350,7 +350,7 @@ return {
 												TextYAlignment = Enum.TextYAlignment.Top,
 												TextXAlignment = Enum.TextXAlignment.Left,
 											}),
-											UI.Label({
+											UI.Text({
 												LayoutOrder = 2,
 												BackgroundTransparency = 1,
 												BorderSizePixel = 0,
@@ -375,7 +375,7 @@ return {
 											SortOrder = Enum.SortOrder.LayoutOrder,
 											Padding = UDim.new(0, 8),
 										}),
-										UI.Label({
+										UI.Text({
 											LayoutOrder = 1,
 											BackgroundTransparency = 1,
 											BorderSizePixel = 0,
@@ -407,7 +407,7 @@ return {
 						title = "Ready to go",
 						content = function(entry)
 							return page({
-								UI.Label({
+								UI.Text({
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),
@@ -418,7 +418,7 @@ return {
 									TextYAlignment = Enum.TextYAlignment.Top,
 									TextXAlignment = Enum.TextXAlignment.Left,
 								}),
-								UI.Label({
+								UI.Text({
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),

@@ -34,7 +34,7 @@ return {
 			return edge
 		end
 		local function label(name, text, role)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				text = text,
 				textRole = role or "body",
@@ -77,9 +77,9 @@ return {
 					range = true,
 					minGap = 2,
 				},
-				UI.Label "TiltCaption" {
+				UI.Text "TiltCaption" {
 					LayoutOrder = 3,
-					label = "Tilt (a turned range)",
+					text = "Tilt (a turned range)",
 					textRole = "caption",
 					role = "secondary",
 				},
@@ -119,9 +119,9 @@ return {
 						step = 5,
 						axis = "y",
 					},
-					UI.Label "BalanceNote" {
+					UI.Text "BalanceNote" {
 						LayoutOrder = 2,
-						label = "Rear bias runs bottom to top, and Up raises it.",
+						text = "Rear bias runs bottom to top, and Up raises it.",
 						textRole = "caption",
 						role = "secondary",
 						TextWrapped = true,
@@ -163,8 +163,8 @@ return {
 								Size = UDim2.fromScale(1, 1),
 								Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
 							},
-							UI.Label "Mark" {
-								label = "▲",
+							UI.Text "Mark" {
+								text = "▲",
 								textRole = "caption",
 								AnchorPoint = Vector2.new(0.5, 0.5),
 								Position = UDim2.fromScale(0.5, 0.5),
@@ -296,7 +296,7 @@ return {
 									iconOnly = true,
 									Size = UDim2.fromOffset(52, 132),
 								},
-								UI.Label "NavReadout" {
+								UI.Text "NavReadout" {
 									text = function(use)
 										return `Selected: {use(section)} — the pill and the rail share this selection.`
 									end,

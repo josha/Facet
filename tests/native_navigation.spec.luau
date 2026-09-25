@@ -1762,7 +1762,7 @@ t.describe("native navigation controls", function()
 					isPresented = Compose.cell(true),
 					onRetire = function() end,
 					content = function()
-						return UI.Label({ text = "Tip" })
+						return UI.Text({ text = "Tip" })
 					end,
 				}),
 				UI.Alert({
@@ -1989,7 +1989,7 @@ t.describe("native navigation controls", function()
 					edge = "top",
 					onRetire = function() end,
 					content = function()
-						return UI.Label({ text = "Tip" })
+						return UI.Text({ text = "Tip" })
 					end,
 				}),
 			})
@@ -2025,7 +2025,7 @@ t.describe("native navigation controls", function()
 						retired += 1
 					end,
 					content = function()
-						return UI.Label({ text = "Tip" })
+						return UI.Text({ text = "Tip" })
 					end,
 				}),
 			}
@@ -2080,7 +2080,7 @@ t.describe("native navigation controls", function()
 					chevronPosition = "leading",
 					expanded = Compose.cell(true),
 					content = function()
-						return UI.Label({ text = "Details" })
+						return UI.Text({ text = "Details" })
 					end,
 				},
 				UI.CollapsibleView "Summary" {

@@ -122,7 +122,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label "CapVocabulary" {
+				UI.Text "CapVocabulary" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -394,7 +394,7 @@ return {
 				},
 			}
 			local function heading(text)
-				return UI.Label({
+				return UI.Text({
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -467,7 +467,7 @@ return {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 180),
 						},
-						UI.Label({
+						UI.Text({
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -522,7 +522,7 @@ return {
 						PaddingTop = UDim.new(0, 24),
 						PaddingBottom = UDim.new(0, 24),
 					}),
-					UI.Label "HeroTitle" {
+					UI.Text "HeroTitle" {
 						LayoutOrder = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -531,7 +531,7 @@ return {
 						TextWrapped = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Label "HeroBody" {
+					UI.Text "HeroBody" {
 						LayoutOrder = 2,
 						role = "secondary",
 						Size = UDim2.new(1, 0, 0, 0),
@@ -669,7 +669,7 @@ return {
 				},
 				heading("Prepare a race"),
 				save,
-				UI.Label "Status" {
+				UI.Text "Status" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -681,7 +681,7 @@ return {
 				},
 				heading("Set the lap count"),
 				repeatButton,
-				UI.Label "Count" {
+				UI.Text "Count" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -696,7 +696,7 @@ return {
 				shortcut,
 				heading("Filter the grid"),
 				menu,
-				UI.Label({
+				UI.Text({
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -712,7 +712,7 @@ return {
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				heading("Start or choose a mode"),
-				UI.Label "CapSplit" {
+				UI.Text "CapSplit" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -755,7 +755,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label({
+				UI.Text({
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -789,7 +789,7 @@ return {
 					},
 				}),
 				body,
-				UI.Label({
+				UI.Text({
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),

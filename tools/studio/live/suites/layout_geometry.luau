@@ -17,7 +17,7 @@ local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: strin
 			isPresented = Compose.cell(true),
 			onRetire = function() end,
 			content = function()
-				return UI.Label({ text = "Start from a prompt, then edit it before you send." })
+				return UI.Text({ text = "Start from a prompt, then edit it before you send." })
 			end,
 		}),
 	}
@@ -113,14 +113,14 @@ add("navigation-stack-root-box-and-back-chrome", { "navigation-3-27" }, function
 			path = path,
 			root = {
 				content = function()
-					return UI.Label "RootLabel" { text = "Root" }
+					return UI.Text "RootLabel" { text = "Root" }
 				end,
 			},
 			destinations = {
 				detail = {
 					title = "Detail",
 					content = function()
-						return UI.Label "DetailLabel" { text = "Detail" }
+						return UI.Text "DetailLabel" { text = "Detail" }
 					end,
 				},
 			},
@@ -206,7 +206,7 @@ add("tab-head-accessory-above-rail", { "navigation-5-34" }, function(t)
 			},
 			accessories = {
 				head = function()
-					return UI.Label "HeadLabel" { text = "Profile header" }
+					return UI.Text "HeadLabel" { text = "Profile header" }
 				end,
 				foot = function()
 					return UI.Button "FootButton" { label = "Settings" }
@@ -369,7 +369,7 @@ add("layers-hang-outside-layout", { "themes-P4-05" }, function(t)
 				detent = Compose.cell("medium"),
 				title = "Loadout",
 				content = function()
-					return UI.Label "SheetBody" {
+					return UI.Text "SheetBody" {
 						text = "Choose a loadout for the next round.",
 						TextWrapped = true,
 						Size = UDim2.fromScale(1, 0),

@@ -328,7 +328,7 @@ t.describe("public surface registration", function()
 					end)
 				end,
 			}
-			text = UI.Label "Count" {
+			text = UI.Text "Count" {
 				text = function(use: Facet.Use)
 					return `Taps {use(taps)}`
 				end,
@@ -368,7 +368,7 @@ t.describe("component lifetime", function()
 			Compose.cleanup(function()
 				cleaned += 1
 			end)
-			node = UI.Label "Count" {
+			node = UI.Text "Count" {
 				text = function(use: Facet.Use)
 					return `Count {use(count)}`
 				end,
@@ -400,13 +400,13 @@ t.describe("component lifetime", function()
 		local expanded, live = Compose.cell(false), 0
 		local stop, body = runtime.mount(function()
 			return runtime.constructors.Frame "Body" {
-				UI.Label "Title" { text = "Title" },
+				UI.Text "Title" { text = "Title" },
 				Compose.show(expanded, function()
 					live += 1
 					Compose.cleanup(function()
 						live -= 1
 					end)
-					return UI.Label "Details" { text = "Details" }
+					return UI.Text "Details" { text = "Details" }
 				end),
 			}
 		end, root)
@@ -473,7 +473,7 @@ t.describe("component lifetime", function()
 					Compose.watch(function(use)
 						table.insert(seen, use(source))
 					end)
-					return UI.Label "Details" { text = "Details" }
+					return UI.Text "Details" { text = "Details" }
 				end),
 			}
 		end, root)
@@ -500,7 +500,7 @@ t.describe("component lifetime", function()
 				use(source)
 				calls += 1
 			end)
-			return UI.Label "Label" { text = "Label" }
+			return UI.Text "Label" { text = "Label" }
 		end, root)
 		source:set(1)
 		t.expect(calls).toBe(2)
@@ -610,8 +610,8 @@ t.describe("reactive recovery", function()
 		local title = Compose.cell("First")
 		local bare, derived
 		local stop = runtime.mount(function()
-			bare = UI.Label "Bare" { text = title }
-			derived = UI.Label "Derived" {
+			bare = UI.Text "Bare" { text = title }
+			derived = UI.Text "Derived" {
 				text = function(use: Facet.Use)
 					return string.upper(use(title))
 				end,
@@ -844,10 +844,10 @@ t.describe("declaration refusals", function()
 			end,
 		},
 		{
-			name = "closed Label textRole",
-			message = "Facet Label invalid textRole",
+			name = "closed Text textRole",
+			message = "Facet Text invalid textRole",
 			build = function(UI)
-				return UI.Label({ text = "x", textRole = "nope" })
+				return UI.Text({ text = "x", textRole = "nope" })
 			end,
 		},
 		{
@@ -978,7 +978,7 @@ t.describe("declaration refusals", function()
 			return runtime.constructors.Frame({
 				UI.Button({ label = "x", controlSize = controlSize }),
 				UI.Button({ label = "y", corners = corners }),
-				UI.Label({ text = "z", textRole = role }),
+				UI.Text({ text = "z", textRole = role }),
 				UI.StatusIndicator({ status = status }),
 				UI.Badge({ label = "b", status = badge }),
 				UI.Avatar({ name = "a", presence = presence }),
@@ -998,7 +998,7 @@ t.describe("declaration refusals", function()
 		corners:set("square")
 		refuses(corners, "round", "Facet.Button: corners must be pill or square")
 		role:set("caption")
-		refuses(role, "nope", "Facet Label invalid textRole")
+		refuses(role, "nope", "Facet Text invalid textRole")
 		status:set("success")
 		refuses(status, "nope", "Facet: invalid status")
 		badge:set("warning")

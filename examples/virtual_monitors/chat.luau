@@ -283,7 +283,7 @@ return function(ctx)
 				end, function()
 					return sparkle(40)
 				end),
-				UI.Label "WelcomeQuestion" {
+				UI.Text "WelcomeQuestion" {
 					text = "What are you working on?",
 					textRole = "title",
 					TextSize = function(use)

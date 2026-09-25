@@ -330,8 +330,20 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	Grid = function()
 		return { columns = 2 }
 	end,
+	Text = function()
+		return { text = "Text" }
+	end,
 	Label = function()
-		return { text = "Label" }
+		return { title = "Label", icon = "checkmark" }
+	end,
+	Image = function()
+		return { image = "rbxassetid://1" }
+	end,
+	Divider = function()
+		return {}
+	end,
+	Spacer = function()
+		return { minLength = "m" }
 	end,
 	Badge = function()
 		return { label = "Badge" }
@@ -635,7 +647,7 @@ local function textHosts(Host: any, value: string): { [string]: () -> any }
 		return Host.Frame({})
 	end
 	return {
-		Label = function()
+		Text = function()
 			return { text = value }
 		end,
 		Button = function()
@@ -894,7 +906,7 @@ t.describe("native accessibility and localization corpus", function()
 		local value = Compose.cell("Start")
 		local stop = runtime.mount(function()
 			return runtime.constructors.Frame({
-				UI.Label({ text = value }),
+				UI.Text({ text = value }),
 				UI.Button({ label = value, onActivate = function() end }),
 				UI.Toggle({ value = Compose.cell(false), label = value }),
 			})

@@ -13,7 +13,7 @@ local function Counter(): Frame
 	local count = Compose.cell(0)
 	return UI.Screen({
 		gap = "s",
-		UI.Label({
+		UI.Text({
 			text = function(use: Facet.Use): string
 				return `Clicked {use(count)} times`
 			end,

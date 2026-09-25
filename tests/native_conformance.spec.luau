@@ -60,8 +60,20 @@ local fixtures = {
 	ShortcutHint = function()
 		return { keys = { { "Ctrl", "K" } } }
 	end,
+	Text = function()
+		return { text = "Text" }
+	end,
 	Label = function()
-		return { text = "Label" }
+		return { title = "Label", icon = "checkmark" }
+	end,
+	Image = function()
+		return { image = "rbxassetid://1" }
+	end,
+	Divider = function()
+		return {}
+	end,
+	Spacer = function()
+		return { minLength = "m" }
 	end,
 	Badge = function()
 		return { label = "Badge" }

@@ -371,14 +371,14 @@ t.describe("native selection paint", function()
 							id = "one",
 							label = "One",
 							content = function()
-								return UI.Label "OneBody" { text = "One" }
+								return UI.Text "OneBody" { text = "One" }
 							end,
 						},
 						{
 							id = "two",
 							label = "Two",
 							content = function()
-								return UI.Label "TwoBody" { text = "Two" }
+								return UI.Text "TwoBody" { text = "Two" }
 							end,
 						},
 					},

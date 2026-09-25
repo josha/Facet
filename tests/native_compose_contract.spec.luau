@@ -25,7 +25,7 @@ t.describe("native Compose integration contract", function()
 				assert((result.left - 1) * 10 == result.right, "diamond exposed a partial update")
 				table.insert(observations, result)
 			end)
-			return UI.Label({
+			return UI.Text({
 				text = function(use)
 					return tostring(use(joined).right)
 				end,

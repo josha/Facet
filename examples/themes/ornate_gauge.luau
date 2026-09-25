@@ -154,7 +154,7 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
-		UI.Label(name .. "Label")({
+		UI.Text(name .. "Label")({
 			text = o.label or "Boiler pressure (gauge:dial)",
 			textRole = "caption",
 			LayoutOrder = 1,

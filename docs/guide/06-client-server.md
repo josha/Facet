@@ -46,7 +46,7 @@ local function Purchase()
                 request:FireServer(latest, productId)
             end,
         },
-        UI.Label { text = errorMessage },
+        UI.Text { text = errorMessage },
     }
 end
 ```

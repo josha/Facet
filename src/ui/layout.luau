@@ -7,7 +7,7 @@ local layoutKit = require("./layout_kit")
 export type LayoutControls = Layout.LayoutControls
 
 return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.LayoutControls
-	local Host, read, Compose = ctx.Host, ctx.read, ctx.Compose
+	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local UI: Layout.LayoutControls = controls or ({} :: Layout.LayoutControls)
@@ -241,6 +241,110 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			root:SetAttribute("FacetError", use(failed))
 		end)
 		return root
+	end)
+
+	local function stackAxis(node: Frame, axis: ("x" | "y")?): (ComposeTypes.Use) -> "x" | "y"
+		if axis ~= nil then
+			assert(axis == "x" or axis == "y", "Facet axis must be x or y")
+			return function(): "x" | "y"
+				return axis
+			end
+		end
+		local direction: ComposeTypes.Cell<"x" | "y"> = Compose.cell("y" :: "x" | "y")
+		local connections: { RBXScriptConnection } = {}
+		local function release()
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			table.clear(connections)
+		end
+		local function attach()
+			release()
+			local holder = node.Parent
+			if holder == nil then
+				return
+			end
+			local layout = holder:FindFirstChildWhichIsA("UIListLayout")
+			if layout == nil then
+				table.insert(connections, holder.ChildAdded:Connect(attach))
+				direction:set("y")
+				return
+			end
+			local function update()
+				direction:set(if layout.FillDirection == E.FillDirection.Horizontal then "x" else "y")
+			end
+			table.insert(connections, layout:GetPropertyChangedSignal("FillDirection"):Connect(update))
+			update()
+		end
+		runtime.connect(node, "AncestryChanged", attach)
+		Compose.cleanup(release)
+		attach()
+		return function(use: ComposeTypes.Use): "x" | "y"
+			return if use(direction) == "x" then "x" else "y"
+		end
+	end
+
+	UI.Divider = ctx.construct("Divider", function(spec: Layout.DividerProps): Frame
+		local thickness = spec.thickness
+		assert(
+			thickness == nil or type(thickness) == "string" or (type(thickness) == "number" and thickness > 0),
+			"Facet Divider thickness must be a positive number or a theme metric name"
+		)
+		local function weight(use: ComposeTypes.Use?): number
+			if type(thickness) == "number" then
+				return thickness
+			end
+			local path = if type(thickness) == "string" then thickness else "strokes.hairline"
+			return if string.find(path, ".", 1, true) then ctx.metric(path, use) else kit.spacing(path, use)
+		end
+		local native: Engine.FrameNativeProps = {
+			Name = "Divider",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}
+		local node = ctx.styled(Host.Frame(ctx.props(spec, { "axis", "thickness", "appearance" }, native)), "divider")
+		local along = stackAxis(node, spec.axis)
+		if spec.Size == nil then
+			runtime.decorate(node, {
+				Size = function(use: ComposeTypes.Use): UDim2
+					local pixels = weight(use)
+					return if along(use) == "x" then D2.new(0, pixels, 1, 0) else D2.new(1, 0, 0, pixels)
+				end,
+			})
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			local appearance = read(spec.appearance, use) or "standard"
+			assert(
+				appearance == "standard" or appearance == "strong",
+				"Facet Divider appearance must be standard or strong"
+			)
+			if appearance == "strong" then
+				node:AddTag("facet-divider-strong")
+			elseif node:HasTag("facet-divider-strong") then
+				node:RemoveTag("facet-divider-strong")
+			end
+		end)
+		return node
+	end)
+
+	UI.Spacer = ctx.construct("Spacer", function(spec: Layout.SpacerProps): Frame
+		local native: Engine.FrameNativeProps = {
+			Name = "Spacer",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+		}
+		local node = Host.Frame(ctx.props(spec, { "minLength" }, native))
+		local along = stackAxis(node, nil)
+		if spec.Size == nil then
+			runtime.decorate(node, {
+				Size = function(use: ComposeTypes.Use): UDim2
+					local floor = kit.spacing(spec.minLength, use)
+					return if along(use) == "x" then D2.fromOffset(floor, 0) else D2.fromOffset(0, floor)
+				end,
+			})
+		end
+		return node
 	end)
 
 	UI.fill = function(weight: number?): UIFlexItem

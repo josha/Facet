@@ -254,7 +254,7 @@ return {
 			}
 		end
 		local function heading(text)
-			return UI.Label({
+			return UI.Text({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -268,7 +268,7 @@ return {
 		end
 
 		local function caption(id: string, text: string)
-			return UI.Label({
+			return UI.Text({
 				Name = id,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -292,7 +292,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Label({
+				UI.Text({
 
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,

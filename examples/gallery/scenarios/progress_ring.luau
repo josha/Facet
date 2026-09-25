@@ -57,7 +57,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}),
-					UI.Label "Title" {
+					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -68,7 +68,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Label "Caption" {
+					UI.Text "Caption" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -79,7 +79,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Label({
+					UI.Text({
 
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -96,7 +96,7 @@ return {
 						max = 1,
 						step = 0.05,
 					},
-					UI.Label({
+					UI.Text({
 
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,

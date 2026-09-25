@@ -133,7 +133,7 @@ function custom_control.blueprint(UI: any, core: any, resolved: any, id: string?
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
-		UI.Label(name .. "Label")({ text = "Custom gauge (demo:gauge)", textRole = "caption", LayoutOrder = 1 }),
+		UI.Text(name .. "Label")({ text = "Custom gauge (demo:gauge)", textRole = "caption", LayoutOrder = 1 }),
 		track,
 	})
 end

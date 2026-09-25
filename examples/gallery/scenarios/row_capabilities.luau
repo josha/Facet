@@ -90,13 +90,13 @@ return {
 				return Host.Frame "RowCapabilities" {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Label "Title" {
+					UI.Text "Title" {
 						text = COPY.title,
 						textRole = "title",
 						Size = UDim2.new(1, 0, 0, 36),
 						BackgroundTransparency = 1,
 					},
-					UI.Label "Explanation" {
+					UI.Text "Explanation" {
 						text = "Pinned rows cannot move. Protected rows cannot be deleted. Locked rows cannot be selected.",
 						TextWrapped = true,
 						Position = UDim2.fromOffset(0, 40),
@@ -156,7 +156,7 @@ return {
 							}
 						end,
 					},
-					UI.Label "Status" {
+					UI.Text "Status" {
 						Position = UDim2.new(0, 0, 1, -56),
 						Size = UDim2.new(1, 0, 0, 56),
 						text = message,

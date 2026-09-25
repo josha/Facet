@@ -36,12 +36,12 @@ return {
 					CanvasSize = D2.new(),
 					AutomaticCanvasSize = E.AutomaticSize.Y,
 					Host.UIListLayout({ Padding = D.new(0, 12), SortOrder = E.SortOrder.LayoutOrder }),
-					UI.Label({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
-					UI.Label({
+					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
+					UI.Text({
 						LayoutOrder = 2,
 						text = "Pictures keep their space while loading; unavailable pictures keep a placeholder.",
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 3,
 						text = function(use)
 							return string.format(

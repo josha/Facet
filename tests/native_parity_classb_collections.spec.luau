@@ -246,7 +246,7 @@ t.describe("native parity classb collections", function()
 					itemSize = 60,
 					direction = direction,
 					render = function(current)
-						return UI.Label({ text = current:peek().name })
+						return UI.Text({ text = current:peek().name })
 					end,
 				})
 			end)
@@ -280,7 +280,7 @@ t.describe("native parity classb collections", function()
 				columns = 4,
 				itemSize = 60,
 				render = function(current)
-					return UI.Label({ text = current:peek().name })
+					return UI.Text({ text = current:peek().name })
 				end,
 			})
 		end)
@@ -326,7 +326,7 @@ t.describe("native parity classb collections", function()
 		local world = setup(function(UI)
 			return UI.RowActions({
 				open = open,
-				content = UI.Label({ text = "Row" }),
+				content = UI.Text({ text = "Row" }),
 				trailing = {
 					{ id = "delete", label = "Delete", role = "destructive" },
 					{ id = "flag", label = "Flag" },
@@ -424,7 +424,7 @@ t.describe("native parity classb collections", function()
 		local world = setup(function(UI)
 			return UI.RowActions({
 				open = open,
-				content = UI.Label({ text = "Row" }),
+				content = UI.Text({ text = "Row" }),
 				trailing = { { id = "flag", label = "Flag" } },
 			})
 		end, { reducedMotion = false })
@@ -474,7 +474,7 @@ t.describe("native parity classb collections", function()
 				}
 				local world = setup(function(UI)
 					return UI.RowActions({
-						content = UI.Label({ Name = "Body", text = "Row" }),
+						content = UI.Text({ Name = "Body", text = "Row" }),
 						leading = if edge == "leading" then { destructive } else nil,
 						trailing = if edge == "trailing" then { destructive } else nil,
 					})
@@ -767,7 +767,7 @@ t.describe("native parity classb collections", function()
 						table.insert(activations, item.id)
 					end,
 					render = function(current)
-						return UI.Label({ text = current:peek().name })
+						return UI.Text({ text = current:peek().name })
 					end,
 				})
 			end)
@@ -805,7 +805,7 @@ t.describe("native parity classb collections", function()
 				overscan = 0,
 				direction = "horizontal",
 				render = function(current)
-					return UI.Label({ text = current:peek().name })
+					return UI.Text({ text = current:peek().name })
 				end,
 			})
 		end)
@@ -838,7 +838,7 @@ t.describe("native parity classb collections", function()
 						table.insert(activations, { id = item.id, key = input and input.KeyCode.Name })
 					end,
 					render = function(current)
-						return UI.Label({ text = current:peek().name })
+						return UI.Text({ text = current:peek().name })
 					end,
 				})
 			end)
@@ -877,7 +877,7 @@ t.describe("native parity classb collections", function()
 						table.insert(activations, item.id)
 					end,
 					render = function(current)
-						return UI.Label({ text = current:peek().name })
+						return UI.Text({ text = current:peek().name })
 					end,
 				})
 			end)
@@ -916,7 +916,7 @@ t.describe("native parity classb collections", function()
 					end,
 					render = function(current)
 						return UI.RowActions({
-							content = UI.Label({ text = current:peek().name }),
+							content = UI.Text({ text = current:peek().name }),
 							leading = {
 								{
 									id = "pin",

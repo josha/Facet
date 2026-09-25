@@ -62,6 +62,14 @@ export type ErrorBoundaryProps = Engine.FrameProps & {
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,
 }
+export type DividerProps = Engine.FrameProps & {
+	axis: ("x" | "y")?,
+	thickness: (number | string)?,
+	appearance: Types.Value<"standard" | "strong">?,
+}
+export type SpacerProps = Engine.FrameProps & {
+	minLength: Types.Value<Space>?,
+}
 export type LayoutControls = {
 	Screen: Types.Constructor<ScreenProps, Frame>,
 	VStack: Types.Constructor<StackProps, Frame>,
@@ -70,6 +78,8 @@ export type LayoutControls = {
 	ScrollView: Types.Constructor<ScrollViewProps, ScrollingFrame>,
 	Grid: Types.Constructor<GridProps, Frame>,
 	ErrorBoundary: Types.Constructor<ErrorBoundaryProps, Frame>,
+	Divider: Types.Constructor<DividerProps, Frame>,
+	Spacer: Types.Constructor<SpacerProps, Frame>,
 	fill: (weight: number?) -> UIFlexItem,
 }
 return {}

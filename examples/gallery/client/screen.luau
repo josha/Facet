@@ -203,7 +203,7 @@ function screen.build(ctx: any)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),
-		UI.Label "Title" {
+		UI.Text "Title" {
 			LayoutOrder = 1,
 			text = "Facet gallery",
 			textRole = "title",
@@ -313,7 +313,7 @@ function screen.build(ctx: any)
 							ctx.motionMode:set(if ctx.reducedMotion:peek() then "reduced" else "full")
 						end,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 4,
 						Name = "MotionNote",
 						text = "Reduced removes decorative travel while progress keeps running. Roblox's reduced-motion preference remains in effect.",
@@ -343,7 +343,7 @@ function screen.build(ctx: any)
 							{ value = "ten-foot", label = "Distant TV" },
 						},
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 7,
 						text = "Distant TV previews larger controls at 150% scale. Automatic and Near use normal scale; Roblox text and accessibility preferences still apply.",
 						textRole = "caption",
@@ -351,7 +351,7 @@ function screen.build(ctx: any)
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 8,
 						Name = "NativePreview",
 						text = "In Studio, use Device Emulator for screen size, orientation and touch, and Controller Emulator for gamepad. Roblox Settings controls text size and accessibility preferences.",

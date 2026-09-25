@@ -142,8 +142,8 @@ t.describe("native parity classb navigation", function()
 					padding = 8,
 					gap = 4,
 					width = "fill",
-					UI.Label("Name")({ text = "Razz Raccoon", TextSize = 18 }),
-					UI.Label("Health")({ text = health, TextSize = 14 }),
+					UI.Text("Name")({ text = "Razz Raccoon", TextSize = 18 }),
+					UI.Text("Health")({ text = health, TextSize = 14 }),
 				}),
 			})
 			return billboard
@@ -318,14 +318,14 @@ t.describe("native parity classb navigation", function()
 						id = "feed",
 						label = "Feed",
 						content = function()
-							return UI.Label({ text = "Feed" })
+							return UI.Text({ text = "Feed" })
 						end,
 					},
 					{
 						id = "me",
 						label = "Me",
 						content = function()
-							return UI.Label({ text = "Me" })
+							return UI.Text({ text = "Me" })
 						end,
 					},
 				},
@@ -374,7 +374,7 @@ t.describe("native parity classb navigation", function()
 										id = "charts",
 										label = "Charts",
 										content = function()
-											return UI.Label({ text = "Charts" })
+											return UI.Text({ text = "Charts" })
 										end,
 									},
 								},
@@ -385,7 +385,7 @@ t.describe("native parity classb navigation", function()
 						id = "me",
 						label = "Me",
 						content = function()
-							return UI.Label({ text = "Me" })
+							return UI.Text({ text = "Me" })
 						end,
 					},
 				},

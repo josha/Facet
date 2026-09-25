@@ -492,7 +492,7 @@ function Cartwheel.build(ctx)
 					end
 				end,
 			},
-			UI.Label({
+			UI.Text({
 				text = notice,
 				TextWrapped = true,
 				Position = D2.new(0, 16, 1, -60),

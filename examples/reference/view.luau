@@ -4,7 +4,7 @@ return function(ctx)
 	local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local view = {}
 	function view.text(label, size)
-		return UI.Label({
+		return UI.Text({
 			text = label,
 			TextSize = size or 16,
 			TextWrapped = true,

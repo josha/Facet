@@ -57,7 +57,7 @@ return {
 			historyText:set(table.concat(history, "\n"))
 		end
 		local function text(name, value, role)
-			return UI.Label({
+			return UI.Text({
 				Name = name,
 				text = value,
 				textRole = role,

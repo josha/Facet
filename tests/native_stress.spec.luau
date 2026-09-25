@@ -394,7 +394,7 @@ t.describe("native stress invariants", function()
 		local before = engine.census()
 		local text = Compose.cell("hello")
 		local stop = runtime.mount(function()
-			return UI.Label "Text" { text = text }
+			return UI.Text "Text" { text = text }
 		end, root)
 		text:set("dirty now")
 		stop()
@@ -405,7 +405,7 @@ t.describe("native stress invariants", function()
 		local stopNotify, panel = runtime.mount(function()
 			return runtime.constructors.Frame({
 				Compose.show(flag, function()
-					return UI.Label "On" { text = "on" }
+					return UI.Text "On" { text = "on" }
 				end),
 			})
 		end, root)

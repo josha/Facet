@@ -30,8 +30,8 @@ return {
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }),
-				UI.Label({ text = "Player identity", textRole = "title" }),
-				UI.Label({
+				UI.Text({ text = "Player identity", textRole = "title" }),
+				UI.Text({
 					text = "Pictures fall back to initials. Presence keeps its meaning when the mark is hidden.",
 				}),
 				Host.Frame "Faces" {
@@ -106,7 +106,7 @@ return {
 						{ value = "large", label = "Large" },
 					},
 				},
-				UI.Label({
+				UI.Text({
 
 					text = function(use)
 						return "Selected " .. tostring(use(activations)) .. " times"

@@ -352,7 +352,7 @@ function Sipworks.build(ctx)
 					{ id = "book", label = text("nav.book"), content = bookPage },
 				},
 			},
-			UI.Label({
+			UI.Text({
 				text = function(use)
 					local key = use(notice)
 					return if key == "" then "" else i18n.at(use(i18n.locale), key)

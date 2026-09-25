@@ -7,7 +7,7 @@ in the layout constructors like any other child.
 ```luau
 return UI.VStack {
     gap = "s",
-    UI.Label { text = "Inventory" },
+    UI.Text { text = "Inventory" },
     Host.ImageLabel "Crest" { Image = ownedPanelAsset, Size = UDim2.fromOffset(48, 48) },
     UI.Button { label = "Open", onActivate = openInventory },
 }

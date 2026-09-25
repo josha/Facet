@@ -56,7 +56,7 @@ function rows.build(ctx, current, options)
 			Host.UISizeConstraint({ MinSize = T.Vector2.new(120, 40) }),
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 2) }),
-			UI.Label "Title" {
+			UI.Text "Title" {
 				TextSize = if full then nil else 16,
 				LayoutOrder = 1,
 				text = function(use)
@@ -67,7 +67,7 @@ function rows.build(ctx, current, options)
 				TextXAlignment = E.TextXAlignment.Left,
 				TextTruncate = E.TextTruncate.AtEnd,
 			},
-			UI.Label "Detail" {
+			UI.Text "Detail" {
 				TextSize = if full then nil else 13,
 				LayoutOrder = 2,
 				text = function(use)

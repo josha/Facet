@@ -188,7 +188,7 @@ add("scroll-view-canvas-and-stretch", { "mech2-36" }, function(t)
 		for index = 1, 12 do
 			table.insert(
 				children,
-				UI.Label({ Name = "Line" .. index, text = string.rep("Wrapped text ", 6), TextWrapped = true })
+				UI.Text({ Name = "Line" .. index, text = string.rep("Wrapped text ", 6), TextWrapped = true })
 			)
 		end
 		return UI.ScrollView "Scroll" { width = 240, height = 200, align = "stretch", table.unpack(children) }

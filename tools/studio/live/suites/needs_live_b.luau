@@ -134,7 +134,7 @@ add("disclosure-description-header", { "navigation-2-17" }, function(t)
 				appearance = "contained",
 				expanded = Compose.cell(false),
 				content = function()
-					return UI.Label({ text = "Body" })
+					return UI.Text({ text = "Body" })
 				end,
 			},
 			UI.DisclosureGroup "Without" {
@@ -144,7 +144,7 @@ add("disclosure-description-header", { "navigation-2-17" }, function(t)
 				appearance = "contained",
 				expanded = Compose.cell(false),
 				content = function()
-					return UI.Label({ text = "Body" })
+					return UI.Text({ text = "Body" })
 				end,
 			},
 		}

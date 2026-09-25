@@ -53,7 +53,7 @@ function example.build(ctx: any)
 		history:set({ "Reset. Nothing sent yet." })
 	end
 	local function text(name, value, role)
-		return UI.Label(name)({ text = value, textRole = role, TextWrapped = true })
+		return UI.Text(name)({ text = value, textRole = role, TextWrapped = true })
 	end
 	return {
 		screen = function()

@@ -299,7 +299,7 @@
       "cases": [
         "native_parity_restore::native parity restore: Label text fit and middle truncation::fits the text to its box between the role size and the caption floor",
         "native_parity_restore::native parity restore: Label text fit and middle truncation::honors an explicit cap and floor by role or pixels and follows the theme",
-        "native_parity_restore::native parity restore: Label text fit and middle truncation::refuses a misspelled fit option, a cap that is not a size and a plain size"
+        "native_parity_restore::native parity restore: Label text fit and middle truncation::refuses a misspelled fit option, a cap that is not a size and an unknown size"
       ],
       "behaviors": [
         "Label textSize = \"fit\" sets native TextScaled with a UITextSizeConstraint band whose cap and floor come from theme type roles or pixels and follow a theme change. The engine chooses the painted size."

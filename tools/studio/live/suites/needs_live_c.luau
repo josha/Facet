@@ -327,7 +327,7 @@ add("picker-style-sweep", { "navigation-3-85" }, function(t)
 							query = if style == "navigationLink" then Compose.cell("") else nil,
 							LayoutOrder = 1,
 						},
-						UI.Label "Below" { text = "Neighbour", LayoutOrder = 2 },
+						UI.Text "Below" { text = "Neighbour", LayoutOrder = 2 },
 					}
 				end, { theme = theme.package, size = size, frames = 12 })
 				local picker, below = t.find(stage, "Handling"), t.find(stage, "Below")
@@ -380,7 +380,7 @@ interactive("grabber-activation-cycles-detents", { "navigation-4-38" }, function
 			detents = { "medium", "large", { id = "short", height = 260 } },
 			title = "Loadout",
 			content = function()
-				return UI.Label({ text = "Pick a loadout" })
+				return UI.Text({ text = "Pick a loadout" })
 			end,
 		})
 	end, { frames = 20 })
@@ -448,7 +448,7 @@ add("virtual-list-clamps-across-tabs", { "navigation-4-68" }, function(t)
 							itemSize = 100,
 							Size = UDim2.fromOffset(300, 300),
 							render = function(current)
-								return UI.Label({ text = "Row " .. current:peek().id, Size = UDim2.fromScale(1, 1) })
+								return UI.Text({ text = "Row " .. current:peek().id, Size = UDim2.fromScale(1, 1) })
 							end,
 						}
 					end,
@@ -501,7 +501,7 @@ add("type-roles-compile-to-native-fonts", { "paint-148" }, function(t)
 		local stage = t.mount(function(UI, Host)
 			local children = { Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) }
 			for index, role in roles do
-				local label = UI.Label({ Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index })
+				local label = UI.Text({ Name = role, text = "Sample " .. role, textRole = role, LayoutOrder = index })
 				labels[role] = label
 				table.insert(children, label)
 			end

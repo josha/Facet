@@ -223,7 +223,7 @@ function terminal.build(ctx, options)
 		return true
 	end
 	local function label(name, text, height, size)
-		return UI.Label({
+		return UI.Text({
 			Name = name,
 			text = text,
 			TextSize = size or 16,

@@ -9,17 +9,43 @@ export type TextRole = "caption" | "label" | "body" | "heading" | "title" | "con
 export type Corners = number | "pill" | "square" | "rounded"
 export type TextFitBound = number | TextRole
 export type TextFit = "fit" | { fit: { cap: TextFitBound?, floor: TextFitBound? } }
-export type LabelProps = Engine.TextLabelNativeProps & {
-	ref: ((GuiObject) -> ())?,
-	text: Types.Value<string>?,
-	label: Types.Value<string>?,
+export type TextSize = number | TextRole | TextFit
+export type TextAlign = "start" | "center" | "end"
+export type TextProps = Engine.TextLabelNativeProps & {
+	ref: ((TextLabel) -> ())?,
+	text: Types.Value<string>,
 	textRole: Types.Value<TextRole>?,
-	role: "secondary"?,
-	icon: Types.Value<string>?,
-	iconPosition: "leading" | "trailing"?,
-	gap: Types.Value<number>?,
+	role: Types.Value<"secondary" | "content">?,
 	truncate: ("end" | "middle")?,
-	textSize: TextFit?,
+	textSize: TextSize?,
+	textAlign: Types.Value<TextAlign>?,
+	wrap: Types.Value<boolean>?,
+	rich: boolean?,
+	direction: ("auto" | "ltr" | "rtl")?,
+	tint: Types.Value<Color3>?,
+}
+export type LabelPresentation = "titleAndIcon" | "titleOnly" | "iconOnly"
+export type LabelProps = Engine.FrameProps & {
+	ref: ((Frame) -> ())?,
+	title: Types.Value<string>,
+	icon: string?,
+	presentation: LabelPresentation?,
+	iconSize: (number | string)?,
+	textSize: (number | TextRole)?,
+	gap: Types.Value<Types.Space>?,
+	iconPosition: ("leading" | "trailing")?,
+}
+export type ScaleMode = "fit" | "fill" | "crop" | "stretch" | "tile" | "slice"
+export type ImageProps = Engine.ImageLabelProps & {
+	ref: ((ImageLabel) -> ())?,
+	image: Types.Value<string>?,
+	tint: Types.Value<Color3>?,
+	scaleMode: Types.Value<ScaleMode>?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: { x0: number, y0: number, x1: number, y1: number }?,
+	sliceScale: number?,
+	resample: Types.Value<"default" | "pixelated">?,
+	shape: ("rect" | "circle")?,
 }
 export type BadgeProps = Types.TextLabelProps & {
 	label: Types.Value<string>?,
@@ -134,7 +160,9 @@ export type StageProps = Types.ViewportFrameProps & {
 	fieldOfView: Types.Value<number>?,
 }
 export type MediaControls = {
+	Text: Types.Constructor<TextProps, GuiObject>,
 	Label: Types.Constructor<LabelProps, GuiObject>,
+	Image: Types.Constructor<ImageProps, GuiObject>,
 	Badge: Types.Constructor<BadgeProps, GuiObject>,
 	StatusIndicator: Types.Constructor<StatusIndicatorProps, TextLabel>,
 	ProgressView: Types.Constructor<ProgressViewProps, Frame>,

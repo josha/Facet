@@ -155,7 +155,7 @@ local function longContent(UI: any, Host: any, width: number?): any
 		Size = if width then UDim2.fromOffset(width, 0) else UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
-		UI.Label({
+		UI.Text({
 			Name = "Copy",
 			LayoutOrder = 1,
 			text = LONG,
@@ -760,7 +760,7 @@ add("popover-caps-and-side-hang", { "post-overlays-033", "post-overlays-166" }, 
 					if long then
 						return longContent(UI, Host, 296)
 					end
-					return UI.Label({
+					return UI.Text({
 						Name = "Words",
 						text = "Short note",
 						AutomaticSize = Enum.AutomaticSize.XY,
@@ -1163,7 +1163,7 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 				edge = "bottom",
 				title = "Welcome to the garage",
 				content = function()
-					return UI.Label({ text = "Tune your car here before a race." })
+					return UI.Text({ text = "Tune your car here before a race." })
 				end,
 				onRetire = function() end,
 			},
@@ -1177,7 +1177,7 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 				closeButton = false,
 				title = "Leave the race?",
 				content = function()
-					return UI.Label({ text = "Your lap will not count." })
+					return UI.Text({ text = "Your lap will not count." })
 				end,
 				actions = { { id = "Stay", label = "Stay", role = "cancel", onActivate = function() end } },
 			},

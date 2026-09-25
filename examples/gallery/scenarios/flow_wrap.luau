@@ -95,7 +95,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 1,
 						Name = "Title",
 						BackgroundTransparency = 1,
@@ -114,7 +114,7 @@ return {
 						label = COPY.wrapLabel,
 						value = wrapping,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 3,
 						Name = "Status",
 						BackgroundTransparency = 1,
@@ -127,7 +127,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 4,
 						Name = "CloudCaption",
 						BackgroundTransparency = 1,
@@ -154,7 +154,7 @@ return {
 						}),
 						table.unpack(tagRow({}, "T", "tag", TAG_COUNT)),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 6,
 						Name = "AlignCaption",
 						BackgroundTransparency = 1,

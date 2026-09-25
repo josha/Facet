@@ -59,7 +59,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 1,
 					Name = "Title",
 					BackgroundTransparency = 1,
@@ -72,7 +72,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Label({
+				UI.Text({
 					LayoutOrder = 2,
 					Name = "Sub",
 					BackgroundTransparency = 1,
@@ -324,7 +324,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 1,
 						Name = "Title",
 						BackgroundTransparency = 1,
@@ -337,7 +337,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 2,
 						Name = "Intro",
 						BackgroundTransparency = 1,
@@ -373,7 +373,7 @@ return {
 						end),
 						pick("Reset", COPY.reset, resetSession),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 4,
 						Name = "Presses",
 						BackgroundTransparency = 1,
@@ -386,7 +386,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 5,
 						Name = "ResetNote",
 						BackgroundTransparency = 1,
@@ -416,7 +416,7 @@ return {
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							Name = "QueueTitle",
 							BackgroundTransparency = 1,
@@ -429,7 +429,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 2,
 							Name = "QueueBody",
 							BackgroundTransparency = 1,
@@ -460,7 +460,7 @@ return {
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							Name = "StateTitle",
 							BackgroundTransparency = 1,
@@ -473,7 +473,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 2,
 							Name = "StateBody",
 							BackgroundTransparency = 1,
@@ -486,7 +486,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 3,
 							Name = "Reported",
 							BackgroundTransparency = 1,
@@ -517,7 +517,7 @@ return {
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							Name = "SaveTitle",
 							BackgroundTransparency = 1,
@@ -530,7 +530,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 2,
 							Name = "SaveBody",
 							BackgroundTransparency = 1,
@@ -561,7 +561,7 @@ return {
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							Name = "HelpTitle",
 							BackgroundTransparency = 1,
@@ -574,7 +574,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 2,
 							Name = "HelpBody",
 							BackgroundTransparency = 1,
@@ -588,7 +588,7 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					}),
-					UI.Label({
+					UI.Text({
 						LayoutOrder = 10,
 						Name = "Note",
 						BackgroundTransparency = 1,

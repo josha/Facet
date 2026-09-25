@@ -64,7 +64,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 	end
 	local function roleTag(value: string?): string
 		local name = value or "body"
-		assert(table.find(themes.TYPE_ROLES, name), "Facet Label invalid textRole")
+		assert(table.find(themes.TYPE_ROLES, name), "Facet Text invalid textRole")
 		return "facet-type-" .. name
 	end
 	local function textRole(node: TextLabel, role: Types.Value<Media.TextRole>?): TextLabel
@@ -143,47 +143,117 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		if value == "fit" then
 			return {}
 		end
-		local refusal = 'Facet Label textSize must be "fit" or { fit = { cap = size, floor = size } }'
+		local refusal =
+			'Facet Text textSize must be a size, a type role, "fit" or { fit = { cap = size, floor = size } }'
 		assert(type(value) == "table" and type(value.fit) == "table", refusal)
 		local band = value.fit
 		for key in band :: { [unknown]: unknown } do
-			assert(key == "cap" or key == "floor", "Facet Label textSize fit takes only cap and floor")
+			assert(key == "cap" or key == "floor", "Facet Text textSize fit takes only cap and floor")
 		end
 		for _, bound in { band.cap, band.floor } do
 			assert(
 				bound == nil
 					or (type(bound) == "number" and bound > 0)
 					or (type(bound) == "string" and table.find(themes.TYPE_ROLES, bound) ~= nil),
-				"Facet Label textSize fit cap and floor must be a positive size or a type role"
+				"Facet Text textSize fit cap and floor must be a positive size or a type role"
 			)
 		end
 		return band
 	end
 
-	UI.Label = ctx.construct("Label", function(spec: Media.LabelProps): GuiObject
-		local keys = { "text", "label", "icon", "iconPosition", "textRole", "role", "gap", "truncate", "textSize" }
-		if
-			(
-				(if spec.text ~= nil then 1 else 0)
-				+ (if spec.label ~= nil then 1 else 0)
-				+ (if spec.Text ~= nil then 1 else 0)
-			) > 1
-		then
-			error("Facet UI.Label: set the text one time. Use text, and remove label and Text.", 0)
+	local TEXT_KEYS = {
+		"text",
+		"textRole",
+		"role",
+		"truncate",
+		"textSize",
+		"textAlign",
+		"wrap",
+		"rich",
+		"direction",
+		"tint",
+	}
+	local ALIGN: { [string]: Enum.TextXAlignment } = {
+		start = E.TextXAlignment.Left,
+		center = E.TextXAlignment.Center,
+		["end"] = E.TextXAlignment.Right,
+	}
+	local DIRECTION: { [string]: Enum.TextDirection } = {
+		auto = E.TextDirection.Auto,
+		ltr = E.TextDirection.LeftToRight,
+		rtl = E.TextDirection.RightToLeft,
+	}
+	UI.Text = ctx.construct("Text", function(spec: Media.TextProps): TextLabel
+		local fields = (spec :: unknown) :: { [string]: unknown }
+		for _, retired in { "color", "font" } do
+			if fields[retired] ~= nil then
+				error(`Facet UI.Text: {retired} is style authority. Use role or textRole.`, 0)
+			end
+		end
+		if fields.label ~= nil or spec.Text ~= nil then
+			error("Facet UI.Text: set the text with text. Remove label and Text.", 0)
+		end
+		local source: Types.Value<string>? = spec.text
+		if not Compose.isReadable(source) and type(source) ~= "function" then
+			assert(type(source) == "string", "Facet UI.Text requires text")
 		end
 		local truncate = spec.truncate
 		assert(
 			truncate == nil or truncate == "end" or truncate == "middle",
-			"Facet Label truncate must be end or middle"
+			"Facet Text truncate must be end or middle"
 		)
 		local cut = truncate == "middle"
-		assert(not cut or spec.RichText ~= true, "Facet Label cannot cut rich text in the middle")
-		assert(not cut or spec.TextWrapped ~= true, "Facet Label middle truncation needs one line; remove TextWrapped")
-		local fit = fitOf(spec.textSize)
-		local source: Types.Value<string>? = spec.text or spec.label or spec.Text
+		local rich = spec.rich == true or spec.RichText == true
+		assert(spec.rich == nil or type(spec.rich) == "boolean", "Facet Text rich must be a boolean")
+		assert(not cut or not rich, "Facet Text cannot cut rich text in the middle")
+		assert(
+			not cut or (spec.TextWrapped ~= true and spec.wrap ~= true),
+			"Facet Text middle truncation needs one line; remove wrap"
+		)
+		assert(
+			spec.direction == nil or DIRECTION[spec.direction] ~= nil,
+			"Facet Text direction must be auto, ltr or rtl"
+		)
+		local size = spec.textSize
+		local pixels: number? = if type(size) == "number" then size else nil
+		assert(pixels == nil or (pixels > 0 and pixels < math.huge), "Facet Text textSize must be a positive size")
+		local sizeRole: Media.TextRole? = nil
+		if type(size) == "string" and size ~= "fit" then
+			assert(
+				table.find(themes.TYPE_ROLES, size) ~= nil,
+				`Facet Text textSize "{size}" is not a type role; use one of {table.concat(themes.TYPE_ROLES, ", ")}`
+			)
+			sizeRole = size :: Media.TextRole
+		end
+		assert(
+			sizeRole == nil or spec.textRole == nil,
+			"Facet Text: set the type role one time, with textSize or textRole"
+		)
+		local fit = if pixels == nil and sizeRole == nil then fitOf(size :: Media.TextFit?) else nil
 		local defaults: Engine.TextLabelNativeProps = {
 			Text = if cut then read(source) or "" else bind(source, ""),
 		}
+		if rich then
+			defaults.RichText = true
+		end
+		if pixels then
+			defaults.TextSize = pixels
+		end
+		if spec.wrap ~= nil then
+			defaults.TextWrapped = spec.wrap
+		end
+		if spec.direction ~= nil then
+			defaults.TextDirection = DIRECTION[spec.direction]
+		end
+		if spec.tint ~= nil then
+			defaults.TextColor3 = spec.tint :: Types.Value<Color3>
+		end
+		if spec.textAlign ~= nil then
+			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
+				local align = read(spec.textAlign, use) or "start"
+				return assert(ALIGN[align], "Facet Text textAlign must be start, center or end")
+			end
+		end
 		if cut then
 			defaults.Size = D2.fromScale(1, 0)
 			defaults.AutomaticSize = E.AutomaticSize.Y
@@ -192,8 +262,9 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		elseif truncate == "end" then
 			defaults.TextTruncate = E.TextTruncate.AtEnd
 		end
+		local roleSource: Types.Value<Media.TextRole>? = sizeRole or spec.textRole
 		if fit then
-			local function size(bound: Media.TextFitBound, use: ComposeTypes.Use): number
+			local function scale(bound: Media.TextFitBound, use: ComposeTypes.Use): number
 				return math.round(
 					if type(bound) == "string" then metric("typography." .. bound .. ".size", use) else bound
 				)
@@ -203,17 +274,14 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			defaults.AutomaticSize = E.AutomaticSize.None
 			defaults[1] = Host.UITextSizeConstraint({
 				MaxTextSize = function(use: ComposeTypes.Use): number
-					return size(fit.cap or read(spec.textRole, use) or "body", use)
+					return scale(fit.cap or read(roleSource, use) or "body", use)
 				end,
 				MinTextSize = function(use: ComposeTypes.Use): number
-					return size(fit.floor or "caption", use)
+					return scale(fit.floor or "caption", use)
 				end,
 			})
 		end
-		if spec.icon and (cut or fit) then
-			table.insert(defaults, Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }))
-		end
-		local label = textRole(ctx.text(if spec.icon then defaults else ctx.props(spec, keys, defaults)), spec.textRole)
+		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults)), roleSource)
 		if cut then
 			local measured = ctx.observe(label, "AbsoluteSize")
 			local width = Compose.formula(function(use: ComposeTypes.Use): number
@@ -232,26 +300,207 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				label.Text = middle(label, value, use(width))
 			end)
 		end
-		if spec.role == "secondary" then
-			ctx.styled(label, "secondary")
+		if spec.role ~= nil then
+			Compose.watch(function(use: ComposeTypes.Use)
+				local role = read(spec.role, use)
+				assert(
+					role == nil or role == "secondary" or role == "content",
+					"Facet Text role must be secondary or content"
+				)
+				if role == "secondary" then
+					label:AddTag("facet-secondary")
+				elseif label:HasTag("facet-secondary") then
+					label:RemoveTag("facet-secondary")
+				end
+			end)
 		end
-		if not spec.icon then
-			return label
+		return label
+	end)
+
+	local PRESENTATIONS = { titleAndIcon = true, titleOnly = true, iconOnly = true }
+	UI.Label = ctx.construct("Label", function(spec: Media.LabelProps): Frame
+		local fields = (spec :: unknown) :: { [string]: unknown }
+		if fields.text ~= nil or fields.label ~= nil then
+			error("Facet UI.Label: a Label is an icon and a title. Use title, or use UI.Text for plain text.", 0)
 		end
-		local icon = ctx.icon(spec.icon)
-		local rowProps = (ctx.props(spec, keys) :: unknown) :: Engine.FrameNativeProps
-		if cut or fit then
-			rowProps.Size = rowProps.Size or D2.fromScale(1, 0)
+		local initial = read(spec.title)
+		assert(
+			type(initial) == "string" and initial ~= "",
+			"Facet UI.Label: title is required and must not be empty. It is the accessible name in every presentation."
+		)
+		local presentation = spec.presentation or "titleAndIcon"
+		if not PRESENTATIONS[presentation] then
+			error(`Facet UI.Label: unknown presentation '{presentation}'. Use iconOnly | titleAndIcon | titleOnly.`, 0)
 		end
-		local root = ctx.row(if spec.iconPosition == "trailing" then { label, icon } else { icon, label }, rowProps)
-		if spec.gap then
-			runtime.decorate(root:FindFirstChildWhichIsA("UIListLayout"), {
+		assert(
+			spec.iconPosition == nil or spec.iconPosition == "leading" or spec.iconPosition == "trailing",
+			"Facet UI.Label: iconPosition must be leading or trailing"
+		)
+		local effective = if spec.icon == nil then "titleOnly" else presentation
+		local icon = spec.icon
+		if type(icon) == "string" and not string.match(icon, "^rbx") then
+			local package: Theme.IconRegistry = read(ctx.config.theme) or {}
+			local overrides = read(ctx.config.icons)
+			if overrides then
+				package = table.clone(package)
+				package.icons = overrides
+			end
+			local known = themes.resolveIcon(package, icon)
+			assert(known ~= nil, `Facet UI.Label: unknown icon '{icon}'.`)
+		end
+		local children: { ComposeTypes.Child } = {}
+		if effective ~= "titleOnly" then
+			local iconSize = spec.iconSize
+			local iconProps: Engine.ImageLabelNativeProps = { Name = "Icon" }
+			if iconSize ~= nil then
+				assert(
+					(type(iconSize) == "number" and iconSize > 0) or type(iconSize) == "string",
+					"Facet UI.Label: iconSize must be a positive number or a theme metric name"
+				)
+				iconProps.Size = function(use: ComposeTypes.Use): UDim2
+					local pixels = if type(iconSize) == "number" then iconSize else metric(iconSize, use)
+					return D2.fromOffset(pixels, pixels)
+				end
+			end
+			table.insert(children, ctx.icon(icon :: string, iconProps))
+		end
+		if effective ~= "iconOnly" then
+			local titleSize: Media.TextSize = spec.textSize or "body"
+			table.insert(children, UI.Text("Title")({ text = spec.title, textSize = titleSize }))
+		end
+		if spec.iconPosition == "trailing" then
+			local reversed: { ComposeTypes.Child } = {}
+			for index = #children, 1, -1 do
+				table.insert(reversed, children[index])
+			end
+			children = reversed
+		end
+		local keys = { "title", "icon", "presentation", "iconSize", "textSize", "gap", "iconPosition" }
+		local root =
+			ctx.row(children, (ctx.props(spec, keys, { Name = "Label" }) :: unknown) :: Engine.FrameNativeProps)
+		local layout = assert(root:FindFirstChildWhichIsA("UIListLayout"))
+		layout.VerticalAlignment = E.VerticalAlignment.Center
+		if spec.gap ~= nil then
+			runtime.decorate(layout, {
 				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, read(spec.gap, use))
+					return D.new(0, lists.spacing(spec.gap, use))
 				end,
 			})
 		end
+		root:SetAttribute("FacetPresentation", effective)
+		Compose.watch(function(use: ComposeTypes.Use)
+			root:SetAttribute("AccessibleLabel", read(spec.title, use))
+		end)
 		return root
+	end)
+
+	UI.Image = ctx.construct("Image", function(spec: Media.ImageProps): ImageLabel
+		local keys = { "image", "tint", "scaleMode", "tileSize", "sliceCenter", "sliceScale", "resample", "shape" }
+		local declared = read(spec.scaleMode)
+		local live = Compose.isReadable(spec.scaleMode) or type(spec.scaleMode) == "function"
+		assert(
+			not live or (spec.tileSize == nil and spec.sliceCenter == nil),
+			"Facet UI.Image: tile and slice are static; author scaleMode as a word with its geometry"
+		)
+		if declared == "tile" then
+			local tile = spec.tileSize
+			assert(
+				type(tile) == "table"
+					and type(tile.width) == "number"
+					and type(tile.height) == "number"
+					and tile.width > 0
+					and tile.height > 0
+					and tile.width % 1 == 0
+					and tile.height % 1 == 0,
+				"Facet UI.Image: scaleMode tile requires tileSize = { width, height } in whole pixels above zero"
+			)
+		else
+			assert(spec.tileSize == nil, "Facet UI.Image: tileSize requires scaleMode tile")
+		end
+		if declared == "slice" then
+			local rect = spec.sliceCenter
+			assert(
+				type(rect) == "table"
+					and type(rect.x0) == "number"
+					and type(rect.y0) == "number"
+					and type(rect.x1) == "number"
+					and type(rect.y1) == "number"
+					and rect.x1 > rect.x0
+					and rect.y1 > rect.y0,
+				"Facet UI.Image: scaleMode slice requires sliceCenter = { x0, y0, x1, y1 } in source pixels"
+			)
+			assert(
+				spec.sliceScale == nil or (type(spec.sliceScale) == "number" and spec.sliceScale > 0),
+				"Facet UI.Image: sliceScale must be above zero"
+			)
+		else
+			assert(spec.sliceCenter == nil, "Facet UI.Image: sliceCenter requires scaleMode slice")
+			assert(spec.sliceScale == nil, "Facet UI.Image: sliceScale requires scaleMode slice")
+		end
+		assert(
+			spec.shape == nil or spec.shape == "rect" or spec.shape == "circle",
+			"Facet UI.Image: shape must be rect or circle"
+		)
+		assert(
+			spec.shape ~= "circle" or declared ~= "slice",
+			"Facet UI.Image: a circle cannot slice; use fit, fill, crop, stretch or tile"
+		)
+		local modes: { [string]: Enum.ScaleType } = {
+			fit = E.ScaleType.Fit,
+			fill = E.ScaleType.Crop,
+			crop = E.ScaleType.Crop,
+			stretch = E.ScaleType.Stretch,
+			tile = E.ScaleType.Tile,
+			slice = E.ScaleType.Slice,
+		}
+		local defaults: Engine.ImageLabelNativeProps = {
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Image = bind(spec.image, ""),
+			Size = function(use: ComposeTypes.Use): UDim2
+				local side = controlSize(nil, "height", use)
+				return D2.fromOffset(side, side)
+			end,
+		}
+		if spec.tint ~= nil then
+			defaults.ImageColor3 = spec.tint :: Types.Value<Color3>
+		end
+		if spec.scaleMode ~= nil then
+			defaults.ScaleType = function(use: ComposeTypes.Use): Enum.ScaleType
+				local mode = read(spec.scaleMode, use)
+				assert(
+					not live or (mode ~= "tile" and mode ~= "slice"),
+					"Facet UI.Image: a bound scaleMode cannot be tile or slice, which need static geometry"
+				)
+				return assert(
+					modes[mode or "stretch"],
+					"Facet UI.Image: scaleMode must be fit, fill, crop, stretch, tile or slice"
+				)
+			end
+		end
+		if spec.tileSize ~= nil then
+			defaults.TileSize = D2.fromOffset(spec.tileSize.width, spec.tileSize.height)
+		end
+		if spec.sliceCenter ~= nil then
+			local rect = spec.sliceCenter
+			defaults.SliceCenter = types.Rect.new(rect.x0, rect.y0, rect.x1, rect.y1)
+			defaults.SliceScale = spec.sliceScale or 1
+		end
+		if spec.resample ~= nil then
+			defaults.ResampleMode = function(use: ComposeTypes.Use): Enum.ResamplerMode
+				local mode = read(spec.resample, use) or "default"
+				assert(
+					mode == "default" or mode == "pixelated",
+					"Facet UI.Image: resample must be default or pixelated"
+				)
+				return if mode == "pixelated" then E.ResamplerMode.Pixelated else E.ResamplerMode.Default
+			end
+		end
+		if spec.shape == "circle" then
+			table.insert(defaults, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
+			table.insert(defaults, Host.UIAspectRatioConstraint({ AspectRatio = 1 }))
+		end
+		return Host.ImageLabel(ctx.props(spec, keys, defaults))
 	end)
 
 	UI.Badge = ctx.construct("Badge", function(spec: Media.BadgeProps): GuiObject
@@ -861,7 +1110,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end
 		if presentation == "bar" and spec.label and #trailing > 0 then
 			local header: { ComposeTypes.Child } = {
-				UI.Label({
+				UI.Text({
 					text = spec.label,
 					LayoutOrder = 1,
 					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
@@ -876,7 +1125,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			)
 			trailing = {}
 		elseif spec.label then
-			table.insert(children, UI.Label({ text = spec.label }))
+			table.insert(children, UI.Text({ text = spec.label }))
 		end
 		table.insert(children, content)
 		for _, node in trailing do

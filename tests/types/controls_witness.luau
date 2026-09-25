@@ -10,10 +10,10 @@ local value = Compose.cell(0.5)
 local selected = Compose.cell("home")
 local expanded = Compose.cell(false)
 local function content(): Instance
-	return UI.Label({ text = "Content" })
+	return UI.Text({ text = "Content" })
 end
 local function guiContent(): GuiObject
-	return UI.Label({ text = "Content" })
+	return UI.Text({ text = "Content" })
 end
 local function nothing() end
 local button: TextButton = UI.Button({
@@ -54,7 +54,20 @@ local rating: TextButton = UI.Rating({ value = value })
 local level: TextButton = UI.LevelPicker({ value = value })
 local chip: GuiObject = UI.Chip({ label = "Amber", selected = enabled })
 local shortcut: GuiObject = UI.ShortcutHint({ keys = { { "Ctrl", "K" } } })
-local label: GuiObject = UI.Label({ label = text })
+local label: GuiObject = UI.Text({ text = text })
+local textProps: Facet.TextProps =
+	{ text = "Ready", textSize = "caption" :: "caption", role = "secondary" :: "secondary" }
+local sized: GuiObject = UI.Text(textProps)
+local labelProps: Facet.LabelProps =
+	{ title = text, icon = "checkmark", presentation = "iconOnly" :: "iconOnly", iconSize = 20 }
+local titled: GuiObject = UI.Label(labelProps)
+local imageProps: Facet.ImageProps = {
+	image = "rbxassetid://1",
+	scaleMode = "tile" :: "tile",
+	tileSize = { width = 16, height = 16 },
+	resample = "pixelated" :: "pixelated",
+}
+local picture: GuiObject = UI.Image(imageProps)
 local badgeProps: Facet.BadgeProps = { label = "Ready", status = "success" :: "success" }
 local badge: GuiObject = UI.Badge(badgeProps)
 local statusProps: Facet.StatusIndicatorProps = { status = "success" :: "success" }
@@ -236,8 +249,8 @@ local list: ScrollingFrame = UI.VirtualList({
 		return row.id
 	end,
 	render = function(current: Facet.Readable<{ id: string, title: string }>): GuiObject
-		return UI.Label({
-			label = function(use: Use): string
+		return UI.Text({
+			text = function(use: Use): string
 				return use(current).title
 			end,
 		})

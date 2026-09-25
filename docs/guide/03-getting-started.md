@@ -14,7 +14,7 @@ local function Counter()
     local count = Compose.cell(0)
     return UI.Screen {
         gap = "s",
-        UI.Label {
+        UI.Text {
             text = function(use) return `Clicked {use(count)} times` end,
         },
         UI.Button {
@@ -78,7 +78,7 @@ local UI = app.UI
 local function Counter()
     local count = Compose.cell(0)
     return UI.Screen "Counter" {
-        UI.Label "Count" {
+        UI.Text "Count" {
             text = function(use) return `Count: {use(count)}` end,
         },
         UI.Button "Add" {

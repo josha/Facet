@@ -130,9 +130,11 @@ controls(runtime).ComboBox : function
 controls(runtime).DateTimePicker : function
 controls(runtime).Dialog : function
 controls(runtime).DisclosureGroup : function
+controls(runtime).Divider : function
 controls(runtime).ErrorBoundary : function
 controls(runtime).Grid : function
 controls(runtime).HStack : function
+controls(runtime).Image : function
 controls(runtime).Label : function
 controls(runtime).LevelPicker : function
 controls(runtime).Menu : function
@@ -155,6 +157,7 @@ controls(runtime).ShortcutHint : function
 controls(runtime).Skeleton : function
 controls(runtime).Slider : function
 controls(runtime).Snackbar : function
+controls(runtime).Spacer : function
 controls(runtime).SplitButton : function
 controls(runtime).Stage : function
 controls(runtime).StatusIndicator : function
@@ -162,6 +165,7 @@ controls(runtime).StepIndicator : function
 controls(runtime).Stepper : function
 controls(runtime).TabView : function
 controls(runtime).Table : function
+controls(runtime).Text : function
 controls(runtime).TextInput : function
 controls(runtime).Toggle : function
 controls(runtime).VStack : function
@@ -208,6 +212,7 @@ type Controls
 type DateTimePickerProps
 type DialogSpec
 type DisclosureGroupSpec
+type DividerProps
 type Environment
 type ErrorBoundaryProps
 type Extent
@@ -215,6 +220,7 @@ type Facet
 type GridProps
 type IdentityCollectionSpec
 type IdentityTableSpec
+type ImageProps
 type ImageResource
 type InteractionClasses
 type KeyedCollectionSpec
@@ -257,6 +263,7 @@ type SkeletonProps
 type SliderProps
 type SnackbarSpec
 type Space
+type SpacerProps
 type SplitButtonSpec
 type StackProps
 type StageProps
@@ -269,6 +276,7 @@ type TabViewSpec
 type TableColumn
 type TableSpec
 type TextInputProps
+type TextProps
 type ThemePackage
 type ToggleProps
 type Use

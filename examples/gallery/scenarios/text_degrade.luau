@@ -99,7 +99,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 16),
 					}),
-					UI.Label "Title" {
+					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -110,7 +110,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Label "Lead" {
+					UI.Text "Lead" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -137,7 +137,7 @@ return {
 							PaddingLeft = UDim.new(0, 16),
 							PaddingRight = UDim.new(0, 16),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							Name = "RowHeading",
 							BackgroundTransparency = 1,
@@ -170,7 +170,7 @@ return {
 								compactLabel = SORT_COMPACT,
 								onActivate = function() end,
 							}),
-							UI.Label({
+							UI.Text({
 								LayoutOrder = 2,
 								Name = "Rank",
 								BackgroundTransparency = 1,
@@ -182,7 +182,7 @@ return {
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Label({
+							UI.Text({
 								LayoutOrder = 3,
 								Name = "Date",
 								BackgroundTransparency = 1,
@@ -211,7 +211,7 @@ return {
 							PaddingLeft = UDim.new(0, 16),
 							PaddingRight = UDim.new(0, 16),
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 1,
 							Name = "WrapHeading",
 							BackgroundTransparency = 1,
@@ -224,7 +224,7 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Label({
+						UI.Text({
 							LayoutOrder = 2,
 							Name = "WrapBody",
 							BackgroundTransparency = 1,
@@ -239,7 +239,7 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					},
-					UI.Label "Footnote" {
+					UI.Text "Footnote" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
