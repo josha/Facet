@@ -626,7 +626,7 @@ t.describe("native parity weaker rows", function()
 		world.stop()
 	end)
 
-	t.it("collections-67 forwards table editing into hosted rows and deletes the row its minus belongs to", function()
+	t.it("collections-67 table edit mode leaves hosted row actions alone; they stay independent of it", function()
 		local deleted, editing = {}, Compose.cell(false)
 		local world = setup(function(UI)
 			return UI.Table({
@@ -665,16 +665,11 @@ t.describe("native parity weaker rows", function()
 			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
 		end
 		editing:set(true)
-		t.expect(row(3):FindFirstChild("Delete")).toBeNil()
-		local minus = row(2):FindFirstChild("Delete")
-		t.expect(minus.Text).toBe("Remove row 2")
-		t.expect(row(1):FindFirstChild("Delete").Text).toBe("Remove row 1")
-		minus.Activated.fire()
-		minus.Activated.fire()
-		t.expect(deleted).toEqual({ 2 })
-		editing:set(false)
-		t.expect(row(1):FindFirstChild("Delete")).toBeNil()
-		t.expect(deleted).toEqual({ 2 })
+		for rowKey = 1, 3 do
+			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
+			t.expect(row(rowKey):FindFirstChild("SwipeGrip", true).Visible).toBe(true)
+		end
+		t.expect(deleted).toEqual({})
 		world.stop()
 	end)
 
@@ -795,7 +790,7 @@ t.describe("native parity weaker rows", function()
 					key = key,
 					itemSize = 20,
 					selection = selected,
-					selectionMode = "multi",
+					selectionMode = "multiple",
 					reorderable = true,
 					onReorder = function(keys, slot)
 						table.insert(requests, { keys = keys, slot = slot })
@@ -941,7 +936,7 @@ t.describe("native parity weaker rows", function()
 						key = key,
 						itemSize = 20,
 						selection = Compose.cell({}),
-						selectionMode = "multi",
+						selectionMode = "multiple",
 						reorderable = true,
 						onReorder = function(keys, slot)
 							table.insert(requests, { keys = keys, slot = slot, open = true })
@@ -1061,7 +1056,7 @@ t.describe("native parity weaker rows", function()
 				t.expect(flagged).toEqual({ 2 })
 				editing:set(true)
 				t.expect(protected:FindFirstChild("Delete")).toBeNil()
-				t.expect(row(1):FindFirstChild("Delete") ~= nil).toBe(true)
+				t.expect(`{host}:{row(1):FindFirstChild("Delete") ~= nil}`).toBe(`{host}:{host == "list"}`)
 				editing:set(false)
 				world.gui.SelectedObject = find(body:FindFirstChild("2", true), "RowHit")
 				t.expect(world.gui.SelectedObject ~= nil).toBe(true)

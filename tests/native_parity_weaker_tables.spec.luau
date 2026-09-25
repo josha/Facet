@@ -618,7 +618,7 @@ t.describe("native parity weaker tables", function()
 					itemSize = 40,
 					status = status,
 					selection = chosen,
-					selectionMode = "multi",
+					selectionMode = "multiple",
 					columns = { { id = "name", label = "Name" } },
 				})
 			end)
@@ -800,7 +800,7 @@ t.describe("native parity weaker tables", function()
 				expectAligned(w.node, rowKey, { "a", "b" })
 			end
 			editing:set(true)
-			t.expect(header.Position.X.Offset > gutter).toBe(true)
+			t.expect(header.Position.X.Offset).toBe(gutter)
 			for _, rowKey in { "1", "2", "3" } do
 				expectAligned(w.node, rowKey, { "a", "b" })
 			end
@@ -866,7 +866,7 @@ t.describe("native parity weaker tables", function()
 				key = id,
 				itemSize = 40,
 				selection = multi,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				columns = { { id = "label", label = "Label", width = 100 } },
 			})
 		end)

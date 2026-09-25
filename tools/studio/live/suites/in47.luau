@@ -1958,7 +1958,7 @@ add("pad-table-row-a-selects", { "inputs-05" }, function(t)
 			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } },
 			key = "id",
 			selection = selection,
-			selectionMode = "multi",
+			selectionMode = "multiple",
 			Size = UDim2.fromOffset(400, 240),
 			columns = { { id = "name", label = "Name" } },
 		}

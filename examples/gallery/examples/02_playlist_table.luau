@@ -205,7 +205,7 @@ function example.build(ctx: any)
 			key = "id",
 
 			sort = sortOrder,
-			selectionMode = "multi",
+			selectionMode = "multiple",
 			selection = Compose.cell({}),
 			onActivate = function(item: any, _key: string, input: InputObject?, clickCount: number?)
 				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 1) < 2 then
@@ -214,6 +214,12 @@ function example.build(ctx: any)
 				nowPlaying:set(plain(item).name)
 			end,
 			reorderable = true,
+			deletable = true,
+			onDelete = function(keys: { string })
+				for _, id in keys do
+					removeTrack(id)
+				end
+			end,
 
 			rowActions = function(item: any)
 				local id = plain(item).id
@@ -273,7 +279,7 @@ function example.build(ctx: any)
 			return table.concat(parts, " · ")
 		end)
 		local hintText =
-			"Type to filter · tap a heading to sort · drag a divider to resize · swipe a row for its actions"
+			"Type to filter · tap a heading to sort · drag a divider to resize · drag a row to move it · Delete removes the selected rows · swipe a row for its actions"
 		local nowPlayingText = function(use)
 			local track = use(nowPlaying)
 			if track == nil then

@@ -748,6 +748,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	do
 		rule(".facet-" .. pair[1], { BackgroundColor3 = c(pair[2]), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
+	for _, band in { "tablehead", "tablerow" } do
+		rule(".facet-" .. band .. "::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	end
+	rule(".facet-tableheading", { BackgroundTransparency = 1 })
 	rule(".facet-tablevalue::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
 		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),

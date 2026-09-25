@@ -463,6 +463,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Visible = swipeable,
 					InputBegan = function(input: InputObject)
 						pressed = input
+						local host = root.Parent
+						local hit = if host and host:GetAttribute("FacetCollectionRow") == true
+							then host:FindFirstChild("RowHit")
+							else nil
+						if hit then
+							activation.press(hit, input)
+						end
 					end,
 					Activated = function(input: InputObject?)
 						if touchFirst() and not panned and start == nil then

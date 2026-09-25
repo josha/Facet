@@ -10,11 +10,15 @@ return function<V, K>(
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	defaultMode: "none" | "single" | "multi"
+	defaultMode: "none" | "single" | "multiple"
 ): ((K, V, InputObject?) -> (), (K?, K) -> ())
 	local Compose, read, E = ctx.Compose, ctx.read, ctx.types.Enum
 	local anchor: K?
 	local mode = spec.selectionMode or defaultMode
+	assert(
+		mode == "none" or mode == "single" or mode == "multiple",
+		`Facet collection selectionMode must be none, single or multiple (got {tostring(mode)})`
+	)
 	local function publish(value: CollectionTypes.Selection<K>): ()
 		if spec.onSelectionChange then
 			spec.onSelectionChange(value)
@@ -99,7 +103,7 @@ return function<V, K>(
 		if mode == "none" or not eligible(item) then
 			return
 		end
-		if mode ~= "multi" then
+		if mode ~= "multiple" then
 			local selected = { [key] = true }
 			anchorAt(key, selected)
 			publish(selected)
@@ -126,7 +130,7 @@ return function<V, K>(
 		publish(selected)
 	end
 	local function extend(from: K?, to: K): ()
-		if mode ~= "multi" or from == nil or from == to or not held(shift) then
+		if mode ~= "multiple" or from == nil or from == to or not held(shift) then
 			return
 		end
 		if anchor == nil or assert(controls.indexOfKey)(anchor :: K) == nil then

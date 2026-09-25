@@ -527,13 +527,11 @@ t.describe("Table row paint", function()
 		expect(paint(".facet-tablerow")).toBe(paint(".facet-control"))
 		expect(paint(".facet-tablerow-alternate") ~= paint(".facet-tablerow")).toBe(true)
 		expect(paint(".facet-tablerow") ~= paint(".facet-surface")).toBe(true)
-		local divider = find(striped.a, "Divider")
-		expect(divider:HasTag("facet-divider")).toBe(true)
-		expect(divider:HasTag("facet-divider-strong")).toBe(true)
-		expect(divider.AnchorPoint.Y).toBe(1)
-		expect(divider.Position.Y.Scale).toBe(1)
-		expect(divider.Size.Y.Offset).toBe(1)
-		expect(rule(sheet, ".facet-divider"):GetProperties().BackgroundTransparency < 1).toBe(true)
+		expect(find(striped.a, "Divider")).toBe(nil)
+		expect(striped.a.Size.Y.Offset).toBe(-2)
+		local corner = themes.neutralPackage().metrics.radii.control
+		expect(rule(sheet, ".facet-tablerow::UICorner"):GetProperties().CornerRadius.Offset).toBe(corner)
+		expect(rule(sheet, ".facet-tablehead::UICorner"):GetProperties().CornerRadius.Offset).toBe(corner)
 		local sortButton = find(find(find(w.screen, "Striped"), "Header"), "Sort")
 		expect(sortButton:HasTag("facet-appearance-utility")).toBe(false)
 		expect(sortButton:HasTag("facet-button")).toBe(true)
@@ -565,7 +563,8 @@ t.describe("Table edit mode", function()
 				from = rows,
 				key = "id",
 				scrolls = false,
-				editable = true,
+				reorderable = true,
+				onReorder = function() end,
 				editing = editing,
 				columns = { { id = "id" }, { id = "ready", editor = "toggle" } },
 				onCellChange = function(key, column, value)
@@ -605,16 +604,17 @@ t.describe("Table edit mode", function()
 			w.stop()
 		end
 	end)
-	t.it("a pointer edits cells in place, and Edit writes the caller's editing cell", function()
-		local editing = Compose.cell(false)
-		local w, proposals = editableTable("KeyboardAndMouse", editing)
+	t.it("a pointer edits cells in place and gets no Edit toggle; a caller's editing cell owns the mode", function()
+		local w, proposals = editableTable("KeyboardAndMouse")
 		editorOf(w).Activated.fire()
 		expect(proposals[1]).toBe("a.ready=true")
-		find(w.screen, "Edit").Activated.fire()
-		expect(editing:peek()).toBe(true)
+		expect(find(w.screen, "Edit")).toBe(nil)
 		w.stop()
+		local owned = editableTable("Touch", Compose.cell(false))
+		expect(find(owned.screen, "Edit")).toBe(nil)
+		owned.stop()
 	end)
-	t.it("a table without editable has no Edit button and keeps its cells live", function()
+	t.it("a table that neither reorders nor deletes has no Edit button and keeps its cells live", function()
 		local w = world(function(UI)
 			return UI.Table "T" { from = { { id = "a" } }, key = "id", scrolls = false, columns = { { id = "id" } } }
 		end, { environment = { preferredInput = "Touch" } })

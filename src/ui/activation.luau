@@ -63,4 +63,22 @@ function activation.notify(node: Instance, ...: unknown)
 	end
 end
 
+local pressers = setmetatable({} :: { [Instance]: (InputObject) -> () }, { __mode = "k" })
+
+function activation.providePress(node: Instance, press: (InputObject) -> ()): () -> ()
+	pressers[node] = press
+	return function()
+		if pressers[node] == press then
+			pressers[node] = nil
+		end
+	end
+end
+
+function activation.press(node: Instance, input: InputObject)
+	local press = pressers[node]
+	if press then
+		press(input)
+	end
+end
+
 return activation

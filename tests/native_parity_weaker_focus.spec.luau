@@ -979,7 +979,7 @@ t.describe("native parity weaker focus", function()
 					return item.id
 				end,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				itemSize = 20,
 				overscan = 0,
 				columns = { { id = "label", label = "Label" } },
@@ -1062,7 +1062,7 @@ t.describe("native parity weaker focus", function()
 					return item.id
 				end,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				editing = editing,
 				rowActions = function()
 					return { trailing = { { id = "Remove", label = "Remove", role = "destructive" } } }

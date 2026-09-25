@@ -292,7 +292,7 @@ t.describe("native parity classb collections", function()
 	end)
 
 	t.it("collections-42 a table keeps its engine scroll position when the input class flips", function()
-		local world, body = tableWorld({ reorderable = true, onReorder = function() end, selectionMode = "multi" })
+		local world, body = tableWorld({ reorderable = true, onReorder = function() end, selectionMode = "multiple" })
 		local enum = E(world)
 		world.input.PreferredInput = enum.PreferredInput.Touch
 		world.input.TouchEnabled = true
@@ -734,7 +734,7 @@ t.describe("native parity classb collections", function()
 			local selection = Compose.cell({} :: { [string]: boolean })
 			local world, body = tableWorld({
 				selection = selection,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				editing = Compose.cell(editing),
 			})
 			local function press(key: string)
@@ -967,52 +967,33 @@ t.describe("native parity classb collections", function()
 		end
 	)
 	t.it(
-		"collections-189 each editing row carries its own minus at its leading edge and it deletes that row",
+		"collections-189 a deletable table in edit mode gives each row its own leading Delete that deletes that row",
 		function()
-			local fired = {}
+			local deleted = {}
 			local editing = Compose.cell(true)
 			local world, body = tableWorld({
 				editing = editing,
 				selectionMode = "single",
-				rowActions = function(_, key)
-					return {
-						trailing = {
-							{
-								id = "delete",
-								label = "Delete",
-								role = "destructive",
-								onActivate = function()
-									table.insert(fired, "delete:" .. key)
-								end,
-							},
-						},
-					}
+				deletable = true,
+				onDelete = function(keys)
+					table.insert(deleted, table.concat(keys, ","))
 				end,
 			})
+			world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
 			for _, key in { "r1", "r2", "r3" } do
-				local row = rowFrame(body, key)
-				local wrapper
-				for _, node in row:GetDescendants() do
-					if node:HasTag("facet-rowactions") then
-						wrapper = node
-					end
-				end
-				wrapper.AbsoluteSize = V2(world, 400, 44)
-				local minus = wrapper:FindFirstChild("Delete")
-				t.expect(minus ~= nil and minus:IsA("GuiButton") and minus.Selectable).toBe(true)
+				local minus = find(rowFrame(body, key), "Delete")
+				t.expect(minus ~= nil and minus:IsA("GuiButton") and minus.Visible).toBe(true)
 				t.expect(minus.Position.X.Offset).toBe(0)
-				t.expect(minus.Position.X.Scale).toBe(0)
-				local content = wrapper:FindFirstChild("Content")
-				t.expect(minus.Size.X.Offset >= 72).toBe(true)
-				t.expect(content.Position.X.Offset).toBe(minus.Size.X.Offset)
+				t.expect(find(rowFrame(body, key), "Cells").Position.X.Offset).toBe(minus.Size.X.Offset)
 				t.expect(minus.Size.Y.Scale).toBe(1)
 			end
 			local minus = find(rowFrame(body, "r2"), "Delete")
 			select(world, minus)
 			minus.Activated.fire(inputOf(world, "Gamepad1", "ButtonA"), 1)
-			t.expect(fired).toEqual({ "delete:r2" })
+			t.expect(deleted).toEqual({ "r2" })
 			editing:set(false)
-			t.expect(find(rowFrame(body, "r2"), "Delete")).toBeNil()
+			t.expect(find(rowFrame(body, "r2"), "Delete").Visible).toBe(false)
+			t.expect(find(rowFrame(body, "r2"), "Cells").Position.X.Offset).toBe(0)
 			world.stop()
 		end
 	)

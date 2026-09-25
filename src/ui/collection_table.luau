@@ -1,6 +1,7 @@
 --!strict
 local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
+local activation = require("./activation")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -65,22 +66,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"dragLabel",
 		"onCellChange",
 		"alternatingRows",
-		"editable",
+		"deletable",
+		"rowDeletable",
+		"onDelete",
 	}
 	local function create<V, K>(spec: CollectionTypes.TableOptions<V, K>, keyOf: (V, number) -> K): Frame
 		assert(spec.columns ~= nil, "Facet.Table requires columns")
-		local editable = spec.editable == true
-		assert(not editable or spec.header ~= false, "Facet UI.Table: editable needs the header")
-		local editing: Types.Value<boolean>? = spec.editing
-		if editable and editing == nil then
-			editing = Compose.cell(false)
-		end
-		assert(
-			not editable
-				or type((editing :: unknown) :: { set: unknown }) == "table"
-					and type(((editing :: unknown) :: { set: unknown }).set) == "function",
-			"Facet UI.Table: editable needs a writable editing cell"
-		)
+		local manageable = spec.reorderable == true or spec.deletable == true
+		local ownsToggle = manageable and spec.editing == nil and spec.header ~= false
+		local editing: Types.ValueBoolean? = if ownsToggle then Compose.cell(false) else spec.editing
 		Compose.watch(function(use: ComposeTypes.Use)
 			editors.check(read(spec.columns, use), spec.onCellChange)
 		end)
@@ -115,14 +109,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local rowMeasures: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
 		local headerMeasures: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }> = Compose.cell({})
-		local editGutters: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
-		local editGutter = Compose.formula(function(use: ComposeTypes.Use)
-			local widest = 0
-			for _, gutter in use(editGutters) do
-				widest = math.max(widest, gutter)
-			end
-			return widest
-		end)
 		local input = ctx.config.userInputService
 		local preferredInput: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 			then ctx.observe.PreferredInput(input)
@@ -142,14 +128,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 			local kind = if preferredInput then use(preferredInput) else nil
 			return kind == E.PreferredInput.Touch or kind == E.PreferredInput.Gamepad
 		end
+		local function toolbarShown(use: ComposeTypes.Use): boolean
+			return ownsToggle and coarse(use)
+		end
 		local toolbarHeight = Compose.formula(function(use: ComposeTypes.Use)
-			if not editable then
-				return 0
-			end
-			return math.max(ctx.controlSize(nil, "height", use), if coarse(use) then 44 else 0)
+			return if toolbarShown(use) then math.max(ctx.controlSize(nil, "height", use), 44) else 0
 		end)
 		local cellsLive = function(use: ComposeTypes.Use): boolean
-			return not editable or read(editing, use) == true or not coarse(use)
+			return not toolbarShown(use) or read(editing, use) == true
 		end
 		local headerHeight = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.header == false then
@@ -387,7 +373,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 					end,
 				}
-				local button = UI.Button(buttonProps)
+				local button = ctx.styled(UI.Button(buttonProps), "TableHeading")
 				local frame: Frame
 				local grip: TextButton?
 				if column.resizable ~= false then
@@ -436,6 +422,23 @@ return function(ctx: Types.Context, UI: Controls): ()
 					grip = Host.TextButton(gripProps)
 				end
 				frame = ctx.styled(columnFrame(current, index, button, grip), "TableHeader")
+				Compose.cleanup((runtime.mount(function()
+					return ctx.styled(
+						Host.Frame({
+							Name = "ColumnDivider",
+							AnchorPoint = V2.new(0, 0.5),
+							Position = D2.fromScale(0, 0.5),
+							Size = function(use: ComposeTypes.Use)
+								return D2.new(0, ctx.metric("strokes.hairline", use), 0.6, 0)
+							end,
+							Visible = function(use: ComposeTypes.Use)
+								return use(index) > 1
+							end,
+							ZIndex = 2,
+						}),
+						"divider"
+					)
+				end, frame)))
 				recordHeight(headerMeasures, column.id, button, 16)
 				if grip then
 					local selected = Compose.cell(false)
@@ -465,7 +468,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return frame
 			end,
 		})
-		local reorderGutter = if spec.reorderable then 56 else 0
+		local editor: reorder.Editor<V, K>? = nil
+		local function reorderGutter(use: ComposeTypes.Use): number
+			return if editor then use(editor.gutter) else 0
+		end
 		local headerLayout = lists.list({}, false)
 		local headerProps: Types.FrameProps = {
 			Name = "Header",
@@ -478,12 +484,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 		}
 		local header = Host.Frame(headerProps)
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
-		local wrapReorder: ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame)?
-		local overlayReorder: ((boolean?) -> Frame)?
-		if spec.reorderable then
-			wrapReorder, overlayReorder = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
+		if manageable then
+			editor = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
 				return body
-			end, selection, sort)
+			end, selection, sort, editing)
 		end
 		local bodySpec: CollectionTypes.KeyedCollectionSpec<V, K> = {
 			Name = "Body",
@@ -500,7 +504,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			mode = if spec.scrolls == false then "all" :: ComposeTypes.OrderedCollectionMode else spec.mode,
 			ScrollingDirection = E.ScrollingDirection.XY,
 			CanvasSize = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(headerExtent).X + reorderGutter + use(editGutter), use(contentExtent))
+				return D2.fromOffset(use(headerExtent).X + reorderGutter(use), use(contentExtent))
 			end,
 			from = ordered,
 			key = keyOf,
@@ -637,22 +641,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local cellRow = row
 				local rowProps: Types.FrameProps = {
 					Name = "DisclosingRow",
-					Size = D2.fromScale(1, 1),
+					Position = D2.fromOffset(0, 1),
+					Size = D2.new(1, 0, 1, -2),
 					cellRow :: ComposeTypes.Child,
-					ctx.styled(
-						ctx.styled(
-							Host.Frame({
-								Name = "Divider",
-								AnchorPoint = V2.new(0, 1),
-								Position = D2.fromScale(0, 1),
-								Size = function(use: ComposeTypes.Use)
-									return D2.new(1, 0, 0, ctx.metric("strokes.hairline", use))
-								end,
-							}),
-							"divider"
-						),
-						"divider-strong"
-					),
 					Compose.show(function(use: ComposeTypes.Use)
 						return use(disclosureWidth) > 0
 					end, function()
@@ -739,8 +730,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 					end
 				end)
-				if wrapReorder then
-					row = wrapReorder(row, current, key)
+				if editor then
+					row = editor.wrap(row, current, key)
 				end
 				local actions = if spec.rowActions then spec.rowActions(current, key) else nil
 				if actions then
@@ -749,32 +740,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 					actionSpec.content, actionSpec.coordinator = row, coordinator
 					actionSpec.Size = D2.fromScale(1, 1)
 					actionSpec.reducedMotion = spec.reducedMotion
-					actionSpec.editing = editing
-					local wrapped = UI.RowActions(actionSpec)
-					local content = wrapped:FindFirstChild("Content")
-					if content and content:IsA("GuiObject") then
-						local size: ComposeTypes.Readable<UDim2> = ctx.observe.Size(content)
-						Compose.watch(function(use: ComposeTypes.Use)
-							local gutter = math.max(0, -use(size).X.Offset)
-							if (editGutters:peek()[key] or 0) ~= gutter then
-								local gutters = table.clone(editGutters:peek())
-								if gutter > 0 then
-									gutters[key] = gutter
-								else
-									gutters[key] = nil
-								end
-								editGutters:set(gutters)
-							end
-						end)
-						Compose.cleanup(function()
-							if editGutters:peek()[key] ~= nil then
-								local gutters = table.clone(editGutters:peek())
-								gutters[key] = nil
-								editGutters:set(gutters)
-							end
-						end)
-					end
-					return wrapped
+					row = UI.RowActions(actionSpec)
+				end
+				if editor then
+					local press = editor.press
+					Compose.cleanup(activation.providePress(row, function(value: InputObject)
+						press(key, value)
+					end))
 				end
 				return row
 			end,
@@ -783,7 +755,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local position, window = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(position)
-			viewportWidth:set(use(window).X - reorderGutter - use(editGutter))
+			viewportWidth:set(use(window).X - reorderGutter(use))
 			coordinator:set(nil)
 		end)
 		local scrolledX = Compose.formula(function(use: ComposeTypes.Use): number
@@ -791,16 +763,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end)
 		runtime.decorate(header, {
 			Position = function(use: ComposeTypes.Use)
-				return D2.fromOffset(reorderGutter + use(editGutter) - use(scrolledX), use(toolbarHeight))
+				return D2.fromOffset(reorderGutter(use) - use(scrolledX), use(toolbarHeight))
 			end,
 			Size = function(use: ComposeTypes.Use)
 				local width = use(window).X
 				return if width > 0
 					then D2.fromOffset(
-						math.max(0, width - reorderGutter - use(editGutter) - use(disclosureWidth)),
+						math.max(0, width - reorderGutter(use) - use(disclosureWidth)),
 						use(headerHeight)
 					)
-					else D2.new(1, -reorderGutter - use(editGutter) - use(disclosureWidth), 0, use(headerHeight))
+					else D2.new(1, -reorderGutter(use) - use(disclosureWidth), 0, use(headerHeight))
 			end,
 		})
 		return ctx.styled(
@@ -817,18 +789,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 						Name = "HeaderBand",
 						Visible = spec.header ~= false,
 						Position = function(use: ComposeTypes.Use)
-							return D2.fromOffset(0, use(toolbarHeight))
+							return D2.fromOffset(reorderGutter(use), use(toolbarHeight))
 						end,
 						Size = function(use: ComposeTypes.Use)
-							return D2.new(1, 0, 0, use(headerHeight))
+							return D2.new(1, -reorderGutter(use), 0, use(headerHeight))
 						end,
 					}),
 					"TableHead"
 				) :: ComposeTypes.Child,
 				header,
-				Compose.show(function()
-					return editable
-				end, function()
+				Compose.show(toolbarShown, function()
 					local button = UI.Button("Edit")({
 						label = function(use: ComposeTypes.Use): string
 							return if read(editing, use) then "Done" else "Edit"
@@ -862,6 +832,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 							reserve("Done"),
 						})
 					end, button)
+					local words = {}
+					if spec.deletable then
+						table.insert(words, "X Delete")
+					end
+					if spec.reorderable then
+						table.insert(words, "L1 / R1 Move")
+					end
 					return Host.Frame({
 						Name = "Toolbar",
 						BackgroundTransparency = 1,
@@ -869,10 +846,25 @@ return function(ctx: Types.Context, UI: Controls): ()
 							return D2.new(1, 0, 0, use(toolbarHeight))
 						end,
 						button :: ComposeTypes.Child,
+						ctx.styled(
+							ctx.text({
+								Name = "PadHints",
+								Text = table.concat(words, " · "),
+								AnchorPoint = V2.new(0, 0.5),
+								Position = D2.fromScale(0, 0.5),
+								AutomaticSize = E.AutomaticSize.XY,
+								Visible = function(use: ComposeTypes.Use)
+									return read(editing, use) == true
+										and preferredInput ~= nil
+										and use(preferredInput) == E.PreferredInput.Gamepad
+								end,
+							}),
+							"secondary"
+						),
 					})
 				end),
 				body,
-				if overlayReorder then overlayReorder() else nil,
+				if editor then editor.overlay() else nil,
 			})),
 			"Table"
 		)

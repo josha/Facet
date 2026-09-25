@@ -25,7 +25,7 @@ export type RowRender<V, K> = (
 ) -> GuiObject
 export type SelectionOptions<V, K> = {
 	selection: ComposeTypes.Cell<Selection<K>>?,
-	selectionMode: ("none" | "single" | "multi")?,
+	selectionMode: ("none" | "single" | "multiple")?,
 	selectable: RowPredicate<V>?,
 	disabled: RowPredicate<V>?,
 	onSelectionChange: ((selection: Selection<K>) -> ())?,
@@ -34,6 +34,10 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	reorderable: boolean?,
 	movable: RowPredicate<V>?,
 	onReorder: ((keys: { K }, slot: number) -> ())?,
+	deletable: boolean?,
+	rowDeletable: RowPredicate<V>?,
+	onDelete: ((keys: { K }) -> ())?,
+	editing: Types.ValueBoolean?,
 	dragLabel: ((item: V) -> string)?,
 	direction: ComposeTypes.OrderedCollectionDirection?,
 }
@@ -137,10 +141,8 @@ export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & {
 	follow: Types.Value<Follow>?,
 	followThreshold: number?,
 	reducedMotion: Types.ValueBoolean?,
-	editing: Types.ValueBoolean?,
 	onCellChange: ((key: K, column: string, value: unknown) -> ())?,
 	alternatingRows: Types.ValueBoolean?,
-	editable: boolean?,
 	scrolls: boolean?,
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,

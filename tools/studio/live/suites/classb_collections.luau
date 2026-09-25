@@ -913,7 +913,7 @@ interactive("return-toggles-multi-selection", { "collections-197" }, function(t)
 			from = rows(6),
 			key = "id",
 			selection = value.selection,
-			selectionMode = "multi",
+			selectionMode = "multiple",
 			editing = Compose.cell(true),
 			columns = { { id = "name", label = "Name" } },
 		}

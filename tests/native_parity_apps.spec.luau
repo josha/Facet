@@ -3393,7 +3393,7 @@ t.describe("native parity reference applications", function()
 				local row = find(body, "neon")
 				local cells = find(row, "Row")
 				t.expect(header.Position.X.Offset).toBe(find(row, "Cells").Position.X.Offset)
-				t.expect(header.Size.X.Offset).toBe(900 - 56)
+				t.expect(header.Size.X.Offset).toBe(900 - find(row, "Cells").Position.X.Offset)
 				local E = world.engine.types.Enum
 				for id, width in { name = 0, artist = 0, rating = 144 } do
 					t.expect(header:FindFirstChild(id).Size.X.Offset).toBe(width)

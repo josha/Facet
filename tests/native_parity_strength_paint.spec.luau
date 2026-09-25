@@ -2727,13 +2727,14 @@ t.describe("native paint strength: table rows", function()
 	end)
 
 	t.it("the Edit button reserves the width of both Edit and Done in its own font", function()
-		local h = harness()
+		local h = harness({ environment = { preferredInput = "Touch" } })
 		local root, stopTable = mount(h, function()
 			return h.UI.Table({
 				from = { { id = "a" } },
 				key = "id",
 				scrolls = false,
-				editable = true,
+				deletable = true,
+				onDelete = function() end,
 				columns = { { id = "id" } },
 			})
 		end)

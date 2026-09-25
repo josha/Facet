@@ -54,6 +54,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"reorderable",
 		"onReorder",
 		"movable",
+		"deletable",
+		"rowDeletable",
+		"onDelete",
+		"editing",
 		"dragLabel",
 		"onSelectionChange",
 		"onActivate",
@@ -130,7 +134,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
-		local selectionMode: "none" | "single" | "multi" = spec.selectionMode
+		local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 			or (if spec.selection or spec.onSelectionChange then "single" else "none")
 		local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
 		local measured: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
@@ -234,13 +238,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 				wireSelection(child, key)
 			end
 		end
-		local wrapReorder: ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame)?
-		local overlayReorder: ((boolean?) -> Frame)?
-		if spec.reorderable then
-			wrapReorder, overlayReorder = reorder(ctx, UI, spec, source, keyOf, controls, function()
+		local editor = if spec.reorderable or spec.deletable
+			then reorder(ctx, UI, spec, source, keyOf, controls, function()
 				return root
-			end, selection, Compose.cell(nil :: CollectionTypes.Sort?))
-		end
+			end, selection, Compose.cell(nil :: CollectionTypes.Sort?), spec.editing)
+			else nil
+		local overlayReorder = if editor then editor.overlay else nil
 		local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
 			return Compose.OrderedCollection({
 				from = source,
@@ -298,8 +301,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 					placed[key] = placement
 					local stop, mountedContent = runtime.mount(function(): Frame
 						local rendered = spec.render(current, placement, key)
-						if wrapReorder then
-							rendered = wrapReorder(rendered, current, key)
+						if editor then
+							rendered = editor.wrap(rendered, current, key)
+							local press = editor.press
+							Compose.cleanup(activation.providePress(rendered, function(value: InputObject)
+								press(key, value)
+							end))
 						end
 						local children: Types.FrameProps = {
 							Name = "Content",
@@ -308,7 +315,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 							Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
 							rendered,
 						}
-						if spec.onSelectionChange or spec.onActivate or spec.selection or spec.selectionMode then
+						if
+							spec.onSelectionChange
+							or spec.onActivate
+							or spec.selection
+							or spec.selectionMode
+							or editor
+						then
 							local hit = Host.TextButton "RowHit" {
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
@@ -331,6 +344,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 							Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
 								select(key, current, input :: InputObject?, clicks :: number?)
 							end))
+							local function pressed(value: InputObject)
+								activation.press(rendered, value)
+							end
+							runtime.connect(hit, "InputBegan", pressed)
+							Compose.cleanup(activation.providePress(hit, pressed))
 							table.insert(children, 1, hit)
 						end
 						return Host.Frame(children)

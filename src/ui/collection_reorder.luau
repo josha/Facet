@@ -5,6 +5,12 @@ local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
+export type Editor<V, K> = {
+	wrap: (GuiObject, ComposeTypes.Readable<V>, K) -> Frame,
+	overlay: (boolean?) -> Frame,
+	gutter: ComposeTypes.Readable<number>,
+	press: (K, InputObject) -> (),
+}
 type Move<V, K> = {
 	key: K,
 	keys: { K },
@@ -24,13 +30,29 @@ return function<V, K>(
 	controls: ComposeTypes.OrderedCollectionControls<K>,
 	bodyOf: () -> ScrollingFrame,
 	selection: ComposeTypes.Cell<CollectionTypes.Selection<K>>,
-	sort: ComposeTypes.Cell<CollectionTypes.Sort?>
-): ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame, (boolean?) -> Frame)
+	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
+	editing: Types.ValueBoolean?
+): Editor<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local TAP = 3
+	local reorderable = spec.reorderable == true
+	local deletable = spec.deletable == true
+	local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
+		then ctx.observe.PreferredInput(ctx.config.userInputService)
+		else nil
+	local controlsShown = Compose.formula(function(use: ComposeTypes.Use): boolean
+		local kind = if preferred then use(preferred) else nil
+		return kind == nil or read(editing, use) == true
+	end)
+	local gutter = Compose.formula(function(use: ComposeTypes.Use): number
+		if not use(controlsShown) then
+			return 0
+		end
+		return (if reorderable then 56 else 0) + (if deletable then 44 else 0)
+	end)
 	local horizontal = spec.direction == "horizontal"
 	local function axis(position: Vector2): number
 		return if horizontal then position.X else position.Y
@@ -61,7 +83,8 @@ return function<V, K>(
 	end
 	local function begin(key: K, position: Vector2?): ()
 		if
-			read(sort) ~= nil
+			not reorderable
+			or read(sort) ~= nil
 			or not spec.onReorder
 			or (position ~= nil and captured ~= nil and moving:peek() ~= nil)
 		then
@@ -208,6 +231,8 @@ return function<V, K>(
 		local armed = false
 		local handleProps: InputTypes.ButtonProps = {
 			Name = "Move",
+			Visible = controlsShown,
+			Position = D2.fromOffset(if deletable then 44 else 0, 0),
 			Size = D2.new(0, 56, 1, 0),
 			AutomaticSize = E.AutomaticSize.None,
 			appearance = "utility",
@@ -266,13 +291,39 @@ return function<V, K>(
 				end,
 			}),
 		}
-		local handle = UI.Button(handleProps)
+		local handle = if reorderable then UI.Button(handleProps) else nil
 		handleNode = handle
-		ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
-			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
-				pendingInput = value
-			end
-		end)
+		if handle then
+			ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
+				if
+					value.UserInputType == E.UserInputType.MouseButton1
+					or value.UserInputType == E.UserInputType.Touch
+				then
+					pendingInput = value
+				end
+			end)
+		end
+		local removerProps: InputTypes.ButtonProps = {
+			Name = "Delete",
+			label = "",
+			name = "Delete",
+			icon = "trash",
+			role = "destructive" :: InputTypes.ButtonRole,
+			appearance = "utility",
+			Visible = controlsShown,
+			Size = D2.new(0, 44, 1, 0),
+			AutomaticSize = E.AutomaticSize.None,
+			enabled = function(use: ComposeTypes.Use)
+				return policy.allows(spec.rowDeletable, use(current))
+					and not policy.disabled(spec.disabled, use(current))
+			end,
+			onActivate = function()
+				if spec.onDelete then
+					spec.onDelete({ key })
+				end
+			end,
+		}
+		local remover = if deletable then UI.Button(removerProps) else nil
 		local nativeProps: Types.FrameProps = {
 			Name = "Reorderable",
 			Size = D2.fromScale(1, 1),
@@ -283,20 +334,52 @@ return function<V, K>(
 					return move ~= nil and move.included[key] == true
 				end,
 			} :: EngineTypes.Attributes,
-			handle :: ComposeTypes.Child,
 			Host.Frame "Cells" {
-				Position = D2.fromOffset(56, 0),
-				Size = D2.new(1, -56, 1, 0),
+				Position = function(use: ComposeTypes.Use)
+					return D2.fromOffset(use(gutter), 0)
+				end,
+				Size = function(use: ComposeTypes.Use)
+					return D2.new(1, -use(gutter), 1, 0)
+				end,
 				BackgroundTransparency = 1,
 				row,
 			},
 		}
+		if handle then
+			table.insert(nativeProps, handle)
+		end
+		if remover then
+			table.insert(nativeProps, remover)
+		end
 		return Host.Frame(nativeProps)
+	end
+	local pressed: K? = nil
+	local pressOrigin: Vector2? = nil
+	local function press(key: K, value: InputObject): ()
+		local at = value.Position
+		if reorderable and at and value.UserInputType == E.UserInputType.MouseButton1 and moving:peek() == nil then
+			pressed, pressOrigin, pendingInput = key, V2.new(at.X, at.Y), value
+		end
 	end
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
 		if input then
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
+				if
+					pressed ~= nil
+					and pressOrigin ~= nil
+					and captured == nil
+					and value.UserInputType == E.UserInputType.MouseMovement
+				then
+					local position = V2.new(value.Position.X, value.Position.Y)
+					if math.abs(axis(position) - axis(pressOrigin)) >= 6 then
+						local key = pressed
+						pressed, pressOrigin = nil, nil
+						begin(key, position)
+						movePointer(position)
+					end
+					return
+				end
 				if
 					captured
 					and (
@@ -319,6 +402,9 @@ return function<V, K>(
 				end
 			end)
 			ctx.runtime.connect(input, "InputEnded", function(value: InputObject)
+				if value.UserInputType == E.UserInputType.MouseButton1 then
+					pressed, pressOrigin = nil, nil
+				end
 				if
 					captured
 					and (
@@ -507,7 +593,67 @@ return function<V, K>(
 			commit,
 			{ priority = 400 }
 		)
+		local function chosen(use: ComposeTypes.Use?): { K }
+			local keys, selected = {}, read(selection, use)
+			for index, item in read(source, use) do
+				local key = keyOf(item, index)
+				if selected[key] then
+					table.insert(keys, key)
+				end
+			end
+			return keys
+		end
+		if reorderable then
+			local function nudge(delta: number)
+				local keys = chosen()
+				if #keys > 0 then
+					local target = keyboardTarget
+					keyboardTarget = nil
+					begin(keys[1])
+					keyboardTarget = target
+					step(delta)
+					commit()
+				end
+			end
+			local function ready(use: ComposeTypes.Use): boolean
+				return use(moving) == nil and #chosen(use) > 0
+			end
+			ctx.action(root, "MoveRowsEarlier", { E.KeyCode.ButtonL1 }, ready, function()
+				nudge(-1)
+			end, { priority = 400 })
+			ctx.action(root, "MoveRowsLater", { E.KeyCode.ButtonR1 }, ready, function()
+				nudge(1)
+			end, { priority = 400 })
+		end
+		if deletable then
+			ctx.action(
+				root,
+				"DeleteRows",
+				{ E.KeyCode.Delete, E.KeyCode.Backspace, E.KeyCode.ButtonX },
+				function(use: ComposeTypes.Use)
+					return use(moving) == nil and #chosen(use) > 0
+				end,
+				function()
+					local keys = {}
+					for _, key in chosen() do
+						for index, item in read(source) do
+							if
+								keyOf(item, index) == key
+								and policy.allows(spec.rowDeletable, item)
+								and not policy.disabled(spec.disabled, item)
+							then
+								table.insert(keys, key)
+							end
+						end
+					end
+					if #keys > 0 and spec.onDelete then
+						spec.onDelete(keys)
+					end
+				end,
+				{ priority = 400 }
+			)
+		end
 		return root
 	end
-	return wrap, overlay
+	return { wrap = wrap, overlay = overlay, gutter = gutter, press = press }
 end

@@ -425,7 +425,7 @@ t.describe("native parity restore: Table multi-select keys", function()
 				itemSize = 40,
 				focus = focus,
 				selection = selection,
-				selectionMode = mode or "multi",
+				selectionMode = mode or "multiple",
 				columns = {
 					{
 						id = "name",

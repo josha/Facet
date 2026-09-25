@@ -808,7 +808,7 @@ t.describe("Compose native collections", function()
 				from = records(100),
 				key = key,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				itemSize = 20,
 				overscan = 0,
 				selectable = function(item)
@@ -843,7 +843,7 @@ t.describe("Compose native collections", function()
 				from = source,
 				key = key,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				itemSize = 20,
 				reorderable = true,
 				movable = function(item)
@@ -1507,7 +1507,7 @@ t.describe("Compose native collections", function()
 				itemSize = 20,
 				overscan = 0,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				selectable = function(item)
 					if item.id == 2 then
 						error("rejected")
@@ -1740,7 +1740,7 @@ t.describe("Compose native collections", function()
 end)
 
 t.describe("Table compact width", function()
-	t.it("keeps every column in a narrow table and paints the header band across the whole width", function()
+	t.it("keeps every column in a narrow table and paints the header band across its columns", function()
 		local engine, runtime, UI, target = setup()
 		local stop, node = runtime.mount(function()
 			return UI.Table({
@@ -1763,8 +1763,9 @@ t.describe("Table compact width", function()
 			t.expect(node:FindFirstChild("Header"):FindFirstChild(id).Visible).toBe(true)
 		end
 		local band = node:FindFirstChild("HeaderBand")
-		t.expect(band.Position.X.Offset).toBe(0)
-		t.expect(band.Size).toBe(engine.types.UDim2.new(1, 0, 0, node:FindFirstChild("Header").Size.Y.Offset))
+		local gutter = node:FindFirstChild("Header").Position.X.Offset
+		t.expect(band.Position.X.Offset).toBe(gutter)
+		t.expect(band.Size).toBe(engine.types.UDim2.new(1, -gutter, 0, node:FindFirstChild("Header").Size.Y.Offset))
 		t.expect(band:HasTag("facet-tablehead")).toBe(true)
 		row:FindFirstChild("Value", true).TextFits = false
 		local more = row:FindFirstChild("Details", true)
@@ -1787,7 +1788,7 @@ t.describe("Table row tap", function()
 				from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" } },
 				key = key,
 				selection = selection,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				reorderable = true,
 				onReorder = function() end,
 				columns = {
@@ -1855,5 +1856,163 @@ t.describe("Row action tray width", function()
 		t.expect(actions:FindFirstChild("trailing").Size.X.Offset).toBe(60 + 32 + 20 + 8)
 		stop()
 		runtime:dispose()
+	end)
+end)
+
+t.describe("editable collections: reorderable and deletable on every input", function()
+	local function editableWorld(input, spec, list)
+		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+		local service = ctx.config.userInputService
+		service.PreferredInput = engine.types.Enum.PreferredInput[input]
+		local reorders, deletes = {}, {}
+		local selection = Compose.cell(spec.selected or {})
+		local base = {
+			from = records(4),
+			key = key,
+			itemSize = 40,
+			selection = selection,
+			selectionMode = "multiple",
+			onReorder = function(keys, slot)
+				table.insert(reorders, { keys = keys, slot = slot })
+			end,
+			onDelete = function(keys)
+				table.insert(deletes, keys)
+			end,
+		}
+		for field, value in spec do
+			if field ~= "selected" then
+				base[field] = value
+			end
+		end
+		if list then
+			base.render = function(current)
+				return button(UI, current)
+			end
+		else
+			base.columns = { { id = "label", label = "Label", width = 100 } }
+		end
+		local stop, node = runtime.mount(function()
+			return if list then UI.VirtualList(base) else UI.Table(base)
+		end, target)
+		local body = if list then node else node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		local function pressed(name)
+			target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed.fire()
+		end
+		local function row(rowKey)
+			return body:FindFirstChild(tostring(rowKey), true)
+		end
+		return {
+			engine = engine,
+			service = service,
+			node = node,
+			body = body,
+			row = row,
+			pressed = pressed,
+			reorders = reorders,
+			deletes = deletes,
+			selection = selection,
+			stop = function()
+				stop()
+				runtime:dispose()
+			end,
+		}
+	end
+
+	t.it("a pointer drags a row (or the selected rows) to reorder with no handle on show", function()
+		for _, list in { false, true } do
+			local w = editableWorld("KeyboardAndMouse", { reorderable = true }, list)
+			local V2 = w.engine.types.Vector2
+			t.expect(w.row(2):FindFirstChild("Move", true).Visible).toBe(false)
+			t.expect(w.row(2):FindFirstChild("Cells", true).Position.X.Offset).toBe(0)
+			local hit = w.row(2):FindFirstChild("RowHit", true)
+			hit.InputBegan.fire({
+				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
+				Position = V2.new(10, 50),
+			})
+			w.service.InputChanged.fire({
+				UserInputType = w.engine.types.Enum.UserInputType.MouseMovement,
+				UserInputState = w.engine.types.Enum.UserInputState.Change,
+				Position = V2.new(10, 52),
+			})
+			t.expect(w.node:FindFirstChild("DropLine", true)).toBeNil()
+			w.service.InputChanged.fire({
+				UserInputType = w.engine.types.Enum.UserInputType.MouseMovement,
+				UserInputState = w.engine.types.Enum.UserInputState.Change,
+				Position = V2.new(10, 150),
+			})
+			t.expect(w.node:FindFirstChild("DropLine", true) ~= nil).toBe(true)
+			w.service.InputEnded.fire({
+				UserInputType = w.engine.types.Enum.UserInputType.MouseButton1,
+				UserInputState = w.engine.types.Enum.UserInputState.End,
+			})
+			t.expect(#w.reorders).toBe(1)
+			t.expect(w.reorders[1].keys).toEqual({ 2 })
+			w.stop()
+		end
+	end)
+
+	t.it("Delete, Backspace and the X button remove the selected deletable rows through onDelete", function()
+		for _, list in { false, true } do
+			local w =
+				editableWorld("KeyboardAndMouse", { deletable = true, selected = { [3] = true, [1] = true } }, list)
+			w.pressed("DeleteRows")
+			t.expect(w.deletes).toEqual({ { 1, 3 } })
+			w.stop()
+			local fixed = editableWorld("KeyboardAndMouse", { selected = { [2] = true } }, list)
+			local engine = fixed.engine
+			t.expect(fixed.node.Parent:FindFirstChild("FacetDeleteRows")).toBeNil()
+			fixed.stop()
+			local _ = engine
+		end
+	end)
+
+	t.it("touch and gamepad reach reorder and delete through Edit, which reveals the handles and Delete", function()
+		for _, input in { "Touch", "Gamepad" } do
+			local w = editableWorld(input, { reorderable = true, deletable = true }, false)
+			local edit = w.node:FindFirstChild("Edit", true)
+			t.expect(edit ~= nil and edit.Text == "Edit").toBe(true)
+			t.expect(w.row(1):FindFirstChild("Move", true).Visible).toBe(false)
+			t.expect(w.row(1):FindFirstChild("Delete", true).Visible).toBe(false)
+			edit.Activated.fire()
+			t.expect(edit.Text).toBe("Done")
+			t.expect(w.row(1):FindFirstChild("Move", true).Visible).toBe(true)
+			local remove = w.row(1):FindFirstChild("Delete", true)
+			t.expect(remove.Visible).toBe(true)
+			t.expect(w.row(1):FindFirstChild("Cells", true).Position.X.Offset).toBe(100)
+			remove.Activated.fire()
+			t.expect(w.deletes).toEqual({ { 1 } })
+			w.stop()
+		end
+		local pointer = editableWorld("KeyboardAndMouse", { reorderable = true, deletable = true }, false)
+		t.expect(pointer.node:FindFirstChild("Edit", true)).toBeNil()
+		pointer.stop()
+	end)
+
+	t.it("the shoulder buttons move the selected rows by one slot", function()
+		local w = editableWorld("Gamepad", { reorderable = true, selected = { [2] = true } }, false)
+		w.pressed("MoveRowsLater")
+		t.expect(w.reorders).toEqual({ { keys = { 2 }, slot = 2 } })
+		w.pressed("MoveRowsEarlier")
+		t.expect(w.reorders[2]).toEqual({ keys = { 2 }, slot = 0 })
+		w.stop()
+	end)
+
+	t.it("selectionMode takes none, single or multiple and refuses anything else", function()
+		local engine, runtime, UI, target = setup()
+		t.expect(function()
+			runtime.mount(function()
+				return UI.VirtualList({
+					from = records(2),
+					key = key,
+					selectionMode = "multi",
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+		end).toThrow()
+		runtime:dispose()
+		local _ = engine
 	end)
 end)

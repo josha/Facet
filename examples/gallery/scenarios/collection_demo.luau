@@ -359,7 +359,7 @@ return function(ctx: any, options: any)
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 		}
 		if options.table then
-			common.selection, common.selectionMode = selection, "multi"
+			common.selection, common.selectionMode = selection, "multiple"
 			common.sort, common.widths = Compose.cell(nil), Compose.cell({})
 			common.editing, common.reorderable, common.onReorder = editing, true, reorder
 			common.movable = function(item)
@@ -378,7 +378,7 @@ return function(ctx: any, options: any)
 				end
 				else nil
 			if options.editable then
-				common.editable, common.alternatingRows = true, true
+				common.alternatingRows = true
 				Compose.watch(function(use)
 					local first = rows:peek()[1]
 					if first and (first.editing == true) ~= use(editing) then
@@ -455,7 +455,7 @@ return function(ctx: any, options: any)
 				jump(if options.mail then 4 else 50)
 			end)
 		end
-		if options.mail or (options.entrants and not options.editable) then
+		if options.mail or options.entrants then
 			command("Edit", function(use)
 				return if use(editing) then "Done" else "Edit"
 			end, edit)

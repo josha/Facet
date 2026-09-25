@@ -2590,8 +2590,8 @@ keep their `minWidth` and truncate their text, so a narrow table scrolls
 sideways and never loses a column. A Popover shows collapsed and natively
 truncated values through the row's icon-only `more` (…) button, named
 "More actions". The cell
-state stays retained. The header band spans the whole width of the table,
-over the reorder and edit gutters.
+state stays retained. The header band spans the columns (it starts after the
+edit gutter) and shows a hairline divider between headings.
 
 Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
 `"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu
@@ -2609,22 +2609,36 @@ progress. An editor with `render`, an unknown editor word, a menu without
 `options`, editor settings on a column without `editor`, and an editor column
 without `onCellChange` cause an error.
 
-`editable = true` adds a toolbar above the header with an `Edit` button. The
-button toggles the `editing` cell, or its own cell when you supply none, and
-reads `Done` while editing. Its width fits the wider word, so it does not
-change. The same cell puts rows with `rowActions` in edit
-mode. With touch or gamepad input, the editor cells accept edits only while
-editing. With mouse and keyboard, they accept edits at all times. An
-`editable` table needs the header, and a supplied `editing` must be a
-writable cell.
+Editable collections. Table, VirtualList and VirtualGrid take the same model.
+`reorderable = true` with `onReorder(keys, insertionSlot)` moves rows, and
+`deletable = true` with `onDelete(keys)` removes them; both only propose, and
+the caller changes its rows. `movable(item)` and `rowDeletable(item)` refuse
+single rows. The paths per input:
+
+- Pointer: drag a row, or one of the selected rows to move them all, more than
+  6 pixels along the list. There is no handle. Delete or Backspace removes the
+  selected rows.
+- Touch and gamepad: a Table without a supplied `editing` shows a toolbar
+  with an `Edit` button (`Done` while editing; its width fits the wider word).
+  Edit mode shows a leading `Delete` button (deletable) and a move handle
+  (reorderable) on each row; a handle drags, or Return or the A button starts
+  a move that the arrows or D-pad place and Return, A or `Drop` ends. The X
+  button removes the selected rows, and L1 and R1 move them by one slot. A
+  VirtualList reads the `editing` cell that you supply and show your own
+  Edit control.
+- Without a readable input class the edit controls always show.
+
+With touch or gamepad input, a Table with the Edit toolbar accepts cell edits
+only while editing; otherwise its editor cells accept edits at all times.
+`rowActions` are independent of edit mode.
 
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
 `widths` is a map of column widths. `selection` is a key-set map.
-`selectionMode` is `single`, `multi` or `none`. When you supply
+`selectionMode` is `single`, `multiple` or `none`. When you supply
 `onSortChange`, `onWidthsChange` or `onSelectionChange`, it is a controlled
 request. Otherwise the control updates the writable cells.
 
-In `multi` mode, the selection keys are the same in Table, VirtualList and
+In `multiple` mode, the selection keys are the same in Table, VirtualList and
 VirtualGrid:
 
 - A plain mouse click selects only that row.
@@ -2647,9 +2661,7 @@ theme paints it in `controlSelected`. Rows that `selectable` or `disabled` refus
 
 `selectable(item)`, `disabled(item)`, `onActivate(item, key, input, clickCount)`
 and `rowActions(current, key)` specialize rows. `onActivate` receives the same
-native activation facts as in VirtualList. `reorderable`, `movable(item)` and
-`onReorder(keys, insertionSlot)` support native drag reorder. The insertion
-slot is zero-based among the remaining rows. `editing` is a writable cell.
+native activation facts as in VirtualList. The insertion slot of `onReorder` is zero-based among the remaining rows.
 
 Sizes:
 
@@ -2659,13 +2671,13 @@ Sizes:
 - The native touch and gamepad minimum row height and header height is `44`.
 - Native text bounds can make both larger.
 
-The header band and each row paint a background through the theme tags
-`facet-tablehead` and `facet-tablerow`. `alternatingRows = true` also tags
-every second row `facet-tablerow-alternate`. The palette roles are
-`tableHeader`, `tableRow` and `tableRowAlternate`. Each row has a hairline
-`Divider` at its bottom edge (tags `facet-divider` and
-`facet-divider-strong`). Each heading is a standard Button, so a skinned theme
-paints its `control` art on it.
+The header band and each row paint a rounded band (`radii.control`) through
+the theme tags `facet-tablehead` and `facet-tablerow`; rows sit 2 pixels
+apart, and a selected row is the same band in `controlSelected`.
+`alternatingRows = true` also tags every second row `facet-tablerow-alternate`.
+The palette roles are `tableHeader`, `tableRow` and `tableRowAlternate`. Each
+heading is a standard Button without a plate (`facet-tableheading`) on the
+band, so a skinned theme paints its `control` art on it.
 
 `header = false` removes the header band. `scrolls = false` mounts all rows and
 sizes the table to its content. Otherwise, `mode` selects the Compose windowed
