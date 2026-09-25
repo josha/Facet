@@ -868,6 +868,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		BackgroundTransparency = 1 - (extra.scrimOpacity or 0.45),
 		BorderSizePixel = 0,
 	})
+	rule(".facet-scrim.facet-radial-scrim", {
+		BackgroundTransparency = 1 - math.max(extra.scrimOpacity or 0.45, 0.7),
+	})
 	for status, role in
 		{
 			neutral = "contentSecondary",
@@ -1470,7 +1473,7 @@ local function createStyleSheet(
 		local translucent = definition.properties.BackgroundTransparency
 		if
 			preference >= 1
-			or definition.selector ~= ".facet-scrim"
+			or (definition.selector ~= ".facet-scrim" and definition.selector ~= ".facet-scrim.facet-radial-scrim")
 			or type(translucent) ~= "number"
 			or translucent <= 0
 			or translucent >= 1

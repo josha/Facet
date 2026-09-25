@@ -408,6 +408,7 @@ t.describe("native parity weaker foundation", function()
 				[".facet-grabber"] = true,
 				[".facet-menu-hairline"] = true,
 				[".facet-scrim"] = true,
+				[".facet-scrim.facet-radial-scrim"] = true,
 			}
 			local function census(theme: any, preference: number): ({ [string]: number }, any, () -> ())
 				local sheet, stop = sheetOf(theme, preference)
@@ -441,7 +442,9 @@ t.describe("native parity weaker foundation", function()
 						table.insert(moved, selector)
 					end
 				end
-				t.expect(`{name} {table.concat(moved, " ")}`).toBe(`{name} .facet-scrim`)
+				table.sort(moved)
+				t.expect(`{name} {table.concat(moved, " ")}`)
+					.toBe(`{name} .facet-scrim .facet-scrim.facet-radial-scrim`)
 				t.expect(math.abs(half[".facet-scrim"] - full[".facet-scrim"] * 0.5) < 1e-9).toBe(true)
 				t.expect(ruleOf(sheet, ".facet-divider-strong").Priority > lastPriority(sheet, ".facet-divider"))
 					.toBe(true)

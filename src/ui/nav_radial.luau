@@ -1314,6 +1314,10 @@ return function(
 						end,
 					}
 				)
+				local catcher = modal:FindFirstChild("DismissOutside")
+				if catcher then
+					catcher:AddTag("facet-radial-scrim")
+				end
 				if spec.skin and spec.skin.background then
 					skin(modal, spec.skin.background)
 				end

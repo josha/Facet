@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An open RadialMenu dims the page to at least 70 percent (the theme's `scrimOpacity` when higher). Before, it used the Dialog scrim (30 to 62 percent), and page text read clearly between the wedges.
 - The RadialMenu centre control is a round icon button that fills the hole and covers the launcher under it. Before, a 72 by 40 "Close" plate overlapped the launcher's own label and poked past the hole.
 - A RadialMenu ring without `ringWidth` is as thick as its measured labels and icons plus theme spacing, at least one touch target. Before, it filled the room up to a 240 pixel radius, far thicker than its labels.
 - A RadialMenu wedge item is its icon and label only, inside its wedge. Before, each item was a full Button plate on top of the wedge; in a skinned theme (Pixel Quest) the plates overflowed the wedges.

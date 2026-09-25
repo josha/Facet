@@ -435,6 +435,7 @@ t.describe("native strong divider, pane and utility outline", function()
 			".facet-grabber",
 			".facet-menu-hairline",
 			".facet-scrim",
+			".facet-scrim.facet-radial-scrim",
 		}, " "))
 		local moved: { string } = {}
 		for _, selector in names do
@@ -442,7 +443,7 @@ t.describe("native strong divider, pane and utility outline", function()
 				table.insert(moved, selector)
 			end
 		end
-		t.expect(table.concat(moved, " ")).toBe(".facet-scrim")
+		t.expect(table.concat(moved, " ")).toBe(".facet-scrim .facet-scrim.facet-radial-scrim")
 		t.expect(math.abs(half[".facet-scrim"] - full[".facet-scrim"] * 0.5) < 1e-9).toBe(true)
 	end)
 

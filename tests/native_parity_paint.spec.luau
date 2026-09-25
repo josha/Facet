@@ -1271,10 +1271,15 @@ t.describe("native parity paint", function()
 					end
 				end
 			end
-			t.expect(#changed).toBe(1)
-			t.expect(changed[1]).toBe(".facet-scrim.BackgroundTransparency")
-			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency)
-				.toBe(before[ruleNode(sheet, ".facet-scrim")].BackgroundTransparency * value)
+			table.sort(changed)
+			t.expect(changed).toEqual({
+				".facet-scrim.BackgroundTransparency",
+				".facet-scrim.facet-radial-scrim.BackgroundTransparency",
+			})
+			for _, selector in { ".facet-scrim", ".facet-scrim.facet-radial-scrim" } do
+				t.expect(style(sheet, selector).BackgroundTransparency)
+					.toBe(before[ruleNode(sheet, selector)].BackgroundTransparency * value)
+			end
 		end
 		t.expect(style(sheet, ".facet-divider").BackgroundTransparency).toBe(0.92)
 		t.expect(style(sheet, ".facet-appearance-soft").BackgroundTransparency).toBe(0.8)
