@@ -113,13 +113,20 @@ return {
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 				Host.UICorner({}),
-				Host.UIPadding({
-					PaddingLeft = D.new(0, padX),
-					PaddingRight = D.new(0, padX),
-					PaddingTop = D.new(0, padY),
-					PaddingBottom = D.new(0, padY),
+				Host.UIPadding({}),
+				Host.Frame({
+					Name = "Inset",
+					BackgroundTransparency = 1,
+					Size = D2.new(),
+					AutomaticSize = E.AutomaticSize.XY,
+					Host.UIPadding({
+						PaddingLeft = D.new(0, padX),
+						PaddingRight = D.new(0, padX),
+						PaddingTop = D.new(0, padY),
+						PaddingBottom = D.new(0, padY),
+					}),
+					content,
 				}),
-				content,
 			})
 			node:AddTag("facet-" .. slot)
 			if ctx.theme then
