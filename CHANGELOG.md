@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A skinned `facet-control` plate (any Frame with the tag that `themes.skin` paints, such as the HUD score chips, timer pod and health readout) pads its content by the control art carve (`contentInsets`), like a Button, panel or badge. Before, only its own padding applied, so in Fantasy Parchment the "12", "9", "2:14" and "84" readouts touched or crossed their frames.
 - A TabView current tab in a sidebar or bottom bar (the filled tab) is a selected Button, so a skinned theme paints it with its selected art at its siblings' size and `onSelected` ink, and it reports `selected`. Before, it was a flat `accent` rounded rect (Fantasy Ornate Crypt teal, Fantasy Parchment brown, Pixel Quest green), wider than its framed siblings.
 - Every theme package compiles the same core StyleSheet rules; a rule that only some packages need (selected art, a pressed emphasis swap, the segment fallback, `artTint`) is emitted with no properties where it does not apply. A theme swap re-sets rules and never creates or destroys them: the headless `theme-swap-assets` scene went from 0.93 to about 0.44 ms (p95), under its 0.559 ms budget.
 - `UI.focusSection(group)`: when the selection enters `group` from outside (Left from a detail pane into a sidebar), it returns to the item last selected there, while that item is still selectable. The Foundation lab outline uses it.

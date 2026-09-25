@@ -2043,6 +2043,23 @@ t.describe("native paint strength: theme sheets", function()
 		end
 	)
 
+	t.it("pads a skinned control plate by its art carve, so HUD chips keep their content inside the frame", function()
+		local h = harness()
+		local package = shipped("fantasy_parchment")
+		local sheet, stop = sheetFor(h, package)
+		local plate = h.engine.new("Frame")
+		plate:AddTag("facet-control")
+		local padding = h.engine.new("UIPadding")
+		padding.Parent = plate
+		local carve = package.chrome.control.contentInsets
+		t.expect(resolve(sheet, padding, "PaddingTop")).toBe(nil)
+		plate:AddTag("facet-skinned")
+		t.expect(resolve(sheet, padding, "PaddingTop")).toBe(h.engine.types.UDim.new(0, carve.top))
+		t.expect(resolve(sheet, padding, "PaddingLeft")).toBe(h.engine.types.UDim.new(0, carve.left))
+		stop()
+		h.dispose()
+	end)
+
 	t.it("an inactive tab on control art reads at 4.5:1 on the art after the palette's artTint", function()
 		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
 		local h = harness()

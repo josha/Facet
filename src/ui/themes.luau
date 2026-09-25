@@ -716,7 +716,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		local ink = if role == "slider-fill" or role == "selection-indicator" then "selection" else "accent"
 		rule(".facet-" .. role, { BackgroundColor3 = c(ink), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
-	for role, slot in { button = "control", field = "field", badge = "badge", panel = "panel" } :: { [string]: string } do
+	for role, slot in
+		{
+			button = "control",
+			field = "field",
+			badge = "badge",
+			panel = "panel",
+			["control.facet-skinned"] = "control",
+		} :: { [string]: string }
+	do
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
