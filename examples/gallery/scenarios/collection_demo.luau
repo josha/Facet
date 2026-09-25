@@ -449,6 +449,12 @@ return function(ctx: any, options: any)
 			Name = options.name,
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
+			Host.UIPadding({
+				PaddingTop = D.new(0, 16),
+				PaddingBottom = D.new(0, 16),
+				PaddingLeft = D.new(0, 16),
+				PaddingRight = D.new(0, 16),
+			}),
 			Host.UIListLayout({
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 8),

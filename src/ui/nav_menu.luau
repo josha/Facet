@@ -27,6 +27,21 @@ return function(
 	surfaces: Nav.Surfaces
 ): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local function fillTitle(button: GuiObject)
+		local content = button:FindFirstChild("Content")
+		local words = content and (content:FindFirstChild("Captions") or content:FindFirstChild("Title"))
+		if content and content:IsA("GuiObject") and content.Size.X.Scale == 0 then
+			content.Size = ctx.types.UDim2.new(1, 0, content.Size.Y.Scale, content.Size.Y.Offset)
+			content.AutomaticSize = if content.AutomaticSize == ctx.types.Enum.AutomaticSize.None
+				then ctx.types.Enum.AutomaticSize.None
+				else ctx.types.Enum.AutomaticSize.Y
+		end
+		if words and not words:FindFirstChildWhichIsA("UIFlexItem") then
+			runtime.mount(function()
+				return Host.UIFlexItem({ FlexMode = ctx.types.Enum.UIFlexMode.Fill })
+			end, words)
+		end
+	end
 	local readSource = ctx.readSource
 	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
 	local SLIDE = 32
@@ -453,6 +468,7 @@ return function(
 						end,
 					})
 					row:AddTag("facet-menu-item")
+					fillTitle(row)
 					surfaces.attach(row, {
 						ctx.styled(
 							Host.Frame({
@@ -571,9 +587,25 @@ return function(
 							layout.HorizontalAlignment = E.HorizontalAlignment.Left
 						end
 						local natural = ctx.observe.AbsoluteSize(content)
+						local words = content:FindFirstChild("Captions") or content:FindFirstChild("Title")
+						local wordsBox: ComposeTypes.Readable<Vector2>? = nil
+						local wordsNatural: ComposeTypes.Readable<Vector2>? = nil
+						if words and words:IsA("TextLabel") then
+							wordsBox, wordsNatural = ctx.observe.AbsoluteSize(words), ctx.observe.TextBounds(words)
+						elseif words and words:IsA("GuiObject") then
+							local stack = words:FindFirstChildWhichIsA("UIListLayout")
+							if stack then
+								wordsBox, wordsNatural =
+									ctx.observe.AbsoluteSize(words), ctx.observe.AbsoluteContentSize(stack)
+							end
+						end
 						Compose.watch(function(use: ComposeTypes.Use)
+							local width = use(natural).X
+							if wordsBox and wordsNatural then
+								width = width - use(wordsBox).X + use(wordsNatural).X
+							end
 							local next = table.clone(widths:peek())
-							next[rowKey] = use(natural).X
+							next[rowKey] = width
 							widths:set(next)
 						end)
 						Compose.cleanup(function()
@@ -674,7 +706,9 @@ return function(
 				end,
 				back,
 				{
-					backgroundTransparency = 1,
+					backgroundTransparency = function(use: ComposeTypes.Use): number
+						return if use(sheeted) then 0.5 else 1
+					end,
 					onOutside = close,
 					exiting = if phase then phase.exiting else nil,
 					initialFocus = landing(current:peek()),
@@ -1106,6 +1140,7 @@ return function(
 										end,
 									})
 									button:AddTag("facet-menu-item")
+									fillTitle(button)
 									if item.role == "destructive" then
 										button:AddTag("facet-menu-destructive")
 									end
@@ -1980,6 +2015,15 @@ return function(
 			triggerProps.enabled = spec.enabled
 			triggerProps.label = spec.label or chosenText
 			triggerProps.trailingIcon = if spec.label ~= nil then "chevron.trailing" else nil
+			if spec.label ~= nil then
+				triggerProps.row = { title = spec.label }
+				local given = spec.Size
+				triggerProps.Size = function(use: ComposeTypes.Use): UDim2
+					local base: UDim2 = read(given, use) or D2.fromScale(1, 0)
+					local floor = ctx.controlSize(spec.controlSize, "height", use)
+					return D2.new(base.X.Scale, base.X.Offset, base.Y.Scale, math.max(base.Y.Offset, floor))
+				end
+			end
 			triggerProps.controlSize = spec.controlSize
 			triggerProps.corners = spec.corners
 			triggerProps.appearance = if spec.appearance ~= nil
@@ -1993,6 +2037,10 @@ return function(
 			end
 			local trigger = UI.Button(triggerProps)
 			local row = trigger:FindFirstChild("Content")
+			local chevron = row and row:FindFirstChild("TrailingIcon")
+			if chevron and chevron:IsA("GuiObject") then
+				chevron.LayoutOrder = 100
+			end
 			if spec.label ~= nil and row then
 				runtime.mountFragment(function()
 					return {
@@ -2628,8 +2676,11 @@ return function(
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {
 					MinSize = derive(function(use: ComposeTypes.Use?)
-						return V2.new(0, if read(spec.axis, use) == "y" then 0 else 44 + 2 * segmentMetrics.inset)
-					end, spec.axis),
+						local rung = if spec.controlSize ~= nil
+							then ctx.controlSize(spec.controlSize, "height", use)
+							else 44
+						return V2.new(0, if read(spec.axis, use) == "y" then 0 else rung + 2 * segmentMetrics.inset)
+					end, spec.axis, spec.controlSize, if spec.controlSize ~= nil then ctx.config.theme else nil),
 				},
 			})
 			if spec.corners then
@@ -2731,6 +2782,7 @@ return function(
 						Size = if spec.Size then D2.fromScale(1, 1) else nil,
 						AutomaticSize = if spec.Size then E.AutomaticSize.None else nil,
 						label = spec.label,
+						trailingIcon = "chevron.down",
 						enabled = spec.enabled,
 						busy = spec.busy,
 						onActivate = function()
@@ -2762,15 +2814,26 @@ return function(
 						end,
 					}, true)
 				end, function()
-					return ctx.row({
+					local row = ctx.row({
 						primary(),
 						UI.Menu "Alternatives" {
-							label = spec.menuLabel or "More options",
+							trigger = function(): GuiObject
+								return UI.Button "Trigger" {
+									icon = "chevron.down",
+									name = spec.menuLabel or "More options",
+									enabled = enabled,
+									onActivate = function()
+										opened:set(true)
+									end,
+								}
+							end,
 							items = spec.items,
 							enabled = enabled,
 							isPresented = opened,
 						},
 					})
+					assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 2)
+					return row
 				end),
 			})
 		)

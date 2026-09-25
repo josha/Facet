@@ -279,6 +279,48 @@ t.describe("native radial interaction policies", function()
 		t.expect(button.Rotation).toBe(0)
 		world.stop()
 	end)
+	t.it("draws icon items in the buttons appearance as icon-only circles and names Close with an icon", function()
+		local world = setup({
+			appearance = "buttons",
+			center = "close",
+			items = {
+				{ id = "Look", label = "Look", icon = "menu", onSelect = function() end },
+				{ id = "Words", label = "Words only", onSelect = function() end },
+			},
+		})
+		local look = world.find("Look")
+		t.expect(look.Text).toBe("")
+		local launcher = world.find("Launcher")
+		if launcher then
+			t.expect(launcher:FindFirstChild("Title", true)).toBeNil()
+			t.expect(launcher:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		end
+		t.expect(look:GetAttribute("AccessibleLabel") or look:GetAttribute("FacetLabel") or look.Name).toBe("Look")
+		local words = world.find("Words")
+		t.expect((words:FindFirstChild("Title", true) or words).Text).toBe("Words only")
+		local close = world.find("$navigation")
+		if close then
+			t.expect(close:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		end
+		world.stop()
+	end)
+
+	t.it("draws Close as an icon in a ring whose items are all icons", function()
+		local world = setup({
+			center = "close",
+			items = {
+				{ id = "A", label = "Alpha", icon = "menu", labelStyle = "icon", onSelect = function() end },
+				{ id = "B", label = "Beta", icon = "menu", labelStyle = "icon", onSelect = function() end },
+			},
+		})
+		local close = world.find("$navigation")
+		if close then
+			t.expect(close.Text).toBe("")
+			t.expect(close:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		end
+		world.stop()
+	end)
+
 	t.it("NRAD-12 empty center keeps ring Back and full-label preview", function()
 		local world = setup({
 			center = "empty",
@@ -299,6 +341,7 @@ t.describe("native radial interaction policies", function()
 		world.find("Branch").Activated.fire()
 		world.find("Action").MouseEnter.fire()
 		t.expect(world.find("SelectionPreview").Text).toBe("Long readable action")
+		t.expect(world.find("SelectionPreview").TextXAlignment).toBe(world.engine.types.Enum.TextXAlignment.Center)
 		world.find("$navigation").Activated.fire()
 		t.expect(world.find("Branch") ~= nil).toBe(true)
 		world.stop()

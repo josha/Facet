@@ -26,6 +26,20 @@ return function(
 			return selected
 		end
 		local appearance = choice(spec.appearance, "wedges", { "wedges", "buttons" }, "appearance")
+		local function iconic(items: { any }): boolean
+			if appearance == "buttons" then
+				return true
+			end
+			if #items == 0 then
+				return false
+			end
+			for _, item in items do
+				if not (item.labelStyle == "icon" or (item.compactLabel and item.compactLabel.prefer)) then
+					return false
+				end
+			end
+			return true
+		end
 		local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
 		local gestureSelection =
 			choice(spec.gestureSelection, "bounded", { "bounded", "direction" }, "gestureSelection")
@@ -278,7 +292,9 @@ return function(
 			surfaces.attach(root, {
 				UI.Button "Launcher" {
 					label = spec.label or "Quick actions",
-					icon = spec.icon,
+					name = spec.label or "Quick actions",
+					icon = spec.icon or (if spec.label == nil then "more" else nil),
+					shape = if spec.label == nil then "circle" :: "circle" else nil,
 					enabled = spec.enabled,
 					InputBegan = function(input: InputObject)
 						if not opened:peek() and isPointer(input) then
@@ -405,7 +421,17 @@ return function(
 						end
 						if spec.center and spec.center ~= "back" and #prefix == #use(path) then
 							local navigationItem: Radial.RadialItemBase<V> & { checked: nil?, selected: nil?, value: nil?, onChange: nil? } =
-								{ id = "$navigation", label = if #prefix > 0 then "Back" else "Close" }
+								{
+									id = "$navigation",
+									label = if #prefix > 0 then "Back" else "Close",
+									icon = if not iconic(shown)
+										then nil
+										elseif #prefix > 0 then "chevron.leading"
+										else "close",
+									labelStyle = if iconic(shown) and appearance ~= "buttons"
+										then "icon" :: "icon"
+										else nil,
+								}
 							if #prefix == 0 and spec.distribution == "compass" then
 								local slots: { [string]: boolean } = {}
 								for _, item in shown do
@@ -662,9 +688,13 @@ return function(
 													and (
 														live.item.labelStyle == "icon"
 														or (live.item.compactLabel and live.item.compactLabel.prefer)
+														or (appearance == "buttons" and live.item.icon ~= nil)
 													)
 												then ""
 												else read(live.item.label, use)
+										end,
+										name = function(use: ComposeTypes.Use): string
+											return read(currentSector(use).item.label, use) or ""
 										end,
 										icon = sector.item.icon
 											or (sector.item.compactLabel and sector.item.compactLabel.icon),
@@ -748,6 +778,13 @@ return function(
 										ZIndex = 102,
 									}
 									ctx.styled(paint, "radial-sector")
+									Compose.watch(function(use: ComposeTypes.Use)
+										if use(candidate) == currentSector(use).key then
+											paint:AddTag("facet-radial-candidate")
+										else
+											paint:RemoveTag("facet-radial-candidate")
+										end
+									end)
 									local wrapper = Host.CanvasGroup("Sector-" .. sector.id)({
 										BackgroundTransparency = 1,
 										GroupTransparency = function(use: ComposeTypes.Use)
@@ -904,13 +941,37 @@ return function(
 				if centerButton and centerButton:IsA("GuiObject") then
 					skin(centerButton, spec.skin and spec.skin.center)
 				end
+				local panelSize = ctx.observe.AbsoluteSize(panel)
+				local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
+					local ring = use(layout)
+					if ring.list then
+						return D2.new(0.5, 0, 1, -8), V2.new(0.5, 1)
+					end
+					local at, room = use(center), use(panelSize)
+					local reach = ring.inner
+					for _, sector in ring.sectors do
+						reach = math.max(reach, sector.outer)
+					end
+					local x = math.clamp(at.X, 160, math.max(160, room.X - 160))
+					local below = at.Y + reach + 12
+					if below + 40 > room.Y then
+						return D2.fromOffset(x, at.Y - reach - 12), V2.new(0.5, 1)
+					end
+					return D2.fromOffset(x, below), V2.new(0.5, 0)
+				end
 				surfaces.attach(panel, {
 					ctx.text({
 						Name = "SelectionPreview",
-						Size = D2.new(1, -24, 0, 0),
+						Size = D2.fromOffset(320, 0),
 						AutomaticSize = E.AutomaticSize.Y,
-						Position = D2.new(0.5, 0, 1, -8),
-						AnchorPoint = V2.new(0.5, 1),
+						Position = function(use: ComposeTypes.Use): UDim2
+							return (previewPlace(use))
+						end,
+						AnchorPoint = function(use: ComposeTypes.Use): Vector2
+							local _, anchor = previewPlace(use)
+							return anchor
+						end,
+						TextXAlignment = E.TextXAlignment.Center,
 						LayoutOrder = 10000,
 						TextWrapped = true,
 						Text = function(use: ComposeTypes.Use)

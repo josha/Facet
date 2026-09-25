@@ -240,9 +240,8 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Direction: right to left",
+					direction = "rtl",
 					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
 				},
 				UI.Text "CutHeading" {
 					BackgroundTransparency = 1,
@@ -266,9 +265,7 @@ return {
 					end,
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = TRACK,
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					truncate = "end",
 				},
 				UI.Text "CutMiddle" {
 					ref = function(node)
@@ -281,9 +278,7 @@ return {
 					end,
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = TRACK,
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					truncate = "middle",
 				},
 				UI.Text "PictureHeading" {
 					BackgroundTransparency = 1,

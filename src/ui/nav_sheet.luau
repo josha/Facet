@@ -514,7 +514,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return UI.Button "Close" {
 				label = closeLabel,
-				appearance = "link",
+				appearance = if overHero then "inverse" else "link",
 				onActivate = function()
 					close("close")
 				end,
@@ -526,6 +526,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if current.content then
 				local children: { Types.Child } = {
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+					Host.UIPadding({
+						PaddingLeft = ctx.types.UDim.new(0, 16),
+						PaddingRight = ctx.types.UDim.new(0, 16),
+						PaddingBottom = ctx.types.UDim.new(0, 12),
+					}),
 				}
 				if overHero then
 					table.insert(
@@ -561,7 +566,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Host.Frame "Utilities" {
 							BackgroundTransparency = 1,
 							AnchorPoint = V2.new(1, 0),
-							Position = D2.fromScale(1, 0),
+							Position = D2.new(1, -8, 0, 8),
 							Size = D2.fromOffset(0, 0),
 							AutomaticSize = E.AutomaticSize.XY,
 							ZIndex = 3,

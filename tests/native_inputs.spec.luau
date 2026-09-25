@@ -46,6 +46,30 @@ local function enabledAction(root, name)
 end
 
 t.describe("native input controls", function()
+	t.it("keeps the control height under an authored full-width Button size", function()
+		local node, stop = world(function(UI, engine, runtime)
+			return runtime.constructors.Frame({
+				UI.Button("Wide")({
+					label = "Go",
+					Size = engine.types.UDim2.new(1, 0, 0, 0),
+					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+					onActivate = function() end,
+				}),
+				UI.Button("Short")({
+					label = "Go",
+					Size = engine.types.UDim2.new(1, 0, 0, 24),
+					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+					onActivate = function() end,
+				}),
+			})
+		end)
+		local wide = find(node, "Wide")
+		t.expect(wide.Size.X.Scale).toBe(1)
+		t.expect(wide.Size.Y.Offset >= 44).toBe(true)
+		t.expect(find(node, "Short").Size.Y.Offset).toBe(24)
+		stop()
+	end)
+
 	t.it("delivers only the final native Chip and ShortcutHint roots to refs", function()
 		local chipRefs, hintRefs = {}, {}
 		local node, stop = world(function(UI, engine, runtime)
@@ -347,7 +371,8 @@ t.describe("native input controls", function()
 		t.expect(find(node, "Increase"):FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
 		t.expect(find(node, "Increase").Text).toBe("")
 		t.expect(find(node, "Decrease"):GetAttribute("label")).toBe("Decrease")
-		t.expect(find(find(node, "Decrease"), "Title").Text).toBe("")
+		local decreaseTitle = find(node, "Decrease"):FindFirstChild("Title", true)
+		t.expect(decreaseTitle == nil or decreaseTitle.Text == "").toBe(true)
 		find(node, "Increase").Activated.fire()
 		t.expect(value:peek()).toBe(10)
 		step:set(2)

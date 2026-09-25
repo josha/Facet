@@ -43,13 +43,6 @@
       "reason": "The progress trail is a translucent echo of the .facet-fill accent; the palette has no trail opacity, and 0.6 is relative to the themed fill color."
     },
     {
-      "path": "src/ui/media.luau",
-      "rule": "type-size",
-      "match": "return math.max(8, math.floor(diameter(use) * 0.4 + 0.5))",
-      "status": "structural",
-      "reason": "Avatar initials are sized to 40 percent of the avatar diameter with an 8 px floor, so they fit the circle at every size."
-    },
-    {
       "path": "src/ui/nav_modal.luau",
       "rule": "paint-color",
       "match": "ctx.types.Color3.new(0, 0, 0)",

@@ -551,6 +551,7 @@ return {
 						LayoutOrder = 1,
 						Name = "Save",
 						label = "Save changes",
+						compactLabel = "Save",
 						onActivate = function()
 							saved:set(true)
 						end,
@@ -559,6 +560,7 @@ return {
 						LayoutOrder = 2,
 						Name = "Reset",
 						label = "Reset to defaults",
+						compactLabel = "Reset",
 						role = "cancel",
 						onActivate = reset,
 					}),
@@ -566,6 +568,7 @@ return {
 						LayoutOrder = 3,
 						Name = "Delete",
 						label = "Delete profile",
+						compactLabel = "Delete",
 						role = "destructive",
 						onActivate = function()
 							reset()

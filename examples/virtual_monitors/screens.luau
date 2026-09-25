@@ -1259,7 +1259,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						itemSize = 250,
 						measure = true,
 						gap = 16,
-						overscan = 1,
+						overscan = 2,
 						render = gameCard,
 						Size = D2.fromScale(1, 1),
 						BackgroundTransparency = 1,

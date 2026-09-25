@@ -562,6 +562,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				return D2.new(1, 0, 0, ctx.controlSize(spec.controlSize, "height", use))
 			end
 			p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
+		elseif spec.Size ~= nil and spec.shape ~= "circle" then
+			local given = spec.Size
+			local sizing = spec.AutomaticSize
+			local function floored(use: ComposeTypes.Use?): UDim2
+				local size: UDim2 = read(given, use)
+				local automatic = read(sizing, use)
+				local grows = automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY
+				if grows and size.Y.Scale == 0 and size.Y.Offset == 0 then
+					return D2.new(size.X.Scale, size.X.Offset, 0, ctx.controlSize(spec.controlSize, "height", use))
+				end
+				return size
+			end
+			p.Size = if dynamic(given)
+					or dynamic(sizing)
+					or dynamic(spec.controlSize)
+					or dynamic(ctx.config.theme)
+				then floored
+				else floored()
 		end
 		if spec.shape == "circle" then
 			if spec.Size == nil then
@@ -676,7 +694,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			local label = row.title or spec.label or (if leading then nil else spec.name) or ""
 			local description = row.description or spec.subtitle or spec.hint
-			if not (spec.shape == "circle" and spec.icon) then
+			local wordless = leading ~= nil and description == nil and not dynamic(label) and label == ""
+			if not (spec.shape == "circle" and spec.icon) and not wordless then
 				local function caption(name: string, text: Shared.Value<string>): TextLabel
 					local live = dynamic(text)
 					local function words(use: ComposeTypes.Use?): string
@@ -1382,6 +1401,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							else nil
 					)
 				)
+				if spec.row and spec.Size == nil then
+					p.Size = function(use: ComposeTypes.Use)
+						return D2.new(1, 0, 0, ctx.controlSize(spec.controlSize, "height", use))
+					end
+					p.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
+				end
 			else
 				p.Text = spec.Text or spec.label or ""
 				p.TextXAlignment = spec.TextXAlignment or E.TextXAlignment.Left
@@ -1952,7 +1977,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					})
 				)
 			end
-			table.insert(p, ctx.row(contents, { Name = "Content" }))
+			local row = ctx.row(contents, {
+				Name = "Content",
+				AnchorPoint = V2.new(0, 0.5),
+				Position = D2.fromScale(0, 0.5),
+			})
+			assert(row:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
+			table.insert(p, row)
 		end
 		if p.haptic == nil and spec.selected ~= nil then
 			p.haptic = true

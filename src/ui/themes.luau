@@ -944,6 +944,18 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu-item.facet-selected >> .facet-button-caption", { TextColor3 = c("onAccent") })
 	rule(".facet-menu-item.facet-selected >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-menu-item.facet-selected >> .facet-icon", { ImageColor3 = c("onAccent") })
+	rule(".facet-radial-sector", { Color3 = c("surfaceStrong") })
+	rule(".facet-radial-sector.facet-radial-candidate", { Color3 = c("controlSelected") })
+	rule(".facet-page-indicator", { BackgroundTransparency = 1 })
+	rule(".facet-page-indicator:Hover", { BackgroundTransparency = 1 })
+	rule(".facet-page-indicator:Press", { BackgroundTransparency = 1 })
+	rule(".facet-page-indicator.facet-selected", { BackgroundTransparency = 1 })
+	rule(".facet-page-dot", { BackgroundColor3 = c("contentSecondary"), BackgroundTransparency = 0 })
+	rule(".facet-page-indicator:Hover >> .facet-page-dot", { BackgroundColor3 = c("content") })
+	rule(".facet-page-indicator.facet-selected >> .facet-page-dot", {
+		BackgroundColor3 = c("accent"),
+		BackgroundTransparency = 0,
+	})
 	rule(".facet-floating::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
 	rule(".facet-step-circle::UIStroke", { Color = c("contentSecondary"), Thickness = 1 })
 	rule(".facet-invalid::UIStroke", { Color = c("danger"), Thickness = 1 })

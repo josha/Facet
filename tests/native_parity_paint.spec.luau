@@ -1522,7 +1522,6 @@ t.describe("native parity paint", function()
 			["facet-level-picker"] = true,
 			["facet-notice"] = true,
 			["facet-popover"] = true,
-			["facet-radial-sector"] = true,
 			["facet-rating"] = true,
 			["facet-rowactions"] = true,
 			["facet-slider"] = true,

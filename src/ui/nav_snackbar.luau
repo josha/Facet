@@ -455,6 +455,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local row = ctx.styled(Host.CanvasGroup(rowProps), "snackbar")
 		ctx.styled(row, "panel")
+		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
 		local gone = Compose.cell(0)
 		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
