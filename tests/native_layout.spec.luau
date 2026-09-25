@@ -50,6 +50,26 @@ local function refusal(body: (any, any) -> any): string?
 	return if ok then nil else tostring(message)
 end
 
+local function painted(root: any): string
+	local nodes = {}
+	for _, node in root:GetChildren() do
+		if node:IsA("GuiObject") then
+			table.insert(nodes, node)
+		end
+	end
+	table.sort(nodes, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	local texts = {}
+	for at, node in nodes do
+		table.insert(
+			texts,
+			if at > 1 and nodes[at - 1].LayoutOrder == node.LayoutOrder then "=" .. node.Text else node.Text
+		)
+	end
+	return table.concat(texts, " ")
+end
+
 local function mentions(message: string?, fragment: string): boolean
 	return message ~= nil and string.find(message, fragment, 1, true) ~= nil
 end
@@ -265,15 +285,47 @@ t.describe("native layout primitives", function()
 				}
 			end)
 			shown:set(true)
-			local orders = {}
-			for _, node in root:GetChildren() do
-				if node:IsA("GuiObject") then
-					orders[node.Text] = node.LayoutOrder
-				end
-			end
-			t.expect(orders).toEqual({ First = 1, Middle = 2, Last = 3 })
+			t.expect(painted(root)).toBe("First Middle Last")
 			stop()
 		end)
+
+		t.it(
+			"keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
+			function()
+				local items = Compose.cell({ "A", "B", "C" })
+				local root, _, stop = build(nil, function(UI)
+					return UI.VStack {
+						UI.Text { text = "Top" },
+						Compose.keyed({
+							from = items,
+							render = function(value, index)
+								return UI.Text {
+									text = value,
+									LayoutOrder = index,
+								}
+							end,
+						}),
+						Compose.keyed({
+							from = items,
+							render = function(value)
+								return UI.Text {
+									text = function(use)
+										return string.lower(use(value))
+									end,
+								}
+							end,
+						}),
+						UI.Text { text = "End" },
+					}
+				end)
+				t.expect(painted(root)).toBe("Top A B C a b c End")
+				items:set({ "B", "C", "A" })
+				t.expect(painted(root)).toBe("Top B C A b c a End")
+				items:set({ "C", "D", "B" })
+				t.expect(painted(root)).toBe("Top C D B c d b End")
+				stop()
+			end
+		)
 
 		t.it("refuses an unknown spacing step, alignment or option and names the vocabulary", function()
 			local engine, runtime, UI = make()

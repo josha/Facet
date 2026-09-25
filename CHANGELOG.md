@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A stack keeps the rows of a `Compose.keyed` or `Compose.show` child in the directive's order, and a `LayoutOrder` set in a row orders it within that child. Before, every row got the child's own position, so keyed rows painted in an arbitrary order and a row's `LayoutOrder` was overwritten. A list with such a child spaces its positions by 65536.
 - An `outline` DisclosureGroup header starts its chevron and label at the leading edge, like the rows under it. Before, they were centered.
 - A text Button or Toggle with an authored width wraps its label and grows in height, and a label that cannot fit its box truncates at the end. Before, a long label painted past the control or was cut in the middle of a letter.
 - A VirtualList, VirtualGrid or Table `status` cell that starts as `nil` is filled with the empty status record. Before, the collection raised "attempt to index nil with 'total'".

@@ -362,9 +362,10 @@ of its root, and a native property that you set replaces the default value.
 
 Write the children as dense numeric children. The container sets the
 `LayoutOrder` of each child to its position in the list. Nodes that a
-`Compose.show` or `Compose.keyed` child adds get the position of that child.
-Nodes in one keyed child share that position. Set `LayoutOrder` in the row
-when their order is important.
+`Compose.show` or `Compose.keyed` child adds sit at the position of that child,
+in the directive's own order: a keyed child keeps its rows in list order. A
+`LayoutOrder` that you set in a row orders it within that child. When the list
+has such a child, the positions are spaced by 65536 (position 2 is 131072).
 
 ```luau
 local sound = Compose.cell(true)

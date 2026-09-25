@@ -230,36 +230,97 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return Host.UIListLayout(native)
 	end
+
+	local SPAN = 65536
 	function kit.ordered(children: { ComposeTypes.Child }, place: ((GuiObject, number) -> ())?): { ComposeTypes.Child }
+		local spaced = false
+		for _, child in children do
+			spaced = spaced or type(child) == "function"
+		end
 		local result: { ComposeTypes.Child } = {}
 		for index, child in children do
-			local function stamp(node: Instance)
-				if node:IsA("GuiObject") then
-					local gui = node :: GuiObject
-					gui.LayoutOrder = index
-					if place then
-						place(gui, index)
-					end
-				end
-			end
+			local base = if spaced then index * SPAN else index
 			if type(child) == "function" then
 				local directive = child :: ComposeTypes.Directive
 				result[index] = function(mountPoint: ComposeTypes.MountPoint)
+					local slot: { Instance } = {}
+					local stamped: { [Instance]: number } = {}
+					local own: { [Instance]: number } = {}
+					local watches: { [Instance]: RBXScriptConnection } = {}
+					local function restamp()
+						for at, node in slot do
+							if node:IsA("GuiObject") then
+								local order = base + (own[node] or at)
+								stamped[node] = order;
+								(node :: GuiObject).LayoutOrder = order
+							end
+						end
+					end
+					local function forget(node: Instance)
+						local found = table.find(slot, node)
+						if found then
+							table.remove(slot, found)
+						end
+						if watches[node] then
+							watches[node]:Disconnect()
+						end
+						watches[node], stamped[node], own[node] = nil, nil, nil
+					end
+					Compose.cleanup(function()
+						for node in watches do
+							forget(node)
+						end
+					end)
 					directive({
 						parent = mountPoint.parent,
 						host = mountPoint.host,
-						ordersChildren = mountPoint.ordersChildren,
-						moveTo = mountPoint.moveTo,
-						remove = mountPoint.remove,
+						ordersChildren = true,
 						count = mountPoint.count,
 						insert = function(node: unknown, at: number?)
-							stamp(node :: Instance)
+							local gui = node :: Instance
+							table.insert(slot, at or #slot + 1, gui)
+							if gui:IsA("GuiObject") then
+								local authored = (gui :: GuiObject).LayoutOrder
+								if authored ~= 0 then
+									own[gui] = authored
+								end
+								watches[gui] = gui:GetPropertyChangedSignal("LayoutOrder"):Connect(function()
+									local order = (gui :: GuiObject).LayoutOrder
+									if order ~= stamped[gui] then
+										own[gui] = order
+										restamp()
+									end
+								end)
+								if place then
+									place(gui :: GuiObject, index)
+								end
+							end
+							restamp()
 							mountPoint.insert(node, at)
+						end,
+						moveTo = function(node: unknown, at: number)
+							table.remove(slot, assert(table.find(slot, node :: Instance)))
+							table.insert(slot, at, node :: Instance)
+							restamp()
+							if mountPoint.ordersChildren then
+								mountPoint.moveTo(node, at)
+							end
+						end,
+						remove = function(node: unknown)
+							forget(node :: Instance)
+							mountPoint.remove(node)
+							restamp()
 						end,
 					})
 				end
 			else
-				stamp(child :: Instance)
+				if (child :: Instance):IsA("GuiObject") then
+					local gui = child :: GuiObject
+					gui.LayoutOrder = base
+					if place then
+						place(gui, index)
+					end
+				end
 				result[index] = child
 			end
 		end
