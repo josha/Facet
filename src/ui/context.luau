@@ -10,7 +10,7 @@ type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = { onReleased: (() -> ())?, priority: number?, sink: boolean?, capture: boolean? }
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
-	local config: Shared.Config = table.clone(options or {})
+	local config: Shared.Config = if options then table.clone(options) else {}
 	local types: Shared.RobloxTypes = config.types
 		or {
 			UDim = UDim,
@@ -33,7 +33,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			BrickColor = BrickColor,
 		}
 	assert(types.UDim2 and types.Enum, "Facet.controls requires Roblox datatypes")
-	local services: Shared.Services = table.clone(config.services or {})
+	local services: Shared.Services = if config.services then table.clone(config.services) else {}
 	if game then
 		services.GuiService = services.GuiService or game:GetService("GuiService")
 		services.UserInputService = services.UserInputService or game:GetService("UserInputService")
@@ -90,6 +90,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return value :: T
 	end
 	ctx.read = (read :: unknown) :: Shared.Read
+	ctx.readSource = function<T>(source: ComposeTypes.Readable<T>, use: ComposeTypes.Use?): T
+		return if use then use(source) else source:peek()
+	end
 	local function live(value: unknown): boolean
 		return Compose.isReadable(value) or type(value) == "function"
 	end
@@ -184,15 +187,29 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end))
 		return value
 	end
-	ctx.observe = (observe :: unknown) :: Shared.Observe
+	local function observers(watch: (Instance, string) -> ComposeTypes.Cell<unknown>): Shared.Observe
+		local bound: { [string]: (Instance) -> ComposeTypes.Cell<unknown> } = {}
+		setmetatable(bound, {
+			__index = function(_, property: string): (Instance) -> ComposeTypes.Cell<unknown>
+				local read = function(node: Instance): ComposeTypes.Cell<unknown>
+					return watch(node, property)
+				end
+				bound[property] = read
+				return read
+			end,
+		})
+		return (bound :: unknown) :: Shared.Observe
+	end
+	ctx.observe = observers(observe)
 	type SelectionWaiters = { waiting: { [Instance]: () -> () }, count: number, stop: (() -> ())? }
 	local selectionWaiters: { [Instance]: SelectionWaiters } = {}
 	function ctx.whenSelected(gui: Instance, node: Instance, callback: () -> ()): ()
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
 		local waiters = selectionWaiters[gui]
 		if waiters == nil then
-			waiters = { waiting = {}, count = 0, stop = nil }
-			selectionWaiters[gui] = waiters
+			local created: SelectionWaiters = { waiting = {}, count = 0, stop = nil }
+			selectionWaiters[gui] = created
+			waiters = created
 		end
 		local registry = waiters :: SelectionWaiters
 		Compose.cleanup(function()
@@ -230,9 +247,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end
 		end
 		local mouse, touch, gamepad =
-			observe(input, "MouseEnabled"), observe(input, "TouchEnabled"), observe(input, "GamepadEnabled")
+			ctx.observe.MouseEnabled(input), ctx.observe.TouchEnabled(input), ctx.observe.GamepadEnabled(input)
 		return function(use: ComposeTypes.Use?): boolean
-			return ctx.read(mouse, use) == true and ctx.read(touch, use) ~= true and ctx.read(gamepad, use) ~= true
+			return ctx.readSource(mouse, use) == true
+				and ctx.readSource(touch, use) ~= true
+				and ctx.readSource(gamepad, use) ~= true
 		end
 	end
 	function ctx.hitFloor(): (ComposeTypes.Use?) -> number
@@ -301,9 +320,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				local at: Instance? = node
 				while at do
 					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe(at, "Visible"))
+						table.insert(sources, ctx.observe.Visible(at))
 					elseif at:IsA("LayerCollector") then
-						table.insert(sources, ctx.observe(at, "Enabled"))
+						table.insert(sources, ctx.observe.Enabled(at))
 						break
 					end
 					at = at.Parent
@@ -334,7 +353,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end)
 		return value
 	end
-	ctx.observeStyled = (observeStyled :: unknown) :: Shared.Observe
+	ctx.observeStyled = observers(observeStyled)
 	local function distance(a: string, b: string): number
 		local previous: { number } = {}
 		for j = 0, #b do
@@ -476,7 +495,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	local layout = layoutKit.attach((ctx :: unknown) :: Shared.Context)
 	function ctx.padding(horizontal: number, vertical: number): UIPadding
-		return assert(layout.insets({ top = vertical, right = horizontal, bottom = vertical, left = horizontal }))
+		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
+		return assert(layout.insets(sides))
 	end
 	function ctx.corner(radius: number?): UICorner
 		return if radius then Host.UICorner({ CornerRadius = types.UDim.new(0, radius) }) else Host.UICorner({})
@@ -593,7 +613,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
 		local scopes = ctx.read(ctx.modalScopes, use)
-		local portals = ctx.read(ctx.modalPortals, use)
+		local portals = ctx.readSource(ctx.modalPortals, use)
 		local modal: Instance? = scopes[#scopes]
 		local function inside(at: Instance?, visited: { [Instance]: boolean }): boolean
 			if not at or visited[at] then
@@ -629,7 +649,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	function ctx.action(
 		node: Instance,
 		name: string,
-		keyCodes: { Shared.ActionBinding },
+		keyCodes: Shared.ActionBindings,
 		enabledSource: Shared.Value<boolean>?,
 		onPressed: () -> (),
 		actionSettings: ActionSettings?
@@ -667,11 +687,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				local collector: Instance? = nil
 				while at do
 					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe(at, "Visible"))
-						table.insert(sources, ctx.observe(at, "Interactable"))
+						table.insert(sources, ctx.observe.Visible(at))
+						table.insert(sources, ctx.observe.Interactable(at))
 					elseif at:IsA("LayerCollector") then
 						collector = at
-						table.insert(sources, ctx.observe(at, "Enabled"))
+						table.insert(sources, ctx.observe.Enabled(at))
 						break
 					end
 					at = at.Parent
@@ -692,7 +712,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		locate()
 		runtime.connect(node, "AncestryChanged", locate)
 		local gui = config.guiService
-		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe(gui, "SelectedObject") else nil
+		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local p: Shared.InputActionNativeProps = {
 			Name = name,
 			Type = Enum.InputActionType.Bool,
@@ -705,7 +725,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if settings.onReleased then
 			p.Released = settings.onReleased
 		end
-		for _, binding in keyCodes do
+		for _, binding in keyCodes :: { Shared.ActionBinding } do
 			table.insert(
 				p,
 				Host.InputBinding(if type(binding) == "table"
@@ -727,8 +747,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and ctx.read(enabledSource, use) ~= false
 				and ctx.available(node, use)
 		end
-		local context = Host.InputContext({
-			Name = "Facet" .. name,
+		local context = Host.InputContext("Facet" .. name)({
 			Parent = parent,
 			Priority = settings.priority or 2000,
 			Sink = settings.sink ~= false,
@@ -738,8 +757,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local inputService = config.userInputService
 		if settings.capture and gui and selection and inputService then
 			local steering: { [string]: string } = {}
-			for _, binding in keyCodes do
-				local code = if type(binding) == "string"
+			for _, binding in keyCodes :: { Shared.ActionBinding } do
+				local code: unknown = if type(binding) == "string"
 					then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
 					elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
 					else binding
@@ -831,26 +850,30 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return action, context
 	end
 
-	function ctx.skin(node: GuiObject, slot: string, skinOptions: Shared.SkinStateOptions?): ComposeTypes.Dispose?
+	function ctx.skin(
+		node: GuiObject,
+		slot: string,
+		skinOptions: Shared.SkinStateOptions?
+	): (ComposeTypes.Dispose?, GuiObject?)
 		if config.theme == nil then
-			return nil
+			return nil, nil
 		end
 		if not Compose.isReadable(config.theme) and type(config.theme) ~= "function" then
 			local package = config.theme :: Theme.ThemePackage
 			local recipe = (package.chrome or {})[slot]
 			if recipe == nil or ((recipe.kind == "native" or recipe.kind == "none") and recipe.shadow == nil) then
-				return nil
+				return nil, nil
 			end
 		end
-		local state = ctx.observe(node, "GuiState")
+		local state = ctx.observe.GuiState(node)
 		local stateOptions: Shared.SkinStateOptions = skinOptions or {}
-		return runtime.mount(function()
+		local dispose, art = runtime.mount(function()
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
 				label = if node:IsA("TextButton")
-					then ctx.observe(node, "Text")
-					elseif node:IsA("TextLabel") then ctx.observe(node, "Text")
+					then ctx.observe.Text(node)
+					elseif node:IsA("TextLabel") then ctx.observe.Text(node)
 					else nil,
 				state = function(use: ComposeTypes.Use)
 					if ctx.read(stateOptions.disabled, use) == true then
@@ -871,6 +894,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				ZIndex = 0,
 			})
 		end, node)
+		return dispose, art :: GuiObject?
 	end
 
 	track = selection(ctx)

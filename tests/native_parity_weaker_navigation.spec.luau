@@ -1426,7 +1426,7 @@ t.describe("native parity weaker navigation", function()
 			end
 			local first = model.catalog.items:peek()[1]
 			model.selectGame(first)
-			find(target, "SimilarTab").Activated.fire()
+			find(find(target, "DetailSection"), "similar").Activated.fire()
 			local picks = rows()
 			t.expect(#picks).toBe(6)
 			for _, id in picks do
@@ -1449,8 +1449,8 @@ t.describe("native parity weaker navigation", function()
 			t.expect(model.selectedGame:peek().genre).toBe(first.genre)
 			t.expect(model.detailTab:peek()).toBe("about")
 			t.expect(find(target, "SimilarGames")).toBeNil()
-			t.expect(find(target, "SimilarTab") ~= nil).toBe(true)
-			find(target, "SimilarTab").Activated.fire()
+			t.expect(find(find(target, "DetailSection"), "similar") ~= nil).toBe(true)
+			find(find(target, "DetailSection"), "similar").Activated.fire()
 			for _, id in rows() do
 				t.expect(byId[id].genre).toBe(first.genre)
 				t.expect(id ~= match).toBe(true)

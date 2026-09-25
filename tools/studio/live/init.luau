@@ -579,6 +579,62 @@ function live.finish(tag: string): string
 	return live.summary(json)
 end
 
+local PAD_KEYS: { [string]: Enum.KeyCode } = {
+	DPadDown = Enum.KeyCode.Three,
+	DPadLeft = Enum.KeyCode.Two,
+	DPadRight = Enum.KeyCode.Four,
+	ButtonA = Enum.KeyCode.Nine,
+	ButtonB = Enum.KeyCode.Zero,
+	ButtonX = Enum.KeyCode.Eight,
+	ButtonY = Enum.KeyCode.Seven,
+	ButtonL1 = Enum.KeyCode.R,
+	ButtonL2 = Enum.KeyCode.E,
+	StickUp = Enum.KeyCode.W,
+}
+
+function live.press(names: { string }, frames: number?): string
+	local UserInputService = game:GetService("UserInputService")
+	local virtual = (UserInputService :: any):CreateVirtualInput()
+	local seen: { string } = {}
+	local connection = UserInputService.InputBegan:Connect(function(input)
+		table.insert(seen, `{input.UserInputType.Name}:{input.KeyCode.Name}`)
+	end)
+	local moved = UserInputService.InputChanged:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.Thumbstick1 and input.Position.Magnitude > 0.5 then
+			table.insert(seen, `{input.UserInputType.Name}:{input.KeyCode.Name}:{input.Position.X},{input.Position.Y}`)
+		end
+	end)
+	local selections: { string } = {}
+	for _, name in names do
+		local key = PAD_KEYS[name] or (Enum.KeyCode :: any)[name]
+		virtual:SendKey(true, key, false)
+		for _ = 1, 3 do
+			RunService.RenderStepped:Wait()
+		end
+		virtual:SendKey(false, key, false)
+		for _ = 1, frames or 8 do
+			RunService.RenderStepped:Wait()
+		end
+		local selected = GuiService.SelectedObject
+		table.insert(selections, `{name}>{if selected then selected.Name else "nil"}`)
+	end
+	connection:Disconnect()
+	moved:Disconnect()
+	local session = shared.FacetLiveSession
+	if session then
+		local notes = session.record.notes
+		notes.deliveredInput = notes.deliveredInput or {}
+		for _, entry in seen do
+			table.insert(notes.deliveredInput, entry)
+		end
+		notes.pressedSelections = notes.pressedSelections or {}
+		for _, entry in selections do
+			table.insert(notes.pressedSelections, entry)
+		end
+	end
+	return HttpService:JSONEncode({ input = seen, selections = selections })
+end
+
 function live.release()
 	local hold = shared.FacetLiveHold
 	shared.FacetLiveHold = nil

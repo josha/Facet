@@ -61,6 +61,15 @@ local function fixture(build)
 	end
 end
 
+local function scenarioGroup(scenario: any, name: string): boolean
+	for _, group in scenario.groups do
+		if group.id == name then
+			return true
+		end
+	end
+	return false
+end
+
 t.describe("native gallery shell parity", function()
 	t.it("reports the selected retained leaf and propagates ancestor page visibility", function()
 		local built, contexts, counts = nil, {}, {}
@@ -196,4 +205,90 @@ t.describe("native gallery shell parity", function()
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		stop()
 	end)
+
+	t.it(
+		"names the Status and Menus categories on the category bar and visits every inner tab through its own bar",
+		function()
+			for _, name in { "all_controls", "collections", "motion_layout" } do
+				local scenario = require("../examples/gallery/scenarios/" .. name) :: any
+				local built
+				local ctx, root, stop = fixture(function(context)
+					context.pageVisible = Compose.cell(true)
+					built = scenario.build(context)
+					return built.screen()
+				end)
+				local categories = find(root, "Categories", "Frame")
+				local function tabViewOf(node: any): any
+					local at = node.Parent
+					while
+						at and not (at:IsA("Frame") and (at.Name == "Categories" or scenarioGroup(scenario, at.Name)))
+					do
+						at = at.Parent
+					end
+					return at
+				end
+				local function labelOf(button: any): string
+					return button:GetAttribute("FacetLabel") or button.Text
+				end
+				local visited = 0
+				for _, group in scenario.groups do
+					local category = find(categories, group.id, "TextButton")
+					t.expect(`{group.id} on the category bar: {tabViewOf(category) == categories}`)
+						.toBe(`{group.id} on the category bar: true`)
+					t.expect(labelOf(category)).toBe(group.label)
+					category.Activated.fire()
+					t.expect(built.report().selected.Categories).toBe(group.id)
+					local bar = find(categories, group.id, "Frame")
+					for _, tab in group.tabs do
+						local button = find(bar, tab.id, "TextButton")
+						t.expect(`{tab.id} on the {group.id} bar: {tabViewOf(button) == bar}`)
+							.toBe(`{tab.id} on the {group.id} bar: true`)
+						t.expect(labelOf(button)).toBe(tab.label)
+						button.Activated.fire()
+						t.expect(built.report().active).toBe(tab.id)
+						t.expect(built.report().selected.Categories).toBe(group.id)
+						visited += 1
+					end
+				end
+				local expected = 0
+				for _, group in scenario.groups do
+					expected += #group.tabs
+				end
+				t.expect(visited).toBe(expected)
+				if name == "all_controls" then
+					t.expect(expected).toBe(24)
+					local labels = {}
+					for _, group in scenario.groups do
+						labels[group.id] = group.label
+					end
+					t.expect(labels.indicators).toBe("Status")
+					t.expect(labels.navigation).toBe("Menus")
+					local statusCategory = find(categories, "indicators", "TextButton")
+					local statusTab = find(find(categories, "indicators", "Frame"), "status", "TextButton")
+					t.expect(statusCategory ~= statusTab and labelOf(statusCategory) == labelOf(statusTab)).toBe(true)
+					find(categories, "navigation", "TextButton").Activated.fire()
+					local menus = find(categories, "navigation", "Frame")
+					find(menus, "journey", "TextButton").Activated.fire()
+					t.expect(built.report().active).toBe("journey")
+					ctx.guiService.SelectedObject = find(menus, "journey", "TextButton")
+					local shoulder
+					for _, node in ctx.inputTarget:GetDescendants() do
+						if
+							node:IsA("InputContext")
+							and node.Name == "FacetNextTab"
+							and node.Enabled
+							and (shoulder == nil or node.Priority > shoulder.Priority)
+						then
+							shoulder = node
+						end
+					end
+					assert(shoulder, "the Menus tabs bind ButtonR1")
+					shoulder:FindFirstChild("NextTab").Pressed.fire()
+					t.expect(built.report().selected.Categories).toBe("navigation")
+					t.expect(built.report().active).toBe("pages")
+				end
+				stop()
+			end
+		end
+	)
 end)

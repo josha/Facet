@@ -155,6 +155,22 @@ local function title(row: any): string
 	return if label then label.Text else row.Text
 end
 
+local function count(row: any): string?
+	local badge = row:FindFirstChild("Count", true)
+	if badge == nil then
+		return nil
+	end
+	if badge:IsA("TextLabel") then
+		return badge.Text
+	end
+	for _, node in badge:GetDescendants() do
+		if node:IsA("TextLabel") and node.Text ~= "" then
+			return node.Text
+		end
+	end
+	return nil
+end
+
 local function selectables(root: any): { any }
 	local found = {}
 	for _, node in root:GetDescendants() do
@@ -473,7 +489,8 @@ t.describe("native parity weaker menus", function()
 		local picker = find(world.root, "Routes")
 		local row = find(picker, "one")
 		world.gui.SelectedObject = row
-		t.expect(title(row)).toBe("Alpine (3)")
+		t.expect(title(row)).toBe("Alpine")
+		t.expect(count(row)).toBe("3")
 		t.expect(find(row, "Description").Visible).toBe(false)
 		options:set({
 			{ id = "one", value = "a", label = "Alpine pass", description = "A mountain route", badge = 7 },
@@ -481,7 +498,8 @@ t.describe("native parity weaker menus", function()
 		})
 		t.expect(find(picker, "one")).toBe(row)
 		t.expect(world.gui.SelectedObject).toBe(row)
-		t.expect(title(row)).toBe("Alpine pass (7)")
+		t.expect(title(row)).toBe("Alpine pass")
+		t.expect(count(row)).toBe("7")
 		t.expect(find(row, "Description").Text).toBe("A mountain route")
 		t.expect(find(row, "Description").Visible).toBe(true)
 		t.expect(selected:peek()).toBe("a")
@@ -489,6 +507,7 @@ t.describe("native parity weaker menus", function()
 		t.expect(find(picker, "one")).toBe(row)
 		t.expect(world.gui.SelectedObject).toBe(row)
 		t.expect(title(row)).toBe("Alpine pass")
+		t.expect(count(row)).toBeNil()
 		t.expect(find(row, "Description").Visible).toBe(false)
 		local survivor = find(picker, "two")
 		options:set({ { id = "two", value = "c", label = "Coast" } })

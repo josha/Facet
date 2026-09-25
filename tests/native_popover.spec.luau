@@ -107,7 +107,15 @@ t.describe("native Popover: the caller's fact decides, proposals ask", function(
 			else
 				w.find("Open").Activated.fire()
 				t.expect(w.find("Panel") ~= nil).toBe(true)
-				w.find("DismissOutside").Activated.fire({ Position = Vector2.new(5, 5) })
+				local catcher = w.find("DismissOutside")
+				local modal = catcher.Parent
+				modal.AbsoluteSize = Vector2.new(800, 600)
+				w.find("Popup").AbsoluteSize = Vector2.new(800, 600)
+				w.find("Panel").AbsolutePosition = Vector2.new(177, 212)
+				w.find("Panel").AbsoluteSize = Vector2.new(107, 76)
+				catcher.Activated.fire({ Position = Vector2.new(230, 200) })
+				t.expect(w.find("Panel") ~= nil).toBe(true)
+				catcher.Activated.fire({ Position = Vector2.new(230, 182) })
 			end
 			t.expect(`{case}: {tostring(w.find("Panel") == nil)}`).toBe(`{case}: true`)
 			t.expect(open:peek()).toBe(false)
@@ -359,22 +367,39 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		w.stop()
 	end)
 
-	t.it("a source that never mounts waits without an error", function()
-		local open = Compose.cell(true)
-		local w = mount(function(UI, Host)
-			return {
-				isPresented = open,
-				source = { node = Host.Frame "Nowhere" {} },
-				content = function()
-					return content(UI, Host)
-				end,
-			}
+	t.it("a source that never mounts waits without an error and warns once, naming the source", function()
+		local env: any = getfenv(require("../src/ui/nav_popover"))
+		local warnings: { string } = {}
+		env.warn = function(...)
+			local parts = {}
+			for index = 1, select("#", ...) do
+				table.insert(parts, tostring((select(index, ...))))
+			end
+			table.insert(warnings, table.concat(parts, " "))
+		end
+		local ok, err = pcall(function()
+			local open = Compose.cell(true)
+			local w = mount(function(UI, Host)
+				return {
+					isPresented = open,
+					source = { node = Host.Frame "Nowhere" {} },
+					content = function()
+						return content(UI, Host)
+					end,
+				}
+			end)
+			t.expect(w.find("Panel")).toBeNil()
+			open:set(false)
+			open:set(true)
+			t.expect(w.find("Panel")).toBeNil()
+			t.expect(#warnings).toBe(1)
+			t.expect(string.find(warnings[1], "Nowhere", 1, true) ~= nil).toBe(true)
+			w.stop()
 		end)
-		t.expect(w.find("Panel")).toBeNil()
-		open:set(false)
-		open:set(true)
-		t.expect(w.find("Panel")).toBeNil()
-		w.stop()
+		env.warn = nil
+		if not ok then
+			error(err, 0)
+		end
 	end)
 end)
 

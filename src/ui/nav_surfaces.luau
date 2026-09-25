@@ -28,8 +28,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local DIALOG: Nav.MotionTiming = { enter = 0.2, exit = 0.15 }
 	local REVEAL: Nav.MotionTiming = { enter = 0.25, exit = 0.2 }
 	local nextCallout = 0
-	local function body<P, R>(content: R | ((P) -> R), payload: P): R
-		return if type(content) == "function" then content(payload) else content
+	local function body(content: Nav.Content): Instance
+		return if type(content) == "function" then content() else content
 	end
 	local function empty(spec: Types.FrameProps, keys: { string }, name: string): Frame
 		return Host.Frame(
@@ -133,7 +133,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			{
 				header,
 				Compose.presence(spec.expanded, function(phase: Nav.PresencePhase)
-					local node: Instance = body(spec.content, nil)
+					local node: Instance = body(spec.content)
 					if spec.appearance == "divided" then
 						node = ctx.column({
 							ctx.styled(
@@ -148,9 +148,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						PaddingLeft = if indent == nil
 							then nil
 							else function(use: ComposeTypes.Use)
+								local step = indent
 								return ctx.types.UDim.new(
 									0,
-									if type(indent) == "number" then indent else ctx.metric("space." .. indent, use)
+									if type(step) == "number"
+										then step
+										elseif step then ctx.metric("space." .. step, use)
+										else 0
 								)
 							end,
 					})
@@ -164,7 +168,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						node,
 					}
 					surfaces.attach(fade, { inset :: Types.Child })
-					local natural = ctx.observe(fade, "AbsoluteSize")
+					local natural = ctx.observe.AbsoluteSize(fade)
 					local reveal = Host.Frame "Reveal" {
 						BackgroundTransparency = 1,
 						ClipsDescendants = true,
@@ -220,7 +224,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if rhythm then
 			runtime.decorate(rhythm, { Padding = ctx.types.UDim.new(0, 0) })
 		end
-		ctx.styled(root, "disclosure")
+		ctx.styled(root, "disclosure-group")
 		if spec.appearance == "contained" then
 			ctx.styled(root, "panel")
 			runtime.decorate(root, { BackgroundTransparency = 0 })
@@ -254,7 +258,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local root = UI.Button(buttonSpec)
 		local input = surfaces.service("UserInputService")
-		local preferred = if input then ctx.observe(input, "PreferredInput") else Compose.cell(nil)
+		local preferred = if input
+			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
+			else Compose.cell(nil :: Enum.PreferredInput?)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.expanded, function(phase: Nav.PresencePhase?)
 				local function close()
@@ -266,7 +272,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local sheet = surfaces.skin(ctx.styled(
 							ctx.column({
 								ctx.text({ Text = spec.label }),
-								body(spec.content, nil),
+								body(spec.content),
 								Compose.show(function(use: ComposeTypes.Use)
 									return read(spec.dismissButton, use) ~= false
 										or use(preferred) == E.PreferredInput.Gamepad
@@ -312,6 +318,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	end)
 
 	local function alert<P>(spec: Nav.AlertSpec<P>): Frame
+		local function words(value: (string | ((P) -> string))?, payload: P): string?
+			return if type(value) == "function" then value(payload) else value
+		end
+		local function actionsFor(
+			value: ({ Nav.AlertAction<P> } | ((P) -> { Nav.AlertAction<P> }))?,
+			payload: P
+		): { Nav.AlertAction<P> }?
+			return if type(value) == "function" then value(payload) else value
+		end
 		local root = empty(spec, {
 			"title",
 			"message",
@@ -344,7 +359,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				type(transition) == "table",
 				"Alert.transition requires Compose tween options and an optional native source"
 			)
-			for key in transition do
+			for key in (transition :: unknown) :: { [string]: unknown } do
 				assert(
 					key == "source" or key == "seconds" or key == "ease",
 					"Alert.transition supports source, seconds, ease"
@@ -352,7 +367,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 		local gui = surfaces.service("GuiService")
-		local reduced = if gui then ctx.observe(gui, "ReducedMotionEnabled") else Compose.cell(false)
+		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
 		local function reduce(use: ComposeTypes.Use?): boolean
 			return read(reduced, use) or read(ctx.config.reducedMotion, use) == true
 		end
@@ -360,13 +375,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local lastItem: P? = nil
 		local generation = 0
 		surfaces.attach(root, {
-			surfaces.overlay(root, condition, function(phase)
+			surfaces.overlay(root, condition, function(phase: Nav.PresencePhase?): Instance
 				if spec.suppression and spec.suppression.isSuppressed:peek() then
 					dismiss(spec)
 					return Host.Folder({})
 				end
 				local payload = (if spec.item then spec.item:peek() else read(spec.presenting)) :: P
-				local actions: { Nav.AlertAction<P> } = body(spec.actions, payload) or { { id = "OK", label = "OK" } }
+				local actions: { Nav.AlertAction<P> } = actionsFor(spec.actions, payload)
+					or { { id = "OK", label = "OK" } }
 				assert(#actions > 0, "Alert requires at least one action")
 				local cancel: Nav.AlertAction<P>?
 				local initial: string?
@@ -413,7 +429,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						ctx.icon(spec.icon or "status.warning", { Name = "AlertIcon", Size = D2.fromOffset(28, 28) })
 					)
 				end
-				local title = body(spec.title, payload) or (spec.error and "Something went wrong")
+				local title = words(spec.title, payload) or (spec.error and "Something went wrong")
 				if title then
 					local titleOrder = #contents + 1
 					table.insert(
@@ -434,7 +450,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end)
 					)
 				end
-				local message = body(spec.message, payload) or (spec.error and tostring(read(spec.error)))
+				local message = words(spec.message, payload) or (spec.error and tostring(read(spec.error)))
 				if message then
 					table.insert(
 						contents,
@@ -466,7 +482,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					contents,
 					{ Name = "AlertContent", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
 				)
-				local contentSize = ctx.observe(contentRoot, "AbsoluteSize")
+				local contentSize = ctx.observe.AbsoluteSize(contentRoot)
 				local actionProps: Types.FrameNativeProps = {
 					Name = "Actions",
 					BackgroundTransparency = 1,
@@ -507,7 +523,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 					})
 					table.insert(actionProps, button)
-					table.insert(textBounds, ctx.observe(button, "TextBounds"))
+					table.insert(textBounds, ctx.observe.TextBounds(button))
 				end
 				Compose.watch(function(use: ComposeTypes.Use)
 					local total = (#actions - 1) * 8
@@ -517,7 +533,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					labelWidths:set(total)
 				end)
 				local actionBar = Host.Frame(actionProps)
-				local actionSize = ctx.observe(actionBar, "AbsoluteSize")
+				local actionSize = ctx.observe.AbsoluteSize(actionBar)
+				local function chrome(use: ComposeTypes.Use): number
+					local package = read(ctx.config.theme, use)
+					local recipe = if package and package.chrome then package.chrome.panel else nil
+					local inset = if recipe then recipe.contentInsets else nil
+					return padding * 2
+						+ 8
+						+ math.max(0, if inset then inset.top or 0 else 0)
+						+ math.max(0, if inset then inset.bottom or 0 else 0)
+				end
 				local scroll = parts.scroller(ctx, {
 					Name = "AlertMessage",
 					Selectable = false,
@@ -535,14 +560,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							0,
 							math.min(
 								use(contentSize).Y,
-								math.max(44, use(offer).Y - use(actionSize).Y - padding * 2 - 40)
+								math.max(44, use(offer).Y - use(actionSize).Y - chrome(use) - 32)
 							)
 						)
 					end,
 				}, { lists.list({}, true) :: Instance, contentRoot :: Instance })
 				local layout: GuiObject
 				if fullScreen then
-					runtime.decorate(actionBar, { AnchorPoint = V2.new(0, 1), Position = D2.fromScale(0, 1) })
+					local readable = V2.new(spec.maxWidth or 960, math.huge)
+					runtime.decorate(actionBar, { AnchorPoint = V2.new(0.5, 1), Position = D2.fromScale(0.5, 1) })
+					runtime.decorate(scroll, { AnchorPoint = V2.new(0.5, 0), Position = D2.fromScale(0.5, 0) })
+					surfaces.attach(actionBar, { Host.UISizeConstraint "ReadableWidth" { MaxSize = readable } })
+					surfaces.attach(scroll, { Host.UISizeConstraint "ReadableWidth" { MaxSize = readable } })
 					layout = Host.CanvasGroup "AlertLayout" {
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
@@ -608,14 +637,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if transition then
 					local phase = assert(phase)
 					local ready = Compose.cell(false)
-					local source = read(transition.source)
+					local source: GuiObject? = read(transition.source)
 					local sourcePosition: ComposeTypes.Readable<Vector2> = if source
-						then ctx.observe(source, "AbsolutePosition")
+						then ctx.observe.AbsolutePosition(source)
 						else Compose.cell(V2.zero)
 					local sourceSize: ComposeTypes.Readable<Vector2> = if source
-						then ctx.observe(source, "AbsoluteSize")
+						then ctx.observe.AbsoluteSize(source)
 						else Compose.cell(V2.zero)
-					local origin = ctx.observe(modal, "AbsolutePosition")
+					local origin = ctx.observe.AbsolutePosition(modal)
 					local progress = runtime.tween(function(use: ComposeTypes.Use)
 						return if use(phase.exiting) then 0 elseif use(ready) then 1 else 0
 					end, { seconds = transition.seconds or 0.2, ease = transition.ease })
@@ -623,7 +652,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return if reduce(use) then 1 else use(progress)
 					end
 					if fullScreen then
-						local sourceParent = if source then ctx.observe(source, "Parent") else Compose.cell(nil)
+						local sourceParent = if source
+							then ctx.observe.Parent(source)
+							else Compose.cell(nil :: Instance?)
 						local corner = ctx.corner(0)
 						local sourceCorner = if source then source:FindFirstChildWhichIsA("UICorner") else nil
 						local radius = if sourceCorner then sourceCorner.CornerRadius.Offset else 12
@@ -768,8 +799,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							},
 						})
 					end
-					local parent = ctx.observe(modal, "Parent")
-					local measured = ctx.observe(modal, "AbsoluteSize")
+					local parent = ctx.observe.Parent(modal)
+					local measured = ctx.observe.AbsoluteSize(modal)
 					Compose.watch(function(use: ComposeTypes.Use)
 						local size = use(measured)
 						if use(parent) and (not fullScreen or (size.X > 0 and size.Y > 0)) then
@@ -777,7 +808,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 				end
-				local bounds = ctx.observe(modal, "AbsoluteSize")
+				local bounds = ctx.observe.AbsoluteSize(modal)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local size = use(bounds)
 					if size.X > 0 and size.Y > 0 then
@@ -788,7 +819,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end, {
 				presence = if transition
 					then {
-						exit = function()
+						exit = function(): ComposeTypes.Exiting
 							if reduce() then
 								return { completed = Compose.cell(true) }
 							end
@@ -942,16 +973,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						spec.onHide(if retired:peek() then "retired" else "hidden")
 					end
 				end)
-				local position, size =
-					ctx.observe(spec.anchor, "AbsolutePosition"), ctx.observe(spec.anchor, "AbsoluteSize")
+				local position, size = ctx.observe.AbsolutePosition(spec.anchor), ctx.observe.AbsoluteSize(spec.anchor)
 				local rows: { Types.Child } = {}
 				if spec.title ~= nil or spec.closeButton == true then
 					local header: { Types.Child } = {}
 					if spec.title ~= nil then
-						local title = spec.title
+						local title = spec.title :: Types.Value<string>
 						local heading = ctx.text({
 							Name = "Title",
-							Text = function(use: ComposeTypes.Use)
+							Text = function(use: ComposeTypes.Use): string
 								return read(title, use) or ""
 							end,
 							TextWrapped = true,
@@ -986,7 +1016,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					table.insert(rows, parts.media(ctx, spec.media))
 				end
 				if spec.content ~= nil then
-					table.insert(rows, body(spec.content, nil))
+					table.insert(rows, body(spec.content))
 				end
 				if steps then
 					table.insert(
@@ -1063,12 +1093,25 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				)
 				ctx.modalPortal(panel, spec.anchor)
 				ctx.styled(panel, "panel")
+				ctx.styled(panel, "floating")
 				surfaces.skin(panel)
 				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
 					or assert(spec.anchor:FindFirstAncestorWhichIsA("LayerCollector"))
-				local extent = ctx.observe(layer, "AbsoluteSize")
-				local origin = ctx.observe(layer, "AbsolutePosition")
-				local measured = ctx.observe(panel, "AbsoluteSize")
+				local extent = ctx.observe.AbsoluteSize(layer)
+				local origin = ctx.observe.AbsolutePosition(layer)
+				local measured = ctx.observe.AbsoluteSize(panel)
+				local function above(use: ComposeTypes.Use, floor: number): number
+					use(position)
+					local outermost = 0
+					local at: Instance? = spec.anchor
+					while at and at ~= layer do
+						if at:IsA("GuiObject") then
+							outermost = at.ZIndex
+						end
+						at = at.Parent
+					end
+					return math.max(floor, outermost + floor - 93)
+				end
 				local placement = Compose.formula(function(use: ComposeTypes.Use)
 					local at, bounds, offer, offset, box =
 						use(position), use(size), use(extent), use(origin), use(measured)
@@ -1098,7 +1141,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							0
 						)
 					end,
-					ZIndex = 95,
+					ZIndex = function(use: ComposeTypes.Use): number
+						return above(use, 95)
+					end,
 				})
 				surfaces.popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
 					local at, anchorAt, anchorSize, offset, box =
@@ -1114,7 +1159,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Size = D2.fromOffset(10, 10),
 							Rotation = 45,
 							BorderSizePixel = 0,
-							ZIndex = 94,
+							ZIndex = function(use: ComposeTypes.Use): number
+								return above(use, 94)
+							end,
 							Host.UIGradient "PresentationFade" {
 								Transparency = function(use: ComposeTypes.Use)
 									return ctx.types.NumberSequence.new(1 - amount(use))

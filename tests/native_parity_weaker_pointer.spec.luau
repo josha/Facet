@@ -1114,7 +1114,7 @@ t.describe("adaptive environment strength", function()
 			t.expect(chrome.Visible).toBe(false)
 			t.expect(menu.Visible).toBe(true)
 			local function choose(id: string)
-				find(menu, "MenuButton").Activated.fire()
+				menu.Activated.fire()
 				local panel = find(target, "MenuPanel")
 				local labels = {}
 				for _, node in panel:GetDescendants() do

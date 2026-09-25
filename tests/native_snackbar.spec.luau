@@ -86,6 +86,25 @@ t.describe("native Snackbar: presentation", function()
 		t.expect(w.rows()).toBe(0)
 		t.expect(w.screen:GetAttribute("FacetInsetBottom") or 0).toBe(0)
 		t.expect(w.find("S1"):GetAttribute("SnackbarAdmitted")).toBe(false)
+		local stops = {}
+		local registration = w.find("S1")
+		for _, node in w.screen:GetDescendants() do
+			if node:IsA("GuiObject") and node.Selectable and node:IsDescendantOf(registration) then
+				local shown, at = true, node
+				while at and at:IsA("GuiObject") do
+					shown = shown and at.Visible
+					at = at.Parent
+				end
+				if shown then
+					table.insert(stops, `{node.Parent.Name}/{node.Name}:{node.ClassName}`)
+				end
+			end
+			if node:IsA("InputContext") and node.Enabled then
+				table.insert(stops, node.Name)
+			end
+		end
+		t.expect(table.concat(stops, ",")).toBe("")
+		t.expect(w.gui.SelectedObject).toBeNil()
 		w.stop()
 	end)
 
@@ -193,6 +212,7 @@ t.describe("native Snackbar: presentation", function()
 		t.expect(row.Position.X.Scale).toBe(0.5)
 		t.expect(row.Position.Y.Scale).toBe(1)
 		t.expect(row.Position.Y.Offset).toBe(-16)
+		t.expect(row.ZIndex > 1).toBe(true)
 		t.expect(row.ZIndex < 94).toBe(true)
 		t.expect(row.ZIndex < 100).toBe(true)
 		t.expect(w.find("DismissOutside")).toBeNil()

@@ -29,7 +29,13 @@ local function world(build: (any, any) -> any, theme: any?): any
 	local held: { [string]: boolean } = {}
 	local input = setmetatable({
 		IsKeyDown = function(_, key)
-			return held[key.Name] == true
+			return key.Name ~= "ButtonX" and held[key.Name] == true
+		end,
+		GetConnectedGamepads = function()
+			return { engine.types.Enum.UserInputType.Gamepad1 }
+		end,
+		IsGamepadButtonDown = function(_, pad, key)
+			return pad == engine.types.Enum.UserInputType.Gamepad1 and held[key.Name] == true
 		end,
 		GetFocusedTextBox = function()
 			return nil
@@ -182,7 +188,7 @@ t.describe("native Chip edit mode", function()
 	end)
 
 	t.it("Delete or Backspace on the last of N tags removes exactly one and lands on the new last", function()
-		for _, key in { "Delete", "Backspace" } do
+		for _, key in { "Delete", "Backspace", "ButtonX" } do
 			for _, n in { 3, 2 } do
 				local all = { "A", "B", "C" }
 				local items = Compose.cell(table.move(all, 1, n, 1, {}))

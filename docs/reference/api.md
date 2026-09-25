@@ -91,7 +91,7 @@ and these fields:
 - `name`: the ScreenGui name. The default is `Facet`.
 - `screen`: native ScreenGui properties, such as `DisplayOrder`,
   `ScreenInsets` or a reactive `Enabled`. They replace the defaults
-  (`Name` from `name`, `ResetOnSpawn = false`).
+  (`Name` from `name`, `ResetOnSpawn = false`, `ZIndexBehavior = Sibling`).
 - `sheet`: `createStyleSheet` options, such as `theme` for the palette or
   `transition`. The app adds `types` and `reducedMotion` when you do not set
   them.
@@ -239,7 +239,8 @@ cannot be interacted with, and the selection never stays on it.
 | TabView page change | Crossfade, 0.2 seconds, Quad Out. | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds, Cubic Out. A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds. |
 | Alert, Dialog, CollapsibleView | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
-| Callout, Button `help`, Menu, Picker menu, Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| Callout, Button `help`, Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
 | DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
@@ -597,7 +598,9 @@ the button.
 the control updates the writable cell. `presentation` is `switch`, `checkbox` or
 `button`. The checkbox presentation supports `mixed`. A read-only `value` or
 `mixed` source requires `onChange`. `indicatorPosition` is
-`leading` or `trailing`. The label, row, hint, enabled and common button styling
+`leading` or `trailing`. A checkbox with `controlSize` sizes its box to the
+icon size of the rung plus the `xs` space. Without `controlSize` the box is 24
+pixels. The label, row, hint, enabled and common button styling
 options apply.
 
 A switch or checkbox Toggle paints no plate and takes no `control` art from a
@@ -651,7 +654,8 @@ The other options are `placeholder`, `multiline`, `invalid`, `enabled`,
 - `visibleLines`: a whole number of at least 1, for a multiline field only. The
   field shows that number of body lines in a native ScrollingFrame named
   `Viewport`. Longer text scrolls in the viewport, and the viewport keeps its
-  size.
+  size. Without `visibleLines`, a multiline field grows to hold all its lines,
+  including a final empty line.
 
 #### Field chrome
 
@@ -1201,14 +1205,32 @@ no outline.
 
 ### Menu and SplitButton
 
-Menu takes an `items` array or readable. It also takes an optional `label`,
-`icon`, writable `isPresented` and `enabled`.
+Menu takes an `items` array or readable. It also takes an optional `label` or
+`trigger`, `icon`, writable `isPresented`, `enabled`, `onOpen` and `onClose`.
 
 Items have a stable `id` and a `label`. They have optional `icon`, `enabled`,
 `hidden`, `children` and `onSelect`. Checked and selected items bind their
 writable state. Native input actions supply opening and Back behavior. Nested
 menus keep the control-specific navigation of the menu.
 
+- `trigger` attaches the menu to a node that you make. The node can be any
+  GuiObject, or a function that returns one. Menu returns that same node, with
+  the input actions and the overlay of the menu attached. Menu adds no wrapper,
+  so the layout does not change. The other native properties of the spec, and a
+  constructor name, apply to the trigger node. Give `label` and Menu makes a
+  plain Button trigger in a `Menu` frame. `label` and `trigger` together cause
+  an error.
+- `onOpen` runs once each time the menu opens and `onClose` runs once each
+  time it closes. This includes a change of `isPresented`, a chosen action, a
+  tap outside, Back, a disabled or removed trigger, and unmount.
+- Under the `menu` presentation the floating panel is one raised card. The
+  panel has the `facet-menu` tag and owns the corner (`radii.panel`), the
+  hairline stroke and a raised `UIShadow`. The rows are flat and touch, and a
+  hairline (`facet-menu-hairline`) separates each pair of adjacent rows. A
+  divider or a section title starts a new group with no hairline. A selected or
+  checked row fills with the `accent` of the theme under an `onAccent` label
+  and icon. Each theme package must have 4.5:1 contrast for this pair. Under
+  `sheet` the rows keep their gaps and have no hairlines.
 - Each row of a floating panel is the hit floor high: `targetSizes.minimum`.
   When the theme package declares `targetSizes.pointer` and the input is
   pointer-only (`MouseEnabled`, and neither `TouchEnabled` nor
@@ -1219,20 +1241,39 @@ menus keep the control-specific navigation of the menu.
 - `triggers` limits the routes that open the menu. The routes are `activate`,
   `secondary`, `longPress`, `keyboard` and `gamepad`. The default is all five.
 - `presentation` is `automatic`, `menu` or `sheet`. `backLabel` sets the text
-  of the Back row.
+  of the Back row. In a sheet, a submenu replaces the rows and adds a Back
+  row. In a floating menu, a submenu opens as a new level beside its parent
+  level, which keeps the open row filled. A floating menu has no Back row.
 - When the player navigates by selection, an open menu selects its first
   enabled item. If an enabled selected item holds the value of its group, the
   menu selects that item instead. Back and Left close one level and return the selection to the
   item that opened it.
-- The menu panel scales and fades from the edge nearest to its trigger. See
+- Each level of a floating menu scales from 0.96 to 1 and fades in. It grows
+  from the corner where it hangs on its trigger or on its parent row. On
+  dismiss it scales and fades out, faster than it came in. In a sheet, a
+  submenu slides in from the trailing side, and Back slides the parent level in
+  from the leading side. Reduced motion removes the scale and the slide. See
   [Motion](#motion).
 - `edge` (`top`, `bottom`, `leading` or `trailing`) and `align` (`start`,
   `center` or `end`) place the root panel against its trigger. The default is
   `bottom` and `start`. When the panel does not fit on its edge and fits on
   the opposite edge, it flips. Submenus keep their position beside their
   parent level. A malformed value causes an error that names the option.
-- `width` is the width of the floating panel in pixels, or a readable of one.
-  `maxHeight` bounds the whole floating panel in pixels. The panel is always
+- The panel follows its trigger when the trigger moves while the menu is open.
+  The panel stays 8 pixels inside the safe area. When the screen of the menu
+  has `IgnoreGuiInset` or `ScreenInsets = None`, the safe area removes the
+  `GuiService:GetGuiInset()` insets. A sheet uses the same insets.
+- `width` is the width of the floating panel. It takes pixels, a `UDim` or a
+  `UDim2` (the X part, against the room of the screen), a dimension table, or
+  a readable of one of these. The dimension tables are `{ type = "fixed", px }`,
+  `{ type = "fill" }`, `{ type = "hug", min?, max? }`,
+  `{ type = "percent", fraction, offset?, min?, max? }`,
+  `{ type = "minMax", min?, preferred?, max? }` and `{ type = "content" }`.
+  `px`, `min`, `preferred` and `max` take pixels or a theme metric name such as
+  `"targetSizes.minimum"`. `hug` and `content` start from the natural width of
+  the rows. The width never goes past the room of the screen. A malformed width
+  causes an error that names the field.
+- `maxHeight` bounds the whole floating panel in pixels. The panel is always
   bounded by the screen, and its rows scroll inside it. The row ids and the
   activation do not change.
 - A level whose `selected` group holds one of its rows opens with the
@@ -1245,6 +1286,19 @@ menus keep the control-specific navigation of the menu.
   row, never a selection stop) and `shortcutLabel` (display text such as
   "Ctrl+B"). `shortcutLabel` binds no key. Bind the key where the action is.
   Picker passes the option `badge` to its menu rows.
+
+```lua
+UI.Menu {
+    trigger = UI.Button "More" { icon = "more", shape = "circle" },
+    width = { type = "hug", min = 220, max = 320 },
+    onOpen = function() headerPinned:set(true) end,
+    onClose = function() headerPinned:set(false) end,
+    items = {
+        { id = "rename", label = "Rename", onSelect = rename },
+        { id = "delete", label = "Delete", role = "destructive", onSelect = delete },
+    },
+}
+```
 
 SplitButton combines a primary `label` and `onActivate` action with the
 secondary `items` of the menu. Use it when the secondary operations supplement
@@ -1330,8 +1384,9 @@ Options also take `meta` (secondary text), `sectionTitle` (a caption heading
 above the option in menus and in stacked rows), `avatar = { name, image?,
 userId? }` (an Avatar at the leading edge of a menu row, which adds no stop)
 and `indicator = { status, form?, count? }` (a StatusIndicator that follows
-the live option record). A menu row also shows `badge` as a `Badge` with a
-`Count`. Menu items take the same `badge`, `meta`, `avatar` and `sectionTitle`
+the live option record). A menu row, a stacked row and a searchable list row
+show `badge` as a `Badge` named `Count`; a segmented option keeps the count in
+its words. Menu items take the same `badge`, `meta`, `avatar` and `sectionTitle`
 fields, and Menu takes `maxHeight`.
 
 ### ComboBox
@@ -1418,6 +1473,10 @@ PageView requires a writable `selection` and `pages` with unique ids and
 content factories. It supplies page navigation, indicators, and previous and
 next actions. Use it for a sequential set of peer pages. TabView is for named
 destinations. NavigationStack is for a drill-down path.
+
+While the selection is on a control in a page, Left and Right (and the D-pad
+Left and Right) page back and forward. The selection then moves into the new
+page. Up and Down leave the pages.
 
 ### Pagination
 
@@ -1547,7 +1606,9 @@ Motion options:
 
 - `transition = { source = nativeNode, seconds = 0.2, ease = Compose.easing.outQuad }`
   enables native source motion. `source` can also be a readable.
-- `surface = "fullScreen"` fills the native presentation area.
+- `surface = "fullScreen"` fills the native presentation area. The content
+  and the actions stay in a centered column. The column is not wider than
+  `maxWidth` (default 960 pixels).
 - With `surface = "fullScreen"` and a source transition, both bounds
   interpolate from the source rectangle. The alert content keeps its final
   size and the growing panel clips it. A non-interactive native snapshot at
@@ -2185,7 +2246,7 @@ press.
 | `Image` | A native ImageLabel. `image`, `tint`, `scaleMode`, `tileSize`, `sliceCenter`, `sliceScale`, `resample` and `shape`. See [Image](#image). |
 | `Badge` | `label`, `status`, an optional icon and position, appearance, corners and control size. The icon and the label share one pill. The status appearance keeps a neutral pill and shows the status as a leading dot. |
 | `StatusIndicator` | `status`: `neutral`, `info`, `success`, `warning`, `error` or `accent`. `form`: dot, ring, square or dash. Optional `count`, `max`, `diameter` and `name`. The `name` sets the accessible label. A ring is a native inner stroke in the status color. A count grows into a pill that is never narrower than it is tall. |
-| `ProgressView` | `value`, `min` (0), `max` (1). `presentation`: bar, circular or spinner. label and endLabel, showValue and format, diameter, thickness, segments, and an optional trail `{ delay, duration }`. The endLabel shows after the value. With a label, a bar shows the value and the endLabel on the label row. Segments require the bar presentation. Diameter requires circular or spinner. A trail holds on damage, settles over its duration, and snaps on healing or reduced motion. A circular value is centered when the native text bounds fit. Otherwise it shows below the ring. A circular ring with no thickness uses 8 percent of its diameter, and not less than the theme metric. On a bar, `controlSize` sets the track thickness: `xsmall` and `compact` use `space.xs`, and `regular` and `large` use `controls.progress.trackHeight`. A bar refuses `controlSize` together with `thickness`. |
+| `ProgressView` | `value`, `min` (0), `max` (1). `presentation`: bar, circular or spinner. label and endLabel, showValue and format, diameter, thickness, segments, and an optional trail `{ delay, duration }`. The endLabel shows after the value. With a label, a bar shows the value and the endLabel on the label row. Segments require the bar presentation. Diameter requires circular or spinner. A trail holds on damage, settles over its duration, and snaps on healing or reduced motion. A circular value is centered when the native text bounds fit. Otherwise it shows below the ring. A circular ring with no thickness uses 8 percent of its diameter, and not less than the theme metric. On a bar, `controlSize` sets the track thickness: `xsmall` and `compact` use `space.xs`, and `regular` and `large` use `controls.progress.trackHeight`. A bar refuses `controlSize` together with `thickness`, and a ring or a spinner refuses it together with `diameter`. `endLabel` must be a string. |
 | `Skeleton` | A loading placeholder with a configurable form and line count. |
 | `AsyncImage` | An image or source, an optional resource or loader, a placeholder, a failure label and a status callback. `imageProperties` forwards native properties and children to the inner ImageLabel. |
 | `Avatar` | `name`; image, userId or resource; loader and onStatus; presence online, away, busy or offline; presence label and mark; diameter or controlSize; standard or icon form; optional activation. |
@@ -2307,8 +2368,9 @@ host, or at the top-left when `direction` is `"rtl"`. It holds a Badge named
 `CornerBadge`, centred on the corner. The Corner frame has no size, so the host
 keeps its layout box, its hit area and its selection. `value` is a string, a
 whole count (above 99 shows "99+"), `true` for a dot, or a readable of one.
-`nil`, `false`, `0` and `""` show nothing. A TabView tab with an `icon` shows
-its `badge` on the corner of the icon. A text tab keeps the count in its words.
+`nil`, `false`, `0` and `""` show nothing. A TabView tab or a segmented Picker
+option with an `icon` shows its `badge` on the corner of the icon. A text tab or
+option keeps the count in its words.
 The seal paints past the host by half its size, so give a host at a clipping
 edge that much room.
 

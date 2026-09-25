@@ -22,13 +22,6 @@
       "reason": "The switch track radius 12 is half its fixed 24 px height, a capsule; the 24 px checkbox box radius 4 has no theme metric because radii covers control and panel surfaces only."
     },
     {
-      "path": "src/ui/inputs.luau",
-      "rule": "radius",
-      "match": "table.insert(native, ctx.corner(2))",
-      "status": "no-metric",
-      "reason": "LevelPicker bar segments round their 20 to 36 px bars by 2 px; the theme has no segment radius and radii.control would turn thin bars into pills."
-    },
-    {
       "path": "src/ui/media.luau",
       "rule": "stroke",
       "match": "return math.max(2, math.floor(size(use) / 6 + 0.5))",

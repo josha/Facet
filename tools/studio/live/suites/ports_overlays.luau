@@ -355,6 +355,23 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 				t.inside(`desktop: {name} inside the window`, node, layer, 1)
 			end
 		end
+		local title, leave = t.find(panel, "Title"), t.find(panel, "Leave")
+		if body and title and leave then
+			local before = { title.AbsolutePosition.Y, leave.AbsolutePosition.Y }
+			body.CanvasPosition = Vector2.new(0, 200)
+			t.settle(6)
+			t.check("desktop: the body scrolled", body.CanvasPosition.Y >= 199, body.CanvasPosition)
+			t.near("desktop: the title stays pinned while the body scrolls", title.AbsolutePosition.Y, before[1], 0.5)
+			t.near(
+				"desktop: the Leave action stays pinned while the body scrolls",
+				leave.AbsolutePosition.Y,
+				before[2],
+				0.5
+			)
+			t.inside("desktop: Leave stays inside the panel", leave, panel, 1)
+		else
+			t.check("desktop: the title and Leave are found", false)
+		end
 	end
 	t.cleanup()
 	local short = device(t, { device = "xbox", width = 320, height = 220 })
@@ -384,6 +401,11 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 			body and body.ScrollingEnabled
 		)
 		t.inside("short: the dialog inside the window", panel, layer, 1)
+		t.check(
+			"short: the room is never a selection stop",
+			room and room.Selectable == false,
+			room and room.Selectable
+		)
 		if room then
 			room.CanvasPosition = Vector2.new(0, math.max(0, room.AbsoluteCanvasSize.Y - room.AbsoluteWindowSize.Y))
 			t.settle(6)
@@ -436,6 +458,8 @@ add("dialog-room-desktop-short-phone", { "post-overlays-011", "post-overlays-012
 		t.check("phone: both actions show", stay ~= nil and leave ~= nil)
 		if stay and leave then
 			t.near("phone: two actions that fit share one row", stay.AbsolutePosition.Y, leave.AbsolutePosition.Y, 1)
+			local void = t.rect(panel).b - math.max(t.rect(stay).b, t.rect(leave).b)
+			t.check("phone: no reserved void under the actions, only the panel padding", void <= 17, void)
 		end
 	end
 end)
@@ -1388,6 +1412,399 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 		end
 		t.cleanup()
 	end
+end)
+
+local function mousePath(node: Instance): string
+	local full = node:GetFullName()
+	local player = game:GetService("Players").LocalPlayer
+	local prefix = "Players." .. player.Name .. "."
+	if string.sub(full, 1, #prefix) == prefix then
+		return "LocalPlayer." .. string.sub(full, #prefix + 1)
+	end
+	return full
+end
+
+local function lowestAction(root: Instance, names: { string }): any
+	local last
+	for _, name in names do
+		local action = root:FindFirstChild(name, true)
+		if action and (last == nil or action.AbsolutePosition.Y >= last.AbsolutePosition.Y) then
+			last = action
+		end
+	end
+	return last
+end
+
+interactive(
+	"menu-real-pad-opens-and-closes",
+	{ "post-menu-01" },
+	"with the Options trigger selected: ButtonA, step opened; ButtonB, step closed; ButtonA, step opened; ButtonB, step closed",
+	function(t)
+		local value: { [string]: any } = {}
+		local stage = t.mount(function(UI, Host, Compose)
+			value.presented = Compose.cell(false)
+			local items = {}
+			for index = 1, 3 do
+				table.insert(items, { id = `row{index}`, label = `Row {index}`, onSelect = function() end })
+			end
+			return Host.Frame "Board" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Host.Frame "Spot" {
+					Position = UDim2.fromOffset(200, 160),
+					Size = UDim2.fromOffset(0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					BackgroundTransparency = 1,
+					UI.Menu "M" { label = "Options", isPresented = value.presented, items = items },
+				},
+			}
+		end, { frames = 20 })
+		value.gui = layerOf(stage)
+		value.trigger = t.find(stage, "Trigger")
+		t.check("the menu trigger mounts", value.trigger ~= nil)
+		GuiService.SelectedObject = value.trigger
+		t.settle(6)
+		t.check("the trigger holds the selection", GuiService.SelectedObject == value.trigger, selectedName())
+		return value
+	end,
+	{
+		opened = function(t, value)
+			t.settle(10)
+			local panel = visibleNamed(t, value.gui, "MenuPanel")
+			t.check("ButtonA opened the menu", value.presented:peek() == true and panel ~= nil)
+			local selected = GuiService.SelectedObject
+			t.check(
+				"the selection moved into the menu panel",
+				panel ~= nil and selected ~= nil and selected:IsDescendantOf(panel),
+				selectedName()
+			)
+		end,
+		closed = function(t, value)
+			t.settle(10)
+			t.check("ButtonB closed the menu", value.presented:peek() == false, value.presented:peek())
+			t.check("no menu panel is drawn", visibleNamed(t, value.gui, "MenuPanel") == nil)
+			t.check("the selection is back on the trigger", GuiService.SelectedObject == value.trigger, selectedName())
+		end,
+	}
+)
+
+interactive(
+	"popover-real-pad-and-trigger-click",
+	{ "post-overlays-024", "post-overlays-028" },
+	"with Open selected: ButtonA, step opened; ButtonB, step cancelled; step reopen; click the trigger path it notes with the mouse; step clicked",
+	function(t)
+		local value: { [string]: any } = { dismissed = {}, changes = {} }
+		local stage = t.mount(function(UI, Host, Compose)
+			value.open = Compose.cell(false)
+			return Host.Frame "Board" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Host.Frame "Spot" {
+					Position = UDim2.fromOffset(200, 160),
+					Size = UDim2.fromOffset(0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					BackgroundTransparency = 1,
+					UI.Popover "Tip" {
+						isPresented = value.open,
+						onPresentedChange = function(nextValue: boolean)
+							table.insert(value.changes, nextValue)
+							value.open:set(nextValue)
+						end,
+						onDismiss = function(reason: string)
+							table.insert(value.dismissed, reason)
+						end,
+						trigger = UI.Button "Open" { label = "Open" },
+						content = function()
+							return Host.Frame "Card" {
+								BackgroundTransparency = 1,
+								Size = UDim2.fromOffset(0, 0),
+								AutomaticSize = Enum.AutomaticSize.XY,
+								Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+								UI.Text({ Name = "Line", text = "Popover body", LayoutOrder = 1 }),
+								UI.Button "Inner" { label = "Inner", LayoutOrder = 2 },
+							}
+						end,
+					},
+				},
+			}
+		end, { frames = 20 })
+		value.gui = layerOf(stage)
+		value.trigger = t.find(stage, "Open")
+		t.check("the popover trigger mounts", value.trigger ~= nil)
+		GuiService.SelectedObject = value.trigger
+		t.settle(6)
+		t.check("the trigger holds the selection", GuiService.SelectedObject == value.trigger, selectedName())
+		return value
+	end,
+	{
+		opened = function(t, value)
+			t.settle(10)
+			local modal = value.gui:FindFirstChild("TipModal", true)
+			local panel = modal and visibleNamed(t, modal, "Panel")
+			t.check("ButtonA on the selected trigger opened the popover", value.open:peek() == true and panel ~= nil)
+			local selected = GuiService.SelectedObject
+			t.check(
+				"the selection moved into the popover",
+				panel ~= nil and selected ~= nil and selected:IsDescendantOf(panel),
+				selectedName()
+			)
+		end,
+		cancelled = function(t, value)
+			t.settle(10)
+			t.check("ButtonB proposed the close and it closed", value.open:peek() == false, value.changes)
+			t.check("the close reports cancel once", table.concat(value.dismissed, ",") == "cancel", value.dismissed)
+			t.check("the selection is back on the trigger", GuiService.SelectedObject == value.trigger, selectedName())
+		end,
+		reopen = function(t, value)
+			value.open:set(true)
+			t.settle(20)
+			local modal = value.gui:FindFirstChild("TipModal", true)
+			local panel = modal and visibleNamed(t, modal, "Panel")
+			t.check("the popover is open again", panel ~= nil)
+			t.check(
+				"the open panel does not cover its trigger",
+				panel ~= nil and not overlap(t.rect(panel), t.rect(value.trigger)),
+				panel and { t.rect(panel), t.rect(value.trigger) }
+			)
+			t.note("trigger mouse path", mousePath(value.trigger))
+		end,
+		clicked = function(t, value)
+			t.settle(10)
+			t.check("a mouse press on the trigger of the open popover closed it", value.open:peek() == false)
+			t.check(
+				"that press landed outside the modal: reasons cancel then outside, once each",
+				table.concat(value.dismissed, ",") == "cancel,outside",
+				value.dismissed
+			)
+			t.check("it did not reopen", visibleNamed(t, value.gui, "TipModal") == nil)
+		end,
+	}
+)
+
+interactive(
+	"dialog-short-room-pad-walk",
+	{ "post-overlays-012" },
+	"press DPadDown until the last action is selected, then step walked",
+	function(t)
+		local value: { [string]: any } = {}
+		local short = device(t, { device = "xbox", width = 320, height = 220 })
+		t.note("short viewport", short)
+		local stage = t.mount(function(UI, Host, Compose)
+			return longDialog(UI, Host, Compose)
+		end, { frames = 30 })
+		value.gui = layerOf(stage)
+		local modal = visibleNamed(t, value.gui, "DialogModal")
+		value.panel = modal and t.find(modal, "Panel")
+		value.room = value.panel and t.find(value.panel, "Room")
+		t.check("the short dialog shows with a scrolling room", value.room ~= nil and value.room.ScrollingEnabled)
+		t.note("first selection", selectedName())
+		return value
+	end,
+	{
+		walked = function(t, value)
+			t.settle(10)
+			local last = lowestAction(value.panel, { "Stay", "Leave" })
+			t.check("the pad reached the last action", GuiService.SelectedObject == last, selectedName())
+			t.check("the room scrolled", value.room.CanvasPosition.Y > 0, value.room.CanvasPosition)
+			t.check(
+				"the last action is in view inside the room",
+				last ~= nil and whole(t, last),
+				last and { t.rect(last), t.clipped(last), t.rect(value.room) }
+			)
+		end,
+	}
+)
+
+interactive(
+	"sheet-short-room-pad-walk",
+	{ "post-overlays-144" },
+	"press DPadDown until Join is selected, then step walked",
+	function(t)
+		local value: { [string]: any } = {}
+		local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
+		built.steps.lobby()
+		t.settle(30)
+		value.panel = visibleNamed(t, stage, "SheetPanel")
+		value.room = value.panel and t.find(value.panel, "Room")
+		t.check("the short sheet shows with a scrolling room", value.room ~= nil and value.room.ScrollingEnabled)
+		t.check("the room is never a selection stop", value.room ~= nil and value.room.Selectable == false)
+		t.note("first selection", selectedName())
+		return value
+	end,
+	{
+		walked = function(t, value)
+			t.settle(10)
+			local last = lowestAction(value.panel, { "NotNow", "Join" })
+			t.check("the pad reached the last action", GuiService.SelectedObject == last, selectedName())
+			t.check("the room scrolled", value.room.CanvasPosition.Y > 0, value.room.CanvasPosition)
+			t.check(
+				"the last action is in view inside the room",
+				last ~= nil and whole(t, last),
+				last and { t.rect(last), t.clipped(last), t.rect(value.room) }
+			)
+		end,
+	}
+)
+
+add("popover-capped-follows-a-shrinking-window", { "post-overlays-033" }, function(t)
+	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
+	local opened
+	local stage = t.mount(function(UI, Host, Compose)
+		opened = Compose.cell(false)
+		local rows = {}
+		for index = 1, 30 do
+			table.insert(rows, UI.Button(`Row{index}`)({ label = `Row {index}`, LayoutOrder = index }))
+		end
+		return Host.Frame "Board" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.Frame "Spot" {
+				Position = UDim2.fromOffset(100, 20),
+				Size = UDim2.fromOffset(0, 0),
+				AutomaticSize = Enum.AutomaticSize.XY,
+				BackgroundTransparency = 1,
+				UI.Popover "Capped" {
+					isPresented = opened,
+					onPresentedChange = function(nextValue: boolean)
+						opened:set(nextValue)
+					end,
+					trigger = UI.Button "CappedButton" { label = "Rows" },
+					maxWidth = 220,
+					maxHeight = 180,
+					content = function()
+						return Host.Frame "Rows" {
+							BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(0, 0),
+							AutomaticSize = Enum.AutomaticSize.XY,
+							Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+							table.unpack(rows),
+						}
+					end,
+				},
+			},
+		}
+	end, { size = size, frames = 20 })
+	opened:set(true)
+	t.settle(20)
+	local modal = stage:FindFirstChild("CappedModal", true)
+	local panel = modal and modal:FindFirstChild("Panel", true)
+	t.check("the capped popover shows", panel ~= nil)
+	if not panel then
+		return
+	end
+	t.stable(panel)
+	local p = t.rect(panel)
+	t.check("the whole panel is at most 220 wide", p.w <= 220.5, p.w)
+	t.check("the whole panel is at most 180 tall", p.h <= 180.5, p.h)
+	local body = panel:FindFirstChild("Body")
+	t.check(
+		"the capped body scrolls",
+		body ~= nil and body.ScrollingEnabled and body.AbsoluteCanvasSize.Y > body.AbsoluteWindowSize.Y + 1,
+		body and { body.AbsoluteCanvasSize, body.AbsoluteWindowSize }
+	)
+	for _, width in { 600, 300 } do
+		size:set(Vector2.new(width, 720))
+		t.settle(20)
+		t.stable(panel)
+		local safe = shrink(t.rect(stage), 8, 8, 8, 8)
+		t.check(`at {width} px the popover is still open`, opened:peek() == true and panel.Parent ~= nil)
+		t.inside(`at {width} px the capped panel stays inside the new safe box`, panel, safe, 1)
+		t.check(
+			`at {width} px the panel keeps its caps`,
+			panel.AbsoluteSize.X <= 220.5 and panel.AbsoluteSize.Y <= 180.5,
+			panel.AbsoluteSize
+		)
+	end
+end)
+
+local function grown(t: any, base: any, offset: number): any
+	local typography = {}
+	for _, role in t.Facet.themes.TYPE_ROLES do
+		local entry = base.metrics.typography[role]
+		if entry then
+			typography[role] = { size = entry.size + offset, font = entry.font, lineHeight = entry.lineHeight }
+		end
+	end
+	local package, report = t.Facet.themes.define({
+		base = base,
+		identity = { id = `{base.identity.id}-plus-{offset}` },
+		metrics = { typography = typography },
+	})
+	assert(package, report and report.errors and report.errors[1] and report.errors[1].message)
+	return package
+end
+
+add("sheet-hug-follows-live-copy", { "post-overlays-150" }, function(t)
+	local copy, builds, themeCell = nil, 0, nil
+	local stage = t.mount(function(UI, Host, Compose, env)
+		themeCell = env.theme
+		copy = Compose.cell("Two short lines.")
+		return Host.Frame "Board" {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.Sheet "Hug" {
+				title = "Lobby",
+				isPresented = Compose.cell(true),
+				detent = Compose.cell("hug"),
+				detents = { "hug", "large" },
+				content = function()
+					builds += 1
+					return UI.Text({
+						Name = "Copy",
+						text = copy,
+						TextWrapped = true,
+						Size = UDim2.fromOffset(420, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+					})
+				end,
+				actions = { { id = "Go", label = "Go", onActivate = function() end } },
+			},
+		}
+	end, { size = Vector2.new(1280, 720), frames = 30 })
+	local panel = visibleNamed(t, stage, "SheetPanel")
+	t.check("the hug sheet shows", panel ~= nil)
+	if not panel then
+		return
+	end
+	t.stable(panel)
+	local body = t.find(panel, "SheetContent")
+	local function fitsWhole(where: string)
+		t.check(
+			where .. ": the body shows its whole copy without scrolling",
+			body ~= nil and body.AbsoluteCanvasSize.Y <= body.AbsoluteWindowSize.Y + 1,
+			body and { body.AbsoluteCanvasSize, body.AbsoluteWindowSize }
+		)
+		local text = t.find(panel, "Copy")
+		t.check(
+			where .. ": the copy is not cut",
+			text ~= nil and t.fits(text) and whole(t, text),
+			text and text.TextBounds
+		)
+		local go = t.find(panel, "Go")
+		t.check(where .. ": the action shows in full", go ~= nil and whole(t, go))
+	end
+	local short = panel.AbsoluteSize.Y
+	t.check("the hug sheet is shorter than the large detent", short < 720 * 0.95 - 1, short)
+	fitsWhole("short copy")
+	copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+	t.settle(20)
+	t.stable(panel)
+	local tall = panel.AbsoluteSize.Y
+	t.check("longer copy grows the sheet", tall > short + 10, { short, tall })
+	fitsWhole("long copy")
+	copy:set("Two short lines.")
+	t.settle(20)
+	t.stable(panel)
+	t.near("shorter copy shrinks it back", panel.AbsoluteSize.Y, short, 0.5)
+	themeCell:set(grown(t, themeCell:peek(), 14))
+	t.settle(20)
+	t.stable(panel)
+	t.check("larger text re-measures the hug sheet taller", panel.AbsoluteSize.Y > short + 1, {
+		short,
+		panel.AbsoluteSize.Y,
+	})
+	fitsWhole("larger text")
+	t.check("the content was built once", builds == 1, builds)
 end)
 
 return cases

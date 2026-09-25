@@ -164,17 +164,18 @@ t.describe("native content navigation deltas", function()
 		local chosen = world.find("y2026", panel)
 		t.expect(world.gui.SelectedObject).toBe(chosen)
 		local rows = panel:FindFirstChild("MenuRows", true)
+		local pitch = 44 + rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset
 		for _, row in rows:GetChildren() do
 			if row:IsA("GuiObject") then
 				row.AbsoluteSize = Vector2.new(220, 44)
 			end
 		end
-		rows.AbsoluteSize = Vector2.new(220, 201 * 52)
+		rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
 		panel.AbsoluteSize = Vector2.new(220, 400)
 		local center = panel.CanvasPosition.Y + 400 / 2
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local top = if inset then inset.PaddingTop.Offset else 0
-		t.expect(math.abs(center - (top + 100 * 52 + 22)) <= 1).toBe(true)
+		t.expect(math.abs(center - (top + 100 * pitch + 22)) <= 1).toBe(true)
 		world.stop()
 		local checked = Compose.cell(true)
 		local toggles = menuWorld({
@@ -200,23 +201,25 @@ t.describe("native content navigation deltas", function()
 		local chosen = world.find("y2026", panel)
 		local rows = panel:FindFirstChild("MenuRows", true)
 		local layout = rows:FindFirstChildWhichIsA("UIListLayout")
+		local gap = layout.Padding.Offset
+		local pitch = 44 + gap
 		chosen.AbsoluteSize = Vector2.new(220, 44)
-		rows.AbsoluteSize = Vector2.new(220, 201 * 52)
+		rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
 		panel.AbsoluteSize = Vector2.new(220, 400)
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local pad = if inset then inset.PaddingTop.Offset else 0
-		t.expect(panel.CanvasPosition.Y).toBe(pad + 100 * 8 + 22 - 200)
+		t.expect(panel.CanvasPosition.Y).toBe(math.max(0, pad + 100 * gap + 22 - 200))
 		rows.AbsolutePosition = Vector2.new(0, -panel.CanvasPosition.Y)
 		for _, row in rows:GetChildren() do
 			if row:IsA("GuiObject") then
 				row.AbsoluteSize = Vector2.new(220, 44)
 			end
 		end
-		layout.AbsoluteContentSize = Vector2.new(220, 201 * 52)
+		layout.AbsoluteContentSize = Vector2.new(220, 201 * pitch)
 		local center = panel.CanvasPosition.Y + 400 / 2
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local top = if inset then inset.PaddingTop.Offset else 0
-		t.expect(math.abs(center - (top + 100 * 52 + 22)) <= 1).toBe(true)
+		t.expect(math.abs(center - (top + 100 * pitch + 22)) <= 1).toBe(true)
 		world.stop()
 	end)
 
@@ -322,7 +325,10 @@ t.describe("native content navigation deltas", function()
 				{ maxHeight = 0 },
 				{ maxHeight = math.huge },
 				{ width = 0 },
+				{ width = -40 },
+				{ width = math.huge },
 				{ width = "wide" },
+				{ width = { type = "wide" } },
 			} :: { { [string]: any } }
 		do
 			local spec: { [string]: any } = { label = "Options", items = items(2) }
@@ -337,7 +343,38 @@ t.describe("native content navigation deltas", function()
 		end
 	end)
 
-	t.it("carries a Picker option badge into its menu row as the count seal", function()
+	local function textsUnder(node: any): { string }
+		local texts = {}
+		if node:IsA("TextLabel") then
+			table.insert(texts, node.Text)
+		end
+		for _, child in node:GetDescendants() do
+			if child:IsA("TextLabel") then
+				table.insert(texts, child.Text)
+			end
+		end
+		return texts
+	end
+
+	local function headings(panel: any): string
+		local out = {}
+		for _, node in panel:GetDescendants() do
+			if node.Name == "SectionTitle" then
+				for _, text in textsUnder(node) do
+					table.insert(out, text)
+				end
+			end
+		end
+		table.sort(out)
+		return table.concat(out, " ")
+	end
+
+	local function countOf(row: any): string
+		local count = row and row:FindFirstChild("Count", true)
+		return if count then table.concat(textsUnder(count), " ") else "none"
+	end
+
+	t.it("carries a Picker option badge and sectionTitle into menu rows and searchable list rows", function()
 		local options = Compose.cell({
 			{ value = "a", label = "Alpha", badge = 2 },
 			{ value = "b", label = "Beta" },
@@ -362,7 +399,33 @@ t.describe("native content navigation deltas", function()
 		end
 		t.expect(table.find(texts, "2") ~= nil).toBe(true)
 		t.expect(world.find("b", panel):FindFirstChild("Count", true)).toBeNil()
+		t.expect(panel:FindFirstChild("SectionTitle", true)).toBeNil()
+		options:set({
+			{ value = "a", label = "Alpha", badge = 2 },
+			{ value = "b", label = "Beta", sectionTitle = "More" },
+		})
+		t.expect(headings(everywhere(world, "MenuPanel"))).toBe("More")
 		world.stop()
+		local search = worlds.new(function(UI, Host)
+			return Host.Frame({
+				Name = "S",
+				UI.Picker({
+					style = "navigationLink",
+					query = Compose.cell(""),
+					selected = Compose.cell("a"),
+					options = {
+						{ value = "a", label = "Alpha", sectionTitle = "First" },
+						{ value = "b", label = "Beta", badge = "9" },
+					},
+				}),
+			})
+		end, { reducedMotion = true })
+		search.find("Picker").Activated.fire()
+		local list = everywhere(search, "Choices")
+		t.expect(list ~= nil).toBe(true)
+		t.expect(headings(list)).toBe("First")
+		t.expect(countOf(search.find("b", list))).toBe("9")
+		search.stop()
 	end)
 
 	local function containers(): (any, any)
@@ -479,10 +542,13 @@ t.describe("native content navigation deltas", function()
 		world.stop()
 	end)
 
-	t.it("rounds, strokes and shadows one node with native modifiers", function()
+	t.it("rounds mixed corners, strokes and shadows one node with native modifiers", function()
 		local world = containers()
 		local styled = world.find("Styled")
-		t.expect(styled:FindFirstChildWhichIsA("UICorner").CornerRadius.Offset).toBe(16)
+		local corner = styled:FindFirstChildWhichIsA("UICorner")
+		t.expect(
+			`{corner.TopLeftRadius.Offset} {corner.TopRightRadius.Offset} {corner.BottomLeftRadius.Offset} {corner.BottomRightRadius.Offset}`
+		).toBe("16 0 0 16")
 		t.expect(styled:FindFirstChildWhichIsA("UIStroke").Thickness).toBe(2)
 		t.expect(styled:FindFirstChild("Shadow") ~= nil).toBe(true)
 		world.stop()

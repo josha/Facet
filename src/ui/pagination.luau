@@ -21,6 +21,7 @@ return function(
 	}
 ): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
+	local readSource = ctx.readSource
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local function isPage(value: unknown): boolean
 		return type(value) == "number" and value == value and value % 1 == 0 and math.abs(value) <= MAX_SAFE
@@ -161,10 +162,10 @@ return function(
 			return `Page {string.rep("0", math.max(4, #tostring(st.current)))}`
 		end)
 		local digitBounds, ellipsisBounds, widestBounds =
-			ctx.observe(digits, "TextBounds"), ctx.observe(ellipsis, "TextBounds"), ctx.observe(widest, "TextBounds")
+			ctx.observe.TextBounds(digits), ctx.observe.TextBounds(ellipsis), ctx.observe.TextBounds(widest)
 		local offered = Compose.cell(0)
 		local function slotWidth(page: number, use: ComposeTypes.Use?): number
-			local digit = read(digitBounds, use).X / 10
+			local digit = readSource(digitBounds, use).X / 10
 			local chrome = 2 * ctx.controlSize("compact", "paddingX", use)
 			return math.max(floor(use), math.ceil(digit * #tostring(page) + chrome))
 		end
@@ -173,7 +174,7 @@ return function(
 			local out: { Entry } = {}
 			local current = st.current
 			if current == nil then
-				table.insert(out, { kind = "label", key = "label" })
+				out[#out + 1] = { kind = "label", key = "label" }
 				return out
 			end
 			local chosen: Content.PaginationForm = form
@@ -226,24 +227,24 @@ return function(
 				end
 			end
 			if showFirstLast then
-				table.insert(out, { kind = "first", key = "first" })
+				out[#out + 1] = { kind = "first", key = "first" }
 			end
-			table.insert(out, { kind = "previous", key = "previous" })
+			out[#out + 1] = { kind = "previous", key = "previous" }
 			if chosen == "numbers" then
 				local previous: number? = nil
 				for _, entry in pages do
 					if previous ~= nil and entry.page > previous + 1 then
-						table.insert(out, { kind = "gap", key = `gap-{previous}` })
+						out[#out + 1] = { kind = "gap", key = `gap-{previous}` }
 					end
-					table.insert(out, { kind = "page", key = tostring(entry.page), page = entry.page })
+					out[#out + 1] = { kind = "page", key = tostring(entry.page), page = entry.page }
 					previous = entry.page
 				end
 			elseif chosen == "label" then
-				table.insert(out, { kind = "label", key = "label" })
+				out[#out + 1] = { kind = "label", key = "label" }
 			end
-			table.insert(out, { kind = "next", key = "next" })
+			out[#out + 1] = { kind = "next", key = "next" }
 			if showFirstLast and st.count ~= nil then
-				table.insert(out, { kind = "last", key = "last" })
+				out[#out + 1] = { kind = "last", key = "last" }
 			end
 			if direction == "rtl" then
 				local reversed: { Entry } = {}
@@ -280,6 +281,7 @@ return function(
 		local arrowButtons: { [string]: TextButton } = {}
 		local lostFocus = false
 		local lost = Compose.cell(0)
+		local pending = Compose.cell(nil :: GuiObject?)
 		local function watchFocus(button: TextButton)
 			Compose.cleanup(function()
 				if gui and gui.SelectedObject == button then
@@ -313,6 +315,9 @@ return function(
 							propose("page", page)
 						end,
 						Host.UISizeConstraint "SlotLimit" {
+							MinSize = function(use: ComposeTypes.Use)
+								return V2.new(ctx.controlSize("compact", "height", use), 0)
+							end,
 							MaxSize = function(use: ComposeTypes.Use)
 								return V2.new(slotWidth(page, use), math.huge)
 							end,
@@ -325,8 +330,7 @@ return function(
 							pageButtons[page] = nil
 						end
 					end)
-					return Host.Frame({
-						Name = `Slot-{page}`,
+					return Host.Frame(`Slot-{page}`)({
 						LayoutOrder = index,
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
@@ -386,8 +390,7 @@ return function(
 				return button
 			end,
 		})
-		local row = Host.ScrollingFrame({
-			Name = "Row",
+		local row = Host.ScrollingFrame "Row" {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = D2.fromScale(1, 1),
@@ -405,9 +408,9 @@ return function(
 				end,
 			}) :: Types.Child,
 			items,
-		})
+		}
 		if gui and gui.GetPropertyChangedSignal then
-			local selected = ctx.observe(gui, "SelectedObject")
+			local selected = ctx.observe.SelectedObject(gui)
 			ctx.runtime.decorate(row, {
 				Selectable = function(use: ComposeTypes.Use)
 					local current = use(selected)
@@ -454,7 +457,7 @@ return function(
 			widest :: Types.Child,
 			row :: Types.Child,
 		}))
-		local rootSize = ctx.observe(root, "AbsoluteSize")
+		local rootSize = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			offered:set(use(rootSize).X)
 		end)
@@ -486,10 +489,11 @@ return function(
 			use(entries)
 			use(lost)
 			local st = use(state)
-			if not gui then
+			local selection = gui
+			if not selection then
 				return
 			end
-			local selected = gui.SelectedObject
+			local selected = selection.SelectedObject
 			local dead = false
 			for kind, button in arrowButtons do
 				if selected == button and target(kind) == nil then
@@ -518,10 +522,44 @@ return function(
 			end
 			if landing then
 				pcall(function()
-					gui.SelectedObject = landing
+					selection.SelectedObject = landing
 				end)
+				pending:set(if landing.AbsoluteSize.X <= 0 then landing else nil)
 			end
 		end)
+		if gui and gui.GetPropertyChangedSignal then
+			local selection = ctx.observe.SelectedObject(gui)
+			local held: Instance? = nil
+			Compose.watch(function(use: ComposeTypes.Use)
+				local selected = use(selection) :: Instance?
+				local previous = held
+				held = if selected ~= nil and selected:IsDescendantOf(root) then selected else nil
+				if previous ~= nil and previous ~= selected and not previous:IsDescendantOf(root) then
+					lostFocus = true
+					lost:update(function(count: number): number
+						return count + 1
+					end)
+				end
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local landing = use(pending)
+				if landing == nil then
+					return
+				end
+				local extent = use(ctx.observe.AbsoluteSize(landing)) :: Vector2
+				local selected = use(selection) :: Instance?
+				if landing.Parent == nil then
+					pending:set(nil)
+				elseif extent.X > 0 then
+					pending:set(nil)
+					if selected ~= landing then
+						pcall(function()
+							gui.SelectedObject = landing
+						end)
+					end
+				end
+			end)
+		end
 		root:SetAttribute("FacetSelectionOwner", true)
 		return root
 	end)

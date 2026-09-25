@@ -199,8 +199,10 @@ function geometry.paint(s: Radial.SectorShape): Radial.Paint
 		for _, r in { s.inner, s.outer } do
 			local x = math.sin(a) * r - edge * halfGap * math.cos(a)
 			local y = -math.cos(a) * r - edge * halfGap * math.sin(a)
-			minX, maxX = math.min(minX, x), math.max(maxX, x)
-			minY, maxY = math.min(minY, y), math.max(maxY, y)
+			minX = math.min(minX, x)
+			maxX = math.max(maxX, x)
+			minY = math.min(minY, y)
+			maxY = math.max(maxY, y)
 		end
 	end
 	local w, h = math.max(1, maxX - minX), math.max(1, maxY - minY)

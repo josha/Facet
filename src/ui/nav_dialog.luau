@@ -5,6 +5,7 @@ local Overlay = require("./overlay_types")
 local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
+local freeze = require("./freeze")
 
 type Controls = {
 	Dialog: Types.Constructor<Overlay.DialogSpec, Frame>,
@@ -25,7 +26,7 @@ local KEYS = {
 	"width",
 	"contentSelectable",
 }
-local DIALOG = table.freeze({ enter = 0.2, exit = 0.15 })
+local DIALOG: { enter: number, exit: number } = freeze({ enter = 0.2, exit = 0.15 })
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
@@ -41,8 +42,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return 0
 			end
 		end
-		local visible = ctx.observe(input, "OnScreenKeyboardVisible")
-		local size = ctx.observe(input, "OnScreenKeyboardSize")
+		local visible = ctx.observe.OnScreenKeyboardVisible(input)
+		local size = ctx.observe.OnScreenKeyboardSize(input)
 		return function(use: ComposeTypes.Use): number
 			local extent = use(size)
 			return if use(visible) == true and typeof(extent) == "Vector2" then (extent :: Vector2).Y else 0
@@ -172,7 +173,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, {
 			surfaces.overlay(root, condition, function(phase: Nav.PresencePhase?)
 				local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
-				local extent = ctx.observe(layer, "AbsoluteSize")
+				local extent = ctx.observe.AbsoluteSize(layer)
 				local keyboard = keyboardHeight(input)
 				local function margin(use: ComposeTypes.Use?): number
 					return ctx.metric("space.m", use)
@@ -280,7 +281,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					table.insert(regions, assert(group).frame)
 				end
 				local naturalSize: ComposeTypes.Readable<Vector2> = if bodyContent
-					then ctx.observe(bodyContent, "AbsoluteSize")
+					then ctx.observe.AbsoluteSize(bodyContent)
 					else Compose.cell(V2.zero)
 				local room = parts.room(ctx, regions, body, function(use: ComposeTypes.Use): number
 					return use(naturalSize).Y
@@ -293,11 +294,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					scroller:SetAttribute("FacetSelectionOwner", true)
 					local gui = surfaces.service("GuiService")
 					local selected: ComposeTypes.Readable<GuiObject?> = if gui
-						then ctx.observe(gui, "SelectedObject")
+						then ctx.observe.SelectedObject(gui)
 						else Compose.cell(nil :: GuiObject?)
-					local canvas = ctx.observe(scroller, "CanvasPosition")
-					local window = ctx.observe(scroller, "AbsoluteWindowSize")
-					local content = ctx.observe(assert(bodyContent), "AbsoluteSize")
+					local canvas = ctx.observe.CanvasPosition(scroller)
+					local window = ctx.observe.AbsoluteWindowSize(scroller)
+					local content = ctx.observe.AbsoluteSize(assert(bodyContent))
 					local function step(direction: number)
 						local box = scroller.AbsoluteWindowSize.Y
 						local limit = math.max(0, scroller.AbsoluteCanvasSize.Y - box)
@@ -322,8 +323,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				local shown = surfaces.appearance(phase, DIALOG)
 				local panel = ctx.styled(
-					Host.CanvasGroup({
-						Name = "Panel",
+					Host.CanvasGroup "Panel" {
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = function(use: ComposeTypes.Use)
 							return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
@@ -345,7 +345,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return 0.94 + 0.06 * shown(use)
 							end,
 						} :: Instance,
-					}),
+					},
 					"dialog"
 				)
 				ctx.styled(panel, "panel")

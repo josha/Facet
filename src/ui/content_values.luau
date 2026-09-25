@@ -2,14 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 
-export type Values = {
-	attribute: (unknown) -> Types.Value<Types.AttributeValue?>,
-	note: (string) -> (),
-	list: () -> { string },
-	legal: <T>(string, Types.Value<T>, (unknown) -> boolean, string) -> ComposeTypes.Formula<T>,
-}
-
-return function(ctx: Types.Context, control: string): Values
+return function(ctx: Types.Context, control: string)
 	local Compose, read = ctx.Compose, ctx.read
 	local diagnostics: { string } = {}
 	local function note(message: string)

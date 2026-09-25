@@ -108,6 +108,15 @@ t.describe("native StepIndicator", function()
 		world.stop()
 	end)
 
+	t.it("reserves space under the row so the underline never crosses the state word", function()
+		local world = mount({ steps = workflow(), current = "ship" })
+		local padding = world.find("Row"):FindFirstChildWhichIsA("UIPadding")
+		t.expect(padding ~= nil).toBe(true)
+		local underline = world.find("Underline")
+		t.expect(padding.PaddingBottom.Offset >= underline.Size.Y.Offset + 2).toBe(true)
+		world.stop()
+	end)
+
 	t.it("keeps the own cue and state word of an errored or completed current step", function()
 		local steps = workflow()
 		steps[2].state = "error"
@@ -277,6 +286,26 @@ t.describe("native StepIndicator", function()
 		t.expect(hugRoot:GetAttribute("FacetForm")).toBe("row")
 		fill.stop()
 		hug.stop()
+	end)
+
+	t.it("measures the whole cell, not the label alone, before it draws the row", function()
+		for _, sizing in { "fill", "hug" } do
+			local world, root =
+				mount({ steps = workflow(), current = "ship", sizing = sizing, onSelect = function() end }, 484)
+			for _, node in root:GetDescendants() do
+				if node.Name == "Measure" then
+					world.bounds(node, 60)
+				elseif node.Name == "State" then
+					world.bounds(node, 64)
+				elseif node.Name == "Description" then
+					world.bounds(node, if node.Text == "" then 0 else 130)
+				end
+			end
+			t.expect(`{sizing} {root:GetAttribute("FacetForm")}`).toBe(`{sizing} summary`)
+			world.resize(root, 950, 80)
+			t.expect(`{sizing} {root:GetAttribute("FacetForm")}`).toBe(`{sizing} row`)
+			world.stop()
+		end
 	end)
 
 	t.it("leaves nothing open when a callback removes the control", function()

@@ -62,6 +62,7 @@ function theme.create(Facet: any, name: string)
 				onSelected = if dark then rgb(28, 22, 46) else rgb(255, 255, 255),
 				contentSecondary = if dark then rgb(174, 168, 188) else rgb(102, 105, 94),
 				hairline = if dark then rgb(66, 61, 88) else rgb(189, 191, 178),
+				hairlineOpacity = 0,
 			},
 		}
 	end

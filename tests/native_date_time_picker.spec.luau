@@ -314,6 +314,7 @@ t.describe("DateTimePicker: a single date", function()
 		local panel = w.panel()
 		local surface = must(w.screen, "CalendarSurface")
 		expect(surface:HasTag("facet-panel")).toBe(true)
+		expect(surface:HasTag("facet-floating")).toBe(true)
 		panel.AbsoluteSize = w.V2.new(340, 380)
 		expect(surface.Size).toBe(w.engine.types.UDim2.fromOffset(7 * 44 + 32, 380))
 		surface.AbsoluteSize = w.V2.new(340, 380)
@@ -563,6 +564,24 @@ t.describe("DateTimePicker: a single date", function()
 			end
 			w.stop()
 		end
+	end)
+
+	t.it("time: the hour and minute fields share the panel width and AM/PM sits on its own line", function()
+		local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
+		local w = mount({ value = cell, onChange = change, time = true, minuteStep = 15, style = "inline" })
+		local fields = must(w.picker(), "Fields")
+		expect(fields.Size.X.Scale).toBe(1)
+		expect(fields.AutomaticSize.Name).toBe("Y")
+		for _, name in { "Hour", "Minute" } do
+			local field = must(fields, name)
+			expect(field.Parent).toBe(fields)
+			expect(field.Size.X.Scale).toBe(0)
+			local flex = field:FindFirstChildWhichIsA("UIFlexItem")
+			expect(flex ~= nil and flex.FlexMode.Name == "Fill").toBe(true)
+		end
+		expect(fields:FindFirstChild("Half")).toBeNil()
+		expect(must(w.picker(), "Half").Parent).toBe(fields.Parent)
+		w.stop()
 	end)
 
 	t.it("time: hour and minute fields step on the minute grid, AM/PM flips, and a touch list sets both", function()

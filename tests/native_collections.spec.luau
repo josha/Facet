@@ -868,6 +868,47 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("arms a move on a detector tap and commits it on the next tap", function()
+		local engine, runtime, UI, target = setup()
+		local source = Compose.cell(records(5))
+		local requests = {}
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = source,
+				key = key,
+				itemSize = 20,
+				reorderable = true,
+				onReorder = function(keys, slot)
+					table.insert(requests, { keys = keys, slot = slot })
+				end,
+				columns = { { id = "label", label = "Label", width = 100 } },
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		local handle = body:FindFirstChild("2", true):FindFirstChild("Move", true)
+		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
+		local reorderable = handle.Parent
+		detector.DragStart.fire(engine.types.Vector2.new(10, 30))
+		detector.DragContinue.fire(engine.types.Vector2.new(10, 31))
+		detector.DragEnd.fire()
+		handle.Activated.fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton1 })
+		t.expect(reorderable:GetAttribute("FacetDragging")).toBe(true)
+		t.expect(#requests).toBe(0)
+		for _, contextNode in target:GetChildren() do
+			if contextNode.Name == "FacetReorderDown" and contextNode.Enabled then
+				contextNode:FindFirstChild("ReorderDown").Pressed.fire()
+			end
+		end
+		detector.DragStart.fire(engine.types.Vector2.new(10, 30))
+		detector.DragEnd.fire()
+		handle.Activated.fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton1 })
+		t.expect(reorderable:GetAttribute("FacetDragging")).toBe(false)
+		t.expect(requests).toEqual({ { keys = { 2 }, slot = 2 } })
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("commits a destructive action once after Compose departure and cancels on disposal", function()
 		local engine, runtime, UI, target = setup({ reducedMotion = false })
 		local invoked = 0

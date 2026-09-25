@@ -66,9 +66,9 @@ the current tests before you write a test.
 
 | Class | Meaning | Contracts | Main cases (audit) | Main cases (with new tests) |
 |---|---|---:|---:|---:|
-| a | Covered by a candidate case | 1717 | 2,294 | 4,095 |
-| b | Retired. The Roblox Engine or Compose owns the mechanism | 255 | 1,581 | 1,301 |
-| c | Retired. The feature or code was deleted and is not promised | 842 | 6,079 | 6,015 |
+| a | Covered by a candidate case | 1740 | 2,294 | 4,136 |
+| b | Retired. The Roblox Engine or Compose owns the mechanism | 254 | 1,581 | 1,295 |
+| c | Retired. The feature or code was deleted and is not promised | 851 | 6,079 | 6,010 |
 | d | Gap. A promise remains and no candidate case verifies it | 1 | 894 | 3 |
 
 The contract counts and the main-case counts with new tests are the sums over
@@ -96,14 +96,14 @@ last column names the candidate specs that the group cites most.
 | Input actions | 344 | 132 | 6 | 90 | 122 | 0 | `native_inputs`, `native_navigation`, `native_collections` |
 | Pointer, touch and drag | 393 | 94 | 2 | 88 | 211 | 0 | `native_collections`, `native_radial_controls`, `native_virtual_monitors` |
 | Scrolling | 332 | 125 | 7 | 90 | 117 | 0 | `native_collections`, `native_gallery_collections`, `native_virtual_monitors` |
-| Motion | 596 | 174 | 5 | 18 | 404 | 0 | `native_themes_media`, `native_navigation`, `native_inputs` |
-| Paint and theming | 739 | 260 | 21 | 33 | 446 | 0 | `native_themes_media`, `native_inputs`, `native_navigation` |
+| Motion | 596 | 177 | 5 | 18 | 401 | 0 | `native_themes_media`, `native_navigation`, `native_inputs` |
+| Paint and theming | 739 | 271 | 26 | 27 | 441 | 0 | `native_themes_media`, `native_inputs`, `native_navigation` |
 | Theme packages | 394 | 162 | 9 | 0 | 232 | 0 | `native_themes_media`, `native_inputs`, `native_gallery_shell` |
 | Icons and media | 255 | 120 | 2 | 37 | 98 | 0 | `native_themes_media`, `native_stress`, `native_public_surface` |
 | Action controls | 414 | 117 | 9 | 0 | 297 | 0 | `native_inputs`, `native_navigation`, `native_themes_media` |
 | Value controls | 299 | 269 | 14 | 0 | 30 | 0 | `native_inputs`, `native_parity_controls`, `native_themes_media` |
 | Text input | 173 | 124 | 14 | 28 | 21 | 0 | `native_inputs`, `native_navigation`, `native_collections` |
-| Menus and pickers | 231 | 192 | 37 | 0 | 39 | 0 | `native_navigation`, `native_parity_navigation`, `radial_geometry` |
+| Menus and pickers | 231 | 193 | 37 | 0 | 38 | 0 | `native_navigation`, `native_parity_navigation`, `radial_geometry` |
 | Navigation containers | 90 | 87 | 5 | 1 | 2 | 0 | `native_navigation`, `native_gallery_shell`, `native_radial_controls` |
 | Presented surfaces | 333 | 169 | 16 | 5 | 159 | 0 | `native_navigation`, `native_parity_navigation`, `native_gallery_parity` |
 | Virtual collections | 224 | 169 | 1 | 3 | 52 | 0 | `native_collections`, `native_gallery_collections`, `native_perf_principles` |

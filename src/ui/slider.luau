@@ -55,6 +55,7 @@ end
 
 return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): ()
 	local runtime, Host, Compose, read = ctx.runtime, ctx.Host, ctx.Compose, ctx.read
+	local readSource = ctx.readSource
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local function dynamic(source: unknown): boolean
 		return Compose.isReadable(source) or type(source) == "function"
@@ -187,7 +188,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			if spec.thumb == "none" then
 				return
 			end
-			local measured = ctx.observe(art, "AbsoluteSize")
+			local measured = ctx.observe.AbsoluteSize(art)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local box = use(measured) :: Vector2
 				local side = if vertical then box.Y else box.X
@@ -223,8 +224,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return h.enabled(spec, use)
 				end),
 			})
-			mark = Host.Frame({
-				Name = "Knob",
+			mark = Host.Frame "Knob" {
 				BackgroundTransparency = 1,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
@@ -237,7 +237,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					VerticalAlignment = E.VerticalAlignment.Center,
 				}) :: ComposeTypes.Child,
 				built :: ComposeTypes.Child,
-			})
+			}
 		else
 			mark = h.paintedPart({
 				Name = "Knob",
@@ -310,7 +310,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			)
 		end
 		local input = ctx.config.services.UserInputService
-		local preferred = if input then ctx.observe(input, "PreferredInput") else Compose.cell(nil)
+		local preferred = if input
+			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
+			else Compose.cell(nil :: Enum.PreferredInput?)
 		local degrees = function(use: ComposeTypes.Use?): number
 			local turn = read(spec.rotation, use)
 			assert(turn == nil or finite(turn), "Facet UI.Slider: rotation must be a finite number of degrees")
@@ -362,7 +364,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			end)
 		end
 		local function pair(use: ComposeTypes.Use?): Range
-			return assert(read(legal, use))
+			return assert(readSource(legal, use))
 		end
 		local function single(use: ComposeTypes.Use?): number
 			return read(spec.value :: Shared.Value<number>, use)
@@ -528,14 +530,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			local content = spec.trackContent()
 			table.insert(
 				trackChildren,
-				Host.Frame({
-					Name = "TrackContent",
+				Host.Frame "TrackContent" {
 					BackgroundTransparency = 1,
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
 					Size = D2.fromScale(1, 1),
 					content :: ComposeTypes.Child,
-				})
+				}
 			)
 		else
 			table.insert(
@@ -581,6 +582,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			table.insert(trackChildren, fill)
 		end
 		local handles: { [Thumb]: Frame } = {}
+		local engagedOf: { [Thumb]: ComposeTypes.Cell<boolean> } =
+			{ lower = Compose.cell(false), upper = Compose.cell(false) }
 		if isRange then
 			for index = 1, 2 do
 				local thumb: Thumb = if index == 1 then "lower" else "upper"
@@ -610,9 +613,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 								return h.enabled(spec, use)
 							end,
 							DragStart = function()
-								if h.enabled(spec) then
-									begin(thumb)
+								if not h.enabled(spec) then
+									return
 								end
+								local selector = ctx.config.services.GuiService
+								if
+									read(preferred) == E.PreferredInput.Gamepad
+									and selector ~= nil
+									and selector.SelectedObject == handle
+								then
+									engagedOf[thumb]:set(true)
+									return
+								end
+								begin(thumb)
 							end,
 							DragContinue = function(position)
 								drive(position)
@@ -651,7 +664,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			table.insert(trackProps, child)
 		end
 		track = ctx.styled(Host.Frame(trackProps), "slider-track")
-		local state = ctx.observe(track, "GuiState")
+		local state = ctx.observe.GuiState(track)
 		Compose.watch(function(use: ComposeTypes.Use)
 			hovered:set(use(state) == E.GuiState.Hover)
 		end)
@@ -664,7 +677,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			})
 		end
 		local gui = ctx.config.services.GuiService
-		local selection = if gui then ctx.observe(gui, "SelectedObject") else nil
+		local selection = if gui then ctx.observe.SelectedObject(gui) else nil
 		if selection then
 			local observed = selection
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -693,7 +706,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			for index = 1, 2 do
 				local thumb: Thumb = if index == 1 then "lower" else "upper"
 				local handle = handles[thumb]
-				local engaged = Compose.cell(false)
+				local engaged = engagedOf[thumb]
 				local proxy: NumberSpec = {
 					value = function(use: ComposeTypes.Use)
 						local current = pair(use)
@@ -725,13 +738,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 						guard = true,
 						arrows = function(use: ComposeTypes.Use)
 							return not gamepad(use) or use(engaged)
-						end,
-						extra = function(active)
-							ctx.action(handle, "Engage", { E.KeyCode.ButtonA }, function(use: ComposeTypes.Use)
-								return active(use) and gamepad(use) and not use(engaged)
-							end, function()
-								engaged:set(true)
-							end, { priority = 100 })
 						end,
 					}
 				)

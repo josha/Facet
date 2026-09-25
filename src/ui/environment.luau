@@ -4,6 +4,7 @@ local Shared = require("./types")
 local Env = require("./environment_types")
 local adaptive = require("./adaptive")
 local motion = require("./motion")
+local freeze = require("./freeze")
 
 type Point = { X: number, Y: number, Z: number }
 type Projector = {
@@ -37,8 +38,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 
 	local function watched(node: Instance?, property: string, fallback: unknown): ComposeTypes.Readable<unknown>
 		if node ~= nil then
-			local observe = (ctx.observe :: unknown) :: (Instance, string) -> ComposeTypes.Readable<unknown>
-			local ok, value = pcall(observe, node, property)
+			local observers = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.Readable<unknown> }
+			local ok, value = pcall(observers[property], node)
 			if ok then
 				return value
 			end
@@ -130,7 +131,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			else
 				classes.gamepad = true
 			end
-			return table.freeze(classes)
+			return freeze(classes)
 		end)
 		local effectiveInput = (
 			derived(function(use): "Touch" | "Gamepad" | "KeyboardAndMouse"
@@ -165,10 +166,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					insets = { top = topLeft.Y, left = topLeft.X, bottom = bottomRight.Y, right = bottomRight.X }
 				end
 			end
-			return table.freeze(insets)
+			return freeze(insets)
 		end)
 		local reduced = motion(ctx)
-		local environment: Env.Environment = table.freeze({
+		local environment: Env.Environment = freeze({
 			viewportSize = viewportSize,
 			viewportWidth = viewportWidth,
 			viewportHeight = viewportHeight,
@@ -298,8 +299,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						if not finite(p.X) or not finite(p.Y) or not finite(p.Z) or p.Z <= near then
 							return { visible = false }
 						end
-						minX, minY = math.min(minX, p.X), math.min(minY, p.Y)
-						maxX, maxY = math.max(maxX, p.X), math.max(maxY, p.Y)
+						minX = math.min(minX, p.X)
+						minY = math.min(minY, p.Y)
+						maxX = math.max(maxX, p.X)
+						maxY = math.max(maxY, p.Y)
 						table.insert(points, p)
 					end
 				end
@@ -349,6 +352,6 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		if Compose.currentOwner() then
 			Compose.cleanup(dispose)
 		end
-		return table.freeze({ anchor = anchor, dispose = dispose })
+		return freeze({ anchor = anchor, dispose = dispose })
 	end
 end

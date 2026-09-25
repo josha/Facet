@@ -2,6 +2,7 @@
 local Types = require("./types")
 local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
+local freeze = require("./freeze")
 
 type Show = (GuiObject, Inputs.Help) -> ()
 
@@ -9,7 +10,7 @@ local registry = setmetatable({} :: { [Types.Context]: Show }, { __mode = "k" })
 
 local help = {}
 
-local KEYS = table.freeze({ title = true, body = true, shortcut = true, edge = true, align = true })
+local KEYS: { [string]: boolean } = freeze({ title = true, body = true, shortcut = true, edge = true, align = true })
 
 function help.check(ctx: Types.Context, value: unknown)
 	if type(value) ~= "table" or ctx.Compose.isReadable(value) then

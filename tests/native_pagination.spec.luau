@@ -209,6 +209,8 @@ t.describe("native Pagination", function()
 			t.expect(wide.find("Slot-5000").Size.X.Offset >= 44).toBe(true)
 			t.expect(wide.find("Slot-5000").Size.X.Offset).toBe(56)
 			t.expect(wide.find("Page-5000"):FindFirstChild("SlotLimit").MaxSize.X).toBe(56)
+			local compact = require("../src").themes.neutralPackage().metrics.controlSizes.compact.height
+			t.expect(wide.find("Page-1"):FindFirstChild("SlotLimit").MinSize.X).toBe(compact)
 			wide.stop()
 			local expected = {
 				[360] = "previous 1 … 4999 [5000] 5001 next",
@@ -247,6 +249,41 @@ t.describe("native Pagination", function()
 		world.gui.SelectedObject = world.find("Page-4")
 		page:set(9)
 		t.expect(world.gui.SelectedObject).toBe(world.find("Page-9"))
+		world.stop()
+	end)
+
+	t.it("takes the current page back when the engine moves the selection of a removed page away", function()
+		for _, target in { "outside", "Page-20" } do
+			local spec, page = controlled(5, { pageCount = 20 })
+			local world = mount(spec)
+			local four = world.find("Page-4")
+			local outside = world.engine.new("TextButton")
+			world.gui.SelectedObject = four
+			four.AncestryChanged:Connect(function()
+				if four.Parent == nil and world.gui.SelectedObject == four then
+					world.gui.SelectedObject = if target == "outside" then outside else world.find("Page-20")
+				end
+			end)
+			page:set(9)
+			world.resize(world.find("Page-9"), 44, 44)
+			t.expect(`{target} {world.gui.SelectedObject == world.find("Page-9")}`).toBe(`{target} true`)
+			world.stop()
+		end
+	end)
+
+	t.it("takes the current page back when the engine moves the handed selection before layout", function()
+		local spec, page = controlled(5, { pageCount = 20 })
+		local world = mount(spec)
+		world.gui.SelectedObject = world.find("Page-4")
+		page:set(9)
+		local nine = world.find("Page-9")
+		local outside = world.engine.new("TextButton")
+		world.gui.SelectedObject = outside
+		world.resize(nine, 44, 44)
+		t.expect(world.gui.SelectedObject).toBe(nine)
+		world.gui.SelectedObject = world.find("Page-20")
+		world.resize(nine, 45, 44)
+		t.expect(world.gui.SelectedObject).toBe(world.find("Page-20"))
 		world.stop()
 	end)
 

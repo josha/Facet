@@ -188,6 +188,6 @@ Haptics are restrained. The `pressHaptic` of the controls plays only for a
 control that changes a state or a value, for example a Toggle or a Stepper
 step. To make a game-specific Button play it, set `haptic = true`.
 
-See the [native API contract](../reference/api.md),
+See the [native API contract](../reference/api.md#constructor-contract),
 [adaptive composition](15-adaptive-recipes.md) and
 [practical recipes](17-recipes.md).

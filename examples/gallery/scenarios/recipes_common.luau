@@ -184,13 +184,27 @@ return {
 			local package = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
 		end
+		local function observe(node, property)
+			local value = Compose.cell(node[property])
+			local connection = node:GetPropertyChangedSignal(property):Connect(function()
+				value:set(node[property])
+			end)
+			Compose.cleanup(function()
+				connection:Disconnect()
+			end)
+			return value
+		end
 		local function dividerExample(id: string, name: string, sides: any, thickness: number?): any
+			local row = UI.Label({ Name = "Row", LayoutOrder = 1, icon = "checkmark", title = name })
+			local title = row:FindFirstChild("Title")
+			local rowAt = observe(row, "AbsolutePosition")
+			local titleAt = if title then observe(title, "AbsolutePosition") else rowAt
 			local function inset(side: string)
 				return function(use)
-					return UDim.new(
-						0,
-						if type(sides) == "table" and sides[side] then metrics(use).space[sides[side]] else 0
-					)
+					if type(sides) ~= "table" or not sides[side] then
+						return UDim.new(0, 0)
+					end
+					return UDim.new(0, math.max(0, use(titleAt).X - use(rowAt).X))
 				end
 			end
 			local line = Host.Frame({
@@ -211,19 +225,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
 				}),
-				UI.Text({
-					LayoutOrder = 1,
-					Name = "Label",
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = name,
-					textRole = "caption",
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				row,
 				Host.Frame({
 					LayoutOrder = 2,
 					Name = "Pad",
@@ -236,14 +238,39 @@ return {
 						Padding = UDim.new(0, 0),
 					}),
 					Host.UIPadding({
-						PaddingTop = inset("top"),
-						PaddingBottom = inset("bottom"),
 						PaddingLeft = inset("left"),
 						PaddingRight = inset("right"),
 					}),
 					line,
 				}),
 			})
+		end
+		local function dividers()
+			local card = Host.Frame({
+				Name = "Dividers",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BorderSizePixel = 0,
+				Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) }),
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 12),
+				}),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				dividerExample("DividerFull", "Full"),
+				dividerExample("DividerLeading", "Leading inset", { left = true }),
+				dividerExample("DividerTrailing", "Trailing inset", { right = true }),
+				dividerExample("DividerBoth", "Leading and trailing", { left = true, right = true }),
+				dividerExample("DividerHeavy", "Heavy", nil, 3),
+			})
+			card:AddTag("facet-panel")
+			return card
 		end
 
 		local function Page()
@@ -556,11 +583,7 @@ return {
 					end,
 				}),
 				heading("DividerHeading", "Divider insets"),
-				dividerExample("DividerFull", "Full"),
-				dividerExample("DividerLeading", "Leading inset", { left = "m" }),
-				dividerExample("DividerTrailing", "Trailing inset", { right = "m" }),
-				dividerExample("DividerBoth", "Leading and trailing", { left = "m", right = "m" }),
-				dividerExample("DividerHeavy", "Heavy", nil, 3),
+				dividers(),
 				heading("AccordionHeading", "Single-open accordion"),
 				Host.Frame "Accordion" {
 					BackgroundTransparency = 1,

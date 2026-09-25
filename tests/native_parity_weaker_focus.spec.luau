@@ -474,6 +474,7 @@ t.describe("native parity weaker focus", function()
 			return Host.Frame({
 				UI.Menu({
 					isPresented = opened,
+					presentation = "sheet",
 					items = {
 						{
 							id = "Sort",
@@ -1817,5 +1818,104 @@ t.describe("native parity weaker focus", function()
 		end)
 		t.expect(find(single.screen, "Grabber").Selectable).toBe(false)
 		single.stop()
+	end)
+
+	t.it("retakes the modal entry when the engine refuses it before the panel is laid out", function()
+		local presented = Compose.cell(false)
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Opener")({ label = "Open" }),
+				UI.Button("Beside")({ label = "Beside" }),
+				UI.Sheet({
+					isPresented = presented,
+					detent = Compose.cell("large"),
+					content = function()
+						return Host.Frame("Body")({
+							UI.Button("First")({ label = "First" }),
+						})
+					end,
+				}),
+			})
+		end, {
+			prepare = function(engine, input)
+				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+			end,
+		})
+		local beside = find(world.screen, "Beside")
+		local refusals = 0
+		local refusing = world.gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+			local selected = world.gui.SelectedObject
+			if
+				selected
+				and selected.AbsoluteSize.X == 0
+				and find(world.screen, "SheetPanel")
+				and within(selected, find(world.screen, "SheetPanel"))
+			then
+				refusals += 1
+				world.gui.SelectedObject = beside
+			end
+		end)
+		world.gui.SelectedObject = find(world.screen, "Opener")
+		presented:set(true)
+		local panel = find(world.screen, "SheetPanel")
+		t.expect(refusals >= 1).toBe(true)
+		t.expect(world.gui.SelectedObject).toBe(beside)
+		local entry
+		for _, node in panel:GetDescendants() do
+			if entry == nil and node:IsA("GuiObject") and node.Selectable and node.Visible then
+				entry = node
+			end
+		end
+		entry.AbsoluteSize = world.engine.types.Vector2.new(88, 44)
+		panel.AbsoluteSize = world.engine.types.Vector2.new(600, 400)
+		t.expect(within(world.gui.SelectedObject, panel)).toBe(true)
+		t.expect(world.gui.SelectedObject).toBe(entry)
+		world.gui.SelectedObject = beside
+		panel.AbsoluteSize = world.engine.types.Vector2.new(600, 420)
+		t.expect(world.gui.SelectedObject).toBe(beside)
+		refusing:Disconnect()
+		world.stop()
+	end)
+
+	t.it("returns the selection to the opener when the engine moves it aside as the modal leaves", function()
+		local presented = Compose.cell(false)
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Opener")({ label = "Open" }),
+				UI.Button("Beside")({ label = "Beside" }),
+				UI.Sheet({
+					isPresented = presented,
+					detent = Compose.cell("large"),
+					content = function()
+						return Host.Frame("Body")({
+							UI.Button("First")({ label = "First" }),
+						})
+					end,
+				}),
+			})
+		end)
+		local opener, beside = find(world.screen, "Opener"), find(world.screen, "Beside")
+		world.gui.SelectedObject = opener
+		presented:set(true)
+		local panel = find(world.screen, "SheetPanel")
+		t.expect(within(world.gui.SelectedObject, panel)).toBe(true)
+		local root = panel.Parent
+		local moved = 0
+		local aside = root:GetPropertyChangedSignal("Parent"):Connect(function()
+			if root.Parent == nil and within(world.gui.SelectedObject, root) then
+				moved += 1
+				world.gui.SelectedObject = beside
+			end
+		end)
+		presented:set(false)
+		t.expect(moved).toBe(1)
+		t.expect(world.gui.SelectedObject).toBe(opener)
+		aside:Disconnect()
+		world.gui.SelectedObject = opener
+		presented:set(true)
+		world.gui.SelectedObject = beside
+		presented:set(false)
+		t.expect(world.gui.SelectedObject).toBe(beside)
+		world.stop()
 	end)
 end)

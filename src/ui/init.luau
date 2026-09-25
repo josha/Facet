@@ -1,6 +1,7 @@
 --!strict
 local context = require("@self/context")
 local Types = require("@self/control_types")
+local freeze = require("@self/freeze")
 return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: Types.Config?): Types.Controls
 	local ctx = context(Compose, runtime, options)
 	local UI = ({} :: unknown) :: Types.Controls
@@ -29,6 +30,5 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/color_picker")(ctx, UI, surfaces)
 	require("@self/environment")(ctx, UI)
 	require("@self/scrolling")(ctx, UI)
-	table.freeze(UI)
-	return UI
+	return freeze(UI)
 end

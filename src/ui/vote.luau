@@ -57,10 +57,11 @@ return function(
 			disposed = true
 		end)
 		local function propose(side: Content.VoteValue)
-			if disposed or readOnly:peek() or not enabled() or onChange == nil then
+			local change = onChange
+			if disposed or readOnly:peek() or not enabled() or change == nil then
 				return
 			end
-			onChange(if value:peek() == side then "none" else side)
+			change(if value:peek() == side then "none" else side)
 		end
 		local floor = function(use: ComposeTypes.Use?): number
 			return (ctx.metric("targetSizes.minimum", use))
@@ -186,14 +187,13 @@ return function(
 					return D.new(0, ctx.metric("space.s", use))
 				end,
 			}) :: Types.Child,
-			Host.Frame({
-				Name = "Mode",
+			Host.Frame "Mode" {
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 				mode,
-			}) :: Types.Child,
+			} :: Types.Child,
 			summary :: Types.Child,
 		}))
 	end)

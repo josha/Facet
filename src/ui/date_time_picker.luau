@@ -16,6 +16,9 @@ type Use = ComposeTypes.Use
 type Readable<T> = ComposeTypes.Readable<T>
 type Cell<T> = ComposeTypes.Cell<T>
 type Held = { v: CivilDate? | Range }
+local function span(from: CivilDate?, to: CivilDate?): Range
+	return { start = from, finish = to }
+end
 type Grab = { other: CivilDate, from: Range, last: CivilDate, moved: boolean }
 type TimeRow = { id: string, hour: number, minute: number }
 type Deps = {
@@ -386,7 +389,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		local function monthClosed(m: CivilDate, use: Use?): boolean
 			local lo = if use then use(minDate) else minDate:peek()
 			local hi = if use then use(maxDate) else maxDate:peek()
-			local last = { year = m.year, month = m.month, day = civil.daysIn(m.year, m.month) }
+			local last: CivilDate = { year = m.year, month = m.month, day = civil.daysIn(m.year, m.month) }
 			return (lo ~= nil and civil.compare(last, lo) < 0) or (hi ~= nil and civil.compare(monthOf(m), hi) > 0)
 		end
 		local function canPage(delta: number, use: Use?): boolean
@@ -553,11 +556,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local r = range:peek()
 			local next: Range
 			if r.start == nil or r.finish ~= nil then
-				next = { start = day, finish = nil }
+				next = span(day, nil)
 			elseif civil.compare(day, r.start) < 0 then
-				next = { start = day, finish = r.start }
+				next = span(day, r.start)
 			else
-				next = { start = r.start, finish = day }
+				next = span(r.start, day)
 			end
 			if propose(next) and next.finish ~= nil and not draft then
 				commit()
@@ -586,7 +589,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			return `{months[d.month]} {d.day}, {d.year}`
 		end
 		local preferred = if input and input.GetPropertyChangedSignal
-			then ctx.observe(input, "PreferredInput")
+			then ctx.observe.PreferredInput(input)
 			else Compose.cell(nil :: unknown)
 		local function prefers(kind: Enum.PreferredInput, use: Use): boolean
 			return use(preferred) == kind
@@ -599,7 +602,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			return kind == nil or kind == E.PreferredInput.KeyboardAndMouse
 		end)
 		local selected: Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
-			then ctx.observe(gui, "SelectedObject")
+			then ctx.observe.SelectedObject(gui)
 			else Compose.cell(nil :: GuiObject?)
 
 		local function parseOne(s: string): (CivilDate?, string?)
@@ -623,7 +626,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					at, stop = string.find(text, " - ", 1, true)
 				end
 				if at == nil and string.match(text, "^%s*$") ~= nil then
-					next, found = {}, true
+					next, found = span(nil, nil), true
 				elseif at == nil or stop == nil then
 					why = "Enter two dates, like "
 						.. civil.format({ year = 2026, month = 1, day = 2 }, locale)
@@ -636,7 +639,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						f, why = parseOne(string.sub(text, stop + 1))
 					end
 					if s ~= nil and f ~= nil then
-						next = if civil.compare(s, f) <= 0 then { start = s, finish = f } else { start = f, finish = s }
+						next = if civil.compare(s, f) <= 0 then span(s, f) else span(f, s)
 						found = true
 					end
 				end
@@ -745,7 +748,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end
 			held.last, held.moved = d, true
 			local a, b = held.other, civil.dateOf(d)
-			propose(if civil.compare(b, a) < 0 then { start = b, finish = a } else { start = a, finish = b })
+			propose(if civil.compare(b, a) < 0 then span(b, a) else span(a, b))
 		end
 		local function release(cancelled: boolean)
 			local held = grab
@@ -957,8 +960,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					end
 					choose(date:peek())
 				end,
-				Host.Frame({
-					Name = "Layers",
+				Host.Frame "Layers" {
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
 					band :: Shared.Child,
@@ -967,7 +969,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					ring :: Shared.Child,
 					number :: Shared.Child,
 					strike :: Shared.Child,
-				}),
+				},
 			})
 			cell:AddTag("facet-calendar-day")
 			if isRange then
@@ -1026,12 +1028,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			for i = 1, CELLS do
 				table.insert(days, dayCell(k, i))
 			end
-			local grid = Host.Frame({
-				Name = "Days",
+			local grid = Host.Frame "Days" {
 				BackgroundTransparency = 1,
 				Size = D2.fromOffset(7 * CELL, 6 * CELL),
 				table.unpack(days),
-			})
+			}
 			local title = ctx.styled(
 				ctx.text({
 					Name = "Title",
@@ -1054,7 +1055,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			options: (Use) -> { { value: number, label: string, enabled: (Use) -> boolean } },
 			get: (CivilDate) -> number,
 			set: (number) -> ()
-		): Frame
+		): GuiObject
 			local pick = Compose.cell(get(peekMonth()))
 			Compose.watch(function(use: Use)
 				pick:set(get(use(viewMonth)))
@@ -1094,7 +1095,6 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			})
 			return UI.Menu({
-				Name = menuName .. "Menu",
 				items = items,
 				trigger = trigger :: GuiObject,
 				presentation = "menu" :: "menu",
@@ -1149,7 +1149,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end, function(v: number)
 				landIn({ year = v, month = peekMonth().month, day = 1 })
 			end)
-			upTarget:set(assert(monthMenu:FindFirstChild("Month", true)) :: GuiObject)
+			upTarget:set(monthMenu)
 			local function arrow(name: string, icon: string, words_: string, delta: number): TextButton
 				return UI.Button({
 					Name = name,
@@ -1207,6 +1207,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				return UI.NumberInput({
 					Name = name,
 					label = name,
+					Size = D2.new(0, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Shared.Child,
 					value = text,
 					numericValue = number,
 					min = lo,
@@ -1258,7 +1261,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				return v.minute or 0
 			end, withMinute)
 			downTarget:set(hour:FindFirstChild("Field", true) :: GuiObject?)
-			local parts: { Shared.Child } = { hour, minute }
+			local parts: { Shared.Child } = {}
 			if hourCycle == 12 then
 				local half = Compose.cell("AM")
 				Compose.watch(function(use: Use)
@@ -1294,7 +1297,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				}
 				table.insert(parts, UI.Picker(halfSpec))
 			end
-			local fields = ctx.row(parts, { Name = "Fields" })
+			local fields = ctx.row(
+				{ hour, minute },
+				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
+			)
 			assert(fields:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Bottom
 			local times: { TimeRow } = {}
 			for minutes = 0, 24 * 60 - 1, minuteStep do
@@ -1348,10 +1354,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				}
 				return UI.VirtualList(timesSpec)
 			end)
-			return ctx.column(
-				{ fields, list },
-				{ Name = "Time", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			table.insert(parts, 1, fields)
+			table.insert(parts, list)
+			return ctx.column(parts, { Name = "Time", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 		end
 
 		local function presetRow(): Frame
@@ -1445,7 +1450,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local actions: Frame? = nil
 			if draft then
 				local reset = action("ResetAll", "Reset all", function()
-					propose(if isRange then {} else nil)
+					propose(if isRange then span(nil, nil) else nil)
 				end, "link")
 				local cancel = action("Cancel", "Cancel", function()
 					restore()
@@ -1632,7 +1637,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				message = typedError,
 				native = rootProps,
 			})
-			local size = ctx.observe(root, "AbsoluteSize")
+			local size = ctx.observe.AbsoluteSize(root)
 			Compose.watch(function(use: Use)
 				local measured = use(size) :: Vector2
 				room:set(measured.X)
@@ -1658,8 +1663,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local entryView = Compose.show(function(use: Use)
 				return use(typedEntry)
 			end, function()
-				local box = Host.TextBox({
-					Name = "Entry",
+				local box = Host.TextBox "Entry" {
 					LayoutOrder = 1,
 					Text = valueText:peek(),
 					PlaceholderText = spec.placeholder or "",
@@ -1674,7 +1678,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						return interactive(use)
 					end,
 					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-				})
+				}
 				ctx.styled(box, "text")
 				entry = box
 				Compose.cleanup(function()
@@ -1776,10 +1780,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			surfaces.attach(root, {
 				surfaces.overlay(plate, presented, function()
 					local layer = plate:FindFirstAncestorWhichIsA("LayerCollector")
-					local extent = if layer then ctx.observe(layer, "AbsoluteSize") else Compose.cell(V2.zero)
-					local origin = if layer then ctx.observe(layer, "AbsolutePosition") else Compose.cell(V2.zero)
-					local position = ctx.observe(plate, "AbsolutePosition")
-					local bounds = ctx.observe(plate, "AbsoluteSize")
+					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
+					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
+					local position = ctx.observe.AbsolutePosition(plate)
+					local bounds = ctx.observe.AbsoluteSize(plate)
 					local tenFoot = false
 					if gui then
 						local ok, answer = pcall(function(): boolean
@@ -1810,8 +1814,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local surface: ScrollingFrame
 					local modal = surfaces.modal(function()
 						panel = panelView(routeOf)
-						surface = Host.ScrollingFrame({
-							Name = "CalendarSurface",
+						surface = Host.ScrollingFrame "CalendarSurface" {
 							BorderSizePixel = 0,
 							Selectable = false,
 							CanvasSize = D2.fromOffset(0, 0),
@@ -1819,8 +1822,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							ScrollingDirection = E.ScrollingDirection.Y,
 							ScrollBarThickness = 4,
 							panel :: Shared.Child,
-						})
+						}
 						ctx.styled(surface, "panel")
+						ctx.styled(surface, "floating")
 						surfaces.skin(surface)
 						return surface
 					end, function()
@@ -1835,8 +1839,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							close("outside")
 						end,
 					})
-					local content = ctx.observe(panel, "AbsoluteSize")
-					local measured = ctx.observe(surface, "AbsoluteSize")
+					local content = ctx.observe.AbsoluteSize(panel)
+					local measured = ctx.observe.AbsoluteSize(surface)
 					local function sheet(use: Use): boolean
 						return use(route) == "sheet" and not tenFoot
 					end

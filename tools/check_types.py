@@ -46,7 +46,7 @@ def relative(path):
 
 def analyze(files, name, extra=()):
     command = ["luau-lsp", "analyze", "--platform", "roblox", "--definitions=" + str(definitions()), *extra, *["--flag:" + flag for flag in FLAGS], *files]
-    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, errors="replace", timeout=600)
     output = result.stdout + result.stderr
     name = name + ("-v2" if "LuauSolverV2=true" in FLAGS else "")
     log = ARTIFACTS / f"{name}.log"

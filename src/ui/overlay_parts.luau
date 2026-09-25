@@ -4,23 +4,25 @@ local Types = require("./types")
 local Overlay = require("./overlay_types")
 local Inputs = require("./input_types")
 local measuredScroll = require("./measured_scroll")
+local freeze = require("./freeze")
 
 type ButtonFactory = Types.Constructor<Inputs.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
 
 local parts = {}
 
-parts.WIDTHS = table.freeze({
+local WIDTHS: { [string]: string } = freeze({
 	automatic = "controls.alert.maxWidth",
 	narrow = "controls.popup.panelWidth",
 	wide = "controls.dialog.wideWidth",
 })
+parts.WIDTHS = WIDTHS
 
 local MEDIA_KEYS = table.freeze({ "aspectRatio", "background", "height", "image", "scaleMode" })
 local HERO_KEYS = table.freeze({ "aspectRatio", "background", "content", "height", "image", "scaleMode", "sticky" })
 local ACTION_KEYS = table.freeze({ "busy", "enabled", "id", "label", "onActivate", "role" })
-local SCALE_MODES = table.freeze({ fit = true, crop = true, stretch = true })
-local ROLES = table.freeze({ default = true, cancel = true, destructive = true })
+local SCALE_MODES: { [string]: boolean } = freeze({ fit = true, crop = true, stretch = true })
+local ROLES: { [string]: boolean } = freeze({ default = true, cancel = true, destructive = true })
 
 function parts.instance(value: unknown): boolean
 	if typeof(value) == "Instance" then
@@ -221,7 +223,7 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 	local frame = Host.Frame(props)
 	local ratio = media.aspectRatio
 	if ratio and not height then
-		local measured = ctx.observe(frame, "AbsoluteSize")
+		local measured = ctx.observe.AbsoluteSize(frame)
 		ctx.runtime.decorate(frame, {
 			Size = function(use: ComposeTypes.Use)
 				local width = (use(measured) :: Vector2).X
@@ -297,7 +299,7 @@ function parts.actions(
 			end,
 		})
 		table.insert(props, button)
-		table.insert(widths, ctx.observe(button, "TextBounds"))
+		table.insert(widths, ctx.observe.TextBounds(button))
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
 		local total = (#actions - 1) * 8
@@ -330,7 +332,7 @@ function parts.room(
 	local sizes: { ComposeTypes.Readable<Vector2> } = {}
 	for _, region in regions do
 		if region ~= body then
-			table.insert(sizes, ctx.observe(region, "AbsoluteSize"))
+			table.insert(sizes, ctx.observe.AbsoluteSize(region))
 		end
 	end
 	local pinned = Compose.formula(function(use: ComposeTypes.Use): number
@@ -390,8 +392,133 @@ function parts.room(
 		ctx.runtime.decorate(region, { LayoutOrder = index })
 		table.insert(props, region)
 	end
+	props.Selectable = false
 	local frame = Host.ScrollingFrame(props)
+	parts.reach(ctx, frame, tight)
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
+end
+
+function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: ComposeTypes.Readable<boolean>)
+	local Compose, V2 = ctx.Compose, ctx.types.Vector2
+	local gui = ctx.config.guiService
+	local input = ctx.config.userInputService
+	local frames = ctx.runtime.host.frames
+	if gui == nil or input == nil or frames == nil then
+		return
+	end
+	local function shown(node: Instance): boolean
+		local at: Instance? = node
+		while at and at ~= scroller do
+			if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
+				return false
+			end
+			at = at.Parent
+		end
+		return at == scroller
+	end
+	local function nearest(from: GuiObject, direction: number): GuiObject?
+		local top, bottom = from.AbsolutePosition.Y, from.AbsolutePosition.Y + from.AbsoluteSize.Y
+		local middle = from.AbsolutePosition.X + from.AbsoluteSize.X / 2
+		local best: GuiObject?, bestGap, bestSide = nil, math.huge, math.huge
+		for _, node in scroller:GetDescendants() do
+			if
+				node:IsA("GuiObject")
+				and node ~= from
+				and node.Selectable
+				and not node:IsA("ScrollingFrame")
+				and not from:IsDescendantOf(node)
+				and node.AbsoluteSize.X > 0
+				and node.AbsoluteSize.Y > 0
+				and shown(node)
+			then
+				local at, size = node.AbsolutePosition, node.AbsoluteSize
+				local gap = if direction > 0 then at.Y - bottom else top - (at.Y + size.Y)
+				local beyond = if direction > 0 then at.Y > top + 1 else at.Y + size.Y < bottom - 1
+				if beyond and gap >= -size.Y / 2 then
+					local side = math.abs(at.X + size.X / 2 - middle)
+					if gap < bestGap - 0.5 or (math.abs(gap - bestGap) <= 0.5 and side < bestSide) then
+						best, bestGap, bestSide = node, gap, side
+					end
+				end
+			end
+		end
+		return best
+	end
+	local function reveal(node: GuiObject)
+		local window = scroller.AbsolutePosition.Y
+		local height = scroller.AbsoluteWindowSize.Y
+		local at, size = node.AbsolutePosition.Y, node.AbsoluteSize.Y
+		local canvas = scroller.CanvasPosition
+		local limit = math.max(0, scroller.AbsoluteCanvasSize.Y - height)
+		local shift = 0
+		if at + size > window + height then
+			shift = at + size - (window + height)
+		elseif at < window then
+			shift = at - window
+		end
+		scroller.CanvasPosition = V2.new(canvas.X, math.clamp(canvas.Y + shift, 0, limit))
+	end
+	local pending: (() -> ())? = nil
+	local function cancel()
+		local stop = pending
+		pending = nil
+		if stop then
+			stop()
+		end
+	end
+	Compose.cleanup(cancel)
+	local settled: GuiObject? = nil
+	local tracking: (() -> ())? = nil
+	local function untrack()
+		local stop = tracking
+		tracking = nil
+		settled = nil
+		if stop then
+			stop()
+		end
+	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		if not use(active) then
+			untrack()
+		elseif tracking == nil then
+			settled = gui.SelectedObject
+			tracking = frames.onFrame(function()
+				settled = gui.SelectedObject
+			end)
+		end
+	end)
+	Compose.cleanup(untrack)
+	local directions: { [string]: number } = { Down = 1, DPadDown = 1, Up = -1, DPadUp = -1 }
+	ctx.runtime.connect(input, "InputBegan", function(event: InputObject)
+		local direction = if event.KeyCode then directions[event.KeyCode.Name] else nil
+		local from = gui.SelectedObject
+		if
+			direction == nil
+			or from == nil
+			or from ~= settled
+			or not active:peek()
+			or not from:IsDescendantOf(scroller)
+		then
+			return
+		end
+		cancel()
+		local waited = 0
+		pending = frames.onFrame(function()
+			waited += 1
+			if waited < 6 then
+				return
+			end
+			cancel()
+			if gui.SelectedObject ~= from or from.Parent == nil or not active:peek() then
+				return
+			end
+			local target = nearest(from, direction)
+			if target then
+				reveal(target)
+				gui.SelectedObject = target
+			end
+		end)
+	end)
 end
 
 parts.scroller = measuredScroll

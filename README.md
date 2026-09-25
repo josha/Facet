@@ -1,15 +1,12 @@
 # Facet
 
-Facet is a library of Roblox UI controls. It uses Compose and the Roblox engine.
+Facet is a UI library for Roblox. It has buttons, toggles, text fields,
+pickers, menus, sheets, dialogs, tabs, lists, tables and more. Every control
+works with pointer, touch, keyboard and gamepad, adapts to the screen it is on,
+and takes its look from a theme you can replace without touching a screen.
 
-- Compose creates and owns the native Instances, bindings, collections and motion.
-- Roblox does layout, text editing, scrolling, selection and styling.
-- Facet adds control behavior and adaptive presentation.
-
-UI and embedded 3D content use one composition path. Create a Compose Roblox
-runtime, get the Facet controls for that runtime, and mount into a native
-target. Each control root is an Instance. You can use native property names and
-Compose structural operations directly.
+Facet builds on the Roblox engine. Controls are ordinary Instances, and the
+engine does layout, text, scrolling, selection and styling.
 
 ## A working screen
 
@@ -43,31 +40,13 @@ app.mount(Counter)
 script.Destroying:Connect(app.dispose)
 ```
 
-Compose tracks `use(count)` and updates the label when the cell changes. A
-component is an ordinary function. `Facet.app` makes the runtime, the controls
-and the theme StyleSheet, and `app.mount` puts a component on the screen.
-`app.dispose` removes every screen and releases what they own. The button works
-with pointer, touch, keyboard and gamepad. `UI.environment()` supplies adaptive
-facts such as the size class and the preferred input.
+A component is an ordinary function, and `count` is a cell of state: the label
+updates when it changes. `Facet.app` sets up the controls and the theme, and
+`app.mount` puts a component on the screen. `app.dispose` removes every screen
+and releases what they own. `UI.environment()` supplies adaptive facts such as
+the size class and the preferred input.
 
 [Getting started](docs/guide/03-getting-started.md) explains this script.
-
-## Already using Compose
-
-Give Facet your own Compose copy, so your state and Facet share one reactive
-graph:
-
-```luau
-local Compose = require(game.ReplicatedStorage.Packages.Compose.core)
-local ComposeRoblox = require(game.ReplicatedStorage.Packages.Compose.roblox)
-local Facet = require(game.ReplicatedStorage.Packages.Facet).bind(Compose, ComposeRoblox)
-local UI = Facet.controls(ComposeRoblox.createRuntime())
-```
-
-Your cells drive Facet controls directly, and control disposal belongs to your
-Compose owners. A runtime or readable from a different Compose copy stops with
-an error that names the control. See
-[`Facet.bind`](docs/reference/api.md) for the details.
 
 ## What it runs on
 
@@ -193,6 +172,14 @@ tools/doctor.sh                      # the toolchain and the library invariants
 
 `tools/package.sh build` and `status` are offline. Publishing the asset needs a
 credential that is never stored in this repository.
+
+## State and Compose
+
+Facet's state, animation and lifetimes come from
+[Compose](https://github.com/voidmeld/compose), which Facet includes as
+`Facet.Compose`. A game that already uses Compose can pass its own copy with
+[`Facet.bind`](docs/reference/api.md#your-own-compose), so its state and Facet
+share one reactive graph.
 
 ## Versioning
 

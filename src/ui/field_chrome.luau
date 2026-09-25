@@ -106,7 +106,7 @@ return function(ctx: Shared.Context): Chrome
 		if frames == nil then
 			return label
 		end
-		local size = ctx.observe(label, "AbsoluteSize")
+		local size = ctx.observe.AbsoluteSize(label)
 		local pending: RBXScriptConnection? = nil
 		local function release()
 			if pending then
@@ -226,8 +226,7 @@ return function(ctx: Shared.Context): Chrome
 				end,
 				AutomaticSize = E.AutomaticSize.None,
 			})
-			body = Host.Frame({
-				Name = plate.Name .. "+target",
+			body = Host.Frame(plate.Name .. "+target")({
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
 					return D2.new(1, 0, 0, math.max(44, (ctx.controlSize(spec.controlSize, "height", use))))
@@ -250,7 +249,7 @@ return function(ctx: Shared.Context): Chrome
 		Compose.watch(function(use: ComposeTypes.Use)
 			tagWhile(words, "facet-validation", failure(use) ~= "")
 		end)
-		local lineSize = ctx.observeStyled(words, "TextSize")
+		local lineSize = ctx.observeStyled.TextSize(words)
 		local mark = ctx.icon("status.error", {
 			Name = "MessageMark",
 			Visible = function(use: ComposeTypes.Use)

@@ -6,6 +6,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
+local freeze = require("./freeze")
 
 type Controls = { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
 
@@ -26,7 +27,7 @@ local KEYS = {
 	"compact",
 	"title",
 }
-local POPOVER = table.freeze({ enter = 0.15, exit = 0.1 })
+local POPOVER: { enter: number, exit: number } = freeze({ enter = 0.15, exit = 0.1 })
 local SHEET_EXIT = 0.2
 local MARGIN = 8
 local TAIL = 10
@@ -194,7 +195,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local input = surfaces.service("UserInputService")
 		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 				and input.GetPropertyChangedSignal
-			then ctx.observe(input, "PreferredInput")
+			then ctx.observe.PreferredInput(input)
 			else nil
 		local layerSize = Compose.cell(V2.zero)
 		local layerOwner: ComposeTypes.Owner? = nil
@@ -210,7 +211,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Compose.withOwner(child, function()
 				local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
 				if layer then
-					local size = ctx.observe(layer, "AbsoluteSize")
+					local size = ctx.observe.AbsoluteSize(layer)
 					Compose.watch(function(use: ComposeTypes.Use)
 						layerSize:set(use(size))
 					end)
@@ -241,20 +242,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local ready = use(mounted)
 			if want and not ready and not warned and node ~= nil then
 				warned = true
-				warn(`Facet {where}: the source node is not mounted yet; the popover waits for it`)
+				warn(`Facet {where}: the source node '{node.Name}' is not mounted yet; the popover waits for it`)
 			end
 			return want and ready and not use(lost)
 		end
 		local function anchored(phase: Nav.PresencePhase?): Frame
 			local amount = surfaces.appearance(phase, POPOVER)
 			local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
-			local extent = ctx.observe(layer, "AbsoluteSize")
-			local origin = ctx.observe(layer, "AbsolutePosition")
+			local extent = ctx.observe.AbsoluteSize(layer)
+			local origin = ctx.observe.AbsolutePosition(layer)
 			local sourceAt: ComposeTypes.Readable<Vector2>, sourceSize: ComposeTypes.Readable<Vector2>
 			local anchorNode = node or spec.trigger
 			if anchorNode then
-				sourceAt, sourceSize =
-					ctx.observe(anchorNode, "AbsolutePosition"), ctx.observe(anchorNode, "AbsoluteSize")
+				sourceAt, sourceSize = ctx.observe.AbsolutePosition(anchorNode), ctx.observe.AbsoluteSize(anchorNode)
 			else
 				sourceAt, sourceSize = Compose.cell(V2.zero), Compose.cell(V2.zero)
 			end
@@ -278,7 +278,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				MaxSize = cap,
 			})
 			local list = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
-			local laidOut = ctx.observe(list, "AbsoluteContentSize")
+			local laidOut = ctx.observe.AbsoluteContentSize(list)
 			local bodyProps: Types.ScrollingFrameNativeProps = {
 				Name = "Body",
 				BackgroundTransparency = 1,
@@ -296,8 +296,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			table.insert(bodyProps, limit)
 			local body = parts.scroller(ctx, bodyProps, { list, content }, { hug = true })
 			local panel = ctx.styled(
-				Host.CanvasGroup({
-					Name = "Panel",
+				Host.CanvasGroup "Panel" {
 					BackgroundTransparency = 0,
 					BorderSizePixel = 0,
 					Size = D2.fromOffset(0, 0),
@@ -306,12 +305,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					body :: Instance,
 					ctx.padding(PADDING, PADDING),
 					ctx.corner(),
-				}),
+				},
 				"popover"
 			)
 			ctx.styled(panel, "panel")
+			ctx.styled(panel, "floating")
 			surfaces.skin(panel, "panel")
-			local measured = ctx.observe(panel, "AbsoluteSize")
+			local measured = ctx.observe.AbsoluteSize(panel)
 			local tailed = rect == nil and spec.tail ~= false
 			local solved = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
 				local offset = use(origin)
@@ -351,8 +351,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				table.insert(
 					children,
 					ctx.styled(
-						Host.Frame({
-							Name = "Tail",
+						Host.Frame "Tail" {
 							Size = D2.fromOffset(TAIL, TAIL),
 							AnchorPoint = V2.new(0.5, 0.5),
 							Rotation = 45,
@@ -370,18 +369,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								local at = use(solved)
 								return D2.fromOffset(at.tailX or 0, at.tailY or 0)
 							end,
-						}),
+						},
 						"panel"
 					)
 				)
 			end
 			local modal = surfaces.modal(function()
-				return Host.Frame({
-					Name = "Popup",
+				return Host.Frame "Popup" {
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
 					table.unpack(children),
-				})
+				}
 			end, function()
 				propose(false, "cancel")
 			end, {
@@ -444,8 +442,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						report(reason)
 					end
 				end)
-				return Host.Folder({
-					Name = "PopoverRoute",
+				return Host.Folder "PopoverRoute" {
 					Compose.keyed({
 						from = function(use: ComposeTypes.Use): { string }
 							return { use(route) }
@@ -476,7 +473,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return modal
 						end,
 					}),
-				})
+				}
 			end, { motion = motion }),
 		})
 		Compose.cleanup(function()

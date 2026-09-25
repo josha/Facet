@@ -218,7 +218,7 @@ return function(
 			if not definition then
 				return
 			end
-			local guiState = ctx.observe(node, "GuiState")
+			local guiState = ctx.observe.GuiState(node)
 			surfaces.attach(node, {
 				Host.ImageLabel "RadialSkin" {
 					Size = D2.fromScale(1, 1),
@@ -303,16 +303,14 @@ return function(
 			})
 		end
 		surfaces.attach(root, {
-			surfaces.overlay(root, opened, function(phase)
+			surfaces.overlay(root, opened, function(phase: Navigation.PresencePhase?)
 				local viewport = Compose.cell(V2.new(640, 480))
 				local origin = Compose.cell(V2.zero)
 				local anchor = read(spec.anchor)
 				local nativeAnchor = anchor
 					and (typeof(anchor) == "Instance" or (type(anchor) == "table" and anchor.IsA))
-				local anchorPosition = if nativeAnchor
-					then ctx.observe(anchor :: GuiObject, "AbsolutePosition")
-					else nil
-				local anchorSize = if nativeAnchor then ctx.observe(anchor :: GuiObject, "AbsoluteSize") else nil
+				local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(anchor :: GuiObject) else nil
+				local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(anchor :: GuiObject) else nil
 				local rawCenter = Compose.formula(function(use: ComposeTypes.Use)
 					local size = use(viewport)
 					local live = read(spec.anchor, use)
@@ -607,8 +605,7 @@ return function(
 									current:set(sector)
 								end
 							end)
-							return Host.Frame({
-								Name = "SectorSlot" .. key:peek(),
+							return Host.Frame("SectorSlot" .. key:peek())({
 								BackgroundTransparency = 1,
 								Visible = painted,
 								Interactable = function(use: ComposeTypes.Use)
@@ -624,7 +621,7 @@ return function(
 								end,
 								Compose.presence(function(use: ComposeTypes.Use)
 									return use(present)
-								end, function(branchPhase)
+								end, function(branchPhase: Navigation.PresencePhase)
 									local function currentSector(use: ComposeTypes.Use?): Radial.Sector<V>
 										return assert(if use then use(current) else current:peek())
 									end
@@ -744,15 +741,14 @@ return function(
 									skin(button, spec.skin and spec.skin.item, function(use: ComposeTypes.Use)
 										return use(candidate) == currentSector(use).key
 									end)
-									local measured = ctx.observe(button, "TextBounds")
+									local measured = ctx.observe.TextBounds(button)
 									local paint = Host.Path2D "Sector" {
 										Thickness = sector.outer - sector.inner,
 										Closed = false,
 										ZIndex = 102,
 									}
 									ctx.styled(paint, "radial-sector")
-									local wrapper = Host.CanvasGroup({
-										Name = "Sector-" .. sector.id,
+									local wrapper = Host.CanvasGroup("Sector-" .. sector.id)({
 										BackgroundTransparency = 1,
 										GroupTransparency = function(use: ComposeTypes.Use)
 											return if reduced(use)
@@ -843,7 +839,7 @@ return function(
 									entered:set(true)
 									return wrapper
 								end, {
-									exit = function()
+									exit = function(): ComposeTypes.Exiting
 										return if reduced()
 											then { completed = Compose.cell(true) }
 											else runtime.timeline({ duration = 0.12 })
@@ -940,7 +936,11 @@ return function(
 					candidate:set(if sector then sector.key else nil)
 					return sector
 				end
-				aimPointer = function(position, dragging, beginning)
+				aimPointer = function(
+					position: Vector3,
+					dragging: boolean?,
+					beginning: boolean?
+				): (Radial.Sector<V> | false)?
 					if fallback:peek() then
 						return false
 					end
@@ -978,7 +978,7 @@ return function(
 						)
 					)
 				end
-				aimAnalog = function(value)
+				aimAnalog = function(value: Vector2)
 					if capture or not opened:peek() or not ctx.available(panel) then
 						return
 					end
@@ -1126,7 +1126,7 @@ return function(
 							if gui and key and buttons[key] then
 								gui.SelectedObject = buttons[key]
 							end
-						end, { priority = 2200 })
+						end, { priority = 2200, capture = true })
 					end
 				end
 				local modal = surfaces.modal(function()
@@ -1135,8 +1135,8 @@ return function(
 				if spec.skin and spec.skin.background then
 					skin(modal, spec.skin.background)
 				end
-				local bounds = ctx.observe(modal, "AbsoluteSize")
-				local position = ctx.observe(modal, "AbsolutePosition")
+				local bounds = ctx.observe.AbsoluteSize(modal)
+				local position = ctx.observe.AbsolutePosition(modal)
 				Compose.watch(function(use: ComposeTypes.Use)
 					origin:set(use(position))
 				end)
@@ -1198,7 +1198,7 @@ return function(
 				return modal
 			end, {
 				presence = {
-					exit = function()
+					exit = function(): ComposeTypes.Exiting
 						if reduced() or spec.transition == false then
 							return { completed = Compose.cell(true) }
 						end

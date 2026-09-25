@@ -409,6 +409,32 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("pages by direction from a control inside the showing page", function()
+		local selection = Compose.cell("one")
+		local world = setup(function(UI, Host)
+			return UI.PageView({
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({ UI.Button "PlayOne" { label = "One" } }) },
+					{ id = "two", title = "Two", content = Host.Frame({ UI.Button "PlayTwo" { label = "Two" } }) },
+				},
+			})
+		end)
+		local Enum = world.engine.types.Enum
+		local play = find(world.screen, "PlayOne")
+		world.gui.SelectedObject = play
+		t.expect(play.NextSelectionRight).toBe(play)
+		world.input.InputBegan.fire({ KeyCode = Enum.KeyCode.DPadRight, UserInputType = Enum.UserInputType.Gamepad1 })
+		t.expect(selection:peek()).toBe("two")
+		t.expect(world.gui.SelectedObject).toBe(find(world.screen, "PlayTwo"))
+		world.input.InputBegan.fire({ KeyCode = Enum.KeyCode.Left, UserInputType = Enum.UserInputType.Keyboard })
+		t.expect(selection:peek()).toBe("one")
+		world.gui.SelectedObject = find(world.screen, "Next")
+		world.input.InputBegan.fire({ KeyCode = Enum.KeyCode.Right, UserInputType = Enum.UserInputType.Keyboard })
+		t.expect(selection:peek()).toBe("one")
+		world.stop()
+	end)
+
 	t.it("validates combo custom commits and cancels editable text", function()
 		local value, text, changes = Compose.cell("a"), Compose.cell("Alpha"), 0
 		local world = setup(function(UI)
@@ -794,6 +820,53 @@ t.describe("native navigation controls", function()
 		world.gui.SelectedObject = find(world.screen, "Inside")
 		expanded:set(false)
 		t.expect(world.gui.SelectedObject.Name).toBe("Header")
+		world.stop()
+	end)
+
+	t.it("draws the ancestor column of a cascade as menu rows in item order", function()
+		local presented, follow = Compose.cell(true), Compose.cell(true)
+		local world = setup(function(UI)
+			return UI.Menu({
+				isPresented = presented,
+				items = {
+					{
+						id = "Parent",
+						label = "Parent",
+						children = { { id = "Leaf", label = "Leaf", onSelect = function() end } },
+					},
+					{ id = "Follow", label = "Follow", checked = follow, onSelect = function() end },
+					{ divider = true },
+					{ id = "Clear", label = "Clear", role = "destructive", onSelect = function() end },
+				},
+			})
+		end)
+		local modal = find(world.screen, "Modal")
+		modal.AbsoluteSize = world.engine.types.Vector2.new(1000, 720)
+		find(world.screen, "Parent").Activated.fire()
+		local ancestor = find(world.screen, "AncestorMenu")
+		t.expect(ancestor ~= nil).toBe(true)
+		local order = {}
+		for _, child in ancestor:GetChildren() do
+			if child:IsA("GuiObject") then
+				table.insert(order, child)
+			end
+		end
+		table.sort(order, function(a: any, b: any)
+			return a.LayoutOrder < b.LayoutOrder
+		end)
+		local names = {}
+		for _, child in order do
+			table.insert(names, if child:IsA("GuiButton") then child.Name else "-")
+		end
+		t.expect(table.concat(names, ",")).toBe("Parent,Follow,-,Clear")
+		for _, name in { "Parent", "Follow", "Clear" } do
+			t.expect(ancestor:FindFirstChild(name):HasTag("facet-menu-item")).toBe(true)
+		end
+		t.expect(ancestor:FindFirstChild("Clear"):HasTag("facet-menu-destructive")).toBe(true)
+		t.expect(find(ancestor:FindFirstChild("Parent"), "TrailingIcon") ~= nil).toBe(true)
+		t.expect(find(ancestor:FindFirstChild("Follow"), "TrailingIcon").Visible).toBe(true)
+		follow:set(false)
+		t.expect(find(ancestor:FindFirstChild("Follow"), "TrailingIcon").Visible).toBe(false)
 		world.stop()
 	end)
 
@@ -1299,6 +1372,60 @@ t.describe("native navigation controls", function()
 			.toBe(world.engine.types.Enum.FillDirection.Vertical)
 		t.expect(find(world.screen, "Cancel").LayoutOrder > find(world.screen, "Accept").LayoutOrder).toBe(true)
 		t.expect(find(world.screen, "AlertMessage").Size.Y.Offset < 100).toBe(true)
+		world.stop()
+	end)
+
+	t.it("keeps the alert card inside the screen when the theme chrome adds to its height", function()
+		local themes = require("../src/ui/themes")(Compose)
+		local package = themes.neutralPackage()
+		package.chrome = package.chrome or {}
+		package.chrome.panel = { kind = "flat", contentInsets = { top = 18, bottom = 18, left = 18, right = 18 } }
+		local world = setup(function(UI)
+			return UI.Alert({
+				isPresented = Compose.cell(true),
+				message = string.rep("Long message ", 100),
+				actions = {
+					{ id = "Stay", label = "Stay", role = "cancel" },
+					{ id = "Save", label = "Save and leave" },
+					{ id = "Leave", label = "Leave without saving", role = "destructive" },
+				},
+			})
+		end, { theme = assert(themes.define(package)) })
+		local V2 = world.engine.types.Vector2.new
+		find(world.screen, "AlertModal").AbsoluteSize = V2(667, 375)
+		find(world.screen, "Actions").AbsoluteSize = V2(400, 148)
+		find(world.screen, "AlertContent").AbsoluteSize = V2(400, 1000)
+		local message = find(world.screen, "AlertMessage")
+		local card = message.Size.Y.Offset + 148 + 20 * 2 + 8 + 18 * 2
+		t.expect(message.Size.Y.Offset).toBe(375 - 148 - (20 * 2 + 8 + 18 * 2) - 32)
+		t.expect(card <= 375 - 32).toBe(true)
+		world.stop()
+	end)
+
+	t.it("grows a segmented strip at a larger text size so its caption fits inside the theme control insets", function()
+		local themes = require("../src/ui/themes")(Compose)
+		local package = themes.neutralPackage()
+		package.chrome = package.chrome or {}
+		package.chrome.control = { kind = "flat", contentInsets = { top = 10, bottom = 10, left = 12, right = 12 } }
+		local world = setup(function(UI)
+			return UI.Picker({
+				style = "segmented",
+				selected = Compose.cell("a"),
+				options = { { value = "a", label = "Open" }, { value = "b", label = "Club" } },
+			})
+		end, { theme = assert(themes.define(package)) })
+		local V2 = world.engine.types.Vector2.new
+		local picker = find(world.screen, "Picker")
+		find(world.screen, "a").TextBounds = V2(56, 31)
+		t.expect(picker.Size.Y.Offset).toBe(44)
+		find(world.screen, "a").TextBounds = V2(48, 16)
+		world.gui.PreferredTextSize = world.engine.types.Enum.PreferredTextSize.Largest
+		t.expect(picker.Size.Y.Offset).toBe(44)
+		find(world.screen, "a").TextBounds = V2(56, 31)
+		find(world.screen, "b").TextBounds = V2(48, 29)
+		t.expect(picker.Size.Y.Offset).toBe(31 + 20 + 6)
+		find(world.screen, "a").TextBounds = V2(56, 20)
+		t.expect(picker.Size.Y.Offset).toBe(29 + 20 + 6)
 		world.stop()
 	end)
 
@@ -2371,6 +2498,34 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("keeps a full-screen alert's content and actions in a centred readable column", function()
+		for _, case in { { nil, 960 }, { 700, 700 } } do
+			local shown = Compose.cell(false)
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Alert({
+						isPresented = shown,
+						title = "Detail",
+						surface = "fullScreen",
+						maxWidth = case[1],
+						actions = { { id = "done", label = "Done", role = "cancel" } },
+					}),
+				})
+			end)
+			shown:set(true)
+			local panel = find(world.screen, "AlertPanel")
+			for _, name in { "AlertMessage", "Actions" } do
+				local node = find(panel, name)
+				t.expect(node.AnchorPoint.X).toBe(0.5)
+				t.expect(node.Position.X.Scale).toBe(0.5)
+				local cap = node:FindFirstChild("ReadableWidth")
+				t.expect(cap ~= nil).toBe(true)
+				t.expect(cap.MaxSize.X).toBe(case[2])
+			end
+			world.stop()
+		end
+	end)
+
 	t.it("makes full-screen source transitions immediate under native reduced motion", function()
 		local shown = Compose.cell(false)
 		local world = setup(function(UI, Host, engine, gui)
@@ -2771,7 +2926,7 @@ t.describe("native navigation controls", function()
 		local group = find(menu, "MenuGroup")
 		t.expect(group.GroupTransparency).toBe(1)
 		t.expect(find(menu, "PresentationFade").Transparency.Keypoints[1].Value).toBe(1)
-		t.expect(find(menu, "PresentationScale").Scale).toBe(0.9)
+		t.expect(find(menu, "PresentationScale").Scale).toBe(0.96)
 		world.settle()
 		t.expect(group.GroupTransparency).toBe(0)
 		t.expect(find(menu, "PresentationScale").Scale).toBe(1)

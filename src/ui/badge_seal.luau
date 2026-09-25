@@ -39,16 +39,14 @@ return function(
 		local text = function(use: ComposeTypes.Use): string
 			return words(read(value, use))
 		end
-		local wrapper = Host.Frame({
-			Name = host.Name .. "+badge",
+		local wrapper = Host.Frame(host.Name .. "+badge")({
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			LayoutOrder = host.LayoutOrder,
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
 			host :: Types.Child,
-			Host.Frame({
-				Name = "Corner",
+			Host.Frame "Corner" {
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = D2.fromOffset(0, 0),
@@ -65,7 +63,7 @@ return function(
 						ZIndex = host.ZIndex + 2,
 					})
 				end),
-			}) :: Types.Child,
+			} :: Types.Child,
 		})
 		return wrapper
 	end

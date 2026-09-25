@@ -112,6 +112,11 @@ local function new(options: any?)
 			AbsoluteCanvasSize = Roblox.Vector2.zero,
 			CanvasPosition = Roblox.Vector2.zero,
 		}
+		if className == "UICorner" then
+			for _, corner in { "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" } do
+				properties[corner] = Roblox.UDim.new(0, 8)
+			end
+		end
 		if className == "UIShadow" then
 			properties.BlurRadius = Roblox.UDim.new(0, 12)
 			properties.Color = Roblox.Color3.new(0, 0, 0)

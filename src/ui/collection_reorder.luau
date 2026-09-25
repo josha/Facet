@@ -30,6 +30,7 @@ return function<V, K>(
 	local read = ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
+	local TAP = 3
 	local horizontal = spec.direction == "horizontal"
 	local function axis(position: Vector2): number
 		return if horizontal then position.X else position.Y
@@ -42,6 +43,8 @@ return function<V, K>(
 	local input = ctx.config.userInputService
 	local captured: InputObject?
 	local pendingInput: InputObject?
+	local origin: Vector2? = nil
+	local travel = 0
 	local keyboardTarget: TextButton?
 	local stopFrames: ComposeTypes.Dispose?
 	local startFrames: (() -> ())?
@@ -178,14 +181,31 @@ return function<V, K>(
 			cancel()
 		end
 	end)
+	local selectedObject: ComposeTypes.Readable<unknown>? = if ctx.config.guiService
+		then ctx.observe.SelectedObject(ctx.config.guiService)
+		else nil
 	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K): Frame
-		local function activate()
+		local handleNode: Instance? = nil
+		local function toggle()
 			if moving:peek() then
 				commit()
 			else
 				begin(key)
 			end
 		end
+		local function activate(activation: InputObject?)
+			if
+				activation
+				and (
+					activation.UserInputType == E.UserInputType.MouseButton1
+					or activation.UserInputType == E.UserInputType.Touch
+				)
+			then
+				return
+			end
+			toggle()
+		end
+		local armed = false
 		local handleProps: InputTypes.ButtonProps = {
 			Name = "Move",
 			Size = D2.new(0, 56, 1, 0),
@@ -209,20 +229,45 @@ return function<V, K>(
 				DragAxis = if horizontal then V2.new(1, 0) else V2.new(0, 1),
 				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 				Enabled = function(use: ComposeTypes.Use)
-					return movable(use(current)) and read(sort, use) == nil
+					local selected = if selectedObject then use(selectedObject) else nil
+					local held = handleNode ~= nil and rawequal(selected, handleNode)
+					return movable(use(current)) and read(sort, use) == nil and not held
 				end,
 				DragStart = function(position)
-					begin(key, position)
+					local current = moving:peek()
+					origin, travel = position, 0
+					armed = current ~= nil and current.keyboard
+					if not armed then
+						begin(key, position)
+					end
 				end,
-				DragContinue = movePointer,
+				DragContinue = function(position)
+					if origin then
+						travel = math.max(travel, (position - origin).Magnitude)
+					end
+					if not armed or travel >= TAP then
+						movePointer(position)
+					end
+				end,
 				DragEnd = function()
-					if captured == nil then
+					local tapped = origin ~= nil and travel < TAP
+					origin = nil
+					if armed then
+						armed = false
+						commit()
+						return
+					end
+					if tapped then
+						cancel()
+						toggle()
+					elseif captured == nil then
 						commit()
 					end
 				end,
 			}),
 		}
 		local handle = UI.Button(handleProps)
+		handleNode = handle
 		ctx.runtime.connect(handle, "InputBegan", function(value: InputObject)
 			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
 				pendingInput = value
@@ -265,7 +310,11 @@ return function<V, K>(
 					if value.UserInputState == E.UserInputState.Cancel then
 						cancel()
 					else
-						movePointer(V2.new(value.Position.X, value.Position.Y))
+						local position = V2.new(value.Position.X, value.Position.Y)
+						if origin then
+							travel = math.max(travel, (position - origin).Magnitude)
+						end
+						movePointer(position)
 					end
 				end
 			end)
@@ -289,10 +338,10 @@ return function<V, K>(
 			end)
 			ctx.runtime.connect(input, "WindowFocusReleased", cancel)
 			local touch, mouse, keyboard, gamepad =
-				ctx.observe(input, "TouchEnabled"),
-				ctx.observe(input, "MouseEnabled"),
-				ctx.observe(input, "KeyboardEnabled"),
-				ctx.observe(input, "GamepadEnabled")
+				ctx.observe.TouchEnabled(input),
+				ctx.observe.MouseEnabled(input),
+				ctx.observe.KeyboardEnabled(input),
+				ctx.observe.GamepadEnabled(input)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local move = use(moving)
 				if
@@ -345,7 +394,7 @@ return function<V, K>(
 			end
 		end)
 		local offset, origin, screen =
-			ctx.observe(body, "CanvasPosition"), ctx.observe(body, "Position"), ctx.observe(body, "AbsolutePosition")
+			ctx.observe.CanvasPosition(body), ctx.observe.Position(body), ctx.observe.AbsolutePosition(body)
 		local rootProps: Types.FrameProps = {
 			Name = "ReorderFeedback",
 			Position = function(use: ComposeTypes.Use)

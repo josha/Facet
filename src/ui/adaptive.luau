@@ -1,4 +1,5 @@
 --!strict
+local freeze = require("./freeze")
 export type SizeClass = "compact" | "regular" | "wide"
 export type HeightClass = "short" | "medium" | "tall"
 export type Orientation = "landscape" | "portrait" | "square"
@@ -16,7 +17,7 @@ export type Adaptive = {
 	sizeClassAtLeast: (value: string, target: string) -> boolean,
 }
 
-local BREAKPOINTS: Breakpoints = table.freeze({ regular = 600, wide = 1000 })
+local BREAKPOINTS: Breakpoints = freeze({ regular = 600, wide = 1000 })
 local RANK: { [string]: number } = { compact = 1, regular = 2, wide = 3 }
 
 local function real(value: number?): number?
@@ -74,7 +75,7 @@ local function sizeClassAtLeast(value: string, target: string): boolean
 	return have >= need
 end
 
-local adaptive: Adaptive = table.freeze({
+local adaptive: Adaptive = freeze({
 	BREAKPOINTS = BREAKPOINTS,
 	HEIGHT_BREAKPOINTS = BREAKPOINTS,
 	DEFAULT_STACK_ABOVE = BREAKPOINTS.regular,

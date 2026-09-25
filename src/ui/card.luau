@@ -96,16 +96,40 @@ return function(
 		end
 		local gui = ctx.config.services.GuiService
 		local input = ctx.config.services.UserInputService
-		local selected = if gui then ctx.observe(gui, "SelectedObject") else Compose.cell(nil)
-		local touchEnabled = if input then ctx.observe(input, "TouchEnabled") else Compose.cell(false)
-		local preferred = if input then ctx.observe(input, "PreferredInput") else Compose.cell(nil)
+		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local touchEnabled = if input then ctx.observe.TouchEnabled(input) else Compose.cell(false)
+		local preferred = if input then ctx.observe.PreferredInput(input) else nil
+		local function prefersTouch(use: ComposeTypes.Use): boolean
+			return preferred ~= nil and use(preferred) == E.PreferredInput.Touch
+		end
 		local hovered, entered, menuOpen = Compose.cell(false), Compose.cell(false), Compose.cell(false)
 		local pressingBody = Compose.cell(false)
 		local reduced = reducedMotion(ctx)
 		local root: Frame? = nil
 		local primaryButton: TextButton?
 		local moreTrigger: GuiObject?
-		local actionStates = Compose.cell({} :: { ComposeTypes.Readable<Enum.GuiState> })
+		local actionStates = Compose.cell({} :: { ComposeTypes.Readable<boolean> })
+		local function holding(button: GuiObject): ComposeTypes.Readable<boolean>
+			local down = Compose.cell(false)
+			local state = ctx.observe.GuiState(button)
+			local function pointer(input: InputObject): boolean
+				return input.UserInputType == E.UserInputType.MouseButton1
+					or input.UserInputType == E.UserInputType.Touch
+			end
+			runtime.connect(button, "InputBegan", function(input: InputObject)
+				if pointer(input) then
+					down:set(true)
+				end
+			end)
+			runtime.connect(button, "InputEnded", function(input: InputObject)
+				if pointer(input) then
+					down:set(false)
+				end
+			end)
+			return Compose.formula(function(use: ComposeTypes.Use): boolean
+				return use(down) or use(state) == E.GuiState.Press
+			end)
+		end
 		local hasStop = spec.onActivate ~= nil or spec.browseTarget ~= nil
 		local focusWithin = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local node, card = use(selected), root
@@ -121,7 +145,7 @@ return function(
 				return true
 			end
 			for _, state in use(actionStates) do
-				if use(state) == E.GuiState.Press then
+				if use(state) then
 					return true
 				end
 			end
@@ -131,13 +155,13 @@ return function(
 			return use(hovered) or use(focusWithin) or use(pressing) or use(menuOpen) or use(entered) or use(browsing)
 		end)
 		local touch = function(use: ComposeTypes.Use): boolean
-			return use(touchEnabled) == true or use(preferred) == E.PreferredInput.Touch
+			return use(touchEnabled) == true or prefersTouch(use)
 		end
 		local revealed = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return reveal == "always" or not hasStop or touch(use) or use(engaged)
 		end)
 		local lifting = Compose.formula(function(use: ComposeTypes.Use): boolean
-			if use(preferred) == E.PreferredInput.Touch then
+			if prefersTouch(use) then
 				return false
 			end
 			return use(engaged)
@@ -364,7 +388,7 @@ return function(
 			})
 			primaryButton = button
 			local states = table.clone(actionStates:peek())
-			table.insert(states, ctx.observe(button, "GuiState"))
+			table.insert(states, holding(button))
 			actionStates:set(states)
 			table.insert(rowChildren, button :: Types.Child)
 		end
@@ -381,7 +405,7 @@ return function(
 			if trigger and trigger:IsA("GuiObject") then
 				moreTrigger = trigger
 				local states = table.clone(actionStates:peek())
-				table.insert(states, ctx.observe(trigger, "GuiState"))
+				table.insert(states, holding(trigger))
 				actionStates:set(states)
 			end
 			table.insert(rowChildren, more :: Types.Child)
@@ -404,8 +428,7 @@ return function(
 			table.insert(rowProps, child)
 		end
 		local row = Host.Frame(rowProps)
-		local plate = Host.CanvasGroup({
-			Name = "Reveal",
+		local plate = Host.CanvasGroup "Reveal" {
 			LayoutOrder = 2,
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
@@ -418,7 +441,7 @@ return function(
 				return 1 - use(fade)
 			end,
 			row :: Types.Child,
-		})
+		}
 		local liftScale = Host.UIScale({ Name = "Lift", Scale = scale })
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
@@ -470,7 +493,7 @@ return function(
 			plate :: Types.Child,
 		}))
 		root = card
-		local extent = ctx.observe(card, "AbsoluteSize")
+		local extent = ctx.observe.AbsoluteSize(card)
 		if (spec :: { [unknown]: unknown }).Position == nil then
 			runtime.decorate(card, {
 				Position = function(use: ComposeTypes.Use): UDim2

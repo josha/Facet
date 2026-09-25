@@ -3377,43 +3377,54 @@ export type RobloxTypes = {
 	BrickColor: typeof(BrickColor)?,
 }
 
-export type Observe =
-	((GuiBase2d, "AbsolutePosition" | "AbsoluteSize") -> Compose.Cell<Vector2>)
-	& ((GuiObject, "GuiState") -> Compose.Cell<Enum.GuiState>)
-	& ((GuiObject, "Position" | "Size") -> Compose.Cell<UDim2>)
-	& ((GuiObject, "Interactable" | "Visible") -> Compose.Cell<boolean>)
-	& ((GuiService, "SelectedObject") -> Compose.Cell<GuiObject?>)
-	& ((GuiService, "ReducedMotionEnabled") -> Compose.Cell<boolean>)
-	& ((GuiService, "PreferredTransparency") -> Compose.Cell<number>)
-	& ((InputAction, "PreferredBinding") -> Compose.Cell<InputBinding>)
-	& ((InputAction | InputContext | LayerCollector, "Enabled") -> Compose.Cell<boolean>)
-	& ((InputAction | InputBinding, "DisplayName") -> Compose.Cell<string>)
-	& ((InputBinding, "DisplayImage") -> Compose.Cell<Content>)
-	& ((InputBinding, "KeyCode" | "PrimaryModifier" | "SecondaryModifier") -> Compose.Cell<Enum.KeyCode>)
-	& ((InputBinding | UIScale, "Scale") -> Compose.Cell<number>)
-	& ((Instance, "Parent") -> Compose.Cell<Instance?>)
-	& ((ScrollingFrame, "AbsoluteCanvasSize" | "AbsoluteWindowSize" | "CanvasPosition") -> Compose.Cell<Vector2>)
-	& ((TextBox | TextButton | TextLabel, "TextColor3") -> Compose.Cell<Color3>)
-	& ((TextBox | TextButton | TextLabel, "TextTruncate") -> Compose.Cell<Enum.TextTruncate>)
-	& ((TextBox | TextButton | TextLabel, "TextXAlignment") -> Compose.Cell<Enum.TextXAlignment>)
-	& ((TextBox | TextButton | TextLabel, "TextYAlignment") -> Compose.Cell<Enum.TextYAlignment>)
-	& ((TextBox | TextButton | TextLabel, "FontFace") -> Compose.Cell<Font>)
-	& ((TextBox | TextButton | TextLabel, "TextBounds") -> Compose.Cell<Vector2>)
-	& ((
-		TextBox | TextButton | TextLabel,
-		"RichText" | "TextFits" | "TextScaled" | "TextWrapped"
-	) -> Compose.Cell<boolean>)
-	& ((TextBox, "CursorPosition" | "LineHeight" | "TextSize") -> Compose.Cell<number>)
-	& ((TextBox | TextButton | TextLabel, "Text") -> Compose.Cell<string>)
-	& ((TextButton | TextLabel, "LineHeight" | "TextSize") -> Compose.Cell<number>)
-	& ((UIGridStyleLayout, "AbsoluteContentSize") -> Compose.Cell<Vector2>)
-	& ((UIPageLayout, "CurrentPage") -> Compose.Cell<GuiObject>)
-	& ((UserInputService, "PreferredInput") -> Compose.Cell<Enum.PreferredInput>)
-	& ((UserInputService, "OnScreenKeyboardSize") -> Compose.Cell<Vector2>)
-	& ((
-		UserInputService,
-		"GamepadEnabled" | "KeyboardEnabled" | "MouseEnabled" | "OnScreenKeyboardVisible" | "TouchEnabled"
-	) -> Compose.Cell<boolean>)
+export type Observe = {
+	AbsoluteCanvasSize: (ScrollingFrame) -> Compose.Cell<Vector2>,
+	AbsoluteContentSize: (UIGridStyleLayout) -> Compose.Cell<Vector2>,
+	AbsolutePosition: (GuiBase2d) -> Compose.Cell<Vector2>,
+	AbsoluteSize: (GuiBase2d) -> Compose.Cell<Vector2>,
+	AbsoluteWindowSize: (ScrollingFrame) -> Compose.Cell<Vector2>,
+	CanvasPosition: (ScrollingFrame) -> Compose.Cell<Vector2>,
+	CurrentPage: (UIPageLayout) -> Compose.Cell<GuiObject>,
+	CursorPosition: (TextBox) -> Compose.Cell<number>,
+	DisplayImage: (InputBinding) -> Compose.Cell<Content>,
+	DisplayName: (InputAction | InputBinding) -> Compose.Cell<string>,
+	Enabled: (InputAction | InputContext | LayerCollector) -> Compose.Cell<boolean>,
+	FontFace: (TextBox | TextButton | TextLabel) -> Compose.Cell<Font>,
+	GamepadEnabled: (UserInputService) -> Compose.Cell<boolean>,
+	GuiState: (GuiObject) -> Compose.Cell<Enum.GuiState>,
+	Interactable: (GuiObject) -> Compose.Cell<boolean>,
+	KeyCode: (InputBinding) -> Compose.Cell<Enum.KeyCode>,
+	KeyboardEnabled: (UserInputService) -> Compose.Cell<boolean>,
+	LineHeight: (TextBox | TextButton | TextLabel) -> Compose.Cell<number>,
+	MouseEnabled: (UserInputService) -> Compose.Cell<boolean>,
+	OnScreenKeyboardSize: (UserInputService) -> Compose.Cell<Vector2>,
+	OnScreenKeyboardVisible: (UserInputService) -> Compose.Cell<boolean>,
+	Parent: (Instance) -> Compose.Cell<Instance?>,
+	Position: (GuiObject) -> Compose.Cell<UDim2>,
+	PreferredBinding: (InputAction) -> Compose.Cell<InputBinding>,
+	PreferredInput: (UserInputService) -> Compose.Cell<Enum.PreferredInput>,
+	PreferredTextSize: (GuiService) -> Compose.Cell<Enum.PreferredTextSize>,
+	PreferredTransparency: (GuiService) -> Compose.Cell<number>,
+	PrimaryModifier: (InputBinding) -> Compose.Cell<Enum.KeyCode>,
+	ReducedMotionEnabled: (GuiService) -> Compose.Cell<boolean>,
+	RichText: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
+	Scale: (InputBinding | UIScale) -> Compose.Cell<number>,
+	SecondaryModifier: (InputBinding) -> Compose.Cell<Enum.KeyCode>,
+	SelectedObject: (GuiService) -> Compose.Cell<GuiObject?>,
+	Size: (GuiObject) -> Compose.Cell<UDim2>,
+	Text: (TextBox | TextButton | TextLabel) -> Compose.Cell<string>,
+	TextBounds: (TextBox | TextButton | TextLabel) -> Compose.Cell<Vector2>,
+	TextColor3: (TextBox | TextButton | TextLabel) -> Compose.Cell<Color3>,
+	TextFits: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
+	TextScaled: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
+	TextSize: (TextBox | TextButton | TextLabel) -> Compose.Cell<number>,
+	TextTruncate: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextTruncate>,
+	TextWrapped: (TextBox | TextButton | TextLabel) -> Compose.Cell<boolean>,
+	TextXAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextXAlignment>,
+	TextYAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextYAlignment>,
+	TouchEnabled: (UserInputService) -> Compose.Cell<boolean>,
+	Visible: (GuiObject) -> Compose.Cell<boolean>,
+}
 
 export type Host = {
 	BillboardGui: Constructor<BillboardGuiNativeProps, BillboardGui>,

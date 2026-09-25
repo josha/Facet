@@ -77,7 +77,7 @@ local function writable(source: unknown): boolean
 end
 
 return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
-	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
+	local Compose, Host, runtime, read, readSource = ctx.Compose, ctx.Host, ctx.runtime, ctx.read, ctx.readSource
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local C3 = ctx.types.Color3
 	local chrome = fieldChrome(ctx)
@@ -488,15 +488,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			return nil
 		end
 		local function valueText(use: Use?): string
-			local value = read(held, use)
+			local value = readSource(held, use)
 			if value == nil then
 				return spec.placeholder or ""
 			end
-			local a = read(alphaHeld, use)
+			local a = readSource(alphaHeld, use)
 			return color.hex(value, if hasAlpha and a < 1 then a else nil)
 		end
 		local function semanticName(use: Use?): string
-			local words = brickName(read(held, use)) or valueText(use)
+			local words = brickName(readSource(held, use)) or valueText(use)
 			local label = read(spec.label, use)
 			return if type(label) == "string" and label ~= "" then `{label}, {words}` else words
 		end
@@ -506,8 +506,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 
 		local gui = ctx.config.services.GuiService
 		local input = ctx.config.services.UserInputService
-		local selected = if gui then ctx.observe(gui, "SelectedObject") else Compose.cell(nil :: GuiObject?)
-		local preferred = if input then ctx.observe(input, "PreferredInput") else Compose.cell(nil :: unknown)
+		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil :: GuiObject?)
+		local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell(nil :: unknown)
 		local function touch(use: Use?): boolean
 			return read(preferred, use) == E.PreferredInput.Touch
 		end
@@ -520,7 +520,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			if spec.isPresented ~= nil then
 				return read(spec.isPresented, use) == true
 			end
-			return read(ownOpen, use)
+			return readSource(ownOpen, use)
 		end
 		local function requestPresented(next: boolean)
 			if next and (disposed or not interactive()) then
@@ -872,7 +872,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				},
 				surface,
 			}
-			planeSize = ctx.observe(plane, "AbsoluteSize")
+			planeSize = ctx.observe.AbsoluteSize(plane)
 			runtime.decorate(mark, {
 				AnchorPoint = V2.new(0.5, 0.5),
 				ZIndex = 4,
@@ -1036,11 +1036,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end
 			local function saveCell(index: ComposeTypes.Readable<number>): TextButton
 				local function fresh(use: Use?): boolean
-					local value = read(held, use)
-					if value == nil or read(editing, use) then
+					local value = readSource(held, use)
+					if value == nil or readSource(editing, use) then
 						return false
 					end
-					for _, entry in read(swatchList, use) do
+					for _, entry in readSource(swatchList, use) do
 						if color.same(entry.color, value) or entry.key == color.hex(value) then
 							return false
 						end
@@ -1311,10 +1311,17 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		local function hsvFields(): Frame
 			local function channel(key: "h" | "s" | "v", words: string, max: number): GuiObject
 				return numberField(`Field{words}`, words, max, function(_: Color3, c: Hsv): number
-					return math.floor(c[key] * max + 0.5)
+					local amount = if key == "h" then c.h elseif key == "s" then c.s else c.v
+					return math.floor(amount * max + 0.5)
 				end, function(n: number): Hsv?
 					local c = table.clone(canon:peek())
-					c[key] = n / max
+					if key == "h" then
+						c.h = n / max
+					elseif key == "s" then
+						c.s = n / max
+					else
+						c.v = n / max
+					end
 					return c
 				end)
 			end
@@ -1427,7 +1434,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end
 			local heights: { ComposeTypes.Readable<Vector2> } = {}
 			for _, show in shows do
-				table.insert(heights, ctx.observe(show, "AbsoluteSize"))
+				table.insert(heights, ctx.observe.AbsoluteSize(show))
 			end
 			local function tech(use: Use): number
 				local tallest = 0
@@ -1440,7 +1447,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				return D2.new(1, 0, 0, tech(use))
 			end
 			local techniqueNode = Host.Frame(technique)
-			local width = ctx.observe(techniqueNode, "AbsoluteSize")
+			local width = ctx.observe.AbsoluteSize(techniqueNode)
 			Compose.watch(function(use: Use)
 				local w = use(width).X
 				columns:set(
@@ -1449,7 +1456,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end)
 			local measured: { { node: GuiObject, size: ComposeTypes.Readable<Vector2> } } = {}
 			local function measure(node: GuiObject): GuiObject
-				local size: ComposeTypes.Readable<Vector2> = ctx.observe(node, "AbsoluteSize")
+				local size: ComposeTypes.Readable<Vector2> = ctx.observe.AbsoluteSize(node)
 				table.insert(measured, { node = node, size = size })
 				return node
 			end
@@ -1598,7 +1605,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local panel = Host.Frame(props)
 			local visibility: { ComposeTypes.Readable<boolean> } = {}
 			for _, entry in measured do
-				table.insert(visibility, ctx.observe(entry.node, "Visible"))
+				table.insert(visibility, ctx.observe.Visible(entry.node))
 			end
 			local function chromeHeight(use: Use): number
 				local total, count = 0, 1
@@ -1792,9 +1799,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			surfaces.attach(root, {
 				surfaces.overlay(well, presented, function()
 					local layer = well:FindFirstAncestorWhichIsA("LayerCollector")
-					local extent = if layer then ctx.observe(layer, "AbsoluteSize") else Compose.cell(V2.zero)
-					local origin = if layer then ctx.observe(layer, "AbsolutePosition") else Compose.cell(V2.zero)
-					local at, bounds = ctx.observe(well, "AbsolutePosition"), ctx.observe(well, "AbsoluteSize")
+					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
+					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
+					local at, bounds = ctx.observe.AbsolutePosition(well), ctx.observe.AbsoluteSize(well)
 					local tenFoot = false
 					if gui then
 						local ok, answer = pcall(function(): boolean

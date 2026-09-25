@@ -785,6 +785,54 @@ t.describe("native input controls", function()
 		t.expect(action.Pressed.count()).toBe(0)
 	end)
 
+	t.it("clamps a fixed-size button's icon to its content box and never to zero", function()
+		local node, stop, engine = world(function(UI, host, runtime)
+			return runtime.constructors.Frame({
+				UI.Button "Tight" {
+					icon = "rbxassetid://1",
+					Size = host.types.UDim2.fromOffset(20, 20),
+					AutomaticSize = host.types.Enum.AutomaticSize.None,
+				},
+				UI.Button "Free" { icon = "rbxassetid://1", label = "Free" },
+			})
+		end)
+		local tight = find(node, "Tight")
+		local content = find(tight, "Content")
+		local glyph = find(tight, "LeadingIcon")
+		local limit = glyph:FindFirstChildWhichIsA("UISizeConstraint")
+		t.expect(limit ~= nil).toBe(true)
+		content.AbsoluteSize = engine.types.Vector2.new(4, 6)
+		t.expect(limit.MaxSize.X).toBe(4)
+		t.expect(limit.MaxSize.Y).toBe(4)
+		content.AbsoluteSize = engine.types.Vector2.new(0, 0)
+		t.expect(limit.MaxSize.X).toBe(1)
+		t.expect(content.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.None)
+		t.expect(find(find(node, "Free"), "LeadingIcon"):FindFirstChildWhichIsA("UISizeConstraint")).toBe(nil)
+		stop()
+	end)
+
+	t.it("lets a shifted shortcut preempt an unmodified shortcut on the same key", function()
+		local node, stop = world(function(UI, _, runtime)
+			return runtime.constructors.Frame({
+				UI.Button "Plain" { label = "Plain", shortcut = { keyCode = "K" } },
+				UI.Button "Shifted" { label = "Shifted", shortcut = { keyCode = "K", modifiers = { shift = true } } },
+			})
+		end)
+		local contexts = {}
+		for _, child in node.Parent:GetDescendants() do
+			if child:IsA("InputContext") and child.Name == "FacetShortcut" then
+				local binding = child:FindFirstChild("Shortcut"):GetChildren()[1]
+				local shifted = string.find(tostring(binding.PrimaryModifier), "Shift", 1, true) ~= nil
+				contexts[if shifted then "shifted" else "plain"] = child
+			end
+		end
+		t.expect(contexts.plain ~= nil and contexts.shifted ~= nil).toBe(true)
+		t.expect(contexts.shifted.Priority > contexts.plain.Priority).toBe(true)
+		t.expect(contexts.shifted.Sink).toBe(true)
+		t.expect(contexts.plain.Sink).toBe(false)
+		stop()
+	end)
+
 	t.it("blocks background held repeats when a Compose-owned modal becomes active", function()
 		local actions = 0
 		local node, stop, engine, runtime, ctx = world(function(UI)
@@ -1466,6 +1514,61 @@ t.describe("native input controls", function()
 		editor.Text = "accepted"
 		editor:ReleaseFocus(false)
 		t.expect(commits).toBe(1)
+		stop()
+	end)
+
+	t.it("grows a multiline field from an unclamped measure of its wrapped text", function()
+		local node, stop, engine = world(function(UI, _, runtime)
+			return runtime.constructors.Frame({
+				UI.TextInput "Notes" { value = Compose.cell("a\nb\n"), onChange = function() end, multiline = true },
+			})
+		end)
+		local field = find(node, "Notes")
+		local measure = find(field, "Measure")
+		t.expect(measure ~= nil).toBe(true)
+		t.expect(measure:IsA("TextLabel")).toBe(true)
+		t.expect(measure.TextTransparency).toBe(1)
+		t.expect(measure.Text).toBe("a\nb\n ")
+		t.expect(field.Size.Y.Offset).toBe(96)
+		t.expect(measure.Visible).toBe(false)
+		measure.TextBounds = engine.types.Vector2.new(280, 300)
+		t.expect(field.Size.Y.Offset).toBe(316)
+		stop()
+	end)
+
+	t.it("commits a touch edit when touch leaves with no keyboard and carries it otherwise", function()
+		local value, reasons, input = Compose.cell("seed"), {}, nil
+		local node, stop = world(function(UI, _, runtime)
+			return runtime.constructors.Frame({
+				UI.TextInput "Name" {
+					value = value,
+					onCommit = function(_, reason)
+						table.insert(reasons, reason)
+					end,
+				},
+			})
+		end, function(engine)
+			input = engine.new("UserInputService")
+			input.TouchEnabled = true
+			input.KeyboardEnabled = false
+			return { services = { UserInputService = input } }
+		end)
+		local field = find(node, "Name")
+		field:CaptureFocus()
+		field.Text = "hi"
+		input.GamepadEnabled = true
+		t.expect(field:IsFocused()).toBe(true)
+		input.KeyboardEnabled = true
+		input.TouchEnabled = false
+		t.expect(field:IsFocused()).toBe(true)
+		t.expect(#reasons).toBe(0)
+		input.TouchEnabled = true
+		input.KeyboardEnabled = false
+		t.expect(field:IsFocused()).toBe(true)
+		input.TouchEnabled = false
+		t.expect(field:IsFocused()).toBe(false)
+		t.expect(reasons).toEqual({ "focusLost" })
+		t.expect(value:peek()).toBe("hi")
 		stop()
 	end)
 

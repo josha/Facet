@@ -1174,6 +1174,8 @@ t.describe("native parity weaker actions", function()
 				local group, header = world.node, find(world.node, "Header")
 				t.expect(group:HasTag("facet-panel")).toBe(appearance == "contained")
 				t.expect(group:HasTag("facet-disclosure-" .. appearance)).toBe(true)
+				t.expect(group:HasTag("facet-disclosure")).toBe(false)
+				t.expect(group:HasTag("facet-disclosure-group")).toBe(true)
 				if appearance == "contained" then
 					t.expect(group.BackgroundTransparency).toBe(0)
 				end

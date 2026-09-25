@@ -12,10 +12,10 @@ The baseline is `main` at `a8c88956`. The branch is `codex/compose-ui-simplifica
 
 | Kind | Contracts | Main cases |
 |---|---:|---:|
-| Class b: the Roblox Engine or Compose owns the mechanism | 255 | 1301 |
+| Class b: the Roblox Engine or Compose owns the mechanism | 254 | 1295 |
 | Class b with no candidate test and no live record | 47 | 199 |
-| Class c: the feature or the code is deleted | 853 | 6014 |
-| Restored before the merge: moved from class b or c to class a | 18 | 167 |
+| Class c: the feature or the code is deleted | 851 | 6010 |
+| Restored before the merge: moved from class b or c to class a | 21 | 177 |
 | Parts of covered contracts that the strengthening work retired | 117 | - |
 | Owner decisions (next section) | 21 | - |
 
@@ -254,6 +254,14 @@ The controls restore moved two more contracts to class a. The cases are in `test
 |---|---:|---|---|---|
 | `mech1-106` | 5 | A divider spends the hairline opacity of the theme in every shipped package, is quieter than secondary content, and a strong divider is heavier. | The `facet-divider` and `facet-divider-strong` StyleSheet rules | The non-native adapter path is deleted. |
 | `themes-P1-57` | 2 | A circle Image refuses a nine-slice mode, and image framing is refused. | `UICorner` and `UIAspectRatioConstraint` on a native ImageLabel | `imageFraming` is not restored, so its refusal is the unknown-option error. |
+
+The menu parity change moved three more contracts to class a. The cases are in `tests/native_menu_parity.spec.luau`. Each contract has `restoredBy` set to `parity/menu`. The live evidence is in `artifacts/captures/menu/menu-live.json`.
+
+| Contract | Main cases | Restored behavior | Native implementation | Still weaker |
+|---|---:|---|---|---|
+| `navigation-2-48` | 6 | The floating panel is one raised card with flat rows, one hairline between each pair of rows and an accent fill under an `onAccent` label on a selected row. The sheet keeps its rows. | The `facet-menu`, `facet-menu-group`, `facet-menu-hairline` and `facet-menu-item.facet-selected` StyleSheet rules, `UICorner`, `UIStroke` and `UIShadow` | A list long enough to scroll rounds the ends of its content, not the ends of the viewport. |
+| `navigation-2-49` | 3 | Each level scales from 0.96 and fades in from the corner where it hangs, and dips out faster. A sheet submenu slides forward on entry and backward on Back. Reduced motion removes the travel. | `UIScale`, `CanvasGroup.GroupTransparency` and a Compose timeline | - |
+| `paint-61` | 1 | `trigger` attaches the menu to any node and returns that node. `label` and `trigger` together are refused. | Native events and input actions on the trigger node | - |
 
 Three main controls are not restored:
 
@@ -580,7 +588,7 @@ Each line gives the contract id, the main case count and the main specs, the pro
 - `apps2-183` (2 main cases; `radial_hold_resolve`). Main promised: Held stick/d-pad cost no re-solves or repeat walks. Engine or Compose owns it: Native InputAction Pressed fires once per press and Direction2D StateChanged fires only on value change; the Facet presenter repeat clock (DPAD_REPEAT_*) and solver solve counts no longer exist.. Replacement test: no test (none (`NRAD-1` exercises hold/aim hysteresis but not held-repeat or a held d-pad)).
 - `apps2-203` (3 main cases; `radial_menu`). Main promised: Pointer/keyboard/gamepad activate the selected wedge. Engine or Compose owns it: Native GuiButton.Activated (mouse click, touch tap, Return/ButtonA on GuiService.SelectedObject) replaces the presenter dispatch.. Replacement test: yes: Candidate fires Activated directly (native_navigation radial case, `NRAD-7`); keyboard/gamepad selection activation is engine-owned, no live evidence recorded.
 - `apps2-211` (1 main case; `radial_menu`). Main promised: Input-class hot switch keeps the menu open. Engine or Compose owns it: Engine PreferredInput changes no longer route through a Facet interaction-class state machine; nothing in nav_radial reacts to preferred input.. Replacement test: no test.
-- `apps2-280` (2 main cases; `virtual_monitors_input`). Main promised: Affordance follows input: tap hides ring, navigation restores; resolved input fact follows device. Engine or Compose owns it: Engine selection-ring visibility (GuiService selection image shown only for gamepad/keyboard navigation) and UserInputService.PreferredInput. Replacement test: yes: Facet reads PreferredInput via ctx.observe(input,'PreferredInput') in src/ui/nav_pages.luau:150, nav_surfaces.luau:149, collection_table.luau:85; headless tests grep PreferredInput in native_inputs/native_navigation/n....
+- `apps2-280` (2 main cases; `virtual_monitors_input`). Main promised: Affordance follows input: tap hides ring, navigation restores; resolved input fact follows device. Engine or Compose owns it: Engine selection-ring visibility (GuiService selection image shown only for gamepad/keyboard navigation) and UserInputService.PreferredInput. Replacement test: yes: Facet reads PreferredInput via ctx.observe.PreferredInput(input) in src/ui/nav_pages.luau:150, nav_surfaces.luau:149, collection_table.luau:85; headless tests grep PreferredInput in native_inputs/native_navigation/n....
 - `apps2-30` (3 main cases; `examples_gallery`). Main promised: Temperature field enters edit mode by pointer, touch, Return and gamepad A; B cancels to snapshot. Engine or Compose owns it: Native TextBox focus (CaptureFocus on activation) and GuiService selection/Return/ButtonA. Replacement test: yes: Control level: native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection; native_inputs::native input controls::limits UTF-8 characters, rejects validati....
 - `apps2-52` (2 main cases; `examples_gallery`). Main promised: withAnimation reachable by four inputs; copy survives 1.4x pseudo-localization. Engine or Compose owns it: GuiButton.Activated for all input types; engine text measurement. Replacement test: no test.
 - `collections-179` (2 main cases; `table_input`). Main promised: ButtonA/Return select the focused row. Engine or Compose owns it: Native GuiButton activation of the Selectable RowHit. Replacement test: no test.
@@ -708,7 +716,7 @@ Each line gives the contract id, the main case count and the main specs, the pro
 
 ### Motion
 
-3 class b and 42 class c contracts, 422 main cases.
+3 class b and 41 class c contracts, 419 main cases.
 
 - `apps-260` (9 main cases; `transitions`). Main promised: Retire-until-exit model: re-entry reuses identity, dispose exactly once, rows hold slot, churn returns to baseline. Engine or Compose owns it: Compose presence/LayerStack exit ownership (src/vendor/compose); UI.When/UI.ForEach removed. Replacement test: yes: native_navigation::native navigation controls::animates alerts from native sources and reclaims interrupted Compose presence; native_radial_controls::native radial interaction policies::`NRAD-9` Compose exit presence re....
 - `mech2-101` (4 main cases; `presentation_channel`). Main promised: Declared fade group uses CanvasGroup GroupTransparency. Engine or Compose owns it: CanvasGroup.GroupTransparency. Replacement test: yes: native_gallery_workflows::native gallery workflows::applies shared and per-plate CanvasGroup opacity and owns the arrival tween; native_navigation::native navigation controls::fades native tab layers with Compose and ....
@@ -745,7 +753,6 @@ Each line gives the contract id, the main case count and the main specs, the pro
 - `navigation-1-52` (27 main cases; `backdrop_fade`). Main promised: Backdrop-before-content structural finder, coordinator split write, Glade modals clean, surface acknowledgements. Deleted: src/render/transitions.luau (findBackdropFindings, coordinator split GroupTransparency routing, acknowledgement schema) and the presenter's per-modal coordinator are deleted. CAND uses Compose presence + direct GroupT.... Replacement test: none; the feature is deleted.
 - `navigation-2-01` (5 main cases; `collapsible_view`). Main promised: CollapsibleView morph from compact view (plate transform, scroll-live endpoints, one CanvasGroup, in-flight hot switch). Deleted: Candidate UI.CollapsibleView (src/ui/nav_surfaces.luau) is a Button that opens surfaces.modal(surfaces.centered(...)) through surfaces.overlay with no presence/transition option: no morph from the trigger rect, no com.... Replacement test: none; the feature is deleted.
 - `navigation-2-15` (5 main cases; `disclosure_group`). Main promised: Disclosure motion: sibling glide, reduced-motion snap, fade-group exclusion, exit clipping, no overshoot. Deleted: Candidate DisclosureGroup (nav_surfaces.luau) mounts content with Compose.show and no transition/presence; there is no caret rotation, content exit clip, fade group or sibling glide. api.md DisclosureGroup section pro.... Replacement test: none; the feature is deleted.
-- `navigation-2-49` (3 main cases; `menu`). Main promised: Menu panel materialize and sheet submenu slide motion. Deleted: Menu overlay uses surfaces.overlay without presence options (nav_menu.luau); no menu motion API remains.. Replacement test: none; the feature is deleted.
 - `navigation-3-03` (6 main cases; `native_navigation_stack`). Main promised: Named slide/materialize/transform/reveal forms, interruption reclaim and rapid push-push-pop. Deleted: Main navigation transition forms (slide-left/right, materialize, transform fromRect, reveal) and presentationOffset slot motion are gone; CAND layer() in src/ui/nav_pages.luau asserts transition keys are only seconds/.... Replacement test: none; the feature is deleted.
 - `navigation-3-07` (1 main case; `native_selection_indicator`). Main promised: Sliding selection chip reverses continuously and settles under reduced motion. Deleted: Main newSelectionIndicator / Layer/Bar chip motion deleted; CAND Picker marks the current option with StyleSheet tags (facet-segment-current, facet-selected) and an optional static 'SelectionIndicator' underline Frame.... Replacement test: none; the feature is deleted.
 - `navigation-3-29` (4 main cases; `navigation_stack`). Main promised: Slide geometry, interruption containment, nested viewport and first-presentation slide width. Deleted: Slide transition and clipped slide viewport deleted (layer() accepts only seconds/ease fade); api.md: no named transition presets.. Replacement test: none; the feature is deleted.
@@ -758,7 +765,7 @@ Each line gives the contract id, the main case count and the main specs, the pro
 
 ### Paint and theming
 
-17 class b and 82 class c contracts, 474 main cases.
+16 class b and 82 class c contracts, 468 main cases.
 
 - `apps-200` (2 main cases; `selection_radius`). Main promised: Segmented fill and focused row paint follow theme corner radius. Engine or Compose owns it: StyleSheet StyleRule '.facet-segmented::UICorner' from metrics.radii.control; engine selection highlight. Replacement test: yes: native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint.
 - `apps-202` (3 main cases; `selection_shape`). Main promised: Square themes get square selection corners; authored corner wins. Engine or Compose owns it: StyleRule UICorner from package metrics.radii. Replacement test: yes: native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint.
@@ -767,7 +774,6 @@ Each line gives the contract id, the main case count and the main specs, the pro
 - `inputs-132` (1 main case; `paradigm_hover`). Main promised: Hover role distinct from rest fill. Engine or Compose owns it: StyleRule :Hover selectors.. Replacement test: yes: native_themes_media::native themes and media::uses Button interaction state for semantic icon variants.
 - `inputs-205` (1 main case; `toggle_presentations`). Main promised: Theme-owned checkbox outline in each state. Engine or Compose owns it: StyleSheet rules on .facet-toggle-checkbox/.facet-toggle-on and skin slots.. Replacement test: yes: native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders.
 - `navigation-1-37` (2 main cases; `alert`). Main promised: Title (and mark+title pair) centred in the card. Engine or Compose owns it: Native TextXAlignment through StyleSheet rules on the facet-type-heading/alert tags. Replacement test: no test.
-- `navigation-2-48` (6 main cases; `menu`). Main promised: Anchored panel is one card (hairlines, radii, selection fill, selected label/icon paint, sheet shape). Engine or Compose owns it: Native StyleSheet/StyleRule paint on facet-menu/facet-menu-item/facet-selected tags, UICorner on MenuRows. Replacement test: yes: native_themes_media::native themes and media::shares selected contrast across rich disclosure titles and chevrons proves the '.facet-selected >> .facet-text/.facet-icon' rule for DisclosureGroup, not for menu rows; no....
 - `navigation-3-35` (2 main cases; `navigation_visuals`). Main promised: Capsule paint order after compact-to-distant resize. Engine or Compose owns it: Native ZIndex/sibling paint order. Replacement test: yes: native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup (asserts Tabs.ZIndex > Content.ZIndex).
 - `navigation-3-83` (1 main case; `picker_style`). Main promised: Chosen menu row readable on its selection fill. Engine or Compose owns it: StyleSheet .facet-selected rule. Replacement test: yes: native_themes_media::native themes and media::uses authored selected contrast for native buttons and their mirrored captions (colors only, no 4.5:1 check for controlSelected/onSelected).
 - `navigation-4-17` (1 main case; `popup_catcher_paint`). Main promised: Synthesized scrim root shares the screen StyleSheet. Engine or Compose owns it: StyleLink inheritance: overlays are descendants of the caller ScreenGui, so the same StyleSheet applies. Replacement test: yes: Candidate asserts MenuPanel.Parent.Parent == screen and ModalBack context under screen (in-tree); no paint assertion..
@@ -1003,7 +1009,7 @@ Each line gives the contract id, the main case count and the main specs, the pro
 
 ### Menus and pickers
 
-0 class b and 12 class c contracts, 38 main cases.
+0 class b and 11 class c contracts, 37 main cases.
 
 - `apps-238` (1 main case; `adaptive_defaults`). Main promised: Authored size class wins over the surface. Deleted: Facet environment (app.environment size class, interaction classes, distance profile, discoverable per-core environment, client host) deleted; controls read native AbsoluteSize and UserInputService.PreferredInput dire.... Replacement test: none; the feature is deleted.
 - `apps-239` (1 main case; `adaptive_defaults`). Main promised: PopupButton touch resolves a sheet. Deleted: PopupButton removed.. Replacement test: none; the feature is deleted.
@@ -1016,7 +1022,6 @@ Each line gives the contract id, the main case count and the main specs, the pro
 - `navigation-3-84` (1 main case; `picker_style`). Main promised: valueAlignment moves a labelled menu value. Deleted: Picker valueAlignment was removed from src and api.md (f2929ef1). The foundation parity port restored valueAlignment (start and end) for a labelled menu; see post-port26-018 in the verification parity guide.. Replacement test: native_foundation_parity::native start-aligned Picker menu.
 - `navigation-4-59` (1 main case; `tab_customization`). Main promised: Picker section headings only on the vertical axis. Deleted: Picker sectionTitle deleted (not in CAND src/api). TabView sections exist and are covered for sidebar by "renders sidebar sections and collapsed tab destinations through the shared menu".. Replacement test: none; the feature is deleted.
 - `paint-34` (8 main cases; `display_controls`). Main promised: PopupButton adaptive presentation. Deleted: PopupButton deleted (not in src/ui, api.md or guide catalog); Picker style=menu and Menu replace it.. Replacement test: none; the feature is deleted.
-- `paint-61` (1 main case; `native_regions_feedback`). Main promised: Composite Button as Menu trigger. Deleted: Menu takes label/icon only (api.md Menu); custom Button triggers deleted.. Replacement test: none; the feature is deleted.
 
 ### Navigation containers
 

@@ -22,8 +22,7 @@ return function(
 			return Host.UIPadding({})
 		end, target)
 	end
-	local container = Host.Frame({
-		Name = node.Name .. "Bounds",
+	local container = Host.Frame(node.Name .. "Bounds")({
 		Size = D2.fromOffset(0, 0),
 		AnchorPoint = types.Vector2.new(1, 1),
 		BackgroundTransparency = 1,
@@ -32,8 +31,7 @@ return function(
 		ZIndex = node.ZIndex,
 		node,
 	})
-	local boundary = Host.Frame({
-		Name = node.Name .. "Boundary",
+	local boundary = Host.Frame(node.Name .. "Boundary")({
 		Size = D2.fromOffset(1, 1),
 		Position = D2.fromScale(1, 1),
 		AnchorPoint = types.Vector2.new(1, 1),

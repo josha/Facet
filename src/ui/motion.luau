@@ -13,9 +13,11 @@ return function(ctx: Shared.Context): (ComposeTypes.Use?) -> boolean
 	if gui then
 		local acquire = preferences[ctx]
 		if acquire == nil then
-			local created: Acquire = ctx.Compose.createSharedResource(function(): ComposeTypes.Cell<boolean>
-				return ctx.observe(gui, "ReducedMotionEnabled")
-			end)
+			local created: Acquire = ctx.Compose.createSharedResource(
+				function(): (ComposeTypes.Cell<boolean>, (() -> ())?)
+					return ctx.observe.ReducedMotionEnabled(gui), nil
+				end
+			)
 			preferences[ctx] = created
 			acquire = created
 		end

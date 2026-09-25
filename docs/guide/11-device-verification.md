@@ -113,20 +113,39 @@ Roblox menu in the playtest and set Settings > Text size to Largest. The
 result records the viewport, the safe inset, the preferred text size and the
 source stamp.
 
+### Send real gamepad input
+
+Turn on the Controller Emulator (the Virtual Controller check box of the
+device emulator bar). Then `live.press({ "DPadDown", "ButtonA" })` in the
+Client data model sends real `Gamepad1` input. It uses
+`UserInputService:CreateVirtualInput()` and the emulator key map: DPadDown,
+DPadLeft, DPadRight, ButtonA, ButtonB, ButtonX, ButtonY, ButtonL1, ButtonL2
+and `StickUp` (the left stick). Between the steps of an interactive case,
+call `live.press` in place of the Studio input tools. The result records the
+delivered input in `notes.deliveredInput` and the selection after each press
+in `notes.pressedSelections`.
+
+- DPadUp cannot be sent. The emulator maps it to the key 1, and VirtualInput
+  refuses that key. Use `StickUp`. The engine moves the stick selection by a
+  different geometry than the D-pad, so it can choose another neighbour.
+- Do not send the keys U and Q. They are ButtonStart and ButtonSelect. They
+  open the Roblox menu or take the keyboard focus, and after that VirtualInput
+  refuses every key until the playtest restarts.
+
 ### Limits of the harness
 
 - Studio input tools send D-pad key codes as keyboard input. Engine
-  selection does not move for them. Use the arrow keys for the native
-  selection path, and record the D-pad path as a device check.
+  selection does not move for them. Use `live.press` with the Controller
+  Emulator for the D-pad path.
 - Studio does not play haptic motors. The harness proves that a control
   requests the effect. A physical phone or gamepad must confirm the output.
 - A horizontal drag from the Studio input tools can arrive as a tap. Confirm a
   swipe with a real pointer or touch drag. The mouse moves of the input tools
   do not fire `InputChanged` while a button is held, so a `UIDragDetector`
   does not start.
-- The input tools refuse Tab and Escape, because the core interface owns
-  them. They also send `ButtonA` as keyboard input, and engine activation does
-  not use it.
+- The input tools and VirtualInput refuse Tab and Escape, because the core
+  interface owns them. The input tools also send `ButtonA` as keyboard input,
+  and engine activation does not use it. `live.press` sends a real `ButtonA`.
 - While a `GuiButton` has the selection, the engine uses Return for the native
   activation of that button. No `InputAction` that binds Return fires, also
   with a modifier key.
