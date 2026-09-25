@@ -3887,7 +3887,13 @@ t.describe("native parity reference applications", function()
 
 			t.it("picks the character command ring or list from the viewport height", function()
 				for _, case in
-					{ { 1280, 720, "radial" }, { 960, 540, "radial" }, { 800, 600, "radial" }, { 677, 338, "list" } } :: { { any } }
+					{
+						{ 1280, 720, "radial" },
+						{ 960, 540, "radial" },
+						{ 800, 600, "radial" },
+						{ 677, 338, "radial" },
+						{ 677, 280, "list" },
+					} :: { { any } }
 				do
 					local world = mountGallery(quickActions)
 					world.built.steps.character()

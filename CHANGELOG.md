@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A RadialMenu without an `anchor` opens centred on its launcher, and a full ring moves inward to stay inside the presentation area. Before, it always opened in the middle of the screen, and an anchor near an edge shrank the ring or switched it to a list.
 - A RadialMenu wedge takes the selected paint whenever its label does: when it is focused, checked or selected, not only under the pointer. Before, the focused wedge kept the resting panel paint under the selected label color, so its label was unreadable in Glossy Touch and Pixel Quest.
 - An open RadialMenu dims the page behind it with the theme scrim, and a still tap outside the ring closes it. Before, the page showed at full strength between the wedges and a tap outside did nothing.
 - Restored `UI.AdaptiveStack` and `UI.ViewThatFits` with native measurement. AdaptiveStack turns its axis from a bound `axis`, or without `axis` becomes a column when its row does not fit. ViewThatFits shows the first candidate whose `AbsoluteSize` fits the container and hides the others.

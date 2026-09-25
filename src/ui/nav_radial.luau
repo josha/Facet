@@ -324,30 +324,11 @@ return function(
 				local viewport = Compose.cell(V2.new(640, 480))
 				local origin = Compose.cell(V2.zero)
 				local anchor = read(spec.anchor)
-				local nativeAnchor = anchor
-					and (typeof(anchor) == "Instance" or (type(anchor) == "table" and anchor.IsA))
-				local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(anchor :: GuiObject) else nil
-				local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(anchor :: GuiObject) else nil
-				local rawCenter = Compose.formula(function(use: ComposeTypes.Use)
-					local size = use(viewport)
-					local live = read(spec.anchor, use)
-					if anchorPosition and anchorSize then
-						return use(anchorPosition) + use(anchorSize) / 2 - use(origin)
-					elseif live and live.x and live.y then
-						return V2.new(live.x, live.y) - use(origin)
-					end
-					local preset = spec.preset or "donut"
-					return V2.new(
-						if string.find(preset, "left")
-							then 16
-							elseif string.find(preset, "right") then size.X - 16
-							else size.X / 2,
-						if string.find(preset, "top")
-							then 16
-							elseif string.find(preset, "bottom") then size.Y - 16
-							else size.Y / 2
-					)
-				end)
+				local launcher = if anchor == nil then root:FindFirstChild("Launcher") else nil
+				local focal = anchor or launcher
+				local nativeAnchor = focal and (typeof(focal) == "Instance" or (type(focal) == "table" and focal.IsA))
+				local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(focal :: GuiObject) else nil
+				local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(focal :: GuiObject) else nil
 				local rawInner = Compose.formula(function(use: ComposeTypes.Use): number
 					local inner = math.max(
 						24,
@@ -362,6 +343,36 @@ return function(
 						inner = math.max(inner, math.max(extent.X, extent.Y) / 2)
 					end
 					return inner
+				end)
+				local rawCenter = Compose.formula(function(use: ComposeTypes.Use)
+					local size = use(viewport)
+					local live = read(spec.anchor, use)
+					local preset = spec.preset or "donut"
+					local at = V2.new(
+						if string.find(preset, "left")
+							then 16
+							elseif string.find(preset, "right") then size.X - 16
+							else size.X / 2,
+						if string.find(preset, "top")
+							then 16
+							elseif string.find(preset, "bottom") then size.Y - 16
+							else size.Y / 2
+					)
+					if anchorPosition and anchorSize and (launcher == nil or use(anchorSize).X > 0) then
+						at = use(anchorPosition) + use(anchorSize) / 2 - use(origin)
+					elseif live and live.x and live.y then
+						at = V2.new(live.x, live.y) - use(origin)
+					end
+					local _, sweep = geometry.arc(preset)
+					if sweep < 360 then
+						return at
+					end
+					local ringWidth = read(spec.ringWidth, use)
+					local reach = use(rawInner) + (if type(ringWidth) == "number" then ringWidth else 44)
+					return V2.new(
+						math.clamp(at.X, reach + 12, math.max(reach + 12, size.X - reach - 12)),
+						math.clamp(at.Y, reach + 20, math.max(reach + 20, size.Y - reach - 20))
+					)
 				end)
 				local centerTarget = Compose.cell(rawCenter:peek())
 				local innerTarget = Compose.cell(rawInner:peek())

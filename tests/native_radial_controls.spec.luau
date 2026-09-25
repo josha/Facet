@@ -517,5 +517,30 @@ t.describe("native radial interaction policies", function()
 		t.expect(world.opened:peek()).toBe(false)
 		world.stop()
 	end)
+	t.it("opens centred on its measured launcher and pulls the ring inside the safe area", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			clearance = 60,
+			ringWidth = 48,
+			distribution = "compass",
+			items = compass(function() end),
+		})
+		local V2 = world.engine.types.Vector2
+		local launcher = world.find("Launcher")
+		local function centre(x, y)
+			launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(x, y), V2.new(40, 40)
+			world.opened:set(true)
+			local at = world.find("Center").Position
+			world.opened:set(false)
+			return at.X.Offset, at.Y.Offset
+		end
+		local x, y = centre(140, 200)
+		t.expect(x).toBe(160)
+		t.expect(y).toBe(220)
+		x, y = centre(600, 440)
+		t.expect(x).toBe(640 - 120)
+		t.expect(y).toBe(480 - 128)
+		world.stop()
+	end)
 end)
 return t

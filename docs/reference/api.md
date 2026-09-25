@@ -1765,6 +1765,12 @@ A wedge takes the theme panel paint (`surfaceStrong`) and its label the
 content paint. A hovered, focused, checked or selected wedge takes the selected
 paint (`controlSelected`), the same state its label shows.
 
+Without an `anchor`, the ring opens centred on its launcher. Before the
+launcher has a size, and with `launcher = false`, the `preset` sets the
+position. A full ring (`donut` or `circle`) then moves inward until its inner
+radius plus `ringWidth` (or 44 pixels) fits inside the presentation area. The
+ScreenGui keeps that area inside the safe area. Corner presets are not moved.
+
 ## Presented controls
 
 ### Alert
