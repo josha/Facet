@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The RadialMenu centre control is a round icon button that fills the hole and covers the launcher under it. Before, a 72 by 40 "Close" plate overlapped the launcher's own label and poked past the hole.
 - A RadialMenu ring without `ringWidth` is as thick as its measured labels and icons plus theme spacing, at least one touch target. Before, it filled the room up to a 240 pixel radius, far thicker than its labels.
 - A RadialMenu wedge item is its icon and label only, inside its wedge. Before, each item was a full Button plate on top of the wedge; in a skinned theme (Pixel Quest) the plates overflowed the wedges.
 - Showcase: Gallery settings has a Device preview (Phone, Tablet, TV) and an Orientation choice again. It frames the gallery at 389x762, 768x1024 or 1920x1080 (scaled down to fit) and feeds `viewportSize`, `displaySize` and the input to the `environment` option: Phone and Tablet are Small and Touch, TV is Large and Gamepad. An Input preview choice still wins.

@@ -973,15 +973,32 @@ return function(
 					end
 				end
 				if spec.center ~= "empty" and spec.center ~= "content" then
+					local function centerName(use: ComposeTypes.Use): string
+						local depth = #use(path)
+						return read(spec.centerLabel, use)
+							or if spec.center == "root"
+								then "Home"
+								elseif spec.center == "close" or depth == 0 then "Close"
+								else "Back"
+					end
+					local centerIcon: Types.Value<string>? = if spec.centerLabel
+						then nil
+						else function(use: ComposeTypes.Use): string
+							return if spec.center == "root"
+								then "chevron.first"
+								elseif spec.center == "close" or #use(path) == 0 then "close"
+								else "chevron.leading"
+						end
 					surfaces.attach(panel, {
 						UI.Button "Center" {
 							LayoutOrder = -1,
-							label = spec.centerLabel or function(use: ComposeTypes.Use): string
-								return if spec.center == "root"
-									then "Home"
-									elseif spec.center == "close" or #use(path) == 0 then "Close"
-									else "Back"
+							corners = "pill" :: "pill",
+							name = centerName,
+							label = function(use: ComposeTypes.Use): string
+								return if use(fallback) then centerName(use) else read(spec.centerLabel, use) or ""
 							end,
+							icon = centerIcon,
+							TextWrapped = true,
 							Visible = function(use: ComposeTypes.Use)
 								return not (use(fallback) and (spec.center == "root" or spec.center == "close"))
 							end,
@@ -993,7 +1010,12 @@ return function(
 								return if use(fallback) then V2.zero else V2.new(0.5, 0.5)
 							end,
 							Size = function(use: ComposeTypes.Use)
-								return if use(fallback) then D2.new(1, -8, 0, 44) else D2.fromOffset(72, 40)
+								local minimum = ctx.metric("targetSizes.minimum", use)
+								if use(fallback) then
+									return D2.new(1, -8, 0, minimum)
+								end
+								local diameter = math.max(minimum, 2 * use(layout).inner - 4)
+								return D2.fromOffset(diameter, diameter)
 							end,
 							ZIndex = 105,
 							onActivate = centerAction,

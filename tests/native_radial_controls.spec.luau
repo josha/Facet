@@ -559,5 +559,30 @@ t.describe("native radial interaction policies", function()
 		t.expect(after < before).toBe(true)
 		world.stop()
 	end)
+	t.it("dims the page under the centre and fits the centre control inside the hole", function()
+		for _, label in { false, "Leave the wheel" } do
+			local world = setup({
+				distribution = "compass",
+				centerLabel = if label then label else nil,
+				items = compass(function() end),
+			})
+			local scrim = world.find("DismissOutside")
+			t.expect(scrim:HasTag("facet-scrim") and scrim.Visible).toBe(true)
+			t.expect(scrim.Size.X.Scale == 1 and scrim.Size.Y.Scale == 1).toBe(true)
+			local centre = world.find("Center")
+			local w, h = centre.Size.X.Offset, centre.Size.Y.Offset
+			t.expect(math.sqrt(w * w + h * h) / 2 <= 40 or (w == h and w <= 80)).toBe(true)
+			t.expect(w).toBe(h)
+			t.expect(w >= 44).toBe(true)
+			if label then
+				t.expect(centre.Text).toBe(label)
+				t.expect(centre.TextWrapped).toBe(true)
+			else
+				t.expect(centre.Text).toBe("")
+				t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+			end
+			world.stop()
+		end
+	end)
 end)
 return t

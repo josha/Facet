@@ -1797,6 +1797,13 @@ plus `space.s` on both sides. It is never thinner than `targetSizes.minimum`
 and never wider than the room. Before the text is measured, the ring fills the
 room.
 
+The centre Back, Close or Home control is a round button that fills the hole
+(its diameter is the inner diameter less 4 pixels, at least one touch target),
+so it covers the launcher under it. It shows a close, back or first-page icon
+and keeps the word as its accessible name; a `centerLabel` shows that text,
+wrapped, instead. The scrim covers the whole screen, the hole included, unless
+`centerPassThrough` is on. In the list fallback the control is a full-width row.
+
 Without an `anchor`, the ring opens centred on its launcher. Before the
 launcher has a size, and with `launcher = false`, the `preset` sets the
 position. A full ring (`donut` or `circle`) then moves inward until its inner
