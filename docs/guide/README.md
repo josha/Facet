@@ -1,453 +1,91 @@
-# Facet Guide
+# Facet guide
 
-Facet is a Roblox user-interface library written entirely in Luau. Two
-properties shape everything else in this guide:
+Facet is a library of UI controls. The controls use Compose and Roblox.
 
-1. **Its decisions are headlessly testable; its live mechanisms are
-   Roblox-native.** Reactive data, layout math, navigation, and other
-   deterministic policy do not need a Roblox `Instance`. The adapter edge
-   creates real Roblox UI. It uses Roblox's own scrolling, styling, input, and
-   path mechanisms where they fit. The separation exists for deterministic tests
-   and clear ownership. It does not make Facet a portable framework for other
-   engines. The decision layer runs headlessly under
-   [Lune](https://lune-lang.com/), a standalone Luau runtime.
+- Compose owns the tree, bindings, ownership, structural operations and motion.
+- Roblox owns native layout, text editing, scrolling, selection and styling.
+- Facet owns interaction rules and adaptive control presentation.
 
-2. **Compose authors the interface; Facet supplies the UI behavior.** Ordinary
-   component functions return Facet controls. Compose binds properties, updates
-   collections and owns cleanup. Facet solves layout and connects controls to
-   Roblox styling, scrolling, focus and input.
+Start with [a working screen](03-getting-started.md) and
+[components](15-components.md). Use the [control chooser](14-choosing-controls.md)
+to select a control. Then read the exact contract of that control in the
+[API reference](../reference/api.md).
 
-This guide is written for a Roblox developer who has never seen this codebase.
-Start new code with [Components](15-components.md), then read the chapters for the underlying systems.
+## Reading map
 
-For control selection while designing a screen, use [Choosing controls](14-choosing-controls.md), including when radial actions fit and which options to choose.
-
-Start with `Facet.new()` and `app.controls`. A component is a plain Luau
-function that returns a node. Use `Facet.Compose` for cells, formulas,
-ownership, structural operations and animation: `Compose.cell` holds state,
-`Compose.formula` derives it, and a reactive property is `function(use) ... end`.
-Shared model cells can live outside a component. See
-[Components](15-components.md) and
-[the application API](../reference/api.md#new).
-
-## The principles, in plain words
-
-Everything in Facet follows a small set of ideas. If a rule ever seems strange,
-one of these is usually the reason. The full rulebook, with every pattern and
-every approved exception, is [`the constitution`](../reference/constitution.md).
-
-**How it is designed:**
-
-- **You say what, it decides how.** You describe the screen. The library builds
-  it, updates it, and cleans it up. You never touch an `Instance` yourself.
-- **The decision layer works without Roblox.** Layout math, focus, state, and
-  adaptation all run in plain Luau, so tests can check them exactly. Only the
-  thin adapter edge touches the engine, and there it uses Roblox's own
-  mechanisms — real scrolling, real stylesheets — instead of imitating them.
-- **The server owns the truth.** Your game's real state lives on the server. The
-  client only shows it, and the server validates every change request.
-
-**How the system stays predictable:**
-
-- **Every engine property has exactly one owner.** Layout owns geometry, style
-  owns paint, bindings own data, presentation owns motion. Two writers on one
-  property is a defect the framework refuses to allow.
-- **Everything is cleaned up exactly once.** Every subscription and resource
-  belongs to a Compose owner. Close the screen and that owner is disposed, which
-  frees everything under it. No leaks, no double-frees.
-- **A change re-solves; it never rebuilds.** Rotating the phone, swapping a
-  theme, or growing the text recomputes positions. It never throws your screen
-  away, so focus, scrolling, and typing survive.
-- **One broken piece cannot take down the screen.** Your callbacks are allowed
-  to fail. The framework contains the error, records it, and keeps running.
-
-**How the API behaves:**
-
-- **Mistakes fail immediately, with the fix in the message.** A misspelled
-  property raises an error that names what you probably meant. It never
-  silently does nothing.
-- **Your data stays yours.** A control never keeps the important state, such as
-  the chosen value or the sort order. You own the Compose cell; the control
-  reads it and writes it. Discard the control and your data is still there.
-- **Learn one, know them all.** Controls are declared one way
-  (`UI.<Name> { ... }` returns the control's node, and `ref = function(record)`
-  delivers its record). Callbacks are named one way (`onChange` while a value
-  moves, `onCommit` when it lands). Teardown works one way. Where something
-  deliberately breaks the pattern, the constitution names it and says why.
-- **Retirement runs on a schedule.** The version number means something. Nothing public disappears without a ledger entry, a replacement,
-  and at least one minor version of notice.
-
-## Reading order
-
-| File | What it covers |
+| Topic | Guide |
 |---|---|
-| [`01-concepts.md`](01-concepts.md) | The ideas you need before any code makes sense: declarative UI, the two kinds of state, per-player rendering, the server's role, design tokens, input, focus, and ranked adaptive content. |
-| [`02-architecture.md`](02-architecture.md) | The module map, how data flows from a replicated value to a pixel, the extension points, and why each internal boundary exists. |
-| [`03-getting-started.md`](03-getting-started.md) | The smallest working screen, wired two ways: as a headless test, and inside Roblox Studio. |
-| [`04-tutorial-examples.md`](04-tutorial-examples.md) | A guided tour of eight learning stages across seven example files. Each stage adds one idea. |
-| [`05-styling.md`](05-styling.md) | Colors, spacing, the built-in look, shadows, rounded corners, why styling is data, the native StyleSheet paint path, and what a theme package adds. |
-| [`06-client-server.md`](06-client-server.md) | Talking to the server: receiving replicated state, sending validated changes, and showing a change instantly while the answer travels. |
-| [`07-input.md`](07-input.md) | Semantic actions, control-declared input contributions, layout-derived navigation, per-class idioms, modal dismissal, hints, the responder chain, and the hard limits. |
-| [`08-without-rojo.md`](08-without-rojo.md) | Using Facet with no external toolchain: the instance-tree rule, the official Roblox Package, five ways to get the library into a place, and what a no-Rojo workflow costs. |
-| [`09-custom-themes.md`](09-custom-themes.md) | Building a theme package end to end: derive, edit tokens, design chrome, preview, validate, export, install, swap live, and profile the cost. |
-| [`10-rich-skinning.md`](10-rich-skinning.md) | When the art is the interface: layered decoration slots, per-state art, image bars and toggles, semantic icons, pixel-art mode, and the three-rung customization ladder. |
-| [`11-device-verification.md`](11-device-verification.md) | Reading numbers honestly: the five evidence classes, the two budgets, the five-view Studio device matrix, and the rows no emulator can close. |
-| [`12-performance-lab.md`](12-performance-lab.md) | The performance-lab place: its nine workloads, its nine profiler scopes, capturing on a low-end Android device, and when two captures are comparable. |
-| [`13-theme-catalog.md`](13-theme-catalog.md) | The shelf of ready-made looks: what each of the eight packages does to spacing, rows, and type, the two install routes, and an honest cost line. |
-| [`14-choosing-controls.md`](14-choosing-controls.md) | Which control to reach for while designing a screen, including when radial actions fit. |
-| [`15-components.md`](15-components.md) | Component authoring: plain functions, `Compose.cell`, branches, keyed collections, motion and presented decisions. |
-| [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional: how Facet compares with React Luau, Fusion and Vide, and how to choose between them. |
-| [`15-adaptive-recipes.md`](15-adaptive-recipes.md) | Ten short recipes for problems a screen hits once it works on more than one device. Dip into these when a screen needs them. They are recipes, not required reading. |
-| [`16-controls.md`](16-controls.md) | Choose and configure every available control: actions, text entry, selection, progress, navigation and collections, with theme and lifetime guidance. |
+| When to use Facet | [Choosing the abstraction](14-choosing-a-ui-library.md) |
+| Ownership, state and native nodes | [Concepts](01-concepts.md), [Architecture](02-architecture.md), [Components](15-components.md) |
+| Complete maintained examples | [Tutorial examples](04-tutorial-examples.md) |
+| Native paint, theme transitions and semantic themes | [Styling](05-styling.md), [Custom themes](09-custom-themes.md), [Rich skinning](10-rich-skinning.md), [Theme catalog](13-theme-catalog.md) |
+| Domain authority and requests | [Client and server](06-client-server.md) |
+| Input, focus and cancellation | [Input](07-input.md) |
+| Installation without a source sync | [Without Rojo](08-without-rojo.md) |
+| What has been exercised, and what has not | [Device verification](11-device-verification.md), [Performance lab](12-performance-lab.md), [Paired performance](19-paired-performance.md), [Verification scope](18-verification-scope.md), [Verification parity](20-verification-parity.md), [Retired promises](21-retirements.md) |
+| Layout and control decisions | [Choosing controls](14-choosing-controls.md), [Adaptive recipes](15-adaptive-recipes.md), [Control families](16-controls.md), [Recipes](17-recipes.md) |
+| Contribution boundaries | [Maintainers](../MAINTAINERS.md), [Constitution](../reference/constitution.md) |
+| Extension playbooks | [Adding a control](../extending/new-control.md), [Adding artwork to a control](../extending/skinned-control.md), [Native primitives](../extending/new-primitive.md), [Adding a theme package](../extending/new-theme.md), [Mounting into native targets](../extending/new-render-target.md), [Adapting to another platform context](../extending/new-platform-mode.md), [Adopting an engine feature](../extending/new-engine-feature.md) |
 
-Two things worth knowing before you start, neither of which is a chapter:
-
-- **A runnable starting point.** [`examples/consumer/`](../../examples/consumer/)
-  is chapter 3's screen as a complete, standalone Rojo project — a project file, a
-  client script, and the screen itself as one module. Build it, press Play, then
-  edit it. `tests/consumer_standalone.spec.luau` mounts that same screen headlessly
-  and proves it, so the example cannot rot quietly.
-- **The install that needs no toolchain.** Facet is published as one Roblox
-  Package, which is the recommended route if you build in Studio without a file
-  sync. [Chapter 8](08-without-rojo.md) covers it: how to insert it, how to take a
-  new version with *Get Latest Package*, how to check which version you have, and
-  why automatic updating is worth leaving off in a production game.
-
-## The capability catalog
-
-This catalog lists every public capability the current library ships. It is
-derived from the exported surface, the control registrations, and the shipped
-examples, and a checker fails when the two drift apart
-(`lune run tools/lune/check_docs_cli`).
-
-Everything below lives on the single table returned by requiring the library:
-
-```lua
-local Facet = require(ReplicatedStorage.Facet)
-
-Facet.VERSION -- "0.11.0"
-local app = Facet.new({ player = player })
-local UI = app.controls
-
-local list = UI.VirtualList("Inventory")({
-    rows = inventory,
-    key = "id",
-    itemExtent = 64,
-    cell = function(_, ctx)
-        local item = Facet.Compose.formula(ctx.current)
-        return UI.Text("Name")({
-            text = function(use) return use(item).name end,
-        })
-    end,
-})
-```
-
-[`../reference/api.md`](../reference/api.md) is the exhaustive reference for
-properties, defaults, callbacks, and return values. Each row below links to it.
-The guide chapters explain when and why to reach for a capability.
-
-`Facet.new(options)` returns an application. `app.controls` holds every
-constructor. The catalog spells a member `UI.<name>` or `Controls.<Name>`; both
-name a member of `app.controls`. Declare a control with `UI.<Name> { ... }`, and
-add a name — `UI.<Name>("Id")({ ... })` — when another API needs a stable path.
-A composite control returns its node; its record arrives through
-`ref = function(record) ... end`. `app.mount` runs the component under a Compose
-owner that owns its resources. Start with
-[component authoring](15-components.md).
-
-### 1. Layout and composition primitives
-
-| Capability | What it does | Reference |
-|---|---|---|
-| `UI.Screen` | The root of one surface. Everything else is a descendant. | [api](../reference/api.md#screen) |
-| `UI.VStack` / `UI.HStack` | Lays children out in one column or one row. | [api](../reference/api.md#vstack--hstack) |
-| `UI.ZStack` | Stacks children on top of each other in one box. | [api](../reference/api.md#zstack) |
-| `UI.Grid` / `UI.GridRow` | Column-aligned rows whose widths agree across the grid. | [api](../reference/api.md#grid) |
-| `UI.Box` | A painted rectangle. The plain building block. | [api](../reference/api.md#box--spacer) |
-| `UI.Spacer` | Absorbs leftover space inside a stack. | [api](../reference/api.md#box--spacer) |
-| `UI.Divider` | A one-pixel rule between sections. | [api](../reference/api.md#divider) |
-| `UI.Anchor` | Free positioning: each child names a corner and an offset. | [api](../reference/api.md#anchor) |
-| `UI.AdaptiveStack` | A stack whose axis flips with the size class. | [api](../reference/api.md#adaptivestack) |
-| `UI.ViewThatFits` | Shows the first candidate form that fits the space. | [api](../reference/api.md#viewthatfits) |
-| `UI.Composition` | Arranges ranked content instead of a per-device layout ladder. | [api](../reference/api.md#composition) |
-| `UI.Region` | One ranked thing a `Composition` must place, richest form first. | [api](../reference/api.md#region) |
-| `UI.frame`, `UI.padding`, `UI.offset`, `UI.aspectRatio`, `UI.alignment`, `UI.overlay`, `UI.background` | The layout modifiers you wrap around a blueprint. | [api](../reference/api.md#layout-modifiers-frame-padding-offset-aspectratio-alignment-overlay-background) |
-| `UI.badged` | A count or dot seal on a host's corner (a Button, icon button, Avatar). | [api](../reference/api.md#uibadge) |
-| `UI.containerRelativeFrame` | Sizes an element as a fraction of its container. | [api](../reference/api.md#containerrelativeframe) |
-| `UI.fill`, `UI.hug` | Shorthand for the `fill`/`hug` dimension tables you'd otherwise write by hand. | [api](../reference/api.md#shared-properties) |
-| `UI.Stage` | Reserves a box for engine content; native `content` setup and cleanup follow its Compose lifetime. | [api](../reference/api.md#stage) |
-| `UI.Foreign` | Reserves a box for a Roblox `GuiObject` that Facet does not wrap. | [api](../reference/api.md#foreign) |
-
-### 2. Display, input, and value controls
-
-| Capability | What it does | Reference |
-|---|---|---|
-| `UI.Text` | Draws a string, with fitting, wrapping, and reveal options. | [api](../reference/api.md#text) |
-| `UI.Image` | Draws an image, including focal-point crop, fit, stretch and unscaled framing; compose with `UI.background` for view backgrounds. | [api](../reference/api.md#image) |
-| `UI.Button` | The pressable primitive every input class can reach. | [api](../reference/api.md#button) |
-| `UI.Toggle` | Switch, mixed checkbox, and persistent toggle button with caller-owned boolean state. | [api](../reference/api.md#uitoggle) |
-| `UI.Button` | Image/caption focus presentation, busy progress, cancellable hold repeat, scoped shortcuts and dialog actions. | [api](../reference/api.md#uibutton) |
-| `UI.SplitButton` | A primary action with alternatives: a joined split under a pointer, one button with a long-press menu under touch. | [api](../reference/api.md#uisplitbutton) |
-| `UI.ComboBox` | Native draft editing, supplied suggestions and explicitly validated custom values. | [api](../reference/api.md#uicombobox) |
-| `UI.Toggle` | A two-state switch primitive. Use UI.Toggle for checkbox and toggle-button presentations. | [api](../reference/api.md#toggle) |
-| `UI.TextField` | Native single-line or multiline text-entry primitive. | [api](../reference/api.md#textfield) |
-| `UI.Path` | Draws a stroked path from points or from `pathShapes`. | [api](../reference/api.md#path) |
-| `UI.ShortcutHint` | Passive live action keycaps or explicit shortcut alternatives. | [api](../reference/api.md#uishortcuthint) |
-| `UI.Label` | An icon-and-text pair with a bound semantic title. | [api](../reference/api.md#uilabel) |
-| `UI.Chip` | A selectable filter or action pill. | [api](../reference/api.md#uichip) |
-| `UI.Slider` | A continuous value you drag, step, or adjust. | [api](../reference/api.md#uislider) |
-| `UI.Stepper` | A value with minus and plus buttons. | [api](../reference/api.md#uistepper) |
-| `UI.Rating` | A star-style rating input. | [api](../reference/api.md#uirating) |
-| `UI.Picker` | The one selection control: an automatic style that is a menu on a phone or a desktop and a strip on a television, plus declared menu, segmented, inline, radioGroup and navigationLink styles, searchable lists and live options. | [api](../reference/api.md#uipicker) |
-| `UI.PopupButton` | **Deprecated** (0.11.0): the popup half of `UI.Picker`'s menu styles; still builds on the same engine. | [api](../reference/api.md#uipopupbutton) |
-| `UI.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#uimenu) |
-| `UI.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel; label, hint/error line, accessories, read-only and line-count options. | [api](../reference/api.md#uitextinput) |
-| `UI.NumberInput` | The numeric field: a committed number beside its draft, bounds that clamp, precision, units and optional step buttons. | [api](../reference/api.md#uinumberinput) |
-| `UI.ProgressView` | A determinate or indeterminate bar or ring, segmented HUD meters, damage trails, and adaptive gauge readouts; the Compose owner and the application clock drive it. | [api](../reference/api.md#uiprogressview) |
-| `UI.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#uidisclosuregroup) |
-| `UI.LevelPicker` | A discrete numeric level strip with bar, glyph or image segments. | [api](../reference/api.md#uilevelpicker) |
-| `UI.AsyncImage` | An image with placeholder, failure, and retry states; the Compose owner holds its request lease. | [api](../reference/api.md#uiasyncimage) |
-| `UI.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#uicallout) |
-| `UI.Popover` | Content against a trigger or source you own the open state of: an anchored panel, or a sheet on a compact touch screen. | [api](../reference/api.md#uipopover) |
-| `UI.Dialog` | A modal panel you own the open state of: title, hero, one scrolling body and pinned actions. | [api](../reference/api.md#uidialog) |
-| `UI.Card` | Artwork and a title with a primary action and a More menu that reveal on engagement; enters from a grid's browse stop. | [api](../reference/api.md#uicard) |
-| `UI.Pagination` | Controlled page selection: a bounded numeric window, an unknown count, a measured fallback to "Page n of m". | [api](../reference/api.md#uipagination) |
-| `UI.StepIndicator` | Workflow steps with one current authority, state cues and words, and a summary with a list when narrow. | [api](../reference/api.md#uistepindicator) |
-| `UI.ColorPicker` | A colour well that opens swatches, a spectrum plane, sliders or the engine BrickColors, with RGB/HSV/Hex fields, optional opacity and an Apply/Cancel draft; or the panel in place. | [api](../reference/api.md#uicolorpicker) |
-| `UI.DateTimePicker` | A civil date field that opens a calendar (single, date and time, or a range with presets and an Apply/Cancel draft), or the calendar in place; today comes from your clock. | [api](../reference/api.md#uidatetimepicker) |
-| `UI.Vote` | Up, down or none over your value, with your own summary text and a read-only form. | [api](../reference/api.md#uivote) |
-| `UI.Notice` | An in-page status message with severity, link, actions and close; `affixed` reserves the top of the page. | [api](../reference/api.md#uinotice) |
-| `UI.Snackbar` | One short message at the bottom of the screen with an optional action and close, shown one at a time; the caller owns visibility and every close is a proposal. | [api](../reference/api.md#uisnackbar) |
-| `UI.NavBar` | A surface's top bar with Back, leading, a filling center (title or search) and trailing content that wraps to a second row. | [api](../reference/api.md#uinavbar) |
-| `UI.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#uinavigationstack) |
-| `UI.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#uitabview) |
-| `client.world_anchor` | Measure a Part, Model, or avatar for a radial opening or retained offscreen marker direction, with optional center occlusion. | [api](../reference/api.md#clientworld_anchor) |
-| `UI.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#uiradialmenu) |
-| `UI.Alert` | Brief modal decisions with content-sized cards, role-placed row/stack actions, safe focus and cancellation. | [api](../reference/api.md#uialert) |
-| `UI.Sheet` | Modal detents (including a content-fitting hug) at the bottom, centre or a side edge, with a pinned header, hero and actions around one scrolling body. | [api](../reference/api.md#uisheet) |
-| `UI.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#uipageview) |
-| `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
-| `UI.StatusIndicator` | Passive shape and color marks with optional capped counts. | [api](../reference/api.md#uistatusindicator) |
-| `UI.Badge` | Informational captions with status, icon, and media treatments. | [api](../reference/api.md#uibadge) |
-| `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
-| `UI.Avatar` | A player picture or initials, with optional presence and activation. | [api](../reference/api.md#uiavatar) |
-| `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |
-| `civilDate` | Civil (zone-free) date arithmetic, the numeric words, and instants at an offset you name, for `UI.DateTimePicker` values. | [api](../reference/api.md#civildate) |
-| `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
-| `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
-| `recipes` | Opt-in one-line compositions; `recipes.arithmetic.parse` lets a numeric field accept `3 + 5`. | [api](../reference/api.md#recipes) |
-| `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
-
-### 3. Collections, scrolling, selection, reorder, and drag/drop
-
-| Capability | What it does | Reference |
-|---|---|---|
-| `UI.ScrollView` | A native Roblox scrolling container. | [api](../reference/api.md#scrollview) |
-| `UI.ForEach` | Builds one child per item, keyed so identity survives a re-solve. | [api](../reference/api.md#foreach) |
-| `UI.sortedEntries` | Flattens a dictionary into the deterministic array `ForEach` takes. | [api](../reference/api.md#sortedentries) |
-| `UI.VirtualList` | A long collection on either axis that builds only visible items. | [api](../reference/api.md#uivirtuallist) |
-| `UI.VirtualGrid` | The same windowing for a two-dimensional grid. | [api](../reference/api.md#uivirtualgrid) |
-| `UI.Table` | Columns, sorting, selection, header, and per-row disclosure. | [api](../reference/api.md#uitable) |
-| `UI.RowActions` | Swipe or menu verbs attached to a row, including reorder. | [api](../reference/api.md#uirowactions) |
-| `newRowActionsCoordinator` | Keeps one open row at a time across a whole collection. | [api](../reference/api.md#newrowactionscoordinator) |
-| `UI.draggable` / `UI.dropTarget` | Marks what can be picked up and where it can land. | [api](../reference/api.md#draggable--droptarget) |
-| `UI.Grip` | A non-button pointer zone, such as a column-resize handle. | [api](../reference/api.md#grip) |
-| `newDragSession` | The one live drag a surface is running. | [api](../reference/api.md#newdragsession) |
-| `newDragRegistry` | The live set of drag sources and drop targets on a surface. | [api](../reference/api.md#newdragregistry) |
-| `newDragVelocity` | Turns pointer samples into a flick velocity. | [api](../reference/api.md#newdragvelocity) |
-| `newAutoscroll` | Answers how far to scroll when a drag reaches an edge. | [api](../reference/api.md#newautoscroll) |
-| `interactionTokens` | The shared per-input-class thresholds that promote a press to a drag. | [api](../reference/api.md#interactiontokens) |
-| `touchGestures` | Normalizes the engine's own touch gestures into one shape. | [api](../reference/api.md#touchgestures) |
-
-### 4. Presentation, navigation, focus, input, adaptation, and accessibility
-
-| Capability | What it does | Reference |
-|---|---|---|
-| `navBar` / `UI.navBar` | The back+title+trailing chrome bar a presented surface draws at its own top. | [api](../reference/api.md#navbar) |
-| `newFocusGraph` | Derives keyboard and gamepad navigation from the solved layout. | [api](../reference/api.md#newfocusgraph) |
-| `newActionSystem` | The semantic input pipeline over Roblox's Input Action System. | [api](../reference/api.md#newactionsystem) |
-| `contribution` | The seam a composite uses to declare its whole input story. | [api](../reference/api.md#contribution) |
-| `inputHint` | A reactive affordance label that follows the active input class. | [api](../reference/api.md#inputhint) |
-| `UI.activationGate` | While the gate reads closed, the first Activate at or under the node wakes the subtree instead of reaching what is under the press. | [api](../reference/api.md#activationgate) |
-| `UI.focusSection` | Groups a subtree into one broad navigation stop. | [api](../reference/api.md#focussection) |
-| `client.environment_preview` | Reversible live display, input, text-size and transparency previews, bounded by the host window, with one reset. | [api](../reference/api.md#clientenvironment_preview) |
-| `newEnvironment` | Viewport, safe area, input class, text size, and an independent viewing-distance preference. | [api](../reference/api.md#newenvironment) |
-| `adaptive` | Size class, height class, orientation, columns, and card counts. | [api](../reference/api.md#adaptive) |
-| `composition` | The pure arrangement decision behind `UI.Composition`. | [api](../reference/api.md#composition-1) |
-| `layout.hudInsets` | Turn edge reservations into bounded insets. | [api](../reference/api.md#hud-insets-and-world-markers) |
-| `layout.worldMarkers` | Place prioritized world labels with edge arrows, collision avoidance, and explicit hidden reasons. | [api](../reference/api.md#hud-insets-and-world-markers) |
-| `layout` | Pure layout geometry not owned by a control — `transformFootprint(w, h, scale, deg)`, the reserved-box math for a scaled/rotated node; `anchorPlacement(request)`, the edge/flip/shift/tail placement solver shared by every surface that points at something. | [api](../reference/api.md#shared-properties) |
-| `text` | Measures strings, fits them, and reports line boxes. | [api](../reference/api.md#text-1) |
-| `spatial` | The contract for spatial pointer data. A seam, with no adapter today. | [api](../reference/api.md#spatial) |
-
-### 5. Styling, theme packages, rich skinning, animation, and feedback
-
-| Capability | What it does | Reference |
-|---|---|---|
-| `tokens` | Compiles a design-token set and checks contrast pairs. | [api](../reference/api.md#tokens) |
-| `themes` | Defines, resolves, and validates theme packages and their metrics. | [api](../reference/api.md#themes) |
-| `motion` | Registers motion classes and curves and runs the motion clock. | [api](../reference/api.md#motion-1) |
-| `UI.shadow`, `UI.gradient`, `UI.corners`, `UI.stroke` | The four paint modifiers. | [api](../reference/api.md#shadow) |
-| `UI.shadowData`, `UI.gradientData`, `UI.cornersData`, `UI.strokeData` | The same four as plain data, for a theme or a control to pass around. | [api](../reference/api.md#shadowdata--gradientdata--cornersdata) |
-| `UI.styleGroup` | Applies one modifier set to every element of a collection. | [api](../reference/api.md#stylegroup) |
-| Inherited container properties | The two properties a container passes to its whole subtree: `enabled` switches the subtree off, `tint` gives it one continuous colour. | [api](../reference/api.md#inherited-properties-enabled-and-tint) |
-| `UI.sensoryFeedback` | Declares a haptic and audio cue for an interaction. | [api](../reference/api.md#sensoryfeedback) |
-| `renderer` | The low-level render driver, plus the property-authority tables. | [api](../reference/api.md#renderer) |
-
-### 6. Reactive state, lifecycle, async, replication, render targets, and tools
-
-| Capability | What it does | Reference |
-|---|---|---|
-| `new` | Starts a client application with Compose constructors and Facet host services. | [api](../reference/api.md#new) |
-| `Compose` | The pinned Compose module: cells, ownership, structural operations and motion. | [api](../reference/api.md#compose) |
-| `UI.When` | Shows one branch or the other, and disposes the branch it drops. | [api](../reference/api.md#when) |
-| `UI.ErrorBoundary` | Contains a failing subtree instead of losing the screen. | [api](../reference/api.md#errorboundary) |
-| `newResourceProvider` | Loads images and remote data with retry and failure states. | [api](../reference/api.md#newresourceprovider) |
-| `replication` | Adapters that turn server-owned state into readable values. | [api](../reference/api.md#replication-1) |
-| `client.scene` | The pinned Compose Roblox runtime for game-owned 3D content in a Stage or Workspace. | [api](../reference/api.md#clientscene) |
-| `client.screen_target` | The render target that materializes a surface as a `ScreenGui`. | [api](../reference/api.md#clientscreen_target) |
-| `client.billboard_target` | The render target that materializes a surface in the 3-D world. | [api](../reference/api.md#clientbillboard_target) |
-| `client.host` | The taught client bootstrap: environment, input, theme, and mount. | [api](../reference/api.md#clienthost) |
-| `client.theme_controller` | Installs a theme package at an application root and swaps it live. | [api](../reference/api.md#clienttheme_controller) |
-| `specGuard` | The closed-key-set guard, exported so an out-of-repo control can reuse it. | [api](../reference/api.md#specguard) |
-| `schema` | Read-only constructor facts, property validation and dirty classes for extensions and contract tooling. | [api](../reference/api.md#the-property-schema) |
-| `VERSION` | The library's semantic version string. | [api](../reference/api.md#version) |
-| `EXIT_CAP_SECONDS` | The flat, non-overridable cap on how long a dismissed surface's exit may defer teardown. | [api](../reference/api.md#exit_cap_seconds) |
-| `DEPRECATIONS` | The retiring-surface ledger: what is going, what replaces it, and when. | [api](../reference/api.md#deprecations) |
-
-The Roblox-specific modules that create `Instance`s, read the real input device,
-and read the real viewport are deliberately **not** on the `Facet` table. A
-client script requires them from `src/client/*`. That is what keeps the main
-library safe to require from server or shared code. See
-[`02-architecture.md`](02-architecture.md).
-
-## Extension playbooks
-
-Facet is designed so a new maintainer can extend it without relying on unstated
-repository history. There are seven playbooks, one per kind of change. Each ships
-scaffolds, deliberately failing tests, registration checks, deterministic state
-dumps, four-input proofs, lifecycle checks, and documentation gates.
-
-- [`new-control`](../extending/new-control.md) — a new composite control.
-- [`new-primitive`](../extending/new-primitive.md) — a new leaf element class.
-- [`skinned-control`](../extending/skinned-control.md) — letting an existing
-  control take image-driven paint from a theme package.
-- [`new-theme`](../extending/new-theme.md) — a new theme package.
-- [`new-engine-feature`](../extending/new-engine-feature.md) — adopting a Roblox
-  class or property without letting engine specifics leak past the adapter.
-- [`new-render-target`](../extending/new-render-target.md) — a new place the
-  solved tree materializes.
-- [`new-platform-mode`](../extending/new-platform-mode.md) — extending the same
-  model toward spatial UI, without device-specific screen branches and without
-  claiming untested support.
-
-## What the evidence does and does not cover
-
-Two facts matter when you judge this library or work generated against it.
-
-- Since version 0.5.0 every public constructor rejects unknown properties, wrong
-  types, and unrecognised enum values when you build the blueprint. The error
-  names the property you probably meant.
-  [`../reference/api.md`](../reference/api.md) stays the property reference.
-- The repository has named headless performance scenes with percentile and
-  regression budgets. Their fake render target screens for trends only, and the
-  checked-in device measurement slots are still empty. Do not describe Facet as
-  proven on low-end phones, consoles, or headsets until the real-device gates
-  pass.
-
-The same honesty applies to input. Registered controls have strong headless and
-Studio evidence across pointer, touch, keyboard, gamepad, and hybrid changes.
-The standing physical-device confirmation gate is still open.
-
-The rule behind both paragraphs is that a claim names the instrument that
-produced it. A headless number is not a device number, and "the suite is green"
-is not a substitute for watching a screen run in Roblox.
-
-**A small fix does not owe a large change's evidence.** Here is the whole bar for
-one. **The covering spec first**, written to fail, and seen to fail for the reason
-you expect — `lune run tests/run_one` is that loop. **Then a full verification
-run**, green, with a case total no smaller than before: `tools/verify.sh full`.
-**Then `stylua --check src tests tools bench examples`.** **Then the checks that
-name your area**: `tools/doctor.sh`, plus the `tools/check_*` script that owns
-the file you touched, plus `python3 tools/check_source_size.py` for any source
-edit. That is four things, and it is enough.
-[`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) says which verification tier to
-run when.
-
-What is owed BEYOND that is decided by what your change can be SEEN to do, never
-by how many lines it is. A change a player can look at or press owes the live
-Roblox check in the relevant playbook's §6, however small it is. A change to
-arithmetic that no pixel depends on owes none of it, however large.
-
-## Verifying the library works
-
-Verification runs in four named tiers through one command:
-
-- **affected** — the smallest safe set for the files you changed;
-- **fast** — the inner-loop tier;
-- **full** — every deterministic check, exactly once; and
-- **release** — full, plus the build, package and evidence producers a release
-  needs.
-
-```sh
-tools/verify.sh affected               # while you work
-tools/verify.sh fast                   # the inner loop
-tools/verify.sh full                   # before you propose a change
-tools/verify.sh release                # the maintainer's release run
-```
-
-Underneath them, the suite runs the way it always has, and one spec file is the
-loop to work in:
-
-```sh
-./run-tests.sh                        # THE SUITE — every spec file.
-./run-tests.sh --fast                 # inner loop: the same list minus the eleven
-                                      # measured-slowest files.
-lune run tests/run_one <spec-name>    # ONE spec file, for the edit-and-run loop.
-```
-
-**Only the argument-free run counts as green.** The fast tier
-(`tests/run_fast.luau`, exclusions in `tests/lib/tiers.luau`) prints a
-`FACET-FAST-TIER` banner at both ends, and `tools/test.sh` fails on that
-transcript rather than recording it as a suite result. Nothing is skipped or
-deleted: every excluded file runs in full on `./run-tests.sh`.
-
-**`run_one` is the loop to work in.** It takes a spec name without its suffix,
-so `lune run tests/run_one table` runs `tests/table.spec.luau` and nothing else.
-It is also how you watch a new check FAIL before you trust it. This repository
-asks for that every time, because a check never seen to fail is decoration.
-Proving it through the whole suite is expensive enough that it gets skipped.
-Like the fast tier, it cannot produce a suite verdict — nothing reads its output
-but you.
-
-Sizes, measured on one developer machine: the suite takes about three and a half
-minutes, the fast tier about forty seconds, and a single spec file a few seconds.
-Read the ratios rather than the seconds. The absolute numbers move with the
-machine and with every change that adds cases, and the command below re-measures
-them where you are.
-
-To re-measure which files are the expensive ones:
-
-```sh
-lune run tools/lune/time_specs artifacts/spec-timings.json > /dev/null
-```
-
-It times every spec file, load plus cases, and the thirty slowest individual
-cases.
+## Capability catalog
 
 | Capability | Public surface |
 |---|---|
-| Semantic action/settings rows, broad focus sections, named scrolling and visibility, keyed destination restoration, customizable tab sections | [Adaptive navigation continuity](../reference/api.md#adaptive-navigation-continuity): existing Button/Toggle/Slider row presentations; `UI.focusSection`; `UI.ScrollView.navigation`; TabView sections/customization/restoreScroll |
+| Version | `Facet.VERSION` |
+| Reactive graph, owners, keyed and presented composition | `Facet.Compose` |
+| Native host, runtime and target construction | `Facet.Roblox`; `runtime.constructors` as `Host` |
+| Control constructors | `Facet.controls(runtime, options?)` |
+| A runtime, controls and a themed ScreenGui mount in one call | `Facet.app(options?)`; `app.mount(Component)`; `app.dispose()` |
+| Screen roots, stacks and layers | `UI.Screen`, `UI.VStack`, `UI.HStack`, `UI.ZStack` |
+| Scrolling content and grids | `UI.ScrollView`, `UI.Grid` |
+| Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
+| Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
+| Screen anchors for world objects | `UI.worldAnchor` |
+| Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |
+| Failure containment with fallback content | `UI.ErrorBoundary` |
+| One reactive graph with the game's own Compose | `Facet.bind(Compose, Roblox)`; `Facet.COMPOSE_COMMIT` |
+| Semantic native styling and art | `Facet.themes` |
+| Civil dates, and an arithmetic parser for number fields | `Facet.civilDate`, `Facet.recipes` |
+| Activation and rich action rows | `UI.Button` |
+| Boolean and mixed selection | `UI.Toggle` |
+| Native editing, field chrome and numeric input | `UI.TextInput`, `UI.NumberInput` |
+| Civil date and date range fields with a calendar | `UI.DateTimePicker` |
+| Colour wells with swatches, a spectrum, sliders and engine BrickColors | `UI.ColorPicker` |
+| Numeric adjustment | `UI.Stepper`, `UI.Slider` |
+| Rating and discrete levels | `UI.Rating`, `UI.LevelPicker` |
+| Up and down votes | `UI.Vote` |
+| Selected and removable chips | `UI.Chip` |
+| Shortcut display | `UI.ShortcutHint` |
+| Action menus, and primary and secondary actions | `UI.Menu`, `UI.SplitButton` |
+| Choice and accepted custom text | `UI.Picker`, `UI.ComboBox` |
+| Named destinations, drill-down and sequential pages | `UI.TabView`, `UI.NavigationStack`, `UI.PageView` |
+| Numbered result pages and workflow steps | `UI.Pagination`, `UI.StepIndicator` |
+| Contextual radial actions | `UI.RadialMenu` |
+| Brief decisions and substantial presented content | `UI.Alert`, `UI.Dialog`, `UI.Sheet` |
+| Inline disclosure and larger content presentation | `UI.DisclosureGroup`, `UI.CollapsibleView` |
+| Contextual teaching | `UI.Callout` |
+| Page status that stays in view | `UI.Notice` |
+| A short confirmation at the bottom of the screen | `UI.Snackbar` |
+| A surface top bar with Back, a title and tools | `UI.NavBar` |
+| Anchored content for one control | `UI.Popover` |
+| Windowed lists and grids | `UI.VirtualList`, `UI.VirtualGrid` |
+| Browsable items with artwork and revealed actions | `UI.Card` |
+| A count or dot seal on a host's corner | `UI.badged` |
+| Sorting, selection, resizing and row reorder | `UI.Table` |
+| Row swipe and context actions | `UI.RowActions` |
+| Plain text, and an icon with a title | `UI.Text`, `UI.Label` |
+| Compact status | `UI.Badge`, `UI.StatusIndicator` |
+| Progress and loading | `UI.ProgressView`, `UI.Skeleton` |
+| Images with scale, tile and nine-slice modes | `UI.Image` |
+| Async image state and cancellation | `UI.AsyncImage` |
+| Identity groups | `UI.Avatar`, `UI.AvatarGroup` |
+| Embedded 3D content | `UI.Stage` |
 
-Controller page ownership, value hold-repeat and edit Back behavior are covered in
-[Controller navigation ownership](../reference/api.md#controller-navigation-ownership).
-Adaptable bands have [navigation theme chrome](../reference/api.md#navigation-theme-chrome).
-For adaptive search composition and focus-restoring Back, run the Navigation flow Showcase.
+Every control root is a native Instance. The layout constructors make native
+frames and layout objects with theme spacing. Use Host constructors and native
+properties for layout that they do not cover. Use the Compose structural
+operations directly. Do not add Facet aliases for them.
 
-Declarative animation, direct conditional children, custom component slots and key-field collections are documented in [Component authoring](15-components.md).
-
-ScrollView navigation can share a model-owned pixel position between presentations;
-VirtualGrid exposes the same behavior through `scrollNavigation`. See the
-[scroll configuration](../reference/api.md#scrollview).
-
-[Common composition recipes](17-recipes.md) covers action rows, independent settings, chip groups, empty states, divider insets, and single-open accordions.
+The design records in `docs/plans` and `docs/superpowers` are historical. They
+can describe removed APIs. This guide and the API reference describe the
+supported surface.

@@ -1,0 +1,17 @@
+{
+  "schema": "facet-live-measurements/1",
+  "host": "Roblox Studio playtest, device simulator iPhone 14 (touch), Medium text, the Virtual Monitors screen presentation mounted with Facet.app and ScreenInsets CoreUISafeInsets; Studio reports a 0,87 GUI inset, so the app region is 749x281 in landscape",
+  "landscape-844x390": {
+    "top": { "Header": "190,8 545x44", "SearchControls": "190,60 545x44 (Search 238, Sort 150, Browse and Saved on one row)", "Genres": "190,112 545x44", "Games": "190,164 545x103" },
+    "scrolled-160": { "Header": "hidden", "Genres": "hidden", "SearchControls": "190,8 545x44", "Games": "190,60 545x207" },
+    "captures": [
+      "artifacts/studio-live/captures/virtual-monitors-discover-landscape-844x390-top.png",
+      "artifacts/studio-live/captures/virtual-monitors-discover-landscape-844x390-scrolled.png"
+    ]
+  },
+  "portrait-390x844": {
+    "top": { "Header": "14,8 361x44", "SearchControls": "14,60 361x140 (Search, Sort and the shelves on three rows)", "Genres": "14,208 361x44", "Games": "14,260 361x348" },
+    "captures": ["artifacts/studio-live/captures/virtual-monitors-discover-portrait-390x844.png"]
+  },
+  "before": "As reported before the change, the landscape screen had the search, the sort and the shelves on three rows above the genre chips, and the grid window was about 89 px tall at 844x390."
+}

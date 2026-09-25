@@ -2,6 +2,7 @@
 
 local Diagnostics = require "../diagnostics"
 local Owner = require "./owner"
+local Graph = require "../reactive/graph"
 local Types = require "../reactive/types"
 
 type Dispose = Types.Dispose
@@ -11,6 +12,13 @@ type Activation = { owner: Owner.Owner, thread: thread }
 local activations: { Activation } = {}
 
 local function current(): Owner.Owner?
+	local context = Graph.evaluationContext()
+	if context ~= nil then
+		local record = Owner.runScopeOf(context)
+		if record ~= nil and #activations <= record.base then
+			return record.scope
+		end
+	end
 	local running = coroutine.running()
 	local inherited: Owner.Owner? = nil
 	for index = #activations, 1, -1 do
@@ -52,31 +60,25 @@ local function depth(): number
 	return #activations
 end
 
-local function withOwnerImpl(owner: Owner.Owner, body: any): ...any
-	local activation = push(owner)
-	local results = table.pack(pcall(body))
+local function release<T...>(activation: Activation, ok: boolean, ...: T...): T...
 	pop(activation)
-	if not results[1] then
-		error(results[2], 0)
+	if not ok then
+		error(select(1, ...), 0)
 	end
-	return table.unpack(results, 2, results.n)
+	return ...
 end
 
-local withOwner = (withOwnerImpl :: any) :: <T...>(owner: Owner.Owner, body: () -> T...) -> T...
-
-local function bindImpl(owner: Owner.Owner, body: any): any
-	return function(...: any): ...any
-		local arguments = table.pack(...)
-		return withOwnerImpl(owner, function(): ...any
-			return body(table.unpack(arguments, 1, arguments.n))
-		end)
-	end
+local function withOwner<T...>(owner: Owner.Owner, body: () -> T...): T...
+	local activation = push(owner)
+	return release(activation, pcall(body))
 end
 
-local bind = (bindImpl :: any) :: <Args..., Rets...>(
-	owner: Owner.Owner,
-	body: (Args...) -> Rets...
-) -> (Args...) -> Rets...
+local function bind<Args..., Rets...>(owner: Owner.Owner, body: (Args...) -> Rets...): (Args...) -> Rets...
+	return function(...: Args...): Rets...
+		local activation = push(owner)
+		return release(activation, pcall(body, ...))
+	end
+end
 
 local function own(dispose: Dispose, operation: string): Dispose
 	local owner = current()
@@ -89,24 +91,26 @@ local function own(dispose: Dispose, operation: string): Dispose
 	return (owner :: Owner.Owner).own(dispose)
 end
 
-local function runWith(owner: Owner.Owner, body: (...any) -> (), ...: any)
+local function runWith<A...>(owner: Owner.Owner, body: (A...) -> (), ...: A...)
 	local activation = push(owner)
-	local ok, err: any = pcall(body, ...)
+	local ok, err: unknown = pcall(body, ...)
 	pop(activation)
 	if not ok then
 		error(err, 0)
 	end
 end
 
-local function runWith1(owner: Owner.Owner, body: () -> any): any
+local function runWith1<T>(owner: Owner.Owner, body: () -> T): T
 	local activation = push(owner)
-	local ok, result: any = pcall(body)
+	local ok, result = pcall(body)
 	pop(activation)
 	if not ok then
 		error(result, 0)
 	end
 	return result
 end
+
+Owner.installActivationDepth(depth)
 
 local function resetForTests()
 	table.clear(activations)

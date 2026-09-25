@@ -1,36 +1,22 @@
 --!strict
--- THE canonical command for the maintainer map (docs/MAINTAINERS.md;
--- release-candidate review row RC-11):
---
---   lune run tools/lune/check_maintainer_map_cli              check the live map
---   lune run tools/lune/check_maintainer_map_cli -- --list    print the obligations
---   lune run tools/lune/check_maintainer_map_cli -- --counts  per-area covering-spec counts
---   lune run tools/lune/check_maintainer_map_cli -- --selftest prove each rule bites
---
--- READ-ONLY over the repository. The selftest plants its drift into a COPY of
--- the map in a scratch directory and points the checker at that copy, so it is
--- the same scan over the same tree while a concurrent reader never sees a
--- planted file. The scratch directory is named with a per-run stamp, because an
--- unkeyed one is raced by a second sweep.
-
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local checker = require("./check_maintainer_map")
 
 local MAP = "docs/MAINTAINERS.md"
+local USAGE = "usage: lune run tools/lune/check_maintainer_map_cli [--list | --counts | --selftest]"
 
-local wantList, wantCounts, wantSelftest = false, false, false
+local mode = "check"
 for _, arg in process.args do
-	if arg == "--list" then
-		wantList = true
-	elseif arg == "--counts" then
-		wantCounts = true
-	elseif arg == "--selftest" then
-		wantSelftest = true
+	if arg == "--list" or arg == "--counts" or arg == "--selftest" then
+		mode = string.sub(arg, 3)
+	elseif arg ~= "--" then
+		print(USAGE)
+		process.exit(2)
 	end
 end
 
-if wantList then
+if mode == "list" then
 	print("check_maintainer_map enforces:")
 	for index, obligation in checker.OBLIGATIONS do
 		print(`  {index}. {obligation}`)
@@ -38,15 +24,41 @@ if wantList then
 	process.exit(0)
 end
 
-if wantCounts then
-	print("covering specs per area (the require graph, one hop out of each spec file):")
+if mode == "counts" then
+	print("covering specs per area (one require hop out of each spec file):")
 	for _, row in checker.coverage() do
 		print(`  {row.area}: {row.specs} spec files`)
 	end
 	process.exit(0)
 end
 
-if wantSelftest then
+local function replaceOnce(text: string, find: string, replacement: string): string
+	local start, finish = string.find(text, find, 1, true)
+	if start == nil then
+		print(`check_maintainer_map: SELFTEST FAIL — the map no longer contains '{find}'`)
+		process.exit(1)
+	end
+	return string.sub(text, 1, (start :: number) - 1) .. replacement .. string.sub(text, (finish :: number) + 1)
+end
+
+local function dropLine(text: string, needle: string): string
+	local out: { string } = {}
+	local dropped = false
+	for line in string.gmatch(text .. "\n", "([^\n]*)\n") do
+		if not dropped and string.find(line, needle, 1, true) ~= nil then
+			dropped = true
+			continue
+		end
+		table.insert(out, line)
+	end
+	if not dropped then
+		print(`check_maintainer_map: SELFTEST FAIL — no line contains '{needle}'`)
+		process.exit(1)
+	end
+	return table.concat(out, "\n")
+end
+
+if mode == "selftest" then
 	local tmp = process.env.TMPDIR or "/tmp"
 	if string.sub(tmp, -1) == "/" then
 		tmp = string.sub(tmp, 1, -2)
@@ -55,101 +67,120 @@ if wantSelftest then
 	local dir = `{tmp}/facet-maintainer-map-{os.time()}-{math.random(1, 1000000)}`
 	fs.writeDir(dir)
 	local original = fs.readFile(MAP)
+	local failed = false
 
-	local function run(label: string, mutate: (string) -> string, expect: string?)
+	local function run(label: string, mutated: string, expect: string?)
+		if failed then
+			return
+		end
 		local path = `{dir}/{string.gsub(label, "[^%w]", "-")}.md`
-		fs.writeFile(path, mutate(original))
+		fs.writeFile(path, mutated)
 		local result = checker.check({ mapPath = path })
 		if expect == nil then
 			if not result.ok then
-				print(`check_maintainer_map: SELFTEST FAIL — the unmutated copy is not clean:`)
+				print("check_maintainer_map: SELFTEST FAIL — the unchanged copy is not clean:")
 				for _, problem in result.problems do
 					print("  - " .. problem)
 				end
-				process.exit(1)
+				failed = true
+				return
 			end
-			print(`  control: an unmutated copy passes`)
+			print("  control: the unchanged copy passes")
 			return
 		end
-		local found = false
 		for _, problem in result.problems do
 			if string.find(problem, expect :: string, 1, true) ~= nil then
-				found = true
-				break
+				print(`  {label}: reported`)
+				return
 			end
 		end
-		if not found then
-			print(`check_maintainer_map: SELFTEST FAIL — '{label}' was not reported`)
-			print(`  expected a problem naming: {expect}`)
-			for _, problem in result.problems do
-				print("  - " .. problem)
-			end
-			process.exit(1)
+		print(`check_maintainer_map: SELFTEST FAIL — '{label}' was not reported (expected '{expect}')`)
+		for _, problem in result.problems do
+			print("  - " .. problem)
 		end
-		print(`  {label}: reported`)
-	end
-
-	-- the dropped area is `env`, whose row is the one line that claims src/env/
-	local function dropArea(text: string): string
-		local out: { string } = {}
-		for line in string.gmatch(text .. "\n", "([^\n]*)\n") do
-			if string.sub(line, 1, 1) == "|" and string.find(line, "`src/env/`", 1, true) ~= nil then
-				continue
-			end
-			table.insert(out, line)
-		end
-		return table.concat(out, "\n")
+		failed = true
 	end
 
 	print("check_maintainer_map: selftest (a copy of the map, one planted fault each)")
-	run("control", function(text)
-		return text
-	end, nil)
-	run("a dropped area row", dropArea, "src/env is not claimed by any area row")
-	run("a broken link", function(text)
-		return (string.gsub(text, "%(reference/constitution%.md%)", "(reference/no-such-page.md)", 1))
-	end, "does not exist")
-	run("a spec named under an area it does not cover", function(text)
-		return (string.gsub(text, "`tests/replication%.spec%.luau`", "`tests/motion_spring.spec.luau`", 1))
-	end, "requires no module of that area")
-	run("a gate row that does not exist", function(text)
-		return (
-			string.gsub(text, "phase%-0%-foundation/replication%-boundary%-spike", "phase-0-foundation/no-such-row", 1)
-		)
-	end, "has no row of that name")
-	run("a boundary rule nothing enforces", function(text)
-		return (string.gsub(text, "`non%-client%-requires%-client`", "`no-such-rule-name`", 1))
-	end, "which check_boundary does not enforce")
-	run("a scenario that is not registered", function(text)
-		return (string.gsub(text, "| `safe_area` |", "| `no_such_scenario` |", 1))
-	end, "is not a module in examples/gallery/scenarios")
-	run("a public seam the library does not export", function(text)
-		return (string.gsub(text, "`Facet%.newFocusGraph`", "`Facet.newFocusGraphs`", 1))
-	end, "which the library does not export")
+	run("control", original, nil)
+	run(
+		"an unowned module",
+		replaceOnce(original, "`src/ui/collection_snap.luau`, ", ""),
+		"src/ui/collection_snap.luau is not owned by any area row"
+	)
+	run(
+		"an owned module that does not exist",
+		replaceOnce(original, "`src/ui/icons.luau`", "`src/ui/no_such_module.luau`"),
+		"which does not exist"
+	)
+	run(
+		"a module with two owners",
+		replaceOnce(original, "`src/ui/media.luau`, ", "`src/ui/media.luau`, `src/ui/icons.luau`, "),
+		"is owned by both"
+	)
+	run(
+		"an unmapped top-level directory",
+		dropLine(original, "| `bench/` |"),
+		"bench/ is a top-level directory that the tree table does not claim"
+	)
+	run(
+		"a missing repository path",
+		replaceOnce(original, "`python3 tools/strip_comments.py --check`", "`python3 tools/no_such_check.py --check`"),
+		"names the path 'tools/no_such_check.py'"
+	)
+	run(
+		"a spec named under an area it does not cover",
+		replaceOnce(original, "`tests/radial_geometry.spec.luau`", "`tests/example_word_data.spec.luau`"),
+		"requires no module of that area"
+	)
+	run(
+		"a scenario that does not exist",
+		replaceOnce(original, "`radial_menu`", "`no_such_scenario`"),
+		"is not a module in examples/gallery/scenarios"
+	)
+	run(
+		"a public seam the library does not export",
+		replaceOnce(original, "`Facet.themes`", "`Facet.themez`"),
+		"which the library does not export"
+	)
+	run(
+		"a broken link",
+		replaceOnce(original, "(extending/new-theme.md)", "(extending/no-such-page.md)"),
+		"does not exist"
+	)
+	run(
+		"an unlinked playbook",
+		replaceOnce(original, "[Native primitives](extending/new-primitive.md)", "Native primitives"),
+		"new-primitive.md is an extension playbook that the map does not link"
+	)
+	run("tables out of order", dropLine(original, "| **media** | `tests/"), "the proof table has")
 
 	for _, name in fs.readDir(dir) do
 		fs.removeFile(`{dir}/{name}`)
 	end
 	fs.removeDir(dir)
+	if failed then
+		process.exit(1)
+	end
 	print("check_maintainer_map: SELFTEST PASS — every planted fault was reported")
 	process.exit(0)
 end
 
 local result = checker.check()
+local counts = result.counts
 if result.ok then
 	print(
-		`check_maintainer_map: PASS ({result.counts.areas} areas covering {result.counts.srcEntries} src entries, `
-			.. `{result.counts.tests} named specs, {result.counts.scenarios} scenarios, `
-			.. `{result.counts.gateRows} gate rows, {result.counts.boundaryRules} boundary rules, `
-			.. `{result.counts.seams} public seams, `
-			.. `{result.counts.links} local links, {result.counts.playbooks} playbooks linked)`
+		`check_maintainer_map: PASS ({counts.areas} areas owning {counts.srcModules} src modules, `
+			.. `{counts.treeEntries} top-level directories, {counts.tests} named specs, `
+			.. `{counts.scenarios} scenarios, {counts.seams} public seams, {counts.paths} paths, `
+			.. `{counts.links} local links, {counts.playbooks} playbooks linked)`
 	)
 	process.exit(0)
 end
 
-print(`check_maintainer_map: FAIL [UI-AGENT-001] — {#result.problems} problem(s):`)
+print(`check_maintainer_map: FAIL — {#result.problems} problem(s):`)
 for _, problem in result.problems do
 	print("  - " .. problem)
 end
-print(`hint: {MAP} is the map; '--list' prints every obligation this command enforces.`)
+print(`hint: {MAP} is the map; --list prints each rule.`)
 process.exit(1)

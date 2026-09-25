@@ -1,46 +1,16 @@
 --!strict
--- "FANTASY PARCHMENT" — the stage's primary proof theme and the
--- worked example `docs/guide/09-custom-themes.md` walks through line by line.
---
--- Written as a CLEAN CONSUMER: everything here goes through the public
--- `Facet.themes` surface (define + neutralPackage as the base) — no internal
--- imports, no screen-specific branches. A game team with only the public docs
--- can reproduce this file, which is the acceptance claim it exists to prove.
---
--- The art is original and repository-owned: three procedurally generated
--- nine-slice PNGs (assets/themes/fantasy-parchment/ — provenance.md records the
--- generator, seed and reproduction steps; upload-manifest.json records the
--- content IDs used here). Another project uploads the same PNGs under its own
--- account and substitutes its IDs.
---
--- Two themes prove in-package theming: "Daylight" (ink on sunlit paper, the
--- default) and "Candlelight" (firelit study). Interaction states are TINTS over
--- one base image per slot — hover lightens, press darkens, disabled dims with
--- the text — so the whole skin ships on three small assets. Every pair below
--- clears the 4.5:1 contrast gate (checked at define time; verified 2026-07-25:
--- weakest pair is Candlelight accent at 6.48:1).
---
--- TWO HALVES, ONE OWNER EACH. The METRICS section below sits in a
--- marker region and is GENERATOR-OWNED: the DataModel theme sheet is where a
--- designer retunes spacing, type and control sizes, and `theme_sync` writes
--- those edits back here. Never hand-edit inside the markers — the freshness gate
--- fails the build when the file and the sheet disagree, naming every token that
--- drifted. Everything else in this file — the palette, the chrome recipes, the
--- asset table — is hand-authored and `theme_sync` never touches it.
 
 local fantasy_parchment = {}
 
 fantasy_parchment.id = "fantasy-parchment"
 fantasy_parchment.displayName = "Fantasy Parchment"
--- the four theme classes the stage tracks; this package carries all four
+
 fantasy_parchment.themeClasses = table.freeze({ "palette", "metrics", "font", "assets" })
 
 local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
--- Daylight: iron-gall ink on sunlit paper. The accent is the illuminator's
--- burnished gold-brown, dark enough to carry cream text.
 local DAYLIGHT = {
 	colors = {
 		surface = rgb(226, 210, 176),
@@ -51,8 +21,7 @@ local DAYLIGHT = {
 		onAccent = rgb(252, 244, 224),
 		danger = rgb(140, 36, 28),
 		onDanger = rgb(255, 242, 232),
-		-- the two semantic roles, in this palette's own family and gated like the
-		-- destructive pair above (5.65:1 and 5.27:1)
+
 		success = rgb(74, 106, 44),
 		onSuccess = rgb(252, 244, 224),
 		warning = rgb(190, 134, 32),
@@ -63,26 +32,9 @@ local DAYLIGHT = {
 		controlHover = rgb(226, 208, 172),
 		controlPressed = rgb(198, 176, 138),
 		controlSelected = rgb(212, 186, 132),
-		-- the control art's centre as painted (assets/themes/plate-samples.json):
-		-- what a lifted label on this plate is paired against
-		controlArt = rgb(210, 187, 146),
-		-- ...and the field's art, where its text and placeholder read
-		fieldArt = rgb(234, 213, 171),
-		-- ...and the panel's, where an author's text inside a raised box reads
-		panelArt = rgb(218, 200, 162),
-		-- ...and the badge seal's, where its count reads
-		badgeArt = rgb(207, 187, 148),
 		contentSecondary = rgb(110, 92, 66),
 		hairline = rgb(88, 68, 44),
-		-- FOCUS GLOW (director review 2026-07-25: the blue selection ring "looks
-		-- bad" on parchment). A per-theme role, declared here rather than in the
-		-- recipe because a colour is palette and palette is per theme — the same
-		-- place and the same reason `chromeGradient` sits in `extra`.
-		--
-		-- Daylight: burnished gold, a step brighter and more saturated than the
-		-- accent. The accent itself (a dark gold-brown, chosen to carry cream
-		-- text) is too dark to read as a HALO against sunlit paper — a glow has to
-		-- out-value the surface it sits on, not match it.
+
 		focusGlow = rgb(214, 154, 46),
 		hairlineOpacity = 0.72,
 		scrimOpacity = 0.5,
@@ -90,8 +42,6 @@ local DAYLIGHT = {
 	},
 }
 
--- Candlelight: the same study after dark — warm umber surfaces, cream ink,
--- firelit gold accent carrying near-black text.
 local CANDLELIGHT = {
 	colors = {
 		surface = rgb(48, 36, 26),
@@ -102,8 +52,7 @@ local CANDLELIGHT = {
 		onAccent = rgb(32, 22, 10),
 		danger = rgb(150, 40, 30),
 		onDanger = rgb(255, 242, 232),
-		-- the two semantic roles, in this palette's own family and gated like the
-		-- destructive pair above (5.90:1 and 6.92:1)
+
 		success = rgb(132, 158, 74),
 		onSuccess = rgb(32, 22, 10),
 		warning = rgb(206, 152, 58),
@@ -114,20 +63,9 @@ local CANDLELIGHT = {
 		controlHover = rgb(102, 80, 54),
 		controlPressed = rgb(66, 50, 34),
 		controlSelected = rgb(112, 86, 44),
-		-- the control art's centre as painted (assets/themes/plate-samples.json):
-		-- what a lifted label on this plate is paired against
-		controlArt = rgb(210, 187, 146),
-		-- ...and the field's art, where its text and placeholder read
-		fieldArt = rgb(234, 213, 171),
-		-- ...and the panel's, where an author's text inside a raised box reads
-		panelArt = rgb(218, 200, 162),
-		-- ...and the badge seal's, where its count reads
-		badgeArt = rgb(207, 187, 148),
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
-		-- Candlelight: warm amber firelight, pushed brighter still because the
-		-- surfaces around it are dark umber — the same role, re-picked for its own
-		-- palette rather than inherited, which is the whole point of a per-theme token.
+
 		focusGlow = rgb(248, 196, 96),
 		hairlineOpacity = 0.7,
 		scrimOpacity = 0.55,
@@ -135,9 +73,6 @@ local CANDLELIGHT = {
 	},
 }
 
--- Slice geometry per assets/themes/fantasy-parchment/upload-manifest.json:
--- SliceCenter = Rect(border, border, size - border, size - border), scale 1.
--- Control borders are 16px so both borders fit a 46px-tall control.
 local ASSETS = {
 	parchment_panel = {
 		contentId = "rbxassetid://78012779616687",
@@ -157,13 +92,11 @@ local ASSETS = {
 		contentId = "rbxassetid://73053023436561",
 		sliceCenter = { x0 = 16, y0 = 16, x1 = 48, y1 = 48 },
 		sliceScale = 1,
-		-- lazy: field skin loads when a screen with a field first mounts
+
 		preload = "lazy",
 		fallback = "native",
 	},
-	-- VALUE-CONTROL ART (director review 2026-07-25: "just changing the colour
-	-- isn't enough"). The rail STRETCHES, so it is a nine-slice: 96x20 with an
-	-- 8px border, which keeps its carved end-caps intact at any track width.
+
 	parchment_slider_track = {
 		contentId = "rbxassetid://133629068271978",
 		sliceCenter = { x0 = 8, y0 = 8, x1 = 88, y1 = 12 },
@@ -171,14 +104,13 @@ local ASSETS = {
 		preload = "lazy",
 		fallback = "native",
 	},
-	-- The thumb does NOT stretch — it is a 28x28 token — so it is painted
-	-- WHOLE. Slicing it would smear its centre pixel across the jewel.
+
 	parchment_slider_thumb = {
 		contentId = "rbxassetid://102024273231445",
 		preload = "lazy",
 		fallback = "native",
 	},
-	-- The counter seal behind a badge's number, also a whole 28x28 token.
+
 	parchment_badge = {
 		contentId = "rbxassetid://103212793200116",
 		preload = "lazy",
@@ -186,31 +118,6 @@ local ASSETS = {
 	},
 }
 
--- ===== METRICS — the theme_sync region ====================================
---
--- GENERATOR-OWNED. Regenerate it from a Style-Editor session with:
---   lune run tools/lune/theme_sync_cli -- \
---     --dump <dump.json> --package examples/themes/fantasy_parchment.luau
--- and check it with the same command plus `--check` (exit 1 on drift, naming
--- the tokens that moved). `definition()` below consumes exactly this table, so
--- there is never a second hand-edited metric source.
---
--- What the numbers say, for a reader who will never open the Style Editor:
--- Fondamento (a Roblox-shipped calligraphic family — fantasy-appropriate
--- without bundling a font) at 1.35 line height, because a calligraphic face
--- needs more air than a UI sans; a rounder 4/8/16/26/42 spacing rhythm than
--- Facet Neutral's; taller controls (38/46/58) because the carved border needs
--- shoulder room; and per-slot insets that each nine-slice recipe's own
--- contentInsets are ADDED to, so content always clears the painted border.
---
--- ...and `controls.progress.circularSize` / `circularThickness` / `spinnerDotSize`
--- (director round 2026-08-14), which are the two theme-sized indicators: a 30px
--- ring drawn with a 3px stroke and a 9px dot. This skin is a QUILL — the thinnest
--- ink in the corpus over the largest paper — so it takes a mid-sized ring and the
--- second-thinnest stroke, where its ornate sibling takes 44/8 on the same shapes.
--- Left unauthored both packages resolved to the identical 26/4, because they
--- share a space scale and the fill-in reads the space scale: two packages that
--- look nothing alike were drawing the same ring.
 local GENERATED: any = {
 	-- theme_sync:begin metrics
 	metrics = {
@@ -239,11 +146,7 @@ local GENERATED: any = {
 				defaultSize = 48,
 			},
 			label = {
-				-- THEME-OPT-OUT: a theme package's own metrics.controls.<family>
-				-- field is validated isFiniteNumber-only (package.luau's
-				-- CONTROL_FAMILIES check) — it cannot take a theme-metric NAME
-				-- string like "tight", the same reason default_style.luau's own
-				-- controls.label.gap stays a raw literal
+
 				gap = 6,
 			},
 			popup = {
@@ -418,9 +321,7 @@ local GENERATED: any = {
 
 function fantasy_parchment.definition(themes: any): any
 	return {
-		-- start from the library's own package and override what the theme
-		-- means to change; core roles added by future Facet versions are then
-		-- inherited through a diagnosed upgrade instead of a copied sheet
+
 		base = themes.neutralPackage(),
 		identity = {
 			id = fantasy_parchment.id,
@@ -435,21 +336,16 @@ function fantasy_parchment.definition(themes: any): any
 				{ name = "Candlelight", colors = CANDLELIGHT.colors, extra = CANDLELIGHT.extra },
 			},
 		},
-		-- the generator-owned region above; a designer's Style-Editor session
-		-- lands here through `theme_sync`, never through a hand edit
+
 		metrics = GENERATED.metrics,
 		chrome = {
-			-- the ink rule sits ~14px inside the panel art's 40px border; 18px
-			-- of content inset clears it at every panel size
+
 			panel = {
 				kind = "nineSlice",
 				asset = "parchment_panel",
 				contentInsets = { top = 18, right = 18, bottom = 18, left = 18 },
 				fallback = "native",
-				-- a sheet of vellum lying ON the desk, not printed into it
-				-- (director review 2026-07-25: "buttons should have shadows").
-				-- Adapter-owned depth: ::UIShadow rules are inert (m7), so this
-				-- rides the bespoke UIShadow machinery behind its capability probe.
+
 				shadow = "raised",
 			},
 			control = {
@@ -465,30 +361,20 @@ function fantasy_parchment.definition(themes: any): any
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 			},
-			-- FOCUS IS A GLOW ON THIS SKIN, not a ring. Everything else here is
-			-- soft and painted, and a 2px hard stroke read as a UI element that
-			-- had wandered in from another game. The colour is the per-theme
-			-- `focusGlow` role above, so Daylight and Candlelight each get their
-			-- own; the ten-foot profile scales the blur up and the transparency
-			-- down automatically (chrome_slots.FOCUS_TEN_FOOT).
+
 			focus = {
 				kind = "glow",
 				color = "$FocusGlow",
-				-- 26px of blur on a 46px control is a halo that clears the
-				-- control's own edge without swallowing its neighbours at the 8px
-				-- `s` gap this theme uses between rows
+
 				blurRadius = { scale = 0, offset = 26 },
 				transparency = 0.25,
 				zIndex = -1,
 			},
-			-- ink-wash fills, no imagery: selection, dividers and scrollbars
-			-- read best as flat paint on this material
+
 			selection = { kind = "native" },
 			divider = { kind = "native" },
 			scrollbar = { kind = "native" },
-			-- the carved rail and its jewelled thumb. `sliced = false` on the
-			-- thumb is the whole-image treatment; the slot would have defaulted
-			-- to it anyway, and saying so keeps the recipe readable.
+
 			sliderTrack = {
 				kind = "nineSlice",
 				asset = "parchment_slider_track",
@@ -502,8 +388,7 @@ function fantasy_parchment.definition(themes: any): any
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
-			-- the counter seal. Its 5px inset is what pulls the number off the
-			-- seal's raised rim — the lifted label is positioned by exactly this.
+
 			badge = {
 				kind = "nineSlice",
 				asset = "parchment_badge",

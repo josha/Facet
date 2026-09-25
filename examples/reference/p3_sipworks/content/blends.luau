@@ -1,24 +1,11 @@
 --!strict
--- The Sipworks house menu (spec §2): 15 blends, 3 with free recipes and 12
--- behind the Blend Book. Original clean-room content — no smoothies, no fruit,
--- no copy from any reference sample.
---
--- A blend is: a title, one to three description paragraphs each carrying its own
--- EMPHASIS flag (the split-`Text`-runs adaptation — emphasis granularity is the
--- paragraph, and no rich-text engine is built), and its measured botanicals.
--- Caffeine, leaf mass and steep time are DERIVED from those measures by
--- CatalogService; nothing states them twice.
---
--- ORDERING IS NOT ALPHABETICAL on purpose: the list sorts through
--- I18nService's collation, so a menu that arrived pre-sorted would have hidden
--- a sort that never ran.
 
 export type Measure = { botanicalId: string, value: number, unit: string }
 export type Paragraph = { text: string, emphasis: boolean? }
 export type Blend = {
 	id: string,
 	title: string,
-	free: boolean?, -- free recipe (never gated behind the Blend Book)
+	free: boolean?,
 	paragraphs: { Paragraph },
 	measures: { Measure },
 }

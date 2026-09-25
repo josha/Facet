@@ -1,0 +1,195 @@
+{
+  "baselineCommit": "a8c8895673c0745506908b66dc89f8cead6b66f3",
+  "studioId": "70bc3b89-8145-4ce3-9335-873488f08089",
+  "device": "hd_720",
+  "viewport": [
+    1279,
+    720
+  ],
+  "baselineGalleryStamp": "a7322c3e3b861fb725ffeccca504260ad096b1185adade7ec1f4df57c2315ca7",
+  "candidateGalleryStamp": "96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8",
+  "status": "in-progress; executable verification strengthened, full visual/input parity not certified",
+  "observations": [
+    {
+      "surface": "Gallery Basics",
+      "baseline": "Rich Settings/Status columns with controls and native paint",
+      "candidate": "Theme and rich columns restored; child name sorting and Stepper opaque root found",
+      "sourceFixes": "Parent owned StyleSheet, pass theme to controls, restored task composition, explicit LayoutOrder and transparent Stepper",
+      "retest": "pending current source"
+    },
+    {
+      "surface": "Gallery Actions",
+      "baseline": "Toolbar and two columns, readable image cards",
+      "candidate": "Stacked toolbar, single column, overlap in image cards",
+      "sourceFixes": "Native two-column responsive composition and bounded image button content",
+      "retest": "pending current source"
+    },
+    {
+      "surface": "Gallery Sheet",
+      "candidate": "Native input opens modal and detent controls; panel transparency incorrect",
+      "sourceFixes": "Restore painted native panel background",
+      "retest": "pending current source"
+    },
+    {
+      "surface": "Performance Lab",
+      "candidate": "Rows overflow right; transparent page backdrop",
+      "sourceFixes": "Assigned native row flex and page styling fix",
+      "retest": "pending"
+    },
+    {
+      "surface": "Gallery Basics/Actions/Sheets",
+      "stamp": "4bbd6c32447fa03d011cead83c2d835c5c4fbcf5dcb84fcd9365638cb17731ad",
+      "result": "Rich compositions, explicit ordering, bounded tab accessories and opaque sheet retested successfully with native pointer input."
+    },
+    {
+      "surface": "Match3",
+      "stamp": "a6939f2e66aa1934876d0c6b04941edbab3a821b2474ae823e89e40c359f7e9c",
+      "result": "Real HD native VirtualInput click tile10 then16 gives Score3 and1swap. Programmatic keyboard selection requires new source retest."
+    },
+    {
+      "surface": "Word game phone Largest",
+      "stamp": "a6939f2e66aa1934876d0c6b04941edbab3a821b2474ae823e89e40c359f7e9c",
+      "result": "O/P fit401x777. Enter/Delete TextFits false (50.35px wide vs55/67px bounds); fixed source pending retest."
+    },
+    {
+      "surface": "Crossword phone Largest",
+      "stamp": "a6939f2e66aa1934876d0c6b04941edbab3a821b2474ae823e89e40c359f7e9c",
+      "result": "Board/rack7letters/readouts/Submit/Undo/StartOver visible and reachable by native CanvasPosition scrolling; cross-theme retest pending."
+    },
+    {
+      "surface": "HUD phone Largest",
+      "stamp": "a6939f2e66aa1934876d0c6b04941edbab3a821b2474ae823e89e40c359f7e9c",
+      "result": "Null Text load defect fixed; compact HUD mounts. GalleryPicker longlabel overlapsSettings; new native authored-width fix pending retest."
+    },
+    {
+      "surface": "Recipes phone Largest",
+      "stamp": "a6939f2e66aa1934876d0c6b04941edbab3a821b2474ae823e89e40c359f7e9c",
+      "result": "Long Savebutton overflows; source now measures native TextBounds and stacks/wraps, retest pending."
+    },
+    {
+      "surface": "Playlist HD Largest",
+      "stamp": "a6939f2e66aa1934876d0c6b04941edbab3a821b2474ae823e89e40c359f7e9c",
+      "result": "Real native drag grows Name220to292. All header/body positions and widths match (Name72/292,Artist364/220,Rating584/144). Half handle occluded by adjacent column; source fix pending retest."
+    },
+    {
+      "surface": "PerformanceLab desktop/phone Largest",
+      "stamp": "4e6979ec1c1d620c2356ed931d7c29c56c5fa65a4477c1387359d3d18a3043a6",
+      "result": "Opaque background and responsive toolbar corrected. Slider ignores bounded width due native AutoSizeXY, squeezes labels to0 and readout overlaps rows. Shared fix in progress."
+    },
+    {
+      "surface": "Keyboard activation HD",
+      "stamp": "35a16ed7e68ece1b49697a3757ad294780036e66201c2889cd7d7010c6329931",
+      "result": "GuiService.SelectedObject set to Match3 tile1.hit;2InputContexts mount; real VirtualInput Return changes hint to Now tap a tile next to it. PASS."
+    },
+    {
+      "surface": "Progress phone Largest",
+      "stamp": "35a16ed7e68ece1b49697a3757ad294780036e66201c2889cd7d7010c6329931",
+      "result": "Smooth Path2D track and exact quarter accent arc visibly render;25%centered unclipped; small animated arc and dot spinner remain visible. PASS."
+    },
+    {
+      "surface": "Recipes phone Largest neutral",
+      "stamp": "35a16ed7e68ece1b49697a3757ad294780036e66201c2889cd7d7010c6329931",
+      "result": "Same3actionbuttons stack insidewidth; full long Save label wraps to2lines; nooverflow. Art-theme expansion awaits sharedskinfix."
+    },
+    {
+      "surface": "Art-theme switching",
+      "stamp": "35a16ed7e68ece1b49697a3757ad294780036e66201c2889cd7d7010c6329931",
+      "result": "Typed image defaults fix stops errors. Native art captions/Skin stretch autosizedbuttons; actualFillrow cloneprobe copy369px/noArt48px/zero-sizeboundaries55px. Sharedfixinprogress. Folderdoesnotexclude nativeautosizing."
+    },
+    {
+      "surface": "Word game phone Largest cross-theme",
+      "stamp": "e6369dfc5386099ff17cb0f39c9bd7af9e18822b05c4fb7f66dfba4b2211b6ac",
+      "result": "All28keysfitandstaywithin369pxkeyboard through Neutral,fantasy_parchment,pixel_quest,classic_desktop,Neutral; noimage-propertyerrors. OrdinarysizingPASS."
+    },
+    {
+      "surface": "Decorated native control scaling/shrink",
+      "stamp": "e6369dfc5386099ff17cb0f39c9bd7af9e18822b05c4fb7f66dfba4b2211b6ac",
+      "result": "TemporaryUIScale1.25 revealed recursiveautosizegrowth. Probe removedandbranchrecreated. Native negative-anchor art permits TextButtonwidth324\u219292afterlong\u2192shorttext, whilepositiveartstuckat300. Mediaagentimplementingprovennegative-extents+native1pxscalereference."
+    },
+    {
+      "surface": "Gallery mounted entry points",
+      "stamp": "e6369dfc5386099ff17cb0f39c9bd7af9e18822b05c4fb7f66dfba4b2211b6ac",
+      "result": "All10 maintained gallery entrypoints invoked and mountedmatchingids without errors in liveStudio."
+    },
+    {
+      "surface": "Shared art sizing final",
+      "stamp": "96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8",
+      "result": "Native UIScale1.25 remains finite (~52px target/51.25px art, native rounding), textgrows48\u2192145.5andshrinks48; atrestartposition/sizeexactlymatches48x44target. Temporaryscaleandlabelchangefullyrestored. PASS."
+    },
+    {
+      "surface": "Word/Crossword phoneLargest cross-theme final",
+      "stamp": "96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8",
+      "result": "28WordlekeysTextFitstrueandinsidekeyboard acrossNeutral,fantasy_parchment,pixel_quest,classic_desktop. Crosswordneutralandparchmentscreenshotsconfirm7racklettersandSubmit/Undo/StartOverreachablewithnativecanvasscroll. PASS."
+    },
+    {
+      "surface": "Recipes phoneLargest cross-theme final",
+      "stamp": "96b2c7823be6f1d39a66678dd878b300e71bf5a316f878f9b4419b3ad51c09f8",
+      "result": "Neutralactionbuttonsstack/wraplongfulltext. Parchment3buttons337x44TextFitstrueinsidewidth. PASS."
+    },
+    {
+      "surface": "Virtual monitors compact navigation",
+      "stamp": "6ad026cdb1b90054bd1d2178b9ad949aa32b96a72c8ad5281c2368a325266661",
+      "result": "Phone portrait screenshot confirms bottom tabs, compact sort/genre, search, Browse/Saved/count and hidden Featured; cards and previews visible. PASS."
+    },
+    {
+      "surface": "Virtual monitors animated theme",
+      "stamp": "6ad026cdb1b90054bd1d2178b9ad949aa32b96a72c8ad5281c2368a325266661",
+      "result": "Native pointer Light mode click produced intermediate GetStyled colors across Heartbeats, settled RGB .9098/.9020/.8745 from .2275/.2118/.3137. Interrupted reverse at90ms returned to original target smoothly. PASS; optimized source retest pending."
+    },
+    {
+      "surface": "Virtual monitors card expansion",
+      "stamp": "6ad026cdb1b90054bd1d2178b9ad949aa32b96a72c8ad5281c2368a325266661",
+      "result": "Native View game click at scroll240 grows301x224 source to1279x662 modal; SourcePreview/detail crossfade; native Done reverses to card, retains detail during close, removes modal, source/button identity and scroll preserved. Snapshot ViewportFrame Camera child cloned but CurrentCamera=nil; explicit repair in source pending fresh live proof."
+    },
+    {
+      "surface": "Virtual monitors Avatar/Chat/spatial",
+      "stamp": "6ad026cdb1b90054bd1d2178b9ad949aa32b96a72c8ad5281c2368a325266661",
+      "result": "Native Clay/Explorer hat/Turn right commands yield clay,Hat off,Rotation15; native scrolling reaches Look summary with matching content. VirtualInput types/sends chat and full streamed local reply completes; Spatial mode renders all3SurfaceGuis. Selected text contrast defect found; onSelected source fix pending live check. Programmatic native selection sometimes retargets across newly mounted SurfaceGuis; no Facet autofocus cause found; target identity retry pending."
+    },
+    {
+      "surface": "Performance Lab native geometry final",
+      "stamp": "5f1b48c3cf54727f59445e752d441dfdb2dfe3b1dc5b7a943a402dcebf032a2b",
+      "result": "Current faithful dense workload reviewed desktop1279x720 and phone401x777 at restoredMedium. Every row retains AsyncImage40, two labels, ReadyToggle44, percentageRateStepper and Open. Desktop56px minima+4gap; phone rows379x152 with portrait/copy/Ready firstline and Rate/Open secondline, all geometry within row bounds. Native Step advances viewport; native visible-row Open shows correct KitJessup/Cobalt detail, Close dismisses, Run/Stop complete. Toolbar wraps3rows onphone. Earlier Largest toolbar proof remains separate; no new Largest row proof claimed. PASS."
+    },
+    {
+      "surface": "Virtual Monitors main HD comparison",
+      "stamp": "9658d8eead729719a0acc2b533a901fb1f3c669dcde8eabb2045bba1fcc44b44",
+      "result": "Original main Discover, Avatar and Chat reviewed inline at identical HD720/Medium. Comparison exposed lost whole-card activation, weaker title hierarchy and shell alignment; candidate fixes remain under review. No pixel-diff file claimed."
+    },
+    {
+      "surface": "Virtual Monitors optimized native theme",
+      "stamp": "a8e575db5b3d05567bb37a57898f3292f7f232f7daf26e438cfdd6db69edb22c",
+      "result": "Light-to-Dark native pointer action sampled20 distinct GetStyled BackgroundColor3 values on tagged Discover surface across159 Heartbeats. Settled RGB .07059/.06667/.10196 from .95294/.94118/.91373. Native interpolation confirmed."
+    },
+    {
+      "surface": "Virtual Monitors restored detail native failure and repair",
+      "stamp": "a3cb1a1b5be1ab506d2d8e422e9c762897e37b42e3bf8676a769607877b0b557",
+      "result": "Real card Activated was suppressed by caught detail factory failure: Path2D.Color invalid. Corrected to Color3; fake native Path2D now rejects invalid properties. Fresh native click opens Skyline detail without FacetError; source301x224 grows to1279x662 with sampled preview/detail crossfade. Every sampled cloned viewport CurrentCamera points to its cloned Camera. Close retains detail during animation then removes modal. Source/scroll reverse identity not re-certified in this batch."
+    },
+    {
+      "surface": "Virtual Monitors current Chat and Avatar",
+      "stamp": "a3cb1a1b5be1ab506d2d8e422e9c762897e37b42e3bf8676a769607877b0b557",
+      "result": "Chat tip feedback fix verified native280x108 at159,414; welcome and composer visible. Native Find a game/Send works; typing next draft while Stop visible preserves it across reply completion. Avatar Clay/Turn right update HUD; Quick palette Iris updates preview and Back dismisses ring. Expanded disclosure rich label GetStyled foreground exactly matches selected parent (.109804,.0862745,.180392). Latest ordering, arrow paint, heading fixes await next injection."
+    },
+    {
+      "surface": "Virtual Monitors final visual repairs",
+      "stamp": "63ecba0a027ad0bd57aca8e001aff1e7483f85146a1100683865f86bfca04d49",
+      "result": "Native Avatar disclosure HeaderY186 precedes bodyY238. Chat Callout remains280x108 and arrow/panel GetStyled color matches RGB .12549/.117647/.172549. Card screenshots show enlarged301x166 preview in301x224 card, bold titles and right-aligned shell actions. Whole-card click uncovered UIDragDetector consumption: zero-motion press fires DragStart/DragEnd, neither Activated nor MouseButton1Click. Native detector tap policy repair pending fresh injection."
+    },
+    {
+      "surface": "Virtual Monitors final native card and search interactions",
+      "stamp": "0debf5f9dec1b259674212d91597034323bbe358b917193e602c5e3a0b1f0ce1",
+      "result": "Native pointer stationary card press opens Afterlight through UIDragDetector tap policy. Native Done produces108 sampled reverse widths1279\u2192301 then removes modal; exact source Instance/parent and scroll retained. Actual native8-step card drag to Saved changes Saved(0)\u2192Saved(1) without opening detail. Native pointer focuses Search, SendTextInput Circuit preserves editing focus and opens suggestions; selecting id2 opens Circuit and closes suggestion overlay. PASS. Phone touch hold/cancellation and full device matrix remain unproven."
+    }
+  ],
+  "interaction": "StudioDeviceSimulatorService and UserInputService:CreateVirtualInput via Roblox MCP",
+  "visualCapture": "Read-only CUA screenshots reviewed inline. MCP screen_capture returned magenta; StudioCapture permission unsupported. No screenshot file claimed.",
+  "prFraming": "Headline: simplify Facet by adopting existing Roblox Engine APIs while preserving behavior and quality. Compose adoption is a secondary removal of duplicated composition/lifetime machinery, not a replacement for Facet.",
+  "nativeTextPreference": {
+    "original": "Medium",
+    "temporary": "Largest",
+    "restoreRequired": false,
+    "restored": "Medium",
+    "verification": "Final Client GuiService.PreferredTextSize remains Medium. Studio test stopped for final full verification."
+  }
+}

@@ -1,9 +1,9 @@
 --!strict
-if not game:IsLoaded() then
-	game.Loaded:Wait()
-end
 local storage = game:GetService("ReplicatedStorage")
 local Facet = require(storage:WaitForChild("Facet"))
 local screen = require(storage:WaitForChild("FacetConsumerScreen"))
-local app = Facet.new()
-screen.session(Facet, app, { closeAfterSeconds = 120 })
+local app = Facet.app({ name = "FacetConsumer" })
+app.mount(function()
+	return screen.build(Facet, app.UI)
+end)
+script.Destroying:Connect(app.dispose)

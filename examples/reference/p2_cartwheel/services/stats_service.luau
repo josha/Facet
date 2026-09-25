@@ -1,13 +1,5 @@
 --!strict
--- StatsService — per-plaza seeded series, and the union that closes the loop.
---
--- "Today" is the only timeframe that is not purely seeded: it is the seed PLUS
--- every brew collected this session, so finishing a brew moves Top Five and the
--- Ledger. That union is RA-P2's closing move — the charts reflecting the change
--- the player just made — and it is why this service listens to OrderService
--- rather than sampling it.
---
--- Production mapping: an analytics/telemetry aggregation service.
+
 local data = require("../content/data")
 local rng = require("./rng")
 
@@ -24,7 +16,6 @@ function stats_service.new(opts: any): any
 	local version = Compose.cell(0)
 	self.version = version
 
-	-- ---- seeded popularity: potion -> timeframe -> bottles ------------------
 	local popularity: { [string]: { [string]: number } } = {}
 	for _, potion in data.potions :: any do
 		local random = rng.new(seed * 31 + potion.index)
@@ -37,7 +28,6 @@ function stats_service.new(opts: any): any
 		}
 	end
 
-	-- the live half: bottles collected this session, per potion
 	local collected: { [string]: number } = {}
 
 	function self.bottlesFor(potionId: string, timeframe: string): number
@@ -52,8 +42,6 @@ function stats_service.new(opts: any): any
 		return base + (collected[potionId] or 0)
 	end
 
-	-- Top Five, descending; ties break on the catalogue index so two equal
-	-- counts always answer in the same order (a dump has to be reproducible).
 	function self.topFive(timeframe: string): { any }
 		local rows: { any } = {}
 		for _, potion in data.potions :: any do
@@ -80,10 +68,6 @@ function stats_service.new(opts: any): any
 		return total
 	end
 
-	-- ---- the Ledger's per-plaza series --------------------------------------
-	-- normalized 0..1 samples, seeded per (plaza, timeframe). The Path takes
-	-- normalized control points, so this is the shape it wants with no scaling
-	-- arithmetic at the call site.
 	local seriesCache: { [string]: { number } } = {}
 
 	function self.series(plazaId: string, timeframe: string): { number }
@@ -108,8 +92,6 @@ function stats_service.new(opts: any): any
 		seriesCache[key] = out
 		return out
 	end
-
-	-- ---- the union ----------------------------------------------------------
 
 	function self.recordCompletion(brew: any)
 		for _, item in brew.items do

@@ -8,8 +8,7 @@
     "$className": "DataModel",
     "Workspace": {
       "$attributes": {
-        "Facet_PerfLabPlace": "Facet-PerformanceLab",
-        "Facet_NativeStyle": false
+        "Facet_PerfLabPlace": "Facet-PerformanceLab"
       },
       "$properties": {
         "FilteringEnabled": true,
@@ -67,29 +66,16 @@
       "Facet": {
         "$path": "../src"
       },
-      "FacetThemes": {
-        "$path": "themes"
-      },
       "FacetScenarios": {
-        "$path": "performance/lab",
-        "runner": {
-          "$path": "gallery/scenarios/runner.luau"
-        },
-        "foreign_instances": {
-          "$path": "gallery/scenarios/foreign_instances.luau"
-        }
+        "$path": "performance/lab"
+      },
+      "PerfLab": {
+        "$path": "performance/client"
       }
     },
     "StarterGui": {
       "$properties": {
         "ScreenOrientation": "Sensor"
-      }
-    },
-    "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "PerfLab": {
-          "$path": "performance/client"
-        }
       }
     },
     "Lighting": {

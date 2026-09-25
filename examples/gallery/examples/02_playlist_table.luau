@@ -1,5 +1,17 @@
 --!strict
--- The playlist model survives row/filter remounts; the component owns its controls.
+
+type Use = (any) -> any
+type Column = {
+	id: string,
+	label: string,
+	width: number?,
+	minWidth: number?,
+	resizable: boolean,
+	sortable: boolean,
+	value: (any) -> any,
+	render: ((any) -> any)?,
+}
+
 local example = {}
 example.title = "Playlist Table"
 local TRACKS = {
@@ -12,15 +24,17 @@ local TRACKS = {
 }
 function example.build(ctx: any)
 	local UI, Compose = ctx.UI, ctx.Compose
+	local UDim2, Enum = ctx.types.UDim2, ctx.types.Enum
 	local built: any = {}
-	-- Table hands a custom cell the row's readable and every other callback the record.
+
 	local function plain(item: any): any
 		return if Compose.isReadable(item) then item:peek() else item
 	end
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
 	local nowPlaying = Compose.cell(nil :: string?)
-	local sortOrder = Compose.cell(nil :: { column: string, ascending: boolean }?)
+	local sortOrder = Compose.cell(nil :: { column: string, direction: string }?)
+	local columnWidths = Compose.cell({})
 	local ratings: { [string]: any } = {}
 	for _, track in TRACKS do
 		ratings[track.id] = Compose.cell(track.rating)
@@ -51,14 +65,14 @@ function example.build(ctx: any)
 			if av == bv then
 				return index[a.id] < index[b.id]
 			end
-			if order.ascending then
+			if order.direction == "ascending" then
 				return av < bv
 			end
 			return av > bv
 		end)
 		return out
 	end)
-	local filteredRows = Compose.formula(function(use)
+	local filteredRows = Compose.formula(function(use: Use)
 		local query = string.lower(use(filterText))
 		local all = use(sortedRows) :: { any }
 		if query == "" then
@@ -80,7 +94,10 @@ function example.build(ctx: any)
 		return baseRows:peek() :: { any }
 	end
 	local function starCell(item: any)
-		return UI.Rating("Rating")({ value = ratings[plain(item).id], count = 5 })
+		return UI.Rating "Rating" {
+			value = ratings[plain(item).id],
+			count = 5,
+		}
 	end
 
 	local function removeTrack(id: string)
@@ -121,7 +138,7 @@ function example.build(ctx: any)
 	end
 	local function reorder(keys: { string }, toIndex: number)
 		if filterText:peek() ~= "" then
-			return -- a filter is active: moves are disabled, and the sort stays
+			return
 		end
 		if #keys == 0 then
 			return
@@ -147,54 +164,57 @@ function example.build(ctx: any)
 		baseRows:set(out)
 	end
 	function built.screen()
-		local tracks = UI.Table("Tracks")({
+		local tracks = UI.Table "Tracks" {
+			Size = UDim2.new(1, 0, 0, 328),
+			widths = columnWidths,
 			columns = {
 				{
 					id = "name",
-					title = "Name",
-					width = UI.fill(3),
+					label = "Name",
 					minWidth = 90,
 					resizable = true,
-					disclose = true,
+					sortable = true,
 					value = function(item)
 						return plain(item).name
 					end,
 				},
 				{
 					id = "artist",
-					title = "Artist",
-					width = UI.fill(2),
+					label = "Artist",
 					minWidth = 72,
 					resizable = true,
-					disclose = true,
+					sortable = true,
 					value = function(item)
 						return plain(item).artist
 					end,
 				},
 				{
 					id = "rating",
-					title = "Rating",
-					width = { type = "fixed", px = 144 },
+					label = "Rating",
+					width = 144,
+					resizable = false,
 					sortable = true,
-					cell = starCell,
+					value = function(item)
+						return ratings[plain(item).id]:peek()
+					end,
+					render = starCell,
 				},
-			},
-			scrolls = false,
-			rows = filteredRows,
-			key = function(item)
-				return plain(item).id
-			end,
-			rowGap = "controls.table.rowGap",
-			header = true,
-			sortOrder = sortOrder,
-			selection = "multi",
-			onPrimaryAction = function(item: any, _key: string)
+			} :: { Column },
+
+			from = filteredRows,
+			key = "id",
+
+			sort = sortOrder,
+			selectionMode = "multi",
+			selection = Compose.cell({}),
+			onActivate = function(item: any, _key: string, input: InputObject?, clickCount: number?)
+				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 1) < 2 then
+					return
+				end
 				nowPlaying:set(plain(item).name)
 			end,
 			reorderable = true,
-			dragLabel = function(item)
-				return plain(item).name
-			end,
+
 			rowActions = function(item: any)
 				local id = plain(item).id
 				return {
@@ -203,7 +223,7 @@ function example.build(ctx: any)
 							id = "top",
 							label = "Top",
 							icon = "chevron.up",
-							onAction = function()
+							onActivate = function()
 								moveToTop(id)
 							end,
 						},
@@ -214,19 +234,17 @@ function example.build(ctx: any)
 							label = "Remove",
 							icon = "trash",
 							role = "destructive",
-							onAction = function()
+							onActivate = function()
 								removeTrack(id)
 							end,
 						},
 					},
-					fullSwipe = { leading = false, trailing = true },
+					fullSwipe = true,
 				}
 			end,
 			onReorder = reorder,
-		})
-		-- The widths line and the selected-column hint read the table's own
-		-- diagnostics, which a host that records its controls provides.
-		local tbl = if ctx.controlRecord ~= nil then ctx.controlRecord("Tracks") else nil
+		}
+
 		local function restore()
 			filterText:set("")
 			sortOrder:set(nil)
@@ -236,41 +254,26 @@ function example.build(ctx: any)
 				ratings[track.id]:set(track.rating)
 			end
 		end
-		local COLUMN_LABELS = { { "name", "Name", true }, { "artist", "Artist", true }, { "rating", "Rating", false } }
+		local COLUMN_LABELS = {
+			{ id = "name", label = "Name", resizable = true },
+			{ id = "artist", label = "Artist", resizable = true },
+			{ id = "rating", label = "Rating", resizable = false },
+		}
 		local widthsText = Compose.formula(function(use)
-			local overrides = (if tbl then use(tbl.api.columnWidthOverrides) else {}) :: { [string]: number }
-			local hidden = (if tbl then use(tbl.api.hiddenColumns) else {}) :: { string }
-			local hiddenSet: { [string]: boolean } = {}
-			for _, id in hidden do
-				hiddenSet[id] = true
-			end
+			local overrides = use(columnWidths) :: { [string]: number }
 			local parts = {}
 			for _, column in COLUMN_LABELS do
-				local id, label, resizable = column[1] :: string, column[2] :: string, column[3] :: boolean
-				local px = overrides[id]
-				local shown = if hiddenSet[id]
-					then "hidden"
-					elseif px ~= nil then `{math.floor(px + 0.5)}px`
-					elseif resizable then "auto"
+				local px = overrides[column.id]
+				local shown = if px ~= nil
+					then `{math.floor(px + 0.5)}px`
+					elseif column.resizable then "auto"
 					else "locked"
-				table.insert(parts, `{label} {shown}`)
+				table.insert(parts, `{column.label} {shown}`)
 			end
-			local line = table.concat(parts, " · ")
-			return if #hidden > 0 then `{line} · {#hidden} hidden` else line
+			return table.concat(parts, " · ")
 		end)
-		local hintText = Compose.formula(function(use)
-			local selected = (if tbl then use(tbl.api.selectedColumn) else nil) :: string?
-			if selected == nil then
-				return "Type to filter · tap a heading to sort · drag a divider to resize · swipe a row for its actions"
-			end
-			local label = "Rating"
-			for _, column in COLUMN_LABELS do
-				if column[1] == selected then
-					label = column[2] :: string
-				end
-			end
-			return `{label} has the keys: , and . resize it, ↑/↓ sorts`
-		end)
+		local hintText =
+			"Type to filter · tap a heading to sort · drag a divider to resize · swipe a row for its actions"
 		local nowPlayingText = function(use)
 			local track = use(nowPlaying)
 			if track == nil then
@@ -278,66 +281,51 @@ function example.build(ctx: any)
 			end
 			return `Now playing — {track}`
 		end
-		local screen = UI.Screen("Playlist")({
-			surface = "base",
-			padding = "m",
-			UI.ScrollView("Page")({
-				axis = "y",
+		local screen = UI.Screen "Playlist" {
+			UI.ScrollView "Page" {
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-				UI.Text("Title")({ text = "Playlist", textSize = "title" }),
-				UI.TextInput("Filter")({
+				align = "stretch",
+				UI.Text "Title" { text = "Playlist", textRole = "title" },
+				UI.TextInput "Filter" {
 					value = filterText,
 					presentation = "search",
 					placeholder = "Filter tracks",
-				}),
-				UI.Text("Hint")({
-					text = hintText,
-					textSize = "label",
-					role = "secondary",
-					disclose = true,
-				}),
-				UI.Text("NowPlaying")({
-					text = nowPlayingText,
-					textSize = "label",
-					role = "secondary",
-				}),
-				UI.Text("Widths")({
-					text = widthsText,
-					textSize = "label",
-					role = "secondary",
-					disclose = true,
-				}),
+				},
+				UI.Text "Hint" { text = hintText, textRole = "caption", TextWrapped = true },
+				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption", TextWrapped = true },
+				UI.Text "Widths" { text = widthsText, textRole = "caption", TextWrapped = true },
 				tracks,
-				UI.Button("Restore")({ label = "Restore the original playlist", onActivate = restore }),
-			}),
-		})
+				UI.Button "Restore" {
+					label = "Restore the original playlist",
+					onActivate = restore,
+				},
+			},
+		}
 		local exports = {
-			rows = filteredRows, -- the DISPLAYED rows (sorted, then filtered)
-			sortedRows = sortedRows, -- the full playlist in DISPLAY order (sort, no filter)
-			baseRows = baseRows, -- the full STORED order (a reorder writes here)
-			sortOrder = sortOrder, -- the owner-held sort binding the header cycles
-			-- the live per-column width sentence
+			from = filteredRows,
+			sortedRows = sortedRows,
+			baseRows = baseRows,
+			sort = sortOrder,
+
 			widths = function(): string
 				return widthsText:peek()
 			end,
-			-- the instruction / selected-column readout
-			hint = function(): string
-				return hintText:peek()
-			end,
-			reorder = reorder, -- the drop command the Table calls on a commit
-			moveToTop = moveToTop, -- the leading swipe action's command
-			removeTrack = removeTrack, -- the trailing swipe action's command
-			filterText = filterText, -- the filter query (the field's value)
 
-			nowPlaying = nowPlaying, -- the primary action's result (nil until a row opens)
+			hint = function(): string
+				return hintText
+			end,
+			reorder = reorder,
+			moveToTop = moveToTop,
+			removeTrack = removeTrack,
+			filterText = filterText,
+
+			nowPlaying = nowPlaying,
 			nowPlayingPath = "/Playlist/Page/NowPlaying",
 			ratingFor = function(id: string)
 				return ratings[id]
 			end,
-			table_ = tbl,
-			restore = restore, -- the Restore button's command (order + ratings back)
+			columnWidths = columnWidths,
+			restore = restore,
 			restorePath = "/Playlist/Page/Restore",
 		}
 		for key, value in exports do

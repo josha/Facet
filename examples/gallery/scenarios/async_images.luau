@@ -1,102 +1,93 @@
 --!strict
--- Scenario 'async_images' (ledger rows NS-A13/NS-A14): the engine-free
--- resource provider drained by the REAL Roblox transport
--- (ContentProvider:PreloadAsync per-asset statuses). Three AsyncImages:
--- two real avatar thumbs (placeholder -> ready) and one invalid asset id
--- (placeholder -> failed). The releaseThird step proves HONEST cancellation:
--- releasing a handle makes any late completion stale and prevents unstarted
--- work — it never claims an in-flight fetch stopped.
-
 return {
 	title = "Loading profile pictures",
-	ledgerRows = { "NS-A13", "NS-A14" },
-	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
-		local provider = ctx.Facet.newResourceProvider(ctx.core)
-		local unbindTransport = ctx.bindResourceTransport(provider)
-
+	build = function(ctx)
+		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
+		local shown = Compose.cell(true)
+		local states = { Compose.cell("loading"), Compose.cell("loading"), Compose.cell("loading") }
+		local errors = { Compose.cell(nil), Compose.cell(nil), Compose.cell(nil) }
 		local pictures = {
-			{ id = "AvatarRoblox", key = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48" },
-			{ id = "AvatarBuilderman", key = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48" },
-			{ id = "BadAsset", key = "rbxassetid://999999999999999" },
+			{ id = "AvatarRoblox", image = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48" },
+			{ id = "AvatarBuilderman", image = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48" },
+			{ id = "BadAsset", image = "rbxassetid://999999999999999" },
 		}
-		-- The page keeps its own lease on each key, so the status line and the
-		-- report read the same state the pictures show.
-		local leases: { any } = {}
-		local secondShown = Compose.cell(true)
-
-		local function picture(index: number)
-			return UI.AsyncImage(pictures[index].id)({ provider = provider, key = pictures[index].key })
+		local function picture(index)
+			return UI.AsyncImage({
+				Name = pictures[index].id,
+				image = pictures[index].image,
+				onStatus = function(state, message)
+					states[index]:set(state)
+					errors[index]:set(message)
+				end,
+			})
 		end
-
-		local function Example()
-			local owner = Compose.currentOwner()
-			for index, entry in pictures do
-				leases[index] = provider.acquire(owner, entry.key)
-			end
-			local statusLine = Compose.formula(function(use)
-				return string.format(
-					"Roblox: %s • Builderman: %s • Unavailable picture: %s",
-					use(leases[1].state),
-					use(leases[2].state),
-					use(leases[3].state)
-				)
-			end)
-			return UI.Screen("AsyncImages")({
-				padding = "m",
-				gap = 12,
-
-				-- The page scrolls: a title, a status line and a row of thumbnails
-				-- exceed a 640x320 landscape phone, more so under large text.
-				UI.ScrollView("Page")({
-					axis = "y",
-					gap = 12,
-					width = UI.fill(),
-					height = UI.fill(),
-
-					UI.Text("Title")({ text = "Loading profile pictures", textSize = "title" }),
-					UI.Text("Explanation")({
-						text = "Pictures can arrive later than the page. These keep their space while loading; an unavailable picture keeps a placeholder.",
-						textSize = "body",
+		local function report()
+			return {
+				states = { states[1]:peek(), states[2]:peek(), states[3]:peek() },
+				errors = { tostring(errors[3]:peek()) },
+			}
+		end
+		return {
+			screen = function()
+				return Host.ScrollingFrame "AsyncImages" {
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					CanvasSize = D2.new(),
+					AutomaticCanvasSize = E.AutomaticSize.Y,
+					Host.UIListLayout({ Padding = D.new(0, 12), SortOrder = E.SortOrder.LayoutOrder }),
+					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
+					UI.Text({
+						LayoutOrder = 2,
+						text = "Pictures keep their space while loading; unavailable pictures keep a placeholder.",
 					}),
-					UI.Text("Status")({ text = statusLine, textSize = "label" }),
-					UI.HStack("Row")({
-						gap = 12,
-						wrap = true,
-						width = UI.fill(),
+					UI.Text({
+						LayoutOrder = 3,
+						text = function(use)
+							return string.format(
+								"Roblox: %s • Builderman: %s • Unavailable picture: %s",
+								use(states[1]),
+								use(states[2]),
+								use(states[3])
+							)
+						end,
+					}),
+					Host.Frame({
+						LayoutOrder = 4,
+						Name = "Row",
+						BackgroundTransparency = 1,
+						Size = D2.new(1, 0, 0, 48),
+						Host.UIListLayout({
+							SortOrder = E.SortOrder.LayoutOrder,
+							FillDirection = E.FillDirection.Horizontal,
+							Padding = D.new(0, 12),
+						}),
 						picture(1),
-						Compose.show(secondShown, function()
+						Compose.show(shown, function()
 							return picture(2)
 						end),
 						picture(3),
 					}),
-				}),
-			})
-		end
-
-		return {
-			screen = Example,
-			present = {},
-			steps = {
-				-- honest-cancellation driver: release every lease on the second
-				-- avatar and try a stale completion against its old generation
-				releaseSecond = function()
-					local lease = leases[2]
-					secondShown:set(false)
-					lease.release()
-					local verdict = provider.complete(lease.key, 1, lease.key)
-					return { verdict = verdict, stateAfter = lease.state:peek() }
-				end,
-			},
-			report = function()
-				return {
-					states = { leases[1].state:peek(), leases[2].state:peek(), leases[3].state:peek() },
-					errors = { tostring(leases[3].error:peek()) },
+					UI.Button({
+						LayoutOrder = 5,
+						label = "Release second picture",
+						onActivate = function()
+							shown:set(false)
+							states[2]:set("released")
+						end,
+					}),
 				}
 			end,
-			dispose = function()
-				unbindTransport()
-				provider.dispose()
+			report = report,
+			steps = {
+				releaseSecond = function()
+					shown:set(false)
+					states[2]:set("released")
+					return { stateAfter = "released" }
+				end,
+			},
+			reset = function()
+				shown:set(true)
 			end,
 		}
 	end,

@@ -1,41 +1,8 @@
 #!/usr/bin/env bash
-# Single command to run the Facet deterministic test suite (pure Luau, headless).
-#
-# Usage:
-#   ./run-tests.sh          THE SUITE — every spec file. This is what the gate
-#                           runs and the only thing that may be called green.
-#   ./run-tests.sh --fast   the INNER-LOOP tier: the same list minus the eleven
-#                           measured-slowest files (tests/lib/tiers.luau). ~50 s
-#                           instead of ~270 s (re-measured 2026-08-31; the old
-#                           "~8 s instead of ~43 s" described a suite of 305
-#                           files and 42.7 s, and had outlived it by a factor of
-#                           six). It prints a FACET-FAST-TIER
-#                           banner on both ends, and tools/test.sh refuses that
-#                           transcript, so it cannot be mistaken for the suite.
 set -euo pipefail
 cd "$(dirname "$0")"
-# ROKIT'S toolchain first, exactly as tools/verify.sh and tools/build_model.sh
-# insist: a Homebrew lune that drifts from rokit.toml would otherwise run the
-# suite on an unpinned interpreter while the result store records the pinned one.
-export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-# --check, NOT a bare materialize. The snapshot is COMMITTED, so the only thing
-# an entry point can honestly do with it is VERIFY it. A bare run re-fetches and
-# rewrites the vendored tree from the pin, which means a tampered or locally
-# edited Compose would be silently repaired on the way into a build instead of
-# reported -- the supply-chain failure this gate exists to catch, turned into a
-# no-op. A mismatch here is a FINDING; restoring the snapshot is an explicit
-# `python3 tools/sync_compose.py` a human runs, on purpose, by itself.
-python3 tools/sync_compose.py --check || exit $?
-
 case "${1:-}" in
-	--fast)
-		exec lune run tests/run_fast
-		;;
-	"")
-		exec lune run tests/run
-		;;
-	*)
-		echo "run-tests.sh: unknown argument '$1' (expected --fast or nothing)" >&2
-		exit 2
-		;;
+  --fast) exec tools/verify.sh fast ;;
+  "") exec tools/verify.sh full ;;
+  *) echo "usage: ./run-tests.sh [--fast]" >&2; exit 2 ;;
 esac

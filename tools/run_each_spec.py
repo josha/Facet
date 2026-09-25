@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Run every spec file on its own and record PASS/FAIL.
 
-`tools/test.sh` gives a suite verdict; this gives a per-file verdict, which is
-what a port needs: it says exactly which files changed state, not that the
-suite went red. Output is `<status> <name>` lines on stdout plus a JSON map
-when --json is passed.
-"""
 import argparse
 import concurrent.futures
 import json

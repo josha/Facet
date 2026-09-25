@@ -1,11 +1,15 @@
 --!strict
--- A caller-owned trip plan flows through one NavigationStack. Environment facts
--- choose arrangement and controls; every page uses the same theme/input authorities.
+
 return {
 	title = "Plan a journey",
 	ledgerRows = { "CAPABILITY-NAVIGATION" },
 	build = function(ctx)
-		local UI, Compose, env = ctx.UI, ctx.Compose, ctx.env
+		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local path = Compose.cell({})
 		local destination = Compose.cell("coast")
 		local query = Compose.cell("")
@@ -28,10 +32,31 @@ return {
 		local minimum = Compose.cell("m")
 		local alignment = Compose.cell("firstTextBaseline")
 		local visits, exits = 0, 0
+		local measuredWidth = Compose.cell(0)
 		local axis = Compose.formula(function(use)
-			return if use(env:get("sizeClass")) == "compact" then "y" else "x"
+			local width = use(measuredWidth)
+			if width <= 0 then
+				width = if ctx.viewport then use(ctx.viewport).width else 920
+			end
+			return if width < 600 then "y" else "x"
 		end)
-		-- The path is the caller's: every navigation here is a write to it.
+		local function adaptColumns(frame)
+			ctx.runtime.decorate(frame:FindFirstChildWhichIsA("UIListLayout"), {
+				FillDirection = function(use)
+					return if use(axis) == "x" then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
+				end,
+			})
+			for _, child in frame:GetChildren() do
+				if child:IsA("GuiObject") then
+					ctx.runtime.decorate(child, {
+						Size = function(use)
+							return if use(axis) == "x" then UDim2.new(0.5, -8, 0, 0) else UDim2.new(1, 0, 0, 0)
+						end,
+					})
+				end
+			end
+		end
+
 		local function push(entry)
 			local nextPath = table.clone(path:peek())
 			table.insert(nextPath, entry)
@@ -50,106 +75,171 @@ return {
 		local function popToRoot()
 			path:set({})
 		end
-		-- Each page's content runs under that page's owner.
+
 		local function page(content)
+			for _, child in content do
+				if child.Name == "SearchLayout" or child.Name == "Columns" then
+					adaptColumns(child)
+				end
+			end
 			visits += 1
 			Compose.cleanup(function()
 				exits += 1
 			end)
-			content.gap = "m"
-			content.width = UI.fill()
-			return UI.ScrollView("Scroll")({
-				width = UI.fill(),
-				height = UI.fill(),
-				UI.VStack("Content")(content),
-			})
+			return Host.ScrollingFrame "Scroll" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				CanvasSize = UDim2.new(),
+				ScrollBarThickness = 6,
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+				Host.Frame "Content" {
+					Size = UDim2.new(1, 0, 0, 0),
+					BackgroundTransparency = 1,
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						FillDirection = Enum.FillDirection.Vertical,
+						Padding = UDim.new(0, 8),
+					}),
+					table.unpack(content),
+				},
+			}
 		end
 		local function journey()
-			return UI.NavigationStack("Journey")({
+			return UI.NavigationStack "Journey" {
 				path = path,
 				backLabel = "Back",
-				transition = { enter = "slide-left", exit = "slide-right", class = "container" },
-				env = env,
+
 				root = {
 					title = "Plan a journey",
 					content = function()
-						local searchLayout = UI.AdaptiveStack("SearchLayout")({
-							axis = axis,
-							gap = "m",
-							width = UI.fill(),
-
-							UI.VStack("SearchEntry")({
-								width = UI.fill(),
-								gap = "s",
-
-								UI.Text({ text = "Find a journey", textSize = "heading", width = UI.fill() }),
-								UI.TextInput("Search")({
+						local searchLayout = Host.Frame "SearchLayout" {
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 16),
+							}),
+							Host.Frame({
+								LayoutOrder = 1,
+								Name = "SearchEntry",
+								BackgroundTransparency = 1,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Host.UIListLayout({
+									FillDirection = Enum.FillDirection.Vertical,
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									Padding = UDim.new(0, 8),
+								}),
+								UI.Text({
+									LayoutOrder = 1,
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									text = "Find a journey",
+									textRole = "heading",
+									TextWrapped = true,
+									TextYAlignment = Enum.TextYAlignment.Top,
+									TextXAlignment = Enum.TextXAlignment.Left,
+								}),
+								UI.TextInput({
+									LayoutOrder = 2,
+									Name = "Search",
 									value = query,
 									presentation = "search",
 									placeholder = "Search journeys",
-									submitLabel = "search",
-									env = env,
 								}),
 							}),
-							UI.focusSection(
-								UI.VStack("Results")({
-									width = UI.fill(),
-									gap = "s",
-
-									UI.Text("ResultsHeading")({
-										text = function(use)
-											return if use(query) == "" then "Suggested journeys" else "Search results"
-										end,
-										width = UI.fill(),
-										textSize = "heading",
-									}),
-									UI.ForEach("Matches")({
-										Compose.keyed({
-											from = matches,
-											key = function(item)
-												return item.id
-											end,
-											render = function(item)
-												local id = item:peek().id
-												return UI.Button("Result-" .. id)({
-													label = function(use)
-														return use(item).label
-													end,
-													width = UI.fill(),
-													onActivate = function()
-														destination:set(id)
-														push({ id = "details" })
-													end,
-												})
-											end,
-										}),
-									}),
-									UI.When("Empty")({
-										Compose.show(function(use)
-											return #use(matches) == 0
-										end, function()
-											return UI.Text({
-												text = "No journeys found. Try another name or clear search.",
-												width = UI.fill(),
-											})
-										end),
-									}),
+							Host.Frame({
+								LayoutOrder = 2,
+								Name = "Results",
+								BackgroundTransparency = 1,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Host.UIListLayout({
+									FillDirection = Enum.FillDirection.Vertical,
+									SortOrder = Enum.SortOrder.LayoutOrder,
+									Padding = UDim.new(0, 8),
 								}),
-								{ entry = "restore" }
-							),
-						})
+								UI.Text "ResultsHeading" {
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									text = function(use)
+										return if use(query) == "" then "Suggested journeys" else "Search results"
+									end,
+									textRole = "heading",
+									TextWrapped = true,
+									TextYAlignment = Enum.TextYAlignment.Top,
+									TextXAlignment = Enum.TextXAlignment.Left,
+								},
+								Compose.OrderedCollection({
+									from = matches,
+									key = function(item)
+										return item.id
+									end,
+									render = function(item)
+										local id = item:peek().id
+										return UI.Button({
+											Name = "Result-" .. id,
+											row = {
+												title = function(use)
+													return use(item).label
+												end,
+											},
+											onActivate = function()
+												destination:set(id)
+												push({ id = "details" })
+											end,
+										})
+									end,
+								}),
+								Host.Frame "Empty" {
+									BackgroundTransparency = 1,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									Compose.show(function(use)
+										return #use(matches) == 0
+									end, function()
+										return UI.Text({
+											BackgroundTransparency = 1,
+											BorderSizePixel = 0,
+											Size = UDim2.new(1, 0, 0, 0),
+											AutomaticSize = Enum.AutomaticSize.Y,
+											text = "No journeys found. Try another name or clear search.",
+											TextWrapped = true,
+											TextYAlignment = Enum.TextYAlignment.Top,
+											TextXAlignment = Enum.TextXAlignment.Left,
+										})
+									end),
+								},
+							}),
+						}
 						return page({
 							UI.Text({
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								text = "Choose a destination. Your choices stay with you when you go back.",
-								width = UI.fill(),
+								textRole = "caption",
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
 							searchLayout,
-							UI.Button("Continue")({
+							UI.Button "Continue" {
 								label = "Plan details",
+								appearance = "emphasis",
 								onActivate = function()
 									push({ id = "details" })
 								end,
-							}),
+							},
 						})
 					end,
 				},
@@ -158,76 +248,220 @@ return {
 						title = "Journey details",
 						content = function()
 							return page({
-								UI.AdaptiveStack("Columns")({
-									axis = axis,
-									gap = "m",
-									width = UI.fill(),
-
-									UI.VStack("Summary")({
-										width = UI.fill(),
-										gap = "s",
-
-										UI.HStack("Baseline")({
-											align = alignment,
-											gap = "s",
-											width = UI.fill(),
-
-											UI.Text("Label")({ text = "Days", textSize = "caption" }),
-											UI.Text("Value")({ text = "3", textSize = "title" }),
-											UI.Spacer("FlexibleGap")({ minLength = minimum }),
-											UI.Text("Unit")({ text = "away", textSize = "body" }),
+								Host.Frame "Columns" {
+									BackgroundTransparency = 1,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									Host.UIListLayout({
+										FillDirection = Enum.FillDirection.Vertical,
+										SortOrder = Enum.SortOrder.LayoutOrder,
+										Padding = UDim.new(0, 16),
+									}),
+									Host.Frame({
+										LayoutOrder = 1,
+										Name = "Summary",
+										BackgroundTransparency = 1,
+										Size = UDim2.new(1, 0, 0, 0),
+										AutomaticSize = Enum.AutomaticSize.Y,
+										Host.UIListLayout({
+											FillDirection = Enum.FillDirection.Vertical,
+											SortOrder = Enum.SortOrder.LayoutOrder,
+											Padding = UDim.new(0, 8),
 										}),
-										UI.HStack("LastBaseline")({
-											width = UI.fill(),
-											wrap = true,
-											align = "lastTextBaseline",
-											gap = "s",
-
-											UI.Text({ text = "Travel light", textSize = "heading" }),
-											UI.Text({ text = "and enjoy the view", textSize = "caption" }),
+										Host.Frame({
+											LayoutOrder = 1,
+											Name = "Baseline",
+											BackgroundTransparency = 1,
+											Size = UDim2.new(1, 0, 0, 0),
+											AutomaticSize = Enum.AutomaticSize.Y,
+											Host.UIListLayout({
+												FillDirection = Enum.FillDirection.Horizontal,
+												SortOrder = Enum.SortOrder.LayoutOrder,
+												Padding = UDim.new(0, 8),
+											}),
+											UI.Text({
+												LayoutOrder = 1,
+												Name = "Label",
+												BackgroundTransparency = 1,
+												BorderSizePixel = 0,
+												Size = UDim2.new(1, 0, 0, 0),
+												AutomaticSize = Enum.AutomaticSize.Y,
+												text = "Days",
+												textRole = "caption",
+												TextWrapped = true,
+												TextYAlignment = Enum.TextYAlignment.Top,
+												TextXAlignment = Enum.TextXAlignment.Left,
+											}),
+											UI.Text({
+												LayoutOrder = 2,
+												Name = "Value",
+												BackgroundTransparency = 1,
+												BorderSizePixel = 0,
+												Size = UDim2.new(1, 0, 0, 0),
+												AutomaticSize = Enum.AutomaticSize.Y,
+												text = "3",
+												textRole = "title",
+												TextWrapped = true,
+												TextYAlignment = Enum.TextYAlignment.Top,
+												TextXAlignment = Enum.TextXAlignment.Left,
+											}),
+											Host.Frame({
+												LayoutOrder = 3,
+												Name = "FlexibleGap",
+												BackgroundTransparency = 1,
+												Size = UDim2.new(0, 0, 0, 0),
+												AutomaticSize = Enum.AutomaticSize.XY,
+											}),
+											UI.Text({
+												LayoutOrder = 4,
+												Name = "Unit",
+												BackgroundTransparency = 1,
+												BorderSizePixel = 0,
+												Size = UDim2.new(1, 0, 0, 0),
+												AutomaticSize = Enum.AutomaticSize.Y,
+												text = "away",
+												textRole = "body",
+												TextWrapped = true,
+												TextYAlignment = Enum.TextYAlignment.Top,
+												TextXAlignment = Enum.TextXAlignment.Left,
+											}),
+										}),
+										Host.Frame({
+											LayoutOrder = 2,
+											Name = "LastBaseline",
+											BackgroundTransparency = 1,
+											Size = UDim2.new(1, 0, 0, 0),
+											AutomaticSize = Enum.AutomaticSize.Y,
+											Host.UIListLayout({
+												FillDirection = Enum.FillDirection.Horizontal,
+												SortOrder = Enum.SortOrder.LayoutOrder,
+												Padding = UDim.new(0, 8),
+												Wraps = true,
+											}),
+											UI.Text({
+												LayoutOrder = 1,
+												BackgroundTransparency = 1,
+												BorderSizePixel = 0,
+												Size = UDim2.new(1, 0, 0, 0),
+												AutomaticSize = Enum.AutomaticSize.Y,
+												text = "Travel light",
+												textRole = "heading",
+												TextWrapped = true,
+												TextYAlignment = Enum.TextYAlignment.Top,
+												TextXAlignment = Enum.TextXAlignment.Left,
+											}),
+											UI.Text({
+												LayoutOrder = 2,
+												BackgroundTransparency = 1,
+												BorderSizePixel = 0,
+												Size = UDim2.new(1, 0, 0, 0),
+												AutomaticSize = Enum.AutomaticSize.Y,
+												text = "and enjoy the view",
+												textRole = "caption",
+												TextWrapped = true,
+												TextYAlignment = Enum.TextYAlignment.Top,
+												TextXAlignment = Enum.TextXAlignment.Left,
+											}),
 										}),
 									}),
-									UI.VStack("Writing")({
-										width = UI.fill(),
-										gap = "s",
-										UI.Text({ text = "Your notes" }),
-										UI.TextInput("Notes")({ value = notes, multiline = true, env = env }),
+									Host.Frame({
+										LayoutOrder = 2,
+										Name = "Writing",
+										BackgroundTransparency = 1,
+										Size = UDim2.new(1, 0, 0, 0),
+										AutomaticSize = Enum.AutomaticSize.Y,
+										Host.UIListLayout({
+											FillDirection = Enum.FillDirection.Vertical,
+											SortOrder = Enum.SortOrder.LayoutOrder,
+											Padding = UDim.new(0, 8),
+										}),
+										UI.Text({
+											LayoutOrder = 1,
+											BackgroundTransparency = 1,
+											BorderSizePixel = 0,
+											Size = UDim2.new(1, 0, 0, 0),
+											AutomaticSize = Enum.AutomaticSize.Y,
+											text = "Your notes",
+											TextWrapped = true,
+											TextYAlignment = Enum.TextYAlignment.Top,
+											TextXAlignment = Enum.TextXAlignment.Left,
+										}),
+										UI.TextInput({
+											LayoutOrder = 2,
+											Name = "Notes",
+											value = notes,
+											multiline = true,
+										}),
 									}),
-								}),
-								UI.Button("Review")({
+								},
+								UI.Button "Review" {
 									label = "Review journey",
 									onActivate = function()
 										push({ id = "review", value = destination:peek() })
 									end,
-								}),
+								},
 							})
 						end,
 					},
 					review = {
 						title = "Ready to go",
-						content = function(_, entry)
+						content = function(entry)
 							return page({
 								UI.Text({
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
 									text = "Destination: " .. tostring(entry.value),
-									textSize = "heading",
-									width = UI.fill(),
+									textRole = "heading",
+									TextWrapped = true,
+									TextYAlignment = Enum.TextYAlignment.Top,
+									TextXAlignment = Enum.TextXAlignment.Left,
 								}),
-								UI.Text({ text = notes, width = UI.fill() }),
-								UI.Button("StartAgain")({
+								UI.Text({
+									BackgroundTransparency = 1,
+									BorderSizePixel = 0,
+									Size = UDim2.new(1, 0, 0, 0),
+									AutomaticSize = Enum.AutomaticSize.Y,
+									text = notes,
+									TextWrapped = true,
+									TextYAlignment = Enum.TextYAlignment.Top,
+									TextXAlignment = Enum.TextXAlignment.Left,
+								}),
+								UI.Button "StartAgain" {
 									label = "Back to the beginning",
 									onActivate = function()
 										popToRoot()
 									end,
-								}),
+								},
 							})
 						end,
 					},
 				},
-			})
+			}
 		end
 		return {
 			screen = function()
-				return UI.Screen("NavigationFlow")({ surface = "base", journey() })
+				local root = Host.Frame "NavigationFlow" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 8),
+						PaddingBottom = UDim.new(0, 12),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
+					journey(),
+				}
+				local function measure()
+					measuredWidth:set(root.AbsoluteSize.X)
+				end
+				measure()
+				local connection = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+				Compose.cleanup(function()
+					connection:Disconnect()
+				end)
+				return root
 			end,
 			steps = {
 				search = function()

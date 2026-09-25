@@ -1,71 +1,11 @@
 --!strict
--- ============================================================================
--- Example 6 of the Facet tutorial: a crossword tile game.
--- ============================================================================
---
--- WHAT THE PLAYER DOES
---   Seven letter tiles, six turns, a 7x7 board with a starred centre square,
---   and sixty points to reach. Pick a rack tile, tap a square, repeat, then
---   press "Submit word". The first turn has to cover the star; every turn after
---   that has to touch a letter already on the board; every word a turn creates
---   — the run along the turn's own axis AND every crossing word a placed tile
---   now sits inside — has to be in the shared dictionary. Reach sixty before the
---   turns run out and you win; run out first and you do not.
---
--- WHAT THIS REPLACED, AND WHY
---   The loop here used to be "drop any rack tile into any empty box" on a 5x5
---   grid: no dictionary, no adjacency, no word, and a win condition that was
---   simply an empty rack. It taught `UI.Grid` and nothing about a game. The
---   scaffolding survived the rewrite; the domain did not.
---
--- WHAT THIS EXAMPLE TEACHES
---   * DOMAIN RULES BELONG TO THE EXAMPLE, and they are PURE. `example.rules`
---     below is a board plus a placement in, a verdict out — no signal, no
---     presenter, no engine — which is what makes every rule in this file and
---     every refusal it can produce a headless test, and it is what keeps the
---     crossword out of `src/`. A user-interface library has no opinion about
---     English. See tests/example_tile_game.spec.luau.
---   * REFUSAL IS FEEDBACK, WITH THE EXACT PROBLEM NAMED. Nine distinct
---     refusals, nine distinct sentences, and a refused submit CHANGES NOTHING —
---     every placed tile stays where it is, so the player moves one tile rather
---     than starting the turn over. A rule that silently does nothing is
---     indistinguishable from a broken button.
---   * A BOARD IS ONE `UI.Grid`. 49 squares, one container, and the focus map
---     turns the Grid's focusables into per-row horizontal groups linked by
---     up/down exits — so a D-pad or the arrow keys cross the board with no
---     consumer navigation map. Select-then-place then works identically from a
---     mouse, a fingertip, a keyboard and a gamepad with NO per-device branch.
---   * EVERY CELL PAINTS SOMETHING. An empty square is chrome, not absence: its
---     plate is a `tint` along a role the palette contract contrast-gates, and
---     tests/example_tile_game.spec.luau measures all 49 of them against the page
---     they sit on in every shipped theme. `surfaceStrong` — the obvious choice,
---     and the one the sibling word game shipped for a mission — is the PANEL
---     colour, which every theme deliberately keeps within a few percent of the
---     page: 1.036:1 under Sci-Fi HUD, thirty rectangles present in the tree and
---     absent from the screen.
---   * COMMITTED VERSUS UNCOMMITTED IS NOT A COLOUR. A committed letter wears the
---     theme's solid `raised` plate; an uncommitted one wears its outlined `chip`
---     plate and carries a `~` mark. Both cues survive a greyscale screen.
---
--- Everything runs headless: no engine calls, so the same file drives the tests
--- and a real Roblox client unchanged.
---
--- ctx used: app (mounts the screen), actionSystem (the hardware-letter
--- convenience). `build(ctx)` is the shape every example shares.
---
--- data used: `./words`, the shared generated English word data both word games
--- run on. It is EXAMPLE CONTENT, not framework code — `src/` does not know it
--- exists — and its provenance is `words/PROVENANCE.md`.
 
 local words = require("./words")
 
+type Use = (any) -> any
+
 local example = {}
 example.title = "Crossword (Scrabble-style)"
-
--- ===========================================================================
--- THE PURE RULES — no UI, no engine, no signals. Exported as `example.rules`
--- so the tests can play a whole turn without mounting a screen.
--- ===========================================================================
 
 local SIZE = 7
 local CENTRE = 4
@@ -87,14 +27,10 @@ rules.BONUS_TILES = BONUS_TILES
 rules.BONUS = BONUS
 rules.DEFAULT_SEED = DEFAULT_SEED
 rules.DEAL_ATTEMPTS = DEAL_ATTEMPTS
--- The two the dictionary owns, restated as the game's own limits so a caller
--- never has to know which module answers "how long may a word be".
+
 rules.MIN_WORD = words.MIN_LENGTH
 rules.MAX_WORD = words.MAX_LENGTH
 
--- THE FAMILIAR ENGLISH DISTRIBUTION, values and counts, because a player
--- already knows that Z is worth more than E and does not need to be taught it.
--- Anything else here would be a rule to learn before the first move.
 rules.VALUES = table.freeze({
 	A = 1,
 	B = 3,
@@ -124,10 +60,6 @@ rules.VALUES = table.freeze({
 	Z = 10,
 })
 
--- The bag, as an ordered list of { letter, count }. 98 tiles: the familiar set
--- minus its two blanks, which §8 of the design rules out because a blank is a
--- rule the player has to learn before the first move. Order is fixed so the
--- shuffle is the ONLY source of variation and a seed replays exactly.
 rules.DISTRIBUTION = table.freeze({
 	{ "A", 9 },
 	{ "B", 2 },
@@ -155,20 +87,8 @@ rules.DISTRIBUTION = table.freeze({
 	{ "X", 1 },
 	{ "Y", 2 },
 	{ "Z", 1 },
-})
+} :: { { string | number } })
 
---[[ THE NINE REFUSALS, VERBATIM.
-
-	Each is a distinct case in tests/example_tile_game.spec.luau, and each one is
-	a SENTENCE about the board rather than a code the player has to decode. The
-	two that name a word are functions below, because the word is the whole
-	content of the message.
-
-	`long` is unreachable through ordinary play and is here anyway: the board is
-	seven wide, so a run cannot exceed the dictionary's seven-letter ceiling —
-	but a game that hit it would otherwise call a real word "unknown", which is
-	the one thing this list exists to prevent. `rules.wordVerdict` is the seam,
-	and the spec drives it directly. ]]
 rules.SAY = table.freeze({
 	centre = "Your first word has to cover the starred centre square.",
 	axis = "The tiles you place in a turn go in a single row or a single column.",
@@ -178,15 +98,11 @@ rules.SAY = table.freeze({
 	occupied = "That square already has a letter.",
 	committed = "Letters from an earlier turn stay put.",
 	long = "This game only knows words up to seven letters long.",
-	-- ...and the two the play audit asked for on the sibling example, which are
-	-- not refusals of a RULE but of an action that has no meaning yet
+
 	nothingHeld = "Pick a letter from your rack first, then choose a square.",
 	nothingPlaced = "Nothing to undo — you have not placed a tile this turn.",
 })
 
--- A GUARD, NOT A COMMENT. `SAY.long` spells "seven" as a word because that is
--- how the sentence reads; a dictionary regenerated at a different ceiling would
--- otherwise leave the game telling the player a number that is no longer true.
 assert(rules.MAX_WORD == 7, "06_tile_game: SAY.long spells the seven-letter ceiling out; the dictionary moved")
 
 function rules.sayUnknown(word: string): string
@@ -210,9 +126,6 @@ function rules.onBoard(r: number, c: number): boolean
 	return r >= 1 and r <= SIZE and c >= 1 and c <= SIZE
 end
 
---[[ A tiny deterministic PRNG (the classic Lehmer/Park-Miller generator), the
-	same one 07_match3 refills its board from. Seeding it identically replays the
-	exact same shuffle, which is what lets a test assert an exact final board. ]]
 function rules.makeRng(seed: number): () -> number
 	local state = math.floor(seed) % 2147483647
 	if state <= 0 then
@@ -224,8 +137,6 @@ function rules.makeRng(seed: number): () -> number
 	end
 end
 
--- The whole bag, shuffled. Fisher-Yates from the back, so one draw of the
--- generator moves one tile and the sequence is reproducible per seed.
 function rules.newBag(rng: () -> number): { string }
 	local bag: { string } = {}
 	for _, entry in rules.DISTRIBUTION do
@@ -240,16 +151,6 @@ function rules.newBag(rng: () -> number): { string }
 	return bag
 end
 
---[[ IS THERE A FIRST MOVE IN THIS RACK?
-
-	The opening turn has to lay a word across the centre of an empty board, so
-	the question is exactly "does some ordering of some subset of these letters
-	spell a word the dictionary knows". Depth-first over the arrangements, asking
-	at every depth of two or more, so the overwhelmingly common case (a two-letter
-	word — there are 93 of them) is answered in a few dozen lookups rather than
-	the 13,692-arrangement worst case.
-
-	Returns the word it found, so the deal can report what it guaranteed. ]]
 function rules.openingWord(rack: { string }): string?
 	local n = #rack
 	local used = table.create(n, false)
@@ -286,18 +187,6 @@ end
 
 export type Deal = { rack: { string }, bag: { string }, opening: string?, attempts: number }
 
---[[ THE GUARANTEED OPENING.
-
-	A deal whose rack spells nothing is a game that cannot start, and the player
-	cannot see that it is their deal rather than their reading. So the deal
-	CHECKS, and reshuffles from the SAME seeded stream when the check fails —
-	exactly the shape 07_match3's `deal()` already uses for its legal-move
-	guarantee, and bounded for the same reason: a pathological stream must not be
-	able to hang the mount.
-
-	The bound is honest about itself. If sixty-four shuffles never produce a
-	playable rack the last one is dealt anyway with `opening = nil`, because a
-	board the player can look at beats a mount that never returns. ]]
 function rules.deal(rng: () -> number): Deal
 	local bag: { string } = {}
 	local rack: { string } = {}
@@ -322,9 +211,6 @@ function rules.deal(rng: () -> number): Deal
 	return { rack = rack, bag = rest, opening = opening, attempts = attempts }
 end
 
--- "ok" | "long" | "unknown". The length case is SEPARATE from the lookup case
--- because the two are different sentences to a player: one is a limit of this
--- game, the other is a claim about the word.
 function rules.wordVerdict(word: string): string
 	if #word > rules.MAX_WORD then
 		return "long"
@@ -334,11 +220,6 @@ function rules.wordVerdict(word: string): string
 	end
 	return "ok"
 end
-
--- ---- reading the board -----------------------------------------------------
--- A board and a placement are both `{ [key]: letter }`. Two maps rather than
--- one, because "which of these letters may I still pick up" is a question the
--- rules answer constantly and a merged board could not.
 
 local STEPS = table.freeze({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } })
 
@@ -356,8 +237,6 @@ end
 
 rules.letterAt = letterAt
 
--- The unbroken run of letters through (r, c) along one axis, as its cells in
--- board order. A cell with nothing in it returns an empty run.
 function rules.runThrough(
 	board: { [string]: string },
 	placed: { [string]: string },
@@ -397,9 +276,6 @@ function rules.wordOf(
 	return table.concat(out)
 end
 
--- The placed cells in board order (row-major). The rules never depend on the
--- ORDER a player placed their tiles in — only on where they ended up — so every
--- verdict is a pure function of the two maps.
 function rules.placedCells(placed: { [string]: string }): { { r: number, c: number } }
 	local cells: { { r: number, c: number } } = {}
 	for r = 1, SIZE do
@@ -412,18 +288,6 @@ function rules.placedCells(placed: { [string]: string }): { { r: number, c: numb
 	return cells
 end
 
---[[ THE AXIS, AND THE ONE CASE THAT MAKES IT INTERESTING.
-
-	Two or more tiles fix an axis: they share a row or they share a column, and
-	if they share neither the turn is refused. ONE tile fixes nothing — the
-	player has not said which way they are building yet — so the axis is read off
-	the BOARD instead: a lone tile that extends a column and not a row is a
-	column word, and anything else (including a lone tile at a crossing, and a
-	lone tile on an empty board) is read across. Both runs are still validated;
-	this only decides which one is called the main word and which is called a
-	crossing.
-
-	Returns nil when the tiles are neither collinear form. ]]
 function rules.axisOf(
 	board: { [string]: string },
 	placed: { [string]: string },
@@ -472,14 +336,6 @@ local function refuse(code: string, message: string, word: string?): Verdict
 	return { ok = false, code = code, message = message, word = word }
 end
 
---[[ validate(board, placed, turn) -> Verdict.
-
-	THE ORDER OF THE CHECKS IS ITSELF A PRODUCT DECISION: the shape of what the
-	player just did first (nothing placed, not in a line, a hole in the run),
-	then the board rules that make a turn legal at all (the centre, the
-	connection), and only then the dictionary. A player who has scattered three
-	tiles across the board is told about the scatter, not about the nonsense word
-	the scatter happens to spell. ]]
 function rules.validate(board: { [string]: string }, placed: { [string]: string }, turn: number): Verdict
 	local cells = rules.placedCells(placed)
 	if #cells == 0 then
@@ -496,8 +352,6 @@ function rules.validate(board: { [string]: string }, placed: { [string]: string 
 		return refuse("axis", rules.SAY.axis)
 	end
 
-	-- ONE UNBROKEN RUN: every square between the first and last tile of the turn
-	-- is filled, by this turn's tiles or by letters already on the board.
 	local line = if axis == "row" then cells[1].r else cells[1].c
 	local lo, hi = math.huge, -math.huge
 	for _, cell in cells do
@@ -536,11 +390,6 @@ function rules.validate(board: { [string]: string }, placed: { [string]: string 
 		end
 	end
 
-	-- EVERY WORD THE TURN CREATED. The main run first — the full line along the
-	-- turn's axis INCLUDING committed letters at either end — and then the
-	-- perpendicular run through each placed tile that is now longer than one
-	-- letter. A single tile dropped between two committed words makes three
-	-- words, and all three have to be real.
 	local made: { Made } = {}
 	local function add(cellsOf: { { r: number, c: number } }, wordAxis: string, crossing: boolean): Verdict?
 		local word = rules.wordOf(board, placed, cellsOf)
@@ -578,9 +427,6 @@ function rules.validate(board: { [string]: string }, placed: { [string]: string 
 		end
 	end
 
-	-- THE SCORE: every letter in every word, once per word it appears in — a
-	-- letter at a crossing is paid for twice because it is doing two jobs — plus
-	-- ten for emptying five or more of the rack in one turn.
 	local total = 0
 	for _, entry in made do
 		total += entry.score
@@ -601,16 +447,6 @@ function rules.validate(board: { [string]: string }, placed: { [string]: string 
 	}
 end
 
---[[ THE CELLS THAT COULD STILL TAKE A TILE.
-
-	Before the axis is locked, that is every empty square touching a letter —
-	committed or placed this turn — plus the starred centre on the opening turn.
-	Once two tiles have named a row or a column, it is the empty squares on that
-	line, because everything else would break the single-line rule the next
-	submit is going to check anyway.
-
-	It is derived, never stored: a legal-cell set kept in a signal is a second
-	copy of the rules that can disagree with the first. ]]
 function rules.legalCells(
 	board: { [string]: string },
 	placed: { [string]: string },
@@ -650,67 +486,19 @@ end
 
 example.rules = rules
 
--- ===========================================================================
--- PRESENTATION VOCABULARY — every value below names a THEME role or a theme
--- metric. There is not a raw colour or a device pixel in this file.
--- ===========================================================================
-
---[[ A SQUARE IS A FLOOR, NOT A CAP, and on this board it is also what makes a
-	seven-wide grid fit a 320px phone.
-
-	`targetSizes.minimum` is the theme's own smallest comfortable target, and
-	`minMax` with it as the MIN lets the square grow with the player's text-size
-	preference instead of clipping the letter inside it (the defect class
-	of a px height fixed against unfixed content). `itemSizing = "uniform"` then
-	makes the Grid hug seven of them where there is room — 7 x 44 + 6 gaps = 332
-	on a tablet, a desktop and a TV — and DIVIDE the offer where there is not:
-	the narrowest supported viewport (320x640) has 288px of page, so the lanes
-	come out at 37 and the framework's own minimum-target expander keeps the tap
-	band at 44. Measured both ways; a fixed px square would simply have painted
-	44px off the right of that screen. ]]
-local CELL: any = { type = "minMax", min = "targetSizes.minimum" }
-local FILL: any = { type = "fill", weight = 1 }
-
---[[ CELL STATE -> the continuous colour channel, as a blend along a theme role.
-
-	WHY NOT `surfaceStrong`, WHICH IS THE OBVIOUS CHOICE. It is the PANEL colour,
-	and every shipped theme deliberately keeps a panel within a few percent of
-	the page it sits on: measured across all fifteen themes in `examples/themes`,
-	`{ role = "surfaceStrong", blend = 0.6 }` reaches 1.036:1 against the page
-	under Sci-Fi HUD and never better than 1.223:1 anywhere. That is a board of
-	forty-nine rectangles that is perfectly present in the tree, correct in every
-	property probe, and not on the screen — the failure
-	a default-valued write produces, and the one the
-	sibling word game shipped for a whole mission.
-
-	`contentSecondary` and `accent` are both contrast-gated against `surface` by
-	the palette contract, so a small blend along either is a plate a player can
-	actually see in every theme. tests/example_tile_game.spec.luau measures all
-	five states in all fifteen themes and pins a 1.25:1 floor. ]]
 local CELL_TINT: { [string]: any } = {
-	-- an empty square with nothing to do yet: quiet, and still a square
+
 	idle = { role = "contentSecondary", blend = 0.2 },
-	-- an empty square this turn could still use
+
 	legal = { role = "accent", blend = 0.3 },
-	-- the starred centre, before anything covers it
+
 	centre = { role = "accent", blend = 0.3 },
-	-- a letter placed this turn and not yet committed
+
 	pending = { role = "accent", blend = 0.6 },
-	-- a letter from an earlier turn: settled, and no longer the player's to move
+
 	committed = { role = "contentSecondary", blend = 0.5 },
 }
 
---[[ ...AND THE STRUCTURE, which is the cue that survives a greyscale screen.
-
-	`chip` is the theme's own small OUTLINED plate and `raised` is its solid
-	panel, both drawn by the theme's chrome rules rather than by this file. So
-	"is this letter mine to move" is a BORDER against a FILL, not two shades of
-	one colour — the same ruling the word game's active row is under.
-
-	WRITTEN AS LITERAL `surface` VALUES, which is not an accident: an enum prop
-	accepts any string and silently paints nothing when it is not a member, and spelled this way
-	`tools/lune/check_example_drift` checks every one of them against the Box
-	surface enum the renderer actually resolves. ]]
 local CELL_SURFACE: { [string]: string } = {
 	idle = "plain",
 	legal = "plain",
@@ -719,25 +507,30 @@ local CELL_SURFACE: { [string]: string } = {
 	committed = "raised",
 }
 
--- ...and the same facts a THIRD time, without colour and without chrome. Plain
--- ASCII, because ASCII is the only range every Roblox font is guaranteed to
--- draw (the rule the framework's own icon fallbacks follow).
 local CELL_MARK: { [string]: string } = {
 	idle = "",
 	legal = "+",
-	centre = "*",
+	centre = "★",
 	pending = "~",
 	committed = "",
 }
 
--- ===========================================================================
-
 function example.build(ctx: any)
-	local UI, Compose, app = ctx.UI, ctx.Compose, ctx.app
-	local pres = app.presenter
-	local actions = ctx.actionSystem
-	-- Game state and hardware input survive view branches and result overlays.
-	-- Only this model boundary owns a Core scope; view calculations belong to ui.
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
+	local function paletteColor(use: any, role: string): Color3
+		local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
+		local mode = if ctx.themeMode then use(ctx.themeMode) else package.style.defaultTheme
+		local chosen = package.style.themes[1]
+		for _, candidate in package.style.themes do
+			if candidate.name == mode then
+				chosen = candidate
+			end
+		end
+		local rgb = chosen.colors[role] or (chosen.extra or {})[role] or chosen.colors.content
+		return Color3.new(rgb.r, rgb.g, rgb.b)
+	end
+
 	local seedSig = Compose.cell(DEFAULT_SEED)
 	local boardSig = Compose.cell({} :: { [string]: string })
 	local pendingSig = Compose.cell({} :: { [string]: string })
@@ -767,7 +560,7 @@ function example.build(ctx: any)
 		for i = 1, RACK_SIZE do
 			rack[i] = dealt.rack[i]
 		end
-		app.runtime:batch(function()
+		ctx.runtime:batch(function()
 			seedSig:set(nextSeed)
 			boardSig:set({})
 			pendingSig:set({})
@@ -787,7 +580,7 @@ function example.build(ctx: any)
 		if rackSig:peek()[slot] == nil then
 			return
 		end
-		app.runtime:batch(function()
+		ctx.runtime:batch(function()
 			selectedSig:set(if selectedSig:peek() == slot then nil else slot)
 			noticeSig:set("")
 		end)
@@ -815,7 +608,7 @@ function example.build(ctx: any)
 				rack[origin[key]] = pendingLetter
 				pending[key] = nil
 				origin[key] = nil
-				app.runtime:batch(function()
+				ctx.runtime:batch(function()
 					rackSig:set(rack)
 					pendingSig:set(pending)
 					originSig:set(origin)
@@ -840,7 +633,7 @@ function example.build(ctx: any)
 		rack[slot] = nil
 		pending[key] = letter
 		origin[key] = slot
-		app.runtime:batch(function()
+		ctx.runtime:batch(function()
 			rackSig:set(rack)
 			pendingSig:set(pending)
 			originSig:set(origin)
@@ -862,7 +655,7 @@ function example.build(ctx: any)
 		for key, letter in pending do
 			rack[origin[key]] = letter
 		end
-		app.runtime:batch(function()
+		ctx.runtime:batch(function()
 			rackSig:set(rack)
 			pendingSig:set({})
 			originSig:set({})
@@ -900,7 +693,7 @@ function example.build(ctx: any)
 		elseif nextTurn > TURNS then
 			phase = "lost"
 		end
-		app.runtime:batch(function()
+		ctx.runtime:batch(function()
 			boardSig:set(nextBoard)
 			pendingSig:set({})
 			originSig:set({})
@@ -921,9 +714,7 @@ function example.build(ctx: any)
 	local hintText: any
 	local cellStateOf: { [string]: any } = {}
 	local function Crossword()
-		-- Custom board/keyboard hit targets use UI.Button for surface and
-		-- compact glyph sizing; ordinary actions use UI.Button.
-		turnsLeft = Compose.formula(function(use)
+		turnsLeft = Compose.formula(function(use: Use)
 			return math.max(0, TURNS - (use(turnSig) - 1))
 		end)
 		scoreText = Compose.formula(function(use)
@@ -933,25 +724,25 @@ function example.build(ctx: any)
 			local left = use(turnsLeft)
 			return `{left} {if left == 1 then "turn" else "turns"} left`
 		end)
-		verdictSig = Compose.formula(function(use)
+		verdictSig = Compose.formula(function(use: Use): Verdict?
 			local pending = use(pendingSig)
 			if next(pending) == nil then
 				return nil
 			end
 			return rules.validate(use(boardSig), pending, use(turnSig))
 		end)
-		wordText = Compose.formula(function(use)
+		wordText = Compose.formula(function(use: Use)
 			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
 			end
-			local verdict = use(verdictSig)
+			local verdict: Verdict? = use(verdictSig)
 			if verdict == nil then
 				return "No tiles placed this turn."
 			end
 			return verdict.message
 		end)
-		hintText = Compose.formula(function(use)
+		hintText = Compose.formula(function(use: Use)
 			local phase = use(phaseSig)
 			if phase == "won" then
 				return `You reached {use(scoreSig)} points in {use(turnSig) - 1} of {TURNS} turns — you win! `
@@ -968,12 +759,15 @@ function example.build(ctx: any)
 			end
 			return "Pick a letter from your rack, then choose a square."
 		end)
-		local cells: { any } = { columns = SIZE, itemSizing = "uniform", gap = "xs", rowGap = "xs" }
+		local function narrow()
+			return Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) })
+		end
+		local cells: { any } = { columns = SIZE, gap = "xs", aspectRatio = 1, narrow() }
 		for r = 1, SIZE do
 			for c = 1, SIZE do
 				local rr, cc = r, c
 				local key = rules.key(r, c)
-				local state = Compose.formula(function(use)
+				local state = Compose.formula(function(use: Use)
 					if use(pendingSig)[key] ~= nil then
 						return "pending"
 					end
@@ -1001,35 +795,56 @@ function example.build(ctx: any)
 				table.insert(
 					cells,
 					UI.ZStack(`cell{r}_{c}`)({
-						width = CELL,
-						height = CELL,
-						alignH = "center",
-						alignV = "center",
-						UI.Box("plate")({ width = FILL, height = FILL, tint = tint, surface = surface }),
-						UI.Text("mark")({
-							text = mark,
-							textSize = "caption",
-							role = "secondary",
-							alignH = "end",
-							alignV = "end",
-						}),
-						UI.Button("tap")({
-							label = label,
-							surface = "plain",
-							padding = 0,
-							width = FILL,
-							height = FILL,
-							textSize = "control",
+						width = 44,
+						height = 44,
+						UI.Text "mark" { text = mark, textRole = "caption" },
+						UI.Button "tap" {
+							Size = UDim2.fromScale(1, 1),
+							label = function(use: Use)
+								return use(label) .. use(mark)
+							end,
+							name = function(use)
+								local letter = use(label)
+								local base = if letter ~= ""
+									then `Row {r}, column {c}, {letter}`
+									else `Row {r}, column {c}`
+								local current = use(state)
+								return if current == "pending"
+									then base .. ", not submitted"
+									elseif current == "centre" then base .. ", start square"
+									else base
+							end,
+							BackgroundColor3 = function(use)
+								local cellTint = use(tint)
+								return paletteColor(use, "surface"):Lerp(
+									paletteColor(use, cellTint.role),
+									cellTint.blend
+								)
+							end,
+							TextColor3 = function(use)
+								return paletteColor(use, "contentStrong")
+							end,
+							TextSize = 16,
 							onActivate = function()
 								activateCell(rr, cc)
 							end,
-						}),
+							Host.UIStroke "Outline" {
+								ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+								Color = function(use)
+									return paletteColor(use, "contentStrong")
+								end,
+								Thickness = 2,
+								Enabled = function(use)
+									return use(surface) == CELL_SURFACE.pending
+								end,
+							},
+							Host.UIPadding {},
+						},
 					})
 				)
 			end
 		end
-		local board = UI.Grid("board")(cells)
-		local rackTiles: { any } = { columns = RACK_SIZE, itemSizing = "uniform", gap = "xs" }
+		local rackTiles: { any } = { columns = RACK_SIZE, gap = "xs", cellHeight = 48, narrow() }
 		for i = 1, RACK_SIZE do
 			local slot = i
 			local letter = Compose.formula(function(use)
@@ -1044,63 +859,56 @@ function example.build(ctx: any)
 			local isSelected = Compose.formula(function(use)
 				return use(selectedSig) == slot
 			end)
-			rackTiles[i] = UI.Button("rt" .. i)({
-				label = label,
-				enabled = enabled,
-				selected = isSelected,
-				width = CELL,
-				height = CELL,
-				textSize = "control",
-				onActivate = function()
-					selectSlot(slot)
-				end,
-			})
+			table.insert(
+				rackTiles,
+				UI.Button("rt" .. i)({
+					AutomaticSize = Enum.AutomaticSize.None,
+					label = label,
+					enabled = enabled,
+					selected = isSelected,
+					TextSize = 16,
+					onActivate = function()
+						selectSlot(slot)
+					end,
+				})
+			)
 		end
-		local rack = UI.Grid("rack")(rackTiles)
-		return UI.Screen("TileGame")({
-			surface = "base",
-			padding = "m",
-			UI.ScrollView("Page")({
-				axis = "y",
+		return UI.Screen "TileGame" {
+			UI.ScrollView "Page" {
 				gap = "s",
-				width = FILL,
-				height = FILL,
-				UI.Text("Title")({ text = "Facet Crossword", textSize = "title" }),
-				UI.Grid("Stats")({
-					minColumnWidth = "intrinsic",
+				align = "stretch",
+				UI.Text "Title" { text = "Facet Crossword", textRole = "title", TextWrapped = true },
+				UI.HStack "Stats" {
+					wrap = true,
+					gap = "m",
+					width = "fill",
+					UI.Text "Score" { text = scoreText },
+					UI.Text "Progress" { text = progressText },
+				},
+				UI.Text "Hint" { text = hintText, TextWrapped = true },
+				UI.Text "Word" { text = wordText, TextWrapped = true },
+				UI.Grid "board"(cells),
+				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
+				UI.Grid "rack"(rackTiles),
+				UI.HStack "Actions" {
 					gap = "s",
-					width = FILL,
-					UI.Text("Score")({ text = scoreText, textSize = "numeral" }),
-					UI.Text("Progress")({
-						text = progressText,
-						textSize = "label",
-						role = "secondary",
-					}),
-				}),
-				UI.Text("Hint")({ text = hintText, textSize = "body", role = "secondary" }),
-				UI.Text("Word")({ text = wordText, textSize = "label" }),
-				board,
-				UI.Text("RackLabel")({ text = "Your rack", textSize = "label", role = "secondary" }),
-				rack,
-				UI.Grid("Actions")({
-					minColumnWidth = "intrinsic",
-					gap = "s",
-					width = FILL,
-					UI.Button("Submit")({ label = "Submit word", onActivate = submit }),
-					UI.Button("Undo")({ label = "Undo turn", onActivate = undo }),
-				}),
-				UI.Button("Reset")({
+					width = "fill",
+					UI.Button "Submit" { label = "Submit word", onActivate = submit, UI.fill() },
+					UI.Button "Undo" { label = "Undo turn", onActivate = undo, UI.fill() },
+				},
+				UI.Button "Reset" {
 					label = "Start over",
 					onActivate = function()
 						restart(DEFAULT_SEED)
 					end,
-				}),
-			}),
-		})
+				},
+			},
+		}
 	end
-	local close, _, handle = app.mount(Crossword)
+
 	local focusedCell = function(): (number?, number?)
-		local path = pres.focus.focused:peek()
+		local node = ctx.guiService and ctx.guiService.SelectedObject
+		local path = if node then node:GetFullName():gsub("%.", "/") else nil
 		if type(path) ~= "string" then
 			return nil, nil
 		end
@@ -1125,22 +933,34 @@ function example.build(ctx: any)
 		end
 		noticeSig:set(`There is no {letter} on your rack.`)
 	end
-	local input = actions.createContext({ name = "CrosswordInput", priority = 2000, sink = true })
+	local bindings = {}
 	for i = 0, 25 do
 		local letter = string.char(65 + i)
-		local action = input.createAction("Type_" .. letter, "Bool")
-		action.bind({ keyCode = letter })
-		action.onPressed(function()
-			typeLetter(letter)
-		end)
+		table.insert(
+			bindings,
+			Host.InputAction({
+				Name = "Type_" .. letter,
+				Type = Enum.InputActionType.Bool,
+				Pressed = function()
+					typeLetter(letter)
+				end,
+				Host.InputBinding({ KeyCode = Enum.KeyCode[letter] }),
+			})
+		)
 	end
+	Host.InputContext "CrosswordInput" {
+		Parent = ctx.inputTarget,
+		Priority = 2000,
+		Sink = true,
+		table.unpack(bindings),
+	}
+
 	return {
 		title = example.title,
-		handle = handle,
+		screen = Crossword,
 		rules = rules,
 		press = function(keyCode: string)
-			actions.deviceKey(keyCode, true)
-			actions.deviceKey(keyCode, false)
+			typeLetter(keyCode)
 		end,
 		select = selectSlot,
 		place = activateCell,
@@ -1254,10 +1074,7 @@ function example.build(ctx: any)
 		submitPath = "/TileGame/Page/Actions/Submit",
 		undoPath = "/TileGame/Page/Actions/Undo",
 		resetPath = "/TileGame/Page/Reset",
-		dispose = function()
-			input.destroy()
-			close()
-		end,
+		dispose = function() end,
 	}
 end
 return example

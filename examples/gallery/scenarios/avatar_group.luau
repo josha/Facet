@@ -1,9 +1,9 @@
 --!strict
--- A manual gallery transport uses an existing picture, not a simulated headshot fetch.
+
 local function initialMembers()
 	return {
-		{ id = "ada", name = "Ada Quill", key = "portrait-a", presence = "online" },
-		{ id = "bo", name = "Bo Lane", key = "portrait-b", presence = "away" },
+		{ id = "ada", name = "Ada Quill", image = "rbxassetid://75342910516929", presence = "online" },
+		{ id = "bo", name = "Bo Lane", image = "rbxassetid://75342910516929", presence = "away" },
 		{ id = "noel", name = "Émile Noël", presence = "busy" },
 		{ id = "cote", name = "Côte 東京", presence = "offline" },
 		{ id = "kai", name = "Kai North" },
@@ -15,42 +15,19 @@ return {
 	ledgerRows = {},
 	build = function(ctx: any)
 		local UI, Compose = ctx.UI, ctx.Compose
-		local provider, release = ctx.app.newResourceProvider({ bind = false })
+		local Host = ctx.Host
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local items, variant = Compose.cell(initialMembers()), Compose.cell("stacked")
 		local size, activations = Compose.cell("regular"), Compose.cell(0)
-		local rootPath, controller, record
-		local function complete()
-			for _, request in provider.pendingRequests() do
-				provider.complete(request.key, request.generation, "rbxassetid://75342910516929")
-			end
-		end
+		local record
 		local function report()
-			if not rootPath or not controller or not record then
-				return nil
-			end
-			ctx.presenter.refresh()
-			local path = rootPath .. "/Variant/[" .. variant:peek() .. "]/Team"
-			local dump = record.dump()
-			local faces, readyImages = {}, 0
-			for _, id in dump.shown do
-				for _, member in items:peek() do
-					if member.id == id then
-						local source = if member.key then "key:" .. member.key else "initials"
-						local face = path .. "/Members/[" .. id .. "]/" .. id .. "/Source/[" .. source .. "]/Face"
-						faces[id] = controller.rectOf(face)
-						if controller.rectOf(face .. "/Picture/then/Picture") then
-							readyImages += 1
-						end
-					end
-				end
-			end
 			return {
-				group = dump,
-				rect = controller.rectOf(path),
-				faces = faces,
-				overflowRect = controller.rectOf(path .. "/Overflow/then/More+target/More"),
-				imageBranches = readyImages,
-				providerHandles = provider.counters().handles,
+				count = #items:peek(),
+				hidden = math.max(0, #items:peek() - 4),
+				variant = variant:peek(),
+				controlSize = size:peek(),
 				activations = activations:peek(),
 			}
 		end
@@ -86,7 +63,9 @@ return {
 			for index, member in nextItems do
 				if member.id == "ada" then
 					local changed = table.clone(member)
-					changed.key = if member.key == "portrait-a" then "portrait-alternate" else "portrait-a"
+					changed.image = if member.image == "rbxassetid://75342910516929"
+						then "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+						else "rbxassetid://75342910516929"
 					nextItems[index] = changed
 				end
 			end
@@ -94,29 +73,47 @@ return {
 			return report()
 		end
 		local function section()
-			Compose.cleanup(ctx.presenter.onTick(complete))
-			Compose.cleanup(function()
-				rootPath, controller, record = nil, nil, nil
-			end)
-			local root = UI.VStack("GroupRecipe")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("Title")({ text = "Players together", textSize = "heading", width = UI.fill() }),
-				UI.Text("Note")({
-					text = "Faces keep their identity when reordered. Choose the group using the count.",
-					width = UI.fill(),
+			local root = Host.Frame "GroupRecipe" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
 				}),
-				UI.ForEach("Variant")({
-					items = function(use)
+				UI.Text "Title" {
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					text = "Players together",
+					textRole = "heading",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				},
+				UI.Text "Note" {
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					text = "Faces keep their identity when reordered. Select the count to open the whole group.",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				},
+				Compose.OrderedCollection({
+					from = function(use)
 						return { use(variant) }
 					end,
 					key = function(value)
 						return value
 					end,
-					row = function(value)
-						return UI.AvatarGroup("Team")({
+					render = function(current, placement, key)
+						local value = current:peek()
+						return UI.AvatarGroup "Team" {
 							items = items,
-							provider = provider,
 							controlSize = size,
 							layout = if value == "spread" then "spread" else "stacked",
 							overflow = if value == "ellipsis" then "ellipsis" else "count",
@@ -126,84 +123,102 @@ return {
 							ref = function(value)
 								record = value
 							end,
-						})
+						}
 					end,
 				}),
-				UI.HStack("RosterActions")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Reorder")({ label = "Reorder", onActivate = reorder }),
-					UI.Button("Fewer")({ label = "Fewer", onActivate = fewer }),
-					UI.Button("Restore")({ label = "Restore", onActivate = restore }),
-					UI.Button("ChangePicture")({ label = "Change picture", onActivate = source }),
-				}),
-				UI.HStack("LayoutActions")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Stacked")({
-						label = "Stacked",
-						onActivate = function()
-							setVariant("stacked")
-						end,
+				Host.Frame "RosterActions" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+						Wraps = true,
 					}),
-					UI.Button("Spread")({
-						label = "Spread",
-						onActivate = function()
-							setVariant("spread")
-						end,
+					UI.Button({
+						LayoutOrder = 1,
+						Name = "Reorder",
+						label = "Reorder",
+						onActivate = reorder,
 					}),
-					UI.Button("Ellipsis")({
-						label = "Ellipsis",
-						onActivate = function()
-							setVariant("ellipsis")
-						end,
+					UI.Button({
+						LayoutOrder = 2,
+						Name = "Fewer",
+						label = "Fewer",
+						onActivate = fewer,
 					}),
-					UI.Button("Compact")({
-						label = "Compact",
-						onActivate = function()
-							setSize("compact")
-						end,
+					UI.Button({
+						LayoutOrder = 3,
+						Name = "Restore",
+						label = "Restore",
+						onActivate = restore,
 					}),
-					UI.Button("Large")({
-						label = "Large",
-						onActivate = function()
-							setSize("large")
-						end,
+					UI.Button({
+						LayoutOrder = 4,
+						Name = "ChangePicture",
+						label = "Change picture",
+						onActivate = source,
 					}),
-				}),
-				UI.Text("Activations")({
+				},
+				UI.Picker "Layout" {
+					label = "Layout",
+					selected = variant,
+					options = {
+						{ value = "stacked", label = "Stacked" },
+						{ value = "spread", label = "Spread" },
+						{ value = "ellipsis", label = "Ellipsis" },
+					},
+				},
+				UI.Picker "Size" {
+					label = "Size",
+					selected = size,
+					options = {
+						{ value = "compact", label = "Compact" },
+						{ value = "regular", label = "Regular" },
+						{ value = "large", label = "Large" },
+					},
+				},
+				UI.Text "Activations" {
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
 					text = function(use)
 						return `Selected the group {use(activations)} times`
 					end,
-				}),
-			})
-			return ctx.Facet.contribution.attach(root, {
-				bindController = function(value)
-					controller = value
-				end,
-				syncGeometry = function(_, node)
-					if node then
-						rootPath = node.path
-					end
-				end,
-			})
+					textRole = "caption",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				},
+			}
+			return root
 		end
 		return {
 			section = section,
 			screen = function()
-				return UI.Screen("AvatarGroup")({
-					surface = "base",
-					padding = { top = "m", bottom = "m" },
-					UI.ScrollView("Content")({
-						width = UI.fill(),
-						height = UI.fill(),
-						padding = { left = "m", right = "m" },
-						section(),
+				return Host.Frame "AvatarGroup" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
 					}),
-				})
+					Host.ScrollingFrame "Content" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+						section(),
+					},
+				}
 			end,
 			report = report,
-			dispose = release,
 			steps = {
 				reorder = reorder,
 				fewer = fewer,

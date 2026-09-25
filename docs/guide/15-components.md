@@ -1,363 +1,193 @@
-# Components with Compose
+# Components
 
-A component is an ordinary Luau function that returns a Facet view. Compose owns
-its reactive values and cleanup. Facet supplies controls, layout, themes and input.
+A component is a function that returns a native Instance.
 
-Create an application, then use its controls:
+- Make an app with `Facet.app()`. Its `UI` field has the controls.
+- Mount a component with `app.mount(Component)`. The component runs in the
+  owner of that mount.
+- Make native objects with `Host = app.runtime.constructors` only when no
+  control or layout constructor makes them.
+- Make controls inside a Compose owner. This is usually the component that you
+  give to `app.mount`.
+- Put a semantic name directly after the constructor: `UI.HStack "Toolbar" { ... }` or `UI.Button "Save" { ... }`. Do not write `Name = "..."` for a fixed name. Use `Name` only when the name is computed.
+- Use numeric children and native property names.
 
-```luau
-local Facet = require(game.ReplicatedStorage.Facet)
-local Compose = Facet.Compose
-local app = Facet.new()
-local UI = app.controls
+## State and requests
 
-local function Counter()
-    local count = Compose.cell(0)
-    return UI.Screen {
-        padding = "m", gap = "s",
-        UI.Text {
-            text = function(use) return `Count: {use(count)}` end,
-        },
-        UI.Button {
-            label = "Add one",
-            onActivate = function()
-                count:update(function(n) return n + 1 end)
-            end,
-        },
-        UI.Button {
-            label = "Reset",
-            enabled = function(use) return use(count) > 0 end,
-            onActivate = function() count:set(0) end,
-        },
-    }
-end
+A component runs when its owner is created. A reactive property body runs again
+when a value that it reads changes. The whole component does not need to run
+again.
 
-local close = app.mount(Counter)
--- Call close() to remove this screen.
--- Call app.dispose() when the application ends.
-```
+| Purpose | Compose API |
+|---|---|
+| Local state | `Compose.cell` |
+| Shared calculations | `Compose.formula` |
+| External effects | `Compose.watch` |
+| Teardown | `Compose.cleanup` |
 
-Numeric entries set child order. Named fields set properties. Ordinary controls
-need no IDs. Use an optional constructor name when another API needs a stable path:
-`UI.Button("Save") { label = "Save", onActivate = save }`.
-
-## Read values and send commands
-
-A property function receives `use`. Calling `use(value)` subscribes that property
-to the value. Compose updates the property when the value changes.
-
-Use `:peek()` to read without a subscription. Event callbacks usually need this
-form. Use `:set(value)` to replace a cell or `:update(function)` to transform it.
-
-Writable cells work directly with value controls:
+This component uses the `Compose` and `UI` setup from
+[Getting started](03-getting-started.md):
 
 ```luau
-local music = Compose.cell(true)
-local draft = Compose.cell("")
-
-UI.VStack {
-    UI.Toggle { label = "Music", value = music },
-    UI.TextInput { value = draft, placeholder = "Message" },
-}
-```
-
-Use an explicit callback when a model must approve a change:
-
-```luau
-UI.Toggle {
-    label = "Music",
-    value = music,
-    onChange = function(wanted) model.requestMusic(wanted) end,
-}
-```
-
-The control displays the model's value. With `onChange`, it writes no state:
-`model.requestMusic` must write `music` to accept the request. Rejecting or
-delaying a request leaves the value and appearance unchanged. The callback's
-return value is ignored. This form also accepts a Compose formula or
-`function(use)` as `value`; a checkbox's model also owns clearing `mixed`.
-Keep server validation in the game model.
-
-A property function must return the property's complete value. Width takes a
-Dim, so a reactive boolean chooses a Dim rather than being stored as a nested
-readable:
-
-```lua
-local narrow = Compose.cell(true)
-UI.Text {
-    text = "Coastal circuit reverse night lap 14",
-    lineLimit = 1,
-    truncate = "middle",
-    width = function(use)
-        return { type = "fixed", px = if use(narrow) then 160 else 320 }
-    end,
-}
-```
-
-The binding runs again when `narrow` changes; the component setup still runs once.
-
-Use `Compose.formula` for a shared calculation:
-
-```luau
-local canBuy = Compose.formula(function(use)
-    return use(balance) >= use(price)
-end)
-
-UI.Button {
-    label = "Buy",
-    enabled = canBuy,
-    onActivate = buy,
-}
-```
-
-Use `Compose.watch(function(use) ... end)` for a reactive external effect. It runs
-initially and tracks the values it reads. Keep user commands in event callbacks.
-
-## Keep state for the required lifetime
-
-`app.mount(Component)` runs the component under a Compose owner. Setup runs once
-per mount. Property updates do not rerun the component.
-
-Create local cells inside the component. Create shared model cells outside it
-when their values must survive removal of the screen. Pass those cells to each
-presentation of the model.
-
-Register external cleanup with Compose:
-
-```luau
-Compose.cleanup(app.onFrame(function(dt)
-    model.advance(dt)
-end))
-```
-
-Removing the component disconnects this callback. Compose also releases its
-watches and child owners. Use `Compose.cleanup` for engine connections and other
-external resources that must end with the component.
-
-Component setup and reactive functions must finish synchronously. Use
-`app.runtime:batch(function() ... end)` when several writes form one update.
-
-## Create branches and keyed collections
-
-Use a factory for content that exists only while a condition is true:
-
-```luau
-Compose.show(expanded, function()
-    return UI.Text { text = "Details" }
-end)
-```
-
-Compose creates the branch when the condition becomes true. It removes the branch
-and releases its owner when the condition becomes false.
-
-Use `Compose.keyed` for a small collection that stays fully mounted:
-
-```luau
-Compose.keyed {
-    from = inventory,
-    key = function(item) return item.id end,
-    render = function(item)
-        return UI.Button {
-            label = function(use) return use(item).name end,
-            onActivate = function() equip(item:peek().id) end,
-        }
-    end,
-}
-```
-
-The item readable holds the current record for that key. Replacing a record
-updates its row. Reordering the array preserves each retained row and its state.
-Removing a key releases its row owner.
-
-Use virtual controls for large collections:
-
-```luau
-UI.VirtualGrid {
-    items = games,
-    key = "id",
-    columns = columns,
-    itemExtent = 208,
-    gap = "m", rowGap = "m",
-    onActivate = openGame,
-    cell = function(game, ctx)
-        local current = Compose.formula(ctx.current)
-        return UI.Text {
-            text = function(use) return use(current).title end,
-        }
-    end,
-}
-```
-
-`cell(item, ctx)` receives the item's current value and a context table.
-`ctx.current` is a `function(use)` that follows later edits to that item; wrap it
-in `Compose.formula` when the cell must track them. `ctx.scope` is the row's own
-Compose owner.
-
-`UI.VirtualList` uses the same vocabulary without `columns` or `rowGap`, and
-names its array `rows`; VirtualGrid uses `items`. Both controls use Compose's
-`OrderedCollection` for windowing and row lifetime. Facet supplies the scroll
-container and focus navigation.
-
-Keep durable row state in the model. Rows outside the retained window can
-unmount. For variable sizes, set `itemExtent = "measured"` and give
-`estimatedItemExtent` the pixel seed an unmeasured row windows at.
-Use `follow = "end"` for a feed that follows new content until the reader scrolls
-away. See the [collection reference](../reference/api.md#virtual-collections-in-appcontrols).
-
-## Compose custom views
-
-Call a component function directly inside another component. Its props are
-ordinary Luau values. Pass readables for values that can change.
-
-```luau
-local function Section(props)
+local function Settings()
+    local enabled = Compose.cell(true)
+    local status = Compose.formula(function(use)
+        return if use(enabled) then "Notifications are on" else "Notifications are off"
+    end)
     return UI.VStack {
         gap = "s",
-        UI.Text { text = props.title, textSize = "heading" },
-        UI.VStack(props.children),
+        UI.Toggle {
+            label = "Notifications",
+            value = enabled,
+            onChange = function(nextValue) enabled:set(nextValue) end,
+        },
+        UI.Text { text = status },
     }
 end
+```
 
-Section {
-    title = "Audio",
-    children = {
-        UI.Toggle { label = "Music", value = music },
-    },
+- Read state through `use` in reactive bodies.
+- `:peek()` reads the current value and does not subscribe. Use it in event
+  callbacks.
+- `:set` replaces a value.
+- `:update` calculates the replacement from the previous value.
+
+For an input value control, you can omit the change callback. The control then
+writes a writable cell. If you supply a callback, update the model in it to
+accept the request. Navigation controls have their own write-then-notify
+contracts. See the [API reference](../reference/api.md#menus-and-navigation).
+
+## Branches and keyed children
+
+Use the Compose structural operations directly as native children.
+`Compose.show` makes its branch while the condition is true. It disposes the
+branch when the condition is false. State that the branch makes therefore
+resets when the branch appears again. If state must survive hiding or
+navigation, keep it outside that owner.
+
+```luau
+local detailsOpen = Compose.cell(false)
+return UI.VStack {
+    gap = "s",
+    UI.Toggle { label = "Show details", value = detailsOpen },
+    Compose.show(detailsOpen, function()
+        return UI.Text { text = "Changes are saved to this session." }
+    end),
 }
 ```
 
-A direct function call uses the current Compose owner. Use Compose branches,
-keyed collections or layer stacks when content needs a separate lifetime.
-These structures accept component factories.
+For a bounded collection that stays mounted, use `Compose.keyed` with `from`, a
+key function and `render(current, index, key)`. The Facet collection controls
+also accept a field name as the key: `key = "id"`. Read the current item inside
+property bindings. An existing key can receive a replacement item.
 
-## Animate values with the Compose runtime
+For large scrolling collections, use the Facet
+[VirtualList or VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid).
+Keep durable row edits and selections in the model, outside the windowed row
+owners. Compose `OrderedCollection` and `Pool` supply the collection mechanisms
+for those controls. Screens do not need their own windowing.
 
-Use the application's Compose runtime for spring and tween animation:
+Use `UI.ScrollView` for a vertical page. If you make a native
+`ScrollingFrame` yourself, put a `UIListLayout` directly in it. Without a
+layout, Roblox sizes a full-width child against the whole frame, so the child
+goes under the scroll bar. With a layout, the child fits the window beside the
+scroll bar.
 
-```luau
-local displayed = app.runtime.spring(function(use)
-    return if use(selected) then 1.04 else 1
-end, { period = 0.35, damping = 1 })
+## Layout
 
-UI.ZStack {
-    scale = function(use)
-        return if use(app.environment:get("reducedMotion")) then 1 else use(displayed)
-    end,
-    UI.Text { text = "Selected item" },
-}
-```
+Use the layout constructors for screens, stacks, layers, scrolling pages and
+grids. Each one makes an ordinary native frame and a native layout object.
+Roblox does the layout.
 
-The application supplies the frame driver. Compose owns the animated readable
-and releases it with the component. Use the model value for game decisions.
-Read the animated value only where a visual calculation needs it.
+| Need | Constructor |
+|---|---|
+| The root of a screen, with theme padding | `UI.Screen` |
+| A vertical or horizontal stack | `UI.VStack`, `UI.HStack` |
+| Children on top of each other | `UI.ZStack` |
+| A page that scrolls | `UI.ScrollView` |
+| Cells in columns | `UI.Grid` |
+| A child that takes the remaining space | `UI.fill()` |
 
-This example suppresses decorative scaling when reduced motion is active. Choose
-an appropriate final value for motion that conveys information. Styled paint on
-Roblox uses the target's native `StyleRule` transitions and reduced-motion policy.
-
-### Stream text into a Text node
-
-Let the model own the string and let the reveal own the presentation:
-
-```luau
-local reveal = Facet.motion.newTextReveal({
-    value = function(use) return use(message).content end,
-    placeholder = "Thinking…",
-    policy = app.environment:get("motionPolicy"),
-})
-
-UI.Text({ text = reveal.text })
-```
-
-The reveal never splits a codepoint, paints the placeholder only while nothing
-has arrived, and lands the whole value under reduced motion. Pass `cursor` when
-your model advances a character count instead of rewriting the string.
-
-### Grow a detail view out of the card that opened it
-
-Declare the branch at its own full size and name the card as the transition's
-source. Facet reads the card's painted rect every frame and paints the branch
-from there:
+- Write `gap` and `padding` as spacing steps: `xs`, `s`, `m`, `l` or `xl`.
+  The steps come from the theme package. A number is a pixel value.
+- The containers set `LayoutOrder` from the order of the children. Do not
+  write it.
+- Set `width` or `height` to `"fill"`, `"hug"` or a number of pixels.
+- Native properties, such as `BackgroundTransparency` or `Visible`, go to the
+  root.
 
 ```luau
-UI.When("Expand")({
-    condition = function(use) return use(selected) ~= nil end,
-    transition = { enter = "transform", source = { path = cardPath }, content = "Body" },
-    thenView = Detail,
-})
-```
-
-`source` takes `{ path = "…" }` for a mounted node or `{ rect = … }` for a rect
-readable; either may itself be a readable. The motion is paint-only, so nothing
-reflows. Deselecting mid-flight reverses from the painted rectangle without a
-jump, and reduced motion lands it on the frame it starts. Use `fromRect` instead
-when the origin cannot move.
-
-## Place the interface in the world
-
-Pass a surface configuration to `Facet.new`:
-
-```luau
-local terminalApp = Facet.new {
-    surface = {
-        kind = "surface", target = terminal, face = Enum.NormalId.Front,
-        canvas = { w = 800, h = 600 },
-    },
-}
-local close = terminalApp.mount(function()
-    return terminalApp.controls.Screen {
-        terminalApp.controls.Text { text = "Terminal ready" },
-    }
-end)
-```
-
-Choose `kind = "billboard"` for a canvas that follows an object. Omit `surface`
-for a screen. A world surface remains a flat UI canvas. Its canvas dimensions
-are independent of the player's window size.
-
-Read the [target contracts](../reference/api.md#client-entry-points) for input
-and rendering support. Read adaptive facts through `app.environment`. Select
-layout from those facts rather than a device name.
-
-## Run a maintained example
-
-The [standalone consumer](../../examples/consumer/src/screen.luau) uses this API
-in Studio and in headless tests. It includes controlled values, adaptive layout,
-frame cleanup and application disposal.
-
-The [API reference](../reference/api.md#new) describes the application surface.
-The [Compose reference](../reference/api.md#compose) links the pinned upstream
-contracts for state, ownership, collections, layers and motion.
-
-## Present a decision
-
-Keep presentation in a Compose cell. The application supplies the presenter.
-Content is a component function, so each presentation gets its own lifetime.
-
-```luau
-local shown = Compose.cell(false)
-local name = Compose.cell("")
-
-UI.VStack {
-    UI.Button {
-        label = "Edit name",
-        onActivate = function() shown:set(true) end,
-    },
-    UI.Alert {
-        title = "Edit name",
-        isPresented = shown,
-        content = function()
-            return UI.TextInput { value = name, placeholder = "Name" }
-        end,
-        actions = {
-            { id = "save", label = "Save", shortcut = "defaultAction" },
-            { id = "cancel", label = "Cancel", role = "cancel" },
+local function Profile()
+    local name = Compose.cell("")
+    return UI.Screen "Profile" {
+        gap = "m",
+        UI.Text { text = "Profile", textRole = "title" },
+        UI.ScrollView "Form" {
+            gap = "s",
+            UI.TextInput { value = name, placeholder = "Name" },
+            UI.HStack { gap = "s", UI.Button { label = "Save" }, UI.Button { label = "Cancel" } },
         },
-    },
+    }
+end
+```
+
+The ScrollView puts a `UIListLayout` in its `ScrollingFrame` and sets the
+automatic canvas size. Thus each child fits the window beside the scroll bar.
+Use Host constructors directly for a layout that these constructors do not
+make. See the [layout reference](../reference/api.md#layout).
+
+## Ownership and native references
+
+The `ref` callback of a control receives its native root Instance. A borrowed
+Instance property, such as `StyleLink.StyleSheet`, uses
+`Compose.static(instance)`. Ownership comes from making and parenting the node,
+not from the reference.
+
+- Use `runtime.connect` for native events that are bound to an owner.
+- For an external connection, register its disconnect function with
+  `Compose.cleanup`.
+- The stop function from `app.mount` releases that mount. `app.dispose()`
+  releases every mount of the app and the runtime that the app made.
+- If you use `runtime.mount` directly, stop the mounts before you call
+  `runtime:dispose()`.
+- If durable model cells must outlive the screen component, keep them outside
+  it.
+
+## Portals, retained content and motion
+
+Use `Compose.portal` for content under a different parent. Use
+`Compose.LayerStack` for retained content. Facet navigation and presented
+controls already manage their own content owners.
+
+Use `runtime.spring`, `runtime.tween` and `runtime.timeline` for motion. Obey
+the reduced-motion setting. Bind animated values to native properties. Roblox
+StyleRule transitions own the theme paint animation.
+
+Navigation and presented controls animate by default. Do not add your own
+motion to them. NavigationStack slides a pushed page in from the trailing edge.
+TabView crossfades its pages. Sheet slides up. Alert, Dialog and
+CollapsibleView scale and fade in. Callout, Button `help`, Menu and Popover
+scale and fade from their anchor. Snackbar slides up and fades in.
+DisclosureGroup and Notice open their height. Each exit plays the reverse,
+faster. Reduced motion removes this motion. To use a
+crossfade in NavigationStack or TabView, supply `transition` with Compose tween
+options. To remove the motion, supply `transition = false`. The
+[motion table](../reference/api.md#motion) gives each duration and curve.
+
+```luau
+local path = Compose.cell({})
+return UI.NavigationStack {
+	path = path,
+	root = { title = "Library", content = UI.VStack {} },
+	destinations = { game = { title = "Game", content = UI.VStack {} } },
+	transition = { seconds = 0.25, ease = Compose.easing.outCubic },
 }
 ```
 
-Use the same pattern with `UI.Sheet` for a larger task. Give it a `detent` cell
-and a content function. Use `UI.Menu { label = "Actions", items = ... }` for a
-list of commands attached to a button. Keep all three in the existing screen's
-layout and navigation.
+Haptics are restrained. The `pressHaptic` of the controls plays only for a
+control that changes a state or a value, for example a Toggle or a Stepper
+step. To make a game-specific Button play it, set `haptic = true`.
+
+See the [native API contract](../reference/api.md),
+[adaptive composition](15-adaptive-recipes.md) and
+[practical recipes](17-recipes.md).

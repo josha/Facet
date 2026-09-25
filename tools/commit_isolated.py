@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commit ONLY your own hunks, through a private index, in one uninterrupted step.
+CLI_HELP = """Commit ONLY your own hunks, through a private index, in one uninterrupted step.
 
     tools/commit_isolated.py -m <message-file> <spec> [<spec> ...]
     tools/commit_isolated.py -m <message-file> --dry-run <spec> ...
@@ -100,7 +100,7 @@ import sys
 import tempfile
 import time
 
-CONTEXT = "1"  # narrowest context git will apply cleanly; see "THE HOLE" above
+CONTEXT = "1"
 
 
 def run(args, **kw):
@@ -144,19 +144,13 @@ def index_blob(path):
 
 
 def republish(paths, commit, was=None):
-    """Make the SHARED index agree with `commit` for these paths. Never reads the
-    working tree, so it cannot sweep another agent's in-flight edits.
 
-    `was` maps path -> its blob before this commit. When the index holds neither
-    that blob nor the new one, ANOTHER AGENT had staged something there and this
-    call resets it to unstaged. Their file on disk is untouched — but it is their
-    staging, so it is reported rather than done quietly."""
     done = 0
     for p in paths:
         entry = run(["ls-tree", commit, "--", p]).stdout.split()
         if len(entry) < 3:
-            # deleted by this commit: the shared index must agree, or a
-            # sibling's plain `git commit` resurrects the file wholesale
+
+
             for attempt in range(6):
                 r = run(["update-index", "--force-remove", p])
                 if r.returncode == 0 or "index.lock" not in r.stderr:
@@ -195,7 +189,7 @@ def republish(paths, commit, was=None):
 
 
 def selftest():
-    """A deleted tracked file commits as a deletion, and the shared index agrees."""
+
     import subprocess, tempfile as tf
 
     work = tf.mkdtemp(prefix="commit_isolated_selftest.")
@@ -210,8 +204,8 @@ def selftest():
     sh("git", "add", "keep.txt", "gone.txt")
     sh("git", "-c", "user.name=selftest", "-c", "user.email=s@t", "commit", "-q", "-m", "two files")
     (pathlib.Path(work) / "gone.txt").unlink()
-    # the message file lives OUTSIDE the repo under test, or the porcelain
-    # check below reports the scaffolding instead of the subject
+
+
     msg = pathlib.Path(tf.mkdtemp(prefix="commit_isolated_selftest_msg.")) / "msg.txt"
     msg.write_text("the deletion commits\n\nBody.\n")
     me = pathlib.Path(__file__).resolve()
@@ -247,7 +241,7 @@ def main():
         return selftest()
 
     if a.help or not a.specs:
-        print(__doc__)
+        print(CLI_HELP)
         return 0 if a.help else 2
 
     if a.repair:
@@ -270,9 +264,9 @@ def main():
         head_entry = run(["ls-tree", old_head, "--", path]).stdout.split()
         was[path] = head_entry[2] if len(head_entry) > 2 else None
         if not os.path.exists(path):
-            # A tracked path with no file behind it is a DELETION to commit —
-            # `hash-object` on it used to crash, which silently dropped
-            # deletions from a directory spec (found 2026-08-31, twice).
+
+
+
             if was[path] is None:
                 sys.exit(f"commit_isolated: {path} is neither on disk nor in HEAD")
             git(["update-index", "--force-remove", path], env=env)
@@ -286,29 +280,29 @@ def main():
         diff = git(["diff", f"-U{CONTEXT}", "--binary", old_head, "--", path])
         header, hunks = split_hunks(diff)
         if not hunks:
-            # A BINARY PATH HAS NO HUNKS AND IS NOT UNCHANGED, and conflating the two
-            # refused a real commit. Found 2026-08-17 committing a rebuilt
-            # `examples/places/*.rbxl`: `git diff --stat` reported
-            # `Bin 2433909 -> 2455473 bytes` and 430,205 bytes of binary patch, while
-            # this branch said "no change against HEAD" and exited 2 — because
-            # `split_hunks` looks for `@@` and a binary diff has none.
-            #
-            # There is nothing to FILTER in a binary file: hunk-level isolation is
-            # the whole point of this script and a binary path cannot offer it, so
-            # the honest handling is the one the untracked branch above already
-            # uses — hash the working-tree bytes and stage that blob whole. Naming a
-            # binary path here is therefore the same assertion as naming any whole
-            # file: you have verified the file is yours. A marker filter cannot mean
-            # anything on one, so asking for both is refused rather than silently
-            # ignored.
-            # A MODE-ONLY CHANGE HAS NO HUNKS EITHER, and it is the same mistake
-            # one step smaller: `chmod +x` on a tracked script produces
-            # `old mode 100644 / new mode 100755` and not a single `@@`. Found
-            # 2026-08-17 on `tools/microprofiler_aggregate.py`, minutes after the
-            # binary case, and it matters here for a recorded reason — this script
-            # lands NEW files at 100644, so an executable tool can pass `test -x`
-            # locally while a fresh clone gets permission denied, and the ONLY way
-            # to correct that afterwards is a mode-only commit.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             if "old mode " in diff and "new mode " in diff:
                 if markers:
                     die(f"{path} is a MODE-ONLY change and markers cannot select inside one — refusing", 2)

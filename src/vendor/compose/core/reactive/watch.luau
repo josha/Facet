@@ -15,6 +15,28 @@ local finishEvaluation = Graph.finishEvaluation
 local use = Graph.use
 
 type Body = (use: Types.Use) -> ()
+type Edge = Graph.Edge
+type Consumer = Graph.Consumer
+type Reactor = Graph.Reactor
+type Scheduled = Graph.Scheduled
+
+type Watch = {
+	state: number,
+	dependencies: { Edge },
+	reads: number,
+	enqueue: ((Consumer) -> ()) | false | nil,
+	enqueueSettle: ((Consumer) -> ()) | false | nil,
+	released: boolean,
+	retry: boolean?,
+	derived: boolean?,
+	queued: boolean,
+	guarded: boolean,
+	run: (self: Scheduled) -> ...unknown,
+
+	reactor: Reactor,
+	body: Body,
+	sink: Sink.Sink | false,
+}
 
 local WATCH = {}
 WATCH.__index = WATCH
@@ -25,15 +47,17 @@ WATCH.sink = false
 
 WATCH.enqueueSettle = false
 
+WATCH.guarded = false
+
 local FUSE_AT = 8
 type Dispose = Types.Dispose
 
-local function invoke(self: any): nil
+local function invoke(self: Watch): nil
 	self.body(Graph.use)
 	return nil
 end
 
-local function evaluate(self: any)
+local function evaluate(self: Watch)
 	if statsOn.enabled then
 		stats.bump "watchRuns"
 		profile.enterRun(self)
@@ -43,7 +67,7 @@ local function evaluate(self: any)
 	Graph.evaluate(self, invoke, self)
 end
 
-local function evaluateQueued(self: any)
+local function evaluateQueued(self: Watch)
 	if statsOn.enabled then
 		stats.bump "watchRuns"
 		profile.enterRun(self)
@@ -58,23 +82,38 @@ local function evaluateQueued(self: any)
 	finishEvaluation(self, previous)
 end
 
-local function run(self: any)
+local function run(scheduled: Scheduled)
+	local self = scheduled :: Watch
 	if self.released then
 		return
 	end
-	if self.state == Graph.CHECK and not Graph.dependenciesMoved(self) then
-		self.state = Graph.CLEAN
-		return
+	if self.state == Graph.CHECK then
+		if self.guarded then
+			local checked, moved = pcall(Graph.dependenciesMoved, self)
+			if checked and not moved then
+				self.state = Graph.CLEAN
+				return
+			end
+		else
+			self.retry = true
+			local moved = Graph.dependenciesMoved(self)
+			self.retry = false
+			if not moved then
+				self.state = Graph.CLEAN
+				return
+			end
+		end
 	end
 	evaluateQueued(self)
 end
 
-local function enqueue(self: any)
+local function enqueue(consumer: Consumer)
+	local self = consumer :: Watch
 	self.reactor.__enqueueConsumer(self)
 end
 
-local function watch(reactor: any, body: Body, label: string?): Dispose
-	local self = setmetatable({
+local function create(reactor: Reactor, body: Body): Watch
+	return setmetatable({
 		state = Graph.DIRTY,
 		dependencies = {},
 		reads = 0,
@@ -82,15 +121,17 @@ local function watch(reactor: any, body: Body, label: string?): Dispose
 		body = body,
 		queued = false,
 		released = false,
-	}, WATCH)
+	}, WATCH) :: any
+end
 
+local function start(self: Watch, label: string?): Dispose
 	if statsOn.enabled then
 		profile.born(self, label)
 	end
 
-	local ok, err = pcall(evaluate :: any, self)
+	local ok, err: unknown = pcall(evaluate, self)
 	if not ok then
-		Graph.release(self :: any)
+		Graph.release(self)
 		error(err, 0)
 	end
 
@@ -98,23 +139,35 @@ local function watch(reactor: any, body: Body, label: string?): Dispose
 		if self.released then
 			return
 		end
-		Graph.release(self :: any)
+		Graph.release(self)
 		self.queued = false
 	end
 end
 
-local function watchStatic(reactor: any, producer: any, body: (value: any) -> ()): Dispose
-	local member = StaticSink.add(producer, reactor, body)
+local function watch(reactor: Reactor, body: Body, label: string?): Dispose
+	return start(create(reactor, body), label)
+end
+
+local function watchGuarded(reactor: Reactor, body: Body, label: string?): Dispose
+	local self = create(reactor, body)
+	self.guarded = true
+	return start(self, label)
+end
+
+local function watchStatic<T>(reactor: Reactor, producer: Types.Readable<T>, body: (value: T) -> ()): Dispose
+	local member = StaticSink.add((producer :: any) :: StaticSink.Host, reactor, body)
 	return function()
 		StaticSink.release(member)
 	end
 end
 
-local function unfuse(self: any)
-	local sink = self.sink
-	if not sink then
+local function unfuse(member: Sink.Member)
+	local self = member :: Watch
+	local fused = self.sink
+	if not fused then
 		return
 	end
+	local sink = fused :: Sink.Sink
 	local members = sink.members
 	if sink.running then
 		sink.membersChanged = true
@@ -133,11 +186,11 @@ local function unfuse(self: any)
 	self.enqueue = nil
 end
 
-local function report(err: any)
+local function report(err: unknown, _member: Sink.Member): ()
 	error(err, 0)
 end
 
-local function fuseIfTerminal(self: any)
+local function fuseIfTerminal(self: Watch)
 	if self.released or self.sink then
 		return
 	end
@@ -145,9 +198,9 @@ local function fuseIfTerminal(self: any)
 	if #dependencies ~= 1 then
 		return
 	end
-	local producer = dependencies[1][Graph.PRODUCER]
+	local producer: Sink.Host = dependencies[1][Graph.PRODUCER]
 
-	if (producer :: any).derived then
+	if producer.derived then
 		return
 	end
 	if Graph.subscriberCount(producer) < FUSE_AT then
@@ -160,24 +213,16 @@ local function fuseIfTerminal(self: any)
 	self.enqueue = false
 end
 
-local function watchTerminal(reactor: any, body: Body): Dispose
-	local self: any = setmetatable({
-		state = Graph.DIRTY,
-		dependencies = {},
-		reads = 0,
-		reactor = reactor,
-		body = body,
-		queued = false,
-		released = false,
-	}, WATCH)
+local function watchTerminal(reactor: Reactor, body: Body): Dispose
+	local self = create(reactor, body)
 
 	if statsOn.enabled then
 		profile.born(self)
 	end
 
-	local ok, err = pcall(evaluate :: any, self)
+	local ok, err: unknown = pcall(evaluate, self)
 	if not ok then
-		Graph.release(self :: any)
+		Graph.release(self)
 		error(err, 0)
 	end
 	fuseIfTerminal(self)
@@ -201,6 +246,7 @@ end
 
 return {
 	watch = watch,
+	watchGuarded = watchGuarded,
 	watchStatic = watchStatic,
 	watchTerminal = watchTerminal,
 	sample = sample,

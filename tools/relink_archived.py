@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""relink_archived — turn links into privately archived material into plain text.
+CLI_HELP = """relink_archived — turn links into privately archived material into plain text.
 
 WHY THIS EXISTS. Some material does not go public: the decision records, the
 written-up defects, the internal plans, the handoff notes, the raw research
@@ -31,13 +31,13 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 
-# The published document trees this script repairs. A sentence that needs
-# rewriting rather than annotating is still repaired by hand; this is the
-# mechanical floor under that.
+
+
+
 SCANNED_DIRS = ("docs/guide", "docs/extending", "docs/reference")
 
-# Everything that leaves the public branch tip. A prefix ends with "/"; an exact
-# file does not. Paths are repository-relative and already normalized.
+
+
 ARCHIVED_PREFIXES = (
     "docs/adr/",
     "docs/lessons/",
@@ -54,12 +54,12 @@ ARCHIVED_FILES = (
     "sweep.luau",
 )
 
-# `docs/reference/` is an allowlist rather than a denylist, and deliberately: the
-# public tree keeps exactly two reference documents, and every other one that has
-# ever lived there was product research that goes to the private archive. Naming
-# the survivors means a research document added and archived later needs no edit
-# here, and it keeps this guard from having to spell out the names of the things
-# it is guarding against.
+
+
+
+
+
+
 PUBLIC_REFERENCE = (
     "docs/reference/api.md",
     "docs/reference/constitution.md",
@@ -67,13 +67,13 @@ PUBLIC_REFERENCE = (
 
 NOTE = "(archived privately)"
 
-# A markdown inline link. The target stops at the first whitespace or ")", so a
-# link carrying a title still classifies on its path.
+
+
 LINK = re.compile(r"\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)\s]+)(\s+\"[^\"]*\")?\)")
 
 
 def normalize(path: str) -> str:
-    """Resolve "a/b/../c" without touching the filesystem."""
+
     parts: list = []
     for part in path.split("/"):
         if part in ("", "."):
@@ -104,19 +104,14 @@ def is_archived(target: str, doc_rel: str) -> bool:
 
 
 def resolve(path: str, doc_rel: str) -> str:
-    """The repository-relative form of a link target written inside doc_rel."""
+
     if path.startswith("/"):
         return normalize(path.lstrip("/"))
     return normalize(os.path.dirname(doc_rel) + "/" + path)
 
 
 def replacement(label: str, target: str, doc_rel: str) -> str:
-    """The plain-text form: the text a reader saw, then the path, then the note.
 
-    The path is printed repository-relative, because "../../artifacts/x" only
-    means something if you already know which file you are reading. When the
-    link text was itself that path in any spelling, it is not repeated.
-    """
     path_only = target.split("#", 1)[0]
     shown = resolve(path_only, doc_rel)
     bare = label.strip().strip("`").strip()
@@ -129,12 +124,7 @@ def replacement(label: str, target: str, doc_rel: str) -> str:
 
 
 def documents():
-    """Every published document this script repairs.
 
-    A file under `docs/reference/` that is not on the public list is archived
-    material itself, so it is not scanned: repairing links inside something that
-    is leaving would be work with no reader.
-    """
     found = []
     for rel in SCANNED_DIRS:
         root = os.path.join(REPO, rel)
@@ -151,7 +141,7 @@ def documents():
 
 
 def rewrite(doc_rel: str, source: str):
-    """Return (new source, list of (line number, target))."""
+
     offenders = []
 
     def one(match):
@@ -168,7 +158,7 @@ def rewrite(doc_rel: str, source: str):
 def main(argv):
     mode = argv[1] if len(argv) == 2 else None
     if mode not in ("--check", "--fix"):
-        print(__doc__.strip(), file=sys.stderr)
+        print(CLI_HELP.strip(), file=sys.stderr)
         return 2
 
     total_links = 0

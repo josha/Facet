@@ -1,0 +1,346 @@
+{
+  "schema": "facet-product-parity-blockers/1",
+  "baselineCommit": "a8c8895673c0745506908b66dc89f8cead6b66f3",
+  "note": "Concrete original-source comparison findings. Existing mounted native tests do not establish full product parity. These behaviors are not mechanism retirements.",
+  "items": [
+    {
+      "id": "G01",
+      "sourceReference": "`scenarios/component_motion.luau:121`",
+      "remaining": [],
+      "requiredEvidence": "Reverse twice; assert native row `LayoutOrder` changes, row identities remain stable, and selected item/balance persist.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::reverses automatic equipment rows without changing their instances or balance"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G02",
+      "sourceReference": "`scenarios/collection_demo.luau:140`",
+      "remaining": [],
+      "requiredEvidence": "Activate Jump through the actual button; assert native scroll offset/window changes and status reflects the same window.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows",
+        "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G03",
+      "sourceReference": "`scenarios/collection_demo.luau:270`",
+      "remaining": [],
+      "requiredEvidence": "Every displayed action must change the promised visible state; remove irrelevant actions or bind the actual control inputs.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows",
+        "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion",
+        "native_gallery_collections::native gallery collections::changes grid columns and rendered text through relevant native toolbar actions"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G04",
+      "sourceReference": "`scenarios/row_actions.luau:64`, `scenarios/collection_demo.luau:36`",
+      "remaining": [],
+      "requiredEvidence": "Seed read and flagged messages must be visibly distinct; mark-read is idempotent, flag updates visibly, deletion still affects only the chosen row. Main already used independent models per surface; that independence is not a regression.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::shows seeded mail state and applies idempotent read visible flag and chosen deletion"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G05",
+      "sourceReference": "`scenarios/demo_tabs.luau:24`",
+      "remaining": [],
+      "requiredEvidence": "A→B→A must report A and its current model without remounting A.",
+      "cases": [
+        "native_gallery_shell::native gallery shell parity::reports the selected retained leaf and propagates ancestor page visibility"
+      ],
+      "resolution": "Root restored workflow and verified targeted native gallery shell regression case."
+    },
+    {
+      "id": "G06",
+      "sourceReference": "`scenarios/world_markers.luau:6`, `src/ui/nav_pages.luau:435`",
+      "remaining": [],
+      "requiredEvidence": "Visit and leave the page while retaining state; assert world visibility/background follow active-page visibility, then verify final disposal removes all external nodes.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::clamps the objective separates crowded markers respects the HUD band and only occludes supplies"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G07",
+      "sourceReference": "`scenarios/motion_demo.luau:34`",
+      "remaining": [],
+      "requiredEvidence": "Native child order follows the authored sequence; endpoint 0 and endpoint 1 both fit the lane.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::runs shared color size rotation fade order and detail changes while charge remains informational",
+        "native_gallery_parity::restored native gallery parity::keeps cooldown curve race and panel duration independent with real easing and readable endpoints"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G08",
+      "sourceReference": "`client/init.client.luau:112`, `client/screen.luau:12`",
+      "remaining": [],
+      "requiredEvidence": "API-driven theme and picker-driven theme produce identical package/name/palette state; invalid demo IDs preserve the current valid screen and return a failure.",
+      "cases": [
+        "native_gallery_shell::native gallery shell parity::keeps API theme and palette choices consistent and rejects invalid demos"
+      ],
+      "resolution": "Root restored workflow and verified targeted native gallery shell regression case."
+    },
+    {
+      "id": "G09",
+      "sourceReference": "`table_virtualized` → `collection_demo`",
+      "remaining": [],
+      "requiredEvidence": "Open Large table and attempt each named main task. Preserve native table virtualization and selection; replace the removed imperative facade with current control/model APIs.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G10",
+      "sourceReference": "`row_actions`",
+      "remaining": [],
+      "requiredEvidence": "Exercise the three mail surfaces with the original message content, read/flag/delete plus table edit/reorder. Do not count list deletion alone as full mail parity.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::uses mail table activation editing and native row reorder with independent state"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G11",
+      "sourceReference": "`variable_extents`, `measured_extents`, `card_rail`",
+      "remaining": [],
+      "requiredEvidence": "Restore the distinct tasks/content, then change text/extent modes while scrolled and verify anchor retention and bounded mounting.",
+      "cases": [
+        "native_gallery_collections::native gallery collections::keeps variable and native measured posts anchored across all text offsets",
+        "native_gallery_collections::native gallery collections::renders three racing shelves with measured widths track art and native selection"
+      ],
+      "resolution": "Collection owner restored original player tasks using native collection controls and verified six targeted mounted interaction cases. Engine geometry still requires live review."
+    },
+    {
+      "id": "G12",
+      "sourceReference": "`with_animation`, `time_curves` → `motion_demo`",
+      "remaining": [],
+      "requiredEvidence": "Keep Compose motion ownership; restore each page's distinct tasks. Test intermediate motion, synchronized completion, reversal, state identity and reduced-motion/informational distinction.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::runs shared color size rotation fade order and detail changes while charge remains informational",
+        "native_gallery_parity::restored native gallery parity::keeps cooldown curve race and panel duration independent with real easing and readable endpoints"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G13",
+      "sourceReference": "`container_grid`",
+      "remaining": [],
+      "requiredEvidence": "Resize one container without changing the viewport; other containers keep their own columns. Toggle guides and replay span/visibility. Native geometry remains the mechanism.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::measures three independent containers and preserves native cards across guides and replay changes"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G14",
+      "sourceReference": "`sponsor_toast`",
+      "remaining": [],
+      "requiredEvidence": "Reproduce send-burst, urgent arrival while reading, subject replacement, edge/width choice and interaction passthrough. Retiring presenter methods does not establish equivalent behavior.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
+        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G15",
+      "sourceReference": "`world_markers`",
+      "remaining": [],
+      "requiredEvidence": "The native billboard example does not prove the former offscreen/collision tasks. Restore equivalent player tasks using the agreed native architecture or explicitly resolve the product scope; do not mark their former behavior assertions replaced by move/hide smoke checks.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::clamps the objective separates crowded markers respects the HUD band and only occludes supplies"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G16",
+      "sourceReference": "`inherited_subtree`",
+      "remaining": [],
+      "requiredEvidence": "Verify the remaining power/tint tasks, and distinguish an intentional native-compositing example from a claim that the original override/focus workflow was preserved.",
+      "cases": [
+        "native_gallery_parity::restored native gallery parity::retains nested color overrides and control paint while disabling focus and activation together"
+      ],
+      "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
+    },
+    {
+      "id": "G17",
+      "sourceReference": "`client/settings_panel` replacement in `client/screen`",
+      "remaining": [],
+      "requiredEvidence": "At minimum record these removed user-facing capabilities explicitly. If replaced by native Studio/device settings, document and prove that route rather than counting the old preview assertions as exercised.",
+      "cases": [
+        "native_gallery_shell::native gallery shell parity::keeps gallery motion preview synchronized with native accessibility preferences",
+        "native_gallery_shell::native gallery shell parity::keeps API theme and palette choices consistent and rejects invalid demos"
+      ],
+      "resolution": "Settings restores Automatic/Near/Distant TV preview with native UIScale and inverse root size; TV previews 150% and preserves mounted state. This is a visual preview, not a synthetic device/input report. Native accessibility preferences remain active. Native SheetContent now scrolls overflowing settings. At 0fdeab native wheel scrolled 261px, pointer selected Distant TV, tabs remained operable, and Automatic restored 100% with selection retained. Studio device/controller emulators remain the actual input/device verification route."
+    },
+    {
+      "id": "G18",
+      "sourceReference": "Native nested TabView after retained gallery page reveal",
+      "remaining": [],
+      "requiredEvidence": "Repair the retained-page rendering and pointer routing issue, then repeat the actual native tab interaction and capture the visible selected result. Headless property assertions alone do not close this live defect.",
+      "cases": [
+        "native_navigation::native navigation controls::rehomes tab accessories with native measured space and owner cleanup"
+      ],
+      "resolution": "Tab chrome now has explicit native ZIndex 2 above page content; fixed-height tab buttons only auto-size horizontally. Fresh native HD720 run e9b715 passed 12 pointer selections across three collections/all-controls remounts. Neutral and fantasy_ornate screenshots show the strip; native pointer selection switches the actual page. At 0fdeab repeated at 150% viewing-distance scale. See artifacts/compose-simplification/gap-closure-live.json."
+    },
+    {
+      "id": "G19",
+      "sourceReference": "main `src/focus/focus_graph.luau` (newFocusGraph) and `src/present/presenter.luau` entry, traversal, removal and Adjust rules",
+      "remaining": [],
+      "requiredEvidence": "Drive every gallery demo and the Virtual Monitors screens with the Studio Controller Emulator on main and on the PR, record GuiService.SelectedObject (PR) and the focus path (main) after each press, and fix each regression: entry, Tab traversal, nearest survivor, scroll-container stops, traps, D-pad value adjustment and submenu entry.",
+      "cases": [
+        "native_selection_parity::native selection parity with the main focus graph::enters the screen at its first control on the first D-pad press and never moves a live selection",
+        "native_selection_parity::native selection parity with the main focus graph::enters at the first eligible control and inside an open modal",
+        "native_selection_parity::native selection parity with the main focus graph::walks Tab forward and Shift+Tab back in layout order and wraps at both ends",
+        "native_selection_parity::native selection parity with the main focus graph::skips hidden, disabled and removed controls and rereads the order on the next press",
+        "native_selection_parity::native selection parity with the main focus graph::traps Tab inside a modal and restores the launching control when it closes",
+        "native_selection_parity::native selection parity with the main focus graph::falls to the nearest surviving neighbour when the selected control is removed",
+        "native_selection_parity::native selection parity with the main focus graph::moves a removed collection row's selection to the following key, then the preceding one",
+        "native_selection_parity::native selection parity with the main focus graph::takes the selection back from an engine fallback when the selected row's key is removed",
+        "native_selection_parity::native selection parity with the main focus graph::adjusts a selected slider with the D-pad while the other axis still navigates",
+        "native_selection_parity::native selection parity with the main focus graph::enters a submenu with Right and returns to its row with Left while selection is native",
+        "native_selection_parity::native selection parity with the main focus graph::enters a tab strip on its selected tab",
+        "native_selection_parity::native selection parity with the main focus graph::passes through a scroll container with no controls to the next control in the direction of travel",
+        "native_selection_parity::native selection parity with the main focus graph::never stops on a scroll container and forwards to its nearest child"
+      ],
+      "resolution": "Selection rules restored natively in src/ui/selection.luau, ctx.action capture and the collection key survivor. Live routes for both sides, the divergence table and the probes are in artifacts/gamepad/gamepad-parity-live.json. Studio VirtualInput cannot send DPadUp or Tab: the routes use the left stick for Up on both sides, and the Tab check fires the Facet Traverse input action.",
+      "liveEvidence": [
+        {
+          "artifact": "artifacts/gamepad/gamepad-parity-live.json",
+          "stamp": "1348a39f",
+          "observed": "PR alert and menu routes match main step for step after the fixes; the first D-pad press selects a control; HUD zones, tab strips and Avatar settings no longer trap; Slider D-pad adjust 40 to 45 to 50 to 45; removing Sfx selects Haptics and removing row r2 selects r3.",
+          "date": "2026-09-24",
+          "host": "Roblox Studio playtest, Xbox One emulated device 1920x1080, Controller Emulator"
+        }
+      ]
+    }
+  ],
+  "audit": "artifacts/compose-simplification/gallery-parity-audit.md",
+  "pendingLiveRisks": [],
+  "resolvedLiveRisks": [
+    {
+      "risk": "Actual native PreferredTransparency hot-swap",
+      "evidence": {
+        "date": "2026-09-23",
+        "host": "Roblox Studio playtest, HD 720 (1280x720), studio sync stamp 9f7f1afa61f0",
+        "steps": "Motion and layout > Transparency; Roblox menu > Settings > Background transparency stepped 1.0 to 0.0 (ten PreferredTransparency change events observed); opened the alert and read the page.",
+        "before": "At f1cc5e2c^ the alert backdrop and translucent surfaces rendered identically at preference 1 and 0.",
+        "after": "At preference 0 the alert backdrop is opaque, the page reads 'Your setting: 0%', and the translucent surface matches the opaque panel.",
+        "headless": [
+          "native_themes_media::native themes and media::scales translucent theme surfaces by the player's background transparency preference",
+          "native_navigation::native navigation controls::darkens modal scrims as the player lowers background transparency"
+        ]
+      }
+    },
+    {
+      "risk": "Retained A→B→A transient/haptic/motion visibility and lifetime",
+      "evidence": {
+        "date": "2026-09-23",
+        "host": "Roblox Studio playtest, HD 720 (1280x720), studio sync stamps ba79a813, 55cb7f23, 789ba133",
+        "menus": "Actions > Menus: open the Tap menu, click Alerts (light-dismisses the menu), click Alerts, return to Menus. The menu does not leak; selection moves into the shown panel with no 'invalid GuiObject' warning (was stranded on a hidden control before abe7b0e2).",
+        "callouts": "Actions > Help: show the coach mark, switch to Alerts (no leak), return to Help. The coach mark returns and the report matches the screen (it was lost before 7337cbb8).",
+        "toasts": "Indicators > Toasts: show a pair, switch to Feedback (no leak), return. Toasts keep expiring on their timers while away.",
+        "motion": "Indicators > Progress: 8 animated properties change per 0.5 s while shown, 0 while Levels is shown, 8 again after return (8 while hidden before f1d9ca94).",
+        "modal": "Alerts and sheets are modal: their scrim blocks tab switches, so a player cannot leave them by tab. A demo switch through the gallery API remounts the demo; the sheet does not leak.",
+        "headless": [
+          "native_navigation::native navigation controls::hands selection to the shown tab panel and restores it on return",
+          "native_navigation::native navigation controls::hides a callout while its retained tab is away and shows it again on return",
+          "native_navigation::native navigation controls::pauses repeating progress motion while its retained tab is hidden"
+        ]
+      }
+    },
+    {
+      "risk": "Collection toolbar under phone/largest-text and compact landscape",
+      "evidence": {
+        "date": "2026-09-24",
+        "hosts": [
+          "Roblox Studio playtest, device emulator 844x369 landscape with touch, preferred text size Medium and Largest",
+          "Roblox Studio playtest, device emulator 388x824 portrait with touch, preferred text size Medium and Largest"
+        ],
+        "steps": "Ran the live harness gallery suite (tools/studio/live/suites/gallery.luau): the gallery Collections page, then each collection_demo variant (Mail list and table, Measured and Declared heights, Grid, Sideways grid, Large table) mounted at the page size that the gallery gives it. Results: artifacts/studio-live/gallery-landscape-844x369-largest.json, artifacts/studio-live/gallery-landscape-844x369-default.json, artifacts/studio-live/gallery-portrait-largest.json and artifacts/studio-live/gallery-portrait-default.json.",
+        "before": "At 844x369 with Largest text, Collections > Rows > Swipe actions > List had a 644x155 page. The toolbar took 164 px, so the Mail list ScrollingFrame was 0 px high and no row showed.",
+        "after": "On a page shorter than 360 px and at least 480 px wide, the toolbar is a scrolling column of 40% width beside the rows. At 844x369 Largest the Mail list is 378x155 beside a 258x155 toolbar (artifacts/studio-live/captures/collections-landscape-largest.png). In all four runs and all eight surfaces, each toolbar button is inside the toolbar width, reachable in its canvas, at least 44 px high and its label fits; the collection keeps at least min(120, half the page) px and scrolls.",
+        "headless": [
+          "native_gallery_collections::native gallery collections::moves the collection toolbar beside the rows when the page is short and wide"
+        ]
+      }
+    },
+    {
+      "risk": "Shell measured reservation and Settings reachability under themes/largest text",
+      "evidence": {
+        "date": "2026-09-24",
+        "hosts": [
+          "Roblox Studio playtest, device emulator 844x369 landscape with touch, preferred text size Medium and Largest",
+          "Roblox Studio playtest, device emulator 388x824 portrait with touch, preferred text size Medium and Largest"
+        ],
+        "steps": "Ran the shell-reservation-and-settings case of the live gallery suite, which switches all ten theme packages through the gallery API. Clicked CompactSettings at 844x369 Largest.",
+        "before": "At 388x824 Medium, the glossy_mobile Settings button was 52 px high. The shell reserved a fixed 56 px with an 8 px top inset, so the button ended at 58 px, over the demo tabs.",
+        "after": "The shell toolbar measures its content, with a 56 px minimum, and the demos start at the measured height. At 388x824, Medium and Largest, for all ten packages: Settings and the title are inside the reserved toolbar and the screen, Settings is selectable and active, its label fits, and the content starts below the toolbar (artifacts/studio-live/gallery-portrait-largest.json). At 844x369 the shell is compact: CompactSettings is inside the screen, selectable, fits its label and does not cover the demo list for all ten packages (artifacts/studio-live/gallery-landscape-844x369-largest.json). A click opened the Gallery settings sheet (artifacts/studio-live/captures/settings-sheet-landscape-largest.png).",
+        "densityNote": "The pointer-density packages keep their own control height on the touch emulation: classic_desktop 27 px, compact_pointer 31 px and scifi_hud 40 px. The run records these heights and does not apply the 44 px touch floor to them.",
+        "headless": [
+          "native_gallery::native gallery::reserves the measured shell toolbar height above the demos"
+        ]
+      }
+    },
+    {
+      "risk": "Haptic effect requests for Button press, completed click, selection and custom pulses",
+      "evidence": {
+        "date": "2026-09-24",
+        "hosts": [
+          "Roblox Studio playtest, device emulator 844x369 landscape with touch, preferred text size Medium and Largest",
+          "Roblox Studio playtest, device emulator 388x824 portrait with touch, preferred text size Medium and Largest"
+        ],
+        "steps": "Mounted the Sensory feedback scenario with the haptics_setup suite, clicked Press and hold, Complete a click, Selected and Play double pulse with Studio mouse input, then ran haptics_verify (artifacts/studio-live/haptics_verify-portrait-largest.json and artifacts/studio-live/haptics_verify-landscape-844x369-largest.json).",
+        "observed": "The Press button carries the native PressHapticEffect. The four effects are native HapticEffect instances (UIClick, UIClick, UIHover, Custom). Each real input recorded its request: press, release, selection and custom. Studio plays no motor, so motor output is not claimed and stays pending on a physical phone and gamepad.",
+        "headless": [
+          "native_gallery::native gallery::requests native haptics and releases effects when the screen closes",
+          "native_inputs::native input controls::plays the application press haptic only for controls that change a state or a value"
+        ]
+      }
+    },
+    {
+      "risk": "Gamepad and Tab navigation parity with the main focus graph on every gallery and Virtual Monitors screen",
+      "evidence": {
+        "date": "2026-09-24",
+        "host": "Roblox Studio playtest, Xbox One emulated device 1920x1080, Controller Emulator (keyboard keys 2, 3, 4, 9, 0, 8, R, O, Q; stick W for Up)",
+        "steps": "Injected main bc9a56a6 and the PR into one Studio place, ran the same key routes on the ten gallery demos, the alert, sheet and menu scenarios and the Virtual Monitors Discover, Avatar and Chat screens, and logged the selection after every press.",
+        "before": "Unfixed PR: no selection on the first D-pad press, stops on scroll containers, alert message and HUD zone traps, dead D-pad slider adjust and submenu entry, TabView handoff error, Avatar settings Up trap, no Tab.",
+        "after": "Fixed PR: routes in artifacts/gamepad/gamepad-parity-live.json match main's focus rules; remaining differences are content or layout differences listed in its divergences table.",
+        "headless": [
+          "native_selection_parity::native selection parity with the main focus graph::enters the screen at its first control on the first D-pad press and never moves a live selection",
+          "native_selection_parity::native selection parity with the main focus graph::walks Tab forward and Shift+Tab back in layout order and wraps at both ends",
+          "native_selection_parity::native selection parity with the main focus graph::falls to the nearest surviving neighbour when the selected control is removed",
+          "native_selection_parity::native selection parity with the main focus graph::adjusts a selected slider with the D-pad while the other axis still navigates"
+        ]
+      }
+    },
+    {
+      "risk": "Haptic motor output on a physical phone for Button, selection and custom pulses",
+      "evidence": {
+        "date": "2026-09-24",
+        "host": "Physical phone: the maintainer played the published Facet Showcase place",
+        "steps": "Pressed Virtual Monitors controls that change a value on the phone.",
+        "before": "Studio only records haptic requests; no motor output was observed before this test.",
+        "after": "The maintainer felt the press haptic on the phone.",
+        "headless": [
+          "native_inputs::native input controls::plays the application press haptic only for controls that change a state or a value"
+        ]
+      }
+    }
+  ],
+  "engineOwnedLiveRisks": [
+    {
+      "risk": "Haptic motor output on a physical gamepad for Button, selection and custom pulses",
+      "owner": "The Roblox engine HapticEffect and PressHapticEffect drive the motor; Facet only issues the request.",
+      "evidence": "The request is proven headless by native_inputs::native input controls::plays the application press haptic only for controls that change a state or a value, and motor output on a physical phone is recorded in resolvedLiveRisks."
+    }
+  ]
+}

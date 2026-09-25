@@ -118,10 +118,10 @@ local function mountPointFor(list: ChildList, slot: number): MountPoint
 
 	return (
 		setmetatable(mountPoint, {
-			__index = function(_: any, key: string): never
+			__index = function(_: unknown, key: string): never
 				return refuse(tostring(key), "read")
 			end,
-			__newindex = function(_: any, key: string, _value: unknown): never
+			__newindex = function(_: unknown, key: string, _value: unknown): never
 				return refuse(tostring(key), "assigned")
 			end,
 		}) :: any

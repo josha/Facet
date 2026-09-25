@@ -1,10 +1,7 @@
 --!strict
--- The native TextBox press wiring, loaded from production source. Lune has no
--- TextBox, so the engine's order measured in Studio is doubled: a mouse press places the caret, fires Focused, then the box's
--- InputBegan; its release writes the caret before UserInputService.InputEnded.
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
-local screen_text_press = require("../src/client/screen_text_press")
+local textPress = require("../src/ui/text_press")
 
 local Enum = {
 	UserInputType = { MouseButton1 = "MB1", Touch = "Touch", MouseMovement = "Move", Keyboard = "Keyboard" },
@@ -75,10 +72,25 @@ local function probe(text: string?, policy: string?, handlers: any?)
 	}
 	local handle: any = { instance = instance, selectOnFocus = policy }
 	p.instance, p.uis, p.handle, p.state, p.writes = instance, uis, handle, state, writes
+	local reset: (() -> ())? = nil
 	function p.wire(h: any?)
-		screen_text_press.wire(handle, { uis = uis, Enum = Enum }, h or handlers or {})
+		if reset then
+			reset()
+		end
+		local chosen = h or handlers or {}
+		reset = textPress({
+			box = instance,
+			input = uis,
+			Enum = Enum,
+			policy = function()
+				return handle.selectOnFocus
+			end,
+			disabled = function()
+				return handle.disabledState == true
+			end,
+			onScrub = chosen.onScrub,
+		})
 	end
-	-- the engine's own writes, not counted as ours
 	local function engine(cursor: number, selection: number)
 		state.CursorPosition, state.SelectionStart = cursor, selection
 	end
@@ -121,7 +133,7 @@ local function probe(text: string?, policy: string?, handlers: any?)
 	return p
 end
 
-describe("TextInput selectOnFocus on the native box", function()
+describe("native text press selectOnFocus", function()
 	it("a pointer focus selects at its own release, after the engine's release writes", function()
 		for _, case in { { "all", "8 1" }, { "end", "8 -1" } } do
 			local p = probe("12.5 km", case[1])
@@ -129,7 +141,6 @@ describe("TextInput selectOnFocus on the native box", function()
 			expect(`{case[1]} held: {p.caret()} {#p.writes}`).toBe(`{case[1]} held: 5 -1 0`)
 			p.mouseUp()
 			expect(`{case[1]} released: {p.caret()}`).toBe(`{case[1]} released: {case[2]}`)
-			-- once per session: a second click in the same session keeps the native caret
 			p.mouseDown()
 			p.mouseUp()
 			expect(p.caret()).toBe("5 -1")
@@ -163,7 +174,7 @@ describe("TextInput selectOnFocus on the native box", function()
 		p.mouseUp()
 		expect(#p.writes).toBe(0)
 		p.mouseDown()
-		p.handle.selectOnFocus = nil -- recycled into a default field
+		p.handle.selectOnFocus = nil
 		p.wire()
 		p.mouseUp()
 		p.capture()
@@ -194,7 +205,7 @@ describe("TextInput selectOnFocus on the native box", function()
 	end)
 end)
 
-describe("NumberInput scrub on the native box", function()
+describe("native text press scrub", function()
 	local function scrubProbe(refuse: string?): (any, { string })
 		local log: { string } = {}
 		local p = probe("10", nil, {
@@ -209,7 +220,7 @@ describe("NumberInput scrub on the native box", function()
 	it("a press under the slop is a native tap: focus and caret stay, nothing is promoted", function()
 		local p, log = scrubProbe()
 		p.mouseDown()
-		p.mouseMove(4, 3) -- 5 px, under the 6 px pointer gate
+		p.mouseMove(4, 3)
 		p.mouseUp()
 		expect(`{table.concat(log, " ")} | {p.caret()} {p.instance:IsFocused()} {#p.writes}`).toBe(
 			"press:pointer | 5 -1 true 0"
@@ -226,7 +237,7 @@ describe("NumberInput scrub on the native box", function()
 		p.mouseDown()
 		p.mouseMove(7, 2)
 		expect(`{p.instance:IsFocused()} {lost}`).toBe("false 1")
-		p.mouseMove(-300, 90) -- outside the box: the global service keeps reporting
+		p.mouseMove(-300, 90)
 		p.mouseUp()
 		p.mouseUp()
 		expect(table.concat(log, " ")).toBe("press:pointer begin move:7 move:-300 end")
@@ -244,7 +255,6 @@ describe("NumberInput scrub on the native box", function()
 		r.mouseMove(10, 0)
 		r.mouseMove(40, 0)
 		expect(`{table.concat(refused, " ")} {r.instance:IsFocused()}`).toBe("press:pointer begin true")
-		-- an ineligible press is not even followed
 		local n, never = scrubProbe("press")
 		n.mouseDown()
 		expect(`{table.concat(never, " ")} {n.uis.InputChanged.live()}`).toBe("press:pointer 0")
@@ -270,10 +280,9 @@ describe("NumberInput scrub on the native box", function()
 		local other = { UserInputType = "Touch", Position = { X = 90, Y = 20 } }
 		t2.instance.InputBegan.fire(finger)
 		t2.instance.InputBegan.fire(other)
-		-- a different InputObject at the finger's place is not the finger
 		t2.uis.InputChanged.fire({ UserInputType = "Touch", Position = { X = 80, Y = 20 } })
 		finger.Position = { X = 63, Y = 20 }
-		t2.uis.InputChanged.fire(finger) -- 13 px: under the 14 px touch gate
+		t2.uis.InputChanged.fire(finger)
 		t2.uis.InputChanged.fire(other)
 		finger.Position = { X = 65, Y = 20 }
 		t2.uis.InputChanged.fire(finger)
@@ -284,12 +293,10 @@ describe("NumberInput scrub on the native box", function()
 
 	it("a mouse press whose release never came does not block the next scrub", function()
 		local p, log = scrubProbe()
-		p.mouseDown() -- the window loses its release
+		p.mouseDown()
 		p.instance.InputBegan.fire(p.mouse)
 		p.mouseMove(8, 0)
 		p.mouseUp()
 		expect(table.concat(log, " ")).toBe("press:pointer press:pointer begin move:8 end")
 	end)
 end)
-
-return nil

@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
-"""Distribution spike, step 2: try a same-ID content update, then list versions.
 
-Answers the two remaining route questions against the THROWAWAY asset
-83627005624999 ("Facet-Spike-DeleteMe"):
-  1. Does PATCH /v1/assets/{id} accept new .rbxm content (docs say .fbx only)?
-  2. What does GET /v1/assets/{id}/versions report afterwards?
-
-Writes raw responses to artifacts/distribution-readiness/spike/update-response.json.
-Reads ROBLOX_API_KEY from the environment or GameStudio/tools/API_KEYS.txt; the
-key is never printed.
-
-Run from the Facet repository root:
-    python3 artifacts/distribution-readiness/spike/spike_update.py
-"""
 import json
 import os
 import pathlib

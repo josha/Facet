@@ -1,6 +1,7 @@
 --!strict
 
 local Nodes = require "./nodes"
+local Weak = require "../weak"
 
 export type Options = {
 	maxOwners: number?,
@@ -51,8 +52,6 @@ export type Report = {
 local DEFAULT_MAX_OWNERS = 4096
 local DEFAULT_MAX_NODES = 16384
 
-local WEAK_KEYS = table.freeze { __mode = "k" }
-
 export type Record = {
 	id: number,
 	label: string?,
@@ -62,16 +61,16 @@ export type Record = {
 	watches: number,
 	cleanups: number,
 
-	children: { [any]: true },
+	children: { [unknown]: true },
 	childCount: number,
 	isChild: boolean,
 	isMount: boolean,
 }
 
 export type State = {
-	records: { [any]: Record },
+	records: { [unknown]: Record },
 
-	ordered: { [number]: any },
+	ordered: { [number]: unknown },
 	orderedCount: number,
 	nextId: number,
 	maxOwners: number,
@@ -79,7 +78,7 @@ export type State = {
 	droppedOwners: number,
 	droppedNodes: number,
 	nodes: number,
-	nodeOwner: { [any]: Record },
+	nodeOwner: { [unknown]: Record },
 	broken: boolean,
 }
 
@@ -100,7 +99,7 @@ local function guarded(body: () -> ())
 	end
 end
 
-local function recordFor(owner: any): Record?
+local function recordFor(owner: unknown): Record?
 	local held = state
 	if held == nil then
 		return nil
@@ -122,7 +121,7 @@ local function recordFor(owner: any): Record?
 		borrowed = 0,
 		watches = 0,
 		cleanups = 0,
-		children = (setmetatable({}, WEAK_KEYS) :: any) :: { [any]: true },
+		children = Weak.keys() :: { [unknown]: true },
 		childCount = 0,
 		isChild = false,
 		isMount = false,
@@ -133,7 +132,7 @@ local function recordFor(owner: any): Record?
 	return record
 end
 
-local function node(owner: any, subject: any, custody: string)
+local function node(owner: unknown, subject: unknown, custody: string)
 	guarded(function()
 		local held = state :: State
 		local record = recordFor(owner)
@@ -156,7 +155,7 @@ local function node(owner: any, subject: any, custody: string)
 	end)
 end
 
-local function mount(owner: any)
+local function mount(owner: unknown)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -165,7 +164,7 @@ local function mount(owner: any)
 	end)
 end
 
-local function watch(owner: any)
+local function watch(owner: unknown)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -174,7 +173,7 @@ local function watch(owner: any)
 	end)
 end
 
-local function cleanup(owner: any)
+local function cleanup(owner: unknown)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -183,7 +182,7 @@ local function cleanup(owner: any)
 	end)
 end
 
-local function child(parent: any, subject: any)
+local function child(parent: unknown, subject: unknown)
 	guarded(function()
 		local parentRecord = recordFor(parent)
 		local childRecord = recordFor(subject)
@@ -198,7 +197,7 @@ local function child(parent: any, subject: any)
 	end)
 end
 
-local function label(owner: any, name: string)
+local function label(owner: unknown, name: string)
 	guarded(function()
 		local record = recordFor(owner)
 		if record ~= nil then
@@ -210,8 +209,8 @@ end
 local function start(options: Options?)
 	local settings: Options = options or ({} :: Options)
 	state = {
-		records = (setmetatable({}, WEAK_KEYS) :: any) :: { [any]: Record },
-		ordered = (setmetatable({}, table.freeze { __mode = "v" }) :: any) :: { [number]: any },
+		records = Weak.keys() :: { [unknown]: Record },
+		ordered = Weak.values() :: { [number]: unknown },
 		orderedCount = 0,
 		nextId = 0,
 		maxOwners = settings.maxOwners or DEFAULT_MAX_OWNERS,
@@ -219,7 +218,7 @@ local function start(options: Options?)
 		droppedOwners = 0,
 		droppedNodes = 0,
 		nodes = 0,
-		nodeOwner = (setmetatable({}, WEAK_KEYS) :: any) :: { [any]: Record },
+		nodeOwner = Weak.keys() :: { [unknown]: Record },
 		broken = false,
 	}
 end

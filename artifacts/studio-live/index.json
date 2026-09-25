@@ -1,0 +1,280 @@
+{
+  "schema": "facet-live-assertion-index/1",
+  "harness": "tools/studio/live",
+  "host": "Roblox Studio playtest on the device emulator with touch",
+  "runs": [
+    {
+      "file": "gallery-landscape-844x369-default.json",
+      "suite": "gallery",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Medium",
+      "stamp": "a1e31c85ce9e",
+      "source": "7e89af75 plus the haptics suites of 47cf9657; before the measured shell toolbar",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "file": "gallery-landscape-844x369-largest.json",
+      "suite": "gallery",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": null,
+      "source": "7e89af75 source (the collection toolbar, callout and circle fixes); recorded before the stamp attribute existed",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "file": "gallery-portrait-default.json",
+      "suite": "gallery",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Medium",
+      "stamp": "fc7390e09ca7",
+      "source": "47cf9657 source (measured shell toolbar)",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "file": "gallery-portrait-largest.json",
+      "suite": "gallery",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "18bc1022 06e0e2e33ac5",
+      "source": "18bc1022",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "file": "haptics_setup-landscape-844x369-largest.json",
+      "suite": "haptics_setup",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "a1e31c85ce9e",
+      "source": "7e89af75 plus the haptics suites of 47cf9657; before the measured shell toolbar",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "haptics_setup-portrait-largest.json",
+      "suite": "haptics_setup",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "18bc1022 06e0e2e33ac5",
+      "source": "18bc1022",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "haptics_verify-landscape-844x369-largest.json",
+      "suite": "haptics_verify",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "a1e31c85ce9e",
+      "source": "7e89af75 plus the haptics suites of 47cf9657; before the measured shell toolbar",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "haptics_verify-portrait-largest.json",
+      "suite": "haptics_verify",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "18bc1022 06e0e2e33ac5",
+      "source": "18bc1022",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "layout_geometry-landscape-844x369-default.json",
+      "suite": "layout_geometry",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Medium",
+      "stamp": "a1e31c85ce9e",
+      "source": "7e89af75 plus the haptics suites of 47cf9657; before the measured shell toolbar",
+      "passed": 10,
+      "failed": 1
+    },
+    {
+      "file": "layout_geometry-landscape-844x369-largest.json",
+      "suite": "layout_geometry",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": null,
+      "source": "7e89af75 source (the collection toolbar, callout and circle fixes); recorded before the stamp attribute existed",
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "file": "layout_geometry-portrait-default.json",
+      "suite": "layout_geometry",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Medium",
+      "stamp": "d6b60f8274f3",
+      "source": "7e89af75 plus the haptics suites; before the measured shell toolbar",
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "file": "layout_geometry-portrait-largest.json",
+      "suite": "layout_geometry",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "18bc1022 06e0e2e33ac5",
+      "source": "18bc1022",
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "file": "needs_live-landscape-844x369-default.json",
+      "suite": "needs_live",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Medium",
+      "stamp": "a1e31c85ce9e",
+      "source": "7e89af75 plus the haptics suites of 47cf9657; before the measured shell toolbar",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "file": "needs_live-landscape-844x369-largest.json",
+      "suite": "needs_live",
+      "viewport": [
+        844,
+        369
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": null,
+      "source": "7e89af75 source (the collection toolbar, callout and circle fixes); recorded before the stamp attribute existed",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "file": "needs_live-portrait-default.json",
+      "suite": "needs_live",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Medium",
+      "stamp": "d6b60f8274f3",
+      "source": "7e89af75 plus the haptics suites; before the measured shell toolbar",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "file": "needs_live-portrait-largest.json",
+      "suite": "needs_live",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "18bc1022 06e0e2e33ac5",
+      "source": "18bc1022",
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "file": "needs_live_input-list-keyboard-and-dpad-portrait-largest.json",
+      "suite": "needs_live_input",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "18bc1022 06e0e2e33ac5",
+      "source": "18bc1022",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "needs_live_input-mail-swipe-and-tap-portrait-largest.json",
+      "suite": "needs_live_input",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "2225e830dc42",
+      "source": "47cf9657 source with the needs-live input suites",
+      "passed": 0,
+      "failed": 1
+    },
+    {
+      "file": "needs_live_input-power-off-traversal-portrait-largest.json",
+      "suite": "needs_live_input",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "2225e830dc42",
+      "source": "47cf9657 source with the needs-live input suites",
+      "passed": 0,
+      "failed": 1
+    },
+    {
+      "file": "needs_live_input-scroll-into-view-by-gamepad-portrait-largest.json",
+      "suite": "needs_live_input",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "2225e830dc42",
+      "source": "47cf9657 source with the needs-live input suites",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "file": "needs_live_input-touch-drag-scrolls-reorderable-list-portrait-largest.json",
+      "suite": "needs_live_input",
+      "viewport": [
+        388,
+        824
+      ],
+      "preferredTextSize": "Enum.PreferredTextSize.Largest",
+      "stamp": "2225e830dc42",
+      "source": "47cf9657 source with the needs-live input suites",
+      "passed": 1,
+      "failed": 0
+    }
+  ]
+}

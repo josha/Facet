@@ -1,258 +1,78 @@
 # Contributing to Facet
 
-Facet is a Roblox user-interface library written in Luau. This page is the
-contributor's route: how to set the toolchain up, how to decide where a change
-goes, what to run before you propose it, and what a good change looks like when it
-arrives.
+Install the pinned toolchain with `rokit install`. Read [AGENTS.md](AGENTS.md)
+and [the architecture](docs/guide/02-architecture.md) before you change the
+library.
 
-If you are here to *use* Facet rather than change it, read
-[the guide](docs/guide/README.md) instead. If you are an automated coding agent,
-read [`AGENTS.md`](AGENTS.md) first; it routes to the same documents in the order
-an agent needs them.
+A change must keep one runtime path:
 
-## 1. Set the toolchain up
+- Compose owns the native Instances and their lifetime.
+- Roblox owns the engine mechanisms.
+- Facet owns control behavior.
 
-Facet pins its tools in [`rokit.toml`](rokit.toml) and installs them with
-[Rokit](https://github.com/rojo-rbx/rokit), a Roblox toolchain manager.
+Do not add a second scheduler, scene representation, renderer, solver, input
+transport or application facade. Use native datatypes and native property names
+as the ordinary authoring vocabulary.
 
-```sh
-rokit install                 # Rojo, luau-lsp, Lune, and StyLua at the pinned versions
-python3 tools/sync_compose.py  # materialize the exact Compose dependency
-python3 --version             # 3.9 or newer; several checks are Python
-tools/doctor.sh               # verifies the toolchain and the library invariants
-```
+Work in an isolated checkout. Keep control behavior, public types, examples,
+documentation and verification aligned. In source, use `Host` for the native
+constructors. Source contains no explanatory comments. Keep the required
+directives and notices.
 
-The first `rokit install` on a machine may stop with "has not been marked as
-trusted": that is rokit asking you to confirm each tool's source once. Run the
-`rokit trust <tool>` commands it prints (or `rokit install --no-trust-check` if
-you accept the pins in `rokit.toml` as they stand), then re-run it.
+## Verification
 
-Four tools do the work.
+1. Use a checkout with Git history. Clone without `--depth`, or run
+   `git fetch --unshallow` in a shallow clone. The coverage audit reads the
+   pinned pre-cutover commit to account for removed and replaced specs. CI also
+   fetches this history.
+2. While you edit, run the targeted behavioral specs.
+3. Run `tools/verify.sh full` for a completed change. Read its report,
+   including the unmapped legacy behavioral coverage. A passing subset from a
+   new runner is not full parity.
 
-- **Lune** runs the test suite and every Luau checker. Facet's decision layer is
-  engine-free, so the suite needs no Roblox process.
-- **Rojo** turns the source folder into an instance tree for Roblox Studio, and
-  builds the example places and the distributable model.
-- **StyLua** formats Luau. Formatting is checked, not negotiated.
-- **Python 3** runs the checkers that read the tree as text.
+Each run writes `artifacts/verify/latest-<tier>.json`. Use `--explain` to see
+each selected producer, its tiers and the main producer it replaces. A studio,
+device or timing producer that exits 2 reports `FAIL_ENVIRONMENT`: its evidence
+is not recorded, or a host timing budget failed. The `full` tier reports it and
+continues. The `release` tier stops on it. `tools/package.sh publish` accepts
+only a clean, passing `artifacts/verify/latest-release.json` for the same source.
+The [producer comparison](docs/guide/20-verification-parity.md#producers) lists
+each main producer and its native status.
 
-Run `tools/doctor.sh` first whenever something behaves strangely, and before you
-conclude that a build failure is a code problem.
+A spec case can require a higher tier. Give `t.it` the option
+`{ tier = "full" }` (or `"release"`) when the case is too slow for the working
+tiers, for example a mount ramp to the declared ceiling of 40000 rows. The
+`affected` and `fast` tiers record the case as `skip` with its tier, and the
+suite check accepts it there. The `full` tier runs a `full` case, and only the `release` tier runs a
+`release` case. The mount ramp to 40000 rows is a `release` case. A case that
+the run's own tier must run cannot be skipped. `lune run tests/run_one <spec>`
+also skips it. Use `lune run tests/run_one <spec> release` to run it.
 
-## 2. Decide where the change goes
+The [verification scope audit](docs/guide/18-verification-scope.md) records the
+substantial reduction from main and the unresolved coverage work. At this time,
+a native `full` run is a complete run of the candidate's checks. It is not
+equivalent to the historical coverage.
 
-[`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) is the map. It answers one question —
-where does a change go, and what proves it — for every area of the library, and it
-is checked against the tree, so it does not rot.
+The `types` producer runs `python3 tools/check_types.py` with the old Luau type
+solver at the default analyzer limits. It must report no owned diagnostics and
+must reject all negative probes. Run `python3 tools/check_types.py --solver new`
+to check the new type solver (`LuauSolverV2`). That run must not exceed the
+diagnostic budget in `tools/typecheck/solver_v2_budget.json`. When a change
+removes new solver diagnostics, lower the budget in the same change. Do not
+raise it.
 
-Then follow the playbook for the kind of change you are making. Each one is a
-numbered procedure where every step has a command and a pass condition:
+Run `tools/bench.sh` when no other verification load runs. Keep the workload
+intent and the checked-in baselines. Report changed measurement boundaries and
+preexisting threshold failures explicitly. For real layout and input evidence,
+exercise the maintained gallery and the virtual monitors in Roblox Studio.
 
-| You are adding | Playbook |
-|---|---|
-| a composite control | [`docs/extending/new-control.md`](docs/extending/new-control.md) |
-| a new leaf element class | [`docs/extending/new-primitive.md`](docs/extending/new-primitive.md) |
-| image-driven paint for an existing control | [`docs/extending/skinned-control.md`](docs/extending/skinned-control.md) |
-| a theme package | [`docs/extending/new-theme.md`](docs/extending/new-theme.md) |
-| the use of a Roblox class or property | [`docs/extending/new-engine-feature.md`](docs/extending/new-engine-feature.md) |
-| a place the solved tree materializes | [`docs/extending/new-render-target.md`](docs/extending/new-render-target.md) |
-| a platform or interaction mode | [`docs/extending/new-platform-mode.md`](docs/extending/new-platform-mode.md) |
+After a source change, run `tools/package.sh build` and
+`tools/package.sh status`. Cloud publication is not part of a code change.
 
-[`docs/reference/constitution.md`](docs/reference/constitution.md) governs anything
-the playbooks do not cover. It is the rulebook the library holds itself to, with
-every approved exception named.
+## Versioning
 
-### Examples teach the public API
-
-Read [component authoring](docs/guide/15-components.md) before writing a screen,
-guide snippet or feature scenario. Use `local app = Facet.new(opts)`,
-`app.controls`, ordered numeric children, property functions and explicit change
-callbacks. Put view state and derived work in `Facet.Compose.cell`/`formula`;
-borrow application state with a Compose readable. Declare layout animation on
-the container and enter/exit on the branch.
-
-Reach a composite control's own record with `ref = function(record) ... end`,
-or hold a Compose owner for a model that outlives its views. Explain that need
-beside the code. Do not copy diagnostic harness ownership into an ordinary
-screen. The [example index](examples/README.md) identifies the starting points.
-Update the current example and guide with each public feature.
-
-## 3. Verify what you changed
-
-Verification runs in four named tiers through one command:
-
-```sh
-tools/verify.sh affected     # the smallest safe set for the files you changed
-tools/verify.sh fast         # the inner-loop tier
-tools/verify.sh full         # every deterministic check, exactly once
-tools/verify.sh release      # full, plus the build, package, and evidence producers
-```
-
-Which one to use:
-
-- **affected** or **fast** while you work. Fast is the whole deterministic spine
-  minus the slowest files.
-- **full** before you propose a change. This is the tier a reviewer expects to see
-  a result line from.
-- **release** belongs to the maintainer cutting a release. It runs the producers
-  that touch builds, packages, and recorded evidence.
-
-Affected and fast output is not full evidence, and the tool says so: both print a
-banner, and the full and release readers refuse a fast tier's results. Do not
-report a fast run as if it were a full one.
-
-Two flags are worth knowing. `--explain` prints which producers were selected,
-why, and why a reused result was allowed to stand. `--rerun <id>` ignores the
-stored result for one producer and runs only that, which is the loop to use while
-you fix a failure.
-
-Two loops sit underneath the tiers and are worth knowing:
-
-```sh
-lune run tests/run_one <spec-name>   # one spec file, for the edit-and-run loop
-./run-tests.sh                       # the complete suite
-./run-tests.sh --fast                # the same list minus the slowest files
-```
-
-`run_one` is also how you watch a new check **fail** before you trust it. This
-repository asks for that every time: a check nobody has seen fail is decoration.
-
-Before merging, wait for GitHub's **Verify** check to pass on the latest pull
-request revision. A local suite pass alone is not a full verification pass.
-The repository should require this check on an up-to-date pull request before
-merging into `main`. For a fork, a maintainer may need to approve its workflow
-run first; a missing or unstarted check is not a pass.
-
-CI runs `tools/verify.sh full --jobs 1`, then builds and inspects the distributable
-model. It saves verification logs and results as a workflow artifact, including
-on failure. Use the same command in a fresh checkout to reproduce its checks;
-local consumer repositories and private evidence are reported separately.
-
-Formatting and the text checks:
-
-```sh
-stylua --check src tests tools bench examples
-python3 tools/check_doc_style.py       # clear-writing rules on the documents people read
-python3 tools/check_brand_drift.py     # naming and product-language rules
-```
-
-**The product-language rule matters and is easy to trip.** Facet explains itself in
-Roblox and Facet terms. Another user-interface framework, its vendor, that vendor's
-operating systems, or its sample applications may not be the *name* of a Facet
-feature or the *reason* for one. One document is exempt: the short guide that
-compares Facet with the alternatives, which exists precisely to make that
-comparison. Everywhere else, describe the behavior.
-
-**The clear-writing rule** keeps the documents a reader is expected to read in
-order plain and direct: one instruction per numbered step, every acronym expanded
-once before it is used, and no repository-internal shorthand on a public page.
-
-## 4. Tests come first, and they must fail first
-
-Facet's standard is not "there is a test". It is "the test was seen to fail for the
-reason you expect, before the fix existed". Write the covering spec, run
-`lune run tests/run_one <spec>`, watch it go red, then make it green.
-
-A spec lives directly under `tests/`, named `<name>.spec.luau`, because
-`run_one` resolves exactly `tests/<name>.spec` and nothing else. Every spec file
-must then be registered in `tests/run.luau`. An unregistered spec is a silent
-zero, and the registration checker fails a run that has one.
-
-Both rules are about this repository. A spec covering a screen in *your own* game
-lives in your own project, run by your own entry point — see
-[guide 3 §3.2b](docs/guide/03-getting-started.md#32b-testing-your-screen).
-
-## 5. What a good change looks like
-
-- **One concern per change.** A refactor and a behavior change in the same commit
-  cannot be reviewed or reverted separately.
-- **A subject line that is one plain sentence** saying what the change does, in
-  the present tense.
-- **Documentation updated in the same change.** A new public property that is not
-  in [`docs/reference/api.md`](docs/reference/api.md) fails a checker, and a new
-  capability that is not in the [guide index](docs/guide/README.md) catalog fails
-  another.
-- **No new public surface without a written decision.** If a change alters what the
-  library promises, say in the change itself what was chosen and what was rejected,
-  add the entry to [`CHANGELOG.md`](CHANGELOG.md), and update
-  [`docs/reference/api.md`](docs/reference/api.md) — and
-  [the constitution](docs/reference/constitution.md) when the rule set itself moves.
-- **Both consumer routes stay working.** Some people use Facet through Rojo from a
-  Git checkout; others install the built model or the Roblox Package into Studio
-  with no toolchain at all. A change that assumes a file sync breaks the second
-  group. [Guide 8](docs/guide/08-without-rojo.md) is what that group reads.
-
-## 6. Versioning and deprecation
-
-Facet uses semantic versioning, `MAJOR.MINOR.PATCH`, exposed at runtime as
-`Facet.VERSION`. The version string lives in exactly one place, `src/init.luau`;
-documents and tests read it from there, and the drift is checked mechanically.
-
-**While the library is pre-1.0**, the version is `0.MINOR.PATCH`. A minor bump may
-change public behavior or remove a surface that was already deprecated, but only
-with the notice below. A patch bump is fully compatible: fixes, documentation, and
-performance. Version 1.0.0 is cut when the success criteria hold and a second
-production game consumes the library; from then on a major bump is breaking, a
-minor is additive, and a patch is fixes.
-
-**The public surface** is what `src/init.luau` exports, plus the documented client
-entry points under `src/client/`. Everything else is internal and may change
-without notice. A game must not require a library-internal module.
-
-**Deprecations are declared, not implied.** Every retiring surface has an entry in
-`Facet.DEPRECATIONS`, a frozen machine-readable ledger beside the exports in
-`src/init.luau`. An entry carries `surface`, `since`, `removeNoEarlierThan`,
-`replacement`, and an optional `note`; property entries are generated from the
-property schema, so an entry cannot go missing when a property is retired.
-
-- A deprecated surface keeps working for **at least one minor version** after
-  `since`. `removeNoEarlierThan` names the earliest version that may delete it.
-- Every entry names its replacement, either an API or a migration note.
-- Removal happens only in a minor bump before 1.0 or a major bump after it.
-
-**One exception, and it is narrow: a surface that never worked.** The
-keeps-working promise protects behavior that a consumer could actually rely on. A
-property that never reached a render target has no working behavior to preserve,
-and accepting it for another minor version would preserve only the silent failure.
-Those entries stay in the ledger for the record and are diagnosed at construction,
-with the error naming the replacement.
-
-**Before a version's first publish**, a breaking change may land in that version
-directly, provided the change is recorded in that version's `CHANGELOG.md` entry,
-row by row, with the surface it moves and why the move breaks a caller. After a
-version's first publish, the full deprecation window above applies with no
-exception. A compatibility shim is not a substitute for the record, and where the
-old behavior was itself the defect — a silent default the fix exists to remove — a
-shim is not an option at all. The ledger cannot see two of these changes on its
-own: a property flipping to required, and a documented default changing value,
-both generate no ledger row. So `tests/api_surface.spec.luau` pins the required set
-and every documented default *by value*, and reddens when either moves without a
-changelog row.
-
-**From 1.0 onward the promise is strict.** A surface that ships in 1.x keeps
-working for the whole of 1.x. Removing or changing it takes a major version, a
-`Facet.DEPRECATIONS` entry that names its replacement, and at least one minor
-release in which both spellings work.
-
-## 7. Reporting a problem
-
-Open an issue using the templates in `.github/ISSUE_TEMPLATE/`. A bug report needs
-the smallest reproduction you can get to, what you expected, what happened, the
-value of `Facet.VERSION`, and the device and input class you saw it on. A security
-problem is not an issue: follow [`SECURITY.md`](SECURITY.md).
-
-## 8. What is not a contributor's job
-
-Facet has a production consumer game that the maintainer keeps in step with the
-library, release by release. Keeping that game current is the maintainer's work,
-not yours. Propose the framework change on its own merits; the maintainer carries
-it downstream.
-
-Publishing the Roblox Package, cutting a release, and anything that touches a
-Roblox account or an application key are likewise maintainer operations. They need
-credentials that are never in this repository.
-
-## 9. License
-
-By contributing you agree that your contribution is licensed under the MIT
-License, the same terms as the rest of Facet. See [`LICENSE`](LICENSE).
+`src/init.luau` is the only version authority. Version 0.12.0 is the native
+cutover. It removes the former application, scene, layout and compatibility
+APIs in one break. Do not add migration shims or a second supported
+architecture. Describe the public effects of each later change in the
+changelog.

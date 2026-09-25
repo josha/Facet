@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""Distribution spike, step 1: create the THROWAWAY Model asset via Open Cloud.
 
-Creates "Facet-Spike-DeleteMe" (private, clearly labeled, archived at the end of
-the spike) from the already-built build/Facet.rbxm, polls the operation until
-Roblox finishes processing, and writes the raw responses to
-artifacts/distribution-readiness/spike/create-response.json.
-
-Reads ROBLOX_API_KEY from the environment, falling back to
-GameStudio/tools/API_KEYS.txt. The key is never printed and never written.
-
-Run from the Facet repository root:
-    python3 artifacts/distribution-readiness/spike/spike_create.py
-"""
 import json
 import os
 import pathlib

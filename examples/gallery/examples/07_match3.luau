@@ -1,98 +1,14 @@
 --!strict
--- ============================================================================
--- Example 7 of the Facet tutorial: a match-3 board that MOVES.
--- ============================================================================
---
--- WHAT THIS TEACHES
---   * stable identity  — the board is a set of TILES, each with an `id` handed
---                      out once and never reused, rendered through
---                      `Compose.keyed`. A swap is the same two tiles changing
---                      places, not two pictures changing inside two stationary
---                      boxes, and the framework is what keeps a moved tile's
---                      mounted node, owner and state
---   * motion           — the board's `animation` paints every tile whose box
---                      changed travelling from where it was to where it is. The
---                      LAYOUT lands instantly and exactly, so hit-testing and
---                      focus never chase a moving pixel, and the board stays
---                      honest while it looks alive. A cleared tile stays mounted
---                      for the remove phase, and its `animation` fades it out
---   * a clock, not a timer — the resolve sequence (mark, remove, drop, refill,
---                      cascade) is a state machine on `app.onFrame`, the
---                      one sanctioned frame source outside the motion clock. No
---                      `task.wait`, no second `RunService` connection, and a
---                      headless test drives every intermediate frame with a
---                      scripted `dt`
---   * async images     — every tile kind's picture is acquired through a
---                      resource provider that models the ready / pending /
---                      FAILED states a real texture load has. The three states
---                      are on screen and the failed one is recoverable, because
---                      "it is still loading" and "it will never load" look
---                      identical to a player unless you say which one it is
---   * deterministic simulation — matches clear, gravity falls and the board
---                      refills from a SEEDED sequence, so a test can replay a
---                      swap and get the same board every time
---   * multi-input      — a tile is a picture with a transparent button over it,
---                      so a tap, a click, Return on the focused tile and a
---                      gamepad "A" all select it
---
--- WHAT THE PLAYER SEES
---   A title, a one-line instruction that changes as they play, score and move
---   counters, the board, an artwork row that reports and drives the image
---   states, and a "New board" button. Tapping a tile selects it; tapping an
---   ADJACENT tile slides the two together, keeps the swap if it made a run and
---   slides them back if it did not. A run marks, clears, drops the survivors and
---   refills from the top, cascading until nothing is left to clear — and the
---   board says so rather than swallowing taps while it settles. The opening
---   board is generated with no run already on it and with at least one legal
---   move available.
---
--- REDUCED MOTION IS NOT THIS FILE'S BUSINESS, and the absence is deliberate:
--- there is no `reducedMotion` branch anywhere below. Layout animation and the
--- opacity fade both ride the motion authority, whose own contract
--- places instantly and fires the same events on the same frame when a player
--- asks for less motion. Ordering, feedback, scoring and the final board come
--- from the state machine, which is driven by the clock rather than by the
--- animation — so the two runs agree by construction instead of by a second code
--- path that has to be kept agreeing.
---
--- Runs headless against the FakeTarget: no engine calls.
---
--- ctx used: app (mounts the screen, drives the frame clock), core (the resource
--- provider). `build(ctx)` is the shape every example shares.
 
 local assets = require("./assets")
+
+type Use = (any) -> any
 
 local ROWS = 6
 local COLS = 6
 local KINDS = { "a", "b", "c", "d", "e" }
 local DEFAULT_SEED = 20260720
 
--- A tile is a tap target first and a picture second, so it is sized from the
--- theme's own large-control height rather than a pixel count this file guessed.
--- A denser package makes the board denser; a chunky touch package makes it
--- chunkier. THE EXAMPLE NAMES NO DEVICE.
-local CELL: any = { type = "fixed", px = "controlSizes.large.height" }
--- ...and the board is exactly six of those across and six down. `content rows`
--- is the framework's own way to say "N rows of this metric", so the
--- board tracks the same theme metric its tiles do with no arithmetic here.
-local BOARD_WIDTH: any = { type = "content", rows = COLS, of = "controlSizes.large.height" }
-local BOARD_HEIGHT: any = { type = "content", rows = ROWS, of = "controlSizes.large.height" }
-
--- `object` is the framework's motion class for a thing that moves as itself (a
--- tile), against `container` for a box that grows. A class is a NAME here as it
--- is everywhere else — the example asks for a feel, it does not tune a spring.
-local TILE_MOTION = "object"
-
---[[ THE RESOLUTION PHASES, in seconds of PRESENTER CLOCK time.
-
-	These are the example's own pacing decision and the only numbers in this file
-	that are about time. They are spent by `app.onFrame`, so the headless
-	suite advances them with a scripted `dt` and every frame in between is a
-	deterministic assertion rather than a race.
-
-	The sum after a removal (remove + gravity + refill + land = 0.86 s) is
-	deliberately longer than the framework's flat 500 ms exit cap, so a matched
-	tile has always finished retiring by the time the cascade comes back round. ]]
 local PHASE_SECONDS: { [string]: number } = {
 	swap = 0.2,
 	revert = 0.2,
@@ -103,9 +19,6 @@ local PHASE_SECONDS: { [string]: number } = {
 	land = 0.26,
 }
 
--- A tiny deterministic PRNG (a classic Lehmer/park-miller generator). Seeding it
--- identically replays the exact same refill sequence, which is what lets a test
--- predict the board after a swap.
 local function makeRng(seed: number): () -> number
 	local state = seed % 2147483647
 	if state <= 0 then
@@ -116,11 +29,6 @@ local function makeRng(seed: number): () -> number
 		return state / 2147483647
 	end
 end
-
--- ---- pure board rules, over a plain grid of kinds -------------------------
--- These are the rules the game plays by, and they are written against a plain
--- `{ { kind } }` so the DEALER and the LIVE BOARD can both ask them. Nothing
--- here knows about tiles, identity or motion.
 
 local function findMatchesIn(grid: { { string } }): { [string]: boolean }
 	local matched: { [string]: boolean } = {}
@@ -160,8 +68,6 @@ local function findMatchesIn(grid: { { string } }): { [string]: boolean }
 	return matched
 end
 
--- is there ANY adjacent pair whose swap makes a run? A board with no legal
--- move is a dead end the player cannot see, so it is checked rather than hoped.
 local function hasLegalMoveIn(grid: { { string } }): boolean
 	local function trySwap(r1: number, c1: number, r2: number, c2: number): boolean
 		grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
@@ -183,10 +89,11 @@ local function hasLegalMoveIn(grid: { { string } }): boolean
 end
 
 local function build(ctx: any)
-	local Facet, UI, Compose, app = ctx.Facet, ctx.UI, ctx.Compose, ctx.app
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
+	local reducedMotion = ctx.reducedMotion
 	local seed = DEFAULT_SEED
-	-- The game model owns phase timing and resources across row lifetimes.
-	local gameOwner = Compose.createOwner()
+
 	local rng = makeRng(seed)
 	local function nextKind(): string
 		return KINDS[math.floor(rng() * #KINDS) + 1]
@@ -246,6 +153,7 @@ local function build(ctx: any)
 		setPosition: any,
 		setMarked: any,
 		setLeaving: any,
+		hit: any,
 	}
 	local board: { { Tile? } } = {}
 	for r = 1, ROWS do
@@ -283,8 +191,9 @@ local function build(ctx: any)
 	local function hasLegalMove(): boolean
 		return hasLegalMoveIn(kindGrid())
 	end
+	local syncSelection
 	local items = Compose.cell({} :: { { id: number } })
-	-- Cleared tiles stay mounted through the remove phase so their fade can paint.
+
 	local leaving: { Tile } = {}
 	local function publish()
 		local out: { { id: number } } = {}
@@ -300,6 +209,9 @@ local function build(ctx: any)
 			end
 		end
 		items:set(out)
+		if syncSelection then
+			syncSelection()
+		end
 	end
 	local function syncPositions()
 		for r = 1, ROWS do
@@ -326,30 +238,25 @@ local function build(ctx: any)
 	local message = Compose.cell("")
 	local resolving = Compose.cell(false)
 	local selected = Compose.cell(nil :: { number }?)
-	local provider = Facet.newResourceProvider(ctx.core, { maxConcurrent = 8 })
-	local kindHandle: { [string]: any } = {}
+	local kindHandle = {}
 	for _, kind in KINDS do
-		kindHandle[kind] = provider.acquire(gameOwner, `img/{kind}`)
+		kindHandle[kind] = { state = Compose.cell("ready"), value = Compose.cell(assets.match3Tiles[kind].image) }
 	end
 	local PENDING = assets.pending
-	local function deliverArt(): number
+	local function deliverArt()
 		local delivered = 0
-		for _, request in provider.pendingRequests() do
-			local kind = string.match(request.key, "^img/(.+)$")
-			local art = if kind ~= nil then assets.match3Tiles[kind] else nil
-			if art ~= nil and provider.complete(request.key, request.generation, art.image) == "applied" then
+		for kind, held in kindHandle do
+			if held.state:peek() == "pending" then
+				held.value:set(assets.match3Tiles[kind].image)
+				held.state:set("ready")
 				delivered += 1
 			end
 		end
 		return delivered
 	end
-	deliverArt()
-	local function requestArt(kind: string)
-		local key = `img/{kind}`
-		provider.invalidate(key)
-		local fresh = provider.acquire(gameOwner, key)
-		kindHandle[kind].release()
-		kindHandle[kind] = fresh
+	local function requestArt(kind)
+		kindHandle[kind].value:set(nil)
+		kindHandle[kind].state:set("pending")
 	end
 	local function reloadArt()
 		for _, kind in KINDS do
@@ -358,15 +265,8 @@ local function build(ctx: any)
 		message:set("Artwork re-requested — the tiles show the loading placeholder until it arrives.")
 	end
 	local function failArt()
-		local first = provider.pendingRequests()[1]
-		if first == nil then
-			requestArt("a")
-			first = provider.pendingRequests()[1]
-		end
-		if first ~= nil then
-			provider.fail(first.key, first.generation, "the transport dropped it")
-			message:set('One tile kind failed to load. Press "Re-request artwork", then "Deliver artwork".')
-		end
+		kindHandle[KINDS[1]].state:set("failed")
+		message:set("One tile kind failed to load. Re-request artwork, then deliver artwork.")
 	end
 	local artStatus = Compose.formula(function(use)
 		local pending, failed, ready = 0, 0, 0
@@ -391,6 +291,22 @@ local function build(ctx: any)
 	local activateTile: (tile: Tile) -> ()
 	local beginSwap: (number, number, number, number) -> ()
 	local tilesById: { [number]: Tile } = {}
+	syncSelection = function()
+		for row = 1, ROWS do
+			for col = 1, COLS do
+				local tile = board[row][col]
+				if tile and tile.hit then
+					local left, right = board[row][col - 1], board[row][col + 1]
+					local up, down =
+						if row > 1 then board[row - 1][col] else nil, if row < ROWS then board[row + 1][col] else nil
+					tile.hit.NextSelectionLeft = if left then left.hit else tile.hit
+					tile.hit.NextSelectionRight = if right then right.hit else tile.hit
+					tile.hit.NextSelectionUp = if up then up.hit else nil
+					tile.hit.NextSelectionDown = if down then down.hit else nil
+				end
+			end
+		end
+	end
 	local function TileView(item: any)
 		local tile = tilesById[item:peek().id]
 		local kind = Compose.cell(tile.kind)
@@ -399,8 +315,9 @@ local function build(ctx: any)
 			col = tile.col,
 		})
 		local marked = Compose.cell(false)
-		-- The drag proxy is built at pickup, outside any component.
-		local owner = Compose.currentOwner()
+
+		local dragOrigin: Vector2?, dragDelta: Vector2?
+		local dragMoved = false
 		function tile.setKind(value)
 			kind:set(value)
 		end
@@ -415,13 +332,7 @@ local function build(ctx: any)
 			isLeaving:set(value)
 		end
 		Compose.cleanup(function()
-			tile.setKind, tile.setPosition, tile.setMarked, tile.setLeaving = nil, nil, nil, nil
-		end)
-		local offsetX = Compose.formula(function(use)
-			return { scale = (use(position).col - 1) / COLS }
-		end)
-		local offsetY = Compose.formula(function(use)
-			return { scale = (use(position).row - 1) / ROWS }
+			tile.setKind, tile.setPosition, tile.setMarked, tile.setLeaving, tile.hit = nil, nil, nil, nil, nil
 		end)
 		local image = Compose.formula(function(use)
 			local handle = kindHandle[use(kind)]
@@ -431,15 +342,13 @@ local function build(ctx: any)
 			local resolved = use(handle.value)
 			return if resolved ~= nil then resolved else PENDING
 		end)
-		local tint = Compose.formula(function(use)
-			return { role = assets.match3Tints[use(kind)], blend = 1 }
-		end)
+
 		local fallbackLabel = Compose.formula(function(use)
 			local current = use(kind)
 			local ready = use(kindHandle[current].state) == "ready"
 			return if ready then "" else assets.match3Tiles[current].label
 		end)
-		local picked = Compose.formula(function(use)
+		local picked = Compose.formula(function(use: Use)
 			if use(marked) then
 				return true
 			end
@@ -447,86 +356,145 @@ local function build(ctx: any)
 			local at = use(position)
 			return sel ~= nil and sel[1] == at.row and sel[2] == at.col
 		end)
-		-- Tile hit targets need primitive selected/surface paint; the component
-		-- still owns state and Facet owns focus, dragging and layout.
-		return UI.ZStack(`tile{tile.id}`)({
-			canvasGroup = true,
-			animation = { opacity = TILE_MOTION },
-			opacity = function(use)
-				return if use(isLeaving) then 0 else 1
+		local targetPosition = Compose.formula(function(use: Use)
+			local at = use(position)
+			return UDim2.fromOffset((at.col - 1) * 48, (at.row - 1) * 48)
+		end)
+		local targetTransparency = Compose.formula(function(use)
+			return if use(isLeaving) then 1 else 0
+		end)
+		local movingPosition = ctx.runtime.spring(function(use)
+			return use(targetPosition)
+		end, { period = 0.18, damping = 1 })
+		local fading = ctx.runtime.tween(function(use)
+			return use(targetTransparency)
+		end, { seconds = 0.16 })
+		local plate = Host.CanvasGroup({
+			Name = `tile{tile.id}`,
+			GroupTransparency = function(use)
+				return if use(reducedMotion) then use(targetTransparency) else use(fading)
 			end,
-			width = CELL,
-			height = CELL,
-			anchor = "topLeft",
-			offsetX = offsetX,
-			offsetY = offsetY,
-			UI.Image("img")({
-				image = image,
-				tint = tint,
-				margin = "xs",
-				width = UI.fill(),
-				height = UI.fill(),
-			}),
-			UI.dropTarget(
-				UI.draggable(
-					UI.Button("hit")({
-						label = fallbackLabel,
-						surface = "plain",
-						selected = picked,
-						textSize = "control",
-						width = UI.fill(),
-						height = UI.fill(),
-						onActivate = function()
-							activateTile(tile)
-						end,
-					}),
-					{
-						payload = { kind = "match3", tile = tile },
-						enabled = Compose.formula(function(use)
-							return not use(resolving)
-						end),
-						proxy = function()
-							return Compose.withOwner(owner, function()
-								return UI.Image({ image = image, tint = tint, width = UI.fill(), height = UI.fill() })
-							end)
-						end,
-					}
-				),
-				{
-					accepts = function(payload)
-						local source = type(payload) == "table" and payload.kind == "match3" and payload.tile
-						return source ~= nil
-							and source ~= false
-							and not resolving:peek()
-							and board[source.row][source.col] == source
-							and math.abs(source.row - tile.row) + math.abs(source.col - tile.col) == 1,
-							"Tiles must be neighbors"
-					end,
-					onDrop = function(payload)
-						selected:set(nil)
-						message:set("")
-						beginSwap(payload.tile.row, payload.tile.col, tile.row, tile.col)
-					end,
+			Size = UDim2.fromOffset(44, 44),
+			Position = function(use)
+				return if use(reducedMotion) then use(targetPosition) else use(movingPosition)
+			end,
+			(function()
+				local art = Host.ImageLabel "img" {
+					BackgroundTransparency = 1,
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+					Size = UDim2.fromScale(0.7, 0.7),
+					Image = image,
 				}
-			),
+				local previous
+				Compose.watch(function(use)
+					local tag = "facet-icon-" .. assets.match3Tints[use(kind)]
+					if previous then
+						art:RemoveTag(previous)
+					end
+					art:AddTag(tag)
+					previous = tag
+				end)
+				return art
+			end)(),
+			UI.Button "hit" {
+				ref = function(node)
+					tile.hit = node
+				end,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				AutomaticSize = Enum.AutomaticSize.None,
+				Size = UDim2.fromScale(1, 1),
+				label = fallbackLabel,
+				name = function(use)
+					return assets.match3Tiles[use(kind)].name
+				end,
+				selected = picked,
+				TextSize = 16,
+				Host.UIStroke "Selection" {
+					Thickness = 3,
+					Color = Color3.new(1, 1, 1),
+					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+					Transparency = function(use)
+						return if use(picked) then 0 else 1
+					end,
+				},
+				onActivate = function(input)
+					if
+						input
+						and (
+							input.UserInputType == Enum.UserInputType.MouseButton1
+							or input.UserInputType == Enum.UserInputType.Touch
+						)
+					then
+						return
+					end
+					activateTile(tile)
+				end,
+				Host.UIDragDetector "SwapDrag" {
+					ResponseStyle = Enum.UIDragDetectorResponseStyle.CustomOffset,
+					Enabled = function(use)
+						return not use(resolving)
+					end,
+					DragStart = function(at: Vector2)
+						dragOrigin = if resolving:peek() then nil else at
+						dragDelta = nil
+						dragMoved = false
+					end,
+					DragContinue = function(at: Vector2)
+						if dragOrigin then
+							local delta = at - dragOrigin
+							dragDelta = delta
+							dragMoved = dragMoved or delta.Magnitude >= 16
+						end
+					end,
+					DragEnd = function(at: Vector2?)
+						local origin = dragOrigin
+						local delta = if origin and at then at - origin else dragDelta
+						dragOrigin, dragDelta = nil, nil
+						if not origin or resolving:peek() or not tile.hit then
+							return
+						end
+						if delta and delta.Magnitude >= 16 then
+							local horizontal = math.abs(delta.X) > math.abs(delta.Y)
+							local r = tile.row + (if horizontal then 0 else (if delta.Y > 0 then 1 else -1))
+							local c = tile.col + (if horizontal then (if delta.X > 0 then 1 else -1) else 0)
+							if r >= 1 and r <= ROWS and c >= 1 and c <= COLS then
+								selected:set(nil)
+								beginSwap(tile.row, tile.col, r, c)
+							end
+						elseif at and not dragMoved then
+							local position, size = tile.hit.AbsolutePosition, tile.hit.AbsoluteSize
+							if
+								at.X >= position.X
+								and at.Y >= position.Y
+								and at.X < position.X + size.X
+								and at.Y < position.Y + size.Y
+							then
+								activateTile(tile)
+							end
+						end
+					end,
+				},
+			},
 		})
+		plate:AddTag("facet-control")
+		return plate
 	end
 	local function boardView()
-		return UI.Anchor("board")({
-			animation = { layout = TILE_MOTION },
-			overflow = "clip",
-			width = BOARD_WIDTH,
-			height = BOARD_HEIGHT,
-			UI.ForEach("tiles")({
-				Compose.keyed({
-					from = items,
-					key = function(item)
-						return item.id
-					end,
-					render = TileView,
-				}),
+		local node = UI.ZStack "board" {
+			width = COLS * 48,
+			height = ROWS * 48,
+			Compose.OrderedCollection({
+				from = items,
+				key = function(item)
+					return item.id
+				end,
+				render = TileView,
 			}),
-		})
+		}
+		syncSelection()
+		return node
 	end
 	local function dealBoard()
 		local grid = dealKinds()
@@ -554,6 +522,7 @@ local function build(ctx: any)
 			unsubTick = nil
 		end
 	end
+	Compose.cleanup(stopTicking)
 	local function tileAt(r: number, c: number): Tile?
 		return board[r][c]
 	end
@@ -573,7 +542,7 @@ local function build(ctx: any)
 	local PHASE_ACTION: { [string]: () -> () } = {
 		swap = function()
 			local move = pendingSwap :: { number }
-			app.runtime:batch(function()
+			ctx.runtime:batch(function()
 				local a, b = tileAt(move[1], move[2]) :: Tile, tileAt(move[3], move[4]) :: Tile
 				a.row, a.col, b.row, b.col = b.row, b.col, a.row, a.col
 				board[a.row][a.col], board[b.row][b.col] = a, b
@@ -583,7 +552,7 @@ local function build(ctx: any)
 		end,
 		revert = function()
 			local move = pendingSwap :: { number }
-			app.runtime:batch(function()
+			ctx.runtime:batch(function()
 				local a, b = tileAt(move[1], move[2]) :: Tile, tileAt(move[3], move[4]) :: Tile
 				a.row, a.col, b.row, b.col = b.row, b.col, a.row, a.col
 				board[a.row][a.col], board[b.row][b.col] = a, b
@@ -625,7 +594,7 @@ local function build(ctx: any)
 			phaseLog[#phaseLog] = `remove:{cleared}`
 		end,
 		gravity = function()
-			app.runtime:batch(function()
+			ctx.runtime:batch(function()
 				table.clear(leaving)
 				for c = 1, COLS do
 					local stack: { Tile } = {}
@@ -667,7 +636,7 @@ local function build(ctx: any)
 			phaseLog[#phaseLog] = `refill:{added}`
 		end,
 		land = function()
-			app.runtime:batch(function()
+			ctx.runtime:batch(function()
 				for r = 1, ROWS do
 					for c = 1, COLS do
 						local tile = board[r][c]
@@ -740,7 +709,10 @@ local function build(ctx: any)
 		swapScored = false
 		resolving:set(true)
 		if unsubTick == nil then
-			unsubTick = app.onFrame(onFrame)
+			local connection = (ctx.runService or game:GetService("RunService")).Heartbeat:Connect(onFrame)
+			unsubTick = function()
+				connection:Disconnect()
+			end
 		end
 		enterPhase("swap")
 	end
@@ -803,31 +775,25 @@ local function build(ctx: any)
 		local movesText = Compose.formula(function(use)
 			return `{use(moves)} swaps`
 		end)
-		return UI.Screen("Match3")({
-			surface = "base",
-			padding = "m",
-			UI.ScrollView("Page")({
-				axis = "y",
+		return UI.Screen "Match3" {
+			UI.ScrollView "Page" {
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-				UI.Text("Title")({ text = "Facet Match-3", textSize = "title" }),
-				UI.Text("Hint")({ text = hint, textSize = "body", role = "secondary" }),
-				UI.HStack("Stats")({
-					wrap = true,
+				align = "stretch",
+				UI.Text "Title" { text = "Facet Match-3", textRole = "title", TextWrapped = true },
+				UI.Text "Hint" { text = hint, TextWrapped = true },
+				UI.HStack "Stats" {
 					gap = "m",
-					align = "center",
-					UI.Text("Score")({ text = scoreText, textSize = "numeral" }),
-					UI.Text("Moves")({ text = movesText, textSize = "label", role = "secondary" }),
-				}),
+					wrap = true,
+					UI.Text "Score" { text = scoreText },
+					UI.Text "Moves" { text = movesText },
+				},
 				boardView(),
-				UI.Text("ArtStatus")({ text = artStatus, textSize = "label", role = "secondary" }),
-				UI.Grid("Art")({
-					minColumnWidth = "intrinsic",
+				UI.Text "ArtStatus" { text = artStatus, TextWrapped = true },
+				UI.HStack "Art" {
+					wrap = true,
 					gap = "s",
-					width = UI.fill(),
-					UI.Button("Reload")({ label = "Re-request artwork", onActivate = reloadArt }),
-					UI.Button("Deliver")({
+					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt },
+					UI.Button "Deliver" {
 						label = "Deliver artwork",
 						onActivate = function()
 							local n = deliverArt()
@@ -835,62 +801,20 @@ local function build(ctx: any)
 								if n > 0 then `Delivered {n} tile pictures.` else "Nothing was waiting to be delivered."
 							)
 						end,
-					}),
-					UI.Button("Break")({ label = "Fail a load", onActivate = failArt }),
-				}),
-				UI.Button("Reset")({ label = "New board", onActivate = reset }),
-			}),
-		})
+					},
+					UI.Button "Break" { label = "Fail a load", onActivate = failArt },
+				},
+				UI.Button "Reset" { label = "New board", onActivate = reset },
+			},
+		}
 	end
 	local function tilePath(id: number): string
 		return `/Match3/Page/board/tiles/tile{id}`
 	end
-	-- THE BOARD DECLARES ITS OWN 2D NAVIGATION: tiles are freely placed in an
-	-- Anchor, so the layout cannot infer rows. Use the current board order.
-	local function navigationGroups(): any
-		local tiles: { string } = {}
-		for r = 1, ROWS do
-			for c = 1, COLS do
-				local tile = board[r][c]
-				if tile ~= nil then
-					table.insert(tiles, `{tilePath(tile.id)}/hit`)
-				end
-			end
-		end
-		return {
-			{
-				name = "board",
-				axis = "horizontal",
-				entry = "nearest",
-				columns = COLS,
-				order = tiles,
-				exit = { down = "art" },
-			},
-			{
-				name = "art",
-				axis = "horizontal",
-				entry = "nearest",
-				order = {
-					"/Match3/Page/Art/Reload",
-					"/Match3/Page/Art/Deliver",
-					"/Match3/Page/Art/Break",
-				},
-				exit = { up = "board", down = "reset" },
-			},
-			{
-				name = "reset",
-				axis = "vertical",
-				entry = "nearest",
-				order = { "/Match3/Page/Reset" },
-				exit = { up = "art" },
-			},
-		}
-	end
-	local close, _, handle = app.mount(Match3, { navigationGroups = navigationGroups })
+
 	return {
 		title = "Match-3",
-		handle = handle,
-		provider = provider,
+		screen = Match3,
 		pendingImage = PENDING,
 		rows = ROWS,
 		cols = COLS,
@@ -986,11 +910,6 @@ local function build(ctx: any)
 		end,
 		dispose = function()
 			stopTicking()
-			close()
-			for _, held in kindHandle do
-				held.release()
-			end
-			gameOwner.dispose()
 		end,
 	}
 end

@@ -1,23 +1,4 @@
 --!strict
--- Falsify the performance gate (roadmap Step 4, ledger row XP-A6).
---
--- An unfalsified gate is decoration: until someone has watched it fail for a
--- real regression, "perf: PASS" is a habit rather than evidence. This tool
--- makes it fail on purpose, three ways, and records what it saw:
---
---   1. TREND     — a real regression in a real scene (the scene does 8× its own
---                  work) must break its measured-baseline budget, END TO END
---                  through the shipped `tools/perf.sh`, with a nonzero exit and
---                  a message naming the scene.
---   2. CEILING   — a scene above the frame-target share must be flagged as a
---                  frame-ceiling violation, distinctly from a trend regression.
---   3. REFUSAL   — a device budget must not be satisfiable by headless rows.
---
--- Then it reruns the gate CLEAN and requires a pass, so the falsification run
--- cannot leave a poisoned artifact behind. Writes
--- artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json.
---
---   lune run tools/lune/prove_perf_gate
 
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
@@ -28,10 +9,9 @@ local perf_runner = require("../../bench/perf_runner")
 
 local ROW_PATH = "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json"
 local PERF_ARTIFACT = "artifacts/phase-4/perf.json"
--- a mid-weight scene: cheap enough that 8× is fast, expensive enough that its
--- trend budget is well above the noise floor (so the failure is the regression,
--- not jitter)
-local TARGET_SCENE = "dense-hud"
+local PROOF_PATH = "artifacts/performance-stress-places/prove-perf-gate.json"
+
+local TARGET_SCENE = "lab-dense-scroll"
 local FACTOR = 8
 
 local function run(env: { [string]: string }?): (number, string)
@@ -49,7 +29,7 @@ local trendFailed = injectedCode ~= 0
 local namedScene = string.find(injectedOut, TARGET_SCENE, 1, true) ~= nil
 local namedTrend = string.find(injectedOut, "trend/", 1, true) ~= nil
 local namedHint = string.find(injectedOut, "hint:", 1, true) ~= nil
--- capture the exact violation line for the record
+
 local violationLine: string? = nil
 for line in string.gmatch(injectedOut, "[^\n]+") do
 	if string.find(line, "FAIL [", 1, true) ~= nil and string.find(line, TARGET_SCENE, 1, true) ~= nil then
@@ -58,8 +38,20 @@ for line in string.gmatch(injectedOut, "[^\n]+") do
 end
 
 print(`prove_perf_gate: injected run exit={injectedCode} (expected nonzero)`)
+local injectedViolations = {}
+local stampedAsInjected = false
+if fs.isFile(PERF_ARTIFACT) then
+	local injected = serde.decode("json", fs.readFile(PERF_ARTIFACT))
+	stampedAsInjected = injected.injectedRegression ~= nil and injected.injectedRegression.scene == TARGET_SCENE
+	injectedViolations = if injected.budget then injected.budget.violations or {} else {}
+end
+local sceneKinds: { [string]: boolean } = {}
+for _, v in injectedViolations do
+	if v.scene == TARGET_SCENE then
+		sceneKinds[v.kind] = true
+	end
+end
 
--- 2. the frame ceiling, in-process: a scene above the share of the frame target
 local ceilingReport = {
 	schema = "facet-perf/2",
 	environment = { evidenceClass = "lune" },
@@ -77,7 +69,7 @@ local ceilingResult = perf_runner.checkBudgets(ceilingReport, {
 	referenceProfile = "floorAndroid",
 	scenes = {
 		["synthetic-heavy"] = {
-			total_p95_ms = 1000, -- deliberately generous: only the ceiling may fire
+			total_p95_ms = 1000,
 			requirement = "UI-PERF-001",
 			frameTargetHz = 30,
 			ceilingMs = perf_runner.ceilingMsFor(30, 0.25),
@@ -92,7 +84,6 @@ for _, v in ceilingResult.violations do
 	end
 end
 
--- 3. the refusal: a measured device budget against a report of headless rows
 local refusalResult = perf_runner.checkBudgets({
 	schema = "facet-perf/2",
 	environment = { evidenceClass = "lune" },
@@ -119,7 +110,6 @@ for _, v in refusalResult.violations do
 	end
 end
 
--- restore: rerun the gate clean so the committed artifact is a real one
 print("prove_perf_gate: rerunning the gate clean to restore the artifact…")
 local cleanCode, cleanOut = run()
 local cleanPassed = cleanCode == 0
@@ -129,14 +119,28 @@ if fs.isFile(PERF_ARTIFACT) then
 	restoredArtifactClean = committed.injectedRegression == nil and committed.status == "PASS"
 end
 
+artifact.writeJson(PROOF_PATH, {
+	schema = "facet-perf-gate-proof/1",
+	scene = TARGET_SCENE,
+	factor = FACTOR,
+	injectedExitCode = injectedCode,
+	namedTheScene = namedScene,
+	artifactStampedAsInjected = stampedAsInjected,
+	violations = injectedViolations,
+	cleanRunPassed = cleanPassed,
+	committedArtifactIsClean = restoredArtifactClean,
+})
+
 local ok = trendFailed
+	and sceneKinds.trend == true
+	and sceneKinds["frame-ceiling"] == true
+	and stampedAsInjected
 	and namedScene
 	and namedTrend
 	and namedHint
 	and ceilingFired
 	and refusalFired
-	and cleanPassed
-	and restoredArtifactClean
+local restored = cleanPassed and restoredArtifactClean
 
 artifact.writeJson(ROW_PATH, {
 	schema = "facet-perf-falsification/1",
@@ -144,7 +148,7 @@ artifact.writeJson(ROW_PATH, {
 	requirement = "UI-PERF-002",
 	evidenceClass = "lune",
 	evidenceLevel = "E1",
-	gateFailedAsExpected = ok,
+	gateFailedAsExpected = ok and restored,
 	trend = {
 		method = `wrapped scene '{TARGET_SCENE}' run() to do {FACTOR}x its own work; ran the shipped tools/perf.sh unchanged`,
 		exitCode = injectedCode,
@@ -171,16 +175,25 @@ artifact.writeJson(ROW_PATH, {
 	},
 	note = "Reproduce: FACET_PERF_INJECT_REGRESSION=" .. TARGET_SCENE .. " FACET_PERF_INJECT_FACTOR=" .. tostring(
 		FACTOR
-	) .. " tools/perf.sh   (expect exit 1), then tools/perf.sh (expect exit 0).",
+	) .. " tools/perf.sh (expect exit 2), then tools/perf.sh (expect exit 0).",
 })
 
 if not ok then
 	print("prove_perf_gate: FAIL — the gate did not behave as a gate")
 	print(`  trendFailed={trendFailed} namedScene={namedScene} namedTrend={namedTrend} namedHint={namedHint}`)
-	print(`  ceilingFired={ceilingFired} refusalFired={refusalFired}`)
+	print(`  ceilingFired={ceilingFired} refusalFired={refusalFired} stampedAsInjected={stampedAsInjected}`)
+	print(`  sceneTrend={sceneKinds.trend == true} sceneCeiling={sceneKinds["frame-ceiling"] == true}`)
 	print(`  cleanPassed={cleanPassed} restoredArtifactClean={restoredArtifactClean}`)
 	print(cleanOut)
 	process.exit(1)
+end
+if not restored then
+	print(
+		"prove_perf_gate: FAIL_ENVIRONMENT — the injected regression fired, but the clean rerun failed its host timing budgets"
+	)
+	print(`  cleanPassed={cleanPassed} restoredArtifactClean={restoredArtifactClean}`)
+	print(cleanOut)
+	process.exit(2)
 end
 
 print(`prove_perf_gate: PASS — trend, ceiling and class-refusal all fire; clean rerun restored [{ROW_PATH}]`)

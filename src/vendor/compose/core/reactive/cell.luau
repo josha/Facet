@@ -20,6 +20,20 @@ local userSpace = require "./userSpace"
 type Cell<T> = Types.Cell<T>
 type Equals<T> = Types.Equals<T>
 type Initial<T> = Types.Initial<T>
+type Edge = Graph.Edge
+type Consumer = Graph.Consumer
+type Producer = Graph.Producer
+
+type CellNode = {
+	version: number,
+	subscribers: Edge?,
+	lastSubscriber: Edge?,
+	refresh: ((Producer) -> ()) | false,
+	derived: boolean?,
+	value: unknown,
+	initial: Initial<unknown>?,
+	compare: Equals<unknown> | false,
+}
 
 local function defaultEquals<T>(current: T, incoming: T): boolean
 	return current == incoming
@@ -36,45 +50,46 @@ local UNSET = newproxy(false)
 local validationState = userSpace.state
 
 local function cell<T>(initial: Initial<T>, equals: Equals<T>?): Cell<T>
-	local self = setmetatable({
+	local self: CellNode = setmetatable({
 		version = 0,
-		subscribers = false :: any,
-		lastSubscriber = false :: any,
-		refresh = CELL.refresh :: any,
+		subscribers = false,
+		lastSubscriber = false,
+		refresh = CELL.refresh,
 		set = CELL.set,
-		value = UNSET :: any,
+		value = UNSET,
 		initial = initial,
-		compare = (equals or false) :: any,
-	}, CELL)
+		compare = equals or false,
+	}, CELL) :: any
 
 	self.subscribers = nil
 	self.lastSubscriber = nil
 	return (self :: any) :: Cell<T>
 end
 
-local function start(self: any)
+local function start(self: CellNode)
 	local initial = self.initial
 	self.initial = nil
-	self.value = if type(initial) == "function" then userSpace.call(initial) else initial
+	self.value = if type(initial) == "function" then userSpace.call(initial :: () -> unknown) else initial
 	self.version = clock.next()
 
 	self.refresh = false
 end
 
-function CELL.refresh(self: any)
+function CELL.refresh(producer: Producer)
+	local self = producer :: CellNode
 	if self.value == UNSET then
 		start(self)
 	end
 end
 
-function CELL.peek(self: any): any
+function CELL.peek(self: CellNode): unknown
 	if self.value == UNSET then
 		start(self)
 	end
 	return self.value
 end
 
-function CELL.set(self: any, incoming: any)
+function CELL.set(self: CellNode, incoming: unknown)
 	local current = self.value
 	if current == UNSET then
 		start(self)
@@ -84,7 +99,7 @@ function CELL.set(self: any, incoming: any)
 	local compare = self.compare
 	local unchanged = if not compare and not validationState.validating
 		then current == incoming
-		else userSpace.call(compare or defaultEquals, current, incoming)
+		else userSpace.call((compare or defaultEquals) :: Equals<unknown>, current, incoming)
 
 	local statsEnabled = statsOn.enabled
 	if unchanged then
@@ -111,7 +126,8 @@ function CELL.set(self: any, incoming: any)
 	end
 
 	if edge[EDGE_NEXT] == nil and not statsEnabled then
-		local consumer = edge[EDGE_CONSUMER]
+		local node = edge[EDGE_CONSUMER]
+		local consumer: Consumer = node
 		local state = consumer.state
 		if state == CLEAN or consumer.retry then
 			consumer.retry = false
@@ -119,16 +135,16 @@ function CELL.set(self: any, incoming: any)
 
 			local settleQueue = consumer.enqueueSettle
 			if settleQueue then
-				settleQueue(consumer)
+				(settleQueue :: (Consumer) -> ())(consumer)
 				return
 			end
 			if consumer.derived then
-				markStale(consumer :: any, CHECK)
+				markStale(node, CHECK)
 			end
 
 			local enqueue = consumer.enqueue
 			if enqueue then
-				enqueue(consumer)
+				(enqueue :: (Consumer) -> ())(consumer)
 			end
 			settleTouched()
 		elseif state == CHECK then
@@ -141,7 +157,7 @@ function CELL.set(self: any, incoming: any)
 	Graph.settleTouched()
 end
 
-function CELL.update(self: any, change: (any) -> any)
+function CELL.update(self: CellNode, change: (unknown) -> unknown)
 	if self.value == UNSET then
 		start(self)
 	end
@@ -165,7 +181,7 @@ local function isReadable(value: unknown): boolean
 		return false
 	end
 	local meta = getmetatable(value :: any)
-	return meta ~= nil and rawget(meta :: any, "__isComposeReadable") == true
+	return meta ~= nil and rawget(meta, "__isComposeReadable") == true
 end
 
 return {

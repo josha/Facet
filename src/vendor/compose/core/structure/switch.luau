@@ -7,7 +7,7 @@ local Types = require "../reactive/types"
 
 export type Builder = () -> Host.Node | Children.Directive
 
-local function switch<K>(source: any, branches: { [K]: Builder }, fallback: Builder?): Children.Directive
+local function switch<K>(source: Types.Source<K>, branches: { [K]: Builder }, fallback: Builder?): Children.Directive
 	local from = Support.sourceOf(source, "switch", "source") :: Types.Body<K>
 	if type(branches) ~= "table" then
 		Support.optionsOf(branches, "switch", "a table of branches keyed by value")

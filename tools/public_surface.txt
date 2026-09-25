@@ -1,0 +1,286 @@
+VERSION 0.12.0
+COMPOSE_COMMIT : string
+Compose : table
+  Compose.LayerStack : function
+  Compose.MountBudget : function
+  Compose.OrderedCollection : function
+  Compose.SpatialCollection : function
+  Compose.__resetForTests : function
+  Compose.accumulator : function
+  Compose.bindOwner : function
+  Compose.boundary : function
+  Compose.cell : function
+  Compose.cleanup : function
+  Compose.createFocusScope : function
+  Compose.createKeyedCache : function
+  Compose.createOwner : function
+  Compose.createPool : function
+  Compose.createRootOwner : function
+  Compose.createRuntime : function
+  Compose.createSharedResource : function
+  Compose.createSpringState : function
+  Compose.currentOwner : function
+  Compose.custodyOf : function
+  Compose.easing : table(frozen)
+  Compose.event : function
+  Compose.formatDiagnostic : function
+  Compose.formula : function
+  Compose.fragment : function
+  Compose.group : function
+  Compose.indexes : function
+  Compose.inspect : table
+  Compose.isReadable : function
+  Compose.keyed : function
+  Compose.labelOf : function
+  Compose.outstandingMounts : function
+  Compose.parseDiagnostic : function
+  Compose.portal : function
+  Compose.presence : function
+  Compose.profile : table
+  Compose.property : function
+  Compose.reactor : function
+  Compose.readWorkCounters : function
+  Compose.registerCodec : function
+  Compose.registeredCodecs : function
+  Compose.resetWorkCounters : function
+  Compose.sample : function
+  Compose.setWorkCounters : function
+  Compose.setYieldChecking : function
+  Compose.sharedCell : function
+  Compose.show : function
+  Compose.springAtRest : function
+  Compose.springCoefficients : function
+  Compose.static : function
+  Compose.stepSpring : function
+  Compose.switch : function
+  Compose.watch : function
+  Compose.withOwner : function
+  Compose.withRootOwner : function
+Roblox : table
+  Roblox.__resetForTests : function
+  Roblox.animatableTypes : function
+  Roblox.cleanup : function
+  Roblox.createCleanup : function
+  Roblox.createHost : function
+  Roblox.createRuntime : function
+  Roblox.createViewport : function
+  Roblox.preferredInput : function
+  Roblox.preferredInputSpec : function
+  Roblox.usableViewportSize : function
+VERSION : string
+adaptive : table(frozen)
+  adaptive.BREAKPOINTS : table(frozen)
+  adaptive.DEFAULT_STACK_ABOVE : number
+  adaptive.HEIGHT_BREAKPOINTS : table(frozen)
+  adaptive.axisFor : function
+  adaptive.columnsFor : function
+  adaptive.heightClass : function
+  adaptive.orientationFor : function
+  adaptive.sizeClass : function
+  adaptive.sizeClassAtLeast : function
+app : function
+bind : function
+civilDate : table(frozen)
+  civilDate.ENGLISH : table(frozen)
+  civilDate.addDays : function
+  civilDate.addMonths : function
+  civilDate.clampRange : function
+  civilDate.compare : function
+  civilDate.dateOf : function
+  civilDate.daysIn : function
+  civilDate.format : function
+  civilDate.formatTime : function
+  civilDate.fromDays : function
+  civilDate.fromUnix : function
+  civilDate.isLeap : function
+  civilDate.monthGrid : function
+  civilDate.parse : function
+  civilDate.problem : function
+  civilDate.same : function
+  civilDate.systemClock : function
+  civilDate.toDays : function
+  civilDate.toUnix : function
+  civilDate.weekday : function
+  civilDate.within : function
+controls : function
+recipes : table(frozen)
+  recipes.arithmetic : table(frozen)
+themes : table
+  themes.REQUIRED_TYPE_ROLES : table(frozen)
+  themes.SCHEMA : string
+  themes.TYPE_ROLES : table(frozen)
+  themes.checkCoverage : function
+  themes.createStyleSheet : function
+  themes.define : function
+  themes.neutralPackage : function
+  themes.resolveIcon : function
+  themes.skin : function
+controls(runtime).Alert : function
+controls(runtime).AsyncImage : function
+controls(runtime).Avatar : function
+controls(runtime).AvatarGroup : function
+controls(runtime).Badge : function
+controls(runtime).Button : function
+controls(runtime).Callout : function
+controls(runtime).Card : function
+controls(runtime).Chip : function
+controls(runtime).CollapsibleView : function
+controls(runtime).ColorPicker : function
+controls(runtime).ComboBox : function
+controls(runtime).DateTimePicker : function
+controls(runtime).Dialog : function
+controls(runtime).DisclosureGroup : function
+controls(runtime).Divider : function
+controls(runtime).ErrorBoundary : function
+controls(runtime).Grid : function
+controls(runtime).HStack : function
+controls(runtime).Image : function
+controls(runtime).Label : function
+controls(runtime).LevelPicker : function
+controls(runtime).Menu : function
+controls(runtime).NavBar : function
+controls(runtime).NavigationStack : function
+controls(runtime).Notice : function
+controls(runtime).NumberInput : function
+controls(runtime).PageView : function
+controls(runtime).Pagination : function
+controls(runtime).Picker : function
+controls(runtime).Popover : function
+controls(runtime).ProgressView : function
+controls(runtime).RadialMenu : function
+controls(runtime).Rating : function
+controls(runtime).RowActions : function
+controls(runtime).Screen : function
+controls(runtime).ScrollView : function
+controls(runtime).Sheet : function
+controls(runtime).ShortcutHint : function
+controls(runtime).Skeleton : function
+controls(runtime).Slider : function
+controls(runtime).Snackbar : function
+controls(runtime).Spacer : function
+controls(runtime).SplitButton : function
+controls(runtime).Stage : function
+controls(runtime).StatusIndicator : function
+controls(runtime).StepIndicator : function
+controls(runtime).Stepper : function
+controls(runtime).TabView : function
+controls(runtime).Table : function
+controls(runtime).Text : function
+controls(runtime).TextInput : function
+controls(runtime).Toggle : function
+controls(runtime).VStack : function
+controls(runtime).VirtualGrid : function
+controls(runtime).VirtualList : function
+controls(runtime).Vote : function
+controls(runtime).ZStack : function
+controls(runtime).badged : function
+controls(runtime).environment : function
+controls(runtime).fill : function
+controls(runtime).scrollTo : function
+controls(runtime).scrollToVisible : function
+controls(runtime).worldAnchor : function
+type Adaptive
+type AlertAction
+type AlertSpec
+type App
+type AppOptions
+type AsyncImageProps
+type AvatarGroupProps
+type AvatarMember
+type AvatarProps
+type BadgeProps
+type BadgeValue
+type ButtonProps
+type CalloutSpec
+type CardControls
+type CardSpec
+type Cell
+type ChipProps
+type CivilDate
+type CivilDateModule
+type CivilLocale
+type CivilRange
+type CollapsibleViewSpec
+type CollectionSpec
+type ColorPickerProps
+type ComboBoxSpec
+type Component
+type ComposeModule
+type ComposeRobloxModule
+type ControlOptions
+type Controls
+type DateTimePickerProps
+type DialogSpec
+type DisclosureGroupSpec
+type DividerProps
+type Environment
+type ErrorBoundaryProps
+type Extent
+type Facet
+type GridProps
+type IdentityCollectionSpec
+type IdentityTableSpec
+type ImageProps
+type ImageResource
+type InteractionClasses
+type KeyedCollectionSpec
+type KeyedTableSpec
+type LabelProps
+type LevelPickerProps
+type MenuItem
+type MenuSpec
+type NavBarSpec
+type NavigationDestination
+type NavigationEntry
+type NavigationStackSpec
+type NoticeSpec
+type NumberInputProps
+type OverlayAction
+type OverlayHero
+type OverlayMedia
+type Owner
+type Padding
+type PageViewSpec
+type PaginationSpec
+type PickerOption
+type PickerSpec
+type PopoverSpec
+type ProgressViewProps
+type RadialItem
+type RadialMenuSpec
+type RatingProps
+type Readable
+type RowAction
+type RowActionsSpec
+type Runtime
+type SafeInsets
+type ScreenProps
+type ScrollOptions
+type ScrollViewProps
+type SheetSpec
+type ShortcutHintProps
+type SkeletonProps
+type SliderProps
+type SnackbarSpec
+type Space
+type SpacerProps
+type SplitButtonSpec
+type StackProps
+type StageProps
+type StatusIndicatorProps
+type Step
+type StepIndicatorSpec
+type StepperProps
+type Tab
+type TabViewSpec
+type TableColumn
+type TableSpec
+type TextInputProps
+type TextProps
+type ThemePackage
+type ToggleProps
+type Use
+type VoteSpec
+type WorldAnchor
+type WorldAnchorOptions
+type ZStackProps

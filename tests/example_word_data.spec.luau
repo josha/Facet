@@ -1,17 +1,4 @@
 --!strict
---[[ The shared word data the two word games run on.
-
-	The word game used to ship six possible answers and thirty-four accepted
-	guesses typed into its own source, so a player entering an ordinary English
-	word was told it was not one. The replacement is generated from a pinned,
-	hash-verified SCOWL release by `tools/build_word_lists.py`, and this file is
-	what stops the generated half from drifting away from the recorded half.
-
-	FINDING NOTHING IS A FAILURE HERE, NOT A PASS. Every count assertion below has
-	a floor, and the drift case refuses a manifest that records no files at all —
-	because the failure mode this file exists to catch is not "the data is wrong",
-	it is "the data quietly became something else and every test about it still
-	agreed with itself". ]]
 
 local testkit = require("./lib/testkit")
 local describe, it, expect = testkit.describe, testkit.it, testkit.expect
@@ -28,8 +15,7 @@ describe("example word data: provenance is recorded, not asserted", function()
 		local source = words.provenance.source
 		expect(#source.name > 0).toBe(true)
 		expect(string.find(source.name, "SCOWL", 1, true) ~= nil).toBe(true)
-		-- A URL and a 64-character hex digest: the two facts that make the claim
-		-- reproducible by someone who does not trust this repository.
+
 		expect(string.sub(source.url, 1, 8)).toBe("https://")
 		expect(#source.sha256).toBe(64)
 		expect(string.match(source.sha256, "^[0-9a-f]+$") ~= nil).toBe(true)
@@ -39,7 +25,7 @@ describe("example word data: provenance is recorded, not asserted", function()
 		local prov = fs.readFile(DATA_DIR .. "/PROVENANCE.md")
 		expect(string.find(prov, "Kevin Atkinson", 1, true) ~= nil).toBe(true)
 		expect(string.find(prov, "Permission to use, copy, modify, distribute", 1, true) ~= nil).toBe(true)
-		-- ...and the exact filters, so a reader can rebuild the same two sets
+
 		expect(string.find(prov, "Transformations applied", 1, true) ~= nil).toBe(true)
 		expect(string.find(prov, "tools/build_word_lists.py", 1, true) ~= nil).toBe(true)
 	end)
@@ -53,10 +39,6 @@ describe("example word data: provenance is recorded, not asserted", function()
 end)
 
 describe("example word data: the files on disk are the files that were generated", function()
-	--[[ THE DRIFT CASE. A generated file edited by hand — to add a favourite
-		word, or to remove an awkward one — changes what both games accept while
-		every other test in this file keeps agreeing with the new data. The only
-		thing that can notice is a hash recorded at generation time. ]]
 	it("every generated file still hashes to what the manifest recorded", function()
 		local files = words.provenance.files
 		local checked = 0
@@ -75,8 +57,7 @@ describe("example word data: the files on disk are the files that were generated
 			end
 			checked += 1
 		end
-		-- Trap 4 from the manifest checker, applied here: a manifest that records
-		-- nothing would pass a loop over its own emptiness.
+
 		expect(checked >= 7).toBe(true)
 	end)
 
@@ -94,10 +75,6 @@ describe("example word data: the files on disk are the files that were generated
 end)
 
 describe("example word data: the banks are searchable", function()
-	--[[ THE INVARIANT THE LOOKUP DEPENDS ON. Each bank is one fixed-width run
-		searched by bisection, so a single out-of-order entry does not make one
-		word unfindable — it makes an arbitrary set of them unfindable, silently,
-		with no error anywhere. Sortedness is therefore not a tidiness check. ]]
 	it("every bank is strictly ascending and exactly divisible by its width", function()
 		for length = words.MIN_LENGTH, words.MAX_LENGTH do
 			local count = words.bankCount(length)
@@ -127,8 +104,7 @@ describe("example word data: the banks are searchable", function()
 				table.insert(notAccepted, word)
 			end
 		end
-		-- An answer the game would refuse as a guess makes the puzzle unwinnable,
-		-- and neither list can see that on its own.
+
 		if #notAccepted > 0 then
 			error(`{#notAccepted} answer(s) are not accepted guesses, e.g. {notAccepted[1]}`, 2)
 		end
@@ -139,7 +115,7 @@ describe("example word data: it accepts what a player would type", function()
 	it("is broad — thousands of five-letter guesses, and a smaller reviewed answer set", function()
 		expect(words.bankCount(5) > 3000).toBe(true)
 		expect(words.solutionCount > 1000).toBe(true)
-		-- ...and the answers really are the smaller, more familiar half
+
 		expect(words.solutionCount < words.bankCount(5)).toBe(true)
 	end)
 
@@ -185,15 +161,6 @@ describe("example word data: it accepts what a player would type", function()
 	end)
 
 	it("accepts a guess in any dialect, while an answer keeps one spelling", function()
-		--[[ FOUND BY THE CROSSWORD GAME, writing a test: `axe` was refused. SCOWL
-			files it under `british-words`, and an American-only filter therefore
-			refused `grey`, `colour`, `theatre`, `centre`, `favour`, `litre`,
-			`cheque`, `kerb`, `tyre` and `pyjamas` too — the exact failure this data
-			replaced, reappearing one dialect over.
-
-			The two sets diverge on purpose: a puzzle whose ANSWER is `colour` is
-			unfair to half its players and `color` to the other half, so answers keep
-			one convention while guesses accept both. ]]
 		local refused = {}
 		for _, word in { "axe", "grey", "colour", "theatre", "centre", "favour", "litre", "cheque", "kerb", "tyre" } do
 			if not words.isWord(word) then
@@ -203,7 +170,7 @@ describe("example word data: it accepts what a player would type", function()
 		if #refused > 0 then
 			error(`a dialect spelling is still refused: {table.concat(refused, ", ")}`, 2)
 		end
-		-- ...and the answer set did NOT widen with it
+
 		expect(words.isSolution("color")).toBe(true)
 		expect(words.isSolution("colour")).toBe(false)
 		expect(words.provenance.policy.solutionDialects ~= nil).toBe(true)
@@ -211,9 +178,6 @@ describe("example word data: it accepts what a player would type", function()
 	end)
 
 	it("accepts the words the old hand-written list rejected", function()
-		--[[ The point of the whole replacement, stated as its own case. Every one
-			of these is a word a player would reasonably try; the previous
-			thirty-four-word list accepted none of them. ]]
 		for _, word in { "adieu", "fjord", "salsa", "ramen", "mocha", "waltz", "nymph", "glyph", "zesty" } do
 			if not words.isWord(word) then
 				error(`"{word}" is still refused — the point of the new data was that it would not be`, 2)
@@ -222,12 +186,10 @@ describe("example word data: it accepts what a player would type", function()
 	end)
 
 	it("accepts the inflections the source policy keeps", function()
-		-- SCOWL's `-words` classes carry plurals and past tenses; they stay
-		-- ACCEPTED as guesses even though the answer set drops them.
 		for _, word in { "cakes", "asked", "tacos", "boxes" } do
 			expect(words.isWord(word)).toBe(true)
 		end
-		-- ...and the answer set really did drop that shape
+
 		expect(words.isSolution("asked")).toBe(false)
 		expect(words.isSolution("cakes")).toBe(false)
 	end)
@@ -239,9 +201,7 @@ describe("example word data: it accepts what a player would type", function()
 		expect(words.isWord("a")).toBe(false)
 		expect(words.isWord("elephants")).toBe(false)
 		expect(words.isWord("")).toBe(false)
-		-- A bisection over a fixed-width run compares bytes, so a digit or a space
-		-- would ORDER itself among the words rather than miss. The shape is
-		-- rejected before the search, and this is the case that says so.
+
 		expect(words.isWord("cr4ne")).toBe(false)
 		expect(words.isWord("cr ne")).toBe(false)
 		expect(words.isWord("CRANE-")).toBe(false)
@@ -263,10 +223,6 @@ describe("example word data: a seed is a puzzle, and always the same puzzle", fu
 	end)
 
 	it("consecutive seeds are not consecutive words", function()
-		--[[ `seed % count` over an alphabetical list gives "aback", "abate",
-			"abbey" — a player who restarts twice gets two words beginning with the
-			same two letters, which reads as a broken game. The mix is what stops
-			that, so it is asserted rather than left as an implementation detail. ]]
 		local first = words.solutionForSeed(1)
 		local second = words.solutionForSeed(2)
 		expect(string.sub(first, 1, 2) == string.sub(second, 1, 2)).toBe(false)
@@ -283,7 +239,7 @@ describe("example word data: a seed is a puzzle, and always the same puzzle", fu
 			end
 		end
 		expect(distinct).toBe(words.solutionCount)
-		-- a seed outside any sensible range is a wrap, not a crash
+
 		expect(words.isSolution(words.solutionForSeed(0))).toBe(true)
 		expect(words.isSolution(words.solutionForSeed(1e6))).toBe(true)
 	end)
@@ -300,14 +256,6 @@ end)
 
 describe("example word data: the lookup is cheap enough to sit under a keystroke", function()
 	it("a hit and a miss both cost a bisection, not a scan", function()
-		--[[ MEASURED, not asserted from the algorithm: the whole reason the data is
-			a packed string is that a set of 36,601 entries costs its allocation on
-			every device that loads it. If a change ever turns this into a scan, the
-			game still works and only the phone notices — so the budget lives here.
-
-			The bound is deliberately loose (a hundred times the measured 0.39 us)
-			because this runs on whatever machine the suite runs on; it exists to
-			catch an order-of-magnitude regression, not to police noise. ]]
 		local reps = 20000
 		local start = os.clock()
 		local hits = 0

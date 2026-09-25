@@ -1,0 +1,610 @@
+{
+  "BillboardGui": {
+    "sha256": "290164a76e3434042cf921e23f1f54b7b0a82de4a085dee7734408e363e33d16",
+    "writable": [
+      "Active",
+      "Adornee",
+      "AlwaysOnTop",
+      "Brightness",
+      "ClipsDescendants",
+      "DistanceLowerLimit",
+      "DistanceStep",
+      "DistanceUpperLimit",
+      "ExtentsOffset",
+      "ExtentsOffsetWorldSpace",
+      "LightInfluence",
+      "MaxDistance",
+      "PlayerToHideFrom",
+      "Size",
+      "SizeOffset",
+      "StudsOffset",
+      "StudsOffsetWorldSpace"
+    ]
+  },
+  "Camera": {
+    "sha256": "eb08d2627c4e7dc8f733e959f7fca7a7be23d24add85337ed8304ff6a1cab7ce",
+    "writable": [
+      "CFrame",
+      "CameraSubject",
+      "CameraType",
+      "CoordinateFrame",
+      "DiagonalFieldOfView",
+      "FieldOfView",
+      "FieldOfViewMode",
+      "Focus",
+      "HeadLocked",
+      "HeadScale",
+      "MaxAxisFieldOfView",
+      "VRTiltAndRollEnabled",
+      "focus"
+    ]
+  },
+  "CanvasGroup": {
+    "sha256": "177b6a3c0633f0be6091e0904c6e9cb5c9ba7873e388cac34002b36b7bb453e3",
+    "writable": [
+      "GroupColor3",
+      "GroupTransparency"
+    ]
+  },
+  "Folder": {
+    "sha256": "1c3846cfb2c2b327c9346ec2eed68e6b8f3c24881b64e5642e18806517b44eb8",
+    "writable": []
+  },
+  "Frame": {
+    "sha256": "ed12f1097ebad2533da7b5ba60fbce2e585b3c05d74f5b6e74ae5bf5f7785ea7",
+    "writable": [
+      "Style"
+    ]
+  },
+  "GuiBase": {
+    "sha256": "5d0fb6d63f5804aed5dd7b9afb191a817fbcfbf06d6e30046bd8ed203b5d9ea4",
+    "writable": []
+  },
+  "GuiBase2d": {
+    "sha256": "dc7b77ea5fa3967ad9066d282c1d2cd2715ba2061174e58c88e584b1363f5d78",
+    "writable": [
+      "AutoLocalize",
+      "Localize",
+      "RootLocalizationTable",
+      "SelectionBehaviorDown",
+      "SelectionBehaviorLeft",
+      "SelectionBehaviorRight",
+      "SelectionBehaviorUp",
+      "SelectionGroup"
+    ]
+  },
+  "GuiButton": {
+    "sha256": "1fae0c2cfe6022e3ee9481123ba03bc34f7136667f3b2a1890df7430deef89f7",
+    "writable": [
+      "AutoButtonColor",
+      "HoverHapticEffect",
+      "Modal",
+      "PressHapticEffect",
+      "Selected",
+      "Style"
+    ]
+  },
+  "GuiLabel": {
+    "sha256": "4df37e9a3e11062d40c2d4efa28b571ca929912305a58bf326d8f8a1fa7e3cbf",
+    "writable": []
+  },
+  "GuiObject": {
+    "sha256": "a6355831518f079b6b251f99abfe86bf58b54dfeac056e4693c273dfa9d2bbbb",
+    "writable": [
+      "Active",
+      "AnchorPoint",
+      "AutomaticSize",
+      "BackgroundColor",
+      "BackgroundColor3",
+      "BackgroundTransparency",
+      "BorderColor",
+      "BorderColor3",
+      "BorderMode",
+      "BorderSizePixel",
+      "ClipsDescendants",
+      "Draggable",
+      "InputSink",
+      "Interactable",
+      "LayoutOrder",
+      "NextSelectionDown",
+      "NextSelectionLeft",
+      "NextSelectionRight",
+      "NextSelectionUp",
+      "Position",
+      "Rotation",
+      "Selectable",
+      "SelectionImageObject",
+      "SelectionOrder",
+      "Size",
+      "SizeConstraint",
+      "Transparency",
+      "Visible",
+      "ZIndex"
+    ]
+  },
+  "ImageButton": {
+    "sha256": "a759144ea458d57ceacd82724571b2370e299c670c8123af1031b8e82e5f40c9",
+    "writable": [
+      "HoverImage",
+      "HoverImageContent",
+      "Image",
+      "ImageColor3",
+      "ImageContent",
+      "ImageRectOffset",
+      "ImageRectSize",
+      "ImageTransparency",
+      "PressedImage",
+      "PressedImageContent",
+      "ResampleMode",
+      "ScaleType",
+      "SliceCenter",
+      "SliceScale",
+      "TileSize"
+    ]
+  },
+  "ImageLabel": {
+    "sha256": "c6d304503c990788624a92f8a2f389e2133a1b573748bbb8fa4a894aa43f33c5",
+    "writable": [
+      "Image",
+      "ImageColor3",
+      "ImageContent",
+      "ImageRectOffset",
+      "ImageRectSize",
+      "ImageTransparency",
+      "ResampleMode",
+      "ScaleType",
+      "SliceCenter",
+      "SliceScale",
+      "TileSize"
+    ]
+  },
+  "InputAction": {
+    "sha256": "d11c2a49904cbcc9ad639f3c7252d55249eae0de4c635fc759b4766e3e57b491",
+    "writable": [
+      "Enabled",
+      "Type"
+    ]
+  },
+  "InputBinding": {
+    "sha256": "d236f5bc710ba4009ca15c4f2bc23ceb01da59ec491deb0b0df064fa9461fdee",
+    "writable": [
+      "Backward",
+      "ClampMagnitudeToOne",
+      "DisplayImage",
+      "DisplayName",
+      "Down",
+      "Forward",
+      "KeyCode",
+      "Left",
+      "PointerIndex",
+      "PressedThreshold",
+      "PrimaryModifier",
+      "ReleasedThreshold",
+      "ResponseCurve",
+      "Right",
+      "Scale",
+      "SecondaryModifier",
+      "Type",
+      "UIButton",
+      "UIModifier",
+      "Up",
+      "Vector2Scale",
+      "Vector3Scale"
+    ]
+  },
+  "InputContext": {
+    "sha256": "434bcf195efe71e1e53115d865e1eaaa40766258a80683cb5f968b9d70a02306",
+    "writable": [
+      "Enabled",
+      "Priority",
+      "Sink"
+    ]
+  },
+  "Instance": {
+    "sha256": "c33d7492848cbfc84df6e94edae30c3dbe128ed8a3303fffb33cf6a05b22731e",
+    "writable": [
+      "Archivable",
+      "Capabilities",
+      "Name",
+      "Parent",
+      "Sandboxed",
+      "archivable"
+    ]
+  },
+  "LayerCollector": {
+    "sha256": "40cb871235e052431f776b8ca0b00c4ca5e2a5a7847377693a74516324d0c723",
+    "writable": [
+      "Enabled",
+      "ResetOnSpawn",
+      "ZIndexBehavior"
+    ]
+  },
+  "Model": {
+    "sha256": "67ba595414e32ebdac4d30f589a3d6b22ac0e3c1703232716aa48875f5185ca1",
+    "writable": [
+      "ModelStreamingMode",
+      "PrimaryPart",
+      "Scale",
+      "WorldPivot"
+    ]
+  },
+  "Object": {
+    "sha256": "c04e2e15f74a1200b4fd8acef94e094f1743fbe2d078392844b7161e9b06bd46",
+    "writable": []
+  },
+  "PVInstance": {
+    "sha256": "b185af51e4554fd56cd25968c160248123330fed488d4a602901d78d9de30687",
+    "writable": [
+      "Origin"
+    ]
+  },
+  "Path2D": {
+    "sha256": "b0394274e6fb7bae16d29896d4ce5d75e7a44bd101f62aa5263e0a74a1764e49",
+    "writable": [
+      "Closed",
+      "Color3",
+      "Thickness",
+      "Visible",
+      "ZIndex"
+    ]
+  },
+  "ScreenGui": {
+    "sha256": "279147c10ee8dd6ecd533ff224844307b71e1999f79910d12fddde14535b985f",
+    "writable": [
+      "ClipToDeviceSafeArea",
+      "DisplayOrder",
+      "IgnoreGuiInset",
+      "SafeAreaCompatibility",
+      "ScreenInsets"
+    ]
+  },
+  "ScrollingFrame": {
+    "sha256": "e08dcfb8d9de984ff41e7dca14e4972958cc9a3d48c04b3c3c8b75774b674e1a",
+    "writable": [
+      "AutomaticCanvasSize",
+      "BottomImage",
+      "BottomImageContent",
+      "CanvasPosition",
+      "CanvasSize",
+      "ElasticBehavior",
+      "HorizontalScrollBarInset",
+      "MidImage",
+      "MidImageContent",
+      "ScrollBarImageColor3",
+      "ScrollBarImageTransparency",
+      "ScrollBarThickness",
+      "ScrollingDirection",
+      "ScrollingEnabled",
+      "TopImage",
+      "TopImageContent",
+      "VerticalScrollBarInset",
+      "VerticalScrollBarPosition"
+    ]
+  },
+  "StyleBase": {
+    "sha256": "71e27319116cacd57845697e96493e41d040f546d6368b1856c41c13f4746b7a",
+    "writable": []
+  },
+  "StyleRule": {
+    "sha256": "d344792bdc508bb370ac1cc1aea63c47ed0886ae3871c01ccb434eb7d22b29cc",
+    "writable": [
+      "Priority",
+      "Selector"
+    ]
+  },
+  "StyleSheet": {
+    "sha256": "f328028caa366209f1bf3d9a3cd3645eea28ca61f6a4fc0442922e102a5c4e3f",
+    "writable": []
+  },
+  "SurfaceGui": {
+    "sha256": "f81867f935a2f332b8688372ff6e6217ba85bd025c5b0868bd4072e7de2a7d6e",
+    "writable": [
+      "AlwaysOnTop",
+      "Brightness",
+      "CanvasSize",
+      "ClipsDescendants",
+      "LightInfluence",
+      "MaxDistance",
+      "PixelsPerStud",
+      "SizingMode",
+      "ToolPunchThroughDistance",
+      "ZOffset"
+    ]
+  },
+  "SurfaceGuiBase": {
+    "sha256": "7c76b8ca6e4daf85d67a976643f27f56d887fd5e841fe99ed3eb947397438b90",
+    "writable": [
+      "Active",
+      "Adornee",
+      "Face"
+    ]
+  },
+  "TextBox": {
+    "sha256": "e6397a7a79a5c19b410e14132381523c7414d30522977899c982816ad457e842",
+    "writable": [
+      "ClearTextOnFocus",
+      "CursorPosition",
+      "Font",
+      "FontFace",
+      "FontSize",
+      "LineHeight",
+      "MaxVisibleGraphemes",
+      "MultiLine",
+      "OpenTypeFeatures",
+      "PlaceholderColor3",
+      "PlaceholderText",
+      "RichText",
+      "SelectionStart",
+      "ShowNativeInput",
+      "Text",
+      "TextColor",
+      "TextColor3",
+      "TextDirection",
+      "TextEditable",
+      "TextScaled",
+      "TextSize",
+      "TextStrokeColor3",
+      "TextStrokeTransparency",
+      "TextTransparency",
+      "TextTruncate",
+      "TextWrap",
+      "TextWrapped",
+      "TextXAlignment",
+      "TextYAlignment"
+    ]
+  },
+  "TextButton": {
+    "sha256": "78a835bd47cfc8726c7152d603bec802a1ad1621b295647917c3a221a1088328",
+    "writable": [
+      "Font",
+      "FontFace",
+      "FontSize",
+      "LineHeight",
+      "MaxVisibleGraphemes",
+      "OpenTypeFeatures",
+      "RichText",
+      "Text",
+      "TextColor",
+      "TextColor3",
+      "TextDirection",
+      "TextScaled",
+      "TextSize",
+      "TextStrokeColor3",
+      "TextStrokeTransparency",
+      "TextTransparency",
+      "TextTruncate",
+      "TextWrap",
+      "TextWrapped",
+      "TextXAlignment",
+      "TextYAlignment"
+    ]
+  },
+  "TextLabel": {
+    "sha256": "2591bdc586ffd70b3792fa6705e26b5a64867446d9a155fed0c4b8e78d468991",
+    "writable": [
+      "Font",
+      "FontFace",
+      "FontSize",
+      "LineHeight",
+      "MaxVisibleGraphemes",
+      "OpenTypeFeatures",
+      "RichText",
+      "Text",
+      "TextColor",
+      "TextColor3",
+      "TextDirection",
+      "TextScaled",
+      "TextSize",
+      "TextStrokeColor3",
+      "TextStrokeTransparency",
+      "TextTransparency",
+      "TextTruncate",
+      "TextWrap",
+      "TextWrapped",
+      "TextXAlignment",
+      "TextYAlignment"
+    ]
+  },
+  "UIAspectRatioConstraint": {
+    "sha256": "f9da05c95d1c36e3a83afa238c0d8926e0941e3e0745a7982e14706c0231521a",
+    "writable": [
+      "AspectRatio",
+      "AspectType",
+      "DominantAxis"
+    ]
+  },
+  "UIBase": {
+    "sha256": "77cb2e682c122e9cf9bfd8eb2cf1f0bf054cf0edf8f6ea6875be0d29a68a1d3d",
+    "writable": []
+  },
+  "UIComponent": {
+    "sha256": "4e29d807222a7e805ab0b4ca7a0ced477aef624255eb436983d1a455598ca4a3",
+    "writable": []
+  },
+  "UIConstraint": {
+    "sha256": "c349acef9ffc16cbaff14d1f22a3d2d6c4cbfe1ae2c96a2a50acb9fd106cb411",
+    "writable": []
+  },
+  "UICorner": {
+    "sha256": "6307cd6b2c06c2e54e4b5306338d52e26d8bea3c4b6f7520e8a30625a4bdaa23",
+    "writable": [
+      "BottomLeftRadius",
+      "BottomRightRadius",
+      "CornerRadius",
+      "TopLeftRadius",
+      "TopRightRadius"
+    ]
+  },
+  "UIDragDetector": {
+    "sha256": "63e9ff0dff42c110460a744693e3a765a2956315b8516c0a27a701b90ea8ffa1",
+    "writable": [
+      "ActivatedCursorIcon",
+      "ActivatedCursorIconContent",
+      "BoundingBehavior",
+      "BoundingUI",
+      "CursorIcon",
+      "CursorIconContent",
+      "DragAxis",
+      "DragRelativity",
+      "DragRotation",
+      "DragSpace",
+      "DragStyle",
+      "DragUDim2",
+      "Enabled",
+      "MaxDragAngle",
+      "MaxDragTranslation",
+      "MinDragAngle",
+      "MinDragTranslation",
+      "ReferenceUIInstance",
+      "ResponseStyle",
+      "SelectionModeDragSpeed",
+      "SelectionModeRotateSpeed",
+      "UIDragSpeedAxisMapping"
+    ]
+  },
+  "UIFlexItem": {
+    "sha256": "15e7e5dd97509e524b6bfded80d9d0777613b8e625756689eb956900483dcdd6",
+    "writable": [
+      "FlexMode",
+      "GrowRatio",
+      "ItemLineAlignment",
+      "ShrinkRatio"
+    ]
+  },
+  "UIGradient": {
+    "sha256": "1ecf214011efdb21d9a4e0b80d515c52367b2b4b9e57f182c43a90e86cee3b5f",
+    "writable": [
+      "Color",
+      "Enabled",
+      "Offset",
+      "Rotation",
+      "Scale",
+      "TileMode",
+      "Transparency",
+      "Type"
+    ]
+  },
+  "UIGridLayout": {
+    "sha256": "d9a9cd4816984fd82bac3c05f1daff9a5034e927b9b72f6a1abda52e2a36af0e",
+    "writable": [
+      "CellPadding",
+      "CellSize",
+      "FillDirectionMaxCells",
+      "StartCorner"
+    ]
+  },
+  "UIGridStyleLayout": {
+    "sha256": "ddbf9e453f12aeecc622b1ecb28c34f4d2db281b1e7469d7aec3eb5ba0163443",
+    "writable": [
+      "FillDirection",
+      "HorizontalAlignment",
+      "SortOrder",
+      "VerticalAlignment"
+    ]
+  },
+  "UILayout": {
+    "sha256": "f6d9bb043a87dde138082f881a87eb35eee1da004a460dcecfcaeea08bb298b4",
+    "writable": []
+  },
+  "UIListLayout": {
+    "sha256": "543da6746fae4c3ca04fc1c68619d91e01283566eb495dc62c29a09a7b36c8a0",
+    "writable": [
+      "HorizontalFlex",
+      "ItemLineAlignment",
+      "Padding",
+      "VerticalFlex",
+      "Wraps"
+    ]
+  },
+  "UIPadding": {
+    "sha256": "675a502e18228cc727019b243706e8e0b7cd7d0073499d0eef94a39702171c1e",
+    "writable": [
+      "PaddingBottom",
+      "PaddingLeft",
+      "PaddingRight",
+      "PaddingTop"
+    ]
+  },
+  "UIPageLayout": {
+    "sha256": "e56a0c574c6c8519c3a8527ef8de18e5aef0c1224d6ea214ab0f63421f489034",
+    "writable": [
+      "Animated",
+      "Circular",
+      "EasingDirection",
+      "EasingStyle",
+      "GamepadInputEnabled",
+      "Padding",
+      "ScrollWheelInputEnabled",
+      "TouchInputEnabled",
+      "TweenTime"
+    ]
+  },
+  "UIScale": {
+    "sha256": "5a735dd29abf1a09d6d5d7f407c2263e170d263afb40735774a0a5670e26f505",
+    "writable": [
+      "Scale"
+    ]
+  },
+  "UIShadow": {
+    "sha256": "8c5ef07197696c1ac32cc9dc05e2a8f313229b84691fe96a8d8936bd4f0d3a9b",
+    "writable": [
+      "BlurRadius",
+      "Color",
+      "Enabled",
+      "Offset",
+      "Spread",
+      "Transparency",
+      "ZIndex"
+    ]
+  },
+  "UISizeConstraint": {
+    "sha256": "ebdf5034f3970f46b8a29285ec37216dc20300111de8b32adb868bb73a9a2a9a",
+    "writable": [
+      "MaxSize",
+      "MinSize"
+    ]
+  },
+  "UIStroke": {
+    "sha256": "d005a1fe415e053d991d27e1034f4a31f9fe0f703434ba1c6bab775019c2856f",
+    "writable": [
+      "ApplyStrokeMode",
+      "BorderOffset",
+      "BorderStrokePosition",
+      "Color",
+      "Enabled",
+      "LineJoinMode",
+      "StrokeSizingMode",
+      "Thickness",
+      "Transparency",
+      "ZIndex"
+    ]
+  },
+  "UITextSizeConstraint": {
+    "sha256": "285c13a63e9783d8230debe1828d9c2fa9b3a70d9c39d986a899c2cdeeb5354a",
+    "writable": [
+      "MaxTextSize",
+      "MinTextSize"
+    ]
+  },
+  "ViewportFrame": {
+    "sha256": "9fb0391e6720b9f1cfb0ee755f3f72f02d3d41418451d8e958f4f3a298148df4",
+    "writable": [
+      "Ambient",
+      "CurrentCamera",
+      "ImageColor3",
+      "ImageTransparency",
+      "LightColor",
+      "LightDirection"
+    ]
+  },
+  "WorldModel": {
+    "sha256": "5d065cf56bc36c8ec66202fbcfc9f3802f0d941e6d970704e45847f37a264a50",
+    "writable": [
+      "UseWorkspaceCollisionGroups"
+    ]
+  },
+  "WorldRoot": {
+    "sha256": "30236c8a8187fe27b5c0d21f20abdba055f95c2f2220522e93ed11a8abb248c6",
+    "writable": []
+  }
+}

@@ -9,6 +9,8 @@ local profile = require "../reactive/profile"
 local stats = require "../reactive/stats"
 local statsOn = stats.state
 local Owner = require "../ownership/owner"
+local Types = require "../reactive/types"
+local Weak = require "../weak"
 
 type Node = Host.Node
 
@@ -20,8 +22,11 @@ type Binding = { remaining: number, active: boolean, dispose: (() -> ())?, pendi
 type Bindings = { [string]: Binding? }
 type Registry = { [Node]: Bindings }
 
-local propertyBindings: Registry = setmetatable({}, { __mode = "k" }) :: any
-local attributeBindings: Registry = setmetatable({}, { __mode = "k" }) :: any
+type Clear = (node: Node, key: string, value: nil) -> ...unknown
+type GroupBody = (use: Types.Use) -> ...unknown
+
+local propertyBindings = Weak.keys() :: Registry
+local attributeBindings = Weak.keys() :: Registry
 
 local function retireBinding(binding: Binding?, key: string)
 	if binding == nil then
@@ -108,7 +113,7 @@ local function singleCleanup(
 	bindings: Bindings,
 	key: string,
 	binding: Binding,
-	clear: any
+	clear: Clear
 ): () -> ()
 	local borrowed = not Nodes.isDestructible(node)
 	return function()
@@ -160,13 +165,13 @@ local function subscribe(host: Host.Host, node: Node, owner: Owner.Owner, name: 
 end
 
 local function refuseNodeValue(host: Host.Host, node: Node, key: string, value: unknown)
-	if not Nodes.isDestructible(value :: any) then
+	if not Nodes.isDestructible(value) then
 		return
 	end
 	Diagnostics.raise("props/child-under-string-key", "a node was given as the value of a property", {
 		key = key,
 		node = Host.describeNode(host, node),
-		actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value :: any)),
+		actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value)),
 		expected = "a value the host can store in a property",
 		contract = "a string key names a property to write; children live in the array part of the props table",
 		fix = ("drop the key -- write the node as a positional child rather than as %s = ...; "):format(key)
@@ -187,12 +192,12 @@ local function writeOnce(host: Host.Host, node: Node, owner: Owner.Owner, key: s
 		return
 	end
 	local bindings, binding = bindingFor(propertyBindings, node)
-	local cleanup = singleCleanup(propertyBindings, node, bindings, key, binding, host.render.clearProperty)
+	local cleanup = singleCleanup(propertyBindings, node, bindings, key, binding, host.render.clearProperty :: Clear)
 	replace(bindings, key, binding)
 	binding.dispose = owner.own(cleanup)
 end
 
-local function bind(host: Host.Host, node: Node, owner: Owner.Owner, key: string, source: any)
+local function bind(host: Host.Host, node: Node, owner: Owner.Owner, key: string, source: Types.Source<unknown>)
 	local render = host.render
 	local setProperty = render.setProperty
 	local bindings, binding = bindingFor(propertyBindings, node)
@@ -207,7 +212,7 @@ local function bind(host: Host.Host, node: Node, owner: Owner.Owner, key: string
 				end
 				return
 			end
-			local ok, err = pcall(setProperty :: any, node, key, value)
+			local ok, err: unknown = pcall(setProperty, node, key, value)
 			finishWrite(bindings, key, binding, ok)
 			if not ok then
 				error(err, 0)
@@ -222,18 +227,19 @@ local function bind(host: Host.Host, node: Node, owner: Owner.Owner, key: string
 			profile.hostWrite()
 		end
 	end
-	local cleanup = singleCleanup(propertyBindings, node, bindings, key, binding, render.clearProperty)
+	local cleanup = singleCleanup(propertyBindings, node, bindings, key, binding, render.clearProperty :: Clear)
 	if statsOn.enabled then
 		profile.naming(("%s.%s"):format(Host.describeNode(host, node), key))
 	end
 	if cellModule.isReadable(source) then
-		binding.dispose = owner.watchStatic(source, publish, cleanup)
+		binding.dispose = owner.watchStatic(source :: Types.Readable<unknown>, publish, cleanup)
 	else
+		local body = source :: Types.Body<unknown>
 		binding.dispose = owner.watchTerminal(function(use)
 			if initial then
-				publish(source(use))
+				publish(body(use))
 			elseif binding.active then
-				local value = source(use)
+				local value = body(use)
 				if binding.active then
 					setProperty(node, key, value)
 					if statsOn.enabled then
@@ -252,7 +258,7 @@ local function bind(host: Host.Host, node: Node, owner: Owner.Owner, key: string
 	end
 end
 
-local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names: { string }, source: any)
+local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names: { string }, source: unknown)
 	local render = host.render
 	local count = #names
 	for index = 1, count do
@@ -275,16 +281,17 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 		})
 	end
 
-	local written = table.create(count, UNWRITTEN)
+	local body = source :: GroupBody
+	local written = table.create(count, UNWRITTEN) :: { unknown }
 	local bindings, binding = bindingFor(propertyBindings, node)
-	local previous = table.create(count)
+	local previous = table.create(count) :: { Binding? }
 	for index, name in names do
 		previous[index] = bindings[name]
 	end
 	local borrowed = not Nodes.isDestructible(node)
 	local function cleanup()
 		binding.active = false
-		local failure: any = nil
+		local failure: unknown = nil
 		for _, name in names do
 			if bindings[name] == binding then
 				if binding.pendingKey == name then
@@ -293,7 +300,7 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 				end
 				bindings[name] = nil
 				if borrowed then
-					local ok, err = pcall(render.clearProperty :: any, node, name)
+					local ok, err: unknown = pcall(render.clearProperty, node, name)
 					if not ok and failure == nil then
 						failure = err
 					end
@@ -312,7 +319,7 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 		profile.naming(("%s.{%s}"):format(Host.describeNode(host, node), table.concat(names, ",")))
 	end
 	binding.dispose = owner.watch(function(use)
-		local values = table.pack(source(use))
+		local values = table.pack(body(use))
 		if values.n ~= count then
 			Diagnostics.raise("props/group-arity", "a group body returned the wrong number of values", {
 				properties = table.concat(names, ", "),
@@ -330,7 +337,7 @@ local function bindGroup(host: Host.Host, node: Node, owner: Owner.Owner, names:
 					written[index] = value
 					continue
 				end
-				local ok, err = pcall(render.setProperty :: any, node, name, value)
+				local ok, err: unknown = pcall(render.setProperty, node, name, value)
 				finishWrite(bindings, name, binding, ok)
 				if not ok then
 					error(err, 0)
@@ -397,13 +404,13 @@ local function writeAttribute(host: Host.Host, node: Node, write: SetAttribute, 
 end
 
 local function refuseNodeAttribute(host: Host.Host, node: Node, name: string, value: unknown)
-	if not Nodes.isDestructible(value :: any) then
+	if not Nodes.isDestructible(value) then
 		return
 	end
 	Diagnostics.raise("props/child-under-attribute", "a node was given as the value of an attribute", {
 		key = ("%s.%s"):format(ATTRIBUTES, name),
 		node = Host.describeNode(host, node),
-		actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value :: any)),
+		actual = ("a node this runtime will destroy: %s"):format(Host.describeNode(host, value)),
 		expected = "a value the host can store in an attribute",
 		contract = "an attribute holds data; children live in the array part of the props table",
 		fix = ("drop the attribute -- write the node as a positional child rather than as %s.%s"):format(
@@ -444,7 +451,7 @@ local function bindAttribute(
 	owner: Owner.Owner,
 	write: SetAttribute,
 	name: string,
-	source: any
+	source: Types.Source<unknown>
 )
 	local written: unknown = UNWRITTEN
 	local bindings, binding = bindingFor(attributeBindings, node)
@@ -459,7 +466,7 @@ local function bindAttribute(
 				end
 				return
 			end
-			local ok, err = pcall(writeAttribute :: any, host, node, write, name, value)
+			local ok, err: unknown = pcall(writeAttribute, host, node, write, name, value)
 			finishWrite(bindings, name, binding, ok)
 			if not ok then
 				error(err, 0)
@@ -479,10 +486,11 @@ local function bindAttribute(
 		profile.naming(("%s.%s.%s"):format(Host.describeNode(host, node), ATTRIBUTES, name))
 	end
 	if cellModule.isReadable(source) then
-		binding.dispose = owner.watchStatic(source, publish, cleanup)
+		binding.dispose = owner.watchStatic(source :: Types.Readable<unknown>, publish, cleanup)
 	else
+		local body = source :: Types.Body<unknown>
 		binding.dispose = owner.watchTerminal(function(use)
-			publish(source(use))
+			publish(body(use))
 		end, cleanup)
 	end
 	if statsOn.enabled then
@@ -510,7 +518,7 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 		)
 	end
 
-	local table_ = (source :: any) :: { [unknown]: unknown }
+	local table_ = source :: { [unknown]: unknown }
 	local names: { string } = {}
 	for name in table_ do
 		if type(name) ~= "string" or name == "" then
@@ -540,7 +548,7 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 		end
 
 		if cellModule.isReadable(value) or type(value) == "function" then
-			bindAttribute(host, node, owner, write, name, value)
+			bindAttribute(host, node, owner, write, name, value :: Types.Source<unknown>)
 			continue
 		end
 

@@ -2,6 +2,7 @@
 
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
+local Owner = require "./ownership/owner"
 local Types = require "./reactive/types"
 local cellModule = require "./reactive/cell"
 local formula = require "./reactive/formula"
@@ -41,7 +42,7 @@ local KNOWN_FIELDS: { [string]: true } = {
 	autoFocus = true,
 }
 
-local function identity<V>(value: V, _index: number): any
+local function identity<V>(value: V, _index: number): V
 	return value
 end
 
@@ -73,7 +74,7 @@ local function createFocusScope<V, K>(options: Options<V, K>): FocusScope<K>
 	local positions: { [K]: number } = {}
 	local points: { [K]: { x: number, y: number } } = {}
 	local alive = true
-	local holder = owner :: any
+	local holder = owner :: Owner.Owner
 
 	holder.own(function()
 		alive = false

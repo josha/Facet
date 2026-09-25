@@ -1,19 +1,4 @@
 --!strict
--- CommerceService — satchel ledger, charm tier, catalog, and the purchase
--- COMMAND (responsibility ledger, P1 row 2). Production maps to
--- MarketplaceService developer products (consumables) and PromptSubscription-
--- Purchase for the tiers, with receipts processed server-side; the prompt sheet
--- itself is a host surface and the in-experience UI ends at the prompt call.
---
--- Every command runs `idle → pending → confirmed | rejected`. Pending NEVER
--- implies success: the caller shows a disabled, labelled "Confirming…" control
--- and nothing else moves until the command resolves. Resolution happens on the
--- injected clock (`update(now)`), so the same drive produces the same verdicts
--- headlessly and in Studio.
---
--- Rejections come from the seed's OUTCOMES fixtures by attempt ordinal, plus one
--- DERIVED rule the fixtures cannot override: buying a charm tier you already
--- hold is always `owned`.
 
 local seedData = require("../content/seed")
 local strings = require("../content/strings")
@@ -22,7 +7,7 @@ local commerce = {}
 
 export type Opts = {
 	Compose: any,
-	now: any, -- Readable<number>
+	now: any,
 }
 
 local REASONS = { "declined", "offline", "owned", "fallback" }
@@ -41,7 +26,6 @@ function commerce.new(opts: Opts): any
 	local Compose = opts.Compose
 	local now = opts.now
 
-	-- ---- ledger -------------------------------------------------------------
 	local satchel: { [string]: any } = {}
 	for _, nectar in seedData.NECTARS do
 		if nectar.premium then
@@ -50,14 +34,10 @@ function commerce.new(opts: Opts): any
 	end
 	local charmTier = Compose.cell("none")
 
-	-- ---- commands -----------------------------------------------------------
-	-- One record per command id (a pack id, a charm tier id, or "restore"). The
-	-- record is created on first use and reused, so a card can bind its button's
-	-- label and enabled state before anything has ever been bought.
 	local records: { [string]: any } = {}
-	-- attempt counters per FAMILY, which is what the fixtures are indexed by
+
 	local attempts: { [string]: number } = { pack = 0, charm = 0, restore = 0 }
-	-- commands waiting on the clock: { id, dueAt, family, outcome }
+
 	local inFlight: { any } = {}
 
 	local function recordFor(id: string): any
@@ -98,9 +78,6 @@ function commerce.new(opts: Opts): any
 		return seedData.CHARM_RANK[charmTier:peek()] or 0
 	end
 
-	-- prices are SERVICE-PUBLISHED STRINGS (spec §1). The UI never composes a
-	-- price out of a number and a glyph — that is exactly the copy a real
-	-- storefront localizes and the proof must not invent per screen.
 	function service.priceOf(packId: string): string
 		local pack = seedData.PACK_BY_ID[packId]
 		if pack == nil then
@@ -117,7 +94,6 @@ function commerce.new(opts: Opts): any
 		return `{strings.PRICE_MARK} {tier.price}`
 	end
 
-	-- the scripted verdict for the next attempt in a family
 	local function nextOutcome(family: string): string
 		local fixtures = seedData.OUTCOMES[family]
 		attempts[family] += 1
@@ -128,7 +104,7 @@ function commerce.new(opts: Opts): any
 	local function start(id: string, family: string, outcome: string, apply: (() -> ())?): boolean
 		local record = recordFor(id)
 		if record.status:peek() == "pending" then
-			return false -- one flight per command; the control is disabled anyway
+			return false
 		end
 		record.reason:set(nil)
 		record.status:set("pending")
@@ -141,8 +117,6 @@ function commerce.new(opts: Opts): any
 		})
 		return true
 	end
-
-	-- ---- the three purchase-shaped verbs -----------------------------------
 
 	function service.buyPack(packId: string): boolean
 		local pack = seedData.PACK_BY_ID[packId]
@@ -160,8 +134,7 @@ function commerce.new(opts: Opts): any
 		if tier == nil then
 			return false
 		end
-		-- the derived rule wins over the fixture: a tier you already hold can
-		-- never be sold to you again, whatever the script says next.
+
 		local outcome
 		if tier.rank <= service.charmRank() then
 			outcome = "owned"
@@ -173,15 +146,10 @@ function commerce.new(opts: Opts): any
 		end)
 	end
 
-	-- the S7 "Restore provisions" command: a FAKE ledger re-sync, stated plainly
-	-- (there is no host restore surface in a Roblox experience).
 	function service.restore(): boolean
 		return start("restore", "restore", nextOutcome("restore"), nil)
 	end
 
-	-- ---- resolution ---------------------------------------------------------
-	-- Called from the proof's one clock advance. Deterministic: a command started
-	-- at t resolves at t + COMMAND_SECONDS, in start order.
 	function service.update(at: number)
 		if #inFlight == 0 then
 			return
@@ -215,8 +183,6 @@ function commerce.new(opts: Opts): any
 		end
 	end
 
-	-- the caller clears a settled command when the player moves on (a notice
-	-- clears on the next attempt or on modal dismiss, spec §9)
 	function service.clear(id: string)
 		local record = records[id]
 		if record == nil then

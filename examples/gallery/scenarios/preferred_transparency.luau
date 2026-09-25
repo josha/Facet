@@ -1,257 +1,88 @@
---!strict
---[[ Scenario 'preferred_transparency' — THE PLAYER'S BACKGROUND TRANSPARENCY
-	SETTING, ANSWERED BY FACET'S OWN PAINTING (owed row O-26).
-
-	WHY THIS FIXTURE EXISTS AT ALL. `GuiService.PreferredTransparency` reached the
-	environment four stages ago and nothing read it, so a player who turned the
-	setting down saw no change anywhere in Facet. The row that recorded that was
-	left open deliberately, because a DEMO would have had to honour the preference
-	by hand — consumer code advertising a capability the framework did not have.
-	So this fixture contains no honouring at all. It moves the PREFERENCE; every
-	pixel that answers is painted by the framework.
-
-	THE SLIDER IS NOT THE FEATURE, and the caption on screen says so. On a real
-	device the number comes from Settings → Accessibility → Background
-	Transparency, and `roblox_env` pushes it into `preferredTransparency` on the
-	property's own change signal. Measured 2026-08-15 in Studio: a game script
-	CANNOT write it (`GuiService.PreferredTransparency` is read-only, and
-	`UserGameSettings.PreferredTransparency` refuses a non-RobloxScript thread), so
-	a fixture that wants to show the response has to drive the environment fact the
-	adapter would have written. That is the same seam `preferred_text` drives, and
-	it is the honest one: everything downstream of the fact is production code.
-
-	THREE THINGS ON ONE SCREEN, because the interesting half of this feature is
-	what does NOT move:
-
-	  · THE BACKDROP swatch (`surface = "scrim"`) — the framework's one see-through
-	    background, and the one thing here that answers the setting. At 0 it is a
-	    solid panel; at 1 it is the theme's own dim.
-	  · THE PANEL swatch (`surface = "raised"`) — already opaque, so there is
-	    nothing for a transparency preference to do. It is here to be identical in
-	    every state, which is what makes the backdrop's change legible.
-	  · THE AUTHORED FADE (`UI.ZStack{ opacity = 0.5 }`) — an author's explicit
-	    number, and the preference never touches it. If it did, an author's 0.5
-	    would silently become something else and every running `withAnimation`
-	    fade would be retargeted mid-flight. That refusal is invisible unless
-	    something on screen is holding still while its neighbour moves.
-
-	...AND THEN THE REAL ONE: the dialog. Open it and the backdrop behind it is the
-	presenter's own synthesized scrim (`present/catchers.luau`), which no
-	declaration in this file reaches — it is the framework painting its own
-	furniture at the player's setting.
-
-	TWO HOSTS, one contract (the pair `lifecycle_hidden.luau` documents): the
-	scenario runner drives `steps` by name, and the showcase demo picker mounts it
-	with a minimal ctx and no step ever runs. Every control here is an ordinary
-	button with its own callback, so a player drives all of it by hand.
-]]
-
---[[ EVERY PLAYER-VISIBLE STRING, in one table and EXPORTED as `copy`, so
-	`tests/examples_gallery.spec.luau`'s localization case can expand all of it
-	~1.4x. All `policy = "none"` copy: it must fit and wrap, never clip. ]]
-local COPY = {
-	title = "Background Transparency",
-	caption = "Roblox publishes the player's Background Transparency setting. Facet reads it and paints its own backdrops with it — nothing here honours it by hand.",
-	setting = "Your setting",
-	realHint = "On a device this comes from Settings → Accessibility. A game script cannot write it, so this drives the same environment fact the adapter publishes.",
-	backdrop = "Backdrop",
-	backdropHint = "answers the setting",
-	panel = "Panel",
-	panelHint = "already opaque",
-	fade = "Authored fade",
-	fadeHint = "the author's 0.5, untouched",
-	open = "Open a dialog",
-	close = "Close",
-	dialogTitle = "The backdrop behind this",
-	dialogBody = "This dim is the presenter's own scrim. Nothing in the fixture declared it.",
-	note = "A see-through background is the only thing that moves. A border, a shadow, a disabled dim and an authored opacity all stay where they were — each of them means something a transparency preference is not about.",
-	readout = "Setting",
-}
-
--- the five stops, in the order a player reads them: the default first, fully
--- opaque last. The labels carry the number so a screenshot is self-describing.
-local STOPS = {
-	{ id = "Full", label = "1.0 default", value = 1 },
-	{ id = "Three", label = "0.75", value = 0.75 },
-	{ id = "Half", label = "0.5", value = 0.5 },
-	{ id = "Quarter", label = "0.25", value = 0.25 },
-	{ id = "Opaque", label = "0 opaque", value = 0 },
-}
-
 return {
-	title = "Background Transparency preference",
-	ledgerRows = {},
-	copy = COPY,
-	stops = STOPS,
-	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
-		local env = ctx.env
-		local pres = ctx.presenter
-
-		-- the fixture's own mirror of the fact, so the readout and the chip
-		-- selection have something to bind to. The FACT is the authority: this is
-		-- written in the same call that writes it, never read back from paint.
-		local setting = Compose.cell(1)
-
-		local function apply(value: number)
-			setting:set(value)
-			if env ~= nil then
-				env:set("preferredTransparency", value)
-			end
+	title = "Background transparency",
+	build = function(ctx)
+		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+		local UDim, UDim2, Color3, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
+		local gui = ctx.guiService
+		local opened = Compose.cell(false)
+		local function current()
+			local value = if gui then gui.PreferredTransparency else nil
+			return if type(value) == "number" then value else 1
 		end
-
-		local readout = Compose.formula(function(use)
-			return `{COPY.readout}: {string.format("%.2f", use(setting))}`
-		end)
-
-		-- the dialog is an Alert bound to one cell: opening it is a write
-		local dialogOpen = Compose.cell(false)
-		local function openDialog()
-			dialogOpen:set(true)
+		local preference = Compose.cell(current())
+		if gui then
+			local connection = gui:GetPropertyChangedSignal("PreferredTransparency"):Connect(function()
+				preference:set(current())
+			end)
+			Compose.cleanup(function()
+				connection:Disconnect()
+			end)
 		end
-		local function closeDialog()
-			dialogOpen:set(false)
-		end
-
-		-- ONE swatch shape for all three, so the only difference a player can see
-		-- between them is the declaration each carries
-		local function swatch(id: string, label: string, hint: string, body: any): any
-			return UI.VStack(id)({
-				gap = "xs",
-				width = { type = "fixed", px = 132 },
-
-				body,
-				UI.Text("Label")({ text = label, textSize = "label" }),
-				UI.Text("Hint")({ text = hint, textSize = "caption", role = "secondary" }),
+		local function panel(name, transparency)
+			return Host.Frame({
+				Name = name,
+				Size = UDim2.fromOffset(200, 96),
+				BackgroundColor3 = Color3.fromRGB(42, 70, 120),
+				BackgroundTransparency = transparency,
+				UI.Text({ text = name, TextColor3 = Color3.new(1, 1, 1) }),
 			})
 		end
-
 		local function screen()
-			local stops: { any } = { gap = "tight", wrap = true }
-			for _, stop in STOPS do
-				table.insert(
-					stops,
-					UI.Button(stop.id)({
-						label = stop.label,
-						onActivate = function()
-							apply(stop.value)
-						end,
-					})
-				)
-			end
-			return UI.Screen("PreferredTransparency")({
-				padding = "m",
-
-				UI.ScrollView("Page")({
-					axis = "y",
-					gap = 10,
-					width = UI.fill(),
-					height = UI.fill(),
-
-					UI.Text("Title")({ text = COPY.title, textSize = "title" }),
-					UI.Text("Caption")({ text = COPY.caption, textSize = "caption", role = "secondary" }),
-					UI.Text("SettingLabel")({ text = COPY.setting, textSize = "label" }),
-					UI.HStack("Stops")(stops),
-					UI.Text("Readout")({ text = readout, textSize = "label" }),
-					UI.Text("RealHint")({ text = COPY.realHint, textSize = "caption", role = "secondary" }),
-					UI.HStack("Swatches")({
-						gap = 10,
-						wrap = true,
-
-						swatch(
-							"BackdropSwatch",
-							COPY.backdrop,
-							COPY.backdropHint,
-							-- the ONE declaration on this page that the
-							-- preference reaches: a backdrop says it means
-							-- to be seen through
-							UI.Box("Fill")({
-								surface = "scrim",
-								width = UI.fill(),
-								height = { type = "fixed", px = 72 },
-							})
-						),
-						swatch(
-							"PanelSwatch",
-							COPY.panel,
-							COPY.panelHint,
-							UI.Box("Fill")({
-								surface = "raised",
-								width = UI.fill(),
-								height = { type = "fixed", px = 72 },
-							})
-						),
-						swatch(
-							"FadeSwatch",
-							COPY.fade,
-							COPY.fadeHint,
-							UI.ZStack("Fill")({
-								opacity = 0.5,
-								width = UI.fill(),
-								height = { type = "fixed", px = 72 },
-
-								UI.Box("Plate")({
-									surface = "raised",
-									width = UI.fill(),
-									height = UI.fill(),
-								}),
-							})
-						),
-					}),
-					UI.Button("Open")({ label = COPY.open, onActivate = openDialog }),
-					UI.Text("Note")({ text = COPY.note, textSize = "caption", role = "secondary" }),
-					UI.Alert("TransparencyDialog")({
-						title = COPY.dialogTitle,
-						message = COPY.dialogBody,
-						isPresented = dialogOpen,
-						actions = { { id = "DClose", label = COPY.close, role = "cancel" } },
-					}),
+			return Host.ScrollingFrame "PreferredTransparency" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				CanvasSize = UDim2.new(),
+				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
+				UI.Text({ text = "Background transparency", TextSize = 24 }),
+				UI.Text({
+					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",
 				}),
-			})
+				UI.Text "Reading" {
+					text = function(use)
+						return `Your setting: {math.round(use(preference) * 100)}%`
+					end,
+				},
+				panel("Translucent surface", function(use)
+					return 0.5 * use(preference)
+				end),
+				panel("Opaque panel", 0),
+				Host.CanvasGroup "AuthoredFade" {
+					Size = UDim2.fromOffset(200, 96),
+					BackgroundTransparency = 1,
+					GroupTransparency = 0.5,
+					panel("Authored fade", 0),
+				},
+				UI.Button "Open" {
+					label = "Open a dialog",
+					onActivate = function()
+						opened:set(true)
+					end,
+				},
+				UI.Alert "Dialog" {
+					isPresented = opened,
+					title = "Modal backdrop",
+					message = "This backdrop darkens as you lower Background transparency.",
+					actions = { { id = "Close", label = "Close", role = "cancel" } },
+				},
+			}
 		end
-
+		local function report()
+			return { preference = preference:peek(), dialogOpen = opened:peek() }
+		end
 		return {
 			screen = screen,
-			present = {},
+			report = report,
 			steps = {
-				setFull = function()
-					apply(1)
-					return { setting = setting:peek() }
-				end,
-				setHalf = function()
-					apply(0.5)
-					return { setting = setting:peek() }
-				end,
-				setOpaque = function()
-					apply(0)
-					return { setting = setting:peek() }
-				end,
 				openDialog = function()
-					openDialog()
-					return { open = dialogOpen:peek(), depth = pres.depth() }
+					opened:set(true)
+					return report()
 				end,
 				closeDialog = function()
-					closeDialog()
-					return { open = dialogOpen:peek(), depth = pres.depth() }
+					opened:set(false)
+					return report()
 				end,
 			},
-			report = function()
-				local effective: any = nil
-				if env ~= nil then
-					local ok, value = pcall(function()
-						return env:get("effectiveTransparency"):peek()
-					end)
-					effective = if ok then value else nil
-				end
-				return {
-					setting = setting:peek(),
-					-- the DERIVED value the framework actually paints with, read
-					-- from the environment rather than recomputed here
-					effectiveTransparency = effective,
-					dialogOpen = dialogOpen:peek(),
-					scrimPath = pres.topScrimPath(),
-				}
-			end,
 		}
 	end,
 }

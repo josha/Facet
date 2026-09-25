@@ -1,0 +1,554 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "radial_hold_resolve": {
+      "specs": [
+        "native_radial_controls",
+        "native_navigation",
+        "radial_geometry"
+      ],
+      "cases": [
+        "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+        "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+        "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+        "native_radial_controls::native radial interaction policies::NRAD-4 direction gestures work outside paint while bounded gestures cancel",
+        "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+        "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+        "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+        "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+        "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+        "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+        "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+        "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview",
+        "native_radial_controls::native radial interaction policies::NRAD-13 gallery nearby item uses native owned scene and real actions",
+        "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action",
+        "native_navigation::native navigation controls::navigates radial branches and applies action completion",
+        "radial_geometry::radial geometry::radial sectors exclude the hole, preserve compass gaps, and bound overshoot",
+        "radial_geometry::radial geometry::all corner arcs face inward without rotating authored compass directions",
+        "radial_geometry::radial geometry::direct circular buttons reject rectangular corners",
+        "radial_geometry::radial geometry::paint seams have the same pixel width at both edges of thick and slim rings",
+        "radial_geometry::radial geometry::short arc outlines close both end caps with straight tangents",
+        "radial_geometry::radial geometry::content-fitted paint encloses upright icons at every compass direction",
+        "radial_geometry::radial geometry::conflicting compass assignments are rejected",
+        "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+      ],
+      "caseMappings": {
+        "a held, unchanged thumbstick re-solves the ring zero times across 60 frames": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "a held D-PAD steps the ring once and then rests": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "a d-pad step moves focus and the painted candidate together": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "a held aim never yanks focus out of the open ring": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "a diagonal aim holds its wedge even when another lies along the latched axis": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "releasing the stick hands the ring back to the d-pad": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ]
+      },
+      "behaviors": [
+        "Fifteen native radial cases exercise analog hold/neutral hysteresis, touch capture identity/cancel, cross-path activation echo dedupe, bounded/direction gestures, captured anchor freeze, responsive list fallback, completion and state-item ordering, inherited expansion, whole-menu Compose exit ownership, reduced-motion cleanup, image skins/upright labels, empty-center Back/preview, real gallery world item actions, launcher press-slide-release. Compose presence retains outgoing branch geometry, fades it through native CanvasGroup, reclaims interrupted branch owners, disables retiring input and immediately retires under reduced motion.",
+        "The seven historical radial geometry cases are executed unchanged after retargeting their require to src/ui/nav_radial_geometry: compass gaps, holes, overshoot, corners, circular hit rejection, seam widths, cap tangents, upright content fitting and conflicting slot validation."
+      ],
+      "retiredAssertions": {
+        "Presenter solve counts and private registry/listener censuses": "The presenter, solved geometry tree, custom action repeat clock and core registry mechanism were removed. Native InputAction events and Compose ownership replace those mechanisms; native lifecycle teardown and listener release are asserted directly.",
+        "dump/api paths and solved/presented rectangle snapshots": "Old Facet scene handles, content compositor paths and solver paint snapshots do not exist. Native geometry helpers remain directly tested; engine properties, native Path2D and CanvasGroup now carry the paint."
+      },
+      "remaining": [],
+      "liveRequirements": [
+        "Studio native paint and input checks at corner presets and small/large-text viewports: touch target bounds, icon fitting, image plates, ring/list handoff, center pass-through, held native gamepad direction, anchor projection and motion reversal."
+      ]
+    },
+    "radial_menu": {
+      "specs": [
+        "native_radial_controls",
+        "native_navigation",
+        "radial_geometry"
+      ],
+      "cases": [
+        "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+        "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+        "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+        "native_radial_controls::native radial interaction policies::NRAD-4 direction gestures work outside paint while bounded gestures cancel",
+        "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+        "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+        "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+        "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+        "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+        "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+        "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+        "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview",
+        "native_radial_controls::native radial interaction policies::NRAD-13 gallery nearby item uses native owned scene and real actions",
+        "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action",
+        "native_navigation::native navigation controls::navigates radial branches and applies action completion",
+        "radial_geometry::radial geometry::radial sectors exclude the hole, preserve compass gaps, and bound overshoot",
+        "radial_geometry::radial geometry::all corner arcs face inward without rotating authored compass directions",
+        "radial_geometry::radial geometry::direct circular buttons reject rectangular corners",
+        "radial_geometry::radial geometry::paint seams have the same pixel width at both edges of thick and slim rings",
+        "radial_geometry::radial geometry::short arc outlines close both end caps with straight tangents",
+        "radial_geometry::radial geometry::content-fitted paint encloses upright icons at every compass direction",
+        "radial_geometry::radial geometry::conflicting compass assignments are rejected",
+        "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+      ],
+      "caseMappings": {
+        "a new radial launcher waits for its solved position before painting": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "all focal presets blend the launcher into closing and can reopen mid-exit": [
+          "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch"
+        ],
+        "list dismissal hands off within the same animation without overlapping paint": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "caller-owned launchers leave no overlapping built-in trigger": [
+          "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action"
+        ],
+        "projected clearance fits atomically and freezes with pointer selection": [
+          "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch"
+        ],
+        "fixed following preserves opening clearance until the next opening": [
+          "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch"
+        ],
+        "ornate portrait character ring fits while preserving its focal clearance": [
+          "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch"
+        ],
+        "launcher compositors leave room for ornate circle borders": [
+          "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action"
+        ],
+        "corner navigation stays painted while an action closes into the launcher": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "landscape corners compact before falling back without shrinking touch targets": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "compact fitting retains explicit clearance and falls back below minimum touch size": [
+          "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch"
+        ],
+        "corner opening and closing keep the launcher fixed under the shared transform": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "focus highlights the painted radial surface rather than its inner content": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "compact icon content stays centered in its radial button": [
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "closing a list fades its rows before restoring the launcher": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "opening wedges share one scale so adjacent seams cannot round independently": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "list launcher touch release and native activation echo latch once": [
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit"
+        ],
+        "list fallback has one navigation control for every center policy": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "image-only buttons omit native plate and stroke with per-item overrides": [
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "slim bands share one pair of radii for unequal content": [
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "closing a submenu retains its content and geometry until the fade finishes": [
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+        ],
+        "empty-center Back is a ring target and corner Back occupies the launcher": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "direction gestures preserve radial choices and select beyond the painted ring": [
+          "native_radial_controls::native radial interaction policies::NRAD-4 direction gestures work outside paint while bounded gestures cancel"
+        ],
+        "retiring surface and glyph share a single fade and preserve paint eligibility": [
+          "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+        ],
+        "replacement crossfades from the parent while expansion keeps ancestors visible": [
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+        ],
+        "separate button art and labels have the same center": [
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "list fallback hugs its rows when the viewport is taller than its contents": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "off-center rings do not cross an integer pivot on their final animation frame": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "short viewport list reserves separate navigation and preview space": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "list rows leave space around the complete button and focus outline": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "custom image content fits its actual painted rectangle at every direction": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "ten-foot compass icons retain usable squares in a thin ring": [
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "semantic action icons receive the same painted size as ring navigation": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "content-fitted navigation arcs contain the themed icon square": [
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "content fit defaults to both axes and preserves gesture targets": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "content fit offers independent axes and an unchanged full-ring mode": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "RadialMenu pointer: a tap activates through the presenter (device-true)": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "RadialMenu touch: a touch tap/pan drives the control (device-true)": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "RadialMenu keyboard: focus + Return drives the control": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "RadialMenu gamepad: focus + ButtonA drives the control": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "RadialMenu pointer affordance: drag previews and center return cancels": [
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "RadialMenu touch affordance: launcher tap latches with 44px targets": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "RadialMenu keyboard affordance: Tab traversal and semantic Cancel": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "RadialMenu gamepad affordance: analog preview, neutral and B cancellation": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "RadialMenu hot-switch: in-flight state resolves CARRY or CANCEL on a class flip": [
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners"
+        ],
+        "mixed navigation and all completion policies preserve the logical path": [
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners"
+        ],
+        "hover previews through the controller without executing": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "native Activated before or after release cannot double commit": [
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit"
+        ],
+        "a second touch cannot steal capture and input loss cancels": [
+          "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit"
+        ],
+        "eligibility is checked again after a captured drag": [
+          "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit"
+        ],
+        "moving focal anchors freeze under capture and disappearing targets dismiss": [
+          "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit"
+        ],
+        "large text and a small viewport choose the accessible list and retain activation": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "all corners keep their buttons inside the offered surface": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "mixed hierarchy is reached by pointer dispatch and Back restores the parent": [
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation"
+        ],
+        "callback disposal retires input before executing and cannot fire twice": [
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners"
+        ],
+        "interrupted opening preserves opacity and eventually releases every retiring row": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+        ],
+        "icon and text content stays usable through native themes and reduced motion": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "a keyed row swapping an OPEN menu returns the tree to its baseline": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "Quick actions {size[1]}x{size[2]} text +{offset} mounts and opens": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "pass-through cuts both native capture and popup-catcher rectangles around the center": [
+          "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit"
+        ],
+        "removing an ancestor restores the nearest valid logical page": [
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation"
+        ],
+        "held semantic action selects on release, not on stick neutral": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis"
+        ],
+        "dismiss during animation returns all core registries to baseline": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "round navigation keeps themed image corners inside the disc throughout transitions": [
+          "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels"
+        ],
+        "rounded navigation keeps its 32px visual and changes its glyph with depth": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "leaving the world item stops prompt updates before scene disposal": [
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners"
+        ],
+        "wandering on a narrow phone keeps a fitting ring instead of oscillating into a list": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ],
+        "wedges bloom in sequence, and every wedge has started inside 150 ms": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "reduced motion keeps the ring whole: no wedge waits for its turn": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "the candidate wedge lifts and a neighbour stays flat": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "the committed wedge pops past its lift on the way out": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "a wide ring still opens whole inside the stagger's cap": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ],
+        "a commit that stays open pops the wedge past its lift, and reduced motion does not": [
+          "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+          "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+          "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+          "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns"
+        ]
+      },
+      "behaviors": [
+        "Fifteen native radial cases exercise analog hold/neutral hysteresis, touch capture identity/cancel, cross-path activation echo dedupe, bounded/direction gestures, captured anchor freeze, responsive list fallback, completion and state-item ordering, inherited expansion, whole-menu Compose exit ownership, reduced-motion cleanup, image skins/upright labels, empty-center Back/preview, real gallery world item actions, launcher press-slide-release. Compose presence retains outgoing branch geometry, fades it through native CanvasGroup, reclaims interrupted branch owners, disables retiring input and immediately retires under reduced motion.",
+        "The seven historical radial geometry cases are executed unchanged after retargeting their require to src/ui/nav_radial_geometry: compass gaps, holes, overshoot, corners, circular hit rejection, seam widths, cap tangents, upright content fitting and conflicting slot validation."
+      ],
+      "retiredAssertions": {
+        "Presenter solve counts and private registry/listener censuses": "The presenter, solved geometry tree, custom action repeat clock and core registry mechanism were removed. Native InputAction events and Compose ownership replace those mechanisms; native lifecycle teardown and listener release are asserted directly.",
+        "dump/api paths and solved/presented rectangle snapshots": "Old Facet scene handles, content compositor paths and solver paint snapshots do not exist. Native geometry helpers remain directly tested; engine properties, native Path2D and CanvasGroup now carry the paint."
+      },
+      "remaining": [],
+      "liveRequirements": [
+        "Studio native paint and input checks at corner presets and small/large-text viewports: touch target bounds, icon fitting, image plates, ring/list handoff, center pass-through, held native gamepad direction, anchor projection and motion reversal."
+      ]
+    },
+    "native_radial_menu": {
+      "specs": [
+        "native_radial_controls",
+        "native_navigation",
+        "radial_geometry"
+      ],
+      "cases": [
+        "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+        "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+        "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+        "native_radial_controls::native radial interaction policies::NRAD-4 direction gestures work outside paint while bounded gestures cancel",
+        "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+        "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+        "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+        "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+        "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+        "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+        "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+        "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview",
+        "native_radial_controls::native radial interaction policies::NRAD-13 gallery nearby item uses native owned scene and real actions",
+        "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action",
+        "native_navigation::native navigation controls::navigates radial branches and applies action completion",
+        "radial_geometry::radial geometry::radial sectors exclude the hole, preserve compass gaps, and bound overshoot",
+        "radial_geometry::radial geometry::all corner arcs face inward without rotating authored compass directions",
+        "radial_geometry::radial geometry::direct circular buttons reject rectangular corners",
+        "radial_geometry::radial geometry::paint seams have the same pixel width at both edges of thick and slim rings",
+        "radial_geometry::radial geometry::short arc outlines close both end caps with straight tangents",
+        "radial_geometry::radial geometry::content-fitted paint encloses upright icons at every compass direction",
+        "radial_geometry::radial geometry::conflicting compass assignments are rejected",
+        "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+      ],
+      "caseMappings": {
+        "opens from its launcher, selects a command, and releases its rows": [
+          "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action"
+        ]
+      },
+      "behaviors": [
+        "Fifteen native radial cases exercise analog hold/neutral hysteresis, touch capture identity/cancel, cross-path activation echo dedupe, bounded/direction gestures, captured anchor freeze, responsive list fallback, completion and state-item ordering, inherited expansion, whole-menu Compose exit ownership, reduced-motion cleanup, image skins/upright labels, empty-center Back/preview, real gallery world item actions, launcher press-slide-release. Compose presence retains outgoing branch geometry, fades it through native CanvasGroup, reclaims interrupted branch owners, disables retiring input and immediately retires under reduced motion.",
+        "The seven historical radial geometry cases are executed unchanged after retargeting their require to src/ui/nav_radial_geometry: compass gaps, holes, overshoot, corners, circular hit rejection, seam widths, cap tangents, upright content fitting and conflicting slot validation."
+      ],
+      "retiredAssertions": {
+        "Presenter solve counts and private registry/listener censuses": "The presenter, solved geometry tree, custom action repeat clock and core registry mechanism were removed. Native InputAction events and Compose ownership replace those mechanisms; native lifecycle teardown and listener release are asserted directly.",
+        "dump/api paths and solved/presented rectangle snapshots": "Old Facet scene handles, content compositor paths and solver paint snapshots do not exist. Native geometry helpers remain directly tested; engine properties, native Path2D and CanvasGroup now carry the paint."
+      },
+      "remaining": [],
+      "liveRequirements": [
+        "Studio native paint and input checks at corner presets and small/large-text viewports: touch target bounds, icon fitting, image plates, ring/list handoff, center pass-through, held native gamepad direction, anchor projection and motion reversal."
+      ]
+    },
+    "review_radial": {
+      "specs": [
+        "native_radial_controls",
+        "native_navigation",
+        "radial_geometry"
+      ],
+      "cases": [
+        "native_radial_controls::native radial interaction policies::NRAD-1 analog hold commits once and respects dead-zone hysteresis",
+        "native_radial_controls::native radial interaction policies::NRAD-2 ignores foreign touch release and cancels captured touch",
+        "native_radial_controls::native radial interaction policies::NRAD-3 suppresses the native activation echo after gesture commit",
+        "native_radial_controls::native radial interaction policies::NRAD-4 direction gestures work outside paint while bounded gestures cancel",
+        "native_radial_controls::native radial interaction policies::NRAD-5 freezes idle-follow anchor during capture then resumes",
+        "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+        "native_radial_controls::native radial interaction policies::NRAD-7 state items stay open and completion precedes callbacks",
+        "native_radial_controls::native radial interaction policies::NRAD-8 nested expansion preserves parents and completion back returns",
+        "native_radial_controls::native radial interaction policies::NRAD-9 Compose exit presence releases native ownership after animation",
+        "native_radial_controls::native radial interaction policies::NRAD-10 reduced motion closes immediately and releases listeners",
+        "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+        "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview",
+        "native_radial_controls::native radial interaction policies::NRAD-13 gallery nearby item uses native owned scene and real actions",
+        "native_radial_controls::native radial interaction policies::NRAD-14 launcher press slide releases directly into an action",
+        "native_navigation::native navigation controls::navigates radial branches and applies action completion",
+        "radial_geometry::radial geometry::radial sectors exclude the hole, preserve compass gaps, and bound overshoot",
+        "radial_geometry::radial geometry::all corner arcs face inward without rotating authored compass directions",
+        "radial_geometry::radial geometry::direct circular buttons reject rectangular corners",
+        "radial_geometry::radial geometry::paint seams have the same pixel width at both edges of thick and slim rings",
+        "radial_geometry::radial geometry::short arc outlines close both end caps with straight tangents",
+        "radial_geometry::radial geometry::content-fitted paint encloses upright icons at every compass direction",
+        "radial_geometry::radial geometry::conflicting compass assignments are rejected",
+        "native_radial_controls::native radial interaction policies::NRAD-15 branch replacement retains fading geometry and reclaims interrupted presence"
+      ],
+      "caseMappings": {
+        "fits ": [
+          "native_radial_controls::native radial interaction policies::NRAD-6 adapts into native scrolling list without losing a branch",
+          "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
+          "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview"
+        ]
+      },
+      "behaviors": [
+        "Fifteen native radial cases exercise analog hold/neutral hysteresis, touch capture identity/cancel, cross-path activation echo dedupe, bounded/direction gestures, captured anchor freeze, responsive list fallback, completion and state-item ordering, inherited expansion, whole-menu Compose exit ownership, reduced-motion cleanup, image skins/upright labels, empty-center Back/preview, real gallery world item actions, launcher press-slide-release. Compose presence retains outgoing branch geometry, fades it through native CanvasGroup, reclaims interrupted branch owners, disables retiring input and immediately retires under reduced motion.",
+        "The seven historical radial geometry cases are executed unchanged after retargeting their require to src/ui/nav_radial_geometry: compass gaps, holes, overshoot, corners, circular hit rejection, seam widths, cap tangents, upright content fitting and conflicting slot validation."
+      ],
+      "retiredAssertions": {
+        "Presenter solve counts and private registry/listener censuses": "The presenter, solved geometry tree, custom action repeat clock and core registry mechanism were removed. Native InputAction events and Compose ownership replace those mechanisms; native lifecycle teardown and listener release are asserted directly.",
+        "dump/api paths and solved/presented rectangle snapshots": "Old Facet scene handles, content compositor paths and solver paint snapshots do not exist. Native geometry helpers remain directly tested; engine properties, native Path2D and CanvasGroup now carry the paint."
+      },
+      "remaining": [],
+      "liveRequirements": [
+        "Studio native paint and input checks at corner presets and small/large-text viewports: touch target bounds, icon fitting, image plates, ring/list handoff, center pass-through, held native gamepad direction, anchor projection and motion reversal."
+      ]
+    }
+  }
+}

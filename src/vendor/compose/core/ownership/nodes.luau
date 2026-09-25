@@ -2,14 +2,15 @@
 
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
+local Weak = require "../weak"
 
 type Node = Host.Node
 
 export type Custody = "owned" | "adopted" | "borrowed"
 
-local WEAK_KEYS = table.freeze { __mode = "k" }
+type Counts = { owned: number, adopted: number, borrowed: number }
 
-local custody: { [any]: Custody } = setmetatable({}, WEAK_KEYS) :: any
+local custody = Weak.keys() :: { [Node]: Custody }
 
 local function assertReference(node: Node, operation: string)
 	local kind = type(node)
@@ -59,7 +60,7 @@ local function isDestructible(node: Node): boolean
 	return known == "owned" or known == "adopted"
 end
 
-local dependents: { [any]: { () -> () } } = setmetatable({}, WEAK_KEYS) :: any
+local dependents = Weak.keys() :: { [Node]: { () -> () } }
 
 local function attachDependent(node: Node, dispose: () -> ()): () -> ()
 	assertReference(node, "mount")
@@ -95,7 +96,7 @@ local function releaseDependents(node: Node)
 	dependents[node] = nil
 	local failure: string? = nil
 	for index = #list, 1, -1 do
-		local ok, err: any = pcall(list[index])
+		local ok, err: unknown = pcall(list[index])
 		if not ok and failure == nil then
 			failure = tostring(err)
 		end
@@ -105,7 +106,7 @@ local function releaseDependents(node: Node)
 	end
 end
 
-local labels: { [any]: string } = setmetatable({}, WEAK_KEYS) :: any
+local labels = Weak.keys() :: { [Node]: string }
 
 local function label(node: Node, name: string)
 	labels[node] = name
@@ -117,20 +118,31 @@ end
 
 export type OwnedCounts = { ownedNodes: number, borrowedNodes: number }
 
-local charge: { [any]: { owner: any, custody: Custody } } = setmetatable({}, WEAK_KEYS) :: any
+local charge = Weak.keys() :: { [Node]: { owner: unknown, custody: Custody } }
 
-local ownerCounts: { [any]: { owned: number, adopted: number, borrowed: number } } = setmetatable({}, WEAK_KEYS) :: any
+local ownerCounts = Weak.keys() :: { [unknown]: Counts }
 
-local function bucketFor(owner: any)
-	local bucket = ownerCounts[owner]
-	if bucket == nil then
-		bucket = { owned = 0, adopted = 0, borrowed = 0 }
-		ownerCounts[owner] = bucket
+local function bucketFor(owner: unknown): Counts
+	local existing = ownerCounts[owner]
+	if existing ~= nil then
+		return existing
 	end
+	local bucket: Counts = { owned = 0, adopted = 0, borrowed = 0 }
+	ownerCounts[owner] = bucket
 	return bucket
 end
 
-local function chargeToOwner(owner: any, node: Node, kind: Custody)
+local function adjust(bucket: Counts, kind: Custody, delta: number)
+	if kind == "owned" then
+		bucket.owned += delta
+	elseif kind == "adopted" then
+		bucket.adopted += delta
+	else
+		bucket.borrowed += delta
+	end
+end
+
+local function chargeToOwner(owner: unknown, node: Node, kind: Custody)
 	if owner == nil then
 		return
 	end
@@ -138,11 +150,11 @@ local function chargeToOwner(owner: any, node: Node, kind: Custody)
 	if previous ~= nil then
 		local previousBucket = ownerCounts[previous.owner]
 		if previousBucket ~= nil then
-			previousBucket[previous.custody] -= 1
+			adjust(previousBucket, previous.custody, -1)
 		end
 	end
 	charge[node] = { owner = owner, custody = kind }
-	bucketFor(owner)[kind] += 1
+	adjust(bucketFor(owner), kind, 1)
 end
 
 local function releaseCharge(node: Node)
@@ -153,7 +165,7 @@ local function releaseCharge(node: Node)
 	charge[node] = nil
 	local bucket = ownerCounts[previous.owner]
 	if bucket ~= nil then
-		bucket[previous.custody] -= 1
+		adjust(bucket, previous.custody, -1)
 	end
 end
 
@@ -162,7 +174,7 @@ local function resetCharges()
 	table.clear(ownerCounts)
 end
 
-local function ownedCounts(owner: any): OwnedCounts
+local function ownedCounts(owner: unknown): OwnedCounts
 	local bucket = ownerCounts[owner]
 	if bucket == nil then
 		return { ownedNodes = 0, borrowedNodes = 0 }

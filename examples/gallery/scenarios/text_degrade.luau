@@ -1,83 +1,5 @@
 --!strict
---[[ Scenario 'text_degrade' — WHAT A LABEL GIVES UP FIRST, AND IN WHAT ORDER.
 
-	Director rulings 1 and 5, 2026-08-13 (docs/handoff/2026-08-13-rulings-needed.md
-	§1 and §5). The standing obligation is that every gap ships its showcase demo,
-	and this is that demo for both — because they are one mechanism seen twice.
-
-	WHAT A STILL SCREENSHOT CANNOT SHOW, and therefore what this fixture is FOR:
-
-	  · THE ORDER IS THE WHOLE ARGUMENT. Any single frame of this surface looks
-	    like an ordinary row of labels. The feature is the SEQUENCE the row walks
-	    as its box narrows — reflow, then the compact form, then an ellipsis, then
-	    a crop — and the only way to show a sequence is to let a player drive it.
-	    The width picker is that driver, and each stop is one rung.
-	  · ITS SIBLINGS NEVER LOSE A CHARACTER UNTIL THE LAST STOP, and that is the
-	    point of the compact rung. "Sorting" declares a compact form and its
-	    two neighbours do not, so at Snug it alone gives way — measured here as
-	    `Srt` with both neighbours uncut, and pinned in general by "the compact rung
-	    SPARES A SIBLING" (tests/text_degrade_cascade.spec.luau). It is one word, so
-	    it has no reflow to offer first; its neighbour "Best fit" does, and takes
-	    that rung at Tight.
-	  · THE LOWER PANEL IS RULING 5 ON ITS OWN. One phrase in a narrowing column:
-	    while its LONGEST WORD fits, it wraps and the box grows; past that it takes
-	    one line and an ellipsis, because wrapping into a column narrower than one
-	    of its own words does not add lines of that word — the engine BREAKS the
-	    word, and the solver's own wrap model (whitespace only) would have reserved
-	    a box for a shape the engine will not draw.
-	  · CLIP IS THE LAST RUNG, and the row is built to reach it: "Newest" declares
-	    an authored `minMax` minimum of exactly the 60px it needs, which is a
-	    CONTRACT the cascade may not descend below. So at Impossible there is a
-	    genuine residual deficit no rung can absorb — the two other labels are
-	    already at an ellipsis — and the crop is the floor guarantee doing its job
-	    rather than a nicety. That is a state that files a solver finding,
-	    deliberately, exactly as `flow_wrap`'s "wrapping off" state does: the
-	    diagnostic is part of the demonstration.
-
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT: the four width stops are
-	fixed against the PLATE, not against a screen, and the widest is `fill`.
-
-	BUT THE PLATE IS NOT THE SCREEN, and the 2026-08-14 theme sweep is what made
-	that concrete — an earlier version of this comment claimed "every stop fits
-	every device", which was reasoned from the stop widths alone and is false. On a
-	320px phone at the largest text preference under Fantasy Ornate, two nested
-	padded panels and the scroll reserve take 166px and the plate is 154px wide,
-	while the row's own floor is 181px: the Button is at its COMPACT form and still
-	83px of themed chrome, "Best fit" is at its 30px floor, "Newest" holds its
-	authored 60px minimum. So the last rung fires at the FIRST stop there, and the
-	surface reaches its own punchline before the player touches the picker. It is
-	recorded with that measurement in `tests/lib/theme_sweep_ledger.luau` (kind
-	`cascade-floor`) rather than tuned away, because every repair available — a
-	wrap on the row, a smaller authored floor, thinner panel padding chosen against
-	that one cell — deletes the thing this fixture exists to show.
-
-	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS (the pair
-	`flow_wrap.luau` and `card_rail.luau` document): the scenario runner drives
-	`steps` by name, and the showcase demo picker mounts it with a minimal ctx and
-	NO step ever runs. Everything a player can do here is an ordinary control with
-	a `selected` of its own, never a scripted drive.
-]]
-
--- The four stops, widest first. These are the rungs made into a control, and they
--- are MEASURED rather than guessed — "Sorting" is one word at the
--- body size (so it has no reflow to give), "Best fit" wraps and "Newest" is 60, so:
---
---   fill  everything at its natural width                nothing given up
---   200   the row starts giving way                      rungs 1 and 2
---   165   ...and gives way further, still uncut
---   110   both reflowable labels reach an ellipsis, and the authored 60px
---         minimum leaves a deficit no rung can absorb  rung 3, then the CLIP
---
--- The ORDER is what the tests assert, never these numbers: the showcase chrome
--- and the active theme both change how much room this row really has, and a
--- literal re-tuned until it passes is a check that has stopped meaning anything.
---
--- They are deliberately coarse: a slider would let a player land between rungs
--- and see nothing change, which is the opposite of what this surface is for.
--- `width = nil` on the first stop means FILL: "roomy" is whatever room this screen
--- actually has, never a literal wider than the narrowest supported viewport (that
--- literal is a fixed px height in its width spelling — a fixed
--- box against an unfixed screen, which overflows the moment the chrome is real).
 local STOPS: { { value: string, width: number? } } = {
 	{ value = "roomy", width = nil },
 	{ value = "snug", width = 200 },
@@ -85,8 +7,6 @@ local STOPS: { { value: string, width: number? } } = {
 	{ value = "impossible", width = 110 },
 }
 
--- The lower panel's column. It narrows with the same picker, because the wrap
--- rule and the cascade are driven by the same fact — how much room there is.
 local WRAP_COLUMN: { [string]: number } = {
 	roomy = 240,
 	snug = 170,
@@ -94,24 +14,6 @@ local WRAP_COLUMN: { [string]: number } = {
 	impossible = 70,
 }
 
---[[ EVERY PLAYER-VISIBLE STRING, in one table, EXPORTED as the module's `copy`
-	field — the same contract `flow_wrap.luau` and `card_rail.luau` carry, and for
-	the same reason: the localization case in `tests/examples_gallery.spec.luau`
-	re-runs the whole fixture with all of them put through a ~1.4x pseudo-localizing
-	expansion, and a check that cannot reach the strings cannot make that claim.
-
-	THE THREE ROW LABELS ARE IN HERE TOO, and that is the point rather than an
-	oversight: a pseudo-localized label is a WIDER label, which is exactly the case
-	the cascade exists for. Expanded, the row reaches its lower rungs sooner — and
-	still nothing leaves the plate, which is what makes the studio's standing 1.4x
-	rule safe on a surface that cannot grow.
-]]
--- NOT IN `COPY`, and that is a rule rather than an oversight: a compact form is
--- ONE WORD by construction (`assertCompactLabel` refuses whitespace, because a
--- phrase has a legal break and the button would wrap into exactly the second line
--- the compact form exists to avoid). The pseudo-localizer appends a padding run to
--- every value it is handed, so a compact form inside `copy` would be refused at
--- construction the moment the localization case ran.
 local SORT_COMPACT = "Srt"
 
 local COPY = {
@@ -123,13 +25,11 @@ local COPY = {
 	tight = "Tight",
 	impossible = "Impossible",
 	rowHeading = "Three labels, one row",
-	-- declares a compact form; it is the one that gives way at the Tight stop
+
 	sortLabel = "Sorting",
-	-- no compact form: it keeps every character until the last stop
+
 	rankLabel = "Best fit",
-	-- 60px is exactly what this word needs, declared as a `minMax` minimum: the
-	-- contract the cascade may not descend below, which is what leaves the last
-	-- stop a residual deficit for the clip rung to answer
+
 	dateLabel = "Newest",
 	wrapHeading = "One phrase, one narrowing column",
 	wrapBody = "Wrapping is right only while the longest word fits",
@@ -144,27 +44,29 @@ return {
 	sortCompact = SORT_COMPACT,
 	build = function(ctx: any)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
 		local stop = Compose.cell("roomy")
 		local rowWidth = Compose.formula(function(use)
 			local chosen = use(stop)
 			for _, entry in STOPS do
 				if entry.value == chosen then
-					return if entry.width == nil then UI.fill() else { type = "fixed", px = entry.width }
+					return if entry.width == nil then UDim.new(1, 0) else UDim.new(0, entry.width)
 				end
 			end
-			return UI.fill()
+			return UDim.new(1, 0)
 		end)
 		local columnWidth = Compose.formula(function(use)
-			return { type = "fixed", px = WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy }
+			return UDim.new(0, WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy)
 		end)
 
 		local function widthPicker()
-			return UI.Picker("Room")({
+			return UI.Picker "Room" {
 				label = COPY.widthLabel,
-				-- SEGMENTED, declared: four peers named for how much room there is,
-				-- never for the rung — a player is choosing a box, and the row's answer
-				-- to it is the thing being shown
 				style = "segmented",
 				options = {
 					{ value = "roomy", label = COPY.roomy },
@@ -173,96 +75,193 @@ return {
 					{ value = "impossible", label = COPY.impossible },
 				},
 				selected = stop,
-			})
+			}
 		end
 
-		-- THE PAGE SCROLLS, because this surface is a stack of panels and a 320x640
-		-- phone under the showcase's own chrome does not have room for all of them —
-		-- measured, at 4px over, which is exactly the kind of margin a fixed page
-		-- loses on the next theme. "Wrap it in a ScrollView, or give it room" is the
-		-- solver's own advice when a column runs long, and it is what a real screen
-		-- does; example 03 is built the same way.
 		local function screen()
-			return UI.Screen("TextDegrade")({
-				padding = "m",
-
-				UI.ScrollView("Page")({
-					axis = "y",
-					gap = "m",
-					width = UI.fill(),
-					height = UI.fill(),
-
-					UI.Text("Title")({ text = COPY.title, textSize = "title", disclose = true }),
-					UI.Text("Lead")({ text = COPY.lead, textSize = "caption", role = "secondary" }),
+			return Host.Frame "TextDegrade" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				Host.ScrollingFrame "Page" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
+					UI.Text "Title" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = COPY.title,
+						textRole = "title",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
+					UI.Text "Lead" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = COPY.lead,
+						textRole = "caption",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
 					widthPicker(),
-
-					UI.VStack("RowPanel")({
-						surface = "raised",
-						padding = "m",
-						gap = "s",
-
-						UI.Text("RowHeading")({
-							text = COPY.rowHeading,
-							textSize = "caption",
-							role = "secondary",
+					Host.Frame "RowPanel" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Vertical,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 8),
 						}),
-						-- THE ROW ITSELF. `clipChildren` is NOT declared: the crop at the
-						-- last stop is the solver's, on the rects, which is what every
-						-- headless sweep in this repo can actually read. Declaring an
-						-- engine clip host here would hide the same geometry from them.
-						UI.HStack("Row")({
-							width = rowWidth,
-							gap = "xs",
-
-							-- A BUTTON, because `compactLabel` is a Button prop: a compact
-							-- representation is what a CONTROL has. The cascade's compact
-							-- rung reads exactly that declaration, so the public surface
-							-- for rung 2 is a control with something shorter to say.
-							UI.Button("Sort")({
+						Host.UIPadding({
+							PaddingTop = UDim.new(0, 16),
+							PaddingBottom = UDim.new(0, 16),
+							PaddingLeft = UDim.new(0, 16),
+							PaddingRight = UDim.new(0, 16),
+						}),
+						UI.Text({
+							LayoutOrder = 1,
+							Name = "RowHeading",
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							text = COPY.rowHeading,
+							textRole = "caption",
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						}),
+						Host.Frame({
+							LayoutOrder = 2,
+							Name = "Row",
+							BackgroundTransparency = 1,
+							Size = function(use)
+								return UDim2.new(use(rowWidth).Scale, use(rowWidth).Offset, 0, 0)
+							end,
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 4),
+							}),
+							UI.Button({
+								LayoutOrder = 1,
+								Name = "Sort",
 								label = COPY.sortLabel,
 								compactLabel = SORT_COMPACT,
-								shrinkWeight = 1,
 								onActivate = function() end,
 							}),
-							UI.Text("Rank")({ text = COPY.rankLabel, shrinkWeight = 1 }),
-							-- the authored floor: a contract the cascade may not
-							-- descend below, which is what leaves a residual deficit
-							-- for the clip rung to answer at the last stop
-							UI.Text("Date")({
+							UI.Text({
+								LayoutOrder = 2,
+								Name = "Rank",
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								text = COPY.rankLabel,
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+							UI.Text({
+								LayoutOrder = 3,
+								Name = "Date",
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(0, 60, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.XY,
 								text = COPY.dateLabel,
-								width = { type = "minMax", min = 60, preferred = 60 },
-								shrinkWeight = 1,
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
 						}),
-					}),
-
-					UI.VStack("WrapPanel")({
-						surface = "raised",
-						padding = "m",
-						gap = "s",
-
-						UI.Text("WrapHeading")({
-							text = COPY.wrapHeading,
-							textSize = "caption",
-							role = "secondary",
+					},
+					Host.Frame "WrapPanel" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Vertical,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 8),
 						}),
-						UI.Text("WrapBody")({ text = COPY.wrapBody, width = columnWidth, disclose = true }),
-					}),
-
-					UI.Text("Footnote")({ text = COPY.footnote, textSize = "caption", role = "secondary" }),
-				}),
-			})
+						Host.UIPadding({
+							PaddingTop = UDim.new(0, 16),
+							PaddingBottom = UDim.new(0, 16),
+							PaddingLeft = UDim.new(0, 16),
+							PaddingRight = UDim.new(0, 16),
+						}),
+						UI.Text({
+							LayoutOrder = 1,
+							Name = "WrapHeading",
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							text = COPY.wrapHeading,
+							textRole = "caption",
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						}),
+						UI.Text({
+							LayoutOrder = 2,
+							Name = "WrapBody",
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = function(use)
+								return UDim2.new(use(columnWidth).Scale, use(columnWidth).Offset, 0, 0)
+							end,
+							AutomaticSize = Enum.AutomaticSize.Y,
+							text = COPY.wrapBody,
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						}),
+					},
+					UI.Text "Footnote" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = COPY.footnote,
+						textRole = "caption",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
+				},
+			}
 		end
 
 		return {
 			screen = screen,
 			present = {},
-			-- published for the headless suite: the signal a test drives, rather
-			-- than a re-implementation of it
+
 			stop = stop,
 
 			steps = {
-				-- the picker, as the player's own press fires it
+
 				setStop = function(_built: any, payload: string?)
 					local value = payload
 					local known = false
@@ -279,7 +278,7 @@ return {
 			report = function()
 				return { stop = stop:peek(), stops = #STOPS }
 			end,
-			-- nothing outlives the screen
+
 			dispose = function() end,
 		}
 	end,

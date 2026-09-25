@@ -1,477 +1,120 @@
-# 14. Choosing controls
+# Choosing controls
 
-Choose the control from the player's task, then adapt its presentation to the
-available space and input facts. Use this decision guide when building a screen
-without a designer specifying every control. The [capability catalog](README.md)
-and [API reference](../reference/api.md) define the available public surfaces.
+Start from the task and the existing screen. If a new action belongs in the
+toolbar, navigation or settings of the host screen, put it there. Add a new
+surface only when the existing surface cannot express the task clearly.
 
-## Start with the task
+## Task to control
 
-| Player's task | Start with | Reason |
-|---|---|---|
-| Perform one primary action | `UI.Button` | Keep the action visible and directly reachable. |
-| Choose a few familiar contextual commands without losing sight of a character or object | `UI.RadialMenu` | Directional choices surround the focal point and support tap or a single marking gesture. |
-| Keep a compact set of occasional commands at a screen edge | `UI.RadialMenu` with a corner preset | A small launcher opens inward and returns to the same corner. |
-| Read many commands, unfamiliar names, or long descriptions | `UI.Menu` or a labeled list | Reading and scanning need predictable linear space. A radial menu should not become a dense inventory. |
-| Keep frequently used actions visible | Buttons in a toolbar/stack | Avoid making players open a menu for every repeated action. |
-| Choose one value from a list | `UI.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `radioGroup` when each choice needs its explanation in view, `cards` when each choice is a rich tile (title, description, `meta`), and `navigationLink` for a long or searchable list. |
-| Choose a persistent value | Picker, Toggle, or Slider as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
-| Type a word, a name, or a paragraph | `UI.TextInput` | Add `label`, `hint`/`errorText`, `readOnly` or `multiline` with `visibleLines`; a search field is `presentation = "search"`. |
-| Choose a band, such as a lap window or a price range | `UI.Slider` with `range = true` | Two thumbs that never cross, with `minGap` holding them apart. |
-| Type or nudge a quantity | `UI.NumberInput` | The committed number is separate from the draft; bounds clamp, `stepButtons` add two stops, and a Slider or Stepper suits a value picked rather than typed. |
-| Run one action with alternatives | `UI.Button` beside a `Picker`, or `UI.SplitButton` | The split joins a chevron segment to the button under a pointer and becomes one long-press button under touch; when the alternatives must be discoverable on a phone, a Picker beside the Button says them out loud. |
-| Browse inventory, compare items, or search a large collection | Grid/list/table with filtering | Item discovery and comparison need more content than directional quick actions. |
-| Switch peer destinations such as Garage, Races, and Settings | `UI.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |
-| Choose a visually recognizable vehicle, character, map, or item | `UI.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
-| Navigate destinations or complete a multi-step form | `UI.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
-| Confirm a consequential action | `UI.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
-| Make a decision that needs a picture, a body or its own actions | `UI.Dialog` | You keep the open state; the title, hero and actions stay pinned while the body scrolls. |
-| Offer an item (a game, a level, a video) with one main verb and a few secondary ones | `UI.Card` | The body opens the item; Play and More reveal on hover or focus, sit at rest on touch, and are entered from a grid's browse stop on a pad. |
-| Move through pages of results you fetch yourself | `UI.Pagination` | You keep the page; an unknown count uses next/previous availability instead of a last page. |
-| Show where a multi-step flow is, and let the player return to steps you allow | `UI.StepIndicator` | You keep `current`; for a number the player adjusts use `UI.Stepper`, and for a star score `UI.Rating`. |
-| Let the player pick a colour, such as a livery or a trim | `UI.ColorPicker` | You keep the Color3 (and an optional opacity); a labelled well is a settings row, and `style = "inline"` puts the panel in the page. |
-| Let the player choose a date, a time or a date range | `UI.DateTimePicker` | You keep a civil date (no time zone); `selection = "range"` adds presets, and `draft = true` commits only on Apply. |
-| Let the player like or dislike something | `UI.Vote` | You keep the value and the aggregate text; for a score out of five use `UI.Rating`. |
-| Tell the player about a state of the page (offline, saved, an update) without interrupting | `UI.Notice` | It stays in the page and never takes focus; `affixed` pins it to the top and reserves the space. |
-| Confirm something just happened, with an undo, without covering the page | `UI.Snackbar` | One at a time at the bottom; you own whether it shows, and every close is a proposal. |
-| Show a little supporting content next to a control, on request | `UI.Popover` | You keep the open state; it anchors to the trigger or a source and becomes a sheet on a compact touch screen. For one hovered sentence use `help`; for an unprompted tip use `UI.Callout`. |
-
-### Close alternatives
-
-Several controls look alike and answer different tasks. Pick by what the player
-is doing, not by the picture.
-
-| When you are choosing between | Choose the first when | Choose the second when |
-|---|---|---|
-| `UI.Button`, `UI.Toggle` or `UI.Picker` | The player runs a command now (Button). | The player sets an on/off fact that stays (Toggle), or one value from several that stays (Picker). |
-| `UI.Menu` or a dropdown (`UI.Picker`, `UI.ComboBox`) | The rows are commands, filters or submenus; nothing is "the value" afterwards (Menu). | The player keeps a chosen value: Picker's automatic menu form for a fixed list, ComboBox when the player may also type a value you validate. |
-| `UI.Notice`, a toast, `UI.Snackbar`, `UI.Alert` or `UI.Dialog` | The page has a state to report and keeps it in the flow without taking focus (Notice). | Brief news with no action (`app.presentToast`); news with one action, such as Undo, that must not cover the page (Snackbar); a decision the player must make before continuing (Alert for a few words and choices, Dialog for a picture, a body or its own layout). |
-| `help`, `UI.Callout` or `UI.Popover` | One sentence about a control, on hover or focus (`help`; say it on screen for touch). | An unprompted tip that points at a control (Callout); supporting content the player asks for with a button (Popover). |
-| `UI.Stepper` or `UI.StepIndicator` | The player adjusts a number by steps. | The player sees where a multi-step flow is and returns to allowed steps. |
-| `UI.Rating` or `UI.Vote` | A score on a scale, such as stars out of five. | Up, down or none, usually beside an aggregate count. |
-| A date or a date and time (`UI.DateTimePicker`) | The value is a day (`time` off). | The value also needs an hour and minute (`time = true`, stepped by `minuteStep`). |
-| `UI.Slider` or `UI.Slider` with `range = true` | One value. | A band with two ends that never cross (`minGap` keeps them apart). |
-| `UI.PageView` or `UI.Pagination` | A short, finite set of pages the player swipes or steps through in place. | Pages of results you fetch yourself; you keep the page and the count may be unknown. |
-| `UI.Avatar` or `UI.Image` | The picture is a person: headshot or initials, optional presence, an optional profile action. | The picture is decoration or item art with no identity semantics. |
-| `UI.TabView` with `style = "sidebarAdaptable"` or a plain `UI.TabView` | The tabs are the screen's peer destinations. | The tabs switch local pages inside one task; a segmented Picker when it is a value, not pages. |
-
-For a labeled Picker in a settings form, `valueAlignment = "start"` places its
-menu value close to the label. The default `"end"` keeps values trailing. This
-changes form alignment without replacing Picker's adaptive presentation.
-
-A useful starting range for radial commands is three to eight familiar actions
-per level, with short labels or recognizable icons. This is design guidance, not
-an API limit. Prefer a shallow hierarchy. If a task is dominated by reading,
-comparison, or frequent traversal of deep branches, choose a linear surface.
+| Need | Control |
+|---|---|
+| Do one action | Button. |
+| Do a primary action that has alternatives | SplitButton. |
+| Select an independent boolean | Toggle. |
+| Choose one value from a set | Picker; ComboBox when custom values are valid. |
+| Edit text or a number | TextInput. |
+| Adjust a bounded value | Slider; Stepper for exact increments. |
+| Select a rating or a level | Rating or LevelPicker. |
+| Vote up or down on an item | Vote. |
+| Show or remove compact selections | Chip. |
+| Show secondary document content | DisclosureGroup. |
+| Expand a compact preview | CollapsibleView. |
+| Ask for a brief confirmation | Alert. |
+| Ask for a decision that needs a body, a picture or more than two actions | Dialog. |
+| Do a substantial temporary task | Sheet. |
+| Show short content or a small task for one control | Popover. |
+| Teach a contextual action | Callout anchored to the action. |
+| Keep a status in the page until the state changes | Notice. |
+| Confirm what the player just did | Snackbar. |
+| Put Back, a title and tools at the top of a surface | NavBar. |
+| Organize named peer destinations | TabView. |
+| Navigate a hierarchy | NavigationStack. |
+| Step through peer pages | PageView. |
+| Select a page of numbered results | Pagination. |
+| Show the progress of a workflow | StepIndicator. |
+| Compare sortable columns | Table. |
+| Show large scrolling data | VirtualList or VirtualGrid. |
+| Show a browsable item with a picture and actions | Card, in a VirtualGrid for many items. |
+| Add operations for one row | RowActions. |
 
 ## Compose in the existing screen
 
-Inspect the host's toolbar, settings, navigation, and shared builders before
-adding UI. Choose both the existing Facet control and where the action belongs:
-use `UI.Button` in the existing toolbar for a command, Picker for a value,
-and a documented API preference for presentation policy. A supported accessory
-slot is a composition option, not a reason to create another piece of chrome.
+- Use native stacks and grids: `Host.UIListLayout`, `Host.UIGridLayout`, flex
+  items, constraints and native scrolling.
+- Use Facet controls for behavior.
+- Customize the semantic themes and the skin slots before you make new control
+  variants.
+- Add a reusable missing behavior to Facet. Keep game-specific rules and content
+  in the game.
 
-For example, the Showcase's layout button belongs in `showcase_chrome` beside
-the demo selector. It updates the active demo's `TabView.sidebarPreference`;
-TabView itself adds no demo button. Other demos contribute no layout action.
+Use numeric children and native properties. Use `Compose.show`,
+`Compose.keyed`, `Compose.LayerStack` and `Compose.portal` directly for
+structure. You do not need a custom layout container only to name a vertical
+group.
 
-Before introducing a control, wrapper, or alternative presentation, state the
-specific requirement the closest existing control and host composition cannot
-express. Follow the framework extension path only for that missing capability.
-Verify first-load visibility and non-overlap, native pointer hit testing, and
-directional focus both into and out of moved actions. A successful direct call
-to an activation handler does not prove a player can reach the button.
+## Two-level navigation
 
-## Adapt the presentation to the task
+Use `TabView` with `style = "sidebarAdaptable"` for top-level peer
+destinations. Inside one destination, ordinary page tabs can select local
+views. A label such as "game" or "gallery" does not change the navigation role.
+Use NavigationStack for drill-down. Do not encode a path as a set of unrelated
+tabs.
 
-Use `TabView.style = "sidebarAdaptable"` for peer destinations in a lobby,
-collection browser, or management screen. Roomy touch screens start with top tabs;
-mouse windows start with a sidebar. Bind `sidebarPreference` (`automatic`,
-`sidebar`, or `topBar`) when the application has a nearby layout preference.
-TabView adds no toggle button. The Showcase places a `UI.Button` in its
-existing toolbar and binds it to the active demo's preference. Use that host
-composition for demo actions; do not create extra navigation chrome for them.
-Distant screens show top tab pills, independently of pointer or gamepad input.
-Switching destinations does not change the navigation home. Nearby compact
-screens retain bottom tabs. TabView owns the sidebar-to-page gap; pages own
-their internal padding.
-Nearby top/sidebar switches retain the navigation controls and scroll host.
-For custom responsive layouts, bind `AdaptiveStack.axis` and `ScrollView.axis`
-to the layout condition instead of rebuilding identical content in two branches.
-Use `When` for genuinely different content or interaction structure.
-Keep ordinary TabView styling for local page tabs and compact mode/category
-strips within one task. Top-level destinations in a game or demo browser still
-use adaptable navigation. Use
-NavigationStack for drill-down and Back; use adaptive stacks or Composition when selection
-and its detail should remain visible together. These layouts describe different
-tasks and should not be interchanged merely to copy a streaming-app screenshot.
+Leave the placement automatic at both levels. Build the inner TabView anywhere
+under an outer page: in its content factory, or later in a `Compose.show` or
+`Compose.keyed` branch of that page. The inner TabView is then nested and uses a
+top band.
 
-### Two-level navigation
+## Radial actions
 
-Choose by role, not by labels such as "app", "game", or "demo". In the Showcase,
-All controls' Inputs, Actions, Status and Menus are peer destinations
-organizing the whole screen. They use `UI.TabView` with
-`style = "sidebarAdaptable"` and automatic placement. The example choices inside
-each destination are ordinary nested TabViews. Collections and Motion and layout
-use the same structure.
+Choose a RadialMenu when all these conditions are true:
 
-```luau
-local UI = app.controls
-local categories = UI.TabView {
-    style = "sidebarAdaptable",
-    tabs = {
-        { id = "inputs", label = "Inputs", content = function()
-            return UI.TabView { tabs = inputPages }
-        end },
-        -- Other peer destinations use the same content factory pattern.
-    },
-}
--- Return categories from your component; the mount owns both levels.
-```
+- the action set is contextual,
+- the action set is small enough to scan spatially,
+- a stable anchor makes the relationship clear.
 
-Leave placement automatic at both levels. Building the inner control anywhere
-under an outer page — in its content factory, or later in a `UI.When`,
-`UI.ForEach`, `Compose.show` or `Compose.keyed` branch of that page — lets Facet
-resolve it to `topBar` through its nesting rule.
-The outer navigation can use a sidebar, top pills or compact bottom tabs according
-to space, input and viewing distance. Forcing both levels to `topBar` discards
-that adaptation. A segmented Picker is appropriate for a value or mode inside a
-page; TabView owns destination pages and their lifetime.
+Use a linear Menu when the labels are long or when the action hierarchy is the
+main information. For frequently used global actions, a permanent toolbar is
+better.
 
-Verify the actual placement and page continuity across pointer, roomy touch,
-compact touch, nearby gamepad and distant viewing. Check D-pad reachability
-between levels, the nearest eligible shoulder handler, Back, and focus restoration.
-Changing the navigation home must preserve the active page; changing destinations
-still follows TabView's lazy eviction rules. See the
-[TabView contract](../reference/api.md#uitabview) and
-[shared demo composition](../../examples/gallery/scenarios/demo_tabs.luau).
+Choose the radial preset, distribution and content-fit options for the
+available rectangle. The task decides the nested navigation and the completion
+policy:
 
-### Decisions and page composition
+- close after a final command,
+- stay open for repeated toggles,
+- return to the parent or the root to continue in a category.
 
-`help` shows nothing on touch, so when touch players need the same words, say
-them on screen or put an info `UI.Button` beside the control that opens a
-`UI.Popover` with them.
+Keep a clear Back path and a cancellation gesture.
 
-Use `UI.Alert` for a brief confirmation or acknowledgement with one to three
-choices. Declare `UI.Alert` in the screen with its title, message, semantic
-action roles and an `isPresented` cell. The shared component owns content-sized centering,
-role-placed actions (a centered row, or a full-width stack with cancel last on
-phones, televisions, three-action decisions and large text), constrained
-scrolling, safe initial focus and cancellation.
-Use a game theme/StyleSheet to customize its appearance. A full-screen `Screen`
-with a vertical button stack is not a confirmation recipe. Reserve an authored
-`app.presentModal` surface for a substantial editor or multi-step task.
-
-Viewing distance changes layout policy as well as typography: top navigation and
-lower content density apply to Distant TV with mouse/keyboard too. It does not
-reinterpret every fixed VStack as a different composition. Author responsive
-relationships with AdaptiveStack, wrapping rows, grids or Composition: for example,
-put showroom and setup side by side when `conditions.isWide` is true and in sequence
-otherwise. Keep the same controls mounted. A nearby handheld controller retains
-compact layouts; changing input alone does not turn it into a television.
-
-Use image Buttons for choices recognized by their artwork. Always retain a full
-semantic `label`; use `subtitle` for short supporting information. Let the grid
-or rail offer the card's width, and supply the artwork's intended aspect ratio.
-The Button owns focus/hover treatment and clearance. Do not scale its parent
-cell, draw a separate focusable caption, hide the only label until hover, or
-position captions over an ornamental border. For stat comparison use structured
-list/table rows; for immediate gameplay commands prefer a direct button or radial
-menu. Long descriptions belong in detail content, not a tiny image card.
-
-Keep automatic control presentation unless the task requires an explicit form.
-A Picker's automatic style is the menu family under touch and a pointer (one
-integrated trigger, the options anchored to it, a sheet for a long list) and a
-segmented or inline strip on a television or under a nearby gamepad with a
-short list; a handheld's compact screen folds a long list into the menu. A
-screen that must show every option declares `style = "segmented"`; nothing on
-a phone should show a separate chevron cell beside a value unless a screen
-declared it.
-Menus use one panel for compact widths, touch, and gamepad; mouse menus can
-cascade where space permits. Sliders expose one adjustable focus target, while
-pointer/touch retain direct manipulation. Do not replace these with a second
-controller-only UI. A connected controller does not imply a distant display:
-respect `viewingDistance` independently of current input.
-
-For every changed screen, check compact touch, roomy touch, mouse/keyboard,
-nearby gamepad, and ten-foot gamepad, including live input/size changes. Exercise
-Back, focus restoration, disabled/busy states, and radial menus where used.
-Include Pixel Quest and Fantasy Ornate with enlarged text: check both content
-containment and the painted borders/focus envelope in Studio. Never shrink text,
-remove decorative insets, or silence overflow diagnostics to force a screenshot.
-
-For performance, reuse the existing bench harness. The
-`adaptive-navigation-images` scene covers a 24-card inventory, idle frames,
-image focus, and sidebar changes. Focus must remain paint-only and moving
-navigation chrome must not rebuild its page. Compare equivalent workloads with
-FacetBench/Vide only when both adapters implement the same work; its generic
-inventory workload is not evidence of adaptive-control feature parity.
+For a world object, use `UI.worldAnchor` to project the object. Then bind its
+`anchor` to the control. One primary proximity command is
+usually a direct prompt. Two or more contextual operations can justify a menu. Do not
+add a second input or focus system around it.
 
 ## Collection size and lifetime
 
-Decide from the expected collection size, visible fraction and row lifetime when
-building the screen. A short fixture must not hide a production inventory that
-can grow to thousands of items. There is no universal item-count threshold:
-row complexity, update frequency and available space all affect the cost.
+Use windowing for large or unbounded lists. VirtualList and VirtualGrid give
+range selection and anchoring to Compose `OrderedCollection`. The native
+ScrollingFrame owns the viewport. Stable keys identify data independently of
+order. When row data can change, read `current` inside bound properties.
 
-| Collection | Starting choice |
-|---|---|
-| Large scrolling inventory, leaderboard or comparison table | `UI.Table` with `virtualized = true`, when its supported row features fit. |
-| Long feed or custom rows | `UI.VirtualList`; use known extents when available, or `itemExtent = "measured"` with `estimatedItemExtent` for content-sized rows. |
-| Large catalog arranged in lanes | `UI.VirtualGrid` when its extent and interaction contracts fit; see the API's explicit limitations. |
-| Horizontal card shelf | `UI.VirtualList` with `axis = "x"`, `itemExtent = "cards"` and adaptive card options. |
-| Small settings group, short menu, or content-sized section inside a scrolling page | Ordinary stacks/`UI.ForEach`, or a nonvirtual Table with `scrolls = false`. Keeping every row mounted is appropriate here. |
+Keep durable edits and selections outside the row. When a row leaves the
+window, Compose can dispose it and reuse its native host. Use `mode = "all"`
+only when the collection is bounded and a concrete requirement needs every row
+mounted.
 
-Virtualization mounts only the visible window plus overscan. **It changes
-lifetime**: off-screen cells unmount, their Compose owners release, and their
-local state and owned async work end. Keep selection, drafts and other durable
-values in model-owned cells keyed by stable item IDs. Do not use appearance hooks to own
-gameplay state. If a row must stay mounted during an interaction, address that
-lifetime requirement before windowing it.
+After a sort, native anchor preservation can keep the same item visible. That
+is the collection contract. Do not calculate a second, independent window. Do
+not force a conflicting scroll offset.
 
-Give the collection a definite extent along its scrolling axis. Prefer
-`viewportExtent = "auto"` inside a bounded pane over calculating screen-space
-subtractions in game code. An unbounded same-axis parent scroller can make the
-inner viewport cover the entire collection, defeating virtualization. Check
-`dump().diagnostics` and the mounted window after layout; a composite control
-hands you its `{ api, dump }` record through `ref = function(record) ... end`. A virtual Table owns
-its scrolling viewport; `scrolls = false` and `rowActions` cannot be combined
-with `virtualized = true`. Use VirtualList's supported row actions where needed,
-and respect its documented combinations.
+## Accessibility and input
 
-Use the collection's focus/reveal APIs for off-screen items. Do not build an
-input map from only the mounted rows. Verify gamepad traversal past both window
-edges, scroll away/back with an edited row, deletion/reordering, and resized or
-enlarged-text layouts. Measure realistic data sizes and scroll/update patterns;
-for framework comparisons, keep virtualization identical on both sides or
-report it as a separate workload.
+Design with the actual available size, the preferred text size and the input
+facts. Keep labels clear. Keep actions reachable without a pointer. Let the
+controls own native selection containment, adjustment and cancellation. In the
+target application, exercise long copy, keyboard, gamepad, touch and reduced
+motion.
 
-**The framework automates the mechanism after the author chooses the lifetime.**
-VirtualList and VirtualGrid already window automatically, and Table does so when
-`virtualized = true`. Do not silently switch an ordinary ForEach or Table at an
-item-count threshold: adding one item must not unexpectedly destroy off-screen
-editing state or change supported interactions. Prefer the virtual form from the
-start for collections expected to grow; it also handles a small initial dataset.
-See the [VirtualList API](../reference/api.md#uivirtuallist),
-[VirtualGrid API](../reference/api.md#uivirtualgrid), and
-[performance guide](12-performance-lab.md).
-
-## Choose radial options deliberately
-
-| Context | Starting options |
-|---|---|
-| Around a character or selected object | `preset = "donut"`, `anchor = binding.anchor` from `client.world_anchor`, `center = "empty"`, `follow = "idle"`. The binding’s `padding` is a relative fraction (default 0.15). Use the menu’s theme-based `clearance` for an optional minimum opening. A plain projected anchor still works for UI content. |
-| Proximity prompt on a nearby item | Bind `client.world_anchor` to the item, use `launcher = false`, and call `api.open()` from the prompt. Keep domain actions and server validation in the game. |
-| Compact arc tiles around icons | Default `contentFit = "both"`; this fits thickness and arc length to measured content. |
-| A continuous slim band | `contentFit = "radial"`; every control at a level shares the same inner/outer radii. |
-| Short arcs with deeper plates | `contentFit = "angular"`; both circular edges and both end caps have borders. |
-| A full segmented dial | `contentFit = "none"`; logical sectors fill the whole band with constant-width separators. |
-| Separate round or illustrated commands | `appearance = "buttons"`; use `buttonSurface = "none"` for art/icon-only buttons. Supply `compactLabel.image` for a whole image button or `skin.item`/item `decoration` for background art beneath a label. |
-| Corner shortcuts | One of `top-left`, `top-right`, `bottom-left`, `bottom-right` in `preset`; all open inward. Choose the corner from the screen's occupied regions, not a hardcoded device name. |
-| Learned marking gestures or joystick directions | `distribution = "compass"`, explicit stable `slot`s, and `gestureSelection = "direction"`. The latter preserves radial selection when the painted ring is partly clipped. |
-| Commands primarily selected by direct taps | Default `gestureSelection = "bounded"`; retain the accessible list fallback when readable radial targets cannot fit. |
-| Children should retain their parent as visible context | Parent `navigation = "expand"`, with `expansion = "fan"` for local children or `"ring"` for a complete outer level. Fitting may replace the visible level while retaining Back. |
-| Space is limited or the child set replaces the current task | `navigation = "replace"`; children crossfade and unfold from the pressed parent region. Mix replacement and expansion per parent as needed. |
-
-Keep full accessible labels even when preferring icons. Use Button's existing
-`compactLabel` policy or `labelStyle = "both"` for responsive icon/text content.
-Text remains upright inside a measured safe rectangle; Facet does not bend glyphs
-along an arc. The candidate preview gives the full name outside the ring.
-Do not shrink text or hit targets to force a dense menu into a narrow viewport.
-Facet first pulls the ring inward and reduces surplus button/band size before
-choosing a list. Provide compact icons or short labels for small landscape
-surfaces, and reserve explicit `clearance` only for space the focal object needs.
-Minimum touch sizes and explicit clearance are preserved during fitting.
-
-## Navigation and completion
-
-Use `center = "back"` when a central navigation button is useful. Use `"empty"`
-or passive `"content"` around an object; Back/Close then belongs in the ring.
-Corner Back/Close replaces the launcher, and list fallback has one navigation
-control above the list. Leave `centerPassThrough` off unless touching the focal
-scene through the hole is an intentional part of the game. Its exact rectangular
-aperture is documented in the [API](../reference/api.md#uiradialmenu).
-
-Commands close by default. Checks/radio selections stay open. Set per-item
-`completion` to `"stay"`, `"back"`, `"root"`, or `"close"` to match the player's
-next likely action. For example, keep a lantern toggle open, return to the gear
-root after equipping a tool, and dismiss after waving. Gameplay callbacks run
-immediately and never wait for the visual exit.
-
-Use the same menu for mouse, touch, keyboard, and gamepad. Tap-to-open must remain
-available alongside press-slide-release; do not require a gesture as the only
-route. Verify preferred text size, reduced motion/transparency, safe areas,
-orientation changes, and interruption. Studio virtual input and headless tests
-are simulated evidence; physical touch/controller claims require device testing.
-The Showcase's **Quick actions** demonstrates these choices. See the
-[input guide](07-input.md#radial-quick-actions) and
-[device verification guide](11-device-verification.md).
-
-## Actions around world objects
-
-Use `client.world_anchor` when the commands act on a visible Part, Model, or
-avatar and keeping that target in view helps the player choose: inspect or take
-an item, equip a dropped tool, or interact with a teammate. The menu remains a
-screen overlay whose opening follows projected bounds; it is not a 3D panel.
-For one primary action, keep a direct proximity prompt. Use a corner menu for
-global shortcuts, a labeled list for reading-heavy choices, and `surface_target`
-for a panel physically attached to a world surface.
-
-A proximity prompt should open a menu with `launcher = false`; observe
-`api.isVisible` to keep that prompt hidden through the menu's exit, then restore
-it. Own the binding, prompt connection, and menu in the same lifetime and dispose
-them together. Use `follow = "idle"` to track the object between gestures while
-keeping selection stable. An unavailable or off-screen target dismisses the menu.
-The [world-anchor API](../reference/api.md#clientworld_anchor) documents the binding;
-the Showcase Item scene demonstrates this prompt flow.
-
-For a world target, reserve the measured object bounds before fitting the ring.
-Use a specific part when a whole model includes irrelevant accessories or large
-invisible parts. Do not cap the measured opening just to force a ring onto a phone;
-allow the accessible list fallback, or explicitly choose directional gestures.
-The anchor does not test whether another world object obscures the target.
-
-Use `badge` for a tab or picker count: its row reserves label/count space and wraps on a narrow offer. Avoid positioning a count image over navigation text. Use the theme palette’s `onAccent` tint for custom text on an accent selection plate.
-
-### Rows, sections and returning to a destination
-
-Use the `row` presentation of Button, Toggle and Slider for game settings,
-equipment details and action lists that need descriptions or trailing values. Keep
-one semantic control per row; its real switch or checkbox shares row activation.
-Use a Toggle hint for standalone explanatory copy. Group optional settings with
-DisclosureGroup description, semantic icon and plain/contained/divided appearance.
-Use removable Chips for caller-owned keyed tags: give the list an Edit toggle bound
-to `editing`; onRemove updates the collection, while Chip moves focus to the
-neighboring tag. Do not nest a second focusable button around a toggle
-or slider. Keep Table/VirtualList for actual collections, including editing,
-selection, row actions and reordering. A TV presentation should increase readability
-without flattening those editing semantics into a streaming catalog.
-
-Wrap a hero action group, a shelf, or a settings column in `UI.focusSection` when
-empty space between regions makes directional entry unclear. Give primary actions
-stable IDs and, where useful, a preferred section entry. Preserve the grid and
-collection's own navigation; do not author a second per-device neighbor map.
-
-Use ScrollView's `navigation` for named jump actions, deliberate shelf snapping,
-and visibility-driven artwork. Avoid snap for long prose, tall settings groups or
-editable collections that require free scrolling. A jump changes the scroll position;
-use `focus = "target"` only when arriving should transfer control to the target
-region. The default preserves focus. Use normalized progress for
-subtle paint-only artwork treatment and honor reduced motion. Prefer a themed
-readability gradient over moving text or expensive continuous background effects.
-
-Use TabView sections/customization only when a game has enough persistent
-destinations to benefit from organization. Mark essential play/exit/settings routes
-required as appropriate. Offer reorder and show/hide commands through normal buttons
-or menus so they remain usable on touch and gamepad. Store preferences in game-owned
-state. TabView restores scroll by key across lazy page eviction; keep editing,
-selection and domain values in cells your model owns.
-
-### Implementation order for game UI
-
-For layouts as well as controls, try existing Facet stacks, grids, Composition,
-scrolling, layout modifiers and adaptive conditions first. Then use its
-theme/StyleSheet, spacing, constraints, alignment, skin, background, presentation
-and content customization. If those cannot express
-a reusable need, attempt a Facet extension with the appropriate playbook and tests.
-Only after all three approaches fail should a game build custom UI; document the
-specific limitations and keep that fallback small and integrated through supported
-focus, input, theme and lifecycle seams. Starting with native Roblox behavior out
-of convenience skips the design contract. A supported Facet foreign-content host
-is still composition and should be considered before a custom system.
-
-Use `UI.Sheet` for a substantial briefing or editor that benefits from
-several heights, or one that should fit its content (`"hug"`). The header supports
-dragging; its Size button provides the same choices through focus and activation.
-Content gestures scroll. Distant screens center the sheet, while nearby gamepads
-retain bottom placement; `placement = "side"` docks it to a screen edge for a
-filter or inspector. Pinned `actions` stay reachable over a long body. Use
-Dialog when the caller should own presentation through proposals, and Alert for
-a brief decision with a few actions.
-
-Use `UI.PageView` for a short finite sequence of previews or guided pages.
-Dots show position and offer direct selection; the summary and Previous/Next
-remain readable on every input class. Supply a definite height inside a vertical
-scrolling page. Keep card rails for catalogs that benefit from seeing adjacent
-choices at once.
-
-Use `UI.CollapsibleView` when a compact summary should expand into arbitrary
-content. Its plate grows from the compact position while content fades in at its
-final size; collapsing reverses that motion. It supplies one collapse affordance
-and gamepad Back, so avoid adding a second Done button unless it commits a draft.
-Set `dismissButton = "automatic"` to omit the explicit dismissal button during
-pointer/touch use while preserving a keyboard/gamepad exit; `"always"` keeps it
-visible. An adaptive `UI.Region` already owns disclosure of its richest form: keep
-that automatic recovery instead of replacing its compact form with another control.
-It shares overlap placement and automatic dismissal behavior with CollapsibleView;
-its `"always"` preference retains the offset corner Close.
-Bind its label and icon to the selected value, or keep them static. Bind
-`expanded` to close on the choice that completes the task. For sibling destinations,
-`UI.TabView` with `style = "collapsible"` supplies that wiring; the demo
-**All controls → Menus → Disclosure** shows both forms. A NavigationStack still represents drill-down
-and Back, so keep that hierarchy visible alongside a destination chooser.
-
-## Game HUD feedback and world labels
-
-Use Skeleton for the shape of content that has not loaded yet. It has no input
-or progress value and becomes static under reduced motion.
-
-Use Avatar for a player's picture or initials and optional presence. Supply a
-caller-owned resource provider for headshots; add `onActivate` only when selecting
-the person opens an action or profile. Use Label when the name and a supporting
-symbol belong in ordinary inline text. Use AvatarGroup for a compact roster: its
-faces are informational, with one optional overflow action. Choose spread layout
-when every presence mark should remain visible; stacked layout keeps their
-semantic state while suppressing marks covered by neighboring faces.
-
-Use ProgressView for health, shields, cooldowns and resource readouts: segments
-show discrete capacity and an optional trail preserves recent damage. Sized
-circular gauges keep their value at the preferred text size and move it below
-the ring when necessary. Keep meters informational; put actions in the existing
-HUD menu or toolbar so ordinary focus and activation paths remain available.
-
-Use `app.presentToast` for brief, noninteractive feedback. They automatically
-publish their measured HUD reservation without claiming focus. Screens can feed
-those rectangles into Composition top-lane exclusions; use layout.hudInsets for
-other edges. The Screen-anchored HUD's action menu demonstrates this coordination.
-Choose `position = "top"` or `"bottom"` for a new stack. Use `width = UI.fill()`
-for a wide announcement or `width = UI.hug({ max = 560 })` for a compact message.
-The first toast fixes the stack's edge until it empties; each toast chooses its
-own width. Other rows slide into place when one leaves. Default slides preserve
-native text clarity; opt into fading only when that treatment is needed.
-
-```luau
-local UI = app.controls
-app.presentToast(function()
-    return UI.VStack {
-        surface = "raised", padding = "m", width = UI.hug(),
-        UI.Text { text = "Checkpoint reached" },
-    }
-end, { position = "bottom", width = UI.hug({ max = 560 }) })
-```
-
-The body is a component function, not a built node: the toast runs it inside its
-own row and releases it with that row.
-
-
-Use client.world_anchor with offscreen retention to project objectives, and
-layout.worldMarkers to place themed labels around HUD exclusions. Game code owns
-which objectives matter and how to describe unavailable targets. Marker layout
-owns priority, overlap avoidance and edge direction; it adds no focus targets.
-
-For a single nearby world interaction, Roblox's native ProximityPrompt supports
-hold-to-confirm through a positive HoldDuration. Use that platform mechanism;
-Facet's Menu/RadialMenu remains appropriate when the target offers several actions.
-
-### Showing a shortcut
-
-Use `UI.ShortcutHint` for a passive action hint or explicit key chord. It adds no
-focus stop or binding. Use a Button with `appearance = "link"` for a navigational
-verb; the caller owns its destination. See the [controls guide](16-controls.md#shortcut-hints-and-links).
-
-Use StatusIndicator for a small shape or capped unread count. Its form and name
-carry meaning alongside color. Use Badge for an informational word such as New,
-Beta, or Offline, optionally with a status mark or icon. Neither generates a focus
-stop; use a Button or Chip when the player must act on the label. Avatar presence
-uses the same StatusIndicator shapes with a surface-colored cutout.
+World-fixed and billboard surfaces also contain flat UI. Facet does not supply
+3D layout or ray, hand or gaze input.

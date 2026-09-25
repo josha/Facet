@@ -1,0 +1,437 @@
+{
+  "retiredMechanisms": [
+    "theme_controller",
+    "theme_snapshot",
+    "theme_selectby",
+    "theme_roles",
+    "theme_paint_repaint",
+    "theme_pixel_content",
+    "theme_drift"
+  ],
+  "retirementReasons": {
+    "theme_controller": "Facet install/swap/uninstall controller and its adapter/core settlement lifecycle are deleted. Native StyleLink and reactive StyleSheet are caller-owned Compose nodes.",
+    "theme_snapshot": "Frozen environment metric snapshots, solver scaling and metric path resolution fa\u00e7ade are removed. Controls read package policy directly; engine computes geometry.",
+    "theme_selectby": "Imperative theme-controller selection arbitration is removed. Callers select package readables through Compose formulas.",
+    "theme_roles": "Custom solver/renderer role expansion, calibrated text-metrics keys and exact Facet geometry fixtures are removed. Native styles and engine text/layout are authoritative.",
+    "theme_paint_repaint": "Renderer dirty/paint operation ordering and adapter fallback repaint paths are deleted. Native StyleRule properties are now materialized directly.",
+    "theme_pixel_content": "Solver-wide snapping of application content and renderer decoration hints are removed. Native image resampling remains a control/theme concern.",
+    "theme_drift": "Source-scanning the removed theme-controller and solver constants is obsolete; new architecture boundary checks inspect the native surface."
+  },
+  "replacements": {
+    "async_image": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps async completions stale after a source change or disposal",
+        "native_themes_media::native themes and media::exposes failure content and retries when the source changes",
+        "native_themes_media::native themes and media::preloads the Compose owned ImageLabel after its source binding settles"
+      ],
+      "behaviors": [
+        "Pending placeholder, successful content, failure fallback, source retry and stale completion refusal.",
+        "ContentProvider receives the actual Compose-owned ImageLabel after source binding settles, reuses it on source changes and observes Compose destruction."
+      ],
+      "remaining": []
+    },
+    "native_async_image": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps async completions stale after a source change or disposal",
+        "native_themes_media::native themes and media::shares caller resources directly through Compose and releases the final reference",
+        "native_themes_media::native themes and media::preloads the Compose owned ImageLabel after its source binding settles"
+      ],
+      "behaviors": [
+        "Compose-owned request acquisition, same shared resource references and final-reference release.",
+        "ContentProvider receives the actual Compose-owned ImageLabel after source binding settles, reuses it on source changes and observes Compose destruction."
+      ],
+      "remaining": []
+    },
+    "avatar": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves avatar initials presence rung changes and keyed roster identity",
+        "native_themes_media::native themes and media::keeps async completions stale after a source change or disposal",
+        "native_themes_media::native themes and media::shares caller resources directly through Compose and releases the final reference",
+        "native_themes_media::native themes and media::uses native image framing and rounded avatar images",
+        "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing"
+      ],
+      "behaviors": [
+        "UTF-8 first/last initials, passive focus policy, reactive size rungs, presence semantics and shapes, async teardown."
+      ],
+      "remaining": []
+    },
+    "avatar_group": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves avatar initials presence rung changes and keyed roster identity",
+        "native_themes_media::native themes and media::shares caller resources directly through Compose and releases the final reference",
+        "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing",
+        "native_themes_media::native themes and media::rejects malformed media policy and retains valid reactive captions"
+      ],
+      "behaviors": [
+        "Stable keyed roster identity across reorder/source updates, capped overflow, one actionable overflow target and initials fallback.",
+        "Caller-supplied Compose shared resources acquire once across duplicate identities; native AvatarGroup provides no private request cache. Localized overflow names and malformed array/overflow refusal are asserted."
+      ],
+      "remaining": []
+    },
+    "badge": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps badges and status shapes reactive without creating focus targets",
+        "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing",
+        "native_themes_media::native themes and media::rejects malformed media policy and retains valid reactive captions"
+      ],
+      "behaviors": [
+        "Reactive caption and status tags, passive native TextLabel; utility/status appearance native rules."
+      ],
+      "remaining": []
+    },
+    "status_indicator": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps badges and status shapes reactive without creating focus targets",
+        "native_themes_media::native themes and media::clamps progress, counts badges and releases stage scenes with Compose",
+        "native_themes_media::native themes and media::preserves accessible media names native constraints and caller resource sharing",
+        "native_themes_media::native themes and media::rejects malformed media policy and retains valid reactive captions"
+      ],
+      "behaviors": [
+        "Four native mark forms, status-color semantics, reactive shape switching and capped count labels.",
+        "Native fit-within ratio constraints preserve mark aspect under nonsquare reservation; native inner UIStroke provides surface cutout. Actual rendered geometry remains Studio evidence."
+      ],
+      "remaining": []
+    },
+    "skeleton": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::animates skeletons with one shared Compose clock and honors reduced motion"
+      ],
+      "behaviors": [
+        "Three native placeholder forms, final 60-percent paragraph line, shared Compose clock survives removal, reduced-motion pause/resume and cleanup."
+      ],
+      "remaining": []
+    },
+    "progress_reduced_motion": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps indeterminate progress stepping and trails determinate decreases",
+        "native_themes_media::native themes and media::rotates a smooth native circular arc with reduced motion and themed stroke colors"
+      ],
+      "behaviors": [
+        "Informational indeterminate progress advances on quantized ticks; reduced-motion determinate trails snap.",
+        "Circular progress uses two native Path2D strokes with cubic control points, reactive thickness/diameter, native theme Color3 and a Compose-owned rotating indeterminate arc; reduced motion keeps its existing stepped cadence. Spinner dots remain a separate presentation."
+      ],
+      "remaining": []
+    },
+    "progress_circular": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::clamps progress, counts badges and releases stage scenes with Compose",
+        "native_themes_media::native themes and media::keeps indeterminate progress stepping and trails determinate decreases",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps circular progress endpoints bounded and theme metrics reactive",
+        "native_themes_media::native themes and media::rotates a smooth native circular arc with reduced motion and themed stroke colors"
+      ],
+      "behaviors": [
+        "Native circular segmented progress, determinate clamp, spinning motion and per-theme control metrics.",
+        "Zero, half and full endpoints illuminate zero, sixteen and thirty-two segments; each native center stays inside 0.1..0.9 of its owned bounds and metric changes resize the retained indicator.",
+        "Circular progress uses two native Path2D strokes with cubic control points, reactive thickness/diameter, native theme Color3 and a Compose-owned rotating indeterminate arc; reduced motion keeps its existing stepped cadence. Spinner dots remain a separate presentation."
+      ],
+      "remaining": []
+    },
+    "native_progress": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::clamps progress, counts badges and releases stage scenes with Compose",
+        "native_themes_media::native themes and media::keeps indeterminate progress stepping and trails determinate decreases",
+        "native_themes_media::native themes and media::rotates a smooth native circular arc with reduced motion and themed stroke colors"
+      ],
+      "behaviors": [
+        "Native progress bindings, clamping, informative loading cycle and ownership teardown.",
+        "Circular progress uses two native Path2D strokes with cubic control points, reactive thickness/diameter, native theme Color3 and a Compose-owned rotating indeterminate arc; reduced motion keeps its existing stepped cadence. Spinner dots remain a separate presentation."
+      ],
+      "remaining": []
+    },
+    "stage": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::clamps progress, counts badges and releases stage scenes with Compose",
+        "native_themes_media::native themes and media::preserves external cameras and forwards native viewport lighting"
+      ],
+      "behaviors": [
+        "Native ViewportFrame owns a Camera and WorldModel through Compose; callback scenes release on unmount."
+      ],
+      "remaining": []
+    },
+    "image_framing": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::exposes failure content and retries when the source changes",
+        "native_themes_media::native themes and media::uses native image framing and rounded avatar images",
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership"
+      ],
+      "behaviors": [
+        "Native image properties pass through the engine rather than solver framing."
+      ],
+      "remaining": []
+    },
+    "theme_variants": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint",
+        "native_themes_media::native themes and media::resets retained native image properties to valid defaults across theme recipes"
+      ],
+      "behaviors": [
+        "All nine shipped definitions compile to native style rules; package changes update retained rules.",
+        "Strict native image assignments reject nil typed properties. Retained pixel/tile/nine-slice/plain layer switches restore Roblox defaults, and all shipped theme packages switch without invalid enum or typed values."
+      ],
+      "remaining": []
+    },
+    "theme_reference_packages": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint"
+      ],
+      "behaviors": [
+        "All nine shipped definitions compile to native style rules; package changes update retained rules."
+      ],
+      "remaining": []
+    },
+    "theme_package_enumeration": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps native theme rules reactive without writing instance paint"
+      ],
+      "behaviors": [
+        "All nine shipped definitions compile to native style rules; package changes update retained rules."
+      ],
+      "remaining": []
+    },
+    "theme_assets": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
+        "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
+        "native_themes_media::native themes and media::skips static empty skin graphs while retaining later reactive art and shadows"
+      ],
+      "behaviors": [
+        "Native composed nine-slice and layered assets, keyed image retention/state swap, native slicing and cleanup.",
+        "Native field/toggle/stepper/slider slots consume theme images; toggle state swaps retain native ownership. UIShadow presets and parameter changes use the engine class. Directed progress preserves whole-track fill art, endcap and center geometry; plaque captions/insets, edge/tile art and Pixelated sampling are asserted."
+      ],
+      "remaining": []
+    },
+    "theme_chrome": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
+        "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
+        "native_themes_media::native themes and media::skips static empty skin graphs while retaining later reactive art and shadows"
+      ],
+      "behaviors": [
+        "Native composed nine-slice and layered assets, keyed image retention/state swap, native slicing and cleanup.",
+        "Native field/toggle/stepper/slider slots consume theme images; toggle state swaps retain native ownership. UIShadow presets and parameter changes use the engine class. Directed progress preserves whole-track fill art, endcap and center geometry; plaque captions/insets, edge/tile art and Pixelated sampling are asserted."
+      ],
+      "remaining": []
+    },
+    "theme_layers": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
+        "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
+        "native_themes_media::native themes and media::skips static empty skin graphs while retaining later reactive art and shadows",
+        "native_themes_media::native themes and media::resets retained native image properties to valid defaults across theme recipes"
+      ],
+      "behaviors": [
+        "Native composed nine-slice and layered assets, keyed image retention/state swap, native slicing and cleanup.",
+        "Native field/toggle/stepper/slider slots consume theme images; toggle state swaps retain native ownership. UIShadow presets and parameter changes use the engine class. Directed progress preserves whole-track fill art, endcap and center geometry; plaque captions/insets, edge/tile art and Pixelated sampling are asserted.",
+        "Strict native image assignments reject nil typed properties. Retained pixel/tile/nine-slice/plain layer switches restore Roblox defaults, and all shipped theme packages switch without invalid enum or typed values."
+      ],
+      "remaining": []
+    },
+    "theme_layer_application": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
+        "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal",
+        "native_themes_media::native themes and media::skips static empty skin graphs while retaining later reactive art and shadows",
+        "native_themes_media::native themes and media::resets retained native image properties to valid defaults across theme recipes"
+      ],
+      "behaviors": [
+        "Native composed nine-slice and layered assets, keyed image retention/state swap, native slicing and cleanup.",
+        "Native field/toggle/stepper/slider slots consume theme images; toggle state swaps retain native ownership. UIShadow presets and parameter changes use the engine class. Directed progress preserves whole-track fill art, endcap and center geometry; plaque captions/insets, edge/tile art and Pixelated sampling are asserted.",
+        "Strict native image assignments reject nil typed properties. Retained pixel/tile/nine-slice/plain layer switches restore Roblox defaults, and all shipped theme packages switch without invalid enum or typed values."
+      ],
+      "remaining": []
+    },
+    "theme_value_displays": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
+        "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
+        "native_themes_media::native themes and media::uses native shadows with reactive theme parameters and Compose disposal"
+      ],
+      "behaviors": [
+        "Native composed nine-slice and layered assets, keyed image retention/state swap, native slicing and cleanup.",
+        "Native field/toggle/stepper/slider slots consume theme images; toggle state swaps retain native ownership. UIShadow presets and parameter changes use the engine class. Directed progress preserves whole-track fill art, endcap and center geometry; plaque captions/insets, edge/tile art and Pixelated sampling are asserted."
+      ],
+      "remaining": []
+    },
+    "theme_package": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::rejects unreadable semantic color pairs and reports contributed theme coverage",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps compiled theme data immutable and rejects callbacks or malformed values"
+      ],
+      "behaviors": [
+        "Package inheritance and semantic 4.5:1 contrast guard; namespaced contribution coverage.",
+        "Compiled packages are recursively immutable; callbacks and malformed inputs are refused. Old property-authority manifest is deleted; native rule properties are validated by Roblox."
+      ],
+      "remaining": []
+    },
+    "theme_icons": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps native semantic icons reactive with pixel resampling and metric sizing",
+        "native_themes_media::native themes and media::uses Button interaction state for semantic icon variants"
+      ],
+      "behaviors": [
+        "Shipped icon assets remain declarative package input with default semantic artwork.",
+        "Default package art, state-specific art lookup, reactive swaps, package icon metrics and native Pixelated resampling are asserted. ASCII renderer fallback and removed preload controller are retired mechanisms.",
+        "Mounted Button native GuiState and disabled/selected sources choose real leading/trailing semantic icon variants."
+      ],
+      "remaining": []
+    },
+    "theme_icons_applied": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps native semantic icons reactive with pixel resampling and metric sizing",
+        "native_themes_media::native themes and media::uses Button interaction state for semantic icon variants"
+      ],
+      "behaviors": [
+        "Shipped icon assets remain declarative package input with default semantic artwork.",
+        "Native composed ImageLabel uses real semantic art, theme pixel resampling and size metrics; old legacy sheet/renderer twin paint paths no longer exist.",
+        "Mounted Button native GuiState and disabled/selected sources choose real leading/trailing semantic icon variants."
+      ],
+      "remaining": []
+    },
+    "theme_pixel": {
+      "specs": [
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::keeps theme skin layers and state asset swaps inside native Compose ownership",
+        "native_themes_media::native themes and media::preserves the shipped palette, typography and art packages as native inputs",
+        "native_themes_media::native themes and media::keeps plaques edges tiling pixel resampling and chrome insets native",
+        "native_themes_media::native themes and media::keeps native semantic icons reactive with pixel resampling and metric sizing",
+        "native_themes_media::native themes and media::resets retained native image properties to valid defaults across theme recipes"
+      ],
+      "behaviors": [
+        "Pixel theme assets are forwarded to native ImageLabel resampling.",
+        "Strict native image assignments reject nil typed properties. Retained pixel/tile/nine-slice/plain layer switches restore Roblox defaults, and all shipped theme packages switch without invalid enum or typed values."
+      ],
+      "remaining": []
+    },
+    "hud_meters": {
+      "specs": [
+        "native_themes_media",
+        "native_hud"
+      ],
+      "cases": [
+        "native_themes_media::native themes and media::preserves fractional segmented meter fill and mounted identities",
+        "native_themes_media::native themes and media::holds damage trails then settles and snaps immediately on healing",
+        "native_themes_media::native themes and media::centers circular readouts when native text bounds fit the ring",
+        "native_themes_media::native themes and media::rejects incompatible meter options before creating native nodes",
+        "native_themes_media::native themes and media::cancels pending damage trails for reduced motion and releases their clock",
+        "native_themes_media::native themes and media::moves oversized circular readouts below the ring using native text bounds",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_themes_media::native themes and media::rotates a smooth native circular arc with reduced motion and themed stroke colors"
+      ],
+      "behaviors": [
+        "Segmented fill retains fractional progress and native node identity across value changes.",
+        "Compose timeline holds damage trails for the configured delay, settles over duration and cancels immediately on healing, including healing below the outstanding trail.",
+        "Circular readouts center when native TextBounds fit the ring and move below with sufficient native wrapper width/height when text is too large. These tests inject engine observation values and verify presentation bindings; they do not claim engine layout or text measurement.",
+        "Invalid segment counts, circular segmentation, bar diameter and trail timings reject before native node creation.",
+        "Reduced motion snaps and cancels a pending trail; disposal releases its frame listener and later model updates are safe.",
+        "The mounted native HUD retains segmented health and full, compact and tiny timer formats.",
+        "Circular progress uses two native Path2D strokes with cubic control points, reactive thickness/diameter, native theme Color3 and a Compose-owned rotating indeterminate arc; reduced motion keeps its existing stepped cadence. Spinner dots remain a separate presentation."
+      ],
+      "caseMappings": {
+        "hud_meters::HUD meters::segments preserve fractional health and reuse mounted cells": "native_themes_media::native themes and media::preserves fractional segmented meter fill and mounted identities",
+        "hud_meters::HUD meters::damage trails wait, settle, and cancel immediately on healing": "native_themes_media::native themes and media::holds damage trails then settles and snaps immediately on healing",
+        "hud_meters::HUD meters::large circular meters display an unclipped central value": "native_themes_media::native themes and media::centers circular readouts when native text bounds fit the ring",
+        "hud_meters::HUD meters::rejects incompatible meter options before allocating": "native_themes_media::native themes and media::rejects incompatible meter options before creating native nodes",
+        "hud_meters::HUD meters::reduced motion cancels a pending trail and disposal is safe": "native_themes_media::native themes and media::cancels pending damage trails for reduced motion and releases their clock",
+        "hud_meters::HUD meters::a gauge preserves long values at large preferred text": "native_themes_media::native themes and media::moves oversized circular readouts below the ring using native text bounds"
+      },
+      "remaining": []
+    }
+  }
+}

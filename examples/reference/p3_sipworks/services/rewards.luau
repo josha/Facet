@@ -1,14 +1,4 @@
 --!strict
--- RewardsService (spec §3, §9): Steam Stamps.
---
--- `stampsEarned` and `stampsSpent` are the durable halves; `unstamped` is the
--- set of SLOTS earned since the player last looked at the card, and it is the
--- whole of the stamp ceremony's state — the pop plays for those slots, once,
--- and `clearUnstamped()` at the moment the surface goes away is what makes it
--- once per visit rather than once per render.
---
--- Economy fixtures are the Game Designer's (spec §2): one stamp per confirmed
--- order, redeem at ten, redeem costs a flat ten.
 
 local rewards = {}
 
@@ -17,7 +7,7 @@ rewards.REDEEM_COST = 10
 
 function rewards.new(opts: any)
 	local Compose = opts.Compose
-	-- groups several writes into one update
+
 	local batch = opts.batch
 
 	local earned = Compose.cell(opts.startEarned or 0)
@@ -33,7 +23,6 @@ function rewards.new(opts: any)
 		return earned:peek() - spent:peek()
 	end
 
-	-- how many of the card's ten seals are stamped right now
 	function self.filled(): number
 		return math.clamp(self.unspent(), 0, rewards.THRESHOLD)
 	end
@@ -46,8 +35,6 @@ function rewards.new(opts: any)
 		return self.unspent() >= rewards.THRESHOLD
 	end
 
-	-- earn(n) -> the slot indexes that are NEW. They are the pop timeline's
-	-- beats, in slot order, and they survive until the card is visited.
 	function self.earn(count: number): { number }
 		local before = self.filled()
 		batch(function()
@@ -69,7 +56,7 @@ function rewards.new(opts: any)
 			return false
 		end
 		spent:set(spent:peek() + rewards.REDEEM_COST)
-		-- the card the player just spent is gone: nothing on it is "new" now
+
 		unstamped:set({})
 		return true
 	end

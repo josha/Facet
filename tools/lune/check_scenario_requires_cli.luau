@@ -1,6 +1,5 @@
 --!strict
--- CLI wrapper for the scenario/reference require-path guard (SHOWCASE2 task A).
--- Exit 0 only with zero violations.
+
 local process = require("@lune/process")
 local checker = require("./check_scenario_requires")
 

@@ -6,18 +6,13 @@ local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
 
-export type Reactor = {
-
-	batch: <T...>(self: Reactor, body: () -> T...) -> T...,
-
-	settle: (self: Reactor) -> (),
-	pending: (self: Reactor) -> number,
-	__enqueue: (self: Reactor, consumer: any) -> (),
-
-	__reset: (self: Reactor) -> (),
-}
+export type Reactor = Graph.Reactor
+type Consumer = Graph.Consumer
+type Scheduled = Graph.Scheduled
 
 local MAX_RUNS_PER_DRAIN = 1_000_000
+
+local traceback = debug.traceback :: (message: string) -> string
 
 local function describeErrors(errors: { string }): string
 	if #errors == 1 then
@@ -31,7 +26,7 @@ local function describeErrors(errors: { string }): string
 end
 
 local function create(): Reactor
-	local queue: { any } = {}
+	local queue: { Scheduled } = {}
 	local queueCount = 0
 	local cursor = 0
 	local batching = false
@@ -40,7 +35,7 @@ local function create(): Reactor
 	local drainErrors: { string }? = nil
 	local drainAbandoned = false
 
-	local function runRest()
+	local function runRest(): ...unknown
 		while cursor < queueCount do
 			local limit = queueCount
 			if limit > MAX_RUNS_PER_DRAIN then
@@ -76,10 +71,9 @@ local function create(): Reactor
 
 		local context = Graph.evaluationContext()
 		repeat
-			local ok, err: any = xpcall(runRest, debug.traceback)
+			local ok, err = xpcall(runRest, traceback)
 			if not ok then
 				Graph.restoreEvaluationContext(context)
-				Graph.rearm(queue[cursor])
 				local errors: { string } = drainErrors or {}
 				drainErrors = errors
 				table.insert(errors, tostring(err))
@@ -110,6 +104,19 @@ local function create(): Reactor
 		return drainErrors
 	end
 
+	local function finishBatch<T...>(ok: boolean, ...: T...): T...
+		local errors = drain()
+		batching = false
+
+		if not ok then
+			error(select(1, ...), 0)
+		end
+		if errors ~= nil then
+			error(describeErrors(errors), 0)
+		end
+		return ...
+	end
+
 	local function batch<T...>(_self: Reactor, body: () -> T...): T...
 		if batching then
 			return body()
@@ -120,17 +127,7 @@ local function create(): Reactor
 			stats.bump "drains"
 		end
 
-		local outcome = table.pack(xpcall(body, debug.traceback))
-		local errors = drain()
-		batching = false
-
-		if not outcome[1] then
-			error(outcome[2], 0)
-		end
-		if errors ~= nil then
-			error(describeErrors(errors), 0)
-		end
-		return (table.unpack :: any)(outcome, 2, outcome.n)
+		return finishBatch(xpcall(body, traceback))
 	end
 
 	local function settle(_self: Reactor)
@@ -154,7 +151,8 @@ local function create(): Reactor
 		return queueCount - cursor
 	end
 
-	local function enqueueConsumer(watch: any)
+	local function enqueueConsumer(consumer: Consumer)
+		local watch = consumer :: Scheduled
 		if watch.queued then
 			if statsOn.enabled then
 				stats.bump "watchSchedulesCoalesced"
@@ -175,11 +173,12 @@ local function create(): Reactor
 		end
 	end
 
-	local function enqueue(_self: Reactor, watch: any)
-		enqueueConsumer(watch)
+	local function enqueue(_self: Reactor, consumer: Consumer)
+		enqueueConsumer(consumer)
 	end
 
-	local function enqueueSettleConsumer(watch: any)
+	local function enqueueSettleConsumer(consumer: Consumer)
+		local watch = consumer :: Scheduled
 		if batching or queueCount > 0 then
 			if not watch.queued then
 				watch.queued = true
@@ -191,10 +190,9 @@ local function create(): Reactor
 
 		batching = true
 		local context = Graph.evaluationContext()
-		local ok, err: any = xpcall(watch.run, debug.traceback, watch)
+		local ok, err = xpcall(watch.run, traceback, watch)
 		if not ok then
 			Graph.restoreEvaluationContext(context)
-			Graph.rearm(watch)
 		end
 		local errors: { string }? = nil
 		if queueCount > 0 then
@@ -228,11 +226,10 @@ local function create(): Reactor
 		settle = settle,
 		pending = pending,
 		__enqueue = enqueue,
+		__enqueueConsumer = enqueueConsumer,
+		__enqueueSettleConsumer = enqueueSettleConsumer,
 		__reset = reset,
 	}
-
-	(reactor :: any).__enqueueConsumer = enqueueConsumer;
-	(reactor :: any).__enqueueSettleConsumer = enqueueSettleConsumer
 	return reactor
 end
 

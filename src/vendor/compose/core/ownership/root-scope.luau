@@ -28,8 +28,8 @@ local function requireBody(body: unknown, operation: string)
 	end
 end
 
-local function unwind(owner: Owner.Owner, failure: any): never
-	local ok, disposeError: any = pcall(owner.dispose)
+local function unwind(owner: Owner.Owner, failure: unknown): never
+	local ok, disposeError: unknown = pcall(owner.dispose)
 	if ok then
 		return error(failure, 0) :: never
 	end
@@ -42,30 +42,29 @@ local function unwind(owner: Owner.Owner, failure: any): never
 	) :: never
 end
 
-local function withRootOwnerImpl(body: any, reactor: Reactor.Reactor?): ...any
-	requireBody(body, "withRootOwner")
-	local owner = Owner.createOwner(reactor)
-	local results = table.pack(pcall(Active.withOwner, owner, function(): ...any
-		return body(owner)
-	end))
-	if not results[1] then
-		unwind(owner, results[2])
+local function settle<T...>(owner: Owner.Owner, ok: boolean, ...: T...): T...
+	if not ok then
+		unwind(owner, (select(1, ...)))
 	end
 	owner.dispose()
-	return table.unpack(results, 2, results.n)
+	return ...
 end
 
-local withRootOwner = (withRootOwnerImpl :: any) :: <T...>(
-	body: (owner: Owner.Owner) -> T...,
-	reactor: Reactor.Reactor?
-) -> T...
+local function withRootOwner<T...>(body: (owner: Owner.Owner) -> T..., reactor: Reactor.Reactor?): T...
+	requireBody(body, "withRootOwner")
+	local owner = Owner.createOwner(reactor)
+	return settle(
+		owner,
+		pcall(Active.withOwner, owner, function(): T...
+			return body(owner)
+		end)
+	)
+end
 
 local function createRootOwner(body: (owner: Owner.Owner) -> (), reactor: Reactor.Reactor?): RootScope
 	requireBody(body, "createRootOwner")
 	local owner = Owner.createOwner(reactor)
-	local ok, err: any = pcall(Active.withOwner, owner, function()
-		body(owner)
-	end)
+	local ok, err: unknown = pcall(Active.runWith, owner, body, owner)
 	if not ok then
 		unwind(owner, err)
 	end

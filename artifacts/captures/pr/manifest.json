@@ -1,0 +1,146 @@
+[
+ {
+  "id": "all-controls",
+  "size": "1280x720",
+  "file": "all-controls-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "all-controls",
+  "size": "844x390",
+  "file": "all-controls-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "collections",
+  "size": "1280x720",
+  "file": "collections-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "collections",
+  "size": "844x390",
+  "file": "collections-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "motion-layout",
+  "size": "1280x720",
+  "file": "motion-layout-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "motion-layout",
+  "size": "844x390",
+  "file": "motion-layout-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "hud",
+  "size": "1280x720",
+  "file": "hud-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "hud",
+  "size": "844x390",
+  "file": "hud-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "radial-menu",
+  "size": "1280x720",
+  "file": "radial-menu-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "radial-menu",
+  "size": "844x390",
+  "file": "radial-menu-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex02",
+  "size": "1280x720",
+  "file": "ex02-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex02",
+  "size": "844x390",
+  "file": "ex02-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex03",
+  "size": "1280x720",
+  "file": "ex03-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex03",
+  "size": "844x390",
+  "file": "ex03-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex05",
+  "size": "1280x720",
+  "file": "ex05-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex05",
+  "size": "844x390",
+  "file": "ex05-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex06",
+  "size": "1280x720",
+  "file": "ex06-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex06",
+  "size": "844x390",
+  "file": "ex06-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex07",
+  "size": "1280x720",
+  "file": "ex07-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "ex07",
+  "size": "844x390",
+  "file": "ex07-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "vm-spatial",
+  "size": "1280x720",
+  "file": "vm-spatial-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "vm-spatial",
+  "size": "844x390",
+  "file": "vm-spatial-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "vm-screen",
+  "size": "1280x720",
+  "file": "vm-screen-1280x720.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ },
+ {
+  "id": "vm-screen",
+  "size": "844x390",
+  "file": "vm-screen-844x390.png",
+  "method": "Studio playtest of the gallery place (a358bed6 plus this branch) in Studio dacb4cb1. Device simulator stopped with StudioDeviceSimulatorService:StopSimulationAsync(); the Studio window was resized with System Events until workspace.CurrentCamera.ViewportSize read exactly the size; demo shown with workspace.FacetShowcaseAPI show; 2.2 s settle; screencapture -o -l of the Studio window; crop at the viewport origin (3, 179) found with a full-screen red IgnoreGuiInset marker. Virtual Monitors ran examples/virtual_monitors/main.client.luau in the same place with the gallery script disabled and VirtualMonitorsAPI mode Spatial or Screen, 3 s settle. Display 1x, scale 1.0."
+ }
+]

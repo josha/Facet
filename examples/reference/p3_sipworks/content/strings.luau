@@ -1,34 +1,9 @@
 --!strict
--- Sipworks copy, keyed by locale (build-decisions "Code layout": every string
--- routes through the proof's own strings table; `xa` is the ≥1.4× pseudo-
--- expansion locale).
---
--- TWO SHAPES, ONE TABLE. A key is either a plain template string or a PLURAL
--- FIXTURE `{ zero?, one, other }` (spec §13). I18nService picks the form; no
--- call site branches on a count.
---
--- `{name}` placeholders are substituted by I18nService. Nothing here is ever
--- concatenated at a call site — a sentence assembled from fragments is a
--- sentence that cannot be translated, and the list ("A, B, and C") and measure
--- ("1.5 tsp") formats are service calls for exactly that reason.
---
--- THE `xa` TABLE IS DERIVED, NOT AUTHORED. It is the `en` table run through
--- `expand` at load: bracketed, and every literal run lengthened to at least
--- 1.4× — placeholders preserved byte for byte, so a pseudo-localized sentence
--- still formats. Deterministic (a pure function of the source string), which is
--- what lets the suite pin the ratio instead of trusting it.
 
 local strings = {}
 
--- ---------------------------------------------------------------------------
--- the pseudo-expansion
--- ---------------------------------------------------------------------------
-
 local EXPANSION = 1.4
 
--- expandRun(s): lengthen ONE literal run to >= EXPANSION x its length by
--- repeating a slice of itself, then keep the words legible. Empty and
--- whitespace-only runs are left alone (there is nothing to translate).
 local function expandRun(s: string): string
 	local trimmed = string.match(s, "^%s*(.-)%s*$") :: string
 	if trimmed == "" then
@@ -37,15 +12,9 @@ local function expandRun(s: string): string
 	local target = math.ceil(#s * EXPANSION)
 	local out = s
 	local i = 1
-	-- A ONE-WORD SOURCE STAYS ONE WORD. The framework's own rule is that a single
-	-- word has no legal break and is drawn on one line (it ellipsizes instead of
-	-- wrapping), so a pseudo-locale that inserted a space into a one-word button
-	-- label would be testing WRAPPING rather than expansion — and it did: a
-	-- four-tab band whose every label wrapped to two lines made a 320px-tall
-	-- landscape phone illegal in the composition.
+
 	local joiner = if string.find(trimmed, "%s") ~= nil then " " else ""
-	-- append slices of the source until the run is long enough; deterministic,
-	-- and it never introduces a character the source did not already contain
+
 	while #out < target do
 		local take = math.min(#trimmed, math.max(2, target - #out))
 		out ..= joiner .. string.sub(trimmed, i, i + take - 1)
@@ -57,9 +26,6 @@ local function expandRun(s: string): string
 	return out
 end
 
--- expand(template): bracket the whole and expand every literal run between
--- `{placeholder}` tokens. The brackets are the pseudo-locale's tell — a string
--- on screen without them is a string that never went through the table.
 function strings.expand(template: string): string
 	local out = "["
 	local cursor = 1
@@ -76,18 +42,10 @@ function strings.expand(template: string): string
 	return out .. "]"
 end
 
--- ---------------------------------------------------------------------------
--- the authored locale
--- ---------------------------------------------------------------------------
-
 local en: { [string]: any } = {
 	["app.title"] = "Sipworks",
 	["app.tagline"] = "A craft tea house",
 
-	-- ---- the played task (the opening screen's own copy) -------------------
-	-- One sentence for the goal, one line per phase for the next action, and a
-	-- completion state that says what was accomplished. Nothing here names a
-	-- test, a stage or a document: the player's word for the loop is "an order".
 	["task.title"] = "Today's order",
 	["task.intro"] = "Sipworks is a tea house. Pick a blend, serve it, and take a stamp — ten stamps is a free pour.",
 	["task.next.order"] = "Choose a blend and place the order.",
@@ -107,9 +65,7 @@ local en: { [string]: any } = {
 	["nav.book"] = "Blend Book",
 	["nav.stamps"] = "Steam Stamps",
 	["nav.back"] = "Back",
-	-- the nav's MINIMUM-VIABLE form (spec §5's second ranked form). Localized,
-	-- because a `compactLabel` is construction-only and could never follow the
-	-- live locale flip this proof's loop drives.
+
 	["nav.menu.short"] = "Menu",
 	["nav.favorites.short"] = "Saved",
 	["nav.book.short"] = "Book",
@@ -190,15 +146,48 @@ local en: { [string]: any } = {
 	["recipe.gathered"] = "Gathered: {name}",
 	["recipe.title"] = "Recipe",
 
+	["menu.intro"] = "Browse house blends, collect Steam Stamps, and make your next pour on us.",
+	["menu.status"] = "Today's order: {phase} · {n} of 10 stamps",
+	["task.phase.order"] = "order",
+	["task.phase.placing"] = "placing",
+	["task.phase.rejected"] = "rejected",
+	["task.phase.redeem"] = "redeem",
+	["task.phase.done"] = "done",
+	["task.cta.redeemOne"] = "Redeem a {title}",
+	["row.save"] = "Save favorite",
+	["row.remove"] = "Remove favorite",
+
+	["sheet.blend"] = "House blend",
+	["sheet.botanical"] = "Botanical",
+	["detail.stats"] = "{caffeine} mg caffeine · {grams} g leaves · {minutes} min steep",
+	["detail.order"] = "Order · {price}",
+	["detail.confirming"] = "Confirming…",
+	["detail.viewRecipe"] = "View recipe",
+	["detail.unlock"] = "Unlock Blend Book · {price}",
+	["book.unlock"] = "Unlock · {price}",
+	["recipe.batchSize"] = "Batch size",
+	["recipe.line"] = "{name} · {measure}",
+	["facts.line"] = "{label}: {value}",
+	["botanical.summary"] = "{grams} g per teaspoon · {caffeine} mg caffeine per gram",
+
+	["locale.en"] = "English",
+	["locale.xa"] = "Expanded",
+	["rewards.summary"] = "{n} stamps · ten stamps earn a free pour",
+	["rewards.card"] = "Stamp card",
+	["rewards.redeemFree"] = "Redeem a free {title}",
+	["rewards.acknowledge"] = "Acknowledge new stamps",
+
+	["notice.confirmed"] = "Your order is confirmed. Your stamp is on the card.",
+	["notice.rejected"] = "The counter is closed. Your stamps are unchanged; try again.",
+	["notice.ready"] = "Your pour is ready.",
+	["notice.unlocked"] = "Your Blend Book is unlocked.",
+	["notice.declined"] = "The purchase was declined. Try again.",
+
 	["list.pair"] = "{a} and {b}",
 	["list.two"] = "{a}, {b}",
 	["list.last"] = "{head}, and {tail}",
 	["measure.value"] = "{value} {unit}",
 }
-
--- ---------------------------------------------------------------------------
--- the derived pseudo-locale
--- ---------------------------------------------------------------------------
 
 local function expandEntry(value: any): any
 	if type(value) == "string" then

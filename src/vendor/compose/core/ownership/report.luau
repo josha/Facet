@@ -1,13 +1,27 @@
 --!strict
 
 local Inspect = require "./inspect"
+local Host = require "../host"
 local Nodes = require "./nodes"
+local Owner = require "./owner"
 local Root = require "./root"
 
 export type OwnerReport = Inspect.OwnerReport
 export type NodeReport = Inspect.NodeReport
 export type Report = Inspect.Report
 export type OwnedCounts = Nodes.OwnedCounts
+
+export type Data = {
+	schemaVersion: number,
+	active: boolean,
+	outstandingMounts: number,
+	trackedNodes: number,
+	pending: number,
+	droppedOwners: number,
+	droppedNodes: number,
+	mounts: { OwnerReport },
+	detached: { OwnerReport },
+}
 
 local EMPTY: Report = {
 	active = false,
@@ -20,7 +34,7 @@ local EMPTY: Report = {
 	droppedNodes = 0,
 }
 
-local function describe(owner: any, record: Inspect.Record, seen: { [any]: true }): OwnerReport
+local function describe(owner: Owner.Owner, record: Inspect.Record, seen: { [unknown]: true }): OwnerReport
 	if seen[owner] then
 		return {
 			id = record.id,
@@ -58,11 +72,11 @@ local function describe(owner: any, record: Inspect.Record, seen: { [any]: true 
 
 	local children: { OwnerReport } = {}
 	if held ~= nil then
-		local sorted: { any } = {}
+		local sorted: { unknown } = {}
 		for candidate in record.children do
 			table.insert(sorted, candidate)
 		end
-		table.sort(sorted, function(left: any, right: any): boolean
+		table.sort(sorted, function(left: unknown, right: unknown): boolean
 			local leftRecord, rightRecord = held.records[left], held.records[right]
 			local leftId = if leftRecord ~= nil then leftRecord.id else 0
 			local rightId = if rightRecord ~= nil then rightRecord.id else 0
@@ -71,7 +85,7 @@ local function describe(owner: any, record: Inspect.Record, seen: { [any]: true 
 		for _, candidate in sorted do
 			local childRecord = held.records[candidate]
 			if childRecord ~= nil then
-				table.insert(children, describe(candidate, childRecord, seen))
+				table.insert(children, describe(candidate :: Owner.Owner, childRecord, seen))
 			end
 		end
 	end
@@ -130,12 +144,13 @@ local function snapshot(): Report
 
 	local mounts: { OwnerReport } = {}
 	local detached: { OwnerReport } = {}
-	local seen: { [any]: true } = {}
+	local seen: { [unknown]: true } = {}
 	for index = 1, held.orderedCount do
-		local owner = held.ordered[index]
-		if owner == nil then
+		local entry = held.ordered[index]
+		if entry == nil then
 			continue
 		end
+		local owner = entry :: Owner.Owner
 		local record = held.records[owner]
 		if record == nil or seen[owner] then
 			continue
@@ -159,7 +174,7 @@ local function snapshot(): Report
 	}
 end
 
-local function node(subject: any): NodeReport
+local function node(subject: Host.Node): NodeReport
 	local custody = Nodes.custodyOf(subject)
 	local label = Nodes.labelOf(subject)
 	local held = Inspect.__state()
@@ -201,7 +216,7 @@ local function node(subject: any): NodeReport
 	}
 end
 
-local function owner(subject: any): OwnerReport?
+local function owner(subject: Owner.Owner): OwnerReport?
 	local held = Inspect.__state()
 	if held == nil then
 		return nil
@@ -213,7 +228,7 @@ local function owner(subject: any): OwnerReport?
 	return describe(subject, record, {})
 end
 
-local function owned(subject: any): OwnedCounts?
+local function owned(subject: Owner.Owner): OwnedCounts?
 	if Inspect.__state() == nil then
 		return nil
 	end
@@ -336,9 +351,9 @@ local function format(report: Report): string
 	return table.concat(out, "\n") .. "\n"
 end
 
-local function data(report: Report): { [string]: any }
-	local function shape(entry: OwnerReport): { [string]: any }
-		local children: { any } = table.create(#entry.children)
+local function data(report: Report): Data
+	local function shape(entry: OwnerReport): OwnerReport
+		local children = table.create(#entry.children) :: { OwnerReport }
 		for index, subject in entry.children do
 			children[index] = shape(subject)
 		end
@@ -363,11 +378,11 @@ local function data(report: Report): { [string]: any }
 			children = children,
 		}
 	end
-	local mounts: { any } = table.create(#report.mounts)
+	local mounts = table.create(#report.mounts) :: { OwnerReport }
 	for index, entry in report.mounts do
 		mounts[index] = shape(entry)
 	end
-	local detached: { any } = table.create(#report.detached)
+	local detached = table.create(#report.detached) :: { OwnerReport }
 	for index, entry in report.detached do
 		detached[index] = shape(entry)
 	end

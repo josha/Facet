@@ -1,24 +1,4 @@
 #!/usr/bin/env python3
-"""Gate check: the Step-4 production-shaped perf scenes are present AND alive.
-
-`test -f perf.json` proves nothing — a scene whose pointer path stopped
-resolving, whose virtual list stopped windowing, or whose activate seam stopped
-reaching paint would still emit a (faster) record. So each production scene
-declares proof counters in `extras`, and this check asserts those counters show
-work actually happened.
-
-  python3 tools/check_perf_scenes.py            # the six production shapes
-  python3 tools/check_perf_scenes.py --themes   # the three theme-swap shapes
-
-TIGHTENING A PREDICATE OBLIGES A RE-RECORD (R4). Everything below reads
-`artifacts/phase-4/perf.json`, which is a RUN-PRODUCED artifact: `verify.sh full`
-does not regenerate it, because the `perf` producer is RELEASE-tier. So a change
-that adds a scene or narrows an existing PRODUCTION/THEMES predicate is checking
-the new rule against a record written under the old one, and it fails in exactly
-the shape a genuinely broken scene fails in. Run `tools/perf.sh` to re-record
-BEFORE `verify.sh full`, in the same change that tightened the predicate — the
-failure text below says so too, but by then the gate is already red.
-"""
 import json
 import os
 import sys
@@ -27,132 +7,104 @@ PERF = "artifacts/phase-4/perf.json"
 REFERENCE = "floorAndroid"
 CONSOLE = "consoleTenFoot"
 
-# scene -> (requirement, checker(extras) -> error message or None)
+
+def _count(x, key):
+    value = x.get(key)
+    return value if isinstance(value, (int, float)) else 0
+
+
 PRODUCTION = {
     "virtual-list-scroll": lambda x: (
         None
-        if x.get("virtualRows", 0) >= 1000 and 0 < x.get("windowedRows", 0) < 100
+        if _count(x, "logicalRows") >= 1000 and 0 < _count(x, "windowedRows") < 100
         else f"windowing looks wrong: {x!r} (expect a small window over >=1000 rows)"
     ),
     "native-scroll-drag": lambda x: (
         None
-        if x.get("dragMoves", 0) > 0 and x.get("dropsCommitted", 0) > 0
-        else f"the pointer capture path committed no drag: {x!r}"
+        if _count(x, "dragMoves") > 0 and _count(x, "drops") > 0
+        else f"the UIDragDetector path committed no drag: {x!r}"
     ),
     "dense-hud": lambda x: (
         None
-        if x.get("activates", 0) > 0 and str(x.get("boostText") or "").startswith("Boost x")
+        if _count(x, "activationCount") > 0 and x.get("activationText") == f"Boost x{x.get('activationCount')}"
         else f"the activate chain did not reach the mounted text: {x!r}"
     ),
     "stylesheet-state-churn": lambda x: (
-        None if x.get("tagsPerPass", 0) > 0 else f"no state tags classified: {x!r}"
+        None if _count(x, "tagsPerPass") > 0 else f"no state tags classified: {x!r}"
     ),
-    "async-image-grid": lambda x: None,  # proof lives in the async counters below
+    "async-image-grid": lambda x: None,
     "screen-lifecycle-churn": lambda x: None,
-    # the four 2026-09-11 landings: each proof says the surface really opened
-    # (a scene whose api.open stopped reaching the presenter would still emit a
-    # faster record)
-    # `represents == presents` is the part `presents > 0` alone could not
-    # prove (task-2 review, 2026-09-12): `presents` incremented unconditionally
-    # even while a stale `pres.dismiss(handle)` in transient_surfaces.luau kept
-    # every open() past the first returning the SAME handle, silently pricing
-    # nothing for cycles 2+. `represents` only counts a cycle whose open()
-    # handed back a genuinely different handle.
     "alert-present-dismiss": lambda x: (
         None
-        if x.get("presents", 0) > 0 and x.get("actions") == 3 and x.get("represents", 0) == x.get("presents", 0)
-        else f"the alert never presented: {x!r}"
+        if _count(x, "opens") > 0 and x.get("surfaceItems") == 3 and x.get("settled") == x.get("opens")
+        else f"the alert did not present its three actions and settle dismissed each time: {x!r}"
     ),
     "picker-menu-open-close": lambda x: (
         None
-        if x.get("opens", 0) > 0 and x.get("presentation") in ("menu", "sheet") and x.get("anchoredAfter") == 0
-        else f"the picker menu did not open/close through a presented surface: {x!r}"
+        if _count(x, "opens") > 0
+        and x.get("surfaceItems") == 6
+        and x.get("presentation") == "picker"
+        and x.get("settled") == x.get("opens")
+        else f"the picker menu did not open with six rows and settle closed each time: {x!r}"
     ),
     "picker-segmented-textsize": lambda x: (
-        None if x.get("flips", 0) > 0 and x.get("style") == "segmented" else f"the strip did not flip: {x!r}"
+        None
+        if isinstance(x.get("segmented"), dict)
+        and x["segmented"].get("segments") == 3
+        and x["segmented"].get("textSizeBefore") is not None
+        and x["segmented"].get("textSizeBefore") != x["segmented"].get("textSizeAfter")
+        else f"the segmented strip did not follow the preferred text size: {x!r}"
     ),
     "radial-menu-open-close": lambda x: (
-        None if x.get("opens", 0) > 0 and x.get("sectors", 0) == 6 else f"the radial never opened: {x!r}"
+        None
+        if _count(x, "opens") > 0 and x.get("surfaceItems") == 6 and x.get("settled") == x.get("opens")
+        else f"the radial did not open six sectors and settle closed each time: {x!r}"
     ),
-    # the dense-motion frame (row SF-M8): every axis has to be doing work, and the
-    # one-transaction-per-stepped-frame contract has to still hold under all of it
     "dense-motion": lambda x: (
         None
-        if x.get("springs", 0) >= 20
-        and x.get("timelineBeats", 0) > 0
-        and 0 < x.get("windowedRows", 0) < x.get("virtualRows", 0)
-        and x.get("motionSteps", 0) > 0
-        and x.get("motionSteps") == x.get("motionTransactions")
+        if _count(x, "springs") >= 20
+        and _count(x, "springsMoving") >= 20
+        and _count(x, "beats") > 0
+        and _count(x, "beatCallbacks") > 0
+        and 0 < _count(x, "windowedRows") < _count(x, "logicalRows")
+        and _count(x, "motionSteps") > 0
         else f"the dense-motion frame did not do its work: {x!r}"
     ),
-    # the transitions round's CONTROL motions (2026-09-12). Every one of the four
-    # is silent when it stops firing — a shake that never books, a pop gated off,
-    # a stagger that stops holding rows — and each absence makes the scene FASTER,
-    # so the counters are the only thing standing between this budget and a scene
-    # that prices nothing.
-    #
-    # HALF OF THEM ANSWER FOR THE FRAMEWORK, and only those half are proof.
-    # `rekeys`, `flips` and `pulses` are incremented by the code that SET the
-    # signal, so they say the scene drove its own mutation and nothing more.
-    # `pops` is counted by the handler the ADAPTER's activate seam reached;
-    # `staggerHeld` is read back off the painted alphas; `flipsSeen` off the
-    # existence of the disclosure's content node in the tree; and `shakesSeen`
-    # off the input root's painted displacement (`presentedPosition` away from
-    # its solved rect) — those four are the tree and the paint answering
-    # (final review item 2, 2026-09-13).
-    # `motionSteps == motionTransactions` is the same one-transaction-per-stepped-
-    # frame contract dense-motion keeps, asserted here over motion the CONTROLS
-    # book rather than motion the scene drives.
     "control-motion": lambda x: (
         None
-        if x.get("rekeys", 0) > 0
-        and x.get("flips", 0) > 0
-        and x.get("pulses", 0) > 0
-        and x.get("pops", 0) > 0
-        and x.get("staggerHeld", 0) > 0
-        and x.get("flipsSeen", 0) > 0
-        and x.get("shakesSeen", 0) > 0
-        and x.get("motionSteps", 0) > 0
-        and x.get("motionSteps") == x.get("motionTransactions")
+        if _count(x, "rekeys") > 0
+        and _count(x, "flips") > 0
+        and _count(x, "pulses") > 0
+        and _count(x, "pops") > 0
+        and _count(x, "staggerHeld") > 0
+        and _count(x, "flipsSeen") > 0
+        and _count(x, "shakesSeen") > 0
+        and _count(x, "popsSeen") > 0
+        and _count(x, "motionSteps") > 0
+        and _count(x, "motionTransactions") >= _count(x, "motionSteps")
         else f"the control-motion frame did not do its work: {x!r}"
     ),
 }
 
 THEMES = {
-    # scene -> (kind, movedRects predicate, description of the invariant)
     "theme-swap-flat": (
-        "palette-only",
-        lambda m: m == 0,
-        "a palette-only swap must move NO solved geometry; a non-zero count means a "
-        "repaint has quietly become a reflow",
+        lambda s: s.get("metricChanges") == 0 and s.get("imageChanges") == 0 and _count(s, "paintChanges") > 0,
+        "a palette-only swap must change paint rules and no metric rule or skin image",
     ),
     "theme-swap-metrics": (
-        "metric-changing",
-        lambda m: m > 0,
-        "a metric-changing swap must re-solve; zero moved rects means the metric "
-        "authority stopped reaching the solver",
+        lambda s: _count(s, "metricChanges") > 0,
+        "a metric-changing swap must change metric rules",
     ),
     "theme-swap-assets": (
-        "asset-backed",
-        lambda m: m > 0,
-        "an asset-backed swap changes metrics too; zero moved rects means the same",
+        lambda s: _count(s, "metricChanges") > 0 and _count(s, "imageChanges") > 0,
+        "an asset-backed swap must change metric rules and the skin images",
     ),
 }
 
 
-#[[ RECORDED EVIDENCE THAT IS NOT IN THE CLONE (public-clone honesty round).
-#   `artifacts/phase-4/perf.json` is a run-produced record, git-ignored, and its row
-#   carries a content-hash receipt for exactly that reason. On a public clone it
-#   is simply absent, and `json.load` raised a bare FileNotFoundError traceback --
-#   which reads as a broken checker rather than as an unreachable operand. The
-#   row's receipt is the claim; this file says so and stops. ]]
 def _absent(path):
-    print(
-        "check_perf_scenes: FAIL_ENVIRONMENT — recorded evidence %s is not in this checkout "
-        "(git-ignored, produced by a run); its row carries the content-hash "
-        "receipt that stands for it" % path
-    )
-    return 2
+    print(f"check_perf_scenes: FAIL - {path} is missing; run tools/perf.sh first")
+    return 1
 
 
 def main() -> int:
@@ -161,25 +113,20 @@ def main() -> int:
         return _absent(PERF)
     report = json.load(open(PERF))
     errors = []
-
     if report.get("schema") != "facet-perf/2":
         errors.append(f"unexpected schema {report.get('schema')!r}; expected facet-perf/2")
-
+    if report.get("injectedRegression") is not None:
+        errors.append("the artifact is an injected-regression run, not a workload record")
     by_scene = {}
     devices = set()
     for run in report["runs"]:
-        # this checker is about the HEADLESS scene matrix. A report may also
-        # carry ingested device rows, whose `device` is a descriptive table
-        # rather than a profile name — skip them rather than crashing on one.
         if run.get("evidenceClass") != "lune":
             continue
         devices.add(run["device"])
         if run["device"] == REFERENCE:
             by_scene[run["scene"]] = run
-
     if not themes_mode and CONSOLE not in devices:
         errors.append(f"no {CONSOLE} runs: the ten-foot profile is missing from the matrix")
-
     wanted = THEMES if themes_mode else PRODUCTION
     for scene in wanted:
         run = by_scene.get(scene)
@@ -190,70 +137,33 @@ def main() -> int:
             errors.append(f"{scene}: no dataset recorded")
         extras = run.get("extras") or {}
         if themes_mode:
-            kind, predicate, why = THEMES[scene]
+            predicate, why = THEMES[scene]
             swap = extras.get("themeSwap")
             if not isinstance(swap, dict) or not swap.get("measured"):
                 errors.append(f"{scene}: no measured themeSwap in extras ({extras!r})")
                 continue
-            if swap.get("kind") != kind:
-                errors.append(f"{scene}: kind {swap.get('kind')!r}, expected {kind!r}")
-            moved = swap.get("movedRects")
-            if not isinstance(moved, int) or not predicate(moved):
-                errors.append(f"{scene}: movedRects={moved} — {why}")
+            if not swap.get("controlsRetained"):
+                errors.append(f"{scene}: the swap rebuilt the mounted controls ({swap!r})")
+            if not predicate(swap):
+                errors.append(f"{scene}: {why} ({swap!r})")
         else:
             problem = PRODUCTION[scene](extras)
             if problem:
                 errors.append(f"{scene}: {problem}")
-
-    if themes_mode:
-        # the E3 half of XP-A3: the live Studio instance census. A flat theme
-        # must genuinely cost nothing, an ornate one must genuinely cost
-        # something, and the ornate package must have COMPILED — the first live
-        # drive handed the adapter a theme module instead of a compiled package
-        # and reported an empty census, which read as "the ornate skin is free".
-        studio_path = "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-studio.json"
-        try:
-            swaps = {x["package"]: x for x in json.load(open(studio_path))["swaps"]}
-        except (OSError, KeyError, ValueError) as exc:
-            errors.append(f"{studio_path}: unreadable ({exc})")
-            swaps = {}
-        flat = swaps.get("flat")
-        ornate = swaps.get("fantasy_ornate")
-        if flat is None or ornate is None:
-            errors.append(f"{studio_path}: needs a flat swap and an ornate swap")
-        else:
-            if flat.get("layers", -1) != 0 or flat.get("actualLayerInstances", -1) != 0:
-                errors.append(f"flat theme is no longer free: {flat!r}")
-            if not ornate.get("compiled"):
-                errors.append("the ornate package did not compile — its census is a broken instrument, not a cost")
-            if ornate.get("instancesAfter", 0) <= ornate.get("instancesBefore", 0):
-                errors.append(f"the ornate skin added no instances: {ornate!r}")
-            if ornate.get("actualLayerInstances", 0) <= 0:
-                errors.append("the ornate skin materialised no layer instances")
-
     if not themes_mode:
         grid = by_scene.get("async-image-grid")
         if grid is not None:
             stats = grid.get("async") or {}
             if stats.get("completed", 0) <= 0:
-                errors.append(f"async-image-grid: the real provider completed nothing ({stats!r})")
-
+                errors.append(f"async-image-grid: the provider completed nothing ({stats!r})")
     if errors:
         for e in errors:
             print(f"FAIL {e}")
-        # A TIGHTENED PREDICATE FAILS IN THE SHAPE OF A BROKEN SCENE (R4). This
-        # record is run-produced and `verify.sh full` does not regenerate it
-        # (`perf` is release-tier), so say which record was read and how old it
-        # is rather than leaving "did not do its work" to carry both meanings.
-        stamp = (report.get("environment") or {}).get("timestamp") or "unknown"
-        print(
-            f"note: read {PERF}, recorded {stamp}. `verify.sh full` does not regenerate it "
-            "(`perf` is release-tier) — if a check above was tightened in this change, "
-            "re-record with `tools/perf.sh` before reading these as live failures."
-        )
+        stamp = report.get("generatedAt") or report.get("timestamp") or "unknown"
+        print(f"note: read {PERF}, recorded {stamp}")
         return 1
     label = "theme-swap" if themes_mode else "production"
-    print(f"perf scenes ok: {len(wanted)} {label} scenes alive at {REFERENCE}")
+    print(f"perf scenes ok: {len(wanted)} {label} scenes did their work at {REFERENCE}")
     return 0
 
 

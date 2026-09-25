@@ -1,35 +1,16 @@
 --!strict
--- REFERENCE THEME PACKAGE — "Classic Desktop".
---
--- A compact, square-edged, flat workstation look: hairline strokes, dense
--- metrics, no gradients, no assets. It exists to prove the *metric* half of the
--- theme contract — a package that changes nothing but numbers still has to move
--- every control's geometry — and to carry the PALETTE-ONLY case, because its
--- two themes ("Day" and "Night") differ in colour and in nothing else, so a
--- `swapTheme` between them must repaint without re-solving a single dimension.
---
--- ORIGINAL WORK. The palette is a neutral warm-grey ramp chosen here; it is not
--- sampled from, and does not imitate the trade dress of, any shipping operating
--- system. There are no bundled assets of any kind — this package declares none.
---
--- Written against the PUBLIC API only: `themes.neutralPackage()` for the
--- derivation base and `themes.define` for compilation. Nothing here requires a
--- Facet internal module, which is the point — a game team can copy this file.
 
 local classic_desktop = {}
 
 classic_desktop.id = "classic-desktop"
 classic_desktop.displayName = "Classic Desktop"
--- the theme classes this package exercises (the coverage matrix asserts these
--- against a real diff of the compiled package, so a stale claim fails the suite)
+
 classic_desktop.themeClasses = table.freeze({ "palette", "metrics" })
 
 local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
--- One typography ladder, shared by both themes: this package's whole point is
--- that a palette swap moves nothing geometric.
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
 local LINE_HEIGHT = 1.15
 local SIZES = { caption = 11, label = 12, body = 13, control = 13, heading = 15, title = 18 }
@@ -42,7 +23,6 @@ local function typography(): any
 	return out
 end
 
--- Day: paper-white content area on a warm grey chrome.
 local DAY = {
 	colors = {
 		surface = rgb(212, 208, 200),
@@ -53,8 +33,7 @@ local DAY = {
 		onAccent = rgb(255, 255, 255),
 		danger = rgb(140, 20, 20),
 		onDanger = rgb(255, 255, 255),
-		-- the two semantic roles, in this palette's own family and gated like the
-		-- destructive pair above (7.85:1 and 5.91:1)
+
 		success = rgb(20, 94, 48),
 		onSuccess = rgb(255, 255, 255),
 		warning = rgb(196, 138, 16),
@@ -66,14 +45,13 @@ local DAY = {
 		controlPressed = rgb(198, 194, 186),
 		controlSelected = rgb(180, 198, 226),
 		contentSecondary = rgb(88, 88, 88),
-		hairline = rgb(96, 94, 90), -- a light theme needs a DARK hairline
+		hairline = rgb(96, 94, 90),
 		hairlineOpacity = 0.55,
 		scrimOpacity = 0.4,
 		disabledContentOpacity = 0.45,
 	},
 }
 
--- Night: the identical ladder on an inverted ramp. Same metrics, same fonts.
 local NIGHT = {
 	colors = {
 		surface = rgb(38, 38, 36),
@@ -84,8 +62,7 @@ local NIGHT = {
 		onAccent = rgb(12, 16, 26),
 		danger = rgb(228, 116, 116),
 		onDanger = rgb(28, 10, 10),
-		-- the two semantic roles, in this palette's own family and gated like the
-		-- destructive pair above (9.34:1 and 10.27:1)
+
 		success = rgb(126, 204, 140),
 		onSuccess = rgb(10, 26, 14),
 		warning = rgb(232, 188, 104),
@@ -122,34 +99,25 @@ function classic_desktop.definition(themes: any): any
 		},
 		metrics = {
 			typography = typography(),
-			-- dense: roughly half the neutral spacing ladder
+
 			space = { xs = 2, s = 4, m = 8, l = 12, xl = 20 },
-			-- rows a mouse can hit precisely. The 44px accessibility floor still
-			-- applies to the HIT rect (the presenter expands it); these are the
-			-- painted heights, and a desktop theme is allowed to paint tighter.
+
 			controlSizes = {
 				compact = { height = 22, paddingX = 6, iconSize = 12 },
 				regular = { height = 26, paddingX = 8, iconSize = 14 },
 				large = { height = 32, paddingX = 10, iconSize = 16 },
 			},
-			-- square-edged: 0 for panels, a 2px softening on controls so a
-			-- pressed button still reads as a button
+
 			radii = { control = 2, panel = 0, pill = 4 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
-			-- snappier than neutral: a desktop control should feel instant
+
 			motion = { fast = 0.06, normal = 0.1 },
-			-- THE TWO THEME-SIZED INDICATORS (director round 2026-08-14). Left
-			-- unauthored they came off this package's own space scale, and a dense
-			-- desktop scale is the wrong ruler for them: `space.l` is 12 here, so the
-			-- "ring" resolved to a 12px circle — smaller than the 12px caption beside
-			-- it. A pointer sits ~60cm from the screen and this skin's whole voice is
-			-- thin crisp lines, so the ring is small but READABLE and its stroke is
-			-- the hairline weight every other edge in this package uses.
+
 			controls = {
 				progress = { circularSize = 20, circularThickness = 2, spinnerDotSize = 6 },
 			},
-			-- the slot insets a flat theme reserves (no asset geometry to clear)
+
 			insets = {
 				panel = { top = 8, right = 8, bottom = 8, left = 8 },
 				control = { top = 4, right = 8, bottom = 4, left = 8 },
@@ -159,7 +127,7 @@ function classic_desktop.definition(themes: any): any
 				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
 			},
 		},
-		-- every slot is native paint: ZERO decoration instances
+
 		chrome = {
 			panel = { kind = "native" },
 			control = { kind = "native" },

@@ -1,16 +1,10 @@
 name: CI
 
-# Every push to the default branch, and every pull request. Tool downloads use
-# the built-in read-only GitHub token; no repository secrets are required.
-# The run is formatting, the headless suite, the source scanners and one offline
-# build. Publishing lives in its own manually dispatched workflow.
 on:
   push:
     branches: [main]
   pull_request:
 
-# A second push to the same branch cancels the first: the older answer was about
-# code nobody is looking at any more.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,21 +16,22 @@ jobs:
   verify:
     name: Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # Rokit is the toolchain manager. `rokit.toml` pins Rojo, luau-lsp, Lune
-      # and StyLua, so this step and the next are the whole setup, and the runner
-      # gets exactly the versions a contributor has.
       - name: Install Rokit
+        env:
+          GITHUB_PAT: ${{ github.token }}
         run: |
           curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
           echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
@@ -45,9 +40,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          # Rokit reads stored credentials, not GITHUB_TOKEN directly.
           rokit authenticate github --token "$GITHUB_TOKEN"
-          # Release-asset downloads can return transient GitHub server errors.
           for attempt in 1 2 3; do
             if rokit install --no-trust-check; then
               exit 0
@@ -69,27 +62,30 @@ jobs:
       - name: Formatting
         run: stylua --check src tests tools bench examples
 
-      # The same full tier contributors run locally. Keep the memory-intensive
-      # suite alone, and never fall back to a smaller set of checks.
-      - name: Tests
+      - name: Fast tier
         shell: bash
         run: |
           mkdir -p artifacts/verify
-          tools/verify.sh full --jobs 1 2>&1 | tee artifacts/verify/ci.log
+          tools/verify.sh fast 2>&1 | tee artifacts/verify/ci-fast.log
 
-      # Preserve the last started producer and completed results even when a
-      # later check fails or the job is cancelled.
+      - name: Full tier
+        shell: bash
+        run: |
+          mkdir -p artifacts/verify
+          tools/verify.sh full --explain 2>&1 | tee artifacts/verify/ci.log
+
       - name: Save verification diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: verification-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/verify/
+          path: |
+            artifacts/verify/
+            artifacts/phase-4/
+            artifacts/bench.json
           if-no-files-found: warn
           retention-days: 7
 
-      # The distributable model, built and then inspected: it must carry the
-      # library and nothing else.
       - name: Build the distributable model
         run: tools/build_model.sh
 

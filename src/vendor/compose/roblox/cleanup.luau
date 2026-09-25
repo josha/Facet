@@ -7,7 +7,7 @@ local function cleanupWith(nameOf: (value: unknown) -> string, value: unknown): 
 	local kind = nameOf(value)
 
 	if kind == "RBXScriptConnection" then
-		local connection = value :: any
+		local connection = value :: Engine.Connection
 		return Compose.cleanup(function()
 			connection:Disconnect()
 		end)
@@ -21,7 +21,7 @@ local function cleanupWith(nameOf: (value: unknown) -> string, value: unknown): 
 	end
 
 	if kind == "Instance" then
-		local object = value :: any
+		local object = value :: Engine.Destroyable
 		return Compose.cleanup(function()
 			object:Destroy()
 		end)

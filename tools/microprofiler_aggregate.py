@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""microprofiler_aggregate — read a Roblox MicroProfiler HTML dump's aggregate
+CLI_HELP = """microprofiler_aggregate — read a Roblox MicroProfiler HTML dump's aggregate
 timer table, and its engine layout diagnostics, without opening a browser.
 
     python3 tools/microprofiler_aggregate.py <dump.html> [<dump.html> ...]
@@ -124,19 +124,19 @@ def layout_records(d: bytes):
     return out
 
 
-# THE FRAMEWORK PREFIX, AND THE ONE IT USED TO HAVE (wave T15).
-#
-# Every dump taken before the 2026-08 rename carries `LuauUI/*` scope names, and
-# that is the whole existing corpus of device captures — the four in
-# `device-capture-2026-08-15.md` among them. With a single hard-coded `Facet/`
-# filter this tool printed the header and NO ROWS for every one of them, which
-# reads exactly like "the framework did no work" rather than "this dump predates
-# the rename". A reader who trusted it would have concluded the opposite of the
-# truth, on a file that decodes perfectly.
-#
-# So both prefixes are recognised, and a dump that only has the legacy one SAYS SO
-# on its own line. The legacy name is not a migration to finish: a capture is
-# immutable evidence and its scope names are part of what it recorded.
+
+
+
+
+
+
+
+
+
+
+
+
+
 FRAMEWORK_PREFIXES = ("Facet/", "LuauUI/")
 LEGACY_PREFIX = "LuauUI/"
 
@@ -150,7 +150,7 @@ def main(argv):
     show_layout = "--layout" in argv
     paths = [a for a in argv if not a.startswith("--")]
     if not paths:
-        raise SystemExit(__doc__.strip().split("\n\n")[1])
+        raise SystemExit(CLI_HELP.strip().split("\n\n")[1])
     for p in paths:
         r = parse(p)
         ns, frames = r["freq"], r["frames"]
@@ -202,43 +202,43 @@ def main(argv):
             print(f"  {'TOTAL':<54}{tr:>10}{tu:>9}{tz:>9}")
 
 
-# ---------------------------------------------------------------------------
-# THE SELFTEST, AND WHY IT SYNTHESISES ITS OWN DUMP (wave T15).
-#
-# Every real capture this tool has ever read lives outside the repository: a
-# MicroProfiler dump is a megabyte of a specific phone on a specific afternoon,
-# `.gitignore` keeps binaries out of `artifacts/` on the stated ground that they
-# are regenerable, and these are not — so a clone could not run this decoder at
-# all, on anything, and a change to it could break silently. That is the same
-# failure the ignore rule's own exception was written for.
-#
-# A synthetic dump answers the half that matters: the container (HTML comment ->
-# base64 -> GAK header -> zlib), the header offsets, the 80-byte record stride,
-# and the name blob at the tail. It CANNOT prove that a real Roblox client still
-# emits this shape — only a real dump can, and when one disagrees this selftest
-# is what tells you the decoder is fine and the format moved.
-#
-# THE SAMPLE CARRIES ONE `Facet/` SCOPE AND ONE `LuauUI/` SCOPE ON PURPOSE. The
-# legacy prefix is the defect this selftest exists to pin: with a single
-# hard-coded `Facet/` filter this tool printed an empty table for the entire
-# existing corpus of device captures, which reads as "the framework was idle".
-#
-#   python3 tools/microprofiler_aggregate.py --selftest      (exit 0 = PASS)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def _synthetic_dump() -> bytes:
-    """A minimal well-formed dump: 2 frames, 3 timers, one engine layout record."""
+
     names, blob = {}, bytearray()
     for n in ("Facet/tick", "LuauUI/arrange", "Sleep"):
         names[n] = len(blob)
         blob += n.encode() + b"\0"
     layout = b"Context=Rendering Cause=Facet_Probe Root=/P Relayouts=3 Updates=4 Resizes=5\0"
     header = bytearray(0x100)
-    struct.pack_into("<I", header, 0x20, 2)  # frame window
-    struct.pack_into("<Q", header, 0x28, 1_000_000_000)  # freq: totals are ns
-    struct.pack_into("<I", header, 0x4C, 3)  # record count
-    struct.pack_into("<I", header, 0x50, len(header) + len(layout))  # table offset
-    struct.pack_into("<I", header, 0xC4, len(blob))  # name blob size
+    struct.pack_into("<I", header, 0x20, 2)
+    struct.pack_into("<Q", header, 0x28, 1_000_000_000)
+    struct.pack_into("<I", header, 0x4C, 3)
+    struct.pack_into("<I", header, 0x50, len(header) + len(layout))
+    struct.pack_into("<I", header, 0xC4, len(blob))
     records = bytearray()
     for total, worst, cnt, nm in (
         (4_000_000, 3_000_000, 2, "Facet/tick"),
@@ -277,8 +277,8 @@ def selftest() -> int:
             problems.append(f"Facet/tick count read as {by['Facet/tick']['count']}, expected 2")
         if "LuauUI/arrange" in by and by["LuauUI/arrange"]["total"] != 20_000_000:
             problems.append(f"LuauUI/arrange total read as {by['LuauUI/arrange']['total']}")
-        # THE PREFIX DEFECT, pinned: both framework prefixes must survive the
-        # default (non---all) filter, and `Sleep` must not.
+
+
         kept = [x["name"] for x in r["rows"] if _framework(x["name"])]
         if sorted(kept) != ["Facet/tick", "LuauUI/arrange"]:
             problems.append(f"the framework filter kept {kept!r} — the legacy prefix must survive it")

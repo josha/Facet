@@ -113,3 +113,15 @@ verifies the checked-in offline snapshot. The source candidate is not claimed
 to be publicly fetchable from the official repository. THIRD_PARTY_NOTICES.md
 now distinguishes the official base from this local candidate. These inspected
 provenance facts do not assert publication approval or new Studio/device results.
+
+## 2026-09-24 addendum: official Compose pin
+
+The generated snapshot now uses commit
+`cbab6e0f828b68faaf676ee718cb0036c20ed935` on the official `main` branch of
+voidmeld/compose, a descendant of `5f6bf7d081bab39971b116e47d6eb9ccf5877282`.
+It supersedes the local candidate `974b7527709a4db61024cc8994cdce30adc49790`
+and does not carry that candidate's rearming calls. UPSTREAM.lock records the
+commit and file hashes with an empty patches list; sync_compose.py --check
+verifies the checked-in offline snapshot. The MIT license and notice bytes are
+unchanged. These provenance facts do not assert publication approval or new
+Studio/device results.

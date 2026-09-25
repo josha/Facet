@@ -14,17 +14,40 @@ local userSpace = require "./userSpace"
 type Formula<T> = Types.Formula<T>
 type Equals<T> = Types.Equals<T>
 type Body<T> = Types.Body<T>
+type Edge = Graph.Edge
+type Consumer = Graph.Consumer
+type Producer = Graph.Producer
+
+type FormulaNode = {
+	version: number,
+	subscribers: Edge?,
+	lastSubscriber: Edge?,
+	refresh: ((Producer) -> ()) | false,
+	derived: boolean?,
+
+	state: number,
+	dependencies: { Edge },
+	reads: number,
+	enqueue: ((Consumer) -> ()) | false | nil,
+	enqueueSettle: ((Consumer) -> ()) | false | nil,
+	released: boolean,
+	retry: boolean?,
+
+	value: unknown,
+	body: Body<unknown>?,
+	compare: Equals<unknown> | false | nil,
+}
 
 local FORMULA = {}
 FORMULA.__index = FORMULA
 FORMULA.__isComposeReadable = true
 FORMULA.derived = true
 
-FORMULA.compare = false :: any
+FORMULA.compare = false
 
 local validationState = userSpace.state
 
-local function requireLive(self: any)
+local function requireLive(self: FormulaNode)
 	if self.released then
 		Diagnostics.raise("reactive/disposed-formula", "a disposed formula cannot be read", {
 			contract = "formula disposal permanently releases its dependencies",
@@ -33,14 +56,15 @@ local function requireLive(self: any)
 	end
 end
 
-function FORMULA.dispose(self: any)
+function FORMULA.dispose(self: FormulaNode)
 	Graph.release(self)
 	self.body = nil
 	self.compare = nil
 	self.value = nil
 end
 
-function FORMULA.refresh(self: any)
+function FORMULA.refresh(producer: Producer)
+	local self = producer :: FormulaNode
 	requireLive(self)
 	local state = self.state
 	if state == Graph.CLEAN then
@@ -48,11 +72,14 @@ function FORMULA.refresh(self: any)
 	end
 
 	if state == Graph.CHECK then
-		if not Graph.dependenciesMoved(self) then
+		self.state = Graph.DIRTY
+		self.retry = true
+		local moved = Graph.dependenciesMoved(self)
+		self.retry = false
+		if not moved then
 			self.state = Graph.CLEAN
 			return
 		end
-		self.state = Graph.DIRTY
 	end
 
 	self.state = Graph.CLEAN
@@ -66,7 +93,7 @@ function FORMULA.refresh(self: any)
 	local compare = self.compare
 	local unchanged = if not compare and not validationState.validating
 		then self.value == incoming
-		else userSpace.call(compare or cellModule.defaultEquals, self.value, incoming)
+		else userSpace.call((compare or cellModule.defaultEquals) :: Equals<unknown>, self.value, incoming)
 	if unchanged then
 		if statsOn.enabled then
 			stats.bump "formulaRecomputationsSuppressed"
@@ -79,32 +106,32 @@ function FORMULA.refresh(self: any)
 	self.version = clock.next()
 end
 
-function FORMULA.invoke(self: any): any
-	return self.body(Graph.use)
+function FORMULA.invoke(self: FormulaNode): unknown
+	return (self.body :: Body<unknown>)(Graph.use)
 end
 
-function FORMULA.peek(self: any): any
+function FORMULA.peek(self: FormulaNode): unknown
 	FORMULA.refresh(self)
 	return self.value
 end
 
 local function formula<T>(body: Body<T>, equals: Equals<T>?): Formula<T>
-	local self: any = setmetatable({
+	local self: FormulaNode = setmetatable({
 		version = 0,
-		subscribers = false :: any,
-		lastSubscriber = false :: any,
+		subscribers = false,
+		lastSubscriber = false,
 		state = Graph.DIRTY,
 		released = false,
 		dependencies = {},
 		reads = 0,
-		value = false :: any,
+		value = false,
 		body = body,
-	}, FORMULA)
+	}, FORMULA) :: any
 	self.subscribers = nil
 	self.lastSubscriber = nil
 	self.value = nil
 	if equals ~= nil then
-		self.compare = equals
+		self.compare = equals :: Equals<unknown>
 	end
 	return (self :: any) :: Formula<T>
 end

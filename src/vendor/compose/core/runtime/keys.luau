@@ -28,7 +28,8 @@ local function event(name: string): EventKey
 	if existing ~= nil then
 		return existing
 	end
-	local created = table.freeze { composeKey = "event" :: "event", name = name }
+	local created: EventKey = { composeKey = "event", name = name }
+	table.freeze(created :: {})
 	eventKeys[name] = created
 	return created
 end
@@ -38,7 +39,8 @@ local function property(name: string): PropertyKey
 	if existing ~= nil then
 		return existing
 	end
-	local created = table.freeze { composeKey = "property" :: "property", name = name }
+	local created: PropertyKey = { composeKey = "property", name = name }
+	table.freeze(created :: {})
 	propertyKeys[name] = created
 	return created
 end
@@ -47,18 +49,23 @@ local function group(names: { string }): GroupKey
 	if #names == 0 then
 		error("group needs at least one property name", 2)
 	end
-	local copied = table.create(#names)
+	local copied = table.create(#names) :: { string }
 	for index, name in names do
 		if type(name) ~= "string" then
 			error(("group names must be strings; entry %d is %s"):format(index, typeof(name)), 2)
 		end
 		copied[index] = name
 	end
-	return table.freeze { composeKey = "group" :: "group", names = table.freeze(copied) }
+	table.freeze(copied)
+	local created: GroupKey = { composeKey = "group", names = copied }
+	table.freeze(created :: {})
+	return created
 end
 
 local function static(value: unknown): StaticValue
-	return table.freeze { composeValue = "static" :: "static", value = value }
+	local created: StaticValue = { composeValue = "static", value = value }
+	table.freeze(created :: {})
+	return created
 end
 
 export type Marker = {
@@ -71,14 +78,14 @@ local function readKey(key: unknown): Marker?
 	if type(key) ~= "table" then
 		return nil
 	end
-	local marker = (key :: unknown) :: { composeKey: unknown, name: unknown }
+	local marker = key :: { composeKey: unknown, name: unknown, names: unknown }
 	local kind = marker.composeKey
 	if kind == "event" then
 		return { kind = "event", name = tostring(marker.name) }
 	elseif kind == "property" then
 		return { kind = "property", name = tostring(marker.name) }
 	elseif kind == "group" then
-		local names = (key :: any).names :: { string }
+		local names = marker.names :: { string }
 		return { kind = "group", name = table.concat(names, "+"), names = names }
 	end
 	return nil
@@ -88,7 +95,7 @@ local function readStatic(value: unknown): (unknown, boolean)
 	if type(value) ~= "table" then
 		return nil, false
 	end
-	local marker = (value :: unknown) :: { composeValue: unknown, value: unknown }
+	local marker = value :: { composeValue: unknown, value: unknown }
 	if marker.composeValue ~= "static" then
 		return nil, false
 	end

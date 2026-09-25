@@ -1,28 +1,4 @@
 --!strict
---[[ WHAT `tools/build_themes.sh` NEEDS TO KNOW ABOUT THE THEME PACKAGES.
-
-	  lune run tools/lune/theme_artifacts -- list
-	      one TSV line per SHIPPABLE package: `<module>\t<ArtifactName>`, which is
-	      the loop the builder runs. Nothing else in the shell knows the corpus.
-
-	  lune run tools/lune/theme_artifacts -- manifest [<dir>]
-	      COMPILE every shippable package through the public `themes.define` and
-	      write `<dir>/manifest.json` (default `build/themes`) describing what was
-	      built: the identity stamp the schema requires, the themes inside it, the
-	      theme classes it exercises, its declared asset count, its chrome kinds
-	      and whether it declares any ten-foot metric overrides.
-
-	THE MANIFEST IS WRITTEN FROM THE COMPILED PACKAGE, NOT FROM THE SOURCE TEXT.
-	That is the point of doing it in Luau at all: a stamp scraped out of the file
-	with a regex records what the author TYPED, and the thing a consumer installs
-	is what `themes.define` ACCEPTED. Compiling here also means the builder cannot
-	emit an artifact for a package that no longer compiles — the build fails
-	instead, which is the only honest order.
-
-	`identity.version` and `identity.schemaVersion` are the stamp the existing
-	theme schema already requires of every package (`src/themes/package.luau`
-	IDENTITY_FIELDS); this file does not invent a second versioning story.
-]]
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -33,8 +9,6 @@ local Facet = require("../../src") :: any
 local theme_packages = require("./theme_packages")
 local themes = Facet.themes
 
--- `lune run <script> -- list` passes the separator through as an argument, so it
--- is dropped here rather than at every call site
 local argv: { string } = {}
 for _, arg in process.args do
 	if arg ~= "--" then
@@ -45,25 +19,6 @@ end
 local mode = argv[1]
 local outDir = argv[2] or "build/themes"
 
---[[ REFUSE LOUDLY, AND LEAVE NOTHING BEHIND.
-
-	THE MESSAGE COMES FIRST, and that ordering is the whole repair. This function
-	read `process.exit(1)` and THEN `error(message)`; `process.exit` does not
-	return, so every diagnostic in this file was dead code and a real refusal
-	exited 1 with NO OUTPUT AT ALL. `tools/build_themes.sh` propagated the status
-	under `set -e` and printed nothing either, so an author who added a package
-	and forgot its `require` got a silent failing build and a guess. Found in
-	review, 2026-08-21 — the loud-failure doctrine this framework applies to its
-	public API applies to its own tools.
-
-	AND THE PARTIAL BUILD GOES WITH IT. The shell builds every `.rbxm` BEFORE
-	this file compiles the packages, so a module refused here already has an
-	artifact sitting in `build/themes/` that nobody may ship. A refusal that
-	leaves a plausible-looking file on disk is worse than no refusal at all: the
-	next reader finds `ScifiHud.rbxm`, sees a recent timestamp, and believes it.
-	Callers pass the paths their failure invalidates — always the offending
-	artifact, and the manifest, which would otherwise describe a build that was
-	rejected. Nothing is deleted that the caller did not name. ]]
 local function fail(message: string, ...: string): never
 	stdio.ewrite(`theme_artifacts: {message}\n`)
 	for _, path in { ... } do
@@ -87,11 +42,6 @@ if mode ~= "manifest" then
 	fail("unknown mode")
 end
 
---[[ the reference packages are hand-required because Lune resolves a require
-	path at parse time from a LITERAL; the loop below asserts this table is
-	exactly `theme_packages.shippable()`, which is the drift a hand list cannot
-	catch about itself (the same arrangement `tests/theme_reference_packages.spec`
-	uses, for the same reason). ]]
 local MODULES: { [string]: any } = {
 	classic_desktop = require("../../examples/themes/classic_desktop"),
 	glossy_mobile = require("../../examples/themes/glossy_mobile"),
@@ -175,8 +125,7 @@ for _, name in shippable do
 		themeClasses = module.themeClasses,
 		assetCount = countKeys(pkg.assets),
 		chrome = chromeKinds,
-		-- wave TEN-FOOT: a package MAY pin absolute ten-foot metrics;
-		-- with none declared the ladder derives, and the manifest says which it is
+
 		tenFootOverrides = countKeys(pkg.metrics and (pkg.metrics :: any).tenFoot),
 	})
 

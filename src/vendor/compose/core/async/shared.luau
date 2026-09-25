@@ -17,7 +17,7 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 	end
 
 	local references = 0
-	local value: T
+	local value: T? = nil
 
 	local lifetime: Owner.Owner? = nil
 	local built = false
@@ -31,7 +31,7 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 		local scope = lifetime
 		built = false
 		lifetime = nil
-		value = nil :: any
+		value = nil
 
 		if scope ~= nil then
 			scope.dispose()
@@ -49,7 +49,7 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 			if dispose ~= nil then
 				scope.own(dispose)
 			end
-			value = result :: T
+			value = result
 			lifetime = scope
 			built = true
 		end
@@ -57,7 +57,7 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 		references += 1
 
 		local released = false
-		return value, function()
+		return value :: T, function()
 			if released then
 				return
 			end
@@ -75,7 +75,7 @@ local function createSharedResource<T>(factory: Factory<T>): Acquire<T>
 			})
 		end
 		local result, release_ = take();
-		(owner :: any).own(release_)
+		(owner :: Owner.Owner).own(release_)
 		return result
 	end
 

@@ -172,9 +172,13 @@ export type Range = {
 	lastRow: number,
 }
 
-local function rangeFor(self: Geometry, offset: number, size: number, overscan: number): Range
+local function rangeInto(self: Geometry, offset: number, size: number, overscan: number, out: Range): Range
 	if self.rowCount == 0 then
-		return { first = 1, last = 0, firstRow = 1, lastRow = 0 }
+		out.first = 1
+		out.last = 0
+		out.firstRow = 1
+		out.lastRow = 0
+		return out
 	end
 
 	local firstRow = rowAt(self, math.max(0, offset))
@@ -194,12 +198,15 @@ local function rangeFor(self: Geometry, offset: number, size: number, overscan: 
 	lastRow = math.min(self.rowCount, lastRow + overscan)
 
 	local columns = self.columns
-	return {
-		first = (firstRow - 1) * columns + 1,
-		last = math.min(self.count, lastRow * columns),
-		firstRow = firstRow,
-		lastRow = lastRow,
-	}
+	out.first = (firstRow - 1) * columns + 1
+	out.last = math.min(self.count, lastRow * columns)
+	out.firstRow = firstRow
+	out.lastRow = lastRow
+	return out
+end
+
+local function rangeFor(self: Geometry, offset: number, size: number, overscan: number): Range
+	return rangeInto(self, offset, size, overscan, { first = 1, last = 0, firstRow = 1, lastRow = 0 })
 end
 
 return {
@@ -212,4 +219,5 @@ return {
 	rowAt = rowAt,
 	rowSpan = rowSpan,
 	rangeFor = rangeFor,
+	rangeInto = rangeInto,
 }

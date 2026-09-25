@@ -1,191 +1,87 @@
-# 3. Getting started
+# Getting started
 
-This chapter mounts a small screen in Studio and in a headless test. Both use
-ordinary Compose functions and the same Facet controls.
-
-## 3.1 The pieces, in order
-
-A Facet application has three parts:
-
-1. `Facet.new()` creates the environment, renderer, input system and frame driver.
-2. A component function creates Compose state and returns Facet controls.
-3. `app.mount(Component)` runs that function and presents its root.
-
-Use `app.controls` for controls and layouts. Use `Facet.Compose` for state,
-reactive calculations, ownership, collections and motion primitives.
-
-Component setup runs once per mount. A changed value updates the properties that
-read it. It does not run the whole component again.
-
-## 3.2 The smallest screen, headless
-
-The headless path needs a clone of this repository and the pinned toolchain.
-Install the tools and fetch the pinned Compose source:
-
-```sh
-rokit install
-python3 tools/sync_compose.py
-```
-
-The repository includes a read-only snapshot of Compose. The dependency script
-checks every file against the pinned revision and its hashes. The distributed
-Facet model includes the source needed to run in Roblox.
-
-The example below uses the repository's fake target. Save it under `tests/`
-and run it with Lune from the repository root. Its explicit host options replace
-engine services for the test; normal Studio applications do not need them.
-
-```luau
-local Facet = require("../src")
-local fake = require("./lib/fake_target")
-local Compose = Facet.Compose
-local adapter = fake.new()
-local input, frame
-
-local app = Facet.new {
-    newAdapter = function() return adapter end,
-    newInputSystem = function(core)
-        input = Facet.newActionSystem(core)
-        return input
-    end,
-    bindEnv = function(env)
-        env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-        return function() end
-    end,
-    connectFrame = function(callback)
-        frame = callback
-        return function() frame = nil end
-    end,
-}
-local UI = app.controls
-
-local function Counter()
-    local count = Compose.cell(0)
-    return UI.Screen {
-        padding = "m", gap = "s",
-        UI.Text {
-            text = function(use) return `Count: {use(count)}` end,
-        },
-        UI.Button {
-            label = "Add one",
-            onActivate = function()
-                count:update(function(n) return n + 1 end)
-            end,
-        },
-    }
-end
-
-local close, node = app.mount(Counter)
-frame(1 / 60)
-input.deviceKey("Return", true)
-input.deviceKey("Return", false)
-frame(1 / 60)
-assert(adapter.node(node.children[1].path).props.text == "Count: 1")
-close()
-assert(adapter.rootCount() == 0)
-app.dispose()
-assert(frame == nil)
-```
-
-The presenter gives focus to the button. The Return key activates it through the
-input system. The frame callback advances motion and applies rendering changes.
-
-## 3.2b Testing your screen
-
-The [fake target](../../tests/lib/fake_target.luau) records nodes, geometry,
-properties and input. It ships in the repository, not in the Roblox model.
-Clone the repository alongside your game if you need this test instrument.
-
-The [standalone consumer spec](../../tests/consumer_standalone.spec.luau) mounts
-the same screen module as the Studio example. It checks input, state, themes,
-adaptive layout and cleanup.
-
-| Call | Purpose |
-|---|---|
-| `adapter.node(path)` | Inspect a node's rectangle, properties and paint. |
-| `adapter.paths()` / `adapter.liveCount()` | Inspect the mounted nodes. |
-| `adapter.tap(path)` | Activate a control through pointer input. |
-| `adapter.pointerDown(x, y, kind)` / `pointerMove` / `pointerUp` | Drive a raw pointer or touch gesture. |
-| `adapter.typeText(path, text)` / `commitText(path)` | Enter and commit text. |
-| `adapter.setThemePackage(package, themeName)` | Apply a theme package. |
-| `adapter.rootCount()` | Check that disposal removed the surfaces. |
-
-Headless checks prove Facet's layout and input decisions. They do not prove
-Roblox `StyleSheet` rendering, device behavior or engine performance. Those
-checks need Studio evidence.
-
-Keep your game's tests in your own project. Facet imposes no test directory
-structure on consumers. Inside this repository, put specs under `tests/` and
-register them in `tests/run.luau`. Run one with `lune run tests/run_one <name>`.
-
-## 3.3 Where state lives, and making the screen react
-
-`Compose.cell(value)` stores a value. A property function receives `use`; call
-`use(cell)` to subscribe that property to the cell. Use `cell:peek()` for an
-untracked read in an event callback.
-
-Use `cell:set(value)` to replace the value. Use `cell:update(function)` to derive
-a new value from the current one. A writable cell can also bind directly to a
-value control:
-
-```luau
-local music = Compose.cell(true)
-return UI.Toggle { label = "Music", value = music }
-```
-
-Create local state inside the component. Create shared model state outside it
-when the value must survive navigation. Multiple screens can read the same cells.
-
-Use `Compose.formula` for a shared derived value. Use `Compose.watch` for a
-reactive external effect. Register external resource cleanup with
-`Compose.cleanup`. The [component guide](15-components.md) covers these lifetimes.
-
-## 3.4 Wiring inside Roblox Studio
-
-Enable `Workspace.PlayerScriptsUseInputActionSystem` in Studio before testing
-input. Facet uses Roblox's Input Action System. The built-in player scripts must
-use that system too, so they do not intercept keys outside Facet's input contexts.
-
-The maintained example projects set this property in their Rojo configuration.
-Use the repository's pinned Rojo version when building them. See
-[Input](07-input.md) for setup and input limits.
-
-### Project mapping (Rojo)
-
-The [standalone project](../../examples/consumer/default.project.json) maps
-Facet to `ReplicatedStorage.Facet` and a LocalScript to
-`StarterPlayer.StarterPlayerScripts`. It also sets the required Workspace property.
-Use that file as a complete starting point.
-
-Fetch Compose before using Rojo with a source checkout:
-
-```sh
-python3 tools/sync_compose.py
-rojo build examples/consumer/default.project.json -o build/Facet-Consumer.rbxl
-```
-
-Open the generated place in Studio and press Play. For a package or model
-installation, follow [Without Rojo](08-without-rojo.md), then use the same client
-script below.
-
-### The client script
-
-Put this LocalScript under `StarterPlayer.StarterPlayerScripts`:
+1. Put the Facet package in ReplicatedStorage.
+2. Set `Workspace.PlayerScriptsUseInputActionSystem` to true in the place.
+3. Make a LocalScript in StarterPlayerScripts with this content.
 
 ```luau
 local Facet = require(game.ReplicatedStorage:WaitForChild("Facet"))
 local Compose = Facet.Compose
-local app = Facet.new()
-local UI = app.controls
+local app = Facet.app({ name = "Counter" })
+local UI = app.UI
 
 local function Counter()
     local count = Compose.cell(0)
     return UI.Screen {
-        padding = "m", gap = "s",
+        gap = "s",
         UI.Text {
-            text = function(use) return `Count: {use(count)}` end,
+            text = function(use) return `Clicked {use(count)} times` end,
         },
         UI.Button {
+            label = "Add one",
+            onActivate = function() count:update(function(n) return n + 1 end) end,
+        },
+    }
+end
+
+app.mount(Counter)
+script.Destroying:Connect(app.dispose)
+```
+
+## What the script does
+
+- `Facet.app()` makes a Compose Roblox runtime and the controls for it.
+  `app.UI` is the table of control constructors.
+- `app.mount(Counter)` runs the component and mounts its result into a
+  ScreenGui in PlayerGui. The ScreenGui also holds a StyleSheet and a StyleLink
+  to it. It returns a stop function.
+- `UI.Screen` fills the ScreenGui and pads its content by the `m` spacing
+  step. `gap = "s"` puts the `s` step between the children. See
+  [Layout](../reference/api.md#layout).
+- `app.dispose` stops the mounts and disposes the runtime.
+- To use a theme package, give it one time: `Facet.app({ theme = package })`.
+  The controls and the StyleSheet both use it. See [Styling](05-styling.md).
+
+`Facet.app` uses only public pieces: `Facet.Roblox.createRuntime`,
+`Facet.controls`, `Facet.themes.createStyleSheet`, `runtime.mount` and a
+StyleLink. When you need a different root, use these pieces directly. See
+[Mounting](../reference/api.md#mounting).
+
+## Test a screen without Studio
+
+You can mount a screen headlessly with Lune. This path needs a clone of this
+repository and the pinned toolchain. Run `rokit install` from the repository
+root.
+
+The repository has a fake native engine in
+[`tests/lib/native_engine.luau`](../../tests/lib/native_engine.luau). It makes
+objects that act like Roblox Instances: properties, children, `FindFirstChild`
+and events that a test can fire. It is not part of the Roblox package.
+
+Save this script as `tests/counter.luau` and run
+`lune run tests/counter.luau` from the repository root.
+
+```luau
+local Facet = require("../src")
+local engineLib = require("./lib/native_engine")
+local Compose = Facet.Compose
+
+local engine = engineLib.new()
+local playerGui = engine.new("Folder")
+local app = Facet.app({
+    runtime = Facet.Roblox.createRuntime(engine),
+    types = engine.types,
+    parent = playerGui,
+})
+local UI = app.UI
+
+local function Counter()
+    local count = Compose.cell(0)
+    return UI.Screen "Counter" {
+        UI.Text "Count" {
+            text = function(use) return `Count: {use(count)}` end,
+        },
+        UI.Button "Add" {
             label = "Add one",
             onActivate = function()
                 count:update(function(n) return n + 1 end)
@@ -194,33 +90,88 @@ local function Counter()
     }
 end
 
-local close = app.mount(Counter)
--- Call close() to remove this screen.
--- Call app.dispose() when the application ends.
+local stop, gui = app.mount(Counter)
+local screen = gui:FindFirstChild("Counter")
+screen:FindFirstChild("Add").Activated.fire()
+assert(screen:FindFirstChild("Count").Text == "Count: 1")
+stop()
+assert(#playerGui:GetChildren() == 0)
+app.dispose()
+app.runtime:dispose()
 ```
 
-`Facet.new()` connects engine input, environment facts and the frame driver.
-Requiring Facet from shared code does not create those client services. They load
-when the client creates an application.
+- `engineLib.new()` makes the fake engine. Give it to
+  `Facet.Roblox.createRuntime`, and give that runtime to `Facet.app`.
+- The app needs `types = engine.types`, because Lune does not have the Roblox
+  datatypes as globals.
+- Lune has no PlayerGui. Give a `parent`.
+- `app.mount` returns the stop function and the ScreenGui.
+- The app does not dispose a runtime that you give. Call `runtime:dispose()`
+  after `app.dispose()`.
+- The fake engine refuses a property that the Roblox class does not have, as
+  Roblox does. A misspelled native property, such as `Sise`, stops the test
+  with an error.
+- `Activated.fire()` sends the event that a click or a gamepad press sends.
 
-Register work that must run each frame with `app.onFrame(callback)`. Inside a
-component, pass its returned disconnect function to `Compose.cleanup`. The
-callback uses the application's existing frame driver.
+The [standalone consumer test](../../tests/native_gallery.spec.luau) mounts the
+screen module of `examples/consumer` in the same way.
 
-## 3.5 Where does semantic state come from?
+A headless test proves state, events, structure and cleanup. It does not prove
+native layout, `StyleSheet` paint, text measurement, device input or engine
+performance. Those need a Studio check.
 
-The counter holds local UI state. A server-owned balance or inventory needs a
-model that receives validated server updates. Controls display that model and
-send change requests through callbacks. The server decides whether to accept them.
+Inside this repository, put a spec under `tests/` and run it with
+`lune run tests/run_one <name>`.
 
-See [Client and server](06-client-server.md) for the replication boundary.
+## Using Facet in a game that already uses Compose
 
-## 3.6 The same screen, as a project you can run
+`Facet.Compose` is a pinned copy of Compose. If your game requires its own
+Compose, the game and Facet must use the same Compose instance. Two instances
+make two reactive graphs, two schedulers and two owner trees. A control then
+does not reliably update when your cell changes, and its cleanup does not
+belong to your owner.
 
-The [standalone consumer](../../examples/consumer/) contains the Rojo mapping,
-client script and a reusable screen module. Its headless tests exercise that
-module directly. They check mounting, theme changes, button activation, reactive
-text, adaptive layout and cleanup.
+Bind Facet to your Compose one time. Use the bound table everywhere:
 
-Read [Components](15-components.md) next for branches, collections and animation.
-The [tutorial index](04-tutorial-examples.md) describes the maintained examples.
+```luau
+local Compose = require(game.ReplicatedStorage.Packages.Compose.core)
+local ComposeRoblox = require(game.ReplicatedStorage.Packages.Compose.roblox)
+local Facet = require(game.ReplicatedStorage.Packages.Facet).bind(Compose, ComposeRoblox)
+
+local app = Facet.app()
+local UI = app.UI
+local enabled = Compose.cell(false)
+app.mount(function()
+    return UI.Screen {
+        UI.Toggle { value = enabled, label = "Music" },
+    }
+end)
+```
+
+- Give the core module and the Roblox module from the same Compose copy.
+- `app` of the bound table makes its runtime with that Roblox module. If you
+  make the runtime yourself, use that Roblox module and give the runtime to
+  `Facet.app({ runtime = runtime })`.
+- The Facet tests use the commit in `Facet.COMPOSE_COMMIT`. Facet supports a
+  later commit when it keeps the functions that Facet uses. `bind` stops with an
+  error that names a missing function.
+- When a runtime or a cell from a different Compose instance reaches a control,
+  the control stops with an error that names the control. The error tells you
+  to use `Facet.bind`.
+
+The [API reference](../reference/api.md#your-own-compose) gives the full
+contract.
+
+## Cleanup
+
+Use Compose cleanup for external subscriptions that a component makes. The stop
+function from `app.mount` releases its component. `app.dispose()` releases every
+mount of the app and the runtime that the app made. A runtime that you give to
+the app stays yours. Call `runtime:dispose()` on it after `app.dispose()`.
+
+The runtime methods `dispose` and `batch` use a colon: `runtime:dispose()`. The
+fields of the app use a dot: `app.mount`, `app.dispose`. See
+[Call style](../reference/api.md#call-style).
+
+You can make persistent model cells outside the mounted component. See
+[Components](15-components.md) for state and ownership.

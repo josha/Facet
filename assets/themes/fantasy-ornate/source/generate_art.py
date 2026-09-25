@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
-"""Fantasy Ornate art generator (rich-skinning-v2 stage, ADR-0020).
 
-Original, repository-owned art: every texture below is generated procedurally by
-this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, no trade dress. Re-running reproduces the PNGs byte-for-byte on the same
-Pillow/numpy versions (recorded in ../provenance.md).
-
-The look: rich metal-and-jewel over dark velvet — deliberately DISTINCT from the
-sibling `fantasy-parchment` package, which is quiet paper-and-ink.
-
-Outputs go to the parent directory (the theme asset folder); a contact sheet that
-stretches every nine-slice to three sizes lands in ./preview/ so a lead can judge
-slice quality without opening Studio.
-
-Run with the repo-root shared venv python (any CWD works):
-  <repo-root>/.venv/bin/python generate_art.py
-"""
 
 from __future__ import annotations
 
@@ -28,13 +12,13 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.dirname(HERE)
 PREVIEW_DIR = os.path.join(HERE, "preview")
-SEED = 0x60D1  # fixed: determinism is the provenance claim
+SEED = 0x60D1
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tiny drawing toolkit. Duplicated verbatim in every theme generator on purpose:
-# a theme folder must be copyable on its own, with no shared-module dependency.
-# ─────────────────────────────────────────────────────────────────────────────
-SS = 4  # supersample factor for anti-aliased shape masks
+
+
+
+
+SS = 4
 
 
 def _f(im: Image.Image) -> np.ndarray:
@@ -50,7 +34,7 @@ def rgb(r: int, g: int, b: int) -> np.ndarray:
 
 
 class Mask:
-    """Supersampled single-channel shape accumulator -> float HxW in [0,1]."""
+
 
     def __init__(self, w: int, h: int, ss: int = SS):
         self.w, self.h, self.ss = w, h, ss
@@ -112,7 +96,7 @@ def shift(a: np.ndarray, dx: int, dy: int) -> np.ndarray:
 
 
 def emboss(mask: np.ndarray, blur_r: float = 1.0, dist: int = 1):
-    """Top-left-lit emboss: returns (highlight, shadow) masks for a shape."""
+
     m = blur(mask, blur_r)
     hi = np.clip(m - shift(m, dist, dist), 0, 1)
     lo = np.clip(m - shift(m, -dist, -dist), 0, 1)
@@ -143,7 +127,7 @@ def fbm(rng: np.random.Generator, w: int, h: int, octaves: int = 4) -> np.ndarra
 
 
 class Canvas:
-    """Straight-alpha RGBA compositor in float space."""
+
 
     def __init__(self, w: int, h: int):
         self.w, self.h = w, h
@@ -164,7 +148,7 @@ class Canvas:
 
 
 def nine_slice(img: Image.Image, border: int, w: int, h: int, resample=Image.BILINEAR) -> Image.Image:
-    """Reference nine-slice render (matches Roblox SliceScale = 1)."""
+
     sw, sh = img.size
     b = border
     dst = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -198,12 +182,12 @@ def checker(w: int, h: int, s: int = 8, a=(56, 56, 62), b=(42, 42, 48)) -> Image
 
 
 class Sheet:
-    """Vertical contact sheet: one labelled row per asset."""
+
 
     def __init__(self, title: str, width: int = 1500):
         self.title = title
         self.width = width
-        self.rows = []  # (label, [PIL RGBA], backdrop)
+        self.rows = []
 
     def add(self, label: str, images, backdrop=None):
         self.rows.append((label, list(images), backdrop))
@@ -237,9 +221,9 @@ class Sheet:
         print(f"wrote {path}  (contact sheet)")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Palette — dark velvet field, gilt metal, cabochon jewels.
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 VELVET_DEEP = rgb(26, 14, 24)
 VELVET = rgb(56, 26, 44)
 VELVET_HI = rgb(84, 40, 62)
@@ -259,11 +243,11 @@ INK = rgb(16, 10, 14)
 
 
 def gild(canvas: Canvas, mask: np.ndarray, *, blur_r=0.9, dist=1, base=GOLD, warm=0.0):
-    """Paint `mask` as bevelled gold on `canvas`."""
+
     h, w = mask.shape
     body = np.broadcast_to(base, (h, w, 3)).copy()
-    # subtle length-independent metal banding (uniform per axis, slice-safe on
-    # the horizontal edge bands because it varies only with y)
+
+
     band = (np.cos(np.linspace(0, math.pi, h)) * 0.5 + 0.5)[:, None, None]
     body = body * (0.86 + 0.30 * band) + GOLD_LIGHT * (0.10 * band)
     if warm:
@@ -296,18 +280,18 @@ def scroll_pts(cx, cy, a, b, t0, t1, n=90, rot=0.0):
     ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Assets
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 def panel_fill(rng) -> Image.Image:
-    """128x128, slice border 32 — dark velvet content-back."""
+
     w = h = 128
     c = Canvas(w, h)
     field = velvet_field(rng, w, h)
     c.paint(field, np.ones((h, w)))
-    # edge falloff is uniform along each edge, so the stretched bands stay clean
+
     c.paint(VELVET_DEEP, edge_vignette(w, h, 32, 0.72, 1.4))
-    # a faint gold hairline just inside the rim so the fill still reads framed
+
     m = Mask(w, h)
     m.rring([9, 9, w - 10, h - 10], 4, 1)
     c.paint(GOLD_DARK, m.arr() * 0.55)
@@ -315,26 +299,22 @@ def panel_fill(rng) -> Image.Image:
 
 
 def panel_frame(rng) -> Image.Image:
-    """160x160, slice border 40 — gold filigree border, transparent centre.
 
-    Edge bands are uniform along their stretch axis (a moulding profile), so the
-    frame never smears; the flourishes live entirely inside the 40px corners.
-    """
     w = h = 160
     c = Canvas(w, h)
 
-    # 1) the moulding profile, drawn across the FULL width/height so corners and
-    #    edges are continuous by construction.
+
+
     band = Mask(w, h)
-    band.rring([2, 2, w - 3, h - 3], 8, 5)       # outer roll
-    band.rring([10, 10, w - 11, h - 11], 5, 2)   # fillet
-    band.rring([15, 15, w - 16, h - 16], 4, 7)   # broad ogee
-    band.rring([26, 26, w - 27, h - 27], 3, 2)   # inner fillet
+    band.rring([2, 2, w - 3, h - 3], 8, 5)
+    band.rring([10, 10, w - 11, h - 11], 5, 2)
+    band.rring([15, 15, w - 16, h - 16], 4, 7)
+    band.rring([26, 26, w - 27, h - 27], 3, 2)
     band_m = band.arr()
     gild(c, band_m, blur_r=0.9, dist=1)
 
-    # bead-and-reel on the broad ogee: dots repeat with an exact period so the
-    # corner squares end on a whole bead and the edge bands stay uniform.
+
+
     beads = Mask(w, h)
     step, r = 10, 2.2
     for i in range(w // step):
@@ -350,24 +330,24 @@ def panel_frame(rng) -> Image.Image:
     c.paint(GOLD_HI, hi * 0.9)
     c.paint(GOLD_SHADOW, lo * 0.7)
 
-    # 2) corner flourishes — confined to the 40x40 slice corners.
+
     corner = Mask(40, 40)
-    #    a diagonal acanthus spray sitting on the inner ogee
-    corner.poly([(28, 39), (39, 28), (39, 39)])                       # solid quoin
-    corner.stroke([(39, 24), (32, 28), (28, 32), (24, 39)], 3.4)      # spandrel band
-    corner.stroke(scroll_pts(30.0, 30.0, 1.8, 1.75, 0.0, 5.9, rot=2.2), 3.0)   # volute
-    for a, ln in ((0.60, 20.0), (1.06, 16.5), (0.14, 16.5)):          # leaf lobes
+
+    corner.poly([(28, 39), (39, 28), (39, 39)])
+    corner.stroke([(39, 24), (32, 28), (28, 32), (24, 39)], 3.4)
+    corner.stroke(scroll_pts(30.0, 30.0, 1.8, 1.75, 0.0, 5.9, rot=2.2), 3.0)
+    for a, ln in ((0.60, 20.0), (1.06, 16.5), (0.14, 16.5)):
         x0, y0 = 30.0, 30.0
         pts = [(x0 - ln * math.cos(a) * t, y0 - ln * math.sin(a) * t) for t in (0.0, 0.55, 1.0)]
         corner.stroke(pts, 2.8)
         corner.ellipse([pts[-1][0] - 2.3, pts[-1][1] - 2.3, pts[-1][0] + 2.3, pts[-1][1] + 2.3])
-    corner.ellipse([26.6, 26.6, 33.4, 33.4])                          # boss
-    cm_tl = corner.arr()[::-1, ::-1]  # authored bottom-right, used as top-left
+    corner.ellipse([26.6, 26.6, 33.4, 33.4])
+    cm_tl = corner.arr()[::-1, ::-1]
     seat = np.zeros((h, w))
     for sy, sx, mm in ((0, 0, cm_tl), (0, w - 40, cm_tl[:, ::-1]),
                        (h - 40, 0, cm_tl[::-1, :]), (h - 40, w - 40, cm_tl[::-1, ::-1])):
         seat[sy:sy + 40, sx:sx + 40] = np.maximum(seat[sy:sy + 40, sx:sx + 40], mm)
-    c.paint(GOLD_SHADOW, blur(seat, 1.6) * 0.75)  # dark seat so the spray separates
+    c.paint(GOLD_SHADOW, blur(seat, 1.6) * 0.75)
     full = np.zeros((h, w))
     full[0:40, 0:40] = np.maximum(full[0:40, 0:40], cm_tl)
     full[0:40, w - 40:w] = np.maximum(full[0:40, w - 40:w], cm_tl[:, ::-1])
@@ -375,7 +355,7 @@ def panel_frame(rng) -> Image.Image:
     full[h - 40:h, w - 40:w] = np.maximum(full[h - 40:h, w - 40:w], cm_tl[::-1, ::-1])
     gild(c, full, blur_r=0.8, dist=1, warm=0.10)
 
-    # 3) knock the centre out so the fill layer below shows through
+
     hole = Mask(w, h)
     hole.rrect([30, 30, w - 31, h - 31], 4)
     keep = 1.0 - hole.arr()
@@ -384,35 +364,31 @@ def panel_frame(rng) -> Image.Image:
 
 
 def corner_ornament(rng) -> Image.Image:
-    """48x48 top-left ornament (the other three orientations are saved beside it).
 
-    Reads as a quarter-frame: an L-bracket hugging the two edges, a volute
-    curling inward at the elbow, acanthus lobes on the diagonal, ruby boss.
-    """
     s = 48
     c = Canvas(s, s)
     m = Mask(s, s)
-    # L-bracket along the top and left edges, tapering away from the corner
+
     m.poly([(2, 2), (44, 2), (44, 7), (9, 7), (9, 44), (2, 44)])
-    m.poly([(2, 2), (18, 2), (2, 18)])                       # solid quoin
+    m.poly([(2, 2), (18, 2), (2, 18)])
     m.stroke([(44, 4.5), (46, 6.5)], 2.0)
-    # inner secondary rule ending in scrolls
+
     m.stroke([(14, 12), (36, 12)], 2.2)
     m.stroke([(12, 14), (12, 36)], 2.2)
     m.stroke(scroll_pts(35.0, 15.0, 1.0, 1.05, 0.0, 4.6, rot=4.4), 2.0)
     m.stroke(scroll_pts(15.0, 35.0, 1.0, 1.05, 0.0, 4.6, rot=2.9), 2.0)
-    # elbow volute + acanthus lobes on the diagonal
+
     m.stroke(scroll_pts(17.5, 17.5, 1.6, 1.9, 0.0, 5.8, rot=0.8), 3.0)
     for a, ln in ((0.30, 20.0), (0.78, 17.0), (1.26, 20.0)):
         x0, y0 = 17.0, 17.0
         pts = [(x0 + ln * math.cos(a) * t, y0 + ln * math.sin(a) * t) for t in (0.0, 0.55, 1.0)]
         m.stroke(pts, 2.4)
         m.ellipse([pts[-1][0] - 2.1, pts[-1][1] - 2.1, pts[-1][0] + 2.1, pts[-1][1] + 2.1])
-    m.ellipse([13.0, 13.0, 22.0, 22.0])                      # boss seat
+    m.ellipse([13.0, 13.0, 22.0, 22.0])
     mask = m.arr()
-    c.paint(GOLD_SHADOW, blur(mask, 1.8) * 0.55)  # cast shade so it lifts off panels
+    c.paint(GOLD_SHADOW, blur(mask, 1.8) * 0.55)
     gild(c, mask, blur_r=0.8, dist=1, warm=0.12)
-    # ruby cabochon at the elbow
+
     j = Mask(s, s)
     j.ellipse([14.4, 14.4, 20.6, 20.6])
     c.paint(RUBY, j.arr())
@@ -423,14 +399,14 @@ def corner_ornament(rng) -> Image.Image:
 
 
 def edge_rail(rng) -> Image.Image:
-    """64x24 horizontal rail — seamless at x=0/64 (tile period 64)."""
+
     w, h = 64, 24
     c = Canvas(w, h)
     body = Mask(w, h)
     body.rrect([0, 5, w - 1, h - 6], 3)
     bm = body.arr()
     gild(c, bm, blur_r=0.8, dist=1)
-    # repeating guilloche: a sine ribbon whose period divides the tile exactly
+
     rib = Mask(w, h)
     period = 16
     for phase in (0.0, math.pi):
@@ -443,7 +419,7 @@ def edge_rail(rng) -> Image.Image:
     rhi, rlo = emboss(rm, 0.6, 1)
     c.paint(GOLD_HI, rhi * 0.85)
     c.paint(GOLD_SHADOW, rlo * 0.75)
-    # studs on the period, centred so x=0 and x=64 land identically
+
     studs = Mask(w, h)
     for i in range(w // period):
         x = period / 2 + i * period
@@ -459,7 +435,7 @@ def edge_rail(rng) -> Image.Image:
 
 
 def plaque(rng) -> Image.Image:
-    """176x56, slice border 20 — blank title board (text is a live sub-slot)."""
+
     w, h = 176, 56
     c = Canvas(w, h)
     outer = Mask(w, h)
@@ -467,16 +443,16 @@ def plaque(rng) -> Image.Image:
     om = outer.arr()
     c.paint(GOLD_SHADOW, blur(om, 2.0) * 0.5)
     gild(c, om, blur_r=1.1, dist=1)
-    # recessed velvet face
+
     face = Mask(w, h)
     face.rrect([9, 11, w - 10, h - 12], 5)
     fm = face.arr()
     field = velvet_field(rng, w, h, tone=rgb(64, 30, 50))
     c.paint(field, fm)
     fhi, flo = emboss(fm, 1.0, 1)
-    c.paint(INK, fhi * 0.75)          # inset: shade on the lit side
+    c.paint(INK, fhi * 0.75)
     c.paint(GOLD_LIGHT, flo * 0.35)
-    # gold bead run along the face rim — uniform along x on the stretched bands
+
     rim = Mask(w, h)
     rim.rring([9, 11, w - 10, h - 12], 5, 1)
     c.paint(GOLD_LIGHT, rim.arr() * 0.8)
@@ -490,11 +466,11 @@ def _button_common(rng, size, border, *, face_lo, face_hi, gold_warm, inset, rim
     outer.rrect([1, 1, w - 2, h - 2], 7)
     om = outer.arr()
     gild(c, om, blur_r=1.0, dist=1, warm=gold_warm)
-    # inner bezel step
+
     step = Mask(w, h)
     step.rring([5, 5, w - 6, h - 6], 5, 2)
     c.paint(GOLD_SHADOW if not rim_gold else GOLD_HI, step.arr() * 0.6)
-    # face
+
     face = Mask(w, h)
     face.rrect([8, 8, w - 9, h - 9], 4)
     fm = face.arr()
@@ -512,7 +488,7 @@ def _button_common(rng, size, border, *, face_lo, face_hi, gold_warm, inset, rim
 
 
 def button(rng, state: str) -> Image.Image:
-    """64x64, slice border 16 — three REAL images, identical content insets."""
+
     cfg = {
         "default": dict(face_lo=rgb(52, 26, 42), face_hi=rgb(86, 44, 66),
                         gold_warm=0.0, inset=False, rim_gold=False),
@@ -523,7 +499,7 @@ def button(rng, state: str) -> Image.Image:
     }[state]
     c, w, h, om = _button_common(rng, 64, 16, **cfg)
     if state == "pressed":
-        # darken the whole slab and drop a cast shadow inside the bezel
+
         c.rgb *= 0.72
         sh = Mask(w, h)
         sh.rrect([8, 8, w - 9, 20], 4)
@@ -536,11 +512,7 @@ def button(rng, state: str) -> Image.Image:
 
 
 def selection(rng, state: str) -> Image.Image:
-    """64x64, slice border 16 — 'selected' is a different construction, not a tint.
 
-    Jewel studs live inside the 16px CORNER regions: the left/right slice bands
-    stretch vertically, so a mid-edge gem would smear (see provenance note).
-    """
     w = h = 64
     c = Canvas(w, h)
     if state == "default":
@@ -553,7 +525,7 @@ def selection(rng, state: str) -> Image.Image:
         c.paint(GOLD_DARK, rim.arr() * 0.65)
         return c.image()
 
-    # selected: raised gilt plate, double rule, emerald-lit field, corner rubies
+
     outer = Mask(w, h)
     outer.rrect([0, 0, w - 1, h - 1], 7)
     om = outer.arr()
@@ -571,7 +543,7 @@ def selection(rng, state: str) -> Image.Image:
     fhi, flo = emboss(fm, 1.0, 1)
     c.paint(INK, fhi * 0.6)
     c.paint(EMERALD_HI, flo * 0.35)
-    # four ruby cabochons, one per slice corner
+
     for cx, cy in ((8, 8), (w - 9, 8), (8, h - 9), (w - 9, h - 9)):
         g = Mask(w, h)
         g.ellipse([cx - 4.2, cy - 4.2, cx + 4.2, cy + 4.2])
@@ -587,7 +559,7 @@ def selection(rng, state: str) -> Image.Image:
 
 
 def field(rng) -> Image.Image:
-    """64x64, slice border 16 — dark inset writing surface."""
+
     w = h = 64
     c = Canvas(w, h)
     outer = Mask(w, h)
@@ -600,7 +572,7 @@ def field(rng) -> Image.Image:
     grad = vgrad(w, h, [(0.0, rgb(18, 12, 16)), (0.45, rgb(30, 20, 28)), (1.0, rgb(38, 26, 34))])
     c.paint(grad, wm)
     whi, wlo = emboss(wm, 1.4, 2)
-    c.paint(INK, whi * 0.95)                 # deep inner shadow at the top-left
+    c.paint(INK, whi * 0.95)
     c.paint(GOLD_LIGHT, wlo * 0.28)
     rim = Mask(w, h)
     rim.rring([6, 6, w - 7, h - 7], 4, 1)
@@ -609,7 +581,7 @@ def field(rng) -> Image.Image:
 
 
 def bar_track(rng) -> Image.Image:
-    """96x28, slice border 12 — carved groove with a gold rim."""
+
     w, h = 96, 28
     c = Canvas(w, h)
     outer = Mask(w, h)
@@ -630,12 +602,7 @@ def bar_track(rng) -> Image.Image:
 
 
 def bar_fill(rng) -> Image.Image:
-    """96x20, slice border 8 — glowing liquid.
 
-    The centre band is X-UNIFORM by construction (every pixel column between the
-    slice borders is identical), which is what makes a stretched / partially
-    revealed fill read correctly at any percent.
-    """
     w, h = 96, 20
     c = Canvas(w, h)
     body = Mask(w, h)
@@ -649,15 +616,15 @@ def bar_fill(rng) -> Image.Image:
         (1.00, rgb(120, 40, 12)),
     ])
     c.paint(grad, bm)
-    # gloss: a horizontal band, uniform along x
+
     gloss = Mask(w, h)
     gloss.rrect([0, 2, w - 1, 6], 2)
     c.paint(AMBER_HI, blur(gloss.arr(), 1.2) * bm * 0.55)
-    # inner glow at the rim, uniform per axis
+
     ring = Mask(w, h)
     ring.rring([0, 0, w - 1, h - 1], 6, 1)
     c.paint(rgb(255, 246, 214), ring.arr() * 0.45)
-    # force exact X-uniformity across the stretched centre: broadcast column w/2
+
     b = 8
     col_rgb = c.rgb[:, w // 2:w // 2 + 1, :]
     col_a = c.a[:, w // 2:w // 2 + 1]
@@ -667,7 +634,7 @@ def bar_fill(rng) -> Image.Image:
 
 
 def bar_cap(rng, side: str) -> Image.Image:
-    """28x36 gold finial; the end cap is the mirrored start cap."""
+
     w, h = 28, 36
     c = Canvas(w, h)
     m = Mask(w, h)
@@ -688,7 +655,7 @@ def bar_cap(rng, side: str) -> Image.Image:
 
 
 def bar_center(rng) -> Image.Image:
-    """36x28 crown centrepiece (whole image)."""
+
     w, h = 36, 28
     c = Canvas(w, h)
     m = Mask(w, h)
@@ -708,7 +675,7 @@ def bar_center(rng) -> Image.Image:
 
 
 def toggle_track(rng, state: str) -> Image.Image:
-    """72x32, slice border 14 — two-tone carved channel."""
+
     w, h = 72, 32
     c = Canvas(w, h)
     outer = Mask(w, h)
@@ -734,7 +701,7 @@ def toggle_track(rng, state: str) -> Image.Image:
 
 
 def toggle_knob(rng, state: str) -> Image.Image:
-    """28x28 jewelled disc (whole image)."""
+
     s = 28
     c = Canvas(s, s)
     ring = Mask(s, s)
@@ -759,7 +726,7 @@ def toggle_knob(rng, state: str) -> Image.Image:
 
 
 def stepper_plate(rng, state: str) -> Image.Image:
-    """40x40, slice border 12 — glyph plate behind a stepper icon."""
+
     w = h = 40
     c = Canvas(w, h)
     outer = Mask(w, h)
@@ -786,7 +753,7 @@ ICON_WHITE = rgb(240, 240, 242)
 
 
 def icon(name: str) -> Image.Image:
-    """32x32 near-white glyph on transparency (R4: tint comes from the role)."""
+
     s = 32
     m = Mask(s, s)
     if name == "chevron_right":
@@ -833,11 +800,11 @@ def icon(name: str) -> Image.Image:
 
 
 def velvet_tile(rng) -> Image.Image:
-    """64x64 seamless damask tile for a `tile` layer (period 64x64)."""
+
     w = h = 64
     c = Canvas(w, h)
     base = velvet_field(rng, w, h)
-    # make the base seamless by cross-fading with its own wrapped copy
+
     ax = (np.cos(np.linspace(0, 2 * math.pi, w, endpoint=False)) * 0.5 + 0.5)[None, :, None]
     ay = (np.cos(np.linspace(0, 2 * math.pi, h, endpoint=False)) * 0.5 + 0.5)[:, None, None]
     base = base * (ax * ay) + np.roll(np.roll(base, w // 2, 1), h // 2, 0) * (1 - ax * ay)
@@ -851,12 +818,12 @@ def velvet_tile(rng) -> Image.Image:
     return c.image()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 def main() -> None:
     def r(k):
         return np.random.default_rng(SEED + k)
 
-    # (filename, image, slice border or None, preview sizes)
+
     items = []
     items.append(("ornate_panel_fill.png", panel_fill(r(1)), 32, [(180, 110), (320, 200), (460, 130)]))
     items.append(("ornate_panel_frame.png", panel_frame(r(2)), 40, [(180, 140), (330, 210), (470, 150)]))
@@ -865,8 +832,8 @@ def main() -> None:
     items.append(("ornate_corner_tr.png", tl.transpose(Image.FLIP_LEFT_RIGHT), None, None))
     items.append(("ornate_corner_bl.png", tl.transpose(Image.FLIP_TOP_BOTTOM), None, None))
     items.append(("ornate_corner_br.png", tl.transpose(Image.ROTATE_180), None, None))
-    # rail is a TILE asset (period 64x24) — nine-slicing it stretches the studs,
-    # so the package declares tileSize, never a slice border.
+
+
     items.append(("ornate_edge_rail.png", edge_rail(r(4)), None, None))
     items.append(("ornate_plaque.png", plaque(r(5)), 20, [(140, 56), (240, 56), (380, 56)]))
     for i, st in enumerate(("default", "hover", "pressed")):
@@ -895,7 +862,7 @@ def main() -> None:
         b = f"slice {border}" if border else "whole image"
         print(f"wrote {path}  ({img.width}x{img.height}, {b})")
 
-    # ── contact sheet ────────────────────────────────────────────────────────
+
     sheet = Sheet("fantasy-ornate — nine-slice stretch test + whole-image assets")
     by = {n: (i, b, p) for n, i, b, p in items}
 
@@ -914,7 +881,7 @@ def main() -> None:
     row("panel frame (160x160 b40) stretched — corners must stay crisp", ["ornate_panel_frame.png"])
     row("corner ornaments tl / tr / bl / br (48x48 whole)",
         ["ornate_corner_tl.png", "ornate_corner_tr.png", "ornate_corner_bl.png", "ornate_corner_br.png"])
-    # rail tiled, the way a package uses it
+
     rail = by["ornate_edge_rail.png"][0]
     tiled = Image.new("RGBA", (384, 24), (0, 0, 0, 0))
     for i in range(6):
@@ -930,7 +897,7 @@ def main() -> None:
     row("field (64x64 b16) stretched", ["ornate_field.png"])
     row("bar track (96x28 b12) stretched", ["ornate_bar_track.png"])
     row("bar fill (96x20 b8) stretched 40 / 140 / 300 px", ["ornate_bar_fill.png"])
-    # an assembled bar at three percents
+
     trk = by["ornate_bar_track.png"][0]
     fil = by["ornate_bar_fill.png"][0]
     cap_s = by["ornate_bar_cap_start.png"][0]

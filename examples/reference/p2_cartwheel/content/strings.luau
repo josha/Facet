@@ -1,21 +1,11 @@
 --!strict
--- Cartwheel's copy, keyed by locale (build-decisions.md: "All strings route
--- through the proof's own content/strings.luau table keyed by locale (`en`, `xa`
--- pseudo-expansion >= 1.4x); locale comes from `ctx.locale` or the env fact").
---
--- `xa` IS DERIVED, NOT TYPED. A hand-written pseudo-locale drifts the moment a
--- key is added, and the thing it has to guarantee is a MEASUREMENT — that every
--- string is at least 1.4x its English length — which a generator can promise and
--- a human cannot. `pseudo()` brackets the value and pads it with ASCII, so the
--- expansion is exact, the `{placeholder}` spans survive untouched, and the
--- padding measures the same way in every font the measurer knows (a Latin-1
--- pseudo-locale would have made the width test a font-coverage test as well).
+
 local strings = {}
 
 strings.EXPANSION = 1.4
 
 local en: { [string]: string } = {
-	-- shell + sections
+
 	["app.title"] = "Cartwheel",
 	["nav.cart"] = "The Cart",
 	["nav.brews"] = "Brews",
@@ -31,7 +21,6 @@ local en: { [string]: string } = {
 	["nav.back"] = "Back",
 	["nav.menu"] = "Sections",
 
-	-- dashboard
 	["cart.title"] = "The Cart",
 	["cart.newBrews"] = "New Brews",
 	["cart.openBrews"] = "Open Brews",
@@ -46,7 +35,6 @@ local en: { [string]: string } = {
 	["cart.lanternOut"] = "Lantern-out",
 	["cart.skyCharge"] = "Sky charge",
 
-	-- brews
 	["brews.title"] = "Brews",
 	["brews.search"] = "Search brews",
 	["brews.open"] = "Open",
@@ -63,13 +51,11 @@ local en: { [string]: string } = {
 	["brews.colActions"] = "Actions",
 	["brews.rowLabel"] = "Brew #{id}",
 
-	-- statuses
 	["status.new"] = "New",
 	["status.brewing"] = "Brewing",
 	["status.ready"] = "Ready",
 	["status.done"] = "Done",
 
-	-- brew detail
 	["detail.title"] = "Brew #{id}",
 	["detail.started"] = "Started {time}",
 	["detail.placed"] = "Placed {time}",
@@ -83,12 +69,10 @@ local en: { [string]: string } = {
 	["detail.countdown"] = "{clock} left",
 	["detail.working"] = "Working…",
 
-	-- celebration
 	["celebrate.title"] = "Brew #{id} collected!",
 	["celebrate.detail"] = "{bottles} bottles · {time}",
 	["celebrate.done"] = "Done",
 
-	-- potions gallery
 	["gallery.title"] = "Potions",
 	["gallery.search"] = "Search potions",
 	["gallery.layout"] = "Layout",
@@ -103,7 +87,6 @@ local en: { [string]: string } = {
 	["gallery.colStrongest"] = "Strongest",
 	["gallery.empty"] = "No potions match that search.",
 
-	-- timeframes
 	["time.today"] = "Today",
 	["time.week"] = "Week",
 	["time.month"] = "Month",
@@ -111,7 +94,6 @@ local en: { [string]: string } = {
 	["time.day"] = "Day",
 	["time.twoWeeks"] = "2 Weeks",
 
-	-- workbench
 	["bench.title"] = "Workbench",
 	["bench.live"] = "Changes apply as you brew.",
 	["bench.draft"] = "Draft potion — edits apply live",
@@ -125,7 +107,6 @@ local en: { [string]: string } = {
 	["bench.none"] = "None",
 	["bench.preview"] = "Preview",
 
-	-- attributes
 	["attr.spark"] = "Spark",
 	["attr.bloom"] = "Bloom",
 	["attr.frost"] = "Frost",
@@ -133,11 +114,9 @@ local en: { [string]: string } = {
 	["attr.murk"] = "Murk",
 	["attr.zing"] = "Zing",
 
-	-- top five
 	["top.title"] = "Top Five",
 	["top.totalBottles"] = "Total bottles",
 
-	-- chatter
 	["chatter.title"] = "Town Chatter",
 	["chatter.plusTitle"] = "Chatter+",
 	["chatter.getTitle"] = "Get Chatter+",
@@ -155,7 +134,6 @@ local en: { [string]: string } = {
 	["chatter.postSaid"] = "{who} on {potion}",
 	["chatter.ago"] = "{ago} ago",
 
-	-- ledger
 	["ledger.title"] = "The Ledger",
 	["ledger.locked"] = "Premium — Full Ledger",
 	["ledger.unlockTitle"] = "Unlock the Full Ledger",
@@ -166,7 +144,6 @@ local en: { [string]: string } = {
 	["ledger.lockedOption"] = "{name} (locked)",
 	["ledger.legend"] = "Plazas",
 
-	-- plaza
 	["plaza.recommended"] = "Recommended · Pitch",
 	["plaza.fallback"] = "Live view unavailable on this device.",
 	["plaza.popular"] = "Popular",
@@ -176,7 +153,6 @@ local en: { [string]: string } = {
 	["plaza.seasonal"] = "Seasonal: {potion} is pouring well here.",
 	["plaza.stock"] = "Stock {bottles} bottles before the lantern hour.",
 
-	-- guild card
 	["guild.title"] = "Guild Card",
 	["guild.note"] = "A UI exercise — Roblox identity is ambient; nothing is stored.",
 	["guild.name"] = "Guild name",
@@ -191,7 +167,6 @@ local en: { [string]: string } = {
 	["guild.signOutConfirm"] = "Sign out of the guild?",
 	["guild.signOutBody"] = "Nothing is stored either way.",
 
-	-- commands + rejections
 	["reject.collected"] = "Brew already collected",
 	["reject.purchase"] = "Purchase declined — nothing was charged",
 	["reject.guildTaken"] = "That guild name is taken",
@@ -199,8 +174,6 @@ local en: { [string]: string } = {
 	["command.working"] = "Working…",
 }
 
--- pseudo(value) -> the `xa` form. Bracketed so a clipped string is visible at a
--- glance, padded to at least EXPANSION x the source length, placeholders intact.
 local function pseudo(value: string): string
 	local pad = math.max(1, math.ceil(#value * (strings.EXPANSION - 1)) + 2)
 	return "[" .. value .. string.rep("~", pad - 2) .. "]"
@@ -214,8 +187,6 @@ end
 strings.locales = table.freeze({ en = table.freeze(en), xa = table.freeze(xa) })
 strings.pseudo = pseudo
 
--- format("{a} of {b}", { a = "…", b = "…" }). The one substitution rule; an
--- unfilled placeholder stays visible rather than becoming an empty gap.
 function strings.format(template: string, vars: { [string]: any }?): string
 	if vars == nil then
 		return template
@@ -228,9 +199,6 @@ function strings.format(template: string, vars: { [string]: any }?): string
 	)
 end
 
--- new(locale) -> { locale, t(key, vars?) }. An unknown locale falls back to
--- `en`, and an unknown KEY answers the key itself: a missing string must be
--- visible in a capture, never an empty box.
 function strings.new(locale: string?): any
 	local name = if locale ~= nil and (strings.locales :: any)[locale] ~= nil then locale else "en"
 	local table_ = (strings.locales :: any)[name]
@@ -248,9 +216,6 @@ function strings.new(locale: string?): any
 	return self
 end
 
--- ---- the proof's own tiny i18n (Facet ships no date/number formatter) ------
-
--- minutes since midnight -> "4:02 PM"
 function strings.clockTime(minutes: number): string
 	local m = math.floor(minutes) % (24 * 60)
 	local hour24 = math.floor(m / 60)
@@ -263,13 +228,11 @@ function strings.clockTime(minutes: number): string
 	return string.format("%d:%02d %s", hour, minute, suffix)
 end
 
--- seconds -> "M:SS", the one time form every countdown in this proof wears
 function strings.countdown(seconds: number): string
 	local whole = math.max(0, math.floor(seconds))
 	return string.format("%d:%02d", math.floor(whole / 60), whole % 60)
 end
 
--- minutes -> "4m" / "2h" / "3d", the relative-time column
 function strings.relative(minutes: number): string
 	if minutes < 60 then
 		return string.format("%dm", math.max(1, math.floor(minutes)))

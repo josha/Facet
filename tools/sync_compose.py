@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize the exact Compose pin. The snapshot is tracked, generated and read-only."""
+CLI_HELP = """Materialize the exact Compose pin. The snapshot is tracked, generated and read-only."""
 import argparse
 import hashlib
 import io
@@ -14,21 +14,21 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 DEST = ROOT / "src/vendor/compose"
 PIN = DEST / "UPSTREAM.lock"
-# Upstream agent skill and API reference, kept beside Facet's own skill.
+
 DOCS_SOURCE = ".agents/skills/compose"
 DOCS_DEST = ROOT / "skills/compose"
 
-# THE LOCK FILE IS INPUT, NOT AUTHORITY OVER THE COMMAND LINE. Both values below
-# are interpolated into `git` invocations, so their SHAPE is checked before they
-# are used: a `commit` that is anything but a full object name, or a
-# `repository` that is anything but an https GitHub URL, is a tampered lock and
-# is refused by name rather than handed to git to interpret.
+
+
+
+
+
 COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 REPOSITORY = re.compile(r"\Ahttps://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+(?:\.git)?\Z")
 
 
 def checked_pin(pin):
-    """The lock's two command-line values, validated. Returns (repository, commit)."""
+
     commit = pin.get("commit")
     repository = pin.get("repository")
     if not isinstance(commit, str) or not COMMIT.match(commit):
@@ -49,16 +49,9 @@ def git(repository, *args):
 
 
 def safe_member_name(name):
-    """A tar member name this script may turn into a path under DEST/DOCS_DEST.
 
-    The archive is read in memory and only regular files are taken, but the
-    member NAME is still used to build a write path — so an absolute member, a
-    drive-qualified one, or any `..` segment is refused outright rather than
-    normalized. A tampered archive that carries one is a finding, not something
-    to repair quietly.
-    """
-    # a backslash is a separator on the other platform this could be unpacked on,
-    # so the traversal test is applied to BOTH readings of the name
+
+
     probe = name.replace("\\", "/")
     if probe.startswith("/") or ":" in probe.split("/")[0]:
         raise SystemExit(f"Compose: archive member {name!r} is an absolute path; refusing")
@@ -69,7 +62,7 @@ def safe_member_name(name):
 
 def materialize(repository, pin):
     _url, pinned = checked_pin(pin)
-    # `--` before the revision: the lock's value can never be read as a pathspec.
+
     commit = git(repository, "rev-parse", "--verify", "--end-of-options", pinned + "^{commit}")
     commit = commit.decode().strip()
     if commit != pinned:
@@ -78,8 +71,8 @@ def materialize(repository, pin):
     files, docs = {}, {}
     with tarfile.open(fileobj=io.BytesIO(archive)) as source:
         for entry in source:
-            # symlinks, hardlinks, devices and directories are not files: only a
-            # regular file's bytes are ever read, and only after its name is cleared
+
+
             if not entry.isfile():
                 continue
             name = safe_member_name(entry.name)
@@ -121,13 +114,13 @@ def verify(pin):
 
 
 def fetch_repository(source, scratch, url, commit):
-    """A repository that holds `commit`: the caller's checkout, or a shallow fetch."""
+
     if source is not None:
         return source
     repository = Path(scratch) / "repository"
     subprocess.run(["git", "init", "--quiet", "--", str(repository)], check=True)
-    # `--` before the lock's own two values: a repository or a commit that
-    # began with `-` could otherwise be read as an option to `git fetch`.
+
+
     git(repository, "fetch", "--depth=1", "--", url, commit)
     return repository
 
@@ -148,8 +141,8 @@ def write_snapshot(files, docs):
         path = DEST / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-    # Rojo emits empty directories as Folder instances, so retired dependency
-    # directories must disappear too, even when their files were already removed.
+
+
     for directory in sorted((p for p in DEST.rglob("*") if p.is_dir()),
                             key=lambda p: len(p.parts), reverse=True):
         if not any(directory.iterdir()):
@@ -161,13 +154,7 @@ def inventory(entries):
 
 
 def bump(pin, commit, source):
-    """Move the pin to `commit`: the commit name, the hash inventory and the files
-    change TOGETHER, from one archive.
 
-    `--check` compares the files with the lock's inventory. It does not, and
-    offline cannot, ask whether that inventory came from the commit the lock names.
-    An edit to `commit` alone therefore still verifies, against the old files. This
-    is the only supported way to change the pin."""
     if not COMMIT.match(commit):
         raise SystemExit(f"Compose: --bump takes a full 40-character commit, not {commit!r}")
     previous = pin["commit"]
@@ -184,8 +171,8 @@ def bump(pin, commit, source):
     print(f"Compose: bumped {previous[:12]} -> {commit[:12]}; {len(changed)} snapshot file(s) changed")
     for name in changed:
         print("  " + name)
-    # The pin is also written down for readers. Those copies are prose, so they are
-    # named here rather than rewritten.
+
+
     stale = []
     for path in (ROOT / "THIRD_PARTY_NOTICES.md", ROOT / "docs/reference/api.md", DEST / "README.md"):
         if path.is_file() and previous in path.read_text():
@@ -196,7 +183,7 @@ def bump(pin, commit, source):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=CLI_HELP)
     parser.add_argument("--source", type=Path, help="local Git repository containing the pinned commit")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--bump", metavar="COMMIT", help="move the pin to this full commit and re-materialize")

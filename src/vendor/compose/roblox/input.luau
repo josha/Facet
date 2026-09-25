@@ -12,9 +12,8 @@ local function preferredInput(inputService: any?, engine: Engine.Engine?): Compo
 		local globals = (getfenv and getfenv(0) or {}) :: { [string]: any }
 		resolvedService = globals.game:GetService "UserInputService"
 	end
-	local value = (Compose.cell(PreferredInput.specOf(resolvedService.PreferredInput).class) :: any) :: Compose.Cell<
-		PreferredInput.Class
-	>
+	local initial: PreferredInput.Class = PreferredInput.specOf(resolvedService.PreferredInput).class
+	local value: Compose.Cell<PreferredInput.Class> = Compose.cell(initial)
 	local connection = resolvedEngine.propertyChanged(resolvedService, "PreferredInput"):Connect(function()
 		value:set(PreferredInput.specOf(resolvedService.PreferredInput).class)
 	end)

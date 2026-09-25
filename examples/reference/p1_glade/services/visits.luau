@@ -1,10 +1,4 @@
 --!strict
--- VisitScheduler — seeded past / current / future visit windows, with
--- `currentVisitor` and `needsPresent` derived (responsibility ledger, P1 row 3).
--- Production would be a server sim plus a DataStore, with tier-gated content
--- driven by an entitlement fact — which is exactly the shape the Lumen early
--- arrival takes here: the window's start is READ from the charm tier, so the
--- gate is data, never a branch in the view.
 
 local seedData = require("../content/seed")
 
@@ -13,25 +7,21 @@ local visits = {}
 export type Opts = {
 	Compose: any,
 	rooted: (() -> any) -> any,
-	now: any, -- Readable<number>
-	charmTier: any, -- Readable<string>
+	now: any,
+	charmTier: any,
 }
 
 function visits.new(opts: Opts): any
 	local Compose = opts.Compose
-	-- a cached formula outlives the row that first asks for it
+
 	local rooted = opts.rooted
 	local now = opts.now
 	local charmTier = opts.charmTier
 
-	-- which visits have already had their arrival ceremony played. Presentation
-	-- state, not world state: it never replicates and it resets with the world.
 	local presented: { [string]: boolean } = {}
 
 	local service = {}
 
-	-- the effective start of a window. A Lumen keeper sees `earlyStart`; anyone
-	-- else waits for `start`.
 	local function startOf(visit: any, tier: string): number
 		if visit.earlyStart ~= nil and tier == "lumen" then
 			return visit.earlyStart
@@ -65,7 +55,6 @@ function visits.new(opts: Opts): any
 		return memo
 	end
 
-	-- past visits, most recent first — the S2 "Recent visitors" list
 	function service.recent(gladeId: string): any
 		local memo = recentByGlade[gladeId]
 		if memo == nil then
@@ -82,7 +71,7 @@ function visits.new(opts: Opts): any
 							)
 						end
 					end
-					-- a current visit counts as seen, at its start
+
 					local live = use(service.current(gladeId))
 					if live ~= nil then
 						table.insert(out, { id = live.id, wisp = live.wisp, glade = live.glade, finish = live.start })
@@ -102,7 +91,6 @@ function visits.new(opts: Opts): any
 		return memo
 	end
 
-	-- every glade with a visitor right now — the search suggestions' source
 	local currentAll = Compose.formula(function(use)
 		local at = use(now)
 		local tier = use(charmTier)
@@ -120,7 +108,6 @@ function visits.new(opts: Opts): any
 		return currentAll
 	end
 
-	-- when was this wisp last seen, and where (S6's "Last seen {when} in {glade}")
 	function service.lastSeen(wispId: string): any?
 		local at = now:peek()
 		local tier = charmTier:peek()
@@ -137,7 +124,6 @@ function visits.new(opts: Opts): any
 		return best
 	end
 
-	-- the arrival ceremony's gate: a current visit whose fly-in has not run yet.
 	function service.needsPresent(gladeId: string): any?
 		local live = service.current(gladeId):peek()
 		if live == nil or presented[live.id] then
