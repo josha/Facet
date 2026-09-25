@@ -556,3 +556,36 @@ t.describe("collection status seed", function()
 		end
 	end)
 end)
+
+t.describe("bounded text buttons", function()
+	t.it(
+		"a text Button or Toggle with an authored width wraps inside it; any text button truncates at its box",
+		function()
+			local w = world(function(UI, Host, engine)
+				local engineEnum = engine.types.Enum
+				local w0Enum = engineEnum.AutomaticSize
+				return Host.Frame {
+					Size = UDim2.fromOffset(180, 400),
+					UI.Toggle "Long" {
+						value = Compose.cell(false),
+						label = "Allow friends to join my race from the lobby",
+						Size = UDim2.fromScale(1, 0),
+					},
+					UI.Button "Cell" {
+						label = "A very long button label",
+						Size = UDim2.fromOffset(80, 44),
+						AutomaticSize = w0Enum.None,
+					},
+					UI.Button "Hug" { label = "Go" },
+				}
+			end)
+			local long, cell, hug = find(w.screen, "Long"), find(w.screen, "Cell"), find(w.screen, "Hug")
+			expect(long.TextWrapped).toBe(true)
+			expect(long.AutomaticSize.Name).toBe("Y")
+			expect(cell.TextTruncate.Name).toBe("AtEnd")
+			expect(cell.AutomaticSize.Name).toBe("None")
+			expect(hug.AutomaticSize.Name).toBe("XY")
+			w.stop()
+		end
+	)
+end)

@@ -498,6 +498,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			Size = if dynamic(ctx.config.theme) or dynamic(spec.controlSize) then controlSize else controlSize(),
 			AutomaticSize = E.AutomaticSize.XY,
 		}
+		if not rich then
+			defaults.TextTruncate = E.TextTruncate.AtEnd
+			local authored = spec.Size
+			if
+				typeof(authored) == "UDim2"
+				and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
+				and spec.AutomaticSize == nil
+			then
+				defaults.AutomaticSize = E.AutomaticSize.Y
+				defaults.TextWrapped = true
+			end
+		end
 		if enabledProperty ~= true then
 			defaults.Selectable = enabledProperty
 			defaults.Interactable = enabledProperty
