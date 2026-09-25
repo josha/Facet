@@ -1011,6 +1011,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(selector .. " > .facet-icon", { ImageColor3 = c(ink) })
 	end
 	rule(".facet-card-ring", { BackgroundColor3 = c("accent") })
+	rule(".facet-focus-ring", { BackgroundColor3 = c("accent") })
+	rule(".facet-focus-ring::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
 	rule(".facet-avatar-ring", { Color = c("accent"), Transparency = 0 })
 	rule(".facet-avatar-ring-gap", { Color = c("surface"), Transparency = 0 })
 	rule(".facet-quiet-destructive", { TextColor3 = c("danger") })

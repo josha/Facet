@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `app.mount` into a PlayerGui replaces the engine selection glow with one theme focus ring (`PlayerGui.SelectionImageObject`): a thin inner `accent` stroke with the control corner, thicker on a `Large` display, shown only after keyboard or gamepad input. Before, a pointer-opened menu row showed the thick engine glow on top of its own highlight.
 - A `utility` or `link` Button takes no `control` chrome art. Before, a skinned theme (Pixel Quest, Fantasy) painted a full plate on every utility row, link and outline DisclosureGroup header.
 - A skin that paints its own caption (a plaque) hides only its own button caption. Before, the rule matched every button caption inside the skinned surface, so a Fantasy Ornate Sheet showed its action, Done and Toggle labels as empty plates.
 - A text Button whose width follows its label no longer truncates it. With `TextTruncate` on such a width, the engine measured the truncated label and alternated between two widths every frame; in a skinned theme a long segmented Picker label raised hundreds of "Maximum event re-entrancy" errors. A bounded width still truncates.

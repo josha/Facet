@@ -678,3 +678,44 @@ t.describe("plate-less appearances in skinned themes", function()
 		w.stop()
 	end)
 end)
+
+t.describe("the focus ring", function()
+	t.it("an app gives its PlayerGui one theme ring for engine selection, shown only for keys and pads", function()
+		local engine: any = engines.new()
+		local E = engine.types.Enum
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local input = engine.new("UserInputService")
+		input.GetFocusedTextBox = function()
+			return nil
+		end
+		local gui = engine.new("GuiService")
+		local playerGui = engine.new("PlayerGui")
+		local app = Facet.app({
+			runtime = runtime,
+			types = engine.types,
+			parent = playerGui,
+			services = { UserInputService = input, GuiService = gui },
+		})
+		local stop = app.mount(function()
+			return app.UI.Button { label = "Go" }
+		end)
+		local ring = playerGui.SelectionImageObject
+		expect(ring ~= nil).toBe(true)
+		expect(ring.Parent).toBeNil()
+		local stroke = ring:FindFirstChildWhichIsA("UIStroke")
+		expect(stroke.BorderStrokePosition).toBe(E.BorderStrokePosition.Inner)
+		expect(ring:FindFirstChildWhichIsA("UICorner") ~= nil).toBe(true)
+		input.InputBegan.fire({ UserInputType = E.UserInputType.MouseButton1, KeyCode = E.KeyCode.Unknown })
+		expect(stroke.Transparency).toBe(1)
+		input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.Tab })
+		expect(stroke.Transparency).toBe(0)
+		input.InputBegan.fire({ UserInputType = E.UserInputType.Touch, KeyCode = E.KeyCode.Unknown })
+		expect(stroke.Transparency).toBe(1)
+		input.InputBegan.fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown })
+		expect(stroke.Transparency).toBe(0)
+		stop()
+		expect(playerGui.SelectionImageObject).toBeNil()
+		app.dispose()
+		runtime:dispose()
+	end)
+end)
