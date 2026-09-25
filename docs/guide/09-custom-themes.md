@@ -56,8 +56,8 @@ Each palette has `name`, `colors` and `extra`.
   `appearance = "inverse"`. Without them they are `contentStrong` and
   `surface`.
   `tableHeader`, `tableRow` and `tableRowAlternate` paint the Table header
-  band, rows and alternate rows. Without them they are `control`, `surface`
-  and `surfaceStrong`.
+  band, rows and alternate rows. Without them they are `control`, `control`
+  and `controlHover`.
 - `dimDisabledPlates = true` fades the plate of a disabled control with its
   text, by `disabledContentOpacity`. Without it only the text dims.
   `strongHairlineOpacity` sets how visible `facet-divider-strong` is.

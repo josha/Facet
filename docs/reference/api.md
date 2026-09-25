@@ -2521,7 +2521,10 @@ Sizes:
 The header band and each row paint a background through the theme tags
 `facet-tablehead` and `facet-tablerow`. `alternatingRows = true` also tags
 every second row `facet-tablerow-alternate`. The palette roles are
-`tableHeader`, `tableRow` and `tableRowAlternate`.
+`tableHeader`, `tableRow` and `tableRowAlternate`. Each row has a hairline
+`Divider` at its bottom edge (tags `facet-divider` and
+`facet-divider-strong`). Each heading is a standard Button, so a skinned theme
+paints its `control` art on it.
 
 `header = false` removes the header band. `scrolls = false` mounts all rows and
 sizes the table to its content. Otherwise, `mode` selects the Compose windowed
@@ -2821,8 +2824,8 @@ as before:
   `appearance = "inverse"`. Without them they are `contentStrong` and
   `surface`.
 - `tableHeader`, `tableRow` and `tableRowAlternate`: the Table header band,
-  its rows and its alternate rows. Without them they are `control`, `surface`
-  and `surfaceStrong`.
+  its rows and its alternate rows. Without them they are `control`, `control`
+  and `controlHover`.
 - `dimDisabledPlates = true`: a disabled Button fades its plate toward
   `surface` by `disabledContentOpacity`, in addition to its text. This applies
   to the standard, selected, emphasis, soft, inverse and destructive plates and

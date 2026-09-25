@@ -584,8 +584,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		inverseSurface = "contentStrong",
 		onInverse = "surface",
 		tableHeader = "control",
-		tableRow = "surface",
-		tableRowAlternate = "surfaceStrong",
+		tableRow = "control",
+		tableRowAlternate = "controlHover",
 	}
 	local function source(role: string): ThemeTypes.RGB?
 		local value = (colors[role] or extra[role]) :: ThemeTypes.RGB?

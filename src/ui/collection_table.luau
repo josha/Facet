@@ -362,7 +362,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Name = "Sort",
 					Size = D2.fromScale(1, 1),
 					AutomaticSize = E.AutomaticSize.None,
-					appearance = "utility",
 					TextXAlignment = E.TextXAlignment.Left,
 					label = function(use: ComposeTypes.Use): string
 						local value, order = use(current), readSource(sort, use)
@@ -640,6 +639,20 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Name = "DisclosingRow",
 					Size = D2.fromScale(1, 1),
 					cellRow :: ComposeTypes.Child,
+					ctx.styled(
+						ctx.styled(
+							Host.Frame({
+								Name = "Divider",
+								AnchorPoint = V2.new(0, 1),
+								Position = D2.fromScale(0, 1),
+								Size = function(use: ComposeTypes.Use)
+									return D2.new(1, 0, 0, ctx.metric("strokes.hairline", use))
+								end,
+							}),
+							"divider"
+						),
+						"divider-strong"
+					),
 					Compose.show(function(use: ComposeTypes.Use)
 						return use(disclosureWidth) > 0
 					end, function()
