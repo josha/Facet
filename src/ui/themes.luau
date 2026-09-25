@@ -657,6 +657,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	end
 	rule(".facet-validation", { TextColor3 = c("danger"), TextSize = package.metrics.typography.caption.size })
 	rule(".facet-secondary", { TextColor3 = c("contentSecondary") })
+	rule("TextBox.facet-text", { PlaceholderColor3 = c("contentSecondary") })
 	rule(".facet-accent-text", { TextColor3 = c("accent") })
 	rule(".facet-strong", { TextColor3 = c("contentStrong") })
 	for _, role in

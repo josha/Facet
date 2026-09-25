@@ -1631,7 +1631,7 @@ t.describe("native paint strength: theme sheets", function()
 			end
 		end
 		table.sort(pinned)
-		t.expect(hashed).toBe(9)
+		t.expect(hashed).toBe(14)
 		t.expect(table.concat(pinned, " ")).toBe(
 			"compact-pointer/Aqua=content fantasy-ornate/Crypt=content fantasy-ornate/Grand Hall=content "
 				.. "glossy-touch/Sky=onSelected pixel-quest/Quest=onSelected"
@@ -1719,6 +1719,53 @@ t.describe("native paint strength: theme sheets", function()
 		local weak = themes.neutralPackage()
 		weak.style.themes[1].colors.accent = { r = 0.1, g = 0.1, b = 0.13 }
 		t.expect(contrast(weak.style.themes[1].colors.accent, weak.style.themes[1].colors.surface) < 3).toBe(true)
+		h.dispose()
+	end)
+
+	t.it("paints every text field placeholder with contentSecondary, readable on the field plate", function()
+		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
+		local h = harness()
+		local root, stopProbes = mount(h, function()
+			return h.Host.Frame({
+				h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Search" },
+				h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
+			})
+		end)
+		local boxes = {}
+		for _, node in root:GetDescendants() do
+			if node.ClassName == "TextBox" then
+				table.insert(boxes, node)
+			end
+		end
+		t.expect(#boxes).toBe(2)
+		local entries = { { id = "neutral", package = themes.neutralPackage() } }
+		for _, name in SHIPPED do
+			table.insert(entries, { id = name, package = (shipped(name)) })
+		end
+		local sampled, unreadable = 0, {}
+		for _, entry in entries do
+			local art = (samples[(string.gsub(entry.id, "_", "-"))] or {}).field
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local secondary = extra.contentSecondary or colors.contentSecondary
+				local plate = if art then { r = art.r / 255, g = art.g / 255, b = art.b / 255 } else extra.control
+				if art then
+					sampled += 1
+				end
+				local sheet, stop = sheetFor(h, entry.package, { theme = palette.name })
+				for _, box in boxes do
+					t.expect(resolve(sheet, box, "PlaceholderColor3")).toBe(color(h.engine, secondary))
+				end
+				if contrast(secondary, plate) < 3 then
+					table.insert(unreadable, `{entry.id}/{palette.name}`)
+					t.expect(contrast(colors.content, plate) < 3).toBe(true)
+				end
+				stop()
+			end
+		end
+		t.expect(sampled).toBe(7)
+		t.expect(table.concat(unreadable, " ")).toBe("fantasy_parchment/Candlelight")
+		stopProbes()
 		h.dispose()
 	end)
 

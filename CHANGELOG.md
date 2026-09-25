@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A text field placeholder takes the theme's `contentSecondary` colour. Before, it kept the engine's grey, which almost vanished on a light skinned field (Fantasy Parchment).
 - The TextInput clear button shows the `close` icon with the accessible name "Clear" on a plate-less `utility` Button. Before, it showed the word "Clear" truncated to "C…" in its 44 px box.
 - The floating Menu fades through a `MenuGroup` CanvasGroup the size of the panel, around the new `MenuScroll` ScrollingFrame; `MenuPanel` is now a Frame (the plate, with its shadow outside the group). Before, the group wrapped every row inside the scroller, so a long list (the DateTimePicker year menu) grew a group taller than the engine renders sharply and the row text blurred.
 - The DateTimePicker calendar icon `Open` sits inside the field at its trailing edge again: a 44 pixel square that shares the field's corners, and the field clips the `Show` and `Open` highlights. Before, `Open` was a separate round button inset from the end of the field.

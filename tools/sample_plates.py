@@ -32,31 +32,31 @@ TARGETS = [
         "fantasy-ornate",
         "fantasy_ornate",
         "fantasy-ornate",
-        {"selected": "ornate_selection_selected", "control": "ornate_button_default"},
+        {"selected": "ornate_selection_selected", "control": "ornate_button_default", "field": "ornate_field"},
     ),
     (
         "glossy-touch",
         "glossy_touch",
         "glossy-touch",
-        {"selected": "glossy_selection_selected", "control": "glossy_button_default"},
+        {"selected": "glossy_selection_selected", "control": "glossy_button_default", "field": "glossy_field"},
     ),
     (
         "pixel-quest",
         "pixel_quest",
         "pixel-quest",
-        {"selected": "pixel_plate_default", "control": "pixel_plate_default"},
+        {"selected": "pixel_plate_default", "control": "pixel_plate_default", "field": "pixel_field"},
     ),
     (
         "compact-pointer",
         "compact_pointer",
         "compact-pointer",
-        {"selected": "compact_button_hover", "control": "compact_button_default"},
+        {"selected": "compact_button_hover", "control": "compact_button_default", "field": "compact_field"},
     ),
     (
         "fantasy-parchment",
         "fantasy_parchment",
         "fantasy-parchment",
-        {"control": "parchment_button"},
+        {"control": "parchment_button", "field": "parchment_field"},
     ),
 ]
 
