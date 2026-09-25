@@ -635,9 +635,13 @@ Presentation options:
   transparent hit target never covers the content beneath it.
   A destructive or `emphasis` Button keeps its role on skinned art. When the
   label (`onDanger` or `onAccent`) is lighter than the fill (`danger` or
-  `accent`), the art is tinted with the fill. Otherwise the art is hidden and
-  the flat fill paints, so the label always meets its palette contrast. Skin
-  images have the `facet-skin-art` tag.
+  `accent`), the art is tinted with the fill. When `onAccent` is darker than
+  `accent` in any palette and the `control` slot has `selected` art, every
+  `emphasis` plate of that package shows the selected art with an
+  `onSelected` label instead (Pixel Quest, Fantasy Ornate, Fantasy Parchment).
+  Only a package without selected art falls back to the flat fill, so the
+  label always meets its palette contrast. Skin images have the
+  `facet-skin-art` tag.
 - `controlSize`: `xsmall`, `compact`, `regular` or `large`. `xsmall` is one
   step below `compact` unless the theme package declares
   `metrics.controlSizes.xsmall`. With the neutral values it is 28 pixels high,

@@ -996,7 +996,35 @@ t.describe("native paint strength: skins", function()
 						local node, tint = find(root, button), colors[pair[1]]
 						local plateArt = ownArt(node, "control")
 						local tinted = resolve(sheet, plateArt, "ImageColor3")
-						if resolve(sheet, find(node, "SkinBoundary"), "Visible") then
+						t.expect(`{name}/{button}:{resolve(sheet, find(node, "SkinBoundary"), "Visible")}`)
+							.toBe(`{name}/{button}:true`)
+						t.expect(resolve(sheet, node, "BackgroundTransparency")).toBe(1)
+						local pressed = resolve(sheet, plateArt, "Image")
+						if pressed then
+							local _, extra = paletteOf(palette)
+							local control = package.chrome.control
+							local layers = if control.kind == "layered" then control.layers else { control }
+							local link = layers[1].asset.selected
+							link = if type(link) == "string" then { asset = link } else link
+							local art = package.assets[link.asset]
+							local ink = extra.onSelected or colors.content
+							local wash = link.tint or { r = 1, g = 1, b = 1 }
+							local picked = samples[(string.gsub(name, "_", "-"))].selected
+							t.expect(pressed).toBe(art.content or art.contentId)
+							t.expect(resolve(sheet, plateArt, "Rotation")).toBe(link.rotation or 0)
+							t.expect(tinted).toBe(color(h.engine, wash))
+							t.expect(resolve(sheet, node, "TextColor3")).toBe(color(h.engine, ink))
+							for _, caption in tagged(node, "facet-button-caption") do
+								t.expect(resolve(sheet, caption, "TextColor3")).toBe(color(h.engine, ink))
+							end
+							local plate = {
+								r = picked.r / 255 * wash.r,
+								g = picked.g / 255 * wash.g,
+								b = picked.b / 255 * wash.b,
+							}
+							t.expect(contrast(ink, plate) >= 4.5).toBe(true)
+							table.insert(shapes, button .. "=pressed")
+						else
 							t.expect(tinted).toBe(color(h.engine, tint))
 							local plate = if sample
 								then {
@@ -1007,12 +1035,6 @@ t.describe("native paint strength: skins", function()
 								else tint
 							t.expect(contrast(colors[pair[2]], plate) >= 4.5).toBe(true)
 							table.insert(shapes, button .. "=art")
-						else
-							t.expect(resolve(sheet, find(node, "SkinBoundary"), "Visible")).toBe(false)
-							t.expect(resolve(sheet, node, "BackgroundTransparency")).toBe(0)
-							t.expect(resolve(sheet, node, "BackgroundColor3")).toBe(color(h.engine, tint))
-							t.expect(contrast(colors[pair[2]], tint) >= 4.5).toBe(true)
-							table.insert(shapes, button .. "=flat")
 						end
 					end
 					table.sort(shapes)
@@ -1024,10 +1046,10 @@ t.describe("native paint strength: skins", function()
 			h.dispose()
 		end
 		t.expect(table.concat(checked, " ")).toBe(
-			"compact_pointer/Aqua:Delete=art,Save=art fantasy_ornate/Grand Hall:Delete=art,Save=flat "
-				.. "fantasy_ornate/Crypt:Delete=art,Save=flat fantasy_parchment/Daylight:Delete=art,Save=art "
-				.. "fantasy_parchment/Candlelight:Delete=art,Save=flat glossy_touch/Sky:Delete=art,Save=art "
-				.. "pixel_quest/Quest:Delete=art,Save=flat"
+			"compact_pointer/Aqua:Delete=art,Save=art fantasy_ornate/Grand Hall:Delete=art,Save=pressed "
+				.. "fantasy_ornate/Crypt:Delete=art,Save=pressed fantasy_parchment/Daylight:Delete=art,Save=pressed "
+				.. "fantasy_parchment/Candlelight:Delete=art,Save=pressed glossy_touch/Sky:Delete=art,Save=art "
+				.. "pixel_quest/Quest:Delete=art,Save=pressed"
 		)
 	end)
 

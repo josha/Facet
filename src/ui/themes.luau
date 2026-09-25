@@ -1214,32 +1214,58 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
-	local black = types.Color3.new(0, 0, 0)
-	for _, entry in
-		{ { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } :: { { string } }
-	do
-		local selector, fill, ink = entry[1], c(entry[2]) :: Color3, c(entry[3]) :: Color3
-		local tinted = contrast(ink, black) > contrast(fill, black)
-		rule(
-			selector .. " > #SkinBoundary >> .facet-skin-art",
-			{ ImageColor3 = if tinted then fill else types.Color3.new(1, 1, 1) }
-		)
-		rule(selector .. ".facet-skinned", { BackgroundTransparency = if tinted then 1 else 0 })
-		rule(selector .. " > #SkinBoundary", { Visible = tinted })
-	end
-	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
-	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 	local selectedArt: ThemeTypes.AssetLink? = nil
+	local selectedLayer = 0
 	local plateLayers: { ThemeTypes.SkinLayer } = if plate == nil
 		then {}
 		elseif plate.kind == "layered" then plate.layers or {}
 		else { plate }
-	for _, layer in plateLayers do
-		if type(layer.asset) == "table" then
-			selectedArt = selectedArt or (layer.asset :: ThemeTypes.AssetVariants).selected
+	for index, layer in plateLayers do
+		local link = if type(layer.asset) == "table" then (layer.asset :: ThemeTypes.AssetVariants).selected else nil
+		if link ~= nil and selectedArt == nil then
+			selectedArt, selectedLayer = link, index
 		end
 	end
+	local selectedLink: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }? = if type(selectedArt)
+			== "string"
+		then { asset = selectedArt }
+		else selectedArt :: any
+	local white, black = types.Color3.new(1, 1, 1), types.Color3.new(0, 0, 0)
+	local art = if selectedLink then (package.assets or {})[selectedLink.asset] else nil
+	local pressedEmphasis = false
+	for _, theme in package.style.themes do
+		local swatch = merge(neutral.style.themes[1].colors, theme.colors)
+		local fill, ink = color(types, swatch.accent), color(types, swatch.onAccent)
+		if art and fill and ink and contrast(ink, black) <= contrast(fill, black) then
+			pressedEmphasis = true
+		end
+	end
+	for _, entry in
+		{ { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } :: { { string } }
+	do
+		local selector, fill, ink = entry[1], c(entry[2]) :: Color3, c(entry[3]) :: Color3
+		local pressed = pressedEmphasis and entry[2] == "accent"
+		local tinted = not pressed and contrast(ink, black) > contrast(fill, black)
+		rule(selector .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = if tinted then fill else white })
+		rule(selector .. ".facet-skinned", {
+			BackgroundTransparency = if tinted or pressed then 1 else 0,
+			TextColor3 = if pressed then onSelected else nil,
+		})
+		rule(selector .. " > #SkinBoundary", { Visible = tinted or pressed })
+		if pressed and selectedLink and art then
+			rule(selector .. " > #SkinBoundary >> #control" .. selectedLayer, {
+				Image = art.content or art.contentId or "",
+				Rotation = selectedLink.rotation or 0,
+				ImageColor3 = color(types, selectedLink.tint) or white,
+			})
+			rule(selector .. ".facet-skinned >> .facet-button-caption", { TextColor3 = onSelected })
+			rule(selector .. ".facet-skinned >> .facet-text", { TextColor3 = onSelected })
+			rule(selector .. ".facet-skinned >> .facet-icon", { ImageColor3 = onSelected })
+		end
+	end
+	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
+	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	if not selectedArt then
 		rule(".facet-segment-current.facet-skinned", { BackgroundTransparency = 0 })
 		rule(".facet-segment-current > #SkinBoundary", { Visible = false })
@@ -1302,7 +1328,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	if selectedArt then
-		local tint = if type(selectedArt) == "table" then selectedArt.tint else nil
+		local tint = if selectedLink then selectedLink.tint else nil
 		rule(".facet-skinned.facet-selected", { BackgroundTransparency = 1, TextColor3 = onSelected })
 		rule(".facet-skinned.facet-selected > #SkinBoundary", { Visible = true })
 		rule(
