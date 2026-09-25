@@ -897,7 +897,10 @@ The panel holds these parts in order:
 #### Techniques
 
 - `swatches`: the `Swatches` grid of 44 by 44 cells, at most 8 in a row. A
-  press on a cell proposes its colour. The chosen cell shows `Check`.
+  press on a cell proposes its colour. The chosen cell shows `Check`. Each
+  cell has the `facet-color-cell` tag and no padding, so its swatch is square.
+  A swatch has the `facet-color-swatch` tag and the theme's `radii.control`
+  corner. The `Save` cell and the `BrickGrid` cells are the same.
 - `spectrum`: the `Plane`, the `StickHint` and the `Hue` slider. The plane is
   two native layers. `Hue` has a white-to-hue UIGradient across. `Value` has
   a black UIGradient that fades in downward. A UIDragDetector on `Surface`

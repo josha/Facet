@@ -174,7 +174,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			Host.Frame(name)({
 				Size = edge,
 				BackgroundTransparency = 1,
-				ctx.corner(6) :: Shared.Child,
+				ctx.corner() :: Shared.Child,
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
 				Host.Frame(checker),
 				Host.Frame "Plate" {
@@ -187,7 +187,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						local p = paint(use)
 						return if p.color == nil then 1 else 1 - p.alpha
 					end,
-					ctx.corner(6) :: Shared.Child,
+					ctx.corner() :: Shared.Child,
 				},
 				Host.Frame "Empty" {
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -1048,34 +1048,42 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					end
 					return true
 				end
-				return UI.Button("Save")({
-					name = "Save colour",
-					appearance = "utility",
-					Size = D2.fromOffset(CELL, CELL),
-					AutomaticSize = E.AutomaticSize.None,
-					LayoutOrder = function(use: Use)
-						return use(index)
-					end,
-					enabled = function(use: Use)
-						return interactive(use) and fresh(use)
-					end,
-					onActivate = function()
-						local value = held:peek()
-						local save = spec.onSaveSwatch
-						if value ~= nil and save ~= nil and fresh() then
-							save(value)
-						end
-					end,
-					Host.Frame "Plus" {
-						Size = D2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						ctx.icon("increment", {
-							Name = "Mark",
-							AnchorPoint = V2.new(0.5, 0.5),
-							Position = D2.fromScale(0.5, 0.5),
-						}),
-					},
-				})
+				return ctx.styled(
+					UI.Button("Save")({
+						name = "Save colour",
+						appearance = "utility",
+						Size = D2.fromOffset(CELL, CELL),
+						AutomaticSize = E.AutomaticSize.None,
+						LayoutOrder = function(use: Use)
+							return use(index)
+						end,
+						enabled = function(use: Use)
+							return interactive(use) and fresh(use)
+						end,
+						onActivate = function()
+							local value = held:peek()
+							local save = spec.onSaveSwatch
+							if value ~= nil and save ~= nil and fresh() then
+								save(value)
+							end
+						end,
+						ctx.styled(
+							Host.Frame "Plus" {
+								Size = D2.fromScale(1, 1),
+								BackgroundTransparency = 1,
+								ctx.corner() :: Shared.Child,
+								Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
+								ctx.icon("increment", {
+									Name = "Mark",
+									AnchorPoint = V2.new(0.5, 0.5),
+									Position = D2.fromScale(0.5, 0.5),
+								}),
+							},
+							"color-swatch"
+						),
+					}),
+					"color-cell"
+				)
 			end
 			local function cell(
 				source: ComposeTypes.Readable<Item>,
@@ -1137,6 +1145,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						}),
 					})
 				end
+				ctx.styled(node, "color-cell")
 				owned[node] = { item = source, index = index }
 				Compose.cleanup(function()
 					owned[node] = nil

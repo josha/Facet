@@ -3,6 +3,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local Roblox = require("@lune/roblox")
 local engineLib = require("./lib/native_engine")
+local styleRules = require("./lib/style_rules")
 local Compose = Facet.Compose
 local expect = t.expect
 local Color3 = Roblox.Color3
@@ -1252,6 +1253,52 @@ t.describe("native ColorPicker phone sheet", function()
 		done.Activated.fire()
 		expect(w.attr("placement")).toBe("closed")
 		expect(hex(cell:peek())).toBe("#B03A2E")
+		w.stop()
+	end)
+end)
+
+t.describe("native ColorPicker cells, tabs and readout", function()
+	local function sheetFor(w: any, package: any): any
+		local _, sheet = w.runtime.mount(function()
+			return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types } :: any)
+		end, w.engine.new("Folder"))
+		return sheet
+	end
+	local function packages(): { [string]: any }
+		local pixel = (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
+		return { neutral = Facet.themes.neutralPackage(), pixel = pixel }
+	end
+
+	t.it("every swatch, brick and save cell is a square the theme's control radius rounds", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({
+			value = cell,
+			onChange = change,
+			style = "inline",
+			modes = { "swatches", "brick" },
+			swatches = { Color3.fromRGB(0, 0, 255) },
+			onSaveSwatch = function() end,
+		})
+		for name, package in packages() do
+			local sheet = sheetFor(w, package)
+			local radius = package.metrics.radii.control
+			for _, node in { w.cells()[1], w.cells()[2], w.cells("BrickGrid")[1] } do
+				local where = `{name} {node.Name}`
+				expect(`{where} {node.Size.X.Offset}x{node.Size.Y.Offset}`).toBe(`{where} 44x44`)
+				for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
+					local inset = styleRules.resolve(sheet, node, side, "UIPadding")
+					expect(`{where} {side} {if inset then inset.Offset else "none"}`).toBe(`{where} {side} 0`)
+				end
+				for _, corner in node:GetDescendants() do
+					if corner:IsA("UICorner") then
+						local value = styleRules.resolve(sheet, corner, "CornerRadius")
+						expect(`{where} {corner.Parent.Name} {if value then value.Offset else "none"}`).toBe(
+							`{where} {corner.Parent.Name} {radius}`
+						)
+					end
+				end
+			end
+		end
 		w.stop()
 	end)
 end)

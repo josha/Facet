@@ -72,13 +72,6 @@
     },
     {
       "path": "src/ui/color_picker.luau",
-      "rule": "radius",
-      "match": "ctx.corner(6) :: Shared.Child,",
-      "status": "no-metric",
-      "reason": "The colour swatch well is a fixed-size sample; radii covers control and panel surfaces only."
-    },
-    {
-      "path": "src/ui/color_picker.luau",
       "rule": "stroke",
       "match": "Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),",
       "status": "no-metric",
