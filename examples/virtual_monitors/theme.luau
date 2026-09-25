@@ -1,16 +1,48 @@
 --!strict
 local theme = {}
+theme.ICONS = table.freeze({
+	"facet:search",
+	"person",
+	"edit",
+	"checkmark",
+	"increment",
+	"close",
+	"chevron.up",
+	"chevron.leading",
+	"vote.up",
+	"vote.down",
+	"status.info",
+})
+theme.NEEDS = table.freeze({
+	{ name = "contentSecondary", kind = "color" },
+	{ name = "hairline", kind = "color" },
+	{ name = "controlSelected", kind = "color" },
+	{ name = "panel", section = "metrics.radii", kind = "number" },
+	{ name = "l", section = "metrics.space", kind = "number" },
+})
 local function rgb(r, g, b)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
+theme.ACCENTS = table.freeze({
+	table.freeze({ id = "sage", label = "Sage", light = rgb(45, 86, 65), dark = rgb(144, 220, 190) }),
+	table.freeze({ id = "clay", label = "Clay", light = rgb(158, 66, 38), dark = rgb(244, 172, 140) }),
+	table.freeze({ id = "iris", label = "Iris", light = rgb(91, 70, 140), dark = rgb(192, 172, 255) }),
+})
+function theme.paletteName(accent: string, dark: boolean): string
+	local mode = if dark then "Dark" else "Light"
+	for index, entry in theme.ACCENTS do
+		if entry.id == accent and index > 1 then
+			return entry.label .. " " .. mode
+		end
+	end
+	return mode
+end
 function theme.create(Facet: any, name: string)
-	local function palette(dark)
-		local accent = if name == "Discover"
-			then (if dark then rgb(144, 220, 190) else rgb(45, 86, 65))
-			elseif dark then rgb(192, 172, 255)
-			else rgb(91, 70, 140)
+	local themes = Facet.themes
+	local function palette(entry, dark)
+		local accent = if dark then entry.dark else entry.light
 		return {
-			name = if dark then "Dark" else "Light",
+			name = theme.paletteName(entry.id, dark),
 			colors = {
 				surface = if dark then rgb(18, 17, 26) else rgb(243, 240, 233),
 				surfaceStrong = if dark then rgb(32, 30, 44) else rgb(255, 255, 255),
@@ -22,7 +54,6 @@ function theme.create(Facet: any, name: string)
 				onDanger = if dark then rgb(42, 15, 15) else rgb(255, 255, 255),
 			},
 			extra = {
-				-- Paint feedback keeps labels at their authored size.
 				pressedScale = 1,
 				control = if dark then rgb(58, 54, 80) else rgb(232, 230, 223),
 				controlHover = if dark then rgb(74, 68, 100) else rgb(222, 221, 212),
@@ -34,57 +65,44 @@ function theme.create(Facet: any, name: string)
 			},
 		}
 	end
+	local sizes =
+		{ caption = 13, label = 16, body = 19, control = 17, heading = 25, title = 34, strong = 19, numeral = 17 }
 	local typography = {}
-	for role, size in { caption = 13, label = 16, body = 19, control = 17, heading = 25, title = 34 } do
-		typography[role] =
-			{ font = { family = "rbxasset://fonts/families/BuilderSans.json" }, size = size, lineHeight = 1.25 }
+	for role, entry in themes.neutralPackage().metrics.typography do
+		typography[role] = { font = entry.font, size = sizes[role] or entry.size, lineHeight = 1.25 }
 	end
-	typography.title.font.weight = "Bold"
-	typography.heading.font.weight = "SemiBold"
-	return Facet.themes.define({
-		base = Facet.themes.neutralPackage(),
+	local palettes = {}
+	for _, entry in theme.ACCENTS do
+		table.insert(palettes, palette(entry, false))
+		table.insert(palettes, palette(entry, true))
+	end
+	local package, report = themes.define({
 		identity = {
 			id = "virtual-monitors-" .. string.lower(name),
 			displayName = "Virtual Monitors / " .. name,
-			schemaVersion = Facet.themes.SCHEMA,
-			version = "1.0.0",
+			schemaVersion = 1,
+			version = "1.2.0",
 		},
-		style = { defaultTheme = "Dark", themes = { palette(false), palette(true) } },
+		style = { defaultTheme = "Dark", themes = palettes },
 		metrics = {
 			motion = { fast = 0.12, normal = 0.32 },
 			typography = typography,
 			space = { xs = 4, s = 8, m = 14, l = 22, xl = 32 },
 			radii = { control = 12, panel = 18, pill = 999 },
 		},
+		chrome = { monitorPanel = { kind = "native", shadow = "raised" } },
 	})
-end
-
--- Theme changes animate paint only. Layout, focus and content stay live, and
--- the host disables these native transitions for reduced motion.
-function theme.sheet(controller: any, package: any, displaySize: string)
-	local model = controller.sheetModelFor(package, displaySize)
-	for _, rule in model.rules do
-		-- Panels here wear `surfaceStrong`, which is also the slider thumb's
-		-- stock colour; the thumb takes the strong content colour so it reads.
-		if
-			type(rule.selector) == "string"
-			and string.find(rule.selector, "facet-slot-sliderThumb", 1, true)
-			and rule.props.BackgroundColor3 ~= nil
-		then
-			rule.props.BackgroundColor3 = "$ContentStrong"
-		end
-		for property in rule.props do
-			if
-				property == "BackgroundColor3"
-				or property == "TextColor3"
-				or property == "ImageColor3"
-				or property == "Color"
-			then
-				rule.transitions = rule.transitions or {}
-				rule.transitions[property] = rule.transitions[property] or "normal"
-			end
+	assert(package, if report.errors[1] then report.errors[1].message else "Virtual Monitors theme is invalid")
+	local coverage = themes.checkCoverage(package, theme.NEEDS)
+	for _, gap in coverage.missing do
+		warn(`Virtual Monitors theme {name}: {gap.message}. {gap.fix}.`)
+	end
+	for _, icon in theme.ICONS do
+		if themes.resolveIcon(package, icon) == nil then
+			warn(`Virtual Monitors theme {name}: no artwork for the {icon} icon.`)
 		end
 	end
-	return model
+	return package, report
 end
+
 return theme

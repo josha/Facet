@@ -1,0 +1,187 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "adaptation_reversibility": {
+      "specs": [
+        "native_hud"
+      ],
+      "cases": [
+        "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
+        "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
+        "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
+        "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed"
+      ],
+      "behaviors": [
+        "All three tasks retain their exact names, reward badges and live progress values; all weapons retain their ammunition, selected weapon and actions. Scores, clock, health, feed, weapon name and telemetry remain available.",
+        "Sixteen ordered viewport round trips with URL-bar and overflow episodes equal a fresh mount at the final size. Native body size changes independently drive and reverse simplification.",
+        "Overflow remains a native reachable button and shows complete simplified zones, shares their live model, and shows the empty message only when every zone has its full form. Native owners release nodes and size observers."
+      ],
+      "retiredAssertions": {
+        "Composition presets, rank ladders, spanning groups, holdsLane, give-way solver and collision dumps": "Deleted Facet layout mechanisms have no replacement facade. Native UIGridLayout fixes three equal lanes; UIListLayout/UIFlexItem puts the browser chrome, controls and notice above the body. Native ScrollingFrames retain access when content exceeds a lane.",
+        "Platform-strip spending, safe-content transforms and process-global width-cache assertions": "The caller ScreenGui owns engine safe-area behavior. The HUD consumes its native body AbsoluteSize and ordinary in-flow chrome; no Facet environment or text-measurement cache survives.",
+        "Synthetic focus graph, presenter paths, adapter paint traversal and solved-coordinate equality": "Native control events and native Instances replace those mechanisms. Tests compare current product forms and contents to fresh native mounts and assert disposal; they do not equate simulated bounds with engine paint or focus proof."
+      },
+      "engineOwned": [
+        "Roblox owns actual layout, safe-area insets, text measurement, scrolling and physical focus/input; Compose owns construction, bindings and disposal."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Actual geometry, localized text fit, native safe-area behavior and pointer/gamepad navigation need the final live Roblox gallery evidence; these headless workflow tests make no pixel or physical-input parity claim."
+      ]
+    },
+    "hud_composition": {
+      "specs": [
+        "native_hud"
+      ],
+      "cases": [
+        "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
+        "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
+        "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
+        "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed"
+      ],
+      "behaviors": [
+        "All three tasks retain their exact names, reward badges and live progress values; all weapons retain their ammunition, selected weapon and actions. Scores, clock, health, feed, weapon name and telemetry remain available.",
+        "Sixteen ordered viewport round trips with URL-bar and overflow episodes equal a fresh mount at the final size. Native body size changes independently drive and reverse simplification.",
+        "Overflow remains a native reachable button and shows complete simplified zones, shares their live model, and shows the empty message only when every zone has its full form. Native owners release nodes and size observers."
+      ],
+      "retiredAssertions": {
+        "Composition presets, rank ladders, spanning groups, holdsLane, give-way solver and collision dumps": "Deleted Facet layout mechanisms have no replacement facade. Native UIGridLayout fixes three equal lanes; UIListLayout/UIFlexItem puts the browser chrome, controls and notice above the body. Native ScrollingFrames retain access when content exceeds a lane.",
+        "Platform-strip spending, safe-content transforms and process-global width-cache assertions": "The caller ScreenGui owns engine safe-area behavior. The HUD consumes its native body AbsoluteSize and ordinary in-flow chrome; no Facet environment or text-measurement cache survives.",
+        "Synthetic focus graph, presenter paths, adapter paint traversal and solved-coordinate equality": "Native control events and native Instances replace those mechanisms. Tests compare current product forms and contents to fresh native mounts and assert disposal; they do not equate simulated bounds with engine paint or focus proof."
+      },
+      "engineOwned": [
+        "Roblox owns actual layout, safe-area insets, text measurement, scrolling and physical focus/input; Compose owns construction, bindings and disposal."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Actual geometry, localized text fit, native safe-area behavior and pointer/gamepad navigation need the final live Roblox gallery evidence; these headless workflow tests make no pixel or physical-input parity claim."
+      ]
+    },
+    "hud_chrome_rotation": {
+      "specs": [
+        "native_hud"
+      ],
+      "cases": [
+        "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
+        "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
+        "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
+        "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed"
+      ],
+      "behaviors": [
+        "All three tasks retain their exact names, reward badges and live progress values; all weapons retain their ammunition, selected weapon and actions. Scores, clock, health, feed, weapon name and telemetry remain available.",
+        "Sixteen ordered viewport round trips with URL-bar and overflow episodes equal a fresh mount at the final size. Native body size changes independently drive and reverse simplification.",
+        "Overflow remains a native reachable button and shows complete simplified zones, shares their live model, and shows the empty message only when every zone has its full form. Native owners release nodes and size observers."
+      ],
+      "retiredAssertions": {
+        "Composition presets, rank ladders, spanning groups, holdsLane, give-way solver and collision dumps": "Deleted Facet layout mechanisms have no replacement facade. Native UIGridLayout fixes three equal lanes; UIListLayout/UIFlexItem puts the browser chrome, controls and notice above the body. Native ScrollingFrames retain access when content exceeds a lane.",
+        "Platform-strip spending, safe-content transforms and process-global width-cache assertions": "The caller ScreenGui owns engine safe-area behavior. The HUD consumes its native body AbsoluteSize and ordinary in-flow chrome; no Facet environment or text-measurement cache survives.",
+        "Synthetic focus graph, presenter paths, adapter paint traversal and solved-coordinate equality": "Native control events and native Instances replace those mechanisms. Tests compare current product forms and contents to fresh native mounts and assert disposal; they do not equate simulated bounds with engine paint or focus proof."
+      },
+      "engineOwned": [
+        "Roblox owns actual layout, safe-area insets, text measurement, scrolling and physical focus/input; Compose owns construction, bindings and disposal."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Actual geometry, localized text fit, native safe-area behavior and pointer/gamepad navigation need the final live Roblox gallery evidence; these headless workflow tests make no pixel or physical-input parity claim."
+      ]
+    },
+    "hud_chrome_sequence": {
+      "specs": [
+        "native_hud"
+      ],
+      "cases": [
+        "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
+        "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
+        "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
+        "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed"
+      ],
+      "behaviors": [
+        "All three tasks retain their exact names, reward badges and live progress values; all weapons retain their ammunition, selected weapon and actions. Scores, clock, health, feed, weapon name and telemetry remain available.",
+        "Sixteen ordered viewport round trips with URL-bar and overflow episodes equal a fresh mount at the final size. Native body size changes independently drive and reverse simplification.",
+        "Overflow remains a native reachable button and shows complete simplified zones, shares their live model, and shows the empty message only when every zone has its full form. Native owners release nodes and size observers."
+      ],
+      "retiredAssertions": {
+        "Composition presets, rank ladders, spanning groups, holdsLane, give-way solver and collision dumps": "Deleted Facet layout mechanisms have no replacement facade. Native UIGridLayout fixes three equal lanes; UIListLayout/UIFlexItem puts the browser chrome, controls and notice above the body. Native ScrollingFrames retain access when content exceeds a lane.",
+        "Platform-strip spending, safe-content transforms and process-global width-cache assertions": "The caller ScreenGui owns engine safe-area behavior. The HUD consumes its native body AbsoluteSize and ordinary in-flow chrome; no Facet environment or text-measurement cache survives.",
+        "Synthetic focus graph, presenter paths, adapter paint traversal and solved-coordinate equality": "Native control events and native Instances replace those mechanisms. Tests compare current product forms and contents to fresh native mounts and assert disposal; they do not equate simulated bounds with engine paint or focus proof."
+      },
+      "engineOwned": [
+        "Roblox owns actual layout, safe-area insets, text measurement, scrolling and physical focus/input; Compose owns construction, bindings and disposal."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Actual geometry, localized text fit, native safe-area behavior and pointer/gamepad navigation need the final live Roblox gallery evidence; these headless workflow tests make no pixel or physical-input parity claim."
+      ]
+    },
+    "hud_paint_probe": {
+      "specs": [
+        "native_hud"
+      ],
+      "cases": [
+        "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
+        "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
+        "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
+        "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed"
+      ],
+      "behaviors": [
+        "All three tasks retain their exact names, reward badges and live progress values; all weapons retain their ammunition, selected weapon and actions. Scores, clock, health, feed, weapon name and telemetry remain available.",
+        "Sixteen ordered viewport round trips with URL-bar and overflow episodes equal a fresh mount at the final size. Native body size changes independently drive and reverse simplification.",
+        "Overflow remains a native reachable button and shows complete simplified zones, shares their live model, and shows the empty message only when every zone has its full form. Native owners release nodes and size observers."
+      ],
+      "retiredAssertions": {
+        "Composition presets, rank ladders, spanning groups, holdsLane, give-way solver and collision dumps": "Deleted Facet layout mechanisms have no replacement facade. Native UIGridLayout fixes three equal lanes; UIListLayout/UIFlexItem puts the browser chrome, controls and notice above the body. Native ScrollingFrames retain access when content exceeds a lane.",
+        "Platform-strip spending, safe-content transforms and process-global width-cache assertions": "The caller ScreenGui owns engine safe-area behavior. The HUD consumes its native body AbsoluteSize and ordinary in-flow chrome; no Facet environment or text-measurement cache survives.",
+        "Synthetic focus graph, presenter paths, adapter paint traversal and solved-coordinate equality": "Native control events and native Instances replace those mechanisms. Tests compare current product forms and contents to fresh native mounts and assert disposal; they do not equate simulated bounds with engine paint or focus proof.",
+        "Paint-probe card, latch/rearm, expected-versus-presenter geometry traversal, skipped-row denominator and independent diagnostic surface": "This private instrument depended on the deleted solver/presenter/target graph and is removed, not relabeled as a passing visual test. Product rotation/recovery and mandatory overflow remain explicitly tested; visual proof belongs to live native engine captures."
+      },
+      "engineOwned": [
+        "Roblox owns actual layout, safe-area insets, text measurement, scrolling and physical focus/input; Compose owns construction, bindings and disposal."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Actual geometry, localized text fit, native safe-area behavior and pointer/gamepad navigation need the final live Roblox gallery evidence; these headless workflow tests make no pixel or physical-input parity claim."
+      ]
+    },
+    "hud_reservations": {
+      "specs": [
+        "native_hud"
+      ],
+      "cases": [
+        "native_hud::native HUD::keeps complete task rewards, weapon ammunition, scores and telemetry",
+        "native_hud::native HUD::updates segmented health and full, compact and tiny numeric timer formats",
+        "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
+        "native_hud::native HUD::recovers whole simplified zones in overflow and shares their live model",
+        "native_hud::native HUD::uses native body bounds after chrome layout and disconnects on disposal",
+        "native_hud::native HUD::keeps native notification text valid while hidden shown and dismissed"
+      ],
+      "behaviors": [
+        "All three tasks retain their exact names, reward badges and live progress values; all weapons retain their ammunition, selected weapon and actions. Scores, clock, health, feed, weapon name and telemetry remain available.",
+        "Sixteen ordered viewport round trips with URL-bar and overflow episodes equal a fresh mount at the final size. Native body size changes independently drive and reverse simplification.",
+        "Overflow remains a native reachable button and shows complete simplified zones, shares their live model, and shows the empty message only when every zone has its full form. Native owners release nodes and size observers."
+      ],
+      "retiredAssertions": {
+        "Composition presets, rank ladders, spanning groups, holdsLane, give-way solver and collision dumps": "Deleted Facet layout mechanisms have no replacement facade. Native UIGridLayout fixes three equal lanes; UIListLayout/UIFlexItem puts the browser chrome, controls and notice above the body. Native ScrollingFrames retain access when content exceeds a lane.",
+        "Platform-strip spending, safe-content transforms and process-global width-cache assertions": "The caller ScreenGui owns engine safe-area behavior. The HUD consumes its native body AbsoluteSize and ordinary in-flow chrome; no Facet environment or text-measurement cache survives.",
+        "Synthetic focus graph, presenter paths, adapter paint traversal and solved-coordinate equality": "Native control events and native Instances replace those mechanisms. Tests compare current product forms and contents to fresh native mounts and assert disposal; they do not equate simulated bounds with engine paint or focus proof.",
+        "Cross-surface HUD reservation registry, inset algebra, toast reservation lease and owner-id reuse": "Facet no longer coordinates scene geometry or owns surfaces. The caller lays chrome and notifications in its native UIListLayout, and native controls own only their local overlays. The HUD notification is ordinary in-flow caller content with explicit dismissal."
+      },
+      "engineOwned": [
+        "Roblox owns actual layout, safe-area insets, text measurement, scrolling and physical focus/input; Compose owns construction, bindings and disposal."
+      ],
+      "remaining": [],
+      "manualEvidence": [
+        "Actual geometry, localized text fit, native safe-area behavior and pointer/gamepad navigation need the final live Roblox gallery evidence; these headless workflow tests make no pixel or physical-input parity claim."
+      ]
+    }
+  }
+}

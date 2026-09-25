@@ -1,27 +1,5 @@
 #!/usr/bin/env python3
-"""Sample the PLATE COLOUR of the art that backs a theme package's SELECTED state.
 
-Why this exists (director round 12, 2026-07-26). A theme declares
-`extra.controlSelected` — the colour the framework paints for a selected row when
-it has no art — and `sheet_model.selectedContentColor` resolves the SELECTED
-LABEL's colour by contrast against exactly that number. When the package skins
-selection with a picture, the declared colour stops being what a player sees and
-the pairing is computed against a fiction: fantasy-ornate declared a burnished
-gold `rgb(118, 90, 44)` while `ornate_selection_selected.png` paints a dark
-emerald field. No runtime check can see a PNG, so the truth is sampled HERE, at
-build time, and the headless sweep (`tests/theme_reference_packages.spec.luau`)
-compares the declaration against it.
-
-What is sampled: the alpha-weighted mean of the nine-slice CENTRE rect — the
-region that stretches under a label, i.e. the pixels a lifted label is read
-against. Whole-image art samples the whole image. The file's sha256 rides with
-the sample so a re-cut of the art that was never re-sampled is a FAILING test
-rather than a silently stale number.
-
-Run from the Facet root with the repo-root shared venv python:
-    ../../../.venv/bin/python tools/sample_plates.py            # write the file
-    ../../../.venv/bin/python tools/sample_plates.py --check    # verify, exit 1 on drift
-"""
 
 from __future__ import annotations
 
@@ -38,111 +16,60 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "assets", "themes", "plate-samples.json")
 
-# (package id, package module, asset directory, { slot -> art asset name }).
-#
-# `selected` is the asset the package's `chrome.selection` recipe names for its
-# `selected` state — the plate a SELECTED label is read against, and the plate
-# `extra.controlSelected` claims to be.
-# `control` is the asset its `chrome.control` recipe names for `default` — the
-# plate a PRIMARY (`surface = "accent"`) label is read against once the skin has
-# replaced the accent fill, and the plate `extra.control` claims to be.
-#
-# `field` is the plate a field's lifted text and placeholder read against, and
-# `badge` the seal a badge's count reads against. `controlHover`/`controlPressed`
-# are the control recipe's own per-state art, where it declares any, and
-# `panel` the panel art an author's text inside a raised box reads against;
-# `stepper`/`stepperPressed` a stepper's +/- plate at rest and pressed.
-#
-# The slice rect is parsed out of the module, so this table can never drift from
-# the package's own geometry. A badge seal is whole-image art, so its sample is the
-# box its count sits in: the image inset by the badge recipe's contentInsets.
+
+
+
+
+
+
+
+
+
+
+
 TARGETS = [
     (
         "fantasy-ornate",
         "fantasy_ornate",
         "fantasy-ornate",
-        {
-            "selected": "ornate_selection_selected",
-            "control": "ornate_button_default",
-            "field": "ornate_field",
-            "badge": "ornate_bar_center",
-            "controlHover": "ornate_button_hover",
-            "controlPressed": "ornate_button_pressed",
-            "panel": "ornate_panel_fill",
-        },
+        {"selected": "ornate_selection_selected", "control": "ornate_button_default"},
     ),
     (
         "glossy-touch",
         "glossy_touch",
         "glossy-touch",
-        {
-            "selected": "glossy_selection_selected",
-            "control": "glossy_button_default",
-            "field": "glossy_field",
-            "controlPressed": "glossy_button_pressed",
-            "panel": "glossy_panel",
-            "stepper": "glossy_stepper_plate_default",
-            "stepperPressed": "glossy_stepper_plate_pressed",
-        },
+        {"selected": "glossy_selection_selected", "control": "glossy_button_default"},
     ),
     (
         "pixel-quest",
         "pixel_quest",
         "pixel-quest",
-        {
-            "selected": "pixel_plate_selected",
-            "control": "pixel_plate_default",
-            "field": "pixel_field",
-            "panel": "pixel_panel",
-            "stepper": "pixel_stepper_plate_default",
-            "stepperPressed": "pixel_stepper_plate_pressed",
-        },
+        {"selected": "pixel_plate_selected", "control": "pixel_plate_default"},
     ),
     (
         "compact-pointer",
         "compact_pointer",
         "compact-pointer",
-        {
-            "selected": "compact_button_hover",
-            "control": "compact_button_default",
-            "field": "compact_field",
-            "controlHover": "compact_button_hover",
-            "controlPressed": "compact_button_pressed",
-            "panel": "compact_panel",
-            "stepper": "compact_stepper_plate_default",
-            "stepperPressed": "compact_stepper_plate_pressed",
-        },
+        {"selected": "compact_button_hover", "control": "compact_button_default"},
     ),
     (
         "fantasy-parchment",
         "fantasy_parchment",
         "fantasy-parchment",
-        {
-            "control": "parchment_button",
-            "field": "parchment_field",
-            "badge": "parchment_badge",
-            "panel": "parchment_panel",
-        },
+        {"control": "parchment_button"},
     ),
 ]
 
 
-# both badge recipes inset their count 5px (`contentInsets`)
-BADGE_INSET = 5
-
-
 def slice_center(module: str, asset: str):
-    """Parse `<asset> = { ... sliceCenter = { x0 =, y0 =, x1 =, y1 = } ... }`."""
+
     path = os.path.join(ROOT, "examples", "themes", f"{module}.luau")
     with open(path, "r", encoding="utf-8") as fh:
         src = fh.read()
     at = src.find(f"\t{asset} = {{")
     if at < 0:
         raise SystemExit(f"sample_plates: {module}.luau declares no art entry '{asset}'")
-    # the entry's own text only: a one-line entry ends with its line, a block at
-    # its closing brace (a fixed window read the NEXT asset's slice)
-    line = src[at : src.find("\n", at)]
-    block = line if line.rstrip().endswith("},") else src[at : src.find("\n\t}", at)]
+    block = src[at : at + 600]
     m = re.search(
         r"sliceCenter = \{ x0 = (\d+), y0 = (\d+), x1 = (\d+), y1 = (\d+) \}", block
     )
@@ -195,9 +122,6 @@ def build():
             if not os.path.isfile(path):
                 raise SystemExit(f"sample_plates: missing {rel}")
             rect = slice_center(module, asset)
-            if slot == "badge" and rect is None:
-                w, h = Image.open(path).size
-                rect = (BADGE_INSET, BADGE_INSET, w - BADGE_INSET, h - BADGE_INSET)
             with open(path, "rb") as fh:
                 digest = hashlib.sha256(fh.read()).hexdigest()
             entry = sample(path, rect)

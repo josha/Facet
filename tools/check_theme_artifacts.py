@@ -1,42 +1,5 @@
 #!/usr/bin/env python3
-"""check_theme_artifacts — every shipped theme artifact installs on its own.
 
-`tools/build_themes.sh` emits one `build/themes/<Name>.rbxm` per shippable
-reference package so a consumer can take a skin without taking the gallery. This
-check is what makes that a claim rather than a hope. For each artifact it:
-
-  1. builds the XML twin through the SAME `tools/build_themes.sh --one` mapping
-     (there is one Rojo mapping in this repository) and asserts the artifact's
-     SHAPE: exactly one root ModuleScript, named for the artifact, with a Source
-     and no children this builder did not put there;
-  2. asserts the extracted Source contains no `require(` AT ALL — a theme
-     package is inspectable data handed the `themes` table by its caller, so any
-     require is either a reach into the framework's internals or a reach into
-     `examples/`, and both are the thing being ruled out;
-  3. extracts every Source into an ISOLATED tree that holds a copy of the
-     library, the headless world and nothing else — no `examples/`, no gallery,
-     no fixtures anywhere above the artifacts — and runs
-     `tools/lune/theme_artifact_probe.luau` there, which compiles each package,
-     checks its stamp against the manifest, runs the pre-play coverage gate,
-     installs it through `theme_controller.install` and mounts a real control
-     under it, once per declared theme and once at a ten-foot display class.
-
-In-repo, step 3 is unfalsifiable: `examples/` is one directory above every theme
-module, so a package that quietly required the gallery would compile and pass the
-suite and fail only for the first consumer who installed the artifact alone.
-
-    python3 tools/check_theme_artifacts.py [--selftest] [--keep]
-
-`--selftest` proves the check can fail, four ways, each a real defect class: a
-package that reaches into `examples/`; an artifact whose identity stamp drifted
-from the manifest; an artifact that lost its package body; and a package whose
-`metrics.tenFoot` declaration names a metric that does not exist, which is a
-declaration that only fails when the artifact is INSTALLED. Every plant is made
-in a SCRATCH COPY — this repository's shared working tree is never modified,
-because other agents are in it.
-
-Exit 0 = every artifact installs alone; 1 = a failure; 2 = environment failure.
-"""
 
 import argparse
 import json
@@ -50,24 +13,19 @@ import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from check_no_screen_key_bindings import strip_luau_comments  # noqa: E402
+from strip_comments import strip_luau as strip_luau_comments  # noqa: E402
 
 REPO = os.path.dirname(HERE)
 
 BUILD_THEMES = os.path.join(HERE, "build_themes.sh")
 MANIFEST = os.path.join(REPO, "build", "themes", "manifest.json")
 
-# the isolated tree mirrors the library's shape so one probe file reads the same
-# in both places; `installed/` is the only directory that does not exist here
+
+
 COPIED_TREES = ("src",)
 COPIED_FILES = (
-    os.path.join("tests", "lib", "world.luau"),
-    os.path.join("tests", "lib", "fake_target.luau"),
-    # world.luau requires both since the containment invariant became
-    # default-on (overflow-guard mission, 2026-08-21) — an isolated tree
-    # without them fails every probe at require time
-    os.path.join("tests", "lib", "overflow_guard.luau"),
-    os.path.join("tests", "lib", "overflow_waivers.luau"),
+    "rokit.toml",
+    os.path.join("tests", "lib", "native_engine.luau"),
     os.path.join("tools", "lune", "theme_artifact_probe.luau"),
 )
 
@@ -94,9 +52,7 @@ def build_one(source, name, out_path):
 
 
 def artifact_source(xml_path, name, problems):
-    """The artifact's SHAPE plus its Source. One root ModuleScript named for the
-    artifact; children would be runtime data the builder does not map yet, and
-    shipping half a package silently is the failure this refuses."""
+
     root = ET.parse(xml_path).getroot()
     items = [child for child in root if child.tag == "Item"]
     if len(items) != 1:
@@ -130,9 +86,7 @@ def artifact_source(xml_path, name, problems):
 
 
 def check(keep=False, manifest_path=MANIFEST, plant=None):
-    """Returns a list of problems. `plant` mutates the extracted tree in memory
-    (name -> source -> source) so --selftest can prove each guard bites without
-    touching this repository's working tree."""
+
     problems = []
     run([BUILD_THEMES])
     with open(manifest_path) as handle:
@@ -202,8 +156,7 @@ def check(keep=False, manifest_path=MANIFEST, plant=None):
 
 
 def selftest():
-    """Four plants, four defect classes. Each must make the check FAIL, and the
-    unplanted tree must pass, or the guard proves nothing."""
+
     plants = [
         (
             "a package that reaches into examples/ (the gallery's theme picker)",
@@ -229,12 +182,9 @@ def selftest():
             "PixelQuest",
         ),
         (
-            "a package whose metrics.tenFoot names a metric that does not exist",
+            "a package whose semantic palette has unreadable text",
             lambda name, src: (
-                src.replace(
-                    "			strokes = { hairline = 1 },",
-                    '			strokes = { hairline = 1 },\n			tenFoot = { ["space.enormous"] = 40 },',
-                )
+                src.replace("content = rgb(24, 24, 24)", "content = rgb(212, 208, 200)")
                 if name == "ClassicDesktop"
                 else src
             ),
@@ -253,10 +203,10 @@ def selftest():
         problems = check(plant=plant)
         matched = [problem for problem in problems if expect in problem]
         print(f"  [{'BITES' if matched else 'MISSED'}] {label}")
-        # print the SENTENCE the guard produced, not just the verdict: a plant
-        # that reddens the run for an unrelated reason would otherwise read as
-        # proof, which is the shape this repository calls a check that proves
-        # nothing
+
+
+
+
         for problem in (matched or problems)[:2]:
             print(f"      -> {problem}")
         if not matched:

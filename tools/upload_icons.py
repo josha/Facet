@@ -1,43 +1,5 @@
 #!/usr/bin/env python3
-"""Upload Facet's standard icon set to Roblox, headlessly, and write the manifest.
 
-WHY THIS EXISTS. Every one of the 11 theme assets shipped before this went up
-through Studio: a local `http.server` on 127.0.0.1:8643 plus the Studio MCP
-`upload_image` tool, with the returned ids hand-transcribed into
-`upload-manifest.json`. That needs Studio open and a human in the loop.
-
-THE HEADLESS ROUTE WORKS, with one correction to the documentation. Open Cloud's
-asset API accepts `assetType = "Image"` and returns a real Image asset
-(`AssetTypeId = 1`), confirmed by experiment on 2026-07-27 and cross-checked in
-Studio against `81048500362779` (`ornate_panel_fill`), which went up the Studio
-way and renders in the shipped fantasy-ornate package. Do not "fix" this to
-`"Decal"` on the strength of the docs: the usage guide, the widely-cited
-community reference and the October 2025 announcement are all stale on this
-point, and uploading as a Decal hands back a DECAL id, which `ImageLabel.Image`
-cannot use and which has no stable Open Cloud conversion.
-
-Keys: `ROBLOX_API_KEY` (scope `assets`, read + write) from
-GameStudio/tools/API_KEYS.txt, loaded the way every other studio tool loads it --
-a real environment variable of the same name wins. The creator id comes from
-`ROBLOX_CREATOR_USER_ID` or the default below; it is configuration, not a secret,
-but it is not hardcoded into the call either.
-
-ONE HEADLESS ROUTE, TWO KINDS OF ART (2026-09-11). The script was written for
-the framework's own set, whose registry is `src/themes/standard_icons.luau`. A
-THEME PACKAGE's art is the same upload against a different pair of files -- the
-package folder's own `upload-manifest.json` and the Luau module that names the
-content ids -- so `--theme` points it at those instead of copying the file. The
-eleven per-package assets that predate this went up through the Studio MCP
-`upload_image` route with the ids hand-transcribed; nothing has to be done that
-way again.
-
-Usage:
-    python3 tools/upload_icons.py            # upload anything with no content id
-    python3 tools/upload_icons.py --force    # re-upload everything
-    python3 tools/upload_icons.py --dry-run  # show what would go up
-    python3 tools/upload_icons.py --theme pixel-quest \
-        --registry examples/themes/pixel_quest.luau   # a package's own art
-"""
 
 from __future__ import annotations
 
@@ -64,13 +26,13 @@ CREATE_URL = "https://apis.roblox.com/assets/v1/assets"
 OPERATION_URL = "https://apis.roblox.com/assets/v1/operations/{}"
 DEFAULT_CREATOR = "1364639953"
 
-# poll budget: moderation is usually instant but is not promised to be
+
 POLL_ATTEMPTS = 40
 POLL_INTERVAL = 3.0
 
 
 def load_keys() -> None:
-    """KEY=value lines into the environment; real env vars win, missing file is fine."""
+
     if not KEYS_FILE.is_file():
         return
     for line in KEYS_FILE.read_text(encoding="utf-8").splitlines():
@@ -84,19 +46,13 @@ def load_keys() -> None:
 
 
 def png_size(path: pathlib.Path) -> tuple[int, int]:
-    """A PNG's pixel dimensions, straight out of the IHDR chunk.
 
-    Eight bytes of signature, four of length, four of type, then width and
-    height as big-endian 32-bit integers. Reading them costs nothing and keeps
-    the manifest's `size` a measurement instead of a constant somebody has to
-    remember to change.
-    """
     head = path.read_bytes()[:24]
     return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
 
 
 def multipart(fields: dict[str, str], filename: str, blob: bytes) -> tuple[bytes, str]:
-    """Hand-rolled multipart so this script needs nothing outside the stdlib."""
+
     boundary = f"----facet{uuid.uuid4().hex}"
     out = bytearray()
     for name, value in fields.items():
@@ -126,7 +82,7 @@ def call(url: str, key: str, body: bytes | None = None, content_type: str | None
 
 def upload_one(path: pathlib.Path, key: str, creator: str) -> tuple[str, str]:
     request = {
-        "assetType": "Image",  # NOT "Decal" -- see the module docstring
+        "assetType": "Image",
         "displayName": path.stem,
         "description": "Facet standard icon set. Near-white silhouette on transparency; colour comes from the theme's tintRole.",
         "creationContext": {"creator": {"userId": creator}},
@@ -146,16 +102,16 @@ def upload_one(path: pathlib.Path, key: str, creator: str) -> tuple[str, str]:
         moderation = (response.get("moderationResult") or {}).get("moderationState")
         if not asset_id:
             raise SystemExit(f"{path.name}: operation finished with no assetId: {result}")
-        # MODERATION IS ASYNCHRONOUS, and "Reviewing" is not a failure. The
-        # operation completing means the asset EXISTS and has an id; approval
-        # lands separately, usually within minutes for flat UI art. Treating
-        # `Reviewing` as fatal (the first version of this script did) throws away
-        # a perfectly good upload and would re-upload it on the next run, so the
-        # state is RECORDED instead -- `--recheck` re-reads it later. Only an
-        # outright rejection stops the run.
+
+
+
+
+
+
+
         if moderation == "Rejected":
             raise SystemExit(f"{path.name}: moderation REJECTED the asset")
-        # the returned assetType is the check that matters: an Image, not a Decal
+
         if response.get("assetType") not in (None, "Image"):
             raise SystemExit(f"{path.name}: came back as {response.get('assetType')!r}, not Image")
         return f"rbxassetid://{asset_id}", str(moderation or "Unknown")
@@ -163,15 +119,7 @@ def upload_one(path: pathlib.Path, key: str, creator: str) -> tuple[str, str]:
 
 
 def recheck(key: str, assets: dict) -> None:
-    """Re-read each asset's moderation state.
 
-    Moderation is asynchronous, so the state recorded at upload time is a
-    snapshot, not a verdict. This asks Open Cloud what it says NOW. It is also
-    the check that answers the question that actually matters -- is this an
-    IMAGE? -- by asset IDENTITY rather than by decode state: a client-side
-    `IsLoaded` read is not evidence (a known-good shipped asset reads `false`
-    too), which cost a round on 2026-07-27.
-    """
     for name, record in sorted(assets.items()):
         asset_id = str(record.get("contentId", "")).rsplit("/", 1)[-1]
         if not asset_id:
@@ -186,24 +134,18 @@ def recheck(key: str, assets: dict) -> None:
 
 
 def write_registry(assets: dict, names: dict[str, str], registry: pathlib.Path, field: str) -> None:
-    """Push the manifest's content ids into the Luau registry.
 
-    The registry is the source of truth the framework READS and the manifest is
-    the record of what was uploaded; writing one from the other is what keeps
-    them from drifting the way a hand-transcribed id can. `check_docs` asserts
-    the agreement independently.
-    """
     src = registry.read_text(encoding="utf-8")
     for _icon_name, asset_name in names.items():
         content_id = (assets.get(asset_name) or {}).get("contentId")
         if not content_id:
             continue
-        # located in two hops rather than one literal, because the entries are
-        # wrapped by the formatter and the name and its id do not always end up on
-        # the same line. The two registries spell the anchor differently -- the
-        # framework's rows carry `assetName = "<name>"`, a theme package's are
-        # keyed `<name> = { content = ... }` -- so the anchor is the parameter and
-        # the two-hop walk is the same.
+
+
+
+
+
+
         anchor = src.index(f'assetName = "{asset_name}"') if field == "contentId" else src.index(f"\n\t{asset_name} = ")
         start = src.index(f"{field} = ", anchor) + len(f"{field} = ")
         end = src.index(",", start)
@@ -213,18 +155,12 @@ def write_registry(assets: dict, names: dict[str, str], registry: pathlib.Path, 
 
 
 def theme_names(directory: pathlib.Path) -> dict[str, str]:
-    """asset name -> asset name, for every PNG a theme package's folder holds.
 
-    A theme package has no `ART` table to scrape: the folder IS the inventory and
-    the Luau module names whichever of those assets it actually uses. Uploading
-    what is on disk is therefore the right rule -- an unused PNG that went up is
-    a wasted asset, not a wrong one, and the manifest records it either way.
-    """
     return {path.stem: path.stem for path in sorted(directory.glob("*.png"))}
 
 
 def registry_names() -> dict[str, str]:
-    """icon name -> assetName, scraped from the Luau registry that is the source of truth."""
+
     src = REGISTRY.read_text(encoding="utf-8")
     body = src[src.index("standard_icons.ART") :]
     out: dict[str, str] = {}
@@ -252,9 +188,9 @@ def main() -> int:
         return 1
     creator = os.environ.get("ROBLOX_CREATOR_USER_ID", DEFAULT_CREATOR).strip()
 
-    # WHICH PAIR OF FILES THIS RUN OWNS. The upload itself is identical either
-    # way; what changes is the folder the PNGs live in, the manifest that records
-    # what went up, and the Luau module that the framework or the package READS.
+
+
+
     if args.theme:
         icon_dir = THEME_ROOT / args.theme
         if not icon_dir.is_dir():
@@ -295,12 +231,12 @@ def main() -> int:
             print(f"  would upload  {asset_name}")
             continue
         content_id, moderation = upload_one(path, key, creator)
-        # THE TOOL OWNS THE UPLOAD FACTS, THE AUTHOR OWNS THE SEMANTIC ONES. Size
-        # is read from the file rather than assumed (this said "128x128" for every
-        # asset, which was true of the framework's own set and a lie about every
-        # theme package's), and `slot`, `designPx` and the slice geometry are
-        # MERGED OVER: only the author knows which recipe an image serves, so a
-        # re-upload must not overwrite that and a first upload must not invent it.
+
+
+
+
+
+
         width, height = png_size(path)
         record = dict(assets.get(asset_name) or {})
         if not args.theme:
@@ -323,10 +259,10 @@ def main() -> int:
         return 0
 
     if args.theme:
-        # A PACKAGE'S MANIFEST HEADER IS AUTHORED, NOT GENERATED: it carries the
-        # slice geometry, the pixel discipline and the provenance note that only
-        # that package's author knows. So this run moves `assets` and leaves every
-        # other key exactly as it found it.
+
+
+
+
         existing["assets"] = dict(sorted(assets.items()))
         manifest_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
         print(f"\nmanifest -> {manifest_path}")

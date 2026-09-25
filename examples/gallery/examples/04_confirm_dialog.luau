@@ -1,5 +1,5 @@
 --!strict
--- A bound Alert owns modal presentation, focus, cancellation and restoration.
+
 local example = { title = "Confirmation Dialog" }
 function example.build(ctx: any)
 	local UI, Compose = ctx.UI, ctx.Compose
@@ -29,7 +29,7 @@ function example.build(ctx: any)
 		open:set(true)
 	end
 	local function restore()
-		ctx.app.runtime:batch(function()
+		ctx.runtime:batch(function()
 			hasSave:set(true)
 			result:set("none")
 		end)
@@ -45,25 +45,22 @@ function example.build(ctx: any)
 	end
 	built.openDialog, built.restore = openDialog, restore
 	function built.screen()
-		return UI.Screen("DangerScreen")({
-			surface = "base",
-			padding = "m",
-			UI.ScrollView("Page")({
-				axis = "y",
+		return UI.Screen "DangerScreen" {
+			UI.ScrollView "Page" {
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-				UI.Text("Title")({
-					textSize = "title",
+				align = "stretch",
+				UI.Label "Title" {
+					textRole = "title",
+					TextWrapped = true,
 					text = function(use)
 						return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 					end,
-				}),
-				UI.Text("Outcome")({ text = outcome, textSize = "body", role = "secondary" }),
-				UI.Button("Delete")({ label = "Delete Save", enabled = hasSave, onActivate = openDialog }),
-				UI.Button("Restore")({ label = "Restore the save", onActivate = restore }),
-			}),
-			UI.Alert("ConfirmDialog")({
+				},
+				UI.Label "Outcome" { text = outcome, TextWrapped = true },
+				UI.Button "Delete" { label = "Delete Save", enabled = hasSave, onActivate = openDialog },
+				UI.Button "Restore" { label = "Restore the save", onActivate = restore },
+			},
+			UI.Alert "ConfirmDialog" {
 				title = "Delete this save?",
 				severity = "critical",
 				message = "This cannot be undone.",
@@ -75,7 +72,7 @@ function example.build(ctx: any)
 						compactLabel = "Delete",
 						role = "destructive",
 						onActivate = function()
-							ctx.app.runtime:batch(function()
+							ctx.runtime:batch(function()
 								result:set("confirmed")
 								hasSave:set(false)
 							end)
@@ -89,9 +86,9 @@ function example.build(ctx: any)
 							result:set("cancelled")
 						end,
 					},
-				},
-			}),
-		})
+				} :: { { id: string, label: string, compactLabel: string?, role: string, onActivate: () -> () } },
+			},
+		}
 	end
 	return built
 end

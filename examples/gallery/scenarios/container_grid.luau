@@ -1,298 +1,206 @@
---!strict
--- Container layout is a recipe over solved geometry, not a viewport breakpoint.
--- Outer width chooses columns; the actual Cells row supplies the usable tracks.
-local STOPS = { compact = 3, regular = 6, wide = 12 }
 local CELLS = {
-	{ id = "Standings", label = "Standings", span = { compact = 3, regular = 4, wide = 6 } },
-	{ id = "Lap", label = "Lap times", span = { compact = 3, regular = 2, wide = 3 } },
+	{ id = "Standings", label = "Standings", spans = { 3, 4, 6 } },
+	{ id = "Lap", label = "Lap times", spans = { 3, 2, 3 } },
 	{ id = "Media", label = "Replays" },
-	{ id = "Notes", label = "Notes", span = 12 },
+	{ id = "Notes", label = "Notes", spans = { 3, 6, 12 } },
 }
 return {
 	title = "Measured container grid",
 	build = function(ctx)
-		local Facet, UI, Compose = ctx.Facet, ctx.UI, ctx.Compose
-		local sidebarWidth, showDebug, mediaSpan = Compose.cell(360), Compose.cell(false), Compose.cell(4)
+		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+		local sidebarWidth, guides, media = Compose.cell(360), Compose.cell(false), Compose.cell(true)
 		local panels = {}
-		local function ContainerGrid(id, widthSpec)
-			local width, content = Compose.cell(0), Compose.cell(0)
-			local layout = Compose.formula(function(use)
-				local metrics = use(ctx.env:get("themeMetrics")) or Facet.themes.neutral()
-				local class = Facet.adaptive.sizeClass(use(width))
-				local columns = STOPS[class]
-				local gutter = metrics.space.s
+		local function observe(node, property, cell)
+			cell:set(node[property])
+			local connection = node:GetPropertyChangedSignal(property):Connect(function()
+				cell:set(node[property])
+			end)
+			Compose.cleanup(function()
+				connection:Disconnect()
+			end)
+		end
+		local function panel(name, scale, maxWidth)
+			local extent = Compose.cell(V2.zero)
+			local geometry = Compose.formula(function(use)
+				local width = use(extent).X
+				local band = if width >= 960 then 3 elseif width >= 600 then 2 else 1
+				local columns = ({ 3, 6, 12 })[band]
 				return {
-					class = class,
+					width = width,
 					columns = columns,
-					margin = metrics.space.m,
-					gutter = gutter,
-					lane = math.max(1, math.floor((use(content) - gutter * (columns - 1)) / columns)),
+					band = band,
+					lane = math.max(1, (width - 32 - (columns - 1) * 8) / columns),
 				}
 			end)
-			local state = { bands = {} }
-			panels[id] = state
-			Compose.cleanup(function()
-				if panels[id] == state then
-					panels[id] = nil
-				end
-			end)
-			local function spanOf(cell, use)
-				local grid = use(layout)
-				local declared = if cell.id == "Media" then use(mediaSpan) else cell.span
-				if type(declared) == "table" then
-					declared = declared[grid.class]
-				end
-				return math.clamp(math.floor(declared or 1), 0, grid.columns)
+			panels[name] = geometry
+			local bodySize = Compose.cell(V2.zero)
+			local children = {
+				Host.UIListLayout({
+					SortOrder = E.SortOrder.LayoutOrder,
+					FillDirection = E.FillDirection.Horizontal,
+					Wraps = true,
+					Padding = D.new(0, 8),
+				}),
+			}
+			for index, item in CELLS do
+				local frame = Host.Frame({
+					Name = item.id,
+					LayoutOrder = index,
+					BackgroundTransparency = 0,
+					Visible = function(use)
+						return item.id ~= "Media" or use(media)
+					end,
+					Size = function(use)
+						local g = use(geometry)
+						local span = if item.spans then item.spans[g.band] else math.min(4, g.columns)
+						return D2.fromOffset(span * g.lane + (span - 1) * 8, 0)
+					end,
+					AutomaticSize = E.AutomaticSize.Y,
+					Host.UISizeConstraint({ MinSize = V2.new(0, 44) }),
+					Host.UIPadding({
+						PaddingLeft = D.new(0, 8),
+						PaddingRight = D.new(0, 8),
+						PaddingTop = D.new(0, 8),
+						PaddingBottom = D.new(0, 8),
+					}),
+					UI.Label({
+						text = item.label,
+						TextWrapped = true,
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+					}),
+				})
+				frame:AddTag("facet-control")
+				table.insert(children, frame)
 			end
-			local cells = {}
-			for _, cell in CELLS do
+			local cells = Host.Frame "Cells" {
+				Size = D2.new(1, 0, 0, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				table.unpack(children),
+			}
+			observe(cells, "AbsoluteSize", bodySize)
+			local lanes = {}
+			for index = 1, 12 do
 				table.insert(
-					cells,
-					UI.When("Slot" .. cell.id)({
-						condition = function(use)
-							return spanOf(cell, use) > 0
+					lanes,
+					Host.Frame({
+						Name = "Lane" .. index,
+						BorderSizePixel = 0,
+						BackgroundTransparency = 0.82,
+						Visible = function(use)
+							return use(guides) and index <= use(geometry).columns
 						end,
-						thenView = function()
-							return UI.ZStack(cell.id)({
-								surface = "control",
-								width = function(use)
-									local span, grid = spanOf(cell, use), use(layout)
-									return { type = "fixed", px = span * grid.lane + (span - 1) * grid.gutter }
-								end,
-								height = { type = "minMax", min = 44 },
-								alignH = "center",
-								alignV = "center",
-								UI.Text("Label")({ text = cell.label, textSize = "label", padding = "xs" }),
-							})
+						Size = function(use)
+							return D2.fromOffset(use(geometry).lane, use(bodySize).Y)
+						end,
+						Position = function(use)
+							return D2.fromOffset((index - 1) * (use(geometry).lane + 8), 0)
 						end,
 					})
 				)
 			end
-			local body = UI.HStack("Cells")({
-				width = UI.fill(),
-				wrap = true,
-				gap = function(use)
-					return use(layout).gutter
-				end,
-				table.unpack(cells),
-			})
-			local overlay = UI.When("DebugOverlay")({
-				condition = showDebug,
-				thenView = function()
-					return UI.HStack("Lanes")({
-						width = UI.fill(),
-						height = UI.fill(),
-						gap = function(use)
-							return use(layout).gutter
-						end,
-						UI.ForEach("Bands")({
-							items = function(use)
-								local items = {}
-								for index = 1, use(layout).columns do
-									table.insert(items, index)
-								end
-								return items
-							end,
-							key = function(index)
-								return index
-							end,
-							row = function(index)
-								return UI.Box("Lane" .. index)({
-									surface = "accent",
-									opacity = 0.25,
-									height = UI.fill(),
-									width = function(use)
-										return { type = "fixed", px = use(layout).lane }
-									end,
-									onAppear = function(path)
-										state.bands[index] = path
-									end,
-									onDisappear = function()
-										state.bands[index] = nil
-									end,
-								})
-							end,
-						}),
-					})
-				end,
-			})
-			local root = UI.VStack(id)({
-				width = widthSpec,
-				gap = "s",
-				surface = "raised",
-				padding = function(use)
-					local grid = use(layout)
-					return { left = grid.margin, right = grid.margin, top = grid.gutter, bottom = grid.gutter }
-				end,
-				UI.When("CaptionSlot")({
-					condition = function(use)
-						return use(width) > 0
+			local root = Host.Frame({
+				Name = name,
+				Size = D2.new(scale, 0, 0, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				Host.UISizeConstraint({ MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) }),
+				Host.UIPadding({
+					PaddingLeft = D.new(0, 16),
+					PaddingRight = D.new(0, 16),
+					PaddingTop = D.new(0, 12),
+					PaddingBottom = D.new(0, 12),
+				}),
+				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
+				UI.Label "Heading" {
+					text = function(use)
+						local g = use(geometry)
+						return string.format("%s · %d px · %d columns", name, g.width, g.columns)
 					end,
-					thenView = function()
-						return UI.Text("Caption")({
-							text = function(use)
-								local grid = use(layout)
-								return `{grid.class} · {math.floor(use(width))}px · {grid.columns} columns`
-							end,
-							textSize = "caption",
-							role = "secondary",
-							width = UI.fill(),
-						})
+					TextWrapped = true,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+				},
+				Host.Frame "Grid" {
+					BackgroundTransparency = 1,
+					Size = function(use)
+						return D2.new(1, 0, 0, use(bodySize).Y)
 					end,
-				}),
-				UI.ZStack("Grid")({ width = UI.fill(), height = UI.hug(), overlay, body }),
+					cells,
+					Host.Frame "Guides" {
+						BackgroundTransparency = 1,
+						Size = D2.fromScale(1, 1),
+						ZIndex = 2,
+						table.unpack(lanes),
+					},
+				},
 			})
-			return Facet.contribution.attach(root, {
-				bindController = function(controller)
-					state.controller = controller
-				end,
-				syncGeometry = function(rectOf, node)
-					if not node then
-						return
-					end
-					state.path = node.path
-					local outer, row = rectOf(node.path), rectOf(node.path .. "/Grid/Cells")
-					if outer and outer.w > 0 and outer.w ~= width:peek() then
-						width:set(outer.w)
-					end
-					if row and row.w > 0 and row.w ~= content:peek() then
-						content:set(row.w)
-					end
-				end,
-			})
-		end
-		local function readPanel(id)
-			local state = panels[id]
-			if not state or not state.path or not state.controller then
-				return {}
+			if maxWidth then
+				ctx.runtime.decorate(root:FindFirstChildWhichIsA("UISizeConstraint"), {
+					MaxSize = function(use)
+						return V2.new(use(maxWidth), 100000)
+					end,
+				})
 			end
-			local controller, root = state.controller, state.path
-			-- Geometry publishes the new column count; the following commit mounts its bands.
-			ctx.presenter.refresh()
-			ctx.presenter.refresh()
-			local outer, row = controller.rectOf(root), controller.rectOf(root .. "/Grid/Cells")
-			if not outer then
-				return {}
-			end
-			local text = controller.textAt(root .. "/CaptionSlot/then/Caption")
-			local cells, rects, bands = {}, {}, 0
-			for _, cell in CELLS do
-				local rect = controller.rectOf(root .. "/Grid/Cells/Slot" .. cell.id .. "/then/" .. cell.id)
-				if rect then
-					table.insert(cells, cell.id)
-					rects[cell.id] = rect
-				end
-			end
-			for _, path in state.bands do
-				if controller.rectOf(path) then
-					bands += 1
-				end
-			end
-			return {
-				width = outer.w,
-				rowWidth = if row then row.w else nil,
-				row = row,
-				rects = rects,
-				cells = cells,
-				bands = bands,
-				columns = STOPS[Facet.adaptive.sizeClass(outer.w)],
-				caption = if text then text.text else nil,
-			}
-		end
-		local function report()
-			return { Sidebar = readPanel("Sidebar"), Column = readPanel("Column"), Board = readPanel("Board") }
-		end
-		local function section()
-			return UI.VStack("GridRecipe")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("Title")({ text = "One screen, three containers", textSize = "heading", width = UI.fill() }),
-				UI.Text("Note")({
-					text = "Each panel reads its own width; its cells use the actual space inside the frame.",
-					width = UI.fill(),
-				}),
-				UI.HStack("Actions")({
-					wrap = true,
-					gap = "s",
-					UI.Button("Resize")({
-						label = "Resize sidebar",
-						onActivate = function()
-							sidebarWidth:set(if sidebarWidth:peek() == 360 then 720 else 360)
-						end,
-					}),
-					UI.Button("Debug")({
-						label = "Toggle grid guides",
-						onActivate = function()
-							showDebug:set(not showDebug:peek())
-						end,
-					}),
-					UI.Button("Media")({
-						label = "Toggle replays",
-						onActivate = function()
-							mediaSpan:set(if mediaSpan:peek() == 0 then 4 else 0)
-						end,
-					}),
-				}),
-				UI.VStack("Panels")({
-					width = UI.fill(),
-					gap = "m",
-					ContainerGrid("Sidebar", function(use)
-						return { type = "fixed", px = use(sidebarWidth) }
-					end),
-					ContainerGrid("Column", { type = "fixed", px = 600 }),
-					ContainerGrid("Board", { type = "fixed", px = 1040 }),
-				}),
-			})
+			observe(root, "AbsoluteSize", extent)
+			root:AddTag("facet-surface")
+			return root
 		end
 		return {
-			section = section,
 			screen = function()
-				return UI.Screen("ContainerGrid")({
-					surface = "base",
-					padding = { top = "m", bottom = "m" },
-					UI.ScrollView("Content")({
-						width = UI.fill(),
-						height = UI.fill(),
-						padding = { left = "m", right = "m" },
-						section(),
+				return Host.ScrollingFrame "ContainerGrid" {
+					Size = D2.fromScale(1, 1),
+					AutomaticCanvasSize = E.AutomaticSize.Y,
+					CanvasSize = D2.new(),
+					BackgroundTransparency = 1,
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
+					UI.Label({ text = "One screen, three containers", textRole = "title" }),
+					UI.Label({
+						text = "Each panel reads its own width; its cells use the actual space inside the frame.",
+						TextWrapped = true,
 					}),
-				})
+					Host.Frame "Actions" {
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+						BackgroundTransparency = 1,
+						Host.UIListLayout({
+							SortOrder = E.SortOrder.LayoutOrder,
+							FillDirection = E.FillDirection.Horizontal,
+							Wraps = true,
+							Padding = D.new(0, 8),
+						}),
+						UI.Button "Resize" {
+							label = "Resize sidebar",
+							onActivate = function()
+								sidebarWidth:set(if sidebarWidth:peek() == 360 then 1040 else 360)
+							end,
+						},
+						UI.Button "GuidesToggle" {
+							label = "Toggle grid guides",
+							onActivate = function()
+								guides:set(not guides:peek())
+							end,
+						},
+						UI.Button "Replays" {
+							label = "Toggle replays",
+							onActivate = function()
+								media:set(not media:peek())
+							end,
+						},
+					},
+					panel("Sidebar", 1, sidebarWidth),
+					panel("Column", 0.65),
+					panel("Board", 1),
+				}
 			end,
-			report = report,
-			steps = {
-				grow = function()
-					sidebarWidth:set(720)
-					return readPanel("Sidebar")
-				end,
-				wide = function()
-					sidebarWidth:set(1040)
-					return readPanel("Sidebar")
-				end,
-				shrink = function()
-					sidebarWidth:set(360)
-					return readPanel("Sidebar")
-				end,
-				hideMedia = function()
-					mediaSpan:set(0)
-					return readPanel("Board")
-				end,
-				showMedia = function()
-					mediaSpan:set(4)
-					return readPanel("Board")
-				end,
-				debugOn = function()
-					showDebug:set(true)
-					return report()
-				end,
-				debugOff = function()
-					showDebug:set(false)
-					return report()
-				end,
-			},
-			reset = function()
-				sidebarWidth:set(360)
-				showDebug:set(false)
-				mediaSpan:set(4)
+			report = function()
+				local result = { guides = guides:peek(), media = media:peek(), sidebarWidth = sidebarWidth:peek() }
+				for name, geometry in panels do
+					result[name] = geometry:peek()
+				end
+				return result
 			end,
 		}
 	end,

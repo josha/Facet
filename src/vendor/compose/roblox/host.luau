@@ -100,7 +100,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 	end
 
 	local function connectEvent(node: Node, event: string, handler: (...any) -> ()): Compose.Unsubscribe
-		local signal = (node :: any)[event]
+		local signal: Engine.Signal? = (node :: any)[event]
 		if signal == nil or type(signal.Connect) ~= "function" then
 			error(
 				Compose.formatDiagnostic(

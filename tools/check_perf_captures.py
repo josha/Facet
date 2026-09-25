@@ -1,36 +1,4 @@
 #!/usr/bin/env python3
-"""Capture-admissibility checker for the performance lab (Step 9, acceptance PL-9).
-
-The Luau side (`examples/performance/lab/capture.luau`) refuses an incomplete row at
-export time. This is the same judgement applied to what actually landed on disk, so a
-row cannot become admissible by being copied into an artifact by hand.
-
-It enforces three things the stage's honesty depends on:
-
-  1. EVERY required field is present, and `"unknown"` does not count as present.
-     A default string makes a row look complete and comparable when it is neither.
-
-  2. THE EVIDENCE CLASS IS NOT LAUNDERED. A `phone-physical` or `desktop-retail` row
-     has to carry what a retail client can supply (device model, OS, client version,
-     power state) and must NOT carry a Studio version. This is the same refusal
-     `perf_runner.provenanceProblems` makes on ingest, applied one layer earlier —
-     the existing perf gate learned the hard way that a relabelled container must not
-     relabel its contents.
-
-  3. THE CAPTURE SET DESCRIBES THE SHIPPED WORKLOAD. Every version string was already
-     recorded and nothing compared it to source, so when the row and scenario modules
-     were versioned to fix a real layout defect the whole set silently went on
-     describing a workload that no longer exists. At least one admissible row must
-     carry the versions the source declares today, and any row that does not is
-     required to say so.
-
-  4. A DEVICE CLAIM NEEDS A DEVICE ROW. If any artifact asserts the low-end budget is
-     met, at least one `phone-physical` row must exist. While none does, the stage
-     may say "automation complete"; it may not say the budget is met.
-
-Run:  python3 tools/check_perf_captures.py     (exit 0 = PASS)
-"""
-
 import json
 import os
 import re
@@ -40,8 +8,6 @@ STUDIO_DIR = "artifacts/performance-stress-places/studio"
 DEVICE_DIR = "artifacts/cross-platform-proof/device"
 ACCEPTANCE = "artifacts/performance-stress-places/acceptance.md"
 
-# mirrors capture.REQUIRED; kept as one flat list because a checker that groups
-# differently from the producer is a checker that drifts from it
 REQUIRED = [
     "schema", "evidenceClass", "capturedAtIso", "repeat_",
     "scenario", "scenarioVersion", "datasetVersion", "rowVersion", "implementation",
@@ -54,21 +20,25 @@ REQUIRED = [
 REQUIRED_DEVICE = ["deviceModel", "osVersion", "clientVersion", "powerState"]
 DEVICE_CLASSES = {"phone-physical", "desktop-retail"}
 HOST_CLASSES = {"lune", "studio", "emulator"}
-# Two accepted spellings of ONE schema. The captures already on disk were emitted
-# before the Facet rename and are immutable evidence, so they carry the old string;
-# `examples/performance/lab/capture.luau` emits the new one from now on. Anything
-# that is neither is still refused, so this is the same check, not a weaker one.
+
 SCHEMA = "facet-perf-capture/1"
 SCHEMAS = (SCHEMA, "luauui-perf-capture/1")
 
-# read the workload identity from SOURCE, never from a constant here — a checker that
-# hard-codes the version it expects has to be edited in lockstep with the thing it
-# checks, and the edit that gets forgotten is the one that matters
 VERSION_SOURCES = {
-    "rowVersion": ("examples/performance/lab/rows.luau", r'rows\.VERSION\s*=\s*"([^"]+)"'),
+    "rowVersion": ("examples/performance/lab/rows.luau", r'\bVERSION\s*=\s*"([^"]+)"'),
     "datasetVersion": ("examples/performance/lab/dataset.luau", r'dataset\.VERSION\s*=\s*"([^"]+)"'),
-    "scenarioVersion": ("examples/performance/lab/perf_lab.luau", r'SCENARIO_VERSION\s*=\s*"([^"]+)"'),
+    "scenarioVersion": ("examples/performance/lab/perf_lab.luau", r'lab\.VERSION\s*=\s*"([^"]+)"'),
 }
+
+
+def capture_contract():
+    with open("examples/performance/lab/capture.luau") as fh:
+        source = fh.read()
+    block = re.search(r"capture\.REQUIRED\s*=\s*\{(.*?)\n\}", source, re.S)
+    device = re.search(r"capture\.REQUIRED_DEVICE\s*=\s*\{([^}]*)\}", source)
+    if block is None or device is None:
+        raise SystemExit("check_perf_captures: cannot read capture.REQUIRED from capture.luau")
+    return re.findall(r'"([^"]+)"', block.group(1)), re.findall(r'"([^"]+)"', device.group(1))
 
 
 def source_versions():
@@ -86,8 +56,6 @@ def missing(row, keys):
     out = []
     for k in keys:
         v = row.get(k)
-        # CONTAINS, not equals (phase-gate review F-7): "uncapped/unknown" is the same
-        # non-answer and used to pass. "n/a" and "not recorded" stay legal.
         if v is None or v == "" or (isinstance(v, str) and "unknown" in v):
             out.append(k)
     return out
@@ -115,14 +83,10 @@ def check_row(row, where):
 
 
 def collect_rows(path):
-    """A capture file may hold one row or a list under `rows`/`captures`."""
     with open(path) as fh:
         doc = json.load(fh)
     if isinstance(doc, dict) and doc.get("schema") in SCHEMAS:
         return [(doc, os.path.basename(path))]
-    # the lab's `export` step emits {admissible, note, row, problems}; that envelope is
-    # what the evidence bridge drops on disk, so the reader has to understand the shape
-    # the INSTRUMENT produces rather than a tidied one
     if isinstance(doc, dict) and isinstance(doc.get("row"), dict) and doc["row"].get("schema") in SCHEMAS:
         return [(doc["row"], os.path.basename(path))]
     rows = []
@@ -147,8 +111,12 @@ def main():
                 all_rows.append((row, where))
                 problems += check_row(row, where)
 
-    # 3. the capture set has to describe the workload that ships TODAY
     current = source_versions()
+    required, required_device = capture_contract()
+    if required != REQUIRED:
+        problems.append(f"capture.luau REQUIRED {required} differs from this checker {REQUIRED}")
+    if required_device != REQUIRED_DEVICE:
+        problems.append(f"capture.luau REQUIRED_DEVICE {required_device} differs from this checker {REQUIRED_DEVICE}")
 
     def is_current(row):
         return all(row.get(f) == v for f, v in current.items())
@@ -170,15 +138,10 @@ def main():
                 "and the row does not say it was superseded"
             )
 
-    # 4. a device CLAIM needs a device ROW
     device_rows = sum(classes.get(c, 0) for c in DEVICE_CLASSES)
     if os.path.isfile(ACCEPTANCE):
         with open(ACCEPTANCE) as fh:
             text = fh.read()
-        # A ROW STATUS, not the word. The ledger's own status-vocabulary paragraph
-        # names PASS_PHYSICAL in prose, and a substring match read that as a claim —
-        # the first run of this check failed on its own documentation. A claim is a
-        # table cell: `| ... | PASS_PHYSICAL |`.
         claims_budget = re.search(r"\|\s*PASS_PHYSICAL\s*\|", text) is not None
         if claims_budget and device_rows == 0:
             problems.append(

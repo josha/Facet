@@ -1,0 +1,137 @@
+{
+  "schema": "facet-gap-closure-live/1",
+  "studio": "70bc3b89-8145-4ce3-9335-873488f08089",
+  "candidateStamp": "6dc7a2f773e7348c5c9cb7f5f6c5fd7cc980c9126ee24d5691b8bb1672c17068",
+  "device": "hd_720",
+  "evidence": {
+    "G18": {
+      "repeatedRemounts": 3,
+      "pointerSelections": 12,
+      "themes": [
+        "Neutral",
+        "fantasy_ornate"
+      ],
+      "screenshot": "Inline Studio screenshots inspected; no image file saved."
+    },
+    "nativeArtPadding": {
+      "buttonPosition": "411, 56",
+      "skinPosition": "411, 56",
+      "styledPaddingRight": 14,
+      "inputTests": 49,
+      "themeTests": 42
+    },
+    "G17": {
+      "nativeScrollOffset": 261,
+      "previewScale": 1.5,
+      "rootAbsoluteSize": "1279, 662",
+      "nativeTabsWorking": true,
+      "restoredScale": 1,
+      "selectedRetained": "toasts",
+      "shellTests": 3
+    },
+    "navigationTests": 52,
+    "phoneTouch": {
+      "stamp": "ad887e47b9955bb34e5e96585ec67ff1030108196bd36600b31fd8dd993ca82a",
+      "device": "iphone_17_pro portrait",
+      "viewport": "401, 776",
+      "inputType": "Touch via Studio device emulator and VirtualInput",
+      "coordinateConversion": "GuiObject position minus GuiService:GetInsetArea(None).Min; phone offset120, not GetGuiInset58 alone",
+      "quickSwipe": {
+        "offsetBefore": 0,
+        "offsetAfter": 430.050507,
+        "scrollingEnabled": true,
+        "modal": false
+      },
+      "longPressSave": {
+        "card": "Game_4",
+        "nativeLongPressBegin": true,
+        "scrollingWhileHeld": false,
+        "saved": "Saved (1)",
+        "scrollingAfterRelease": true,
+        "modal": false
+      },
+      "suggestionSelection": {
+        "query": "Circuit",
+        "modal": true,
+        "suggestionsClosed": true
+      }
+    },
+    "mainLargest": {
+      "stamp": "9658d8eead729719a0acc2b533a901fb1f3c669dcde8eabb2045bba1fcc44b44",
+      "nativePreferredTextSize": "Largest",
+      "screenshotsInspected": [
+        "HD720 Discover",
+        "HD720 Avatar",
+        "HD720 Chat",
+        "iPhone17Pro portrait Chat",
+        "iPhone17Pro portrait Avatar",
+        "iPhone17Pro portrait Discover"
+      ],
+      "notes": "Baseline has compact header truncation, overflowing genre strip and narrow composer at Largest. Comparisons are inline screenshots, not saved pixel diffs."
+    },
+    "filterReset": {
+      "stamp": "d63a34ccf0660b65ec311612e05cadb44749b67d47fb0823e6ed8c955b2ebe9a",
+      "before": 403.5163879394531,
+      "after": 0,
+      "velocity": "0, 0",
+      "firstY": 212,
+      "viewportY": 212,
+      "implementation": "Compose.switch owns each query/genre/sort result collection; no deferred reset or vendor patch."
+    },
+    "largestText": {
+      "nativePreference": "Largest",
+      "checked": [
+        "phone portrait Discover, Avatar, Chat",
+        "HD720 Avatar and Chat",
+        "phone landscape Chat"
+      ],
+      "shortChat": {
+        "messageViewport": "693, 75",
+        "composer": "693, 44",
+        "prompts": "Available in conversation menu when shortcut row is hidden"
+      },
+      "wideChat": {
+        "window": "955, 328",
+        "canvas": 404,
+        "offset": 76
+      },
+      "disclosureIcons": [
+        "rbxassetid://90343755930598",
+        "rbxassetid://121626475799702",
+        "rbxassetid://90343755930598"
+      ],
+      "screenshots": "Inspected inline; no automated pixel-diff claim."
+    },
+    "nativeGamepad": {
+      "device": "Studio virtual controller",
+      "observedInput": "Gamepad1:DPadRight and Gamepad1:ButtonA",
+      "checks": [
+        "Avatar to Chat directional tab selection",
+        "Chat activation with A",
+        "DPadDown from tabs into message collection",
+        "About modal activation selects done action",
+        "B dismisses modal and restores active conversation selection"
+      ],
+      "keyboard": "Native Return activated selected Avatar tab."
+    },
+    "spatialTouch": {
+      "device": "iPhone17Pro portrait emulator, actual UserInputType.Touch",
+      "checks": [
+        "Native SurfaceGui Game_1 opens detail",
+        "Done dismisses detail",
+        "Avatar to overview to Discover to overview to Avatar",
+        "Each sleeping WakeMonitor changes visible true to false without opening modal",
+        "Held card disables native scrolling; release away from Saved restores scrolling, no modal and Saved (0)"
+      ],
+      "heldScrollingEnabled": false,
+      "releasedScrollingEnabled": true
+    }
+  },
+  "remaining": [],
+  "nativeTextPreference": {
+    "original": "Medium",
+    "current": "Medium",
+    "restoreRequired": false
+  },
+  "finalFullVerification": "final-full-report.json"
+}

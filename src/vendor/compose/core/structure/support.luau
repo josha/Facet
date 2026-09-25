@@ -20,8 +20,8 @@ local function ownerFor(primitive: string): Owner.Owner
 	return owner :: Owner.Owner
 end
 
-local function mountPointOf(mountPoint: any, primitive: string): Children.MountPoint
-	if type(mountPoint) == "table" and rawget(mountPoint :: any, "insert") ~= nil then
+local function mountPointOf(mountPoint: unknown, primitive: string): Children.MountPoint
+	if type(mountPoint) == "table" and rawget(mountPoint :: { [string]: unknown }, "insert") ~= nil then
 		return mountPoint :: Children.MountPoint
 	end
 	Diagnostics.raise(
@@ -39,9 +39,9 @@ local function mountPointOf(mountPoint: any, primitive: string): Children.MountP
 	error("unreachable", 0)
 end
 
-local function writableOf(value: any, primitive: string, field: string): any
-	if type(value) == "table" and type((value :: any).set) == "function" then
-		return value
+local function writableOf<T>(value: unknown, primitive: string, field: string): Types.Cell<T>
+	if type(value) == "table" and type((value :: { set: unknown }).set) == "function" then
+		return value :: Types.Cell<T>
 	end
 	Diagnostics.raise(
 		"structure/status-not-a-cell",
@@ -59,14 +59,15 @@ local function writableOf(value: any, primitive: string, field: string): any
 	error("unreachable", 0)
 end
 
-local function sourceOf<T>(value: any, primitive: string, field: string): Types.Body<T>
+local function sourceOf<T>(value: unknown, primitive: string, field: string): Types.Body<T>
 	if cellModule.isReadable(value) then
+		local readable = value :: Types.Readable<T>
 		return function(use: Types.Use): T
-			return use(value)
+			return use(readable)
 		end
 	end
 	if type(value) == "function" then
-		return value
+		return value :: Types.Body<T>
 	end
 	Diagnostics.raise("structure/source-not-readable", ("%s was given a %s it cannot read"):format(primitive, field), {
 		primitive = primitive,
@@ -78,7 +79,7 @@ local function sourceOf<T>(value: any, primitive: string, field: string): Types.
 	error("unreachable", 0)
 end
 
-local function builderOf(value: any, primitive: string, field: string): any
+local function builderOf<F>(value: F, primitive: string, field: string): F
 	if type(value) == "function" then
 		return value
 	end
@@ -102,16 +103,14 @@ local function mountBuilder(
 	primitive: string
 ): Types.Dispose
 	local owner = parent.createChild()
-	local ok, produced: any = pcall(Active.withOwner, owner, builder)
+	local ok, produced = pcall(Active.withOwner, owner, builder)
 	if not ok then
 		owner.dispose()
 		error(produced, 0)
 	end
 
 	if type(produced) == "function" then
-		local mounted, err: any = pcall(Active.withOwner, owner, function()
-			(produced :: Children.Directive)(mountPoint)
-		end)
+		local mounted, err: unknown = pcall(Active.runWith, owner, produced :: Children.Directive, mountPoint)
 		if not mounted then
 			owner.dispose()
 			error(err, 0)
@@ -132,7 +131,7 @@ local function mountBuilder(
 		)
 	end
 
-	local inserted, err: any = pcall(mountPoint.insert, produced, 1)
+	local inserted, err: unknown = pcall(mountPoint.insert, produced, 1)
 	if not inserted then
 		owner.dispose()
 		error(err, 0)
@@ -144,7 +143,7 @@ local function mountBuilder(
 	return owner.dispose
 end
 
-local function optionsOf(value: any, primitive: string, fields: string): { [string]: any }
+local function optionsOf<T>(value: T, primitive: string, fields: string): T
 	if cellModule.isReadable(value) then
 		Diagnostics.raise(
 			"structure/options-not-a-table",
@@ -172,8 +171,8 @@ local function optionsOf(value: any, primitive: string, fields: string): { [stri
 	error("unreachable", 0)
 end
 
-local function noUnknownFields(options: { [string]: any }, primitive: string, known: { [string]: true })
-	for field in options do
+local function noUnknownFields(options: unknown, primitive: string, known: { [string]: true })
+	for field in options :: { [string]: unknown } do
 		if known[field] == nil then
 			local names: { string } = {}
 			for name in known do

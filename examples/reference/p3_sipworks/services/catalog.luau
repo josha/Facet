@@ -1,13 +1,4 @@
 --!strict
--- CatalogService (spec §3) — blends, botanicals, and every fact DERIVED from a
--- blend's measured quantities. Pure: no signals, no clock, no engine. In
--- production this is a static content module or a backend catalog
--- (responsibility ledger).
---
--- The derivation is the point. A blend states its measures once; leaf mass,
--- caffeine, steep time and the per-botanical brew facts all come out of them,
--- so a card can be "scaled to this blend's measured quantity" (spec §7) without
--- a second table to keep in sync.
 
 local blends = require("../content/blends")
 local botanicals = require("../content/botanicals")
@@ -34,8 +25,6 @@ function catalog.new()
 		return botanicals.byId[id]
 	end
 
-	-- grams of ONE measure. `ml` is water (and water is never leaf), so it
-	-- weighs nothing toward the pot's leaf mass.
 	function self.gramsOf(measure: any): number
 		local botanical = botanicals.byId[measure.botanicalId]
 		if botanical == nil or botanical.water then
@@ -58,7 +47,6 @@ function catalog.new()
 		return self.gramsOf(measure) * botanical.caffeinePerGram
 	end
 
-	-- the three whole-blend derivations
 	function self.caffeineMg(blendId: string): number
 		local blend = blends.byId[blendId]
 		if blend == nil then
@@ -98,7 +86,6 @@ function catalog.new()
 		return longest
 	end
 
-	-- the botanical ids a MENU surface may show: never the filler
 	function self.tileBotanicals(blendId: string): { string }
 		local blend = blends.byId[blendId]
 		local out: { string } = {}
@@ -114,7 +101,6 @@ function catalog.new()
 		return out
 	end
 
-	-- ...and the ones a RECIPE shows, water included
 	function self.recipeMeasures(blendId: string): { any }
 		local blend = blends.byId[blendId]
 		return if blend ~= nil then blend.measures else {}
@@ -133,8 +119,6 @@ function catalog.new()
 		return nil
 	end
 
-	-- THE FACTS FACE (spec §7): four measured rows, every one of them this
-	-- blend's own quantity of this botanical rather than a shelf average.
 	function self.factsFor(blendId: string, botanicalId: string): { { key: string, kind: string, value: number } }
 		local botanical = botanicals.byId[botanicalId]
 		local measure = self.measureFor(blendId, botanicalId)
@@ -149,16 +133,11 @@ function catalog.new()
 		}
 	end
 
-	-- the recipe-gated set (spec §2: three free recipes, twelve behind the book)
 	function self.isFreeRecipe(blendId: string): boolean
 		local blend = blends.byId[blendId]
 		return blend ~= nil and blend.free == true
 	end
 
-	-- SEARCH. `localize(kind, id, text)` is handed in so the match runs against
-	-- what the player can actually READ — a pseudo-localized menu has to be
-	-- searchable in its own locale, and a match against the source string would
-	-- silently be a match against a language nobody is looking at.
 	function self.matches(blendId: string, query: string, localize: (string, string, string) -> string): boolean
 		local blend = blends.byId[blendId]
 		if blend == nil then
@@ -184,8 +163,6 @@ function catalog.new()
 		return false
 	end
 
-	-- botanical-name suggestions: never the filler, never an exact repeat of
-	-- what is already typed, capped at six rows (spec §6)
 	function self.suggestions(query: string, localize: (string, string, string) -> string, cap: number): { string }
 		local out: { string } = {}
 		local needle = string.lower(query)

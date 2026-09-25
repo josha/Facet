@@ -1,36 +1,17 @@
 --!strict
--- The Studio-sync tree SHAPE — one walk, shared by `tools/lune/studio_sync.luau`
--- (which serves it over HTTP so the Studio MCP can inject sources) and
--- `tools/lune/check_scenario_requires.luau` (which proves a literal relative
--- `require("...")` string in the gallery/scenario/reference tree actually
--- resolves against it). Extracted so the two readers cannot describe the
--- mapping differently (SHOWCASE2 task A: the guard has to know EXACTLY what
--- `studio_sync` would serve, not a hand-maintained echo of it).
---
--- Mirrors `examples/gallery.project.json` (gallery mode) / `examples/
--- performance.project.json` (perf mode): src -> ReplicatedStorage.Facet,
--- examples/gallery/examples -> ReplicatedStorage.FacetExamples,
--- examples/gallery/scenarios -> ReplicatedStorage.FacetScenarios,
--- examples/gallery/client -> ReplicatedStorage.Gallery,
--- examples/gallery/server -> ServerScriptService.Outpost,
--- examples/reference -> ReplicatedStorage.FacetReference,
--- examples/themes -> ReplicatedStorage.FacetThemes. Rojo folding: <dir>/
--- init.luau => ModuleScript named <dir> whose Source is the init file;
--- sibling .luau files => child ModuleScripts. *.spec.luau excluded.
 
 local fs = require("@lune/fs")
 
 export type FileEntry = {
-	path: string, -- dot path under game, e.g. ReplicatedStorage.Facet.layout.solver
-	className: string, -- ModuleScript | Script | Folder
-	runContext: string?, -- "Client" | "Server" for Script nodes
-	file: string, -- repo-relative source file ("" for a folder with no init)
+	path: string,
+	className: string,
+	runContext: string?,
+	file: string,
 }
 
 local studio_tree = {}
 
 local function addTree(entries: { FileEntry }, fsDir: string, robloxPath: string, rootClassName: string)
-	-- the directory itself: init.luau (or init.client.luau) becomes the node
 	local initFile: string? = nil
 	local className = rootClassName
 	local runContext: string? = nil
@@ -41,12 +22,6 @@ local function addTree(entries: { FileEntry }, fsDir: string, robloxPath: string
 		className = "Script"
 		runContext = "Client"
 	elseif fs.isFile(fsDir .. "/init.server.luau") then
-		--[[ THE SERVER FOLD, added with the showcase's first server side
-			(`examples/gallery/server`, the outpost's server authority). Rojo maps
-			`init.server.luau` to a `Script` exactly as it maps `init.client.luau`
-			to a `LocalScript`; this walk knew only the client half, so a server
-			folder would have been served as a `Folder` with no source and the
-			injected place would have had no authority at all. ]]
 		initFile = fsDir .. "/init.server.luau"
 		className = "Script"
 		runContext = "Server"
@@ -71,30 +46,38 @@ local function addTree(entries: { FileEntry }, fsDir: string, robloxPath: string
 	end
 end
 
--- entries(mode): mode is "gallery" (default) or "perf" — see studio_sync.luau's
--- "TWO TREES, ONE AT A TIME" note for why the two never mount together.
 function studio_tree.entries(mode: string?): { FileEntry }
 	local entries: { FileEntry } = {}
 	addTree(entries, "src", "ReplicatedStorage.Facet", "ModuleScript")
 	addTree(entries, "examples/themes", "ReplicatedStorage.FacetThemes", "Folder")
 	if mode == "perf" then
 		addTree(entries, "examples/performance/lab", "ReplicatedStorage.FacetScenarios", "ModuleScript")
-		table.insert(entries, {
-			path = "ReplicatedStorage.FacetScenarios.runner",
-			className = "ModuleScript",
-			file = "examples/gallery/scenarios/runner.luau",
-		})
-		addTree(entries, "examples/performance/client", "StarterPlayer.StarterPlayerScripts.PerfLab", "ModuleScript")
+		addTree(entries, "examples/performance/client", "ReplicatedStorage.PerfLab", "ModuleScript")
+		addTree(entries, "tools/studio/live", "ReplicatedStorage.FacetLive", "ModuleScript")
 	else
 		addTree(entries, "examples/gallery/examples", "ReplicatedStorage.FacetExamples", "Folder")
 		addTree(entries, "examples/gallery/scenarios", "ReplicatedStorage.FacetScenarios", "ModuleScript")
 		addTree(entries, "examples/gallery/client", "ReplicatedStorage.Gallery", "ModuleScript")
-		-- the showcase's server side: the outpost's authority, and the
-		-- only server-owned code in the repository
+
 		addTree(entries, "examples/gallery/server", "ServerScriptService.Outpost", "Script")
-		-- reference-app-validation: the five clean-room reference proofs,
-		-- mirrored from gallery.project.json's FacetReference mapping
+
 		addTree(entries, "examples/reference", "ReplicatedStorage.FacetReference", "Folder")
+		addTree(entries, "tools/studio/live", "ReplicatedStorage.FacetLive", "ModuleScript")
+		table.insert(entries, {
+			path = "ReplicatedStorage.FacetConsumerScreen",
+			className = "ModuleScript",
+			file = "examples/consumer/src/screen.luau",
+		})
+		table.insert(entries, { path = "ReplicatedStorage.VirtualMonitors", className = "Folder", file = "" })
+		for _, name in fs.readDir("examples/virtual_monitors") do
+			if name:match("%.luau$") and not name:match("%.client%.luau$") and not name:match("%.spec%.luau$") then
+				table.insert(entries, {
+					path = "ReplicatedStorage.VirtualMonitors." .. name:gsub("%.luau$", ""),
+					className = "ModuleScript",
+					file = "examples/virtual_monitors/" .. name,
+				})
+			end
+		end
 	end
 	return entries
 end

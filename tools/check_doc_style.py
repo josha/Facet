@@ -1,39 +1,4 @@
 #!/usr/bin/env python3
-"""check_doc_style — the measurable half of the house writing style.
-
-The release plan asks every document a person is expected to read to follow an
-ASD-STE100-inspired clarity standard. This is a clarity standard, not a claim of
-formal certification. Most of that standard is a judgement call and belongs to a
-human reviewer. Three parts of it are mechanical, and this checker owns those:
-
-  1. ONE INSTRUCTION PER STEP, AND KEEP IT SHORT. A numbered step is an
-     instruction. Over MAX_INSTRUCTION_WORDS words it is carrying more than one.
-  2. NO UNEXPLAINED ACRONYM. An acronym in NEEDS_EXPANSION must be expanded once
-     in the document that uses it, before or on the line that first uses it.
-     Acronyms in COMMON are ordinary technical English and need no expansion.
-  3. NO INTERNAL SHORTHAND. A bare artifact row id, phase code, or finding code
-     (`TP-A12`, `SF-D3`, `M8`) means nothing to a reader outside this repository.
-
-Two more signals are reported as WARNINGS and never fail a run, because a
-sentence-length rule and a passive-voice heuristic both misjudge real technical
-prose often enough that failing on them would teach people to route around the
-checker:
-
-  4. a description sentence longer than MAX_SENTENCE_WORDS words;
-  5. a likely passive construction.
-
-What it must never reject: code blocks, inline code, tables' cell contents,
-links, and exact API, Roblox-class, path, or command names. Fenced blocks and
-inline code spans are removed before any rule looks at a line.
-
-One deliberate exception to "must not reject links": a link's TARGET is removed,
-but its LABEL is kept and scanned, because the label is the text a reader sees.
-`[TP-A97](../artifacts/x.md)` therefore fails rule 3 — the shorthand is on the
-page whatever it points at.
-
-Usage:  python3 tools/check_doc_style.py [--selftest] [--warnings]
-Exit 0 = clean; 1 = a FAIL-class violation; 2 = environment failure.
-"""
 
 import os
 import re
@@ -43,43 +8,15 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 
-# Every document a Roblox developer is expected to read cover to cover.
+USAGE = "usage: python3 tools/check_doc_style.py [--selftest] [--warnings]"
+
 SCANNED_DIRS = ("docs/guide", "docs/extending")
 
-# ...and the front door, which is not in a directory of its own. Two
-# fresh-context agents opened this repository on 2026-08-21 and both reported
-# the same first friction: `cat README.md` failed, and the real entry point had
-# to be found by listing `docs/`. The README that closed that gap is the one
-# page most likely to be read and the one page least likely to be reviewed, so
-# it is held to the same clarity standard as the guide it points at.
-# ...and the maintainer map, which sits beside the directories rather than in one
-# (release-candidate review row RC-11). It is the page a new owner reads before
-# touching anything, so it is held to the same clarity standard as the guide.
 SCANNED_FILES = ("README.md", "docs/MAINTAINERS.md")
 
-# RULE 6: NO MAINTAINER ARCHAEOLOGY IN THE GUIDE.
-#
-# A guide chapter tells a reader what is true. It is not the place to record
-# WHEN something became true, WHO decided it, or which piece of internal process
-# produced it: a reader outside this repository cannot use any of that, and it
-# dates the page the moment it is written. So in `docs/guide/**` a date literal,
-# or the internal vocabulary of the review process, is a failure.
-#
-# TWO CHAPTERS ARE EXEMPT, because there the dates ARE the content:
-#
-#   * the framework-comparison chapter pins each source to the day it was read,
-#     which is what makes the comparison checkable; and
-#   * the device-verification chapter records measurements, and a measurement
-#     without its date is not a measurement.
-#
-# DELIBERATELY NARROW. "stage", "wave" and "round" are ordinary English -- the
-# tutorial chapter really does have eight learning stages -- so this rule does
-# not touch them, and their maintainer-sense uses are removed by hand and kept
-# out by review. A rule that fires on a legitimate sentence teaches people to
-# route around the checker.
 ARCHAEOLOGY_EXEMPT = {
-    "docs/guide/14-choosing-a-ui-library.md",  # pinned sources, read on a date
-    "docs/guide/11-device-verification.md",    # recorded measurements
+    "docs/guide/14-choosing-a-ui-library.md",
+    "docs/guide/11-device-verification.md",
 }
 
 ARCHAEOLOGY = (
@@ -96,8 +33,6 @@ ARCHAEOLOGY = (
 MAX_INSTRUCTION_WORDS = 20
 MAX_SENTENCE_WORDS = 25
 
-# Acronyms that are ordinary technical English for a Roblox developer. No
-# expansion is required, because expanding them adds noise rather than meaning.
 COMMON = {
     "UI", "API", "ID", "IDS", "URL", "URI", "JSON", "XML", "HTML", "CSS",
     "CPU", "GPU", "RAM", "KB", "MB", "GB", "MS", "FPS", "DPI", "PPI", "RGB",
@@ -106,10 +41,6 @@ COMMON = {
     "FAQ", "WASD", "DPAD", "LED", "AI", "NPC",
 }
 
-# Acronyms this repository uses that a new reader will not know. Each must be
-# expanded once, in the document that uses it, at or before first use. The
-# expansion this checker accepts is the acronym in parentheses after the words,
-# or the words in parentheses after the acronym.
 NEEDS_EXPANSION = {
     "IAS": "Input Action System",
     "CAS": "ContextActionService",
@@ -122,8 +53,6 @@ NEEDS_EXPANSION = {
     "SF": "the framework icon set",
 }
 
-# Uppercase tokens that look like an internal row id but are a real technical
-# name, with the reason. An entry without a reason is a hole, not an allowlist.
 SHORTHAND_ALLOW = {
     "L1": "a gamepad shoulder button",
     "L2": "a gamepad trigger",
@@ -133,10 +62,10 @@ SHORTHAND_ALLOW = {
     "F10": "a keyboard function key",
     "P1": "a display resolution class in the device matrix",
     "UTF8": "a text encoding",
+    "UTF-8": "a text encoding",
+    "UTF-16": "a text encoding",
 }
 
-# A bare artifact row id / phase code: two to five capitals, a hyphen, digits
-# (`TP-A12`, `SF-D3`, `MAINT-2`), or a single capital and digits (`E4`, `M8`).
 SHORTHAND = re.compile(r"\b([A-Z]{1,5})-?([A-Z]?\d{1,3})\b")
 
 ACRONYM = re.compile(r"\b([A-Z]{2,6})\b")
@@ -146,8 +75,6 @@ PASSIVE = re.compile(
     re.IGNORECASE,
 )
 
-# Verbs whose past participle reads as an adjective, so the passive heuristic
-# would cry wolf on ordinary description.
 PASSIVE_SKIP = {"used", "based", "named", "called", "fixed", "closed", "open",
                 "needed", "allowed", "supposed", "intended", "limited"}
 
@@ -161,10 +88,6 @@ def documents(repo_root=REPO):
         for name in sorted(os.listdir(root)):
             if name.endswith(".md"):
                 found.append(os.path.join(rel, name))
-    # ...and the individual files, which SCANNED_DIRS cannot express: the loop
-    # above requires a directory and SILENTLY SKIPS anything that is not one, so
-    # a file name added there would have been scanned by nothing while looking
-    # exactly like it was covered.
     for rel in SCANNED_FILES:
         if os.path.isfile(os.path.join(repo_root, rel)):
             found.append(rel)
@@ -172,12 +95,6 @@ def documents(repo_root=REPO):
 
 
 def readable_lines(text):
-    """Yield (line_number, prose) with code removed.
-
-    Fenced blocks become empty, inline code spans become the single token CODE,
-    and a link becomes its label. Every exact name a document has to keep is
-    inside one of those three, which is why none of them reaches a rule.
-    """
     fenced = False
     for n, raw in enumerate(text.split("\n"), 1):
         if raw.lstrip().startswith("```"):
@@ -193,8 +110,6 @@ def readable_lines(text):
         prose = re.sub(r"<https?://[^>]*>", "LINK", prose)
         prose = re.sub(r"https?://\S+", "LINK", prose)
         prose = re.sub(r"<!--.*?-->", "", prose)
-        # emphasis markers are formatting, not words: leaving them in would make
-        # "**Input Action System** (IAS)" look like an unexpanded acronym
         prose = prose.replace("**", "").replace("__", "")
         yield n, prose
 
@@ -204,12 +119,6 @@ def words(text):
 
 
 def expansion_lines(readable):
-    """The line each acronym is first EXPANDED on, or None.
-
-    An expansion is matched over the whole document with line breaks flattened,
-    because a sentence that wraps is still one sentence: requiring the words and
-    the acronym on one physical line would fail correct prose for its width.
-    """
     joined, offsets = [], []
     for n, prose in readable:
         offsets.append((len(" ".join(joined)) + (1 if joined else 0), n))
@@ -247,9 +156,8 @@ def check_document(path, text, fails, warns):
                 fails.append(f"{path}:{n}: acronym '{token}' is used before it is "
                              f"expanded (write \"{NEEDS_EXPANSION[token]} ({token})\" "
                              "at first use)")
-                reported.add(token)  # report once per document
+                reported.add(token)
 
-        # 3. internal shorthand
         for match in SHORTHAND.finditer(prose):
             token = match.group(0)
             stem = match.group(1)
@@ -258,10 +166,9 @@ def check_document(path, text, fails, warns):
             if token.upper() in COMMON:
                 continue
             fails.append(f"{path}:{n}: '{token}' is internal shorthand (an artifact "
-                         "row, phase or finding code). Say what it means, or name "
-                         "the shipped document that holds it")
+                         "row, phase or finding code). Say what it means, or put an "
+                         "exact identifier in inline code")
 
-        # 1. instruction length
         step = re.match(r"^\s*\d+\.\s+(\S.*)$", prose)
         if step is not None:
             count = len(words(step.group(1)))
@@ -270,14 +177,12 @@ def check_document(path, text, fails, warns):
                              f"(limit {MAX_INSTRUCTION_WORDS}). Split it so each "
                              "step carries one instruction")
 
-        # 6. maintainer archaeology, guide chapters only
         if path.startswith("docs/guide/") and path not in ARCHAEOLOGY_EXEMPT:
             for pattern, why in ARCHAEOLOGY:
                 found = pattern.search(prose)
                 if found is not None:
                     fails.append(f"{path}:{n}: '{found.group(0)}' — {why}")
 
-        # 4/5. warnings
         for sentence in re.split(r"(?<=[.!?])\s+", prose.strip()):
             count = len(words(sentence))
             if count > MAX_SENTENCE_WORDS:
@@ -300,11 +205,15 @@ def run(root=REPO):
     return fails, warns
 
 
+def probe_fails(probe_root, probe, body):
+    with open(probe, "w") as handle:
+        handle.write("# Probe\n\n" + body)
+    fails, _warns = run(probe_root)
+    return [f for f in fails if "style_probe_tmp" in f]
+
+
 def selftest():
-    """Plant one violation of each FAIL rule, require each to be reported, then
-    require the working tree to pass. A checker nobody has watched fail proves
-    nothing about the tree it passes."""
-    cases = [
+    red = [
         ("an over-long numbered step",
          "1. Open the place file, then find the client script, then read the "
          "mount call, then change the theme name, then save it and publish.\n",
@@ -315,6 +224,9 @@ def selftest():
         ("a bare artifact row id",
          "This behaviour is pinned by row TP-A12 in the ledger.\n",
          "internal shorthand"),
+        ("a bare contract id",
+         "The contract themes-P5-41 still fails.\n",
+         "internal shorthand"),
         ("a date literal in a guide chapter",
          "The default flipped on 2026-08-21 and has stayed that way.\n",
          "a date literal dates the page"),
@@ -322,31 +234,42 @@ def selftest():
          "The director asked for the taller row, so the theme grew one.\n",
          "names an internal reviewer"),
     ]
+    green = [
+        ("an identifier in inline code",
+         "The contract `themes-P5-41` and the blocker `B1` still fail.\n"),
+        ("a standard text encoding",
+         "The tool reads each file as UTF-8 text.\n"),
+    ]
     with tempfile.TemporaryDirectory(prefix="facet-doc-style-") as probe_root:
         probe = os.path.join(probe_root, "docs", "guide", "style_probe_tmp.md")
         os.makedirs(os.path.dirname(probe))
-        for name, body, needle in cases:
-            with open(probe, "w") as handle:
-                handle.write("# Probe\n\n" + body)
-            fails, _warns = run(probe_root)
-            hit = [f for f in fails if "style_probe_tmp" in f and needle in f]
-            if not hit:
+        for name, body, needle in red:
+            fails = probe_fails(probe_root, probe, body)
+            if not [f for f in fails if needle in f]:
                 print(f"check_doc_style: SELFTEST FAIL — {name} was not reported")
-                print("\n".join(fails[:10]))
+                return 1
+        for name, body in green:
+            fails = probe_fails(probe_root, probe, body)
+            if fails:
+                print(f"check_doc_style: SELFTEST FAIL — {name} was reported:")
+                print("\n".join(fails))
                 return 1
     fails, warns = run()
     if fails:
         print("check_doc_style: SELFTEST FAIL — the working tree is not clean:")
         print("\n".join(fails[:20]))
         return 1
-    print("check_doc_style: SELFTEST PASS — an over-long numbered step, an "
-          "unexpanded acronym, a bare artifact row id, a date literal in a guide "
-          "chapter and an internal reviewer named in one were each reported; "
-          f"the working tree is clean ({len(warns)} warnings, which never fail)")
+    print(f"check_doc_style: SELFTEST PASS — {len(red)} planted violations were "
+          f"reported, {len(green)} valid forms passed, and the working tree is "
+          f"clean ({len(warns)} warnings, which never fail)")
     return 0
 
 
 def main():
+    unknown = [a for a in sys.argv[1:] if a not in ("--selftest", "--warnings")]
+    if unknown:
+        print(USAGE)
+        sys.exit(2)
     if "--selftest" in sys.argv:
         sys.exit(selftest())
     fails, warns = run()

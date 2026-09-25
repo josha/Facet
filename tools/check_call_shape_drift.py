@@ -1,202 +1,266 @@
 #!/usr/bin/env python3
-"""Reject removed flat control-constructor calls in maintained Luau sources.
-
-Controls use Facet.Controls.<Name>(core, spec) for explicit handles, or
-app.controls.<Name>(spec) in a Compose-mounted application. This check catches
-receivers passed to themselves and colon calls, including wrapped calls.
-Run with --selftest to verify rejection and allowlist scope.
-"""
-
 import os
 import re
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 STUDIO_ROOT = os.path.abspath(os.path.join(REPO, "..", "..", ".."))
 RR = os.path.join(STUDIO_ROOT, "games", "RascalRally", "code")
 
-# (1) `x.newFoo(x,` — the first argument is the very expression the call is made
-# on. `\1` is what makes this specific: `Facet.newTable(core, …)` is not a match,
-# and neither is `row_actions.newCoordinator(Facet.newCore())`.
-# `\s` already spans newlines, so these match a wrapped call once the scan
-# stops chopping the source into lines (see `scan_file`).
-TWO_ARG = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\.new([A-Z][A-Za-z0-9_]*)\s*\(\s*\1\s*,")
-# (2) the colon spelling, which hides the library in `self`
-COLON = re.compile(r":new[A-Z][A-Za-z0-9_]*\s*\(")
+CONTROL_TYPES = "src/ui/control_types.luau"
+FACET_INIT = "src/init.luau"
 
-# Frozen-evidence trees: never scanned. Structural, not per-file — a gate
-# artifact records the call shape it was earned under.
+SCANNED_ROOTS = ("examples/", "bench/", "tests/", "docs/")
+
 EXCLUDED_TREES = (
-    "artifacts/",
-    "docs/superpowers/",
-    ".superpowers/",
+    ("artifacts/", "frozen gate evidence records the call shape it was earned under"),
+    ("docs/superpowers/", "the frozen original design specs and plans"),
+    ("docs/plans/", "dated plans record the API they were written against"),
+    (".superpowers/", "git-ignored controller scratch"),
 )
 
-# (path-prefix-or-exact, reason, removal rule). `rr:` prefixes a path in the
-# Rascal Rally repo.
+UI_MEMBER = re.compile(r"(?<![\w.\"])(?:[A-Za-z_]\w*\.)?UI\.([A-Za-z_]\w*)")
+FACET_MEMBER = re.compile(r"(?<![\w\"])Facet\.([A-Za-z_]\w*)")
+APP_MEMBER = re.compile(
+    r"(?<![\w.])app\.(controls|presentModal|installTheme|environment|core|present)\b"
+)
+SCAFFOLD = re.compile(r"(?<![\w])(newPresenter|newActionSystem|newFocusGraph|newCore|createHost)\s*\(")
+TWO_ARG = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\.new([A-Z][A-Za-z0-9_]*)\s*\(\s*\1\s*,")
+COLON = re.compile(r":new[A-Z][A-Za-z0-9_]*\s*\(")
+FENCE = re.compile(r"^\s*```\s*(lua|luau)\s*$")
+FENCE_END = re.compile(r"^\s*```\s*$")
+HOST_CREATE = re.compile(r"Roblox\.createHost\s*\(")
+
 ALLOWLIST = [
-    ("tools/check_call_shape_drift.py", "the guard's own match data", "never"),
+    ("tests/native_parity_apps.spec.luau", re.compile(r"Facet\.nonexistentExport"),
+     "the apps spec feeds a made-up export to its own missing-export scanner"),
+    ("tools/check_call_shape_drift.py", re.compile(r"."),
+     "the guard's own match data and planted selftest calls"),
+    ("tests/native_public_surface.spec.luau", re.compile(r"toBeNil\(\)"),
+     "the public-surface spec asserts that each removed name is nil"),
+    ("tests/native_registration.spec.luau", re.compile(r"\bUI\.ProofControl\b"),
+     "the registration spec generates ProofControl into an edited copy of src/ui/init.luau "
+     "and proves the new constructor is exported"),
+    ("tests/scenario_require_paths.spec.luau",
+     re.compile(r"GetService\(\"ReplicatedStorage\"\)\.Facet\.tokens\.chrome_slots"),
+     "a planted require line for the require-path checker names an Instance path under "
+     "ReplicatedStorage, not the Facet table"),
 ]
 
+SKIPPED_TREES = []
 
-def tracked(repo):
-    out = subprocess.run(["git", "-C", repo, "ls-files"],
+
+def read(rel):
+    with open(os.path.join(REPO, rel), encoding="utf-8") as fh:
+        return fh.read()
+
+
+def public_controls():
+    source = read(CONTROL_TYPES)
+    match = re.search(r"export type Controls = \{(.*?)\n\}", source, re.S)
+    if match is None:
+        print(f"check_call_shape_drift: FAIL_ENVIRONMENT no Controls type in {CONTROL_TYPES}")
+        sys.exit(2)
+    names = set(re.findall(r"^\t([A-Za-z_]\w*):", match.group(1), re.M))
+    if not names:
+        print(f"check_call_shape_drift: FAIL_ENVIRONMENT empty Controls type in {CONTROL_TYPES}")
+        sys.exit(2)
+    return names
+
+
+def facet_members():
+    source = read(FACET_INIT)
+    match = re.search(r"table\.freeze\(\{(.*?)\n\t*\}\)\n\t*return surface", source, re.S)
+    if match is None:
+        print(f"check_call_shape_drift: FAIL_ENVIRONMENT no export table in {FACET_INIT}")
+        sys.exit(2)
+    names = set(re.findall(r"^\t\t([A-Za-z_]\w*)\s*=", match.group(1), re.M))
+    names |= set(re.findall(r"^export type ([A-Za-z_]\w*)", source, re.M))
+    return names
+
+
+def listed(repo):
+    out = subprocess.run(["git", "-C", repo, "ls-files", "--cached", "--others", "--exclude-standard"],
                          capture_output=True, text=True)
     if out.returncode != 0:
         print(f"check_call_shape_drift: FAIL_ENVIRONMENT git ls-files in {repo}")
         sys.exit(2)
-    return out.stdout.splitlines()
+    return sorted(set(out.stdout.splitlines()))
 
 
-def allowed(scope_path):
-    for path, _reason, _removal in ALLOWLIST:
+def allowed(scope_path, line_text):
+    for path, pattern, _reason in ALLOWLIST:
         if scope_path == path or scope_path.startswith(path.rstrip("/") + "/"):
-            return True
+            if pattern.search(line_text):
+                return True
     return False
 
 
-def scan_file(abs_path, scope_path, hits):
-    """Scan one file WHOLE, not line by line.
+def code_of(scope_path, source):
+    if not scope_path.endswith(".md"):
+        return source
+    lines = source.split("\n")
+    kept = []
+    inside = False
+    for line in lines:
+        if inside:
+            if FENCE_END.match(line):
+                inside = False
+                kept.append("")
+            else:
+                kept.append(line)
+        else:
+            inside = FENCE.match(line) is not None
+            kept.append("")
+    return "\n".join(kept)
 
-    WHY WHOLE (R5 review §6-2). The first version iterated lines and applied
-    the patterns to each, so a call wrapped across lines was invisible:
 
-        local x = Facet.newTable(
-            Facet,
-            core,
-            {}
-        )
+def scan_source(scope_path, source, hits, controls, members):
+    code = code_of(scope_path, source)
+    lines = code.split("\n")
 
-    passed, while the identical call on one line failed. stylua wrapping a long
-    call is the realistic way in, which makes the blind spot one the formatter
-    can open by itself. The source is read once and matched with the patterns
-    compiled `re.DOTALL`, and the line number is recovered by counting newlines
-    up to the match, so the message still points at the call's first line.
+    def report(index, message):
+        line = code.count("\n", 0, index) + 1
+        text = lines[line - 1] if line - 1 < len(lines) else ""
+        if not allowed(scope_path, text):
+            hits.append(f"{scope_path}:{line}: {message}")
 
-    LIMITS, NAMED. Two shapes are still invisible and neither is a bug this
-    scan can fix without a Luau parser:
+    for m in UI_MEMBER.finditer(code):
+        if m.group(1) not in controls:
+            report(m.start(), f"`UI.{m.group(1)}` is not a constructor on Facet.controls(runtime)")
+    for m in FACET_MEMBER.finditer(code):
+        if m.group(1) not in members:
+            report(m.start(), f"`Facet.{m.group(1)}` is not exported by {FACET_INIT}")
+    for m in APP_MEMBER.finditer(code):
+        report(m.start(), f"`app.{m.group(1)}` belongs to the removed Facet application object")
+    for m in SCAFFOLD.finditer(code):
+        prefix = code[max(0, m.start() - 16):m.end()]
+        if m.group(1) == "createHost" and HOST_CREATE.search(prefix):
+            continue
+        report(m.start(), f"`{m.group(1)}(` is removed Facet scaffolding")
+    for m in TWO_ARG.finditer(code):
+        report(m.start(), f"flat builder `{m.group(1)}.new{m.group(2)}({m.group(1)}, ...)` was removed")
+    for m in COLON.finditer(code):
+        report(m.start(), "colon builder `:new<Name>(` was removed")
 
-      * DYNAMIC construction — `Facet[name](Facet, ...)` builds a composite
-        without ever writing its name. `tests/spec_guard_sweep.spec.luau` does
-        this dynamically; runtime API tests check the exported constructor set.
-      * An ALIASED receiver — `local F = Facet; F.newTable(Facet, ...)`. The
-        backreference is what makes the two-argument pattern specific (it is
-        what tells `x.newFoo(x, ...)` from `x.newFoo(core, ...)`), and an alias
-        defeats it by construction.
 
-    Measured at the time of writing: a DOTALL scan of every `.luau` in both
-    repositories finds zero old-form calls, so nothing is hiding behind either
-    limit today.
-    """
-    if allowed(scope_path):
-        return
+def scan_file(abs_path, scope_path, hits, controls, members):
     try:
         with open(abs_path, encoding="utf-8", errors="replace") as fh:
             source = fh.read()
     except OSError:
         return
-
-    def line_of(index):
-        return source.count("\n", 0, index) + 1
-
-    for m in TWO_ARG.finditer(source):
-        hits.append(f"{scope_path}:{line_of(m.start())}: old two-argument form "
-                    f"`{m.group(1)}.new{m.group(2)}({m.group(1)}, …)` — "
-                    f"write `{m.group(1)}.Controls.{m.group(2)}(core, spec)` "
-                    f"")
-    for m in COLON.finditer(source):
-        hits.append(f"{scope_path}:{line_of(m.start())}: colon spelling "
-                    f"`:new<Name>(` puts the library in `self` — write "
-                    f"`Facet.Controls.<Name>(core, spec)`")
+    scan_source(scope_path, source, hits, controls, members)
 
 
-def scan_repo(repo, prefix, hits):
-    for rel in tracked(repo):
-        p = rel.replace("\\", "/")
-        if any(p.startswith(t) or f"/{t}" in p for t in EXCLUDED_TREES):
+def in_scope(rel):
+    if any(rel.startswith(prefix) for prefix, _reason in EXCLUDED_TREES):
+        return False
+    if not rel.startswith(SCANNED_ROOTS):
+        return False
+    if rel.startswith("docs/"):
+        return rel.endswith((".md", ".luau"))
+    return rel.endswith(".luau")
+
+
+def scan_repo(repo, prefix, hits, controls, members):
+    for rel in listed(repo):
+        path = rel.replace("\\", "/")
+        if not in_scope(path):
             continue
-        if not p.endswith(".luau"):
-            continue
-        scan_file(os.path.join(repo, rel), prefix + p if prefix else p, hits)
-
-
-#[[ THE CONSUMING GAME IS EXTERNAL (public-clone honesty round, 2026-08-31).
-#   This scan reaches into the consuming game's checkout because a call shape
-#   that drifted there is drift too. On a public clone that checkout does not
-#   exist, and `git ls-files` in a directory that is not there exited 2 -- a
-#   crash, not a verdict. The half that can run, runs, and the half that cannot
-#   is NAMED, so an unscanned tree never reads as a clean one. ]]
-SKIPPED_TREES = []
+        abs_path = os.path.join(repo, rel)
+        if os.path.isfile(abs_path):
+            scan_file(abs_path, prefix + path, hits, controls, members)
 
 
 def run_scan():
     hits = []
     del SKIPPED_TREES[:]
-    scan_repo(REPO, "", hits)
-    if os.path.isdir(RR) and subprocess.run(
-        ["git", "-C", RR, "ls-files"], capture_output=True, text=True
-    ).returncode == 0:
-        scan_repo(RR, "rr:", hits)
+    controls = public_controls()
+    members = facet_members()
+    scan_repo(REPO, "", hits, controls, members)
+    if os.path.isdir(RR) and subprocess.run(["git", "-C", RR, "ls-files"],
+                                            capture_output=True, text=True).returncode == 0:
+        scan_repo(RR, "rr:", hits, controls, members)
     else:
         SKIPPED_TREES.append("the consuming game's checkout")
     return hits
 
 
 def selftest():
-    two_arg = os.path.join(REPO, "src", "call_shape_probe_tmp.luau")
-    colon = os.path.join(REPO, "tests", "call_shape_colon_probe_tmp.luau")
-    scoped = os.path.join(REPO, "src", "call_shape_allow_probe_tmp.luau")
-    wrapped = os.path.join(REPO, "src", "call_shape_wrapped_probe_tmp.luau")
+    controls = public_controls()
+    members = facet_members()
+    if "Button" not in controls or "Scene" in controls or "controls" not in members or "new" in members:
+        print("check_call_shape_drift: SELFTEST FAIL - the public constructor sets were not read from source")
+        return 1
+    plants = {
+        "examples/call_shape_probe_tmp.luau":
+            "local UI = Facet.controls(runtime)\nreturn UI.Scene(\"Column\")({\n\tUI.Button({ label = \"Go\" }),\n})\n",
+        "bench/call_shape_facet_probe_tmp.luau": "local app = Facet.new()\nreturn app\n",
+        "tests/call_shape_app_probe_tmp.luau": "app.presentModal(function() end)\nreturn nil\n",
+        "examples/call_shape_wrapped_probe_tmp.luau": "local x = Facet.newTable(\n\tFacet,\n\tcore,\n\t{}\n)\nreturn x\n",
+        "docs/call_shape_probe_tmp.md":
+            "# Probe\n\n`UI.Scene` in prose is not code.\n\n```luau\nlocal row = UI.Scene({})\n```\n",
+        "tests/native_public_surface.spec.luau": "local row = UI.Scene({})\n",
+    }
+    expected = {
+        "examples/call_shape_probe_tmp.luau": ["examples/call_shape_probe_tmp.luau:2: `UI.Scene`"],
+        "bench/call_shape_facet_probe_tmp.luau": ["bench/call_shape_facet_probe_tmp.luau:1: `Facet.new`"],
+        "tests/call_shape_app_probe_tmp.luau": ["tests/call_shape_app_probe_tmp.luau:1: `app.presentModal`"],
+        "examples/call_shape_wrapped_probe_tmp.luau": ["examples/call_shape_wrapped_probe_tmp.luau:1: flat builder"],
+        "docs/call_shape_probe_tmp.md": ["docs/call_shape_probe_tmp.md:6: `UI.Scene`"],
+        "tests/native_public_surface.spec.luau": ["tests/native_public_surface.spec.luau:1: `UI.Scene`"],
+    }
+    tempdir = tempfile.mkdtemp(prefix="call_shape_selftest_")
+    real = []
+    failures = []
     try:
-        with open(two_arg, "w") as f:
-            f.write("local x = Facet.newTable(Facet, core, {})\nreturn x\n")
-        with open(colon, "w") as f:
-            f.write("local x = Facet:newSlider(core, {})\nreturn x\n")
-        # the allowlisted SPEC's own pattern, in a file that is not allowlisted
-        with open(scoped, "w") as f:
-            f.write("local old = Facet.newLabel(Facet, core, {})\nreturn old\n")
-        #[[ THE WRAPPED CALL (R5 review §6-2). The same construction stylua would
-        #   produce for a long argument list. The line-based scan this replaced
-        #   passed it while failing the identical call on one line, which made the
-        #   FORMATTER a way through the guard. Planted here so the whole-file scan
-        #   can never quietly go back to being line-based. ]]
-        with open(wrapped, "w") as f:
-            f.write("local x = Facet.newTable(\n\tFacet,\n\tcore,\n\t{}\n)\nreturn x\n")
-        hits = []
-        scan_file(two_arg, "src/call_shape_probe_tmp.luau", hits)
-        scan_file(colon, "tests/call_shape_colon_probe_tmp.luau", hits)
-        scan_file(scoped, "src/call_shape_allow_probe_tmp.luau", hits)
-        scan_file(wrapped, "src/call_shape_wrapped_probe_tmp.luau", hits)
-        # ...and the same content INSIDE the allowlisted path must be tolerated
-        tolerated = []
-        scan_file(two_arg, "tools/check_call_shape_drift.py", tolerated)
-        wrapped_hits = [h for h in hits if "call_shape_wrapped_probe_tmp" in h]
-        # ...and it must point at the call's FIRST line, not at the file's start
-        wrapped_line_ok = len(wrapped_hits) == 1 and wrapped_hits[0].split(":")[1] == "1"
-        if (len([h for h in hits if "src/call_shape_probe_tmp" in h]) != 1
-                or len([h for h in hits if "colon spelling" in h]) != 1
-                or len([h for h in hits if "call_shape_allow_probe_tmp" in h]) != 1
-                or not wrapped_line_ok
-                or tolerated):
-            print("check_call_shape_drift: SELFTEST FAIL — a planted violation "
-                  "survived, or the allowlist did not apply to its own path")
-            print("\n".join(hits + [f"tolerated: {t}" for t in tolerated]))
-            return 1
+        for scope, content in plants.items():
+            hits = []
+            if scope == "tests/native_public_surface.spec.luau":
+                path = os.path.join(tempdir, "allowlist_scope.luau")
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(content)
+            else:
+                path = os.path.join(REPO, scope)
+                real.append(path)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(content)
+            scan_file(path, scope, hits, controls, members)
+            for needle in expected[scope]:
+                if not any(h.startswith(needle) for h in hits):
+                    failures.append(f"{scope}: expected {needle!r}, got {hits}")
+            if scope == "docs/call_shape_probe_tmp.md" and len(hits) != 1:
+                failures.append(f"{scope}: prose outside a fence was scanned: {hits}")
+            if scope == "examples/call_shape_probe_tmp.luau" and len(hits) != 1:
+                failures.append(f"{scope}: a public constructor was reported: {hits}")
+        planted = run_scan()
+        for scope in plants:
+            if scope != "tests/native_public_surface.spec.luau" and not any(h.startswith(scope) for h in planted):
+                failures.append(f"the full scan missed the planted file {scope}")
     finally:
-        for p in (two_arg, colon, scoped, wrapped):
-            if os.path.exists(p):
-                os.unlink(p)
+        for path in real:
+            if os.path.exists(path):
+                os.unlink(path)
+        for name in os.listdir(tempdir):
+            os.unlink(os.path.join(tempdir, name))
+        os.rmdir(tempdir)
+    if failures:
+        print("check_call_shape_drift: SELFTEST FAIL - a planted removed call survived")
+        print("\n".join(failures))
+        return 1
     clean = run_scan()
     if clean:
-        print("check_call_shape_drift: SELFTEST FAIL — restored tree not clean:")
+        print("check_call_shape_drift: SELFTEST FAIL - restored tree not clean:")
         print("\n".join(clean[:20]))
         return 1
-    print("check_call_shape_drift: SELFTEST PASS — planted two-argument call, "
-          "planted colon call, planted WRAPPED call (reported at its first line), "
-          "and out-of-scope allowlisted pattern each caught; the allowlisted path "
-          "tolerates the same content; restored tree clean")
+    print("check_call_shape_drift: SELFTEST PASS - planted UI.Scene, Facet.new, app.presentModal, a wrapped "
+          "flat builder and a fenced docs UI.HStack each caught by file scan and full scan; prose and "
+          "public constructors not reported; an allowlist pattern outside its line still caught; "
+          "restored tree clean")
     return 0
 
 
@@ -205,18 +269,16 @@ def main():
         sys.exit(selftest())
     hits = run_scan()
     if hits:
-        print(f"check_call_shape_drift: FAIL — {len(hits)} old-form composite "
-              "call site(s) outside the allowlist:")
+        print(f"check_call_shape_drift: FAIL - {len(hits)} removed call site(s) outside the allowlist:")
         for h in hits[:60]:
             print("  " + h)
         if len(hits) > 60:
-            print(f"  … and {len(hits) - 60} more")
+            print(f"  ... and {len(hits) - 60} more")
         sys.exit(1)
-    print("check_call_shape_drift: PASS — every composite control is created as "
-          "the maintained control constructors; no removed flat builders are called")
+    print("check_call_shape_drift: PASS - examples, bench, tests and docs code blocks call only "
+          "constructors on Facet.controls(runtime) and members exported by src/init.luau")
     for tree in SKIPPED_TREES:
-        print(f"  NOT SCANNED: {tree} is not beside this checkout — that half of "
-              "the claim is unproved here, and says so rather than passing quietly")
+        print(f"  NOT SCANNED: {tree} is not beside this checkout")
 
 
 if __name__ == "__main__":

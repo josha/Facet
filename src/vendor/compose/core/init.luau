@@ -50,6 +50,7 @@ export type Cell<T> = Types.Cell<T>
 export type Formula<T> = Types.Formula<T>
 export type Body<T> = Types.Body<T>
 export type Source<T> = Types.Source<T>
+export type Value<T> = Types.Value<T>
 export type Equals<T> = Types.Equals<T>
 export type Reactor = reactorModule.Reactor
 export type AccumulatorOptions<T, E> = AccumulatorModule.Options<T, E>
@@ -130,11 +131,13 @@ export type ProfileOptions = profileModule.Options
 export type ProfileReport = profileModule.Report
 export type ProfileNode = profileModule.NodeRow
 export type ProfileDrain = profileModule.DrainRow
+export type ProfileData = profileModule.Data
 export type InspectOptions = Inspect.Options
 export type InspectReport = Inspect.Report
 export type InspectOwner = Inspect.OwnerReport
 export type InspectNode = Inspect.NodeReport
 export type InspectOwnedCounts = InspectReport.OwnedCounts
+export type InspectData = InspectReport.Data
 
 local function formula<T>(body: Types.Body<T>, equals: Types.Equals<T>?): Types.Formula<T>
 	local value = formulaModule(body, equals)
@@ -197,14 +200,14 @@ end
 
 local function sampleRead<T>(node: Types.Readable<T>): T
 	if cellModule.isReadable(node) then
-		return (node :: any):peek()
+		return node:peek()
 	end
 	return Graph.notANode("the reader Compose.sample passes to a body", node)
 end
 
 local function sample<T>(source: Types.Source<T>): T
 	if cellModule.isReadable(source) then
-		return (source :: any):peek()
+		return (source :: Types.Readable<T>):peek()
 	end
 	if type(source) ~= "function" then
 		local actual = Diagnostics.describe(source)
@@ -215,14 +218,15 @@ local function sample<T>(source: Types.Source<T>): T
 			fix = "pass the cell or formula itself, or a body that reads one",
 		})
 	end
-	return watchModule.sample(function()
-		return (source :: any)(sampleRead)
+	local body = source :: Types.Body<T>
+	return watchModule.sample(function(): T
+		return body(sampleRead)
 	end)
 end
 
 local withOwner = Active.withOwner
 
-local function bindOwnerImpl(body: any): any
+local function bindOwner<Args..., Rets...>(body: (Args...) -> Rets...): (Args...) -> Rets...
 	if type(body) ~= "function" then
 		Diagnostics.raise("owner/bind-body-not-a-function", "bindOwner expects the function to bind", {
 			actual = Diagnostics.describe(body),
@@ -239,8 +243,6 @@ local function bindOwnerImpl(body: any): any
 	end
 	return Active.bind(owner :: OwnerModule.Owner, body)
 end
-
-local bindOwner = (bindOwnerImpl :: any) :: <Args..., Rets...>(body: (Args...) -> Rets...) -> (Args...) -> Rets...
 
 local function resetForTests()
 	Active.resetForTests()

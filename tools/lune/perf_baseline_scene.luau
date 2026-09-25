@@ -1,19 +1,4 @@
 --!strict
--- Baseline ONE named scene (or several) into bench/perf_budgets.json, leaving
--- every other scene's budget byte-identical.
---
--- WHY THIS EXISTS. `tools/perf.sh baseline` re-records the WHOLE budgets file. That
--- is right when the machine or the reference profile changes, and wrong when a
--- stage adds a scene: it would quietly re-base eighteen budgets that other stages
--- are relying on, in the same commit that adds a nineteenth. "Never silently
--- rebaseline" is the plan's rule; this is the tool that makes obeying it cheap.
---
--- It uses the SAME arithmetic tools/lune/perf.luau uses — the worst p95 over
--- REPEATS runs of the reference profile, times the same multiplier, floored the
--- same way — so a budget written here is indistinguishable from one written by a
--- full baseline, and the entry records that it was scoped.
---
--- Usage: lune run tools/lune/perf_baseline_scene <scene> [<scene> ...]
 
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
@@ -85,7 +70,7 @@ for _, name in names do
 		frameTargetHz = referenceProfile.frameTargetHz,
 		frameBudgetMs = 1000 / referenceProfile.frameTargetHz,
 		ceilingMs = ceilingMs,
-		-- recorded so a reader can tell a scoped baseline from a whole-file one
+
 		scopedBaseline = true,
 		hint = `scene '{name}' ({requirement[name]}) exceeded its headless trend budget — profile the reactive/layout `
 			.. `path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene {name}' ONLY if the cost `

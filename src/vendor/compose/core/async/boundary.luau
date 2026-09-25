@@ -59,14 +59,14 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 				local child = owner.createChild()
 				child.guardWith { report = report }
 
-				local ok, blockOrError: any = pcall(Block.mountBlock, mountPoint, child, function(): { Host.Node }
+				local ok, block = pcall(Block.mountBlock, mountPoint, child, function(): { Host.Node }
 					return { builder() }
 				end, Block.nameOf(builder), 1)
 				if ok then
-					current = blockOrError :: Block.Block
+					current = block
 				else
 					child.dispose()
-					report(blockOrError)
+					report(block)
 				end
 				return
 			end

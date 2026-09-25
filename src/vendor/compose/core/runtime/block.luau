@@ -16,11 +16,11 @@ export type Block = {
 	dispose: Dispose,
 }
 
-local function nameOf(component: any): string
+local function nameOf(component: unknown): string
 	if type(component) ~= "function" then
 		return "<not a component>"
 	end
-	local name = debug.info(component, "n")
+	local name = debug.info(component :: (...unknown) -> ...unknown, "n")
 	if name ~= "" then
 		return name
 	end
@@ -61,20 +61,19 @@ local function mountBlock(
 ): Block
 	local owner = parentOwner.createChild()
 
-	local ok, producedOrError: any = pcall(Active.runWith1, owner, produce)
+	local ok, produced = pcall(Active.runWith1, owner, produce)
 	if not ok then
 		owner.dispose()
-		error(producedOrError, 0)
+		error(produced, 0)
 	end
-	local okNodes, builtOrError: any = pcall(requireNodes, producedOrError, label)
+	local okNodes, built = pcall(requireNodes, produced, label)
 	if not okNodes then
 		owner.dispose()
-		error(builtOrError, 0)
+		error(built, 0)
 	end
-	local built: { Node } = builtOrError
 
 	local inserted = 0
-	local insertOk, insertErr: any = pcall(function()
+	local insertOk, insertErr: unknown = pcall(function()
 		local base = if at ~= nil then at else mountPoint.count() + 1
 		for index, node in built do
 			mountPoint.insert(node, base + index - 1)

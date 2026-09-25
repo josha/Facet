@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
-"""Distribution spike, step 3: PATCH with DIFFERENT content to break the tie.
 
-Step 2 PATCHed byte-identical content and nothing changed — which could mean
-".rbxm content updates are unsupported" (what the docs say) or "identical bytes
-were deduplicated". This builds a tiny, clearly-different Model (one
-ModuleScript with a SpikeMarker child), PATCHes it to the throwaway asset
-83627005624999, polls, and lists versions again. A version 2 appearing means
-same-ID `.rbxm` updates DO work over Open Cloud; still-version-1 means they do
-not and the Studio route is confirmed.
-
-Writes raw responses to artifacts/distribution-readiness/spike/update2-response.json.
-Reads ROBLOX_API_KEY from env or GameStudio/tools/API_KEYS.txt; never prints it.
-
-Run from the Facet repository root:
-    python3 artifacts/distribution-readiness/spike/spike_update2.py
-"""
 import json
 import os
 import pathlib
@@ -40,7 +25,7 @@ if not key:
 if not key:
     raise SystemExit("ROBLOX_API_KEY not found")
 
-# Build a tiny, clearly-different Model with the pinned toolchain.
+
 env = dict(os.environ)
 env["PATH"] = f"{os.path.expanduser('~')}/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
 with tempfile.TemporaryDirectory() as tmp:

@@ -41,8 +41,14 @@
         "desktop": {
           "$path": "desktop.luau"
         },
-        "icons": {
-          "$path": "icons.luau"
+        "model": {
+          "$path": "model.luau"
+        },
+        "avatar": {
+          "$path": "avatar.luau"
+        },
+        "chat": {
+          "$path": "chat.luau"
         }
       }
     },
@@ -73,6 +79,11 @@
     "StarterGui": {
       "$properties": {
         "ScreenOrientation": "Sensor"
+      }
+    },
+    "VoiceChatService": {
+      "$properties": {
+        "EnableDefaultVoice": false
       }
     }
   }

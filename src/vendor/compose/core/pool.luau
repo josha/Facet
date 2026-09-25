@@ -2,6 +2,7 @@
 
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
+local Owner = require "./ownership/owner"
 
 export type Lease<T> = {
 	value: T,
@@ -34,7 +35,7 @@ local function createPool<T>(options: Options<T>): Pool<T>
 			expected = "{ create = function, destroy = function, maxRetained = finite number, reset? = function }",
 		})
 	end
-	for field in options :: any do
+	for field in (options :: unknown) :: { [string]: unknown } do
 		if KNOWN_FIELDS[field] == nil then
 			Diagnostics.raise("pool/unknown-option", "createPool was given an option it does not have", {
 				option = tostring(field),
@@ -97,7 +98,7 @@ local function createPool<T>(options: Options<T>): Pool<T>
 			error(("Compose: %d pool resource destroy failures: %s"):format(#errors, table.concat(errors, "; ")), 0)
 		end
 	end
-	(owner :: any).own(destroyAll)
+	(owner :: Owner.Owner).own(destroyAll)
 
 	local function acquire(): Lease<T>
 		if disposed then

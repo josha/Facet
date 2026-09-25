@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
-"""check_public_allowlist — every tracked path on the branch tip must be allowed.
 
-The public repository boundary is an EXACT allowlist (tools/public_allowlist.txt),
-not a denylist: a new internal file lands outside the allowed set by default and
-this check names it, so private material cannot drift back into the public tip
-one file at a time.
-
-    python3 tools/check_public_allowlist.py            # check `git ls-files`; exit 1 on any stray
-    python3 tools/check_public_allowlist.py --report   # list strays grouped by top-level dir, exit 0
-    python3 tools/check_public_allowlist.py --selftest # a planted stray must be caught, a clean list must pass
-
-Rules: a pattern ending in "/" allows the directory tree; any other pattern is an
-exact path or an fnmatch glob against the repo-relative path; a "!" pattern denies
-even inside an allowed tree (denies are evaluated after allows). Paths are
-compared exactly as `git ls-files` prints them (LF, forward slashes).
-"""
 from __future__ import annotations
 import fnmatch, os, subprocess, sys, pathlib
 

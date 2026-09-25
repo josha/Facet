@@ -1,17 +1,22 @@
 # Facet examples
 
-Start with [component authoring](../docs/guide/15-components.md). A maintained
-example is a plain Luau function that returns a node built from `app.controls`,
-with ordered numeric children and named properties. Setup runs once per mount;
-property functions update individual properties. Callbacks command the model.
+Facet supplies UI controls.
 
-State is Compose's. `Compose.cell` holds a value, `Compose.formula` derives one,
-`Compose.watch` runs a reactive external effect, and `Compose.cleanup` ties an
-external subscription to the component's lifetime. A cell created inside the
-component dies with it. A shared model's cells are created outside the component
-so they survive the screen being replaced, and the same cells are passed to each
-presentation of that model. See the [runtime contract](../src/core/README.md) for
-ownership, containment and settling.
+- Compose owns state, composition, collection identity, animation and lifetime.
+- Roblox owns layout, input routing, focus, scrolling, styling and the scene.
+
+Every example uses the entry path from
+[Getting started](../docs/guide/03-getting-started.md):
+
+1. Make an app with `Facet.app({ theme = package })`. The theme is optional.
+2. Get the controls from `app.UI`.
+3. Write a component that returns the controls and the layout constructors.
+   Mount it with `app.mount`. The app adds the ScreenGui, the StyleSheet and
+   the StyleLink.
+4. Call `app.dispose()` when the client ends.
+
+The gallery examples get the same controls from their page context. Their
+host mounts them with the runtime pieces that `Facet.app` uses.
 
 | Task | Example |
 |---|---|
@@ -24,30 +29,23 @@ ownership, containment and settling.
 | Keyed rows and automatic coordinated motion | [Match 3](gallery/examples/07_match3.luau), [automatic motion](gallery/scenarios/component_motion.luau) |
 | Motion values and activity indicators | [Progress](gallery/scenarios/progress_ring.luau) |
 | Toast reflow, edge and width choices | [Toasts](gallery/scenarios/sponsor_toast.luau) |
-| In-page notices and bottom snackbars | [Notice and Snackbar](gallery/scenarios/notice.luau) |
-| Popovers, dialogs and sheets | [Overlays](gallery/scenarios/overlays.luau), [sheet](gallery/scenarios/sheet.luau) |
-| Cards, pages of results and workflow steps | [Cards](gallery/scenarios/cards.luau), [pagination](gallery/scenarios/paging.luau), [steps](gallery/scenarios/steps.luau) |
-| Colour and date pickers | [Pickers](gallery/scenarios/pickers.luau) |
-| Avatars, badges, status marks and loading placeholders | [Avatar](gallery/scenarios/avatar.luau), [avatar group](gallery/scenarios/avatar_group.luau), [badge](gallery/scenarios/badge.luau), [status indicator](gallery/scenarios/status_indicator.luau), [skeleton](gallery/scenarios/skeleton.luau) |
 | A shared model on a world surface | [Outpost terminal](gallery/examples/outpost_terminal/init.luau) |
-| Every public control and modifier at once | [Virtual monitors](virtual_monitors/README.md) |
+| A complete multi-surface showcase | [Virtual monitors](virtual_monitors/README.md) |
 
-Read durable application state through `use` in a property function. Keep
-view-only calculations in `Compose.formula` or in the property function itself.
-Key collections by stable identity and read the row's current item readable in
-handlers. Use `app.runtime.spring` / `.tween` when a calculation needs an
-animated number, container `animation` for layout changes, and `transition` for
-insertion and removal. Arrays guarantee child order; hash-table order does not.
+## Patterns in the examples
 
-The gallery also contains diagnostic fixtures. A composite control whose `api` or
-`dump` is under test receives them through `ref`, which is called once while the
-control is built with a frozen `{ api, dump }`. Shared reference-app models,
-scenario drivers and performance measurements keep their Compose cells and owners
-outside any one screen, because their state must survive screen replacement.
-Those are integration boundaries, not a requirement to own ordinary controls by
-hand. A custom primitive must explain the behavior its composite counterpart
-cannot express.
+- Keep durable state in Compose cells.
+- Read current values in property functions through `use`.
+- Use `Compose.keyed` for bounded keyed children. Use the virtual controls for
+  large collections.
+- Use `runtime.spring` and `runtime.tween` for animation.
+- Use native `UIListLayout`, `UIGridLayout`, `UIPadding`, `CanvasGroup` and
+  `StyleRule` for the presentation.
 
-For a new feature, update its reference entry, its mounted scenario and the guide
-together. Follow [AGENTS.md](../AGENTS.md) and the
-[extension playbooks](../docs/extending/new-control.md).
+## Tests
+
+The gallery has ten main demos with nested control, collection and motion
+pages. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
+games, the settings, the playlist and the standalone consumer. The reference
+applications and the virtual monitors have separate native tests and Studio
+evidence.

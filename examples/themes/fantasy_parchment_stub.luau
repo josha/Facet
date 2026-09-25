@@ -1,41 +1,7 @@
 --!strict
--- FIXTURE THEME PACKAGE — "Fantasy Parchment (stub)".
---
--- NOT the shipping Fantasy Parchment package. That one is a later task and owns
--- the full art pass, the provenance record and the five-view Studio matrix.
--- THIS is the minimum asset-backed package the chrome substrate needs in order
--- to be tested at all: three nine-slice recipes over the three PNGs already
--- uploaded from `assets/themes/fantasy-parchment/`, plus the deliberate failure
--- variants the scenario drives.
---
--- It carries the ASSET-BACKED theme class, and it is the only reference package
--- that creates decoration instances — which is what makes the census
--- proposition ("a flat theme costs zero, an ornate one costs exactly N")
--- falsifiable rather than rhetorical.
---
--- Content IDs come from assets/themes/fantasy-parchment/upload-manifest.json.
--- Another project uploads the same repository-owned PNGs under its own account
--- and substitutes its IDs; nothing here hardcodes an ID outside package data.
---
--- Variants:
---   build(themes)            the working package
---   buildBadAsset(themes)    identical, one bogus content ID — the asset
---                            RESOLVES as style and never loads (m2), which is
---                            precisely the failure the fallback tag exists for
---   buildBadFont(themes)     identical, one unknown font family — measurement
---                            must degrade to the conservative path, never clip
---   buildIncompatible(themes) a schemaVersion this build does not speak; it
---                            must be REJECTED with a useful error, and the
---                            screen that asked for it must stay usable
 
 local fantasy_parchment_stub = {}
 
--- A FIXTURE, AND IT HAS TO SAY SO. `theme_picker.isPickable` filters modules
--- that declare `testOnly`, and this one never did — so "Fantasy Parchment
--- (stub)" appeared in the showcase's theme list on a real device, one row below
--- the shipping Fantasy Parchment, offering a player a package whose whole point
--- is that some of its variants are broken on purpose. The acceptance scenarios
--- install it BY NAME, which this does not affect.
 fantasy_parchment_stub.testOnly = true
 
 fantasy_parchment_stub.id = "fantasy-parchment-stub"
@@ -57,8 +23,6 @@ local function typography(family: string): any
 	return out
 end
 
--- Slice geometry per the upload manifest: SliceCenter = Rect(border, border,
--- size - border, size - border), SliceScale = 1.
 local ASSETS = {
 	parchment_panel = {
 		contentId = "rbxassetid://78012779616687",
@@ -78,7 +42,7 @@ local ASSETS = {
 		contentId = "rbxassetid://73053023436561",
 		sliceCenter = { x0 = 16, y0 = 16, x1 = 48, y1 = 48 },
 		sliceScale = 1,
-		-- lazy: a field skin is not needed until a screen with a field mounts
+
 		preload = "lazy",
 		fallback = "native",
 	},
@@ -92,13 +56,10 @@ local PARCHMENT = {
 		contentStrong = rgb(252, 244, 224),
 		accent = rgb(196, 148, 62),
 		onAccent = rgb(32, 22, 10),
-		-- the danger pair clears 4.5:1 against sheet_model's gate, which checks
-		-- danger/onDanger even though `tokens.compile` (and therefore
-		-- `themes.define`) does not — see the report's decision packet
+
 		danger = rgb(150, 40, 30),
 		onDanger = rgb(255, 242, 232),
-		-- the two semantic roles, in this palette's own family and gated like the
-		-- destructive pair above (5.90:1 and 6.92:1)
+
 		success = rgb(132, 158, 74),
 		onSuccess = rgb(32, 22, 10),
 		warning = rgb(206, 152, 58),
@@ -109,9 +70,6 @@ local PARCHMENT = {
 		controlHover = rgb(102, 80, 54),
 		controlPressed = rgb(66, 50, 34),
 		controlSelected = rgb(112, 86, 44),
-		-- the control art's centre as painted (assets/themes/plate-samples.json):
-		-- what a lifted label on this plate is paired against
-		controlArt = rgb(210, 187, 146),
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
 		hairlineOpacity = 0.7,
@@ -156,9 +114,7 @@ function fantasy_parchment_stub.definition(themes: any): any
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.14, normal = 0.24 },
-			-- the slot's own padding; the recipes' contentInsets are ADDED to
-			-- these by the snapshot, because the carved border of the art has to
-			-- be cleared on top of whatever padding the slot already wanted
+
 			insets = {
 				panel = { top = 8, right = 8, bottom = 8, left = 8 },
 				control = { top = 4, right = 8, bottom = 4, left = 8 },
@@ -200,8 +156,6 @@ function fantasy_parchment_stub.build(themes: any): (any, any)
 	return themes.define(fantasy_parchment_stub.definition(themes))
 end
 
--- A content ID that resolves through the style system and never loads — the
--- exact shape feasibility m2 measured (`styledImage` set, `IsLoaded` false).
 fantasy_parchment_stub.BOGUS_CONTENT_ID = "rbxassetid://1"
 
 function fantasy_parchment_stub.buildBadAsset(themes: any): (any, any)

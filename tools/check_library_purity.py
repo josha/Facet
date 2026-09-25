@@ -1,50 +1,5 @@
 #!/usr/bin/env python3
-"""check_library_purity — the shipped library knows no theme package by name.
 
-THE PRODUCT CLAIM. Facet ships STUDIO-NEUTRAL. `build/Facet.rbxm` is the engine
-and its own theme; the eight player-facing skins are separate artifacts a
-consumer picks (`tools/build_themes.sh`, `docs/guide/13-theme-catalog.md`). That
-claim is structural today — the model maps `src/` and nothing else — and this
-check is what keeps it structural instead of accidental.
-
-WHAT IT SCANS, AND THE ONE DISTINCTION THAT MATTERS
-
-  * `src/**/*.luau`, and every script inside the BUILT model (the `.rbxmx` twin
-    of `build/Facet.rbxm`, because a binary `.rbxm` is LZ4-chunked and a byte
-    grep over it proves nothing — the same reason `check_brand_drift` builds its
-    places).
-  * COMMENTS ARE EXEMPT AND DELIBERATELY SO. This framework's comments are
-    measured stories: "found live under fantasy-ornate", "under classic-desktop
-    (13px BuilderSans) that is far too". Deleting the package name would delete
-    the measurement, and the measurement is the reason the code is shaped the way
-    it is. Nothing a comment says can create a dependency.
-  * CODE IS NOT EXEMPT, INCLUDING STRINGS. A diagnostic that names a package is
-    prose that SHIPS: it reaches a consumer's output, and when it names a path
-    (`examples/themes/glossy_touch.luau`) it sends them to a file that is not in
-    the distribution. Two of those existed when this check was written and both
-    were rewritten rather than allowlisted — see `--list`.
-
-  * ...and THE PACKAGE STAMP. Every package identity the model's code declares
-    must be `facet-neutral`. That is the positive form of the same claim: not
-    merely "no reference package is mentioned" but "exactly one package is IN
-    here", which is what a consumer inspecting the model can verify for
-    themselves.
-
-THE VOCABULARY IS DERIVED, NOT TYPED. The forbidden identifiers come from
-`examples/themes/` itself — every module filename, plus each module's declared
-`id` and `displayName`. A package added tomorrow is covered without editing this
-file; a package renamed cannot leave a stale pattern behind.
-
-    python3 tools/check_library_purity.py [--selftest] [--list] [--skip-build]
-
-`--selftest` proves the guard can fail, four ways: a require of a reference
-package planted in a scratch copy of `src/`; a package id planted in a
-diagnostic STRING; the same id planted in a COMMENT, which must NOT fail
-(exemption is a rule, not an oversight); and a second package stamp planted in
-the model text. Nothing is planted in this repository's working tree.
-
-Exit 0 = the library names no package; 1 = drift; 2 = environment failure.
-"""
 
 import argparse
 import os
@@ -57,31 +12,30 @@ import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from check_no_screen_key_bindings import strip_luau_comments  # noqa: E402
+from strip_comments import strip_luau as strip_luau_comments
 
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(REPO, "src")
 THEMES_DIR = os.path.join(REPO, "examples", "themes")
 BUILD_MODEL = os.path.join(HERE, "build_model.sh")
 
-# the one package a shipped model may stamp
+
 NEUTRAL_ID = "facet-neutral"
 
-# A PACKAGE STAMP, NOT ANY SLUG. The first shape of this pattern was
-# `id = "<kebab>"` anywhere in the code, and it reported six false positives on
-# the first run: `src/preview/device_profiles.luau` names its viewports
-# `desktop-standard`, `console-ten-foot`, `tablet-landscape` and so on, which are
-# not packages and never were. A theme package's identity is an `identity = { … }`
-# table (src/themes/package.luau IDENTITY_FIELDS), so the stamp is read from
-# inside that table and from an `identity.id = …` assignment, and nothing else.
+
+
+
+
+
+
+
 IDENTITY_TABLE = re.compile(r"\bidentity\s*=\s*\{", re.MULTILINE)
 IDENTITY_FIELD = re.compile(r"\bid\s*=\s*\"([^\"]+)\"")
 IDENTITY_ASSIGN = re.compile(r"\bidentity\.id\s*=\s*\"([^\"]+)\"")
 
 
 def package_stamps(code):
-    """Every package id the code STAMPS: the `id` field of an `identity = { … }`
-    table, plus any `identity.id = "…"` assignment."""
+
     found = set(IDENTITY_ASSIGN.findall(code))
     for match in IDENTITY_TABLE.finditer(code):
         depth, i, n = 0, match.end() - 1, len(code)
@@ -98,8 +52,8 @@ def package_stamps(code):
             found.add(field.group(1))
     return found
 
-# a path INTO the example tree is forbidden in code wherever it appears: the
-# distribution does not contain that tree, so the string cannot be actionable
+
+
 EXAMPLE_PATHS = ("examples/themes", "examples/gallery", "examples/performance")
 
 
@@ -110,8 +64,7 @@ def env():
 
 
 def package_vocabulary(themes_dir=THEMES_DIR):
-    """module name -> the identifiers that name it. Derived from the directory so
-    a new or renamed package needs no edit here."""
+
     vocab = {}
     for entry in sorted(os.listdir(themes_dir)):
         if not entry.endswith(".luau"):
@@ -129,9 +82,7 @@ def package_vocabulary(themes_dir=THEMES_DIR):
 
 
 def patterns_for(vocab):
-    """One compiled pattern per identifier. Word-bounded so `pixel_quest` does
-    not match a variable called `pixel_questions`, and `content-ab-test` cannot
-    hide inside a longer slug."""
+
     out = []
     for module, names in vocab.items():
         for name in names:
@@ -165,7 +116,7 @@ def scan_sources(patterns, problems, root=SRC, label_root=None):
 
 
 def model_scripts(xml_path):
-    """(instance name, Source) for every script in the built model."""
+
     out = []
     for item in ET.parse(xml_path).getroot().iter("Item"):
         props = item.find("Properties")
@@ -226,11 +177,11 @@ def check(src_root=SRC, model_xml=None, skip_build=False, themes_dir=THEMES_DIR)
     return problems
 
 
-# ── the negative controls ────────────────────────────────────────────────────
-#
-# Each plant is a defect this repository could really acquire, and the COMMENT
-# plant is the one that must NOT fire: an exemption nobody has watched hold is an
-# exemption that quietly becomes a rule.
+
+
+
+
+
 PLANTS = (
     (
         "a require of a reference package in src/",
@@ -258,10 +209,10 @@ PLANTS = (
         False,
     ),
     (
-        # DELIBERATELY A SLUG THE VOCABULARY DOES NOT KNOW. Planting a reference
-        # package's id here would redden the run through the identifier rule
-        # above and prove nothing about the stamp rule — the shape this
-        # repository calls a check that agrees with you for the wrong reason.
+
+
+
+
         "a second package stamp in the built model",
         "model",
         lambda source: source.replace(

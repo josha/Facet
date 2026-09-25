@@ -1,0 +1,134 @@
+{
+  "retiredMechanisms": [],
+  "replacements": {
+    "perf_runner": {
+      "specs": [
+        "native_perf_runner"
+      ],
+      "cases": [
+        "native_perf_runner::perf runner \u2014 record schema (\u00a714.3)::produces a schema-complete record for a tiny scene",
+        "native_perf_runner::perf runner \u2014 budget enforcement (\u00a716.1)::flags an over-budget reference-device scene",
+        "native_perf_runner::perf runner \u2014 budget enforcement (\u00a716.1)::passes an in-budget scene (and ignores non-reference devices)",
+        "native_perf_runner::perf runner \u2014 shape determinism (\u00a715.2)::records the same field set and phase set across two runs",
+        "native_perf_runner::perf runner \u2014 shape determinism (\u00a715.2)::run() covers the full scene\u00d7profile matrix with a stable key set",
+        "native_perf_runner::perf runner settle boundary::settles after each warmup and sample before the next event"
+      ],
+      "behaviors": [
+        "Preserves schema, evidence provenance, budget refusal, monotonic percentile and matrix shape checks. Native private registrations/connection census now explicitly blind."
+      ],
+      "remaining": []
+    },
+    "perf_evidence": {
+      "specs": [
+        "native_perf_evidence"
+      ],
+      "cases": [
+        "native_perf_evidence::evidence classes (UI-PERF-002)::every record carries exactly one evidence class, and Lune may only emit the headless one",
+        "native_perf_evidence::evidence classes (UI-PERF-002)::declares every class in the inventory, including the ones with zero rows",
+        "native_perf_evidence::evidence classes (UI-PERF-002)::a metric the instrument cannot see is a blind marker with a reason, not a zero",
+        "native_perf_evidence::evidence classes (UI-PERF-002)::lifts a scene-declared inputToVisible phase into the M6 slot",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::refuses to enforce a device budget from a non-device class",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::skips an unmeasured device budget LOUDLY rather than silently passing it",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::a device-class row with no measured frame work does not satisfy its budget",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::a device row whose frame work is blind does not error the budget check",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::a NaN or negative frame time is not a measurement",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::refuses without throwing on a hand-authored report that has no environment block",
+        "native_perf_evidence::device budgets are unreachable from the wrong class (UI-PERF-002)::enforces a device budget only against rows of its own class",
+        "native_perf_evidence::the frame ceiling is one-directional (UI-PERF-002)::derives the ceiling from the frame target and the declared UI share",
+        "native_perf_evidence::the frame ceiling is one-directional (UI-PERF-002)::flags a scene above the ceiling separately from a trend regression",
+        "native_perf_evidence::console / ten-foot profile (UI-PARADIGM-003, XP-A1)::is in the headless matrix",
+        "native_perf_evidence::console / ten-foot profile (UI-PARADIGM-003, XP-A1)::declares ten-foot display and gamepad facts",
+        "native_perf_evidence::console / ten-foot profile (UI-PARADIGM-003, XP-A1)::declares a frame target for every profile, so a ceiling can be derived",
+        "native_perf_evidence::physical-row provenance::accepts a row that carries everything its class implies",
+        "native_perf_evidence::physical-row provenance::says nothing about a row that is not of a device class",
+        "native_perf_evidence::physical-row provenance::refuses a physical row that carries a Studio version",
+        "native_perf_evidence::physical-row provenance::refuses a physical row that names a device-simulator preset",
+        "native_perf_evidence::physical-row provenance::refuses a physical row whose live facts came from the Studio simulator",
+        "native_perf_evidence::physical-row provenance::refuses the Studio evidence level under a physical class",
+        "native_perf_evidence::physical-row provenance::refuses a hand-written row with one number in it",
+        "native_perf_evidence::physical-row provenance::refuses a row that carries no attestation at all",
+        "native_perf_evidence::physical-row provenance::refuses an attestation with a field renamed rather than written",
+        "native_perf_evidence::physical-row provenance::refuses an unmeasured or nonsense frame-work number",
+        "native_perf_evidence::physical-row provenance::refuses the simulator scaling mode, the fingerprint that was left unread",
+        "native_perf_evidence::physical-row provenance::refuses an attestation that disagrees with the row it sits on",
+        "native_perf_evidence::physical-row provenance::catches the whole consistent relabel at once"
+      ],
+      "behaviors": [
+        "Preserves schema, evidence provenance, budget refusal, monotonic percentile and matrix shape checks. Native private registrations/connection census now explicitly blind."
+      ],
+      "remaining": []
+    },
+    "perf_lab": {
+      "specs": [
+        "native_perf",
+        "native_perf_dataset",
+        "native_perf_lab"
+      ],
+      "behaviors": [
+        "All27 controlled workload registrations match existing budgets and execute with cleanup.",
+        "Deterministic dataset/seed/content/digest invariants preserved.",
+        "Live19-choice lab built on shared native workloads.",
+        "Live lab capture conditions/provenance validated; run-all, ramp cancellation, reset, previous-workload release and bounded20k rows tested.",
+        "Native feedback comparison preserves4 arms of120 buttons and8 driven presses perarm, defaultoff createszero effects; enabledshared builds1versus120perleaf andrequests16plays. Engine-owned PressHapticEffect replaces removed Facet sensory bus/cascade/coalescer; physicalmotorresponse remainsunmeasured.",
+        "Dense rows keep AsyncImage, two text labels, Ready Toggle, percentage Stepper and Open controls; full identity/description remain reachable and keyed edits survive virtual eviction. Native wrapping/measured extents preserve all controls instead of deleting phone workload.",
+        "The original shadow-storm remains 100 unchanged shadowed controls with runtime settle. Deleted presenter refresh and style_lint have no Facet replacement phase; Engine shadow paint is unmeasured. A separate mutation test checks all 100 native shadow properties and disposal.",
+        "The dense HUD retains 24 writes across eight readouts, four native actions sharing the boosts model, and a committed native Text endpoint. inputToVisible measures the synchronous native activation-to-property chain, not a rendered frame."
+      ],
+      "remaining": [],
+      "cases": [
+        "native_perf_lab::native performance lab::drives all four native feedback arms and constructs nothing while disabled",
+        "native_perf_lab::native performance lab::keeps the original dense row controls and keyed edits through virtual eviction",
+        "native_perf::native benchmark workload contract::retains default async placeholders while custom content follows loading ownership",
+        "native_perf::native benchmark workload contract::retains one hundred idle native shadows and still applies direct mutations",
+        "native_perf::native benchmark workload contract::measures a dense HUD activation through its committed native text"
+      ],
+      "manualEvidence": [
+        "Live Studio source 5f1b48c3cf54727f59445e752d441dfdb2dfe3b1dc5b7a943a402dcebf032a2b: faithful dense workload reviewed at desktop 1279x720 and phone 401x777 with restored Medium text preference. Every row retains AsyncImage40, two labels, Ready Toggle44, percentage Rate Stepper and Open. Desktop rows retain 56px minima plus 4px gap; phone rows measure 379x152 with all child geometry within row bounds. Native Step, visible-row Open with matching complete KitJessup/Cobalt detail, Close, Run and Stop work. Toolbar wraps three phone rows. Largest toolbar evidence is from an earlier source; this does not claim Largest text proof for the restored dense rows. Exact observations are recorded in artifacts/compose-simplification/live-comparison.json; development simulator evidence, not a physical-device claim."
+      ]
+    },
+    "perf_principles": {
+      "specs": [
+        "native_perf_principles",
+        "native_collections"
+      ],
+      "behaviors": [
+        "Exact one-property mutation cost at100/800/3200logical rows; identical native scroll creation/write/destruction counts across sizes; idle and equal-cell no writes; toggle changes fewerthan12properties with zero creates/destroys. Solver-only arrangement/elision assertions explicitly retired."
+      ],
+      "remaining": [],
+      "cases": [
+        "native_perf_principles::native performance invariants::one bound value writes one native property at100800and3200rows",
+        "native_perf_principles::native performance invariants::scroll mountwork is independent of logical list size",
+        "native_perf_principles::native performance invariants::idle heartbeat and identical state perform no native writes",
+        "native_perf_principles::native performance invariants::toggle changes its row without mounting another node"
+      ],
+      "caseMappings": {
+        "LAYOUT \u2014 one bound value costs the same at 100, 800 and 3 200 rows": "native_perf_principles::native performance invariants::one bound value writes one native property at100800and3200rows",
+        "PRESENTATION \u2014 scrolling costs the same at 100, 800 and 3 200 rows": "native_perf_principles::native performance invariants::scroll mountwork is independent of logical list size",
+        "PRESENTATION \u2014 re-committing identical state writes nothing at all": "native_perf_principles::native performance invariants::idle heartbeat and identical state perform no native writes",
+        "PRESENTATION \u2014 setting a bound value to the value it already holds is free": "native_perf_principles::native performance invariants::idle heartbeat and identical state perform no native writes",
+        "PRESENTATION \u2014 a toggle flip touches its own row and nothing else": "native_perf_principles::native performance invariants::toggle changes its row without mounting another node"
+      },
+      "retiredAssertions": {
+        "LAYOUT \u2014 a resize is allowed to cost the whole tree; ONE VALUE is not": "Facet solver lastArranged and partial/full solve ratios no longer exist: Roblox owns native geometry. Native control write locality is retained in the replacement case.",
+        "the adapter elides pure layout containers, and geometry writes do not resurrect them": "The old flat-renderer Frame-elision source scan no longer exists. Native hierarchy and layout Instances are owned by Compose and Roblox.",
+        "recycling, incremental layout and elision are all ON without being asked for": "Old renderer recycleArmed/recycled/lastSkipped counters and default flags are removed. Native bounded retention and stable row identity are asserted by native_collections and native_perf_principles."
+      }
+    },
+    "extension_checker": {
+      "specs": [
+        "native_registration"
+      ],
+      "cases": [
+        "native_registration::native registration and package contract::registers every authored control and documents every public constructor",
+        "native_registration::native registration and package contract::scaffolds a typed native control with idempotent runtime and public type registration"
+      ],
+      "behaviors": [
+        "All native authored controls appear in the live public constructor table and API reference; generated native control mounts and cleans up; registration edit idempotence; obsolete noncontrol scaffold types rejected."
+      ],
+      "retiredAssertions": {
+        "legacy schema and target registrations": "Blueprint schema authority, custom solver primitives and render targets are deleted; native control-only registration is the complete Facet scaffold surface."
+      },
+      "remaining": []
+    }
+  }
+}

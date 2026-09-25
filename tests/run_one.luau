@@ -1,26 +1,18 @@
 --!strict
--- ONE SPEC, for the mutation loop. `lune run tests/run_one <spec-name>` requires
--- `tests/<spec-name>.spec` and runs only what it registered.
---
--- WHY IT EXISTS. Every new check in this repo has to be seen to FAIL before it
--- is trusted (a check never seen to fail is decoration), and proving that
--- through the 45-second full suite makes the loop expensive enough that it gets
--- skipped. This is NOT a substitute for `tools/test.sh`: it runs one file, so it
--- can never produce a suite verdict, and nothing reads its output but a human or
--- an agent doing a mutation round.
+
 local process = require("@lune/process")
 local testkit = require("./lib/testkit")
 
 local name = process.args[1]
-assert(name ~= nil and name ~= "", "usage: lune run tests/run_one <spec-name>  (without the .spec suffix)")
+assert(name ~= nil and name ~= "", "usage: lune run tests/run_one <spec-name> [full]  (without the .spec suffix)")
 require("./" .. name .. ".spec")
--- tier = "one": one spec is never a suite verdict, and the structured result
--- says so in a field rather than only in this comment, so the affected tier can
--- write a result the full/release reader refuses (D7).
-if not testkit.run({
-	jsonOut = process.env.FACET_SUITE_JSON,
-	tier = "one",
-	registeredSpecs = 1,
-}) then
+
+if
+	not testkit.run({
+		jsonOut = process.env.FACET_SUITE_JSON,
+		tier = if process.args[2] == "full" then "full" else "one",
+		registeredSpecs = 1,
+	})
+then
 	process.exit(1)
 end

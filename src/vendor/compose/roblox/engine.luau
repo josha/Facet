@@ -5,6 +5,10 @@ export type Connection = {
 	Disconnect: (self: Connection) -> (),
 }
 
+export type Destroyable = {
+	Destroy: (self: Destroyable) -> (),
+}
+
 export type Signal = {
 	Connect: (self: Signal, handler: (...any) -> ()) -> Connection,
 }
@@ -28,8 +32,28 @@ export type Engine = {
 	readCFrame: ((value: any) -> (number, number, number, { number }))?,
 }
 
+type Library<F> = { new: F }
+
+type Globals = {
+	Instance: Library<(className: string) -> any>?,
+	game: any,
+	typeof: (value: any) -> string,
+	Vector2: Library<(x: number, y: number) -> any>?,
+	Vector3: Library<(x: number, y: number, z: number) -> any>?,
+	Color3: Library<(r: number, g: number, b: number) -> any>?,
+	UDim: Library<(scale: number, offset: number) -> any>?,
+	UDim2: Library<(xScale: number, xOffset: number, yScale: number, yOffset: number) -> any>?,
+	CFrame: Library<(...number) -> any>?,
+	task: { cancel: unknown }?,
+	os: typeof(os),
+}
+
+local function environment(): Globals
+	return (getfenv and getfenv(0) or {}) :: any
+end
+
 local function ambient(): Engine
-	local globals = (getfenv and getfenv(0) or {}) :: { [string]: any }
+	local globals = environment()
 	local instances = globals.Instance
 	local dataModel = globals.game
 
@@ -42,7 +66,13 @@ local function ambient(): Engine
 	end
 
 	local runService = dataModel:GetService "RunService"
-	local typeName = globals.typeof :: (any) -> string
+	local typeName = globals.typeof
+	local vector2 = globals.Vector2
+	local vector3 = globals.Vector3
+	local color3 = globals.Color3
+	local udim = globals.UDim
+	local udim2 = globals.UDim2
+	local cframe = globals.CFrame
 
 	return {
 		new = function(className: string): any
@@ -58,18 +88,18 @@ local function ambient(): Engine
 			return object:GetPropertyChangedSignal(property)
 		end,
 		datatypes = {
-			Vector2 = if globals.Vector2 ~= nil then globals.Vector2.new else nil,
-			Vector3 = if globals.Vector3 ~= nil then globals.Vector3.new else nil,
-			Color3 = if globals.Color3 ~= nil then globals.Color3.new else nil,
-			UDim = if globals.UDim ~= nil then globals.UDim.new else nil,
-			UDim2 = if globals.UDim2 ~= nil then globals.UDim2.new else nil,
-			CFrame = if globals.CFrame ~= nil
+			Vector2 = if vector2 ~= nil then vector2.new else nil,
+			Vector3 = if vector3 ~= nil then vector3.new else nil,
+			Color3 = if color3 ~= nil then color3.new else nil,
+			UDim = if udim ~= nil then udim.new else nil,
+			UDim2 = if udim2 ~= nil then udim2.new else nil,
+			CFrame = if cframe ~= nil
 				then function(position: any, rotation: { number }): any
-					return globals.CFrame.new(position.x, position.y, position.z, table.unpack(rotation))
+					return cframe.new(position.x, position.y, position.z, table.unpack(rotation))
 				end
 				else nil,
 		},
-		readCFrame = if globals.CFrame ~= nil
+		readCFrame = if cframe ~= nil
 			then function(value: any): (number, number, number, { number })
 				local components = { value:GetComponents() }
 				return components[1],
@@ -92,12 +122,11 @@ local function ambient(): Engine
 end
 
 local function cancelThread(thread: thread): boolean
-	local globals = (getfenv and getfenv(0) or {}) :: { [string]: any }
-	local scheduler = globals.task
+	local scheduler = environment().task
 	if scheduler == nil or type(scheduler.cancel) ~= "function" then
 		return false
 	end
-	return (pcall(scheduler.cancel, thread))
+	return (pcall(scheduler.cancel :: (thread: thread) -> (), thread))
 end
 
 return {

@@ -1,0 +1,202 @@
+{
+  "status": "PASS",
+  "records": 135,
+  "baselineCommit": "a8c8895673c0745506908b66dc89f8cead6b66f3",
+  "controlled": [
+    {
+      "scene": "hud-binding-storm",
+      "mainP95Ms": 0.3247500008001225,
+      "candidateP95Ms": 0.04525000258581713,
+      "ratio": 0.1393379598901607,
+      "budgetMs": 0.6216666661202908
+    },
+    {
+      "scene": "settings-churn",
+      "mainP95Ms": 2.1801666662213393,
+      "candidateP95Ms": 1.3496666724677198,
+      "ratio": 0.6190658234431955,
+      "budgetMs": 1.7261666944250464
+    },
+    {
+      "scene": "scroll-focus-traversal",
+      "mainP95Ms": 0.0852083321660757,
+      "candidateP95Ms": 0.10941667278530076,
+      "ratio": 1.2841076688608535,
+      "budgetMs": 0.15033339150249958
+    },
+    {
+      "scene": "collection-mutation",
+      "mainP95Ms": 1.044874999934109,
+      "candidateP95Ms": 0.5404166658991016,
+      "ratio": 0.5172070017305237,
+      "budgetMs": 3.2101667020469904
+    },
+    {
+      "scene": "animation-interruption",
+      "mainP95Ms": 0.538958332981565,
+      "candidateP95Ms": 0.004958332283422351,
+      "ratio": 0.009199843438717088,
+      "budgetMs": 0.5833334289491177
+    },
+    {
+      "scene": "locale-textsize-change",
+      "mainP95Ms": 0.3426249986659968,
+      "candidateP95Ms": 0.004333327524363995,
+      "ratio": 0.012647435362964504,
+      "budgetMs": 0.37050002720206976
+    },
+    {
+      "scene": "async-image-burst",
+      "mainP95Ms": 0.06079166632844135,
+      "candidateP95Ms": 0.00875000114319846,
+      "ratio": 0.14393422111386964,
+      "budgetMs": 0.12199999764561652
+    },
+    {
+      "scene": "shadow-storm",
+      "mainP95Ms": 0.014958333849790506,
+      "candidateP95Ms": 0.00016667036106809974,
+      "ratio": 0.011142307876116428,
+      "budgetMs": 0.1
+    },
+    {
+      "scene": "virtual-list-scroll",
+      "mainP95Ms": 1.3917916676291497,
+      "candidateP95Ms": 0.6809583283029497,
+      "ratio": 0.48926742711639415,
+      "budgetMs": 4.133166745305061
+    },
+    {
+      "scene": "native-scroll-drag",
+      "mainP95Ms": 0.006958332960493863,
+      "candidateP95Ms": 0.006624999514315277,
+      "ratio": 0.9520957895991619,
+      "budgetMs": 0.1
+    },
+    {
+      "scene": "dense-hud",
+      "mainP95Ms": 0.683250000292901,
+      "candidateP95Ms": 0.025624998670537025,
+      "ratio": 0.037504571766632855,
+      "budgetMs": 1.92866672296077
+    },
+    {
+      "scene": "stylesheet-state-churn",
+      "mainP95Ms": 0.14591666695196182,
+      "candidateP95Ms": 0.021833329810760915,
+      "ratio": 0.1496287591187154,
+      "budgetMs": 0.3811666974797845
+    },
+    {
+      "scene": "async-image-grid",
+      "mainP95Ms": 2.7227916671108687,
+      "candidateP95Ms": 1.1864166663144715,
+      "ratio": 0.4357353816839642,
+      "budgetMs": 3.1014999840408564
+    },
+    {
+      "scene": "screen-lifecycle-churn",
+      "mainP95Ms": 5.005666665965691,
+      "candidateP95Ms": 3.20987500163028,
+      "ratio": 0.6412482523965731,
+      "budgetMs": 4.293999983929098
+    },
+    {
+      "scene": "theme-swap-flat",
+      "mainP95Ms": 0.28770833341695834,
+      "candidateP95Ms": 0.12312499893596396,
+      "ratio": 0.42795075649590697,
+      "budgetMs": 0.4413332790136338
+    },
+    {
+      "scene": "theme-swap-metrics",
+      "mainP95Ms": 0.3361250001034932,
+      "candidateP95Ms": 0.3512499970383942,
+      "ratio": 1.0449981314399226,
+      "budgetMs": 0.5236667348071933
+    },
+    {
+      "scene": "dense-motion",
+      "mainP95Ms": 1.2996250006835908,
+      "candidateP95Ms": 0.323874999594409,
+      "ratio": 0.2492065014323776,
+      "budgetMs": 2.942666644230485
+    },
+    {
+      "scene": "control-motion",
+      "mainP95Ms": 0.7485416663257638,
+      "candidateP95Ms": 0.06712500180583447,
+      "ratio": 0.0896743692776907,
+      "budgetMs": 3.2696668058633804
+    },
+    {
+      "scene": "theme-swap-assets",
+      "mainP95Ms": 0.3127083327854052,
+      "candidateP95Ms": 0.5397083368734457,
+      "ratio": 1.725916070307657,
+      "budgetMs": 0.5593333626165986
+    },
+    {
+      "scene": "lab-dense-scroll",
+      "mainP95Ms": 2.0555416667775717,
+      "candidateP95Ms": 1.2175833398941904,
+      "ratio": 0.5923418433073991,
+      "budgetMs": 6.240833317860961
+    },
+    {
+      "scene": "lab-collection-churn",
+      "mainP95Ms": 0.15241666551446542,
+      "candidateP95Ms": 0.10737500269897282,
+      "ratio": 0.7044833472543209,
+      "budgetMs": 0.9451666846871376
+    },
+    {
+      "scene": "adaptive-navigation-images",
+      "mainP95Ms": 0.3397083328309236,
+      "candidateP95Ms": 0.0886249981704168,
+      "ratio": 0.2608855585963103,
+      "budgetMs": 2.3818332701921463
+    },
+    {
+      "scene": "navigation-customization",
+      "mainP95Ms": 2.2060416667954996,
+      "candidateP95Ms": 0.011416661436669528,
+      "ratio": 0.0051751794213630575,
+      "budgetMs": 7.546833483502269
+    },
+    {
+      "scene": "alert-present-dismiss",
+      "mainP95Ms": null,
+      "candidateP95Ms": 1.1348750049364753,
+      "ratio": null,
+      "budgetMs": 4.4476669281721115
+    },
+    {
+      "scene": "picker-menu-open-close",
+      "mainP95Ms": null,
+      "candidateP95Ms": 3.0667083337903023,
+      "ratio": null,
+      "budgetMs": 9.758833330124617
+    },
+    {
+      "scene": "picker-segmented-textsize",
+      "mainP95Ms": 2.2797916681156494,
+      "candidateP95Ms": 0.0038750004023313522,
+      "ratio": 0.001699716889277964,
+      "budgetMs": 3.169333329424262
+    },
+    {
+      "scene": "radial-menu-open-close",
+      "mainP95Ms": null,
+      "candidateP95Ms": 0.17212500097230077,
+      "ratio": null,
+      "budgetMs": 17.440166790038347
+    }
+  ],
+  "limitations": [
+    "Headless native property/Compose work omits Engine layout, native text measurement, selectionrouting, stylingresolution, assetfetch andpaint. Removed Facet renderer/solver cost has no native headless equivalent.",
+    "Both micro runs were on this developmenthost and stable individually, but main was earlier, not contemporaneous. Normalized values adjust yardstick CPUcost; they do not prove realEngine performance parity.",
+    "Main official controlled command aborts on preexisting transient setup ownership failures.24original subjects measured in separate fresh processes using unmodified runScene/counts at floorAndroid; candidate uses its official135-row matrix. Processisolation and headless-engine boundary limit the comparison.",
+    "Initial native timings before completeworkloadaudit are INVALID for baselineparity. This candidate embeds the verified27scene/14micro workload receipt."
+  ]
+}

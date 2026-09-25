@@ -1,5 +1,6 @@
 --!strict
 
+local Weak = require "../weak"
 local stats = require "./stats"
 
 export type Options = {
@@ -40,27 +41,70 @@ export type Report = {
 	totals: { [string]: number },
 }
 
+export type WakeData = {
+	to: number,
+	count: number,
+}
+
+export type NodeData = {
+	id: number,
+	kind: string,
+	label: string?,
+	name: string,
+	writes: number,
+	writesSuppressed: number,
+	recomputations: number,
+	recomputationsPublished: number,
+	runs: number,
+	schedules: number,
+	schedulesCoalesced: number,
+	hostWrites: number,
+	peakFanOut: number,
+	wakes: { WakeData },
+}
+
+export type DrainData = {
+	runs: number,
+	seconds: number,
+	cause: string?,
+}
+
+export type Data = {
+	schemaVersion: number,
+	active: boolean,
+	seconds: number,
+	droppedRecords: number,
+	totals: { [string]: number },
+	nodes: { NodeData },
+	drains: { DrainData },
+}
+
+type Shape = {
+	derived: boolean?,
+	enqueue: unknown,
+}
+
 local DEFAULT_MAX_NODES = 4096
 local DEFAULT_MAX_DRAINS = 256
 local MAX_WAKE_TARGETS = 32
 
-local WEAK_KEYS = table.freeze { __mode = "k" }
 local UNKNOWN_KIND = "node"
 
-local function kindOf(node: any): string
-	local derived = node.derived
+local function kindOf(node: unknown): string
+	local shape = node :: Shape
+	local derived = shape.derived
 	if derived == true then
 		return "formula"
 	elseif derived == false then
 		return "cell"
-	elseif node.enqueue ~= nil then
+	elseif shape.enqueue ~= nil then
 		return "watch"
 	end
 	return UNKNOWN_KIND
 end
 
 type State = {
-	rows: { [any]: NodeRow },
+	rows: { [unknown]: NodeRow },
 	ordered: { NodeRow },
 	nextId: number,
 	droppedRecords: number,
@@ -81,7 +125,7 @@ local state: State? = nil
 local restoreCounters = false
 local clock: (() -> number)? = nil
 
-local function rowFor(node: any, kind: string): NodeRow?
+local function rowFor(node: unknown, kind: string): NodeRow?
 	local held = state
 	if held == nil then
 		return nil
@@ -129,7 +173,7 @@ local function guarded(body: () -> ())
 	end
 end
 
-local function write(cell: any, suppressed: boolean)
+local function write(cell: unknown, suppressed: boolean)
 	guarded(function()
 		local row = rowFor(cell, "cell")
 		if row == nil then
@@ -144,7 +188,7 @@ local function write(cell: any, suppressed: boolean)
 	end)
 end
 
-local function wake(producer: any, kind: string, count: number)
+local function wake(producer: unknown, kind: string, count: number)
 	guarded(function()
 		local row = rowFor(producer, kind)
 		if row == nil then
@@ -156,7 +200,7 @@ local function wake(producer: any, kind: string, count: number)
 	end)
 end
 
-local function edge(producer: any, producerKind: string, consumer: any)
+local function edge(producer: unknown, producerKind: string, consumer: unknown)
 	guarded(function()
 		local from = rowFor(producer, producerKind)
 		local to = rowFor(consumer, kindOf(consumer))
@@ -177,7 +221,7 @@ local function edge(producer: any, producerKind: string, consumer: any)
 	end)
 end
 
-local function recompute(formula: any)
+local function recompute(formula: unknown)
 	guarded(function()
 		local row = rowFor(formula, "formula")
 		if row ~= nil then
@@ -186,7 +230,7 @@ local function recompute(formula: any)
 	end)
 end
 
-local function suppressedRecompute(formula: any)
+local function suppressedRecompute(formula: unknown)
 	guarded(function()
 		local row = rowFor(formula, "formula")
 		if row ~= nil then
@@ -195,7 +239,7 @@ local function suppressedRecompute(formula: any)
 	end)
 end
 
-local function schedule(watch: any, coalesced: boolean)
+local function schedule(watch: unknown, coalesced: boolean)
 	guarded(function()
 		local row = rowFor(watch, "watch")
 		if row == nil then
@@ -209,7 +253,7 @@ local function schedule(watch: any, coalesced: boolean)
 	end)
 end
 
-local function enterRun(watch: any)
+local function enterRun(watch: unknown)
 	local held = state
 	if held == nil or held.broken then
 		return
@@ -249,7 +293,7 @@ local function drain(runs: number, seconds: number)
 	end)
 end
 
-local function label(node: any, name: string)
+local function label(node: unknown, name: string)
 	guarded(function()
 		local row = rowFor(node, kindOf(node))
 		if row ~= nil then
@@ -265,7 +309,7 @@ local function naming(name: string?)
 	end
 end
 
-local function born(node: any, name: string?)
+local function born(node: unknown, name: string?)
 	guarded(function()
 		local held = state :: State
 		local row = rowFor(node, "watch")
@@ -285,7 +329,7 @@ local function start(now: () -> number, options: Options?)
 	stats.setEnabled(true)
 	clock = now
 	state = {
-		rows = (setmetatable({}, WEAK_KEYS) :: any) :: { [any]: NodeRow },
+		rows = Weak.keys() :: { [unknown]: NodeRow },
 		ordered = {},
 		nextId = 0,
 		droppedRecords = 0,
@@ -485,10 +529,10 @@ local function format(report: Report, limit: number?): string
 	return table.concat(out, "\n") .. "\n"
 end
 
-local function data(report: Report): { [string]: any }
-	local nodes: { any } = table.create(#report.nodes)
+local function data(report: Report): Data
+	local nodes = table.create(#report.nodes) :: { NodeData }
 	for index, row in report.nodes do
-		local wakes: { any } = {}
+		local wakes: { WakeData } = {}
 		local targets: { number } = {}
 		for id in row.wakes do
 			table.insert(targets, id)
@@ -514,7 +558,7 @@ local function data(report: Report): { [string]: any }
 			wakes = wakes,
 		}
 	end
-	local drains: { any } = table.create(#report.drains)
+	local drains = table.create(#report.drains) :: { DrainData }
 	for index, row in report.drains do
 		drains[index] = { runs = row.runs, seconds = row.seconds, cause = row.cause }
 	end

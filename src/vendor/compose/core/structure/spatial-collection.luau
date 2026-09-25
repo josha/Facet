@@ -84,7 +84,7 @@ local function numberOr(value: unknown, fallback: number): number
 	return fallback
 end
 
-local function identity<V>(value: V, _index: number): any
+local function identity<V>(value: V, _index: number): V
 	return value
 end
 
@@ -135,7 +135,7 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 	end
 
 	local budget: Budget = settings.budget or {}
-	Support.noUnknownFields(budget :: any, "SpatialCollection.budget", KNOWN_BUDGET)
+	Support.noUnknownFields(budget, "SpatialCollection.budget", KNOWN_BUDGET)
 	local mountsPerFrame = if budget.mountsPerFrame ~= nil
 		then math.max(1, math.floor(numberOr(budget.mountsPerFrame, 1)))
 		else nil
@@ -340,9 +340,9 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 			local admitted, pending = admission.admitted, admission.pending
 			if admission.order ~= nil then
 				local order = admission.order :: { number }
-				local chosenIndices: { number } = table.create(admitted)
-				local chosenTiers: { number } = table.create(admitted)
-				local chosenDistance: { number } = table.create(admitted)
+				local chosenIndices = table.create(admitted) :: { number }
+				local chosenTiers = table.create(admitted) :: { number }
+				local chosenDistance = table.create(admitted) :: { number }
 				for position = 1, admitted do
 					local at = order[position]
 					chosenIndices[position] = newIndices[at]
@@ -355,9 +355,9 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 			pump.update(pending > 0)
 
 			local total = #keptIndices + #newIndices
-			local values = table.create(total)
-			local keys = table.create(total)
-			local states = table.create(total)
+			local values = table.create(total) :: { V }
+			local keys = table.create(total) :: { K }
+			local states = table.create(total) :: { Representation }
 			local perTier = table.create(tierCount, 0)
 			local nextTier: { [K]: number } = {}
 

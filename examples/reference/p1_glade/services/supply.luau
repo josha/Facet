@@ -1,12 +1,4 @@
 --!strict
--- SupplyService — refill stamps, drain constants, derived levels (responsibility
--- ledger, P1 row 1). Production would be server-authoritative time plus a
--- DataStore per player; here it is a pure function of the seeded stamps and the
--- INJECTED `now` Readable, so a headless test and a Studio session see the same
--- arithmetic and a reset reproduces the world exactly.
---
--- No `os.*`, no `math.random`, no network. The only time in this module is the
--- Readable the caller hands in.
 
 local seedData = require("../content/seed")
 
@@ -15,7 +7,7 @@ local supply = {}
 export type Opts = {
 	Compose: any,
 	rooted: (() -> any) -> any,
-	now: any, -- Readable<number>: injected world seconds
+	now: any,
 }
 
 local KINDS = { "nectar", "dew" }
@@ -23,12 +15,10 @@ supply.KINDS = KINDS
 
 function supply.new(opts: Opts): any
 	local Compose = opts.Compose
-	-- a cached formula outlives the row that first asks for it
+
 	local rooted = opts.rooted
 	local now = opts.now
 
-	-- semantic state: the refill stamp per glade per supply, and which nectar is
-	-- assigned to each glade. Both survive re-solve; both reset from the seed.
 	local stamps: { [string]: any } = {}
 	local assigned: { [string]: any } = {}
 	for _, glade in seedData.GLADES do
@@ -41,9 +31,6 @@ function supply.new(opts: Opts): any
 
 	local service = {}
 
-	-- memo caches, keyed "<glade>/<kind>": one memo per supply, built on demand
-	-- and owned by the service scope. Rebuilding them per read would make every
-	-- card's ring its own dependency graph.
 	local levels: { [string]: any } = {}
 	local remainings: { [string]: any } = {}
 	local states: { [string]: any } = {}
@@ -85,9 +72,6 @@ function supply.new(opts: Opts): any
 		return memo
 	end
 
-	-- "full" | "low" | "empty" — the three states §6's table names. State is
-	-- carried by FORM downstream (a chip, an empty arc, a strengthened caption),
-	-- never by a second hue.
 	function service.state(gladeId: string, kind: string): any
 		local key = gladeId .. "/" .. kind
 		local memo = states[key]
@@ -115,14 +99,10 @@ function supply.new(opts: Opts): any
 		return assigned[gladeId]
 	end
 
-	-- the two mutations. Both stamp `now`, which is what makes a refill visible
-	-- as a ring returning to full and then draining again.
 	function service.refill(gladeId: string, kind: string)
 		stamps[gladeId][kind]:set(now:peek())
 	end
 
-	-- assigning a nectar also refills it: a fresh jar IS a full supply, and the
-	-- reference's "choose" is one act, not two.
 	function service.assign(gladeId: string, nectarId: string)
 		assigned[gladeId]:set(nectarId)
 		service.refill(gladeId, "nectar")
@@ -136,7 +116,6 @@ function supply.new(opts: Opts): any
 		end
 	end
 
-	-- deterministic, JSON-safe state for the proof's report/dump
 	function service.dump(): any
 		local out: { any } = {}
 		for _, glade in seedData.GLADES do

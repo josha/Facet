@@ -1,41 +1,52 @@
 --!strict
--- Identical retained trees: explicit transaction animation vs declarative groups.
 local nativeApp = require("./native_app")
 return function(automatic: boolean)
-	local world = nativeApp({ viewport = { x = 0, y = 0, w = 900, h = 900 } })
-	local UI, Compose, pres = world.UI, world.Compose, world.pres
+	local world = nativeApp({ viewport = { w = 900, h = 900 } })
+	local Compose, Host = world.Compose, world.Host
 	local tall = Compose.cell(false)
-	local height = Compose.formula(function(use)
-		return { type = "fixed", px = if use(tall) then 6 else 4 }
-	end)
-	world.app.mount(function()
-		local props: { [any]: any } = {
-			gap = 0,
-			padding = 0,
-			animation = if automatic then { layout = "container" } else nil,
-		}
-		for i = 1, 100 do
-			table.insert(props, UI.Box(`Row{i}`)({ width = UI.fill(), height = height }))
+	local height = Compose.cell(4)
+	local observed
+	world.runtime.mount(function()
+		local children = { Host.UIListLayout({}) }
+		for index = 1, 100 do
+			local source = if automatic
+				then function(use)
+					return if use(tall) then 6 else 4
+				end
+				else height
+			local animated = world.runtime.tween(
+				if automatic
+					then source
+					else function(use)
+						return use(source)
+					end,
+				{ seconds = 0.2 }
+			)
+			observed = animated
+			table.insert(
+				children,
+				Host.Frame({
+					Name = `Row{index}`,
+					Size = function(use)
+						return world.types.UDim2.new(1, 0, 0, use(animated))
+					end,
+				})
+			)
 		end
-		return UI.Screen("MotionBench")(props)
-	end)
-	pres.refresh()
+		return Host.Frame(children)
+	end, world.target)
+	local iteration = 0
 	return {
 		run = function()
+			iteration += 1
 			if automatic then
 				tall:set(not tall:peek())
-				pres.refresh()
 			else
-				pres.withAnimation("container", function()
-					tall:set(not tall:peek())
-				end)
+				height:set(if iteration % 2 == 1 then 6 else 4)
 			end
-			pres.tick(1 / 60)
-			assert(pres.animationRecordCount() > 0, "fixture must actually animate")
+			world.frame()
+			assert(observed:peek() > 4 and observed:peek() < 6, "motion workload did not animate")
 		end,
-		dispose = function()
-			world.app.dispose()
-			height:dispose()
-		end,
+		dispose = world.dispose,
 	}
 end

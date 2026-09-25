@@ -12,7 +12,7 @@ local function raise(co: thread, cause: unknown): never
 	error(cause, 2)
 end
 
-local function settle(co: thread, ok: boolean, ...: any): ...any
+local function settle(co: thread, ok: boolean, ...: unknown): ...unknown
 	if ok and coroutine.status(co) == "dead" then
 		return ...
 	end
@@ -22,7 +22,7 @@ local function settle(co: thread, ok: boolean, ...: any): ...any
 	return raise(co, (...))
 end
 
-local function guarded(fn: any, ...: any): ...any
+local function guarded(fn: (...unknown) -> ...unknown, ...: unknown): ...unknown
 	local co = coroutine.create(fn)
 	return settle(co, coroutine.resume(co, ...))
 end

@@ -6,22 +6,27 @@ local Diagnostics = require "../diagnostics"
 local Easing = require "./easing"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
+local Reactor = require "../reactive/reactor"
 local Spring = require "./spring"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 local watchModule = require "../reactive/watch"
 
+export type ReducedMotion = Types.Cell<boolean> | Types.Formula<boolean> | Types.Source<boolean>
+
 export type SpringOptions = {
 	period: number?,
 	damping: number?,
 	tolerance: number?,
+	reducedMotion: ReducedMotion?,
 }
 
-export type Duration = number | Types.Cell<number> | Types.Formula<number> | Types.Source<number>
+export type Duration = Types.Value<number>
 
 export type TweenOptions = {
 	seconds: Duration?,
 	ease: Easing.Easing?,
+	reducedMotion: ReducedMotion?,
 }
 
 export type Motion = {
@@ -45,14 +50,45 @@ local function framesOf(host: Host.Host, primitive: string): Host.Frames
 	return frames :: Host.Frames
 end
 
-local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Owner.Owner, reactor: any): Motion
-	local hubMembers: { any } = {}
+local function policyOf(value: ReducedMotion?, primitive: string): Types.Body<boolean>?
+	if value == nil then
+		return nil
+	end
+	if type(value) == "function" then
+		return value :: Types.Body<boolean>
+	end
+	if cellModule.isReadable(value) then
+		local readable = value :: Types.Readable<boolean>
+		return function(use: Types.Use): boolean
+			return use(readable)
+		end
+	end
+	Diagnostics.raise("animation/bad-reduced-motion", ("%s cannot read this reduced motion policy"):format(primitive), {
+		key = "reducedMotion",
+		actual = Diagnostics.describe(value),
+		expected = "a cell, a formula or a body returning a boolean",
+		contract = "the policy is read reactively, because the setting changes while the application runs",
+	})
+	return nil
+end
+
+type HubMember = {
+	active: boolean,
+	callback: (delta: number) -> (),
+}
+
+local function createMotion(
+	host: Host.Host,
+	ownerOf: (primitive: string) -> Owner.Owner,
+	reactor: Reactor.Reactor
+): Motion
+	local hubMembers: { HubMember } = {}
 	local hubLive = 0
 	local hubUnsubscribe: Host.Unsubscribe? = nil
 	local hubDispatching = false
 	local hubDelta = 0
 
-	local function runMembers()
+	local function runMembers(): ...unknown
 		local count = #hubMembers
 		for index = 1, count do
 			local member = hubMembers[index]
@@ -93,7 +129,7 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 	local function hubStep(delta: number)
 		hubDelta = delta
 		hubDispatching = true
-		local ok, err: any = pcall(reactor.batch, reactor, runMembers)
+		local ok, err: unknown = pcall(reactor.batch, reactor, runMembers)
 		hubDispatching = false
 		hubCompact()
 		hubStop()
@@ -102,8 +138,8 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 		end
 	end
 
-	local function hubAdd(frames: Host.Frames, callback: (delta: number) -> ()): any
-		local member = { active = true, callback = callback }
+	local function hubAdd(frames: Host.Frames, callback: (delta: number) -> ()): HubMember
+		local member: HubMember = { active = true, callback = callback }
 		table.insert(hubMembers, member)
 		hubLive += 1
 		if hubUnsubscribe == nil then
@@ -112,7 +148,7 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 		return member
 	end
 
-	local function hubRemove(member: any)
+	local function hubRemove(member: HubMember)
 		if not member.active then
 			return
 		end
@@ -131,8 +167,9 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 			current: { number },
 			target: { number },
 			reference: { number }
-		) -> (delta: number) -> boolean,
-		onRetarget: (() -> ())?
+		) -> ((delta: number) -> boolean, (() -> ())?),
+		onRetarget: (() -> ())?,
+		reducedMotion: Types.Body<boolean>?
 	): Types.Readable<T>
 		local frames = framesOf(host, primitive)
 		local owner = ownerOf(primitive)
@@ -143,10 +180,11 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 		local target: { number }
 		local reference: { number }
 		local advance: (delta: number) -> boolean
+		local settleNow: (() -> ())?
 		local output: Types.Cell<T>
 		local typeName = ""
 
-		local hubMember: any = nil
+		local hubMember: HubMember? = nil
 		local disposed = false
 
 		local function publish()
@@ -190,6 +228,7 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 
 		owner.watch(function(use)
 			local wanted = source(use)
+			local reduced = reducedMotion ~= nil and reducedMotion(use) == true
 
 			if arity == 0 then
 				typeName = Host.typeNameOf(host, wanted)
@@ -202,7 +241,7 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 				codec.encode(wanted, target)
 				codec.encode(wanted, reference)
 				output = cellModule.cell(wanted)
-				advance = makeAdvance(codec, current, target, reference)
+				advance, settleNow = makeAdvance(codec, current, target, reference)
 
 				return
 			end
@@ -224,6 +263,18 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 				reference[index] = current[index]
 			end
 			codec.encode(wanted, target)
+			if reduced then
+				stop()
+				if settleNow ~= nil then
+					settleNow()
+				end
+				for index = 1, arity do
+					current[index] = target[index]
+					reference[index] = target[index]
+				end
+				publish()
+				return
+			end
 			if onRetarget ~= nil then
 				onRetarget()
 			end
@@ -247,6 +298,9 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 
 		return animate("spring", source, function(codec, current, target, reference)
 			local live = Spring.createState(current, codec.arity)
+			local function settle()
+				Spring.settle(live, target)
+			end
 			return function(delta: number): boolean
 				Spring.step(live, target, delta, period, damping)
 				for index = 1, codec.arity do
@@ -260,8 +314,9 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 					return true
 				end
 				return false
-			end
-		end, nil)
+			end,
+				settle
+		end, nil, policyOf(if options ~= nil then options.reducedMotion else nil, "spring"))
 	end
 
 	local function tween<T>(source: Types.Body<T>, options: TweenOptions?): Types.Readable<T>
@@ -339,8 +394,9 @@ local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Own
 					return true
 				end
 				return false
-			end
-		end, onRetarget)
+			end,
+				nil
+		end, onRetarget, policyOf(if options ~= nil then options.reducedMotion else nil, "tween"))
 	end
 
 	return {

@@ -1,33 +1,4 @@
 --!strict
---[[ THE ONE ENUMERATOR OF `examples/themes/` (MAINT-8c, 2026-08-17).
-
-	Six independently hand-maintained lists of theme-package names shipped in this
-	repository — two in `tests/theme_reference_packages.spec.luau`, one in
-	`tools/lune/check_docs.luau`, one in `tools/lune/_probe_matrix.luau`, one in
-	`tests/renderer.spec.luau`, one in `tests/gallery_theme_picker.spec.luau` —
-	and NOTHING enumerated the directory or cross-validated them. A new package
-	could land and be named by none of them; a renamed one could leave a list
-	pointing at a file that no longer exists; and `docs/extending/new-theme.md`,
-	the playbook an author actually follows, named exactly one of the six.
-
-	WHY THIS IS NOT JUST `readDir`. The directory holds three different KINDS of
-	file and the lists are legitimately different subsets of them, so an
-	enumerator that answered "all thirteen" would be wrong for every caller:
-
-	  * `reference` — a shipping reference package. Every claim the corpus makes
-	    (public-API-only construction, a resolvable snapshot, a stable sheet
-	    stamp, honest theme-class declarations) is a claim this file has to
-	    survive, and it must be one click away in the gallery picker.
-	  * `fixture`   — a deliberately degenerate package the acceptance scenarios
-	    install BY NAME to prove a refusal. It must NOT appear in a picker.
-	  * `control`   — a rung-3 worked example: a CONTROL with its own art, not a
-	    package a player can select.
-
-	So the role is DECLARED here, once, and the check below fails a file with no
-	role and a role with no file. Adding a theme is then a two-line change with a
-	loud failure if you skip the second line — which is the whole difference
-	between six lists and one.
-]]
 
 local fs = require("@lune/fs")
 
@@ -53,10 +24,6 @@ theme_packages.ROLES = {
 	ornate_gauge = "control",
 } :: { [string]: Role }
 
---[[ THE REFERENCE CORPUS IN ITS DECLARED ORDER. The ORDER is a real fact — the
-	five older packages come first because every later claim was proved against
-	them — so it stays hand-written; what is mechanical is that it must be exactly
-	the `reference` role set, which `check()` asserts. ]]
 theme_packages.REFERENCE_ORDER = {
 	"classic_desktop",
 	"glossy_mobile",
@@ -69,20 +36,6 @@ theme_packages.REFERENCE_ORDER = {
 	"compact_pointer",
 }
 
---[[ WHAT IS NOT SHIPPABLE, AND WHY (wave THEME-UNBUNDLE, 2026-08-21).
-
-	`tools/build_themes.sh` builds ONE `.rbxm` per shippable package so a consumer
-	can take a skin without taking the gallery. "Shippable" is therefore a
-	distribution decision, not a test decision, and the two do not coincide with
-	the ROLE above: `fantasy_parchment_stub` has the `reference` role because every
-	corpus claim is a claim it survives, and it must still never be handed to a
-	player, because three of its four variants are broken ON PURPOSE.
-
-	So the shippable set is the directory MINUS this table, and `check()` fails a
-	module that is in neither — a new package cannot be added without a decision
-	about whether a player may install it. Each entry carries the reason a reader
-	needs and the condition under which it would move.
-]]
 theme_packages.NOT_SHIPPABLE = {
 	fantasy_parchment_stub = "a REFUSAL fixture wearing a reference package's clothes: `buildBadAsset`, "
 		.. "`buildBadFont` and `buildIncompatible` are deliberately broken variants, and the module already "
@@ -102,10 +55,6 @@ theme_packages.NOT_SHIPPABLE = {
 		.. "and `fantasy_ornate` is the package that covers its namespaced roles.",
 } :: { [string]: string }
 
---[[ THE ARTIFACT NAME. `build/themes/<Name>.rbxm` holds ONE ModuleScript of the
-	same name, because that name is what a consumer without Rojo sees in the
-	Explorer and types in a `require` — so it is Roblox house style (PascalCase),
-	not the snake_case source filename. One derivation, no second list. ]]
 function theme_packages.artifactName(name: string): string
 	local parts: { string } = {}
 	for word in string.gmatch(name, "[^_]+") do
@@ -114,8 +63,6 @@ function theme_packages.artifactName(name: string): string
 	return table.concat(parts, "")
 end
 
---[[ the packages a consumer may install: the directory minus `NOT_SHIPPABLE`,
-	sorted. Derived, never restated — `check()` proves the partition is total. ]]
 function theme_packages.shippable(): { string }
 	local out: { string } = {}
 	for _, name in theme_packages.files() do
@@ -127,7 +74,6 @@ function theme_packages.shippable(): { string }
 	return out
 end
 
--- every `examples/themes/*.luau` on disk, sorted
 function theme_packages.files(): { string }
 	local out: { string } = {}
 	for _, entry in fs.readDir(THEMES_DIR) do
@@ -156,7 +102,6 @@ function theme_packages.path(name: string): string
 	return `{THEMES_DIR}/{name}.luau`
 end
 
--- the drift check: the directory, the roles and the declared order agree
 function theme_packages.check(extraFiles: { string }?): { ok: boolean, problems: { string } }
 	local problems: { string } = {}
 	local onDisk: { [string]: boolean } = {}
@@ -181,11 +126,6 @@ function theme_packages.check(extraFiles: { string }?): { ok: boolean, problems:
 		end
 	end
 
-	--[[ THE SHIPPABLE PARTITION IS TOTAL. A module is either a package a consumer
-		may install or a named exclusion with a reason; there is no third state, and
-		"nobody decided yet" must not read as "ship it". A reason is required and
-		must be a real sentence, because an empty string would satisfy a `~= nil`
-		test while telling the next reader nothing. ]]
 	for name in theme_packages.NOT_SHIPPABLE do
 		if not onDisk[name] then
 			problems[#problems + 1] = `tools/lune/theme_packages.luau excludes '{name}' from the shippable set, but `

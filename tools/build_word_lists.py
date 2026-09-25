@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the examples' shared English word data from a licensed, versioned source.
+CLI_HELP = """Generate the examples' shared English word data from a licensed, versioned source.
 
 Run (from the library root):
 
@@ -66,33 +66,33 @@ import tarfile
 import tempfile
 import urllib.request
 
-# ── The pinned source ───────────────────────────────────────────────────────
+
 SOURCE_NAME = "SCOWL (Spell Checker Oriented Word Lists) 2020.12.07"
 SOURCE_URL = "https://downloads.sourceforge.net/project/wordlist/SCOWL/2020.12.07/scowl-2020.12.07.tar.gz"
 SOURCE_SHA256 = "5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc"
 SOURCE_ROOT = "scowl-2020.12.07"
 SOURCE_HOME = "http://wordlist.aspell.net/"
 
-# ── The policy ──────────────────────────────────────────────────────────────
-# SCOWL "size" tiers, smallest (most common) first.
+
+
 TIERS = [10, 20, 35, 40, 50, 55, 60, 70, 80, 95]
-# TWO DIALECT SETS, BECAUSE THE TWO JOBS WANT DIFFERENT ANSWERS.
-#
-# Only the `-words` classes in either case: that already excludes proper names,
-# abbreviations and contractions, so no second filter has to guess at them.
-#
-# ACCEPTING A GUESS TAKES EVERY DIALECT. Measured 2026-08-29, after the crossword
-# game hit it writing a test: with American and pan-English only, `axe`, `grey`,
-# `colour`, `theatre`, `centre`, `favour`, `litre`, `cheque`, `kerb`, `tyre` and
-# `pyjamas` were all REFUSED — SCOWL files those under `british-words` and the
-# `variant_*` classes. A player who types `grey` and is told it is not a word
-# blames the game, and is right to; that is the exact failure this data replaced,
-# reappearing one dialect over. Widening costs 1,579 words (36,601 -> 38,180 at
-# lengths two to seven).
-#
-# CHOOSING AN ANSWER STAYS AMERICAN. A puzzle whose answer is `colour` is unfair
-# to half its players and `color` to the other half, so the answer set keeps one
-# spelling convention while the guess set accepts both.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ACCEPT_DIALECTS = [
     "english",
     "american",
@@ -113,13 +113,13 @@ ACCEPT_MAX_LEN = 7
 SOLUTION_MAX_TIER = 35
 SOLUTION_LEN = 5
 
-# Refusal 3: a floor per length, set well below the measured counts so ordinary
-# source drift does not trip it but a filter bug cannot pass.
+
+
 MIN_ACCEPTED = {2: 50, 3: 400, 4: 1500, 5: 3000, 6: 5000, 7: 7000}
 MIN_SOLUTIONS = 1000
 
-# Refusal 5: Roblox refuses a Source write at 200,000 characters. Leave room for
-# the module's own header and syntax.
+
+
 SOURCE_CHAR_CAP = 180_000
 WORDS_PER_LINE = 400
 
@@ -142,15 +142,15 @@ def sha256_file(path: str) -> str:
 
 
 def fetch_source(offline: bool) -> str:
-    """Return the path to a verified source archive, downloading it once."""
+
     os.makedirs(CACHE_DIR, exist_ok=True)
     path = os.path.join(CACHE_DIR, os.path.basename(SOURCE_URL))
     if os.path.exists(path):
         got = sha256_file(path)
         if got == SOURCE_SHA256:
             return path
-        # A cached archive that no longer matches is removed rather than reused:
-        # a partial download is the common cause and it is not worth diagnosing.
+
+
         print(f"cached archive hash {got} != pinned {SOURCE_SHA256}; refetching", file=sys.stderr)
         os.remove(path)
     if offline:
@@ -163,7 +163,7 @@ def fetch_source(offline: bool) -> str:
         data = resp.read()
     got = sha256_bytes(data)
     if got != SOURCE_SHA256:
-        # Refusal 1.
+
         raise SystemExit(
             f"build_word_lists: downloaded archive SHA-256 {got}\n"
             f"  does not match the pinned {SOURCE_SHA256}.\n"
@@ -177,11 +177,7 @@ def fetch_source(offline: bool) -> str:
 
 
 def read_source(archive: str):
-    """Return (words_by_tier, solution_words_by_tier, copyright_text, version).
 
-    Two tier maps, not one: the guess set takes every dialect and the answer set
-    stays American, so the loader keeps them apart rather than filtering later.
-    """
     by_tier = {t: set() for t in TIERS}
     solution_by_tier = {t: set() for t in TIERS}
     copyright_text = None
@@ -253,7 +249,7 @@ def check_sets(by_len, solutions):
     for length, floor in MIN_ACCEPTED.items():
         got = len(by_len.get(length, ()))
         if got < floor:
-            # Refusal 3.
+
             raise SystemExit(
                 f"build_word_lists: only {got} accepted words of length {length}; the floor is {floor}.\n"
                 f"  A filter that produces almost nothing regenerates cleanly and hashes against itself,\n"
@@ -265,29 +261,14 @@ def check_sets(by_len, solutions):
         )
     missing = sorted(solutions - by_len.get(SOLUTION_LEN, set()))
     if missing:
-        # Refusal 4.
+
         raise SystemExit(
             f"build_word_lists: {len(missing)} solution(s) are not accepted guesses, e.g. {missing[:5]}.\n"
             f"  Such a puzzle cannot be won and neither list can see the problem alone."
         )
 
 
-LUAU_HEADER = """--!strict
---!nolint LocalShadow
--- GENERATED — do not edit by hand. Regenerate with:
---     python3 tools/build_word_lists.py
---
--- {what}
---
--- Source: {source}
---   {url}
---   SHA-256 {sha}
--- Licence and required notices: examples/gallery/examples/words/PROVENANCE.md
---
--- The words are stored as one fixed-width run rather than a table because the
--- lookup is a binary search over character offsets: {count} entries cost no
--- table allocation at load and about {probes} string comparisons per query.
-"""
+LUAU_HEADER = '--!strict\n--!nolint LocalShadow\n\n\n\n\n\n-- Source: {source}\n--   {url}\n--   SHA-256 {sha}\n-- Licence and required notices: examples/gallery/examples/words/PROVENANCE.md\n\n\n\n\n'
 
 
 def luau_packed_module(what: str, length: int, words) -> str:
@@ -316,7 +297,7 @@ def luau_packed_module(what: str, length: int, words) -> str:
     )
     text = header + body
     if len(text) > SOURCE_CHAR_CAP:
-        # Refusal 5.
+
         raise SystemExit(
             f"build_word_lists: the length-{length} module would be {len(text)} characters, over the\n"
             f"  {SOURCE_CHAR_CAP} cap. Roblox refuses a Source write at 200,000 characters and the\n"
@@ -412,7 +393,7 @@ def generate(offline: bool) -> int:
 
 
 def manifest_module(manifest: dict) -> str:
-    """The manifest as Luau, so the suite can hold the drift claim with no Python."""
+
 
     def lua(value, indent=""):
         child_indent = indent + "\t"
@@ -434,15 +415,7 @@ def manifest_module(manifest: dict) -> str:
         return f'"{escaped}"'
 
     return (
-        "--!strict\n"
-        "-- GENERATED — do not edit by hand. Regenerate with:\n"
-        "--     python3 tools/build_word_lists.py\n"
-        "--\n"
-        "-- What each generated file hashed to when it was produced. The word-data spec\n"
-        "-- re-hashes the files on disk and compares, so data edited by hand — or a\n"
-        "-- partial regeneration that left one length behind — fails the suite rather\n"
-        "-- than quietly changing which words the games accept.\n"
-        "\nreturn table.freeze(" + lua(manifest) + ")\n"
+        '--!strict\n\n\n\n\n\n\n\n\nreturn table.freeze(' + lua(manifest) + ")\n"
     )
 
 
@@ -576,21 +549,21 @@ def check() -> int:
 
 
 def selftest() -> int:
-    """Prove each refusal fires, so the checks are not decoration."""
+
     failures = []
 
-    # Refusal 3: a filter that produces almost nothing.
+
     try:
         check_sets({5: {"aaaaa"}}, {"aaaaa"})
         failures.append("the per-length floor did not fire on a one-word set")
     except SystemExit:
         pass
 
-    # Refusal 4: a solution that is not an accepted guess.
+
     try:
         by_len = {n: {"x" * n for _ in range(1)} for n in MIN_ACCEPTED}
         by_len = {n: {("a" * n)} for n in MIN_ACCEPTED}
-        # pad each length past its floor so only the subset rule can fail
+
         for n, floor in MIN_ACCEPTED.items():
             by_len[n] = {f"{i:0{n}d}" for i in range(floor + 1)}
         check_sets(by_len, {"zzzzz"})
@@ -598,14 +571,14 @@ def selftest() -> int:
     except SystemExit:
         pass
 
-    # Refusal 5: an oversized module.
+
     try:
         luau_packed_module("oversize probe", 7, {f"{i:07d}" for i in range(40000)})
         failures.append("the Source character cap did not fire")
     except SystemExit:
         pass
 
-    # --check refusal 2: a manifest whose hashes no longer match.
+
     with tempfile.TemporaryDirectory() as tmp:
         global OUT_DIR
         saved = OUT_DIR
@@ -621,7 +594,7 @@ def selftest() -> int:
             except SystemExit:
                 pass
 
-            # ...and a manifest with no hashes at all must fail, not pass silently.
+
             with open(os.path.join(tmp, "manifest.luau"), "w", encoding="utf-8") as fh:
                 fh.write("return { files = {} }\n")
             try:
@@ -641,7 +614,7 @@ def selftest() -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(description=CLI_HELP)
     ap.add_argument("--check", action="store_true", help="verify the checked-in files against the manifest")
     ap.add_argument("--selftest", action="store_true", help="prove each refusal can fire")
     ap.add_argument("--offline", action="store_true", help="refuse to download; use a cached archive only")

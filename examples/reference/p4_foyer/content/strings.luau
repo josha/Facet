@@ -1,8 +1,4 @@
 --!strict
--- Foyer proof strings (RA-P4). Proof-owned i18n table: `en` plus the `xa`
--- pseudo-expansion locale (every string ≥1.4x the English width, bracketed so a
--- missed lookup is visible on screen). All player-facing copy lives here —
--- a literal in a blueprint is a defect the drift check hunts.
 
 local STRINGS: { [string]: { [string]: string } } = {
 	en = {
@@ -24,10 +20,7 @@ local STRINGS: { [string]: { [string]: string } } = {
 		["bell.label"] = "Notifications",
 		["notices.title"] = "Notifications",
 		["invite.label"] = "Invite friends",
-		-- PLAYER LANGUAGE, not build language. These two lines are painted, and
-		-- they used to say "this proof" — a word from the document that
-		-- commissioned the app, in the one place a visitor reads. They say the
-		-- same honest thing in the vocabulary of the place itself.
+
 		["invite.stub"] = "Inviting friends isn't open yet.",
 		["section.picked"] = "Picked for you",
 		["section.continue"] = "Keep playing",

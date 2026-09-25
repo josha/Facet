@@ -2,6 +2,7 @@
 --!native
 
 local Graph = require "./graph"
+local Weak = require "../weak"
 local profile = require "./profile"
 local stats = require "./stats"
 local statsOn = stats.state
@@ -9,12 +10,55 @@ local OBSERVED = Graph.OBSERVED
 local CLEAN = Graph.CLEAN
 local CHECK = Graph.CHECK
 
-local function releaseIfEmpty(self: any)
+type Edge = Graph.Edge
+type Consumer = Graph.Consumer
+type Reactor = Graph.Reactor
+type Scheduled = Graph.Scheduled
+
+export type Member = {
+	released: boolean,
+	body: (value: unknown) -> (),
+	sink: StaticSink,
+}
+
+export type Host = {
+	version: number,
+	subscribers: Edge?,
+	lastSubscriber: Edge?,
+	refresh: ((Graph.Producer) -> ()) | false,
+	derived: boolean?,
+	value: unknown,
+	staticSinks: { [Reactor]: StaticSink }?,
+}
+
+export type StaticSink = {
+	state: number,
+	dependencies: { Edge },
+	reads: number,
+	enqueue: ((Consumer) -> ()) | false | nil,
+	enqueueSettle: ((Consumer) -> ()) | false | nil,
+	released: boolean,
+	retry: boolean?,
+	derived: boolean?,
+	queued: boolean,
+	run: (self: Scheduled) -> ...unknown,
+
+	reactor: Reactor,
+	producer: Host,
+	members: { Member },
+	live: number,
+	only: Member?,
+	edge: Edge,
+}
+
+local UNATTACHED: Edge = {}
+
+local function releaseIfEmpty(self: StaticSink)
 	if self.released or self.live > 0 then
 		return
 	end
 	self.queued = false
-	self.only = false
+	self.only = nil
 	Graph.release(self)
 	local sinks = self.producer.staticSinks
 	if sinks ~= nil then
@@ -23,7 +67,7 @@ local function releaseIfEmpty(self: any)
 	table.clear(self.members)
 end
 
-local function runMembers(self: any, producer: any)
+local function runMembers(self: StaticSink, producer: Host)
 	local members = self.members
 
 	local failures: { string }? = nil
@@ -40,7 +84,7 @@ local function runMembers(self: any, producer: any)
 				stats.bump "watchRuns"
 				profile.enterRun(member)
 			end
-			local ok, err: any = pcall(member.body, producer.value)
+			local ok, err: unknown = pcall(member.body, producer.value)
 			if not ok then
 				failures = failures or {}
 				table.insert(failures :: { string }, tostring(err))
@@ -60,7 +104,8 @@ local function runMembers(self: any, producer: any)
 	end
 end
 
-local function run(self: any)
+local function run(scheduled: Scheduled)
+	local self = scheduled :: StaticSink
 	if self.released then
 		return
 	end
@@ -70,7 +115,9 @@ local function run(self: any)
 	if self.state == CHECK then
 		local refresh = producer.refresh
 		if refresh then
-			refresh(producer)
+			self.retry = true
+			(refresh :: (Graph.Producer) -> ())(producer)
+			self.retry = false
 		end
 		if producer.version == edge[OBSERVED] then
 			self.state = CLEAN
@@ -93,7 +140,8 @@ local function run(self: any)
 	runMembers(self, producer)
 end
 
-local function runOnCell(self: any)
+local function runOnCell(scheduled: Scheduled)
+	local self = scheduled :: StaticSink
 	if self.released then
 		return
 	end
@@ -113,28 +161,26 @@ local function runOnCell(self: any)
 	runMembers(self, producer)
 end
 
-local function enqueue(self: any)
+local function enqueue(consumer: Consumer)
+	local self = consumer :: StaticSink
 	if not self.released then
 		self.reactor:__enqueue(self)
 	end
 end
 
-local function sinkFor(producer: any, reactor: any): any
+local function sinkFor(producer: Host, reactor: Reactor): StaticSink
 	local refresh = producer.refresh
 	if refresh then
-		refresh(producer)
+		(refresh :: (Graph.Producer) -> ())(producer)
 	end
-	local sinks = producer.staticSinks
-	if sinks == nil then
-		sinks = setmetatable({}, { __mode = "k" })
-		producer.staticSinks = sinks
-	end
+	local sinks = producer.staticSinks or Weak.keys() :: { [Reactor]: StaticSink }
+	producer.staticSinks = sinks
 	local existing = sinks[reactor]
 	if existing ~= nil and not existing.released then
 		return existing
 	end
 
-	local self = {
+	local self: StaticSink = {
 		state = Graph.CLEAN,
 		dependencies = {},
 		reads = 0,
@@ -144,14 +190,14 @@ local function sinkFor(producer: any, reactor: any): any
 		producer = producer,
 		members = {},
 		live = 0,
-		only = false :: any,
+		only = nil,
 
 		run = if producer.derived == false then runOnCell else run,
 
 		enqueue = reactor.__enqueueConsumer or enqueue,
 
 		enqueueSettle = reactor.__enqueueSettleConsumer or false,
-		edge = nil :: any,
+		edge = UNATTACHED,
 	}
 	self.edge = Graph.attach(producer, self)
 	self.dependencies[1] = self.edge
@@ -159,31 +205,33 @@ local function sinkFor(producer: any, reactor: any): any
 	return self
 end
 
-local function recount(sink: any)
+local function recount(sink: StaticSink)
 	if sink.live == 1 then
-		for _, member in sink.members do
+		local members = sink.members
+		for index = 1, #members do
+			local member = members[index]
 			if not member.released then
 				sink.only = member
 				return
 			end
 		end
 	end
-	sink.only = false
+	sink.only = nil
 end
 
-local function add(producer: any, reactor: any, body: (value: any) -> ()): any
+local function add<T>(producer: Host, reactor: Reactor, body: (value: T) -> ()): Member
 	local sink = sinkFor(producer, reactor)
-	local member = { released = false, body = body, sink = sink }
+	local member: Member = { released = false, body = body :: (value: unknown) -> (), sink = sink }
 	table.insert(sink.members, member)
 	sink.live += 1
-	sink.only = if sink.live == 1 then member else false
+	sink.only = if sink.live == 1 then member else nil
 
 	if statsOn.enabled then
 		profile.born(member)
 		stats.bump "watchRuns"
 		profile.enterRun(member)
 	end
-	local ok, err: any = pcall(body, producer.value)
+	local ok, err: unknown = pcall(member.body, producer.value)
 	if not ok then
 		member.released = true
 		sink.live -= 1
@@ -194,7 +242,7 @@ local function add(producer: any, reactor: any, body: (value: any) -> ()): any
 	return member
 end
 
-local function release(member: any)
+local function release(member: Member)
 	if member.released then
 		return
 	end

@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
-"""Compact Pointer art generator (rich-skinning-v2 stage, ADR-0020 / charter cap 8).
 
-Original, repository-owned art: every texture below is generated procedurally by
-this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, and NO trade dress. The brief's reference ("desktop-pointer-class") names a
-*category* of chrome — compact ~22 px pointer controls, near-flat surfaces,
-hairline borders, subtle top-lit gradients, cool greys — not any vendor's
-pixels: palette, geometry, gradient stops and border construction are invented
-here.
-
-This is the DESKTOP half of the platform pair; `glossy-touch` is the touch half.
-Everything is authored AT the target control height so a 1 px hairline stays
-exactly 1 px and the gradient maps 1:1 (nine-slice never re-scales it).
-
-Run with the repo-root shared venv python (any CWD works):
-  <repo-root>/.venv/bin/python generate_art.py
-"""
 
 from __future__ import annotations
 
@@ -27,12 +11,12 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.dirname(HERE)
 PREVIEW_DIR = os.path.join(HERE, "preview")
-SEED = 0xC0DE  # fixed: determinism is the provenance claim
+SEED = 0xC0DE
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tiny drawing toolkit. Duplicated verbatim in every theme generator on purpose:
-# a theme folder must be copyable on its own, with no shared-module dependency.
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
+
 SS = 4
 
 
@@ -77,8 +61,7 @@ def rrect_mask(w, h, box, radius):
 
 
 def hairline(w, h, box, radius, inset=1.0):
-    """A crisp 1 px border band: outer shape minus the same shape inset by 1 px.
-    Straight runs come out fully opaque (a true hairline); corners stay smooth."""
+
     x0, y0, x1, y1 = box
     outer = rrect_mask(w, h, box, radius)
     inner = rrect_mask(w, h, [x0 + inset, y0 + inset, x1 - inset, y1 - inset],
@@ -199,9 +182,9 @@ class Sheet:
         print(f"wrote {path}  (contact sheet)")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Palette — cool greys, one desaturated action blue. Near-flat by design.
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 WHITE = rgb(255, 255, 255)
 PANEL_TOP = rgb(252, 252, 253)
 PANEL_BOT = rgb(242, 243, 246)
@@ -226,7 +209,7 @@ ACCENT_LINE = rgb(40, 84, 168)
 
 
 def panel(rng) -> Image.Image:
-    """48x48, slice border 12 — flat card with a hairline and a soft top lift."""
+
     w = h = 48
     c = Canvas(w, h)
     box = [0, 0, w - 1, h - 1]
@@ -238,10 +221,10 @@ def panel(rng) -> Image.Image:
 
 
 def button(rng, state: str) -> Image.Image:
-    """32x22, slice border 8 — authored at the 22 px pointer-control height."""
+
     w, h = 32, 22
     c = Canvas(w, h)
-    box = [0, 0, w - 1, h - 2]        # last row reserved for the 1 px drop line
+    box = [0, 0, w - 1, h - 2]
     bm = rrect_mask(w, h, box, 4)
     if state == "default":
         top, bot, line = BTN_TOP, BTN_BOT, LINE
@@ -250,7 +233,7 @@ def button(rng, state: str) -> Image.Image:
     else:
         top, bot, line = PRS_TOP, PRS_BOT, LINE_STRONG
     if state != "pressed":
-        c.paint(DROP, shift(bm, 0, 1) * 0.16)  # 1 px shadow under the shape
+        c.paint(DROP, shift(bm, 0, 1) * 0.16)
     c.paint(vgrad(w, h, [(0.0, top), (1.0, bot)]), bm)
     if state == "pressed":
         inner = np.clip(bm - shift(bm, 0, 2), 0, 1)
@@ -262,7 +245,7 @@ def button(rng, state: str) -> Image.Image:
 
 
 def field(rng) -> Image.Image:
-    """32x22, slice border 8 — inset well, hairline, 1 px top inner shadow."""
+
     w, h = 32, 22
     c = Canvas(w, h)
     box = [0, 0, w - 1, h - 1]
@@ -275,7 +258,7 @@ def field(rng) -> Image.Image:
 
 
 def bar_track(rng) -> Image.Image:
-    """48x10, slice border 4 — shallow trough. Minimum rendered height 10 px."""
+
     w, h = 48, 10
     c = Canvas(w, h)
     box = [0, 0, w - 1, h - 1]
@@ -286,7 +269,7 @@ def bar_track(rng) -> Image.Image:
 
 
 def bar_fill(rng) -> Image.Image:
-    """48x8, slice border 3 — accent fill; centre band forced X-uniform."""
+
     w, h = 48, 8
     c = Canvas(w, h)
     box = [0, 0, w - 1, h - 1]
@@ -301,7 +284,7 @@ def bar_fill(rng) -> Image.Image:
 
 
 def toggle_track(rng, state: str) -> Image.Image:
-    """36x18, slice border 8 — small capsule."""
+
     w, h = 36, 18
     c = Canvas(w, h)
     box = [0, 0, w - 1, h - 1]
@@ -319,7 +302,7 @@ def toggle_track(rng, state: str) -> Image.Image:
 
 
 def toggle_knob(rng) -> Image.Image:
-    """16x16 whole image — small white knob."""
+
     s = 16
     c = Canvas(s, s)
     body = Mask(s, s)
@@ -334,7 +317,7 @@ def toggle_knob(rng) -> Image.Image:
 
 
 def stepper_plate(rng, state: str) -> Image.Image:
-    """22x22, slice border 7 — glyph plate for stepper +/- halves."""
+
     w = h = 22
     c = Canvas(w, h)
     box = [0, 0, w - 1, h - 2]
@@ -352,7 +335,7 @@ def stepper_plate(rng, state: str) -> Image.Image:
     return c.image()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 def main() -> None:
     def r(k):
         return np.random.default_rng(SEED + k)
@@ -391,8 +374,8 @@ def main() -> None:
                 imgs.append(img)
         sheet.add(label, imgs, backdrop)
 
-    # a light backdrop is the honest read for this package: it is designed for a
-    # near-white desktop window, and hairlines vanish against the dark sheet.
+
+
     LIGHT = (223, 226, 233)
     row("panel (48x48 b12) stretched", ["compact_panel.png"], backdrop=LIGHT)
     row("button default / hover / pressed @90x22 (32x22 b8 — same insets)",
@@ -428,7 +411,7 @@ def main() -> None:
     sheet.add("assembled switch off / on (knob travel is solver-owned)", switches, LIGHT)
     row("stepper plate default / pressed (22x22 b7)",
         ["compact_stepper_plate_default.png", "compact_stepper_plate_pressed.png"], backdrop=LIGHT)
-    # 3x zoom strip so a reviewer can judge the hairlines without a loupe
+
     zoom = []
     for n in ("compact_button_default.png", "compact_button_pressed.png", "compact_field.png"):
         img, border, _ = by[n]

@@ -7,8 +7,8 @@ local Types = require "../reactive/types"
 
 export type Builder = () -> Host.Node | Children.Directive
 
-local function show(condition: any, builder: Builder, fallback: Builder?): Children.Directive
-	local when = Support.sourceOf(condition, "show", "condition") :: Types.Body<unknown>
+local function show<T>(condition: Types.Source<T>, builder: Builder, fallback: Builder?): Children.Directive
+	local when = Support.sourceOf(condition, "show", "condition") :: Types.Body<T>
 	local render = Support.builderOf(builder, "show", "builder") :: Builder
 	local otherwise = if fallback ~= nil then Support.builderOf(fallback, "show", "fallback") :: Builder else nil
 	return function(mountPoint: Children.MountPoint)

@@ -17,11 +17,11 @@ local SPECS: { [string]: Spec } = {
 	Gamepad = gamepad,
 }
 
-local function nameOf(value: any): string
+local function nameOf(value: unknown): string
 	return (string.gsub(tostring(value), "^Enum%.PreferredInput%.", ""))
 end
 
-local function specOf(value: any): Spec
+local function specOf(value: unknown): Spec
 	return SPECS[nameOf(value)] or keyboardAndMouse
 end
 

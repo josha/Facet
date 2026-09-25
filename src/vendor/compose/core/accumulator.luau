@@ -11,7 +11,7 @@ local userSpace = require "./reactive/userSpace"
 export type Options<T, E> = {
 	from: Types.Readable<E>,
 	reduce: (previous: T, event: E) -> T,
-	initial: Types.Initial<T>?,
+	initial: T?,
 	equals: Types.Equals<T>?,
 }
 
@@ -59,11 +59,11 @@ local function accumulator<T, E>(options: Options<T, E>): Types.Readable<T>
 	local state = cellModule.cell(settings.initial, settings.equals)
 
 	local holder = owner :: OwnerModule.Owner
-	holder.watchStatic(source, function(event: any)
+	holder.watchStatic(source, function(event: E)
 		state:set(userSpace.call(reduce, state:peek(), event))
 	end)
 
-	return (state :: any) :: Types.Readable<T>
+	return state
 end
 
 return accumulator

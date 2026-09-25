@@ -1,94 +1,127 @@
 --!strict
---[[ THE PUBLIC SURFACE, PRINTED IN A STABLE ORDER.
-
-	Every export of `src/init.luau`, its Luau type, one level into each exported
-	sub-table (`UI`, `themes`, `motion`, `tokens`, …), the version, and the full
-	deprecation ledger — sorted, so two runs over the same tree are byte-identical
-	and a diff is a change to the public API rather than to table iteration order.
-
-	WHAT USES IT. Two gate rows redirect this into a file and compare: one asserts
-	the surface did not move across a cleanup, the other that the constructor
-	namespace, the version and the deprecation rows are what the naming decision
-	says they are. Both had been silently disabled — the instrument was a
-	`_probe_`-prefixed script that went into the archive with the stage record,
-	so the producer reported "not present in this tree", both rows degraded to a
-	non-blocking environment failure, and the public-API guard stopped guarding
-	anything. Restored under a name that says it is a tool.
-
-	WHAT IT IS NOT. A snapshot instrument, not a test.
-	`tests/api_surface.spec.luau` owns the versioning and ledger SHAPE rules, and
-	`tools/lune/check_docs` owns drift between this surface and the API
-	catalogue. This prints; the caller decides.
-
-	Usage: lune run tools/lune/check_public_surface ]]
 
 local fs = require("@lune/fs")
+local process = require("@lune/process")
 
 local Facet = require("../../src") :: any
+local engines = require("../../tests/lib/native_engine")
 
-local lines: { string } = {}
+local SNAPSHOT = "tools/public_surface.txt"
+local INIT = "src/init.luau"
 
-local function sortedKeys(t: { [string]: any }): { string }
+local function sortedKeys(t: { [any]: any }): { string }
 	local keys: { string } = {}
-	for k in t do
-		table.insert(keys, tostring(k))
+	for key in t do
+		table.insert(keys, tostring(key))
 	end
 	table.sort(keys)
 	return keys
 end
 
-local function describe(value: any): string
-	local kind = type(value)
-	if kind == "table" then
+local function kind(value: any): string
+	if type(value) == "table" then
 		return if table.isfrozen(value) then "table(frozen)" else "table"
 	end
-	return kind
+	return type(value)
 end
 
-table.insert(lines, `VERSION {Facet.VERSION}`)
-
-for _, key in sortedKeys(Facet) do
-	local value = Facet[key]
-	if key == "DEPRECATIONS" then
-		continue -- dumped in full below
-	end
-	table.insert(lines, `{key} : {describe(value)}`)
-	if type(value) == "table" then
-		for _, sub in sortedKeys(value) do
-			table.insert(lines, `  {key}.{sub} : {describe(value[sub])}`)
+local function surface(): { string }
+	local lines: { string } = { `VERSION {Facet.VERSION}` }
+	for _, key in sortedKeys(Facet) do
+		local value = Facet[key]
+		table.insert(lines, `{key} : {kind(value)}`)
+		if type(value) == "table" then
+			for _, sub in sortedKeys(value) do
+				table.insert(lines, `  {key}.{sub} : {kind(value[sub])}`)
+			end
 		end
 	end
+	local engine = engines.new()
+	local runtime = Facet.Roblox.createRuntime(engine)
+	local controls = Facet.controls(runtime, { types = engine.types })
+	for _, key in sortedKeys(controls) do
+		table.insert(lines, `controls(runtime).{key} : {kind(controls[key])}`)
+	end
+	runtime:dispose()
+	local types: { string } = {}
+	for name in string.gmatch(fs.readFile(INIT), "\nexport type ([%w_]+)") do
+		table.insert(types, name)
+	end
+	table.sort(types)
+	for _, name in types do
+		table.insert(lines, `type {name}`)
+	end
+	return lines
 end
 
-table.insert(lines, "DEPRECATIONS:")
-local entries: { any } = {}
-for _, entry in Facet.DEPRECATIONS :: { any } do
-	table.insert(entries, entry)
-end
-table.sort(entries, function(a, b)
-	return tostring(a.surface) < tostring(b.surface)
-end)
-for _, entry in entries do
-	table.insert(
-		lines,
-		`  {entry.surface} | since={entry.since} | removeNoEarlierThan={entry.removeNoEarlierThan} `
-			.. `| replacement={entry.replacement} | note={tostring(entry.note)}`
-	)
+local function compare(expected: string, actual: { string }): { string }
+	local wanted: { string } = {}
+	for line in string.gmatch(expected, "[^\n]+") do
+		table.insert(wanted, line)
+	end
+	local have: { [string]: boolean } = {}
+	for _, line in actual do
+		have[line] = true
+	end
+	local recorded: { [string]: boolean } = {}
+	for _, line in wanted do
+		recorded[line] = true
+	end
+	local differences: { string } = {}
+	for _, line in wanted do
+		if not have[line] then
+			table.insert(differences, `- {line}`)
+		end
+	end
+	for _, line in actual do
+		if not recorded[line] then
+			table.insert(differences, `+ {line}`)
+		end
+	end
+	return differences
 end
 
---[[ ...AND IT IS WRITTEN DOWN, not only printed.
-	Two rows read `artifacts/verify/public-surface.txt` -- one pins it as
-	evidence, one greps the version out of it -- and NOTHING regenerated it. The
-	file on the machine that wrote it was months old and no clone ever had one,
-	so both rows were reading an operand that a fresh checkout could not
-	produce: an evidence trail with no source. The dump is the tool's output,
-	so the tool writes it. ]]
-local dump = table.concat(lines, "\n")
-print(dump)
-if not fs.isDir("artifacts") then
-	fs.writeDir("artifacts")
+local mode = process.args[1]
+local lines = surface()
+local text = table.concat(lines, "\n") .. "\n"
+
+if mode == "--write" then
+	fs.writeFile(SNAPSHOT, text)
+	print(`check_public_surface: wrote {#lines} lines to {SNAPSHOT}`)
+	process.exit(0)
 end
-if not fs.isDir("artifacts/verify") then
-	fs.writeDir("artifacts/verify")
+
+if mode == "--selftest" then
+	local removed = table.clone(lines)
+	table.remove(removed, #removed)
+	local added = table.clone(lines)
+	table.insert(added, "controls(runtime).Removed : function")
+	local changed = table.clone(lines)
+	changed[1] = "VERSION 0.0.0"
+	local ok = #compare(text, lines) == 0
+		and #compare(text, removed) == 1
+		and #compare(text, added) == 1
+		and #compare(text, changed) == 2
+	print(if ok then "check_public_surface: SELFTEST PASS" else "check_public_surface: SELFTEST FAIL")
+	process.exit(if ok then 0 else 1)
 end
-fs.writeFile("artifacts/verify/public-surface.txt", dump .. "\n")
+
+if mode ~= nil then
+	print("usage: lune run tools/lune/check_public_surface [--write | --selftest]")
+	process.exit(2)
+end
+
+if not fs.isFile(SNAPSHOT) then
+	print(`check_public_surface: FAIL - {SNAPSHOT} is missing; run with --write and review the file`)
+	process.exit(1)
+end
+local differences = compare(fs.readFile(SNAPSHOT), lines)
+if #differences > 0 then
+	print(`check_public_surface: FAIL - the public surface differs from {SNAPSHOT}:`)
+	for _, line in differences do
+		print(`  {line}`)
+	end
+	print("Update the snapshot with --write, api.md and the changelog in the same change.")
+	process.exit(1)
+end
+print(`check_public_surface: PASS - {#lines} public surface lines match {SNAPSHOT}`)

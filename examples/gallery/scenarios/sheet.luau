@@ -25,6 +25,11 @@ return {
 	copy = COPY,
 	build = function(ctx)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local copy = ctx.copy or COPY
 		local detent = Compose.cell("medium")
 		local membership = Compose.cell(false)
@@ -54,33 +59,85 @@ return {
 			nightOnly:set(false)
 		end
 		local function Briefing()
-			return UI.Screen("Sheet")({
-				padding = "m",
-				UI.ScrollView("Page")({
-					width = UI.fill(),
-					height = UI.fill(),
-					gap = "m",
-					UI.Text({ text = copy.title, textSize = "title" }),
-					UI.Text({ text = copy.intro, width = UI.fill() }),
-					UI.Text("Status")({ text = status, width = UI.fill() }),
-					UI.Button("Open")({ label = copy.open, onActivate = open }),
-					UI.Button("OpenLobby")({
+			return Host.Frame "Sheet" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				Host.ScrollingFrame "Page" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
+					UI.Label({
+						LayoutOrder = 1,
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = copy.title,
+						textRole = "title",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Label({
+						LayoutOrder = 2,
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = copy.intro,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Label({
+						LayoutOrder = 3,
+						Name = "Status",
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = status,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Button({
+						LayoutOrder = 4,
+						Name = "Open",
+						label = copy.open,
+						onActivate = open,
+					}),
+					UI.Button({
+						LayoutOrder = 5,
+						Name = "OpenLobby",
 						label = copy.openLobby,
 						onActivate = function()
 							lobbyShown:set(true)
 						end,
 					}),
-					UI.Button("OpenFilters")({
+					UI.Button({
+						LayoutOrder = 6,
+						Name = "OpenFilters",
 						label = copy.openFilters,
 						onActivate = function()
 							filtersShown:set(true)
 						end,
 					}),
-				}),
-				-- fits its content, a scrolling authored hero under the Close and
-				-- Size controls, pinned actions, and a body that hands its pan to
-				-- the sheet below the tallest detent
-				UI.Sheet("Lobby")({
+				},
+				UI.Sheet "Lobby" {
 					title = copy.lobby,
 					header = false,
 					isPresented = lobbyShown,
@@ -89,15 +146,28 @@ return {
 					scrollPolicy = "atLargestDetent",
 					hero = {
 						height = 140,
-						background = { role = "accent", blend = 1 },
-						content = UI.VStack("Banner")({
-							width = UI.fill(),
-							padding = "m",
-							UI.Text({ text = copy.lobby, textSize = "title", width = UI.fill() }),
+						background = Color3.fromRGB(44, 98, 210),
+						content = UI.Label({
+							Name = "Banner",
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = copy.lobby,
+							textRole = "title",
+							TextWrapped = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					},
 					content = function()
-						return UI.Text("LobbyBody")({ text = copy.lobbyBody, width = UI.fill() })
+						return UI.Label({
+							Name = "LobbyBody",
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Text = copy.lobbyBody,
+							TextWrapped = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						})
 					end,
 					actions = {
 						{
@@ -118,8 +188,8 @@ return {
 							end,
 						},
 					},
-				}),
-				UI.Sheet("Filters")({
+				},
+				UI.Sheet "Filters" {
 					title = copy.filters,
 					placement = "side",
 					width = "narrow",
@@ -127,60 +197,119 @@ return {
 					detent = filtersDetent,
 					detents = { "medium", "large" },
 					content = function()
-						return UI.VStack("FilterList")({
-							width = UI.fill(),
-							gap = "m",
-							UI.Text({ text = copy.filtersBody, width = UI.fill() }),
-							UI.Toggle("Night")({ label = "Night races only", value = nightOnly }),
-							UI.HStack({
-								gap = "s",
-								UI.Button("Clear")({
-									label = copy.clear,
-									onActivate = function()
-										nightOnly:set(false)
-									end,
-								}),
-								UI.Button("Apply")({
-									label = copy.apply,
-									onActivate = function()
-										filtersShown:set(false)
-									end,
-								}),
+						return Host.Frame "FilterList" {
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 16),
 							}),
-						})
+							UI.Label({
+								LayoutOrder = 1,
+								BackgroundTransparency = 1,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								Text = copy.filtersBody,
+								TextWrapped = true,
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+							UI.Toggle({
+								LayoutOrder = 2,
+								Name = "Night",
+								label = "Night races only",
+								value = nightOnly,
+							}),
+							UI.Button({
+								LayoutOrder = 3,
+								Name = "Clear",
+								label = copy.clear,
+								onActivate = function()
+									nightOnly:set(false)
+								end,
+							}),
+							UI.Button({
+								LayoutOrder = 4,
+								Name = "Apply",
+								label = copy.apply,
+								onActivate = function()
+									filtersShown:set(false)
+								end,
+							}),
+						}
 					end,
-				}),
-				UI.Sheet("Briefing")({
+				},
+				UI.Sheet "Briefing" {
 					title = copy.briefing,
 					isPresented = presented,
 					detent = detent,
 					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" },
 					content = function()
-						return UI.VStack("Details")({
-							width = UI.fill(),
-							gap = "m",
-							UI.Text("Description")({ text = copy.description, width = UI.fill() }),
-							UI.Text({
+						return Host.Frame "Details" {
+							BackgroundTransparency = 1,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 16),
+							}),
+							UI.Label({
+								LayoutOrder = 1,
+								Name = "Description",
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								text = copy.description,
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+							UI.Label({
+								LayoutOrder = 2,
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
-								width = UI.fill(),
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Toggle("Membership")({ label = copy.join, value = membership }),
-							UI.Text({
+							UI.Toggle({
+								LayoutOrder = 3,
+								Name = "Membership",
+								label = copy.join,
+								value = membership,
+							}),
+							UI.Label({
+								LayoutOrder = 4,
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
-								width = UI.fill(),
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Button("Start")({
+							UI.Button({
+								LayoutOrder = 5,
+								Name = "Start",
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								label = copy.start,
-								width = UI.fill(),
 								onActivate = function()
 									status:set("Practice started.")
 									close()
 								end,
 							}),
-						})
+						}
 					end,
-				}),
-			})
+				},
+			}
 		end
 		return {
 			screen = Briefing,
@@ -212,22 +341,6 @@ return {
 							return open()
 						end,
 					},
-					{
-						id = "lobby",
-						kind = "dialog",
-						open = function()
-							lobbyShown:set(true)
-							return true
-						end,
-					},
-					{
-						id = "filters",
-						kind = "dialog",
-						open = function()
-							filtersShown:set(true)
-							return true
-						end,
-					},
 				}
 			end,
 			report = function()
@@ -239,7 +352,7 @@ return {
 					status = status:peek(),
 				}
 			end,
-			-- nothing outlives the screen
+
 			dispose = function() end,
 		}
 	end,

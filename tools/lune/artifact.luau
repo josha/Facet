@@ -1,6 +1,4 @@
 --!strict
--- Shared artifact writer for Facet tool commands: ensures the directory
--- exists (Dropbox drops empty dirs) and writes pretty JSON.
 
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")

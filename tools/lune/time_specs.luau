@@ -1,33 +1,4 @@
 --!nocheck
--- Per-spec-file timing harness (parity round 2, Phase 6 step 1).
---
--- WHAT IT MEASURES, exactly:
---   * `load`  — wall clock (os.clock) around each `require("<spec>")`, taken in
---     the SAME ORDER `tests/run.luau` requires them. That covers the module's
---     own body: its transitive first-time requires of `src/`, and every fixture
---     built at `describe()` scope, because a describe body runs at require time.
---   * `cases` — wall clock summed over each registered case function, attributed
---     to whichever spec file was being required when `it()` registered it.
---     Collected by wrapping `testkit.it` BEFORE any spec is required, so the
---     `local it = testkit.it` capture every spec does picks up the wrapper.
---   * `total` = load + cases.
---
--- WHAT IT CANNOT SEE:
---   * First-toucher bias. A `src/` module is loaded once; whichever spec
---     requires it first pays its whole load. That cost is real but it is not
---     that spec's fault, and deleting that spec would not return the time.
---   * GC skew. Luau's collector runs where it runs; a spec that allocates
---     heavily can be charged inside a later spec's case.
---   * testkit's own printing (~4.5k lines) and process startup/teardown, which
---     show up only in the `unattributed` remainder line.
---   * Anything below case granularity: a slow case is not decomposed.
---
--- It does NOT change what runs: same specs, same order, one process, same
--- `testkit.run()`. Output is TSV on stdout plus a JSON blob to a file, so the
--- suite's own output can be discarded.
---
--- Usage (from the library root):
---   lune run tools/lune/time_specs [outfile.json] > /dev/null
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -35,8 +6,6 @@ local testkit = require("../../tests/lib/testkit")
 
 local outPath = process.args[1] or "artifacts/spec-timings.json"
 
--- The require list is parsed out of tests/run.luau so this harness can never
--- silently time a different set of specs than the suite runs.
 local runSrc = fs.readFile("tests/run.luau")
 local order: { string } = {}
 for line in string.gmatch(runSrc, "[^\n]+") do
@@ -54,20 +23,6 @@ local current = "<preload>"
 
 local cases: { { owner: string, name: string, ms: number } } = {}
 
---[[ THE PROGRESS CURVE (added 2026-08-29, stage example-games-and-standalones).
-
-	A per-file ranking answers "which spec is dear". It cannot answer the
-	question this stage actually opened, which is why the suite went from 83 s at
-	5,618 cases to 1,587 s at 7,678 with a 14 GB peak: if the cost is one bad
-	spec the ranking finds it, and if the cost is a heap that grows all run and
-	makes the collector charge everybody, the ranking blames whichever specs
-	happen to run last.
-
-	So every case also records where it sat in the run order and what the heap
-	measured immediately after it. A rising `heapKb` with a rising per-case `ms`
-	is GC pressure and the defect is a retention; a flat heap with one spike is
-	an ordinary slow spec. The two have completely different fixes, and nothing
-	in this harness could previously tell them apart. ]]
 local progress: { { i: number, atMs: number, heapKb: number, owner: string } } = {}
 local caseOrdinal = 0
 
@@ -84,8 +39,7 @@ testkit.it = function(name: string, fn: () -> ())
 		record.ms = dt * 1000
 		caseClock[owner] = (caseClock[owner] or 0) + dt
 		caseOrdinal += 1
-		-- sampled, not every case: `collectgarbage("count")` is cheap but 7,678
-		-- rows of it is noise, and the curve is what matters
+
 		if caseOrdinal % 25 == 0 then
 			table.insert(progress, {
 				i = caseOrdinal,
@@ -150,8 +104,6 @@ table.insert(
 )
 table.insert(lines, string.format("--\tharness wall\t%.1f\t\t\t", wall * 1000))
 
--- ...and the thirty slowest individual CASES, because a file's total says
--- nothing about whether the cost is one workload or fifty.
 table.sort(cases, function(a, b)
 	return a.ms > b.ms
 end)
@@ -162,9 +114,6 @@ for i = 1, math.min(30, #cases) do
 	table.insert(lines, string.format("%d\t%.1f\t%s\t%s", i, c.ms, c.owner, c.name))
 end
 
--- ...and the progress curve. `ms_per_case` is the average over the twenty-five
--- cases ending at this sample, so a rising column IS the slowdown, measured
--- rather than inferred.
 table.insert(lines, "")
 table.insert(lines, "case_index\telapsed_ms\theap_kb\tms_per_case\tspec_at_sample")
 local prevAt, prevI = wallStart * 1000, 0
@@ -212,8 +161,6 @@ fs.writeFile(
 	)
 )
 
--- The table goes to a FILE next to the JSON, so the caller can send the suite's
--- own 4.5k pass lines to /dev/null and still read the result.
 fs.writeFile(outPath .. ".tsv", table.concat(lines, "\n") .. "\n")
 print(string.format("spec timings: %s and %s.tsv", outPath, outPath))
 if not ok then

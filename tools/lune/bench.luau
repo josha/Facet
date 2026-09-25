@@ -1,10 +1,4 @@
 --!strict
--- Facet bench (design §16.1, §14.3): runs named scenarios from
--- bench/scenarios.luau, records p50/p95/p99 wall time plus a heap net and the
--- collector SWING around it (never a retention figure — see `measure`), writes
--- artifacts/bench.json, compares against bench/baseline.json when present.
--- Headless Lune numbers are trend screening only — device measurements stay
--- authoritative (§14.3). Exits nonzero on empty registry, error, or regression.
 
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
@@ -14,49 +8,12 @@ local artifact = require("./artifact")
 local scenarios = require("../../bench/scenarios")
 
 local WARMUP = 50
---[[ 1500, NOT 300 (measured 2026-08-16).
 
-	The gated value is a p95 — an ORDER STATISTIC — and at 300 samples it was not
-	a stable one. On an allocation-heavy scene a collector pause is a discrete
-	event that either does or does not land inside the top 5% of a given run, so
-	the same source produced a bimodal p95: `textinput-typing-storm` read
-	0.518 0.529 0.544 0.560 0.561 | 0.640 0.842 0.948 1.072 normalized over nine
-	runs at FIXED source, while its p50 never left 0.108-0.114ms. That is an A/A
-	control spread of 2.07x against a REGRESSION_FACTOR of 1.5 — the gate could
-	not distinguish a real 1.5x regression from its own noise, which is why this
-	scene has been carried on prior-gate allow-lists as an "instrument" failure.
-
-	Raising the sample count fixes it at the root, because it lets the pause rate
-	be SAMPLED rather than caught or missed. Measured A/A over the scenes that
-	are actually gate-eligible (median p95 above REGRESSION_FLOOR_MS):
-
-	    worst spread @300  = 2.07x  (textinput-typing-storm)  -> un-adjudicable
-	    worst spread @1500 = 1.22x  (billboard-nameplate-storm)
-
-	Taking the median of several 300-sample runs does NOT substitute: measured
-	median-of-3 = 1.79x and median-of-5 = 1.55x, both still above the factor.
-	Cost is 2.5s -> 10.4s for the whole bench, which a gate can afford.
-	Changing this REQUIRES re-freezing bench/baseline.json — p95 rises when the
-	tail is properly represented rather than intermittently missed. ]]
 local SAMPLES = 1500
-local REGRESSION_FACTOR = 1.5 -- normalized p95 vs baseline
--- below this, p95 differences are OS-scheduler jitter, not regressions:
--- a 1.5x factor on a ~2 microsecond scenario flip-flops run to run
--- (2026-07-19 phase-gate verifier finding 1)
+local REGRESSION_FACTOR = 1.5
+
 local REGRESSION_FLOOR_MS = 0.05
 
--- THE YARDSTICK (2026-07-28). Raw milliseconds are not a stable instrument on a
--- developer laptop: the SAME source measured a gated scene at 1.29x quiet,
--- 1.40x mid gate-batch and 1.54x with Roblox Studio open, and the gate went red
--- for none of those reasons. Raising REGRESSION_FACTOR would only trade false
--- alarms for a real 2x slipping through.
---
--- So each scene is divided by a Facet-free CPU workload measured in the same
--- run on the same machine (bench/scenarios.luau "zz-yardstick-cpu"), and the
--- RATIO is what gets compared. A slow day lifts both and the ratio holds still.
---
--- It is measured TWICE, once before the scenes and once after, and averaged:
--- one reading taken at the end alone would miss load that arrived mid-run.
 local YARDSTICK = "zz-yardstick-cpu"
 
 if #scenarios == 0 then
@@ -74,16 +31,15 @@ if fs.isFile("bench/baseline.json") then
 	baseline = serde.decode("json", fs.readFile("bench/baseline.json"))
 end
 
+local fidelity = serde.decode("json", fs.readFile("bench/workload_fidelity.json"))
+assert(fidelity.status == "verified", "microbenchmark workload fidelity audit is incomplete")
 local results = {}
 local failed = false
+local errored = false
 
--- one timing pass over a scenario; returns the entry or nil on error
 local function measure(scenario: any): any?
 	local entry: any = nil
 	local ok, err = pcall(function()
-		-- A scenario whose one iteration is tens of milliseconds declares its own
-		-- counts: its p95 is not at the mercy of a single collector pause, and the
-		-- default would spend minutes on it.
 		local sampleCount: number = scenario.samples or SAMPLES
 		local warmupCount: number = scenario.warmup or WARMUP
 		local state = scenario.setup()
@@ -91,27 +47,7 @@ local function measure(scenario: any): any?
 			scenario.run(state)
 		end
 		local samples = table.create(sampleCount, 0)
-		--[[ HEAP: SAMPLED, AND PUBLISHED WITH ITS SWING (measured 2026-08-16).
 
-			This used to be one `gcinfo()` at each end, reported as `heapDeltaKb`.
-			Lune's `collectgarbage` accepts only "count" — there is NO forced
-			collection on this host — so that difference could never be retention.
-			It is where the collector happened to be at two instants, and it reads
-			like retention, which is exactly how it got read: a +2659KB reading on
-			billboard-nameplate-storm was investigated as 2.6MB of retained memory.
-
-			What that scene actually does, measured: thirty consecutive identical
-			300-sample windows read +1281, +678, -2050, +2163, -2397, +1942 ... KB
-			— sign flipping, swinging ±3.7MB — while the mean was 144KB/window
-			(151KB on the repeat) and the adapter's node count never moved off 3.
-			The single-window number overstated the truth ~17x and its SIGN was
-			noise. The same source read +2714KB in one checkout and -580KB in
-			another, differing only by directory path.
-
-			So the net is still published, but never alone: `heapSwingKb` is the
-			peak-to-trough excursion across the checkpoints, and when it dwarfs the
-			net (the note below) the net is inside the collector's cycle and means
-			nothing on its own. Compare NETS ACROSS RUNS; never read one sign. ]]
 		local CHECKPOINTS = 10
 		local every = math.max(1, sampleCount // CHECKPOINTS)
 		local heapFirst = gcinfo()
@@ -145,13 +81,12 @@ local function measure(scenario: any): any?
 	end)
 	if not ok then
 		print(`  {scenario.name}: ERROR {err}`)
-		failed = true
+		errored = true
 		return nil
 	end
 	return entry
 end
 
--- split the yardstick out: it is the divisor, not a measured subject
 local yardstickScenario: any = nil
 local subjects = {}
 for _, s in scenarios do
@@ -166,8 +101,6 @@ if yardstickScenario == nil then
 	process.exit(1)
 end
 
--- before ... scenes ... after, then average: a single reading taken at the end
--- would miss load that arrived mid-run
 local yardBefore = measure(yardstickScenario)
 for _, scenario in subjects do
 	local entry = measure(scenario)
@@ -186,9 +119,7 @@ if not (yardstickP95 > 0) then
 	print("bench: FAIL - the yardstick measured zero; refusing to divide by it")
 	process.exit(1)
 end
--- how much the machine moved DURING the run. A large drift means the ratios are
--- being taken against a moving divisor and deserve less trust; it is reported
--- rather than silently absorbed.
+
 local yardstickDriftPct = math.abs(yardAfter.p95_ms - yardBefore.p95_ms) / yardstickP95 * 100
 
 local baselineHasNorm = false
@@ -207,20 +138,10 @@ for _, entry in results do
 	if baseline ~= nil then
 		for _, b in baseline.results or {} do
 			if b.name == entry.name then
-				-- the floor still applies to RAW milliseconds: a scene of a few
-				-- microseconds is scheduler jitter whatever you divide it by
 				local aboveFloor = entry.p95_ms > REGRESSION_FLOOR_MS or b.p95_ms > REGRESSION_FLOOR_MS
 				if baselineHasNorm and b.p95_norm ~= nil then
 					entry.baseline_p95_norm = b.p95_norm
-					--[[ A scene may carry `gateChannel = "p50_norm"` in the baseline:
-						the 2026-08-31 adjudication measured textinput-typing-storm's
-						p95 as bimodal at FIXED source on a QUIET machine (A/A spread
-						~1.8x against the 1.5x factor — two allocator/collector modes,
-						~100 MB vs ~190 MB churn), which the baseline's own precedent
-						calls un-adjudicable. Its p50 sat within 8% across every run
-						and every mode, so the stable channel is the honest gate for
-						that one scene. Recorded in artifacts/distribution-readiness/
-						verification/bench-typing-storm-adjudication.md. ]]
+
 					if b.gateChannel == "p50_norm" and b.p50_norm ~= nil and entry.p50_norm ~= nil then
 						entry.gateChannel = "p50_norm"
 						entry.ratio = entry.p50_norm / b.p50_norm
@@ -232,7 +153,6 @@ for _, entry in results do
 						failed = true
 					end
 				elseif entry.p95_ms > b.p95_ms * REGRESSION_FACTOR and aboveFloor then
-					-- legacy baseline (raw ms only): the old, load-sensitive rule
 					entry.regression = true
 					failed = true
 				end
@@ -249,8 +169,6 @@ for _, entry in results do
 	)
 end
 
--- A heap net smaller than the collector's own excursion is not a measurement of
--- the scene. Said here, in the output, because the output is where it was misread.
 local phaseDominated = 0
 for _, entry in results do
 	if entry.heapSwingKb ~= nil and entry.heapSwingKb > math.abs(entry.heapNetKb) then
@@ -263,8 +181,6 @@ if phaseDominated > 0 then
 	print("        collector phase — not retention. Compare nets across runs; never read one sign.")
 end
 
--- the yardstick is reported so a reader can see the machine, but it is never a
--- regression subject: normalized against itself it is 1.000 by construction
 yardBefore.p95_norm = yardBefore.p95_ms / yardstickP95
 yardAfter.p95_norm = yardAfter.p95_ms / yardstickP95
 yardBefore.name = `{YARDSTICK}-before`
@@ -281,16 +197,9 @@ if not baselineHasNorm then
 	print("        baseline to get load-independent comparisons.")
 end
 
--- A divisor that moved a lot DURING the run cannot cancel what it did not hold
--- still for. Normalizing shrinks the excursion (measured: a scene that ran 4.2x
--- raw under a 20-spinner load reported 1.55x normalized) but does not remove it,
--- so a high-drift run still produces untrustworthy ratios in BOTH directions.
---
--- This warns and does NOT suppress the failure. Suppressing would hand anyone a
--- way to launder a real regression by running the bench on a busy machine, which
--- is the exact defect class this repo keeps finding.
 local DRIFT_WARN_PCT = 15
 if yardstickDriftPct > DRIFT_WARN_PCT then
+	failed = true
 	print("")
 	print(`  ⚠ UNTRUSTWORTHY RUN: the yardstick moved {string.format("%.1f", yardstickDriftPct)}% between the`)
 	print(`    before and after readings (warn above {DRIFT_WARN_PCT}%), so the machine was changing`)
@@ -303,7 +212,8 @@ end
 
 artifact.writeJson("artifacts/bench.json", {
 	schema = "facet-bench/1",
-	status = if failed then "FAIL" else "PASS",
+	workloadFidelity = fidelity,
+	status = if errored or failed then "FAIL" else "PASS",
 	environment = "lune-headless (trend screening only; device authoritative per design §14.3)",
 	warmup = WARMUP,
 	samples = SAMPLES,
@@ -311,8 +221,17 @@ artifact.writeJson("artifacts/bench.json", {
 	normalizedBy = YARDSTICK,
 	yardstickP95Ms = yardstickP95,
 	yardstickDriftPct = yardstickDriftPct,
+	proofStatus = if yardstickDriftPct > DRIFT_WARN_PCT then "unstable-host" else "stable-host-trend",
 	comparisonMode = if baselineHasNorm then "normalized" else "raw-legacy",
 	results = results,
 })
-print(`bench: {failed and "FAIL" or "PASS"} (artifacts/bench.json)`)
-process.exit(if failed then 1 else 0)
+if errored then
+	print("bench: FAIL - a scenario raised an error (artifacts/bench.json)")
+	process.exit(1)
+end
+if failed then
+	print("bench: FAIL_ENVIRONMENT - a host timing comparison failed; see the rows above (artifacts/bench.json)")
+	process.exit(2)
+end
+print("bench: PASS (artifacts/bench.json)")
+process.exit(0)

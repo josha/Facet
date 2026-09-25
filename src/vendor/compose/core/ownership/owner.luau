@@ -13,9 +13,9 @@ export type Boundary = {
 }
 
 export type Owner = {
-	own: (dispose: Dispose) -> Dispose,
+	own: (dispose: Dispose, afterDispose: Dispose?) -> Dispose,
 	watch: (body: (use: Types.Use) -> (), label: string?, afterDispose: Dispose?) -> Dispose,
-	watchStatic: (producer: any, body: (value: any) -> (), afterDispose: Dispose?) -> Dispose,
+	watchStatic: <T>(producer: Types.Readable<T>, body: (value: T) -> (), afterDispose: Dispose?) -> Dispose,
 	watchTerminal: (body: (use: Types.Use) -> (), afterDispose: Dispose?) -> Dispose,
 	reactor: Reactor.Reactor,
 	createChild: () -> Owner,
@@ -38,26 +38,35 @@ type Entry = { any }
 
 local function noop() end
 
-local function raiseAll(errors: { string })
-	if #errors == 0 then
+local function raiseAll(failures: { unknown })
+	local count = #failures
+	if count == 0 then
 		return
 	end
-	if #errors == 1 then
-		error(errors[1], 0)
+	if count == 1 then
+		error(failures[1], 0)
 	end
-	local parts = { ("Compose: %d errors while disposing an owner:"):format(#errors) }
-	for index, message in errors do
-		table.insert(parts, ("  [%d] %s"):format(index, message))
+	local parts = { ("Compose: %d errors while disposing an owner:"):format(count) }
+	for index, failure in failures do
+		table.insert(parts, ("  [%d] %s"):format(index, tostring(failure)))
 	end
 	error(table.concat(parts, "\n"), 0)
 end
 
-local function releaseEntry(entry: Entry)
-	entry[DISPOSE]()
+local function releaseEntry(entry: Entry, failures: { unknown })
 	local afterDispose = entry[AFTER_DISPOSE]
-	if afterDispose ~= nil then
-		entry[AFTER_DISPOSE] = nil
-		afterDispose()
+	if afterDispose == nil then
+		entry[DISPOSE]()
+		return
+	end
+	entry[AFTER_DISPOSE] = nil
+	local ok, failure: unknown = pcall(entry[DISPOSE])
+	if not ok then
+		table.insert(failures, failure)
+	end
+	local settled, later: unknown = pcall(afterDispose)
+	if not settled then
+		table.insert(failures, later)
 	end
 end
 
@@ -107,7 +116,13 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 				return
 			end
 			unlink(entry)
-			releaseEntry(entry)
+			if entry[AFTER_DISPOSE] == nil then
+				entry[DISPOSE]()
+				return
+			end
+			local failures: { unknown } = {}
+			releaseEntry(entry, failures)
+			raiseAll(failures)
 		end
 	end
 
@@ -117,25 +132,28 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 
 	local function rollbackTo(token: unknown)
 		local boundaryEntry = token :: Entry?
-		local errors: { string } = {}
+		local failures: { unknown } = {}
 		local pending = head
 
 		local function releaseRest()
-			while pending ~= nil and pending ~= boundaryEntry do
+			while true do
 				local entry = pending
+				if entry == nil or entry == boundaryEntry then
+					break
+				end
 				pending = entry[NEXT]
 				unlink(entry)
-				releaseEntry(entry)
+				releaseEntry(entry, failures)
 			end
 		end
 
 		while pending ~= nil and pending ~= boundaryEntry do
-			local ok, err: any = pcall(releaseRest)
+			local ok, failure: unknown = pcall(releaseRest)
 			if not ok then
-				table.insert(errors, tostring(err))
+				table.insert(failures, failure)
 			end
 		end
-		raiseAll(errors)
+		raiseAll(failures)
 	end
 
 	local function disposeOwner()
@@ -162,7 +180,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 			return
 		end
 
-		local errors: { string } = {}
+		local failures: { unknown } = {}
 		local function releaseRest()
 			while pending ~= nil do
 				local entry = pending
@@ -170,17 +188,17 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 				entry[PREVIOUS] = nil
 				entry[NEXT] = nil
 				entry[ATTACHED] = false
-				releaseEntry(entry)
+				releaseEntry(entry, failures)
 			end
 		end
 
 		repeat
-			local ok, err: any = pcall(releaseRest)
+			local ok, failure: unknown = pcall(releaseRest)
 			if not ok then
-				table.insert(errors, tostring(err))
+				table.insert(failures, failure)
 			end
 		until pending == nil
-		raiseAll(errors)
+		raiseAll(failures)
 	end
 
 	local owner: Owner
@@ -197,7 +215,12 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		return child
 	end
 
-	local function startWatch(factory: any, first: any, second: any, afterDispose: Dispose?): Dispose
+	local function startWatch<A, B>(
+		factory: (reactor: Reactor.Reactor, first: A, second: B) -> Dispose,
+		first: A,
+		second: B,
+		afterDispose: Dispose?
+	): Dispose
 		if afterDispose == nil then
 			return own(factory(reactor, first, second))
 		end
@@ -209,7 +232,11 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		return own(dispose, afterDispose)
 	end
 
-	local function ownedWatchStatic(producer: any, body: (value: any) -> (), afterDispose: Dispose?): Dispose
+	local function ownedWatchStatic<T>(
+		producer: Types.Readable<T>,
+		body: (value: T) -> (),
+		afterDispose: Dispose?
+	): Dispose
 		if Inspect.isActive() then
 			Inspect.watch(owner)
 		end
@@ -217,8 +244,8 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		if boundary == nil then
 			return startWatch(watchModule.watchStatic, producer, body, afterDispose)
 		end
-		return startWatch(watchModule.watchStatic, producer, function(value: any)
-			local ok, err: any = pcall(body, value)
+		return startWatch(watchModule.watchStatic, producer, function(value: T)
+			local ok, err: unknown = pcall(body, value)
 			if not ok then
 				boundary.report(err)
 			end
@@ -234,7 +261,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 			return startWatch(watchModule.watchTerminal, body, nil, afterDispose)
 		end
 		return startWatch(watchModule.watchTerminal, function(use: Types.Use)
-			local ok, err: any = pcall(body, use)
+			local ok, err: unknown = pcall(body, use)
 			if not ok then
 				boundary.report(err)
 			end
@@ -250,7 +277,7 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 			return startWatch(watchModule.watch, body, label, afterDispose)
 		end
 		return startWatch(watchModule.watch, function(use: Types.Use)
-			local ok, err: any = pcall(body, use)
+			local ok, err: unknown = pcall(body, use)
 			if not ok then
 				boundary.report(err)
 			end
@@ -273,11 +300,11 @@ local function createOwner(inherited: Reactor.Reactor?): Owner
 		end,
 		checkpoint = checkpoint,
 		rollbackTo = rollbackTo,
-		boundary = nil,
-		guardWith = function(boundary: Boundary)
+		boundary = nil :: Boundary?,
+		guardWith = function(boundary: Boundary): ()
 			owner.boundary = boundary
 		end,
-		__attachTo = function(detach: Dispose)
+		__attachTo = function(detach: Dispose): ()
 			detachFromParent = detach
 		end,
 	}

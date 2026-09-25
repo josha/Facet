@@ -2,6 +2,7 @@
 --!native
 
 local Graph = require "./graph"
+local Weak = require "../weak"
 local Types = require "./types"
 local profile = require "./profile"
 local stats = require "./stats"
@@ -13,8 +14,45 @@ local CLEAN = Graph.CLEAN
 local CHECK = Graph.CHECK
 
 type Dispose = Types.Dispose
+type Edge = Graph.Edge
+type Consumer = Graph.Consumer
+type Reactor = Graph.Reactor
+type Scheduled = Graph.Scheduled
+type Tracked = Graph.Tracked
 
-local function releaseIfEmpty(self: any, producer: any)
+export type Member = Tracked
+
+export type Sink = {
+	state: number,
+	dependencies: { Edge },
+	reads: number,
+	enqueue: ((Consumer) -> ()) | false | nil,
+	enqueueSettle: ((Consumer) -> ()) | false | nil,
+	released: boolean,
+	retry: boolean?,
+	derived: boolean?,
+	queued: boolean,
+	run: (self: Scheduled) -> ...unknown,
+
+	reactor: Reactor,
+	members: { Member },
+	at: number,
+	live: number,
+	evicted: { Member }?,
+	report: (err: unknown, member: Member) -> (),
+	evict: (member: Member) -> (),
+	edge: Edge,
+	running: boolean?,
+	membersChanged: boolean?,
+}
+
+export type Host = Graph.Producer & {
+	sinks: { [Reactor]: Sink }?,
+}
+
+local UNATTACHED: Edge = {}
+
+local function releaseIfEmpty(self: Sink, producer: Host)
 	if self.released or #self.members > 0 then
 		return
 	end
@@ -26,7 +64,7 @@ local function releaseIfEmpty(self: any, producer: any)
 	end
 end
 
-local function pass(self: any)
+local function pass(self: Sink)
 	local members = self.members
 	local producer = self.edge[PRODUCER]
 	local live = self.live
@@ -45,12 +83,9 @@ local function pass(self: any)
 			runTracked(member)
 
 			if not member.released and (member.reads ~= 1 or member.dependencies[1][PRODUCER] ~= producer) then
-				local evicted = self.evicted
-				if not evicted then
-					evicted = {}
-					self.evicted = evicted
-				end
-				table.insert(evicted :: { any }, member)
+				local evicted = self.evicted or {}
+				self.evicted = evicted
+				table.insert(evicted, member)
 			end
 		end
 	end
@@ -58,17 +93,20 @@ local function pass(self: any)
 	self.live = live
 end
 
-local function run(self: any)
+local function run(scheduled: Scheduled)
+	local self = scheduled :: Sink
 	if self.released then
 		return
 	end
 
 	local edge = self.edge
-	local producer = edge[PRODUCER]
+	local producer: Host = edge[PRODUCER]
 	if self.state == CHECK then
 		local refresh = producer.refresh
 		if refresh then
-			refresh(producer)
+			self.retry = true
+			(refresh :: (Graph.Producer) -> ())(producer)
+			self.retry = false
 		end
 		if producer.version == edge[OBSERVED] then
 			self.state = CLEAN
@@ -87,7 +125,7 @@ local function run(self: any)
 	self.at = 0
 	self.live = 0
 	while true do
-		local ok, err: any = pcall(pass, self)
+		local ok, err: unknown = pcall(pass, self)
 		if ok then
 			break
 		end
@@ -118,7 +156,7 @@ local function run(self: any)
 
 	local evicted = self.evicted
 	if evicted then
-		self.evicted = false
+		self.evicted = nil
 		for _, member in evicted do
 			self.evict(member)
 		end
@@ -135,7 +173,8 @@ local function run(self: any)
 	end
 end
 
-local function enqueue(self: any)
+local function enqueue(consumer: Consumer)
+	local self = consumer :: Sink
 	if self.released then
 		return
 	end
@@ -143,22 +182,19 @@ local function enqueue(self: any)
 end
 
 local function sinkFor(
-	producer: any,
-	reactor: any,
-	report: (err: any, member: any) -> (),
-	evict: (member: any) -> ()
-): any
-	local sinks = producer.sinks
-	if sinks == nil then
-		sinks = setmetatable({}, { __mode = "k" })
-		producer.sinks = sinks
-	end
+	producer: Host,
+	reactor: Reactor,
+	report: (err: unknown, member: Member) -> (),
+	evict: (member: Member) -> ()
+): Sink
+	local sinks = producer.sinks or Weak.keys() :: { [Reactor]: Sink }
+	producer.sinks = sinks
 	local existing = sinks[reactor]
 	if existing ~= nil and not existing.released then
 		return existing
 	end
 
-	local self = {
+	local self: Sink = {
 		state = Graph.CLEAN,
 		dependencies = {},
 		reads = 0,
@@ -169,7 +205,7 @@ local function sinkFor(
 
 		at = 0,
 		live = 0,
-		evicted = false :: any,
+		evicted = nil,
 		report = report,
 		evict = evict,
 		run = run,
@@ -177,7 +213,7 @@ local function sinkFor(
 		enqueue = reactor.__enqueueConsumer or enqueue,
 
 		enqueueSettle = reactor.__enqueueSettleConsumer or false,
-		edge = nil :: any,
+		edge = UNATTACHED,
 	}
 	self.edge = Graph.attach(producer, self)
 	self.dependencies[1] = self.edge

@@ -15,7 +15,7 @@ type Row<V> = {
 	value: Types.Cell<V>,
 }
 
-local function indexes<V>(source: any, render: Render<V>): Children.Directive
+local function indexes<V>(source: Types.Source<{ V }>, render: Render<V>): Children.Directive
 	local from = Support.sourceOf(source, "indexes", "source") :: Types.Body<{ V }>
 	local build = Support.builderOf(render, "indexes", "render") :: Render<V>
 	return function(mountPoint: Children.MountPoint)

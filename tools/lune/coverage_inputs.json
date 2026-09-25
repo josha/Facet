@@ -1,0 +1,1071 @@
+{
+  "retiredMechanisms": [
+    "activation_gate",
+    "interaction_tokens",
+    "platform_env_binding",
+    "tap_arm_seam"
+  ],
+  "replacements": {
+    "button_behavior": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::repeats while held and cancels native frame subscriptions on disposal",
+        "native_inputs::native input controls::owns busy animation only while visible and suppresses busy activation",
+        "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
+        "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
+        "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
+        "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Disabled/busy/hidden/modal gating, held-repeat release and trailing-activation suppression, owned animation and interruption, reduced motion, shortcut/default deduplication and native text-edit suppression.",
+        "Dialog contexts have unique descending construction-order priorities and Sink=true; native dispatch chooses the first eligible binding."
+      ],
+      "engineOwned": [
+        "InputContext Priority/Sink performs arbitration; GuiButton.Activated owns pointer/touch/gamepad activation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior."
+      },
+      "manualEvidence": []
+    },
+    "button_complete": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::owns busy animation only while visible and suppresses busy activation",
+        "native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes",
+        "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
+        "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
+        "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver",
+        "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Native Text/children/Compose-key forwarding, owned events and removal, reactive semantic roles, disabled native interaction and styled caption propagation."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Closed blueprint content validation and mandatory label schema": "The new API forwards native Text and native children directly; native descendants retain their own documented focus semantics.",
+        "Invisible hit expanders and synthetic effective hit rectangles": "Deleted synthetic hit testing. Native Size/constraints define the actual target, with theme-driven default control height; callers can explicitly author smaller native targets."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "button_shape": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes",
+        "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+        "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver"
+      ],
+      "behaviors": [
+        "Native circle aspect/corner constraints, semantic long icon label, compact caption restoration from native text bounds, live theme/rung height and caption typography."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Solver axis pairing, pixel-grid snapping, glyph catalog substitutes and icon-only rectangle prohibition": "Native Size/UIAspectRatioConstraint and genuine image assets replace closed geometry and text-glyph policies; authored native properties remain authoritative."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "button_text_centre": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver",
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs"
+      ],
+      "behaviors": [
+        "Caption fills its native root and inherits styled alignment and typography reactively, including enlarged text."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Per-theme exact solver text rectangles": "Removed with the text/layout solver. Native styled TextXAlignment/TextYAlignment and TextBounds are the geometry authority."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "chip": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::removes keyed chips toward the next then previous native target and caller fallback",
+        "native_inputs::native input controls::does not steal focus after a delayed chip removal request",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Controlled selection request semantics, owned native button interaction, remove-only inert body, actual keyed removal chooses next/previous/fallback native focus, delayed removal cannot steal focus."
+      ],
+      "engineOwned": [
+        "Native GuiButton activation, parent Interactable/Visible and GuiService.SelectedObject replace Facet device simulation and focus graph."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Legacy readonly-cell rejection": "Controlled readable selected with onToggle is supported explicitly.",
+        "Synthetic zero-gap target expansion": "Native body/remove button geometry supplies distinct actual controls; invisible expanded hit regions were removed."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "level_picker": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::supports clearing a rating and keeps read-only levels inert",
+        "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+        "native_inputs::native input controls::paints live level assets and tint while allowing an omitted tint to return to native styles",
+        "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return"
+      ],
+      "behaviors": [
+        "Single selectable strip, inert glyph/image/bar marks, finite bounds and allowZero, controlled requests, readOnly/disabled gating, cancellable native scrub, hot-switch cancellation, semantic range attributes and live tint/asset changes.",
+        "Directional contexts yield at limits and rearm when focus/value returns; bumpers remain value adjustments."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state.",
+        "UIDragDetector owns drag transport; native selected object determines focused adjustment contexts."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Density diagnostics based on the deleted solver and paradigm-specific spacing classifier": "Native mark size/spacing and container layout own fit; no Facet solver-derived density report remains.",
+        "Legacy readonly-cell rejection": "Controlled readable values with onChange are accepted; readOnly values remain passive."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "rating": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::supports clearing a rating and keeps read-only levels inert",
+        "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+        "native_inputs::native input controls::paints live level assets and tint while allowing an omitted tint to return to native styles",
+        "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return"
+      ],
+      "behaviors": [
+        "Rating uses the same single-strip level implementation with glyph defaults, allowZero, controlled requests, native scrub cancellation, disabled/readOnly gates, bounded keyboard/gamepad adjustment and range semantics."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Rating-specific dumps and duplicated star arithmetic": "Rating specializes LevelPicker; no separate mechanism or state schema.",
+        "Solver/table-cell pixel-fit and input-class spacing fixtures": "Native UIListLayout and mark Size define spacing and placement."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "native_button": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::owns busy animation only while visible and suppresses busy activation",
+        "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
+        "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Plain and compact captions, interruption-safe pop/reduced motion, repeated busy ownership cycles and live theme metric sizing."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior."
+      },
+      "manualEvidence": []
+    },
+    "native_text_input": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::clears search fields and submits the on-screen keyboard only once",
+        "native_inputs::native input controls::edits a controlled map field without duplicating durable state",
+        "native_inputs::native input controls::shows numeric validation text with interruptible reduced-motion-aware feedback",
+        "native_inputs::native input controls::reflects external invalid state and rejects malformed invalid and numeric declarations",
+        "native_inputs::native input controls::honors every clear-button mode and ends disabled edits without a commit"
+      ],
+      "behaviors": [
+        "Native editing/clear ownership, controlled shared-map updates, numeric/external validation feedback, interruptible Compose motion and reduced-motion cancellation."
+      ],
+      "engineOwned": [
+        "Native TextBox caret, IME composition and text selection remain engine-owned."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Sideways shake transform fixture": "Compose-owned validation pulse replaces the historical custom translation; message remains visible with reduced motion."
+      },
+      "manualEvidence": []
+    },
+    "paradigm_textinput": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::limits UTF-8 characters, rejects validation and restores an edit on cancel",
+        "native_inputs::native input controls::clears search fields and submits the on-screen keyboard only once",
+        "native_inputs::native input controls::honors every clear-button mode and ends disabled edits without a commit"
+      ],
+      "behaviors": [
+        "Native Focused/FocusLost and mobile Return drive edit transactions; cancel restores snapshot, disabled editing releases focus without an accidental commit and navigation contexts follow editing lifetime."
+      ],
+      "engineOwned": [
+        "TextBox owns native keyboard/IME and device transitions; platform FocusLost/Return events drive commits."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Facet environment capability-switch classifier and keyboard-occlusion root transform": "Deleted in favor of native TextBox focus, ShowNativeInput and platform keyboard behavior; no second window transform or input-surface state machine remains."
+      },
+      "manualEvidence": [
+        "Physical touch/keyboard/gamepad handoff and OSK visibility must be verified in the native gallery on supported devices."
+      ]
+    },
+    "shortcut_hint": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::updates explicit shortcut alternatives without owning input bindings",
+        "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
+        "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation"
+      ],
+      "behaviors": [
+        "Reactive explicit alternatives/separator, passive ownership with no bindings, native InputAction.PreferredBinding observation, live replacement/removal cleanup, native custom or platform assets and correct Image/ImageContent branch changes."
+      ],
+      "engineOwned": [
+        "InputAction.PreferredBinding chooses the platform binding; UserInputService supplies native key captions and device images."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Facet action registry and icon-font lookup": "Caller passes native InputAction. Hints borrow native bindings and do not wrap an action system."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "slider_live_step": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::steps from the minimum, respects live stepping and gates all activation",
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls"
+      ],
+      "behaviors": [
+        "Live positive finite step validation, quantization measured from min, bounded stepping and shared formatter fallback."
+      ],
+      "engineOwned": [],
+      "remaining": [],
+      "retiredAssertions": {
+        "Legacy pure-model public constructor": "Arithmetic is private control policy in input_value; callers use native controls with Compose values."
+      },
+      "manualEvidence": []
+    },
+    "text_input": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::limits UTF-8 characters, rejects validation and restores an edit on cancel",
+        "native_inputs::native input controls::commits and formats finite numeric input, clamps out-of-range input and refuses a non-number",
+        "native_inputs::native input controls::clears search fields and submits the on-screen keyboard only once",
+        "native_inputs::native input controls::edits a controlled map field without duplicating durable state",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::shows numeric validation text with interruptible reduced-motion-aware feedback",
+        "native_inputs::native input controls::reflects external invalid state and rejects malformed invalid and numeric declarations",
+        "native_inputs::native input controls::honors every clear-button mode and ends disabled edits without a commit"
+      ],
+      "behaviors": [
+        "External writes remain silent; focused edits validate UTF-8, maxLength and normalizers; commit/cancel are distinct and snapshot cancellation is controlled.",
+        "Numeric parse/bounds/format validation rejects invalid commits, publishes visible validation text and reduced-motion-aware interruptible feedback.",
+        "All clear modes, search default, native mobile submit once, disabled edit cleanup and controlled callback veto are covered."
+      ],
+      "engineOwned": [
+        "Native TextBox owns caret, editing surface, IME, selection, keyboard focus and text geometry."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Invented keyboardType/submitLabel adapter capability maps": "No matching public TextBox properties exist in the pinned creator-docs API. Callers use actual native TextBox properties such as ShowNativeInput.",
+        "Synthetic keyboard occlusion transform and old textfield primitive": "Native TextBox is the control root; platform editing and keyboard lifecycle remain engine-owned.",
+        "Legacy writable-only value restriction": "Readables/functions with onChange are accepted as controlled models."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence.",
+        "Physical IME and OSK appearance/occlusion cannot be proved by a fake engine; exercise native TextBox in Studio/device."
+      ]
+    },
+    "toggle_presentations": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::keeps Toggle requests controlled and clears a writable mixed state",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::keeps mixed checkbox geometry live and validates presentation-specific options"
+      ],
+      "behaviors": [
+        "Controlled approval/veto, writable mixed-state clearing, switch/checkbox/button presentation, indicator placement, live mixed geometry and presentation-specific validation."
+      ],
+      "engineOwned": [
+        "Native UIListLayout, AutomaticSize, text measurement, UIAspectRatioConstraint, native selection and StyleSheet painting own geometry and visual state."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Solver-assigned label-column rectangles and repeated width-rejection passes": "Native rows and text layout own width and wrapping; no custom label column or width adapter is retained."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "value_controls": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::steps from the minimum, respects live stepping and gates all activation",
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::shares finite bound arithmetic, live steps and formatter fallback across value controls",
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return",
+        "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics"
+      ],
+      "behaviors": [
+        "Stepper and Slider share min-relative finite bound/grid arithmetic, formatter fallback, live steps, controlled veto, bound button disablement and native readout updates.",
+        "Native detector updates the shared slider value and commits once, tap-to-position and explicit cancel preserve snapshots; focused native adjustment contexts yield arrows at bounds."
+      ],
+      "engineOwned": [
+        "UIDragDetector owns pointer/touch transport; native AbsolutePosition/AbsoluteSize define track fractions and resize behavior."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Scene paths, deterministic renderer dumps, geometry re-solve counters and private registries": "Deleted Facet scene/layout/presenter state has no replacement API. Tests inspect native nodes, authored engine properties, Compose lifetime and event behavior.",
+        "Fallback Grip capture transport": "Native UIDragDetector is required; no second pointer capture path.",
+        "Synthetic hit-expansion host coordinate conversion and internal meta-channel skin hints": "Native targets and direct native skin subtrees replace renderer meta channels and invisible hit rectangles."
+      },
+      "manualEvidence": [
+        "Gallery native-device pass: preferred text size, themed layout, keyboard/gamepad focus and touch targets require Roblox Studio or physical device evidence."
+      ]
+    },
+    "auto_input": {
+      "specs": [
+        "native_inputs",
+        "native_collections"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::keeps Toggle requests controlled and clears a writable mixed state",
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::limits UTF-8 characters, rejects validation and restores an edit on cancel",
+        "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
+        "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
+        "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_collections::Compose native collections::defers initial offscreen focus until native geometry and suppresses navigation while editing",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Native control activation and live gating, lazily owned focused Return/Space activation, controlled Toggle edits, TextBox text-entry context priority and ancestor disable cleanup."
+      ],
+      "engineOwned": [
+        "GuiButton.Activated delivers native pointer/touch/gamepad activation. GuiService and native selection links own screen focus."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Automatic contribution dispatch, presenter-level activation override and auto-derived solver navigation groups": "Removed Facet scene/presenter input merging. Native controls directly connect events and native contexts; application callbacks own commands.",
+        "Occlusion solver transform": "Native TextBox owns the keyboard editing surface and viewport scrolling."
+      },
+      "manualEvidence": []
+    },
+    "auto_input_screens": {
+      "specs": [
+        "native_inputs",
+        "native_collections",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::updates explicit shortcut alternatives without owning input bindings",
+        "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
+        "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_collections::Compose native collections::uses new grid neighbors when responsive columns change without changing total extent",
+        "native_collections::Compose native collections::restores the keyed native focus target when virtualization remounts it",
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back",
+        "native_navigation::native navigation controls::blocks background shortcuts until the top modal leaves",
+        "native_navigation::native navigation controls::bounds menu scrolling, prunes removed branches and closes every level on tap away",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Borrowed native action hint binding updates and default key captions, focused keyboard activation lifetime."
+      ],
+      "engineOwned": [
+        "Native directional selection uses authored engine links and selection groups."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Derived grid/row grouping from scene paths and presenter input merging": "Removed with Facet scene graph. Compose collections compute only collection neighbor policy; native Selection properties perform focus movement."
+      },
+      "manualEvidence": [
+        "Native keyboard/gamepad handoff across adjacent collection controls requires gallery device verification."
+      ]
+    },
+    "control_enabled": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::keeps Toggle requests controlled and clears a writable mixed state",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::honors every clear-button mode and ends disabled edits without a commit",
+        "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::closes menu and picker presentations when native ancestors become unavailable",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property",
+        "native_inputs::native input controls::keeps Toggle native eligibility semantics and theme tags synchronized with one ref delivery"
+      ],
+      "behaviors": [
+        "Native disabled buttons refuse activation, controlled value callbacks cannot mutate unaccepted models, disabling local or ancestor TextBox editing releases focus without late writes/commit."
+      ],
+      "engineOwned": [
+        "GuiObject.Interactable/Visible and InputContext.Enabled replace inherited presenter enabled flags."
+      ],
+      "remaining": [],
+      "retiredAssertions": {},
+      "manualEvidence": []
+    },
+    "control_family_inputs": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::keeps Toggle requests controlled and clears a writable mixed state",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_navigation::native navigation controls::selects enabled picker values once and honors changing veto",
+        "native_navigation::native navigation controls::validates combo custom commits and cancels editable text",
+        "native_navigation::native navigation controls::keeps split primary activation separate from touch long-press alternatives",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property",
+        "native_inputs::native input controls::keeps authored slider widths with an inline readout and a vertically sized row presentation",
+        "native_inputs::native input controls::keeps Toggle native eligibility semantics and theme tags synchronized with one ref delivery"
+      ],
+      "behaviors": [
+        "Button and Toggle native activation, keyboard activation and controlled disable/veto behavior."
+      ],
+      "engineOwned": [
+        "GuiButton.Activated supplies mouse, touch and gamepad transport."
+      ],
+      "remaining": [],
+      "retiredAssertions": {},
+      "manualEvidence": []
+    },
+    "compact_label": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+        "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver"
+      ],
+      "behaviors": [
+        "Native TextBounds drives compactLabel selection; growing root size restores full caption without remount. Native fonts/styles and live theme size remain authoritative."
+      ],
+      "engineOwned": [
+        "Native TextLabel/TextButton measurement and truncation."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Old compact string/icon/image union schema and icon-font glyph substitutions": "Hard cutover keeps compactLabel text and native image/icon children. Native Compose bindings can switch authored content; closed compound representations and glyph-font stand-ins are removed.",
+        "Solver compact verdict, path caches and exact text rectangle write counts": "Removed with solver/renderer; measurement and native property bindings own the decision."
+      },
+      "manualEvidence": []
+    },
+    "text_presentations": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::commits and formats finite numeric input, clamps out-of-range input and refuses a non-number",
+        "native_inputs::native input controls::clears search fields and submits the on-screen keyboard only once",
+        "native_inputs::native input controls::shows numeric validation text with interruptible reduced-motion-aware feedback",
+        "native_inputs::native input controls::reflects external invalid state and rejects malformed invalid and numeric declarations"
+      ],
+      "behaviors": [
+        "Numeric drafts stay text while editing; parsing, finite bounds and formatting are checked at commit. Search provides clear affordance. Invalid numeric commit produces message without number mutation."
+      ],
+      "engineOwned": [],
+      "remaining": [],
+      "retiredAssertions": {
+        "Adapter transport and native keyboard-type guesses": "Direct native TextBox construction; nonexistent engine property guesses removed."
+      },
+      "manualEvidence": []
+    },
+    "multiline_input": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::limits UTF-8 characters, rejects validation and restores an edit on cancel",
+        "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation"
+      ],
+      "behaviors": [
+        "Native MultiLine preserves hard breaks/final newline, OSK return does not submit multiline, explicit focus loss commits, disabling ancestor ends editing safely."
+      ],
+      "engineOwned": [
+        "creator-docs TextBox.yaml Text Editing explicitly documents automatic native viewport scrolling to keep cursor in view, including typing/navigation. Native text measurement, caret, selection and IME remain engine-owned."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "External custom ScrollingFrame, async glyph measurement, shadow-tail correction and keyboard-height solver": "The native TextBox already owns its editable viewport and automatic cursor reveal; Facet no longer reconstructs its editor geometry."
+      },
+      "manualEvidence": [
+        "Verify long text, selection, platform keyboard occlusion and theme field insets in Studio/device; fake engine cannot prove native caret pixels."
+      ]
+    },
+    "native_caret_scroll": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation"
+      ],
+      "behaviors": [
+        "Editing source lifetime and teardown remain tested at the native control boundary."
+      ],
+      "engineOwned": [
+        "Native TextBox automatically reveals its caret, as documented in creator-docs TextBox.yaml Text Editing."
+      ],
+      "remaining": [],
+      "retiredAssertions": {
+        "Async line measurement retries, generation counters, rewire guards and callback registration": "All belonged to the deleted redundant caret measurement/scroll bridge. No async measurement or reveal callback remains to race disposal."
+      },
+      "manualEvidence": [
+        "Native caret reveal and long wrapped words need device verification, not fake geometry assertions."
+      ]
+    },
+    "control_feedback": {
+      "specs": [
+        "native_inputs",
+        "native_gallery"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_gallery::native gallery::requests native haptics and releases effects when the screen closes"
+      ],
+      "behaviors": [
+        "Explicit native press effect, release/selection/custom requests, optout gating and effect teardown are exercised in the gallery.",
+        "No physical motor confirmation is claimed."
+      ],
+      "engineOwned": [
+        "GuiButton.PressHapticEffect handles native press; HapticEffect presets and FloatCurveKey waveform data are Roblox APIs."
+      ],
+      "retiredAssertions": {
+        "Twelve-verb taxonomy, inherited activation metadata, attribute cascade, feedback bus and pooled adapter registry": "These facades were removed in the hard cutover. Native effect references can be shared directly; callbacks and Compose lifetime own explicit requests.",
+        "Old sensory panel glyph/layout classifiers and platform refusal guesswork": "The native gallery compares press/release/selection/custom requests, records requests only and remains silent about physical motor support."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "feedback": {
+      "specs": [
+        "native_inputs",
+        "native_gallery"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::distinguishes edits from external model updates and disconnects observation",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_gallery::native gallery::requests native haptics and releases effects when the screen closes"
+      ],
+      "behaviors": [
+        "Native activation and editing callbacks remain causal, gated and owned; native haptic requests are explicit."
+      ],
+      "engineOwned": [],
+      "retiredAssertions": {
+        "General feedback event bus, per-surface filtering and semantic event taxonomy": "Removed scene/presenter protocol; use native event callbacks and game-owned Compose state."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "sensory_feedback": {
+      "specs": [
+        "native_inputs",
+        "native_gallery"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native properties and events and releases them with its Compose owner",
+        "native_inputs::native input controls::does not mutate writable controlled models before callbacks accept requests",
+        "native_gallery::native gallery::requests native haptics and releases effects when the screen closes"
+      ],
+      "behaviors": [
+        "Native effects and controlled change callbacks preserve explicit request causes and teardown."
+      ],
+      "engineOwned": [],
+      "retiredAssertions": {
+        "sensoryFeedback change/activation metadata decorator and observer-to-feedback routing": "Removed Facet metadata and bus. Compose.watch and control callbacks can request native effects directly."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "sensory_profile": {
+      "specs": [
+        "native_gallery"
+      ],
+      "cases": [
+        "native_gallery::native gallery::requests native haptics and releases effects when the screen closes"
+      ],
+      "behaviors": [
+        "Native preset and explicit custom waveform requests are exercised with five real waveform keys."
+      ],
+      "engineOwned": [
+        "Roblox HapticEffectType, FloatCurveKey and HapticEffect own waveform representation and playback."
+      ],
+      "retiredAssertions": {
+        "Frozen phase profiles, twelve-verb maps, profile merge/identity resolver and fallback presets": "Removed Facet sensory configuration facade. The game authors native effect instances and key data directly."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "haptics": {
+      "specs": [
+        "native_gallery"
+      ],
+      "cases": [
+        "native_gallery::native gallery::requests native haptics and releases effects when the screen closes"
+      ],
+      "behaviors": [
+        "Native effects are requested only while opted in, stopped on optout and destroyed with their Compose owner; custom waveforms remain available."
+      ],
+      "engineOwned": [
+        "Native PressHapticEffect/HapticEffect owns device playback."
+      ],
+      "retiredAssertions": {
+        "Adapter installation, platform-support probing, event bus coalescing, phase registry and automatic pooling": "Removed. No haptic behavior is installed by ordinary controls; callers explicitly construct/share native HapticEffect nodes and choose their request policy."
+      },
+      "remaining": [],
+      "manualEvidence": [
+        "Physical motor playback depends on device support and is not asserted by headless tests."
+      ]
+    },
+    "dpad_repeat": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::repeats while held and cancels native frame subscriptions on disposal",
+        "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return",
+        "native_inputs::native input controls::repeats focused value adjustments with bounded catch-up and no idle frame subscription"
+      ],
+      "behaviors": [
+        "Focused value adjustments repeat after0.4s at0.1s cadence, bound long-frame catchup to five requests, stop on release/focus loss/modal unavailability and own no idle frame subscription.",
+        "Bound arrows yield to native navigation; bumpers retain value adjustment."
+      ],
+      "engineOwned": [
+        "GuiService handles native focus navigation/repeat and native InputAction handles key-source/modifier arbitration."
+      ],
+      "retiredAssertions": {
+        "Custom DPad/thumbstick classification, logical focus-ring repeat and Direction1D reset state": "Native navigation owns these input mechanisms."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "input": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
+        "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
+        "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation",
+        "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Native shortcut modifier declarations, ordered/sinking dialog contexts, passive preferred bindings and scoped focused activation remain explicitly tested."
+      ],
+      "engineOwned": [
+        "InputContext Priority/Sink/Enabled, InputAction state and InputBinding modifiers are engine-owned."
+      ],
+      "retiredAssertions": {
+        "deviceKey modifier ledger, scriptable dispatch emulation, synthetic preferred binding and custom priority engine": "Removed reimplementations of Roblox InputContext/InputAction/InputBinding."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "review_native_input": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
+        "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
+        "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Binding replacement/removal observer cleanup, native key/image hint representation and owned input activation are covered."
+      ],
+      "engineOwned": [
+        "Roblox InputAction tracks held state and PreferredBinding; InputBinding owns authored modifiers and display metadata."
+      ],
+      "retiredAssertions": {
+        "Adapter provider stack, nil provider fallback registrations, modifier sibling index and held physical binding ledger": "Removed input-system adapter facade; controls use the actual native action and binding instances."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "hint_no_remount": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::updates explicit shortcut alternatives without owning input bindings",
+        "native_inputs::native input controls::borrows native preferred bindings and releases replaced hint observers",
+        "native_inputs::native input controls::replaces native hint art when the preferred asset changes representation"
+      ],
+      "behaviors": [
+        "Hint alternatives, native preferred binding labels/images and replacement cleanup update without rebuilding the caller component."
+      ],
+      "engineOwned": [
+        "InputAction.PreferredBinding owns device-specific selection."
+      ],
+      "retiredAssertions": {
+        "newActionSystem hint memo scope/style options": "Removed action-system facade; ShortcutHint borrows native InputAction or explicit keys."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "paradigm_hover": {
+      "specs": [
+        "native_inputs",
+        "native_themes_media"
+      ],
+      "cases": [
+        "native_inputs::native input controls::uses native circle constraints and updates semantic roles without paint writes",
+        "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
+        "native_themes_media::native themes and media::uses Button interaction state for semantic icon variants"
+      ],
+      "behaviors": [
+        "Native semantic roles and art/native transitions preserve lifecycle and styles."
+      ],
+      "engineOwned": [
+        "GuiObject.GuiState and native StyleRule Hover/Press selectors own hover instead of custom pointer-class subscriptions."
+      ],
+      "retiredAssertions": {
+        "Renderer synthetic-hover plumbing and pointer-live environment classifier": "Removed; controls observe native GuiState only when a semantic asset needs it."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "paradigm_carry": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics",
+        "native_inputs::native input controls::ends a multiline edit when a native ancestor disables without late mutation",
+        "native_navigation::native navigation controls::traps all modal selection directions and restores surviving focus on Back"
+      ],
+      "behaviors": [
+        "Text editing lifecycle and value-drag handoff cancellation use native events; modal lifetime is unaffected by custom environment revisions because none exist."
+      ],
+      "engineOwned": [
+        "GuiService retains native selection across device changes."
+      ],
+      "retiredAssertions": {
+        "Facet environment class flip and retained focus-ring state": "Removed global environment and custom focus ring."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "paradigm_input_axis": {
+      "specs": [
+        "native_inputs"
+      ],
+      "cases": [
+        "native_inputs::native input controls::yields native directional navigation at value bounds and rearms on focus return",
+        "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
+        "native_inputs::native input controls::repeats focused value adjustments with bounded catch-up and no idle frame subscription",
+        "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
+      ],
+      "behaviors": [
+        "Focused value contexts exist only within active controls, yield arrows at limits and retain scoped keyboard/bumpers with bounded repeat."
+      ],
+      "engineOwned": [
+        "Native GuiService performs thumbstick navigation; InputAction owns axis state, deadzones, priority and binding components."
+      ],
+      "retiredAssertions": {
+        "Custom analog threshold/hysteresis classifier and presenter opts.onAdjust interception": "Removed the second native-input implementation and presenter API."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "pointer": {
+      "specs": [
+        "native_inputs",
+        "native_collections"
+      ],
+      "cases": [
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+        "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves"
+      ],
+      "behaviors": [
+        "Native detector cancellation, shared slider arithmetic and focused adjustments survive direct native events and owner teardown."
+      ],
+      "engineOwned": [
+        "UIDragDetector owns capture; native GUI positions and engine selection own hit/focus geometry."
+      ],
+      "retiredAssertions": {
+        "Framework pointer capture, cursor adapter, controller.rectOf and per-root capture broker": "Deleted renderer/controller mechanisms. Native drag events and native GuiObject geometry remain available."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "touch_drag_arm": {
+      "specs": [
+        "native_inputs",
+        "native_collections"
+      ],
+      "cases": [
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+        "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics",
+        "native_collections::Compose native collections::locks vertical gestures, opens short velocity flicks and cancels disabled drags"
+      ],
+      "behaviors": [
+        "Control-owned native drag and cancellation are tested without a custom global touch arm clock."
+      ],
+      "engineOwned": [
+        "Native UIDragDetector and ScrollingFrame arbitrate their platform gestures."
+      ],
+      "retiredAssertions": {
+        "Generic drag-source hold promotion and scroller stop/refcount adapter": "Removed generic drag metadata facade; each retained control declares native detector behavior and cancellation."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "touch_gestures": {
+      "specs": [
+        "native_inputs",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+        "native_navigation::native navigation controls::keeps split primary activation separate from touch long-press alternatives"
+      ],
+      "behaviors": [
+        "Native drag data reaches Slider/LevelPicker directly; native long-press opens split alternatives."
+      ],
+      "engineOwned": [
+        "Native input events carry Roblox Vector2/Enum arguments; native engine owns pinch/pan/rotate/swipe recognition."
+      ],
+      "retiredAssertions": {
+        "Gesture argument tuple normalizer, gesture-priority arena and lifecycle emulation": "Removed duplicate native event conversion and arbitration."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "drag_public": {
+      "specs": [
+        "native_inputs",
+        "native_collections",
+        "native_gallery"
+      ],
+      "cases": [
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::keeps level marks inert with one focus target and a cancellable native scrub",
+        "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
+        "native_collections::Compose native collections::keeps native reorder capture and keyboard drop alive across offscreen autoscroll",
+        "native_gallery::native gallery::runs a match-three drag and releases its native frame subscription"
+      ],
+      "behaviors": [
+        "Retained value controls, collection reorder and gallery match-three consume native detectors with controlled model commands and owned cancellation."
+      ],
+      "engineOwned": [
+        "Native UIDragDetector owns drag transport; native objects expose current painted geometry."
+      ],
+      "retiredAssertions": {
+        "Generic draggable/dropTarget declaration facade, scene hit registry, proxy renderer and domain legality protocol": "Removed scene/composition scaffolding. Domain payload/drop policy now lives in game code; retained reusable control behaviors have direct native implementations.",
+        "Fallback pointer capture and solver-space target transforms": "Deleted native engine reimplementations."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "drag_session": {
+      "specs": [
+        "native_inputs",
+        "native_collections"
+      ],
+      "cases": [
+        "native_inputs::native input controls::lets the native drag detector drive one bounded slider model and cancel",
+        "native_inputs::native input controls::cancels slider pointer ownership on native gamepad handoff and reports bounded semantics",
+        "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves"
+      ],
+      "behaviors": [
+        "Native control cancellation reverts its own controlled value; collection reorder owns its domain-specific drop result."
+      ],
+      "engineOwned": [],
+      "retiredAssertions": {
+        "Generic hit-target session state, overlapping target order, hover prediction and imperative retarget API": "Removed scene-wide drag/drop coordinator. Native events supply transport; model-specific drop policy belongs to the consumer."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "help": {
+      "specs": [
+        "native_navigation"
+      ],
+      "cases": [
+        "native_navigation::native navigation controls::keeps callouts nonmodal, fits their plate and observes nonconsuming tap away",
+        "native_navigation::native navigation controls::queues callouts by priority and retires once without writing model facts"
+      ],
+      "behaviors": [
+        "Reusable native Callout remains nonmodal, fits its plate and supports tap-away dismissal without consuming activation."
+      ],
+      "engineOwned": [
+        "Native pointer/focus events can drive the presented cell; native text wraps and measures the plate."
+      ],
+      "retiredAssertions": {
+        "help metadata scanner, duplicate-copy diagnostics, implicit dwell registry and touch waiver taxonomy": "Removed generic scene metadata and document inspection. The explicit Callout control composes with native MouseEnter/Selection events and game-owned presentation policy."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    },
+    "preferred_text_seam": {
+      "specs": [
+        "native_inputs",
+        "native_collections"
+      ],
+      "cases": [
+        "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
+        "native_inputs::native input controls::mirrors native caption alignment and typography without a text geometry solver",
+        "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input"
+      ],
+      "behaviors": [
+        "Live theme control metrics and native styled font changes update control geometry/captions; native TextBounds is the measurement authority."
+      ],
+      "engineOwned": [
+        "Roblox fonts and TextBounds provide rendered geometry."
+      ],
+      "retiredAssertions": {
+        "Duplicated asynchronous preferred-text offset cache, fallback table, generation stamps and solver correction seam": "Removed custom text/layout pipeline; native theme/engine text properties are the authority."
+      },
+      "remaining": [],
+      "manualEvidence": [
+        "Physical PreferredTextSize changes and large-text clipping require the gallery device pass; no headless claim of native rendered pixels."
+      ]
+    },
+    "reduced_motion_seam": {
+      "specs": [
+        "native_inputs",
+        "native_themes_media",
+        "native_navigation"
+      ],
+      "cases": [
+        "native_inputs::native input controls::owns busy animation only while visible and suppresses busy activation",
+        "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
+        "native_inputs::native input controls::shows numeric validation text with interruptible reduced-motion-aware feedback",
+        "native_inputs::native input controls::reflects external invalid state and rejects malformed invalid and numeric declarations",
+        "native_themes_media::native themes and media::animates skeletons with one shared Compose clock and honors reduced motion",
+        "native_navigation::native navigation controls::retargets native sheet motion and honors live reduced motion without losing content"
+      ],
+      "behaviors": [
+        "Control pop, busy/validation feedback and reduced-motion cancellation remain Compose owned."
+      ],
+      "engineOwned": [
+        "Native stylesheet paint transitions are engine owned."
+      ],
+      "retiredAssertions": {
+        "Presenter push seam, adapter-side tween policy and deprecated resolver options": "Removed. The controls consume their native configuration source and Compose owns animation lifetime."
+      },
+      "remaining": [],
+      "manualEvidence": []
+    }
+  },
+  "retirementReasons": {
+    "activation_gate": "Generic activation-interception metadata and nested gate traversal were removed with scene composition. Applications express wake/unlock state using ordinary native button callbacks and Compose-controlled presentation.",
+    "interaction_tokens": "Deleted shared gesture-classifier/token/velocity facade. Native engine owns gesture transport; the few retained control-specific thresholds and velocity decisions are private policies exercised by native collections tests.",
+    "platform_env_binding": "Deleted synthetic environment binding, raw-input primacy overrides, camera/inset coherence belt and platform probe subscriptions. Consumers bind native services and properties directly through Compose.",
+    "tap_arm_seam": "All assertions inspect deleted renderer tap-arm dependency records, echo timestamps, metadata dispatch and private armed-session storage. Native controls do not retain that renderer seam."
+  }
+}

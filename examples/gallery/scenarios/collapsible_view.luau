@@ -13,6 +13,11 @@ return {
 	copy = COPY,
 	build = function(ctx)
 		local UI, Compose = ctx.UI, ctx.Compose
+		local Host = ctx.Host
+		local Compose = ctx.Compose
+		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local UDim, UDim2, Vector2, Color3, Enum =
+			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local copy = ctx.copy or COPY
 		local expanded = Compose.cell(false)
 		local club = Compose.cell(false)
@@ -24,17 +29,45 @@ return {
 			return if use(club) then "check" else "flag"
 		end)
 		local function settingsContent()
-			return UI.VStack("SettingsContent")({
-				gap = "m",
-				width = UI.fill(),
-
-				UI.Text({ text = copy.settings, textSize = "heading", width = UI.fill() }),
-				UI.frame(UI.Toggle("Club")({ label = "Club membership", value = club }), { maxWidth = "infinity" }),
-				UI.Text({
-					text = "The button summary and image follow the choice in this view.",
-					width = UI.fill(),
+			return Host.Frame "SettingsContent" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 16),
 				}),
-			})
+				UI.Label({
+					LayoutOrder = 1,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					text = copy.settings,
+					textRole = "heading",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+				UI.Toggle({
+					LayoutOrder = 2,
+					Name = "Club",
+					label = "Club membership",
+					value = club,
+				}),
+				UI.Label({
+					LayoutOrder = 3,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					text = "The button summary and image follow the choice in this view.",
+					TextWrapped = true,
+					TextYAlignment = Enum.TextYAlignment.Top,
+					TextXAlignment = Enum.TextXAlignment.Left,
+				}),
+			}
 		end
 		local tabs = {}
 		for _, key in { "coast", "forest", "summit" } do
@@ -42,77 +75,125 @@ return {
 				id = key,
 				label = copy[key],
 				icon = "flag",
-				-- a per-tab status mark: the summit course is closed for weather
-				indicator = if key == "summit" then { status = "warning", form = "dot" } else nil,
 				content = function()
-					return UI.ScrollView("Course")({
-						width = UI.fill(),
-						height = UI.fill(),
-						gap = "m",
-
-						UI.Text({ text = copy[key], textSize = "title", width = UI.fill() }),
-						UI.Text({
-							text = "Expand the navigation button to choose a different destination. Back returns focus to the button.",
-							width = UI.fill(),
+					return Host.ScrollingFrame "Course" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 1, 0),
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Vertical,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 16),
 						}),
-						UI.Button("Practice")({
+						UI.Label({
+							LayoutOrder = 1,
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							text = copy[key],
+							textRole = "title",
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						}),
+						UI.Label({
+							LayoutOrder = 2,
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							text = "Expand the navigation button to choose a different destination. Back returns focus to the button.",
+							TextWrapped = true,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextXAlignment = Enum.TextXAlignment.Left,
+						}),
+						UI.Button({
+							LayoutOrder = 3,
+							Name = "Practice",
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
 							label = "Practice this course",
-							width = UI.fill(),
 							onActivate = function() end,
 						}),
-					})
+					}
 				end,
 			})
 		end
-		local raceClass = Compose.cell("rookie")
-		local function classPage(name: string): () -> any
-			return function()
-				return UI.Text({ text = `{name} races`, width = UI.fill() })
-			end
-		end
 		local function Example()
-			return UI.Screen("CollapsibleView")({
-				padding = "m",
-
-				UI.ScrollView("Page")({
-					width = UI.fill(),
-					height = UI.fill(),
-					gap = "m",
-
-					UI.Text({ text = copy.title, textSize = "title", width = UI.fill() }),
-					UI.Text({ text = copy.intro, width = UI.fill() }),
-					UI.CollapsibleView("Settings")({
+			return Host.Frame "CollapsibleView" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 1, 0),
+				Host.UIPadding({
+					PaddingTop = UDim.new(0, 16),
+					PaddingBottom = UDim.new(0, 16),
+					PaddingLeft = UDim.new(0, 16),
+					PaddingRight = UDim.new(0, 16),
+				}),
+				Host.ScrollingFrame "Page" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 1, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					CanvasSize = UDim2.new(),
+					ScrollBarThickness = 6,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
+					UI.Label({
+						LayoutOrder = 1,
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = copy.title,
+						textRole = "title",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.Label({
+						LayoutOrder = 2,
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = copy.intro,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					UI.CollapsibleView({
+						LayoutOrder = 3,
+						Name = "Settings",
 						label = label,
 						icon = icon,
 						expanded = expanded,
 						content = settingsContent,
 					}),
-					UI.VStack("NavigationRegion")({
-						width = UI.fill(),
-						height = { type = "fixed", px = 420 },
-						UI.TabView("Destinations")({ style = "collapsible", selection = selected, tabs = tabs }),
-					}),
-					-- a tab strip: a status mark on one tab, and a locked tab that
-					-- stays visible but cannot be chosen
-					UI.VStack("ClassRegion")({
-						width = UI.fill(),
-						height = { type = "fixed", px = 240 },
-						UI.TabView("Classes")({
-							selection = raceClass,
-							tabs = {
-								{ id = "rookie", label = "Rookie", content = classPage("Rookie") },
-								{
-									id = "pro",
-									label = "Pro",
-									indicator = { status = "success", form = "dot" },
-									content = classPage("Pro"),
-								},
-								{ id = "legend", label = "Legend", enabled = false, content = classPage("Legend") },
-							},
+					Host.Frame({
+						LayoutOrder = 4,
+						Name = "NavigationRegion",
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 420),
+						Host.UIListLayout({
+							FillDirection = Enum.FillDirection.Vertical,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							Padding = UDim.new(0, 0),
+						}),
+						UI.TabView({
+							LayoutOrder = 1,
+							Name = "Destinations",
+							style = "collapsible",
+							selection = selected,
+							tabs = tabs,
 						}),
 					}),
-				}),
-			})
+				},
+			}
 		end
 		return {
 			screen = Example,

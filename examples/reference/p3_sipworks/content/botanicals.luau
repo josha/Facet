@@ -1,14 +1,4 @@
 --!strict
--- The Sipworks botanical shelf (spec §2): 18 botanicals plus spring water.
---
--- Original clean-room content. Every number here is DOMAIN data — how heavy a
--- teaspoon of a leaf is, how much caffeine a gram of it carries, how long it
--- steeps, how warm it drinks — so the brew facts on a botanical card are
--- DERIVED from the blend's own measured quantity rather than authored twice.
---
--- `water = true` marks the filler: spring water is excluded from every menu and
--- tile surface and from the searchable ingredient names, and still appears in a
--- recipe's measures, exactly as the spec requires.
 
 export type Botanical = {
 	id: string,
@@ -16,7 +6,7 @@ export type Botanical = {
 	gramsPerTsp: number,
 	caffeinePerGram: number,
 	steepMinutes: number,
-	warmth: number, -- 1..5
+	warmth: number,
 	water: boolean?,
 }
 
@@ -46,7 +36,7 @@ local list: { Botanical } = {
 		warmth = 3,
 	},
 	{ id = "honeybush", name = "Honeybush", gramsPerTsp = 2.0, caffeinePerGram = 0, steepMinutes = 5, warmth = 3 },
-	-- the filler, and the one entry no menu surface may show
+
 	{
 		id = "spring-water",
 		name = "Spring water",

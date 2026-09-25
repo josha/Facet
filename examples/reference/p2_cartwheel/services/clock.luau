@@ -1,14 +1,5 @@
 --!strict
--- The proof's DOMAIN clock: the one source of time every fake service reads.
---
--- It is not the motion clock and it is not `os.clock`. Domain time advances only
--- when someone advances it — the scenario's `advance` step, or the presenter's
--- own tick in a live place — so "same seed + same steps => identical dump" holds
--- by construction, and nothing in this proof can read wall time by accident.
---
--- `now` is a SIGNAL as well as a number, because everything time-derived in the
--- UI (a countdown's M:SS, a depleting bar, an arrival) is a memo over it. One
--- advance is one write and one flush, whatever it wakes.
+
 local clock = {}
 
 export type Scheduled = { at: number, seq: number, fn: () -> (), cancelled: boolean }
@@ -24,8 +15,6 @@ function clock.new(Compose: any, opts: { start: number? }?): any
 		return nowSignal:peek()
 	end
 
-	-- run `fn` once, `delay` seconds of domain time from now. The returned
-	-- handle cancels it — a command that is superseded must not resolve twice.
 	function self.after(delay: number, fn: () -> ()): any
 		seq += 1
 		local entry: Scheduled = { at = nowSignal:peek() + math.max(0, delay), seq = seq, fn = fn, cancelled = false }
@@ -37,11 +26,6 @@ function clock.new(Compose: any, opts: { start: number? }?): any
 		}
 	end
 
-	-- advance domain time by `dt` and fire everything that came due, in (at,
-	-- seq) order — so two callbacks scheduled for the same instant always run in
-	-- the order they were scheduled, which is what makes an arrival sequence
-	-- reproducible. A callback that schedules another due callback is picked up
-	-- by the same drain (bounded, so a self-rescheduling loop cannot wedge it).
 	function self.advance(dt: number): number
 		local target = nowSignal:peek() + math.max(0, dt or 0)
 		nowSignal:set(target)
@@ -59,11 +43,11 @@ function clock.new(Compose: any, opts: { start: number? }?): any
 			if next_ == nil then
 				break
 			end
-			next_.cancelled = true -- one-shot: mark before running
+			next_.cancelled = true
 			fired += 1
 			next_.fn()
 		end
-		-- drop the spent entries so a long session does not grow the list
+
 		local live: { Scheduled } = {}
 		for _, entry in scheduled do
 			if not entry.cancelled then

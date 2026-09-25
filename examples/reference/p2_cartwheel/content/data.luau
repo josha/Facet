@@ -1,13 +1,5 @@
 --!strict
--- Cartwheel's world: potions, ingredients, plazas, chatter. All original
--- (clean-room, spec §1); all pure data, so a scenario reset rebuilds it byte for
--- byte from the same seed.
---
--- ATTRIBUTES ARE A VECTOR OF SIX SIGNED INTS in a fixed order — Spark, Bloom,
--- Frost, Ember, Murk, Zing — and a potion's attributes are the SUM of its Base,
--- its Essence and its Garnish. Nothing stores a potion's attributes; the
--- Workbench derives them, which is why editing an ingredient moves the gauges on
--- the same frame with nothing to keep in sync.
+
 local art = require("./art")
 
 local data = {}
@@ -18,18 +10,10 @@ local function vec(a: number, b: number, c: number, d: number, e: number, f: num
 	return table.freeze({ a, b, c, d, e, f })
 end
 
--- a potion's identity hue. Built from parameters rather than written as a
--- literal table so the value stays one declared thing (`tint { direct = … }`,
--- the theming-exempt channel) instead of a colour literal scattered per screen.
 local function hue(r: number, g: number, b: number)
 	return table.freeze({ r = r, g = g, b = b })
 end
 data.hue = hue
-
--- ---- ingredients ------------------------------------------------------------
--- family = "base" (required, 7) | "essence" (optional, 7) | "garnish"
--- (optional, 24 = 3 Simple + 7 Dust + 7 Ribbon + 7 Swirl). `group` is the
--- garnish family shown in the picker label ("Dust · Rosewisp").
 
 local function ingredient(id: string, name: string, family: string, group: string?, attrs: any)
 	return table.freeze({ id = id, name = name, family = family, group = group, attrs = attrs })
@@ -65,8 +49,6 @@ local garnishes: { any } = {
 }
 for familyIndex, family in GARNISH_FAMILIES do
 	for rootIndex, root in GARNISH_ROOTS do
-		-- deterministic, readable attribute shapes: the FAMILY decides which two
-		-- axes a garnish touches, the ROOT decides how hard
 		local weight = rootIndex
 		local attrs = if familyIndex == 1
 			then vec(weight % 3, 0, 0, 1 + weight % 2, 0, 0)
@@ -99,11 +81,6 @@ function data.ingredientById(id: string?): any?
 	end
 	return nil
 end
-
--- ---- potions ----------------------------------------------------------------
--- Seventeen originals. `base`/`essence`/`garnish` are ingredient ids; a potion's
--- six attributes are their sum. `mark` is the art (content/art.luau) and `hue`
--- its identity colour.
 
 local POTION_ROWS = {
 	{ "emberdrop", "Emberdrop", "emberoil", "cindershade", "dust-cindershade", 0.86, 0.34, 0.22 },
@@ -152,9 +129,6 @@ function data.potionById(id: string): any?
 	return nil
 end
 
--- the six attributes of a base/essence/garnish triple, summed. `nil` means the
--- optional slot is "None", which contributes nothing — the same arithmetic the
--- Workbench's live edit runs.
 function data.attributesOf(baseId: string?, essenceId: string?, garnishId: string?): { number }
 	local out = { 0, 0, 0, 0, 0, 0 }
 	for _, id in { baseId, essenceId, garnishId } do
@@ -168,8 +142,6 @@ function data.attributesOf(baseId: string?, essenceId: string?, garnishId: strin
 	return out
 end
 
--- the strongest axis (1-based index into ATTRIBUTES); ties break to the earlier
--- axis so the answer is stable for a dump
 function data.strongestAxis(attrs: { number }): number
 	local best, bestValue = 1, attrs[1]
 	for axis = 2, 6 do
@@ -180,10 +152,6 @@ function data.strongestAxis(attrs: { number }): number
 	return best
 end
 
--- the layered preview's palette (spec §9: "tints from proof-owned palette
--- data"). A base decides the liquid's colour; the essence and the garnish are
--- painted with theme ROLES, so only the one value that is genuinely identity
--- uses the theming-exempt channel.
 data.baseHues = table.freeze({
 	springwater = hue(0.56, 0.78, 0.92),
 	hearthmilk = hue(0.94, 0.88, 0.76),
@@ -199,8 +167,6 @@ function data.baseHueFor(baseId: string?): any
 	return found or (data.baseHues :: any).springwater
 end
 
--- ---- plazas -----------------------------------------------------------------
-
 data.plazas = table.freeze({
 	table.freeze({ id = "gullsgate", name = "Gullsgate Quay", seed = 1, weight = 0.5, pitch = "Lantern Steps" }),
 	table.freeze({ id = "willowmere", name = "Willowmere Market", seed = 2, weight = 1.0, pitch = "The Long Awning" }),
@@ -215,8 +181,6 @@ function data.plazaById(id: string): any?
 	end
 	return nil
 end
-
--- ---- Town Chatter -----------------------------------------------------------
 
 data.chatterTags = table.freeze({
 	"Fresh Cork",
@@ -252,16 +216,12 @@ data.chatterBonusPosts = table.freeze({
 	table.freeze({ id = "b3", who = "Piper of Willowmere", potion = "sunwake", minutes = 132, tags = { 9, 1 } }),
 })
 
--- ---- Chatter+ tiers ---------------------------------------------------------
-
 data.chatterTiers = table.freeze({
 	table.freeze({ id = "monthly", credits = 9, save = nil }),
 	table.freeze({ id = "yearly", credits = 79, save = 27 }),
 })
 
 data.fullLedgerCredits = 79
-
--- ---- guild names already taken (the sign-up rejection fixture) --------------
 
 data.takenGuildNames = table.freeze({ "gullsgate", "cartwheel", "willowmere" })
 

@@ -1,191 +1,133 @@
 --!strict
--- The gallery transport paints an existing picture; real headshots use the caller's native provider.
 return {
 	title = "Avatars",
-	ledgerRows = {},
-	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
-		local provider, release = ctx.app.newResourceProvider({ bind = false })
+	build = function(ctx)
+		local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
+		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local mode, presence, size = Compose.cell("ready"), Compose.cell("online"), Compose.cell("regular")
-		local activations, attempt = Compose.cell(0), Compose.cell(1)
-		local rootPath, controller, record
-		local function complete()
-			for _, request in provider.pendingRequests() do
-				if mode:peek() == "ready" then
-					provider.complete(request.key, request.generation, "rbxassetid://75342910516929")
-				elseif mode:peek() == "failed" then
-					provider.fail(request.key, request.generation, "No picture")
-				end
-			end
-		end
+		local attempts, activations, status = Compose.cell(0), Compose.cell(0), Compose.cell("loading")
+		local record
 		local function report()
-			if not rootPath or not controller or not record then
-				return nil
-			end
-			ctx.presenter.refresh()
-			local base = rootPath .. "/Faces/PortraitRow/[" .. tostring(attempt:peek()) .. "]/Portrait+target/Portrait"
+			local image = record and record:FindFirstChild("Image", true)
 			return {
-				portrait = record.dump(),
-				rect = controller.rectOf(base),
-				imageMounted = controller.rectOf(base .. "/Layers/Picture/then/Picture") ~= nil,
+				state = status:peek(),
+				imageMounted = image ~= nil and image.Visible,
+				presence = presence:peek(),
+				controlSize = size:peek(),
 				activations = activations:peek(),
-				providerHandles = provider.counters().handles,
 			}
 		end
 		local function request(value)
 			mode:set(value)
-			attempt:set(attempt:peek() + 1)
-			ctx.presenter.refresh()
-			complete()
+			attempts:update(function(count)
+				return count + 1
+			end)
 			return report()
 		end
 		local function section()
-			Compose.cleanup(ctx.presenter.onTick(complete))
-			Compose.cleanup(function()
-				rootPath, controller, record = nil, nil, nil
-			end)
-			local root = UI.VStack("AvatarRecipe")({
-				width = UI.fill(),
-				gap = "m",
-				UI.Text("Title")({ text = "Player identity", textSize = "heading", width = UI.fill() }),
-				UI.Text("Note")({
+			return Host.Frame "AvatarRecipe" {
+				BackgroundTransparency = 1,
+				Size = D2.new(1, 0, 0, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }),
+				UI.Label({ text = "Player identity", textRole = "title" }),
+				UI.Label({
 					text = "Pictures fall back to initials. Presence keeps its meaning when the mark is hidden.",
-					width = UI.fill(),
 				}),
-				UI.HStack("Faces")({
-					gap = "m",
-					wrap = true,
-					UI.ForEach("PortraitRow")({
-						items = function(use)
-							return { use(attempt) }
-						end,
-						key = function(wave)
-							return wave
-						end,
-						row = function(wave)
-							return UI.Avatar("Portrait")({
-								name = "Ada Quill",
-								key = "portrait/" .. tostring(wave),
-								provider = provider,
-								presence = presence,
-								controlSize = size,
-								onActivate = function()
-									activations:set(activations:peek() + 1)
-								end,
-								ref = function(value)
-									record = value
-								end,
-							})
-						end,
+				Host.Frame "Faces" {
+					BackgroundTransparency = 1,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = E.FillDirection.Horizontal,
+						VerticalAlignment = E.VerticalAlignment.Center,
+						Padding = D.new(0, 12),
+						SortOrder = E.SortOrder.LayoutOrder,
 					}),
-					UI.Avatar("Initials")({ name = "Émile Noël", backplate = true, controlSize = size }),
-					UI.Avatar("Icon")({ name = "Bo Marchetti", form = "icon", controlSize = size }),
-				}),
-				UI.HStack("Requests")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Pending")({
-						label = "Loading",
+					UI.Avatar "Portrait" {
+						name = "Ada Quill",
+						presence = presence,
+						controlSize = size,
+						image = function(use)
+							return "portrait/" .. tostring(use(attempts))
+						end,
+						loader = function(_, resolve, reject)
+							if mode:peek() == "ready" then
+								resolve("rbxassetid://75342910516929")
+							elseif mode:peek() == "failed" then
+								reject("No picture")
+							end
+						end,
+						onStatus = function(value)
+							status:set(value)
+						end,
 						onActivate = function()
-							request("pending")
+							activations:update(function(value)
+								return value + 1
+							end)
 						end,
-					}),
-					UI.Button("Ready")({
-						label = "Picture",
-						onActivate = function()
-							request("ready")
+						ref = function(node)
+							record = node
 						end,
-					}),
-					UI.Button("Fail")({
-						label = "Initials",
-						onActivate = function()
-							request("failed")
-						end,
-					}),
-				}),
-				UI.HStack("Presence")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Online")({
-						label = "Online",
-						onActivate = function()
-							presence:set("online")
-						end,
-					}),
-					UI.Button("Away")({
-						label = "Away",
-						onActivate = function()
-							presence:set("away")
-						end,
-					}),
-					UI.Button("Busy")({
-						label = "Busy",
-						onActivate = function()
-							presence:set("busy")
-						end,
-					}),
-					UI.Button("Offline")({
-						label = "Offline",
-						onActivate = function()
-							presence:set("offline")
-						end,
-					}),
-				}),
-				UI.HStack("Sizes")({
-					gap = "s",
-					wrap = true,
-					UI.Button("Compact")({
-						label = "Compact",
-						onActivate = function()
-							size:set("compact")
-						end,
-					}),
-					UI.Button("Regular")({
-						label = "Regular",
-						onActivate = function()
-							size:set("regular")
-						end,
-					}),
-					UI.Button("Large")({
-						label = "Large",
-						onActivate = function()
-							size:set("large")
-						end,
-					}),
-				}),
-				UI.Text("Activations")({
-					text = function(use)
-						return `Selected {use(activations)} times`
+					},
+					UI.Avatar "Initials" { name = "Émile Noël", backplate = true, controlSize = size },
+					UI.Avatar "Icon" { name = "Bo Marchetti", form = "icon", controlSize = size },
+				},
+				UI.Picker "Picture" {
+					label = "Picture",
+					selected = mode,
+					onChange = function()
+						attempts:update(function(count)
+							return count + 1
+						end)
 					end,
+					options = {
+						{ value = "pending", label = "Loading" },
+						{ value = "ready", label = "Loaded" },
+						{ value = "failed", label = "Failed" },
+					},
+				},
+				UI.Picker "Presence" {
+					label = "Presence",
+					selected = presence,
+					options = {
+						{ value = "online", label = "Online" },
+						{ value = "away", label = "Away" },
+						{ value = "busy", label = "Busy" },
+						{ value = "offline", label = "Offline" },
+					},
+				},
+				UI.Picker "Size" {
+					label = "Size",
+					selected = size,
+					options = {
+						{ value = "compact", label = "Compact" },
+						{ value = "regular", label = "Regular" },
+						{ value = "large", label = "Large" },
+					},
+				},
+				UI.Label({
+
+					text = function(use)
+						return "Selected " .. tostring(use(activations)) .. " times"
+					end,
+					textRole = "caption",
 				}),
-			})
-			return ctx.Facet.contribution.attach(root, {
-				bindController = function(value)
-					controller = value
-				end,
-				syncGeometry = function(_, node)
-					if node then
-						rootPath = node.path
-					end
-				end,
-			})
+			}
 		end
 		return {
 			section = section,
 			screen = function()
-				return UI.Screen("Avatar")({
-					surface = "base",
-					padding = { top = "m", bottom = "m" },
-					UI.ScrollView("Content")({
-						width = UI.fill(),
-						height = UI.fill(),
-						padding = { left = "m", right = "m" },
-						section(),
-					}),
-				})
+				return Host.ScrollingFrame "Avatar" {
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					CanvasSize = D2.new(),
+					AutomaticCanvasSize = E.AutomaticSize.Y,
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
+					section(),
+				}
 			end,
 			report = report,
-			dispose = release,
 			steps = {
 				pending = function()
 					return request("pending")

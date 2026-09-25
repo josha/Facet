@@ -20,7 +20,7 @@ type Entry<V, K> = {
 	size: number,
 }
 
-local function identity<V>(value: V, _index: number): any
+local function identity<V>(value: V, _index: number): V
 	return value
 end
 
@@ -40,13 +40,10 @@ local function keyed<V, K>(options: Options<V, K>): Children.Directive
 	local source = Support.sourceOf(settings.from, "keyed", "from") :: Types.Body<{ V }>
 	local render = Support.builderOf(settings.render, "keyed", "render") :: Render<V, K>
 	local keyOf = settings.key
-	if keyOf ~= nil and type(keyOf) ~= "function" then
-		keyOf = Support.builderOf(keyOf, "keyed", "key")
-	end
 
 	local key: (value: V, index: number) -> K
 	if keyOf ~= nil then
-		key = keyOf
+		key = Support.builderOf(keyOf, "keyed", "key")
 	else
 		key = (identity :: any) :: (value: V, index: number) -> K
 	end

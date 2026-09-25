@@ -103,11 +103,11 @@ local function numberOr(value: unknown, fallback: number): number
 	return fallback
 end
 
-local function identity<V>(value: V, _index: number): any
+local function identity<V>(value: V, _index: number): V
 	return value
 end
 
-local function geometryOptions(value: any): Layout.Options
+local function geometryOptions(value: LayoutOptions): Layout.Options
 	local layoutOptions = Support.optionsOf(value, "OrderedCollection.layout", "kind = ..., itemSize = ...")
 	Support.noUnknownFields(layoutOptions, "OrderedCollection.layout", KNOWN_LAYOUT)
 	local kind: LayoutKind = layoutOptions.kind or "list"
@@ -165,10 +165,10 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	local layoutBody: Types.Body<LayoutOptions>? = nil
 	local initialLayout: Layout.Options
 	if cellModule.isReadable(settings.layout) or type(settings.layout) == "function" then
-		layoutBody = Support.sourceOf(settings.layout, "OrderedCollection", "layout")
+		layoutBody = Support.sourceOf(settings.layout, "OrderedCollection", "layout") :: Types.Body<LayoutOptions>
 		initialLayout = geometryOptions {}
 	else
-		initialLayout = geometryOptions(settings.layout or {})
+		initialLayout = geometryOptions((settings.layout :: LayoutOptions?) or {})
 	end
 	local overscan = math.max(0, math.floor(numberOr(settings.overscan, 0)))
 	local followThreshold = numberOr(settings.followThreshold, 4)
@@ -220,6 +220,28 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	local anchorIndex = 0
 	local measurementsChanged = false
 
+	local placements: { [number]: Layout.Placement } = {}
+	local selection: retain.Selection<V, Layout.Placement, K> = { values = {}, keys = {}, states = {} }
+	local published: Status? = nil
+	local windowRange: Layout.Range = { first = 1, last = 0, firstRow = 1, lastRow = 0 }
+	local anchorRange: Layout.Range = { first = 1, last = 0, firstRow = 1, lastRow = 0 }
+	local wholeRange: Layout.Range = { first = 1, last = 0, firstRow = 1, lastRow = 0 }
+
+	local function geometryChanged()
+		table.clear(placements)
+	end
+
+	local function placementFor(index: number): Layout.Placement
+		local held = placements[index]
+		if held ~= nil then
+			return held
+		end
+		local made = Layout.placementOf(geometry, index)
+		table.freeze(made :: {})
+		placements[index] = made
+		return made
+	end
+
 	local function keyIndex(): { [K]: number }
 		local existing = indexMap
 		if existing ~= nil then
@@ -240,6 +262,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		layout.count = #list
 		geometry = Layout.create(layout)
 		measurementsChanged = true
+		geometryChanged()
 	end
 
 	local function findAnchorIndex(list: { V }, wanted: K): number?
@@ -262,11 +285,12 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local function applyMeasurements(sizes: { [K]: number })
 		local map = keyIndex()
+		local moved = false
 		for key in applied do
 			local at = map[key]
 			if sizes[key] == nil or at == nil then
-				if at ~= nil then
-					Layout.setItemSize(geometry, at, geometry.rowSize)
+				if at ~= nil and Layout.setItemSize(geometry, at, geometry.rowSize) then
+					moved = true
 				end
 				applied[key] = nil
 			end
@@ -277,11 +301,16 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			local at = map[key]
 			if at ~= nil then
 				applied[key] = size
-				Layout.setItemSize(geometry, at, size)
+				if Layout.setItemSize(geometry, at, size) then
+					moved = true
+				end
 				measuredCount += 1
 			end
 		end
 		measurementsChanged = false
+		if moved then
+			geometryChanged()
+		end
 	end
 
 	if controls ~= nil then
@@ -289,7 +318,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			return keyIndex()[key]
 		end
 		controls.placementOf = function(index: number): Layout.Placement
-			return Layout.placementOf(geometry, index)
+			return placementFor(index)
 		end
 		controls.offsetOf = function(index: number, align: Align?, size: number?): number
 			local placement = Layout.placementOf(geometry, index)
@@ -331,34 +360,31 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		local count = #list
 		local extent = Layout.totalExtent(geometry)
 		local range: Layout.Range
-		local viewport: Viewport = { offset = 0, size = extent }
+		local viewportOffset = 0
+		local viewportSize = extent
 		if mode == "windowed" then
 			local read = (viewportBody :: Types.Body<Viewport>)(use)
-			viewport = {
-				offset = numberOr(read.offset, 0),
-				size = numberOr(read.size, 0),
-			}
+			viewportOffset = numberOr(read.offset, 0)
+			viewportSize = numberOr(read.size, 0)
+			range = windowRange
 		else
-			range = {
-				first = 1,
-				last = count,
-				firstRow = if count > 0 then 1 else 0,
-				lastRow = geometry.rowCount,
-			}
+			wholeRange.first = 1
+			wholeRange.last = count
+			wholeRange.firstRow = if count > 0 then 1 else 0
+			wholeRange.lastRow = geometry.rowCount
+			range = wholeRange
 		end
 
-		local scrollChanged = lastOffset ~= nil and viewport.offset ~= lastOffset
-		local effectiveOffset = if not scrollChanged and requestedOffset ~= nil
-			then requestedOffset
-			else viewport.offset
+		local scrollChanged = lastOffset ~= nil and viewportOffset ~= lastOffset
+		local effectiveOffset = if not scrollChanged and requestedOffset ~= nil then requestedOffset else viewportOffset
 		local desiredOffset: number? = nil
 		if followEnd and mode == "windowed" then
-			if lastOffset == nil or viewport.offset ~= lastOffset then
-				local distanceFromEnd = extent - (viewport.offset + viewport.size)
+			if lastOffset == nil or viewportOffset ~= lastOffset then
+				local distanceFromEnd = extent - (viewportOffset + viewportSize)
 				following = distanceFromEnd <= followThreshold
 			end
 			if following then
-				desiredOffset = math.max(0, extent - viewport.size)
+				desiredOffset = math.max(0, extent - viewportSize)
 			end
 		end
 
@@ -372,30 +398,35 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			end
 		end
 		if mode == "windowed" then
-			effectiveOffset = math.clamp(desiredOffset or effectiveOffset, 0, math.max(0, extent - viewport.size))
-			desiredOffset = if effectiveOffset ~= viewport.offset then effectiveOffset else nil
-			range = Layout.rangeFor(geometry, effectiveOffset, viewport.size, overscan)
+			effectiveOffset = math.clamp(desiredOffset or effectiveOffset, 0, math.max(0, extent - viewportSize))
+			desiredOffset = if effectiveOffset ~= viewportOffset then effectiveOffset else nil
+			Layout.rangeInto(geometry, effectiveOffset, viewportSize, overscan, windowRange)
 		end
 		requestedOffset = desiredOffset
 
-		local capacity = math.max(0, range.last - range.first + 1)
-		local values = table.create(capacity)
-		local keys = table.create(capacity)
-		local states = table.create(capacity)
+		local first = range.first
+		local last = range.last
+		local values, keys, states = selection.values, selection.keys, selection.states
 		local retained = 0
-		for index = range.first, range.last do
+		for index = first, last do
+			local value = list[index]
 			retained += 1
-			values[retained] = list[index]
-			keys[retained] = keyOf(list[index], index)
-			states[retained] = Layout.placementOf(geometry, index)
+			values[retained] = value
+			keys[retained] = keyOf(value, index)
+			states[retained] = placementFor(index)
+		end
+		for index = #values, retained + 1, -1 do
+			values[index] = nil
+			keys[index] = nil
+			states[index] = nil
 		end
 
-		lastOffset = viewport.offset
+		lastOffset = viewportOffset
 
 		if retained > 0 then
 			anchorIndex = if mode == "windowed"
-				then Layout.rangeFor(geometry, effectiveOffset, viewport.size, 0).first
-				else range.first
+				then Layout.rangeInto(geometry, effectiveOffset, viewportSize, 0, anchorRange).first
+				else first
 			anchorKey = keyOf(list[anchorIndex], anchorIndex)
 			anchorOffset = Layout.offsetOf(geometry, anchorIndex)
 		else
@@ -405,24 +436,42 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		end
 
 		if statusCell ~= nil then
-			statusCell:set {
-				mode = mode,
-				direction = direction,
-				total = count,
-				retained = retained,
-				first = range.first,
-				last = range.last,
-				firstRow = range.firstRow,
-				lastRow = range.lastRow,
-				rowCount = geometry.rowCount,
-				extent = extent,
-				following = following,
-				desiredOffset = desiredOffset,
-				measured = measuredCount,
-			}
+			local previous = published
+			if
+				previous == nil
+				or previous.total ~= count
+				or previous.retained ~= retained
+				or previous.first ~= first
+				or previous.last ~= last
+				or previous.firstRow ~= range.firstRow
+				or previous.lastRow ~= range.lastRow
+				or previous.rowCount ~= geometry.rowCount
+				or previous.extent ~= extent
+				or previous.following ~= following
+				or previous.desiredOffset ~= desiredOffset
+				or previous.measured ~= measuredCount
+			then
+				local fresh: Status = {
+					mode = mode,
+					direction = direction,
+					total = count,
+					retained = retained,
+					first = first,
+					last = last,
+					firstRow = range.firstRow,
+					lastRow = range.lastRow,
+					rowCount = geometry.rowCount,
+					extent = extent,
+					following = following,
+					desiredOffset = desiredOffset,
+					measured = measuredCount,
+				}
+				published = fresh
+				statusCell:set(fresh)
+			end
 		end
 
-		return { values = values, keys = keys, states = states }
+		return selection
 	end
 
 	return retain {

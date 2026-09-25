@@ -2,6 +2,7 @@
 
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
+local Owner = require "./ownership/owner"
 
 export type Cache<K, T> = {
 	get: (key: K) -> T,
@@ -33,7 +34,7 @@ local function createKeyedCache<K, T>(options: Options<K, T>): Cache<K, T>
 			expected = "{ build = function, destroy = function, maxRetained = finite number, touch? = function }",
 		})
 	end
-	for field in options :: any do
+	for field in (options :: unknown) :: { [string]: unknown } do
 		if KNOWN_FIELDS[field] == nil then
 			Diagnostics.raise("keyed-cache/unknown-option", "createKeyedCache was given an option it does not have", {
 				option = tostring(field),
@@ -124,7 +125,7 @@ local function createKeyedCache<K, T>(options: Options<K, T>): Cache<K, T>
 			)
 		end
 	end
-	(owner :: any).own(destroyAll)
+	(owner :: Owner.Owner).own(destroyAll)
 
 	local function get(key: K): T
 		if disposed then

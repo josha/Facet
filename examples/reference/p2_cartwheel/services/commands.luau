@@ -1,36 +1,24 @@
 --!strict
--- EVERY MUTATION IS A COMMAND (spec §3): `idle -> pending -> confirmed |
--- rejected`, with no silent states. This is the one place that lifecycle lives,
--- so a screen never has to remember to disable its own button or to raise its
--- own toast — it hands over what to do and what to undo.
---
--- Pending is REAL, not a formality. A fake service could answer instantly, and
--- then "while pending the control disables and gains a Working… chip" would be a
--- state no player could ever see and no test could pin. So a command resolves
--- one `latency` of DOMAIN time after it is submitted: headlessly the suite steps
--- the clock across it, and in a live place the presenter's own tick does.
+
 local commands = {}
 
 export type Submit = {
 	id: string,
-	-- optimistic: run at submit, before anything is decided
+
 	apply: (() -> ())?,
-	-- the authority: returns (ok, reasonKey). A reasonKey names a string, so a
-	-- rejection always has player-facing copy.
+
 	decide: () -> (boolean, string?),
-	-- put the view back (reject) / reconcile from truth (confirm)
+
 	revert: (() -> ())?,
 	confirm: (() -> ())?,
-	-- an optional consequence that must run on the confirming frame (the
-	-- celebration opens from here, so `celebrate` and the state it celebrates
-	-- share one causal frame)
+
 	after: ((ok: boolean) -> ())?,
 }
 
 function commands.new(opts: any): any
 	local Compose = opts.Compose
 	local clock = opts.clock
-	local presenter = opts.presenter
+	local feedback = opts.feedback
 	local S = opts.strings
 	local latency: number = opts.latency or 0.25
 
@@ -70,8 +58,6 @@ function commands.new(opts: any): any
 		return statusSignal(id):peek() == "pending"
 	end
 
-	-- the toast a rejection owes the player. `key = id` so a retry SUPERSEDES
-	-- its predecessor instead of stacking a second copy of the same sentence.
 	local function toast(id: string, message: string)
 		if opts.toast ~= nil then
 			opts.toast(id, message)
@@ -79,14 +65,11 @@ function commands.new(opts: any): any
 	end
 
 	local function emit(kind: string, id: string, reason: string?)
-		if presenter ~= nil and presenter.emitFeedback ~= nil then
-			presenter.emitFeedback({ type = kind, reason = reason, context = { command = id } })
+		if feedback ~= nil then
+			feedback({ type = kind, reason = reason, context = { command = id } })
 		end
 	end
 
-	-- submit(spec) -> boolean started. A second submit for an id already in
-	-- flight is refused (the control is disabled while pending, so this is the
-	-- keyboard-repeat / double-tap case, not a legal verb).
 	function self.submit(spec: Submit): boolean
 		if inFlight[spec.id] then
 			return false
@@ -125,7 +108,6 @@ function commands.new(opts: any): any
 		return true
 	end
 
-	-- the deterministic diagnostic: every command this session ran, in order
 	function self.dump(): any
 		local out = {}
 		for _, entry in log do

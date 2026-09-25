@@ -1,550 +1,358 @@
 --!strict
---[[ THE OUTPOST POWER TERMINAL — the screen itself, declared once.
-
-	ONE MODULE, TWO HOSTS. The showcase scenario
-	(`examples/gallery/scenarios/outpost_terminal.luau`) and the standalone place
-	both build THIS file and present it on a `SurfaceGui` through
-	`Facet.client.surface_target`. There is no showcase fork and no "simplified"
-	standalone copy: a demo whose two hosts disagree is two demos.
-
-	WHAT IT IS NOT. It is not engine code. It creates no Instance, reaches no
-	service, and knows nothing about a `ProximityPrompt`, a console part or a
-	`RemoteEvent`. It is handed a `send` function and told when replies land —
-	which is exactly the contract `docs/guide/06-client-server.md` describes, and
-	the reason this same screen is testable headlessly with no server at all.
-
-	── THE AUTHORITY LINE, drawn where it actually is ────────────────────────────
-
-	The UI is this player's. THE OUTPOST IS NOT: opening the blast door changes
-	something every player can see. So `Apply` does not change the world — it
-	sends ONE domain intent and waits, through `Facet.replication.mutation`, which
-	is the framework's own seam for exactly this (one request in flight, verdicts
-	matched by request id, `"pending"` is not success).
-
-	NO OPTIMISTIC PRESENTATION, DELIBERATELY, and `mutation` offers it. An
-	optimistic apply paints the outcome the player asked for before the server has
-	agreed — which is defensible for a volume slider and is wrong here, because
-	three of the five things the server checks (session, rate, and the distance it
-	measures itself) are facts THIS CLIENT CANNOT KNOW. Showing the door open and
-	taking it back is a worse lie than a half-second of "sending…". So the screen
-	carries two allocations at once and says which is which: the DRAFT the steppers
-	edit, and the allocation the outpost is CONFIRMED to be running.
-
-	── WHY EVERY VALUE CONTROL IS A STEPPER ─────────────────────────────────────
-
-	Not a taste call — the render target made it. `surface_target` deletes
-	`setPointerHandlers` and `setTouchGestureHandlers` because a drag needs a
-	canvas-space pointer mapping and, on a `SurfaceGui`, the `ScreenGui` inset
-	correction is not merely wrong but the wrong KIND of correction. So this
-	terminal is built from controls that need only ACTIVATION — which a tap, an
-	Enter and a gamepad A all deliver identically. Six whole units among three
-	consumers is also the better game rule: a decision, not a dial.
-]]
-
 local rules = require("@self/rules")
+local terminal = { rules = rules, CANVAS = { w = 640, h = 480 }, TITLE = "OUTPOST 7 — POWER" }
 
-local terminal = {}
-
-terminal.rules = rules
-
---[[ THE CANVAS, STATED. `surface_target`'s policy is a fixed virtual-pixel
-	rectangle invariant to the part (measured: one `CanvasSize` held while the
-	console was resized 8x5 -> 4x2.5 -> 16x10 -> 8x2 studs), so the resolution is
-	the module's to declare and the FIXTURE's job to match with a part of the same
-	aspect. 4:3 against an 8 x 6 stud console. ]]
-terminal.CANVAS = { w = 640, h = 480 }
-
-terminal.TITLE = "OUTPOST 7 — POWER"
-
-export type Opts = {
-	--[[ THE WIRE, and the only one. The screen hands over an envelope
-		(`{ requestId, payload, expectedRevision }`) and the host puts it on
-		whatever transport it has. Absent means "no server reachable" and the
-		terminal says so instead of pretending: see `sendIntent`. ]]
-	send: ((envelope: any) -> ())?,
-	-- the host resigns the surface and gives the player back to the game
-	onExit: (() -> ())?,
-	-- every phase/outcome change, for a host that mirrors the state elsewhere
-	onState: ((state: any) -> ())?,
-}
-
-export type Intent = {
-	kind: string,
-	allocation: rules.Allocation,
-}
-
---[[ `terminal.build(ctx, opts)` — `ctx` is the context of the application that
-	presents the terminal, the same one every tutorial example builds against, so
-	a host that can mount one can mount this. ]]
-function terminal.build(ctx: any, opts: Opts?)
-	local o: Opts = opts or {}
-	local Facet, UI, Compose, core = ctx.Facet, ctx.UI, ctx.Compose, ctx.core
-	-- The replicated session model survives engaging/disengaging this world
-	-- surface. Row components own only their mounted UI resources.
-
-	-- ===== state ============================================================
-
-	--[[ THE OUTPOST'S OWN ALLOCATION, as the server last reported it. A
-		`replication.snapshot` rather than a plain signal because that is what it
-		is: authoritative state arriving with a revision, where a late or duplicate
-		message must not overwrite a newer one. ]]
-	local outpost = Facet.replication.snapshot(core, 0, rules.copy(rules.START))
-
-	--[[ THE DRAFT — one Signal per consumer, because that is what a Stepper owns
-		and reads. Seeded from the outpost so the player starts from where the
-		outpost actually is rather than from a blank form. ]]
-	local draft: { [string]: any } = {}
+function terminal.build(ctx, options)
+	local o = options or {}
+	local Compose, Host, UI = ctx.Compose, ctx.Host, ctx.UI
+	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
+	local confirmed = Compose.cell(rules.copy(rules.START))
+	local revision = Compose.cell(0)
+	local phase, status = Compose.cell("idle"), Compose.cell("idle")
+	local outcome, exitReason = Compose.cell(nil), Compose.cell(nil)
+	local draft = {}
 	for _, consumer in rules.CONSUMERS do
 		draft[consumer.id] = Compose.cell(rules.START[consumer.id])
 	end
-
-	local function draftAllocation(): rules.Allocation
-		local out: rules.Allocation = {}
+	local pendingId, sequence = nil, 0
+	local sent, refusedLocally, applied = 0, 0, 0
+	local steps = {}
+	local function allocation(use)
+		local result = {}
 		for _, consumer in rules.CONSUMERS do
-			out[consumer.id] = draft[consumer.id]:peek()
+			result[consumer.id] = if use then use(draft[consumer.id]) else draft[consumer.id]:peek()
 		end
-		return out
+		return result
 	end
-
-	local function seedDraft(from: rules.Allocation)
-		ctx.app.runtime:batch(function()
+	local function seed(values)
+		ctx.runtime:batch(function()
 			for _, consumer in rules.CONSUMERS do
-				draft[consumer.id]:set(from[consumer.id] or 0)
+				draft[consumer.id]:set(values[consumer.id])
 			end
 		end)
 	end
-
-	--[[ THE SESSION PHASE. `idle` is a terminal nobody is standing at; `engaged`
-		is one this player holds; `sending` is the half-second the server owns; and
-		`exited` is the terminal after every exit path, of which there are eight and
-		all of them land here. ]]
-	local phase = Compose.cell("idle")
-	-- the last thing the outpost said back: `{ ok, code?, message }` or nil
-	local outcome = Compose.cell(nil :: any)
-	local exitReason = Compose.cell(nil :: any)
-
-	local mutation = Facet.replication.mutation(core)
-
-	local sent = 0
-	local refusedLocally = 0
-	local applied = 0
-
-	local function publishState()
-		if o.onState == nil then
-			return
-		end
-		local out = outcome:peek()
-		o.onState({
-			phase = phase:peek(),
-			status = mutation.status:peek(),
-			draft = draftAllocation(),
-			outpost = rules.copy(outpost.binding:peek()),
-			complete = rules.allRunning(outpost.binding:peek()),
-			outcome = out,
-			exitReason = exitReason:peek(),
-		})
-	end
-
-	-- ===== the readouts, all derived =======================================
-
-	local budgetLine = Compose.formula(function(use)
-		local spent = 0
-		for _, consumer in rules.CONSUMERS do
-			spent += use(draft[consumer.id])
-		end
-		local spare = rules.TOTAL - spent
-		if spare < 0 then
-			return `{spent} of {rules.TOTAL} units allocated — {-spare} over budget`
-		elseif spare == 0 then
-			return `{spent} of {rules.TOTAL} units allocated — nothing spare`
-		end
-		return `{spent} of {rules.TOTAL} units allocated — {spare} spare`
+	local verdict = Compose.formula(function(use)
+		return rules.validate(allocation(use))
 	end)
-
-	--[[ THE LIVE VERDICT ON THE DRAFT, which is what makes this terminal answer
-		before it spends a round trip. It is the SAME `rules.validate` the server
-		runs; the difference is that the server's answer is the one that counts. ]]
-	local draftVerdict = Compose.formula(function(use)
-		local allocation: rules.Allocation = {}
-		for _, consumer in rules.CONSUMERS do
-			allocation[consumer.id] = use(draft[consumer.id])
-		end
-		return rules.validate(allocation)
-	end)
-
 	local canApply = Compose.formula(function(use)
-		return use(phase) == "engaged" and use(draftVerdict).ok and use(mutation.status) ~= "pending"
+		return use(phase) == "engaged" and use(status) ~= "pending" and use(verdict).ok
 	end)
-
-	--[[ THE ONE LINE THE PLAYER READS FOR "WHAT JUST HAPPENED". It answers, in
-		priority order: an in-flight request, the outpost's own refusal or report,
-		this terminal's own objection to the draft, and finally the objective. ]]
-	local messageLine = Compose.formula(function(use)
-		if use(mutation.status) == "pending" then
+	local message = Compose.formula(function(use)
+		if use(status) == "pending" then
 			return "Sending to the outpost…"
 		end
-		local said = use(outcome)
-		if said ~= nil then
-			return said.message
-		end
-		local verdict = use(draftVerdict)
-		if not verdict.ok then
-			return verdict.message
-		end
-		return rules.OBJECTIVE
+		local result = use(outcome)
+		return if result then result.message else if use(verdict).ok then rules.OBJECTIVE else use(verdict).message
 	end)
-
-	--[[ STATE COLOUR IS SEMANTIC, never a literal, and it is a TINT rather than a
-		`Text.role`: `role` is a two-value closed set (`content | secondary`) and
-		`danger`/`accent` are TINT roles. A bound value outside a closed set paints
-		nothing, which the renderer says out loud. ]]
-	local messageTint = Compose.formula(function(use)
-		if use(mutation.status) == "pending" then
-			return { role = "contentSecondary", blend = 1 }
-		end
-		local said = use(outcome)
-		if said ~= nil then
-			return { role = if said.ok then "accent" else "danger", blend = 1 }
-		end
-		return if use(draftVerdict).ok then { role = "contentSecondary", blend = 1 } else { role = "danger", blend = 1 }
-	end)
-
-	local outpostLine = Compose.formula(function(use)
-		local allocation = use(outpost.binding)
-		local running = rules.runningCount(allocation)
-		if rules.allRunning(allocation) then
-			return `Outpost: all {running} consumers running.`
-		end
-		return `Outpost: {running} of {#rules.CONSUMERS} consumers running.`
-	end)
-
-	-- ===== the intent =======================================================
-
-	local function sendIntent(kind: string, allocation: rules.Allocation): any
-		if phase:peek() == "exited" then
-			return { sent = false, reason = "exited" }
-		end
-		if phase:peek() == "idle" then
-			-- a terminal nobody engaged sends nothing: the Apply control is
-			-- disabled here, so only a scripted call reaches this branch, and
-			-- the server would refuse it anyway — this keeps the client honest
-			return { sent = false, reason = "idle" }
-		end
-		if mutation.status:peek() == "pending" then
-			--[[ THE FRAMEWORK'S OWN RULE, HONOURED RATHER THAN TRIPPED OVER:
-				`mutation.send` ERRORS on a second in-flight request. Example 03
-				learned on a device what that reads like when it is allowed to throw
-				("I can toggle music on but not off"), so this asks first. ]]
-			return { sent = false, reason = "pending" }
-		end
-		local verdict = rules.validate(allocation)
-		if not verdict.ok then
-			--[[ REFUSED HERE, AND STILL REFUSED THERE. Not sending an allocation
-				this terminal can already see is illegal is a courtesy to the player,
-				never a substitute for the server's check — the server re-runs the
-				identical `rules.validate` on arrival, because a client's verdict is
-				a suggestion. ]]
-			refusedLocally += 1
-			outcome:set({ ok = false, code = verdict.code, message = verdict.message })
-			publishState()
-			return { sent = false, reason = verdict.code, message = verdict.message }
-		end
-		local envelope = mutation.send({ kind = kind, allocation = rules.copy(allocation) }, outpost.revision())
-		sent += 1
-		outcome:set(nil)
-		if o.send == nil then
-			--[[ NO TRANSPORT IS A STATE, NOT A CRASH. It is what a headless mount
-				and a place with no server both look like, and the terminal says so in
-				the same place it says everything else. ]]
-			local refusal = { ok = false, code = "session", message = rules.refusal("session") }
-			mutation.reject(envelope.requestId, refusal)
-			outcome:set(refusal)
-			publishState()
-			return { sent = false, reason = "no-transport", requestId = envelope.requestId }
-		end
-		o.send(envelope)
-		publishState()
-		return { sent = true, requestId = envelope.requestId, allocation = envelope.payload.allocation }
-	end
-
-	-- ===== the drive surface (the same calls the buttons make) ==============
-
-	local api: any = {}
-
-	--[[ ENGAGE. The host calls this when the walk-up prompt is triggered; the
-		screen has no opinion about how that happened. `allocation` is what the
-		outpost is currently running, if the host knows it. ]]
-	function api.engage(allocation: rules.Allocation?): any
-		if allocation ~= nil then
-			outpost.ingest(outpost.revision() + 1, rules.copy(allocation))
-		end
-		ctx.app.runtime:batch(function()
-			phase:set("engaged")
-			outcome:set(nil)
-			exitReason:set(nil)
-		end)
-		seedDraft(outpost.binding:peek())
-		mutation.reset()
-		publishState()
-		return api.snapshot()
-	end
-
-	function api.setValue(id: string, value: number): any
-		local consumer = rules.consumer(id)
-		if consumer == nil then
-			return { ok = false, message = rules.refusal("unknown", { id = id }) }
-		end
-		--[[ AN EDIT RETIRES THE LAST OUTCOME. The message line is one line and it
-			has one job: say the most recent true thing. A success sentence left
-			standing over a draft the player has since made illegal is the terminal
-			lying about state it can see. ]]
-		ctx.app.runtime:batch(function()
-			outcome:set(nil)
-			draft[id]:set(math.clamp(math.floor(value), 0, consumer.capacity))
-		end)
-		publishState()
-		return { ok = true, id = id, value = draft[id]:peek() }
-	end
-
-	function api.adjust(id: string, delta: number): any
-		local consumer = rules.consumer(id)
-		if consumer == nil then
-			return { ok = false, message = rules.refusal("unknown", { id = id }) }
-		end
-		return api.setValue(id, draft[id]:peek() + delta)
-	end
-
-	function api.apply(): any
-		return sendIntent("set", draftAllocation())
-	end
-
-	--[[ RESET IS A SERVER INTENT, not a local undo. "Reset puts the outpost back
-		to its starting allocation" is a change to shared world state, so it takes
-		the same road, the same validation and the same refusals as any other. ]]
-	function api.reset(): any
-		seedDraft(rules.START)
-		return sendIntent("set", rules.copy(rules.START))
-	end
-
-	--[[ EXIT. The terminal's own control, and also where EVERY other exit path
-		lands: cancel, out of range, out of line of sight, character removal, a
-		streamed-out adornee, a scenario switch and teardown all call this with
-		their own reason before the host resigns the surface. ]]
-	function api.exit(reason: string?): any
-		local was = phase:peek()
-		--[[ IDEMPOTENT, AND THE REASON IS A REAL LOOP. The Exit control calls this,
-			this calls the host's `onExit`, and the host's release calls this again —
-			because every OTHER exit originates on the host side and has to reach the
-			screen. Returning early on an already-exited terminal is what makes the two
-			directions one door instead of a cycle. ]]
-		if was == "exited" then
-			return { exited = true, from = was, reason = exitReason:peek(), already = true }
-		end
-		ctx.app.runtime:batch(function()
-			phase:set("exited")
-			exitReason:set(reason or "exit-control")
-		end)
-		--[[ IN-FLIGHT INPUT IS CANCELLED, not left hanging: `mutation.reset` is
-			the documented escape from a request the server never answered, and
-			without it the next engage would meet a terminal that refuses to send. ]]
-		mutation.reset()
-		publishState()
-		if o.onExit ~= nil then
-			o.onExit()
-		end
-		return { exited = true, from = was, reason = exitReason:peek() }
-	end
-
-	-- ── what the host feeds back in ────────────────────────────────────────
-
-	function api.confirm(requestId: number, result: any): any
-		local before = rules.copy(outpost.binding:peek())
-		if result ~= nil and result.allocation ~= nil then
-			outpost.ingest(result.revision or outpost.revision() + 1, rules.copy(result.allocation))
-		end
-		mutation.confirm(requestId, result)
-		local after = rules.copy(outpost.binding:peek())
-		applied += 1
-		outcome:set({ ok = true, code = "applied", message = rules.outcomeLine(before, after) })
-		publishState()
-		return api.snapshot()
-	end
-
-	function api.reject(requestId: number, reason: any): any
-		mutation.reject(requestId, reason)
-		local code = if type(reason) == "table" then reason.code else nil
-		local message = if type(reason) == "table" and reason.message ~= nil
-			then reason.message
-			else rules.refusal("session")
-		outcome:set({ ok = false, code = code, message = message })
-		publishState()
-		return api.snapshot()
-	end
-
-	-- an allocation change nobody on this client asked for (another player)
-	function api.ingest(revision: number, allocation: rules.Allocation): any
-		local verdict = outpost.ingest(revision, rules.copy(allocation))
-		publishState()
-		return { verdict = verdict, revision = outpost.revision() }
-	end
-
-	function api.snapshot(): any
-		local out = outcome:peek()
+	function steps.snapshot()
 		return {
 			phase = phase:peek(),
-			status = mutation.status:peek(),
-			draft = draftAllocation(),
-			outpost = rules.copy(outpost.binding:peek()),
-			revision = outpost.revision(),
-			verdict = draftVerdict:peek(),
+			status = status:peek(),
+			draft = allocation(),
+			outpost = rules.copy(confirmed:peek()),
+			revision = revision:peek(),
+			verdict = verdict:peek(),
 			canApply = canApply:peek(),
-			complete = rules.allRunning(outpost.binding:peek()),
-			message = messageLine:peek(),
-			messageTint = messageTint:peek(),
-			budget = budgetLine:peek(),
-			outcome = out,
+			complete = rules.allRunning(confirmed:peek()),
+			message = message:peek(),
+			outcome = outcome:peek(),
 			exitReason = exitReason:peek(),
 			counters = { sent = sent, refusedLocally = refusedLocally, applied = applied },
 		}
 	end
-
-	-- ===== the screen =======================================================
-
-	local function ConsumerRow(consumer: rules.Consumer)
-		local units, live = draft[consumer.id], outpost.binding
-		local function state(use)
-			local current = use(units)
-			local now = if current >= consumer.needs then consumer.running else consumer.idle
-			local wasRunning = rules.isRunning(use(live), consumer.id)
-			return if wasRunning ~= (current >= consumer.needs) then `{now} (on Apply)` else now
+	local function publish()
+		if o.onState then
+			o.onState(steps.snapshot())
 		end
-		return UI.HStack(consumer.id)({
-			surface = "control",
-			padding = "s",
-			gap = "s",
-			align = "center",
-			width = UI.fill(),
-			UI.VStack("Copy")({
-				gap = "tight",
-				width = UI.fill(),
-				UI.Text("Label")({ text = `{consumer.label} — needs {consumer.needs}`, textSize = "body" }),
-				UI.Text("State")({
-					text = state,
-					textSize = "caption",
-					tint = function(use)
-						return {
-							role = if use(units) >= consumer.needs then "accent" else "contentSecondary",
-							blend = 1,
-						}
+	end
+	function steps.ingest(nextRevision, values)
+		if nextRevision <= revision:peek() then
+			return false
+		end
+		assert(rules.validate(values).ok, "Invalid authoritative allocation")
+		ctx.runtime:batch(function()
+			revision:set(nextRevision)
+			confirmed:set(rules.copy(values))
+		end)
+		publish()
+		return true
+	end
+	function steps.engage(values, nextRevision)
+		if values then
+			if nextRevision == nil or nextRevision >= revision:peek() then
+				confirmed:set(rules.copy(values))
+				if nextRevision then
+					revision:set(nextRevision)
+				end
+			end
+		end
+		pendingId = nil
+		ctx.runtime:batch(function()
+			phase:set("engaged")
+			status:set("idle")
+			outcome:set(nil)
+			exitReason:set(nil)
+			seed(confirmed:peek())
+		end)
+		publish()
+		return steps.snapshot()
+	end
+	function steps.setValue(id, value)
+		local consumer = rules.consumer(id)
+		if not consumer then
+			return { ok = false, message = rules.refusal("unknown", { id = id }) }
+		end
+		if status:peek() == "pending" then
+			return { ok = false, reason = "pending" }
+		end
+		ctx.runtime:batch(function()
+			outcome:set(nil)
+			draft[id]:set(math.clamp(math.floor(value), 0, consumer.capacity))
+		end)
+		publish()
+		return { ok = true, value = draft[id]:peek() }
+	end
+	function steps.adjust(id, delta)
+		return steps.setValue(id, (if draft[id] then draft[id]:peek() else 0) + delta)
+	end
+	function steps.apply()
+		if phase:peek() ~= "engaged" then
+			return { sent = false, reason = phase:peek() }
+		end
+		if pendingId then
+			return { sent = false, reason = "pending" }
+		end
+		local values = allocation()
+		local valid = rules.validate(values)
+		if not valid.ok then
+			refusedLocally += 1
+			outcome:set(valid)
+			publish()
+			return { sent = false, reason = valid.code }
+		end
+		if not o.send then
+			ctx.runtime:batch(function()
+				status:set("rejected")
+				outcome:set({ ok = false, code = "session", message = rules.refusal("session") })
+			end)
+			publish()
+			return { sent = false, reason = "no-transport" }
+		end
+		sequence += 1
+		pendingId = sequence
+		sent += 1
+		ctx.runtime:batch(function()
+			status:set("pending")
+			outcome:set(nil)
+		end)
+		local requestId = pendingId
+		local delivered, failure = pcall(o.send, {
+			requestId = requestId,
+			expectedRevision = revision:peek(),
+			payload = { kind = "set", allocation = values },
+		})
+		if not delivered then
+			pendingId = nil
+			status:set("rejected")
+			outcome:set({
+				ok = false,
+				code = "transport",
+				message = "The command could not be sent. Try again.",
+				detail = tostring(failure),
+			})
+			publish()
+			return { sent = false, reason = "transport", requestId = requestId }
+		end
+		publish()
+		return { sent = true, requestId = requestId, allocation = values }
+	end
+	function steps.reset()
+		if pendingId then
+			return { sent = false, reason = "pending" }
+		end
+		seed(rules.START)
+		return steps.apply()
+	end
+	function steps.confirm(requestId, result)
+		if requestId ~= pendingId or pendingId == nil then
+			return false
+		end
+		local before = confirmed:peek()
+		pendingId = nil
+		if result and result.allocation then
+			steps.ingest(result.revision or revision:peek() + 1, result.allocation)
+		end
+		applied += 1
+		ctx.runtime:batch(function()
+			status:set("confirmed")
+			outcome:set({ ok = true, code = "applied", message = rules.outcomeLine(before, confirmed:peek()) })
+		end)
+		publish()
+		return true
+	end
+	function steps.reject(requestId, result)
+		if requestId ~= pendingId or pendingId == nil then
+			return false
+		end
+		pendingId = nil
+		ctx.runtime:batch(function()
+			status:set("rejected")
+			outcome:set({
+				ok = false,
+				code = result and result.code,
+				message = result and result.message or rules.refusal("session"),
+			})
+		end)
+		publish()
+		return true
+	end
+	function steps.exit(reason)
+		if phase:peek() == "exited" then
+			return false
+		end
+		pendingId = nil
+		ctx.runtime:batch(function()
+			phase:set("exited")
+			status:set("idle")
+			exitReason:set(reason or "exit-control")
+		end)
+		publish()
+		if o.onExit then
+			o.onExit()
+		end
+		return true
+	end
+	local function label(name, text, height, size)
+		return UI.Label({
+			Name = name,
+			text = text,
+			TextSize = size or 16,
+			TextWrapped = true,
+			Size = UDim2.new(1, 0, 0, height),
+			AutomaticSize = Enum.AutomaticSize.Y,
+		})
+	end
+	local function screen()
+		local rows = {}
+		for index, consumer in rules.CONSUMERS do
+			table.insert(
+				rows,
+				Host.Frame({
+					Name = consumer.id,
+					LayoutOrder = index,
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 64),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.Frame "Copy" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, -184, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3) }),
+						label("Title", `{consumer.label} — needs {consumer.needs}`, 24),
+						label("State", function(use)
+							local live = rules.isRunning(use(confirmed), consumer.id)
+							local nextRunning = use(draft[consumer.id]) >= consumer.needs
+							return (if nextRunning then consumer.running else consumer.idle)
+								.. (if live ~= nextRunning then " (on Apply)" else "")
+						end, 36, 13),
+					},
+					UI.Stepper({
+						Name = consumer.id .. "Step",
+						Position = UDim2.new(1, -172, 0, 8),
+						Size = UDim2.fromOffset(172, 44),
+						value = draft[consumer.id],
+						min = 0,
+						max = consumer.capacity,
+						enabled = function(use)
+							return use(phase) == "engaged" and use(status) ~= "pending"
+						end,
+						onChange = function(value)
+							steps.setValue(consumer.id, value)
+						end,
+					}),
+				})
+			)
+		end
+		local root = Host.ScrollingFrame "OutpostTerminal" {
+			Size = UDim2.fromScale(1, 1),
+			CanvasSize = UDim2.new(),
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ScrollBarThickness = 6,
+			Host.UIPadding({
+				PaddingLeft = UDim.new(0, 16),
+				PaddingRight = UDim.new(0, 16),
+				PaddingTop = UDim.new(0, 16),
+				PaddingBottom = UDim.new(0, 16),
+			}),
+			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+			label("Title", terminal.TITLE, 30, 22),
+			label("Budget", function(use)
+				local spent = rules.spent(allocation(use))
+				return `{spent} of {rules.TOTAL} units allocated — {rules.TOTAL - spent} spare`
+			end, 24),
+			label("Confirmed", function(use)
+				return `Outpost: {rules.runningCount(use(confirmed))} of {#rules.CONSUMERS} consumers running.`
+			end, 24, 13),
+			Host.Frame({
+				LayoutOrder = 4,
+				Name = "Consumers",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 200),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIListLayout({ Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
+				table.unpack(rows),
+			}),
+			label("Message", message, 44),
+			Host.Frame({
+				LayoutOrder = 6,
+				Name = "Actions",
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 44),
+				Host.UIListLayout({
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					FillDirection = Enum.FillDirection.Horizontal,
+					Padding = UDim.new(0, 8),
+				}),
+				UI.Button({
+					LayoutOrder = 1,
+					Name = "Apply",
+					label = "Apply",
+					enabled = canApply,
+					Size = UDim2.new(1 / 3, -6, 1, 0),
+					onActivate = steps.apply,
+				}),
+				UI.Button({
+					LayoutOrder = 2,
+					Name = "Reset",
+					label = "Reset",
+					enabled = function(use)
+						return use(phase) == "engaged" and use(status) ~= "pending"
+					end,
+					Size = UDim2.new(1 / 3, -6, 1, 0),
+					onActivate = steps.reset,
+				}),
+				UI.Button({
+					LayoutOrder = 3,
+					Name = "Exit",
+					label = "Exit",
+					role = "cancel",
+					Size = UDim2.new(1 / 3, -6, 1, 0),
+					onActivate = function()
+						steps.exit("exit-control")
 					end,
 				}),
 			}),
-			UI.Stepper(`{consumer.id}Step`)({
-				value = units,
-				min = 0,
-				max = consumer.capacity,
-				onChange = function(value)
-					api.setValue(consumer.id, value)
-				end,
-				format = function(value)
-					return `{value}`
-				end,
-			}),
-		})
+		}
+		root:AddTag("facet-surface")
+		return root
 	end
-
-	local function action(id: string, label: string, role: string?, enabled: any?, onActivate: () -> ()): any
-		return UI.Button(id)({
-			label = label,
-			role = role,
-			enabled = enabled,
-			height = { type = "minMax", min = "targetSizes.minimum" },
-			width = UI.fill(),
-			onActivate = onActivate,
-		})
-	end
-
-	local function screen()
-		local consumers: { any } = { gap = "s", width = UI.fill() }
-		for _, consumer in rules.CONSUMERS do
-			table.insert(consumers, ConsumerRow(consumer))
-		end
-		return UI.Screen("OutpostTerminal")({
-			padding = "m",
-			gap = "s",
-
-			UI.VStack("Head")({
-				gap = "tight",
-				width = UI.fill(),
-
-				UI.Text("Title")({ text = terminal.TITLE, textSize = "heading" }),
-				UI.Text("Budget")({ text = budgetLine, textSize = "body", role = "secondary" }),
-				UI.Text("Outpost")({ text = outpostLine, textSize = "caption", role = "secondary" }),
-			}),
-			UI.VStack("Consumers")(consumers),
-			UI.Text("Message")({
-				text = messageLine,
-				textSize = "body",
-				tint = messageTint,
-				width = UI.fill(),
-			}),
-			UI.HStack("Actions")({
-				gap = "s",
-				width = UI.fill(),
-
-				action("Apply", "Apply", nil, canApply, function()
-					api.apply()
-				end),
-				action("Reset", "Reset", nil, nil, function()
-					api.reset()
-				end),
-				action("Exit", "Exit", "cancel", nil, function()
-					api.exit("exit-control")
-				end),
-			}),
-		})
-	end
-
-	--[[ THE PRESENT OPTIONS THIS SCREEN NEEDS, declared BY the screen rather than
-		re-derived by each host — the walk-up contract in one place.
-
-		`responder = "passive"` is the whole engagement story: the surface mounts
-		inert (priority 3000, created disabled, sinking nothing) and only
-		`handle.engage()` turns it into the one surface that receives Navigate,
-		Activate and Cancel. That is what "triggering the prompt engages exactly ONE
-		Facet responder and focus scope" means mechanically, and it is also what
-		puts the terminal above the host screen's base band while it is live and
-		back below it the instant it resigns.
-
-		CANCEL IS DELIBERATELY LEFT AT ITS DEFAULT, which on a passive surface is
-		not "dismiss" at all: the presenter RESIGNS an engaged-from-passive surface
-		back to passive and disables its context. That is precisely the
-		Cancel exit this terminal wants — the mounted surface survives, so the
-		player can walk up and press the prompt again — and it means the platform
-		back action, the gamepad B button and the terminal's own Exit control all
-		land in the same place instead of in three. A host learns it happened by
-		observing `handle.responder`. ]]
-	local present = {
-		responder = "passive",
-		keyboardNavigation = true,
-		initialFocus = "first",
-	}
-
-	publishState()
-
+	publish()
 	return {
 		screen = screen,
-		present = present,
-		canvas = terminal.CANVAS,
-		rules = rules,
-		steps = api,
-		outpost = outpost,
-		mutation = mutation,
-		draft = draft,
-		phase = phase,
-		report = api.snapshot,
-		dispose = function() end,
+		steps = steps,
+		report = steps.snapshot,
+		model = { confirmed = confirmed, revision = revision, draft = draft, phase = phase, status = status },
 	}
 end
-
 return terminal

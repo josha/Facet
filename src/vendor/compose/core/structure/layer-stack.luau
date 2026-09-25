@@ -31,7 +31,7 @@ local KNOWN_FIELDS: { [string]: true } = {
 	retention = true,
 }
 
-local function identity<V>(value: V, _index: number): any
+local function identity<V>(value: V, _index: number): V
 	return value
 end
 

@@ -1,0 +1,130 @@
+{
+  "entries": [
+    {
+      "path": "src/ui/inputs.luau",
+      "rule": "radius",
+      "match": "ctx.corner(2),",
+      "status": "structural",
+      "reason": "The activity dots are fixed 4x4 px circles; radius 2 is half the dot, a shape rather than a theme corner size."
+    },
+    {
+      "path": "src/ui/inputs.luau",
+      "rule": "radius",
+      "match": "ctx.corner(if presentation == \"switch\" then 9 else 2)",
+      "status": "no-metric",
+      "reason": "The switch thumb radius 9 is half its fixed 18 px size; the 12 px checkbox mark radius 2 has no theme metric because radii covers control and panel surfaces only."
+    },
+    {
+      "path": "src/ui/inputs.luau",
+      "rule": "radius",
+      "match": "ctx.corner(if presentation == \"switch\" then 12 else 4)",
+      "status": "no-metric",
+      "reason": "The switch track radius 12 is half its fixed 24 px height, a capsule; the 24 px checkbox box radius 4 has no theme metric because radii covers control and panel surfaces only."
+    },
+    {
+      "path": "src/ui/inputs.luau",
+      "rule": "radius",
+      "match": "table.insert(native, ctx.corner(2))",
+      "status": "no-metric",
+      "reason": "LevelPicker bar segments round their 20 to 36 px bars by 2 px; the theme has no segment radius and radii.control would turn thin bars into pills."
+    },
+    {
+      "path": "src/ui/media.luau",
+      "rule": "stroke",
+      "match": "return math.max(2, math.floor(size(use) / 6 + 0.5))",
+      "status": "structural",
+      "reason": "The StatusIndicator ring thickness is a sixth of the indicator diameter with a 2 px floor, so it scales with the ring."
+    },
+    {
+      "path": "src/ui/media.luau",
+      "rule": "stroke",
+      "match": "Thickness = 1,",
+      "status": "no-metric",
+      "reason": "The StatusIndicator cutout is a 1 px gap painted in the surface color by .facet-cutout; it separates the dot from content and is not the hairline role."
+    },
+    {
+      "path": "src/ui/media.luau",
+      "rule": "paint-opacity",
+      "match": "BackgroundTransparency = 0.6,",
+      "status": "no-metric",
+      "reason": "The progress trail is a translucent echo of the .facet-fill accent; the palette has no trail opacity, and 0.6 is relative to the themed fill color."
+    },
+    {
+      "path": "src/ui/media.luau",
+      "rule": "type-size",
+      "match": "return math.max(8, math.floor(diameter(use) * 0.4 + 0.5))",
+      "status": "structural",
+      "reason": "Avatar initials are sized to 40 percent of the avatar diameter with an 8 px floor, so they fit the circle at every size."
+    },
+    {
+      "path": "src/ui/nav_modal.luau",
+      "rule": "paint-color",
+      "match": "ctx.types.Color3.new(0, 0, 0)",
+      "status": "authored",
+      "reason": "Only an authored backgroundTransparency reaches this black plate; the catcher stays untagged so .facet-scrim cannot override the caller's value (commit 91702428), and unauthored scrims use the theme rule."
+    },
+    {
+      "path": "src/ui/slider.luau",
+      "rule": "radius",
+      "match": "ctx.corner(3),",
+      "status": "structural",
+      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau."
+    },
+    {
+      "path": "src/ui/nav_menu.luau",
+      "rule": "radius",
+      "match": "ctx.corner(9) :: Types.Child,",
+      "status": "structural",
+      "reason": "The radio indicator is a fixed 18 px circle; radius 9 is half its size."
+    },
+    {
+      "path": "src/ui/nav_menu.luau",
+      "rule": "radius",
+      "match": "ctx.corner(4) :: Types.Child,",
+      "status": "structural",
+      "reason": "The radio dot is a fixed 8 px circle; radius 4 is half its size."
+    },
+    {
+      "path": "src/ui/nav_pages.luau",
+      "rule": "paint-color",
+      "match": "ctx.types.Color3.new(0, 0, 0)",
+      "status": "authored",
+      "reason": "The push and pop shade dims the page beneath; black is the neutral dimming colour, the same rule as the modal scrim in nav_modal.luau, and a theme backdrop replaces it when one is set."
+    },
+    {
+      "path": "src/ui/color_value.luau",
+      "rule": "paint-color",
+      "match": "engine.Color3.from",
+      "status": "structural",
+      "reason": "Colour value conversion: this builds the colour the player chose, not a paint colour of the control."
+    },
+    {
+      "path": "src/ui/color_picker.luau",
+      "rule": "radius",
+      "match": "ctx.corner(6) :: Shared.Child,",
+      "status": "no-metric",
+      "reason": "The colour swatch well is a fixed-size sample; radii covers control and panel surfaces only."
+    },
+    {
+      "path": "src/ui/color_picker.luau",
+      "rule": "stroke",
+      "match": "Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),",
+      "status": "no-metric",
+      "reason": "The swatch well outline separates any sample colour from the page; it has no theme metric."
+    },
+    {
+      "path": "src/ui/color_picker.luau",
+      "rule": "stroke",
+      "match": "Host.UIStroke({ Color = WHITE, Thickness = 2, Transparency = 0 }),",
+      "status": "structural",
+      "reason": "The plane position ring is white so it reads on every sample colour under it; it is part of the chosen colour display, not theme paint."
+    },
+    {
+      "path": "src/ui/date_time_picker.luau",
+      "rule": "stroke",
+      "match": "Host.UIStroke({ Thickness = 1 }) :: Shared.Child,",
+      "status": "no-metric",
+      "reason": "The today ring on a calendar day disc has no theme metric; its colour comes from the theme rule."
+    }
+  ]
+}

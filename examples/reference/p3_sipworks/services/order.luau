@@ -1,19 +1,4 @@
 --!strict
--- OrderService (spec §3, §8): `placeOrder(blendId, mode)` and the scripted
--- ready flip.
---
--- Production is a server command plus a replicated status (responsibility
--- ledger); the pay-shaped path ends at `PromptProductPurchase`, which is a HOST
--- SHEET — so nothing here imitates payment chrome and the audit claims no
--- parity for it (spec §16).
---
--- Three fixtures:
---   * `counterClosed` rejects the FIRST order attempt, so the rejection path is
---     reachable by pressing the on-screen CTA twice and needs no test seam;
---   * the pour is READY 4.0 s after a confirm, on the injected clock;
---   * `payments = { enabled = false, reasonKey = "guard.paymentsDisabled" }` is
---     the guard. While it holds, the CTA stays visible and inspectable and
---     explains itself — a blocked verb that vanished would be a silent state.
 
 local order = {}
 
@@ -22,12 +7,12 @@ order.READY_AFTER = 4.0
 
 function order.new(opts: any)
 	local Compose = opts.Compose
-	-- groups several writes into one update
+
 	local batch = opts.batch
 	local clock = opts.clock
 
-	local status = Compose.cell("idle") -- idle | pending | confirmed | rejected
-	local mode = Compose.cell("paid") -- paid | redeem
+	local status = Compose.cell("idle")
+	local mode = Compose.cell("paid")
 	local blendId = Compose.cell(nil :: string?)
 	local isReady = Compose.cell(false)
 	local reason = Compose.cell(nil :: string?)
@@ -72,8 +57,6 @@ function order.new(opts: any)
 		end
 	end
 
-	-- the guard, as a VALUE rather than a branch: a caller asks, and the answer
-	-- carries the reason key the alert body is written from
 	function self.guard(): { allowed: boolean, reasonKey: string? }
 		if paymentsEnabled:peek() then
 			return { allowed = true }
@@ -125,8 +108,6 @@ function order.new(opts: any)
 		return { started = true }
 	end
 
-	-- the CTA returns to idle: after a rejection has been read, and when the
-	-- Order-Placed surface is dismissed
 	function self.acknowledge()
 		if status:peek() == "rejected" then
 			batch(function()
@@ -156,15 +137,7 @@ function order.new(opts: any)
 	function self.reset()
 		attempts = 0
 		paymentsEnabled:set(opts.paymentsEnabled ~= false)
-		--[[ `mode` TOO, and it was the one observable a reset used to leave behind.
-			`clear()` is the END-OF-ORDER verb — it retires the status, the ready flag
-			and the blend but deliberately keeps the mode the order was placed in, so
-			the Order-Placed card can still say which kind of pour it was while it
-			fades. A RESET is a different act: it returns the world to the seed, and a
-			world seeded with `orderMode=redeem` is a world that redeemed something.
-			Found by driving the whole task loop to its free pour and then pressing
-			"Serve another customer" — the reset pin's old drive never placed a redeem
-			order, so the dump differed by exactly this field and nothing said so. ]]
+
 		mode:set("paid")
 		self.clear()
 	end

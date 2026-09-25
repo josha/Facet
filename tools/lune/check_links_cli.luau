@@ -1,12 +1,4 @@
 --!strict
--- Link checker for Facet's public documents. Run from the library root:
---
---   lune run tools/lune/check_links_cli              check every public document
---   lune run tools/lune/check_links_cli -- --selftest prove the check can fail
---
--- Read-only. Exit 0 = every relative link and heading anchor resolves, and none
--- of them points into material that stays in the private archive. On failure
--- each line names the document, the line number, the link, and what is wrong.
 
 local process = require("@lune/process")
 local checker = require("./check_links")

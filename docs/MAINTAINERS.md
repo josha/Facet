@@ -1,192 +1,132 @@
-# Facet maintainer map
+# Maintaining Facet
 
-This page answers one question: **where does a change go, and what proves it?**
+This page tells you where a change goes and what proves it. The
+[API reference](reference/api.md) holds each public name, property and default.
+The [architecture](guide/02-architecture.md) tells you why each boundary
+exists. This page does not repeat them.
 
-It is a map, not a catalog. Every public name, property and default lives in
-[`reference/api.md`](reference/api.md), and the guide index carries the
-[capability catalog](guide/README.md). Nothing here repeats them. What is here is
-the ownership layer that a reference cannot express: which area owns a job, which
-seam other code is allowed to reach, which direction a dependency may point, which
-specs cover it, which Studio fixture shows it running, which gate row pins it, and
-which playbook to follow when you extend it.
+A check compares each table on this page with the tree. See
+[How this page stays true](#how-this-page-stays-true).
 
-Read [`guide/02-architecture.md`](guide/02-architecture.md) first if you have never
-seen the codebase. It explains *why* the boundaries below exist. This page assumes
-you already believe in them and just need to know where to type.
+## Structure
 
-Every fact in the two tables is checked against the place it came from. See
-[section 4](#4-how-this-file-stays-true) for the rules and the command.
+The public root exports Compose, its Roblox host, the control factory, the
+themes and the control types. `src/ui` implements the controls directly over
+the supplied runtime. A tool generates `src/vendor/compose`. Do not edit it.
 
-Maintained examples and guide recipes use the
-[current component vocabulary](guide/15-components.md): `Facet.new`,
-`app.controls`, plain-function components and `Compose.cell`. A feature is not
-complete when only its constructor returns a node. Its reactive properties, its
-`ref` record, the services it inherits from the application and its cleanup on
-owner disposal must all work. Test the mounted path and update its showcase page
-in the same change. Keep application models and diagnostic control handles
-explicit only where their longer lifetime or imperative operations are needed;
-see the [example index](../examples/README.md).
+Facet has none of these:
 
-## 1. The areas
+- a client adapter layer,
+- a Facet scene,
+- a renderer,
+- an application,
+- a general layout solver,
+- a focus graph.
 
-The areas below cover every top-level entry under `src/`. The **owns** column is
-the key: each `src/` entry belongs to exactly one area, and the drift check reads the
-tree to prove it.
+## Areas
+
+Each module under `src/` belongs to one area. The **Owns** column names the
+modules. A directory with a trailing slash owns each module in it.
 
 <!-- maintainer-map:areas -->
 
-| Area | Owns | Responsibility | Public seam | Internal owner modules |
-|---|---|---|---|---|
-| **core** | `src/core/`, `src/vendor/` | The per-application services over Compose: the error boundary, the layout settle pass and the scene runtime. No reactive runtime of its own, no engine, no layout. | `Facet.Compose` | `src/core/services.luau`, `src/core/on_change.luau`, `src/core/contract.luau`, `src/core/profile.luau`, `src/render/settle_pass.luau` |
-| **blueprint** | `src/control_types.luau`, `src/spec_types/`, `src/blueprint_children.luau`, `src/button_properties.luau`, `src/primitive_properties.luau`, `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/class_contract.luau`, `src/spec_guard.luau` | The primitive-constructor layer: `UI.VStack`, `UI.Text` and the rest of the frozen blueprint vocabulary a Compose cell returns. | None: reached through `app.controls` (`Facet.new`) | `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/class_contract.luau`, `src/spec_guard.luau` |
-| **layout** | `src/layout/`, `src/region_expand.luau`, `src/measure.luau` | Pure two-pass geometry. A tree snapshot and a viewport go in, a rectangle per node comes out. It reads no reactive value and no instance. | `Facet.adaptive`, `Facet.composition`, `Facet.text` — plus the sibling instance `ReplicatedStorage.Facet.measure` (not a `Facet` table member: framework-gaps-phase2 gap 11's headless entry point, a standalone republish of `text_metrics.luau` reached WITHOUT running `src/init.luau`'s 65 `@self` requires; see [api.md](reference/api.md#measure--the-headless-entry-point-framework-gaps-phase2-gap-11)) | `src/layout/solver.luau`, `src/layout/text_metrics.luau`, `src/layout/text_fit.luau`, `src/layout/composition.luau` |
-| **render** | `src/render/` | Walks the Compose node graph, runs the solver, settles layout, coordinates region transitions, drives a render-target adapter, and enforces one property authority per engine property. | `Facet.renderer` | `src/render/renderer.luau`, `src/render/authority.luau`, `src/render/target_contract.luau`, `src/render/layout_node.luau` |
-| **controls** | `src/controls/`, `src/row_capability.luau`, `src/virtual_extents.luau`, `src/selection_model.luau` | Composite controls assembled out of the primitive blueprints and Compose cells. Nothing here reaches past the public constructors. | None: reached through `app.controls` (`Facet.new`) | `src/controls/table.luau`, `src/controls/virtual_list.luau`, `src/controls/row_actions.luau`, `src/controls/menu.luau` |
-| **present** | `src/present/` | Whole screens and modals: turns a mounted component into a live node graph, and owns their lifetimes, focus scopes, input contexts, and the frame the renderer is driven from. | None: reached through `Facet.new` (`app.mount`, `app.presentModal`, `app.presentAnchored`) | `src/present/presenter.luau`, `src/present/focus_map.luau`, `src/present/toast_schedule.luau`, `src/present/with_animation.luau` |
-| **input** | `src/input/` | The engine-free action, binding and context model, plus gestures, drag sessions and edge autoscroll. | `Facet.newActionSystem`, `Facet.newDragSession`, `Facet.touchGestures`, `Facet.spatial` | `src/input/actions.luau`, `src/input/drag_session.luau`, `src/input/touch_gestures.luau`, `src/input/contribution.luau` |
-| **focus** | `src/focus/` | Logical focus identity and navigation: flat rings, navigation groups, and document-order traversal. | `Facet.newFocusGraph` | `src/focus/focus_graph.luau` |
-| **motion** | `src/motion/` | The motion authority: injectable clocks, springs, curves, timelines, and the reduced-motion rules. | `Facet.motion` | `src/motion/clock.luau`, `src/motion/spring.luau`, `src/motion/curves.luau`, `src/motion/timeline.luau` |
-| **tokens** | `src/tokens/` | Design-token compilation, the built-in look, the native style-sheet rule model, and the decoration-slot vocabulary. | `Facet.tokens` | `src/tokens/tokens.luau`, `src/tokens/styling.luau`, `src/tokens/sheet_model.luau`, `src/tokens/chrome_slots.luau` |
-| **themes** | `src/themes/` | Theme packages: the pure compiler for the versioned schema, and the frozen snapshot that is the one metric authority. | `Facet.themes` | `src/themes/package.luau`, `src/themes/snapshot.luau`, `src/themes/token_sync.luau`, `src/themes/standard_icons.luau` |
-| **env** | `src/env/` | Per-device facts as observable values, plus the derived policy: interaction classes, distance profile, safe insets. | `Facet.newEnvironment` | `src/env/environment.luau`, `src/env/safe_insets.luau`, `src/env/surface_env.luau` |
-| **async** | `src/async/` | Bounded, cancellable loading with a cache and stale-response rejection. | `Facet.newResourceProvider` | `src/async/resources.luau` |
-| **replication** | `src/replication/` | Receiving server-owned state as snapshots and collections, and sending validated mutations back. | `Facet.replication` | `src/replication/adapters.luau` |
-| **client** | `src/client/` | The only code that touches Roblox instances, real input and real device facts. Client-only, and the one place a consumer may require past the root. It also holds the client application: `Facet.new` returns `src/client/application.luau`'s surface. | The blessed client modules, listed in [api.md](reference/api.md#client-entry-points) | `src/client/application.luau`, `src/client/host.luau`, `src/client/screen_target.luau`, `src/client/roblox_env.luau`, `src/client/roblox_input.luau`, `src/client/theme_controller.luau` |
-| **preview** | `src/preview/` | Device-profile presets and matrix rows, so the real solver renders what a named device class would see. | None: reached through `src/client/edit_preview.luau` | `src/preview/device_profiles.luau`, `src/preview/matrix_rows.luau` |
-| **shared helpers** | `src/num.luau`, `src/paths.luau`, `src/rect.luau`, `src/text_distance.luau`, `src/arithmetic.luau` | One home each for a predicate that every other area had copied: finiteness, node-path prefixes, rectangle algebra, near-miss suggestions, and the numeric field's strict number grammar and bounded arithmetic parser. | `Facet.recipes.arithmetic` | `src/num.luau`, `src/paths.luau`, `src/rect.luau`, `src/text_distance.luau`, `src/arithmetic.luau` |
-| **library root** | `src/init.luau` | The one public table. It assembles every export, freezes the control namespace, and publishes the deprecation ledger. | `Facet` itself | `src/init.luau` |
+| Area | Owns | Responsibility | Public seam |
+|---|---|---|---|
+| **library root** | `src/init.luau`, `src/ui/init.luau`, `src/ui/app.luau`, `src/ui/adaptive.luau`, `src/ui/environment.luau`, `src/ui/environment_types.luau`, `src/ui/layout.luau`, `src/ui/layout_kit.luau`, `src/ui/layout_types.luau`, `src/ui/measured_scroll.luau`, `src/ui/scroll_lock.luau`, `src/ui/scrolling.luau` | Exports the public table and the public types. Assembles the control families into one frozen controls table for each runtime. Holds the layout primitives, scrolling, the adaptive facts and the app mount. | `Facet.VERSION`, `Facet.controls`, `Facet.bind` |
+| **Compose snapshot** | `src/vendor/compose/` | The pinned Compose reactive runtime and its Roblox host. Generated. Do not edit it. | `Facet.Compose`, `Facet.Roblox` |
+| **control context** | `src/ui/context.luau`, `src/ui/types.luau`, `src/ui/engine_types.luau`, `src/ui/control_types.luau`, `src/ui/help.luau`, `src/ui/native_decoration.luau`, `src/ui/arithmetic.luau`, `src/ui/motion.luau`, `src/ui/selection.luau`, `src/ui/text_press.luau`, `src/ui/segment_metrics.luau` | The shared context for each runtime and the shared types. It also holds the help text and native decoration helpers. | None. The families receive it from the library root. |
+| **inputs** | `src/ui/inputs.luau`, `src/ui/input_value.luau`, `src/ui/input_types.luau`, `src/ui/slider.luau`, `src/ui/text_field.luau`, `src/ui/field_chrome.luau`, `src/ui/color_picker.luau`, `src/ui/color_picker_types.luau`, `src/ui/color_value.luau`, `src/ui/date_time_picker.luau`, `src/ui/date_time_picker_types.luau`, `src/ui/civil_date.luau`, `src/ui/civil_date_types.luau` | Buttons, toggles, text input, steppers, sliders, ratings, level pickers, chips and shortcut hints. | None. Reach it through `Facet.controls`. |
+| **navigation** | `src/ui/nav_modal.luau`, `src/ui/nav_menu.luau`, `src/ui/nav_surfaces.luau`, `src/ui/nav_pages.luau`, `src/ui/nav_path_shapes.luau`, `src/ui/navigation_types.luau` | Menus, pickers, presented surfaces, tab views, navigation stacks and page views. | None. Reach it through `Facet.controls`. |
+| **overlays** | `src/ui/nav_dialog.luau`, `src/ui/nav_popover.luau`, `src/ui/nav_sheet.luau`, `src/ui/nav_snackbar.luau`, `src/ui/nav_notice.luau`, `src/ui/overlay_parts.luau`, `src/ui/overlay_placement.luau`, `src/ui/overlay_types.luau`, `src/ui/sheet_release.luau`, `src/ui/reservations.luau`, `src/ui/activation.luau` | Dialogs, popovers, sheets, snackbars, notices, the navigation bar, the shared placement and the layer insets. | None. Reach it through `Facet.controls`. |
+| **radial** | `src/ui/nav_radial.luau`, `src/ui/nav_radial_geometry.luau`, `src/ui/radial_types.luau` | The radial menu and its geometry. | None. Reach it through `Facet.controls`. |
+| **collections** | `src/ui/collections.luau`, `src/ui/collection_policy.luau`, `src/ui/collection_selection.luau`, `src/ui/collection_reorder.luau`, `src/ui/collection_snap.luau`, `src/ui/collection_row_actions.luau`, `src/ui/collection_table.luau`, `src/ui/collection_types.luau` | Keyed and virtual collections, selection, reorder, snap, row actions and tables. | None. Reach it through `Facet.controls`. |
+| **media** | `src/ui/media.luau`, `src/ui/media_types.luau` | Labels, badges, status, progress, skeletons, images, avatars and stages. | None. Reach it through `Facet.controls`. |
+| **content** | `src/ui/pagination.luau`, `src/ui/pagination_window.luau`, `src/ui/step_indicator.luau`, `src/ui/vote.luau`, `src/ui/card.luau`, `src/ui/badge_seal.luau`, `src/ui/content_values.luau`, `src/ui/content_types.luau` | Pagination, step indicators, votes, cards, and the checks that keep the last legal value. | None. Reach it through `Facet.controls`. |
+| **themes** | `src/ui/themes.luau`, `src/ui/theme_types.luau`, `src/ui/icons.luau` | Theme packages, their compilation to native StyleSheets, chrome skins and the standard icons. | `Facet.themes` |
 
-## 2. How each area is held true
+## Proof
 
-The same areas, in the same order. The **may depend on** column names the rule that
-enforces the direction where one exists; those names are the rules
-[`tools/lune/check_boundary.luau`](../tools/lune/check_boundary.luau) reports, and
-the drift check refuses a name that module does not use.
-
-The **tests** column names entry-point specs, never the whole set. Coverage is
-derived, not listed: a spec covers an area when one of its own `require` calls
-names a module of that area. Run
-`lune run tools/lune/check_maintainer_map_cli -- --counts` for the live per-area
-number. A spec that reaches the library only through `require("../src")` counts
-under the library-root row, which is why the reactive-recovery and quarantine
-specs appear there rather than under core.
+The same areas, in the same order. The **Tests** column names entry specs. It
+does not name each spec. A spec covers an area when one of its own `require`
+calls names a module of that area. A spec that requires only `src` or `src/ui`
+covers the library root. To see the number of specs for each area, run
+`lune run tools/lune/check_maintainer_map_cli --counts`.
 
 <!-- maintainer-map:proof -->
 
-| Area | May depend on | Tests | Studio scenario | Gate | Extend via |
-|---|---|---|---|---|---|
-| **core** | Nothing but itself. Engine-free, and the vendored engine modules are refused by `engine-free-zone-requires-engine-vendor`. | `tests/compose_lifetime.spec.luau`, `tests/compose_backend.spec.luau`, `tests/compose_scene.spec.luau`, `tests/measure_publish_settle.spec.luau` | `branch_scope` | `phase-0-foundation/compose-services-settle-and-containment` | Internal. Change it under [the constitution](reference/constitution.md) and record the decision in [the changelog](../CHANGELOG.md) |
-| **blueprint** | core, and the shared helpers. Never render, never client (`non-client-requires-client`). | `tests/api_surface.spec.luau`, `tests/authoring.spec.luau`, `tests/controls_conformance.spec.luau`, `tests/layout_vocabulary.spec.luau` | `authoring` | `authoring-adaptive-ui/strict-authoring`, `authoring-adaptive-ui/one-property-model` | [Adding a blueprint primitive](extending/new-primitive.md) |
-| **layout** | The shared helpers and its own text metrics. It may not require core: a solve runs on a frozen snapshot. | `tests/layout.spec.luau`, `tests/text_fit.spec.luau`, `tests/measure_memo.spec.luau`, `tests/region_expand.spec.luau` | `composition` | `authoring-adaptive-ui/adaptive-layout` | [Adding a blueprint primitive](extending/new-primitive.md) for a new box; otherwise [the constitution](reference/constitution.md) |
-| **render** | core, blueprint, layout, tokens, themes. Never client (`non-client-requires-client`): it talks to the screen only through the target contract. | `tests/renderer.spec.luau`, `tests/render_target_contract.spec.luau`, `tests/presentation_channel.spec.luau`, `tests/styling.spec.luau` | `nested_compositing` | `phase-0-foundation/property-authority-spike`, `native-stylesheets/adapter-native-mode` | [Adding a render target](extending/new-render-target.md), or [adopting an engine feature](extending/new-engine-feature.md) |
-| **controls** | blueprint, core, input, focus, motion, layout, themes. Only the public constructors, never the renderer's internals. | `tests/table.spec.luau`, `tests/virtual_list_axis.spec.luau`, `tests/controls_conformance.spec.luau`, `tests/row_capability_optouts.spec.luau`, `tests/virtual_extents.spec.luau` | `table_virtualized` | `authoring-adaptive-ui/value-controls`, `navigation-and-menus/d5-tabview` | [Adding a composite control](extending/new-control.md), then `lune run tools/lune/scaffold_cli control <name>` |
-| **present** | core, blueprint, render, input, focus, env, motion. Never client. | `tests/toast_schedule.spec.luau`, `tests/feedback.spec.luau`, `tests/control_feedback.spec.luau`, `tests/menu_scenario.spec.luau` | `menu` | `phase-1-minimal-screen/modal-context-priority-sink-disposal`, `navigation-and-menus/d1-anchored-surface`, `sponsor-framework-gaps/toast-presentation` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **input** | core and the shared helpers. It models input; it never reads a real device. | `tests/input.spec.luau`, `tests/drag_session.spec.luau`, `tests/touch_gestures.spec.luau`, `tests/autoscroll.spec.luau` | `drag_session` | `input-adaptation-audit/per-control-per-input-conformance`, `input-adaptation-audit/first-responder-model`, `sponsor-framework-gaps/drag-public-contract` | [Adding a platform capability or interaction mode](extending/new-platform-mode.md) |
-| **focus** | core only. | `tests/focus.spec.luau`, `tests/navigation_groups.spec.luau`, `tests/traversal_order.spec.luau`, `tests/focus_grid_axis.spec.luau` | `keyboard_navigation` | `traversal-document-order/document-order-traversal`, `desktop-keyboard-navigation/traversal-pure` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **motion** | core and the shared helpers. Its clock is injected, so nothing here reads real time. | `tests/motion_spring.spec.luau`, `tests/motion_timeline.spec.luau`, `tests/value_reveal.spec.luau` | `with_animation` | `sponsor-framework-gaps/motion-authority` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **tokens** | The shared helpers, and the theme snapshot for metrics. Never client. | `tests/styling.spec.luau`, `tests/sheet_model.spec.luau`, `tests/theme_chrome.spec.luau`, `tests/chrome_padding_refit.spec.luau` | `native_style` | `native-stylesheets/sheet-model-headless`, `native-stylesheets/seed-once-materializer`, `rich-skinning-v2/layered-slots-and-posture` | [Adopting an engine feature](extending/new-engine-feature.md) for a new paint property |
-| **themes** | tokens, env and the shared helpers. Engine-free on purpose, so it is safe in a shared require graph; the controller that materializes sheets lives in client. | `tests/theme_package.spec.luau`, `tests/theme_snapshot.spec.luau`, `tests/theme_layers.spec.luau`, `tests/theme_icons.spec.luau` | `theme_authoring` | `theme-packages-and-skinning/theme-package-contract`, `rich-skinning-v2/state-variant-assets`, `rich-skinning-v2/semantic-icons` | [Adding or extending a theme](extending/new-theme.md), or [a control that ships its own art](extending/skinned-control.md) |
-| **env** | core and the shared helpers. It publishes facts; `src/client/roblox_env.luau` is what reads them off the engine. | `tests/platform_env_binding.spec.luau`, `tests/adaptive.spec.luau`, `tests/ten_foot_metrics.spec.luau`, `tests/paradigm_tenfoot.spec.luau` | `safe_area` | `input-paradigms/affordance-matrix`, `native-substrate/safe-area-adoption`, `cross-platform-proof/console-tenfoot-profile` | [Adding a platform capability or interaction mode](extending/new-platform-mode.md) |
-| **async** | core only. Nothing here knows what a request is made of. | `tests/async_completeness.spec.luau`, `tests/async_image.spec.luau`, `tests/session_lifetime.spec.luau` | `async_images` | `native-substrate/resource-transport`, `sponsor-framework-gaps/async-avatars` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **replication** | core only, and it is held to the engine-free zone by `engine-free-zone-requires-engine-vendor`. | `tests/replication.spec.luau`, `tests/platform_adapters_recovery.spec.luau` | `examples` | `phase-0-foundation/replication-boundary-spike`, `phase-2-settings-parity/replication-convergence-carryover`, `phase-4-hardening/fuzz-replication` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **client** | Every engine-free area. Nothing outside it may require it (`non-client-requires-client`), and a consumer reaching past the blessed list is caught by `consumer-requires-facet-internal`. | `tests/client_host.spec.luau`, `tests/platform_env_binding.spec.luau`, `tests/theme_controller.spec.luau`, `tests/pointer_seam_ownership.spec.luau`, `tests/haptics.spec.luau` | `scroll_host`, `outpost_terminal` | `phase-0-foundation/client-boundary-static`, `native-substrate/scroll-host-adoption`, `part-2-director/ws3-billboard-target` | [Adding a render target](extending/new-render-target.md), or [adopting an engine feature](extending/new-engine-feature.md) |
-| **preview** | core and env. Engine-free, so the harness and the durable plugin share one source of profiles. | `tests/preview.spec.luau`, `tests/matrix_rows.spec.luau` | `perf_capture` | `part-2-director/ws2-edit-preview-harness`, `cross-platform-proof/matrix-five-views-driven` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **shared helpers** | Nothing. They are pure functions, which is the whole point of extracting them. | `tests/leaf_helpers.spec.luau`, `tests/text_distance.spec.luau` | none — pure arithmetic with no live surface; it is proved headless and read through the areas that call it | `code-simplicity-cleanup/public-surface-unchanged`, `release-candidate-review/reuse-consolidation` | Internal. Change it under [the constitution](reference/constitution.md) |
-| **library root** | Everything. Nothing under `src/` may require it back: that is a cycle, and `src-module-requires-library-root` refuses it. | `tests/smoke.spec.luau`, `tests/controls_namespace.spec.luau`, `tests/reactive_recovery.spec.luau`, `tests/runtime_quarantine.spec.luau`, `tests/spec_guard_sweep.spec.luau` | `examples` | `api-architecture-consistency/surface-ledger-complete`, `release-candidate-review/naming-adr-implemented`, `release-candidate-review/guide-catalog-current` | [The constitution](reference/constitution.md) governs the shape of anything added here |
+| Area | Tests | Studio scenario | Extend via |
+|---|---|---|---|
+| **library root** | `tests/native_public_surface.spec.luau`, `tests/native_compose_contract.spec.luau`, `tests/native_compose_binding.spec.luau`, `tests/native_navigation.spec.luau`, `tests/native_radial_controls.spec.luau` | `all_controls` | [Adding a control](extending/new-control.md) |
+| **Compose snapshot** | `tests/native_registration.spec.luau`, `tests/native_perf_runner.spec.luau` | `component_motion` | [Adopting an engine feature](extending/new-engine-feature.md). Change Compose upstream. Then run `python3 tools/sync_compose.py`. |
+| **control context** | `tests/native_registration.spec.luau`, `tests/native_inputs.spec.luau` | `all_controls` | [Native primitives](extending/new-primitive.md) |
+| **inputs** | `tests/native_inputs.spec.luau`, `tests/native_collections.spec.luau` | `action_controls`, `text_controls` | [Adding a control](extending/new-control.md) |
+| **navigation** | `tests/native_collections.spec.luau` | `menu`, `navigation_stack`, `sheet`, `alert` | [Adapting to another platform context](extending/new-platform-mode.md) |
+| **overlays** | `tests/native_dialog.spec.luau`, `tests/native_popover.spec.luau`, `tests/native_sheet_parts.spec.luau`, `tests/native_snackbar.spec.luau`, `tests/native_notice_navbar.spec.luau`, `tests/native_callout_help.spec.luau`, `tests/overlay_placement.spec.luau`, `tests/sheet_release.spec.luau` | `overlays`, `notice`, `sheet` | [Adding a control](extending/new-control.md) |
+| **radial** | `tests/radial_geometry.spec.luau`, `tests/native_collections.spec.luau` | `radial_menu` | [Adding a control](extending/new-control.md) |
+| **collections** | `tests/native_collections.spec.luau` | `collections`, `table_virtualized`, `row_actions` | [Adding a control](extending/new-control.md) |
+| **media** | `tests/native_themes_media.spec.luau` | `async_images`, `avatar`, `badge` | [Mounting into native targets](extending/new-render-target.md) |
+| **content** | `tests/native_pagination.spec.luau` | `paging`, `steps` | [Adding a control](extending/new-control.md) |
+| **themes** | `tests/native_themes_media.spec.luau`, `tests/native_inputs.spec.luau` | `all_controls` | [Adding a theme package](extending/new-theme.md) and [Adding artwork to a control](extending/skinned-control.md) |
 
-## 3. Where does it belong?
+## Repository
+
+Each top-level directory has one row. The tree table does not list the
+directories that `.gitignore` excludes.
+
+<!-- maintainer-map:tree -->
+
+| Directory | Holds | Check |
+|---|---|---|
+| `src/` | The library. See [Areas](#areas). | `tools/verify.sh full` |
+| `tests/` | The behavioral specs, the native engine double and the type witnesses. | `lune run tests/run_one <spec-name>` |
+| `examples/` | The gallery, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lune run tools/lune/check_scenario_requires_cli` |
+| `bench/` | The benchmark scenes, profiles and baselines. | `tools/bench.sh` |
+| `tools/` | The verification runner, the checkers, the build scripts and the Studio tools. | `python3 tools/strip_comments.py --check` |
+| `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `python3 tools/check_doc_style.py` |
+| `assets/` | The icon images and the theme art. The package build includes them. | `tools/package.sh build` |
+| `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `tools/package.sh status` |
+| `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
+
+## Quick answers
 
 <!-- maintainer-map:quick -->
 
-| I want to add … | It belongs in | Follow |
+| Question | Answer | Read |
 |---|---|---|
-| a **control** | `src/controls/`, composed from public `UI.*` primitives, exported through `src/init.luau` | [new-control.md](extending/new-control.md), then `lune run tools/lune/scaffold_cli control <name>` |
-| a **primitive** (a new kind of box the target materializes) | `src/blueprint.luau` plus its schema row, its class contract, and every target | [new-primitive.md](extending/new-primitive.md) |
-| a **layout** container or arrangement rule | `src/layout/solver.luau` for the arithmetic, `src/blueprint_schema.luau` for the props that reach it | [new-primitive.md](extending/new-primitive.md) and [guide 02](guide/02-architecture.md#24-why-the-boundaries-exist) |
-| a **modifier** | `src/blueprint.luau` for the constructor, `src/blueprint_schema.luau` for the closed key, `src/tokens/styling.luau` for the normalized value | [guide 05](guide/05-styling.md) |
-| an **engine property** | `src/render/authority.luau` declares the one owner, `src/client/screen_target.luau` materializes it, `src/render/style_lint.luau` refuses misuse | [new-engine-feature.md](extending/new-engine-feature.md) |
-| a **render target** | A new adapter satisfying `src/render/target_contract.luau`; nothing in `src/render/` changes | [new-render-target.md](extending/new-render-target.md), then `lune run tools/lune/scaffold_cli adapter <name>` |
-| an **input behavior** | `src/input/` for the model, `src/client/roblox_input.luau` for the real device, never both | [new-platform-mode.md](extending/new-platform-mode.md) and [guide 07](guide/07-input.md) |
-| a **theme feature** | `src/themes/package.luau` for the schema and compiler, `src/tokens/` for what it compiles to | [new-theme.md](extending/new-theme.md), or [skinned-control.md](extending/skinned-control.md) for a control with its own art |
-| a **device or platform fact** | `src/env/environment.luau` publishes it, `src/client/roblox_env.luau` reads it off the engine | [new-platform-mode.md](extending/new-platform-mode.md) |
-| an **example** | `examples/gallery/examples/` for a tutorial, `examples/reference/` for a whole application | [guide 04](guide/04-tutorial-examples.md) | (The third example tree is `examples/consumer/`, the runnable standalone project the README points newcomers at; its own `README.md` names its spec and inner loop.)
-| a **Studio scenario** | `examples/gallery/scenarios/`, registered in that folder's `init.luau` order | [guide 11](guide/11-device-verification.md) |
-| a **test helper** | `tests/lib/` for a shared fake or fixture, `tests/fixtures/` for shared data | [guide 02](guide/02-architecture.md#23-extension-points) |
-| a **checker** | `tools/lune/` for a Luau check, `tools/` for a Python check; give it a failing case | [section 4](#4-how-this-file-stays-true) |
+| Where does a new control go? | In the area of its family, under `src/ui/`. | [Adding a control](extending/new-control.md) |
+| How do I change the look? | Change or derive a theme package. Do not change a control. | [Custom themes](guide/09-custom-themes.md) |
+| How do I change Compose? | Change Compose upstream. Then update the pinned snapshot. | [Adopting an engine feature](extending/new-engine-feature.md) |
+| What does a passing native run prove? | Only that the selected commands passed. | [Verification scope](guide/18-verification-scope.md) |
+| How do I release? | The maintainer publishes. A change only builds the package locally. | [The package interface](../package/README.md) |
 
-## 4. How this file stays true
+## Controls
 
-Three rules keep the map from rotting, and one command proves them.
+A control implementation consumes its behavioral options. It forwards native
+properties, event keys, attributes and children unchanged. The common private
+helpers only make native components or observe native properties. They do not
+own a runtime, a frame loop or an application lifetime.
 
-**Derive, do not duplicate.** Anything the build already knows is read from the
-build. The area list is read from `src/`. Coverage is read from the require graph.
-Gate rows are read from the manifest. Dependency rules are read from the boundary
-checker. Scenario names are read from the scenario index. The map holds the
-*mapping*, and nothing else.
+## Themes
 
-**No second catalog.** Public names, properties, defaults and return values belong
-to [`reference/api.md`](reference/api.md), and the shipped capability list belongs
-to the [guide index](guide/README.md). If you find yourself typing a property name
-here, you are writing the wrong document.
+Theme definitions compile to native StyleSheets. The callers own the
+StyleLinks. Do not write explicit default paint properties that hide the
+stylesheet rules.
 
-**No number you would have to maintain.** Counts drift silently, so this page
-carries none of them: not a spec count, not a control count, not the size of the
-blessed client list. Ask the tool instead:
+## Evidence
 
-```sh
-lune run tools/lune/check_maintainer_map_cli -- --counts
-```
+Control policy tests use a native engine double. Geometry, hit testing,
+Input Method Editor (IME) text, scrolling and input eligibility need live
+Studio evidence. When you retire tests of removed mechanisms, keep the behavior
+coverage of each control family. The verification report must identify each
+remaining coverage gap. The [verification scope](guide/18-verification-scope.md)
+records the known gaps.
 
-**The drift check.** One command checks every row against its source:
+Read the [contributor workflow](../CONTRIBUTING.md), the
+[API reference](reference/api.md) and the
+[control playbook](extending/new-control.md).
 
-```sh
-lune run tools/lune/check_maintainer_map_cli              # check the live map
-lune run tools/lune/check_maintainer_map_cli -- --list    # what it enforces
-lune run tools/lune/check_maintainer_map_cli -- --selftest # prove each rule bites
-```
+## How this page stays true
 
-It fails when a new `src/` area is unmapped, when a claimed path does not exist,
-when the two tables disagree, when a named spec does not require the area it is
-filed under, when a scenario is unregistered, when a cited gate row or boundary
-rule is gone, when the seam column advertises an export the library table no longer
-has, when a link breaks, or when an extension playbook ships that the map never
-links. The selftest plants each of those faults into a copy of this file in a
-scratch directory and requires each one to be reported, so the check has been
-watched failing before it is trusted. The same checker runs inside the suite as
-[`tests/maintainer_map.spec.luau`](../tests/maintainer_map.spec.luau), so drift
-fails the suite and not only a command someone remembered to type.
-
-## 5. Which verification tier proves it
-
-The **Tests** column above names where a change is covered. This section names
-what to run, and it is the same four tiers a contributor uses
-([`../CONTRIBUTING.md`](../CONTRIBUTING.md)):
-
-```sh
-tools/verify.sh affected     # the smallest safe set for the files you changed
-tools/verify.sh fast         # the inner-loop tier
-tools/verify.sh full         # every deterministic check, exactly once
-tools/verify.sh release      # full, plus the build, package and evidence producers
-```
-
-Three rules decide which one a piece of work owes.
-
-**Work in affected or fast; propose on full.** The two working tiers exist to be
-fast, and their output says so. A result from either is not evidence that a
-change is ready, and the tool refuses to let one read as the other.
-
-**Release belongs to a release.** That tier runs the producers that build
-artifacts, verify the distributable package, and gather recorded evidence. It is
-run by the person cutting a release, at an exact commit, and not on an ordinary
-change.
-
-**The tier is not the whole bar for anything a player can see.** A headless run
-cannot see engine frame work, paint, or a real device.
-[`guide/11-device-verification.md`](guide/11-device-verification.md) names which
-instrument can close which kind of claim, and each extension playbook's §6 names
-the live Roblox check its area owes.
-
-Two loops sit underneath the tiers and are worth keeping in the fingers:
-`lune run tests/run_one <spec-name>` runs one spec file and is how a new check is
-watched failing before it is trusted, and `./run-tests.sh` still runs the
-complete suite exactly as it always has.
+Run `lune run tools/lune/check_maintainer_map_cli`. It reads the tree and this
+page, and it fails when they disagree. Run it with `--list` to see each rule.
+Run it with `--selftest` to see each rule fail on a planted fault.
