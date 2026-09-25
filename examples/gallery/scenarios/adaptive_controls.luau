@@ -138,6 +138,7 @@ return {
 					step = 5,
 					thumb = "auto",
 					controlSize = "compact",
+					contained = true,
 				},
 				UI.Slider "Camera" {
 					LayoutOrder = 7,
@@ -335,6 +336,7 @@ return {
 											Name = "Vsync",
 											label = "Vertical sync",
 											value = vsync,
+											controlSize = "large",
 											hint = "Keep frames aligned with the display",
 										}),
 										UI.Toggle({

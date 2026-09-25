@@ -89,6 +89,8 @@ return {
 						{ value = "warning", label = "Warning" },
 						{ value = "error", label = "Error" },
 						{ value = "accent", label = "Accent" },
+						{ value = "voice", label = "Voice" },
+						{ value = "contrast", label = "Contrast" },
 					},
 				},
 				UI.Picker "Shape" {

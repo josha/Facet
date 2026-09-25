@@ -151,6 +151,13 @@ return {
 					separator = separator,
 					controlSize = rung,
 				}),
+				UI.ShortcutHint({
+					LayoutOrder = 7,
+					Name = "Labelled",
+					keys = { { "M" } },
+					controlSize = rung,
+					label = "Open the map",
+				}),
 				UI.Label({ LayoutOrder = 8, Name = "BoundLabel", title = title, icon = "checkmark" }),
 				UI.Text({
 					LayoutOrder = 9,

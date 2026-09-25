@@ -529,8 +529,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		)
 		local contained = spec.contained == true
 		local thin = function(use: ComposeTypes.Use?)
-			if contained then
-				return read(extentOf(if isRange then "lower" else "value"), use)
+			local knob = if contained then read(extentOf(if isRange then "lower" else "value"), use) else 0
+			if knob > 0 then
+				return knob
 			end
 			return thickness(spec, use)
 		end

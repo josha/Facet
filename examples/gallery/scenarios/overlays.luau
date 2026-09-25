@@ -190,6 +190,7 @@ return {
 						LayoutOrder = 5,
 						center = UI.TextInput "Search" { value = query, placeholder = COPY.search },
 						trailing = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
+						surface = "panel",
 					},
 					UI.Popover "About" {
 						LayoutOrder = 6,
@@ -298,7 +299,7 @@ return {
 								label = COPY.stay,
 								role = "cancel",
 								onActivate = function()
-									dialogOpen:set(false)
+									note("Last: stayed in the race")
 								end,
 							},
 							{

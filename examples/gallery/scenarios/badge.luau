@@ -118,6 +118,7 @@ return {
 						{ value = "neutral", label = "Neutral" },
 						{ value = "warning", label = "Warning" },
 						{ value = "error", label = "Error" },
+						{ value = "voice", label = "Voice" },
 					},
 				},
 				UI.Picker "Size" {

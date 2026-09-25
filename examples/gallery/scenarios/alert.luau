@@ -93,6 +93,7 @@ return {
 					severity = "critical",
 					message = "Your current progress will replace the previous checkpoint.",
 					isPresented = presented,
+					suppression = { isSuppressed = Compose.cell(false), label = "Do not ask again" },
 					actions = {
 						{
 							id = "Cancel",

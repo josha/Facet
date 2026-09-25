@@ -307,6 +307,19 @@ return function(ctx: any, options: any)
 					return actions(key)
 				end
 				else nil
+			if options.editable then
+				common.onCellChange = function(key, column, value)
+					local nextRows = table.clone(rows:peek())
+					for index, item in nextRows do
+						if item.id == key then
+							local nextItem = table.clone(item)
+							nextItem[column] = value
+							nextRows[index] = nextItem
+						end
+					end
+					rows:set(nextRows)
+				end
+			end
 			common.columns = options.columns
 				or {
 					{

@@ -143,6 +143,7 @@ return {
 								Compose.show(first, function()
 									return UI.Skeleton "Card" {
 										form = "box",
+										corners = "panel",
 									}
 								end),
 							}),
