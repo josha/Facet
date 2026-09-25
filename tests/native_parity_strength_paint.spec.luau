@@ -275,7 +275,7 @@ end
 
 local function ownArt(node: any, slot: string): any
 	for _, child in node:GetChildren() do
-		if string.sub(child.Name, -8) == "Boundary" then
+		if string.sub(child.Name, -8) == "Boundary" or (child.ClassName == "Folder" and child.Name == "Chrome") then
 			local art = find(child, slot .. "1")
 			if art then
 				return art
@@ -1025,7 +1025,7 @@ t.describe("native paint strength: skins", function()
 		local value = Compose.cell(false)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada") }),
+				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
 				h.UI.Toggle({ Name = "Switch", value = value, label = "On" }),
 				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
@@ -1033,7 +1033,7 @@ t.describe("native paint strength: skins", function()
 		end)
 		local switch = find(root, "Switch")
 		local parts = {
-			{ find(root, "Field"), "field" },
+			{ find(root, "Input"), "field" },
 			{ find(root, "Stepper"), "stepperPlate" },
 			{ find(switch, "Indicator"), "toggleTrack" },
 			{ find(switch, "Mark"), "toggleKnob" },
@@ -1085,7 +1085,7 @@ t.describe("native paint strength: skins", function()
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
 				h.UI.Button({ Name = "Action", label = "Go" }),
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada") }),
+				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Toggle({ Name = "Switch", value = Compose.cell(true), label = "On" }),
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
 				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
@@ -1102,7 +1102,7 @@ t.describe("native paint strength: skins", function()
 		local panel = find(root.Parent, "AlertPanel")
 		local expected = {
 			{ find(root, "Action"), "control" },
-			{ find(root, "Field"), "field" },
+			{ find(root, "Input"), "field" },
 			{ find(find(root, "Switch"), "Indicator"), "toggleTrack" },
 			{ find(find(root, "Switch"), "Mark"), "toggleKnob" },
 			{ find(root, "Stepper"), "stepperPlate" },
@@ -1235,12 +1235,12 @@ t.describe("native paint strength: skins", function()
 		local sheet, stopSheet = sheetFor(h, selected)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada") }),
+				h.UI.TextInput({ Name = "Framed", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Button({ Name = "Action", label = "Go" }),
 			})
 		end)
-		local field, action = find(root, "Field"), find(root, "Action")
-		t.expect(field.ClassName).toBe("TextBox")
+		local field, action = find(root, "Input"), find(root, "Action")
+		t.expect(field.ClassName).toBe("Frame")
 		local plain = {}
 		for _, package in { art, missing, none, art } do
 			selected:set(package)
@@ -1259,7 +1259,7 @@ t.describe("native paint strength: skins", function()
 			t.expect(image == nil or image.Visible == drawn).toBe(true)
 		end
 		t.expect(plain[field] ~= nil and plain[action] ~= nil).toBe(true)
-		t.expect(field.Text).toBe("Ada")
+		t.expect(find(field, "Field").Text).toBe("Ada")
 		stop()
 		stopSheet()
 		h.dispose()
@@ -1990,6 +1990,38 @@ t.describe("native paint strength: theme sheets", function()
 		t.expect(table.concat(unreadable, " ")).toBe("fantasy_parchment/Candlelight")
 		stopProbes()
 		h.dispose()
+	end)
+
+	t.it("never parents field art under a TextBox, where it would cover the text and placeholder (owner R4)", function()
+		local covered = {}
+		for _, name in SHIPPED do
+			local h = harness({ theme = (shipped(name)) })
+			local root, stop = mount(h, function()
+				return h.Host.Frame({
+					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Name" },
+					h.UI.TextInput "Search" { value = Compose.cell(""), presentation = "search", placeholder = "Filter" },
+					h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
+				})
+			end)
+			local plates = 0
+			for _, node in root:GetDescendants() do
+				if node:HasTag("facet-skin-art") then
+					plates += 1
+					local parent = node.Parent
+					while parent and parent ~= root do
+						if parent.ClassName == "TextBox" then
+							table.insert(covered, `{name}/{parent.Name}`)
+						end
+						parent = parent.Parent
+					end
+				end
+			end
+			t.expect(plates > 0 or name == "classic_desktop" or name == "glossy_mobile" or name == "scifi_hud")
+				.toBe(true)
+			stop()
+			h.dispose()
+		end
+		t.expect(table.concat(covered, " ")).toBe("")
 	end)
 
 	t.it("composes the sheet scrim and the full-screen backdrop from the same clamped preference", function()

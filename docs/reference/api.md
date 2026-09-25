@@ -755,7 +755,10 @@ during a commit, the commit stops. `numericValue` does not change and
 The other options are `placeholder`, `multiline`, `invalid`, `enabled`,
 `disabled`, `clearButton` and `clearButtonMode` (`never`, `always`,
 `whileEditing` or `unlessEditing`). Native TextBox properties stay available.
-The placeholder uses the `contentSecondary` colour of the theme.
+The placeholder uses the `contentSecondary` colour of the theme. A
+TextInput without field chrome (no `label`, `hint` or other chrome option) is
+the TextBox itself, so it keeps the flat `facet-field` plate in a skinned
+theme. A framed TextInput shows the `field` art on its `Input` plate.
 The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
 `close` icon and no text. Its accessible name is "Clear".
 
@@ -2782,6 +2785,9 @@ weight. The derived role keeps the family, style, size and line height.
   `label` and is drawn only while `label` is not empty. It grows around the
   text by its `textInsets`, never below its own size, and stays centred on its
   edge. `onCaption(shown)` reports whether the plaque shows the label.
+  A `target` that is a TextBox gets no art images, only the recipe shadow.
+  Roblox draws children above their parent, so art in a TextBox would cover
+  its text and placeholder.
 
 `createStyleSheet` contract:
 

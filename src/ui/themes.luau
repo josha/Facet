@@ -1786,11 +1786,12 @@ local function skin(
 		layers: { ImageLayer },
 	}
 	local compiled: { CompiledLayers } = {}
+	local overText = settings.target ~= nil and settings.target:IsA("TextBox")
 	local function buildLayers(use: ComposeTypes.Use): { ImageLayer }
 		local package = read(packageOrReadable, use) or neutral
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
-		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
+		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" or overText then
 			return {}
 		end
 		local state = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
