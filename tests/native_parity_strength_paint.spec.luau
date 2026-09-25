@@ -922,6 +922,29 @@ t.describe("native paint strength: skins", function()
 		other.dispose()
 	end)
 
+	t.it("gives a transparent hit-target button no control art over the content beneath it (owner R11)", function()
+		local package = skinPackage({ control = "rbxassetid://21" })
+		local h = harness({ theme = package })
+		local clear = Compose.cell(1)
+		local root, stop = mount(h, function()
+			return h.Host.Frame({
+				h.UI.Button({ Name = "Hit", label = "", BackgroundTransparency = 1 }),
+				h.UI.Button({ Name = "Bound", label = "Go", BackgroundTransparency = clear }),
+				h.UI.Button({ Name = "Plate", label = "Go" }),
+			})
+		end)
+		t.expect(ownArt(find(root, "Hit"), "control")).toBe(nil)
+		t.expect(find(root, "Hit"):HasTag("facet-skinned")).toBe(false)
+		t.expect(ownArt(find(root, "Bound"), "control")).toBe(nil)
+		t.expect(ownArt(find(root, "Plate"), "control") ~= nil).toBe(true)
+		clear:set(0)
+		t.expect(ownArt(find(root, "Bound"), "control") ~= nil).toBe(true)
+		clear:set(1)
+		t.expect(ownArt(find(root, "Bound"), "control")).toBe(nil)
+		stop()
+		h.dispose()
+	end)
+
 	t.it("maps hover and press on each skinned part to that part's state art", function()
 		local package = themes.neutralPackage()
 		local ids = { default = 1, hover = 2, pressed = 3, selected = 4 }

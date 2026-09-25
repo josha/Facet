@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Button whose `BackgroundTransparency` is 1 (a transparent hit target laid over other content) takes no `control` chrome art. Before, in Fantasy Parchment the Match 3 tiles' hit buttons painted the plate art over each tile's glyph.
 - A row action with an `icon` sizes its tray from the painted label caption plus the icon. Before, it measured the empty text of the icon Button, so the tray stayed 88 pixels and the Playlist "Remove" label was cut off.
 - `UI.Table` rows paint `control` by default (alternate rows `controlHover`) with a strong hairline `Divider` under each row, and each heading is a standard Button, so Fantasy Parchment frames it with its `control` art (`parchment_button`) as before 0.12. Before, rows painted `surface` on a `surface` page, so rows, separators and the Parchment header frames were gone.
 - A tap on a swipeable row of a selectable collection selects the row (a mouse click replaces the selection), and a selected Table row carries `facet-selected` for a `controlSelected` band. Before, the grip sent the tap to the first Button in the row, so a Playlist click started a keyboard move (✓ handle, drag label, a Drop button over the header) and nothing showed as selected.

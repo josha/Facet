@@ -1081,9 +1081,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			local function plated(use: ComposeTypes.Use?): boolean
 				local appearance = read(spec.appearance, use)
-				return appearance ~= "utility" and appearance ~= "link"
+				return appearance ~= "utility" and appearance ~= "link" and read(spec.BackgroundTransparency, use) ~= 1
 			end
-			if dynamic(spec.appearance) then
+			if dynamic(spec.appearance) or dynamic(spec.BackgroundTransparency) then
 				Compose.watch(function(use: ComposeTypes.Use)
 					if plated(use) then
 						skin()
