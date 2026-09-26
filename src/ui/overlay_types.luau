@@ -135,6 +135,7 @@ export type ToastSpec = Types.FrameProps & {
 	readFloor: number?,
 	position: ("top" | "bottom")?,
 	width: ("fill" | "hug")?,
+	fade: boolean?,
 	onDismiss: ((ToastDismissReason) -> ())?,
 }
 

@@ -47,6 +47,7 @@ export type ToastOptions = {
 	readFloor: number?,
 	position: ("top" | "bottom")?,
 	width: ("fill" | "hug")?,
+	fade: boolean?,
 	onDismiss: ((Overlay.ToastDismissReason) -> ())?,
 }
 export type Toast = { id: number, dismiss: () -> boolean }

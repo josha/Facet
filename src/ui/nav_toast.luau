@@ -21,7 +21,8 @@ type Stack = {
 	stop: (() -> ())?,
 }
 
-local KEYS = { "message", "content", "key", "priority", "duration", "readFloor", "position", "width", "onDismiss" }
+local KEYS =
+	{ "message", "content", "key", "priority", "duration", "readFloor", "position", "width", "fade", "onDismiss" }
 local MARGIN, GAP, HUG_MAX, ROW_Z = 8, 8, 560, 70
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
@@ -98,6 +99,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		if spec.key ~= nil and type(spec.key) ~= "string" then
 			error(`Facet {where}: key is a string`, 0)
+		end
+		if spec.fade ~= nil and type(spec.fade) ~= "boolean" then
+			error(`Facet {where}: fade is a boolean`, 0)
 		end
 		if spec.onDismiss ~= nil and type(spec.onDismiss) ~= "function" then
 			error(`Facet {where}: onDismiss is a function`, 0)
@@ -193,9 +197,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(row, "panel")
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
-		ctx.fadeTo(row, function(use: ComposeTypes.Use)
-			return 1 - amount(use)
-		end)
+		if spec.fade then
+			ctx.fadeTo(row, function(use: ComposeTypes.Use)
+				return 1 - amount(use)
+			end)
+		end
 		local measured = ctx.observe.AbsoluteSize(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			record.height:set(use(measured).Y)

@@ -355,6 +355,29 @@ describe("UI.Toast: presentation", function()
 		f.world.stop()
 	end)
 
+	it("slides in with native text by default; fade = true also fades it in and out", function()
+		local plain = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { reducedMotion = false })
+		plain.world.advance(0.05, 3)
+		local row = rows(plain.world)[1]
+		expect(row.Position.Y.Offset < 8).toBe(true)
+		expect(row:FindFirstChild("Fade")).toBeNil()
+		plain.world.advance(1, 60)
+		row = rows(plain.world)[1]
+		expect(row ~= nil and row.Position.Y.Offset < 8).toBe(true)
+		expect(row:FindFirstChild("Fade")).toBeNil()
+		plain.world.stop()
+		local faded = toasts({ { message = "a", duration = 1, readFloor = 0, fade = true } }, { reducedMotion = false })
+		faded.world.advance(0.05, 3)
+		local group = rows(faded.world)[1]:FindFirstChild("Fade")
+		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
+		faded.world.advance(0.5, 30)
+		expect(rows(faded.world)[1]:FindFirstChild("Fade")).toBeNil()
+		faded.world.advance(0.55, 33)
+		group = rows(faded.world)[1]:FindFirstChild("Fade")
+		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
+		faded.world.stop()
+	end)
+
 	it("refuses a malformed toast by name", function()
 		for index, bad in
 			{
@@ -364,6 +387,7 @@ describe("UI.Toast: presentation", function()
 				{ message = "a", width = 300 },
 				{ message = "a", duration = -1 },
 				{ message = "a", extra = true },
+				{ message = "a", fade = "yes" },
 			}
 		do
 			local ok = pcall(function()

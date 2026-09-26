@@ -2471,6 +2471,9 @@ end, playerGui)
   to. Each edge of a layer has its own stack.
 - `width`: `fill` (the default) spans the layer less 16 pixels on each side.
   `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
+- `fade`: `true` also fades the row in and out as it slides. By default a row
+  only slides, so its text keeps native glyph rendering (a fade draws the row
+  through a CanvasGroup while it runs).
 - `onDismiss(reason)` reports the retirement once: `timeout`, `supersede`,
   `preempt`, `capacity` or `manual` (the Toast unmounted first).
 
@@ -2483,7 +2486,7 @@ A toast is input-transparent: the row is neither `Active` nor `Interactable`,
 nothing in it is `Selectable`, it binds no input and it never takes the
 selection, so the controls under it work as before. Rows (`ToastRow`) paint
 at `ZIndex` 70, above the page and below a modal. A new row slides in from its
-edge and fades in, and the others slide to close the slot a retired row
+edge (and fades in with `fade`), and the others slide to close the slot a retired row
 leaves. Under reduced motion the rows are placed at once, for the same times
 in the same order.
 
