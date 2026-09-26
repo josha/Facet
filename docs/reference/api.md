@@ -2463,10 +2463,14 @@ chrome included, inside the live safe box. The body scrolls. `tail = false`
 removes the arrow.
 
 The tail of a Popover, a Callout and a Button `help` plate is one shape: a
-`space.m` square turned 45 degrees under the panel, with the theme's hairline
-on its two outer sides (`facet-tail`). A thin band in the panel paint
-(`facet-tail-seam`) covers the panel border across the tail's base, so the
-tail and the panel read as one surface. The panel stands the tail's reach off
+`space.m` square turned 45 degrees under the panel (`facet-tail`), with no
+stroke of its own. One closed native `Path2D` named `Outline` in the panel
+(`facet-outline`, `facet-outline-tooltip` on a help plate) draws the whole
+border: the panel's rounded corners and the tail's two outer sides as one
+line, so the edge stops exactly where the tail begins. Its colour is the
+theme hairline blended over the panel fill, because a `Path2D` has no
+transparency, and it fades with the panel. The panel's own `UIStroke` is off
+(`facet-outlined`). The tail stays clear of the panel's rounded corners. The panel stands the tail's reach off
 its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
 point while it scales, so a moving scale never moves the tip. The tail keeps
 8 pixels from the panel's ends; a panel too short for that (a one-line panel

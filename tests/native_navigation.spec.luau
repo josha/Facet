@@ -2268,18 +2268,25 @@ t.describe("native navigation controls", function()
 		t.expect(arrow:HasTag("facet-tail")).toBe(true)
 		t.expect(arrow.Rotation).toBe(45)
 		t.expect(arrow.ZIndex < panel.ZIndex).toBe(true)
-		local seam = find(world.screen, "ArrowSeam")
-		t.expect(seam:HasTag("facet-tail-seam") and seam.ZIndex > panel.ZIndex).toBe(true)
-		local diagonal = arrow.Size.X.Offset * math.sqrt(2)
-		t.expect(seam.Size.X.Offset >= diagonal - 4 and seam.Size.X.Offset <= diagonal - 2).toBe(true)
-		t.expect(seam.Size.Y.Offset).toBe(2)
+		t.expect(find(world.screen, "ArrowSeam")).toBe(nil)
+		local outline = panel:FindFirstChild("Outline")
+		t.expect(outline.ClassName).toBe("Path2D")
+		t.expect(outline.Closed).toBe(true)
+		t.expect(outline:HasTag("facet-outline")).toBe(true)
+		t.expect(panel:HasTag("facet-outlined")).toBe(true)
 		world.settle()
 		for _, height in { 96, 128, 96 } do
 			panel.AbsoluteSize = V.new(280, height)
 			local _, top = corner(panel)
 			t.expect(near(top, 560 - height - 8 - LIFT)).toBe(true)
 			t.expect(near(arrow.Position.Y.Offset, 560 - 8 - LIFT)).toBe(true)
-			t.expect(seam.Position).toBe(arrow.Position)
+			local points = outline:GetControlPoints()
+			t.expect(#points).toBe(11)
+			local lowest = 0
+			for _, point in points do
+				lowest = math.max(lowest, point.Position.Y.Scale * height)
+			end
+			t.expect(near(lowest, height + arrow.Size.X.Offset * math.sqrt(2) / 2)).toBe(true)
 		end
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)

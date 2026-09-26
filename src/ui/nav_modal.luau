@@ -897,9 +897,21 @@ return function(ctx: Types.Context): Nav.Surfaces
 					amount,
 					function()
 						return 96
-					end
+					end,
+					{
+						node = panel,
+						corner = function(use: ComposeTypes.Use): Vector2
+							local solved = use(solution)
+							return V2.new(solved.x, solved.y)
+						end,
+						size = measured,
+						radius = function(use: ComposeTypes.Use): number
+							return math.min(6, (ctx.metric("radii.control", use)))
+						end,
+						role = "tooltip",
+					}
 				)
-				return Host.Folder "HelpOverlay" { panel :: Instance, tail[1], tail[2] }
+				return Host.Folder "HelpOverlay" { panel :: Instance, tail[1] }
 			end, { motion = timing }),
 		})
 	end)

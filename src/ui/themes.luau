@@ -1119,8 +1119,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	})
 	rule(".facet-floating::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
 	rule(".facet-tail", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	rule(".facet-tail::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
-	rule(".facet-tail-seam", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	local outlineInk = c("hairline") :: Color3
+	local outlineFill = c("surfaceStrong") :: Color3
+	rule(".facet-outlined::UIStroke", { Transparency = 1 })
+	rule(".facet-outline", { Color3 = outlineInk:Lerp(outlineFill, 0.3), Thickness = 1 })
+	rule(".facet-outline-tooltip", { Color3 = outlineInk:Lerp(outlineFill, 0.4) })
 	rule(".facet-step-circle::UIStroke", { Color = c("contentSecondary"), Thickness = 1 })
 	rule(".facet-invalid::UIStroke", { Color = c("danger"), Thickness = 1 })
 	rule(".facet-date-time-picker", { BackgroundTransparency = 1 })

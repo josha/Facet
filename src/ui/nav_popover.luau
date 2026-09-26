@@ -374,10 +374,21 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					amount,
 					function(): number
 						return 2
-					end
+					end,
+					{
+						node = panel,
+						corner = function(use: ComposeTypes.Use): Vector2
+							local at = use(solved)
+							return V2.new(at.x, at.y)
+						end,
+						size = measured,
+						radius = function(use: ComposeTypes.Use): number
+							return ctx.metric("radii.panel", use)
+						end,
+						role = "floating",
+					}
 				)
 				table.insert(children, tail[1])
-				table.insert(children, tail[2])
 			end
 			if chrome then
 				return Host.Frame "Popup" {

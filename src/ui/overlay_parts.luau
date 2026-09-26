@@ -571,24 +571,78 @@ function parts.tailSize(ctx: Types.Context, use: ComposeTypes.Use?): number
 	return ctx.metric("space.m", use)
 end
 
+export type TailPanel = {
+	node: GuiObject,
+	corner: (ComposeTypes.Use) -> Vector2,
+	size: ComposeTypes.Readable<Vector2>,
+	radius: (ComposeTypes.Use) -> number,
+	role: string,
+}
+
+local ARC = 0.5523
+
+local function outlinePoints(
+	w: number,
+	h: number,
+	r: number,
+	edge: string?,
+	t: number,
+	d: number
+): { { x: number, y: number, inX: number, inY: number, outX: number, outY: number } }
+	local out = {}
+	local function add(x: number, y: number, inX: number?, inY: number?, outX: number?, outY: number?)
+		table.insert(out, { x = x, y = y, inX = inX or 0, inY = inY or 0, outX = outX or 0, outY = outY or 0 })
+	end
+	local k = ARC * r
+	local function tail(side: string, a: number, b: number, c: number, e: number, f: number, g: number)
+		if edge == side then
+			add(a, b)
+			add(c, e)
+			add(f, g)
+		end
+	end
+	add(r, 0, -k, 0, 0, 0)
+	tail("bottom", t - d, 0, t, -d, t + d, 0)
+	add(w - r, 0, 0, 0, k, 0)
+	add(w, r, 0, -k, 0, 0)
+	tail("left", w, t - d, w + d, t, w, t + d)
+	add(w, h - r, 0, 0, 0, k)
+	add(w - r, h, k, 0, 0, 0)
+	tail("top", t + d, h, t, h + d, t - d, h)
+	add(r, h, 0, 0, -k, 0)
+	add(0, h - r, 0, k, 0, 0)
+	tail("right", 0, t + d, -d, t, 0, t - d)
+	add(0, r, 0, 0, 0, -k)
+	return out
+end
+parts.outlinePoints = outlinePoints
+
 function parts.tail(
 	ctx: Types.Context,
 	name: string,
 	at: (ComposeTypes.Use) -> (Vector2?, string),
 	amount: (ComposeTypes.Use) -> number,
-	z: (ComposeTypes.Use) -> number
+	z: (ComposeTypes.Use) -> number,
+	panel: TailPanel
 ): { Frame }
-	local Host, D2, V2 = ctx.Host, ctx.types.UDim2, ctx.types.Vector2
-	local function fade(): Types.Child
-		return Host.UIGradient "PresentationFade" {
-			Transparency = function(use: ComposeTypes.Use)
-				return ctx.types.NumberSequence.new(1 - amount(use))
-			end,
-		}
-	end
-	local function centre(use: ComposeTypes.Use): UDim2
-		local point = at(use) or V2.zero
-		return D2.fromOffset(point.X, point.Y)
+	local Compose, Host, D2, V2 = ctx.Compose, ctx.Host, ctx.types.UDim2, ctx.types.Vector2
+	local function geometry(use: ComposeTypes.Use): (Vector2?, string, number, number, number)
+		local box = use(panel.size) :: Vector2
+		local point, edge = at(use)
+		local r = math.min(panel.radius(use), box.X / 2, box.Y / 2)
+		local d = parts.tailSize(ctx, use) * math.sqrt(2) / 2
+		if point == nil then
+			return nil, edge, r, d, 0
+		end
+		local corner = panel.corner(use)
+		local across = edge == "left" or edge == "right"
+		local along = if across then box.Y else box.X
+		local t = if across then point.Y - corner.Y else point.X - corner.X
+		if along - 2 * (r + d) >= 0 then
+			t = math.clamp(t, r + d, along - r - d)
+		end
+		local placed = if across then V2.new(point.X, corner.Y + t) else V2.new(corner.X + t, point.Y)
+		return placed, edge, r, d, t
 	end
 	local wedge = ctx.styled(
 		Host.Frame(name)({
@@ -602,32 +656,44 @@ function parts.tail(
 			ZIndex = function(use: ComposeTypes.Use)
 				return z(use) - 1
 			end,
-			Position = centre,
-			fade(),
+			Position = function(use: ComposeTypes.Use): UDim2
+				local point = geometry(use) or V2.zero
+				return D2.fromOffset(point.X, point.Y)
+			end,
+			Host.UIGradient "PresentationFade" {
+				Transparency = function(use: ComposeTypes.Use)
+					return ctx.types.NumberSequence.new(1 - amount(use))
+				end,
+			},
 		}),
 		"tail"
 	)
-	local seam = ctx.styled(
-		Host.Frame(name .. "Seam")({
-			AnchorPoint = V2.new(0.5, 0.5),
-			BorderSizePixel = 0,
-			ZIndex = function(use: ComposeTypes.Use)
-				return z(use) + 1
-			end,
-			Position = centre,
-			Size = function(use: ComposeTypes.Use)
-				local point, edge = at(use)
-				local base = if point then math.floor(parts.tailSize(ctx, use) * math.sqrt(2) / 2 - 1) * 2 else 0
-				local thick = if point then 2 else 0
-				return if edge == "left" or edge == "right"
-					then D2.fromOffset(thick, base)
-					else D2.fromOffset(base, thick)
-			end,
-			fade(),
-		}),
-		"tail-seam"
-	)
-	return { wedge, seam }
+	panel.node:AddTag("facet-outlined")
+	local outline = ctx.styled(Host.Path2D "Outline" { Closed = true }, "outline")
+	if panel.role == "tooltip" then
+		outline:AddTag("facet-outline-tooltip")
+	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		local box = use(panel.size) :: Vector2
+		if box.X <= 0 or box.Y <= 0 then
+			return
+		end
+		local point, edge, r, d, t = geometry(use)
+		local native: { Path2DControlPoint } = {}
+		for _, p in outlinePoints(box.X, box.Y, r, if point then edge else nil, t, d) do
+			table.insert(
+				native,
+				ctx.types.Path2DControlPoint.new(
+					D2.fromScale(p.x / box.X, p.y / box.Y),
+					D2.fromScale(p.inX / box.X, p.inY / box.Y),
+					D2.fromScale(p.outX / box.X, p.outY / box.Y)
+				)
+			)
+		end
+		outline:SetControlPoints(native)
+	end)
+	outline.Parent = panel.node
+	return { wedge }
 end
 
 parts.scroller = measuredScroll

@@ -1286,7 +1286,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						amount,
 						function(use: ComposeTypes.Use): number
 							return above(use, 95)
-						end
+						end,
+						{
+							node = panel,
+							corner = function(use: ComposeTypes.Use): Vector2
+								local place = use(placement)
+								return V2.new(place.left, place.top)
+							end,
+							size = measured,
+							radius = function(use: ComposeTypes.Use): number
+								return ctx.metric("radii.panel", use)
+							end,
+							role = "floating",
+						}
 					)
 					else nil
 				local input = surfaces.service("UserInputService")
@@ -1313,9 +1325,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 				end
-				return if arrow
-					then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1], arrow[2] }
-					else panel :: Instance
+				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] } else panel :: Instance
 			end, { motion = timing }),
 		})
 		return root
