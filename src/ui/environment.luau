@@ -140,52 +140,26 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function outset(use: ComposeTypes.Use): number
 			return scaled(use, layer(use).outset or 0, 1.5)
 		end
-		local function arms(use: ComposeTypes.Use): (number, number)
-			local focus = layer(use)
-			local size = if type(focus.size) == "number" then focus.size else 12
-			return scaled(use, size, 1.5), scaled(use, focus.thickness or 4, 1.5)
-		end
-		local function bracket(name: string, x: number, y: number, horizontal: boolean): Frame
-			return Host.Frame({
-				Name = name,
-				BorderSizePixel = 0,
-				BackgroundColor3 = color,
-				BackgroundTransparency = function(use: ComposeTypes.Use): number
-					return fade(use, 0.35)
-				end,
-				Size = function(use: ComposeTypes.Use): UDim2
-					local long, thick = arms(use)
-					return if horizontal then D2.fromOffset(long, thick) else D2.fromOffset(thick, long)
-				end,
-				Position = function(use: ComposeTypes.Use): UDim2
-					local long, thick = arms(use)
-					local grow = outset(use)
-					local width = if horizontal then long else thick
-					local height = if horizontal then thick else long
-					return D2.new(x, if x == 0 then -grow else grow - width, y, if y == 0 then -grow else grow - height)
-				end,
-			})
-		end
-		local brackets: { ComposeTypes.Child } = {}
-		local corners: { { name: string, x: number, y: number } } = {
-			{ name = "Top", x = 0, y = 0 },
-			{ name = "TopRight", x = 1, y = 0 },
-			{ name = "BottomLeft", x = 0, y = 1 },
-			{ name = "Bottom", x = 1, y = 1 },
-		}
-		for _, at in corners do
-			table.insert(brackets, bracket(at.name .. "Across", at.x, at.y, true))
-			table.insert(brackets, bracket(at.name .. "Down", at.x, at.y, false))
+		local function stroked(use: ComposeTypes.Use): boolean
+			local kind = layer(use).kind
+			return kind == "ring" or kind == "brackets"
 		end
 		local function thickness(use: ComposeTypes.Use): number
-			return scaled(use, layer(use).thickness or 2, 2)
+			local focus = layer(use)
+			if focus.kind == "brackets" then
+				return scaled(use, focus.thickness or 4, 1.5)
+			end
+			return scaled(use, focus.thickness or 2, 2)
 		end
 		local lift = function(use: ComposeTypes.Use): number
-			return (if far(use) then 3 else 0) + (if layer(use).kind == "ring" then thickness(use) else 0)
+			return (if far(use) then 3 else 0)
+				+ (if stroked(use) then thickness(use) else 0)
+				+ (if layer(use).kind == "ring" then 0 else outset(use))
 		end
-		local ring = Host.Frame({
+		local ring = Host.ImageLabel({
 			Name = "FacetFocusRing",
 			BackgroundTransparency = 1,
+			ScaleType = E.ScaleType.Slice,
 			Size = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)
 				return D2.new(1, 2 * grow, 1, 2 * grow)
@@ -193,6 +167,25 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			Position = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)
 				return D2.fromOffset(-grow, -grow)
+			end,
+			ImageTransparency = function(use: ComposeTypes.Use): number
+				return if art(use) then fade(use, 0.35) else 1
+			end,
+			Image = function(use: ComposeTypes.Use): string
+				local asset = art(use)
+				return if asset then asset.content or asset.contentId or "" else ""
+			end,
+			SliceCenter = function(use: ComposeTypes.Use): Rect
+				local asset = art(use)
+				local slice = if asset then asset.sliceCenter else nil
+				return if slice
+					then ctx.types.Rect.new(slice.x0, slice.y0, slice.x1, slice.y1)
+					else ctx.types.Rect.new(0, 0, 0, 0)
+			end,
+			SliceScale = function(use: ComposeTypes.Use): number
+				local asset = art(use)
+				local base = layer(use).sliceScale or (if asset then asset.sliceScale else nil) or 1
+				return if far(use) then base * 1.5 else base
 			end,
 			Host.UICorner({
 				CornerRadius = function(use: ComposeTypes.Use): UDim
@@ -221,13 +214,33 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				ApplyStrokeMode = E.ApplyStrokeMode.Border,
 				BorderStrokePosition = E.BorderStrokePosition.Inner,
 				Color = color,
-				Enabled = function(use: ComposeTypes.Use): boolean
-					return layer(use).kind == "ring"
-				end,
+				Enabled = stroked,
 				Thickness = thickness,
 				Transparency = function(use: ComposeTypes.Use): number
 					return fade(use, 0.35)
 				end,
+				Host.UIGradient({
+					Name = "Brackets",
+					Enabled = function(use: ComposeTypes.Use): boolean
+						return layer(use).kind == "brackets"
+					end,
+					Transparency = function(use: ComposeTypes.Use): NumberSequence
+						local focus = layer(use)
+						local target = use(selected) :: GuiObject?
+						local width = (if target then target.AbsoluteSize.X else 0) + 2 * lift(use)
+						local arm = scaled(use, if type(focus.size) == "number" then focus.size else 12, 1.5)
+						local reach = if width > 0 then math.clamp(arm / width, 0.02, 0.45) else 0.2
+						local K = ctx.types.NumberSequenceKeypoint
+						return ctx.types.NumberSequence.new({
+							K.new(0, 0),
+							K.new(reach, 0),
+							K.new(reach + 0.001, 1),
+							K.new(1 - reach - 0.001, 1),
+							K.new(1 - reach, 0),
+							K.new(1, 0),
+						})
+					end,
+				}) :: ComposeTypes.Child,
 			}),
 			Host.UIShadow({
 				Name = "Glow",
@@ -246,50 +259,6 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				ZIndex = function(use: ComposeTypes.Use): number
 					return layer(use).zIndex or -1
 				end,
-			}),
-			Host.ImageLabel({
-				Name = "Art",
-				BackgroundTransparency = 1,
-				ScaleType = E.ScaleType.Slice,
-				Visible = function(use: ComposeTypes.Use): boolean
-					return art(use) ~= nil and shown(use)
-				end,
-				ImageTransparency = function(use: ComposeTypes.Use): number
-					return fade(use, 0.35)
-				end,
-				Image = function(use: ComposeTypes.Use): string
-					local asset = art(use)
-					return if asset then asset.content or asset.contentId or "" else ""
-				end,
-				SliceCenter = function(use: ComposeTypes.Use): Rect
-					local asset = art(use)
-					local slice = if asset then asset.sliceCenter else nil
-					return if slice
-						then ctx.types.Rect.new(slice.x0, slice.y0, slice.x1, slice.y1)
-						else ctx.types.Rect.new(0, 0, 0, 0)
-				end,
-				SliceScale = function(use: ComposeTypes.Use): number
-					local asset = art(use)
-					local base = layer(use).sliceScale or (if asset then asset.sliceScale else nil) or 1
-					return if far(use) then base * 1.5 else base
-				end,
-				Size = function(use: ComposeTypes.Use): UDim2
-					local grow = outset(use)
-					return D2.new(1, 2 * grow, 1, 2 * grow)
-				end,
-				Position = function(use: ComposeTypes.Use): UDim2
-					local grow = outset(use)
-					return D2.fromOffset(-grow, -grow)
-				end,
-			}),
-			Host.Frame({
-				Name = "Brackets",
-				BackgroundTransparency = 1,
-				Size = D2.fromScale(1, 1),
-				Visible = function(use: ComposeTypes.Use): boolean
-					return layer(use).kind == "brackets" and shown(use)
-				end,
-				table.unpack(brackets),
 			}),
 		})
 		Compose.watch(function(use: ComposeTypes.Use)

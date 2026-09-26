@@ -3354,19 +3354,21 @@ engine:
 
 | Field | Meaning |
 |---|---|
-| `kind` | `"ring"` (the default): an inner stroke. `"glow"`: a native `UIShadow` halo. `"nineSlice"`: the `asset` art, sliced around the control. `"brackets"`: four square corner brackets. |
+| `kind` | `"ring"` (the default): a stroke just outside the control. `"glow"`: a native `UIShadow` halo, which the engine paints over the control. `"nineSlice"`: the `asset` art, sliced around the control. `"brackets"`: a square stroke masked by a `UIGradient` to its two ends, like `[ ]`. |
 | `color` | An RGB or a `$Role` palette token such as `"$FocusGlow"`. The default is `accent`. |
 | `thickness` | The ring stroke (2) or the bracket bar (4), in pixels. |
-| `size` | The bracket arm length (12). |
+| `size` | How far each bracket reaches along the top and bottom, in pixels (12). |
 | `outset` | Pixels that art and brackets stand outside the control (0). |
 | `sliceScale` | The art `SliceScale`; the asset's own value by default. |
 | `blurRadius`, `transparency`, `zIndex` | The glow (24 pixels, 0.25, -1). |
 | `corner` | `"square"` or `"pill"` for every control; otherwise the selected control's shape. |
 | `pulse` | `true`: the look breathes slowly while it shows. Reduced motion stops it. |
 
-Facet Neutral uses the default thin ring. Pixel Quest draws square
-brackets, Fantasy Ornate its gold frame with a slow pulse, and Fantasy
-Parchment a gold glow.
+The engine draws only the selection object itself and its UI components
+(`UIStroke`, `UIGradient`, `UICorner`, `UIShadow`), never a child GuiObject,
+so every look is one `ImageLabel` with those components. Facet Neutral uses
+the default thin ring. Pixel Quest draws square brackets, Fantasy Ornate its
+gold frame with a slow pulse, and Fantasy Parchment a gold ring.
 
 A chrome slot names its art with `asset`: one asset name, or one name per
 state (`default`, `hover`, `pressed`, `selected`, `disabled`). A state can also

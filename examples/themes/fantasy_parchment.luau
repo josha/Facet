@@ -373,14 +373,7 @@ function fantasy_parchment.definition(themes: any): any
 				fallback = "native",
 			},
 
-			focus = {
-				kind = "glow",
-				color = "$FocusGlow",
-
-				blurRadius = { scale = 0, offset = 26 },
-				transparency = 0.25,
-				zIndex = -1,
-			},
+			focus = { kind = "ring", color = "$FocusGlow", thickness = 3 },
 
 			selection = { kind = "native" },
 			divider = { kind = "native" },
