@@ -184,6 +184,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			return {
 				Compose.show(active, function()
 					local heldAction: InputAction?
+					local heldArrow = Compose.cell(0)
 					local stopFrame: (() -> ())?
 					local function stopRepeat()
 						heldAction = nil
@@ -211,6 +212,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								return
 							end
 							stopRepeat()
+							if arrow then
+								heldArrow:set(direction)
+							end
 							apply(direction)
 							heldAction = action
 							local probe = (action :: unknown) :: { GetState: ((InputAction) -> unknown)? }
@@ -245,6 +249,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							onReleased = function()
 								if arrow then
 									landing = false
+									if heldArrow:peek() == direction then
+										heldArrow:set(0)
+									end
 								end
 								if heldAction == action then
 									stopRepeat()
@@ -267,6 +274,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								if direction < 0 then "DecreaseArrow" else "IncreaseArrow",
 								keys,
 								function(use: ComposeTypes.Use)
+									if use(heldArrow) == direction then
+										return active(use)
+									end
 									local arrows = adjust.arrows
 									if arrows then
 										return active(use) and arrows(use, direction)
