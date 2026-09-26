@@ -400,9 +400,16 @@ describe("app.presentToast", function()
 		expect(type(toast.id)).toBe("number")
 		expect(live).toBe(1)
 		expect(#target:GetChildren()).toBe(1)
+		for index = 2, 4 do
+			app.presentToast(function(UI)
+				return UI.Text { text = `Saved {index}` }
+			end, { duration = 20 })
+		end
+		expect(#target:GetChildren()).toBe(1)
+		expect(#overlay.findAll(target, "ToastRow")).toBe(3)
 		expect(toast.dismiss()).toBe(true)
 		expect(live).toBe(0)
-		expect(#target:GetChildren()).toBe(0)
+		expect(#overlay.findAll(target, "ToastRow")).toBe(3)
 		expect(toast.dismiss()).toBe(false)
 		expect(pcall(app.presentToast, "no" :: any, {})).toBe(false)
 		app.dispose()

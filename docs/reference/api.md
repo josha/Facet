@@ -83,7 +83,7 @@ The app has these fields:
 | `UI` | `Facet.controls(runtime, options)`. |
 | `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. In a PlayerGui it also mounts `UI.focusRing(playerGui)` (see [environment](#environment)). It returns the stop function and the ScreenGui. |
 | `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
-| `presentToast(component, options?)` | Shows `component(app.UI)` as a `UI.Toast` in its own ScreenGui and returns `{ id, dismiss() }`. See [Toast](#toast). |
+| `presentToast(component, options?)` | Shows `component(app.UI)` as a `UI.Toast` in the app's shared toast ScreenGui and returns `{ id, dismiss() }`. See [Toast](#toast). |
 | `presentAnchored(component, options)` | Shows `component(app.UI)` in a `UI.Popover` against `options.source` (`{ node }` or `{ rect }`), in its own ScreenGui from `mount`. `options` takes the Popover placement keys (`edge`, `align`, `gap`, `crossOffset`, `tail`, `maxWidth`, `maxHeight`), `modal`, `cancelPolicy` and `onDismiss`. The panel is always anchored, never a sheet. It returns `close, screen`. A dismissal (Cancel, an outside tap, a lost source node) or `close()` reports `onDismiss` once and stops the mount. Use it for a coach mark or a custom anchored panel that no control owns. |
 | `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |
 
@@ -2482,9 +2482,11 @@ leaves. Under reduced motion the rows are placed at once, for the same times
 in the same order.
 
 `app.presentToast(component, options?) -> { id, dismiss() }` shows
-`component(app.UI)` as a toast in its own ScreenGui. `options` takes the keys
+`component(app.UI)` as a toast in the app's toast ScreenGui (named from
+`name`, `FacetToasts` by default), which all its toasts share, so they stack
+and queue together. `options` takes the keys
 above except `message` and `content`. `dismiss()` retires it with `manual`
-and returns false when it has already gone. The mount stops when the toast
+and returns false when it has already gone. The toast's mount stops when it
 retires.
 
 ### Notice

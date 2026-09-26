@@ -201,6 +201,7 @@ return function(
 		return close, screen
 	end
 	local toasts = 0
+	local toastLayer: ScreenGui? = nil
 	local function presentToast(component: (ControlTypes.Controls) -> Instance, options: ToastOptions?): Toast
 		assert(type(component) == "function", "Facet app.presentToast: expected a component function")
 		local spec: { [string]: unknown } = {}
@@ -226,9 +227,16 @@ return function(
 		end
 		toasts += 1
 		local id = toasts
-		stop = mount(function(): ComposeTypes.Child
-			return UI.Toast(`Toast{id}`)((spec :: unknown) :: Overlay.ToastSpec)
-		end)
+		if toastLayer == nil or toastLayer.Parent == nil then
+			local _, layer = mount(function(): ComposeTypes.Child
+				return nil
+			end)
+			layer.Name = (settings.name or "Facet") .. "Toasts"
+			toastLayer = layer
+		end
+		stop = runtime.mountFragment(function(): { ComposeTypes.Child }
+			return { UI.Toast(`Toast{id}`)((spec :: unknown) :: Overlay.ToastSpec) }
+		end, assert(toastLayer))
 		if not live then
 			stop()
 		end
