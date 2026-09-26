@@ -460,7 +460,7 @@ t.describe("native parity classb collections", function()
 		world.stop()
 	end)
 	t.it(
-		"collections-98 a destructive departure leaves the clipped row box before the row starts to collapse",
+		"collections-98 a destructive departure shows its action across the tray and leaves the row box before it collapses",
 		function()
 			for _, edge in { "leading", "trailing" } do
 				local fired = 0
@@ -499,7 +499,8 @@ t.describe("native parity classb collections", function()
 						break
 					end
 					samples += 1
-					t.expect(find(row, edge).Visible).toBe(false)
+					t.expect(find(row, edge).Visible).toBe(true)
+					t.expect(find(find(row, edge), "delete").Size).toEqual(world.engine.types.UDim2.fromScale(1, 1))
 					if row.Size.Y.Offset < 44 then
 						collapsing += 1
 						t.expect(math.abs(content.Position.X.Offset) >= 300).toBe(true)

@@ -658,6 +658,51 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("draws icon actions at a fixed width and arms the first action past a 0.6 full swipe", function()
+		local engine, runtime, UI, target = setup()
+		local deleted = 0
+		local stop, node = runtime.mount(function()
+			return UI.RowActions({
+				fullSwipe = true,
+				content = button(UI, Compose.cell({ label = "Row" })),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						icon = "trash",
+						role = "destructive",
+						onActivate = function()
+							deleted += 1
+						end,
+					},
+					{ id = "flag", label = "Flag", icon = "flag" },
+				},
+			})
+		end, target)
+		node.AbsoluteSize = engine.types.Vector2.new(300, 40)
+		local tray = node:FindFirstChild("trailing")
+		local delete, flag = tray:FindFirstChild("delete"), tray:FindFirstChild("flag")
+		t.expect(delete:GetAttribute("label")).toBe("Delete")
+		t.expect(delete:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		local caption = delete:FindFirstChild("Title", true)
+		t.expect(caption == nil or caption.Visible == false or caption.Text == "").toBe(true)
+		local detector = node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(engine.types.Vector2.new(250, 20))
+		detector.DragContinue.fire(engine.types.Vector2.new(200, 20))
+		t.expect(tray.Size.X.Offset).toBe(50)
+		t.expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`).toBe("0 64")
+		detector.DragContinue.fire(engine.types.Vector2.new(170, 20))
+		t.expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`).toBe("0 64")
+		detector.DragContinue.fire(engine.types.Vector2.new(65, 20))
+		t.expect(delete.Size).toEqual(engine.types.UDim2.fromScale(1, 1))
+		t.expect(flag.Visible).toBe(false)
+		t.expect(tray.Size.X.Offset).toBe(185)
+		detector.DragEnd.fire()
+		t.expect(deleted).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("uses native drag to reveal and invoke row actions with cancellation and coordination", function()
 		local engine, runtime, UI, target = setup()
 		local open, coordinator = Compose.cell(nil), Compose.cell(nil)
@@ -1863,7 +1908,7 @@ t.describe("Table row tap", function()
 end)
 
 t.describe("Row action tray width", function()
-	t.it("an icon action's tray fits its painted label and icon", function()
+	t.it("an icon action's tray fits its painted icon and keeps the label as its name", function()
 		local engine, runtime, UI, target = setup()
 		local stop, actions = runtime.mount(function()
 			return UI.RowActions({
@@ -1874,8 +1919,8 @@ t.describe("Row action tray width", function()
 		end, target)
 		actions.AbsoluteSize = engine.types.Vector2.new(500, 40)
 		local remove = actions:FindFirstChild("remove", true)
-		remove:FindFirstChild("Title", true).TextBounds = engine.types.Vector2.new(60, 20)
-		t.expect(actions:FindFirstChild("trailing").Size.X.Offset).toBe(60 + 32 + 20 + 8)
+		t.expect(remove:GetAttribute("label")).toBe("Remove")
+		t.expect(actions:FindFirstChild("trailing").Size.X.Offset).toBe(math.max(64, 32 + 20 + 8))
 		stop()
 		runtime:dispose()
 	end)
