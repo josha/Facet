@@ -638,9 +638,11 @@ function parts.tail(
 		local across = edge == "left" or edge == "right"
 		local along = if across then box.Y else box.X
 		local t = if across then point.Y - corner.Y else point.X - corner.X
-		if along - 2 * (r + d) >= 0 then
-			t = math.clamp(t, r + d, along - r - d)
+		if along < 2 * (r + d) then
+			d = math.min(d, along / 2)
+			r = math.max(0, along / 2 - d)
 		end
+		t = math.clamp(t, r + d, math.max(r + d, along - r - d))
 		local placed = if across then V2.new(point.X, corner.Y + t) else V2.new(corner.X + t, point.Y)
 		return placed, edge, r, d, t
 	end

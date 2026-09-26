@@ -2340,6 +2340,16 @@ t.describe("native navigation controls", function()
 			end
 			t.expect(near(lowest, height + arrow.Size.X.Offset * math.sqrt(2) / 2)).toBe(true)
 		end
+		panel.AbsoluteSize = V.new(30, 96)
+		local previous = math.huge
+		for _, point in outline:GetControlPoints() do
+			if point.Position.Y.Scale * 96 >= 96 - 0.01 then
+				local x = point.Position.X.Scale * 30
+				t.expect(`short side runs one way {x <= previous + 0.01} at {x}`)
+					.toBe(`short side runs one way true at {x}`)
+				previous = x
+			end
+		end
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)
 		t.expect(find(world.screen, "CalloutPanel")).toBe(nil)
