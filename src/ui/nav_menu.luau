@@ -10,6 +10,7 @@ local activation = require("./activation")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
+local Overlay = require("./overlay_types")
 
 type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
 
@@ -21,6 +22,7 @@ return function(
 		SplitButton: Nav.SplitButtonConstructor,
 		ComboBox: Types.Constructor<Nav.ComboBoxSpec, Frame>,
 		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+		Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
 		TextInput: Types.Constructor<Inputs.TextInputProps, TextBox | Frame>,
 		Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
 		Avatar: Types.Constructor<Media.AvatarProps, TextButton>,
@@ -2055,9 +2057,6 @@ return function(
 					return if word == "contrast" then "emphasis" elseif word == "utility" then "utility" else "standard"
 				end
 				else nil
-			triggerProps.onActivate = function()
-				opened:set(true)
-			end
 			local trigger = UI.Button(triggerProps)
 			local row = trigger:FindFirstChild("Content")
 			local chevron = row and row:FindFirstChild("TrailingIcon")
@@ -2078,8 +2077,16 @@ return function(
 					}
 				end, row)
 			end
-			surfaces.attach(trigger, {
-				surfaces.overlay(trigger, opened, function()
+			UI.Popover {
+				isPresented = opened,
+				onPresentedChange = function(value: boolean)
+					opened:set(value)
+				end,
+				trigger = trigger :: GuiButton,
+				maxWidth = ctx.metric("controls.popup.panelWidth"),
+				maxHeight = spec.maxHeight,
+				title = spec.label,
+				content = function(): Instance
 					local choices: Nav.PickerSpec<V>
 					if spec.multiple then
 						local source: Nav.MultiplePickerSpec<V> = spec
@@ -2109,45 +2116,15 @@ return function(
 						end
 						choices = child
 					end
-					local results: GuiObject = UI.Picker(choices)
-					if spec.maxHeight then
-						local cap = math.max(44, spec.maxHeight)
-						local list = results
-						local measured = ctx.observe.AbsoluteSize(list)
-						results = Host.ScrollingFrame "Results" {
-							BackgroundTransparency = 1,
-							BorderSizePixel = 0,
-							Selectable = false,
-							ScrollingDirection = E.ScrollingDirection.Y,
-							AutomaticCanvasSize = E.AutomaticSize.Y,
-							CanvasSize = D2.fromOffset(0, 0),
-							Size = function(use: ComposeTypes.Use)
-								local height = use(measured).Y
-								return D2.new(1, 0, 0, if height > 0 then math.min(height, cap) else cap)
-							end,
-							list :: Types.Child,
-						}
-					end
-					return surfaces.modal(function()
-						return surfaces.centered(
-							ctx.column({
-								results,
-								UI.Button "Close" {
-									label = "Close",
-									onActivate = function()
-										opened:set(false)
-									end,
-								},
-								ctx.padding(16, 16),
-								ctx.corner(),
-							}, { Name = "PickerSearch" }),
-							560
-						)
-					end, function()
-						opened:set(false)
-					end)
-				end),
-			})
+					return ctx.column({ UI.Picker(choices) }, {
+						Name = "PickerSearch",
+						Size = function(use: ComposeTypes.Use)
+							return D2.fromOffset(ctx.metric("controls.popup.panelWidth", use) - 16, 0)
+						end,
+						AutomaticSize = E.AutomaticSize.Y,
+					})
+				end,
+			}
 			return trigger
 		end
 		if style == "cards" then
