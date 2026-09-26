@@ -810,7 +810,7 @@ t.describe("native radial interaction policies", function()
 			end
 			return words .. "|" .. tostring(button:FindFirstChild("LeadingIcon", true).Visible)
 		end
-		t.expect(shown(world.find("map"))).toBe("Map|false")
+		t.expect(shown(world.find("map"))).toBe("|true")
 		t.expect(shown(world.find("wave"))).toBe("|true")
 		world.stop()
 	end)

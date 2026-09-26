@@ -74,7 +74,7 @@ return function(
 				and (
 					item.labelStyle == "icon"
 					or (item.compactLabel ~= nil and item.compactLabel.prefer == true)
-					or (appearance == "buttons" and item.icon ~= nil)
+					or appearance == "buttons"
 				)
 		end
 		local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
