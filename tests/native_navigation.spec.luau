@@ -2387,6 +2387,8 @@ t.describe("native navigation controls", function()
 				previous = x
 			end
 		end
+		local first = outline:GetControlPoints()[1]
+		t.expect(math.abs(first.Position.X.Scale * 30 - 12) < 0.01).toBe(true)
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)
 		t.expect(find(world.screen, "CalloutPanel")).toBe(nil)

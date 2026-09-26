@@ -638,10 +638,7 @@ function parts.tail(
 		local across = edge == "left" or edge == "right"
 		local along = if across then box.Y else box.X
 		local t = if across then point.Y - corner.Y else point.X - corner.X
-		if along < 2 * (r + d) then
-			d = math.min(d, along / 2)
-			r = math.max(0, along / 2 - d)
-		end
+		d = math.min(d, math.max(0, along / 2 - r))
 		t = math.clamp(t, r + d, math.max(r + d, along - r - d))
 		local placed = if across then V2.new(point.X, corner.Y + t) else V2.new(corner.X + t, point.Y)
 		return placed, edge, r, d, t
@@ -649,7 +646,8 @@ function parts.tail(
 	local wedge = ctx.styled(
 		Host.Frame(name)({
 			Size = function(use: ComposeTypes.Use)
-				local side = if at(use) then parts.tailSize(ctx, use) else 0
+				local point, _, _, d = geometry(use)
+				local side = if point then d * math.sqrt(2) else 0
 				return D2.fromOffset(side, side)
 			end,
 			AnchorPoint = V2.new(0.5, 0.5),
