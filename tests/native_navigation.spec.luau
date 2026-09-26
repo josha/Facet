@@ -2392,6 +2392,21 @@ t.describe("native navigation controls", function()
 		end
 		local first = outline:GetControlPoints()[1]
 		t.expect(math.abs(first.Position.X.Scale * 30 - 12) < 0.01).toBe(true)
+		panel.AbsoluteSize = V.new(280, 96)
+		anchor.AbsolutePosition = V.new(0, 560)
+		anchor.AbsoluteSize = V.new(8, 44)
+		local points = outline:GetControlPoints()
+		local radius = points[1].Position.X.Scale * 280
+		local tip, depth = 0, 0
+		for _, point in points do
+			local y = point.Position.Y.Scale * 96
+			if y > depth then
+				depth, tip = y, point.Position.X.Scale * 280
+			end
+		end
+		local half = depth - 96
+		t.expect(`tail clears the corner arc by a tail width: {tip - radius - half >= half - 0.01}`)
+			.toBe("tail clears the corner arc by a tail width: true")
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)
 		t.expect(find(world.screen, "CalloutPanel")).toBe(nil)
