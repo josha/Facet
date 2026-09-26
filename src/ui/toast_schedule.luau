@@ -60,6 +60,28 @@ function toast_schedule.new(options: Options?): Schedule
 	local sequence = 0
 	local changed = false
 	local proposals: { { entry: Entry, reason: string } } = {}
+	local depth = 0
+	local pending: { () -> () } = {}
+	local function later(callback: () -> ())
+		table.insert(pending, callback)
+	end
+	local function guarded<T>(body: () -> T): T
+		depth += 1
+		local ok, result = pcall(body)
+		local failure: unknown = if ok then nil else result
+		if ok and depth == 1 then
+			while failure == nil and #pending > 0 do
+				local done, problem = pcall(table.remove(pending, 1) :: () -> ())
+				failure = if done then nil else problem
+			end
+		end
+		depth -= 1
+		if failure ~= nil then
+			table.clear(pending)
+			error(failure, 0)
+		end
+		return result
+	end
 
 	local function outranks(a: Entry, b: Entry): boolean
 		if a.priority ~= b.priority then
@@ -69,8 +91,11 @@ function toast_schedule.new(options: Options?): Schedule
 	end
 	local function retire(entry: Entry, reason: string)
 		changed = true
-		if settings.onDismiss then
-			settings.onDismiss(entry, reason)
+		local onDismiss = settings.onDismiss
+		if onDismiss then
+			later(function()
+				onDismiss(entry, reason)
+			end)
 		end
 	end
 	local function floorMet(entry: Entry, at: number): boolean
@@ -164,20 +189,23 @@ function toast_schedule.new(options: Options?): Schedule
 		if changed then
 			changed = false
 			if settings.onChange then
-				settings.onChange()
+				later(settings.onChange)
 			end
 		end
 		local asked = proposals
 		proposals = {}
+		local onPropose = settings.onPropose
 		for _, proposal in asked do
-			if settings.onPropose then
-				settings.onPropose(proposal.entry, proposal.reason)
+			if onPropose then
+				later(function()
+					onPropose(proposal.entry, proposal.reason)
+				end)
 			end
 		end
 	end
 
 	local schedule = {}
-	function schedule.push(spec: Push): number
+	local function enqueue(spec: Push): number
 		sequence += 1
 		local entry: Entry = {
 			id = sequence,
@@ -208,21 +236,28 @@ function toast_schedule.new(options: Options?): Schedule
 		resolve()
 		return entry.id
 	end
+	function schedule.push(spec: Push): number
+		return guarded(function()
+			return enqueue(spec)
+		end)
+	end
 	function schedule.update()
-		resolve()
+		guarded(resolve)
 	end
 	function schedule.dismiss(id: number, reason: string?): boolean
-		for _, list in { visible, queue } do
-			for index, entry in list do
-				if entry.id == id then
-					table.remove(list, index)
-					retire(entry, reason or "manual")
-					resolve()
-					return true
+		return guarded(function()
+			for _, list in { visible, queue } do
+				for index, entry in list do
+					if entry.id == id then
+						table.remove(list, index)
+						retire(entry, reason or "manual")
+						resolve()
+						return true
+					end
 				end
 			end
-		end
-		return false
+			return false
+		end)
 	end
 	function schedule.visible(): { Entry }
 		return table.clone(visible)

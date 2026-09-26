@@ -235,6 +235,31 @@ describe("toast schedule: held entries propose instead of retiring", function()
 		expect(f.keys()).toBe("only")
 	end)
 
+	it("a dismiss callback that pushes runs after the schedule settles, so it cannot overfill the slots", function()
+		local now = 0
+		local schedule
+		schedule = toast_schedule.new({
+			maxVisible = 1,
+			now = function()
+				return now
+			end,
+			onDismiss = function(entry: any, reason: string)
+				if reason == "preempt" then
+					schedule.push({ data = "echo" })
+				end
+			end,
+		})
+		schedule.push({ data = "low", duration = 10 })
+		now = 3
+		schedule.push({ data = "high", priority = 5, duration = 10 })
+		local shown = {}
+		for _, entry in schedule.visible() do
+			table.insert(shown, entry.data)
+		end
+		expect(table.concat(shown, ",")).toBe("high")
+		expect(schedule.counts().queued).toBe(1)
+	end)
+
 	it("an infinite duration never times out", function()
 		local f = fixture()
 		f.schedule.push({ data = "sticky", duration = math.huge })
