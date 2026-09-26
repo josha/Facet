@@ -1527,8 +1527,11 @@ menus keep the control-specific navigation of the menu.
   the input is pointer-only. A Picker menu uses the same rows.
 - `triggers` limits the routes that open the menu. The routes are `activate`,
   `secondary`, `longPress`, `keyboard` and `gamepad`. The default is all five.
-- `presentation` is `automatic`, `menu` or `sheet`. `backLabel` sets the text
-  of the Back row. In a sheet, a submenu replaces the rows and adds a Back
+- `presentation` is `automatic`, `menu` or `sheet`. `automatic` is a sheet
+  when the preferred input is touch or a gamepad, or when the layer is too
+  narrow for the open levels side by side, and a floating menu otherwise. So a
+  gamepad gets one panel whose submenus replace its rows, not a cascade.
+  `backLabel` sets the text of the Back row. In a sheet, a submenu replaces the rows and adds a Back
   row. In a floating menu, a submenu opens as a new level beside its parent
   level, which keeps the open row filled. A floating menu has no Back row.
 - When the player navigates by selection, an open menu selects its first

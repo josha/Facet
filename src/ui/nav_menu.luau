@@ -739,6 +739,7 @@ return function(
 			end
 			return (use(extent).X > 0 and use(extent).X < math.max(600, (#use(path) + 1) * 288 + 16))
 				or use(preferred) == E.PreferredInput.Touch
+				or use(preferred) == E.PreferredInput.Gamepad
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			sheeted:set(use(asSheet))

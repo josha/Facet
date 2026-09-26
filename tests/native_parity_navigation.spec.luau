@@ -1294,6 +1294,11 @@ t.describe("native parity navigation", function()
 		t.expect(find(world.screen, "Leaf") ~= nil).toBe(true)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(find(world.screen, "AncestorMenu") ~= nil).toBe(true)
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+		t.expect(find(world.screen, "AncestorMenu")).toBeNil()
+		t.expect(find(world.screen, "Back") ~= nil).toBe(true)
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+		t.expect(find(world.screen, "AncestorMenu") ~= nil).toBe(true)
 		modal.AbsoluteSize = V2(world, 360, 720)
 		t.expect(find(world.screen, "AncestorMenu")).toBeNil()
 		presentation:set("menu")
