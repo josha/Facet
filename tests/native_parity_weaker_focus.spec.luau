@@ -1356,6 +1356,36 @@ t.describe("native parity weaker focus", function()
 		runtime:dispose()
 	end)
 
+	t.it(
+		"overlapping radials hold engine pad navigation off until the last closes, then restore the game's value",
+		function()
+			local a, b = Compose.cell(false), Compose.cell(false)
+			local function wheel(UI: any, opened: any): any
+				return UI.RadialMenu({
+					isPresented = opened,
+					launcher = false,
+					items = { { id = "North", label = "North", onSelect = function() end } },
+				})
+			end
+			local world = setup(function(UI, Host)
+				return Host.Frame({ wheel(UI, a), wheel(UI, b) })
+			end, { reducedMotion = true })
+			world.gui.GuiNavigationEnabled = true
+			a:set(true)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			b:set(true)
+			a:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			b:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(true)
+			world.gui.GuiNavigationEnabled = false
+			a:set(true)
+			a:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			world.stop()
+		end
+	)
+
 	t.it("previews radial aim without committing and closes on semantic Back one level at a time", function()
 		local engine: any = engineLib.new()
 		local hold = engine.new("InputAction")

@@ -2125,7 +2125,11 @@ Nothing is highlighted when the ring opens, until the player points at an
 item, presses a direction or moves the stick. With a gamepad as the preferred
 input, the first item is selected, because the console needs a focused
 control. When a submenu replaces the level, the selection moves to the first
-item of the new level. The ring blooms out of its centre: the items and wedges travel from a
+item of the new level. While any ring is open, `GuiService.GuiNavigationEnabled`
+is false, because the engine's pad navigation otherwise takes the left stick
+from the ring; the ring binds its own D-pad, A and B. The value before the
+first ring opened comes back when the last one closes, unless the game changed
+it meanwhile. The ring blooms out of its centre: the items and wedges travel from a
 fifth of their distance to their places as they fade in. Reduced motion places
 them at once.
 

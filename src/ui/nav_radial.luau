@@ -8,6 +8,32 @@ local Radial = require("./radial_types")
 local Navigation = require("./navigation_types")
 local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
+
+local navigationHolds: { [Instance]: { count: number, saved: boolean } } = setmetatable({} :: any, { __mode = "k" })
+local function holdNavigation(gui: GuiService): () -> ()
+	local hold = navigationHolds[gui]
+	if hold == nil then
+		hold = { count = 0, saved = gui.GuiNavigationEnabled }
+		navigationHolds[gui] = hold
+	end
+	local held = hold :: { count: number, saved: boolean }
+	held.count += 1
+	gui.GuiNavigationEnabled = false
+	local released = false
+	return function()
+		if released then
+			return
+		end
+		released = true
+		held.count -= 1
+		if held.count == 0 then
+			navigationHolds[gui] = nil
+			if gui.GuiNavigationEnabled == false then
+				gui.GuiNavigationEnabled = held.saved
+			end
+		end
+	end
+end
 return function(
 	ctx: Types.Context,
 	UI: {
@@ -1432,13 +1458,21 @@ return function(
 				end)
 
 				if gui then
-					local before = gui.GuiNavigationEnabled
+					local release: (() -> ())? = nil
+					local function let()
+						if release then
+							release()
+							release = nil
+						end
+					end
 					Compose.watch(function(use: ComposeTypes.Use)
-						gui.GuiNavigationEnabled = before and not use(opened)
+						if use(opened) and release == nil then
+							release = holdNavigation(gui)
+						elseif not use(opened) then
+							let()
+						end
 					end)
-					Compose.cleanup(function()
-						gui.GuiNavigationEnabled = before
-					end)
+					Compose.cleanup(let)
 				end
 				Compose.watch(function(use: ComposeTypes.Use)
 					local entries = use(sectors)
