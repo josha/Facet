@@ -681,7 +681,7 @@ return function(
 					Name = "RadialPanel",
 					BackgroundTransparency = 1,
 					Size = function(use: ComposeTypes.Use)
-						return if use(fallback) then D2.new(1, -32, 1, -64) else D2.fromScale(1, 1)
+						return if use(fallback) then D2.new(1, -32, 1, -80) else D2.fromScale(1, 1)
 					end,
 					Position = function(use: ComposeTypes.Use)
 						return if use(fallback) then D2.fromOffset(16, 48) else D2.fromOffset(0, 0)
@@ -1175,53 +1175,50 @@ return function(
 					end
 					return D2.fromOffset(at.X, at.Y + hub(use).labelY), V2.new(0.5, 0.5)
 				end
-				surfaces.attach(panel, {
-					ctx.text({
-						Name = "SelectionPreview",
-						Size = function(use: ComposeTypes.Use): UDim2
-							if use(layout).list then
-								return D2.new(1, -32 - 1.5 * PAINTED, 0, 0)
+				local preview = ctx.text({
+					Name = "SelectionPreview",
+					Size = function(use: ComposeTypes.Use): UDim2
+						if use(layout).list then
+							return D2.new(1, -32 - 1.5 * PAINTED, 0, 0)
+						end
+						if corner then
+							return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
+						end
+						local place = hub(use)
+						return D2.fromOffset(place.labelW, place.labelH)
+					end,
+					AutomaticSize = function(use: ComposeTypes.Use)
+						return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
+					end,
+					Position = function(use: ComposeTypes.Use): UDim2
+						return (previewPlace(use))
+					end,
+					AnchorPoint = function(use: ComposeTypes.Use): Vector2
+						local _, anchor = previewPlace(use)
+						return anchor
+					end,
+					TextXAlignment = function(use: ComposeTypes.Use)
+						local _, anchor = previewPlace(use)
+						return if anchor.X == 0.5
+							then E.TextXAlignment.Center
+							elseif anchor.X == 0 then E.TextXAlignment.Left
+							else E.TextXAlignment.Right
+					end,
+					TextTruncate = E.TextTruncate.AtEnd,
+					Text = function(use: ComposeTypes.Use)
+						local key = use(candidate) or use(focus.current)
+						local entries = use(sectors)
+						for sectorIndex = 1, #entries do
+							local sector = entries[sectorIndex]
+							if sector.key == key then
+								local label = read(sector.item.label, use) or ""
+								local detail = read(sector.item.description, use)
+								return label .. (if detail then " · " .. detail else "")
 							end
-							if corner then
-								return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
-							end
-							local place = hub(use)
-							return D2.fromOffset(place.labelW, place.labelH)
-						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
-						end,
-						Position = function(use: ComposeTypes.Use): UDim2
-							return (previewPlace(use))
-						end,
-						AnchorPoint = function(use: ComposeTypes.Use): Vector2
-							local _, anchor = previewPlace(use)
-							return anchor
-						end,
-						TextXAlignment = function(use: ComposeTypes.Use)
-							local _, anchor = previewPlace(use)
-							return if anchor.X == 0.5
-								then E.TextXAlignment.Center
-								elseif anchor.X == 0 then E.TextXAlignment.Left
-								else E.TextXAlignment.Right
-						end,
-						LayoutOrder = 10000,
-						TextTruncate = E.TextTruncate.AtEnd,
-						Text = function(use: ComposeTypes.Use)
-							local key = use(candidate) or use(focus.current)
-							local entries = use(sectors)
-							for sectorIndex = 1, #entries do
-								local sector = entries[sectorIndex]
-								if sector.key == key then
-									local label = read(sector.item.label, use) or ""
-									local detail = read(sector.item.description, use)
-									return label .. (if detail then " · " .. detail else "")
-								end
-							end
-							return ""
-						end,
-						ZIndex = 106,
-					}),
+						end
+						return ""
+					end,
+					ZIndex = 106,
 				})
 				local function choose(sector: Radial.Sector<V>?): Radial.Sector<V>?
 					if sector and read(sector.item.enabled) == false then
@@ -1445,7 +1442,7 @@ return function(
 						end,
 					}
 				)
-				surfaces.attach(modal, { centerHit, centerNode })
+				surfaces.attach(modal, { centerHit, centerNode, preview })
 				local catcher = modal:FindFirstChild("DismissOutside")
 				if catcher then
 					if scrim == "dark" then

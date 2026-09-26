@@ -2022,7 +2022,8 @@ and a `centerLabel` replaces that name; it is never shown as text. Cancel (the B
 Back/Close control do the same thing. The name of the highlighted item sits in
 the hole under the centre control, on one caption line, truncated to the
 hole's width. Without a centre control the name is centred in the hole. In
-the list fallback the name sits at the bottom left, under the list.
+the list fallback the name sits at the bottom left, in its own band under the
+scrolling list, never inside it.
 
 A corner ring names the highlighted item just outside the arc, on the arc's
 middle direction.
