@@ -111,8 +111,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		session:set(started)
 		return started
 	end
-	-- The ghost is an inert clone of the source at the root of its screen. Pointer positions are screen pixels, so
-	-- only a UIScale on that root separates them from the ghost's offsets.
+	-- The ghost is an inert clone of the source at the root of its screen. A pointer position and the screen's
+	-- AbsolutePosition share one space (an IgnoreGuiInset screen starts above the pointer's origin), and only a
+	-- UIScale on that root separates it from the ghost's offsets.
 	local function ghostOf(source: GuiObject): GuiObject?
 		local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 		if layer == nil then
@@ -134,15 +135,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return ghost
 	end
 	local function place(ghost: GuiObject, source: GuiObject, at: Vector2)
+		local layer = ghost.Parent :: Instance
+		local origin: Vector2 = if layer:IsA("GuiBase2d") then layer.AbsolutePosition else V2.zero
 		local scale = 1
-		for _, child in (ghost.Parent :: Instance):GetChildren() do
+		for _, child in layer:GetChildren() do
 			if child:IsA("UIScale") and child.Scale > 0 then
 				scale = child.Scale
 			end
 		end
 		local size = source.AbsoluteSize / scale
 		ghost.Size = D2.fromOffset(size.X, size.Y)
-		ghost.Position = D2.fromOffset(at.X / scale, at.Y / scale)
+		ghost.Position = D2.fromOffset((at.X - origin.X) / scale, (at.Y - origin.Y) / scale)
 	end
 
 	UI.draggable = function(source: GuiObject, spec: Env.DraggableSpec)
