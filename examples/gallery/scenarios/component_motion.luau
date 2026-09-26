@@ -69,6 +69,7 @@ return {
 				{ id = "beacon", name = "Beacon", price = 20 },
 			})
 			local balance = Compose.cell(100)
+			local rowStatus = Compose.cell(nil)
 
 			local runtime = ctx.runtime
 			local displayedBalance = if runtime
@@ -173,13 +174,24 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 						children = {
-							Compose.OrderedCollection({
+							UI.VirtualList "Items" {
 								from = items,
 								key = function(entry)
 									return entry.id
 								end,
+								mode = "all",
+								measure = true,
+								itemSize = 56,
+								gap = 8,
+								status = rowStatus,
+								ScrollingEnabled = false,
+								ScrollBarThickness = 0,
+								Size = function(use)
+									local current = use(rowStatus)
+									return UDim2.new(1, 0, 0, if current then current.extent else 0)
+								end,
 								render = ItemRow,
-							}),
+							},
 						},
 					}),
 					UI.Toggle "DetailsToggle" {
