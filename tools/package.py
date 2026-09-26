@@ -216,6 +216,15 @@ def source_commit_stamp():
     return commit + "-dirty" if porcelain(["src"]) else commit
 
 
+def repository_url():
+
+    result = subprocess.run(["git", "-C", REPO, "remote", "get-url", "origin"], capture_output=True, text=True)
+    url = result.stdout.strip() if result.returncode == 0 else ""
+    url = re.sub(r"^git@([^:]+):", r"https://\1/", url)
+    url = re.sub(r"^https://[^@/]+@", "https://", url)
+    return re.sub(r"\.git$", "", url) or "unknown"
+
+
 def shown(path):
 
     absolute = os.path.abspath(path)
@@ -289,7 +298,7 @@ def stage(out_root=None, quiet=False):
             "SourceCommit": source_commit_stamp(),
             "SourceHash": source_hash(),
             "BuildSchema": BUILD_SCHEMA,
-            "Repository": "https://github.com/josha/Facet",
+            "Repository": repository_url(),
         },
     }
     write_atomic(os.path.join(target, "init.meta.json"), json.dumps(meta, indent=2, sort_keys=True) + "\n")
@@ -1302,7 +1311,7 @@ def cmd_create(args, transport=None, decider=decide):
             "revisionCreateTime": asset.get("revisionCreateTime"),
         },
         moderation=(asset.get("moderationResult") or {}).get("moderationState"),
-        actor=args.actor or os.environ.get("USER"),
+        actor=args.actor or "maintainer",
         gate=facts.get("gate"),
     )
     record_version(args.config, config, receipt_body)
@@ -1416,7 +1425,7 @@ def cmd_publish(args, transport=None, decider=decide):
             operation_path=None,
             asset_revision={"revisionId": number, "revisionPath": found.get("path")},
             moderation=moderation,
-            actor=args.actor or os.environ.get("USER"),
+            actor=args.actor or "maintainer",
             gate=facts.get("gate"),
         )
         record_version(args.config, config, receipt_body)
@@ -1451,7 +1460,7 @@ def cmd_publish(args, transport=None, decider=decide):
             "revisionCreateTime": asset.get("revisionCreateTime"),
         },
         moderation=moderation,
-        actor=args.actor or os.environ.get("USER"),
+        actor=args.actor or "maintainer",
         gate=facts.get("gate"),
     )
     record_version(args.config, config, receipt_body)

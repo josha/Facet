@@ -87,7 +87,7 @@ attributes and two `StringValue` children.
 | `SourceCommit` | `git rev-parse HEAD`, with the suffix `-dirty` when `git status --porcelain -- src` is not empty |
 | `SourceHash` | sha256 over the sorted shipped source (see below) |
 | `BuildSchema` | `facet-package/1` |
-| `Repository` | `https://github.com/josha/Facet` |
+| `Repository` | the `origin` remote (`git remote get-url origin`) as an https URL, without credentials |
 
 | Child | Value |
 |---|---|

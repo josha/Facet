@@ -8,7 +8,7 @@ device timings.
 | Label | Commit | Description |
 |---|---|---|
 | base | `a8c8895673c0745506908b66dc89f8cead6b66f3` | `main` before the native cutover |
-| cand | `6789e3b1` | `codex/compose-ui-simplification` (draft PR josha/Facet#22) |
+| cand | `6789e3b1` | `codex/compose-ui-simplification` (draft PR #22) |
 | tok | `5530b29f` | `cand` plus the StyleSheet token prototype, on branch `perf/stylesheet-tokens` |
 
 `cand` includes the three optimizations that
