@@ -688,6 +688,26 @@ t.describe("Compose native collections", function()
 		end
 	end)
 
+	t.it("lays rows out in layout units under a scaled ancestor, as in a ten-foot preview", function()
+		local engine, runtime, UI, target = setup()
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(20),
+				key = key,
+				itemSize = 20,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node:FindFirstChild("LayoutUnit").AbsoluteSize = engine.types.Vector2.new(0.8, 0.8)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(160, 80)
+		t.expect(node:FindFirstChild("1", true).Size.X.Offset).toBe(200)
+		t.expect(node:FindFirstChild("5", true) ~= nil).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3

@@ -432,20 +432,25 @@ return function<V, K>(
 		local function dragImage(dropY: (ComposeTypes.Use) -> number): Frame
 			local move = assert(moving:peek())
 			local source = rowNodes[move.key]
-			local size = if source then source.AbsoluteSize else V2.zero
+			local index = assert(controls.indexOfKey)(move.key)
+			local extent = if index then assert(controls.placementOf)(index).size else 0
 			local layers = math.min(3, #move.keys)
+			local stack = STACK * (layers - 1)
+			local function sized(inset: number): UDim2
+				return if horizontal then D2.new(0, extent, 1, -inset) else D2.new(1, -inset, 0, extent)
+			end
 			local imageProps: Types.FrameProps = {
 				Name = "DragImage",
 				ZIndex = 9,
 				BackgroundTransparency = 1,
 				Interactable = false,
-				Size = D2.fromOffset(size.X + STACK * (layers - 1), size.Y + STACK * (layers - 1)),
+				Size = if horizontal then D2.new(0, extent + stack, 1, 0) else D2.new(1, 0, 0, extent + stack),
 				Position = function(use: ComposeTypes.Use)
 					local live = use(moving)
 					local along = if live and live.pointer
 						then axis(live.pointer) - axis(use(screen)) + (if horizontal
 							then use(bodyAt).X.Offset
-							else use(bodyAt).Y.Offset) - axis(size) / 2
+							else use(bodyAt).Y.Offset) - extent / 2
 						else dropY(use)
 					return if horizontal then D2.fromOffset(along, 0) else D2.fromOffset(0, along)
 				end,
@@ -489,7 +494,7 @@ return function<V, K>(
 					end
 					copy.AnchorPoint = V2.zero
 					copy.Position = D2.fromOffset(STACK * (layer - 1), STACK * (layer - 1))
-					copy.Size = D2.fromOffset(size.X, size.Y)
+					copy.Size = sized(stack)
 					copy.ZIndex = layers - layer + 1
 					copy.Parent = image
 				end

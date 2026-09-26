@@ -497,6 +497,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return Host.Frame(nativeProps)
 			end)
 		)
+		local unit = Host.Frame({
+			Name = "LayoutUnit",
+			Size = D2.fromOffset(1, 1),
+			BackgroundTransparency = 1,
+			Visible = false,
+		})
+		table.insert(native, unit)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
 		root:SetAttribute("FacetSelectionOwner", true)
 		local input = ctx.config.userInputService
@@ -568,8 +575,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteWindowSize(root)
 		local position: ComposeTypes.Cell<Vector2> = observe.CanvasPosition(root)
+		local unitSize: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(unit)
 		Compose.watch(function(use: ComposeTypes.Use)
+			local scale = use(unitSize).X
 			local dimensions, at = use(size), use(position)
+			if scale > 0 then
+				dimensions /= scale
+			end
 			local offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge(use))
 			local extent = if horizontal then dimensions.X else dimensions.Y
 			cross:set(if horizontal then dimensions.Y else dimensions.X)
