@@ -44,8 +44,8 @@ return {
 				local frame = Host.Frame "StatusFamily" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					padding,
 					Host.ScrollingFrame "Content" {
+						padding,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
 						AutomaticCanvasSize = Enum.AutomaticSize.Y,
