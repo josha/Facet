@@ -587,8 +587,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				name = "Clear",
 				icon = "close",
 				appearance = "utility",
-				Size = D2.fromOffset(44, 44),
-				AutomaticSize = E.AutomaticSize.None,
+				shape = "circle",
+				Size = function(use: ComposeTypes.Use): UDim2
+					local side = math.max(36, use(textHeight) + 12) - 8
+					return D2.fromOffset(side, side)
+				end,
 				AnchorPoint = if framed then nil else V2.new(1, 0.5),
 				Position = if framed then nil else D2.fromScale(1, 0.5),
 				LayoutOrder = if framed then 40 else nil,
