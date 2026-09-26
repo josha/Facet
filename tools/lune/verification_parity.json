@@ -46136,7 +46136,7 @@
     {
       "id": "post-pickers-139",
       "group": "menus-pickers",
-      "title": "DateTimePicker: a single date: the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)",
+      "title": "DateTimePicker: a single date: the year and month menus open on the shown ones and honour min/max",
       "mainSpecs": [
         "date_time_picker"
       ],
@@ -46145,7 +46145,7 @@
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "family": "pickers",
       "candidateCases": [
-        "native_date_time_picker::DateTimePicker: a single date::the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)"
+        "native_date_time_picker::DateTimePicker: a single date::the year and month menus open on the shown ones and honour min/max"
       ],
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Controller Emulator (Virtual Controller) on; real Gamepad1 input sent through UserInputService:CreateVirtualInput() and the emulator key map by live.press (DPadDown 3, DPadLeft 2, DPadRight 4, ButtonA 9, ButtonB 0, ButtonX 8, ButtonY 7, left stick up W); each artifact records the delivered Gamepad1 InputObjects in notes.deliveredInput; Medium text",
@@ -46394,7 +46394,7 @@
     {
       "id": "post-pickers-152",
       "group": "menus-pickers",
-      "title": "DateTimePicker: ranges, presets and drafts: a range's end drags across days and panes, crossing swaps, release commits once (owner)",
+      "title": "DateTimePicker: ranges, presets and drafts: a range's end drags across days and panes, crossing swaps, release commits once",
       "mainSpecs": [
         "date_time_picker"
       ],
@@ -46403,7 +46403,7 @@
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "family": "pickers",
       "candidateCases": [
-        "native_date_time_picker::DateTimePicker: ranges, presets and drafts::a range's end drags across days and panes, crossing swaps, release commits once (owner)"
+        "native_date_time_picker::DateTimePicker: ranges, presets and drafts::a range's end drags across days and panes, crossing swaps, release commits once"
       ],
       "weaker": "Drag positions come from synthetic cell rectangles and fired InputBegan/InputChanged/InputEnded events (needs-live dtp-range-drag)."
     },

@@ -381,7 +381,7 @@ t.describe("native menu parity with main", function()
 		stop()
 	end)
 
-	t.it("a skinned panel sizes to its rows plus the art carve and keeps them in its content box (owner)", function()
+	t.it("a skinned panel sizes to its rows plus the art carve and keeps them in its content box", function()
 		for _, name in { "pixel_quest", "fantasy_ornate" } do
 			local package = (require :: any)("../examples/themes/" .. name).build(Facet.themes)
 			local carve = package.chrome.panel.contentInsets
@@ -411,7 +411,7 @@ t.describe("native menu parity with main", function()
 		end
 	end)
 
-	t.it("a 300-row menu fades through a window-sized group, never one as tall as its rows (owner)", function()
+	t.it("a 300-row menu fades through a window-sized group, never one as tall as its rows", function()
 		local world = labelled({ items = items(300), presentation = "menu" }, {})
 		local panel = open(world)
 		local rows = panel:FindFirstChild("MenuRows", true)

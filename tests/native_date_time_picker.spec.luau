@@ -234,7 +234,7 @@ t.describe("DateTimePicker: a single date", function()
 		w.stop()
 	end)
 
-	t.it("the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)", function()
+	t.it("the year and month menus open on the shown ones and honour min/max", function()
 		local cell, _, change = caller(D(2026, 9, 5))
 		local w = mount(
 			{ value = cell, onChange = change, style = "inline", min = D(2020, 3, 10), max = D(2030, 6, 1) },
@@ -257,38 +257,35 @@ t.describe("DateTimePicker: a single date", function()
 		w.stop()
 	end)
 
-	t.it(
-		"the year menu is a short bounded window on the shown year, never thousands of blurred rows (owner)",
-		function()
-			local cell, _, change = caller(D(2026, 9, 5))
-			local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
-			must(w.picker(), "Year").Activated.fire()
-			local rows = must(w.screen, "MenuRows")
-			local years = {}
-			for _, row in rows:GetChildren() do
-				if tonumber(row.Name) then
-					table.insert(years, tonumber(row.Name))
-				end
+	t.it("the year menu is a short bounded window on the shown year, never thousands of blurred rows", function()
+		local cell, _, change = caller(D(2026, 9, 5))
+		local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
+		must(w.picker(), "Year").Activated.fire()
+		local rows = must(w.screen, "MenuRows")
+		local years = {}
+		for _, row in rows:GetChildren() do
+			if tonumber(row.Name) then
+				table.insert(years, tonumber(row.Name))
 			end
-			table.sort(years)
-			expect(`{#years} {years[1]} {years[#years]}`).toBe("101 1976 2076")
-			local V2 = w.engine.types.Vector2
-			rows.AbsoluteSize = V2.new(200, 101 * 44)
-			must(w.screen, "Modal").AbsoluteSize = V2.new(900, 900)
-			expect(must(w.screen, "MenuPanel").Size.Y.Offset <= 5 * 44).toBe(true)
-			expect(w.selected()).toBe(must(rows, "2026"))
-			must(rows, "1976").Activated.fire()
-			must(w.picker(), "Year").Activated.fire()
-			rows = must(w.screen, "MenuRows")
-			expect(`{find(rows, "1926") ~= nil} {find(rows, "1925") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
-				"true false true"
-			)
-			w.stop()
 		end
-	)
+		table.sort(years)
+		expect(`{#years} {years[1]} {years[#years]}`).toBe("101 1976 2076")
+		local V2 = w.engine.types.Vector2
+		rows.AbsoluteSize = V2.new(200, 101 * 44)
+		must(w.screen, "Modal").AbsoluteSize = V2.new(900, 900)
+		expect(must(w.screen, "MenuPanel").Size.Y.Offset <= 5 * 44).toBe(true)
+		expect(w.selected()).toBe(must(rows, "2026"))
+		must(rows, "1976").Activated.fire()
+		must(w.picker(), "Year").Activated.fire()
+		rows = must(w.screen, "MenuRows")
+		expect(`{find(rows, "1926") ~= nil} {find(rows, "1925") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
+			"true false true"
+		)
+		w.stop()
+	end)
 
 	t.it(
-		"the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped (owner)",
+		"the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped",
 		function()
 			for _, input in { "pointer", "touch" } do
 				local cell, _, change = caller(D(2026, 9, 5))
@@ -315,7 +312,7 @@ t.describe("DateTimePicker: a single date", function()
 		end
 	)
 
-	t.it("the field's parts take the field's height at every control size (owner: TV xsmall)", function()
+	t.it("the field's parts take the field's height at every control size", function()
 		for _, input in { "pointer", "touch" } do
 			for _, rung in { "xsmall", "large", "none" } do
 				local cell, _, change = caller(D(2026, 9, 5))
@@ -340,7 +337,7 @@ t.describe("DateTimePicker: a single date", function()
 		end
 	end)
 
-	t.it("a custom format shows one Show button that reads in the field's text role (owner)", function()
+	t.it("a custom format shows one Show button that reads in the field's text role", function()
 		for _, input in { "pointer", "touch" } do
 			local cell, _, change = caller(D(2026, 9, 5))
 			local w = mount({
@@ -360,7 +357,7 @@ t.describe("DateTimePicker: a single date", function()
 		end
 	end)
 
-	t.it("a skinned panel's calendar surface adds the art carve around the calendar (owner: Pixel Quest)", function()
+	t.it("a skinned panel's calendar surface adds the art carve around the calendar", function()
 		local themeKit: any = require("../src/ui/themes")(Compose)
 		local module: any = (require :: any)("../examples/themes/pixel_quest")
 		local package = module.build(themeKit)
@@ -930,7 +927,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		})
 	end
 
-	t.it("a range's end drags across days and panes, crossing swaps, release commits once (owner)", function()
+	t.it("a range's end drags across days and panes, crossing swaps, release commits once", function()
 		local cell, _, change = caller({ start = D(2026, 9, 10), finish = D(2026, 9, 15) })
 		local commits: { string } = {}
 		local w = mount({

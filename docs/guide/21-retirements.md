@@ -36,7 +36,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `apps-159`, `mech2-104`.
 - PR status: The PR gives entry selection only to modal controls (Alert, Sheet, Menu) and to collections that you give a focus option. On an ordinary screen, a gamepad or keyboard player starts with no selection until the engine picks one. `docs/guide/07-input.md` promises entry only for modals.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. The first D-pad press selects the first control of the active screen, and `UI.focusSection` takes `focusOnAppear` and `returnFocus` again (with `entry` and `preferred`). [Restored before the merge](#restored-before-the-merge) and [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. The first D-pad press selects the first control of the active screen, and `UI.focusSection` takes `focusOnAppear` and `returnFocus` again (with `entry` and `preferred`). [Restored before the merge](#restored-before-the-merge) and [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 2. Nearest-survivor focus after a removal
 
@@ -54,7 +54,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `apps2-210`.
 - PR status: The PR binds no Tab key (`Button` refuses Tab as a shortcut). Roblox engine selection moves by direction only. The b-class record says `nativeEvidence: none`. The live run `artifacts/studio-live/needs_live_input-power-off-traversal-portrait-largest.json` records the check `Tab reaches After` as failed: Tab selected no control, while DPadDown did.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. Tab and Shift+Tab walk the controls inside the active modal or screen, ordered by the native `SelectionOrder` tier and then layout order. `UI.responder` restores the passive first responder, `gameplayGuard` and `traversalWrap`. `keyboardNavigation` stays on by default. [Restored before the merge](#restored-before-the-merge) and [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. Tab and Shift+Tab walk the controls inside the active modal or screen, ordered by the native `SelectionOrder` tier and then layout order. `UI.responder` restores the passive first responder, `gameplayGuard` and `traversalWrap`. `keyboardNavigation` stays on by default. [Restored before the merge](#restored-before-the-merge) and [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 4. Ten-foot (viewing distance) profile, including the ten-foot focus ring
 
@@ -63,7 +63,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `navigation-1-13`, `navigation-1-01`, `navigation-4-41`, `apps-190`, `paint-85`, `apps2-134`, `inputs-53`.
 - PR status: The PR has no environment distance fact. The gallery keeps only a `UIScale` 1.5 preview. Console players get desktop density unless each game scales its own UI.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. At ten feet (`adaptive.isTenFoot`, or the `viewingDistance` environment option) controls and the StyleSheet use the 1.5 metric ladder (`themes.forDistance`), `UI.Screen` keeps the console overscan margins, Alert stacks its actions, a Sheet is centred and the TabView strip and NavigationStack bar are 66 pixels high. The ten-foot focus look is restored on the engine selection: a thicker ring, larger brackets, art and glow, and a 3 pixel lift off the control. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. At ten feet (`adaptive.isTenFoot`, or the `viewingDistance` environment option) controls and the StyleSheet use the 1.5 metric ladder (`themes.forDistance`), `UI.Screen` keeps the console overscan margins, Alert stacks its actions, a Sheet is centred and the TabView strip and NavigationStack bar are 66 pixels high. The ten-foot focus look is restored on the engine selection: a thicker ring, larger brackets, art and glow, and a 3 pixel lift off the control. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 5. Theme-owned focus indicator
 
@@ -72,7 +72,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `mech1-91`.
 - PR status: The PR uses the engine default selection image (`SelectionImageObject` is not set). `theme_types.SkinLayer.kind` still lists `glow`, and two shipped packages still declare focus art that nothing reads (`themes-P2-31` removal text).
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. The engine draws focus through `SelectionImageObject`, and each theme supplies the look as data in `chrome.focus`: a ring, a glow, sliced art or corner brackets, in the selected control's shape, larger at ten feet, with an optional pulse. The Slider thumb is the selected object, so the look lands on it. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. The engine draws focus through `SelectionImageObject`, and each theme supplies the look as data in `chrome.focus`: a ring, a glow, sliced art or corner brackets, in the selected control's shape, larger at ten feet, with an optional pulse. The Slider thumb is the selected object, so the look lands on it. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 6. The application handle
 
@@ -99,7 +99,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `mech3-87`, `mech3-89`, `apps2-226`, `mech2-12`.
 - PR status: The toast is now a gallery scenario (`examples/gallery/scenarios/sponsor_toast.luau`). Each game writes its own queue and timers.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. `UI.Toast` and `app.presentToast` queue, stack, time and dismiss toasts per edge, dock clear of reserved chrome, and take `fade`. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. `UI.Toast` and `app.presentToast` queue, stack, time and dismiss toasts per edge, dock clear of reserved chrome, and take `fade`. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 9. Custom and anchored presentation
 
@@ -107,7 +107,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Main evidence: 4 contracts, 41 main cases: `navigation-1-46` (7, class c, `anchored_surface`); `mech2-105` (21, class c, `presenter`); `mech1-84` (11, class c, `compose_scene`); `navigation-2-62` (2, class c, `modal_dismissal`).
 - PR status: `UI.Alert` and `UI.Sheet` own presentation. A game that needs a custom modal body must fit it in a Sheet or build it on native objects.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. `app.presentAnchored` places a panel against a node or a rect, and `UI.Popover` takes `modal = false`. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. `app.presentAnchored` places a panel against a node or a rect, and `UI.Popover` takes `modal = false`. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 10. Server replication helpers
 
@@ -123,7 +123,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Main evidence: 3 contracts, 81 main cases: `inputs-84` (53, class c, `drag_public`); `inputs-85` (11, class c, `drag_session`); `apps2-246` (17, class c, `sponsor_scenarios`).
 - PR status: Only table and list reorder keep a drag. A game uses `UIDragDetector` directly (the match-3 example does).
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. `UI.draggable` and `UI.dropTarget` pick up by pointer travel, by the engine long press on touch, and by A or Return on a selected source, with a `DragGhost`, legality through `accepts` and cancel with B or Escape. The pure session primitives (`newDragSession`, `newAutoscroll`, `touchGestures`) stay retired. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. `UI.draggable` and `UI.dropTarget` pick up by pointer travel, by the engine long press on touch, and by A or Return on a selected source, with a `DragGhost`, legality through `accepts` and cancel with B or Escape. The pure session primitives (`newDragSession`, `newAutoscroll`, `touchGestures`) stay retired. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 12. On-screen keyboard avoidance
 
@@ -132,7 +132,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `inputs-10`.
 - PR status: The PR leaves this to the engine TextBox. No test or live record shows that the engine keeps a field visible on a phone.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored in part. A focused TextInput scrolls its page up out from under the touch keyboard. `keyboardType` and `submitLabel` stay with the engine TextBox. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored in part. A focused TextInput scrolls its page up out from under the touch keyboard. `keyboardType` and `submitLabel` stay with the engine TextBox. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 13. Haptic and sensory feedback system
 
@@ -141,7 +141,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `inputs-76`.
 - PR status: The PR keeps one `pressHaptic` option that plays only on a value change. The motor output on a phone and a gamepad has no physical evidence (`tools/lune/parity_blockers.json` `pendingLiveRisks`).
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored in part. The named kinds `selection`, `impact`, `success`, `warning` and `error` map to engine `HapticEffect`s: `haptic = kind` on a Button, `pressHaptic = kind` and `UI.feedback(kind)`. `haptic = true` stays the shorthand for `pressHaptic`. The feedback bus, `UI.sensoryFeedback` and the rate-limited adapter stay retired. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored in part. The named kinds `selection`, `impact`, `success`, `warning` and `error` map to engine `HapticEffect`s: `haptic = kind` on a Button, `pressHaptic = kind` and `UI.feedback(kind)`. `haptic = true` stays the shorthand for `pressHaptic`. The feedback bus, `UI.sensoryFeedback` and the rate-limited adapter stay retired. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 14. Table selection and editing model
 
@@ -150,7 +150,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `apps2-179`.
 - PR status: In multi mode every activation toggles. Arrows do not select. The caller owns `editing`. Desktop players lose the usual list selection keys.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored in part. The multi-select keys are restored: a plain click replaces, Ctrl-click or Cmd-click toggles, Shift-click and Shift with an arrow extend. A reorderable Table shows its own Edit and Done toolbar to a keyboard with no mouse and on touch and pad. A plain arrow still does not select, and `onPrimaryAction` stays retired. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored in part. The multi-select keys are restored: a plain click replaces, Ctrl-click or Cmd-click toggles, Shift-click and Shift with an arrow extend. A reorderable Table shows its own Edit and Done toolbar to a keyboard with no mouse and on touch and pad. A plain arrow still does not select, and `onPrimaryAction` stays retired. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 15. Row tray dismissal
 
@@ -175,7 +175,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `apps2-155`, `mech3-98`.
 - PR status: Authors compose `runtime.spring` and `runtime.tween`. Controls animate by default since `4b9ab031`. AGENTS.md on main still teaches `transition` on `UI.When` and `UI.ForEach`.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored in part. `UI.Text { reveal = "auto" }` restores the marquee of truncated text. Controls animate by default, and a game uses Compose animation (`runtime.spring`, `runtime.tween`) for its own motion; `UI.withAnimation`, region `transition`, the typewriter stream and the value count-up stay retired. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored in part. `UI.Text { reveal = "auto" }` restores the marquee of truncated text. Controls animate by default, and a game uses Compose animation (`runtime.spring`, `runtime.tween`) for its own motion; `UI.withAnimation`, region `transition`, the typewriter stream and the value count-up stay retired. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 18. Text fit and middle truncation
 
@@ -192,7 +192,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `mech1-42`.
 - PR status: VirtualList keeps `indexOfKey`, `placementOf` and `offsetOf`. Reorder autoscroll starts at once and scrolls only its own body.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. `UI.scrollTo` and `UI.scrollToVisible` move native `ScrollingFrame` ancestors (`apps-228`), and reorder autoscroll hands off to the enclosing scroller at the end of the list. The dwell and band tuning options stay retired. [Restored before the merge](#restored-before-the-merge) and [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. `UI.scrollTo` and `UI.scrollToVisible` move native `ScrollingFrame` ancestors (`apps-228`), and reorder autoscroll hands off to the enclosing scroller at the end of the list. The dwell and band tuning options stay retired. [Restored before the merge](#restored-before-the-merge) and [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 20. World anchor projection
 
@@ -257,7 +257,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 ### 31. Full text of a truncated title
 
 - Main promised: a truncated title showed its full value on request.
-- Decision: Restored. `UI.Text { disclose = true }`, a text `UI.Button { disclose = true }` and `UI.Toggle { disclose = true }` show the whole value of a truncated label in a `Disclosure` panel on a pointer dwell, a selection or a touch long press. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. `UI.Text { disclose = true }`, a text `UI.Button { disclose = true }` and `UI.Toggle { disclose = true }` show the whole value of a truncated label in a `Disclosure` panel on a pointer dwell, a selection or a touch long press. [Restored after the port](#restored-after-the-port) names the tests.
 
 ### 32. Imperative Callout and path sources
 
@@ -334,9 +334,9 @@ Three main controls are not restored:
 - `UI.TextField` was the renderer leaf under TextInput on main. Use `UI.TextInput { value = cell }`.
 - `UI.Gauge` was the name of a theme example on main, not a control. Use `UI.ProgressView { presentation = "circular" }` or a custom control (`examples/themes/custom_control.luau`).
 
-## Restored in the foundation round
+## Restored after the port
 
-The foundation round on `facet-port-0.12` restored these pre-0.12 behaviours. The spec source is `f0765079`.
+These pre-0.12 behaviours were restored after the port.
 
 | Area | Restored behavior | Tests |
 |---|---|---|

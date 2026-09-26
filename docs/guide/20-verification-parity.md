@@ -1265,7 +1265,7 @@ Some cases were added on `main` after the baseline. Each family records them her
 | post-pickers-136 | `date_time_picker` | 1 | a | `writes and reads the numeric form in the locale's order; a non-date is refused, never moved` |  |
 | post-pickers-137 | `date_time_picker` | 1 | a | `the default clock reads the player's local wall clock, not UTC` |  |
 | post-pickers-138 | `date_time_picker` | 1 | a | `the calendar opens anchored on the chosen day's month; a pick commits once and closes` |  |
-| post-pickers-139 | `date_time_picker` | 1 | a | `the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)` | Live evidence does not cover this part: Gamepad ButtonA is replaced by Return, which drives the same native activation. Proven live in `ports_pickers/dtp-menu-centred`. |
+| post-pickers-139 | `date_time_picker` | 1 | a | `the year and month menus open on the shown ones and honour min/max` | Live evidence does not cover this part: Gamepad ButtonA is replaced by Return, which drives the same native activation. Proven live in `ports_pickers/dtp-menu-centred`. |
 | post-pickers-140 | `date_time_picker` | 1 | a | `a refused pick paints nothing; a disabled or out-of-bounds day is focusable, inert and struck` |  |
 | post-pickers-141 | `date_time_picker` | 1 | a | `typed entry commits a date; a refused text stays with its error and commits nothing` | Live evidence does not cover this part: Opened with isPresented instead of a press on the calendar icon. Proven live in `ports_pickers/dtp-anchor-below`. |
 | post-pickers-142 | `date_time_picker` | 1 | a | `a typed range reads back its own words in every locale order; a draft's typed text only proposes` |  |
@@ -1278,7 +1278,7 @@ Some cases were added on `main` after the baseline. Each family records them her
 | post-pickers-149 | `date_time_picker` | 1 | a | `presets clip to the bounds: outside is shown disabled, overlapping is clamped and enabled` |  |
 | post-pickers-150 | `date_time_picker` | 1 | a | `draft: picks and presets propose live, only Apply commits, Cancel restores, Reset all clears` | Footer order is proven by LayoutOrder, parents and the SpaceBetween flex, and chip size by the compact controlSize, not by measured rectangles. |
 | post-pickers-151 | `date_time_picker` | 1 | a | `a caller write during an open draft re-bases what Cancel restores` |  |
-| post-pickers-152 | `date_time_picker` | 1 | a | `a range's end drags across days and panes, crossing swaps, release commits once (owner)` | Drag positions come from synthetic cell rectangles and fired InputBegan/InputChanged/InputEnded events (needs-live dtp-range-drag). |
+| post-pickers-152 | `date_time_picker` | 1 | a | `a range's end drags across days and panes, crossing swaps, release commits once` | Drag positions come from synthetic cell rectangles and fired InputBegan/InputChanged/InputEnded events (needs-live dtp-range-drag). |
 | post-pickers-153 | `date_time_picker` | 1 | a | `a drafted range drags live but commits only on Apply` |  |
 | post-pickers-154 | `date_time_picker` | 1 | a | `the Pickers scenario's window applies a preset only on Apply, and a refusal changes nothing` | The gallery Pickers scenario is not on this branch; the spec builds the same Race day and Season window flow inline instead of running the gallery scenario. |
 | post-pickers-155 | `date_time_picker` | 1 | a | `a wide screen shows two consecutive months, and they stay consecutive through paging and bounds` | Proven live in `ports_pickers/dtp-grid-layout`. |

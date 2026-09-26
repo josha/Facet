@@ -993,7 +993,7 @@ t.describe("native paint strength: skins", function()
 		other.dispose()
 	end)
 
-	t.it("gives a transparent hit-target button no control art over the content beneath it (owner R11)", function()
+	t.it("gives a transparent hit-target button no control art over the content beneath it", function()
 		local package = skinPackage({ control = "rbxassetid://21" })
 		local h = harness({ theme = package })
 		local clear = Compose.cell(1)
@@ -1016,7 +1016,7 @@ t.describe("native paint strength: skins", function()
 		h.dispose()
 	end)
 
-	t.it("tints destructive and emphasis plate art with their role and keeps the label readable (owner R15)", function()
+	t.it("tints destructive and emphasis plate art with their role and keeps the label readable", function()
 		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
 		local checked = {}
 		for _, name in SHIPPED do
@@ -1999,7 +1999,7 @@ t.describe("native paint strength: theme sheets", function()
 		h.dispose()
 	end)
 
-	t.it("shows an off switch's knob against its track in every shipped package and palette (owner R19)", function()
+	t.it("shows an off switch's knob against its track in every shipped package and palette", function()
 		local h = harness()
 		local on = Compose.cell(false)
 		local root, stop = mount(h, function()
@@ -2240,7 +2240,7 @@ t.describe("native paint strength: theme sheets", function()
 		h.dispose()
 	end)
 
-	t.it("never parents field art under a TextBox, where it would cover the text and placeholder (owner R4)", function()
+	t.it("never parents field art under a TextBox, where it would cover the text and placeholder", function()
 		local covered = {}
 		for _, name in SHIPPED do
 			local h = harness({ theme = (shipped(name)) })
@@ -2894,7 +2894,7 @@ t.describe("native paint strength: table rows", function()
 end)
 
 t.describe("native paint strength: calendar day", function()
-	t.it("a calendar day keeps no button inset in any theme, so its range band meets the next day (owner)", function()
+	t.it("a calendar day keeps no button inset in any theme, so its range band meets the next day", function()
 		local packages = { themes.neutralPackage() }
 		for _, name in SHIPPED do
 			table.insert(packages, (shipped(name)))
