@@ -2539,6 +2539,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end
 		return {
 			engine = engine,
+			gui = gui,
 			service = service,
 			node = node,
 			body = body,
@@ -2599,6 +2600,19 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			t.expect(fixed.node.Parent:FindFirstChild("FacetDeleteRows")).toBeNil()
 			fixed.stop()
 			local _ = engine
+		end
+	end)
+
+	t.it("in edit mode X deletes the row that holds the pad selection when nothing is selected", function()
+		for _, list in { false, true } do
+			local w = editableWorld("Gamepad", { deletable = true, editing = Compose.cell(true) }, list)
+			local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
+			local target = if hit.Selectable then hit else hit:FindFirstChildWhichIsA("GuiButton", true)
+			w.gui.SelectedObject = target
+			t.expect(w.gui.SelectedObject ~= nil).toBe(true)
+			w.pressed("DeleteRows")
+			t.expect(w.deletes).toEqual({ { 2 } })
+			w.stop()
 		end
 	end)
 

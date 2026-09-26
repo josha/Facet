@@ -89,6 +89,11 @@ return function<V, K>(
 	local origin: Vector2? = nil
 	local travel = 0
 	local keyboardTarget: TextButton?
+	local rowKeys: { [Instance]: K } = setmetatable({}, { __mode = "k" }) :: any
+	local gui = ctx.config.guiService
+	local focus: ComposeTypes.Readable<GuiObject?> = if gui and gui.GetPropertyChangedSignal
+		then ctx.observe.SelectedObject(gui)
+		else Compose.cell(nil :: GuiObject?)
 	local stopFrames: ComposeTypes.Dispose?
 	local startFrames: (() -> ())?
 	local frames = assert(ctx.runtime.host.frames)
@@ -252,6 +257,7 @@ return function<V, K>(
 		else nil
 	local pressRow: (K, InputObject) -> () = function() end
 	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K, painted: boolean?): Frame
+		rowKeys[row] = key
 		local handleNode: Instance? = nil
 		local function toggle()
 			if moving:peek() then
@@ -478,6 +484,7 @@ return function<V, K>(
 				pressRow(key, value)
 			end)
 		end
+		rowKeys[frame] = key
 		return frame
 	end
 	local pressed: K? = nil
@@ -813,6 +820,19 @@ return function<V, K>(
 				local key = keyOf(item, index)
 				if selected[key] then
 					table.insert(keys, key)
+				end
+			end
+			if #keys == 0 and read(editing, use) == true then
+				local at: Instance? = if use then use(focus) else focus:peek()
+				while at and at ~= root and #keys == 0 do
+					for _, node in { at, table.unpack(at:GetChildren()) } do
+						local key = rowKeys[node]
+						if key ~= nil then
+							table.insert(keys, key)
+							break
+						end
+					end
+					at = at.Parent
 				end
 			end
 			return keys

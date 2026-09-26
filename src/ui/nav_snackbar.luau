@@ -505,7 +505,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end, { priority = 2500 })
 		local raiser = returnTo
 		local target = surfaces.firstSelectable(row)
-		if raiser and target and raiser.NextSelectionDown == nil then
+		if raiser and target and (raiser.NextSelectionDown :: GuiObject?) == nil then
 			raiser.NextSelectionDown = target
 			Compose.cleanup(function()
 				if raiser.NextSelectionDown == target then

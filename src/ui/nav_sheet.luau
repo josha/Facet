@@ -11,6 +11,7 @@ local freeze = require("./freeze")
 type Controls = {
 	Sheet: Types.Constructor<Nav.SheetSpec, Frame>,
 	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 type Detent = { id: string, fraction: number?, height: number?, hug: boolean, index: number }
 type Prepared = { detents: { Detent }, byId: { [string]: Detent }, cancel: Overlay.Action? }
