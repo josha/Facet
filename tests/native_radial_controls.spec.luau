@@ -958,6 +958,24 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(panel.Size.Y.Offset + panel.Position.Y.Offset <= preview.Position.Y.Offset - 24).toBe(true)
 		world.stop()
 	end)
+	t.it("closing a corner ring hands the selection back to its launcher", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			preset = "bottom-left",
+			items = nested(),
+		}, true)
+		local launcher = world.find("Launcher")
+		world.gui.SelectedObject = launcher
+		world.opened:set(true)
+		t.expect(launcher.Visible).toBe(false)
+		t.expect(world.gui.SelectedObject ~= launcher).toBe(true)
+		world.opened:set(false)
+		world.step(0.5)
+		t.expect(world.find("Center")).toBeNil()
+		t.expect(world.gui.SelectedObject).toBe(launcher)
+		world.stop()
+	end)
+
 	t.it("a corner control grows out of the launcher and back into it, crossfading the glyphs", function()
 		local world = setup({
 			isPresented = Compose.cell(false),

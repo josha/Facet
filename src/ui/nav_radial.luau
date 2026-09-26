@@ -1130,6 +1130,15 @@ return function(
 				if corner and launcher and launcher:IsA("GuiObject") then
 					local hidden = launcher :: GuiObject
 					hidden.Visible = false
+					-- back as the ring starts to leave, so the modal can hand the selection to it (an invisible
+					-- object refuses the selection); the centre still paints over it while it shrinks
+					if phase then
+						Compose.watch(function(use: ComposeTypes.Use)
+							if use(phase.exiting) then
+								hidden.Visible = true
+							end
+						end)
+					end
 					Compose.cleanup(function()
 						hidden.Visible = true
 					end)
