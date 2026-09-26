@@ -1,6 +1,7 @@
 --!strict
 local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
+local policy = require("./collection_policy")
 local activation = require("./activation")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
@@ -10,6 +11,9 @@ local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
 local OverlayTypes = require("./overlay_types")
 local tableEditors = require("./collection_table_editors")
+
+local CELL_PADDING = 16
+
 type Controls = {
 	Table: CollectionTypes.TableConstructor,
 	VirtualList: <V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
@@ -64,6 +68,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"snap",
 		"header",
 		"dragLabel",
+		"autoscroll",
 		"onCellChange",
 		"alternatingRows",
 		"deletable",
@@ -113,23 +118,42 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local preferredInput: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 			then ctx.observe.PreferredInput(input)
 			else nil
+		local tenFoot = ctx.tenFoot()
+		local function touchRows(use: ComposeTypes.Use): boolean
+			return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Touch
+		end
+		local function lineBox(use: ComposeTypes.Use): number
+			return math.ceil(ctx.metric("typography.body.size", use) * ctx.metric("typography.body.lineHeight", use))
+		end
+		-- The row ladder is by distance: a touch row wraps and starts at two lines above the target floor, a
+		-- ten-foot row holds one line at the large control height, and a near row one line at the regular height.
+		-- Every row still rises to fit its measured text.
 		local minimumRow = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.itemSize ~= nil then
 				return read(spec.itemSize, use)
 			end
+			if touchRows(use) then
+				return math.max(ctx.metric("targetSizes.minimum", use), 2 * lineBox(use) + CELL_PADDING)
+			end
+			if tenFoot(use) then
+				return math.max(ctx.controlSize("large", "height", use), lineBox(use) + CELL_PADDING)
+			end
 			local kind = if preferredInput then use(preferredInput) else nil
-			return math.max(
-				40,
-				ctx.controlSize(nil, "height", use),
-				if kind == E.PreferredInput.Touch or kind == E.PreferredInput.Gamepad then 44 else 0
-			)
+			return math.max(40, ctx.controlSize(nil, "height", use), if kind == E.PreferredInput.Gamepad then 44 else 0)
 		end)
 		local function coarse(use: ComposeTypes.Use): boolean
 			local kind = if preferredInput then use(preferredInput) else nil
 			return kind == E.PreferredInput.Touch or kind == E.PreferredInput.Gamepad
 		end
+		local mouse = if input then ctx.observe.MouseEnabled(input) else nil
+		local keyboard = if input then ctx.observe.KeyboardEnabled(input) else nil
 		local function toolbarShown(use: ComposeTypes.Use): boolean
-			return ownsToggle and coarse(use)
+			local keysOnly = spec.reorderable == true
+				and keyboard ~= nil
+				and use(keyboard) == true
+				and mouse ~= nil
+				and use(mouse) == false
+			return ownsToggle and (coarse(use) or keysOnly)
 		end
 		local toolbarHeight = Compose.formula(function(use: ComposeTypes.Use)
 			return if toolbarShown(use) then math.max(ctx.controlSize(nil, "height", use), 44) else 0
@@ -360,6 +384,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 						return use(current).sortable ~= false
 					end,
 					onActivate = function()
+						if column.sortable == false then
+							return
+						end
 						local order = readSource(sort)
 						local descending = order and order.column == column.id and order.direction == "ascending"
 						local nextSort: CollectionTypes.Sort = {
@@ -464,6 +491,38 @@ return function(ctx: Types.Context, UI: Controls): ()
 					ctx.action(grip, "WidenColumn", { E.KeyCode.Right, E.KeyCode.DPadRight }, selected, function()
 						adjust(8)
 					end, { priority = 300, capture = true })
+					local heading = Compose.cell(false)
+					runtime.connect(button, "SelectionGained", function()
+						heading:set(true)
+					end)
+					runtime.connect(button, "SelectionLost", function()
+						heading:set(false)
+					end)
+					local function engaged(use: ComposeTypes.Use): boolean
+						return use(selected) or use(heading)
+					end
+					ctx.action(grip, "NarrowColumnKey", { E.KeyCode.Comma }, engaged, function()
+						adjust(-8)
+					end, { priority = 300 })
+					ctx.action(grip, "WidenColumnKey", { E.KeyCode.Period }, engaged, function()
+						adjust(8)
+					end, { priority = 300 })
+					ctx.action(
+						grip,
+						"SortColumn",
+						{ E.KeyCode.Up, E.KeyCode.Down, E.KeyCode.DPadUp, E.KeyCode.DPadDown },
+						selected,
+						function()
+							activation.trigger(button)
+						end,
+						{ priority = 300, capture = true }
+					)
+					ctx.action(grip, "ReleaseColumn", { E.KeyCode.Escape, E.KeyCode.ButtonB }, selected, function()
+						local gui = ctx.config.guiService
+						if gui then
+							gui.SelectedObject = button
+						end
+					end, { priority = 300 })
 				end
 				return frame
 			end,
@@ -488,7 +547,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		}
 		local header = Host.Frame(headerProps)
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
-		if manageable then
+		local selectable = spec.selectionMode ~= nil and spec.selectionMode ~= "none"
+		if manageable or (spec.editing ~= nil and selectable) then
 			editor = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
 				return body
 			end, selection, sort, editing)
@@ -602,6 +662,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 									ctx.text({
 										Name = "Value",
 										TextTruncate = E.TextTruncate.AtEnd,
+										TextWrapped = touchRows,
 										Size = D2.fromScale(1, 1),
 										AutomaticSize = E.AutomaticSize.None,
 										Text = function(use: ComposeTypes.Use)
@@ -613,7 +674,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 									"TableValue"
 								)
 							if not render then
-								recordHeight(cellHeights, definition.id, content :: TextLabel, 16)
+								recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
 								local fits = ctx.observe.TextFits(content :: TextLabel)
 								Compose.watch(function(use: ComposeTypes.Use)
 									local id = use(column).id
@@ -632,7 +693,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 									end
 								end)
 							end
-							return ctx.styled(columnFrame(column, index, content), "TableCell")
+							local cell = ctx.styled(columnFrame(column, index, content), "TableCell")
+							cell.ClipsDescendants = true
+							return cell
 						end,
 					}),
 				}
@@ -723,6 +786,24 @@ return function(ctx: Types.Context, UI: Controls): ()
 				if actions then
 					local actionSpec: CollectionTypes.RowActionsSpec =
 						table.clone(actions) :: CollectionTypes.RowActionsSpec
+					local function gated(
+						list: Types.Value<{ CollectionTypes.RowAction }>?
+					): Types.Value<{ CollectionTypes.RowAction }>?
+						if list == nil or spec.rowDeletable == nil then
+							return list
+						end
+						return function(use: ComposeTypes.Use): { CollectionTypes.RowAction }
+							local allowed = policy.allows(spec.rowDeletable, use(current))
+							local kept = {}
+							for _, action in read(list, use) do
+								if allowed or action.role ~= "destructive" then
+									table.insert(kept, action)
+								end
+							end
+							return kept
+						end
+					end
+					actionSpec.leading, actionSpec.trailing = gated(actionSpec.leading), gated(actionSpec.trailing)
 					actionSpec.content, actionSpec.coordinator = row, coordinator
 					actionSpec.Size = D2.fromScale(1, 1)
 					actionSpec.reducedMotion = spec.reducedMotion

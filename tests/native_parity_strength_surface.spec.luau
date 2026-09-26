@@ -254,6 +254,8 @@ t.describe("public surface registration", function()
 			focusRing = "Environment",
 			focusSection = "Environment",
 			responder = "Environment",
+			draggable = "DraggableSpec",
+			dropTarget = "DropTargetSpec",
 		}
 		local signatures = { fill = "fill: (weight: number?) -> UIFlexItem" }
 		local count = 0

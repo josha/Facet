@@ -39,6 +39,7 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	onDelete: ((keys: { K }) -> ())?,
 	editing: Types.ValueBoolean?,
 	dragLabel: ((item: V) -> string)?,
+	autoscroll: boolean?,
 	direction: ComposeTypes.OrderedCollectionDirection?,
 }
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
@@ -46,7 +47,8 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	from: Types.Value<{ V }>,
 	render: RowRender<V, K>,
 	mode: ComposeTypes.OrderedCollectionMode?,
-	itemSize: Types.ValueNumber?,
+	itemSize: (Types.ValueNumber | "cards")?,
+	cards: { perView: number?, minWidth: number?, peek: number? }?,
 	gap: Types.ValueNumber?,
 	crossGap: Types.ValueNumber?,
 	columns: Types.ValueNumber?,
@@ -59,6 +61,7 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	followThreshold: number?,
 	maxRetained: number?,
 	focus: FocusControls<K>?,
+	focusPolicy: ("key" | "index")?,
 	initialFocus: K?,
 	autoFocus: boolean?,
 	wrapFocus: boolean?,

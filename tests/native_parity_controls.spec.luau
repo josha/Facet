@@ -1064,8 +1064,8 @@ t.describe("native parity controls", function()
 			body.AbsoluteWindowSize = V2(world, 200, 100)
 			body:FindFirstChild("1", true):FindFirstChild("Move", true).Activated.fire()
 			local line = find(world.node, "DropLine")
-			local start = line.Position.Y.Offset
 			world.input.MouseEnabled = true
+			local start = line.Position.Y.Offset
 			action(world.root, "ReorderDown").Pressed.fire()
 			t.expect(find(world.node, "DropLine")).toBe(line)
 			t.expect(line.Position.Y.Offset).toBe(start + 20)

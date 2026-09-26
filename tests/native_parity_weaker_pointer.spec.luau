@@ -530,93 +530,96 @@ t.describe("pointer, touch and drag strength", function()
 		end
 	end)
 
-	t.it("sends ties to the vertical axis, tracks linearly and commits a full swipe at seventy percent", function()
-		local policies: { any } = { true, { trailing = false } }
-		for _, policy in policies do
-			local open = Compose.cell(nil :: string?)
-			local invoked = { trailing = 0, leading = 0 }
-			local function actionFor(edge: string): any
-				return {
-					{
-						id = edge,
-						label = edge,
-						onActivate = function()
-							invoked[edge] += 1
+	t.it(
+		"sends ties to the vertical axis, tracks linearly, resists past a tray with no full swipe and commits one at sixty percent",
+		function()
+			local policies: { any } = { true, { trailing = false } }
+			for _, policy in policies do
+				local open = Compose.cell(nil :: string?)
+				local invoked = { trailing = 0, leading = 0 }
+				local function actionFor(edge: string): any
+					return {
+						{
+							id = edge,
+							label = edge,
+							onActivate = function()
+								invoked[edge] += 1
+							end,
+						},
+					}
+				end
+				local trailingOnly = Compose.cell(false)
+				local world = setup(function(UI, Host)
+					return UI.RowActions({
+						open = open,
+						fullSwipe = policy,
+						content = Host.TextLabel({ Text = "Row" }),
+						trailing = actionFor("trailing"),
+						leading = function(use: any)
+							return if use(trailingOnly) then {} else actionFor("leading")
 						end,
-					},
-				}
-			end
-			local trailingOnly = Compose.cell(false)
-			local world = setup(function(UI, Host)
-				return UI.RowActions({
-					open = open,
-					fullSwipe = policy,
-					content = Host.TextLabel({ Text = "Row" }),
-					trailing = actionFor("trailing"),
-					leading = function(use: any)
-						return if use(trailingOnly) then {} else actionFor("leading")
+					})
+				end, {
+					clock = function()
+						return 0
 					end,
 				})
-			end, {
-				clock = function()
-					return 0
-				end,
-			})
-			world.node.AbsoluteSize = V2(world, 300, 44)
-			local detector = world.node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
-			local content = world.node:FindFirstChild("Content")
-			local tray = world.node:FindFirstChild("trailing")
-			local function swipe(from: number, to: number)
-				detector.DragStart.fire(V2(world, from, 20))
-				detector.DragContinue.fire(V2(world, to, 20))
+				world.node.AbsoluteSize = V2(world, 300, 44)
+				local detector = world.node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+				local content = world.node:FindFirstChild("Content")
+				local tray = world.node:FindFirstChild("trailing")
+				local function swipe(from: number, to: number)
+					detector.DragStart.fire(V2(world, from, 20))
+					detector.DragContinue.fire(V2(world, to, 20))
+					detector.DragEnd.fire()
+				end
+				detector.DragStart.fire(V2(world, 200, 20))
+				detector.DragContinue.fire(V2(world, 190, 30))
+				t.expect(content.Position.X.Offset).toBe(0)
+				detector.DragContinue.fire(V2(world, 120, 30))
+				t.expect(content.Position.X.Offset).toBe(0)
 				detector.DragEnd.fire()
+				t.expect(open:peek()).toBeNil()
+				detector.DragStart.fire(V2(world, 200, 20))
+				for _, distance in { 10, 20, 50, 80, 88 } do
+					detector.DragContinue.fire(V2(world, 200 - distance, 20))
+					t.expect(content.Position.X.Offset).toBe(-distance)
+					t.expect(tray.Size.X.Offset).toBe(distance)
+					t.expect(tray.Visible).toBe(true)
+				end
+				detector.DragContinue.fire(V2(world, 200 - 150, 20))
+				t.expect(content.Position.X.Offset).toBe(if policy == true then -150 else -122)
+				t.expect(tray.Size.X.Offset).toBe(88)
+				detector.DragContinue.fire(V2(world, 200 - 179, 20))
+				detector.DragEnd.fire()
+				t.expect(invoked.trailing).toBe(0)
+				t.expect(open:peek()).toBe("trailing")
+				open:set(nil)
+				swipe(250, 250 - 210)
+				t.expect(invoked.trailing).toBe(if policy == true then 1 else 0)
+				t.expect(open:peek()).toBe(if policy == true then nil else "trailing")
+				open:set(nil)
+				swipe(290, 0)
+				t.expect(invoked.trailing).toBe(if policy == true then 2 else 0)
+				open:set(nil)
+				swipe(20, 20 + 179)
+				t.expect(invoked.leading).toBe(0)
+				t.expect(open:peek()).toBe("leading")
+				open:set(nil)
+				swipe(20, 20 + 180)
+				t.expect(invoked.leading).toBe(1)
+				t.expect(open:peek()).toBeNil()
+				trailingOnly:set(true)
+				detector.DragStart.fire(V2(world, 20, 20))
+				detector.DragContinue.fire(V2(world, 250, 20))
+				t.expect(content.Position.X.Offset).toBe(0)
+				detector.DragEnd.fire()
+				t.expect(open:peek()).toBeNil()
+				t.expect(invoked.leading).toBe(1)
+				world.stop()
 			end
-			detector.DragStart.fire(V2(world, 200, 20))
-			detector.DragContinue.fire(V2(world, 190, 30))
-			t.expect(content.Position.X.Offset).toBe(0)
-			detector.DragContinue.fire(V2(world, 120, 30))
-			t.expect(content.Position.X.Offset).toBe(0)
-			detector.DragEnd.fire()
-			t.expect(open:peek()).toBeNil()
-			detector.DragStart.fire(V2(world, 200, 20))
-			for _, distance in { 10, 20, 50, 80, 88 } do
-				detector.DragContinue.fire(V2(world, 200 - distance, 20))
-				t.expect(content.Position.X.Offset).toBe(-distance)
-				t.expect(tray.Size.X.Offset).toBe(distance)
-				t.expect(tray.Visible).toBe(true)
-			end
-			detector.DragContinue.fire(V2(world, 200 - 150, 20))
-			t.expect(content.Position.X.Offset).toBe(-150)
-			t.expect(tray.Size.X.Offset).toBe(88)
-			detector.DragContinue.fire(V2(world, 200 - 209, 20))
-			detector.DragEnd.fire()
-			t.expect(invoked.trailing).toBe(0)
-			t.expect(open:peek()).toBe("trailing")
-			open:set(nil)
-			swipe(250, 250 - 210)
-			t.expect(invoked.trailing).toBe(if policy == true then 1 else 0)
-			t.expect(open:peek()).toBe(if policy == true then nil else "trailing")
-			open:set(nil)
-			swipe(290, 0)
-			t.expect(invoked.trailing).toBe(if policy == true then 2 else 0)
-			open:set(nil)
-			swipe(20, 20 + 209)
-			t.expect(invoked.leading).toBe(0)
-			t.expect(open:peek()).toBe("leading")
-			open:set(nil)
-			swipe(20, 20 + 210)
-			t.expect(invoked.leading).toBe(1)
-			t.expect(open:peek()).toBeNil()
-			trailingOnly:set(true)
-			detector.DragStart.fire(V2(world, 20, 20))
-			detector.DragContinue.fire(V2(world, 250, 20))
-			t.expect(content.Position.X.Offset).toBe(0)
-			detector.DragEnd.fire()
-			t.expect(open:peek()).toBeNil()
-			t.expect(invoked.leading).toBe(1)
-			world.stop()
 		end
-	end)
+	)
 
 	t.it("widens a touch grip and clamps a touch resize to the column minimum and maximum", function()
 		local widths: any = Compose.cell({})
@@ -1368,8 +1371,8 @@ t.describe("adaptive environment strength", function()
 						drag.DragEnd.fire(V2(world, 100, 20))
 					end
 					local expected = if kind == world.engine.types.Enum.PreferredInput.Touch
-							or kind == world.engine.types.Enum.PreferredInput.Gamepad
-						then 44
+						then 56
+						elseif kind == world.engine.types.Enum.PreferredInput.Gamepad then 44
 						else 40
 					t.expect(controls.placementOf(2).offset).toBe(expected)
 					for index = 1, 3 do

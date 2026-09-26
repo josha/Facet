@@ -10,6 +10,8 @@ local HELPERS = {
 	focusRing = true,
 	focusSection = true,
 	responder = true,
+	draggable = true,
+	dropTarget = true,
 }
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")

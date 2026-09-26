@@ -4,6 +4,7 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
 local Compose = Facet.Compose
+local InspectState = require("../src/vendor/compose/core/ownership/inspect")
 
 type Census = { live: number, connections: number, owners: number, holding: number, mounts: number }
 
@@ -50,6 +51,10 @@ end
 
 local function inspected(body: () -> ())
 	Compose.inspect.start({ maxOwners = 1000000, maxNodes = 1000000 })
+	-- The inspector keys owners weakly, and `decorate` keeps only its owner's dispose, so a live owner leaves
+	-- the census whenever the collector runs. Hold every inspected owner strongly: the counts no longer depend
+	-- on collector timing, and an owner that is dropped without being disposed still counts as held.
+	setmetatable((InspectState.__state() :: any).records, nil)
 	local ok, failure = pcall(body)
 	Compose.inspect.stop()
 	if not ok then

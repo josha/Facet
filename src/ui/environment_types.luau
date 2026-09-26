@@ -64,6 +64,19 @@ export type WorldAnchor = { anchor: Types.Readable<WorldAnchorPoint>, dispose: (
 export type ScrollPosition = Vector2 | "top" | "bottom" | { x: number?, y: number? }
 export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
+export type DraggableSpec = {
+	payload: unknown,
+	enabled: Types.ValueBoolean?,
+	armOnTap: boolean?,
+}
+export type DropInfo = { source: GuiObject, target: GuiObject, mode: "pointer" | "armed" }
+export type DropTargetSpec = {
+	onDrop: (payload: any, info: DropInfo) -> (),
+	accepts: ((payload: any) -> (boolean, string?))?,
+	onReject: ((payload: any, reason: string?) -> ())?,
+	onEnter: ((payload: any) -> ())?,
+	onLeave: ((payload: any) -> ())?,
+}
 export type FocusSectionOptions = {
 	entry: ("restore" | "first" | "nearest")?,
 	preferred: string?,
@@ -78,6 +91,8 @@ export type EnvironmentControls = {
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
+	draggable: (source: GuiObject, spec: DraggableSpec) -> (),
+	dropTarget: (target: GuiObject, spec: DropTargetSpec) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,
 	scrollToVisible: (node: GuiObject, rect: ScrollRect?, options: ScrollOptions?) -> boolean,

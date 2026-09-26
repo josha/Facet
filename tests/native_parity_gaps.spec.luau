@@ -26,6 +26,8 @@ local helpers: { [string]: boolean } = {
 	focusRing = true,
 	focusSection = true,
 	responder = true,
+	draggable = true,
+	dropTarget = true,
 }
 
 local function world(build: (any, any, any) -> any, options: { [string]: any }?): World

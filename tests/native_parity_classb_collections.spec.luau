@@ -311,14 +311,16 @@ t.describe("native parity classb collections", function()
 		world.input.GamepadEnabled = true
 		world.input.PreferredInput = enum.PreferredInput.Gamepad
 		frames(world, 4)
-		t.expect(body.CanvasPosition.Y).toBe(120)
-		t.expect(writes).toBe(0)
+		-- two-line touch rows (56) become one-line near rows (44): the row at the top stays at the top, 8px in
+		t.expect(body.CanvasPosition.Y).toBe(2 * 44 + 8)
+		writes = 0
 		world.input.PreferredInput = enum.PreferredInput.KeyboardAndMouse
 		world.input.TouchEnabled = false
 		world.input.MouseEnabled = true
 		frames(world, 4)
 		t.expect(rowFrame(body, "r4") ~= nil).toBe(true)
-		t.expect(body.CanvasPosition.Y).toBe(120)
+		t.expect(body.CanvasPosition.Y).toBe(2 * 44 + 8)
+		t.expect(writes).toBe(0)
 		world.stop()
 	end)
 	t.it("collections-54 a destructive tray action and a default tray action resolve different paint", function()
@@ -460,7 +462,7 @@ t.describe("native parity classb collections", function()
 		world.stop()
 	end)
 	t.it(
-		"collections-98 a destructive departure leaves the clipped row box before the row starts to collapse",
+		"collections-98 a destructive departure shows its action across the tray and leaves the row box before it collapses",
 		function()
 			for _, edge in { "leading", "trailing" } do
 				local fired = 0
@@ -499,7 +501,8 @@ t.describe("native parity classb collections", function()
 						break
 					end
 					samples += 1
-					t.expect(find(row, edge).Visible).toBe(false)
+					t.expect(find(row, edge).Visible).toBe(true)
+					t.expect(find(find(row, edge), "delete").Size).toEqual(world.engine.types.UDim2.fromScale(1, 1))
 					if row.Size.Y.Offset < 44 then
 						collapsing += 1
 						t.expect(math.abs(content.Position.X.Offset) >= 300).toBe(true)

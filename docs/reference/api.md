@@ -354,7 +354,9 @@ these rules:
 - Presentation. A modal presented while a control is selected, or while a
   gamepad is the preferred input, selects its first control. It waits until
   the surface is shown, so it never selects a hidden control.
-- Tab and Shift+Tab. Tab selects the next control in layout order.
+- Tab and Shift+Tab. Tab selects the next control in layout order. In a
+  collection that is row order (each row's `LayoutOrder` is its index), even
+  after scrolling has recycled the row containers.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
   stays inside an open modal. It skips hidden, disabled and removed controls.
   The native `SelectionOrder` of a control is its traversal tier: a lower
@@ -2470,7 +2472,7 @@ render owner.
 |---|---|
 | `mode` | `windowed`; `all` deliberately mounts the entire collection. |
 | `direction` | `vertical`; `horizontal` changes the scrolling axis. |
-| `itemSize` | `40`, the estimated main-axis extent. |
+| `itemSize` | `40`, the estimated main-axis extent. On a horizontal list, `"cards"` sizes the cards from the space the rail gets. A compact touch rail (under 600 px) shows one card with a peek of the next and snaps to cards. Wider rails show as many whole cards of at least 200 px as fit. `cards = { perView?, minWidth?, peek? }` overrides the count, the floor or the peek. `cards` is refused without `"cards"`. |
 | `gap`, `crossGap` | `0`; the cross gap defaults to the gap. A VirtualGrid keeps half of each gap (rounded up) at its outer edges, as a `UIPadding` on its `Items` frame and in its canvas extent. Thus content that paints past its cell, such as a lifted Card, is not cut by the scroll clip. |
 | `columns` | The grid column count, default `1`; can be reactive. |
 | `overscan` | `2`. |
@@ -2493,7 +2495,11 @@ replaces its Compose `OrderedCollection` and mounts the rows again. Keep durable
 row state in the model. Other values cause an error.
 
 Optional collection focus uses `focus`, `initialFocus`, `autoFocus`,
-`wrapFocus` and `disabled(item)`. With `wrapFocus = true`, `focus.next()`,
+`wrapFocus`, `focusPolicy` and `disabled(item)`. `focusPolicy = "key"` (the
+default) keeps focus on the item when the order changes. `"index"` keeps it on
+the slot, so a live standings list does not walk the gamepad focus up and down.
+It moves focus to the item that now holds the slot, or the last slot when the
+list shrank, and leaves focus alone while a row is being dragged. With `wrapFocus = true`, `focus.next()`,
 `focus.previous()` and the arrow and D-pad actions wrap at the two ends of the
 collection. A list wraps only along its scrolling axis.
 
@@ -2683,13 +2689,22 @@ Editable collections. Table, VirtualList and VirtualGrid take the same model.
 `reorderable = true` with `onReorder(keys, insertionSlot)` moves rows, and
 `deletable = true` with `onDelete(keys)` removes them; both only propose, and
 the caller changes its rows. `movable(item)` and `rowDeletable(item)` refuse
-single rows. The paths per input:
+single rows. On a Table, a row that `rowDeletable` refuses also loses its
+destructive `rowActions`, so no swipe, menu or key can remove it. The paths per
+input:
 
 - Pointer: drag a row, or one of the selected rows to move them all, more than
-  6 pixels along the list. There is no handle. Delete or Backspace removes the
-  selected rows.
-- Touch and gamepad: a Table without a supplied `editing` shows a toolbar
-  with an `Edit` button (`Done` while editing; its width fits the wider word).
+  6 pixels along the list. There is no handle. The drag shows an image of the
+  row, stacked two or three deep for a selection, and scrolls the list near its
+  edges unless `autoscroll = false`. Once the list can move no further that
+  way, the nearest enclosing ScrollingFrame whose own 40 pixel edge band holds
+  the pointer scrolls instead (innermost first), so a list inside a page hands
+  the drag to the page. Delete or Backspace removes the selected
+  rows.
+- Touch: hold a finger still on a row for a third of a second to pick it up
+  and move it; a finger that moves first scrolls the list or swipes the row.
+- Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
+  Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
   Edit mode shows, inside each row band, a round red minus at the leading
   edge (deletable) and a move handle at the trailing edge (reorderable); the
   row content slides to make room (instantly with reduced motion). The minus
@@ -2700,13 +2715,22 @@ single rows. The paths per input:
   VirtualList reads the `editing` cell that you supply and show your own
   Edit control.
 - Without a readable input class the edit controls always show.
+- A selectable collection (`selectionMode` other than `"none"`) that is not
+  `deletable` marks each row's selection at the leading edge while `editing`
+  is true: a ring (`facet-radio-mark`) with a filled dot on a selected row. The
+  mark is paint and takes no focus. A Table with a supplied `editing` shows it
+  even when it is neither reorderable nor deletable.
 
 With touch or gamepad input, a Table with the Edit toolbar accepts cell edits
 only while editing; otherwise its editor cells accept edits at all times.
 `rowActions` are independent of edit mode.
 
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
-`widths` is a map of column widths. `selection` is a key-set map.
+`widths` is a map of column widths. A pointer drags a heading's divider to
+resize the column. With a keyboard or gamepad, focus the divider: Left and
+Right resize, Up and Down sort by the column, and Escape or B returns focus to
+the heading. Comma and Period resize the column whose heading or divider has
+focus. `selection` is a key-set map.
 `selectionMode` is `single`, `multiple` or `none`. When you supply
 `onSortChange`, `onWidthsChange` or `onSelectionChange`, it is a controlled
 request. Otherwise the control updates the writable cells.
@@ -2739,10 +2763,16 @@ native activation facts as in VirtualList. The insertion slot of `onReorder` is 
 Sizes:
 
 - The header height starts at 40.
-- The estimated row height starts at the larger of 40 and the regular control
-  height of the theme.
-- The native touch and gamepad minimum row height and header height is `44`.
-- Native text bounds can make both larger.
+- Rows follow a ladder by viewing distance (`itemSize` pins the minimum on
+  every rung):
+  - Near (pointer, keyboard, or a gamepad at a desk): one line, at the larger
+    of 40 and the regular control height (44 with a gamepad).
+  - Touch: cells wrap, and a row starts at two lines of body text plus 16, at
+    least `targetSizes.minimum`.
+  - Ten-foot (`ctx.tenFoot()`: a TV interface, or a Large display with no
+    touch and no mouse): one line, at least the large control height.
+- The native touch and gamepad minimum header height is `44`.
+- Native text bounds can make rows and the header larger.
 
 The header band and each row paint a rounded band (`radii.control`) through
 the theme tags `facet-tablehead` and `facet-tablerow`; a 1 pixel inner
@@ -3306,6 +3336,66 @@ local responder = UI.responder(hud)
 -- the game opens its menu with a key of its own
 responder.engage()
 ```
+
+### draggable and dropTarget
+
+`UI.draggable(source, spec)` lets a player pick up the GuiObject `source`, and
+`UI.dropTarget(target, spec)` lets the GuiObject `target` receive it. Call both
+inside a component or a Compose owner; they stop when the owner ends. Every
+input ends in the same drop:
+
+- Pointer: press the source and move it 6 pixels. A release before that is a
+  click, and the source's own activation still happens.
+- Touch: a finger that moves first scrolls. Hold the finger still until the
+  engine's long press (`TouchLongPress`) to pick the source up; the
+  ScrollingFrame under it stops scrolling until the finger lifts.
+- While the source is held, an inert copy of it (`DragGhost`) follows the
+  pointer at the root of its screen, and the target under the pointer is the
+  aim. Release to drop there. The press that became a drag never activates a
+  Facet Button, so a drag of a card never opens it.
+- Keyboard and gamepad: select the source and press Return or A to pick it up.
+  Move the selection into a target and press Return or A to drop. Escape or B
+  puts the source back. On a Facet Button source or target this is the
+  Button's own activation, so its `onActivate` also runs.
+- `armOnTap = true`: a touch tap on the source picks it up, the list under it
+  still scrolls, and a tap on a target drops it.
+
+While the source is held it has the `facet-drag-held` tag and the
+`FacetDragHeld` attribute. Every theme hides its text and icons, so its plate
+stays as the empty slot until the drop lands or the source goes back.
+
+```lua
+UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
+UI.dropTarget(slot, {
+	accepts = function(payload)
+		if payload.kind ~= "sponsor" then
+			return false, "WRONG_KIND"
+		end
+		return true
+	end,
+	onDrop = function(payload, info)
+		place(payload, info.target)
+	end,
+})
+```
+
+`draggable` spec:
+
+- `payload`: required. The value every target receives. A function is called
+  with the source at pickup.
+- `enabled`: a boolean or a readable. While false the source cannot be picked
+  up, and it stays selectable and activatable.
+- `armOnTap`: a touch tap picks the source up (above). Default `false`.
+
+`dropTarget` spec:
+
+- `onDrop(payload, info)`: required. `info` is `{ source, target, mode }`,
+  where `mode` is `"pointer"` or `"armed"`.
+- `accepts(payload) -> (legal, reason?)`: the game's rule. Without it the
+  target accepts everything. A refused drop calls `onReject(payload, reason)`
+  and puts the source back.
+- `onEnter(payload)` and `onLeave(payload)`: called once each time the aim
+  enters or leaves the target. A nested target wins over the one around it.
 
 ### environment
 

@@ -758,3 +758,224 @@ t.describe("focusSection", function()
 		w.stop()
 	end)
 end)
+
+t.describe("draggable and dropTarget", function()
+	local function stage()
+		local w = world()
+		local screen = w.engine.new("ScreenGui")
+		local function box(name: string, y: number): any
+			local node = w.engine.new("TextButton")
+			node.Name, node.Selectable, node.Parent = name, true, screen
+			node.AbsolutePosition, node.AbsoluteSize =
+				w.engine.types.Vector2.new(0, y), w.engine.types.Vector2.new(100, 40)
+			return node
+		end
+		local card, open, closed = box("Card", 0), box("Open", 100), box("Closed", 200)
+		local log = {}
+		local stop = owned(w.runtime, function()
+			w.UI.draggable(card, { payload = "sponsor", armOnTap = true })
+			w.UI.dropTarget(open, {
+				onDrop = function(payload, info)
+					table.insert(log, `drop {payload} {info.target.Name} {info.mode}`)
+				end,
+				onEnter = function(payload)
+					table.insert(log, `enter {payload}`)
+				end,
+				onLeave = function(payload)
+					table.insert(log, `leave {payload}`)
+				end,
+			})
+			w.UI.dropTarget(closed, {
+				accepts = function()
+					return false, "FULL"
+				end,
+				onDrop = function()
+					table.insert(log, "dropped on a full slot")
+				end,
+				onReject = function(payload, reason)
+					table.insert(log, `reject {payload} {reason}`)
+				end,
+			})
+		end)
+		return w, screen, card, open, closed, log, stop
+	end
+	local function pointer(w: any, kind: string, y: number): any
+		return {
+			UserInputType = w.Enum.UserInputType[kind],
+			UserInputState = w.Enum.UserInputState.End,
+			Position = w.engine.types.Vector3.new(50, y, 0),
+		}
+	end
+	local function press(screen: any, name: string): boolean
+		for _, node in screen:GetDescendants() do
+			if node:IsA("InputContext") and node.Name == "Facet" .. name and node.Enabled then
+				node:FindFirstChild(name).Pressed.fire()
+				return true
+			end
+		end
+		return false
+	end
+
+	t.it("picks a source up after a pointer travels, shows a ghost and drops on the target under it", function()
+		local w, screen, card, _, _, log, stop = stage()
+		card.InputBegan.fire(pointer(w, "MouseButton1", 20))
+		w.input.InputChanged.fire(pointer(w, "MouseMovement", 23))
+		t.expect(screen:FindFirstChild("DragGhost")).toBeNil()
+		w.input.InputChanged.fire(pointer(w, "MouseMovement", 120))
+		local ghost = screen:FindFirstChild("DragGhost")
+		t.expect(ghost ~= nil).toBe(true)
+		t.expect(ghost.Position.Y.Offset).toBe(120)
+		screen.AbsolutePosition = w.engine.types.Vector2.new(0, -58)
+		w.input.InputChanged.fire(pointer(w, "MouseMovement", 121))
+		-- an IgnoreGuiInset screen starts above the pointer's origin, so the ghost's offset adds the inset back
+		t.expect(ghost.Position.Y.Offset).toBe(121 + 58)
+		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
+		t.expect(card:HasTag("facet-drag-held")).toBe(true)
+		w.input.InputEnded.fire(pointer(w, "MouseButton1", 120))
+		t.expect(table.concat(log, "; ")).toBe("enter sponsor; leave sponsor; drop sponsor Open pointer")
+		t.expect(screen:FindFirstChild("DragGhost")).toBeNil()
+		t.expect(card:GetAttribute("FacetDragHeld")).toBeNil()
+		table.clear(log)
+		card.InputBegan.fire(pointer(w, "MouseButton1", 20))
+		w.input.InputChanged.fire(pointer(w, "MouseMovement", 220))
+		w.input.InputEnded.fire(pointer(w, "MouseButton1", 220))
+		t.expect(table.concat(log, "; ")).toBe("reject sponsor FULL")
+		stop()
+		w.stop()
+	end)
+
+	t.it("arms from the keyboard or pad, drops on the selected target and cancels with B", function()
+		local w, screen, card, open, _, log, stop = stage()
+		t.expect(press(screen, "DragPickUp")).toBe(false)
+		w.gui.SelectedObject = card
+		t.expect(press(screen, "DragPickUp")).toBe(true)
+		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
+		w.gui.SelectedObject = open
+		t.expect(press(screen, "DragDrop")).toBe(true)
+		t.expect(table.concat(log, "; ")).toBe("enter sponsor; leave sponsor; drop sponsor Open armed")
+		table.clear(log)
+		w.gui.SelectedObject = card
+		press(screen, "DragPickUp")
+		t.expect(press(screen, "DragCancel")).toBe(true)
+		t.expect(card:GetAttribute("FacetDragHeld")).toBeNil()
+		t.expect(#log).toBe(0)
+		stop()
+		w.stop()
+	end)
+
+	t.it("arms a Facet Button source and drops on a Facet Button target through their own activation", function()
+		local w = world()
+		local screen = w.engine.new("ScreenGui")
+		local log = {}
+		local stop, root = w.runtime.mount(function()
+			local card = w.UI.Button "Card" { label = "Card" }
+			local slot = w.UI.Button "Slot" { label = "Slot" }
+			w.UI.draggable(card, { payload = "card" })
+			w.UI.dropTarget(slot, {
+				onDrop = function(payload, info)
+					table.insert(log, `{payload} {info.mode}`)
+				end,
+			})
+			return w.runtime.constructors.Frame({ card, slot })
+		end, screen)
+		local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
+		-- Return reaches a selected Button as its own activation (no input object); A arrives as a Gamepad1 input
+		local pad = { UserInputType = w.Enum.UserInputType.Gamepad1, KeyCode = w.Enum.KeyCode.ButtonA }
+		card.Activated.fire(pad)
+		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
+		slot.Activated.fire(pad)
+		t.expect(table.concat(log, ";")).toBe("card armed")
+		card.Activated.fire({ UserInputType = w.Enum.UserInputType.MouseButton1 })
+		t.expect(card:GetAttribute("FacetDragHeld")).toBeNil()
+		stop()
+		w.stop()
+	end)
+
+	t.it(
+		"leaves a moving finger to the scroller and picks up on the engine's long press, whose press never activates",
+		function()
+			local w = world()
+			local screen = w.engine.new("ScreenGui")
+			local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
+			local log, opened = {}, 0
+			local stop, root = w.runtime.mount(function()
+				local card = w.UI.Button "Card" {
+					label = "Card",
+					onActivate = function()
+						opened += 1
+					end,
+				}
+				local slot = w.runtime.constructors.Frame({ Name = "Slot" })
+				w.UI.draggable(card, { payload = "card" })
+				w.UI.dropTarget(slot, {
+					onDrop = function(payload, info)
+						table.insert(log, `{payload} {info.mode}`)
+					end,
+				})
+				return w.runtime.constructors.ScrollingFrame({ Name = "List", card, slot })
+			end, screen)
+			local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
+			card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 0), V2.new(100, 40)
+			slot.AbsolutePosition, slot.AbsoluteSize = V2.new(0, 100), V2.new(100, 40)
+			local function finger(y: number): any
+				local value = w.engine.new("InputObject")
+				value.UserInputType = w.Enum.UserInputType.Touch
+				value.UserInputState = w.Enum.UserInputState.Begin
+				value.Position = V3.new(50, y, 0)
+				return value
+			end
+			local flick = finger(20)
+			card.InputBegan.fire(flick)
+			flick.Position = V3.new(50, 120, 0)
+			w.input.InputChanged.fire(flick)
+			t.expect(screen:FindFirstChild("DragGhost", true)).toBeNil()
+			flick.UserInputState = w.Enum.UserInputState.End
+			w.input.InputEnded.fire(flick)
+			t.expect(#log).toBe(0)
+			local hold = finger(20)
+			card.InputBegan.fire(hold)
+			card.TouchLongPress.fire({ V2.new(50, 20) }, w.Enum.UserInputState.Begin)
+			t.expect(screen:FindFirstChild("DragGhost", true) ~= nil).toBe(true)
+			t.expect(root.ScrollingEnabled).toBe(false)
+			hold.Position = V3.new(50, 120, 0)
+			w.input.InputChanged.fire(hold)
+			hold.UserInputState = w.Enum.UserInputState.End
+			w.input.InputEnded.fire(hold)
+			t.expect(table.concat(log, ";")).toBe("card pointer")
+			t.expect(root.ScrollingEnabled).toBe(true)
+			card.Activated.fire(hold)
+			t.expect(opened).toBe(0)
+			card.Activated.fire(finger(20))
+			t.expect(opened).toBe(1)
+			-- Roblox reuses one mouse InputObject for every click: a drag swallows only its own press
+			local mouse = w.engine.new("InputObject")
+			mouse.UserInputType, mouse.Position = w.Enum.UserInputType.MouseButton1, V3.new(50, 20, 0)
+			card.InputBegan.fire(mouse)
+			w.input.InputChanged.fire({
+				UserInputType = w.Enum.UserInputType.MouseMovement,
+				Position = V3.new(50, 120, 0),
+			})
+			mouse.UserInputState, mouse.Position = w.Enum.UserInputState.End, V3.new(50, 120, 0)
+			w.input.InputEnded.fire(mouse)
+			card.Activated.fire(mouse)
+			t.expect(opened).toBe(1)
+			w.engine.heartbeat.fire(1 / 60)
+			card.Activated.fire(mouse)
+			t.expect(opened).toBe(2)
+			stop()
+			w.stop()
+		end
+	)
+
+	t.it("arms on a tap when armOnTap is set and places on the next tapped target", function()
+		local w, _, card, open, _, log, stop = stage()
+		local tap = pointer(w, "Touch", 20)
+		card.InputBegan.fire(tap)
+		w.input.InputEnded.fire(tap)
+		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
+		open.InputBegan.fire(pointer(w, "Touch", 120))
+		t.expect(table.concat(log, "; ")).toBe("drop sponsor Open armed")
+		stop()
+		w.stop()
+	end)
+end)

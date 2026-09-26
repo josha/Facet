@@ -57,6 +57,20 @@
       "reason": "The radio dot is a fixed 8 px circle; radius 4 is half its size."
     },
     {
+      "path": "src/ui/collection_reorder.luau",
+      "rule": "radius",
+      "match": "ctx.corner(9) :: Types.Child,",
+      "status": "structural",
+      "reason": "The edit-mode selection mark reuses the 18 px radio indicator circle; radius 9 is half its size."
+    },
+    {
+      "path": "src/ui/collection_reorder.luau",
+      "rule": "radius",
+      "match": "ctx.corner(4) :: Types.Child,",
+      "status": "structural",
+      "reason": "The edit-mode selection mark's dot is the 8 px radio dot; radius 4 is half its size."
+    },
+    {
       "path": "src/ui/nav_pages.luau",
       "rule": "paint-color",
       "match": "ctx.types.Color3.new(0, 0, 0)",

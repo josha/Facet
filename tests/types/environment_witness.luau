@@ -13,6 +13,14 @@ local function Screen(): Frame
 	UI.focusSection(list)
 	local responder = UI.responder(list, { passive = true, gameplayGuard = false, traversalWrap = false })
 	responder.engage()
+	local drag: Facet.DraggableSpec = { payload = "card", armOnTap = true }
+	UI.draggable(list, drag)
+	local drop: Facet.DropTargetSpec = {
+		onDrop = function(payload: any, info: Facet.DropInfo)
+			print(payload, info.mode)
+		end,
+	}
+	UI.dropTarget(list, drop)
 	return UI.Screen({
 		ring :: any,
 		UI.Text({

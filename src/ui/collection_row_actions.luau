@@ -1,6 +1,5 @@
 --!strict
 local activation = require("./activation")
-local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
@@ -15,7 +14,6 @@ type Controls = {
 type RowEdge = CollectionTypes.RowEdge
 type RowAction = CollectionTypes.RowAction
 return function(ctx: Types.Context, UI: Controls): ()
-	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readSource = ctx.readSource
@@ -34,6 +32,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"onActivate",
 		"editing",
 	}
+	local FULL_SWIPE = 0.6
+	local RESISTANCE = 0.55
 	UI.RowActions = ctx.construct("RowActions", function(spec: CollectionTypes.RowActionsSpec): Frame
 		local leading: Types.Value<{ RowAction }> = spec.leading or {}
 		local trailing: Types.Value<{ RowAction }> = spec.trailing or {}
@@ -47,8 +47,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local actionWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local rowToken = {}
 		local departure = runtime.timeline({ duration = 0.24, autoplay = false })
-		local committing: ComposeTypes.Cell<{ action: RowAction, edge: RowEdge }?> =
-			Compose.cell(nil :: { action: RowAction, edge: RowEdge }?)
+		local committing: ComposeTypes.Cell<{ action: RowAction, edge: RowEdge, from: number }?> =
+			Compose.cell(nil :: { action: RowAction, edge: RowEdge, from: number }?)
 		local fired = false
 		local motionReduced = reducedMotion(ctx)
 		local function reduced(use: ComposeTypes.Use?): boolean
@@ -58,12 +58,23 @@ return function(ctx: Types.Context, UI: Controls): ()
 			return read(if edge == "leading" then leading else trailing, use)
 		end
 		local function bandWidth(edge: string, use: ComposeTypes.Use?): number
-			local count, width = #actions(edge, use), read(spec.actionWidth or 88, use)
+			local list = actions(edge, use)
+			local iconic = #list > 0
+			for _, action in list do
+				iconic = iconic and action.icon ~= nil
+			end
+			local width = read(spec.actionWidth or (if iconic then 64 else 88), use)
 			local measuredWidths = readSource(actionWidths, use)
-			for _, action in actions(edge :: RowEdge, use) do
+			for _, action in list do
 				width = math.max(width, measuredWidths[edge .. ":" .. action.id] or 0)
 			end
-			return math.min(width * count, readSource(dimensions, use).X)
+			return math.min(width * #list, readSource(dimensions, use).X)
+		end
+		local function fullSwipe(edge: RowEdge): boolean
+			local choice = spec.fullSwipe
+			return if type(choice) == "table"
+				then (if edge == "leading" then choice.leading else choice.trailing) ~= false
+				else choice ~= false
 		end
 		local function setOpen(edge: RowEdge?): ()
 			if spec.coordinator and edge then
@@ -106,7 +117,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			local commit = use(committing)
 			if commit then
 				local fraction = if reduced(use) then 1 else math.min(1, use(departure.progress) / 0.7)
-				return (if commit.edge == "leading" then 1 else -1) * use(dimensions).X * fraction
+				local target = (if commit.edge == "leading" then 1 else -1) * use(dimensions).X
+				return commit.from + (target - commit.from) * fraction
 			end
 			local live = use(drag)
 			if live ~= nil then
@@ -148,6 +160,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if committing:peek() or read(spec.enabled) == false or read(action.enabled) == false then
 				return
 			end
+			local from = if drag:peek() ~= nil or reduced() then offset:peek() else animated:peek()
 			drag:set(nil)
 			menuOpen:set(false)
 			setOpen(nil)
@@ -155,6 +168,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				committing:set({
 					action = action,
 					edge = (if edge == "leading" then "leading" else "trailing") :: RowEdge,
+					from = from,
 				})
 				if reduced() then
 					fired = true
@@ -187,21 +201,40 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local function paintedOffset(use: ComposeTypes.Use): number
 			return if use(drag) ~= nil or use(committing) ~= nil or reduced(use) then use(offset) else use(animated)
 		end
+		local function armed(edge: RowEdge, use: ComposeTypes.Use): boolean
+			local commit = use(committing)
+			if commit then
+				return commit.edge == edge
+			end
+			local live = use(drag)
+			return live ~= nil
+				and fullSwipe(edge)
+				and #actions(edge, use) > 0
+				and (if edge == "leading" then live > 0 else live < 0)
+				and math.abs(live) >= use(dimensions).X * FULL_SWIPE
+		end
 		local function tray(edge: RowEdge): Frame
 			local nativeProps: Types.FrameProps = {
 				Name = edge,
 				AnchorPoint = V2.new(if edge == "leading" then 0 else 1, 0),
 				Position = D2.fromScale(if edge == "leading" then 0 else 1, 0),
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(0, math.min(bandWidth(edge, use), math.abs(paintedOffset(use))), 1, 0)
+					local reveal = math.abs(paintedOffset(use))
+					return D2.new(0, if armed(edge, use) then reveal else math.min(bandWidth(edge, use), reveal), 1, 0)
 				end,
 				Visible = function(use: ComposeTypes.Use)
 					local x = paintedOffset(use)
-					return use(committing) == nil and (if edge == "leading" then x > 0 else x < 0)
+					return if edge == "leading" then x > 0 else x < 0
 				end,
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
-				lists.list({}, false) :: ComposeTypes.Child,
+				Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					HorizontalAlignment = if edge == "leading"
+						then E.HorizontalAlignment.Right
+						else E.HorizontalAlignment.Left,
+					SortOrder = E.SortOrder.LayoutOrder,
+				}) :: ComposeTypes.Child,
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use)
 						return actions(edge, use)
@@ -210,16 +243,30 @@ return function(ctx: Types.Context, UI: Controls): ()
 						return action.id
 					end,
 					render = function(current: ComposeTypes.Readable<RowAction>, index: ComposeTypes.Readable<number>)
+						local iconic = current:peek().icon ~= nil
+						local function words(use: ComposeTypes.Use): string
+							return read(use(current).label, use)
+						end
+						local function first(use: ComposeTypes.Use): boolean
+							return use(index) == 1
+						end
 						local buttonProps: InputTypes.ButtonProps = {
 							Name = current:peek().id,
-							LayoutOrder = index,
+							LayoutOrder = function(use: ComposeTypes.Use)
+								return if edge == "leading" then -use(index) else use(index)
+							end,
 							Size = function(use: ComposeTypes.Use)
-								return D2.new(1 / math.max(1, #actions(edge, use)), 0, 1, 0)
+								if armed(edge, use) and first(use) then
+									return D2.fromScale(1, 1)
+								end
+								return D2.new(0, bandWidth(edge, use) / math.max(1, #actions(edge, use)), 1, 0)
+							end,
+							Visible = function(use: ComposeTypes.Use)
+								return not armed(edge, use) or first(use)
 							end,
 							AutomaticSize = E.AutomaticSize.None,
-							label = function(use: ComposeTypes.Use): string
-								return read(use(current).label, use)
-							end,
+							label = if iconic then "" else words,
+							name = if iconic then words else nil,
 							role = current:peek().role,
 							icon = current:peek().icon,
 							enabled = function(use: ComposeTypes.Use)
@@ -255,6 +302,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local root: Frame
 		local contentFrame: Frame
 		local activeInput: InputObject?
+		local reveal: () -> ()
+		local function began(input: InputObject): ()
+			if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
+				activeInput = input
+			end
+			if input.UserInputType == E.UserInputType.MouseButton2 then
+				reveal()
+			end
+		end
 		local start: Vector2? = nil
 		local startOffset = 0
 		local axis: ("horizontal" | "vertical")? = nil
@@ -278,10 +334,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			local currentTime = now()
 			local elapsed = currentTime - previousTime
-			if elapsed > 0 then
+			if elapsed >= 0.005 then
 				velocity = (position.X - previousX) / elapsed
+				previousX, previousTime = position.X, currentTime
 			end
-			previousX, previousTime = position.X, currentTime
 			local delta = position - start
 			if axis == nil and math.max(math.abs(delta.X), math.abs(delta.Y)) >= 8 then
 				axis = if math.abs(delta.X) > math.abs(delta.Y) then "horizontal" else "vertical"
@@ -289,7 +345,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if axis == "horizontal" then
 				local maxLeading = if #actions("leading") > 0 then dimensions:peek().X else 0
 				local maxTrailing = if #actions("trailing") > 0 then dimensions:peek().X else 0
-				drag:set(math.clamp(startOffset + delta.X, -maxTrailing, maxLeading))
+				local raw = startOffset + delta.X
+				local edge: RowEdge = if raw > 0 then "leading" else "trailing"
+				local band = bandWidth(edge)
+				if not fullSwipe(edge) and math.abs(raw) > band then
+					raw = math.sign(raw) * (band + (math.abs(raw) - band) * RESISTANCE)
+				end
+				drag:set(math.clamp(raw, -maxTrailing, maxLeading))
 			end
 		end
 		local pressed: InputObject?
@@ -326,12 +388,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if value ~= nil and value ~= 0 and axis == "horizontal" and dimensions:peek().X > 0 then
 				local edge: RowEdge = if value > 0 then "leading" else "trailing"
 				local available = actions(edge)
-				local choice = spec.fullSwipe
-				local fullSwipe = if type(choice) == "table"
-					then (if edge == "leading" then choice.leading else choice.trailing) ~= false
-					else choice ~= false
 				local width = dimensions:peek().X
-				if fullSwipe and #available > 0 and width > 0 and math.abs(value) >= width * 0.7 then
+				local flung = if now() - previousTime < 0.1 then velocity * 0.08 else 0
+				local projected = if flung * value > 0 then value + flung else value
+				if fullSwipe(edge) and #available > 0 and width > 0 and math.abs(projected) >= width * FULL_SWIPE then
 					execute(available[1], edge)
 				elseif
 					#available > 0
@@ -467,6 +527,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					ZIndex = 4,
 					Visible = swipeable,
 					InputBegan = function(input: InputObject)
+						began(input)
 						pressed = input
 						local host = collectionRow()
 						local hit = if host then host:FindFirstChild("RowHit") else nil
@@ -531,7 +592,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		Compose.watch(function(use: ComposeTypes.Use)
 			dimensions:set(use(measured))
 		end)
-		local function reveal()
+		function reveal()
 			if read(spec.enabled) ~= false and committing:peek() == nil and #menuItems:peek() > 0 then
 				setOpen(nil)
 				if spec.coordinator then
@@ -541,14 +602,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 
-		runtime.connect(root, "InputBegan", function(input: InputObject)
-			if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
-				activeInput = input
-			end
-			if input.UserInputType == E.UserInputType.MouseButton2 then
-				reveal()
-			end
-		end)
+		runtime.connect(root, "InputBegan", began)
 		local inputService = ctx.config.userInputService
 		if inputService then
 			local function cancelInput(input: InputObject): ()

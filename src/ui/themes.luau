@@ -717,6 +717,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	do
 		rule(".facet-" .. role, { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
+	rule(".facet-chip::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.pill) })
 	for _, role in { "toggle-mark", "slider-fill", "slider-thumb", "selection-indicator" } do
 		local ink = if role == "slider-fill" or role == "selection-indicator" then "selection" else "accent"
 		rule(".facet-" .. role, { BackgroundColor3 = c(ink), BackgroundTransparency = 0, BorderSizePixel = 0 })
@@ -864,6 +865,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-selected >> .facet-text", { TextColor3 = onSelected })
 	rule(".facet-disabled", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-icon", { ImageTransparency = extra.disabledContentOpacity })
+	-- a held drag source keeps its plate as the empty slot until the drop lands or it goes back
+	rule(".facet-drag-held", { TextTransparency = 1 })
+	rule(".facet-drag-held >> .facet-text", { TextTransparency = 1 })
+	rule(".facet-drag-held >> .facet-icon", { ImageTransparency = 1 })
 	rule(".facet-accent", { BackgroundColor3 = c("accent"), TextColor3 = c("onAccent") })
 	rule(".facet-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-level-segment", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
@@ -1218,6 +1223,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
+	rule(".facet-menu-item::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-menu-destructive", { TextColor3 = c("content") })
+	rule(".facet-menu-destructive >> .facet-button-caption", { TextColor3 = c("content") })
+	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("content") })
+	for _, state in { ":Hover", ":Press" } do
+		rule(".facet-menu-destructive" .. state, { BackgroundTransparency = 0, BackgroundColor3 = c("danger") })
+		rule(".facet-menu-destructive" .. state .. " >> .facet-button-caption", { TextColor3 = c("onDanger") })
+		rule(".facet-menu-destructive" .. state .. " >> .facet-text", { TextColor3 = c("onDanger") })
+		rule(".facet-menu-destructive" .. state .. " >> .facet-icon", { ImageColor3 = c("onDanger") })
+	end
 	rule(".facet-choice-current >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-tab-filled >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-segment-current >> .facet-text", { TextColor3 = c("onAccent") })

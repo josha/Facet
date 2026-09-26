@@ -74,18 +74,8 @@ return function(ctx: any, options: any)
 		rows:set(remaining)
 		moves:set(moves:peek() + 1)
 	end
-	local function markEditing(value)
-		local nextRows = {}
-		for index, item in rows:peek() do
-			local nextItem = table.clone(item)
-			nextItem.editing = value
-			nextRows[index] = nextItem
-		end
-		rows:set(nextRows)
-	end
 	local function edit()
 		editing:set(not editing:peek())
-		markEditing(editing:peek())
 	end
 	local function actions(key)
 		return {
@@ -97,6 +87,7 @@ return function(ctx: any, options: any)
 				{
 					id = "read",
 					label = "Mark read",
+					icon = "checkmark",
 					onActivate = function()
 						markRead(key)
 					end,
@@ -106,6 +97,7 @@ return function(ctx: any, options: any)
 				{
 					id = "delete",
 					label = "Delete",
+					icon = "trash",
 					role = "destructive",
 					onActivate = function()
 						remove(key)
@@ -114,6 +106,7 @@ return function(ctx: any, options: any)
 				{
 					id = "flag",
 					label = "Flag",
+					icon = "flag",
 					onActivate = function()
 						flag(key)
 					end,
@@ -361,10 +354,13 @@ return function(ctx: any, options: any)
 		if options.table then
 			common.selection, common.selectionMode = selection, "multiple"
 			common.sort, common.widths = Compose.cell(nil), Compose.cell({})
-			common.editing, common.reorderable, common.onReorder = editing, true, reorder
-			common.movable = function(item)
-				return item.editing == true
-			end
+			common.reorderable, common.onReorder = true, reorder
+			common.deletable, common.onDelete =
+				true, function(keys)
+					for _, key in keys do
+						remove(key)
+					end
+				end
 			common.onActivate = function(item, key)
 				selected:set(key)
 				if options.mail then
@@ -379,12 +375,6 @@ return function(ctx: any, options: any)
 				else nil
 			if options.editable then
 				common.alternatingRows = true
-				Compose.watch(function(use)
-					local first = rows:peek()[1]
-					if first and (first.editing == true) ~= use(editing) then
-						markEditing(editing:peek())
-					end
-				end)
 				common.onCellChange = function(key, column, value)
 					local nextRows = table.clone(rows:peek())
 					for index, item in nextRows do
@@ -438,10 +428,16 @@ return function(ctx: any, options: any)
 		end
 		local nativePosition = observe(body, "CanvasPosition")
 		local buttons = {}
-		local function command(name, label, callback)
+		local function command(name, label, callback, visible)
 			table.insert(
 				buttons,
-				UI.Button({ Name = name, label = label, onActivate = callback, LayoutOrder = #buttons + 1 })
+				UI.Button({
+					Name = name,
+					label = label,
+					onActivate = callback,
+					LayoutOrder = #buttons + 1,
+					Visible = visible,
+				})
 			)
 		end
 		if options.entrants then
@@ -455,10 +451,18 @@ return function(ctx: any, options: any)
 				jump(if options.mail then 4 else 50)
 			end)
 		end
-		if options.mail or options.entrants then
-			command("Edit", function(use)
-				return if use(editing) then "Done" else "Edit"
-			end, edit)
+		if options.mail and not options.table then
+			local env = UI.environment()
+			command(
+				"Edit",
+				function(use)
+					return if use(editing) then "Done" else "Edit"
+				end,
+				edit,
+				function(use)
+					return use(env.effectiveInput) ~= "KeyboardAndMouse" or use(editing)
+				end
+			)
 		end
 		if options.grid then
 			command("Reverse", "Reverse", reverse)

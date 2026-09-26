@@ -614,16 +614,36 @@ return {
 					rowToggle,
 					rowSlider,
 				}),
-				heading("Race tags"),
-				UI.Button "EditTags" {
-					label = function(use)
-						return if use(editingTags) then "Done" else "Edit"
-					end,
-					appearance = "soft",
-					controlSize = "compact",
-					onActivate = function()
-						editingTags:set(not editingTags:peek())
-					end,
+				Host.Frame "TagsHeader" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						VerticalAlignment = Enum.VerticalAlignment.Center,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
+					UI.Text({
+						LayoutOrder = 1,
+						BackgroundTransparency = 1,
+						Size = UDim2.new(0, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = "Race tags",
+						textRole = "heading",
+						TextXAlignment = Enum.TextXAlignment.Left,
+						Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+					}),
+					UI.Button "EditTags" {
+						LayoutOrder = 2,
+						label = function(use)
+							return if use(editingTags) then "Done" else "Edit"
+						end,
+						appearance = "soft",
+						controlSize = "compact",
+						onActivate = function()
+							editingTags:set(not editingTags:peek())
+						end,
+					},
 				},
 				Host.ScrollingFrame "Tokens" {
 					BackgroundTransparency = 1,
