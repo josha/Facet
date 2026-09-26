@@ -21,7 +21,7 @@ return function(
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local build: Radial.RadialMenuBuilder = function<V>(spec: Radial.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
-		-- the centre control paints 32 px, on the ten-foot ladder at a distance
+
 		local distant = ctx.tenFoot()
 		local function painted(use: ComposeTypes.Use?): number
 			return if distant(use) then 32 * adaptive.TEN_FOOT_SCALE else 32
@@ -937,8 +937,9 @@ return function(
 										paint,
 									}
 									surfaces.attach(wrapper, { shape })
+									local placed = Compose.cell(nil :: { x: number, y: number }?)
 									Compose.watch(function(use: ComposeTypes.Use)
-										local live, at = currentSector(use), use(center)
+										local live = currentSector(use)
 										local text = use(measured)
 										local label = geometry.labelBounds(live, 40)
 										local iconOnly = not live.list and glyphOnly(live.item)
@@ -975,12 +976,7 @@ return function(
 											end
 										end
 										local bounds = geometry.paint(fitted)
-										local dx, dy = travel(use, live)
-										local lag = spread(use) - 1
-										shape.Position = D2.fromOffset(
-											at.X + bounds.x + dx + lag * live.x,
-											at.Y + bounds.y + dy + lag * live.y
-										)
+										placed:set({ x = bounds.x, y = bounds.y })
 										shape.Size = D2.fromOffset(bounds.w, bounds.h)
 										paint.Thickness = math.max(1, fitted.outer - fitted.inner)
 										local points: { Path2DControlPoint } = {}
@@ -995,6 +991,19 @@ return function(
 											)
 										end
 										paint:SetControlPoints(points)
+									end)
+									Compose.watch(function(use: ComposeTypes.Use)
+										local bounds = use(placed)
+										if bounds == nil then
+											return
+										end
+										local live, at = currentSector(use), use(center)
+										local dx, dy = travel(use, live)
+										local lag = spread(use) - 1
+										shape.Position = D2.fromOffset(
+											at.X + bounds.x + dx + lag * live.x,
+											at.Y + bounds.y + dy + lag * live.y
+										)
 									end)
 									entered:set(true)
 									return wrapper
@@ -1225,7 +1234,7 @@ return function(
 						if not list then
 							return ""
 						end
-						-- the list names where it is, as 0.11 did: the breadcrumb, or the menu's own label at the top
+
 						local labels: { string } = {}
 						local items: { Radial.RadialItem<V> }? = read(spec.items, use)
 						for _, id in use(path) do
