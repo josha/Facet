@@ -1419,6 +1419,17 @@ return function(
 					cancel()
 					aimPointer, aimAnalog, candidateSector, freezeCenter, returnSelection = nil, nil, nil, nil, nil
 				end)
+				-- the engine's pad navigation takes Thumbstick1 while anything is selected, so RadialAim would
+				-- never see the stick; the open wheel binds its own D-pad, A and B, and owns the stick meanwhile
+				if gui then
+					local before = gui.GuiNavigationEnabled
+					Compose.watch(function(use: ComposeTypes.Use)
+						gui.GuiNavigationEnabled = before and not use(opened)
+					end)
+					Compose.cleanup(function()
+						gui.GuiNavigationEnabled = before
+					end)
+				end
 				Compose.watch(function(use: ComposeTypes.Use)
 					local entries = use(sectors)
 					local validPath = use(layout).path
