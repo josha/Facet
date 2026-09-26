@@ -522,12 +522,15 @@ return function(
 						end
 						local ri = ring
 						local distribution = if #prefix == 0 then spec.distribution or "even" else "even"
+						local levelStart = currentStart
+						local last = shown[#shown]
+						if last and last.id == "$navigation" and distribution == "even" and currentSweep == 360 then
+							levelStart = 225 - (#shown - 1) * 360 / #shown
+						end
 						local levelBand = band
 						do
 							local extent, target = 0, 0
-							for _, probe in
-								geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + 1)
-							do
+							for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
 								local width, height = estimate(probe.item)
 								local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
 								local hw, hh = width / 2 + padding, height / 2 + padding
@@ -546,7 +549,7 @@ return function(
 						end
 						ring = ri + levelBand + 4
 						local sectors =
-							geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + levelBand)
+							geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
 						for _, sector in sectors do
 							sector.path = table.clone(prefix)
 							sector.key = table.concat(prefix, "/") .. "/" .. sector.id
@@ -597,7 +600,12 @@ return function(
 					end
 					list = list and gestureSelection ~= "direction"
 					if list then
-						result = current
+						result = {}
+						for _, sector in current do
+							if sector.id ~= "$navigation" then
+								table.insert(result, sector)
+							end
+						end
 					end
 					for index, sector in result do
 						sector.index, sector.list = index, list
@@ -989,24 +997,39 @@ return function(
 					}),
 				}
 				local panel = Host.ScrollingFrame(panelProps)
+				local ringNavigation = spec.center == "empty" or spec.center == "content"
+				local function showCenter(use: ComposeTypes.Use): boolean
+					if corner or use(fallback) or not ringNavigation then
+						return true
+					end
+					for _, sector in use(sectors) do
+						if sector.id == "$navigation" then
+							return false
+						end
+					end
+					return true
+				end
+				local function navigating(use: ComposeTypes.Use?): boolean
+					return corner or ringNavigation or (if use then use(fallback) else fallback:peek())
+				end
 				local function centerAction()
-					if spec.center == "root" then
-						path:set({})
-					elseif spec.center == "close" then
-						close()
-					else
+					if navigating() or spec.center == nil or spec.center == "back" then
 						back()
+					elseif spec.center == "root" then
+						path:set({})
+					else
+						close()
 					end
 				end
-				local closing = corner or (spec.center ~= "empty" and spec.center ~= "content")
 				local function hub(
 					use: ComposeTypes.Use
 				): { close: number, closeY: number, labelY: number, labelW: number, labelH: number }
 					local inner = use(layout).inner
 					local gap = ctx.metric("space.xs", use)
 					local labelH = if corner then 0 else ctx.metric("typography.caption.size", use) + gap
-					local close = if closing then math.min(ctx.metric("targetSizes.minimum", use), 2 * inner - 4) else 0
-					local between = if closing and not corner then gap else 0
+					local shown = showCenter(use)
+					local close = if shown then math.min(ctx.metric("targetSizes.minimum", use), 2 * inner - 4) else 0
+					local between = if shown and not corner then gap else 0
 					local top = -(close + between + labelH) / 2
 					local labelTop = top + close + between
 					local edge = math.max(math.abs(labelTop), math.abs(labelTop + labelH))
@@ -1018,58 +1041,57 @@ return function(
 						labelH = labelH,
 					}
 				end
-				if closing then
-					local function centerName(use: ComposeTypes.Use): string
-						local depth = #use(path)
-						return read(spec.centerLabel, use)
-							or if spec.center == "root"
-								then "Home"
-								elseif spec.center == "close" or depth == 0 then "Close"
-								else "Back"
+				local function centerName(use: ComposeTypes.Use): string
+					local depth = #use(path)
+					if navigating(use) or spec.center == nil or spec.center == "back" then
+						return (if navigating(use) then nil else read(spec.centerLabel, use))
+							or if depth == 0 then "Close" else "Back"
 					end
-					local centerIcon: Types.Value<string>? = if spec.centerLabel
+					return read(spec.centerLabel, use) or if spec.center == "root" then "Home" else "Close"
+				end
+				local worded = spec.centerLabel ~= nil and not corner and not ringNavigation
+				local centerNode = UI.Button "Center" {
+					corners = "pill" :: "pill",
+					appearance = "utility",
+					name = centerName,
+					label = if worded
+						then function(use: ComposeTypes.Use): string
+							return read(spec.centerLabel, use) or ""
+						end
+						else nil,
+					icon = if worded
 						then nil
 						else function(use: ComposeTypes.Use): string
-							return if spec.center == "root"
+							return if spec.center == "root" and not navigating(use)
 								then "chevron.first"
-								elseif spec.center == "close" or #use(path) == 0 then "close"
-								else "chevron.leading"
+								elseif centerName(use) == "Back" then "chevron.leading"
+								else "close"
+						end,
+					TextWrapped = true,
+					Visible = showCenter,
+					Position = function(use: ComposeTypes.Use)
+						if use(fallback) then
+							return D2.new(1, -16, 0, 2)
 						end
-					surfaces.attach(panel, {
-						UI.Button "Center" {
-							LayoutOrder = -1,
-							corners = "pill" :: "pill",
-							appearance = "utility",
-							name = centerName,
-							label = function(use: ComposeTypes.Use): string
-								return if use(fallback) then centerName(use) else read(spec.centerLabel, use) or ""
-							end,
-							icon = centerIcon,
-							TextWrapped = true,
-							Visible = function(use: ComposeTypes.Use)
-								return not (use(fallback) and (spec.center == "root" or spec.center == "close"))
-							end,
-							Position = function(use: ComposeTypes.Use)
-								local at = use(center)
-								return if use(fallback)
-									then D2.fromOffset(0, 0)
-									else D2.fromOffset(at.X, at.Y + hub(use).closeY)
-							end,
-							AnchorPoint = function(use: ComposeTypes.Use)
-								return if use(fallback) then V2.zero else V2.new(0.5, 0.5)
-							end,
-							Size = function(use: ComposeTypes.Use)
-								if use(fallback) then
-									return D2.new(1, -8, 0, ctx.metric("targetSizes.minimum", use))
-								end
-								local diameter = hub(use).close
-								return D2.fromOffset(diameter, diameter)
-							end,
-							ZIndex = 105,
-							onActivate = centerAction,
-						},
-					})
-				elseif spec.center == "content" and spec.centerContent then
+						local at = use(center)
+						return D2.fromOffset(at.X, at.Y + hub(use).closeY)
+					end,
+					AnchorPoint = function(use: ComposeTypes.Use)
+						return if use(fallback) then V2.new(1, 0) else V2.new(0.5, 0.5)
+					end,
+					Size = function(use: ComposeTypes.Use)
+						local diameter = if use(fallback)
+							then ctx.metric("targetSizes.minimum", use)
+							else hub(use).close
+						return D2.fromOffset(if worded and use(fallback) then 0 else diameter, diameter)
+					end,
+					AutomaticSize = function(use: ComposeTypes.Use)
+						return if worded and use(fallback) then E.AutomaticSize.X else E.AutomaticSize.None
+					end,
+					ZIndex = 105,
+					onActivate = centerAction,
+				}
+				if spec.center == "content" and spec.centerContent and not corner then
 					local node = if type(spec.centerContent) == "function"
 						then spec.centerContent()
 						else spec.centerContent
@@ -1083,10 +1105,7 @@ return function(
 					})
 					surfaces.attach(panel, { node })
 				end
-				local centerButton = panel:FindFirstChild("Center")
-				if centerButton and centerButton:IsA("GuiObject") then
-					skin(centerButton, spec.skin and spec.skin.center)
-				end
+				skin(centerNode, spec.skin and spec.skin.center)
 				local panelSize = ctx.observe.AbsoluteSize(panel)
 				local function reachOf(ring: Radial.Layout<V>): number
 					local reach = ring.inner
@@ -1384,6 +1403,7 @@ return function(
 						end,
 					}
 				)
+				surfaces.attach(modal, { centerNode })
 				local catcher = modal:FindFirstChild("DismissOutside")
 				if catcher then
 					if scrim == "dark" then

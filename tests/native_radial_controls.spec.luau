@@ -777,4 +777,129 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 end)
+t.describe("RadialMenu navigation placement (restored from 0.11)", function()
+	local function actions(count)
+		local items = {}
+		for index = 1, count do
+			table.insert(items, { id = `a{index}`, label = `A{index}`, onSelect = function() end })
+		end
+		return items
+	end
+	local function nested()
+		return {
+			{ id = "gear", label = "Gear", children = { { id = "tool", label = "Tool", onSelect = function() end } } },
+			{ id = "wave", label = "Wave", onSelect = function() end },
+		}
+	end
+	local function angleOf(node)
+		local dx, dy = node.Position.X.Offset - 320, node.Position.Y.Offset - 240
+		return math.deg(math.atan2(dx, -dy)) % 360
+	end
+	local function visibleCenter(world)
+		local centre = world.find("Center")
+		return if centre and centre.Visible then centre else nil
+	end
+
+	t.it("an empty or content centre puts Back/Close on the ring at the lower left of an even ring", function()
+		for _, center in { "empty", "content", "root", "close" } do
+			local world = setup({ center = center, items = actions(3) })
+			local nav = world.find("$navigation")
+			t.expect(`{center}: {nav ~= nil}`).toBe(`{center}: true`)
+			t.expect(`{center}: {math.abs(angleOf(nav) - 225) <= 1}`).toBe(`{center}: true`)
+			world.stop()
+		end
+	end)
+
+	t.it("a back centre uses only the centre control, which goes back and closes at the root", function()
+		local world = setup({ items = nested() })
+		t.expect(world.find("$navigation")).toBeNil()
+		local centre = visibleCenter(world)
+		t.expect(centre:GetAttribute("label")).toBe("Close")
+		world.find("gear").Activated.fire()
+		t.expect(visibleCenter(world):GetAttribute("label")).toBe("Back")
+		visibleCenter(world).Activated.fire()
+		t.expect(world.find("wave") ~= nil).toBe(true)
+		t.expect(world.opened:peek()).toBe(true)
+		visibleCenter(world).Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+
+	t.it("an empty centre shows no centre control while the ring holds Back", function()
+		local world = setup({ center = "empty", items = actions(3) })
+		t.expect(visibleCenter(world)).toBeNil()
+		world.stop()
+	end)
+
+	t.it("a full compass with an empty centre uses the external control at the centre", function()
+		local items = {}
+		for _, slot in { "N", "NE", "E", "SE", "S", "SW", "W", "NW" } do
+			table.insert(items, { id = slot, slot = slot, label = slot, onSelect = function() end })
+		end
+		local world = setup({ center = "empty", distribution = "compass", items = items })
+		t.expect(world.find("$navigation")).toBeNil()
+		local centre = visibleCenter(world)
+		t.expect(centre ~= nil).toBe(true)
+		t.expect(centre.Position.X.Offset).toBe(320)
+		t.expect(centre:GetAttribute("label")).toBe("Close")
+		centre.Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+
+	t.it("a compass ring takes the first free slot from SW, S, SE", function()
+		local items = {}
+		for _, slot in { "N", "E", "SW", "W" } do
+			table.insert(items, { id = slot, slot = slot, label = slot, onSelect = function() end })
+		end
+		local world = setup({ center = "empty", distribution = "compass", items = items })
+		t.expect(math.abs(angleOf(world.find("$navigation")) - 180) <= 1).toBe(true)
+		world.stop()
+	end)
+
+	t.it("a corner ring puts Back/Close on the corner whatever the centre, and never on the ring", function()
+		for _, center in { "back", "root", "close", "empty", "content" } do
+			local world = setup({
+				isPresented = Compose.cell(false),
+				preset = "bottom-left",
+				center = center,
+				centerLabel = "Home base",
+				items = nested(),
+			})
+			local V2 = world.engine.types.Vector2
+			local launcher = world.find("Launcher")
+			launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+			world.opened:set(true)
+			t.expect(world.find("$navigation")).toBeNil()
+			local centre = visibleCenter(world)
+			t.expect(`{center}: {centre.Position.X.Offset},{centre.Position.Y.Offset}`).toBe(`{center}: 40,440`)
+			t.expect(`{center}: {centre:GetAttribute("label")}`).toBe(`{center}: Close`)
+			world.find("gear").Activated.fire()
+			t.expect(`{center}: {visibleCenter(world):GetAttribute("label")}`).toBe(`{center}: Back`)
+			visibleCenter(world).Activated.fire()
+			t.expect(`{center}: {world.find("wave") ~= nil and world.opened:peek()}`).toBe(`{center}: true`)
+			visibleCenter(world).Activated.fire()
+			t.expect(`{center}: {world.opened:peek()}`).toBe(`{center}: false`)
+			world.stop()
+		end
+	end)
+
+	t.it("the list fallback has one round Back/Close at the top right for every centre policy", function()
+		for _, center in { "empty", "back", "root", "close", "content" } do
+			local world = setup({ center = center, items = nested() })
+			world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+			t.expect(world.find("RadialPanel"):GetAttribute("Presentation")).toBe("list")
+			t.expect(`{center}: {world.find("$navigation") == nil}`).toBe(`{center}: true`)
+			local centre = visibleCenter(world)
+			t.expect(`{center}: {centre ~= nil}`).toBe(`{center}: true`)
+			t.expect(centre.AnchorPoint).toBe(world.engine.types.Vector2.new(1, 0))
+			t.expect(centre.Position.X.Scale).toBe(1)
+			t.expect(centre.Size.X.Offset).toBe(centre.Size.Y.Offset)
+			t.expect(`{center}: {centre:GetAttribute("label")}`).toBe(`{center}: Close`)
+			centre.Activated.fire()
+			t.expect(`{center}: {world.opened:peek()}`).toBe(`{center}: false`)
+			world.stop()
+		end
+	end)
+end)
 return t

@@ -1983,17 +1983,35 @@ metrics, not measured: the label is its character count times 0.6 of
 thick enough for each wedge to be one touch target wide, and is never wider
 than the room. The same items and theme always give the same ring.
 
-The centre Back, Close or Home control is a small round `utility` button, one
-touch target (`targetSizes.minimum`) across, with no theme control art. It
-shows a close, back or first-page icon and keeps the word as its accessible
-name; a `centerLabel` shows that text instead. The name of the highlighted item
-sits in the hole under it, on one caption line, truncated to the hole's width.
-Without a centre control the name is centred in the hole. In the list fallback
-the control is a full-width row and the name sits under the list.
+Where Back and Close sit depends on the preset, `center` and the room:
 
-A corner preset keeps its Close or Back control on the corner, over the
-launcher, whatever `center` is, and never puts it on the arc. The highlighted
-item's name sits just outside the arc, on the arc's middle direction.
+- A full ring (`donut` or `circle`) with `center = "back"` (the default) has
+  one control in the centre hole. It is Close at the root and Back in a
+  submenu; Back goes up one level and Close closes.
+- A full ring with `center = "empty"`, `"content"`, `"root"` or `"close"`
+  puts Back/Close on the ring, as a wedge (or button) of the deepest open
+  level. An even ring turns so that this wedge sits at the lower left. A
+  compass ring gives it the first free slot of `SW`, `S`, `SE`, `NW`, `W`,
+  `E`, `NE`, `N`. `root` also shows Home in the centre, which returns to the
+  root, and `close` shows Close there. With `empty` or `content` the centre
+  holds no control, except on a compass ring with no free slot: then Back/Close
+  sits in the centre.
+- A corner preset never puts it on the arc or uses `center`: the control on
+  the corner, over the launcher, is Close at the root and Back in a submenu.
+- The list fallback has one round Back/Close control at the top right, above
+  the list, for every preset and `center`.
+
+The centre control is a small round `utility` button, one touch target
+(`targetSizes.minimum`) across, with no theme control art. It shows a close,
+back or first-page icon and keeps the word as its accessible name; on a full
+ring a `centerLabel` shows that text instead. Cancel (the B button) and the
+Back/Close control do the same thing. The name of the highlighted item sits in
+the hole under the centre control, on one caption line, truncated to the
+hole's width. Without a centre control the name is centred in the hole. In
+the list fallback the name sits under the list.
+
+A corner ring names the highlighted item just outside the arc, on the arc's
+middle direction.
 
 Nothing is highlighted when the ring opens, until the player points at an
 item, presses a direction or moves the stick. With a gamepad as the preferred

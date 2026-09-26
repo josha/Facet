@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- RadialMenu Back/Close placement follows the 0.11 rules again: an even full ring with an `empty`, `content`, `root` or `close` centre turns so its Back/Close wedge sits at the lower left; a full compass with an empty centre puts Back/Close in the centre; a corner preset's corner control is always Close at the root and Back in a submenu, whatever `center` is; the list fallback has one round Back/Close at the top right instead of a full-width row or a list row.
 - `UI.Toast` and `app.presentToast` (restored from 0.11): input-transparent, non-focus-stealing messages, three visible and eight waiting per edge, priority order, a 2.5 second read floor that priority never cuts, same-key supersede, and survivors that slide into a vacated slot.
 - `app.presentAnchored(component, options) -> close, screen` shows a panel against a node or a rect (restored from 0.11), and `UI.Popover` takes `modal = false` (chrome: no catcher, no Cancel, no selection claim; input passes through) and `cancelPolicy = "none"` (Cancel and an outside tap propose nothing).
 - Every input can open every Button `help`: a touch long-press shows the panel at once (its release does not activate the button; the next touch closes it), beside the pointer dwell and the keyboard or gamepad selection. Before, help never showed on touch.
