@@ -70,6 +70,17 @@ return function<V, K>(
 	local function axis(position: Vector2): number
 		return if horizontal then position.X else position.Y
 	end
+	-- Pointer positions are screen pixels; rows, the canvas and the drag image are layout units. Under a scaled
+	-- ancestor (a UIScale, the TV device preview) they differ by the body's LayoutUnit, so every pointer reading
+	-- goes through here: the pointer's distance from the body's window edge, in layout units.
+	local function scaleOf(body: ScrollingFrame): number
+		local unit = body:FindFirstChild("LayoutUnit") :: GuiObject?
+		local scale = if unit then unit.AbsoluteSize.X else 0
+		return if scale > 0 then scale else 1
+	end
+	local function alongBody(body: ScrollingFrame, position: Vector2): number
+		return (axis(position) - axis(body.AbsolutePosition)) / scaleOf(body)
+	end
 	local function canvasOffset(body: ScrollingFrame, value: number): ()
 		body.CanvasPosition = if horizontal
 			then V2.new(value, body.CanvasPosition.Y)
@@ -193,7 +204,7 @@ return function<V, K>(
 			return
 		end
 		local body = bodyOf()
-		local offset = axis(position) - axis(body.AbsolutePosition) + axis(body.CanvasPosition)
+		local offset = alongBody(body, position) + axis(body.CanvasPosition)
 		local low, high = 1, #move.rows + 1
 		while low < high do
 			local middle = math.floor((low + high) / 2)
@@ -224,7 +235,10 @@ return function<V, K>(
 			local at = current.remaining[math.clamp(nextMove.slot + 1, 1, #current.remaining)]
 			local index = if at then assert(controls.indexOfKey)(at) else nil
 			if index then
-				canvasOffset(body, assert(controls.offsetOf)(index, "center", axis(body.AbsoluteWindowSize)))
+				canvasOffset(
+					body,
+					assert(controls.offsetOf)(index, "center", axis(body.AbsoluteWindowSize) / scaleOf(body))
+				)
 			end
 		end
 	end
@@ -505,8 +519,7 @@ return function<V, K>(
 	pressRow = press
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
-		local canvasAt, bodyAt, screen =
-			ctx.observe.CanvasPosition(body), ctx.observe.Position(body), ctx.observe.AbsolutePosition(body)
+		local canvasAt, bodyAt = ctx.observe.CanvasPosition(body), ctx.observe.Position(body)
 		local function dragImage(dropY: (ComposeTypes.Use) -> number): Frame
 			local move = assert(moving:peek())
 			local source = rowNodes[move.key]
@@ -526,7 +539,7 @@ return function<V, K>(
 				Position = function(use: ComposeTypes.Use)
 					local live = use(moving)
 					local along = if live and live.pointer
-						then axis(live.pointer) - axis(use(screen)) + (if horizontal
+						then alongBody(body, live.pointer) + (if horizontal
 							then use(bodyAt).X.Offset
 							else use(bodyAt).Y.Offset) - extent / 2
 						else dropY(use)
@@ -677,12 +690,12 @@ return function<V, K>(
 				if move == nil or move.pointer == nil or not captured then
 					return
 				end
-				local size = axis(body.AbsoluteWindowSize)
+				local size = axis(body.AbsoluteWindowSize) / scaleOf(body)
 				local edge = math.min(40, size / 4)
 				if edge <= 0 then
 					return
 				end
-				local localY = axis(move.pointer) - axis(body.AbsolutePosition)
+				local localY = alongBody(body, move.pointer)
 				local speed = if localY < edge
 					then -math.clamp((edge - localY) / edge, 0, 1)
 					elseif localY > size - edge then math.clamp((localY - size + edge) / edge, 0, 1)

@@ -1098,6 +1098,43 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it(
+		"places a dragged row and its image in layout units under a scaled ancestor, as in a ten-foot preview",
+		function()
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+			local moved
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList({
+					from = records(20),
+					key = key,
+					itemSize = 20,
+					reorderable = true,
+					onReorder = function(keys, slot)
+						moved = `{table.concat(keys, ",")}@{slot}`
+					end,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(2, 2)
+			node.AbsoluteWindowSize = V2.new(400, 400)
+			local input = ctx.config.userInputService
+			node:FindFirstChild("1", true):FindFirstChild("Action", true).InputBegan.fire({
+				UserInputType = E.UserInputType.MouseButton1,
+				Position = V3.new(50, 20, 0),
+			})
+			-- 130 screen pixels is 65 layout units: past row 3's middle (50), short of row 4's (70)
+			input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(50, 130, 0) })
+			t.expect(node:FindFirstChild("DragImage", true).Position.Y.Offset).toBe(65 - 10)
+			input.InputEnded.fire({ UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 130, 0) })
+			t.expect(moved).toBe("1@2")
+			stop()
+			runtime:dispose()
+		end
+	)
+
 	t.it("drags an image of the row, stacked two or three deep for a selection, from a press anywhere on it", function()
 		for _, count in { 1, 2, 4 } do
 			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
