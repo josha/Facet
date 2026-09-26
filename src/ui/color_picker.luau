@@ -1538,7 +1538,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				AutomaticCanvasSize = E.AutomaticSize.Y,
 				CanvasSize = D2.fromOffset(0, 0),
 				Size = function(use: Use)
-					local height = tech(use)
+					local height = math.ceil(tech(use))
 					return D2.new(1, 0, 0, if overlay then math.min(height, math.max(0, use(room))) else height)
 				end,
 				techniqueNode :: Shared.Child,
