@@ -34,6 +34,8 @@ export type Environment = {
 	interactionClasses: Types.Readable<InteractionClasses>,
 	effectiveInput: Types.Readable<"Touch" | "Gamepad" | "KeyboardAndMouse">,
 	displaySize: Types.Readable<DisplaySize>,
+	isTenFoot: Types.Readable<boolean>,
+	navPlacement: Types.Readable<Adaptive.NavPlacement>,
 	safeInsets: Types.Readable<SafeInsets>,
 	preferredTextSize: Types.Readable<string>,
 	reducedMotion: Types.Readable<boolean>,
