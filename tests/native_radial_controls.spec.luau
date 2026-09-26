@@ -608,6 +608,7 @@ t.describe("native radial interaction policies", function()
 			local w, h = centre.Size.X.Offset, centre.Size.Y.Offset
 			t.expect(w).toBe(h)
 			t.expect(w).toBe(32)
+			t.expect(centre.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
 			t.expect(centre:HasTag("facet-appearance-utility")).toBe(true)
 			local hit = world.find("CenterHit")
 			t.expect(hit.Size.X.Offset == 44 and hit.Size.Y.Offset == 44).toBe(true)
@@ -964,6 +965,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		end
 		local w, h, back, own = state()
 		t.expect(w == 40 and h == 40).toBe(true)
+		t.expect(launcher.Visible).toBe(false)
 		t.expect(back == 0 and own == 1).toBe(true)
 		local glyph = world.find("Center"):FindFirstChild("LauncherIcon", true)
 		t.expect(glyph.Image).toBe(themes.resolveIcon({} :: any, "more"))
@@ -988,6 +990,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		end
 		t.expect(frames > 2 and grew).toBe(true)
 		t.expect(world.find("Center")).toBeNil()
+		t.expect(launcher.Visible).toBe(true)
 		world.stop()
 	end)
 	t.it("a gamepad replacing a level lands on the new level's first item", function()

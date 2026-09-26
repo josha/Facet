@@ -3,7 +3,7 @@ local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion")
 
-local PAUSE, GLYPHS_PER_SECOND = 1.2, 3
+local PAUSE, GLYPHS_PER_SECOND, SLACK = 1.2, 3, 2
 
 local moving = setmetatable({} :: { [Types.Context]: TextLabel? }, { __mode = "k" })
 
@@ -38,16 +38,20 @@ return function(ctx: Types.Context, label: TextLabel, plateShown: ComposeTypes.R
 				return use(text)
 			end,
 			Size = D2.fromScale(0, 1),
+			AutomaticSize = ctx.types.Enum.AutomaticSize.X,
 			TextYAlignment = label.TextYAlignment,
 			RichText = label.RichText,
 		})
 		for _, tag in label:GetTags() do
 			full:AddTag(tag)
 		end
+		local bounds = ctx.observe.TextBounds(label)
 		local window = Host.Frame "Reveal" {
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
-			Size = D2.fromScale(1, 1),
+			Size = function(use: ComposeTypes.Use): UDim2
+				return D2.new(1, 0, 0, use(bounds).Y)
+			end,
 			full,
 		}
 		local room, width = ctx.observe.AbsoluteSize(window), ctx.observe.AbsoluteSize(full)
@@ -55,6 +59,7 @@ return function(ctx: Types.Context, label: TextLabel, plateShown: ComposeTypes.R
 			Position = function(use: ComposeTypes.Use): UDim2
 				local inside = use(room).X
 				local over = math.max(0, use(width).X - inside)
+				over += if over > 0 then SLACK else 0
 				return D2.fromScale(if inside > 0 then -over / inside * use(travel) else 0, 0)
 			end,
 		})

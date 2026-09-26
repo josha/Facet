@@ -278,6 +278,26 @@ t.describe("full-value disclosure of truncated text", function()
 		end
 	end)
 
+	t.it("a disclosing Button or Toggle with an authored width keeps one line that truncates", function()
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Toggle "Music" {
+					label = LONG,
+					value = Compose.cell(false),
+					disclose = true,
+					Size = UDim2.fromOffset(200, 44),
+				},
+				UI.Button "Post" { label = LONG, disclose = true, Size = UDim2.fromOffset(120, 44) },
+			})
+		end, { reducedMotion = true })
+		for _, name in { "Music", "Post" } do
+			local node = w.find(name)
+			t.expect(`{name}: {node.TextTruncate.Name} {node.TextWrapped}`).toBe(`{name}: AtEnd false`)
+		end
+		w.stop()
+	end)
+
 	t.it("disclose is a boolean", function()
 		t.expect(pcall(function()
 			label({ text = LONG, disclose = "yes" }).stop()
@@ -311,14 +331,16 @@ t.describe("auto reveal of truncated text (restored from 0.11)", function()
 		w.advance(0.3, 18)
 		local window = w.find("Reveal")
 		t.expect(window ~= nil and window.ClipsDescendants).toBe(true)
+		t.expect(window.Size.Y.Scale).toBe(0)
 		local full = window:FindFirstChild("Full")
 		t.expect(full.Text).toBe(LONG)
+		t.expect(full.Size.Y.Scale == 1 and full.AutomaticSize == w.Enum.AutomaticSize.X).toBe(true)
 		t.expect(name:FindFirstChild("RevealHold") ~= nil).toBe(true)
 		window.AbsoluteSize, full.AbsoluteSize = Vector2.new(80, 20), Vector2.new(320, 20)
 		w.advance(1, 60)
 		t.expect(full.Position.X.Scale < 0).toBe(true)
 		w.advance(10.5, 630)
-		t.expect(math.abs(full.Position.X.Scale + 3) < 1e-4).toBe(true)
+		t.expect(math.abs(full.Position.X.Scale + 242 / 80) < 1e-4).toBe(true)
 		w.advance(13, 780)
 		t.expect(w.find("Reveal")).toBeNil()
 		t.expect(name:FindFirstChild("RevealHold")).toBeNil()

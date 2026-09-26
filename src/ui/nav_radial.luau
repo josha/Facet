@@ -1095,6 +1095,7 @@ return function(
 						local size = diameter(use)
 						return D2.fromOffset(size, size)
 					end,
+					AutomaticSize = E.AutomaticSize.None,
 					ZIndex = 105,
 					onActivate = centerAction,
 				}
@@ -1112,7 +1113,12 @@ return function(
 					ZIndex = 104,
 					Activated = centerAction,
 				}
-				if corner and launcher then
+				if corner and launcher and launcher:IsA("GuiObject") then
+					local hidden = launcher :: GuiObject
+					hidden.Visible = false
+					Compose.cleanup(function()
+						hidden.Visible = true
+					end)
 					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 					if glyph then
 						runtime.decorate(glyph, {

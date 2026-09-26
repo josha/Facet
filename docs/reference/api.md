@@ -802,7 +802,8 @@ Presentation options:
   up to 264 pixels wide and then wraps. A malformed table stops
   with an error that names `help`.
 - `disclose`: `true` lets a player read the whole label of a text Button
-  that truncates. The label shows in the help panel (named `Disclosure`) on the
+  that truncates. With an authored width the label keeps one line and
+  truncates at the end instead of wrapping. The label shows in the help panel (named `Disclosure`) on the
   same routes as `help`, only while the engine reports that the text does not
   fit (`TextFits`). While it shows, `help` waits: the full value comes first.
 - `compactLabel`: an alternative string or readable. The button uses it when a
@@ -2006,8 +2007,8 @@ Where Back and Close sit depends on the preset, `center` and the room:
   sits in the centre.
 - A corner preset never puts it on the arc or uses `center`: the control on
   the corner, over the launcher, is Close at the root and Back in a submenu.
-  It grows out of the launcher: it opens at the launcher's size with the
-  launcher's glyph, and shrinks to its own size as that glyph crossfades to
+  It grows out of the launcher, which it hides while the ring shows: it opens
+  at the launcher's size with the launcher's glyph, and shrinks to its own size as that glyph crossfades to
   Close or Back. As the ring closes it grows back into the launcher the same
   way.
 - The list fallback has one round Back/Close control at the top right, above

@@ -514,7 +514,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if bounded then
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			if not rich then
-				defaults.TextWrapped = spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None
+				defaults.TextWrapped = spec.disclose ~= true
+					and (spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None)
 			end
 		end
 		if enabledProperty ~= true then
