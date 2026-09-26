@@ -1126,6 +1126,12 @@ t.describe("native parity weaker navigation", function()
 				local accessoryCentre = trailing.Position.Y.Offset + trailing.Size.Y.Offset / 2
 				t.expect(barCentre).toBe(accessoryCentre)
 				t.expect(strip.Position.X.Offset + strip.Size.X.Offset <= 1000 - 80).toBe(true)
+				view:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(50, 1)
+				strip:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+					world.engine.types.Vector2.new(60, 22)
+				t.expect(strip.Size).toBe(UDim2.fromOffset(126, 50))
+				t.expect(strip.Position).toBe(UDim2.fromOffset(857, 0))
+				view:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(100, 1)
 				placement:set("sidebar")
 				local head, foot = find(world.screen, "Accessory-head"), find(world.screen, "Accessory-foot")
 				head.AbsoluteSize = V2(world, 240, 80)

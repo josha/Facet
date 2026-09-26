@@ -436,9 +436,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Padding = D.new(0, 4),
 		})
 		local stripContent = ctx.observe.AbsoluteContentSize(stripLayout)
+		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
+		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
-			local room = use(dimensions).X - use(trailingWidth)
-			local width = math.min(room, use(stripContent).X + 2 * INSET)
+			local unit = use(unitSize).X / 100
+			local scale = if unit > 0 then unit else 1
+			local room = (use(dimensions).X - use(trailingWidth)) / scale
+			local width = math.ceil(math.min(room, use(stripContent).X / scale + 2 * INSET))
 			return width, math.max(0, math.floor((room - width) / 2))
 		end
 		local bar = Host.ScrollingFrame "Tabs" {
@@ -953,7 +957,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Host.UICorner({}),
 		}
 		track:AddTag("facet-segmented")
-		surfaces.attach(root, { track, bar, layers })
+		surfaces.attach(root, { unitProbe, track, bar, layers })
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
 				return not use(collapsed) and use(placement) ~= "none"

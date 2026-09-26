@@ -168,6 +168,11 @@ function screen.dispatch(ctx, command, argument)
 		ok = true
 	elseif command == "theme" then
 		ok = screen.setTheme(ctx, argument)
+	elseif command == "device" then
+		ok = argument == "automatic" or DEVICES[argument] ~= nil
+		if ok then
+			ctx.devicePreview:set(argument)
+		end
 	elseif command == "report" then
 		ok = true
 	end
