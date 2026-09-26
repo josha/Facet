@@ -745,6 +745,8 @@ t.describe("native parity navigation", function()
 
 		local track = view:FindFirstChild("Track")
 		t.expect(track.Visible and track:HasTag("facet-tab-plate")).toBe(true)
+		t.expect(track:FindFirstChildWhichIsA("UIStroke")).toBe(nil)
+		t.expect(track:FindFirstChildWhichIsA("UICorner")).toBe(nil)
 		t.expect(track.Position).toBe(tabs.Position)
 		preference:set("topBar")
 		t.expect(layout.FillDirection).toBe(world.engine.types.Enum.FillDirection.Horizontal)

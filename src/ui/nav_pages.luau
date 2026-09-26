@@ -1098,15 +1098,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local _, left = segmentWidth(use)
 				return D2.fromOffset(left, 0)
 			end,
-			Host.UICorner({}),
-			Host.UIStroke({}),
 		}
 		track:AddTag("facet-segmented")
 		track:AddTag("facet-tab-plate")
 		surfaces.attach(root, { unitProbe, track, bar, layers })
+		local canvas, window = ctx.observe.AbsoluteCanvasSize(bar), ctx.observe.AbsoluteWindowSize(bar)
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
 				return not use(collapsed) and use(placement) ~= "none"
+			end,
+			ClipsDescendants = function(use: ComposeTypes.Use): boolean
+				local content, room = use(canvas), use(window)
+				return content.X > room.X + 0.5 or content.Y > room.Y + 0.5
 			end,
 		})
 		surfaces.attach(root, {
