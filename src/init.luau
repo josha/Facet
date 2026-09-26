@@ -20,6 +20,7 @@ local DateTimePickerTypes = require("@self/ui/date_time_picker_types")
 local ColorPickerTypes = require("@self/ui/color_picker_types")
 local arithmetic = require("@self/ui/arithmetic")
 local adaptive = require("@self/ui/adaptive")
+local gamepadContention = require("@self/ui/gamepad_contention")
 local pathShapes = require("@self/ui/nav_path_shapes")
 local richText = require("@self/ui/rich_text")
 local EnvironmentTypes = require("@self/ui/environment_types")
@@ -145,6 +146,7 @@ export type Facet = {
 	themes: ThemeTypes.Themes,
 	civilDate: CivilTypes.Module,
 	adaptive: adaptive.Adaptive,
+	gamepadContention: gamepadContention.GamepadContention,
 	pathShapes: typeof(pathShapes),
 	richText: typeof(richText),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
@@ -209,6 +211,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		themes = themes,
 		civilDate = civilDate,
 		adaptive = adaptive,
+		gamepadContention = gamepadContention,
 		pathShapes = pathShapes,
 		richText = richText,
 		recipes = recipes,

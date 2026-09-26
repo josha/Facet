@@ -44,6 +44,7 @@ to select a control. Then read the exact contract of that control in the
 | One theme focus ring in place of the engine selection glow | `UI.focusRing` |
 | Selection that returns to the last item of a sidebar or other section | `UI.focusSection` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
+| Legacy player scripts holding ButtonA, the arrow keys or Tab | `Facet.gamepadContention` |
 | Screen anchors for world objects | `UI.worldAnchor` |
 | Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |
 | Failure containment with fallback content | `UI.ErrorBoundary` |

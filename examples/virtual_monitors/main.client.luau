@@ -267,6 +267,9 @@ local lifetime = Compose.createRootOwner(function()
 		end
 		return actions
 	end
+	if Facet.gamepadContention.legacyStackActive() then
+		warn(Facet.gamepadContention.describeContention())
+	end
 	for _, name in { "Discover", "Avatar", "Chat" } do
 		runtime.mount(function()
 			local package = Facet.themes.forDistance(theme.create(Facet, name), "near")

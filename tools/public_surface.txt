@@ -72,10 +72,14 @@ adaptive : table(frozen)
   adaptive.BREAKPOINTS : table(frozen)
   adaptive.DEFAULT_STACK_ABOVE : number
   adaptive.HEIGHT_BREAKPOINTS : table(frozen)
+  adaptive.TEN_FOOT_SCALE : number
   adaptive.axisFor : function
   adaptive.columnsFor : function
   adaptive.heightClass : function
+  adaptive.isTenFoot : function
+  adaptive.navPlacement : function
   adaptive.orientationFor : function
+  adaptive.overscanInsets : function
   adaptive.sizeClass : function
   adaptive.sizeClassAtLeast : function
 app : function
@@ -103,6 +107,14 @@ civilDate : table(frozen)
   civilDate.weekday : function
   civilDate.within : function
 controls : function
+gamepadContention : table(frozen)
+  gamepadContention.cameraKeysContended : function
+  gamepadContention.describeContention : function
+  gamepadContention.disableLegacyControls : function
+  gamepadContention.freedJumpAction : function
+  gamepadContention.iasPlayerScriptsActive : function
+  gamepadContention.legacyStackActive : function
+  gamepadContention.traversalKeyContended : function
 pathShapes : table(frozen)
   pathShapes.MAX_CONTROL_POINTS : number
   pathShapes.arc : function
@@ -119,6 +131,7 @@ themes : table
   themes.checkCoverage : function
   themes.createStyleSheet : function
   themes.define : function
+  themes.forDistance : function
   themes.neutralPackage : function
   themes.resolveIcon : function
   themes.skin : function

@@ -17,6 +17,7 @@ and styling. This reference describes the `0.12.0` surface.
 | `COMPOSE_COMMIT` | The full Compose commit of the pinned copy. The Facet tests use this commit. |
 | `civilDate` | Calendar arithmetic, words and fixed-offset instants for civil dates. See [Civil dates](#civil-dates). |
 | `adaptive` | Pure size, height, orientation, axis and column decisions. See [Adaptive environment](#adaptive-environment). |
+| `gamepadContention` | Probes and the one remedy for the legacy player scripts that hold ButtonA, the arrow keys and Tab. See [Facet.gamepadContention](#facetgamepadcontention). |
 | `pathShapes` | Normalized arc, ring and needle points for `UI.Path`. See [Path shapes](#path-shapes). |
 | `richText` | `escape` for player and server text inside rich text. See [Text](#text). |
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
@@ -3195,6 +3196,27 @@ name.
 | `BREAKPOINTS`, `HEIGHT_BREAKPOINTS` | The same table: `{ regular = 600, wide = 1000 }`. |
 | `DEFAULT_STACK_ABOVE` | 600. |
 
+### Facet.gamepadContention
+
+`Facet.gamepadContention` reports whether the engine's legacy player scripts
+hold input that the controls need. Every probe is guarded: without an engine
+it answers `false` and never throws. Nothing warns on its own; call them from
+a doctor check or when an input looks dead.
+
+| Call | Result |
+|---|---|
+| `legacyStackActive()` | `true` while ContextActionService binds `jumpAction`, which takes gamepad ButtonA before a selected control. |
+| `cameraKeysContended(boundActionInfo?)` | `true` while any ContextActionService binding holds an arrow key (the camera's `RbxCameraKeypress` holds Left and Right). It reads a different binding than `legacyStackActive`. |
+| `traversalKeyContended()` | `true` while the CoreGui players list is enabled, which takes Tab. |
+| `iasPlayerScriptsActive(player?, waitSeconds?)` | `true` when the player has the engine's default `InputContexts` (`CharacterContext`, `CameraContext` or `VehicleContext`), which exist only when `Workspace.PlayerScriptsUseInputActionSystem` is on. |
+| `disableLegacyControls(playerModuleParent?, player?)` | For a UI-only place only: it turns off avatar input. Returns `true, "inert: IAS owns PlayerScripts"` when the player scripts are on the Input Action System, `true, "disabled"` after `PlayerModule:GetControls():Disable()`, `true, "unbound"` when it removed `jumpAction`, else `false, "unavailable"`. |
+| `freedJumpAction(before, after)` | The pure verdict of an unbind: `jumpAction` was bound before and is gone after. |
+| `describeContention()` | The whole explanation as one string, for a log line. |
+
+The fix for a game with an avatar is `Workspace.PlayerScriptsUseInputActionSystem`.
+No script can read or set it, but a Rojo project file can declare it. No
+`InputContext` priority outranks a sinking ContextActionService binding.
+
 ### focusRing
 
 `UI.focusRing(playerGui) -> Frame` sets `PlayerGui.SelectionImageObject` to one
@@ -3223,8 +3245,11 @@ An unknown option or `entry` causes an error. A branch that shows a detail
 over a list uses `focusOnAppear` and `returnFocus` together:
 
 ```luau
+local open = Compose.cell(false)
 Compose.show(open, function()
-	local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back", onActivate = close } }
+	local detail = UI.VStack "Detail" {
+		UI.Button "Back" { label = "Back", onActivate = function() open:set(false) end },
+	}
 	UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
 	return detail
 end)
