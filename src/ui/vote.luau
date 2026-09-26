@@ -63,8 +63,10 @@ return function(
 			end
 			change(if value:peek() == side then "none" else side)
 		end
-		local floor = function(use: ComposeTypes.Use?): number
-			return (ctx.metric("targetSizes.minimum", use))
+		local touchFloor = ctx.touchFloor()
+		local function side(use: ComposeTypes.Use): UDim2
+			local length = ctx.controlSize(spec.controlSize, "height", use)
+			return D2.fromOffset(length, length)
 		end
 		local function strip(name: string, children: { Types.Child }): Frame
 			local props: Types.FrameNativeProps = {
@@ -95,23 +97,29 @@ return function(
 		local mode = Compose.show(readOnly, function()
 			local marks: { Types.Child } = {}
 			for order, entry in SIDES do
-				local icon = ctx.icon(entry.icon, {
-					Name = entry.name,
+				local box = Host.Frame(entry.name)({
 					LayoutOrder = order,
 					BackgroundTransparency = 1,
-					Size = function(use: ComposeTypes.Use)
-						local side = math.max(ctx.controlSize(spec.controlSize, "height", use), floor(use))
-						return D2.fromOffset(side, side)
-					end,
+					Size = side,
 					Attributes = {
 						label = entry.label,
 						selected = function(use: ComposeTypes.Use): boolean
 							return use(value) == entry.side
 						end,
 					} :: Types.Attributes,
+					Host.UICorner({}) :: Types.Child,
+					ctx.icon(entry.icon, {
+						Name = "Icon",
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+						Size = function(use: ComposeTypes.Use)
+							local length = ctx.controlSize(spec.controlSize, "iconSize", use)
+							return D2.fromOffset(length, length)
+						end,
+					}) :: Types.Child,
 				})
-				mark(icon, entry.side)
-				table.insert(marks, icon :: Types.Child)
+				mark(box, entry.side)
+				table.insert(marks, box :: Types.Child)
 			end
 			local plate = strip("Plate", marks)
 			return plate
@@ -132,9 +140,11 @@ return function(
 					onActivate = function()
 						propose(entry.side)
 					end,
+					Size = side,
+					AutomaticSize = E.AutomaticSize.None,
 					Host.UISizeConstraint({
 						MinSize = function(use: ComposeTypes.Use)
-							return V2.new(floor(use), floor(use))
+							return V2.new(touchFloor(use), touchFloor(use))
 						end,
 					}) :: Types.Child,
 				})

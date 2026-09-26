@@ -781,6 +781,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			PaddingRight = types.UDim.new(0, paddingX + (buttonInsets.right or 0)),
 		})
 	end
+	rule(".facet-button-glyph::UIPadding", {
+		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
+		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+	})
 	rule(".facet-disclosure::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
 	rule(".facet-button-described::UIPadding", {
 		PaddingTop = types.UDim.new(0, 10 + (buttonInsets.top or 0)),

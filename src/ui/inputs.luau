@@ -547,6 +547,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			p.TextTruncate = if dynamic(automatic) then truncate else truncate()
 		end
 		local engaged = Compose.cell(false)
+		local fillsGlyph = false
 		if underline ~= nil then
 			p.RichText = true
 			p.Text = function(use: ComposeTypes.Use): string
@@ -923,6 +924,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				then contentFrame:FindFirstChild("LeadingIcon")
 				else nil
 			if glyph and spec.AutomaticSize == E.AutomaticSize.None and label == "" then
+				fillsGlyph = true
 				contentFrame.AutomaticSize = E.AutomaticSize.None
 				local box = ctx.observe.AbsoluteSize(contentFrame)
 				runtime.mount(function()
@@ -964,6 +966,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			p.PressHapticEffect = Compose.static(pressHaptic)
 		end
 		node = ctx.styled(Host.TextButton(p), "button")
+		if fillsGlyph then
+			node:AddTag("facet-button-glyph")
+		end
 		if rich and spec.image ~= nil then
 			node:AddTag("facet-button-media")
 		end
