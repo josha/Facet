@@ -1326,8 +1326,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment-current > #SkinBoundary", if selectedArt then {} else { Visible = false })
 	rule(".facet-segment-fill", if selectedArt then { Visible = false } else {})
 	rule(".facet-segmented-slides > .facet-segment-current", if selectedArt then {} else { BackgroundTransparency = 1 })
-	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	local authoredSelection = false
 	for _, theme in package.style.themes do
 		if type(theme.extra) == "table" and theme.extra.selection ~= nil then
@@ -1399,6 +1397,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
 		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
 	end
+	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
+	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do
@@ -1408,11 +1408,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		rule(definition.selector, properties)
 	end
-	local ink = if selectedArt ~= nil then onSelected else nil
-	rule(".facet-button.facet-skinned.facet-selected", { TextColor3 = ink })
-	rule(".facet-button.facet-skinned.facet-selected >> .facet-button-caption", { TextColor3 = ink })
-	rule(".facet-button.facet-skinned.facet-selected >> .facet-text", { TextColor3 = ink })
-	rule(".facet-button.facet-skinned.facet-selected >> .facet-icon", { ImageColor3 = ink })
 	return rules
 end
 

@@ -1996,7 +1996,7 @@ t.describe("gallery theme packages", function()
 		t.expect(checked > 0).toBe(true)
 	end)
 
-	t.it("a selected plate drawn from art keeps the art's ink over any package text rule", function()
+	t.it("a filled tab paints its accent plate over the selected art, so its ink matches its plate", function()
 		local checked = 0
 		for _, name in SHIPPED do
 			local package = built(name)
@@ -2008,21 +2008,13 @@ t.describe("gallery theme packages", function()
 					art = true
 				end
 			end
-			if art and package.rules and #package.rules > 0 then
+			if art then
 				checked += 1
 				local engine, runtime = world({ theme = package })
 				local sheet, stop = sheetFor(engine, runtime, package)
-				local ink = ruleNode(sheet, ".facet-button.facet-skinned.facet-selected")
-				local latest = 0
-				for _, node in sheet:GetChildren() do
-					for _, authored in package.rules do
-						if node.Selector == authored.selector then
-							latest = math.max(latest, node.Priority)
-						end
-					end
-				end
-				t.expect(`{name} {ink.Priority > latest} {ink:GetProperties().TextColor3 ~= nil}`)
-					.toBe(`{name} true true`)
+				local hidden = ruleNode(sheet, ".facet-tab-filled > #SkinBoundary")
+				local shown = ruleNode(sheet, ".facet-skinned.facet-selected > #SkinBoundary")
+				t.expect(`{name} {hidden.Priority > shown.Priority}`).toBe(`{name} true`)
 				stop()
 				runtime:dispose()
 			end

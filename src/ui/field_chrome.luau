@@ -226,7 +226,7 @@ return function(ctx: Shared.Context): Chrome
 						and skin.kind ~= "none"
 					then skin.contentInsets or {}
 					else {}
-				local line = ctx.controlSize(spec.controlSize, "iconSize", use) + 8
+				local line = ctx.controlSize(spec.controlSize, "iconSize", use)
 				return math.max(
 					ctx.controlSize(spec.controlSize, "height", use),
 					(carve.top or 0) + (carve.bottom or 0) + line
