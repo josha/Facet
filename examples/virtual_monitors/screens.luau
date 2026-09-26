@@ -859,7 +859,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Name = "Genres",
 			axis = "x",
 			gap = "s",
-			Size = D2.new(1, 0, 0, 44),
+			Size = D2.new(1, 0, 0, 0),
+			AutomaticSize = E.AutomaticSize.Y,
 			ScrollBarThickness = 2,
 			Visible = function(use)
 				return not use(collapsed)

@@ -647,8 +647,10 @@ return {
 				},
 				Host.ScrollingFrame "Tokens" {
 					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 44),
-					AutomaticSize = Enum.AutomaticSize.None,
+					Selectable = false,
+					ScrollingDirection = Enum.ScrollingDirection.X,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
 					AutomaticCanvasSize = Enum.AutomaticSize.X,
 					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
