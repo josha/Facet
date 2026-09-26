@@ -233,7 +233,7 @@ t.describe("native parity weaker navigation", function()
 		local cx = north.Position.X.Offset
 		local cy = (north.Position.Y.Offset + south.Position.Y.Offset) / 2
 		local ring = find(world.screen, "$navigation", "TextButton")
-		t.expect(ring.Text).toBe("Close")
+		t.expect(`{ring.Text}|{ring:GetAttribute("label")}`).toBe("|Close")
 		local dx, dy = ring.Position.X.Offset - cx, ring.Position.Y.Offset - cy
 		local angle = math.deg(math.atan2(dx, -dy)) % 360
 		t.expect(math.abs(angle - 225) < 1).toBe(true)

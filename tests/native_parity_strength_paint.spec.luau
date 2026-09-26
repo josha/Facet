@@ -862,7 +862,7 @@ t.describe("native paint strength: button content", function()
 	end)
 
 	t.it(
-		"dims the page behind an open ring dark, to at least 80 percent, in every shipped package and palette",
+		"a dark ring scrim dims the page to at least 80 percent in every shipped package and palette",
 		function()
 			local packages = { themes.neutralPackage() }
 			for _, name in SHIPPED do
@@ -875,6 +875,7 @@ t.describe("native paint strength: button content", function()
 					local root, stop = mount(h, function()
 						return h.UI.RadialMenu({
 							isPresented = Compose.cell(true),
+							scrim = "dark",
 							items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
 						})
 					end)
