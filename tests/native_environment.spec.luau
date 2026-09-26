@@ -1269,50 +1269,53 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		end
 	)
 
-	t.it("pulses a theme that asks for it with an engine tween, only while shown and never under reduced motion", function()
-		local package = define({ kind = "ring", pulse = true })
-		local motionOff = Compose.cell(false)
-		local created = {}
-		local tweens = {
-			Create = function(_, instance, info, goal)
-				local record = { instance = instance, info = info, goal = goal, played = 0, cancelled = 0 }
-				function record.Play()
-					record.played += 1
-				end
-				function record.Cancel()
-					record.cancelled += 1
-				end
-				table.insert(created, record)
-				return record
-			end,
-		}
-		local w = world({ TweenService = tweens }, {
-			theme = package,
-			reducedMotion = motionOff,
-			environment = { preferredInput = "Gamepad" },
-		})
-		local playerGui = w.engine.new("PlayerGui")
-		local stop = owned(w.runtime, function()
-			w.UI.focusRing(playerGui)
-		end)
-		local stroke = playerGui.SelectionImageObject:FindFirstChildWhichIsA("UIStroke")
-		t.expect(stroke.Transparency).toBe(0)
-		t.expect(#created).toBe(1)
-		local tween = created[1]
-		t.expect(tween.instance.ClassName).toBe("NumberValue")
-		t.expect(tween.played).toBe(1)
-		t.expect(tween.goal.Value).toBe(1)
-		t.expect(tween.info.RepeatCount).toBe(-1)
-		t.expect(tween.info.Reverses).toBe(true)
-		tween.instance.Value = 0.5
-		t.expect(math.abs(stroke.Transparency - 0.175) < 1e-6).toBe(true)
-		motionOff:set(true)
-		t.expect(tween.cancelled).toBe(1)
-		t.expect(stroke.Transparency).toBe(0)
-		t.expect(w.engine.heartbeat.count()).toBe(0)
-		stop()
-		w.stop()
-	end)
+	t.it(
+		"pulses a theme that asks for it with an engine tween, only while shown and never under reduced motion",
+		function()
+			local package = define({ kind = "ring", pulse = true })
+			local motionOff = Compose.cell(false)
+			local created = {}
+			local tweens = {
+				Create = function(_, instance, info, goal)
+					local record = { instance = instance, info = info, goal = goal, played = 0, cancelled = 0 }
+					function record.Play()
+						record.played += 1
+					end
+					function record.Cancel()
+						record.cancelled += 1
+					end
+					table.insert(created, record)
+					return record
+				end,
+			}
+			local w = world({ TweenService = tweens }, {
+				theme = package,
+				reducedMotion = motionOff,
+				environment = { preferredInput = "Gamepad" },
+			})
+			local playerGui = w.engine.new("PlayerGui")
+			local stop = owned(w.runtime, function()
+				w.UI.focusRing(playerGui)
+			end)
+			local stroke = playerGui.SelectionImageObject:FindFirstChildWhichIsA("UIStroke")
+			t.expect(stroke.Transparency).toBe(0)
+			t.expect(#created).toBe(1)
+			local tween = created[1]
+			t.expect(tween.instance.ClassName).toBe("NumberValue")
+			t.expect(tween.played).toBe(1)
+			t.expect(tween.goal.Value).toBe(1)
+			t.expect(tween.info.RepeatCount).toBe(-1)
+			t.expect(tween.info.Reverses).toBe(true)
+			tween.instance.Value = 0.5
+			t.expect(math.abs(stroke.Transparency - 0.175) < 1e-6).toBe(true)
+			motionOff:set(true)
+			t.expect(tween.cancelled).toBe(1)
+			t.expect(stroke.Transparency).toBe(0)
+			t.expect(w.engine.heartbeat.count()).toBe(0)
+			stop()
+			w.stop()
+		end
+	)
 
 	t.it("keeps the next control in reach: a keyboard or pad selection scrolls one row of room into view", function()
 		local w, _, stop = ring(nil, { preferredInput = "Gamepad" })

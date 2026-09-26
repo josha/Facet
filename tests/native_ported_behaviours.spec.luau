@@ -220,38 +220,41 @@ t.describe("Alert suppression", function()
 end)
 
 t.describe("Card ring", function()
-	t.it("a selected card keeps the live shared focus look and asks it to reach the whole card, or the artwork", function()
-		for _, target in { "card", "media" } do
-			local w = world(function(UI)
-				return UI.Card "C" {
-					image = "rbxassetid://1",
-					title = "Track",
-					onActivate = function() end,
-					primaryAction = { label = "Play", onActivate = function() end },
-					ringTarget = if target == "media" then "media" else nil,
-					Size = UDim2.fromOffset(160, 0),
-				}
-			end)
-			w.step(5)
-			local body = find(w.screen, "Body")
-			expect(find(w.screen, "CardRingPaint")).toBe(nil)
-			find(w.screen, "C").AbsoluteSize = Vector2.new(160, 200)
-			body.AbsoluteSize = Vector2.new(160, 150)
-			find(w.screen, "Artwork").AbsoluteSize = Vector2.new(160, 90)
-			w.step()
-			body.SelectionGained.fire()
-			expect(body.SelectionImageObject).toBe(nil)
-			local height = body:GetAttribute("FacetFocusHeight")
-			expect(math.abs(height - (if target == "card" then 200 else 90) / 150) < 1e-5).toBe(true)
-			w.stop()
+	t.it(
+		"a selected card keeps the live shared focus look and asks it to reach the whole card, or the artwork",
+		function()
+			for _, target in { "card", "media" } do
+				local w = world(function(UI)
+					return UI.Card "C" {
+						image = "rbxassetid://1",
+						title = "Track",
+						onActivate = function() end,
+						primaryAction = { label = "Play", onActivate = function() end },
+						ringTarget = if target == "media" then "media" else nil,
+						Size = UDim2.fromOffset(160, 0),
+					}
+				end)
+				w.step(5)
+				local body = find(w.screen, "Body")
+				expect(find(w.screen, "CardRingPaint")).toBe(nil)
+				find(w.screen, "C").AbsoluteSize = Vector2.new(160, 200)
+				body.AbsoluteSize = Vector2.new(160, 150)
+				find(w.screen, "Artwork").AbsoluteSize = Vector2.new(160, 90)
+				w.step()
+				body.SelectionGained.fire()
+				expect(body.SelectionImageObject).toBe(nil)
+				local height = body:GetAttribute("FacetFocusHeight")
+				expect(math.abs(height - (if target == "card" then 200 else 90) / 150) < 1e-5).toBe(true)
+				w.stop()
+			end
+			expect(function()
+				local w = world(function(UI)
+					return UI.Card { image = "rbxassetid://1", title = "T", ringTarget = "shadow" }
+				end)
+				w.stop()
+			end).toThrow()
 		end
-		expect(function()
-			local w = world(function(UI)
-				return UI.Card { image = "rbxassetid://1", title = "T", ringTarget = "shadow" }
-			end)
-			w.stop()
-		end).toThrow()
-	end)
+	)
 end)
 
 t.describe("Slider contained", function()
