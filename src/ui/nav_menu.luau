@@ -2084,8 +2084,10 @@ return function(
 					opened:set(value)
 				end,
 				trigger = trigger :: GuiButton,
+				edge = "bottom",
+				align = "end",
 				maxWidth = ctx.metric("controls.popup.panelWidth"),
-				maxHeight = spec.maxHeight,
+				maxHeight = spec.maxHeight or 400,
 				title = spec.label,
 				content = function(): Instance
 					local choices: Nav.PickerSpec<V>

@@ -1679,7 +1679,9 @@ A labelled `menu` picker shows its title above a trigger at the leading edge.
 With `valueAlignment = "start"`, it shows the title and the trigger on one row.
 A labelled `navigationLink` shows the title and the chosen value in one row
 button. It opens its list as a Popover attached to the button: a panel with
-the theme plate and a tail, `controls.popup.panelWidth` wide, and no page dim.
+the theme plate and a tail, `controls.popup.panelWidth` wide and at most
+`maxHeight` (400 pixels by default) tall, below the button's trailing end
+where the value shows, and no page dim.
 On a touch layer narrower than 600 pixels it opens as a sheet, the Popover's
 compact route. A searchable list marks the chosen row with a check and paints no
 selection plate. Opening a menu puts the selection on the chosen row.

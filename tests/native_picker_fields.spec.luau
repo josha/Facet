@@ -475,6 +475,11 @@ t.describe("native Picker option indicator and search rows", function()
 		expect(backdrop:HasTag("facet-scrim")).toBe(false)
 		local panel = find(modal, "Panel")
 		expect(panel:HasTag("facet-panel")).toBe(true)
+		panel.AbsoluteSize = w.engine.types.Vector2.new(344, 200)
+		local left = panel.Position.X.Offset - panel.AnchorPoint.X * 344
+		local top = panel.Position.Y.Offset - panel.AnchorPoint.Y * 200
+		expect(math.abs(left + 344 - 400) < 1).toBe(true)
+		expect(top > 144).toBe(true)
 		expect(find(panel, "PickerSearch") ~= nil).toBe(true)
 		expect(find(modal, "Tail") ~= nil).toBe(true)
 		find(find(panel, "Choices"), "hard").Activated.fire()
