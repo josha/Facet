@@ -3202,7 +3202,8 @@ input ends in the same drop:
   drop there.
 - Keyboard and gamepad: select the source and press Return or A to pick it up.
   Move the selection into a target and press Return or A to drop. Escape or B
-  puts the source back.
+  puts the source back. On a Facet Button source or target this is the
+  Button's own activation, so its `onActivate` also runs.
 - `armOnTap = true`: a touch tap on the source picks it up, the list under it
   still scrolls, and a tap on a target drops it.
 

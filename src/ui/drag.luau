@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Env = require("./environment_types")
+local activation = require("./activation")
 
 -- One drag session per Facet controls instance. A pointer or finger picks a source up by pressing and travelling
 -- (a release before that is still a tap); a keyboard or gamepad arms it with Return or A on the selected source,
@@ -99,6 +100,22 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		elseif spec.onReject then
 			spec.onReject(current.payload, reason)
 		end
+	end
+	-- A Facet Button reads Return (and the engine's A) as its own activation, which outranks an input action, so
+	-- on a Button the keyboard and pad route rides that activation. Returns false for any other node.
+	local function onKeyActivation(node: GuiObject, run: () -> ()): boolean
+		if not activation.marked(node) then
+			return false
+		end
+		Compose.cleanup(activation.listen(node, function(value: unknown)
+			local kind = if type(value) == "table" or typeof(value) == "Instance"
+				then (value :: InputObject).UserInputType
+				else nil
+			if kind ~= E.UserInputType.MouseButton1 and kind ~= E.UserInputType.Touch then
+				run()
+			end
+		end))
+		return true
 	end
 	local function begin(source: GuiObject, spec: Env.DraggableSpec, mode: "pointer" | "armed"): Session
 		finish()
@@ -239,11 +256,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local node = if selected then use(selected) :: Instance? else nil
 			return node ~= nil and (node == source or node:IsDescendantOf(source))
 		end
-		ctx.action(source, "DragPickUp", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use: ComposeTypes.Use)
-			return use(session) == nil and enabled(use) and selectedHere(use)
-		end, function()
-			begin(source, spec, "armed")
-		end, { priority = 250 })
+		local function pickUp()
+			if session:peek() == nil and enabled() then
+				begin(source, spec, "armed")
+			end
+		end
+		if not onKeyActivation(source, pickUp) then
+			ctx.action(source, "DragPickUp", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use: ComposeTypes.Use)
+				return use(session) == nil and enabled(use) and selectedHere(use)
+			end, pickUp, { priority = 250 })
+		end
 		ctx.action(source, "DragCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
 			local current = use(session)
 			return current ~= nil and current.source == source
@@ -274,11 +296,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				commit(target)
 			end
 		end)
-		ctx.action(target, "DragDrop", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use: ComposeTypes.Use)
-			local current = use(session)
-			return current ~= nil and current.mode == "armed" and current.hover == target
-		end, function()
-			commit(target)
-		end, { priority = 250 })
+		local function drop()
+			local current = session:peek()
+			if current and current.mode == "armed" then
+				commit(target)
+			end
+		end
+		if not onKeyActivation(target, drop) then
+			ctx.action(target, "DragDrop", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use: ComposeTypes.Use)
+				local current = use(session)
+				return current ~= nil and current.mode == "armed" and current.hover == target
+			end, drop, { priority = 250 })
+		end
 	end
 end

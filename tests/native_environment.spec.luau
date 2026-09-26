@@ -789,6 +789,34 @@ t.describe("draggable and dropTarget", function()
 		w.stop()
 	end)
 
+	t.it("arms a Facet Button source and drops on a Facet Button target through their own activation", function()
+		local w = world()
+		local screen = w.engine.new("ScreenGui")
+		local log = {}
+		local stop, root = w.runtime.mount(function()
+			local card = w.UI.Button "Card" { label = "Card" }
+			local slot = w.UI.Button "Slot" { label = "Slot" }
+			w.UI.draggable(card, { payload = "card" })
+			w.UI.dropTarget(slot, {
+				onDrop = function(payload, info)
+					table.insert(log, `{payload} {info.mode}`)
+				end,
+			})
+			return w.runtime.constructors.Frame({ card, slot })
+		end, screen)
+		local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
+		-- Return reaches a selected Button as its own activation (no input object); A arrives as a Gamepad1 input
+		local pad = { UserInputType = w.Enum.UserInputType.Gamepad1, KeyCode = w.Enum.KeyCode.ButtonA }
+		card.Activated.fire(pad)
+		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
+		slot.Activated.fire(pad)
+		t.expect(table.concat(log, ";")).toBe("card armed")
+		card.Activated.fire({ UserInputType = w.Enum.UserInputType.MouseButton1 })
+		t.expect(card:GetAttribute("FacetDragHeld")).toBeNil()
+		stop()
+		w.stop()
+	end)
+
 	t.it("arms on a tap when armOnTap is set and places on the next tapped target", function()
 		local w, _, card, open, _, log, stop = stage()
 		local tap = pointer(w, "Touch", 20)
