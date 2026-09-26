@@ -318,7 +318,17 @@ function screen.build(ctx: any)
 		return list
 	end
 	local function caption(name, text)
-		return UI.Text(name)({ text = text, textRole = "caption", role = "secondary", TextWrapped = true })
+		return UI.Text(name)({ text = text, textRole = "caption", role = "secondary" })
+	end
+	local function note(name, text)
+		return UI.Text(name)({
+			text = text,
+			textRole = "caption",
+			role = "secondary",
+			TextWrapped = true,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+		})
 	end
 	local function settingsContent()
 		local themeChips = {}
@@ -374,7 +384,7 @@ function screen.build(ctx: any)
 						screen.resetAll(ctx)
 					end,
 				},
-				caption("Note", COPY.previewNote),
+				note("Note", COPY.previewNote),
 			},
 			UI.VStack "Motion" {
 				gap = "xs",
@@ -389,7 +399,7 @@ function screen.build(ctx: any)
 						ctx.motionMode:set(if ctx.reducedMotion:peek() then "reduced" else "full")
 					end,
 				},
-				caption("MotionNote", COPY.motionNote),
+				note("MotionNote", COPY.motionNote),
 			},
 			if type(build) == "string" and build ~= "" then caption("Build", `build {build}`) else nil,
 			UI.VStack "Choose" {
@@ -484,6 +494,14 @@ function screen.build(ctx: any)
 			},
 		}
 	end
+	-- Settings holds wrapping notes, so the card takes a width there; Demos hugs its rows.
+	local function settingsWidth(use)
+		if use(section) ~= "settings" then
+			return 0
+		end
+		local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
+		return math.min(460 * use(environment.metricScale), size.width - 28)
+	end
 	local function panel()
 		local demoButtons = {}
 		for index, tab in tabs do
@@ -502,26 +520,29 @@ function screen.build(ctx: any)
 				})
 			)
 		end
+		-- A hugging ScrollingFrame outgrows a UISizeConstraint on Y, so the card
+		-- takes its content height up to the room under the bar and scrolls past it.
+		local content = Compose.cell(0)
 		local card = UI.ScrollView "ShowcasePanel" {
 			gap = "s",
 			padding = "s",
 			width = "hug",
-			height = "hug",
+			height = function(use)
+				local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
+				return math.min(use(content), math.max(120, size.height - toolbarHeight(use) - 16))
+			end,
 			SelectionGroup = true,
 			SelectionBehaviorLeft = Enum.SelectionBehavior.Stop,
 			SelectionBehaviorRight = Enum.SelectionBehavior.Stop,
 			SelectionBehaviorDown = Enum.SelectionBehavior.Stop,
 			Host.UISizeConstraint {
 				MinSize = function(use)
-					local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-					return ctx.types.Vector2.new(
-						if use(section) == "settings" then math.min(360, size.width - 28) else 0,
-						0
-					)
+					return ctx.types.Vector2.new(settingsWidth(use), 0)
 				end,
 				MaxSize = function(use)
 					local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
-					return ctx.types.Vector2.new(size.width - 28, math.max(120, size.height - toolbarHeight(use) - 16))
+					local wide = settingsWidth(use)
+					return ctx.types.Vector2.new(if wide > 0 then wide else size.width - 28, math.huge)
 				end,
 			},
 			caption("SectionTitle", "Section"),
@@ -537,6 +558,18 @@ function screen.build(ctx: any)
 			end, settingsContent),
 		}
 		card:AddTag("facet-panel")
+		local list = card:FindFirstChildWhichIsA("UIListLayout")
+		local inset = card:FindFirstChildWhichIsA("UIPadding")
+		local function measure()
+			local scale = ctx.previewScale:peek()
+			local pad = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
+			content:set(math.ceil(list.AbsoluteContentSize.Y / (if scale > 0 then scale else 1)) + pad)
+		end
+		local resized = list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(measure)
+		Compose.cleanup(function()
+			resized:Disconnect()
+		end)
+		measure()
 		UI.focusSection(card, { focusOnAppear = true, returnFocus = true })
 		return card
 	end
@@ -608,8 +641,6 @@ function screen.build(ctx: any)
 		rowSize:Disconnect()
 	end)
 	local root = Host.Frame "Gallery" {
-		AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
 		Size = function(use)
 			local device = use(ctx.device)
 			if device and device.width then
