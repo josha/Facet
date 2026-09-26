@@ -6477,7 +6477,7 @@
       "candidateCases": [
         "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
         "native_virtual_monitors::native virtual monitors::opens native detector taps once while drags and canceled gestures never open a card",
-        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until native long press and saves only the held contact on release"
+        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until the native long press and saves only the held contact on release"
       ]
     },
     {

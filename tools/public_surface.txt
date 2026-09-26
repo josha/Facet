@@ -247,6 +247,9 @@ type DateTimePickerProps
 type DialogSpec
 type DisclosureGroupSpec
 type DividerProps
+type DraggableSpec
+type DropInfo
+type DropTargetSpec
 type Environment
 type ErrorBoundaryProps
 type Extent

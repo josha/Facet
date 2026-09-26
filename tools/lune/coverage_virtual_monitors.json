@@ -34,7 +34,7 @@
         "native_virtual_monitors::native virtual monitors::NVM-14 keeps the selected app and shared avatar state across presentation round trips",
         "native_virtual_monitors::native virtual monitors::NVM-15 keeps six recommendations and the original per-game trend values",
         "native_virtual_monitors::native virtual monitors::NVM-16 permits only the active presentation to publish native scrolling",
-        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until native long press and saves only the held contact on release",
+        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until the native long press and saves only the held contact on release",
         "native_virtual_monitors::native virtual monitors::opens from the entire catalog card while preserving preview save drag and native identity",
         "native_virtual_monitors::native virtual monitors::starts filtered results at the top without retaining the previous collection anchor"
       ],
