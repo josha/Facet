@@ -4,7 +4,7 @@ local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
 local freeze = require("./freeze")
 
-export type Plate = { name: string?, gate: Types.Value<boolean>? }
+export type Plate = { name: string?, gate: Types.Value<boolean>?, shown: Types.Cell<boolean>? }
 type Show = (GuiObject, Inputs.Help, Plate?) -> ()
 
 local registry = setmetatable({} :: { [Types.Context]: Show }, { __mode = "k" })

@@ -777,6 +777,12 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local armed = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return ctx.read(gate, use) ~= false and (use(held) or (use(wanted) and use(rest.progress) >= 1))
 		end)
+		local shown = plate and plate.shown
+		if shown then
+			Compose.watch(function(use: ComposeTypes.Use)
+				shown:set(use(armed))
+			end)
+		end
 		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)

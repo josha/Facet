@@ -2950,6 +2950,15 @@ or `textRole` instead.
   gamepad selection rests on the label or on the control that holds it, or at
   once on a touch long-press on the label. The next touch anywhere closes it.
   The panel takes no selection.
+- `reveal = "auto"` makes a one-line label that truncates at the end scroll its
+  whole value. It rests in the engine's ellipsis for 1.2 seconds, then the
+  whole string slides left as one strip (`Reveal`, clipped to the label's box)
+  at about three characters a second until the tail shows, holds 1.2 seconds,
+  slides back and rests again. The label's own paint is hidden by a
+  `RevealHold` UIGradient while the strip shows. It is also a `disclose`
+  label, and its `Disclosure` panel stops the strip while it shows. Only one
+  strip moves at a time in the controls. It stays still under reduced motion
+  and while the text fits. `reveal` refuses `wrap`, `lines` and a middle cut.
 - `lines = n` shows at most `n` lines. The text fills the width, wraps, and
   ends with an ellipsis when it needs more lines. The box hugs shorter text.
   The limit follows the text size, the line height and the vertical padding.

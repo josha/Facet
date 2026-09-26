@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `UI.Text { reveal = "auto" }` (restored from 0.11): a truncated one-line label rests in its ellipsis, then scrolls its whole value left to the tail and back, one strip at a time, never under reduced motion or while its disclosure panel shows.
 - `UI.Toggle { disclose = true }` shows the whole value of a truncated label in the `Disclosure` panel (restored from 0.11), on a settings row too. A Button with a leading icon or a subtitle gates `disclose` on its painted `Title` label; before, it read the empty button text, which always fits, so the panel never showed.
 - `UI.Toast` and `app.presentToast` take `fade = true` (restored from 0.11): the row fades in and out as it slides. By default a toast now only slides, as in 0.11, so its text stays in native glyph rendering; before, every toast faded through a CanvasGroup.
 - RadialMenu centre and corner controls match 0.11 again: the centre control paints 32 pixels with no plate inside a transparent `CenterHit` touch target (`targetSizes.minimum`); Home is the up chevron; a `centerLabel` is the accessible name only, never visible text; a corner control grows out of the launcher on open (and back into it on close) while its glyph crossfades between the launcher icon and Close/Back; the list fallback names the highlighted item at the bottom left. When a submenu replaces a level while the player selects by gamepad, the selection lands on the new level's first item (before, the engine reselected the launcher or the centre).

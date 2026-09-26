@@ -25,6 +25,7 @@ export type TextProps = Engine.TextLabelNativeProps & {
 	tint: Types.Value<Color3>?,
 	lines: number?,
 	disclose: boolean?,
+	reveal: "auto"?,
 }
 export type LabelPresentation = "titleAndIcon" | "titleOnly" | "iconOnly"
 export type LabelProps = Engine.FrameProps & {
