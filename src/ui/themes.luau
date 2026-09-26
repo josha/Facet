@@ -1224,7 +1224,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
 
 	rule(".facet-tab-plate", { BackgroundColor3 = c("surfaceStrong") })
-	rule(".facet-tab-plate::UIStroke", { Color = c("hairline"), Thickness = 1 })
+	rule(".facet-tab-plate::UIStroke", {
+		Color = c("hairline"),
+		Transparency = extra.hairlineOpacity,
+		Thickness = package.metrics.strokes.hairline or 1,
+	})
 	rule(".facet-segmented::UIPadding", {
 		PaddingLeft = types.UDim.new(0, SEGMENT_INSET),
 		PaddingRight = types.UDim.new(0, SEGMENT_INSET),
