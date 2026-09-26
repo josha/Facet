@@ -229,7 +229,7 @@ return function(
 		local id = toasts
 		if toastLayer == nil or toastLayer.Parent == nil then
 			local _, layer = mount(function(): ComposeTypes.Child
-				return nil
+				return Host.Folder({ Name = "Toasts" })
 			end)
 			layer.Name = (settings.name or "Facet") .. "Toasts"
 			toastLayer = layer

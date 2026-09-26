@@ -381,7 +381,7 @@ describe("app.presentToast", function()
 		local engine: any = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		local target = engine.new("Folder")
+		local target = engine.new("PlayerGui")
 		local app = Facet.app({
 			runtime = runtime,
 			types = engine.types,
