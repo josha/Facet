@@ -2240,4 +2240,19 @@ t.describe("native input controls", function()
 		t.expect(skinBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 		t.expect(captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
+
+	t.it("a rating spaces its stars to the touch target on touch and packs them for a pointer", function()
+		local input
+		local node, stop = world(function(UI)
+			return UI.Rating({ value = Compose.cell(3) })
+		end, function(engine)
+			input = engine.new("UserInputService")
+			return { services = { UserInputService = input } }
+		end)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		input.TouchEnabled = true
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		t.expect(find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(24)
+		stop()
+	end)
 end)

@@ -1909,6 +1909,15 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(contentProps, mark)
 		end
 		local markContent = Host.Frame(contentProps)
+		local touchFloor = ctx.touchFloor()
+		local function gap(use: ComposeTypes.Use): number
+			return math.max(2, touchFloor(use) - markSize)
+		end
+		runtime.decorate(assert(markContent:FindFirstChildWhichIsA("UIListLayout")), {
+			Padding = function(use: ComposeTypes.Use): UDim
+				return D.new(0, gap(use))
+			end,
+		})
 
 		local root: TextButton
 		local dragging: boolean?
@@ -1951,7 +1960,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Text = "",
 				BackgroundTransparency = 1,
 				AutoButtonColor = false,
-				Size = D2.fromOffset(count * markSize + math.max(0, count - 1) * 2, math.max(44, markSize)),
+				Size = function(use: ComposeTypes.Use): UDim2
+					return D2.fromOffset(count * markSize + math.max(0, count - 1) * gap(use), math.max(44, markSize))
+				end,
 				Selectable = interactive,
 				Interactable = interactive,
 				markContent :: ComposeTypes.Child,
