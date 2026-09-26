@@ -1331,21 +1331,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local selection = ctx.observe.SelectedObject(gui)
 					local panelAt = ctx.observe.AbsolutePosition(panel)
 					local linked: string? = nil
+					local linkedTarget: GuiObject? = nil
 					local function unlink()
-						if linked then
+						if linked and (anchor :: any)["NextSelection" .. linked] == linkedTarget then
 							(anchor :: any)["NextSelection" .. linked] = nil
-							linked = nil
 						end
+						linked, linkedTarget = nil, nil
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local below = (use(panelAt) :: Vector2).Y > anchor.AbsolutePosition.Y
 						local direction = if below then "Down" else "Up"
 						local target = surfaces.firstSelectable(panel)
-						if linked ~= direction then
+						if linked ~= direction or linkedTarget ~= target then
 							unlink()
 							if target and (anchor :: any)["NextSelection" .. direction] == nil then
 								(anchor :: any)["NextSelection" .. direction] = target
-								linked = direction
+								linked, linkedTarget = direction, target
 							end
 						end
 					end)

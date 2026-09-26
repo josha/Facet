@@ -2284,6 +2284,32 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("restores only the anchor link the callout set and leaves an app's own link", function()
+		local world = setup(function(UI, Host)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor,
+				UI.Button "Own" { label = "Own" },
+				UI.Callout({ anchor = anchor, edge = "bottom", title = "New", onRetire = function() end }),
+			})
+		end)
+		local V = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V.new(960, 720)
+		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
+		local own = find(world.screen, "Own")
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V.new(100, 300), V.new(200, 44)
+		panel.AbsolutePosition, panel.AbsoluteSize = V.new(100, 360), V.new(280, 120)
+		world.settle()
+		t.expect(anchor.NextSelectionDown).toBe(find(world.screen, "Dismiss"))
+		anchor.NextSelectionDown = own
+		panel.AbsolutePosition = V.new(100, 160)
+		world.settle()
+		t.expect(anchor.NextSelectionDown).toBe(own)
+		t.expect(anchor.NextSelectionUp).toBe(find(world.screen, "Dismiss"))
+		world.stop()
+		t.expect(anchor.NextSelectionDown).toBe(own)
+	end)
+
 	t.it("keeps measured callout arrows outside automatic content bounds", function()
 		local world = setup(function(UI, Host, engine)
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
