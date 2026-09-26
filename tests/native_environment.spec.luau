@@ -119,6 +119,32 @@ t.describe("adaptive: pure decisions with no device names", function()
 		end
 		t.expect(pcall(adaptive.sizeClassAtLeast, "huge", "wide")).toBe(false)
 	end)
+	t.it("homes app navigation by viewing distance, then shape, then primary input", function()
+		local function home(size: string, height: string, primary: string?, extra: { [string]: any }?): string
+			local facts: { [string]: any } = { sizeClass = size, heightClass = height, primary = primary }
+			for key, value in extra or {} do
+				facts[key] = value
+			end
+			return adaptive.navPlacement(facts)
+		end
+		t.expect(home("compact", "short", "pointer", { tenFoot = true })).toBe("topBar")
+		t.expect(home("compact", "medium", "touch")).toBe("bottomBar")
+		t.expect(home("compact", "tall", "gamepad")).toBe("bottomBar")
+		t.expect(home("wide", "short", "touch")).toBe("bottomBarCompact")
+		t.expect(home("regular", "medium", "pointer")).toBe("sidebar")
+		t.expect(home("wide", "tall", "pointer")).toBe("sidebar")
+		t.expect(home("regular", "medium", "touch")).toBe("topBar")
+		t.expect(home("wide", "medium", "gamepad", { displaySize = "Medium" })).toBe("topBar")
+		t.expect(home("wide", "medium", "gamepad", { displaySize = "Small" })).toBe("bottomBar")
+		t.expect(home("wide", "medium", nil)).toBe("topBar")
+	end)
+	t.it("treats a large display as ten-foot only without touch or a mouse", function()
+		t.expect(adaptive.isTenFoot({ displaySize = "Large" })).toBe(true)
+		t.expect(adaptive.isTenFoot({ displaySize = "Large", mouse = true })).toBe(false)
+		t.expect(adaptive.isTenFoot({ displaySize = "Large", touch = true })).toBe(false)
+		t.expect(adaptive.isTenFoot({ displaySize = "Medium" })).toBe(false)
+		t.expect(adaptive.isTenFoot({ displaySize = "Medium", tenFootInterface = true })).toBe(true)
+	end)
 end)
 
 t.describe("environment: reactive facts from engine sources", function()
@@ -255,6 +281,21 @@ t.describe("environment: reactive facts from engine sources", function()
 		t.expect(insets.bottom).toBe(21)
 		t.expect(insets.top).toBe(0)
 		t.expect(env.displaySize:peek()).toBe("Medium")
+		t.expect(env.isTenFoot:peek()).toBe(false)
+		t.expect(env.navPlacement:peek()).toBe("bottomBarCompact")
+		w.gui.ViewportDisplaySize = E.DisplaySize.Large
+		w.input.MouseEnabled = false
+		w.input.GamepadEnabled = true
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		t.expect(env.isTenFoot:peek()).toBe(true)
+		t.expect(env.navPlacement:peek()).toBe("topBar")
+		screen.AbsoluteSize = Roblox.Vector2.new(1920, 1080)
+		t.expect(env.sizeClass:peek()).toBe("regular")
+		t.expect(env.heightClass:peek()).toBe("medium")
+		w.input.MouseEnabled = true
+		t.expect(env.isTenFoot:peek()).toBe(false)
+		t.expect(env.sizeClass:peek()).toBe("wide")
+		t.expect(env.heightClass:peek()).toBe("tall")
 		t.expect(env.preferredTextSize:peek()).toBe("Medium")
 		w.gui.PreferredTextSize = E.PreferredTextSize.Largest
 		t.expect(env.preferredTextSize:peek()).toBe("Largest")
