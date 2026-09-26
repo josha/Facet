@@ -1162,7 +1162,7 @@ t.describe("Compose native collections", function()
 				UserInputType = E.UserInputType.MouseButton1,
 				Position = V3.new(50, 20, 0),
 			})
-			-- 130 screen pixels is 65 layout units: past row 3's middle (50), short of row 4's (70)
+
 			input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(50, 130, 0) })
 			t.expect(node:FindFirstChild("DragImage", true).Position.Y.Offset).toBe(65 - 10)
 			input.InputEnded.fire({ UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 130, 0) })

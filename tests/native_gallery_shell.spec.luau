@@ -294,7 +294,7 @@ t.describe("native gallery shell parity", function()
 		local preview = find(panel, "Preview")
 		t.expect(find(preview, "Trigger") ~= nil).toBe(true)
 		t.expect(panel:HasTag("facet-floating") and panel:FindFirstChildWhichIsA("UIStroke") ~= nil).toBe(true)
-		-- at ten feet the settings choices are the automatic ladder's inline rows, as before 0.12
+
 		ctx.viewingDistance:set("ten-foot")
 		preview = find(panel, "Preview")
 		t.expect(find(preview, "Trigger") == nil and find(preview, "desktop") ~= nil).toBe(true)

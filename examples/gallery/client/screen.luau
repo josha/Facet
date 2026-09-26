@@ -330,7 +330,7 @@ function screen.build(ctx: any)
 			AutomaticSize = Enum.AutomaticSize.Y,
 		})
 	end
-	-- as before 0.12: a menu at arm's length, the automatic ladder (inline rows or a segmented strip) at ten feet
+
 	local function displayPickers(style)
 		return UI.VStack "Pickers" {
 			gap = "s",
@@ -506,7 +506,7 @@ function screen.build(ctx: any)
 			},
 		}
 	end
-	-- Settings holds wrapping notes, so the card takes a width there; Demos hugs its rows.
+
 	local function settingsWidth(use)
 		if use(section) ~= "settings" then
 			return 0
@@ -532,8 +532,7 @@ function screen.build(ctx: any)
 				})
 			)
 		end
-		-- A hugging ScrollingFrame outgrows a UISizeConstraint on Y, so the card
-		-- takes its content height up to the room under the bar and scrolls past it.
+
 		local content = Compose.cell(0)
 		local card = UI.ScrollView "ShowcasePanel" {
 			gap = "s",

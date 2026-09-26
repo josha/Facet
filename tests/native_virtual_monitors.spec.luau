@@ -844,7 +844,7 @@ t.describe("native virtual monitors", function()
 			end
 			dragTo(95)
 			t.expect(model.saved:peek()["1"]).toBe(true)
-			-- the shelf refuses a game that is already saved, so a second drop does not unsave it
+
 			dragTo(95)
 			t.expect(model.saved:peek()["1"]).toBe(true)
 			t.expect(#model.savedOrder:peek()).toBe(1)

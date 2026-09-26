@@ -212,7 +212,7 @@ t.describe("native radial interaction policies", function()
 		t.expect(panel.ScrollingEnabled).toBe(true)
 		t.expect(panel:FindFirstChildWhichIsA("UIListLayout") ~= nil).toBe(true)
 		t.expect(world.find("Child").Size.Y.Offset).toBe(44)
-		-- as 0.11: with nothing highlighted the list names its place, the breadcrumb or the menu's label
+
 		t.expect(world.find("SelectionPreview").Text).toBe("Branch")
 		world.find("Child").Activated.fire()
 		t.expect(count).toBe(1)

@@ -444,7 +444,7 @@ t.describe("native parity weaker tables", function()
 		local first = body:FindFirstChild("Items"):FindFirstChild("1")
 		local pointer = first.Size.Y.Offset
 		t.expect(pointer).toBe(40)
-		-- touch starts at two lines of body text (2 x 20 + 16); a near gamepad clears the 44 floor on one line
+
 		for preferred, height in { [E.PreferredInput.Touch] = 56, [E.PreferredInput.Gamepad] = 44 } do
 			w.input.PreferredInput = preferred
 			t.expect(first.Size.Y.Offset).toBe(height)

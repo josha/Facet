@@ -880,7 +880,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-selected >> .facet-text", { TextColor3 = onSelected })
 	rule(".facet-disabled", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-icon", { ImageTransparency = extra.disabledContentOpacity })
-	-- a held drag source keeps its plate as the empty slot until the drop lands or it goes back
+
 	rule(".facet-drag-held", { TextTransparency = 1 })
 	rule(".facet-drag-held >> .facet-text", { TextTransparency = 1 })
 	rule(".facet-drag-held >> .facet-icon", { ImageTransparency = 1 })
@@ -1210,7 +1210,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segmented", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	local trackRadius = if package.metrics.radii.control > 0 then package.metrics.radii.control + 2 else 0
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
-	-- a sidebarAdaptable TabView's rail or top strip sits on a raised plate, as before 0.12
+
 	rule(".facet-tab-plate", { BackgroundColor3 = c("surfaceStrong") })
 	rule(".facet-tab-plate::UIStroke", { Color = c("hairline"), Thickness = 1 })
 	rule(".facet-segmented::UIPadding", {

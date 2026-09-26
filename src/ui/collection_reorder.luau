@@ -53,8 +53,7 @@ return function<V, K>(
 		local kind = if preferred then use(preferred) else nil
 		return kind == nil or read(editing, use) == true
 	end)
-	-- A selectable collection that is editing marks each row's selection in the leading gutter, unless the
-	-- delete minus owns that gutter. The mark is paint, not a focus stop.
+
 	local marked = spec.selectionMode ~= nil and spec.selectionMode ~= "none" and not deletable
 	local markShown = Compose.formula(function(use: ComposeTypes.Use): boolean
 		return marked and read(editing, use) == true
@@ -70,9 +69,7 @@ return function<V, K>(
 	local function axis(position: Vector2): number
 		return if horizontal then position.X else position.Y
 	end
-	-- Pointer positions are screen pixels; rows, the canvas and the drag image are layout units. Under a scaled
-	-- ancestor (a UIScale, the TV device preview) they differ by the body's LayoutUnit, so every pointer reading
-	-- goes through here: the pointer's distance from the body's window edge, in layout units.
+
 	local function scaleOf(body: ScrollingFrame): number
 		local unit = body:FindFirstChild("LayoutUnit") :: GuiObject?
 		local scale = if unit then unit.AbsoluteSize.X else 0
@@ -685,9 +682,7 @@ return function<V, K>(
 			if stopFrames or spec.autoscroll == false then
 				return
 			end
-			-- Scrollers resolve innermost-outward: the list first (its band also covers a pointer past its ends),
-			-- then each enclosing ScrollingFrame whose own edge band holds the pointer. A scroller already at that
-			-- end passes the drag to its parent, so a short list hands off to the page.
+
 			stopFrames = assert(ctx.runtime.host.frames).onFrame(function(delta)
 				local move = moving:peek()
 				if move == nil or move.pointer == nil or not captured then

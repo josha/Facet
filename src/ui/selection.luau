@@ -14,7 +14,7 @@ export type Selection = {
 }
 
 local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
--- The value of the `keyboardNavigation` factory option when it is not set.
+
 local KEYBOARD_NAVIGATION_DEFAULT = true
 
 return function(ctx: Shared.Context): Selection

@@ -311,7 +311,7 @@ t.describe("native parity classb collections", function()
 		world.input.GamepadEnabled = true
 		world.input.PreferredInput = enum.PreferredInput.Gamepad
 		frames(world, 4)
-		-- two-line touch rows (56) become one-line near rows (44): the row at the top stays at the top, 8px in
+
 		t.expect(body.CanvasPosition.Y).toBe(2 * 44 + 8)
 		writes = 0
 		world.input.PreferredInput = enum.PreferredInput.KeyboardAndMouse

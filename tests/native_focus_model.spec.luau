@@ -472,7 +472,7 @@ t.describe("Grid: a ragged last line has an answer (native NextSelection)", func
 			local target = w.find(name).NextSelectionRight
 			return if target then target.Name else "nil"
 		end
-		-- 4 columns of 3 rows: [1-3][4-6][7-9][10]
+
 		t.expect(right("c8")).toBe("c10")
 		t.expect(right("c9")).toBe("c10")
 		t.expect(right("c7")).toBe("nil")

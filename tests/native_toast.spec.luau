@@ -101,11 +101,11 @@ describe("toast schedule: priority", function()
 		local f = fixture({ maxVisible = 1 })
 		f.schedule.push({ data = "reading", duration = 10, readFloor = 1.5 })
 		f.schedule.push({ data = "urgent", priority = 10 })
-		-- the floor is not up: the urgent toast waits, however urgent it is
+
 		f.advance(1.4)
 		expect(f.keys()).toBe("reading")
 		expect(#f.events).toBe(0)
-		-- the moment the floor is met, it takes the slot
+
 		f.advance(0.2)
 		expect(f.keys()).toBe("urgent")
 		expect(#f.events).toBe(1)
@@ -117,7 +117,7 @@ describe("toast schedule: priority", function()
 		f.schedule.push({ data = "important", priority = 5, duration = 10 })
 		f.schedule.push({ data = "trivial", priority = 0, duration = 10 })
 		f.schedule.push({ data = "urgent", priority = 9 })
-		f.advance(3) -- past the 2.5 s read floor, so the weakest is preemptable
+		f.advance(3)
 		expect(f.keys()).toBe("important,urgent")
 	end)
 

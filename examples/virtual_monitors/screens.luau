@@ -510,7 +510,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						}
 					end),
 				}
-				-- drag the preview onto the Saved shelf to save the game
+
 				UI.draggable(preview, {
 					payload = function()
 						return current:peek()

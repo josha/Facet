@@ -557,7 +557,7 @@ t.describe("native parity weaker selection", function()
 			t.expect(card()).toBe("Card_c3")
 			step("Left")
 			t.expect(card()).toBe("Card_c2")
-			-- Up and Down are not the rail's: the engine's own traversal takes them to the next shelf
+
 			t.expect(action(world.parent, "CollectionUp")).toBeNil()
 			t.expect(action(world.parent, "CollectionDown")).toBeNil()
 			t.expect(card()).toBe("Card_c2")

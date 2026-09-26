@@ -273,7 +273,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			runtime.connect(node, "ChildRemoved", count)
 			count()
 		end
-		-- A short last line: a move off a lane it does not reach lands on its last cell.
+
 		local forward = if flow == "column" then "NextSelectionRight" else "NextSelectionDown"
 		local clamped = setmetatable({} :: { [GuiObject]: boolean }, { __mode = "k" })
 		local revision = Compose.cell(0)

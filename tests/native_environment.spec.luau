@@ -827,7 +827,7 @@ t.describe("draggable and dropTarget", function()
 		t.expect(ghost.Position.Y.Offset).toBe(120)
 		screen.AbsolutePosition = w.engine.types.Vector2.new(0, -58)
 		w.input.InputChanged.fire(pointer(w, "MouseMovement", 121))
-		-- an IgnoreGuiInset screen starts above the pointer's origin, so the ghost's offset adds the inset back
+
 		t.expect(ghost.Position.Y.Offset).toBe(121 + 58)
 		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
 		t.expect(card:HasTag("facet-drag-held")).toBe(true)
@@ -879,7 +879,7 @@ t.describe("draggable and dropTarget", function()
 			return w.runtime.constructors.Frame({ card, slot })
 		end, screen)
 		local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
-		-- Return reaches a selected Button as its own activation (no input object); A arrives as a Gamepad1 input
+
 		local pad = { UserInputType = w.Enum.UserInputType.Gamepad1, KeyCode = w.Enum.KeyCode.ButtonA }
 		card.Activated.fire(pad)
 		t.expect(card:GetAttribute("FacetDragHeld")).toBe(true)
@@ -947,7 +947,7 @@ t.describe("draggable and dropTarget", function()
 			t.expect(opened).toBe(0)
 			card.Activated.fire(finger(20))
 			t.expect(opened).toBe(1)
-			-- Roblox reuses one mouse InputObject for every click: a drag swallows only its own press
+
 			local mouse = w.engine.new("InputObject")
 			mouse.UserInputType, mouse.Position = w.Enum.UserInputType.MouseButton1, V3.new(50, 20, 0)
 			card.InputBegan.fire(mouse)

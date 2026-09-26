@@ -742,7 +742,7 @@ t.describe("native parity navigation", function()
 		local tabs, body = view:FindFirstChild("Tabs"), find(world.screen, "aBody")
 		local layout = tabs:FindFirstChildWhichIsA("UIListLayout")
 		t.expect(layout.FillDirection).toBe(world.engine.types.Enum.FillDirection.Vertical)
-		-- as before 0.12: the adaptable rail and top strip sit on a raised plate, the current tab filled with the accent
+
 		local track = view:FindFirstChild("Track")
 		t.expect(track.Visible and track:HasTag("facet-tab-plate")).toBe(true)
 		t.expect(track.Position).toBe(tabs.Position)

@@ -504,7 +504,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Name = "Items",
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					-- recycled row containers keep their child slot, so Tab reads the rows' LayoutOrder instead
+
 					Attributes = { FacetDocumentOrder = true } :: EngineTypes.Attributes,
 					directive,
 				}

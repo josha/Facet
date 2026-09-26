@@ -4,9 +4,6 @@ local Shared = require("./types")
 local Env = require("./environment_types")
 local activation = require("./activation")
 
--- One drag session per Facet controls instance. A pointer or finger picks a source up by pressing and travelling
--- (a release before that is still a tap); a keyboard or gamepad arms it with Return or A on the selected source,
--- moves the selection to a target and drops with Return or A. Every route ends in the same commit.
 type Session = {
 	payload: unknown,
 	source: GuiObject,
@@ -34,7 +31,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local from, size = node.AbsolutePosition, node.AbsoluteSize
 		return at.X >= from.X and at.Y >= from.Y and at.X <= from.X + size.X and at.Y <= from.Y + size.Y
 	end
-	-- the last registered target under the point, so a target nested in another wins
+
 	local function targetAt(at: Vector2): GuiObject?
 		for index = #order, 1, -1 do
 			local node = order[index]
@@ -112,8 +109,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			spec.onReject(current.payload, reason)
 		end
 	end
-	-- A Facet Button reads Return (and the engine's A) as its own activation, which outranks an input action, so
-	-- on a Button the keyboard and pad route rides that activation. Returns false for any other node.
+
 	local function onKeyActivation(node: GuiObject, run: () -> ()): boolean
 		if not activation.marked(node) then
 			return false
@@ -139,9 +135,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		session:set(started)
 		return started
 	end
-	-- The ghost is an inert clone of the source at the root of its screen. A pointer position and the screen's
-	-- AbsolutePosition share one space (an IgnoreGuiInset screen starts above the pointer's origin), and only a
-	-- UIScale on that root separates it from the ghost's offsets.
+
 	local function ghostOf(source: GuiObject): GuiObject?
 		local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 		if layer == nil then
@@ -190,7 +184,6 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end)
 		local selected = if gui then ctx.observe.SelectedObject(gui) else nil
 		if selected then
-			-- while armed, the target that holds the selection is the aim
 			Compose.watch(function(use: ComposeTypes.Use)
 				local node = use(selected) :: Instance?
 				local current = session:peek()
@@ -200,8 +193,6 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end)
 		end
 		if input then
-			-- A mouse picks the source up after TRAVEL pixels. A finger that moves first is scrolling; a finger held
-			-- still picks it up on the engine's own long press, and the scroller under it stays put until release.
 			local pressed: InputObject?, origin: Vector2?, at: Vector2? = nil, nil, nil
 			local locked: ScrollingFrame?, scrolling = nil, true
 			local function unlock()
@@ -337,7 +328,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				table.remove(order, index)
 			end
 		end)
-		-- a tap on a target places what a tap armed
+
 		ctx.runtime.connect(target, "InputBegan", function(value: InputObject)
 			local current = session:peek()
 			local kind = value.UserInputType

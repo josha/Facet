@@ -125,9 +125,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local function lineBox(use: ComposeTypes.Use): number
 			return math.ceil(ctx.metric("typography.body.size", use) * ctx.metric("typography.body.lineHeight", use))
 		end
-		-- The row ladder is by distance: a touch row wraps and starts at two lines above the target floor, a
-		-- ten-foot row holds one line at the large control height, and a near row one line at the regular height.
-		-- Every row still rises to fit its measured text.
+
 		local minimumRow = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.itemSize ~= nil then
 				return read(spec.itemSize, use)
