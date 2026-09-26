@@ -90,19 +90,26 @@ t.describe("native gallery", function()
 		t.expect(sheet.Parent).toBe(gui)
 		t.expect(find(gui, "StyleLink").StyleSheet).toBe(sheet)
 		local navigation = find(root, "Demos")
-		local bar = find(navigation, "Tabs")
-		navigation.AbsoluteSize = ctx.types.Vector2.new(1280, 664)
-		t.expect(bar.ScrollingDirection).toBe(ctx.types.Enum.ScrollingDirection.Y)
+		t.expect(find(navigation, "Tabs").Visible).toBe(false)
+		local picker = find(find(root, "Toolbar"), "DemoPicker")
+		local function pick(id)
+			find(picker, "Trigger").Activated.fire()
+			for _, node in gui:GetDescendants() do
+				if node.Name == id and node:HasTag("facet-menu-item") then
+					node.Activated.fire()
+					return
+				end
+			end
+			error("no demo menu row " .. id)
+		end
 		for _, demo in catalogue.list() do
-			find(bar, demo.id).Activated.fire()
+			pick(demo.id)
 			engine.heartbeat.fire(1 / 60)
 			t.expect(ctx.selection:peek()).toBe(demo.id)
 			t.expect(ctx.active:peek()).toBe(demo.id)
 			t.expect(ctx.errorMessage:peek()).toBe(nil)
 		end
-		navigation.AbsoluteSize = ctx.types.Vector2.new(390, 700)
-		t.expect(bar.ScrollingDirection).toBe(ctx.types.Enum.ScrollingDirection.X)
-		find(bar, "all-controls").Activated.fire()
+		pick("all-controls")
 		t.expect(ctx.active:peek()).toBe("all-controls")
 		find(root, "Settings").Activated.fire()
 		t.expect(find(root, "GallerySettings") ~= nil).toBe(true)

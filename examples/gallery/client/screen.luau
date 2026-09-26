@@ -14,6 +14,7 @@ function screen.configure(ctx)
 	local Compose = ctx.Compose
 	ctx.themeName = ctx.themeName or Compose.cell("Neutral")
 	ctx.viewingDistance = Compose.cell("automatic")
+	ctx.categoryPlacement = Compose.cell("automatic")
 	ctx.devicePreview = Compose.cell("automatic")
 	ctx.orientationPreview = Compose.cell("portrait")
 	ctx.device = Compose.formula(function(use)
@@ -238,6 +239,20 @@ function screen.build(ctx: any)
 	for _, demo in (ctx.demos or catalogue.list()) do
 		table.insert(tabs, { id = demo.id, label = demo.title, content = branches[demo.id] })
 	end
+	local demoOptions = {}
+	for _, tab in tabs do
+		table.insert(demoOptions, { value = tab.id, label = tab.label })
+	end
+	local function demoPicker(order)
+		return UI.Picker({
+			Name = "DemoPicker",
+			LayoutOrder = order,
+			style = "menu",
+			sizing = "hug",
+			selected = selected,
+			options = demoOptions,
+		})
+	end
 	local themes = {}
 	for name, package in ctx.packages do
 		table.insert(themes, { value = name, label = package.identity and package.identity.displayName or name })
@@ -280,10 +295,16 @@ function screen.build(ctx: any)
 			textRole = "title",
 			Size = UDim2.fromScale(0, 0),
 			AutomaticSize = Enum.AutomaticSize.XY,
+		},
+		demoPicker(2),
+		Host.Frame "Spring" {
+			LayoutOrder = 3,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(0, 0),
 			Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
 		},
 		UI.Button "Settings" {
-			LayoutOrder = 2,
+			LayoutOrder = 4,
 			label = "Settings",
 			icon = "settings",
 			appearance = "utility",
@@ -318,12 +339,9 @@ function screen.build(ctx: any)
 		UI.TabView "Demos" {
 			selection = selected,
 			tabs = tabs,
-			style = "sidebarAdaptable",
 			retention = "top",
 			transition = false,
-			placement = function(use)
-				return if use(compact) then "none" else "automatic"
-			end,
+			placement = "none",
 			Position = function(use)
 				return UDim2.fromOffset(0, toolbarHeight(use))
 			end,
@@ -419,6 +437,17 @@ function screen.build(ctx: any)
 						AutomaticSize = Enum.AutomaticSize.Y,
 					}),
 					UI.Picker({
+						LayoutOrder = 0,
+						Name = "CategoryPlacement",
+						label = "Categories",
+						selected = ctx.categoryPlacement,
+						options = {
+							{ value = "automatic", label = "Automatic" },
+							{ value = "top", label = "Top" },
+							{ value = "side", label = "Side" },
+						},
+					}),
+					UI.Picker({
 						LayoutOrder = 8,
 						Name = "DevicePreview",
 						label = "Device preview",
@@ -485,10 +514,6 @@ function screen.build(ctx: any)
 		}),
 	}
 	if ctx.inputTarget then
-		local titles = {}
-		for _, tab in tabs do
-			titles[tab.id] = tab.label
-		end
 		Host.ScreenGui "FacetGalleryMenu" {
 			ResetOnSpawn = false,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -504,32 +529,15 @@ function screen.build(ctx: any)
 					FillDirection = Enum.FillDirection.Horizontal,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
-				UI.Menu "Demos" {
-					disclosure = true,
-					label = function(use)
-						return titles[use(selected)] or "Facet gallery"
-					end,
-					items = function(use)
-						local items = {}
-						for _, tab in tabs do
-							table.insert(items, {
-								id = tab.id,
-								label = tab.label,
-								marked = use(selected) == tab.id,
-								onSelect = function()
-									selected:set(tab.id)
-								end,
-							})
-						end
-						table.insert(items, {
-							id = "settings",
-							label = "Settings",
-							icon = "settings",
-							onSelect = function()
-								settingsOpen:set(true)
-							end,
-						})
-						return items
+				demoPicker(1),
+				UI.Button "StripSettings" {
+					LayoutOrder = 2,
+					label = "",
+					name = "Settings",
+					icon = "settings",
+					appearance = "utility",
+					onActivate = function()
+						settingsOpen:set(true)
 					end,
 				},
 			},
