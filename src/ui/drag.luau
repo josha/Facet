@@ -13,6 +13,7 @@ type Session = {
 	mode: "pointer" | "armed",
 	hover: GuiObject?,
 	ghost: GuiObject?,
+	press: InputObject?,
 }
 type Target = Env.DropTargetSpec
 
@@ -75,6 +76,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return
 		end
 		session:set(nil)
+		local press = current.press
+		if press then
+			local stop: (() -> ())?
+			stop = assert(ctx.runtime.host.frames).onFrame(function()
+				activation.release(press)
+				if stop then
+					stop()
+				end
+			end)
+		end
 		if current.ghost then
 			current.ghost:Destroy()
 		end
@@ -202,7 +213,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			Compose.cleanup(unlock)
 			local function pickUpAt(position: Vector2)
 				local updated = table.clone(begin(source, spec, "pointer"))
-				updated.ghost = ghostOf(source)
+				updated.ghost, updated.press = ghostOf(source), pressed
 				session:set(updated)
 				activation.consume(pressed)
 				if updated.ghost then

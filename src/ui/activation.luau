@@ -63,12 +63,19 @@ function activation.notify(node: Instance, ...: unknown)
 	end
 end
 
--- A press that became a drag never activates: the drag consumes its input object.
+-- A press that became a drag never activates: the drag consumes its input object until the frame after it ends.
+-- Roblox reuses one mouse InputObject for every click, so the mark must not outlive that press.
 local consumed = setmetatable({} :: { [unknown]: boolean }, { __mode = "k" })
 
 function activation.consume(input: unknown)
 	if input ~= nil then
 		consumed[input] = true
+	end
+end
+
+function activation.release(input: unknown)
+	if input ~= nil then
+		consumed[input] = nil
 	end
 end
 

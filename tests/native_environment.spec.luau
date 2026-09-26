@@ -873,6 +873,21 @@ t.describe("draggable and dropTarget", function()
 			t.expect(opened).toBe(0)
 			card.Activated.fire(finger(20))
 			t.expect(opened).toBe(1)
+			-- Roblox reuses one mouse InputObject for every click: a drag swallows only its own press
+			local mouse = w.engine.new("InputObject")
+			mouse.UserInputType, mouse.Position = w.Enum.UserInputType.MouseButton1, V3.new(50, 20, 0)
+			card.InputBegan.fire(mouse)
+			w.input.InputChanged.fire({
+				UserInputType = w.Enum.UserInputType.MouseMovement,
+				Position = V3.new(50, 120, 0),
+			})
+			mouse.UserInputState, mouse.Position = w.Enum.UserInputState.End, V3.new(50, 120, 0)
+			w.input.InputEnded.fire(mouse)
+			card.Activated.fire(mouse)
+			t.expect(opened).toBe(1)
+			w.engine.heartbeat.fire(1 / 60)
+			card.Activated.fire(mouse)
+			t.expect(opened).toBe(2)
 			stop()
 			w.stop()
 		end
