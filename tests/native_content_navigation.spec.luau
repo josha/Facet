@@ -706,6 +706,29 @@ t.describe("native content navigation deltas", function()
 		world.stop()
 	end)
 
+	t.it("widens a sidebar rail by a skinned theme's content insets so a tab label is not truncated", function()
+		local pixel = (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
+		local bare = table.clone(pixel)
+		bare.chrome = table.clone(pixel.chrome)
+		bare.chrome.control = table.clone(pixel.chrome.control)
+		bare.chrome.control.contentInsets = nil
+		local widths = {}
+		for _, package in { pixel, bare } do
+			local world = worlds.new(function(UI, Host)
+				return UI.TabView({ selection = Compose.cell("home"), placement = "sidebar", tabs = tabList(Host) })
+			end, { reducedMotion = true, theme = package })
+			world.resize(world.find("TabView"), 1200, 800)
+			local tabs = world.find("Tabs")
+			for _, id in { "home", "feed", "me" } do
+				world.bounds(world.find(id, tabs):FindFirstChild("LabelMeasure"), 60)
+			end
+			table.insert(widths, tabs.Size.X.Offset)
+			world.stop()
+		end
+		local insets = pixel.chrome.control.contentInsets
+		t.expect(widths[1] - widths[2]).toBe(insets.left + insets.right)
+	end)
+
 	t.it("centres the tabs of a top bar, as before 0.12", function()
 		local world = worlds.new(function(UI, Host)
 			return UI.TabView({ selection = Compose.cell("home"), placement = "topBar", tabs = tabList(Host) })

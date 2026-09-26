@@ -1202,6 +1202,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-tab-filled >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-stepper-track", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-stepper-track::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(".facet-stepper.facet-skinned >> .facet-stepper-track", { BackgroundTransparency = 1 })
 	do
 		local recipe = if package.chrome then package.chrome.stepperPlate else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
@@ -1444,8 +1445,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
 		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
 	end
-	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
+	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
+	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do

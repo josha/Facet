@@ -473,7 +473,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			local label = widest / (if unit > 0 then unit else 1)
 			local plate = if indicatorOf(use) == "pill" then 2 * INSET else 0
-			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use)) + 16 + plate
+			local package = read(ctx.config.theme, use)
+			local skin = package and package.chrome and package.chrome.control
+			local carve = if skin and skin.contentInsets then skin.contentInsets else {}
+			return math.ceil(
+				label
+					+ glyph
+					+ 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+					+ (carve.left or 0)
+					+ (carve.right or 0)
+			)
+				+ 16
+				+ plate
 		end
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
 			local unit = use(unitSize).X / 100

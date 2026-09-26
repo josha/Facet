@@ -97,6 +97,28 @@ t.describe("owner review 2026-09-26b: visual", function()
 		end
 	end)
 
+	t.it("shows a skinned theme's selected art on a filled tab and a stepper's plate under its value", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local chrome = entry.package.chrome or {}
+			local plate = chrome.control
+			local layers = if plate == nil then {} elseif plate.kind == "layered" then plate.layers or {} else { plate }
+			local selectedArt = false
+			for _, layer in layers do
+				if type(layer.asset) == "table" and layer.asset.selected ~= nil then
+					selectedArt = true
+				end
+			end
+			local filled = assert(style(sheet, ".facet-tab-filled.facet-skinned"))
+			local boundary = assert(style(sheet, ".facet-tab-filled > #SkinBoundary"))
+			t.expect(`{entry.label} {filled.BackgroundTransparency} {boundary.Visible}`)
+				.toBe(if selectedArt then `{entry.label} nil nil` else `{entry.label} 0 false`)
+			local track = assert(style(sheet, ".facet-stepper.facet-skinned >> .facet-stepper-track"))
+			t.expect(track.BackgroundTransparency).toBe(1)
+			stop()
+		end
+	end)
+
 	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)
