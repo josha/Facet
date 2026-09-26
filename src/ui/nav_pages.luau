@@ -1696,20 +1696,38 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			TouchInputEnabled = true,
 			ScrollWheelInputEnabled = false,
 		}
+		local hugs = spec.AutomaticSize == E.AutomaticSize.Y or spec.AutomaticSize == E.AutomaticSize.XY
+		local tallest = Compose.cell(0)
+		local heights: { ComposeTypes.Readable<Vector2> } = {}
 		local children: { Types.Child } = { layout }
 		for index, page in spec.pages do
+			local body = content(page.content, nil)
+			if hugs and body:IsA("GuiObject") then
+				table.insert(heights, ctx.observe.AbsoluteSize(body))
+			end
 			local node = Host.Frame(page.id)({
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 1),
 				LayoutOrder = index,
-				content(page.content, nil),
+				body,
 			})
 			pageNodes[page.id] = node
 			table.insert(children, node)
 		end
+		if hugs then
+			Compose.watch(function(use: ComposeTypes.Use)
+				local most = 0
+				for _, height in heights do
+					most = math.max(most, use(height).Y)
+				end
+				tallest:set(math.ceil(most))
+			end)
+		end
 		local pages = Host.Frame "Pages" {
 			BackgroundTransparency = 1,
-			Size = D2.new(1, 0, 1, -footerHeight),
+			Size = function(use: ComposeTypes.Use)
+				return if hugs then D2.new(1, 0, 0, use(tallest)) else D2.new(1, 0, 1, -footerHeight)
+			end,
 			ClipsDescendants = true,
 		}
 		surfaces.attach(pages, children)
@@ -1861,17 +1879,21 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				})
 			)
 		end
+		local column = ctx.column(footer, {
+			Name = "Footer",
+			Position = function(use: ComposeTypes.Use)
+				return if hugs then D2.fromOffset(0, use(tallest)) else D2.new(0, 0, 1, -footerHeight)
+			end,
+			Size = D2.new(1, 0, 0, footerHeight),
+			AutomaticSize = E.AutomaticSize.None,
+		})
+		assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
 		return Host.Frame(ctx.props(spec, { "pages", "selection", "indicators", "summary", "controls" }, {
 			Name = "PageView",
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			pages,
-			ctx.column(footer, {
-				Name = "Footer",
-				Position = D2.new(0, 0, 1, -footerHeight),
-				Size = D2.new(1, 0, 0, footerHeight),
-				AutomaticSize = E.AutomaticSize.None,
-			}),
+			column,
 		}))
 	end)
 end

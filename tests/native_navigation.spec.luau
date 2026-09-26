@@ -418,6 +418,30 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("hugs its tallest page and centres the footer under it when its height is automatic", function()
+		local selection = Compose.cell("one")
+		local world = setup(function(UI, Host, engine)
+			return UI.PageView({
+				Size = engine.types.UDim2.new(1, 0, 0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame "BodyOne" {} },
+					{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} },
+				},
+			})
+		end)
+		local V = world.engine.types.Vector2
+		find(world.screen, "BodyOne").AbsoluteSize = V.new(300, 180)
+		find(world.screen, "BodyTwo").AbsoluteSize = V.new(300, 212.5)
+		local pages, footer = find(world.screen, "Pages"), find(world.screen, "Footer")
+		t.expect(pages.Size).toBe(world.engine.types.UDim2.new(1, 0, 0, 213))
+		t.expect(footer.Position).toBe(world.engine.types.UDim2.fromOffset(0, 213))
+		t.expect(footer:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+			.toBe(world.engine.types.Enum.HorizontalAlignment.Center)
+		world.stop()
+	end)
+
 	t.it("eases between pages without overshoot, and overshoots only after a fast swipe", function()
 		local selection = Compose.cell("one")
 		local world = setup(function(UI, Host)

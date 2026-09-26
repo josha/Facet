@@ -25,10 +25,6 @@ return {
 		local selected = Compose.cell("coast")
 		local picked = Compose.cell("Choose a course.")
 		local function screen()
-			local viewport = Compose.formula(function(use)
-				local v = use(ctx.viewport)
-				return { w = v.width, h = v.height }
-			end)
 			local pages = {}
 			for _, key in ids do
 				table.insert(pages, {
@@ -156,17 +152,8 @@ return {
 					UI.PageView({
 						LayoutOrder = 3,
 						Name = "Courses",
-						Size = function(use)
-							return UDim2.new(
-								0,
-								0,
-								0,
-								(function(use)
-									return math.clamp(use(viewport).h * 0.75, 360, 640)
-								end)(use)
-							)
-						end,
-						AutomaticSize = Enum.AutomaticSize.X,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						selection = selected,
 						pages = pages,
 					}),
