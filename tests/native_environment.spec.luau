@@ -1207,7 +1207,11 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		local corner = template:FindFirstChildWhichIsA("UICorner")
 		w.gui.SelectedObject = round
 		t.expect(corner.CornerRadius).toBe(D.new(0, 7))
+		own.CornerRadius = D.new(0, 9)
+		t.expect(corner.CornerRadius).toBe(D.new(0, 11))
 		w.gui.SelectedObject = chip
+		own.CornerRadius = D.new(0, 3)
+		t.expect(corner.CornerRadius).toBe(D.new(0, 1001))
 		t.expect(corner.CornerRadius).toBe(D.new(0, 1001))
 		w.gui.SelectedObject = plain
 		t.expect(corner.CornerRadius.Scale).toBe(0)
@@ -1241,6 +1245,9 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 			local keys = mask.Transparency.Keypoints
 			t.expect(keys[1].Value == 0 and keys[3].Value == 1 and keys[#keys].Value == 0).toBe(true)
 			t.expect(math.abs(keys[2].Time - 12 / 112) < 0.001).toBe(true)
+			button.AbsoluteSize = w.engine.types.Vector2.new(200, 44)
+			t.expect(math.abs(mask.Transparency.Keypoints[2].Time - 12 / 212) < 0.001).toBe(true)
+			button.AbsoluteSize = w.engine.types.Vector2.new(100, 44)
 			t.expect(template:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(w.engine.types.UDim.new(0, 0))
 			t.expect(template.Size).toBe(U.new(1, 12, 1, 12))
 			distance:set("ten-foot")

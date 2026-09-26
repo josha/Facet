@@ -109,6 +109,30 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local themeRadius = ctx.observeStyled.CornerRadius(corner)
 		local gui = config.guiService
 		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil)
+		local reshaped = Compose.cell(0)
+		local observation = runtime.host.observation
+		local tracking: { () -> () } = {}
+		local function untrack()
+			for _, stop in tracking do
+				stop()
+			end
+			table.clear(tracking)
+		end
+		local function bump()
+			reshaped:set(reshaped:peek() + 1)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			local target = use(selected) :: Instance?
+			untrack()
+			if observation and target and target:IsA("GuiObject") then
+				table.insert(tracking, observation.observeProperty(target, "AbsoluteSize", bump))
+				local own = target:FindFirstChildWhichIsA("UICorner")
+				if own then
+					table.insert(tracking, observation.observeProperty(own, "CornerRadius", bump))
+				end
+			end
+		end)
+		Compose.cleanup(untrack)
 		local frames = runtime.host.frames
 		if frames then
 			runtime.mountFragment(function()
@@ -197,6 +221,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					elseif shape == "pill" then
 						return D.new(0.5, 0)
 					end
+					use(reshaped)
 					local target = use(selected) :: Instance?
 					local radius = use(themeRadius) :: UDim
 					if target then
@@ -228,6 +253,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					end,
 					Transparency = function(use: ComposeTypes.Use): NumberSequence
 						local focus = layer(use)
+						use(reshaped)
 						local target = use(selected) :: GuiObject?
 						local width = (if target then target.AbsoluteSize.X else 0) + 2 * lift(use)
 						local arm = scaled(use, if type(focus.size) == "number" then focus.size else 12, 1.5)
