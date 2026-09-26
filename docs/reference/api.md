@@ -595,6 +595,12 @@ Region options:
 - `form`: a writable cell. The composition writes the index of the form that
   shows, or 0 when the region is hidden. Read it to offer the hidden content in
   another place, such as a sheet.
+- `expand`: a function that returns the richest content. While the region
+  shows a reduced form, a tap, click or `A` on that form opens this content in
+  a Popover anchored at the region (`compact = "popover"`, so a phone keeps it
+  in context too). The target is a transparent button under the forms, at
+  least the hit floor in size, so a control inside a reduced form keeps its
+  own press. The popover closes when the region returns to its richest form.
 - The children are the forms of the region, richest first. At least one form
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.

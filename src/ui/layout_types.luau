@@ -95,7 +95,13 @@ export type Zone =
 	| "bottom"
 	| "bottomRight"
 	| "topbar"
-export type RegionProps = Engine.FrameProps & { zone: Zone, rank: number, mayDrop: boolean?, form: Types.Cell<number>? }
+export type RegionProps = Engine.FrameProps & {
+	zone: Zone,
+	rank: number,
+	mayDrop: boolean?,
+	form: Types.Cell<number>?,
+	expand: (() -> Instance)?,
+}
 export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 export type LayoutControls = {
 	Screen: Types.Constructor<ScreenProps, Frame>,

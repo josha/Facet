@@ -229,6 +229,49 @@ t.describe("Composition", function()
 		end
 	end)
 
+	t.it("discloses a stepped-down region's richest content in context, anchored at the region", function()
+		local overlay = require("./lib/overlay_world")
+		local form = Compose.cell(1)
+		local w = overlay.new(function(UI, Host)
+			return UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				topbar = false,
+				UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
+				UI.Region "Tasks" {
+					zone = "left",
+					rank = 2,
+					form = form,
+					expand = function()
+						return Host.TextLabel "TasksRich" { Text = "Win a round" }
+					end,
+					Host.Frame { Name = "TasksFull" },
+					Host.Frame { Name = "TasksChip" },
+				},
+			}
+		end)
+		for name, size in { RoundsFull = { 120, 44 }, TasksFull = { 240, 130 }, TasksChip = { 90, 30 } } do
+			w.size(w.find(name), size[1], size[2])
+		end
+		local zones = w.find("Zones")
+		w.size(zones, 800, 400)
+		local cover = w.find("Tasks"):FindFirstChild("Expand")
+		t.expect(form:peek()).toBe(1)
+		t.expect(cover.Visible).toBe(false)
+		w.size(zones, 800, 150)
+		t.expect(form:peek()).toBe(2)
+		t.expect(cover.Visible).toBe(true)
+		t.expect(cover.ZIndex < 0).toBe(true)
+		t.expect(cover.Size.Y.Offset).toBe(14)
+		cover.Activated.fire()
+		t.expect(w.find("TasksRich") ~= nil).toBe(true)
+		t.expect(w.find("ExpandModal"):GetAttribute("FacetRoute")).toBe("popover")
+		w.size(zones, 800, 400)
+		t.expect(form:peek()).toBe(1)
+		t.expect(w.find("TasksRich")).toBeNil()
+		w.stop()
+	end)
+
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()
 		local function refusal(body: (any, any) -> any): string
 			local engine, runtime, UI = make()

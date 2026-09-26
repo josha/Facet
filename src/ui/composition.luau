@@ -16,6 +16,7 @@ type Declared = {
 }
 
 local POP = 0.15
+local EXPAND_EDGE = { "trailing", "bottom", "leading" }
 
 return function(ctx: Types.Context, UI: Layout.LayoutControls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
@@ -38,6 +39,10 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			spec.form == nil or (Compose.isReadable(spec.form) and type((spec.form :: any).set) == "function"),
 			"Facet Region form must be a writable cell"
 		)
+		assert(
+			spec.expand == nil or type(spec.expand) == "function",
+			"Facet Region expand must be a function that returns the richest content"
+		)
 		local form: ComposeTypes.Cell<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
@@ -47,7 +52,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			return if reduced(use) then 1 else 0.94 + 0.06 * (1 - (1 - use(pop.progress)) ^ 3)
 		end)
 		local properties = (
-			ctx.props(spec, { "zone", "rank", "mayDrop", "form" }, {
+			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand" }, {
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
@@ -84,6 +89,40 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
+		if spec.expand then
+			local open, floor = Compose.cell(false), ctx.hitFloor()
+			local cell = resolver.CELLS[zone]
+			local edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(form) <= 1 and open:peek() then
+					open:set(false)
+				end
+			end)
+			properties[#properties + 1] = (UI :: any).Popover "Expand" {
+				isPresented = open,
+				onPresentedChange = function(value: boolean)
+					open:set(value and form:peek() > 1)
+				end,
+				compact = "popover",
+				edge = edge,
+				content = spec.expand,
+				trigger = Host.TextButton "Expand" {
+					Text = "",
+					BackgroundTransparency = 1,
+					ZIndex = -1,
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = D2.fromScale(0.5, 0.5),
+					Size = function(use: ComposeTypes.Use): UDim2
+						local shown = sizes[use(form)]
+						local size = if shown then use(shown) else V2.zero
+						return D2.new(1, math.max(0, floor(use) - size.X), 1, math.max(0, floor(use) - size.Y))
+					end,
+					Visible = function(use: ComposeTypes.Use): boolean
+						return use(form) > 1
+					end,
+				},
+			}
+		end
 		local node = kit.plain(Host.Frame(properties :: any), spec)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)

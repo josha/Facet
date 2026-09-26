@@ -49,6 +49,7 @@ local FORMS = {
 	Actions = { "full", "compact" },
 	Weapon = { "full" },
 }
+local EXPANDS = { Strip = true, Tasks = true, Health = true, Clock = true, Rail = true }
 local ORDER = { "Strip", "Rounds", "Tasks", "Health", "Feed", "Clock", "Rail", "Readout", "Actions", "Weapon" }
 return {
 	title = "Screen-anchored HUD",
@@ -362,16 +363,8 @@ return {
 				rank = rank,
 				mayDrop = mayDrop,
 				form = chosen[id],
+				expand = if EXPANDS[id] then rich[id] else nil,
 				...,
-			})
-		end
-		local function chip(name, label)
-			return UI.Button({
-				Name = name,
-				label = label,
-				controlSize = "compact",
-				appearance = "soft",
-				onActivate = steps.openOverflow,
 			})
 		end
 		return {
@@ -397,7 +390,7 @@ return {
 							10,
 							6
 						),
-						chip("TasksCompact", copy.tasksChip)
+						pill("TasksCompact", copy.tasksChip, "label")
 					),
 					region(
 						"Health",
