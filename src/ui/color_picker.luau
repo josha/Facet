@@ -1861,21 +1861,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local at, bounds = ctx.observe.AbsolutePosition(well), ctx.observe.AbsoluteSize(well)
-					local tenFoot = false
-					if gui then
-						local ok, answer = pcall(function(): boolean
-							return (gui :: GuiService):IsTenFootInterface()
-						end)
-						tenFoot = ok and answer == true
-					end
+					local tenFoot = ctx.tenFoot()
 					local function sheet(use: Use): boolean
 						local offer = use(extent)
-						return tenFoot or (touch(use) and offer.X > 0 and offer.X < 600)
+						return tenFoot(use) or (touch(use) and offer.X > 0 and offer.X < 600)
 					end
 					local room = Compose.cell(math.huge)
 					local view = panelView(true, sheet, room)
 					local where = Compose.formula(function(use: Use): Placement
-						return place(use, view, sheet, extent, origin, at, bounds, tenFoot)
+						return place(use, view, sheet, extent, origin, at, bounds, tenFoot(use))
 					end)
 					Compose.watch(function(use: Use)
 						local spot = use(where)

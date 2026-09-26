@@ -1795,15 +1795,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local position = ctx.observe.AbsolutePosition(plate)
 					local bounds = ctx.observe.AbsoluteSize(plate)
-					local tenFoot = false
-					if gui then
-						local ok, answer = pcall(function(): boolean
-							return (gui :: GuiService):IsTenFootInterface()
-						end)
-						tenFoot = ok and answer == true
-					end
+					local tenFoot = ctx.tenFoot()
 					local route = Compose.formula(function(use: Use): string
-						if tenFoot then
+						if tenFoot(use) then
 							return "sheet"
 						end
 						local offer = use(extent) :: Vector2
@@ -1853,7 +1847,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local content = ctx.observe.AbsoluteSize(panel)
 					local measured = ctx.observe.AbsoluteSize(surface)
 					local function sheet(use: Use): boolean
-						return use(route) == "sheet" and not tenFoot
+						return use(route) == "sheet" and not tenFoot(use)
 					end
 					runtime.decorate(panel, {
 						Size = function(use: Use)
@@ -1888,7 +1882,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 								use(measured) :: Vector2,
 								use(origin) :: Vector2
 							if use(route) == "sheet" then
-								if tenFoot then
+								if tenFoot(use) then
 									return D2.fromOffset(
 										math.max(8, (offer.X - box.X) / 2),
 										math.max(8, (offer.Y - box.Y) / 2)

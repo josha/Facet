@@ -1205,7 +1205,7 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 	end)
 
 	t.it(
-		"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
+		"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet (a TV or a large pad-only display) a centred sheet",
 		function()
 			local cell, _, change = caller(D(2026, 9, 16))
 			local w = mount(
@@ -1234,6 +1234,14 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 			local icon = must(tv.opener(), "LeadingIcon")
 			expect(icon.Image).toBe("rbxassetid://93477762216058")
 			tv.stop()
+			local lounge = mount({ value = cell, onChange = change }, { input = "pad" })
+			lounge.gui.ViewportDisplaySize = lounge.E.DisplaySize.Large
+			lounge.select(lounge.opener())
+			lounge.open()
+			local centred = must(lounge.screen, "CalendarSurface")
+			centred.AbsoluteSize = lounge.V2.new(340, 400)
+			expect(centred.Position).toBe(lounge.engine.types.UDim2.fromOffset(130, 250))
+			lounge.stop()
 		end
 	)
 
