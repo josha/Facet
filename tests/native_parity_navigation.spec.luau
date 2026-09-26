@@ -1897,14 +1897,19 @@ t.describe("native parity navigation", function()
 			local panel = find(world.screen, "CalloutPanel")
 			panel.AbsoluteSize = V2(world, 280, 100)
 			world.engine.heartbeat.fire(1)
-			t.expect(panel.Position.Y.Offset).toBe(660 - 100 - 8)
-			t.expect(panel.Position.X.Offset).toBe(140)
+			local lift = 8 + 16 * math.sqrt(2) / 2
+			local function corner(): (number, number)
+				return math.round(panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X),
+					panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+			end
+			t.expect(math.abs(select(2, corner()) - (660 - 100 - lift)) <= 1).toBe(true)
+			t.expect((corner())).toBe(140)
 			align:set("leading")
-			t.expect(panel.Position.X.Offset).toBe(160)
+			t.expect((corner())).toBe(160)
 			align:set("trailing")
-			t.expect(panel.Position.X.Offset).toBe(160 + 240 - 280)
+			t.expect((corner())).toBe(160 + 240 - 280)
 			anchor.AbsolutePosition = V2(world, 160, 100)
-			t.expect(panel.Position.Y.Offset).toBe(100 + 44 + 8)
+			t.expect(math.abs(select(2, corner()) - (100 + 44 + lift)) <= 1).toBe(true)
 			t.expect(find(world.screen, "Arrow") ~= nil).toBe(true)
 			world.stop()
 			for _, tail in { false, "none" } :: { any } do

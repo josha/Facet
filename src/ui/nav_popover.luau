@@ -30,7 +30,6 @@ local KEYS = {
 local POPOVER: { enter: number, exit: number } = freeze({ enter = 0.15, exit = 0.1 })
 local SHEET_EXIT = 0.2
 local MARGIN = 8
-local TAIL = 10
 local PADDING = 8
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
@@ -328,15 +327,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						h = use(sourceSize).Y,
 					}
 				local size = use(measured)
+				local side = if tailed then parts.tailSize(ctx, use) else 0
 				return placement.solve({
 					source = source,
 					size = { w = size.X, h = size.Y },
 					safe = safe(use),
 					edge = spec.edge,
 					align = spec.align,
-					gap = spec.gap or 8,
+					gap = (spec.gap or 8) + side * math.sqrt(2) / 2,
 					crossOffset = spec.crossOffset,
-					tail = if tailed then TAIL else 0,
+					tail = side * math.sqrt(2),
 					tailInset = 8,
 				})
 			end)
@@ -349,34 +349,28 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					elseif at.edge == "right" then V2.new(0, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 					else V2.new(size.X, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 				return V2.new(at.x, at.y), origin
-			end)
+			end, nil, true)
 			local children: { Types.Child } = { panel }
 			if tailed then
-				table.insert(
-					children,
-					ctx.styled(
-						Host.Frame "Tail" {
-							Size = D2.fromOffset(TAIL, TAIL),
-							AnchorPoint = V2.new(0.5, 0.5),
-							Rotation = 45,
-							BorderSizePixel = 0,
-							ZIndex = 1,
-							Visible = function(use: ComposeTypes.Use)
-								return not use(solved).tailSuppressed
-							end,
-							Host.UIGradient "PresentationFade" {
-								Transparency = function(use: ComposeTypes.Use)
-									return ctx.types.NumberSequence.new(1 - amount(use))
-								end,
-							} :: Types.Child,
-							Position = function(use: ComposeTypes.Use)
-								local at = use(solved)
-								return D2.fromOffset(at.tailX or 0, at.tailY or 0)
-							end,
-						},
-						"panel"
+				for _, part in
+					parts.tail(
+						ctx,
+						"Tail",
+						function(use: ComposeTypes.Use): (Vector2?, string)
+							local at = use(solved)
+							if at.tailSuppressed or at.tailX == nil or at.tailY == nil then
+								return nil, at.edge
+							end
+							return V2.new(at.tailX, at.tailY), at.edge
+						end,
+						amount,
+						function()
+							return 2
+						end
 					)
-				)
+				do
+					table.insert(children, part)
+				end
 			end
 			local modal = surfaces.modal(function()
 				return Host.Frame "Popup" {

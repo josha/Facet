@@ -5,6 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local help = require("./help")
 local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
+local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 local scrollLock = require("./scroll_lock")
 
@@ -149,19 +150,38 @@ return function(ctx: Types.Context): Nav.Surfaces
 		panel: GuiObject,
 		amount: Nav.Appearance,
 		place: (ComposeTypes.Use) -> (Vector2, Vector2),
-		from: number?
+		from: number?,
+		pinned: boolean?
 	): ()
 		local rest = from or 0.9
 		local function scale(use: ComposeTypes.Use): number
 			return rest + (1 - rest) * amount(use)
 		end
-		runtime.decorate(panel, {
-			Position = function(use: ComposeTypes.Use)
-				local at, origin = place(use)
-				local shrink = 1 - scale(use)
-				return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
-			end,
-		})
+		if pinned then
+			local size = ctx.observe.AbsoluteSize(panel)
+			runtime.decorate(panel, {
+				AnchorPoint = function(use: ComposeTypes.Use)
+					local _, origin = place(use)
+					local box = use(size)
+					return V2.new(
+						if box.X > 0 then math.clamp(origin.X / box.X, 0, 1) else 0,
+						if box.Y > 0 then math.clamp(origin.Y / box.Y, 0, 1) else 0
+					)
+				end,
+				Position = function(use: ComposeTypes.Use)
+					local at, origin = place(use)
+					return D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
+				end,
+			})
+		else
+			runtime.decorate(panel, {
+				Position = function(use: ComposeTypes.Use)
+					local at, origin = place(use)
+					local shrink = 1 - scale(use)
+					return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
+				end,
+			})
+		end
 		attach(panel, { Host.UIScale "PresentationScale" { Scale = scale } })
 	end
 	local function attached(anchor: GuiObject): boolean
@@ -719,8 +739,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local armed = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(wanted) and use(rest.progress) >= 1
 		end)
-		local short = ctx.metric("motion.fast")
-		local timing: Nav.MotionTiming = { enter = short, exit = short }
+		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
 				local amount = appearance(phase, timing)
@@ -788,10 +807,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local measured = ctx.observe.AbsoluteSize(panel)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
-				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+				local solution = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
 					local anchorAt, anchorSize, offer, offset, box =
 						use(at), use(bounds), use(extent), use(origin), use(measured)
-					local solved = placement.solve({
+					local side = parts.tailSize(ctx, use)
+					return placement.solve({
 						source = {
 							x = anchorAt.X - offset.X,
 							y = anchorAt.Y - offset.Y,
@@ -802,8 +822,14 @@ return function(ctx: Types.Context): Nav.Surfaces
 						safe = { x = 8, y = 8, w = math.max(0, offer.X - 16), h = math.max(0, offer.Y - 16) },
 						edge = edge,
 						align = align,
-						gap = 6,
+						gap = 6 + side * math.sqrt(2) / 2,
+						tail = side * math.sqrt(2),
+						tailInset = 6,
 					})
+				end)
+				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+					local anchorAt, anchorSize, offset, box = use(at), use(bounds), use(origin), use(measured)
+					local solved = use(solution)
 					local centerX = anchorAt.X - offset.X + anchorSize.X / 2 - solved.x
 					local centerY = anchorAt.Y - offset.Y + anchorSize.Y / 2 - solved.y
 					local origin = if solved.edge == "bottom"
@@ -812,8 +838,24 @@ return function(ctx: Types.Context): Nav.Surfaces
 						elseif solved.edge == "right" then V2.new(0, math.clamp(centerY, 0, box.Y))
 						else V2.new(box.X, math.clamp(centerY, 0, box.Y))
 					return V2.new(solved.x, solved.y), origin
-				end)
-				return ctx.styled(panel, "tooltip")
+				end, nil, true)
+				ctx.styled(panel, "tooltip")
+				local tail = parts.tail(
+					ctx,
+					"HelpTail",
+					function(use: ComposeTypes.Use): (Vector2?, string)
+						local solved = use(solution)
+						if solved.tailSuppressed or solved.tailX == nil or solved.tailY == nil then
+							return nil, solved.edge
+						end
+						return V2.new(solved.tailX, solved.tailY), solved.edge
+					end,
+					amount,
+					function()
+						return 96
+					end
+				)
+				return Host.Folder "HelpOverlay" { panel :: Instance, tail[1], tail[2] }
 			end, { motion = timing }),
 		})
 	end)

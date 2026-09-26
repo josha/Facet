@@ -2,6 +2,14 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
+local LIFT = 16 * math.sqrt(2) / 2
+local function corner(panel: any): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 local Compose = Facet.Compose
 
 type World = {
@@ -510,14 +518,14 @@ t.describe("presented surface strength", function()
 		panel.AbsoluteSize = V.new(280, 96)
 		advance(world.engine, 1)
 		t.expect(find(panel, "PresentationScale").Scale).toBe(1)
-		local left, top = panel.Position.X.Offset, panel.Position.Y.Offset
-		t.expect(top).toBe(12 + 44 + 8)
-		t.expect(left + 280 <= 390 - 8).toBe(true)
+		local left, top = corner(panel)
+		t.expect(near(top, 12 + 44 + 8 + LIFT)).toBe(true)
+		t.expect(left + 280 <= 390 - 8 + 0.5).toBe(true)
 		t.expect(left < 338 + 22 - 140).toBe(true)
-		local arrowCenterX = arrow.Position.X.Offset + 5
+		local arrowCenterX = arrow.Position.X.Offset
 		t.expect(arrowCenterX >= 338 and arrowCenterX <= 338 + 44).toBe(true)
-		t.expect(arrow.Position.Y.Offset).toBe(top - 5)
-		t.expect(arrow.Position.Y.Offset < top).toBe(true)
+		t.expect(near(arrow.Position.Y.Offset, top)).toBe(true)
+		t.expect(arrow.Position.Y.Offset - LIFT < top and arrow.Position.Y.Offset - LIFT >= 12 + 44).toBe(true)
 		world.stop()
 	end)
 
@@ -565,8 +573,9 @@ t.describe("presented surface strength", function()
 			t.expect(panel.Size.X.Scale).toBe(0)
 			t.expect(panel.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.Y)
 			panel.AbsoluteSize = V.new(width, 180)
-			t.expect(panel.Position.X.Offset >= 8).toBe(true)
-			t.expect(panel.Position.X.Offset + width <= extent - 8).toBe(true)
+			local left = corner(panel)
+			t.expect(left >= 8 - 0.5).toBe(true)
+			t.expect(left + width <= extent - 8 + 0.5).toBe(true)
 		end
 		world.stop()
 	end)
@@ -1551,8 +1560,9 @@ t.describe("virtual monitors surface strength", function()
 			t.expect(panel ~= nil).toBe(true)
 			t.expect(find(panel, "RatingMeaning") ~= nil).toBe(true)
 			panel.AbsoluteSize = V.new(280, 90)
-			t.expect(panel.Position.Y.Offset).toBe(200 + 36 + 8)
-			t.expect(panel.Position.X.Offset).toBe(300 + (320 - 280) / 2)
+			local left, top = corner(panel)
+			t.expect(near(top, 200 + 36 + 8 + LIFT)).toBe(true)
+			t.expect(left).toBe(300 + (320 - 280) / 2)
 			panel.AbsolutePosition = V.new(320, 244)
 			world.input.InputBegan.fire(
 				{ UserInputType = Enum.UserInputType.MouseButton1, Position = V.new(400, 280) },

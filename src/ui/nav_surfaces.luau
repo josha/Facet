@@ -1194,6 +1194,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local origin = ctx.observe.AbsolutePosition(layer)
 				local measured = ctx.observe.AbsoluteSize(panel)
+				local tailed = spec.tail ~= false and spec.tail ~= "none"
+				local function lift(use: ComposeTypes.Use): number
+					return 8 + (if tailed then parts.tailSize(ctx, use) * math.sqrt(2) / 2 else 0)
+				end
 				local function above(use: ComposeTypes.Use, floor: number): number
 					use(position)
 					local outermost = 0
@@ -1221,7 +1225,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local above = if read(spec.edge, use) == "top"
 						then roomAbove or not roomBelow
 						else roomAbove and not roomBelow
-					local top = if above then y - box.Y - 8 else y + bounds.Y + 8
+					local top = if above then y - box.Y - lift(use) else y + bounds.Y + lift(use)
 					local gutter = ctx.metric("space.s", use)
 					return {
 						left = math.clamp(left, gutter, math.max(gutter, offer.X - box.X - gutter)),
@@ -1245,40 +1249,30 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
 					local above = anchorAt.Y - offset.Y >= at.top + box.Y
 					return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
-				end)
-				local arrow: Frame?
-				if spec.tail ~= false and spec.tail ~= "none" then
-					arrow = ctx.styled(
-						Host.Frame "Arrow" {
-							Size = D2.fromOffset(10, 10),
-							Rotation = 45,
-							BorderSizePixel = 0,
-							ZIndex = function(use: ComposeTypes.Use): number
-								return above(use, 94)
-							end,
-							Host.UIGradient "PresentationFade" {
-								Transparency = function(use: ComposeTypes.Use)
-									return ctx.types.NumberSequence.new(1 - amount(use))
-								end,
-							} :: Types.Child,
-							Position = function(use: ComposeTypes.Use)
-								local at, bounds, offset, box, place =
-									use(position), use(size), use(origin), use(measured), use(placement)
-								local x = math.clamp(
-									at.X - offset.X + bounds.X / 2 - place.left,
-									12,
-									math.max(12, box.X - 12)
-								)
-								return D2.fromOffset(
-									place.left + x - 5,
-									place.top + (if at.Y - offset.Y < place.top then -5 else box.Y - 5)
-								)
-							end,
-						},
-						"callout"
+				end, nil, true)
+				local arrow: { Frame }? = if tailed
+					then parts.tail(
+						ctx,
+						"Arrow",
+						function(use: ComposeTypes.Use): (Vector2?, string)
+							local at, bounds, offset, box, place =
+								use(position), use(size), use(origin), use(measured), use(placement)
+							local inset = parts.tailSize(ctx, use)
+							local x = math.clamp(
+								at.X - offset.X + bounds.X / 2 - place.left,
+								inset,
+								math.max(inset, box.X - inset)
+							)
+							local below = at.Y - offset.Y < place.top
+							return V2.new(place.left + x, if below then place.top else place.top + box.Y),
+								if below then "bottom" else "top"
+						end,
+						amount,
+						function(use: ComposeTypes.Use): number
+							return above(use, 95)
+						end
 					)
-					ctx.styled(arrow :: Frame, "panel")
-				end
+					else nil
 				local input = surfaces.service("UserInputService")
 				if input then
 					runtime.connect(input, "InputBegan", function(event: InputObject, processed: boolean)
@@ -1303,7 +1297,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 				end
-				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow } else panel :: Instance
+				return if arrow
+					then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1], arrow[2] }
+					else panel :: Instance
 			end, { motion = timing }),
 		})
 		return root

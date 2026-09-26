@@ -4,6 +4,14 @@ local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local placement = require("../src/ui/overlay_placement")
 local Vector2 = require("@lune/roblox").Vector2
+local LIFT = 16 * math.sqrt(2) / 2
+local function corner(panel: any): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 
 type Log = { changes: { boolean }, dismissed: { string } }
 
@@ -244,7 +252,7 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		target.AbsolutePosition = Vector2.new(100, 100)
 		target.AbsoluteSize = Vector2.new(80, 40)
 		panel.AbsoluteSize = Vector2.new(200, 100)
-		t.expect(panel.Position.Y.Offset).toBe(148)
+		t.expect(near(select(2, corner(panel)), 148 + LIFT)).toBe(true)
 		local holder = target.Parent
 		target.Parent = nil
 		t.expect(w.find("Panel")).toBeNil()
@@ -344,9 +352,10 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		trigger.AbsoluteSize = Vector2.new(100, 44)
 		tailed.find("Panel").AbsoluteSize = Vector2.new(160, 80)
 		local tail = tailed.find("Tail")
-		t.expect(tail.Visible).toBe(true)
+		t.expect(tail.Visible and tail.Size.X.Offset == 16 and tail:HasTag("facet-tail")).toBe(true)
 		t.expect(tail.Position.X.Offset).toBe(350)
-		t.expect(tail.Position.Y.Offset).toBe(152)
+		t.expect(near(tail.Position.Y.Offset, 144 + 8 + LIFT)).toBe(true)
+		t.expect(near(select(2, corner(tailed.find("Panel"))), 144 + 8 + LIFT)).toBe(true)
 		tailed.stop()
 	end)
 

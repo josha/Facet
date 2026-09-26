@@ -253,7 +253,8 @@ cannot be interacted with, and the selection never stays on it.
 | Sheet | Slides up from the bottom, 0.3 seconds, Cubic Out. A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds. |
 | Alert, Dialog | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
 | Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
-| Callout, Button `help` | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and a callout tail appear on the same first styled frame. | The reverse, over the same time. |
+| Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
+| Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
@@ -2162,6 +2163,7 @@ teaching attached to a control. It is not a second application presenter.
 `edge = "top"` puts the callout above the anchor. If there is no room above
 and there is room below, the callout goes below the anchor. The callout
 scales and fades from the edge nearest to its anchor. See [Motion](#motion).
+A tail points from the plate to the centre of the anchor.
 The plate stays inside its layer by the `space.s` step of the theme on each
 side. The step follows a live theme change. The layer is the safe area of the
 ScreenGui, so a device safe inset adds to the step.
@@ -2285,6 +2287,14 @@ then the opposite edge. When neither side holds the panel, it hangs beside the
 source before any clamp. `maxWidth` and `maxHeight` bound the whole panel,
 chrome included, inside the live safe box. The body scrolls. `tail = false`
 removes the arrow.
+
+The tail of a Popover, a Callout and a Button `help` plate is one shape: a
+`space.m` square turned 45 degrees under the panel, with the theme's hairline
+on its two outer sides (`facet-tail`). A thin band in the panel paint
+(`facet-tail-seam`) covers the panel border across the tail's base, so the
+tail and the panel read as one surface. The panel stands the tail's reach off
+its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
+point while it scales, so a moving scale never moves the tip.
 
 `compact` is `sheet` (the default) or `popover`. With `sheet`, a touch player
 on a layer narrower than 600 pixels gets the Sheet route. A live change of

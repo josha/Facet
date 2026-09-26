@@ -7,6 +7,16 @@ local placement = require("../src/ui/overlay_placement")
 local Vector2 = require("@lune/roblox").Vector2
 
 local TIP = "Post Avatars to Marketplace"
+local LIFT = 16 * math.sqrt(2) / 2
+
+local function corner(panel: any): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 
 local function tip(Host: any): () -> any
 	return function()
@@ -537,11 +547,12 @@ t.describe("native help: the structured form and the live plate", function()
 			safe = { x = 8, y = 8, w = 800 - 16, h = 600 - 16 },
 			edge = "trailing",
 			align = "end",
-			gap = 6,
+			gap = 6 + LIFT,
 		})
-		t.expect(panel.Position.X.Offset).toBe(expected.x)
-		t.expect(panel.Position.X.Offset).toBe(300 + 80 + 6)
-		t.expect(panel.Position.Y.Offset).toBe(200 + 44 - 30)
+		local x, y = corner(panel)
+		t.expect(near(x, expected.x)).toBe(true)
+		t.expect(near(x, 300 + 80 + 6 + LIFT)).toBe(true)
+		t.expect(near(y, 200 + 44 - 30)).toBe(true)
 		w.stop()
 	end)
 
@@ -552,8 +563,13 @@ t.describe("native help: the structured form and the live plate", function()
 		t.expect(w.find("HelpText").Text).toBe("Posts this avatar")
 		local panel = w.find("Help")
 		panel.AbsoluteSize = Vector2.new(100, 30)
-		t.expect(panel.Position.Y.Offset).toBe(200 - 30 - 6)
-		t.expect(panel.Position.X.Offset).toBe(300 + 40 - 50)
+		local x, y = corner(panel)
+		t.expect(near(y, 200 - 30 - 6 - LIFT)).toBe(true)
+		t.expect(near(x, 300 + 40 - 50)).toBe(true)
+		t.expect(w.find("HelpTail") ~= nil and w.find("HelpTailSeam") ~= nil).toBe(true)
+		t.expect(w.find("HelpTail").Size.X.Offset).toBe(16)
+		t.expect(near(w.find("HelpTail").Position.Y.Offset, 200 - 6 - LIFT)).toBe(true)
+		t.expect(w.find("HelpTail"):HasTag("facet-tail")).toBe(true)
 		w.stop()
 	end)
 
@@ -593,9 +609,9 @@ t.describe("native help: the structured form and the live plate", function()
 		local w = helped({ body = "Posts it", edge = "trailing" })
 		local panel = w.find("Help")
 		panel.AbsoluteSize = Vector2.new(200, 30)
-		t.expect(panel.Position.X.Offset).toBe(386)
+		t.expect(near((corner(panel)), 386 + LIFT)).toBe(true)
 		w.screen.AbsoluteSize = Vector2.new(500, 600)
-		t.expect(panel.Position.X.Offset + 200 <= 500 - 8).toBe(true)
+		t.expect((corner(panel)) + 200 <= 500 - 8 + 0.5).toBe(true)
 		w.stop()
 	end)
 end)
@@ -648,7 +664,7 @@ t.describe("native Callout: layering", function()
 end)
 
 t.describe("native help: the plate arrives as one unit", function()
-	local SHORT = 0.12
+	local NORMAL = 0.2
 	local function hovered(options: any?): any
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({
@@ -691,14 +707,14 @@ t.describe("native help: the plate arrives as one unit", function()
 		w.stop()
 	end)
 
-	t.it("the fade and the scale run over the theme's short motion duration", function()
+	t.it("the fade and the scale run once, eased, over the theme's normal motion duration", function()
 		local w = hovered()
 		local panel = w.find("Help")
 		local scale = panel:FindFirstChildWhichIsA("UIScale")
-		w.advance(SHORT / 2)
-		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1).toBe(true)
-		t.expect(scale.Scale > 0.9 and scale.Scale < 1).toBe(true)
-		w.advance(SHORT / 2)
+		w.advance(NORMAL / 2)
+		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 0.5).toBe(true)
+		t.expect(scale.Scale > 0.95 and scale.Scale < 1).toBe(true)
+		w.advance(NORMAL / 2)
 		t.expect(fadeKit.of(panel)).toBe(0)
 		t.expect(scale.Scale).toBe(1)
 		w.stop()

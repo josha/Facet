@@ -5,6 +5,14 @@ local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
 local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
+local LIFT = 16 * math.sqrt(2) / 2
+local function corner(panel): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 local function find(root, name)
 	if root.Name == name then
 		return root
@@ -1964,7 +1972,7 @@ t.describe("native navigation controls", function()
 		anchor.AbsoluteSize = V.new(32, 44)
 		panel.AbsoluteSize = V.new(280, 100)
 		world.settle()
-		t.expect(panel.Position.X.Offset).toBe(32)
+		t.expect(near((corner(panel)), 32)).toBe(true)
 		t.expect(world.gui.SelectedObject).toBe(anchor)
 		anchor.Activated.fire()
 		t.expect(presses).toBe(1)
@@ -2051,7 +2059,7 @@ t.describe("native navigation controls", function()
 		for _ = 1, 60 do
 			engine.heartbeat.fire(1 / 60)
 		end
-		t.expect(panel.Position.X.Offset).toBe(32)
+		t.expect(near((corner(panel)), 32)).toBe(true)
 		t.expect(panel.Size.X.Offset).toBe(280)
 		overlay.AbsoluteSize = V.new(200, 400)
 		for _ = 1, 60 do
@@ -2191,14 +2199,18 @@ t.describe("native navigation controls", function()
 		t.expect(panel.Size.Y.Offset).toBe(0)
 		t.expect(arrow:IsDescendantOf(panel)).toBe(false)
 		t.expect(arrow.Parent).toBe(panel.Parent)
-		t.expect(arrow:HasTag("facet-panel")).toBe(true)
-		t.expect(arrow:HasTag("facet-callout")).toBe(true)
+		t.expect(arrow:HasTag("facet-tail")).toBe(true)
+		t.expect(arrow.Rotation).toBe(45)
 		t.expect(arrow.ZIndex < panel.ZIndex).toBe(true)
+		local seam = find(world.screen, "ArrowSeam")
+		t.expect(seam:HasTag("facet-tail-seam") and seam.ZIndex > panel.ZIndex).toBe(true)
 		world.settle()
 		for _, height in { 96, 128, 96 } do
 			panel.AbsoluteSize = V.new(280, height)
-			t.expect(panel.Position.Y.Offset).toBe(560 - height - 8)
-			t.expect(arrow.Position.Y.Offset).toBe(547)
+			local _, top = corner(panel)
+			t.expect(near(top, 560 - height - 8 - LIFT)).toBe(true)
+			t.expect(near(arrow.Position.Y.Offset, 560 - 8 - LIFT)).toBe(true)
+			t.expect(seam.Position).toBe(arrow.Position)
 		end
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)
@@ -2230,13 +2242,13 @@ t.describe("native navigation controls", function()
 		panel.AbsoluteSize = V.new(280, 106)
 		world.settle()
 		t.expect(find(panel, "PresentationScale").Scale).toBe(1)
-		t.expect(panel.Position.Y.Offset).toBe(18 + 44 + 8)
-		t.expect(arrow.Position.Y.Offset).toBe(18 + 44 + 8 - 5)
+		t.expect(near(select(2, corner(panel)), 18 + 44 + 8 + LIFT)).toBe(true)
+		t.expect(near(arrow.Position.Y.Offset, 18 + 44 + 8 + LIFT)).toBe(true)
 		anchor.AbsolutePosition = V.new(8, 200)
-		t.expect(panel.Position.Y.Offset).toBe(200 - 106 - 8)
+		t.expect(near(select(2, corner(panel)), 200 - 106 - 8 - LIFT)).toBe(true)
 		anchor.AbsolutePosition = V.new(8, 100)
 		panel.AbsoluteSize = V.new(280, 250)
-		t.expect(panel.Position.Y.Offset).toBe(8)
+		t.expect(near(select(2, corner(panel)), 8)).toBe(true)
 		world.stop()
 	end)
 
@@ -3038,14 +3050,16 @@ t.describe("native navigation controls", function()
 		local scale = find(callout, "PresentationScale")
 		t.expect(scale.Scale).toBe(0.9)
 		t.expect(fadeKit.of(callout)).toBe(1)
-		t.expect(callout.Position.X.Offset).toBe(140 + math.floor(0.1 * 140))
-		t.expect(callout.Position.Y.Offset).toBe(152)
+		t.expect(callout.Position.X.Offset).toBe(280)
+		t.expect(near(callout.Position.Y.Offset, 152 + LIFT)).toBe(true)
+		t.expect(callout.AnchorPoint).toBe(V.new(0.5, 0))
 		world.engine.heartbeat.fire(0.075)
 		t.expect(scale.Scale > 0.9 and scale.Scale < 1).toBe(true)
 		world.engine.heartbeat.fire(0.075)
 		t.expect(scale.Scale).toBe(1)
 		t.expect(fadeKit.of(callout)).toBe(0)
-		t.expect(callout.Position).toBe(world.engine.types.UDim2.fromOffset(140, 152))
+		local left, top = corner(callout)
+		t.expect(left == 140 and near(top, 152 + LIFT)).toBe(true)
 		local plus = find(world.screen, "Plus")
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 		plus.GuiState = world.engine.types.Enum.GuiState.Hover

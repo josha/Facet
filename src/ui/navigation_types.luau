@@ -362,7 +362,7 @@ export type Surfaces = {
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Types.ValueBoolean, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,
 	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Appearance,
-	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), number?) -> (),
+	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), number?, boolean?) -> (),
 	sheetModal: ((SheetSpec, SheetRequest, PresencePhase?) -> Frame)?,
 }
 export type PickerConstructor = (<V>(PickerSpec<V>) -> GuiObject) & ((string) -> <V>(PickerSpec<V>) -> GuiObject)
