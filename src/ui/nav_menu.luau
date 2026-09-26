@@ -72,6 +72,21 @@ return function(
 		end
 		return labels
 	end
+	-- a node's width in layout units (a scaled ancestor divides out), or huge before it has one
+	local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
+		local extent = ctx.observe.AbsoluteSize(node)
+		local _, units = ctx.runtime.mount(function()
+			return ctx.Host.Folder "Units" {
+				ctx.Host.Frame "Unit" { Size = ctx.types.UDim2.fromOffset(1, 1), Visible = false },
+			}
+		end, node)
+		local pixel = ctx.observe.AbsoluteSize((units :: Instance):FindFirstChild("Unit") :: GuiObject)
+		return Compose.formula(function(use: ComposeTypes.Use): number
+			local unit = (use(pixel) :: Vector2).X
+			local width = (use(extent) :: Vector2).X / (if unit > 0 then unit else 1)
+			return if width > 0 then width else math.huge
+		end)
+	end
 	-- a caption wraps inside the room its button gives it; `across` is that room before the button's chrome
 	local function wrapCaptions(
 		button: GuiObject,
@@ -2345,9 +2360,9 @@ return function(
 							end,
 						})
 						card:AddTag("facet-card-option")
-						local cardExtent = ctx.observe.AbsoluteSize(card)
+						local cardWidth = layoutWidth(card)
 						wrapCaptions(card, spec.controlSize, function(use: ComposeTypes.Use): number
-							return use(cardExtent).X
+							return use(cardWidth)
 						end)
 						local content = card:FindFirstChild("Content")
 						if content then
@@ -2440,18 +2455,6 @@ return function(
 		} =
 			{}
 		local currentOrder = Compose.cell(0)
-		local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
-			local extent = ctx.observe.AbsoluteSize(node)
-			local _, units = runtime.mount(function()
-				return Host.Folder "Units" { Host.Frame "Unit" { Size = D2.fromOffset(1, 1), Visible = false } }
-			end, node)
-			local pixel = ctx.observe.AbsoluteSize((units :: Instance):FindFirstChild("Unit") :: GuiObject)
-			return Compose.formula(function(use: ComposeTypes.Use): number
-				local unit = (use(pixel) :: Vector2).X
-				local width = (use(extent) :: Vector2).X / (if unit > 0 then unit else 1)
-				return if width > 0 then width else math.huge
-			end)
-		end
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local textService = surfaces.service("GuiService") :: GuiService?
@@ -2755,9 +2758,8 @@ return function(
 					local family = if style == "segmented" then "facet-segment" else "facet-choice"
 					button:AddTag(family)
 					if style == "radioGroup" then
-						local extent = ctx.observe.AbsoluteSize(button)
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
-							return use(extent).X - RADIO_MARK
+							return use(room) - RADIO_MARK
 						end)
 					end
 					if style == "segmented" then
@@ -2886,16 +2888,16 @@ return function(
 			table.insert(p, child)
 		end
 		local picker = Host.Frame(p)
+		if not labelled then
+			local width = layoutWidth(picker)
+			Compose.watch(function(use: ComposeTypes.Use)
+				room:set(use(width))
+			end)
+		end
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if spec.multiple ~= true then
 				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Value<string>?)
-			end
-			if not labelled then
-				local width = layoutWidth(picker)
-				Compose.watch(function(use: ComposeTypes.Use)
-					room:set(use(width))
-				end)
 			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {
