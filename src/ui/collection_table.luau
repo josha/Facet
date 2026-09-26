@@ -1,6 +1,7 @@
 --!strict
 local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
+local policy = require("./collection_policy")
 local activation = require("./activation")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
@@ -725,6 +726,24 @@ return function(ctx: Types.Context, UI: Controls): ()
 				if actions then
 					local actionSpec: CollectionTypes.RowActionsSpec =
 						table.clone(actions) :: CollectionTypes.RowActionsSpec
+					local function gated(
+						list: Types.Value<{ CollectionTypes.RowAction }>?
+					): Types.Value<{ CollectionTypes.RowAction }>?
+						if list == nil or spec.rowDeletable == nil then
+							return list
+						end
+						return function(use: ComposeTypes.Use): { CollectionTypes.RowAction }
+							local allowed = policy.allows(spec.rowDeletable, use(current))
+							local kept = {}
+							for _, action in read(list, use) do
+								if allowed or action.role ~= "destructive" then
+									table.insert(kept, action)
+								end
+							end
+							return kept
+						end
+					end
+					actionSpec.leading, actionSpec.trailing = gated(actionSpec.leading), gated(actionSpec.trailing)
 					actionSpec.content, actionSpec.coordinator = row, coordinator
 					actionSpec.Size = D2.fromScale(1, 1)
 					actionSpec.reducedMotion = spec.reducedMotion

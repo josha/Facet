@@ -739,6 +739,39 @@ t.describe("Compose native collections", function()
 		end)).toBe(false)
 	end)
 
+	t.it("withholds a table row's destructive actions from every route when rowDeletable refuses it", function()
+		local engine, runtime, UI, target = setup()
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				itemSize = 20,
+				deletable = true,
+				rowDeletable = function(item)
+					return item.id ~= 1
+				end,
+				onDelete = function() end,
+				columns = { { id = "label", label = "Label", width = 100 } },
+				rowActions = function()
+					return {
+						trailing = {
+							{ id = "delete", label = "Delete", role = "destructive" },
+							{ id = "flag", label = "Flag" },
+						},
+					}
+				end,
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 100)
+		local first, second = body:FindFirstChild("1", true), body:FindFirstChild("2", true)
+		t.expect(first:FindFirstChild("trailing", true):FindFirstChild("delete")).toBeNil()
+		t.expect(first:FindFirstChild("trailing", true):FindFirstChild("flag") ~= nil).toBe(true)
+		t.expect(second:FindFirstChild("trailing", true):FindFirstChild("delete") ~= nil).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
