@@ -62,6 +62,7 @@ local owner = Compose.createRootOwner(function()
 		worldTarget = workspace,
 		selection = selected,
 		demos = demos,
+		buildStamp = workspace:GetAttribute("Facet_Build"),
 		inputTarget = players.LocalPlayer:WaitForChild("PlayerGui"),
 		guiService = game:GetService("GuiService"),
 		runService = game:GetService("RunService"),

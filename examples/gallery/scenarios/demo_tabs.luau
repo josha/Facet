@@ -43,60 +43,48 @@ return function(ctx: any, id: string, groups: { any })
 				Size = UDim2.fromScale(1, 1),
 			})
 		end
-		local side, roomy, distant = Compose.cell(false), Compose.cell(false), Compose.cell(false)
-		local expanded = Compose.cell(false)
+		local home, distant = Compose.cell("automatic"), Compose.cell(false)
+		local effective = Compose.formula(function(use)
+			local choice, place = use(preference), use(home)
+			if use(distant) or choice == "automatic" or string.find(place, "bottom") ~= nil then
+				return place
+			end
+			return if choice == "side" then "sidebar" else "topBar"
+		end)
 		local view = UI.TabView({
 			Name = key,
 			selection = selected,
 			tabs = tabs,
 			style = "sidebarAdaptable",
-			sidebarExpanded = expanded,
 			placement = function(use)
-				local choice = use(preference)
-				if use(distant) or choice == "automatic" then
-					return "automatic"
-				end
-				return if use(side) then "sidebar" else "topBar"
+				local place = use(effective)
+				return if place == use(home) then "automatic" else place
 			end,
-			accessories = {
-				head = function()
-					return UI.Button "UseTopTabs" {
-						label = "Use top tabs",
-						appearance = "utility",
-						Size = UDim2.new(1, 0, 0, 40),
-						onActivate = function()
-							expanded:set(false)
-							preference:set("top")
-						end,
-					}
-				end,
-				trailing = function()
-					return UI.Button "UseSidebar" {
-						label = "",
-						name = "Use sidebar",
-						appearance = "utility",
-						icon = "menu",
-						Visible = roomy,
-						onActivate = function()
-							if distant:peek() then
-								expanded:set(true)
-							else
-								preference:set("side")
-							end
-						end,
-					}
-				end,
-			},
 			Size = UDim2.fromScale(1, 1),
 		})
 		local env = UI.environment(view)
 		Compose.watch(function(use)
-			local room = use(env.sizeClass) ~= "compact"
-			local choice = use(preference)
-			roomy:set(room)
+			home:set(use(env.navPlacement))
 			distant:set(use(env.isTenFoot))
-			side:set(if choice == "automatic" then use(env.navPlacement) == "sidebar" else choice == "side" and room)
 		end)
+		if ctx.categoryLayout then
+			local layout = {
+				placement = effective,
+				available = Compose.formula(function(use)
+					local place = use(effective)
+					return not use(distant) and (place == "sidebar" or place == "topBar")
+				end),
+				toggle = function()
+					preference:set(if effective:peek() == "sidebar" then "top" else "side")
+				end,
+			}
+			ctx.categoryLayout:set(layout)
+			Compose.cleanup(function()
+				if ctx.categoryLayout:peek() == layout then
+					ctx.categoryLayout:set(nil)
+				end
+			end)
+		end
 		return view
 	end
 	return {

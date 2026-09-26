@@ -1897,8 +1897,11 @@ t.describe("gallery motion setting", function()
 		end, target)
 		openSettings(root)
 		t.expect(find(root, "ShowcasePanel") ~= nil or find(root, "Section") ~= nil).toBe(true)
-		local sheet = find(target, "MotionNote").Parent
-		t.expect(sheet.Name).toBe("Settings")
+		local sheet = find(target, "MotionNote")
+		while sheet and sheet.Name ~= "Settings" do
+			sheet = sheet.Parent
+		end
+		t.expect(sheet ~= nil).toBe(true)
 		local picker = find(sheet, "Motion")
 		t.expect(picker ~= nil).toBe(true)
 		local full, reduced = find(picker, "full"), find(picker, "reduced")
@@ -1947,7 +1950,6 @@ t.describe("gallery motion setting", function()
 		full.Activated.fire()
 		t.expect(ctx.reducedMotion:peek()).toBe(true)
 		t.expect(ctx.motionMode:peek()).toBe("reduced")
-		find(sheet, "FollowRobloxMotion").Activated.fire()
 		gui.ReducedMotionEnabled = false
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		t.expect(full:GetAttribute("selected")).toBe(true)

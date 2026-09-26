@@ -970,7 +970,10 @@ t.describe("native parity themes", function()
 		local function choices(picker: any): { string }
 			local out = {}
 			for _, node in picker:GetDescendants() do
-				if node:IsA("TextButton") and node:GetAttribute("FacetLabel") ~= nil then
+				if
+					node:IsA("TextButton")
+					and (node:GetAttribute("FacetLabel") or node:GetAttribute("label")) ~= nil
+				then
 					table.insert(out, node)
 				end
 			end
@@ -979,16 +982,16 @@ t.describe("native parity themes", function()
 			end)
 			local labels = {}
 			for _, node in out do
-				table.insert(labels, node:GetAttribute("FacetLabel"))
+				table.insert(labels, node:GetAttribute("FacetLabel") or node:GetAttribute("label"))
 			end
 			return labels
 		end
 		openSettings(root)
-		local picker = find(root, "Theme")
+		local picker = find(root, "Packages")
 		t.expect(choices(picker)).toEqual({ "Facet Neutral", "Alpha", "Zeta" })
 		t.expect(choices(find(root, "Mode"))).toEqual({ "Dark", "Light" })
 		local initialWrites = writes
-		find(picker, "Alpha").Activated.fire()
+		find(picker, "P_Alpha").Activated.fire()
 		t.expect(ctx.theme:peek()).toBe(alpha)
 		t.expect(ctx.themeName:peek()).toBe("Alpha")
 		t.expect(ctx.themeMode:peek()).toBe("Dawn")
@@ -998,11 +1001,11 @@ t.describe("native parity themes", function()
 		find(mode, "Dusk").Activated.fire()
 		t.expect(ctx.themeMode:peek()).toBe("Dusk")
 		t.expect(ctx.theme:peek()).toBe(alpha)
-		find(find(root, "Theme"), "Alpha").Activated.fire()
+		find(find(root, "Packages"), "P_Alpha").Activated.fire()
 		t.expect(ctx.themeMode:peek()).toBe("Dusk")
 		t.expect(ctx.theme:peek()).toBe(alpha)
 		t.expect(writes).toBe(initialWrites + 1)
-		find(find(root, "Theme"), "Zeta").Activated.fire()
+		find(find(root, "Packages"), "P_Zeta").Activated.fire()
 		t.expect(ctx.theme:peek()).toBe(zeta)
 		t.expect(ctx.themeMode:peek()).toBe("Dark")
 		t.expect(choices(find(root, "Mode"))).toEqual({ "Dark", "Light" })

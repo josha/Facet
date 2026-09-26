@@ -590,9 +590,11 @@ t.describe("native parity weaker navigation", function()
 		for _, name in { "all_controls", "collections", "motion_layout" } do
 			local scenario = require("../examples/gallery/scenarios/" .. name) :: any
 			local placement = Compose.cell("automatic")
+			local layout = Compose.cell(nil :: any)
 			local ctx, root, stop = galleryFixture(function(context)
 				context.pageVisible = Compose.cell(true)
 				context.categoryPlacement = placement
+				context.categoryLayout = layout
 				return scenario.build(context).screen()
 			end)
 			local Enum, UDim2 = ctx.types.Enum, ctx.types.UDim2
@@ -614,10 +616,12 @@ t.describe("native parity weaker navigation", function()
 				t.expect(direction(first)).toBe(Enum.FillDirection.Horizontal)
 				t.expect(inner:FindFirstChild("Tabs").Position).toBe(UDim2.fromOffset(0, 0))
 			end
-			find(root, "UseTopTabs", "TextButton").Activated.fire()
+			t.expect(layout:peek().available:peek()).toBe(true)
+			t.expect(find(root, "UseTopTabs")).toBe(nil)
+			layout:peek().toggle()
 			t.expect(direction("Categories")).toBe(Enum.FillDirection.Horizontal)
 			unchanged()
-			find(root, "UseSidebar", "TextButton").Activated.fire()
+			layout:peek().toggle()
 			t.expect(direction("Categories")).toBe(Enum.FillDirection.Vertical)
 			unchanged()
 			ctx.inputService.PreferredInput = Enum.PreferredInput.Gamepad

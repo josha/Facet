@@ -5,6 +5,7 @@ local DEVICES = {
 	phone = { width = 389, height = 762, displaySize = "Small", input = "Touch", rotates = true },
 	tablet = { width = 768, height = 1024, displaySize = "Small", input = "Touch", rotates = true },
 	tv = { width = 1920, height = 1080, displaySize = "Large", input = "Gamepad" },
+	desktop = { displaySize = "Medium", input = "KeyboardAndMouse" },
 }
 screen.list = catalogue.list
 screen.next = catalogue.next
@@ -15,6 +16,7 @@ function screen.configure(ctx)
 	ctx.themeName = ctx.themeName or Compose.cell("Neutral")
 	ctx.viewingDistance = Compose.cell("automatic")
 	ctx.categoryPlacement = Compose.cell("automatic")
+	ctx.categoryLayout = Compose.cell(nil)
 	ctx.devicePreview = Compose.cell("automatic")
 	ctx.orientationPreview = Compose.cell("portrait")
 	ctx.device = Compose.formula(function(use)
@@ -40,7 +42,7 @@ function screen.configure(ctx)
 	ctx.metricScale = Compose.cell(nil)
 	ctx.previewScale = Compose.formula(function(use)
 		local device = use(ctx.device)
-		if device and display then
+		if device and device.width and display then
 			local size = use(display)
 			return math.min(1, size.width / device.width, (size.height - inset) / device.height)
 		end
@@ -49,12 +51,13 @@ function screen.configure(ctx)
 	if display then
 		ctx.previewViewport = Compose.formula(function(use)
 			local device = use(ctx.device)
-			return if device then { width = device.width, height = device.height } else use(display)
+			return if device and device.width then { width = device.width, height = device.height } else use(display)
 		end)
 		ctx.sceneViewport = Compose.formula(function(use)
 			local size = use(ctx.previewViewport)
 			local metric = use(ctx.metricScale)
-			local scale = (if use(ctx.device) then 1 else use(ctx.previewScale)) * (if metric then use(metric) else 1)
+			local framed = use(ctx.device) and use(ctx.device).width
+			local scale = (if framed then 1 else use(ctx.previewScale)) * (if metric then use(metric) else 1)
 			return { width = size.width / scale, height = size.height / scale }
 		end)
 	end
@@ -91,7 +94,7 @@ function screen.configure(ctx)
 		end,
 		viewportSize = function(use)
 			local device = use(ctx.device)
-			return device and ctx.types.Vector2.new(device.width, device.height)
+			return device and device.width and ctx.types.Vector2.new(device.width, device.height)
 		end,
 	}
 	ctx.hoverPreview = forced("KeyboardAndMouse")
@@ -148,6 +151,16 @@ function screen.setTheme(ctx, name)
 	return true
 end
 
+function screen.resetAll(ctx)
+	ctx.runtime.reactor:batch(function()
+		ctx.devicePreview:set("automatic")
+		ctx.orientationPreview:set("portrait")
+		ctx.inputPreview:set("automatic")
+		ctx.textPreview:set("automatic")
+		ctx.viewingDistance:set("automatic")
+	end)
+end
+
 function screen.dispatch(ctx, command, argument)
 	local ok = false
 	local demos = ctx.demos or catalogue.list()
@@ -176,6 +189,21 @@ function screen.dispatch(ctx, command, argument)
 		if ok then
 			ctx.devicePreview:set(argument)
 		end
+	elseif command == "input" then
+		ok = argument == "automatic" or argument == "KeyboardAndMouse" or argument == "Touch" or argument == "Gamepad"
+		if ok then
+			ctx.inputPreview:set(argument)
+		end
+	elseif command == "orientation" then
+		ok = argument == "portrait" or argument == "landscape"
+		if ok then
+			ctx.orientationPreview:set(argument)
+		end
+	elseif command == "panel" and ctx.requestPanel then
+		ok = argument == nil or argument == "demos" or argument == "settings"
+		if ok then
+			ctx.requestPanel(argument)
+		end
 	elseif command == "report" then
 		ok = true
 	end
@@ -187,6 +215,7 @@ function screen.dispatch(ctx, command, argument)
 		theme = ctx.themeName:peek(),
 		palette = ctx.themeMode:peek(),
 		demo = if command == "report" and ctx.currentReport then ctx.currentReport() else nil,
+		panel = if ctx.panelOpen and ctx.panelOpen:peek() then ctx.panelSection:peek() else nil,
 	}
 end
 
@@ -259,247 +288,303 @@ function screen.build(ctx: any)
 	table.sort(themes, function(a, b)
 		return if a.value == "Neutral" then true elseif b.value == "Neutral" then false else a.label < b.label
 	end)
-	local compact = Compose.formula(function(use)
-		local viewport = ctx.previewViewport and use(ctx.previewViewport)
-		return viewport ~= nil and viewport.height > 0 and viewport.height < 480
-	end)
 	local measuredToolbar = Compose.cell(56)
 	local toolbarHeight = function(use)
-		return if use(compact) then 0 else use(measuredToolbar)
+		return use(measuredToolbar)
+	end
+	local COPY = {
+		preview = "Preview as",
+		automatic = "Automatic",
+		desktop = "Desktop",
+		phone = "Phone",
+		tablet = "Tablet",
+		tv = "TV / 10-foot",
+		orientation = "Orientation",
+		portrait = "Portrait",
+		landscape = "Landscape",
+		input = "Input",
+		KeyboardAndMouse = "Mouse & keyboard",
+		Touch = "Touch",
+		Gamepad = "Gamepad",
+		resetAll = "Reset everything to Automatic",
+		previewNote = "Phone and tablet layouts fit within this window. Automatic input follows the preview device, or your current device in Automatic preview.",
+		motionNote = "Reduced removes decorative travel. Informational motion keeps running, in 250 ms steps.",
+	}
+	local function options(values)
+		local list = {}
+		for _, value in values do
+			table.insert(list, { value = value, label = COPY[value] })
+		end
+		return list
+	end
+	local function caption(name, text)
+		return UI.Text(name)({ text = text, textRole = "caption", role = "secondary", TextWrapped = true })
 	end
 	local function settingsContent()
-		return Host.Frame "Settings" {
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
-			UI.Picker({
-				LayoutOrder = 1,
-				Name = "Theme",
-				label = "Theme",
-				selected = themeName,
-				options = themes,
-				onChange = function(name)
-					screen.setTheme(ctx, name)
-				end,
-			}),
-			Compose.show(function(use)
-				return #use(ctx.theme).style.themes > 1
-			end, function()
-				return UI.Picker({
-					LayoutOrder = 2,
-					Name = "Mode",
-					label = "Appearance",
-					selected = ctx.themeMode,
-					options = function(use)
-						local choices = {}
-						for _, palette in use(ctx.theme).style.themes do
-							table.insert(choices, { value = palette.name, label = palette.name })
+		local themeChips = {}
+		for index, entry in themes do
+			table.insert(
+				themeChips,
+				UI.Button("P_" .. entry.value)({
+					LayoutOrder = index,
+					label = entry.label,
+					selected = function(use)
+						return use(themeName) == entry.value
+					end,
+					onActivate = function()
+						if themeName:peek() ~= entry.value then
+							screen.setTheme(ctx, entry.value)
 						end
-						return choices
 					end,
 				})
-			end),
-			UI.Picker({
-				LayoutOrder = 3,
-				Name = "Motion",
-				label = "Motion",
-				selected = ctx.motionMode,
-				options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
-				onChange = function(value)
-					ctx.motionPreference:set(value == "reduced")
-					ctx.motionMode:set(if ctx.reducedMotion:peek() then "reduced" else "full")
-				end,
-			}),
-			UI.Text({
-				LayoutOrder = 4,
-				Name = "MotionNote",
-				text = "Reduced removes decorative travel while progress keeps running. Roblox's reduced-motion preference remains in effect.",
-				textRole = "caption",
-				TextWrapped = true,
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				BackgroundTransparency = 1,
-			}),
-			UI.Button({
-				LayoutOrder = 5,
-				Name = "FollowRobloxMotion",
-				label = "Use Roblox motion preference",
-				appearance = "link",
-				onActivate = function()
-					ctx.motionPreference:set(nil)
-				end,
-			}),
-			UI.Picker({
-				LayoutOrder = 6,
-				Name = "ViewingDistance",
-				label = "Viewing-distance preview",
-				selected = ctx.viewingDistance,
-				options = {
-					{ value = "automatic", label = "Automatic" },
-					{ value = "near", label = "Near" },
-					{ value = "ten-foot", label = "Distant TV" },
+			)
+		end
+		local build = ctx.buildStamp
+		return UI.VStack "Settings" {
+			gap = "m",
+			width = "fill",
+			UI.VStack "Display" {
+				gap = "s",
+				width = "fill",
+				UI.Picker "Preview" {
+					label = COPY.preview,
+					style = "menu",
+					selected = ctx.devicePreview,
+					options = options({ "automatic", "desktop", "phone", "tablet", "tv" }),
 				},
-			}),
-			UI.Text({
-				LayoutOrder = 7,
-				text = "Distant TV uses the ten-foot sizes: controls, type and spacing at 150%, with TV overscan margins. Automatic follows the device; Near keeps arm's-length sizes.",
-				textRole = "caption",
-				TextWrapped = true,
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-			}),
-			UI.Picker({
-				LayoutOrder = 0,
-				Name = "CategoryPlacement",
-				label = "Categories",
-				selected = ctx.categoryPlacement,
-				options = {
-					{ value = "automatic", label = "Automatic" },
-					{ value = "top", label = "Top" },
-					{ value = "side", label = "Side" },
-				},
-			}),
-			UI.Picker({
-				LayoutOrder = 8,
-				Name = "DevicePreview",
-				label = "Device preview",
-				selected = ctx.devicePreview,
-				options = {
-					{ value = "automatic", label = "Automatic" },
-					{ value = "phone", label = "Phone" },
-					{ value = "tablet", label = "Tablet" },
-					{ value = "tv", label = "TV" },
-				},
-			}),
-			Compose.show(function(use)
-				local device = DEVICES[use(ctx.devicePreview)]
-				return device ~= nil and device.rotates == true
-			end, function()
-				return UI.Picker({
-					LayoutOrder = 9,
-					Name = "OrientationPreview",
-					label = "Orientation",
+				UI.Picker "Orientation" {
+					label = COPY.orientation,
+					style = "menu",
 					selected = ctx.orientationPreview,
-					options = {
-						{ value = "portrait", label = "Portrait" },
-						{ value = "landscape", label = "Landscape" },
-					},
-				})
-			end),
-			UI.Picker({
-				LayoutOrder = 10,
-				Name = "InputPreview",
-				label = "Input preview",
-				selected = ctx.inputPreview,
-				options = {
-					{ value = "automatic", label = "Automatic" },
-					{ value = "KeyboardAndMouse", label = "Keyboard and mouse" },
-					{ value = "Touch", label = "Touch" },
-					{ value = "Gamepad", label = "Gamepad" },
+					options = options({ "portrait", "landscape" }),
+					enabled = function(use)
+						local device = DEVICES[use(ctx.devicePreview)]
+						return device ~= nil and device.rotates == true
+					end,
 				},
-			}),
-			UI.Picker({
-				LayoutOrder = 11,
-				Name = "TextPreview",
-				label = "Text size preview",
-				selected = ctx.textPreview,
-				options = {
-					{ value = "automatic", label = "Automatic" },
-					{ value = "Medium", label = "Medium" },
-					{ value = "Large", label = "Large" },
-					{ value = "Larger", label = "Larger" },
-					{ value = "Largest", label = "Largest" },
+				UI.Picker "Input" {
+					label = COPY.input,
+					style = "menu",
+					selected = ctx.inputPreview,
+					options = options({ "automatic", "KeyboardAndMouse", "Touch", "Gamepad" }),
 				},
-			}),
-			UI.Text({
-				LayoutOrder = 12,
-				Name = "NativePreview",
-				text = "A device preview frames the gallery at that screen size and reads its display size and input: Phone and Tablet are touch, TV is a large display with a gamepad. The input and text size previews change what the controls read; your real input still works.",
-				textRole = "caption",
-				TextWrapped = true,
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				BackgroundTransparency = 1,
-			}),
+				UI.Button "ResetAll" {
+					label = COPY.resetAll,
+					onActivate = function()
+						screen.resetAll(ctx)
+					end,
+				},
+				caption("Note", COPY.previewNote),
+			},
+			UI.VStack "Motion" {
+				gap = "xs",
+				width = "fill",
+				UI.Picker "MotionMode" {
+					label = "Motion",
+					style = "segmented",
+					selected = ctx.motionMode,
+					options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
+					onChange = function(value)
+						ctx.motionPreference:set(value == "reduced")
+						ctx.motionMode:set(if ctx.reducedMotion:peek() then "reduced" else "full")
+					end,
+				},
+				caption("MotionNote", COPY.motionNote),
+			},
+			if type(build) == "string" and build ~= "" then caption("Build", `build {build}`) else nil,
+			UI.VStack "Choose" {
+				gap = "xs",
+				width = "fill",
+				caption("Title", "Theme"),
+				UI.Grid "Packages" { columns = 2, gap = "xs", table.unpack(themeChips) },
+				UI.HStack "Mode" {
+					gap = "xs",
+					Compose.keyed({
+						from = Compose.formula(function(use)
+							local names = {}
+							local palettes = use(ctx.theme).style.themes
+							for _, palette in if #palettes > 1 then palettes else {} do
+								table.insert(names, palette.name)
+							end
+							return names
+						end),
+						key = function(name)
+							return name
+						end,
+						render = function(_, position, name)
+							return UI.Button(name)({
+								label = name,
+								LayoutOrder = position,
+								selected = function(use)
+									return use(ctx.themeMode) == name
+								end,
+								onActivate = function()
+									ctx.themeMode:set(name)
+								end,
+							})
+						end,
+					}),
+				},
+			},
 		}
 	end
 	local panelOpen = Compose.cell(false)
 	local section = Compose.cell("demos")
+	ctx.panelOpen, ctx.panelSection = panelOpen, section
 	local titles = {}
 	for _, tab in tabs do
 		titles[tab.id] = tab.label
 	end
-	local function showcasePanel(order, open)
-		return UI.Popover "ShowcasePanel" {
-			LayoutOrder = order,
-			isPresented = open,
-			onPresentedChange = function(nextValue)
-				open:set(nextValue)
-			end,
-			compact = "popover",
-			edge = "bottom",
-			align = "start",
-			tail = false,
-			maxWidth = 460,
-			maxHeight = 560,
-			trigger = UI.Button "Showcase" {
-				label = function(use)
-					return if use(open) then "Close" else titles[use(selected)] or "Demos"
+	local environmentFacts = UI.environment()
+	local gamepad = function(use)
+		return use(environmentFacts.effectiveInput) == "Gamepad"
+	end
+	local function request(want)
+		local open = panelOpen:peek()
+		if want == nil then
+			panelOpen:set(not open)
+		elseif open and section:peek() == want then
+			panelOpen:set(false)
+		else
+			section:set(want)
+			panelOpen:set(true)
+		end
+	end
+	ctx.requestPanel = request
+	if ctx.inputTarget then
+		local function action(name, key, want)
+			return Host.InputAction(name)({
+				Type = Enum.InputActionType.Bool,
+				Pressed = function()
+					request(want)
 				end,
+				Host.InputBinding({ KeyCode = key }),
+			})
+		end
+		Host.InputContext "ShowcaseChromeToggle" {
+			Parent = ctx.inputTarget,
+			Priority = 13500,
+			Sink = true,
+			action("Activate", Enum.KeyCode.Backquote, nil),
+			action("ActivateDemos", Enum.KeyCode.ButtonL1, "demos"),
+			action("ActivateSettings", Enum.KeyCode.ButtonR1, "settings"),
+		}
+		Host.InputContext "ShowcasePanelCancel" {
+			Parent = ctx.inputTarget,
+			Priority = 2000,
+			Sink = true,
+			Enabled = panelOpen,
+			Host.InputAction "Cancel" {
+				Type = Enum.InputActionType.Bool,
+				Pressed = function()
+					panelOpen:set(false)
+				end,
+				Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }),
+				Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
 			},
-			content = function()
-				local demoButtons = {}
-				for index, tab in tabs do
-					table.insert(
-						demoButtons,
-						UI.Button("Demo-" .. tab.id)({
-							LayoutOrder = index,
-							label = tab.label,
-							appearance = function(use)
-								return if use(selected) == tab.id then "emphasis" else "standard"
-							end,
-							onActivate = function()
-								selected:set(tab.id)
-								open:set(false)
-							end,
-						})
-					)
-				end
-				return UI.VStack "Panel" {
-					gap = "s",
-					width = "fill",
-					UI.Text { text = "Section", textRole = "caption" },
-					UI.Picker {
-						Name = "Section",
-						style = "segmented",
-						selected = section,
-						options = { { value = "demos", label = "Demos" }, { value = "settings", label = "Settings" } },
-					},
-					Compose.show(function(use)
-						return use(section) == "demos"
-					end, function()
-						return UI.VStack "DemoList" {
-							gap = "xs",
-							align = "center",
-							width = "fill",
-							table.unpack(demoButtons),
-						}
-					end, function()
-						return settingsContent()
-					end),
-				}
-			end,
 		}
 	end
+	local function panel()
+		local demoButtons = {}
+		for index, tab in tabs do
+			table.insert(
+				demoButtons,
+				UI.Button("Demo-" .. tab.id)({
+					LayoutOrder = index,
+					label = tab.label,
+					selected = function(use)
+						return use(selected) == tab.id
+					end,
+					onActivate = function()
+						selected:set(tab.id)
+						panelOpen:set(false)
+					end,
+				})
+			)
+		end
+		local card = UI.ScrollView "ShowcasePanel" {
+			gap = "s",
+			padding = "s",
+			width = "hug",
+			height = "hug",
+			SelectionGroup = true,
+			SelectionBehaviorLeft = Enum.SelectionBehavior.Stop,
+			SelectionBehaviorRight = Enum.SelectionBehavior.Stop,
+			SelectionBehaviorDown = Enum.SelectionBehavior.Stop,
+			Host.UISizeConstraint {
+				MinSize = function(use)
+					local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
+					return ctx.types.Vector2.new(
+						if use(section) == "settings" then math.min(360, size.width - 28) else 0,
+						0
+					)
+				end,
+				MaxSize = function(use)
+					local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
+					return ctx.types.Vector2.new(size.width - 28, math.max(120, size.height - toolbarHeight(use) - 16))
+				end,
+			},
+			caption("SectionTitle", "Section"),
+			UI.Picker "Section" {
+				style = "segmented",
+				selected = section,
+				options = { { value = "demos", label = "Demos" }, { value = "settings", label = "Settings" } },
+			},
+			Compose.show(function(use)
+				return use(section) == "demos"
+			end, function()
+				return UI.VStack "DemoList" { gap = "xs", align = "center", width = "fill", table.unpack(demoButtons) }
+			end, settingsContent),
+		}
+		card:AddTag("facet-panel")
+		UI.focusSection(card, { focusOnAppear = true, returnFocus = true })
+		return card
+	end
+	local function hint(name, text)
+		return UI.Text(name)({ text = text, textRole = "caption", role = "secondary", Visible = gamepad })
+	end
+	local row = Host.Frame "Row" {
+		AutomaticSize = Enum.AutomaticSize.XY,
+		BackgroundTransparency = 1,
+		Host.UIListLayout({
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Top,
+		}),
+		hint("DemosHint", "LB"),
+		UI.Button "Showcase" {
+			label = function(use)
+				return if use(panelOpen) then "Close" else titles[use(selected)] or "Demos"
+			end,
+			onActivate = function()
+				request(nil)
+			end,
+		},
+		hint("SettingsHint", "RB"),
+		Compose.show(function(use)
+			local layout = use(ctx.categoryLayout)
+			return layout ~= nil and use(layout.available)
+		end, function()
+			return UI.Button "ToggleSidebar" {
+				label = function(use)
+					local layout = use(ctx.categoryLayout)
+					return if layout and use(layout.placement) == "sidebar" then "Use top tabs" else "Use sidebar"
+				end,
+				onActivate = function()
+					local layout = ctx.categoryLayout:peek()
+					if layout then
+						layout.toggle()
+					end
+				end,
+			}
+		end),
+	}
 	local toolbar = Host.Frame "Toolbar" {
-		Visible = function(use)
-			return not use(compact)
-		end,
+		ZIndex = 3,
 		Size = function(use)
-			return UDim2.new(1, 0, 0, if use(compact) then 0 else 56)
+			return UDim2.new(1, 0, 0, toolbarHeight(use))
 		end,
-		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Host.UIPadding({
 			PaddingLeft = UDim.new(0, 16),
@@ -507,27 +592,27 @@ function screen.build(ctx: any)
 			PaddingTop = UDim.new(0, 8),
 			PaddingBottom = UDim.new(0, 4),
 		}),
-		Host.UIListLayout({
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-		}),
-		showcasePanel(1, panelOpen),
+		Host.Frame "Column" {
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BackgroundTransparency = 1,
+			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+			row,
+			Compose.show(panelOpen, panel),
+		},
 	}
-	local toolbarSize = toolbar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	local rowSize = row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 		local scale = ctx.previewScale:peek()
-		measuredToolbar:set(math.max(56, math.ceil(toolbar.AbsoluteSize.Y / (if scale > 0 then scale else 1))))
+		measuredToolbar:set(math.max(56, math.ceil(row.AbsoluteSize.Y / (if scale > 0 then scale else 1)) + 12))
 	end)
 	Compose.cleanup(function()
-		toolbarSize:Disconnect()
+		rowSize:Disconnect()
 	end)
 	local root = Host.Frame "Gallery" {
 		AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = function(use)
 			local device = use(ctx.device)
-			if device then
+			if device and device.width then
 				return UDim2.fromOffset(device.width, device.height)
 			end
 			local inverse = 1 / use(ctx.previewScale)
@@ -553,6 +638,19 @@ function screen.build(ctx: any)
 		end,
 
 		toolbar,
+		Compose.show(panelOpen, function()
+			return Host.TextButton "ShowcaseDismiss" {
+				ZIndex = 2,
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Text = "",
+				AutoButtonColor = false,
+				Selectable = false,
+				Activated = function()
+					panelOpen:set(false)
+				end,
+			}
+		end),
 		UI.TabView "Demos" {
 			selection = selected,
 			tabs = tabs,
@@ -567,29 +665,9 @@ function screen.build(ctx: any)
 			end,
 		},
 	}
-	if ctx.inputTarget then
-		Host.ScreenGui "FacetGalleryMenu" {
-			ResetOnSpawn = false,
-			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-			ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets,
-			Enabled = compact,
-			Parent = ctx.inputTarget,
-			Host.StyleLink({ StyleSheet = ctx.sheet and Compose.static(ctx.sheet) }),
-			Host.Frame "Strip" {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Host.UIPadding({ PaddingLeft = UDim.new(0, 8) }),
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Horizontal,
-					VerticalAlignment = Enum.VerticalAlignment.Center,
-				}),
-				showcasePanel(1, Compose.cell(false)),
-			},
-		}
-	end
 	root:AddTag("facet-surface")
 	Compose.watch(function(use)
-		if use(ctx.device) then
+		if use(ctx.device) and use(ctx.device).width then
 			root:AddTag("facet-floating")
 		else
 			root:RemoveTag("facet-floating")

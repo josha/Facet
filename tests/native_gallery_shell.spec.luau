@@ -19,6 +19,18 @@ local function find(root, name, class)
 	return nil
 end
 
+local function disabled(node: any): boolean
+	if node:HasTag("facet-disabled") then
+		return true
+	end
+	for _, child in node:GetDescendants() do
+		if child:HasTag("facet-disabled") then
+			return true
+		end
+	end
+	return false
+end
+
 local function openSettings(root: any)
 	local function seek(node: any, name: string): any
 		if node.Name == name then
@@ -180,11 +192,11 @@ t.describe("native gallery shell parity", function()
 			t.expect(env.effectiveInput:peek()).toBe(input)
 		end
 		openSettings(root)
-		t.expect(find(root, "DevicePreview") ~= nil).toBe(true)
-		t.expect(find(root, "OrientationPreview")).toBe(nil)
+		t.expect(find(root, "Preview") ~= nil).toBe(true)
+		t.expect(disabled(find(root, "Orientation"))).toBe(true)
 		ctx.devicePreview:set("phone")
 		expectDevice(389, 762, "Small", "Touch")
-		t.expect(find(root, "OrientationPreview") ~= nil).toBe(true)
+		t.expect(disabled(find(root, "Orientation"))).toBe(false)
 		t.expect(surface:HasTag("facet-floating")).toBe(true)
 		ctx.orientationPreview:set("landscape")
 		expectDevice(762, 389, "Small", "Touch")
@@ -195,7 +207,7 @@ t.describe("native gallery shell parity", function()
 		t.expect(math.abs(scale.Scale - 720 / 1024) < 0.000001).toBe(true)
 		ctx.devicePreview:set("tv")
 		expectDevice(1920, 1080, "Large", "Gamepad")
-		t.expect(find(root, "OrientationPreview")).toBe(nil)
+		t.expect(disabled(find(root, "Orientation"))).toBe(true)
 		t.expect(math.abs(scale.Scale - 2 / 3) < 0.000001).toBe(true)
 		ctx.inputPreview:set("KeyboardAndMouse")
 		t.expect(env.effectiveInput:peek()).toBe("KeyboardAndMouse")
@@ -206,6 +218,94 @@ t.describe("native gallery shell parity", function()
 		t.expect(ctx.previewViewport:peek().width).toBe(1280)
 		t.expect(env.effectiveInput:peek()).toBe("KeyboardAndMouse")
 		t.expect(surface:HasTag("facet-floating")).toBe(false)
+		stop()
+	end)
+
+	t.it("is the pre-0.12 shell: shoulder hints, a card panel, the old settings and Use top tabs", function()
+		local ctx, root, stop = fixture(function(context)
+			context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			context.load = function()
+				return {
+					build = function(page)
+						return demoTabs(page, "TabsTest", {
+							{
+								id = "one",
+								label = "One",
+								scenario = {
+									build = function(inner)
+										return {
+											screen = function()
+												return inner.Host.Frame({ Name = "OnePage" })
+											end,
+										}
+									end,
+								},
+							},
+							{
+								id = "two",
+								label = "Two",
+								scenario = {
+									build = function(inner)
+										return {
+											screen = function()
+												return inner.Host.Frame({ Name = "TwoPage" })
+											end,
+										}
+									end,
+								},
+							},
+						})
+					end,
+				}
+			end
+			return gallery.build(context)
+		end)
+		find(root, "Categories").AbsoluteSize = ctx.types.Vector2.new(1200, 640)
+		local toolbar = find(root, "Toolbar")
+		local lb, rb = find(toolbar, "DemosHint"), find(toolbar, "SettingsHint")
+		t.expect(lb.Text).toBe("LB")
+		t.expect(rb.Text).toBe("RB")
+		t.expect(lb.Visible).toBe(false)
+		ctx.inputPreview:set("Gamepad")
+		t.expect(lb.Visible and rb.Visible).toBe(true)
+		ctx.inputPreview:set("KeyboardAndMouse")
+		local choice = find(toolbar, "ToggleSidebar", "TextButton")
+		t.expect(choice ~= nil).toBe(true)
+		t.expect(find(find(root, "Categories"), "UseTopTabs")).toBe(nil)
+		t.expect(find(find(root, "Categories"), "UseSidebar")).toBe(nil)
+		t.expect(choice:GetAttribute("FacetLabel") or choice.Text).toBe("Use top tabs")
+		choice.Activated.fire()
+		t.expect(choice:GetAttribute("FacetLabel") or choice.Text).toBe("Use sidebar")
+		t.expect(ctx.categoryPlacement:peek()).toBe("top")
+		choice.Activated.fire()
+		t.expect(ctx.categoryPlacement:peek()).toBe("side")
+		t.expect(find(root, "ShowcasePanel")).toBe(nil)
+		local toggle = find(ctx.inputTarget, "ShowcaseChromeToggle")
+		toggle:FindFirstChild("ActivateSettings").Pressed.fire()
+		local panel = find(root, "ShowcasePanel")
+		t.expect(panel ~= nil and panel:IsDescendantOf(toolbar)).toBe(true)
+		t.expect(find(root, "Popover")).toBe(nil)
+		for _, name in { "Preview", "Orientation", "Input", "ResetAll", "MotionMode", "Packages" } do
+			t.expect(`{name}: {find(panel, name) ~= nil}`).toBe(`{name}: true`)
+		end
+		for _, name in { "ViewingDistance", "CategoryPlacement", "TextPreview" } do
+			t.expect(`{name}: {find(panel, name) ~= nil}`).toBe(`{name}: false`)
+		end
+		local preview = find(panel, "Preview")
+		t.expect(find(preview, "desktop") ~= nil or find(preview, "Trigger") ~= nil).toBe(true)
+		ctx.devicePreview:set("phone")
+		ctx.inputPreview:set("Touch")
+		find(panel, "ResetAll").Activated.fire()
+		t.expect(ctx.devicePreview:peek()).toBe("automatic")
+		t.expect(ctx.inputPreview:peek()).toBe("automatic")
+		toggle:FindFirstChild("ActivateSettings").Pressed.fire()
+		t.expect(find(root, "ShowcasePanel")).toBe(nil)
+		toggle:FindFirstChild("ActivateDemos").Pressed.fire()
+		t.expect(find(root, "Demo-first") ~= nil).toBe(true)
+		find(root, "ShowcaseDismiss").Activated.fire()
+		t.expect(find(root, "ShowcasePanel")).toBe(nil)
+		toggle:FindFirstChild("Activate").Pressed.fire()
+		t.expect(find(root, "ShowcasePanel") ~= nil).toBe(true)
 		stop()
 	end)
 
@@ -259,13 +359,8 @@ t.describe("native gallery shell parity", function()
 		t.expect(gallery.dispatch(ctx, "theme", "missing").ok).toBe(false)
 		t.expect(ctx.themeName:peek()).toBe("Second")
 		openSettings(root)
-		local themePicker = find(root, "Theme")
-		local trigger = find(themePicker, "Trigger")
-		if trigger then
-			t.expect(trigger.Text).toBe("Second")
-		else
-			t.expect(find(themePicker, "Second"):GetAttribute("selected")).toBe(true)
-		end
+		t.expect(find(root, "P_Second"):GetAttribute("selected")).toBe(true)
+		t.expect(find(root, "P_Neutral"):GetAttribute("selected")).toBe(false)
 		gallery.dispatch(ctx, "next")
 		t.expect(ctx.active:peek()).toBe("second")
 		stop()
