@@ -300,6 +300,15 @@ return function(ctx: Shared.Context): Selection
 		end
 		local selectedObject = ctx.observe.SelectedObject(service)
 		local keyboard = ctx.observe.KeyboardEnabled(keys)
+		local preferred = ctx.observe.PreferredInput(keys)
+		local padPreferred = false
+		Compose.watch(function(use: ComposeTypes.Use)
+			local pad = use(preferred) == E.PreferredInput.Gamepad
+			if padPreferred and not pad and service.SelectedObject ~= nil then
+				service.SelectedObject = nil
+			end
+			padPreferred = pad
+		end)
 		local record: Snapshot? = nil
 		local pending = false
 		local function recover(): ()

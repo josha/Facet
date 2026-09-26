@@ -125,6 +125,28 @@ t.describe("stick entry", function()
 	end)
 end)
 
+t.describe("leaving the gamepad", function()
+	t.it(
+		"drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
+		function()
+			local w = setup(function(UI)
+				return UI.Screen "Page" { UI.Button "Q" { label = "Q" }, UI.Button "W" { label = "W" } }
+			end)
+			local E = w.engine.types.Enum
+			w.input.PreferredInput = E.PreferredInput.Gamepad
+			w.find("FacetEntry", w.parent):FindFirstChild("Enter").StateChanged.fire(w.engine.types.Vector2.new(0, -1))
+			t.expect(w.selected()).toBe("Q")
+			w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(w.selected()).toBe("nil")
+			w.tab()
+			t.expect(w.selected()).toBe("Q")
+			w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(w.selected()).toBe("Q")
+			w.stop()
+		end
+	)
+end)
+
 t.describe("focusSection entry rules", function()
 	local function sections(options: { [string]: any }?)
 		local shelf: any
