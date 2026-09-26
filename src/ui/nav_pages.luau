@@ -475,14 +475,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local plate = if indicatorOf(use) == "pill" then 2 * INSET else 0
 			local package = read(ctx.config.theme, use)
 			local skin = package and package.chrome and package.chrome.control
-			local carve = if skin and skin.contentInsets then skin.contentInsets else {}
-			return math.ceil(
-				label
-					+ glyph
-					+ 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
-					+ (carve.left or 0)
-					+ (carve.right or 0)
-			)
+			local insets = if skin then skin.contentInsets else nil
+			local carve = if insets then (insets.left or 0) + (insets.right or 0) else 0
+			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use) + carve)
 				+ 16
 				+ plate
 		end
