@@ -450,7 +450,6 @@ return function(
 					return D2.new(1, 0, 1, 2 * ctx.metric("radii.panel", use))
 				end,
 				Visible = reveal == "automatic",
-				Host.UICorner({}) :: Types.Child,
 			}),
 			"panel"
 		)
