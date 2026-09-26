@@ -5,6 +5,7 @@ local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local toastSchedule = require("./toast_schedule")
+local reservations = require("./reservations")
 
 type Controls = { Toast: Types.Constructor<Overlay.ToastSpec, Frame> }
 type Record = {
@@ -17,6 +18,7 @@ type Placed = { stack: Stack, id: number, layer: GuiBase2d }
 type Stack = {
 	schedule: toastSchedule.Schedule,
 	order: ComposeTypes.Cell<{ Record }>,
+	inset: ComposeTypes.Cell<number>,
 	time: number,
 	stop: (() -> ())?,
 }
@@ -66,7 +68,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end,
 		})
-		stack = { schedule = schedule, order = Compose.cell({} :: { Record }), time = 0, stop = nil }
+		stack = {
+			schedule = schedule,
+			order = Compose.cell({} :: { Record }),
+			inset = Compose.cell(0),
+			time = 0,
+			stop = nil,
+		}
 		byEdge[edge] = stack
 		return stack
 	end
@@ -150,7 +158,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return use(slide)
 		end
 		local function target(use: ComposeTypes.Use): number
-			local offset = MARGIN
+			local offset = MARGIN + use(stack.inset)
 			for _, other in use(stack.order) do
 				if other == record then
 					break
@@ -174,7 +182,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local y = if reduced(use, setting) then target(use) else use(settle)
-				local travel = (1 - amount(use)) * (use(record.height) + MARGIN)
+				local travel = (1 - amount(use)) * (use(record.height) + MARGIN + use(stack.inset))
 				local offset = y - travel
 				return if bottom then D2.new(0.5, 0, 1, -offset) else D2.new(0.5, 0, 0, offset)
 			end,
@@ -237,6 +245,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if stack.stop == nil and frames then
 				stack.stop = frames.onFrame(function(dt: number)
 					stack.time += dt
+					stack.inset:set(reservations.reserved(layer :: GuiBase2d, edge :: reservations.Edge))
 					stack.schedule.update()
 				end)
 			end

@@ -5,6 +5,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local toast_schedule = require("../src/ui/toast_schedule")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
+local reservations = require("../src/ui/reservations")
 local Vector2 = require("@lune/roblox").Vector2
 
 type Fixture = {
@@ -332,6 +333,60 @@ describe("UI.Toast: presentation", function()
 		expect(row.Position.Y.Scale).toBe(1)
 		expect(row.Position.Y.Offset).toBe(-8)
 		f.world.stop()
+	end)
+
+	it("docks clear of the app's reserved chrome on its edge, in its own or a sibling ScreenGui", function()
+		local f = toasts({ { message = "a", position = "bottom" }, { message = "b" } })
+		f.world.advance(0.1)
+		local other = f.world.engine.new("ScreenGui")
+		other.Parent = f.world.screen.Parent
+		other.AbsoluteSize = Vector2.new(800, 600)
+		local bar, notice = {}, {}
+		reservations.set(other, bar, "bottom", 540, 60)
+		reservations.set(f.world.screen, notice, "top", 0, 30)
+		f.world.advance(0.1)
+		local function offsets(): string
+			local out = {}
+			for _, row in rows(f.world) do
+				table.insert(out, `{overlay.find(row, "Message").Text}:{row.Position.Y.Offset}`)
+			end
+			table.sort(out)
+			return table.concat(out, " ")
+		end
+		expect(offsets()).toBe("a:-68 b:38")
+		other.Enabled = false
+		f.world.advance(0.1)
+		expect(offsets()).toBe("a:-8 b:38")
+		other.Enabled = true
+		reservations.clear(other, bar)
+		reservations.clear(f.world.screen, notice)
+		f.world.advance(0.1)
+		expect(offsets()).toBe("a:-8 b:8")
+		f.world.stop()
+	end)
+
+	it("a TabView bottom bar reserves its band on its layer, and a top bar does not", function()
+		for _, case in { { "bottomBar", 44 }, { "topBar", 0 } } do
+			local world = overlay.new(function(UI, Host)
+				local tabs = {}
+				for _, id in { "home", "feed" } do
+					table.insert(tabs, {
+						id = id,
+						label = id,
+						content = function()
+							return Host.Frame({ Name = "Page-" .. id })
+						end,
+					})
+				end
+				return UI.TabView({ selection = Compose.cell("home"), placement = case[1], tabs = tabs })
+			end, { reducedMotion = true })
+			local bar = world.find("Tabs")
+			bar.AbsolutePosition = Vector2.new(0, if case[2] > 0 then 556 else 0)
+			bar.AbsoluteSize = Vector2.new(800, 44)
+			expect(`{case[1]}: {world.screen:GetAttribute("FacetInsetBottom") or 0}`).toBe(`{case[1]}: {case[2]}`)
+			world.stop()
+			expect(`{case[1]} after: {world.screen:GetAttribute("FacetInsetBottom") or 0}`).toBe(`{case[1]} after: 0`)
+		end
 	end)
 
 	it("a same-key toast replaces the showing one after its read floor", function()

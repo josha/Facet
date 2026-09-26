@@ -36,6 +36,29 @@ function reservations.set(layer: Instance, token: unknown, edge: Edge, y: number
 	publish(layer)
 end
 
+function reservations.reserved(layer: GuiBase2d, edge: Edge): number
+	local parent = layer.Parent
+	local candidates: { Instance } = if parent then parent:GetChildren() else { layer }
+	local top, bottom = layer.AbsolutePosition.Y, layer.AbsolutePosition.Y + layer.AbsoluteSize.Y
+	local reserved = 0
+	for _, candidate in candidates do
+		local entries = layers[candidate]
+		local shown = candidate == layer or not candidate:IsA("LayerCollector") or (candidate :: LayerCollector).Enabled
+		if entries and shown and candidate:IsA("GuiBase2d") then
+			local origin = (candidate :: GuiBase2d).AbsolutePosition.Y
+			for _, entry in entries do
+				if entry.edge == edge then
+					reserved = math.max(
+						reserved,
+						if edge == "top" then origin + entry.y + entry.h - top else bottom - origin - entry.y
+					)
+				end
+			end
+		end
+	end
+	return reserved
+end
+
 function reservations.clear(layer: Instance, token: unknown)
 	local entries = layers[layer]
 	if entries and entries[token] then

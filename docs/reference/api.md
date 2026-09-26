@@ -1733,6 +1733,9 @@ TabView requires a writable `selection` that names a declared tab. It also
 requires `tabs` with unique `{ id, label, content }` entries. Tabs can be a
 plain array or a readable. `content` is a factory that returns native content.
 
+A bottom bar (with its `aboveBar` accessory) sets the `FacetInsetBottom`
+attribute on its layer while it shows, so a bottom Toast docks above it.
+
 By default, Compose `LayerStack` keeps the visited content
 (`retention = "all"`). Use `retention = "top"` to dispose departing pages after
 their transition. Keep durable page state in the model.
@@ -2476,7 +2479,11 @@ end, playerGui)
 - `key`: a toast with the same key replaces a queued one at once and a
   showing one when its read floor is met, so the two never show together.
 - `position`: `top` (the default) or `bottom`, the edge that the stack docks
-  to. Each edge of a layer has its own stack.
+  to. Each edge of a layer has its own stack. The stack docks clear of the
+  app's reserved chrome on that edge: the deepest `FacetInsetTop` or
+  `FacetInsetBottom` reservation of its layer and of every enabled sibling
+  ScreenGui (a TabView bottom bar, a visible Snackbar, an affixed Notice),
+  read each frame while a toast shows.
 - `width`: `fill` (the default) spans the layer less 16 pixels on each side.
   `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
 - `fade`: `true` also fades the row in and out as it slides. By default a row

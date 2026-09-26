@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Toast stack docks clear of the app's reserved chrome on its edge, in its own ScreenGui or an enabled sibling one (`reservations.reserved`), and a TabView bottom bar now reserves its band (`FacetInsetBottom`). Before, a bottom toast painted over a bottom bar that lived in another ScreenGui, and no bottom bar reserved anything.
 - A Popover, Callout or help panel beside its source (a side edge) that is shorter than 39 pixels keeps its tail, centred on its side. Before, the tail was dropped whenever the panel was too short for the tail plus its 8 pixel end insets.
 - `UI.Text { reveal = "auto" }` (restored from 0.11): a truncated one-line label rests in its ellipsis, then scrolls its whole value left to the tail and back, one strip at a time, never under reduced motion or while its disclosure panel shows.
 - `UI.Toggle { disclose = true }` shows the whole value of a truncated label in the `Disclosure` panel (restored from 0.11), on a settings row too. A Button with a leading icon or a subtitle gates `disclose` on its painted `Title` label; before, it read the empty button text, which always fits, so the panel never showed.

@@ -7,6 +7,7 @@ local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
+local reservations = require("./reservations")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -715,6 +716,36 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			bar:SetAttribute("FacetEntry", use(spec.selection))
+		end)
+		local ancestry, barAt, barSize =
+			Compose.cell(0), ctx.observe.AbsolutePosition(bar), ctx.observe.AbsoluteSize(bar)
+		local reserved: Instance? = nil
+		runtime.connect(bar, "AncestryChanged", function()
+			ancestry:set(ancestry:peek() + 1)
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			local layer = bar:FindFirstAncestorWhichIsA("LayerCollector")
+			if reserved and reserved ~= layer then
+				reservations.clear(reserved, bar)
+			end
+			reserved = layer
+			if layer and layer:IsA("GuiBase2d") then
+				local band = string.find(use(placement), "bottom") ~= nil and use(barSize).Y > 0
+				local top = use(barAt).Y - (layer :: GuiBase2d).AbsolutePosition.Y - use(aboveHeight)
+				reservations.set(
+					layer,
+					bar,
+					"bottom",
+					if band then top else nil,
+					if band then use(barSize).Y + use(aboveHeight) else nil
+				)
+			end
+		end)
+		Compose.cleanup(function()
+			if reserved then
+				reservations.clear(reserved, bar)
+			end
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(tabLinks)
