@@ -485,7 +485,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local action = spec.action :: Overlay.ToastAction
 		local button = UI.Button "Action" {
 			label = action.label,
-			appearance = "link",
 			LayoutOrder = 2,
 			onActivate = function()
 				if record.state:peek() ~= "shown" then
