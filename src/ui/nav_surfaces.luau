@@ -1325,6 +1325,44 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 				end
+				local gui = ctx.config.guiService
+				if gui then
+					local anchor = spec.anchor
+					local selection = ctx.observe.SelectedObject(gui)
+					local panelAt = ctx.observe.AbsolutePosition(panel)
+					local linked: string? = nil
+					local function unlink()
+						if linked then
+							(anchor :: any)["NextSelection" .. linked] = nil
+							linked = nil
+						end
+					end
+					Compose.watch(function(use: ComposeTypes.Use)
+						local below = (use(panelAt) :: Vector2).Y > anchor.AbsolutePosition.Y
+						local direction = if below then "Down" else "Up"
+						local target = surfaces.firstSelectable(panel)
+						if linked ~= direction then
+							unlink()
+							if target and (anchor :: any)["NextSelection" .. direction] == nil then
+								(anchor :: any)["NextSelection" .. direction] = target
+								linked = direction
+							end
+						end
+					end)
+					Compose.cleanup(function()
+						unlink()
+						local current = gui.SelectedObject
+						if current and current:IsDescendantOf(panel) then
+							gui.SelectedObject = if anchor.Selectable and anchor.Parent then anchor else nil
+						end
+					end)
+					ctx.action(panel, "CalloutBack", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use)
+						local current = use(selection) :: Instance?
+						return current ~= nil and current:IsDescendantOf(panel)
+					end, function()
+						retire("dismissed")
+					end, { priority = 2000 })
+				end
 				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] } else panel :: Instance
 			end, { motion = timing }),
 		})

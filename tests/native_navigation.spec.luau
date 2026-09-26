@@ -2234,6 +2234,56 @@ t.describe("native navigation controls", function()
 		t.expect(find(world.screen, "PagesLayout").Animated).toBe(false)
 		world.stop()
 	end)
+	t.it("lets one arrow from the anchor reach a callout plate and B dismiss it back to the anchor", function()
+		local reasons = {}
+		local world = setup(function(UI, Host)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor,
+				UI.Callout({
+					anchor = anchor,
+					edge = "bottom",
+					title = "New",
+					onRetire = function(reason)
+						table.insert(reasons, reason)
+					end,
+				}),
+			})
+		end)
+		local V = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V.new(960, 720)
+		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V.new(100, 100), V.new(200, 44)
+		panel.AbsolutePosition, panel.AbsoluteSize = V.new(100, 160), V.new(280, 120)
+		world.settle()
+		local dismiss = find(world.screen, "Dismiss")
+		world.gui.SelectedObject = anchor
+		t.expect(anchor.NextSelectionDown).toBe(dismiss)
+		world.gui.SelectedObject = dismiss
+		local back
+		for _, node in world.screen:GetDescendants() do
+			if node:IsA("InputContext") and node.Enabled then
+				for _, action in node:GetChildren() do
+					for _, binding in action:GetChildren() do
+						if
+							binding:IsA("InputBinding")
+							and binding.KeyCode == world.engine.types.Enum.KeyCode.ButtonB
+						then
+							back = action
+						end
+					end
+				end
+			end
+		end
+		t.expect(back ~= nil).toBe(true)
+		back.Pressed.fire()
+		t.expect(reasons[1]).toBe("dismissed")
+		world.settle()
+		t.expect(world.gui.SelectedObject).toBe(anchor)
+		t.expect(anchor.NextSelectionDown).toBe(nil)
+		world.stop()
+	end)
+
 	t.it("keeps measured callout arrows outside automatic content bounds", function()
 		local world = setup(function(UI, Host, engine)
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
