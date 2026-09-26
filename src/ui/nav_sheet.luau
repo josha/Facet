@@ -631,6 +631,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				"grabber"
 			) :: Types.Child,
 		}
+		local function stepTo(direction: number, use: ComposeTypes.Use?): Detent?
+			local sorted = ordered()
+			return sorted[(table.find(sorted, selected(use)) or 1) + direction]
+		end
+		UI.adjustable(grabber, {
+			axis = "horizontal",
+			onAdjust = function(direction: number)
+				local target = stepTo(direction)
+				if target then
+					select(target.id)
+				end
+			end,
+			canAdjust = function(direction: number, use: ComposeTypes.Use?): boolean
+				return stepTo(direction, use) ~= nil
+			end,
+		})
 		Compose.watch(function(use: ComposeTypes.Use)
 			grabber:SetAttribute(
 				"AccessibleLabel",

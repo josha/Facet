@@ -1836,6 +1836,31 @@ t.describe("native parity weaker focus", function()
 		single.stop()
 	end)
 
+	t.it("resizes a selected sheet grabber with Left and Right, as the pre-0.12 Adjust did", function()
+		local detent = Compose.cell("peek")
+		local world = setup(function(UI)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = detent,
+				detents = { "medium", "large", { id = "peek", height = 160 } },
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end)
+		world.gui.SelectedObject = find(world.screen, "Grabber")
+		action(world.screen, "IncreaseArrow").Pressed.fire()
+		t.expect(detent:peek()).toBe("medium")
+		action(world.screen, "IncreaseArrow").Released.fire()
+		action(world.screen, "IncreaseArrow").Pressed.fire()
+		t.expect(detent:peek()).toBe("large")
+		action(world.screen, "IncreaseArrow").Released.fire()
+		t.expect(action(world.screen, "IncreaseArrow")).toBeNil()
+		action(world.screen, "DecreaseArrow").Pressed.fire()
+		t.expect(detent:peek()).toBe("medium")
+		world.stop()
+	end)
+
 	t.it("retakes the modal entry when the engine refuses it before the panel is laid out", function()
 		local presented = Compose.cell(false)
 		local world = setup(function(UI, Host)
