@@ -257,28 +257,35 @@ t.describe("DateTimePicker: a single date", function()
 		w.stop()
 	end)
 
-	t.it("the year menu is a bounded window on the shown year, never thousands of blurred rows (owner)", function()
-		local cell, _, change = caller(D(2026, 9, 5))
-		local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
-		must(w.picker(), "Year").Activated.fire()
-		local rows = must(w.screen, "MenuRows")
-		local years = {}
-		for _, row in rows:GetChildren() do
-			if tonumber(row.Name) then
-				table.insert(years, tonumber(row.Name))
+	t.it(
+		"the year menu is a short bounded window on the shown year, never thousands of blurred rows (owner)",
+		function()
+			local cell, _, change = caller(D(2026, 9, 5))
+			local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
+			must(w.picker(), "Year").Activated.fire()
+			local rows = must(w.screen, "MenuRows")
+			local years = {}
+			for _, row in rows:GetChildren() do
+				if tonumber(row.Name) then
+					table.insert(years, tonumber(row.Name))
+				end
 			end
+			table.sort(years)
+			expect(`{#years} {years[1]} {years[#years]}`).toBe("101 1976 2076")
+			local V2 = w.engine.types.Vector2
+			rows.AbsoluteSize = V2.new(200, 101 * 44)
+			must(w.screen, "Modal").AbsoluteSize = V2.new(900, 900)
+			expect(must(w.screen, "MenuPanel").Size.Y.Offset <= 5 * 44).toBe(true)
+			expect(w.selected()).toBe(must(rows, "2026"))
+			must(rows, "1976").Activated.fire()
+			must(w.picker(), "Year").Activated.fire()
+			rows = must(w.screen, "MenuRows")
+			expect(`{find(rows, "1926") ~= nil} {find(rows, "1925") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
+				"true false true"
+			)
+			w.stop()
 		end
-		table.sort(years)
-		expect(`{#years} {years[1]} {years[#years]}`).toBe("101 1976 2076")
-		expect(w.selected()).toBe(must(rows, "2026"))
-		must(rows, "1976").Activated.fire()
-		must(w.picker(), "Year").Activated.fire()
-		rows = must(w.screen, "MenuRows")
-		expect(`{find(rows, "1926") ~= nil} {find(rows, "1925") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
-			"true false true"
-		)
-		w.stop()
-	end)
+	)
 
 	t.it(
 		"the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped (owner)",

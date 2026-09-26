@@ -1057,7 +1057,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			menuName: string,
 			options: (Use) -> { { value: number, label: string, enabled: (Use) -> boolean } },
 			get: (CivilDate) -> number,
-			set: (number) -> ()
+			set: (number) -> (),
+			maxHeight: number?
 		): GuiObject
 			local pick = Compose.cell(get(peekMonth()))
 			Compose.watch(function(use: Use)
@@ -1101,6 +1102,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				items = items,
 				trigger = trigger :: GuiObject,
 				presentation = "menu" :: "menu",
+				align = "center" :: "center",
+				maxHeight = maxHeight,
 				enabled = function(use: Use)
 					return interactive(use)
 				end,
@@ -1152,7 +1155,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				return m.year
 			end, function(v: number)
 				landIn({ year = v, month = peekMonth().month, day = 1 })
-			end)
+			end, 5 * CELL)
 			upTarget:set(monthMenu)
 			local function arrow(name: string, icon: string, words_: string, delta: number): TextButton
 				return UI.Button({
