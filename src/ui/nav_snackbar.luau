@@ -503,6 +503,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				gui.SelectedObject = back
 			end
 		end, { priority = 2500 })
+		local raiser = returnTo
+		local target = surfaces.firstSelectable(row)
+		if raiser and target and raiser.NextSelectionDown == nil then
+			raiser.NextSelectionDown = target
+			Compose.cleanup(function()
+				if raiser.NextSelectionDown == target then
+					raiser.NextSelectionDown = nil :: any
+				end
+			end)
+		end
 		local parent = ctx.observe.Parent(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(parent) then
