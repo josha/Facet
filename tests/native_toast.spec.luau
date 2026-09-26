@@ -206,6 +206,37 @@ describe("toast schedule: supersede and capacity", function()
 	end)
 end)
 
+describe("toast schedule: held entries propose instead of retiring", function()
+	it("a held entry asks once per reason and stays until dismissed", function()
+		local asked: { string } = {}
+		local f = fixture({
+			maxVisible = 1,
+			onPropose = function(entry: any, reason: string)
+				table.insert(asked, `{entry.data}:{reason}`)
+			end,
+		})
+		f.schedule.push({ data = "held", duration = 2, held = true })
+		f.advance(2.1)
+		f.advance(5)
+		expect(table.concat(asked, ",")).toBe("held:timeout")
+		expect(f.keys()).toBe("held")
+		f.schedule.push({ data = "urgent", priority = 5 })
+		f.advance(1)
+		expect(table.concat(asked, ",")).toBe("held:timeout,held:preempt")
+		expect(f.keys()).toBe("held")
+		f.schedule.dismiss(1, "action")
+		expect(f.keys()).toBe("urgent")
+		expect(f.events[1].reason).toBe("action")
+	end)
+
+	it("an infinite duration never times out", function()
+		local f = fixture()
+		f.schedule.push({ data = "sticky", duration = math.huge })
+		f.advance(1e6)
+		expect(f.keys()).toBe("sticky")
+	end)
+end)
+
 describe("toast schedule: explicit dismissal", function()
 	it("dismiss retires a showing toast and promotes the queue in the same call", function()
 		local f = fixture({ maxVisible = 1 })
@@ -302,6 +333,35 @@ describe("UI.Toast: presentation", function()
 		end
 		expect(f.world.gui.SelectedObject).toBe(under)
 		expect(row.ZIndex > 1 and row.ZIndex < 100).toBe(true)
+		f.world.stop()
+	end)
+
+	it("an icon sits before the message; a bound passive toast proposes its timeout", function()
+		local fact = Compose.cell(true)
+		local asked: { boolean } = {}
+		local f = toasts({
+			{
+				message = "Saved",
+				icon = "status.info",
+				duration = 2,
+				isPresented = fact,
+				onPresentedChange = function(value: boolean)
+					table.insert(asked, value)
+					fact:set(value)
+				end,
+			},
+		})
+		f.world.advance(0.1)
+		local row = rows(f.world)[1]
+		expect(overlay.find(row, "Icon") ~= nil).toBe(true)
+		f.world.advance(3, 6)
+		expect(asked).toEqual({ false })
+		f.world.advance(0.3)
+		expect(messages(f.world)).toBe("")
+		expect(f.reasons[1]).toBe("Saved:timeout")
+		fact:set(true)
+		f.world.advance(0.1)
+		expect(messages(f.world)).toBe("Saved")
 		f.world.stop()
 	end)
 

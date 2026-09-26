@@ -7,7 +7,7 @@ styling. `Host` is the runtime's native constructor table.
 - **Discover:** a paged, windowed catalog of `UI.Card` items with live
   procedural previews. A card body opens the details. The primary action saves
   the game, and the More menu has Share, Not interested and Report. A save or a
-  hide shows a `UI.Snackbar` with Undo. The details show a launch
+  hide shows a `UI.Toast` with Undo. The details show a launch
   `UI.StepIndicator` (Find server, Load world, Join), a `UI.DateTimePicker` for
   a play session, star ratings, a trend line, and similar games in pages of six
   with `UI.Pagination`. A search with no results shows a `UI.Notice` with Clear

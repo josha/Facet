@@ -319,13 +319,14 @@ t.describe("presentation motion: DisclosureGroup", function()
 	end)
 end)
 
-t.describe("presentation motion: Snackbar and Notice", function()
-	t.it("a snackbar row slides up and fades in, then slides down and fades out", function()
+t.describe("presentation motion: Toast with an action, and Notice", function()
+	t.it("an action toast row slides up and fades in, then slides down and fades out", function()
 		local shown = Compose.cell(false)
 		local w = overlay.new(function(UI)
-			return UI.Snackbar "Saved" {
+			return UI.Toast "Saved" {
 				isPresented = shown,
 				message = "Saved",
+				action = { label = "Undo", onActivate = function() end },
 				closeButton = false,
 			}
 		end)

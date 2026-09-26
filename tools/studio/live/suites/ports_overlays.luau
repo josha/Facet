@@ -1105,7 +1105,7 @@ add("snackbar-art-carve", { "post-overlays-070" }, function(t)
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Snackbar "Everything" {
+				UI.Toast "Everything" {
 					isPresented = shown,
 					message = "Offline: your times will upload when you reconnect.",
 					icon = "status.warning",
@@ -1118,7 +1118,7 @@ add("snackbar-art-carve", { "post-overlays-070" }, function(t)
 		end, { theme = theme.package, frames = 20 })
 		local gui = layerOf(stage)
 		local row = visibleNamed(t, gui, "Snack")
-		t.check(theme.name .. " the snackbar shows", row ~= nil)
+		t.check(theme.name .. " the action toast shows", row ~= nil)
 		if row then
 			t.stable(row)
 			local chrome = theme.package.chrome
@@ -1191,9 +1191,10 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 				end,
 				onRetire = function() end,
 			},
-			UI.Snackbar "Snack1" {
+			UI.Toast "Snack1" {
 				isPresented = Compose.cell(true),
 				message = "Kart sold. The garage has room for one more.",
+				action = { label = "Undo", onActivate = function() end },
 				closeButton = false,
 			},
 			UI.Dialog "Leave" {
@@ -1210,7 +1211,7 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 	local gui = layerOf(stage)
 	t.note("layer z-index behavior", tostring(gui.ZIndexBehavior))
 	local row = visibleNamed(t, gui, "Snack")
-	t.check("the snackbar row shows", row ~= nil)
+	t.check("the action toast row shows", row ~= nil)
 	calloutOn:set(true)
 	GuiService.SelectedObject = trigger
 	t.settle(50)
@@ -1220,12 +1221,12 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 	t.check("the help plate shows", plate ~= nil)
 	if row and callout then
 		local above, detail = paintsAbove(callout, row)
-		t.check("the callout paints above the snackbar row", above == true, detail)
+		t.check("the callout paints above the action toast row", above == true, detail)
 		t.note("callout overlaps the row", overlap(t.rect(callout), t.rect(row)))
 	end
 	if row and plate then
 		local above, detail = paintsAbove(plate, row)
-		t.check("the help plate paints above the snackbar row", above == true, detail)
+		t.check("the help plate paints above the action toast row", above == true, detail)
 	end
 	dialogOn:set(true)
 	t.settle(30)
@@ -1238,7 +1239,7 @@ add("snackbar-paint-order", { "post-overlays-071" }, function(t)
 	t.stable(panel)
 	if row then
 		local above, detail = paintsAbove(panel, row)
-		t.check("the dialog paints above the snackbar row", above == true, detail)
+		t.check("the dialog paints above the action toast row", above == true, detail)
 	end
 	callout = visibleNamed(t, gui, "CalloutPanel")
 	plate = visibleNamed(t, gui, "Help")
@@ -1278,29 +1279,43 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 			end
 			local undo = { label = "Undo", onActivate = function() end }
 			local close = cell("WithClose")
+			local function answer(name: string): (boolean) -> ()
+				return function(nextValue: boolean)
+					cells[name]:set(nextValue)
+				end
+			end
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Snackbar "Plain" {
+				UI.Toast "Plain" {
 					isPresented = cell("Plain"),
 					message = "Saved to your garage.",
-					closeButton = false,
+					width = "hug",
+					duration = 60,
+					onPresentedChange = answer("Plain"),
 				},
-				UI.Snackbar "WithAction" {
+				UI.Toast "WithAction" {
 					isPresented = cell("WithAction"),
 					message = "Kart sold.",
 					action = undo,
 					closeButton = false,
 				},
-				UI.Snackbar "WithClose" {
+				UI.Toast "WithClose" {
 					isPresented = close,
 					message = "Friend request sent.",
+					action = undo,
 					onPresentedChange = function(nextValue: boolean)
 						close:set(nextValue)
 					end,
 				},
-				UI.Snackbar "LongPlain" { isPresented = cell("LongPlain"), message = long, closeButton = false },
-				UI.Snackbar "LongAction" {
+				UI.Toast "LongPlain" {
+					isPresented = cell("LongPlain"),
+					message = long,
+					width = "hug",
+					duration = 60,
+					onPresentedChange = answer("LongPlain"),
+				},
+				UI.Toast "LongAction" {
 					isPresented = cell("LongAction"),
 					message = long,
 					action = undo,
@@ -1314,7 +1329,7 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 		local function show(name: string): any
 			cells[name]:set(true)
 			t.settle(14)
-			local row = visibleNamed(t, gui, "Snack")
+			local row = visibleNamed(t, gui, if string.find(name, "Plain") then "ToastRow" else "Snack")
 			t.check(`{where} {name} shows`, row ~= nil)
 			if row then
 				t.stable(row)
@@ -1336,8 +1351,8 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 				t.near(
 					`{where} a message-only row hugs its text`,
 					row.AbsoluteSize.X,
-					math.ceil(message.TextBounds.X) + pads + 2,
-					2
+					math.ceil(message.TextBounds.X) + pads,
+					3
 				)
 				t.check(
 					`{where} the plain message stays on one line`,
@@ -1408,7 +1423,7 @@ add("snackbar-composition-widths", { "post-overlays-048", "post-overlays-049", "
 			)
 		end
 		if widths.LongPlain and widths.WithAction then
-			t.near(`{where} a long plain row hugs up to the strip width`, widths.LongPlain, widths.WithAction, 1)
+			t.near(`{where} a long plain row hugs up to its cap`, widths.LongPlain, math.min(560, cap), 1)
 		end
 		t.cleanup()
 	end

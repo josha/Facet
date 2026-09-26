@@ -165,9 +165,6 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 		Toast = function()
 			return { message = "Saved" }
 		end,
-		Snackbar = function()
-			return { isPresented = Compose.cell(false), message = "Saved", closeButton = false }
-		end,
 		Notice = function()
 			return { message = "Saved" }
 		end,

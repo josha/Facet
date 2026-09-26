@@ -209,9 +209,6 @@ local fixtures = {
 	Dialog = function()
 		return { title = "Confirm", isPresented = Compose.cell(false), closeButton = false }
 	end,
-	Snackbar = function()
-		return { isPresented = Compose.cell(false), message = "Saved", closeButton = false }
-	end,
 	Toast = function()
 		return { message = "Saved" }
 	end,

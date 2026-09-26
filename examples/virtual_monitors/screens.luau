@@ -140,7 +140,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					local live = use(source)
 					return live ~= nil and live.serial == toast.serial
 				end)
-				return UI.Snackbar(app .. "Toast")({
+				return UI.Toast(app .. "Toast")({
 					isPresented = presented,
 					onPresentedChange = function(value)
 						if not value then

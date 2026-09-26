@@ -35,6 +35,9 @@ end
 
 type Entry = { c: Caller, message: string?, spec: { [string]: any }? }
 
+local noop = function() end
+local UNDO = { label = "Undo", onActivate = noop }
+
 local function mount(list: { Entry }, options: any?): any
 	local o = options or {}
 	local gate = Compose.cell(true)
@@ -50,11 +53,12 @@ local function mount(list: { Entry }, options: any?): any
 						message = entry.message or `Message {index}`,
 						onPresentedChange = entry.c.onPresentedChange,
 						onDismiss = entry.c.onDismiss,
+						action = UNDO,
 					}
 					for key, value in entry.spec or {} do
 						spec[key] = value
 					end
-					table.insert(nodes, UI.Snackbar(`S{index}`)(spec))
+					table.insert(nodes, UI.Toast(`S{index}`)(spec))
 				end
 				return Host.Frame({ Name = "Holder", table.unpack(nodes) })
 			end),
@@ -77,15 +81,13 @@ local function frames(w: any, seconds: number)
 	w.advance(seconds, math.max(1, math.floor(seconds * 60 + 0.5)))
 end
 
-local noop = function() end
-
-t.describe("native Snackbar: presentation", function()
+t.describe("native Toast with an action: presentation", function()
 	t.it("a registration presents nothing and reserves nothing while its fact is false", function()
 		local c = caller()
 		local w = mount({ { c = c, spec = { closeButton = false, onPresentedChange = noop } } })
 		t.expect(w.rows()).toBe(0)
 		t.expect(w.screen:GetAttribute("FacetInsetBottom") or 0).toBe(0)
-		t.expect(w.find("S1"):GetAttribute("SnackbarAdmitted")).toBe(false)
+		t.expect(w.find("S1"):GetAttribute("ToastQueued")).toBe(false)
 		local stops = {}
 		local registration = w.find("S1")
 		for _, node in w.screen:GetDescendants() do
@@ -128,27 +130,13 @@ t.describe("native Snackbar: presentation", function()
 		w.stop()
 	end)
 
-	t.it("the six compositions pick their parts and widths", function()
+	t.it("the four compositions pick their parts and take the strip's width", function()
 		for _, case in
 			{
-				{ name = "message", spec = { closeButton = false }, constrained = false },
-				{ name = "icon+message", spec = { closeButton = false, icon = "status.info" }, constrained = false },
-				{
-					name = "message+action",
-					spec = { closeButton = false, action = { label = "Undo", onActivate = noop } },
-					constrained = true,
-				},
-				{ name = "message+close", spec = {}, constrained = true },
-				{
-					name = "message+action+close",
-					spec = { action = { label = "Undo", onActivate = noop } },
-					constrained = true,
-				},
-				{
-					name = "icon+message+action+close",
-					spec = { icon = "status.info", action = { label = "Undo", onActivate = noop } },
-					constrained = true,
-				},
+				{ name = "message+action", spec = { closeButton = false } },
+				{ name = "icon+message+action", spec = { closeButton = false, icon = "status.info" } },
+				{ name = "message+action+close", spec = {} },
+				{ name = "icon+message+action+close", spec = { icon = "status.info" } },
 			} :: { any }
 		do
 			local c = caller()
@@ -157,37 +145,17 @@ t.describe("native Snackbar: presentation", function()
 			local row = w.find("Snack")
 			t.expect(`{case.name} icon: {overlay.find(row, "Icon") ~= nil}`)
 				.toBe(`{case.name} icon: {case.spec.icon ~= nil}`)
-			t.expect(`{case.name} action: {overlay.find(row, "Action") ~= nil}`)
-				.toBe(`{case.name} action: {case.spec.action ~= nil}`)
+			t.expect(`{case.name} action: {overlay.find(row, "Action") ~= nil}`).toBe(`{case.name} action: true`)
 			t.expect(`{case.name} close: {overlay.find(row, "Close") ~= nil}`)
 				.toBe(`{case.name} close: {case.spec.closeButton ~= false}`)
 			overlay.find(row, "MessageMeasure").TextBounds = Vector2.new(48, 18)
-			local cap = math.min(480, 390 - 32)
-			if case.constrained then
-				t.expect(`{case.name}: {row.Size.X.Offset}`).toBe(`{case.name}: {cap}`)
-			else
-				t.expect(row.Size.X.Offset < cap).toBe(true)
-				t.expect(row.Size.X.Offset >= 48).toBe(true)
-			end
+			t.expect(`{case.name}: {row.Size.X.Offset}`).toBe(`{case.name}: {math.min(480, 390 - 32)}`)
 			local close = overlay.find(row, "Close")
 			if close then
 				t.expect(close.Size.Y.Offset >= 44).toBe(true)
 			end
 			w.stop()
 		end
-	end)
-
-	t.it("a plain row hugs a longer message up to the strip's width", function()
-		local c = caller()
-		c.shown:set(true)
-		local w = mount({ { c = c, message = "Saved to your garage.", spec = { closeButton = false } } })
-		local row = w.find("Snack")
-		overlay.find(row, "MessageMeasure").TextBounds = Vector2.new(160, 18)
-		t.expect(row.Size.X.Offset).toBe(160 + 16 + 2)
-		overlay.find(row, "MessageMeasure").TextBounds = Vector2.new(900, 18)
-		t.expect(row.Size.X.Offset).toBe(358)
-		t.expect(overlay.find(row, "Message").TextWrapped).toBe(true)
-		w.stop()
 	end)
 
 	t.it("long copy wraps and the action moves below it", function()
@@ -227,7 +195,7 @@ t.describe("native Snackbar: presentation", function()
 	end)
 end)
 
-t.describe("native Snackbar: an art theme's panel carve", function()
+t.describe("native Toast with an action: an art theme's panel carve", function()
 	t.it("an art theme's frame carve holds the icon, copy and action inside the plate", function()
 		local themes = require("../src/ui/themes")(Compose)
 		local package = themes.neutralPackage()
@@ -239,10 +207,11 @@ t.describe("native Snackbar: an art theme's panel carve", function()
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({
 				Compose.show(gate, function()
-					return UI.Snackbar "S1" {
+					return UI.Toast "S1" {
 						isPresented = c.shown,
 						message = "Offline",
 						icon = "status.warning",
+						action = UNDO,
 						closeButton = false,
 						onPresentedChange = c.onPresentedChange,
 					}
@@ -255,13 +224,12 @@ t.describe("native Snackbar: an art theme's panel carve", function()
 		t.expect(padding.PaddingRight.Offset).toBe(24)
 		t.expect(padding.PaddingTop.Offset).toBe(12)
 		t.expect(padding.PaddingBottom.Offset).toBe(14)
-		overlay.find(row, "MessageMeasure").TextBounds = Vector2.new(100, 18)
-		t.expect(row.Size.X.Offset).toBe(100 + 20 + 24 + 20 + 8 + 2)
+		t.expect(row.Size.X.Offset).toBe(math.min(480, 800 - 32))
 		w.stop()
 	end)
 end)
 
-t.describe("native Snackbar: proposals and reasons", function()
+t.describe("native Toast with an action: proposals and reasons", function()
 	t.it("an action runs once and leaves the row mounted; closing inside it reports action", function()
 		local c = caller()
 		local runs, closeIt = 0, false
@@ -385,14 +353,14 @@ t.describe("native Snackbar: proposals and reasons", function()
 		w.stop()
 	end)
 
-	t.it("an accepted supersession reports superseded", function()
+	t.it("an accepted pre-emption reports preempt", function()
 		local low, high = caller(), caller()
 		low.shown:set(true)
 		local w = mount({ { c = low, message = "low" }, { c = high, message = "high", spec = { priority = 1 } } })
 		frames(w, 0.5)
 		high.shown:set(true)
 		frames(w, 3)
-		t.expect(low.dismissed).toEqual({ "superseded" })
+		t.expect(low.dismissed).toEqual({ "preempt" })
 		t.expect(w.message()).toBe("high")
 		w.stop()
 	end)
@@ -402,10 +370,10 @@ t.describe("native Snackbar: proposals and reasons", function()
 		a.shown:set(true)
 		b.shown:set(true)
 		local w = mount({ { c = a }, { c = b } })
-		t.expect(w.find("S2"):GetAttribute("SnackbarQueued")).toBe(true)
+		t.expect(w.find("S2"):GetAttribute("ToastQueued")).toBe(true)
 		b.shown:set(false)
 		t.expect(b.dismissed).toEqual({ "cancel" })
-		t.expect(w.find("S2"):GetAttribute("SnackbarAdmitted")).toBe(false)
+		t.expect(w.find("S2"):GetAttribute("ToastQueued")).toBe(false)
 		a.shown:set(false)
 		t.expect(w.rows()).toBe(0)
 		t.expect(b.dismissed).toEqual({ "cancel" })
@@ -413,40 +381,21 @@ t.describe("native Snackbar: proposals and reasons", function()
 	end)
 end)
 
-t.describe("native Snackbar: admission and lifetime", function()
-	t.it("the tenth admission is refused at construction, and capacity recovers", function()
-		local callers: { Caller } = {}
+t.describe("native Toast with an action: admission and lifetime", function()
+	t.it("past one showing and eight waiting, the newest is dropped: capacity, and its fact is asked false", function()
 		local list: { Entry } = {}
-		for index = 1, 9 do
+		local callers: { Caller } = {}
+		for index = 1, 10 do
 			local c = caller()
 			c.shown:set(true)
 			callers[index] = c
 			table.insert(list, { c = c })
 		end
 		local w = mount(list)
-		local extra = caller()
-		extra.shown:set(true)
-		local ok, failure = pcall(function()
-			w.runtime.mount(function()
-				return w.UI.Snackbar "Tenth" {
-					isPresented = extra.shown,
-					message = "ten",
-					onPresentedChange = extra.onPresentedChange,
-				}
-			end, w.screen)
-		end)
-		t.expect(ok).toBe(false)
-		t.expect(string.find(tostring(failure), "full", 1, true) ~= nil).toBe(true)
 		t.expect(w.rows()).toBe(1)
-		callers[2].shown:set(false)
-		local stop = w.runtime.mount(function()
-			return w.UI.Snackbar "Tenth" {
-				isPresented = extra.shown,
-				message = "ten",
-				onPresentedChange = extra.onPresentedChange,
-			}
-		end, w.screen)
-		stop()
+		t.expect(callers[10].dismissed).toEqual({ "capacity" })
+		t.expect(callers[10].changes).toEqual({ false })
+		t.expect(#callers[9].dismissed).toBe(0)
 		w.stop()
 	end)
 
@@ -506,9 +455,10 @@ t.describe("native Snackbar: admission and lifetime", function()
 		local modal = Compose.cell(false)
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({
-				UI.Snackbar "S1" {
+				UI.Toast "S1" {
 					isPresented = a.shown,
 					message = "Saved",
+					action = UNDO,
 					duration = 3,
 					onPresentedChange = a.onPresentedChange,
 					onDismiss = a.onDismiss,
@@ -528,22 +478,31 @@ t.describe("native Snackbar: admission and lifetime", function()
 	t.it("refuses a malformed spec before registering", function()
 		for index, bad in
 			{
-				{ message = "m" } :: any,
-				{ isPresented = true, message = 4, closeButton = false },
-				{ isPresented = true, message = "m", icon = "", closeButton = false },
+				{ isPresented = true, message = 4, action = UNDO, closeButton = false },
+				{ isPresented = true, message = "m", icon = "", action = UNDO, closeButton = false },
 				{ isPresented = true, message = "m", action = { label = "L" }, closeButton = false },
-				{ isPresented = true, message = "m", closeButton = "no" },
-				{ isPresented = true, message = "m" },
-				{ isPresented = true, message = "m", closeButton = false, duration = 3 },
-				{ isPresented = true, message = "m", closeButton = false, duration = -1, onPresentedChange = noop },
-				{ isPresented = true, message = "m", closeButton = false, priority = 0 / 0 },
-				{ isPresented = true, message = "m", closeButton = false, tone = "x" },
-			}
+				{ isPresented = true, message = "m", action = UNDO, closeButton = "no" },
+				{ isPresented = true, message = "m", action = UNDO },
+				{ isPresented = true, message = "m", action = UNDO, closeButton = false, duration = 3 },
+				{
+					isPresented = true,
+					message = "m",
+					action = UNDO,
+					closeButton = false,
+					duration = -1,
+					onPresentedChange = noop,
+				},
+				{ isPresented = true, message = "m", action = UNDO, closeButton = false, priority = 0 / 0 },
+				{ isPresented = true, message = "m", action = UNDO, closeButton = false, tone = "x" },
+				{ message = "m", closeButton = true },
+				{ message = "m", action = UNDO, position = "top" },
+				{ message = "m", action = UNDO, onPresentedChange = noop },
+			} :: { any }
 		do
 			local ok = pcall(function()
 				overlay
 					.new(function(UI)
-						return UI.Snackbar(bad)
+						return UI.Toast(bad)
 					end)
 					.stop()
 			end)
@@ -557,7 +516,7 @@ t.describe("native Snackbar: admission and lifetime", function()
 		local w = mount({ { c = a } })
 		local ok = pcall(function()
 			w.runtime.mount(function()
-				return w.UI.Snackbar "Broken" { isPresented = true, message = "x" }
+				return w.UI.Toast "Broken" { isPresented = true, message = "x", action = UNDO }
 			end, w.screen)
 		end)
 		t.expect(ok).toBe(false)
@@ -569,9 +528,10 @@ t.describe("native Snackbar: admission and lifetime", function()
 	t.it("a throwing caller callback is raised, and the row stays consistent", function()
 		local shown = Compose.cell(true)
 		local w = overlay.new(function(UI)
-			return UI.Snackbar "S1" {
+			return UI.Toast "S1" {
 				isPresented = shown,
 				message = "Saved",
+				action = UNDO,
 				onPresentedChange = function()
 					error("proposal bug")
 				end,
@@ -587,7 +547,7 @@ t.describe("native Snackbar: admission and lifetime", function()
 	end)
 end)
 
-t.describe("native Snackbar: the schedule under re-entrant callbacks", function()
+t.describe("native Toast with an action: the schedule under re-entrant callbacks", function()
 	t.it("callbacks may show and hide other rows during a retirement without a stale entry", function()
 		local a, b, c = caller(), caller(), caller()
 		a.onDismiss = function(reason: string)
@@ -604,8 +564,8 @@ t.describe("native Snackbar: the schedule under re-entrant callbacks", function(
 		t.expect(b.dismissed).toEqual({ "cancel" })
 		t.expect(w.message()).toBe("c")
 		t.expect(w.rows()).toBe(1)
-		t.expect(w.find("S2"):GetAttribute("SnackbarAdmitted")).toBe(false)
-		t.expect(w.find("S3"):GetAttribute("SnackbarVisible")).toBe(true)
+		t.expect(w.find("S2"):GetAttribute("ToastQueued")).toBe(false)
+		t.expect(w.find("S3"):GetAttribute("ToastVisible")).toBe(true)
 		w.stop()
 	end)
 
@@ -616,15 +576,15 @@ t.describe("native Snackbar: the schedule under re-entrant callbacks", function(
 		high.shown:set(true)
 		frames(w, 3)
 		t.expect(low.changes).toEqual({ false })
-		t.expect(w.find("S2"):GetAttribute("SnackbarQueued")).toBe(true)
+		t.expect(w.find("S2"):GetAttribute("ToastQueued")).toBe(true)
 		frames(w, 6)
 		t.expect(low.changes).toEqual({ false })
-		t.expect(w.find("S2"):GetAttribute("SnackbarQueued")).toBe(true)
+		t.expect(w.find("S2"):GetAttribute("ToastQueued")).toBe(true)
 		w.stop()
 	end)
 end)
 
-t.describe("native Snackbar: focus and input", function()
+t.describe("native Toast with an action: focus and input", function()
 	t.it(
 		"arrival never steals focus; Cancel on a focused row returns focus to the content even when refused",
 		function()
@@ -635,7 +595,7 @@ t.describe("native Snackbar: focus and input", function()
 			a.shown:set(true)
 			t.expect(w.gui.SelectedObject).toBe(content)
 			w.gui.SelectedObject = w.find("Close")
-			w.action("SnackbarCancel").Pressed.fire()
+			w.action("ToastCancel").Pressed.fire()
 			t.expect(a.changes).toEqual({ false })
 			t.expect(w.gui.SelectedObject).toBe(content)
 			t.expect(w.rows()).toBe(1)
@@ -658,7 +618,7 @@ t.describe("native Snackbar: focus and input", function()
 
 	t.it("one Down from the control that raised the row reaches it, and the link goes with the row", function()
 		local a = caller()
-		local w = mount({ { c = a, spec = { action = { label = "Undo", onActivate = noop } } } })
+		local w = mount({ { c = a } })
 		local content = w.find("Content")
 		w.gui.SelectedObject = content
 		a.shown:set(true)
@@ -678,6 +638,69 @@ t.describe("native Snackbar: focus and input", function()
 		w.find("Close").Activated.fire()
 		t.expect(w.find("DismissOutside")).toBeNil()
 		t.expect(w.find("ModalBack")).toBeNil()
+		w.stop()
+	end)
+end)
+
+t.describe("native Toast with an action: without a binding", function()
+	t.it("the action runs and retires it; Close retires it; no duration never expires", function()
+		local runs, reasons = 0, {}
+		local shown = Compose.cell(true)
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				Compose.show(shown, function()
+					return Host.Frame({
+						UI.Toast "A" {
+							message = "Kart sold",
+							action = {
+								label = "Undo",
+								onActivate = function()
+									runs += 1
+								end,
+							},
+							onDismiss = function(reason: string)
+								table.insert(reasons, reason)
+							end,
+						},
+						UI.Toast "B" {
+							message = "Saved",
+							action = UNDO,
+							onDismiss = function(reason: string)
+								table.insert(reasons, reason)
+							end,
+						},
+					})
+				end),
+			})
+		end, { reducedMotion = true })
+		frames(w, 30)
+		t.expect(w.find("A"):GetAttribute("ToastVisible")).toBe(true)
+		t.expect(w.find("B"):GetAttribute("ToastQueued")).toBe(true)
+		w.find("Action").Activated.fire()
+		t.expect(runs).toBe(1)
+		t.expect(w.find("B"):GetAttribute("ToastVisible")).toBe(true)
+		w.find("Close").Activated.fire()
+		t.expect(table.concat(reasons, ",")).toBe("action,close")
+		t.expect(#w.findAll("Snack")).toBe(0)
+		w.stop()
+	end)
+
+	t.it("a timed one still reads for the 2.5 s floor, then retires with timeout", function()
+		local reasons = {}
+		local w = overlay.new(function(UI)
+			return UI.Toast "A" {
+				message = "Kart sold",
+				action = UNDO,
+				duration = 1,
+				onDismiss = function(reason: string)
+					table.insert(reasons, reason)
+				end,
+			}
+		end, { reducedMotion = true })
+		frames(w, 2.2)
+		t.expect(#reasons).toBe(0)
+		frames(w, 0.6)
+		t.expect(table.concat(reasons, ",")).toBe("timeout")
 		w.stop()
 	end)
 end)

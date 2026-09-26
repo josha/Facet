@@ -10,6 +10,8 @@ export type Entry = {
 	data: unknown,
 	shownAt: number?,
 	sequence: number,
+	held: boolean,
+	asked: { [string]: boolean },
 }
 export type Options = {
 	maxVisible: number?,
@@ -19,6 +21,7 @@ export type Options = {
 	now: (() -> number)?,
 	onDismiss: ((Entry, string) -> ())?,
 	onChange: (() -> ())?,
+	onPropose: ((Entry, string) -> ())?,
 }
 export type Push = {
 	key: string?,
@@ -26,6 +29,7 @@ export type Push = {
 	duration: number?,
 	readFloor: number?,
 	data: unknown,
+	held: boolean?,
 }
 export type Schedule = {
 	push: (Push) -> number,
@@ -55,6 +59,7 @@ function toast_schedule.new(options: Options?): Schedule
 	local queue: { Entry } = {}
 	local sequence = 0
 	local changed = false
+	local proposals: { { entry: Entry, reason: string } } = {}
 
 	local function outranks(a: Entry, b: Entry): boolean
 		if a.priority ~= b.priority then
@@ -99,6 +104,12 @@ function toast_schedule.new(options: Options?): Schedule
 		end
 		return worst
 	end
+	local function ask(entry: Entry, reason: string)
+		if not entry.asked[reason] then
+			entry.asked[reason] = true
+			table.insert(proposals, { entry = entry, reason = reason })
+		end
+	end
 	local function show(index: number, at: number)
 		local entry = table.remove(queue, index) :: Entry
 		entry.shownAt = at
@@ -110,6 +121,10 @@ function toast_schedule.new(options: Options?): Schedule
 		local at = now()
 		for _, entry in table.clone(visible) do
 			if at - (entry.shownAt :: number) >= entry.duration then
+				if entry.held then
+					ask(entry, "timeout")
+					continue
+				end
 				table.remove(visible, table.find(visible, entry) :: number)
 				retire(entry, "timeout")
 			end
@@ -117,6 +132,10 @@ function toast_schedule.new(options: Options?): Schedule
 		for _, waiting in table.clone(queue) do
 			local index = showing(waiting.key)
 			if index and floorMet(visible[index], at) then
+				if visible[index].held then
+					ask(visible[index], "supersede")
+					continue
+				end
 				retire(table.remove(visible, index) :: Entry, "supersede")
 			end
 		end
@@ -135,6 +154,10 @@ function toast_schedule.new(options: Options?): Schedule
 			if not outranks(queue[index], visible[worst]) or not floorMet(visible[worst], at) then
 				break
 			end
+			if visible[worst].held then
+				ask(visible[worst], "preempt")
+				break
+			end
 			retire(table.remove(visible, worst) :: Entry, "preempt")
 			show(index, at)
 		end
@@ -142,6 +165,13 @@ function toast_schedule.new(options: Options?): Schedule
 			changed = false
 			if settings.onChange then
 				settings.onChange()
+			end
+		end
+		local asked = proposals
+		proposals = {}
+		for _, proposal in asked do
+			if settings.onPropose then
+				settings.onPropose(proposal.entry, proposal.reason)
 			end
 		end
 	end
@@ -155,11 +185,13 @@ function toast_schedule.new(options: Options?): Schedule
 			priority = if type(spec.priority) == "number" and math.abs(spec.priority) < math.huge
 				then spec.priority
 				else 0,
-			duration = positive(spec.duration, duration),
+			duration = if spec.duration == math.huge then math.huge else positive(spec.duration, duration),
 			readFloor = positive(spec.readFloor, readFloor),
 			data = spec.data,
 			shownAt = nil,
 			sequence = sequence,
+			held = spec.held == true,
+			asked = {},
 		}
 		if entry.key then
 			for index = #queue, 1, -1 do

@@ -507,9 +507,6 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 		}
 	end,
 	Toast = function()
-		return { message = "Saved" }
-	end,
-	Snackbar = function()
 		local shown = Compose.cell(true)
 		return {
 			isPresented = shown,

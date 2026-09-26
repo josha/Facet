@@ -74,7 +74,6 @@ export type Controls = {
 	Popover: typeof(((nil :: unknown) :: Overlay.OverlayControls).Popover),
 	Notice: typeof(((nil :: unknown) :: Overlay.OverlayControls).Notice),
 	NavBar: typeof(((nil :: unknown) :: Overlay.OverlayControls).NavBar),
-	Snackbar: typeof(((nil :: unknown) :: Overlay.OverlayControls).Snackbar),
 	Toast: typeof(((nil :: unknown) :: Overlay.OverlayControls).Toast),
 	DateTimePicker: typeof(((nil :: unknown) :: Dates.DateTimePickerControls).DateTimePicker),
 	ColorPicker: typeof(((nil :: unknown) :: Colors.ColorPickerControls).ColorPicker),

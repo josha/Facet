@@ -84,20 +84,6 @@ export type PopoverSpec = Types.FrameProps & {
 	cancelPolicy: ("dismiss" | "none")?,
 }
 
-export type SnackbarDismissReason = "action" | "close" | "timeout" | "superseded" | "cancel"
-export type SnackbarAction = { label: Types.ValueString, onActivate: () -> () }
-export type SnackbarSpec = Types.FrameProps & {
-	isPresented: Types.ValueBoolean,
-	message: Types.ValueString,
-	icon: string?,
-	action: SnackbarAction?,
-	closeButton: boolean?,
-	onPresentedChange: ((boolean) -> ())?,
-	onDismiss: ((SnackbarDismissReason) -> ())?,
-	duration: number?,
-	priority: number?,
-}
-
 export type NoticeSeverity = "info" | "success" | "warning" | "error"
 export type NoticeSpec = Types.FrameProps & {
 	message: Types.ValueString,
@@ -125,10 +111,24 @@ export type NavBarSpec = Types.FrameProps & {
 	surface: ("surface" | "panel" | "pane")?,
 }
 
-export type ToastDismissReason = "timeout" | "supersede" | "preempt" | "capacity" | "manual"
+export type ToastDismissReason =
+	"timeout"
+	| "supersede"
+	| "preempt"
+	| "capacity"
+	| "manual"
+	| "action"
+	| "close"
+	| "cancel"
+export type ToastAction = { label: Types.ValueString, onActivate: () -> () }
 export type ToastSpec = Types.FrameProps & {
 	message: Types.ValueString?,
 	content: (() -> Instance)?,
+	icon: string?,
+	action: ToastAction?,
+	closeButton: boolean?,
+	isPresented: Types.ValueBoolean?,
+	onPresentedChange: ((boolean) -> ())?,
 	key: string?,
 	priority: number?,
 	duration: number?,
@@ -142,7 +142,6 @@ export type ToastSpec = Types.FrameProps & {
 export type OverlayControls = {
 	Dialog: Types.Constructor<DialogSpec, Frame>,
 	Popover: Types.Constructor<PopoverSpec, GuiObject>,
-	Snackbar: Types.Constructor<SnackbarSpec, Frame>,
 	Toast: Types.Constructor<ToastSpec, Frame>,
 	Notice: Types.Constructor<NoticeSpec, Frame>,
 	NavBar: Types.Constructor<NavBarSpec, Frame>,

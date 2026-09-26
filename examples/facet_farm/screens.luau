@@ -545,7 +545,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				end,
 				render = function(current)
 					local serial = current:peek()
-					return UI.Snackbar("Toast" .. serial)({
+					return UI.Toast("Toast" .. serial)({
 						isPresented = function(use)
 							local toast = use(farm.toast)
 							return toast ~= nil and toast.serial == serial
