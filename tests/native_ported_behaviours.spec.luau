@@ -450,6 +450,8 @@ t.describe("Table editable cells", function()
 		expect(proposals[#proposals]).toBe("a.ready=true")
 		local tier = editor("tier")
 		local trigger = find(tier, "Trigger") or tier
+		expect(trigger:HasTag("facet-appearance-utility")).toBe(true)
+		expect(tier.Parent.ClipsDescendants).toBe(true)
 		trigger.Activated.fire()
 		w.step(10)
 		local option = find(w.screen, "silver")

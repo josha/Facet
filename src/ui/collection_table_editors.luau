@@ -82,6 +82,7 @@ return function(ctx: Types.Context, UI: Controls)
 				return UI.Picker(({
 					Name = "Editor",
 					style = "menu",
+					appearance = "utility",
 					options = column.options,
 					selected = selected,
 					enabled = enabled,

@@ -632,7 +632,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 									end
 								end)
 							end
-							return ctx.styled(columnFrame(column, index, content), "TableCell")
+							local cell = ctx.styled(columnFrame(column, index, content), "TableCell")
+							cell.ClipsDescendants = true
+							return cell
 						end,
 					}),
 				}
