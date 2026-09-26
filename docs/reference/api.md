@@ -1708,9 +1708,18 @@ By default, Compose `LayerStack` keeps the visited content
 (`retention = "all"`). Use `retention = "top"` to dispose departing pages after
 their transition. Keep durable page state in the model.
 
-Use `style = "sidebarAdaptable"` for peer destinations. The control shows a
-sidebar on a sufficiently wide native viewport. It shows a bottom bar on other
-viewports. `placement` sets an explicit choice. `placement = "none"` hides the
+An automatic placement follows `adaptive.navPlacement` of the TabView's own
+size, the preferred input, the display size and ten-foot viewing: a TV takes a
+top bar, a compact width a bottom bar in the thumb zone, a short height the
+compact bottom bar, a pointer a sidebar, and a roomy touch screen or a gamepad
+on a larger display a top bar. A TabView inside another TabView's page keeps a
+top bar.
+
+Use `style = "sidebarAdaptable"` for peer destinations. Its selected tab is a
+pill, and its top bar is a segmented strip: the tabs hug their labels, centred
+on a track. `sidebarPreference` (`"sidebar"` or `"topBar"`) chooses between the
+two roomy homes, except on a ten-foot display, which keeps the top bar.
+`placement` sets an explicit choice. `placement = "none"` hides the
 bar and gives the page the whole view. Selection, shoulder navigation and
 `selection` changes still work; supply your own route to the other tabs, such
 as a Menu. `railWidth`,
@@ -3138,6 +3147,8 @@ name.
 | `axisFor(width, { stackAbove? })` | `"x"` at or above `stackAbove` (default 600), else `"y"`. |
 | `columnsFor(available, minColumnWidth, gap?)` | The number of columns of at least `minColumnWidth` that fit, at least 1. |
 | `sizeClassAtLeast(value, target)` | `true` when `value` ranks at or above `target` in `compact < regular < wide`. |
+| `isTenFoot({ displaySize?, touch?, mouse?, tenFootInterface? })` | `true` for `GuiService:IsTenFootInterface()`, or for a `Large` display with no touch and no mouse. A large desk monitor with a mouse is near, not ten-foot. |
+| `navPlacement({ sizeClass, heightClass, primary?, displaySize?, tenFoot? })` | The app navigation home, in this order: ten-foot `"topBar"`; compact width `"bottomBar"`; short height `"bottomBarCompact"`; a pointer `"sidebar"`; a gamepad on a `Small` display `"bottomBar"`; otherwise (a roomy touch screen, a gamepad on a larger display) `"topBar"`. |
 | `BREAKPOINTS`, `HEIGHT_BREAKPOINTS` | The same table: `{ regular = 600, wide = 1000 }`. |
 | `DEFAULT_STACK_ABOVE` | 600. |
 
@@ -3174,12 +3185,14 @@ environment keeps the last real size.
 | Field | Source and value |
 |---|---|
 | `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport, in pixels. |
-| `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. |
+| `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
 | `isCompact`, `isRegular`, `isWide`, `isRegularOrWider`, `isShort`, `isTall`, `isLandscape` | Booleans. `isRegular` is the middle class only. Use `isRegularOrWider` for "not compact". |
 | `atLeast(target)` | A new boolean readable for `sizeClassAtLeast(sizeClass, target)`. |
 | `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. |
 | `effectiveInput` | `primary` as `"KeyboardAndMouse"`, `"Touch"` or `"Gamepad"`. |
 | `displaySize` | The name of `GuiService.ViewportDisplaySize`: `"Small"`, `"Medium"` or `"Large"`. |
+| `isTenFoot` | `adaptive.isTenFoot` of the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |
+| `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
 | `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
 | `reducedMotion` | The factory `reducedMotion` option or `GuiService.ReducedMotionEnabled`. |

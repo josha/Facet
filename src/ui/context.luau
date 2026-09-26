@@ -5,6 +5,7 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
+local adaptive = require("./adaptive")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -298,6 +299,28 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return ctx.readSource(mouse, use) == true
 				and ctx.readSource(touch, use) ~= true
 				and ctx.readSource(gamepad, use) ~= true
+		end
+	end
+	function ctx.tenFoot(): (ComposeTypes.Use?) -> boolean
+		local gui, input = config.guiService, config.userInputService
+		local interface = false
+		if gui then
+			local ok, answer = pcall(function()
+				return (gui :: GuiService):IsTenFootInterface()
+			end)
+			interface = ok and answer == true
+		end
+		local display = if gui then ctx.observe.ViewportDisplaySize(gui) else nil
+		local mouse = if input then ctx.observe.MouseEnabled(input) else nil
+		local touch = if input then ctx.observe.TouchEnabled(input) else nil
+		return function(use: ComposeTypes.Use?): boolean
+			local size = if display then ctx.readSource(display, use) else nil
+			return adaptive.isTenFoot({
+				tenFootInterface = interface,
+				displaySize = if typeof(size) == "EnumItem" then (size :: EnumItem).Name else nil,
+				mouse = if mouse then ctx.readSource(mouse, use) == true else false,
+				touch = if touch then ctx.readSource(touch, use) == true else false,
+			})
 		end
 	end
 	function ctx.hitFloor(): (ComposeTypes.Use?) -> number
