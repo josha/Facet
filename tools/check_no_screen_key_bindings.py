@@ -56,6 +56,10 @@ PINS = {
         3,
         "the Showcase chrome declares LB, RB and the backquote toggle for its demo and settings panel in its own sinking InputContext under ctx.inputTarget, as before 0.12",
     ),
+    "examples/virtual_monitors/main.client.luau": (
+        1,
+        "the View button switches Screen and Spatial in the entry script's own InputContext at Facet.inputPriority.belowControls, so any Facet control that binds it wins",
+    ),
     "examples/gallery/scenarios/outpost_terminal.luau": (
         2,
         "the world terminal declares LeaveConsole on Escape and ButtonB while engaged, in its own InputContext under ctx.inputTarget",
