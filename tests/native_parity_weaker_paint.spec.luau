@@ -800,8 +800,14 @@ t.describe("native parity weaker paint", function()
 		for _, package in { themes.neutralPackage(), load("fantasy_ornate") } do
 			local sheet, _, stop = sheetFor(package)
 			local all = rules(sheet)
-			t.expect(all[".facet-tab-filled.facet-skinned"].BackgroundTransparency).toBe(0)
-			t.expect(all[".facet-tab-filled > #SkinBoundary"].Visible).toBe(false)
+			local plate = (package.chrome or {}).control
+			local layers = if plate == nil then {} elseif plate.kind == "layered" then plate.layers or {} else { plate }
+			local selectedArt = false
+			for _, layer in layers do
+				selectedArt = selectedArt or (type(layer.asset) == "table" and layer.asset.selected ~= nil)
+			end
+			t.expect(all[".facet-tab-filled.facet-skinned"].BackgroundTransparency).toBe(if selectedArt then nil else 0)
+			t.expect(all[".facet-tab-filled > #SkinBoundary"].Visible).toBe(if selectedArt then nil else false)
 			t.expect(all[".facet-badge-captioned"].TextTransparency).toBe(1)
 			t.expect(all[".facet-skinned >> .facet-stepper-inset"].PaddingLeft.Offset >= 12).toBe(true)
 			stop()

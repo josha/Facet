@@ -115,7 +115,7 @@ t.describe("owner review 2026-09-26b: visual", function()
 			local boundary = assert(style(sheet, ".facet-tab-filled > #SkinBoundary"))
 			t.expect(`{entry.label} {filled.BackgroundTransparency} {boundary.Visible}`)
 				.toBe(if selectedArt then `{entry.label} nil nil` else `{entry.label} 0 false`)
-			local track = assert(style(sheet, ".facet-stepper.facet-skinned >> .facet-stepper-track"))
+			local track = assert(style(sheet, ".facet-skinned > #Content > .facet-stepper-track"))
 			t.expect(track.BackgroundTransparency).toBe(1)
 			stop()
 		end
@@ -146,8 +146,10 @@ t.describe("owner review 2026-09-26b: visual", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)
 			local fill = assert(style(sheet, ".facet-status-info")).BackgroundColor3
-			local art = assert(style(sheet, ".facet-badge-standard.facet-status-info > #SkinBoundary >> .facet-skin-art"))
+			local art = assert(style(sheet, ".facet-badge.facet-status-info > #SkinBoundary >> .facet-skin-art"))
 			t.expect(art.ImageColor3).toBe(fill)
+			local plain = assert(style(sheet, ".facet-badge-status > #SkinBoundary >> .facet-skin-art"))
+			t.expect(plain.ImageColor3).toBe(require("@lune/roblox").Color3.new(1, 1, 1))
 			stop()
 		end
 	end)

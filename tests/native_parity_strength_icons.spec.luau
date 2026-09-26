@@ -1545,6 +1545,10 @@ t.describe("sliced and bar art", function()
 				local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
 					or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
 					or rule.Selector == ".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art"
+					or string.match(
+						rule.Selector,
+						"^%.facet%-badge[%.%-][%a%.%-]+ > #SkinBoundary >> %.facet%-skin%-art$"
+					) ~= nil
 					or (
 						string.match(rule.Selector, "^%.facet%-skin%-art%-%a+$") ~= nil
 						and properties.ImageColor3 ~= nil

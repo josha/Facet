@@ -1201,7 +1201,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-tab-filled >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-stepper-track", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-stepper-track::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
-	rule(".facet-stepper.facet-skinned >> .facet-stepper-track", { BackgroundTransparency = 1 })
+	rule(".facet-skinned > #Content > .facet-stepper-track", { BackgroundTransparency = 1 })
 	do
 		local recipe = if package.chrome then package.chrome.stepperPlate else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
@@ -1312,9 +1312,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
 	end
 	for status, role in statusRoles do
-		rule(".facet-badge-standard.facet-status-" .. status .. " > #SkinBoundary >> .facet-skin-art", {
-			ImageColor3 = c(role),
-		})
+		rule(".facet-badge.facet-status-" .. status .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = c(role) })
+	end
+	for _, appearance in { "status", "utility" } do
+		rule(
+			".facet-badge-" .. appearance .. " > #SkinBoundary >> .facet-skin-art",
+			{ ImageColor3 = types.Color3.new(1, 1, 1) }
+		)
 	end
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 	local selectedArt: ThemeTypes.AssetLink? = nil
