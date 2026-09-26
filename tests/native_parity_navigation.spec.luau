@@ -547,47 +547,39 @@ t.describe("native parity navigation", function()
 			return if label then label.Text else feed.Text
 		end
 		t.expect(shown()).toBe("Feed")
-		local seal = feed:FindFirstChild("CornerBadge", true)
-		t.expect(seal ~= nil and seal.Text == "12").toBe(true)
+		t.expect(feed:GetAttribute("label")).toBe("Feed (12)")
+		local pill = feed:FindFirstChild("Count", true)
+		t.expect(pill ~= nil and pill.Text == "12").toBe(true)
+		t.expect(feed:FindFirstChild("CornerBadge", true)).toBeNil()
 		for _ = 1, 3 do
 			selection:set("feed")
 			selection:set("home")
 		end
 		t.expect(find(tabs, "feed")).toBe(feed)
 		t.expect(shown()).toBe("Feed")
-		t.expect(feed:FindFirstChild("CornerBadge", true)).toBe(seal)
+		t.expect(feed:FindFirstChild("Count", true)).toBe(pill)
 		iconOnly:set(true)
 		t.expect(shown()).toBe("")
+		t.expect(feed:FindFirstChild("Count", true)).toBeNil()
+		t.expect(feed:FindFirstChild("CornerBadge", true).Text).toBe("12")
 		t.expect(feed:GetAttribute("FacetLabel")).toBe("Feed")
 		world.stop()
 	end)
-	t.it("keeps a labelled tab's icon badge clear of its title under any UIScale", function()
-		local badge, iconOnly = Compose.cell(12 :: number?), Compose.cell(false)
+	t.it("puts a labelled tab's badge after its title as an inline pill, never over its icon", function()
 		local world = setup(function(UI, Host)
 			return UI.TabView({
 				selection = Compose.cell("home"),
-				iconOnly = iconOnly,
 				tabs = {
 					{ id = "home", content = page(Host, "home") },
-					{ id = "feed", label = "Feed", icon = "checkmark", badge = badge, content = page(Host, "feed") },
+					{ id = "feed", label = "Feed", icon = "checkmark", badge = 12, content = page(Host, "feed") },
 				},
 			})
 		end)
 		local feed = find(find(world.screen, "Tabs"), "feed")
-		local glyph = feed:FindFirstChild("LeadingIcon", true)
-		local layout = glyph.Parent:FindFirstChildWhichIsA("UIListLayout")
-		local gap = layout.Padding.Offset
-		local scale = 1.2047
-		glyph.AbsoluteSize = world.engine.types.Vector2.new(glyph.Size.X.Offset * scale, glyph.Size.Y.Offset * scale)
-		local seal = feed:FindFirstChild("CornerBadge", true)
-		seal.AbsoluteSize = world.engine.types.Vector2.new(23.5 * scale, 24 * scale)
-		t.expect(layout.Padding.Offset >= 23.5 / 2 + 2).toBe(true)
-		badge:set(nil)
-		t.expect(layout.Padding.Offset).toBe(gap)
-		badge:set(3)
-		feed:FindFirstChild("CornerBadge", true).AbsoluteSize = seal.AbsoluteSize
-		iconOnly:set(true)
-		t.expect(layout.Padding.Offset).toBe(gap)
+		local title, pill = feed:FindFirstChild("Title", true), feed:FindFirstChild("Count", true)
+		t.expect(pill.Parent).toBe(title.Parent)
+		t.expect(pill.LayoutOrder > title.LayoutOrder).toBe(true)
+		t.expect(feed:FindFirstChild("CornerBadge", true)).toBeNil()
 		world.stop()
 	end)
 	t.it(
@@ -1034,9 +1026,10 @@ t.describe("native parity navigation", function()
 		local inbox = find(find(world.screen, "Tabs"), "inbox")
 		local function shown()
 			local label = inbox:FindFirstChild("Title", true)
-			return if label then label.Text else inbox.Text
+			local pill = inbox:FindFirstChild("Count", true)
+			return `{if label then label.Text else inbox.Text} {if pill then pill.Text else ""}`
 		end
-		t.expect(shown()).toBe("Inbox (3)")
+		t.expect(shown()).toBe("Inbox 3")
 		selection:set("me")
 		unread:update(function(value)
 			return value + 1
@@ -1045,7 +1038,7 @@ t.describe("native parity navigation", function()
 			return value + 1
 		end)
 		t.expect(builds.inbox).toBeNil()
-		t.expect(shown()).toBe("Inbox (5)")
+		t.expect(shown()).toBe("Inbox 5")
 		t.expect(find(find(world.screen, "Tabs"), "inbox")).toBe(inbox)
 		selection:set("inbox")
 		t.expect(builds.inbox).toBe(1)

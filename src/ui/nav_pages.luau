@@ -21,6 +21,7 @@ type Controls = {
 	Menu: Nav.MenuConstructor,
 	Picker: Nav.PickerConstructor,
 	StatusIndicator: Types.Constructor<Media.StatusIndicatorProps, TextLabel>,
+	Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
 	badged: Content.Badged,
 }
 
@@ -445,11 +446,20 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							if read(spec.iconOnly, use) then
 								return ""
 							end
-							local badge = if tab.icon then nil else read(tab.badge, use)
 							return tostring(read(tab.label, use) or tab.id)
-								.. (if badge ~= nil and badge ~= "" then " (" .. tostring(badge) .. ")" else "")
+						end,
+						name = function(use: ComposeTypes.Use): string
+							local tab = use(current)
+							local badge = read(tab.badge, use)
+							return tostring(read(tab.label, use) or tab.id)
+								.. (if badge ~= nil and badge ~= "" then ` ({badge})` else "")
 						end,
 						icon = tab.icon,
+						subtitle = if tab.badge ~= nil and tab.icon == nil
+							then function(): string
+								return ""
+							end
+							else nil,
 						TextSize = if fit then nil else (spec.textSize :: unknown) :: Types.Value<number>,
 						LayoutOrder = index,
 						Size = function(use: ComposeTypes.Use)
@@ -555,61 +565,42 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						button:SetAttribute("FacetTextFit", true)
 					end
 					local glyph = button:FindFirstChild("LeadingIcon", true)
-					if tab.icon and tab.badge ~= nil and glyph then
+					local function badgeOf(use: ComposeTypes.Use): string?
+						local badge = read(use(current).badge, use)
+						return if badge == nil or badge == "" then nil else tostring(badge)
+					end
+					local function cornered(use: ComposeTypes.Use): boolean
+						return glyph ~= nil and read(spec.iconOnly, use) == true
+					end
+					if tab.badge ~= nil and glyph then
 						local corner = UI.badged(
 							Host.Frame({ Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }),
 							function(use: ComposeTypes.Use): string?
-								local badge = read(use(current).badge, use)
-								return if badge == nil then nil else tostring(badge)
+								return if cornered(use) then badgeOf(use) else nil
 							end
 						)
 						runtime.decorate(corner, { Size = D2.fromScale(1, 1), AutomaticSize = E.AutomaticSize.None })
 						runtime.mount(function()
 							return corner
 						end, glyph)
-						local holder = corner:FindFirstChild("Corner")
-						local flow = glyph.Parent and glyph.Parent:FindFirstChildWhichIsA("UIListLayout")
-						if holder and flow then
-							local sealWidth = Compose.cell(0)
-							local tracked: RBXScriptConnection?
-							local function track()
-								if tracked then
-									tracked:Disconnect()
-								end
-								local seal = holder:FindFirstChildWhichIsA("GuiObject")
-								local function measure()
-									sealWidth:set(if seal and seal.Parent == holder then seal.AbsoluteSize.X else 0)
-								end
-								tracked = if seal
-									then seal:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
-									else nil
-								measure()
-							end
-							local added, removed = holder.ChildAdded:Connect(track), holder.ChildRemoved:Connect(track)
-							track()
-							Compose.cleanup(function()
-								added:Disconnect()
-								removed:Disconnect()
-								if tracked then
-									tracked:Disconnect()
-								end
-							end)
-							local icon = glyph :: GuiObject
-							local iconBox, iconSize = ctx.observe.AbsoluteSize(icon), ctx.observe.Size(icon)
-							local gap = flow.Padding.Offset
-							runtime.decorate(flow, {
-								Padding = function(use: ComposeTypes.Use): UDim
-									local width, box = use(sealWidth), use(iconBox).X
-									if width <= 0 or read(spec.iconOnly, use) then
-										return D.new(0, gap)
-									end
-									local side = (use(iconSize) :: UDim2).X.Offset
-									local ratio = if side > 0 and box > 0 then side / box else 1
-									local overhang = math.ceil(width / 2 * ratio)
-									return D.new(0, math.max(gap, overhang + ctx.metric("space.xs", use)))
-								end,
-							})
-						end
+					end
+					local row = button:FindFirstChild("Content")
+					if tab.badge ~= nil and row then
+						runtime.mountFragment(function()
+							return {
+								Compose.show(function(use: ComposeTypes.Use): boolean
+									return badgeOf(use) ~= nil and not cornered(use)
+								end, function()
+									return UI.Badge({
+										Name = "Count",
+										LayoutOrder = 900,
+										label = function(use: ComposeTypes.Use): string
+											return badgeOf(use) or ""
+										end,
+									})
+								end),
+							}
+						end, row)
 					end
 					local indicator = tab.indicator
 					if indicator then

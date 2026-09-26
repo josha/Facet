@@ -2485,9 +2485,7 @@ return function(
 							return ""
 						end
 						local option = if use then use(source) else source:peek()
-						local badge = if style == "segmented" and not sealed then read(option.badge, use) else nil
-						local label: string = read(option.label, use)
-						return label .. (if badge ~= nil and badge ~= "" then " (" .. tostring(badge) .. ")" else "")
+						return read(option.label, use)
 					end
 					local function enabledOf(use: ComposeTypes.Use?): boolean
 						local option = if use then use(source) else source:peek()
@@ -2512,14 +2510,15 @@ return function(
 							else derive(function(use: ComposeTypes.Use?)
 								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.Y
 							end, spec.axis),
-						label = derive(
-							labelOf,
-							if fixed then nil else source,
-							spec.iconOnly,
-							current.badge,
-							current.label
-						),
+						label = derive(labelOf, if fixed then nil else source, spec.iconOnly, current.label),
+						name = function(use: ComposeTypes.Use): string
+							local option = use(source)
+							local badge = read(option.badge, use)
+							return tostring(read(option.label, use))
+								.. (if badge ~= nil and badge ~= "" then ` ({badge})` else "")
+						end,
 						subtitle = if source:peek().description ~= nil
+								or source:peek().badge ~= nil
 								or style == "radioGroup"
 								or Compose.isReadable(spec.options)
 								or type(spec.options) == "function"
@@ -2554,7 +2553,7 @@ return function(
 							Host.Frame({ Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }),
 							function(use: ComposeTypes.Use): string?
 								local badge = read(use(source).badge, use)
-								return if badge == nil then nil else tostring(badge)
+								return if badge == nil or not read(spec.iconOnly, use) then nil else tostring(badge)
 							end
 						)
 						runtime.decorate(corner, { Size = D2.fromScale(1, 1), AutomaticSize = E.AutomaticSize.None })
@@ -2572,8 +2571,7 @@ return function(
 					end
 					local badgeContent = button:FindFirstChild("Content")
 					if
-						style ~= "segmented"
-						and badgeContent
+						badgeContent
 						and (
 							current.badge ~= nil
 							or Compose.isReadable(spec.options)
@@ -2584,7 +2582,7 @@ return function(
 							return {
 								Compose.show(function(use: ComposeTypes.Use)
 									local badge = read(use(source).badge, use)
-									return badge ~= nil and badge ~= ""
+									return badge ~= nil and badge ~= "" and not (sealed and read(spec.iconOnly, use))
 								end, function()
 									local last = tostring(read(source:peek().badge))
 									return UI.Badge({
