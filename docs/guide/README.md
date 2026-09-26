@@ -43,6 +43,7 @@ to select a control. Then read the exact contract of that control in the
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
 | One theme focus ring in place of the engine selection glow | `UI.focusRing` |
 | Selection that returns to the last item of a sidebar or other section | `UI.focusSection` |
+| Drag and drop between your own nodes on every input | `UI.draggable`, `UI.dropTarget` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
 | Screen anchors for world objects | `UI.worldAnchor` |
 | Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |
