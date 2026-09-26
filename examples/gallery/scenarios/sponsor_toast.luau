@@ -342,7 +342,8 @@ return {
 							end
 							local function measure()
 								natural:set(
-									math.max(measurements.title.TextBounds.X, measurements.detail.TextBounds.X) + 24
+									math.ceil(math.max(measurements.title.TextBounds.X, measurements.detail.TextBounds.X))
+										+ 24
 								)
 							end
 							for _, text in measurements do
