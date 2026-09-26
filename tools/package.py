@@ -26,11 +26,11 @@ machine.
 verdict, then exit without touching the network. `--confirm` is the only way a
 request is ever made, and it is refused unless every guard passes.
 
-THE TWO ROUTES, AND WHY THERE ARE TWO. The platform research note
-(`artifacts/distribution-readiness/research/platform-sources.md`, fetched
-2026-08-30) found the bridge between Open Cloud and Studio Packages is one
-sentence — the Assets API's supported-types table says a Model "Will be uploaded
-as packages" — and that the same guide says "Currently, you can only update the
+THE TWO ROUTES, AND WHY THERE ARE TWO. In the Roblox Assets API usage guide
+(create.roblox.com/docs/cloud/guides/usage-assets, read 2026-08-30) the bridge
+between Open Cloud and Studio Packages is one sentence — the Assets API's
+supported-types table says a Model "Will be uploaded as packages" — and the
+same guide says "Currently, you can only update the
 asset content for `.fbx` files." Facet's artifact is an `.rbxm`. So the API's
 CREATE path is documented for our file type and its UPDATE path is not, and
 Roblox separately warns that "`.rbxm` or `.rbxmx` files edited outside of Roblox

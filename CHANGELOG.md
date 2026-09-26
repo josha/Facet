@@ -1174,8 +1174,7 @@ Focus and enablement:
   picker menu open, radial menu open), with fixtures shared by the headless
   scenes `alert-present-dismiss`, `picker-menu-open-close`,
   `picker-segmented-textsize` and `radial-menu-open-close`. Seven trend budgets
-  tightened after earlier improvements; none loosened. The round's numbers and
-  booked levers: `docs/plans/2026-09-11-perf-round.md`.
+  tightened after earlier improvements; none loosened.
 - Picker gains `style` — `automatic` (default), `menu`, `segmented`, `inline`,
   `radioGroup`, `navigationLink` — the reference platform's picker styles over
   one selection model. The automatic style resolves from published facts: a

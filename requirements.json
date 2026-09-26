@@ -1,7 +1,7 @@
 {
  "schema": "facet-requirements/1",
- "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md",
- "note": "IDs are stable; gates and tests reference them. 'spec' cites the design section. 'firstGate' names the earliest phase gate that must prove the requirement.",
+ "source": "the original cross-platform UI design spec (archived privately)",
+ "note": "IDs are stable; gates and tests reference them. 'spec' cites the design section or the archived plan. 'firstGate' names the earliest phase gate that must prove the requirement.",
  "requirements": [
   {
    "id": "UI-ADAPT-001",
@@ -175,49 +175,49 @@
   {
    "id": "UI-NATIVE-001",
    "title": "Native scroll/clip substrate: scroll regions are native ScrollingFrame hosts; the solver keeps owning content geometry and contentSize; the engine owns scroll physics, clipping, and scroll bars; programmatic keep-visible writes CanvasPosition",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-002",
    "title": "Native drag acquisition: UIDragDetector behind an adapter capability; Facet keeps the pure drag-session model (payload, legal targets, enter/leave, cancellation) with a headless driver and a fallback path exercised separately",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-003",
    "title": "Native touch gestures: GuiObject touch events normalized into stable framework value objects; composition/arbitration decisions stay headless; no raw-sample re-recognition unless a native event is proven insufficient",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-004",
    "title": "Native paths: a Path adapter backed by Path2D for strokes/arcs/radial progress; bespoke constructions retained only where a concrete requirement failed with evidence",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-005",
    "title": "Safe-area singularity: four-edge insets read from the modern GuiService inset surface; deviceSafeInsets populated; exactly one inset authority applies (never solver facts plus engine insets together)",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-006",
    "title": "Preferred text applied exactly once: the engine owns the player's preference in paint; Facet applies only authored scale; headless measurement reserves matching bounds from injected facts; measure and paint never diverge or clip",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-007",
    "title": "Selection policy: passive/gameplay targets keep GuiService.SelectedObject nil; an engine-selection bridge is opt-in for an engaged modal/menu only, reversible, clears on teardown, and requires physical-gamepad proof before being contract",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
    "id": "UI-NATIVE-008",
    "title": "Honest resource transport: ContentProvider:PreloadAsync fulfils the provider's pending requests; releasing a handle ignores stale completion and prevents queued-unstarted work; no in-flight cancellation is claimed",
-   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "spec": "archived plan roblox-native-audit-corrections + archived plan roblox-native-primitives",
    "firstGate": "native-substrate"
   },
   {
@@ -307,7 +307,7 @@
   {
    "id": "ROW-ACTIONS-001",
    "title": "Row swipe actions: newRowActions/newRowActionsCoordinator plus Table's rowActions integration, full cross-input coverage (mouse/touch/keyboard/gamepad/edit-mode), destructive commits irrevocable once started, with the perf gate re-baselined to Task 11b's measured mount-dominated numbers",
-   "spec": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
+   "spec": "archived plan row-actions + archived plan row-actions-implementation",
    "firstGate": "row-actions"
   }
  ]

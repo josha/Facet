@@ -97,6 +97,4 @@ frames and layout objects with theme spacing. Use Host constructors and native
 properties for layout that they do not cover. Use the Compose structural
 operations directly. Do not add Facet aliases for them.
 
-The design records in `docs/plans` and `docs/superpowers` are historical. They
-can describe removed APIs. This guide and the API reference describe the
-supported surface.
+This guide and the API reference describe the supported surface.

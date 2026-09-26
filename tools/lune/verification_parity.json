@@ -26977,7 +26977,7 @@
       ],
       "mainCases": 2,
       "class": "c",
-      "removal": "outsideTapCancel/presentModal options deleted (only historical docs/superpowers plan mentions them). Click-through prevention is now the native full-screen DismissOutside TextButton sinking input."
+      "removal": "outsideTapCancel/presentModal options deleted (only a historical design plan mentioned them). Click-through prevention is now the native full-screen DismissOutside TextButton sinking input."
     },
     {
       "id": "navigation-2-63",
