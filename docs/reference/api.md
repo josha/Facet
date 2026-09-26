@@ -2647,7 +2647,11 @@ only while editing; otherwise its editor cells accept edits at all times.
 `rowActions` are independent of edit mode.
 
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
-`widths` is a map of column widths. `selection` is a key-set map.
+`widths` is a map of column widths. A pointer drags a heading's divider to
+resize the column. With a keyboard or gamepad, focus the divider: Left and
+Right resize, Up and Down sort by the column, and Escape or B returns focus to
+the heading. Comma and Period resize the column whose heading or divider has
+focus. `selection` is a key-set map.
 `selectionMode` is `single`, `multiple` or `none`. When you supply
 `onSortChange`, `onWidthsChange` or `onSelectionChange`, it is a controlled
 request. Otherwise the control updates the writable cells.

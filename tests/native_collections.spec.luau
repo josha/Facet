@@ -801,6 +801,46 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("resizes and sorts a column from the keyboard or pad and releases the grip to its heading", function()
+		local engine, runtime, UI, target, gui = setup()
+		local sort, widths = Compose.cell(nil), Compose.cell({})
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				sort = sort,
+				widths = widths,
+				columns = { { id = "label", label = "Name", width = 100, minWidth = 60 } },
+			})
+		end, target)
+		local column = node:FindFirstChild("Header"):FindFirstChild("label")
+		column.AbsoluteSize = engine.types.Vector2.new(100, 40)
+		local heading, grip = column:FindFirstChild("Sort"), column:FindFirstChild("Resize")
+		local function press(name)
+			for _, context in target:GetChildren() do
+				if context.Name == "Facet" .. name and context.Enabled then
+					context:FindFirstChild(name).Pressed.fire()
+					return true
+				end
+			end
+			return false
+		end
+		heading.SelectionGained.fire()
+		t.expect(press("NarrowColumnKey")).toBe(true)
+		t.expect(widths:peek().label).toBe(92)
+		heading.SelectionLost.fire()
+		grip.SelectionGained.fire()
+		t.expect(press("WidenColumnKey")).toBe(true)
+		t.expect(widths:peek().label).toBe(100)
+		t.expect(press("SortColumn")).toBe(true)
+		t.expect(sort:peek()).toEqual({ column = "label", direction = "ascending" })
+		gui.SelectedObject = grip
+		t.expect(press("ReleaseColumn")).toBe(true)
+		t.expect(gui.SelectedObject).toBe(heading)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("keeps focus on the item by default and on the slot with focusPolicy index", function()
 		for _, policyName in { "key", "index" } do
 			local engine, runtime, UI, target = setup()

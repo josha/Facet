@@ -369,6 +369,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 						return use(current).sortable ~= false
 					end,
 					onActivate = function()
+						if column.sortable == false then
+							return
+						end
 						local order = readSource(sort)
 						local descending = order and order.column == column.id and order.direction == "ascending"
 						local nextSort: CollectionTypes.Sort = {
@@ -473,6 +476,38 @@ return function(ctx: Types.Context, UI: Controls): ()
 					ctx.action(grip, "WidenColumn", { E.KeyCode.Right, E.KeyCode.DPadRight }, selected, function()
 						adjust(8)
 					end, { priority = 300, capture = true })
+					local heading = Compose.cell(false)
+					runtime.connect(button, "SelectionGained", function()
+						heading:set(true)
+					end)
+					runtime.connect(button, "SelectionLost", function()
+						heading:set(false)
+					end)
+					local function engaged(use: ComposeTypes.Use): boolean
+						return use(selected) or use(heading)
+					end
+					ctx.action(grip, "NarrowColumnKey", { E.KeyCode.Comma }, engaged, function()
+						adjust(-8)
+					end, { priority = 300 })
+					ctx.action(grip, "WidenColumnKey", { E.KeyCode.Period }, engaged, function()
+						adjust(8)
+					end, { priority = 300 })
+					ctx.action(
+						grip,
+						"SortColumn",
+						{ E.KeyCode.Up, E.KeyCode.Down, E.KeyCode.DPadUp, E.KeyCode.DPadDown },
+						selected,
+						function()
+							activation.trigger(button)
+						end,
+						{ priority = 300, capture = true }
+					)
+					ctx.action(grip, "ReleaseColumn", { E.KeyCode.Escape, E.KeyCode.ButtonB }, selected, function()
+						local gui = ctx.config.guiService
+						if gui then
+							gui.SelectedObject = button
+						end
+					end, { priority = 300 })
 				end
 				return frame
 			end,
