@@ -1502,34 +1502,33 @@ return function(
 	local function slideSelection(
 		picker: Frame,
 		boxes: {
-			[GuiObject]: { order: ComposeTypes.Readable<number>, size: ComposeTypes.Readable<Vector2> },
+			[GuiObject]: {
+				order: ComposeTypes.Readable<number>,
+				size: ComposeTypes.Readable<Vector2>,
+				at: ComposeTypes.Readable<Vector2>,
+			},
 		},
 		currentOrder: ComposeTypes.Cell<number>,
-		indicator: Types.Value<string>?,
-		vertical: (ComposeTypes.Use?) -> boolean,
-		gap: number
+		indicator: Types.Value<string>?
 	): ()
 		local reduced = reducedMotion(ctx)
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
 		end, { period = 0.25, damping = 1, tolerance = 1e-3, reducedMotion = reduced })
 		local _, slot = runtime.mount(function()
-			return Host.Folder "Slide" {}
+			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
 		end, picker)
+		local origin = ctx.observe.AbsolutePosition(picker)
+		local unit = ctx.observe.AbsoluteSize((slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject)
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
-			local along, found = 0, nil :: Vector2?
+			local scale = (use(unit) :: Vector2).X
+			scale = if scale > 0 then scale else 1
 			for _, box in boxes do
-				local at, size = use(box.order), use(box.size)
-				if at == order then
-					found = size
-				elseif at < order then
-					along += (if vertical(use) then size.Y else size.X) + gap
+				if use(box.order) == order then
+					return (use(box.at) - use(origin) :: Vector2) / scale, use(box.size) / scale
 				end
 			end
-			if found == nil then
-				return nil, nil
-			end
-			return if vertical(use) then V2.new(0, along) else V2.new(along, 0), found
+			return nil, nil
 		end
 		local rect = Compose.formula(function(use: ComposeTypes.Use): { Vector2 }?
 			local at = use(sliding)
@@ -2395,7 +2394,13 @@ return function(
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
 		local room = Compose.cell(math.huge)
-		local segmentBoxes: { [GuiObject]: { order: ComposeTypes.Readable<number>, size: ComposeTypes.Readable<Vector2> } } =
+		local segmentBoxes: {
+			[GuiObject]: {
+				order: ComposeTypes.Readable<number>,
+				size: ComposeTypes.Readable<Vector2>,
+				at: ComposeTypes.Readable<Vector2>,
+			},
+		} =
 			{}
 		local currentOrder = Compose.cell(0)
 		local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
@@ -2742,7 +2747,8 @@ return function(
 							captionHeights[button] = button.TextBounds.Y
 							measureCaptions()
 						end)
-						segmentBoxes[button] = { order = index, size = extent }
+						segmentBoxes[button] =
+							{ order = index, size = extent, at = ctx.observe.AbsolutePosition(button) }
 						Compose.cleanup(function()
 							captionHeights[button] = nil
 							segmentBoxes[button] = nil
@@ -2858,16 +2864,7 @@ return function(
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if spec.multiple ~= true then
-				slideSelection(
-					picker,
-					segmentBoxes,
-					currentOrder,
-					(spec.indicator :: unknown) :: Types.Value<string>?,
-					function(use: ComposeTypes.Use?)
-						return not across(use)
-					end,
-					4
-				)
+				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Value<string>?)
 			end
 			if not labelled then
 				local width = layoutWidth(picker)
