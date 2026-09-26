@@ -169,6 +169,7 @@ export type ActionSettings = {
 	onReleased: (() -> ())?,
 	capture: boolean?,
 	group: string?,
+	conditional: { binding: ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
 }
 export type ListRow = {
 	leading: { Child }?,
@@ -183,6 +184,9 @@ export type SkinStateOptions = {
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
 }
+export type ResponderOptions = { passive: boolean?, gameplayGuard: boolean?, traversalWrap: boolean? }
+export type ResponderState = "passive" | "engaged"
+export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
 export type Context = {
 	runtime: Runtime,
 	Host: Host,
@@ -233,6 +237,8 @@ export type Context = {
 		ActionSettings?
 	) -> (InputAction, InputContext),
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
+	responder: (Instance, ResponderOptions?) -> Responder,
+	spaceActivates: (Instance) -> (Use) -> boolean,
 }
 
 return {}

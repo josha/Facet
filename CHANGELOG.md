@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `UI.responder(root, options?)` restores the pre-0.12 first responder on the engine selection. A passive surface (the default) binds nothing at rest: Tab is not bound while nothing is selected, a D-pad press does not enter it and Space reaches the game. It engages when the selection enters it, on a tap on it (the tapped control takes the selection) and on `engage()`, and resigns on a tap outside, on an untaken ButtonB or Escape, on `resign()` or when the selection leaves for another surface. While engaged, `gameplayGuard` (default on) sinks Space at priority 3000; `gameplayGuard = false` also drops Space from the Buttons inside it. `traversalWrap = false` stops Tab and Shift+Tab at the ends of the surface. `passive = false` keeps a surface always engaged. The Virtual Monitors desktop declares itself engaged-open.
+- `keyboardNavigation = false` now also drops Space from a selected Button (Return still activates), as before 0.12; `true`, the default, binds Tab and Space. The default is one constant in `selection.luau`.
+- `UI.Grid` clamps a move into a short last line: the cells of the line before it that have no cell below get `NextSelectionDown` (`NextSelectionRight` for `flow = "column"`) to the last cell, the pre-0.12 ragged-row rule. A neighbour that you set wins.
+
 - NavigationStack Back returns the selection to the control that pushed, found by its path in the page when the page rebuilt that control. Before, it fell to the page's first control (Foundation lab Browse → Back landed on "Show examples").
 - A TabView inside the page of a bar-less TabView (`placement = "none"`) is not nested: it takes the full home policy (a phone gets the bottom bar). The Showcase categories follow the policy on Automatic again, so a phone shows them in a bottom bar as before 0.12.
 - A TabView whose home changes (a sidebar preference, an expanded sidebar) moves the selection from its accessories to the current tab, instead of letting it fall to a control in the page (found live: "Use sidebar" left the selection on the page's first button).

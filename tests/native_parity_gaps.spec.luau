@@ -25,6 +25,7 @@ local helpers: { [string]: boolean } = {
 	scrollToVisible = true,
 	focusRing = true,
 	focusSection = true,
+	responder = true,
 }
 
 local function world(build: (any, any, any) -> any, options: { [string]: any }?): World

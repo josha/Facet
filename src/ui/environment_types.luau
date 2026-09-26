@@ -70,10 +70,14 @@ export type FocusSectionOptions = {
 	focusOnAppear: (boolean | string)?,
 	returnFocus: boolean?,
 }
+export type ResponderOptions = Types.ResponderOptions
+export type ResponderState = Types.ResponderState
+export type Responder = Types.Responder
 export type EnvironmentControls = {
 	environment: (source: EnvironmentSource?) -> Environment,
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
+	responder: (root: Instance, options: ResponderOptions?) -> Responder,
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,
 	scrollToVisible: (node: GuiObject, rect: ScrollRect?, options: ScrollOptions?) -> boolean,

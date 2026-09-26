@@ -1,15 +1,31 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
+local Env = require("./environment_types")
 
 type Level = { child: Instance, parent: Instance, siblings: { Instance } }
 type Snapshot = { node: GuiObject, levels: { Level }, modal: boolean }
 
-return function(ctx: Shared.Context): (Instance) -> ()
+type Record = { root: Instance, passive: boolean, engaged: ComposeTypes.Cell<boolean> }
+export type Selection = {
+	track: (Instance) -> (),
+	responder: (Instance, Env.ResponderOptions?) -> Env.Responder,
+	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
+}
+
+local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
+-- The value of the `keyboardNavigation` factory option when it is not set.
+local KEYBOARD_NAVIGATION_DEFAULT = true
+
+return function(ctx: Shared.Context): Selection
 	local Compose, runtime, config = ctx.Compose, ctx.runtime, ctx.config
 	local E = ctx.types.Enum
 	local gui = config.guiService
 	local input = config.userInputService
+	local responders = Compose.cell({} :: { Record })
+	local keyboardNavigation = if config.keyboardNavigation == nil
+		then KEYBOARD_NAVIGATION_DEFAULT
+		else config.keyboardNavigation
 	local registry = (
 		setmetatable({} :: { [Instance]: boolean }, { __mode = "k" }) :: unknown
 	) :: { [Instance]: boolean }
@@ -121,6 +137,16 @@ return function(ctx: Shared.Context): (Instance) -> ()
 				return candidates(collector)
 			end
 		end
+		local records = responders:peek()
+		for index = #records, 1, -1 do
+			local record = records[index]
+			if record.passive and record.engaged:peek() and shown(record.root) then
+				local list = candidates(record.root)
+				if #list > 0 then
+					return list
+				end
+			end
+		end
 		for _, screen in screens() do
 			local list = candidates(screen)
 			if #list > 0 then
@@ -128,6 +154,17 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			end
 		end
 		return {}
+	end
+
+	local function wraps(node: Instance): boolean
+		local at: Instance? = node
+		while at do
+			if at:GetAttribute("FacetTraversalWrap") == false then
+				return false
+			end
+			at = at.Parent
+		end
+		return true
 	end
 
 	local function traverse(step: number): ()
@@ -150,12 +187,24 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			return position[a] < position[b]
 		end)
 		local at = if selected then table.find(list, selected) else nil
+		if at and (at + step < 1 or at + step > #list) and not wraps(list[at]) then
+			return
+		end
 		local target = if at then list[(at - 1 + step) % #list + 1] elseif step < 0 then list[#list] else list[1]
 		local editing = if input and input.GetFocusedTextBox then input:GetFocusedTextBox() else nil
 		if editing and editing ~= target then
 			editing:ReleaseFocus(false)
 		end
 		gui.SelectedObject = target
+	end
+
+	local function resting(node: Instance): boolean
+		for _, record in responders:peek() do
+			if record.passive and not record.engaged:peek() and node:IsDescendantOf(record.root) then
+				return true
+			end
+		end
+		return false
 	end
 
 	local function enter(): ()
@@ -166,9 +215,11 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		if selected and shown(selected) then
 			return
 		end
-		local list = scopeOf(nil)
-		if list[1] then
-			gui.SelectedObject = list[1]
+		for _, candidate in scopeOf(nil) do
+			if not resting(candidate) then
+				gui.SelectedObject = candidate
+				return
+			end
 		end
 	end
 
@@ -226,6 +277,16 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			end
 		end
 		return nil
+	end
+
+	local function inputHost(): Instance?
+		local parent = config.inputParent
+		if parent == nil then
+			local players = config.services.Players
+			local player = if players then players.LocalPlayer else nil
+			parent = if player then player:FindFirstChildOfClass("PlayerGui") else nil
+		end
+		return parent
 	end
 
 	local acquire = Compose.createSharedResource(function(): (nil, (() -> ())?)
@@ -410,12 +471,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 				enter()
 			end
 		end)
-		local parent = config.inputParent
-		if parent == nil then
-			local players = config.services.Players
-			local player = if players then players.LocalPlayer else nil
-			parent = if player then player:FindFirstChildOfClass("PlayerGui") else nil
-		end
+		local parent = inputHost()
 		if parent then
 			ctx.Host.InputContext({
 				Name = "FacetEntry",
@@ -439,7 +495,22 @@ return function(ctx: Shared.Context): (Instance) -> ()
 				Priority = 1500,
 				Sink = true,
 				Enabled = function(use: ComposeTypes.Use): boolean
-					return config.keyboardNavigation ~= false and use(keyboard) == true
+					if not keyboardNavigation or use(keyboard) ~= true then
+						return false
+					end
+					if use(selectedObject) ~= nil then
+						return true
+					end
+					local resting = false
+					for _, record in use(responders) do
+						if record.passive then
+							if use(record.engaged) then
+								return true
+							end
+							resting = true
+						end
+					end
+					return not resting
 				end,
 				ctx.Host.InputAction({
 					Name = "Traverse",
@@ -456,11 +527,167 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		return nil, nil
 	end)
 
-	return function(node: Instance): ()
+	local function track(node: Instance): ()
 		if gui == nil then
 			return
 		end
 		registry[node] = true
 		acquire()
 	end
+
+	local function responder(root: Instance, options: Env.ResponderOptions?): Env.Responder
+		assert(Compose.currentOwner() ~= nil, "Facet UI.responder must run inside a component or Compose owner")
+		assert(
+			(root :: any) ~= nil and (root :: any).IsA ~= nil and (root:IsA("GuiObject") or root:IsA("LayerCollector")),
+			"Facet UI.responder expects a GuiObject or a LayerCollector"
+		)
+		local settings: Env.ResponderOptions = options or {}
+		for key, value in (settings :: unknown) :: { [unknown]: unknown } do
+			assert(RESPONDER_KEYS[key :: string] == true, `Facet UI.responder: unknown option '{tostring(key)}'`)
+			assert(type(value) == "boolean", `Facet UI.responder: {tostring(key)} must be a boolean`)
+		end
+		local passive = settings.passive ~= false
+		local engaged = Compose.cell(not passive)
+		if settings.traversalWrap == false then
+			root:SetAttribute("FacetTraversalWrap", false)
+		end
+		if settings.gameplayGuard == false then
+			root:SetAttribute("FacetGameplayGuard", false)
+		end
+		local record: Record = { root = root, passive = passive, engaged = engaged }
+		local list = table.clone(responders:peek())
+		table.insert(list, record)
+		responders:set(list)
+		Compose.cleanup(function()
+			local remaining = table.clone(responders:peek())
+			local index = table.find(remaining, record)
+			if index then
+				table.remove(remaining, index)
+				responders:set(remaining)
+			end
+		end)
+		local function inside(node: Instance?): boolean
+			return node ~= nil and (node == (root :: Instance) or node:IsDescendantOf(root))
+		end
+		local function engage(): ()
+			engaged:set(true)
+		end
+		local function resign(): ()
+			if not passive then
+				return
+			end
+			engaged:set(false)
+			if gui and inside(gui.SelectedObject) then
+				gui.SelectedObject = nil
+			end
+		end
+		local parent = inputHost()
+		if passive and gui and gui.GetPropertyChangedSignal then
+			local selected = ctx.observe.SelectedObject(gui)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local current = use(selected) :: Instance?
+				if current == nil then
+					return
+				end
+				if inside(current) then
+					engaged:set(true)
+				elseif engaged:peek() then
+					engaged:set(false)
+				end
+			end)
+			if input then
+				runtime.connect(input, "InputBegan", function(event: InputObject)
+					local kind = event.UserInputType
+					if kind ~= E.UserInputType.MouseButton1 and kind ~= E.UserInputType.Touch then
+						return
+					end
+					local collector = if root:IsA("LayerCollector") then root else collectorOf(root)
+					local host = if collector then collector.Parent else nil
+					if host == nil or (host :: any).GetGuiObjectsAtPosition == nil then
+						return
+					end
+					local hits = (host :: any):GetGuiObjectsAtPosition(event.Position.X, event.Position.Y)
+					for _, hit in hits do
+						if inside(hit) then
+							engaged:set(true)
+							local at: Instance? = hit
+							while at and at ~= root.Parent do
+								if at:IsA("GuiObject") and at.Selectable then
+									gui.SelectedObject = at
+									break
+								end
+								at = at.Parent
+							end
+							return
+						end
+					end
+					if engaged:peek() then
+						resign()
+					end
+				end)
+			end
+			if parent then
+				ctx.Host.InputContext({
+					Name = "FacetResponderCancel",
+					Parent = parent,
+					Priority = 1,
+					Sink = false,
+					Enabled = function(use: ComposeTypes.Use): boolean
+						return use(engaged)
+					end,
+					ctx.Host.InputAction({
+						Name = "Cancel",
+						Type = E.InputActionType.Bool,
+						Pressed = resign,
+						ctx.Host.InputBinding({ KeyCode = E.KeyCode.ButtonB }),
+						ctx.Host.InputBinding({ KeyCode = E.KeyCode.Escape }),
+					}),
+				})
+				if settings.gameplayGuard ~= false then
+					ctx.Host.InputContext({
+						Name = "FacetGameplayGuard",
+						Parent = parent,
+						Priority = 3000,
+						Sink = true,
+						Enabled = function(use: ComposeTypes.Use): boolean
+							return use(engaged)
+						end,
+						ctx.Host.InputAction({
+							Name = "Guard",
+							Type = E.InputActionType.Bool,
+							ctx.Host.InputBinding({ KeyCode = E.KeyCode.Space }),
+						}),
+					})
+				end
+			end
+		end
+		local state = (
+			Compose.formula(function(use: ComposeTypes.Use): Env.ResponderState
+				return if use(engaged) then "engaged" else "passive"
+			end) :: unknown
+		) :: ComposeTypes.Readable<Env.ResponderState>
+		return table.freeze({
+			state = state,
+			engage = engage,
+			resign = resign,
+		})
+	end
+
+	local function spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
+		return function(): boolean
+			if not keyboardNavigation then
+				return false
+			end
+			local at: Instance? = node
+			while at do
+				if at:GetAttribute("FacetGameplayGuard") == false then
+					return false
+				end
+				at = at.Parent
+			end
+			return true
+		end
+	end
+
+	return { track = track, responder = responder, spaceActivates = spaceActivates }
 end

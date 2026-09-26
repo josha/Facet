@@ -9,6 +9,7 @@ local HELPERS = {
 	scrollToVisible = true,
 	focusRing = true,
 	focusSection = true,
+	responder = true,
 }
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")

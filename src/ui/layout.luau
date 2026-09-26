@@ -273,6 +273,64 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			runtime.connect(node, "ChildRemoved", count)
 			count()
 		end
+		-- A short last line: a move off a lane it does not reach lands on its last cell.
+		local forward = if flow == "column" then "NextSelectionRight" else "NextSelectionDown"
+		local clamped = setmetatable({} :: { [GuiObject]: boolean }, { __mode = "k" })
+		local revision = Compose.cell(0)
+		local function bump()
+			revision:set(revision:peek() + 1)
+		end
+		runtime.connect(node, "ChildAdded", bump)
+		runtime.connect(node, "ChildRemoved", bump)
+		local function selectable(cell: GuiObject): GuiObject?
+			if cell.Selectable then
+				return cell
+			end
+			for _, inner in cell:GetDescendants() do
+				if inner:IsA("GuiObject") and inner.Selectable then
+					return inner
+				end
+			end
+			return nil
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(revision)
+			local list: { GuiObject } = {}
+			local index: { [GuiObject]: number } = {}
+			for position, child in node:GetChildren() do
+				if child:IsA("GuiObject") and child.Visible then
+					table.insert(list, child)
+					index[child] = position
+				end
+			end
+			table.sort(list, function(a: GuiObject, b: GuiObject): boolean
+				return if a.LayoutOrder ~= b.LayoutOrder then a.LayoutOrder < b.LayoutOrder else index[a] < index[b]
+			end)
+			local total = #list
+			local lanes = columns(use)
+			if flow == "column" then
+				lanes = math.max(1, math.ceil(total / lanes))
+			end
+			local lines = math.ceil(total / lanes)
+			local short = total - (lines - 1) * lanes
+			local last = if lines >= 2 and short < lanes then selectable(list[total]) else nil
+			for position, cell in list do
+				local target = selectable(cell)
+				if target then
+					local line, lane = (position - 1) // lanes + 1, (position - 1) % lanes + 1
+					local fields = target :: any
+					if last and line == lines - 1 and lane > short then
+						if fields[forward] == nil or clamped[target] then
+							fields[forward] = last
+							clamped[target] = true
+						end
+					elseif clamped[target] then
+						fields[forward] = nil
+						clamped[target] = nil
+					end
+				end
+			end
+		end)
 		return node
 	end)
 

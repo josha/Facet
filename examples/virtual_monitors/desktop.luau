@@ -122,6 +122,8 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			},
 		}
 		root:AddTag("facet-surface")
+		-- The full-screen desktop keeps Tab and Space: it is not a HUD over the world.
+		UI.responder(root, { passive = false })
 
 		local sidebar = (root:FindFirstChild("Apps") :: any):FindFirstChild("Tabs")
 		if sidebar then

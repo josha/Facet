@@ -43,6 +43,7 @@ to select a control. Then read the exact contract of that control in the
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
 | One theme focus ring in place of the engine selection glow | `UI.focusRing` |
 | Selection that returns to the last item of a sidebar or other section | `UI.focusSection` |
+| A HUD that leaves Tab and Space to the game until the player taps it | `UI.responder` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
 | Legacy player scripts holding ButtonA, the arrow keys or Tab | `Facet.gamepadContention` |
 | Screen anchors for world objects | `UI.worldAnchor` |

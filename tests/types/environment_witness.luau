@@ -11,11 +11,13 @@ local function Screen(): Frame
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
 	local ring: Frame = UI.focusRing(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
 	UI.focusSection(list)
+	local responder = UI.responder(list, { passive = true, gameplayGuard = false, traversalWrap = false })
+	responder.engage()
 	return UI.Screen({
 		ring :: any,
 		UI.Text({
 			text = function(use: Facet.Use): string
-				return `{use(env.sizeClass)} {moved} {shown} {use(anchor.anchor) ~= nil}`
+				return `{use(env.sizeClass)} {moved} {shown} {use(anchor.anchor) ~= nil} {use(responder.state)}`
 			end,
 		}),
 	})

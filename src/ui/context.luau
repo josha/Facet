@@ -14,6 +14,7 @@ type ActionSettings = {
 	sink: boolean?,
 	capture: boolean?,
 	group: string?,
+	conditional: { binding: Shared.ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
 }
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
@@ -1021,16 +1022,25 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if settings.onReleased then
 			p.Released = settings.onReleased
 		end
+		local function bind(binding: Shared.ActionBinding): Instance
+			return Host.InputBinding(if type(binding) == "table"
+				then binding
+				else {
+					KeyCode = if type(binding) == "string"
+						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+						else binding,
+				})
+		end
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
+			table.insert(p, bind(binding))
+		end
+		local conditional = settings.conditional
+		if conditional then
 			table.insert(
 				p,
-				Host.InputBinding(if type(binding) == "table"
-					then binding
-					else {
-						KeyCode = if type(binding) == "string"
-							then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-							else binding,
-					})
+				Compose.show(conditional.when, function()
+					return bind(conditional.binding)
+				end)
 			)
 		end
 		local action = Host.InputAction(p)
@@ -1223,6 +1233,14 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return dispose, art :: GuiObject?
 	end
 
-	track = selection(ctx)
+	local selected: selection.Selection
+	function ctx.responder(root: Instance, options: Shared.ResponderOptions?): Shared.Responder
+		return selected.responder(root, options)
+	end
+	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
+		return selected.spaceActivates(node)
+	end
+	selected = selection(ctx)
+	track = selected.track
 	return ctx
 end

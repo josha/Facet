@@ -934,9 +934,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		local keyboardAttached = false
 		local function attachKeyboard()
-			ctx.action(node, "Activate", { E.KeyCode.Return, E.KeyCode.Space }, function(use: ComposeTypes.Use)
-				return read(selectedForKeyboard, use) == true and shortcutActive(use)
-			end, activate, { priority = 5000 })
+			ctx.action(
+				node,
+				"Activate",
+				{ E.KeyCode.Return },
+				function(use: ComposeTypes.Use)
+					return read(selectedForKeyboard, use) == true and shortcutActive(use)
+				end,
+				activate,
+				{ priority = 5000, conditional = { binding = E.KeyCode.Space, when = ctx.spaceActivates(node) } }
+			)
 		end
 		if not lazyKeyboard then
 			table.insert(
