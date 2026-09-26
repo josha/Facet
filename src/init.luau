@@ -157,10 +157,12 @@ export type Facet = {
 	pathShapes: typeof(pathShapes),
 	richText: typeof(richText),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
+	inputPriority: { belowControls: number, aboveFacet: number },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
 }
 
 local VERSION = "0.12.0"
+local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
 local COMPOSE_COMMIT = "a921f4350ddcc4966f75cf6a1ec9650b88b334fa"
 local USED = {
 	"boundary",
@@ -222,6 +224,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		pathShapes = pathShapes,
 		richText = richText,
 		recipes = recipes,
+		inputPriority = INPUT_PRIORITY,
 		bind = bind,
 	})
 	return surface

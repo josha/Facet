@@ -115,6 +115,9 @@ gamepadContention : table(frozen)
   gamepadContention.iasPlayerScriptsActive : function
   gamepadContention.legacyStackActive : function
   gamepadContention.traversalKeyContended : function
+inputPriority : table(frozen)
+  inputPriority.aboveFacet : number
+  inputPriority.belowControls : number
 pathShapes : table(frozen)
   pathShapes.MAX_CONTROL_POINTS : number
   pathShapes.arc : function

@@ -395,6 +395,17 @@ local lifetime = Compose.createRootOwner(function()
 	end)
 	entrance:set(1)
 	frameCamera()
+	Host.InputContext "VirtualMonitorsShortcuts" {
+		Parent = players.LocalPlayer:WaitForChild("PlayerGui"),
+		Priority = Facet.inputPriority.belowControls,
+		Host.InputAction "ToggleMode" {
+			Pressed = function()
+				model.modeChosen = true
+				mode:set(if mode:peek() == "Screen" then "Spatial" else "Screen")
+			end,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonSelect }),
+		},
+	}
 	Host.BindableFunction "VirtualMonitorsAPI" {
 		Parent = workspace,
 		OnInvoke = Compose.static(function(command, argument)

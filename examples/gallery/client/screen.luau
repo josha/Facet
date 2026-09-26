@@ -485,13 +485,13 @@ function screen.build(ctx: any)
 		end
 		Host.InputContext "ShowcaseChromeToggle" {
 			Parent = ctx.inputTarget,
-			Priority = 13500,
+			Priority = ctx.Facet.inputPriority.aboveFacet,
 			Sink = true,
 			action("Activate", Enum.KeyCode.Backquote, nil),
 		}
 		Host.InputContext "ShowcaseChromeShoulders" {
 			Parent = ctx.inputTarget,
-			Priority = 1,
+			Priority = ctx.Facet.inputPriority.belowControls,
 			Sink = true,
 			action("ActivateDemos", Enum.KeyCode.ButtonL1, "demos"),
 			action("ActivateSettings", Enum.KeyCode.ButtonR1, "settings"),

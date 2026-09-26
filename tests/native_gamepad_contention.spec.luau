@@ -196,3 +196,23 @@ t.describe("gamepad_contention (client module, headless structural spec)", funct
 		t.expect(result).toBe(false)
 	end)
 end)
+
+t.describe("inputPriority: the band Facet's own input contexts live in", function()
+	t.it("every Facet binding sits between belowControls and aboveFacet", function()
+		local fs = require("@lune/fs")
+		local band = Facet.inputPriority
+		t.expect(table.isfrozen(band)).toBe(true)
+		local lowest, highest = math.huge, -math.huge
+		for _, file in fs.readDir("src/ui") do
+			if string.sub(file, -6) == ".luau" then
+				local source = fs.readFile("src/ui/" .. file)
+				for value in string.gmatch(source, "[pP]riority = (%d+)") do
+					local number = tonumber(value) :: number
+					lowest, highest = math.min(lowest, number), math.max(highest, number)
+				end
+			end
+		end
+		t.expect(band.belowControls < lowest).toBe(true)
+		t.expect(band.aboveFacet > highest).toBe(true)
+	end)
+end)

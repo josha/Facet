@@ -20,6 +20,7 @@ and styling. This reference describes the `0.12.0` surface.
 | `gamepadContention` | Probes and the one remedy for the legacy player scripts that hold ButtonA, the arrow keys and Tab. See [Facet.gamepadContention](#facetgamepadcontention). |
 | `pathShapes` | Normalized arc, ring and needle points for `UI.Path`. See [Path shapes](#path-shapes). |
 | `richText` | `escape` for player and server text inside rich text. See [Text](#text). |
+| `inputPriority` | `{ belowControls, aboveFacet }`: `InputContext.Priority` values just below and just above every input context Facet creates. A game shortcut at `belowControls` loses to any selected Facet control; one at `aboveFacet` wins over all of them. |
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
 | `bind(Compose, Roblox)` | Returns a Facet table whose `controls` and `themes` use the Compose core module and the Compose Roblox module that you give. See [Your own Compose](#your-own-compose). |
 

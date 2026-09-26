@@ -48,7 +48,10 @@ start in screen mode. An explicit choice takes precedence.
 
 The entry script binds Facet to its Compose copy with
 `Facet.bind(Facet.Compose, Facet.Roblox)`. It mounts ordinary `Host.SurfaceGui`
-and `Host.ScreenGui` instances with `runtime.mount`. Each surface has a native
+and `Host.ScreenGui` instances with `runtime.mount`. The gamepad View button
+switches between Screen and Spatial through an `InputContext` at
+`Facet.inputPriority.belowControls`, so any Facet control that binds it wins.
+Each surface has a native
 StyleSheet and StyleLink. `theme.luau` starts from the neutral type roles,
 makes each app package with `Facet.themes.define`, checks the colors and
 metrics that the screens need with `themes.checkCoverage`, and checks the icon

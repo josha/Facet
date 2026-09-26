@@ -47,6 +47,7 @@ to select a control. Then read the exact contract of that control in the
 | Drag and drop between your own nodes on every input | `UI.draggable`, `UI.dropTarget` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
 | Legacy player scripts holding ButtonA, the arrow keys or Tab | `Facet.gamepadContention` |
+| A game shortcut that must lose to, or win over, every Facet control | `Facet.inputPriority` |
 | Screen anchors for world objects | `UI.worldAnchor` |
 | Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |
 | Failure containment with fallback content | `UI.ErrorBoundary` |
