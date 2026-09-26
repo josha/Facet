@@ -145,7 +145,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					Compose.show(function(use: ComposeTypes.Use): boolean
 						return shown(use) and layer(use).pulse == true and not reduced(use)
 					end, function()
-						local value = Host.NumberValue({ Name = "FocusPulse" })
+						local value = runtime.host.render.createNode("NumberValue") :: NumberValue
+						value.Name = "FocusPulse"
 						local playback = tweenService:Create(
 							value,
 							ctx.types.TweenInfo.new(1, E.EasingStyle.Sine, E.EasingDirection.InOut, -1, true),

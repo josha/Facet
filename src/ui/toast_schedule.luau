@@ -71,7 +71,8 @@ function toast_schedule.new(options: Options?): Schedule
 		local failure: unknown = if ok then nil else result
 		if ok and depth == 1 then
 			while failure == nil and #pending > 0 do
-				local done, problem = pcall(table.remove(pending, 1) :: () -> ())
+				local callback = table.remove(pending, 1) :: () -> ()
+				local done, problem = pcall(callback :: () -> unknown)
 				failure = if done then nil else problem
 			end
 		end
@@ -80,7 +81,7 @@ function toast_schedule.new(options: Options?): Schedule
 			table.clear(pending)
 			error(failure, 0)
 		end
-		return result
+		return result :: T
 	end
 
 	local function outranks(a: Entry, b: Entry): boolean
@@ -242,7 +243,10 @@ function toast_schedule.new(options: Options?): Schedule
 		end)
 	end
 	function schedule.update()
-		guarded(resolve)
+		guarded(function()
+			resolve()
+			return nil
+		end)
 	end
 	function schedule.dismiss(id: number, reason: string?): boolean
 		return guarded(function()

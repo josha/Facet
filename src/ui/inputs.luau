@@ -2122,7 +2122,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		root = ctx.styled(Host.TextButton(p), if rating then "rating" else "level-picker")
 		local parent = ctx.observe.Parent(root)
-		local unit = ctx.observe.AbsoluteSize(marks[1])
+		local unit = ctx.observe.AbsoluteSize((marks[1] :: unknown) :: GuiObject)
 		local holderSize = Compose.cell(0)
 		local observation = runtime.host.observation
 		local stopHolder: (() -> ())? = nil
