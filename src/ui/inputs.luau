@@ -2022,10 +2022,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		local markContent = Host.Frame(contentProps)
 
-		local input = ctx.config.services.UserInputService
-		local touch = if input then ctx.observe.TouchEnabled(input) else nil
+		local effectiveInput = ctx.effectiveInput()
 		local function gap(use: ComposeTypes.Use): number
-			local reach = if touch and use(touch) then ctx.metric("targetSizes.minimum", use) else 0
+			local reach = if effectiveInput(use) == "Touch" then ctx.metric("targetSizes.minimum", use) else 0
 			return math.max(2, reach - markSize)
 		end
 		runtime.decorate(assert(markContent:FindFirstChildWhichIsA("UIListLayout")), {
@@ -2142,6 +2141,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				cancel()
 			end
 		end)
+		local input = ctx.config.services.UserInputService
 		if input then
 			local preference = ctx.observe.PreferredInput(input)
 			Compose.watch(function(use: ComposeTypes.Use)

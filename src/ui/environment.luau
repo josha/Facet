@@ -345,7 +345,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end
 		local gui = config.guiService
 		local input = config.userInputService
-		local preferred = watched(input, "PreferredInput", nil)
+		local primaryInput = ctx.effectiveInput()
 		local mouse = watched(input, "MouseEnabled", false)
 		local touch = watched(input, "TouchEnabled", false)
 		local gamepad = watched(input, "GamepadEnabled", false)
@@ -358,16 +358,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				gamepad = use(gamepad) == true,
 				keyboard = use(keyboard) == true,
 			}
-			local report = enumName(use(preferred), "")
-			if report == "Touch" then
-				classes.primary = "touch"
-			elseif report == "Gamepad" then
-				classes.primary = "gamepad"
-			elseif not classes.pointer and classes.touch then
-				classes.primary = "touch"
-			elseif not classes.pointer and classes.gamepad then
-				classes.primary = "gamepad"
-			end
+			local primary = primaryInput(use)
+			classes.primary = if primary == "Touch" then "touch" elseif primary == "Gamepad" then "gamepad" else "pointer"
 			if classes.primary == "pointer" then
 				classes.pointer = true
 			elseif classes.primary == "touch" then
@@ -379,11 +371,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end)
 		local effectiveInput = (
 			derived(function(use): "Touch" | "Gamepad" | "KeyboardAndMouse"
-				local primary = use(interactionClasses).primary
-				return if primary == "touch"
-					then "Touch"
-					elseif primary == "gamepad" then "Gamepad"
-					else "KeyboardAndMouse"
+				return primaryInput(use)
 			end) :: unknown
 		) :: ComposeTypes.Readable<"Touch" | "Gamepad" | "KeyboardAndMouse">
 		local displayRaw = watched(gui, "ViewportDisplaySize", nil)

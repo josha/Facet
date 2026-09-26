@@ -206,6 +206,7 @@ export type Context = {
 	hitFloor: () -> (Use?) -> number,
 	tenFoot: () -> (Use?) -> boolean,
 	viewingDistance: (Use?) -> "automatic" | "near" | "ten-foot",
+	effectiveInput: () -> (Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse",
 	touchFloor: () -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,

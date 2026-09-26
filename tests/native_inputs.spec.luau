@@ -2446,9 +2446,9 @@ t.describe("native input controls", function()
 		t.expect(captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
 
-	t.it("a rating spaces its stars to the touch target on touch and packs them for a pointer or a gamepad", function()
+	t.it("a rating spaces its stars to the touch target when touch is the effective input", function()
 		local input
-		local node, stop = world(function(UI)
+		local node, stop, engine = world(function(UI)
 			return UI.Rating({ value = Compose.cell(3) })
 		end, function(engine)
 			input = engine.new("UserInputService")
@@ -2460,6 +2460,12 @@ t.describe("native input controls", function()
 		input.TouchEnabled = true
 		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
 		t.expect(find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(24)
+		input.MouseEnabled = true
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
 		stop()
 	end)
 end)

@@ -456,6 +456,35 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return pointer
 		end
 	end
+	function ctx.effectiveInput(): (ComposeTypes.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse"
+		local input = config.userInputService
+		local function watch(property: string): ComposeTypes.Readable<unknown>?
+			if input == nil then
+				return nil
+			end
+			local ok, value = pcall((ctx.observe :: any)[property], input)
+			return if ok then value else nil
+		end
+		local preferred, mouse, touch, gamepad =
+			watch("PreferredInput"), watch("MouseEnabled"), watch("TouchEnabled"), watch("GamepadEnabled")
+		local function on(source: ComposeTypes.Readable<unknown>?, use: ComposeTypes.Use?): boolean
+			return source ~= nil and ctx.readSource(source, use) == true
+		end
+		return function(use: ComposeTypes.Use?): "Touch" | "Gamepad" | "KeyboardAndMouse"
+			local report = if preferred then ctx.readSource(preferred, use) else nil
+			local name = if typeof(report) == "EnumItem" then (report :: EnumItem).Name else report
+			if name == "Touch" or name == "Gamepad" then
+				return name
+			elseif on(mouse, use) then
+				return "KeyboardAndMouse"
+			elseif on(touch, use) then
+				return "Touch"
+			elseif on(gamepad, use) then
+				return "Gamepad"
+			end
+			return "KeyboardAndMouse"
+		end
+	end
 	function ctx.touchFloor(): (ComposeTypes.Use?) -> number
 		local input = config.userInputService
 		if input == nil then
