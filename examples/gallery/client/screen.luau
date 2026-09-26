@@ -330,6 +330,35 @@ function screen.build(ctx: any)
 			AutomaticSize = Enum.AutomaticSize.Y,
 		})
 	end
+	-- as before 0.12: a menu at arm's length, the automatic ladder (inline rows or a segmented strip) at ten feet
+	local function displayPickers(style)
+		return UI.VStack "Pickers" {
+			gap = "s",
+			width = "fill",
+			UI.Picker "Preview" {
+				label = COPY.preview,
+				style = style,
+				selected = ctx.devicePreview,
+				options = options({ "automatic", "desktop", "phone", "tablet", "tv" }),
+			},
+			UI.Picker "Orientation" {
+				label = COPY.orientation,
+				style = style,
+				selected = ctx.orientationPreview,
+				options = options({ "portrait", "landscape" }),
+				enabled = function(use)
+					local device = DEVICES[use(ctx.devicePreview)]
+					return device ~= nil and device.rotates == true
+				end,
+			},
+			UI.Picker "Input" {
+				label = COPY.input,
+				style = style,
+				selected = ctx.inputPreview,
+				options = options({ "automatic", "KeyboardAndMouse", "Touch", "Gamepad" }),
+			},
+		}
+	end
 	local function settingsContent()
 		local themeChips = {}
 		for index, entry in themes do
@@ -356,28 +385,11 @@ function screen.build(ctx: any)
 			UI.VStack "Display" {
 				gap = "s",
 				width = "fill",
-				UI.Picker "Preview" {
-					label = COPY.preview,
-					style = "menu",
-					selected = ctx.devicePreview,
-					options = options({ "automatic", "desktop", "phone", "tablet", "tv" }),
-				},
-				UI.Picker "Orientation" {
-					label = COPY.orientation,
-					style = "menu",
-					selected = ctx.orientationPreview,
-					options = options({ "portrait", "landscape" }),
-					enabled = function(use)
-						local device = DEVICES[use(ctx.devicePreview)]
-						return device ~= nil and device.rotates == true
-					end,
-				},
-				UI.Picker "Input" {
-					label = COPY.input,
-					style = "menu",
-					selected = ctx.inputPreview,
-					options = options({ "automatic", "KeyboardAndMouse", "Touch", "Gamepad" }),
-				},
+				Compose.show(UI.environment().isTenFoot, function()
+					return displayPickers("automatic")
+				end, function()
+					return displayPickers("menu")
+				end),
 				UI.Button "ResetAll" {
 					label = COPY.resetAll,
 					onActivate = function()
@@ -535,6 +547,7 @@ function screen.build(ctx: any)
 			SelectionBehaviorLeft = Enum.SelectionBehavior.Stop,
 			SelectionBehaviorRight = Enum.SelectionBehavior.Stop,
 			SelectionBehaviorDown = Enum.SelectionBehavior.Stop,
+			Host.UIStroke {},
 			Host.UISizeConstraint {
 				MinSize = function(use)
 					return ctx.types.Vector2.new(settingsWidth(use), 0)
@@ -558,6 +571,7 @@ function screen.build(ctx: any)
 			end, settingsContent),
 		}
 		card:AddTag("facet-panel")
+		card:AddTag("facet-floating")
 		local list = card:FindFirstChildWhichIsA("UIListLayout")
 		local inset = card:FindFirstChildWhichIsA("UIPadding")
 		local function measure()

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A `sidebarAdaptable` TabView's rail and top strip sit on a raised plate again (`facet-tab-plate`: the strong surface with a hairline), and the current tab of the top strip is filled with the accent like the rail's, as before 0.12. Before, the rail had no plate and the top strip's current tab was the dim selected-control paint.
+- RadialMenu: the centre control paints on the ten-foot ladder (48 pixels at a distance, 32 near). The list fallback's preview names where it is when nothing is highlighted, as in 0.11: the breadcrumb of the open branches, or the menu's `label` ("Quick actions") at the top.
+- Showcase settings: at ten feet Preview as, Orientation and Input use the automatic ladder (inline rows or a segmented strip) and stay menus at arm's length; the settings card has a hairline border, as before 0.12.
+
 - A TabView sidebar is sized to its widest tab by default (the label, the tab padding and the icon), with centred labels, and a top bar centres its tabs, as before 0.12. Before, the rail was 20 percent of the TabView (200 to 280 pixels) with leading labels, and an inner top bar hugged the leading edge. An authored `railWidth` keeps leading labels.
 - Showcase shell, as before 0.12 (owner): the LB and RB hints sit beside the demo button while a gamepad is the input (LB opens Demos, RB opens Settings, the backquote key toggles the panel); "Use top tabs" / "Use sidebar" sits beside the demo button while the categories can take either home (not at ten feet, not in a bottom bar), and the categories carry no accessories; the panel is a card under the bar, not a Popover (a tap outside, ButtonB or Escape closes it, the selection returns to the demo button); Settings is Preview as (Automatic, Desktop, Phone, Tablet, TV / 10-foot), Orientation (Phone and Tablet only), Input, "Reset everything to Automatic" with its note, Motion with its note, the build stamp and the Theme chips with their palettes. The compact top-bar strip is gone: the bar stays under the Roblox top bar in landscape.
 

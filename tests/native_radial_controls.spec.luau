@@ -5,7 +5,7 @@ local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
 local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
-local function setup(spec, animated)
+local function setup(spec, animated, environment)
 	local engine, now = engines.new(), 0
 	if type(spec) == "function" then
 		spec = spec(engine)
@@ -22,6 +22,7 @@ local function setup(spec, animated)
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
 		reducedMotion = not animated,
+		environment = environment,
 	})
 	local opened = spec.isPresented or Compose.cell(true)
 	spec.isPresented = opened
@@ -211,6 +212,8 @@ t.describe("native radial interaction policies", function()
 		t.expect(panel.ScrollingEnabled).toBe(true)
 		t.expect(panel:FindFirstChildWhichIsA("UIListLayout") ~= nil).toBe(true)
 		t.expect(world.find("Child").Size.Y.Offset).toBe(44)
+		-- as 0.11: with nothing highlighted the list names its place, the breadcrumb or the menu's label
+		t.expect(world.find("SelectionPreview").Text).toBe("Branch")
 		world.find("Child").Activated.fire()
 		t.expect(count).toBe(1)
 		world.stop()
@@ -592,6 +595,15 @@ t.describe("native radial interaction policies", function()
 		end
 	)
 
+	t.it("paints the centre control on the ten-foot ladder at a distance", function()
+		local world = setup(
+			{ distribution = "compass", items = compass(function() end) },
+			false,
+			{ viewingDistance = "ten-foot" }
+		)
+		t.expect(world.find("Center").Size.X.Offset).toBe(48)
+		world.stop()
+	end)
 	t.it("puts a small plate-less close and the highlighted name inside the hole over a full dark scrim", function()
 		for _, label in { false, "Leave the wheel" } do
 			local world = setup({

@@ -431,8 +431,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function segmentedTop(use: ComposeTypes.Use): boolean
 			return use(placement) == "topBar" and indicatorOf(use) == "pill"
 		end
+		local function plated(use: ComposeTypes.Use): boolean
+			return indicatorOf(use) == "pill" and (use(placement) == "topBar" or use(placement) == "sidebar")
+		end
 		local function inset(use: ComposeTypes.Use): UDim
-			return D.new(0, if segmentedTop(use) then INSET else 0)
+			return D.new(0, if plated(use) then INSET else 0)
 		end
 		local stripLayout = Host.UIListLayout({
 			FillDirection = function(use: ComposeTypes.Use)
@@ -469,7 +472,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end
 			local label = widest / (if unit > 0 then unit else 1)
-			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use)) + 16
+			local plate = if indicatorOf(use) == "pill" then 2 * INSET else 0
+			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use)) + 16 + plate
 		end
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
 			local unit = use(unitSize).X / 100
@@ -771,7 +775,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local place = use(placement)
 						local filled = current
 							and indicatorOf(use) ~= "none"
-							and (place == "sidebar" or string.find(place, "bottom") ~= nil)
+							and (place == "sidebar" or string.find(place, "bottom") ~= nil or segmentedTop(use))
 						local tags: { [string]: boolean } =
 							{ ["facet-tab-current"] = current, ["facet-tab-filled"] = filled }
 						for name, active in tags do
@@ -1063,18 +1067,26 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ZIndex = 1,
 			BorderSizePixel = 0,
 			Visible = function(use: ComposeTypes.Use)
-				return segmentedTop(use) and not use(collapsed)
+				return plated(use) and not use(collapsed)
 			end,
 			Size = function(use: ComposeTypes.Use)
+				if use(placement) == "sidebar" then
+					return D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
+				end
 				return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
 			end,
 			Position = function(use: ComposeTypes.Use)
+				if use(placement) == "sidebar" then
+					return D2.fromOffset(8, use(headHeight))
+				end
 				local _, left = segmentWidth(use)
 				return D2.fromOffset(left, 0)
 			end,
 			Host.UICorner({}),
+			Host.UIStroke({}),
 		}
 		track:AddTag("facet-segmented")
+		track:AddTag("facet-tab-plate")
 		surfaces.attach(root, { unitProbe, track, bar, layers })
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)

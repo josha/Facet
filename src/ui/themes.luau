@@ -1210,6 +1210,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segmented", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	local trackRadius = if package.metrics.radii.control > 0 then package.metrics.radii.control + 2 else 0
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
+	-- a sidebarAdaptable TabView's rail or top strip sits on a raised plate, as before 0.12
+	rule(".facet-tab-plate", { BackgroundColor3 = c("surfaceStrong") })
+	rule(".facet-tab-plate::UIStroke", { Color = c("hairline"), Thickness = 1 })
 	rule(".facet-segmented::UIPadding", {
 		PaddingLeft = types.UDim.new(0, SEGMENT_INSET),
 		PaddingRight = types.UDim.new(0, SEGMENT_INSET),

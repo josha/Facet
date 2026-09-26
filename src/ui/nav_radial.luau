@@ -2,6 +2,7 @@
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion")
 local geometry = require("./nav_radial_geometry")
+local adaptive = require("./adaptive")
 local Types = require("./types")
 local Radial = require("./radial_types")
 local Navigation = require("./navigation_types")
@@ -18,9 +19,13 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local PAINTED = 32
 	local build: Radial.RadialMenuBuilder = function<V>(spec: Radial.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
+		-- the centre control paints 32 px, on the ten-foot ladder at a distance
+		local distant = ctx.tenFoot()
+		local function painted(use: ComposeTypes.Use?): number
+			return if distant(use) then 32 * adaptive.TEN_FOOT_SCALE else 32
+		end
 		local function choice<T>(value: T?, fallback: T, choices: { T }, name: string): T
 			local selected = if value == nil then fallback else value
 			assert(table.find(choices, selected), "RadialMenu invalid " .. name)
@@ -1036,7 +1041,7 @@ return function(
 					local gap = ctx.metric("space.xs", use)
 					local labelH = if corner then 0 else ctx.metric("typography.caption.size", use) + gap
 					local shown = showCenter(use)
-					local close = if shown then math.min(PAINTED, 2 * inner - 4) else 0
+					local close = if shown then math.min(painted(use), 2 * inner - 4) else 0
 					local between = if shown and not corner then gap else 0
 					local top = -(close + between + labelH) / 2
 					local labelTop = top + close + between
@@ -1062,18 +1067,18 @@ return function(
 				end
 				local function diameter(use: ComposeTypes.Use): number
 					if use(fallback) then
-						return PAINTED
+						return painted(use)
 					end
 					if corner and launcher and anchorSize then
 						local extent = use(anchorSize)
-						local from = math.max(PAINTED, math.min(extent.X, extent.Y))
-						return math.floor(PAINTED + (from - PAINTED) * (1 - morph(use)) + 0.5)
+						local from = math.max(painted(use), math.min(extent.X, extent.Y))
+						return math.floor(painted(use) + (from - painted(use)) * (1 - morph(use)) + 0.5)
 					end
 					return hub(use).close
 				end
 				local function centerAt(use: ComposeTypes.Use): UDim2
 					if use(fallback) then
-						return D2.new(1, -16 - PAINTED / 2, 0, 2 + PAINTED / 2)
+						return D2.new(1, -16 - painted(use) / 2, 0, 2 + painted(use) / 2)
 					end
 					local at = use(center)
 					return D2.fromOffset(at.X, at.Y + hub(use).closeY)
@@ -1179,7 +1184,7 @@ return function(
 					Name = "SelectionPreview",
 					Size = function(use: ComposeTypes.Use): UDim2
 						if use(layout).list then
-							return D2.new(1, -32 - 1.5 * PAINTED, 0, 0)
+							return D2.new(1, -32 - 1.5 * painted(use), 0, 0)
 						end
 						if corner then
 							return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
@@ -1207,16 +1212,40 @@ return function(
 					TextTruncate = E.TextTruncate.AtEnd,
 					Text = function(use: ComposeTypes.Use)
 						local key = use(candidate) or use(focus.current)
+						local list = use(layout).list
 						local entries = use(sectors)
 						for sectorIndex = 1, #entries do
 							local sector = entries[sectorIndex]
 							if sector.key == key then
 								local label = read(sector.item.label, use) or ""
-								local detail = read(sector.item.description, use)
+								local detail = if list then nil else read(sector.item.description, use)
 								return label .. (if detail then " · " .. detail else "")
 							end
 						end
-						return ""
+						if not list then
+							return ""
+						end
+						-- the list names where it is, as 0.11 did: the breadcrumb, or the menu's own label at the top
+						local labels: { string } = {}
+						local items: { Radial.RadialItem<V> }? = read(spec.items, use)
+						for _, id in use(path) do
+							local found: Radial.RadialItem<V>? = nil
+							local level: { Radial.RadialItem<V> } = items or {}
+							for itemIndex = 1, #level do
+								local item = level[itemIndex]
+								if item.id == id then
+									found = item
+								end
+							end
+							if found == nil then
+								break
+							end
+							table.insert(labels, tostring(read(found.label, use) or id))
+							items = read(found.children, use)
+						end
+						return if #labels > 0
+							then table.concat(labels, " › ")
+							else read(spec.label, use) or "Quick actions"
 					end,
 					ZIndex = 106,
 				})
