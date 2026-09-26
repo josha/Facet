@@ -582,6 +582,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.find({ "always", "never", "whileEditing", "unlessEditing" }, mode),
 			`Facet.{control}: invalid clearButtonMode`
 		)
+		local touchFloor = ctx.touchFloor()
 		local clear = if mode ~= "never"
 			then UI.Button "Clear" {
 				name = "Clear",
@@ -592,6 +593,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					local side = math.max(36, use(textHeight) + 12) - 8
 					return D2.fromOffset(side, side)
 				end,
+				Host.UISizeConstraint "TouchFloor" {
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						local floor = touchFloor(use)
+						return V2.new(floor, floor)
+					end,
+				},
 				AnchorPoint = if framed then nil else V2.new(1, 0.5),
 				Position = if framed then nil else D2.fromScale(1, 0.5),
 				LayoutOrder = if framed then 40 else nil,
