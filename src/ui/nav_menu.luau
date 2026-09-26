@@ -3081,11 +3081,6 @@ return function(
 									onActivate = function()
 										opened:set(true)
 									end,
-									Host.UISizeConstraint({
-										MinSize = function(use: ComposeTypes.Use)
-											return V2.new(ctx.metric("targetSizes.minimum", use), 0)
-										end,
-									}),
 								}
 							end,
 							items = spec.items,
