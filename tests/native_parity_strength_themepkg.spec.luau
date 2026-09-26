@@ -1970,4 +1970,29 @@ t.describe("gallery theme packages", function()
 			t.expect(checked > 0).toBe(true)
 		end
 	)
+
+	t.it("every package with panel art dresses a standard Notice in that art", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local art = package.chrome and package.chrome.panel
+			if art and art.kind ~= "native" and art.kind ~= "none" then
+				checked += 1
+				local engine, runtime, UI = world({ theme = package })
+				local stop, node = runtime.mount(function()
+					return UI.Notice("Update")({ title = "Update", message = "A new track pack is ready." })
+				end, engine.new("Folder"))
+				local dressed = false
+				for _, part in node:GetDescendants() do
+					if part:HasTag("facet-skin-art-panel") then
+						dressed = true
+					end
+				end
+				t.expect(`{name} {dressed}`).toBe(`{name} true`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
+	end)
 end)

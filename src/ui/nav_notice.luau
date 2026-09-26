@@ -441,6 +441,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, rowChildren)
 		ctx.styled(root, "notice")
 		ctx.styled(root, if emphasis then "status-" .. severity else "panel")
+		if not emphasis then
+			ctx.skin(root, "panel")
+		end
 		root:SetAttribute("NoticeSeverity", severity)
 		local extent = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
