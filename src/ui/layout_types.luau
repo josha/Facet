@@ -21,6 +21,7 @@ export type StackProps = Engine.FrameProps & {
 	wrap: Types.ValueBoolean?,
 }
 export type ScreenProps = Engine.FrameProps & {
+	chrome: ("device" | "band" | "edge")?,
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,
@@ -95,7 +96,13 @@ export type Zone =
 	| "bottom"
 	| "bottomRight"
 	| "topbar"
-export type RegionProps = Engine.FrameProps & { zone: Zone, rank: number, mayDrop: boolean?, form: Types.Cell<number>? }
+export type RegionProps = Engine.FrameProps & {
+	zone: Zone,
+	rank: number,
+	mayDrop: boolean?,
+	form: Types.Cell<number>?,
+	expand: (() -> Instance)?,
+}
 export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 export type LayoutControls = {
 	Screen: Types.Constructor<ScreenProps, Frame>,

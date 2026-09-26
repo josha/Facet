@@ -119,6 +119,33 @@ t.describe("adaptive: pure decisions with no device names", function()
 		end
 		t.expect(pcall(adaptive.sizeClassAtLeast, "huge", "wide")).toBe(false)
 	end)
+	t.it("homes app navigation by viewing distance, then shape, then primary input", function()
+		local function home(size: string, height: string, primary: string?, extra: { [string]: any }?): string
+			local facts: { [string]: any } = { sizeClass = size, heightClass = height, primary = primary }
+			for key, value in extra or {} do
+				facts[key] = value
+			end
+			return adaptive.navPlacement(facts)
+		end
+		t.expect(home("compact", "short", "pointer", { tenFoot = true })).toBe("topBar")
+		t.expect(home("compact", "medium", "touch")).toBe("bottomBar")
+		t.expect(home("compact", "tall", "gamepad")).toBe("bottomBar")
+		t.expect(home("wide", "short", "touch")).toBe("bottomBarCompact")
+		t.expect(home("regular", "medium", "pointer")).toBe("sidebar")
+		t.expect(home("wide", "tall", "pointer")).toBe("sidebar")
+		t.expect(home("regular", "medium", "touch")).toBe("topBar")
+		t.expect(home("wide", "medium", "gamepad", { displaySize = "Medium" })).toBe("topBar")
+		t.expect(home("wide", "medium", "gamepad", { displaySize = "Small" })).toBe("bottomBar")
+		t.expect(home("wide", "medium", nil)).toBe("topBar")
+	end)
+	t.it("treats a large display as ten-foot only without touch or a mouse", function()
+		t.expect(adaptive.isTenFoot({ displaySize = "Large" })).toBe(true)
+		t.expect(adaptive.isTenFoot({ displaySize = "Large", mouse = true })).toBe(false)
+		t.expect(adaptive.isTenFoot({ displaySize = "Large", touch = true })).toBe(false)
+		t.expect(adaptive.isTenFoot({ displaySize = "Medium" })).toBe(false)
+		t.expect(adaptive.isTenFoot({ displaySize = "Medium", tenFootInterface = true })).toBe(true)
+		t.expect(adaptive.isTenFoot({ displaySize = "Large", tenFootInterface = true, mouse = true })).toBe(false)
+	end)
 end)
 
 t.describe("environment: reactive facts from engine sources", function()
@@ -255,6 +282,21 @@ t.describe("environment: reactive facts from engine sources", function()
 		t.expect(insets.bottom).toBe(21)
 		t.expect(insets.top).toBe(0)
 		t.expect(env.displaySize:peek()).toBe("Medium")
+		t.expect(env.isTenFoot:peek()).toBe(false)
+		t.expect(env.navPlacement:peek()).toBe("bottomBarCompact")
+		w.gui.ViewportDisplaySize = E.DisplaySize.Large
+		w.input.MouseEnabled = false
+		w.input.GamepadEnabled = true
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		t.expect(env.isTenFoot:peek()).toBe(true)
+		t.expect(env.navPlacement:peek()).toBe("topBar")
+		screen.AbsoluteSize = Roblox.Vector2.new(1920, 1080)
+		t.expect(env.sizeClass:peek()).toBe("regular")
+		t.expect(env.heightClass:peek()).toBe("medium")
+		w.input.MouseEnabled = true
+		t.expect(env.isTenFoot:peek()).toBe(false)
+		t.expect(env.sizeClass:peek()).toBe("wide")
+		t.expect(env.heightClass:peek()).toBe("tall")
 		t.expect(env.preferredTextSize:peek()).toBe("Medium")
 		w.gui.PreferredTextSize = E.PreferredTextSize.Largest
 		t.expect(env.preferredTextSize:peek()).toBe("Largest")
@@ -279,6 +321,79 @@ t.describe("environment: reactive facts from engine sources", function()
 			return env.viewportWidth:peek()
 		end)).toBe(false)
 		w.stop()
+	end)
+end)
+
+t.describe("environment: viewing distance, metric scale and overscan", function()
+	local function console(options: { [string]: any }?, touch: boolean?): (any, any, any)
+		local w = world(nil, options)
+		local E = w.Enum
+		w.gui.ViewportDisplaySize = E.DisplaySize.Large
+		w.input.MouseEnabled = false
+		w.input.TouchEnabled = touch == true
+		w.input.GamepadEnabled = true
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		local screen = w.engine.new("ScreenGui")
+		screen.AbsoluteSize = Roblox.Vector2.new(1920, 1080)
+		local env: any
+		local stop = owned(w.runtime, function()
+			env = w.UI.environment(screen)
+		end)
+		return w, env, function()
+			stop()
+			w.stop()
+		end, screen
+	end
+	t.it("a console-shaped display is ten-foot at 1.5x with the console overscan; a touch handheld is near", function()
+		local _, env, stop = console()
+		t.expect(env.isTenFoot:peek()).toBe(true)
+		t.expect(env.metricScale:peek()).toBe(1.5)
+		t.expect(env.overscanInsets:peek()).toEqual({ top = 60, left = 90, bottom = 60, right = 90 })
+		t.expect(env.viewingDistanceSource:peek()).toBe("inferred")
+		t.expect(env.sizeClass:peek()).toBe("regular")
+		stop()
+		local _, handheld, stopHandheld = console(nil, true)
+		t.expect(handheld.isTenFoot:peek()).toBe(false)
+		t.expect(handheld.metricScale:peek()).toBe(1)
+		t.expect(handheld.overscanInsets:peek()).toEqual({ top = 0, left = 0, bottom = 0, right = 0 })
+		t.expect(handheld.sizeClass:peek()).toBe("wide")
+		stopHandheld()
+	end)
+	t.it("overscan is a proportion of the viewport; authored margins win and none opts out", function()
+		local authored = Compose.cell(nil :: any)
+		local _, env, stop, screen = console({ environment = { overscanInsets = authored } })
+		screen.AbsoluteSize = Roblox.Vector2.new(1280, 720)
+		t.expect(env.overscanInsets:peek()).toEqual({ top = 40, left = 60, bottom = 40, right = 60 })
+		authored:set({ top = 10, left = 20, bottom = 10, right = 20 })
+		t.expect(env.overscanInsets:peek()).toEqual({ top = 10, left = 20, bottom = 10, right = 20 })
+		authored:set("none")
+		t.expect(env.overscanInsets:peek()).toEqual({ top = 0, left = 0, bottom = 0, right = 0 })
+		stop()
+	end)
+	t.it("an authored viewingDistance outranks the inference and says so", function()
+		local distance = Compose.cell("automatic")
+		local w, env, stop = console({ environment = { viewingDistance = distance } })
+		distance:set("near")
+		t.expect(env.isTenFoot:peek()).toBe(false)
+		t.expect(env.metricScale:peek()).toBe(1)
+		t.expect(env.viewingDistanceSource:peek()).toBe("authored")
+		t.expect(env.overscanInsets:peek().left).toBe(0)
+		distance:set("ten-foot")
+		w.input.MouseEnabled = true
+		w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Medium
+		t.expect(env.isTenFoot:peek()).toBe(true)
+		t.expect(env.metricScale:peek()).toBe(1.5)
+		t.expect(env.navPlacement:peek()).toBe("topBar")
+		distance:set("automatic")
+		t.expect(env.isTenFoot:peek()).toBe(false)
+		t.expect(env.viewingDistanceSource:peek()).toBe("inferred")
+		distance:set("far")
+		t.expect(pcall(function()
+			return env.isTenFoot:peek()
+		end)).toBe(false)
+		stop()
+		t.expect(pcall(Facet.controls, w.runtime, { types = w.engine.types, environment = { distance = "near" } }))
+			.toBe(false)
 	end)
 end)
 

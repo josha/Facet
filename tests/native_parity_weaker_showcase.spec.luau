@@ -164,6 +164,7 @@ local function galleryWorld(configure: ((any) -> ())?): any
 			runtime,
 			{
 				types = engine.types,
+				environment = ctx.environment,
 				viewport = ctx.viewport,
 				inputParent = parent,
 				guiService = gui,
@@ -270,6 +271,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 			runtime,
 			{
 				types = engine.types,
+				environment = ctx.environment,
 				viewport = ctx.viewport,
 				guiService = gui,
 				inputParent = parent,
@@ -441,7 +443,8 @@ t.describe("native parity weaker showcase", function()
 				local scale = find(w.root, "ViewingDistance", "UIScale")
 				for _, distance in { "automatic", "near", "ten-foot" } do
 					w.ctx.viewingDistance:set(distance)
-					t.expect(scale.Scale).toBe(if distance == "ten-foot" then 1.5 else 1)
+					t.expect(scale.Scale).toBe(1)
+					t.expect(w.ctx.metricScale:peek():peek()).toBe(if distance == "ten-foot" then 1.5 else 1)
 					for _, input in { "Gamepad", "KeyboardAndMouse" } do
 						w.input.PreferredInput = (w.engine.types.Enum.PreferredInput :: any)[input]
 						for _, view in { { "inputs", "basics", "writing" }, { "Categories", "inputs", "actions" } } do
@@ -779,6 +782,7 @@ t.describe("native parity weaker showcase", function()
 					runtime,
 					{
 						types = engine.types,
+						environment = ctx.environment,
 						viewport = viewport,
 						guiService = gui,
 						services = { GuiService = gui, UserInputService = service },

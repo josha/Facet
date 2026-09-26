@@ -144,6 +144,7 @@ export type Config = {
 	pressHaptic: HapticEffect?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
+	keyboardNavigation: boolean?,
 }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,
@@ -154,6 +155,8 @@ export type EnvironmentPreview = {
 	preferredTextSize: Value<(Enum.PreferredTextSize | string)?>?,
 	displaySize: Value<(Enum.DisplaySize | string)?>?,
 	viewportSize: Value<Vector2?>?,
+	viewingDistance: Value<("automatic" | "near" | "ten-foot")?>?,
+	overscanInsets: Value<({ top: number, left: number, bottom: number, right: number } | "none")?>?,
 }
 export type ResolvedConfig = Config & { services: Services }
 export type Read = <T>(Value<T>, Use?) -> T
@@ -166,6 +169,7 @@ export type ActionSettings = {
 	onReleased: (() -> ())?,
 	capture: boolean?,
 	group: string?,
+	conditional: { binding: ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
 }
 export type ListRow = {
 	leading: { Child }?,
@@ -180,6 +184,9 @@ export type SkinStateOptions = {
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
 }
+export type ResponderOptions = { passive: boolean?, gameplayGuard: boolean?, traversalWrap: boolean? }
+export type ResponderState = "passive" | "engaged"
+export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
 export type Context = {
 	runtime: Runtime,
 	Host: Host,
@@ -190,9 +197,12 @@ export type Context = {
 	read: Read,
 	readSource: <T>(Readable<T>, Use?) -> T,
 	metric: (string, Use?) -> number,
+	neutralMetrics: (Use?) -> Theme.Metrics,
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
+	tenFoot: () -> (Use?) -> boolean,
+	viewingDistance: (Use?) -> "automatic" | "near" | "ten-foot",
 	touchFloor: () -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,
@@ -227,6 +237,8 @@ export type Context = {
 		ActionSettings?
 	) -> (InputAction, InputContext),
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
+	responder: (Instance, ResponderOptions?) -> Responder,
+	spaceActivates: (Instance) -> (Use) -> boolean,
 }
 
 return {}

@@ -34,6 +34,7 @@ end
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose = ctx.Compose
 	local config = ctx.config
+	local runtime = ctx.runtime
 	local V2 = ctx.types.Vector2
 
 	local function watched(node: Instance?, property: string, fallback: unknown): ComposeTypes.Readable<unknown>
@@ -137,14 +138,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local viewportHeight = derived(function(use): number
 			return use(viewportSize).Y
 		end)
+		local tenFoot = ctx.tenFoot()
 		local sizeClass = (
 			derived(function(use): Env.SizeClass
-				return adaptive.sizeClass(use(viewportWidth))
+				local class: Env.SizeClass = adaptive.sizeClass(use(viewportWidth))
+				return if class == "wide" and tenFoot(use) then "regular" else class
 			end) :: unknown
 		) :: ComposeTypes.Readable<Env.SizeClass>
 		local heightClass = (
 			derived(function(use): Env.HeightClass
-				return adaptive.heightClass(use(viewportHeight))
+				local class: Env.HeightClass = adaptive.heightClass(use(viewportHeight))
+				return if class == "tall" and tenFoot(use) then "medium" else class
 			end) :: unknown
 		) :: ComposeTypes.Readable<Env.HeightClass>
 		local function atLeast(target: Env.SizeClass): ComposeTypes.Readable<boolean>
@@ -228,7 +232,21 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			return freeze(insets)
 		end)
+		local overscan = derived(function(use): Env.SafeInsets
+			local authored = ctx.read(config.environment and config.environment.overscanInsets, use)
+			if authored == "none" or (authored == nil and not tenFoot(use)) then
+				return freeze({ top = 0, left = 0, bottom = 0, right = 0 })
+			end
+			if type(authored) == "table" then
+				return freeze(table.clone(authored))
+			end
+			local size = use(viewportSize)
+			return adaptive.overscanInsets(size.X, size.Y)
+		end)
 		local reduced = motion(ctx)
+		local isTenFoot = derived(function(use): boolean
+			return tenFoot(use)
+		end)
 		local environment: Env.Environment = freeze({
 			viewportSize = viewportSize,
 			viewportWidth = viewportWidth,
@@ -266,6 +284,23 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			interactionClasses = interactionClasses,
 			effectiveInput = effectiveInput,
 			displaySize = displaySize,
+			isTenFoot = isTenFoot,
+			viewingDistanceSource = (derived(function(use): "authored" | "inferred"
+				return if ctx.viewingDistance(use) == "automatic" then "inferred" else "authored"
+			end) :: unknown) :: ComposeTypes.Readable<"authored" | "inferred">,
+			metricScale = derived(function(use): number
+				return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
+			end),
+			overscanInsets = overscan,
+			navPlacement = (derived(function(use): adaptive.NavPlacement
+				return adaptive.navPlacement({
+					sizeClass = use(sizeClass),
+					heightClass = use(heightClass),
+					primary = use(interactionClasses).primary,
+					displaySize = use(displaySize),
+					tenFoot = use(isTenFoot),
+				})
+			end) :: unknown) :: ComposeTypes.Readable<adaptive.NavPlacement>,
 			safeInsets = safeInsets,
 			preferredTextSize = preferredTextSize,
 			reducedMotion = derived(function(use): boolean
@@ -275,31 +310,128 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return environment
 	end
 
-	UI.focusSection = function(group: GuiObject)
+	UI.responder = ctx.responder
+	local SECTION_KEYS = { entry = true, preferred = true, focusOnAppear = true, returnFocus = true }
+	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")
+		assert(
+			(group :: any) ~= nil and (group :: any).IsA ~= nil and group:IsA("GuiObject"),
+			"Facet UI.focusSection expects a GuiObject"
+		)
+		local settings: Env.FocusSectionOptions = options or {}
+		for key in (settings :: unknown) :: { [unknown]: unknown } do
+			assert(SECTION_KEYS[key :: string] == true, `Facet UI.focusSection: unknown option '{tostring(key)}'`)
+		end
+		local entry = settings.entry or "restore"
+		assert(
+			entry == "restore" or entry == "first" or entry == "nearest",
+			"Facet UI.focusSection: entry must be restore, first or nearest"
+		)
 		local gui = config.guiService
 		if gui == nil then
 			return
 		end
+		local function usable(node: GuiObject?): boolean
+			return node ~= nil
+				and node:IsDescendantOf(group)
+				and node.Selectable
+				and node.Visible
+				and node:FindFirstAncestorWhichIsA("LayerCollector") ~= nil
+		end
+		local function ordered(node: Instance, into: { GuiObject })
+			local children = node:GetChildren()
+			local index: { [Instance]: number } = {}
+			for position, child in children do
+				index[child] = position
+			end
+			table.sort(children, function(a: Instance, b: Instance): boolean
+				local left = if a:IsA("GuiObject") then a.LayoutOrder else 0
+				local right = if b:IsA("GuiObject") then b.LayoutOrder else 0
+				return if left ~= right then left < right else index[a] < index[b]
+			end)
+			for _, child in children do
+				if child:IsA("GuiObject") then
+					if not child.Visible then
+						continue
+					end
+					if child.Selectable then
+						table.insert(into, child)
+					end
+				end
+				ordered(child, into)
+			end
+		end
+		local function named(name: string): GuiObject?
+			local at: Instance? = group
+			for part in string.gmatch(name, "[^/]+") do
+				at = if at then at:FindFirstChild(part, true) else nil
+			end
+			return if at and at:IsA("GuiObject") and usable(at :: GuiObject) then at :: GuiObject else nil
+		end
+		local function first(): GuiObject?
+			local list: { GuiObject } = {}
+			ordered(group, list)
+			return list[1]
+		end
 		local selected = ctx.observe.SelectedObject(gui)
 		local last: GuiObject? = nil
 		local inside = false
-		local function usable(node: GuiObject): boolean
-			return node:IsDescendantOf(group) and node.Selectable and node.Visible
-		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(selected) :: GuiObject?
 			local entered = current ~= nil and current:IsDescendantOf(group)
-			if entered and not inside and last ~= nil and last ~= current and usable(last) then
+			if entered and not inside and entry ~= "nearest" then
+				local target: GuiObject? = nil
+				if entry == "first" then
+					target = first()
+				elseif usable(last) then
+					target = last
+				elseif settings.preferred then
+					target = named(settings.preferred)
+				end
 				inside = true
-				gui.SelectedObject = last
-				return
+				if target and target ~= current then
+					gui.SelectedObject = target
+					return
+				end
 			end
 			inside = entered
 			if entered then
 				last = current
 			end
 		end)
+		local appear = settings.focusOnAppear
+		local returning: GuiObject? = if settings.returnFocus then gui.SelectedObject else nil
+		if appear ~= nil and appear ~= false then
+			local done = false
+			local function claim()
+				if done or gui.SelectedObject == nil or group:FindFirstAncestorWhichIsA("LayerCollector") == nil then
+					return
+				end
+				done = true
+				local target = if type(appear) == "string" then named(appear) else first()
+				if target then
+					gui.SelectedObject = target
+				end
+			end
+			runtime.connect(group, "AncestryChanged", claim)
+			claim()
+		end
+		if settings.returnFocus then
+			Compose.cleanup(function()
+				local back = returning
+				local current = gui.SelectedObject
+				if
+					back
+					and back.Parent
+					and back.Visible
+					and back.Selectable
+					and back:FindFirstAncestorWhichIsA("LayerCollector")
+					and (current == nil or current == group or current:IsDescendantOf(group) or current.Parent == nil)
+				then
+					gui.SelectedObject = back
+				end
+			end)
+		end
 	end
 	UI.worldAnchor = function(options: Env.WorldAnchorOptions): Env.WorldAnchor
 		assert(type(options) == "table", "Facet UI.worldAnchor expects an options table")

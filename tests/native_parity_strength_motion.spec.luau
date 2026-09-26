@@ -7,6 +7,23 @@ local pathShapes = require("../src/ui/nav_path_shapes")
 local Compose = Facet.Compose
 local themes = Facet.themes
 
+local function openSettings(root: any)
+	local function seek(node: any, name: string): any
+		if node.Name == name then
+			return node
+		end
+		for _, child in node:GetChildren() do
+			local found = seek(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+	local layer = root:FindFirstAncestorWhichIsA("LayerCollector") or root
+	seek(layer, "Showcase").Activated.fire()
+	seek(seek(layer, "Section"), "settings").Activated.fire()
+end
 local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
@@ -1878,16 +1895,13 @@ t.describe("gallery motion setting", function()
 			end
 			return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
 		end, target)
-		local settings
-		for _, node in root:GetDescendants() do
-			if node.Name == "Settings" and node:IsA("TextButton") then
-				settings = node
-			end
+		openSettings(root)
+		t.expect(find(root, "ShowcasePanel") ~= nil or find(root, "Section") ~= nil).toBe(true)
+		local sheet = find(target, "MotionNote")
+		while sheet and sheet.Name ~= "Settings" do
+			sheet = sheet.Parent
 		end
-		settings.Activated.fire()
-		t.expect(find(root, "GallerySettings") ~= nil).toBe(true)
-		local sheet = find(target, "MotionNote").Parent
-		t.expect(sheet.Name).toBe("Settings")
+		t.expect(sheet ~= nil).toBe(true)
 		local picker = find(sheet, "Motion")
 		t.expect(picker ~= nil).toBe(true)
 		local full, reduced = find(picker, "full"), find(picker, "reduced")
@@ -1936,7 +1950,6 @@ t.describe("gallery motion setting", function()
 		full.Activated.fire()
 		t.expect(ctx.reducedMotion:peek()).toBe(true)
 		t.expect(ctx.motionMode:peek()).toBe("reduced")
-		find(sheet, "FollowRobloxMotion").Activated.fire()
 		gui.ReducedMotionEnabled = false
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		t.expect(full:GetAttribute("selected")).toBe(true)

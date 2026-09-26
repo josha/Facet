@@ -1585,6 +1585,37 @@ t.describe("native navigation controls", function()
 		t.expect(opened:peek()).toBe(false)
 		world.stop()
 	end)
+	t.it("sizes the navigation bar title by the stack's width class", function()
+		local path = Compose.cell({})
+		local world = setup(function(UI, Host)
+			return UI.NavigationStack({
+				path = path,
+				root = {
+					title = "Garage",
+					content = function()
+						return Host.Frame({})
+					end,
+				},
+				destinations = {
+					detail = {
+						title = "Engine",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			})
+		end)
+		local bar = find(world.screen, "NavigationBar")
+		local title = find(bar, "Title")
+		bar.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
+		t.expect(title:HasTag("facet-type-heading")).toBe(true)
+		t.expect(title:HasTag("facet-type-title")).toBe(false)
+		bar.AbsoluteSize = world.engine.types.Vector2.new(1024, 44)
+		t.expect(title:HasTag("facet-type-title")).toBe(true)
+		t.expect(title:HasTag("facet-type-heading")).toBe(false)
+		world.stop()
+	end)
 	t.it("restores surviving navigation focus and moves paging focus into the visible page", function()
 		local path = Compose.cell({})
 		local world = setup(function(UI)

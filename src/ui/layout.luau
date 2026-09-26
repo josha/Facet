@@ -40,9 +40,18 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	end)
 
 	UI.Screen = ctx.construct("Screen", function(spec: Layout.ScreenProps): Frame
-		local properties, children = split(spec, { "gap", "padding", "align", "distribute", "width", "height" })
+		local properties, children =
+			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome" })
+		local chrome = spec.chrome or "device"
+		assert(
+			chrome == "device" or chrome == "band" or chrome == "edge",
+			"Facet UI.Screen: chrome must be device, band or edge"
+		)
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
+		local distant = ctx.tenFoot()
+		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
+		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		local flow: Types.Flow = {
 			gap = spec.gap,
 			align = spec.align,
@@ -52,12 +61,23 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				local sides: Types.Sides = if type(value) == "table"
 					then value :: Types.Sides
 					else { top = value, right = value, bottom = value, left = value }
-				return {
-					top = kit.spacing(sides.top, use) + use(under),
-					right = sides.right,
-					bottom = sides.bottom,
-					left = sides.left,
-				}
+				local margins = read(authored, use)
+				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
+					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
+					if type(margins) == "table" and chrome ~= "edge" then
+						return ctx.types.UDim.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
+					end
+					local fraction = if margins == nil and chrome ~= "edge" and distant(use) then FRACTION[name] else 0
+					return ctx.types.UDim.new(fraction, pixels)
+				end
+				return (
+					{
+						top = side("top", if chrome == "device" then use(under) else 0),
+						right = side("right", 0),
+						bottom = side("bottom", 0),
+						left = side("left", 0),
+					} :: unknown
+				) :: Types.Padding
 			end,
 			width = spec.width,
 			height = spec.height,
@@ -253,6 +273,64 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			runtime.connect(node, "ChildRemoved", count)
 			count()
 		end
+		-- A short last line: a move off a lane it does not reach lands on its last cell.
+		local forward = if flow == "column" then "NextSelectionRight" else "NextSelectionDown"
+		local clamped = setmetatable({} :: { [GuiObject]: boolean }, { __mode = "k" })
+		local revision = Compose.cell(0)
+		local function bump()
+			revision:set(revision:peek() + 1)
+		end
+		runtime.connect(node, "ChildAdded", bump)
+		runtime.connect(node, "ChildRemoved", bump)
+		local function selectable(cell: GuiObject): GuiObject?
+			if cell.Selectable then
+				return cell
+			end
+			for _, inner in cell:GetDescendants() do
+				if inner:IsA("GuiObject") and inner.Selectable then
+					return inner
+				end
+			end
+			return nil
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(revision)
+			local list: { GuiObject } = {}
+			local index: { [GuiObject]: number } = {}
+			for position, child in node:GetChildren() do
+				if child:IsA("GuiObject") and child.Visible then
+					table.insert(list, child)
+					index[child] = position
+				end
+			end
+			table.sort(list, function(a: GuiObject, b: GuiObject): boolean
+				return if a.LayoutOrder ~= b.LayoutOrder then a.LayoutOrder < b.LayoutOrder else index[a] < index[b]
+			end)
+			local total = #list
+			local lanes = columns(use)
+			if flow == "column" then
+				lanes = math.max(1, math.ceil(total / lanes))
+			end
+			local lines = math.ceil(total / lanes)
+			local short = total - (lines - 1) * lanes
+			local last = if lines >= 2 and short < lanes then selectable(list[total]) else nil
+			for position, cell in list do
+				local target = selectable(cell)
+				if target then
+					local line, lane = (position - 1) // lanes + 1, (position - 1) % lanes + 1
+					local fields = target :: any
+					if last and line == lines - 1 and lane > short then
+						if fields[forward] == nil or clamped[target] then
+							fields[forward] = last
+							clamped[target] = true
+						end
+					elseif clamped[target] then
+						fields[forward] = nil
+						clamped[target] = nil
+					end
+				end
+			end
+		end)
 		return node
 	end)
 

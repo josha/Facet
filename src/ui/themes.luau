@@ -5,6 +5,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
+local adaptive = require("./adaptive")
+local themeDistance = require("./theme_distance")
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type ThemeOptions = ThemeTypes.ThemeOptions
@@ -205,6 +207,8 @@ end
 function themes.neutralPackage(): ThemeTypes.ThemePackage
 	return copy(neutral)
 end
+
+themes.forDistance = themeDistance(neutral)
 
 local function frozen<T>(value: T): T
 	if type(value) ~= "table" or table.isfrozen(value) then
@@ -1483,6 +1487,46 @@ local function createStyleSheet(
 			end)
 		end
 	end
+	local distant: Engine.Value<boolean>? = settings.tenFoot
+	if distant == nil then
+		local globals = getfenv(0)
+		local gui = globals.game and globals.game:GetService("GuiService")
+		local input = globals.game and globals.game:GetService("UserInputService")
+		if gui and input then
+			local interface = false
+			pcall(function()
+				interface = gui:IsTenFootInterface()
+			end)
+			local function sample(): boolean
+				return adaptive.isTenFoot({
+					tenFootInterface = interface,
+					displaySize = if typeof(gui.ViewportDisplaySize) == "EnumItem"
+						then gui.ViewportDisplaySize.Name
+						else nil,
+					mouse = input.MouseEnabled,
+					touch = input.TouchEnabled,
+				})
+			end
+			local source = Compose.cell(sample())
+			distant = source
+			local connections = {
+				gui:GetPropertyChangedSignal("ViewportDisplaySize"):Connect(function()
+					source:set(sample())
+				end),
+				input:GetPropertyChangedSignal("MouseEnabled"):Connect(function()
+					source:set(sample())
+				end),
+				input:GetPropertyChangedSignal("TouchEnabled"):Connect(function()
+					source:set(sample())
+				end),
+			}
+			Compose.cleanup(function()
+				for _, connection in connections do
+					connection:Disconnect()
+				end
+			end)
+		end
+	end
 	local hoverless: { [{ NativeRule }]: { NativeRule } } = setmetatable({}, { __mode = "k" }) :: any
 	local function withoutHover(rules: { NativeRule }): { NativeRule }
 		local cached = hoverless[rules]
@@ -1683,7 +1727,10 @@ local function createStyleSheet(
 		}),
 	})
 	Compose.watch(function(use: ComposeTypes.Use)
-		local package = read(packageOrReadable, use) or neutral
+		local package = themes.forDistance(
+			read(packageOrReadable, use) or neutral,
+			if read(distant, use) == true then "ten-foot" else "near"
+		)
 		local current = compiledRules(package, read(settings.theme, use))
 		local hovering = read(settings.hover, use)
 		if hovering == nil then
@@ -2321,6 +2368,7 @@ return function(Compose: typeof(ComposeTypes)): ThemeTypes.Themes
 		TYPE_ROLES = themes.TYPE_ROLES,
 		REQUIRED_TYPE_ROLES = themes.REQUIRED_TYPE_ROLES,
 		neutralPackage = themes.neutralPackage,
+		forDistance = themes.forDistance,
 		define = themes.define,
 		checkCoverage = themes.checkCoverage,
 		resolveIcon = themes.resolveIcon,

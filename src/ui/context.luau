@@ -5,6 +5,7 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
+local adaptive = require("./adaptive")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -13,6 +14,7 @@ type ActionSettings = {
 	sink: boolean?,
 	capture: boolean?,
 	group: string?,
+	conditional: { binding: Shared.ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
 }
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
@@ -112,10 +114,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return if type(value) == "number" and value == value and math.abs(value) ~= math.huge then value else nil
 	end
+	local distantMetrics = themes.forDistance(themes.neutralPackage(), "ten-foot").metrics
+	local distance: (ComposeTypes.Use?) -> boolean = function()
+		return false
+	end
+	function ctx.neutralMetrics(use: ComposeTypes.Use?): Theme.Metrics
+		return if distance(use) then distantMetrics else defaultMetrics
+	end
 	function ctx.metric(path: string, use: ComposeTypes.Use?): number
 		local package = ctx.read(config.theme, use)
 		return assert(
-			metricAt(if package then package.metrics else nil, path) or metricAt(defaultMetrics, path),
+			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
 		)
 	end
@@ -163,7 +172,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		PreferredTextSize = { key = "preferredTextSize", enum = "PreferredTextSize" },
 		ViewportDisplaySize = { key = "displaySize", enum = "DisplaySize" },
 	}
-	local previewKeys: { [string]: boolean } = { viewportSize = true }
+	local previewKeys: { [string]: boolean } = { viewportSize = true, viewingDistance = true, overscanInsets = true }
 	for _, entry in PREVIEWED do
 		previewKeys[entry.key] = true
 	end
@@ -299,6 +308,87 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and ctx.readSource(touch, use) ~= true
 				and ctx.readSource(gamepad, use) ~= true
 		end
+	end
+	function ctx.viewingDistance(use: ComposeTypes.Use?): adaptive.ViewingDistance
+		local value = ctx.read(preview.viewingDistance, use)
+		assert(
+			value == nil or value == "automatic" or value == "near" or value == "ten-foot",
+			"Facet environment viewingDistance must be automatic, near or ten-foot"
+		)
+		return (value or "automatic") :: adaptive.ViewingDistance
+	end
+	function ctx.tenFoot(): (ComposeTypes.Use?) -> boolean
+		local gui, input = config.guiService, config.userInputService
+		local interface = false
+		if gui then
+			local ok, answer = pcall(function()
+				return (gui :: GuiService):IsTenFootInterface()
+			end)
+			interface = ok and answer == true
+		end
+		local watchable = function(service: Instance?): boolean
+			return service ~= nil and (service :: any).GetPropertyChangedSignal ~= nil
+		end
+		local display = if watchable(gui) then ctx.observe.ViewportDisplaySize(gui :: GuiService) else nil
+		local mouse = if watchable(input) then ctx.observe.MouseEnabled(input :: UserInputService) else nil
+		local touch = if watchable(input) then ctx.observe.TouchEnabled(input :: UserInputService) else nil
+		return function(use: ComposeTypes.Use?): boolean
+			local size = if display then ctx.readSource(display, use) else nil
+			return adaptive.isTenFoot({
+				viewingDistance = ctx.viewingDistance(use),
+				tenFootInterface = interface,
+				displaySize = if typeof(size) == "EnumItem" then (size :: EnumItem).Name else nil,
+				mouse = if mouse then ctx.readSource(mouse, use) == true else false,
+				touch = if touch then ctx.readSource(touch, use) == true else false,
+			})
+		end
+	end
+	local interface = false
+	if config.guiService then
+		pcall(function()
+			interface = (config.guiService :: GuiService):IsTenFootInterface() == true
+		end)
+	end
+	local function distantNow(use: ComposeTypes.Use?): boolean
+		local gui, input = config.guiService, config.userInputService
+		local function fact(key: string, service: Instance?, property: string): unknown
+			local value = ctx.read(preview[key], use)
+			if value == nil and service ~= nil then
+				value = (service :: any)[property]
+			end
+			return value
+		end
+		local display = fact("displaySize", gui, "ViewportDisplaySize")
+		return adaptive.isTenFoot({
+			viewingDistance = ctx.viewingDistance(use),
+			tenFootInterface = interface,
+			displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else display :: string?,
+			mouse = fact("mouseEnabled", input, "MouseEnabled") == true,
+			touch = fact("touchEnabled", input, "TouchEnabled") == true,
+		})
+	end
+	local authored = config.theme
+	local previewLive = false
+	for _, key in { "viewingDistance", "displaySize", "mouseEnabled", "touchEnabled" } do
+		previewLive = previewLive or live(preview[key])
+	end
+	if previewLive then
+		local distant = Compose.formula(distantNow)
+		distance = function(use: ComposeTypes.Use?): boolean
+			return ctx.readSource(distant, use)
+		end
+	else
+		local fixed = distantNow()
+		distance = function(): boolean
+			return fixed
+		end
+	end
+	if live(authored) or (authored ~= nil and previewLive) then
+		config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
+			return themes.forDistance(ctx.read(authored, use), if distance(use) then "ten-foot" else "near")
+		end)
+	elseif authored ~= nil then
+		config.theme = themes.forDistance(authored :: Theme.ThemePackage, if distantNow() then "ten-foot" else "near")
 	end
 	function ctx.hitFloor(): (ComposeTypes.Use?) -> number
 		local pointerOnly = ctx.pointerOnly()
@@ -932,16 +1022,25 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if settings.onReleased then
 			p.Released = settings.onReleased
 		end
+		local function bind(binding: Shared.ActionBinding): Instance
+			return Host.InputBinding(if type(binding) == "table"
+				then binding
+				else {
+					KeyCode = if type(binding) == "string"
+						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+						else binding,
+				})
+		end
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
+			table.insert(p, bind(binding))
+		end
+		local conditional = settings.conditional
+		if conditional then
 			table.insert(
 				p,
-				Host.InputBinding(if type(binding) == "table"
-					then binding
-					else {
-						KeyCode = if type(binding) == "string"
-							then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-							else binding,
-					})
+				Compose.show(conditional.when, function()
+					return bind(conditional.binding)
+				end)
 			)
 		end
 		local action = Host.InputAction(p)
@@ -1134,6 +1233,14 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return dispose, art :: GuiObject?
 	end
 
-	track = selection(ctx)
+	local selected: selection.Selection
+	function ctx.responder(root: Instance, options: Shared.ResponderOptions?): Shared.Responder
+		return selected.responder(root, options)
+	end
+	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
+		return selected.spaceActivates(node)
+	end
+	selected = selection(ctx)
+	track = selected.track
 	return ctx
 end

@@ -34,6 +34,11 @@ export type Environment = {
 	interactionClasses: Types.Readable<InteractionClasses>,
 	effectiveInput: Types.Readable<"Touch" | "Gamepad" | "KeyboardAndMouse">,
 	displaySize: Types.Readable<DisplaySize>,
+	isTenFoot: Types.Readable<boolean>,
+	viewingDistanceSource: Types.Readable<"authored" | "inferred">,
+	metricScale: Types.Readable<number>,
+	overscanInsets: Types.Readable<SafeInsets>,
+	navPlacement: Types.Readable<Adaptive.NavPlacement>,
 	safeInsets: Types.Readable<SafeInsets>,
 	preferredTextSize: Types.Readable<string>,
 	reducedMotion: Types.Readable<boolean>,
@@ -59,10 +64,20 @@ export type WorldAnchor = { anchor: Types.Readable<WorldAnchorPoint>, dispose: (
 export type ScrollPosition = Vector2 | "top" | "bottom" | { x: number?, y: number? }
 export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
+export type FocusSectionOptions = {
+	entry: ("restore" | "first" | "nearest")?,
+	preferred: string?,
+	focusOnAppear: (boolean | string)?,
+	returnFocus: boolean?,
+}
+export type ResponderOptions = Types.ResponderOptions
+export type ResponderState = Types.ResponderState
+export type Responder = Types.Responder
 export type EnvironmentControls = {
 	environment: (source: EnvironmentSource?) -> Environment,
 	focusRing: (playerGui: PlayerGui) -> Frame,
-	focusSection: (group: GuiObject) -> (),
+	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
+	responder: (root: Instance, options: ResponderOptions?) -> Responder,
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,
 	scrollToVisible: (node: GuiObject, rect: ScrollRect?, options: ScrollOptions?) -> boolean,

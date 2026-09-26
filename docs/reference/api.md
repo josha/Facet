@@ -17,6 +17,7 @@ and styling. This reference describes the `0.12.0` surface.
 | `COMPOSE_COMMIT` | The full Compose commit of the pinned copy. The Facet tests use this commit. |
 | `civilDate` | Calendar arithmetic, words and fixed-offset instants for civil dates. See [Civil dates](#civil-dates). |
 | `adaptive` | Pure size, height, orientation, axis and column decisions. See [Adaptive environment](#adaptive-environment). |
+| `gamepadContention` | Probes and the one remedy for the legacy player scripts that hold ButtonA, the arrow keys and Tab. See [Facet.gamepadContention](#facetgamepadcontention). |
 | `pathShapes` | Normalized arc, ring and needle points for `UI.Path`. See [Path shapes](#path-shapes). |
 | `richText` | `escape` for player and server text inside rich text. See [Text](#text). |
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
@@ -214,7 +215,13 @@ document their own write-then-notify behavior below.
 `controls` accepts these options:
 
 - `theme`: a theme package or a readable of one. The controls use it for
-  metrics, artwork and icon resolution.
+  metrics, artwork and icon resolution. At ten feet (`adaptive.isTenFoot`)
+  they use `themes.forDistance(theme, "ten-foot")`, so every metric length,
+  the 44 pixel hit floor (66) and the control heights are 1.5 times. A
+  readable `environment` preview of the distance, the display size or the
+  pointer makes the ladder follow a change at once. Without one, the controls
+  take the distance when `Facet.controls` runs. `Screen` overscan follows the
+  live fact.
 - `reducedMotion` and `icons`: these can also be reactive. Control motion also
   follows `GuiService.ReducedMotionEnabled`. Motion is reduced when either one
   is true.
@@ -234,8 +241,16 @@ document their own write-then-notify behavior below.
   `DisplaySize`, or its name) replace the `GuiService` facts. `viewportSize`
   replaces the camera viewport of `UI.environment()` without a source. Use it
   for a preview in a catalog or a gallery. The engine input still arrives:
-  a mouse click still works in a touch preview. An unknown field causes an
-  error.
+  a mouse click still works in a touch preview. `viewingDistance`
+  (`"automatic"`, `"near"` or `"ten-foot"`) is the authored viewing context:
+  `"ten-foot"` makes a lounge PC with a mouse a television, and `"near"` keeps
+  a console near. It outranks every inference. `overscanInsets`
+  (`{ top, left, bottom, right }` in pixels, or `"none"`) replaces the default
+  ten-foot margins. An unknown field or value causes an error.
+- `keyboardNavigation`: `true` (the default) binds Tab traversal and Space
+  next to Return on a selected Button. `false` binds neither: Return still
+  activates. Use `false` for an app whose keys belong to the game (see
+  [Selection](#selection) and [responder](#responder)).
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. A callout and a help
   plate place themselves inside `overlayParent` when you set it.
@@ -342,8 +357,25 @@ these rules:
 - Tab and Shift+Tab. Tab selects the next control in layout order.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
   stays inside an open modal. It skips hidden, disabled and removed controls.
-  The `FacetTraversal` input context is a child of `inputParent`, or of the
-  local `PlayerGui` when you do not set `inputParent`.
+  The native `SelectionOrder` of a control is its traversal tier: a lower
+  value comes first, and within a tier layout order wins (the `tabindex`
+  model). The `FacetTraversal` input context is a child of `inputParent`, or
+  of the local `PlayerGui` when you do not set `inputParent`. It is enabled
+  only while `UserInputService.KeyboardEnabled` is true, so a phone binds
+  nothing. The factory option `keyboardNavigation = false` disables it for a
+  HUD over live gameplay, where Tab belongs to the game. A passive
+  [responder](#responder) binds it only while it is engaged, and one with
+  `traversalWrap = false` stops the walk at its ends.
+- Grids and lanes. The engine walks a grid in two dimensions. Use the native
+  properties for the rest: `SelectionGroup = true` on a container keeps the
+  arrows inside it, and `SelectionBehaviorUp`, `Down`, `Left` and `Right`
+  (`Stop` or `Escape`) choose per direction whether the arrows may leave it.
+  `NextSelectionUp`, `Down`, `Left` and `Right` name an explicit neighbour.
+  A `UI.Grid` whose last line is short sets `NextSelectionDown` (`Right` for
+  `flow = "column"`) on the cells of the line before it that have no cell
+  below, so the move lands on the last cell. A neighbour that you set wins.
+  `UI.focusSection` chooses where the selection lands when it enters a
+  region.
 - Removal. When the selected control goes away, the selection moves to the
   nearest control that remains. A following control comes before a
   preceding control. A collection keeps the selection on its rows by key: it
@@ -428,8 +460,16 @@ bar: when the screen reaches into the `GuiService.TopbarInset` band, the covered
 height is added to the top padding. This holds with `IgnoreGuiInset` on or off.
 The band covers the full width, as `CoreUISafeInsets` does. The background of
 the screen still fills its parent. A Screen in a SurfaceGui takes no top bar
-padding. Options: `gap`, `padding`, `align`, `distribute`, `width` and
-`height`.
+padding. At ten feet the Screen also adds the environment's `overscanInsets`
+(see [environment](#environment)). Options: `gap`, `padding`, `align`,
+`distribute`, `width`, `height` and `chrome`.
+
+`chrome` is the platform-chrome policy. `"device"` (the default) clears the
+device safe area, the top bar and the overscan. `"band"` lets the content ride
+the free strip of the top bar beside the engine's buttons (a game's own top
+row): no top bar padding, overscan kept. `"edge"` adds neither; pair it with
+`ScreenInsets = Enum.ScreenInsets.None` on the ScreenGui for art that reaches
+the glass. Your own persistent chrome is `padding`.
 
 ### VStack and HStack
 
@@ -595,6 +635,12 @@ Region options:
 - `form`: a writable cell. The composition writes the index of the form that
   shows, or 0 when the region is hidden. Read it to offer the hidden content in
   another place, such as a sheet.
+- `expand`: a function that returns the richest content. While the region
+  shows a reduced form, a tap, click or `A` on that form opens this content in
+  a Popover anchored at the region (`compact = "popover"`, so a phone keeps it
+  in context too). The target is a transparent button under the forms, at
+  least the hit floor in size, so a control inside a reduced form keeps its
+  own press. The popover closes when the region returns to its richest form.
 - The children are the forms of the region, richest first. At least one form
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.
@@ -1708,15 +1754,35 @@ By default, Compose `LayerStack` keeps the visited content
 (`retention = "all"`). Use `retention = "top"` to dispose departing pages after
 their transition. Keep durable page state in the model.
 
-Use `style = "sidebarAdaptable"` for peer destinations. The control shows a
-sidebar on a sufficiently wide native viewport. It shows a bottom bar on other
-viewports. `placement` sets an explicit choice. `placement = "none"` hides the
+An automatic placement follows `adaptive.navPlacement` of the TabView's own
+size, the preferred input, the display size and ten-foot viewing: a TV takes a
+top bar, a compact width a bottom bar in the thumb zone, a short height the
+compact bottom bar, a pointer a sidebar, and a roomy touch screen or a gamepad
+on a larger display a top bar. A TabView inside another TabView's page keeps a
+top bar.
+
+Use `style = "sidebarAdaptable"` for peer destinations. Its selected tab is a
+pill, and its top bar is a segmented strip: the tabs hug their labels, centred
+on a track. `sidebarPreference` (`"sidebar"` or `"topBar"`) chooses between the
+two roomy homes, except on a ten-foot display, which keeps the top bar.
+`sidebarExpanded`, a writable boolean cell, is the ten-foot command that
+replaces `expandSidebar()` and `collapseSidebar()`: set it to `true` (from a
+Menu or a Button) and a distant screen shows the sidebar; ButtonB while the
+selection is in that sidebar sets it back to `false` and the top bar returns,
+with the selection kept on its tab. A near screen ignores it and follows
+`sidebarPreference`. Page Back keeps ButtonB when the selection is in the page.
+`placement` sets an explicit choice. `placement = "none"` hides the
 bar and gives the page the whole view. Selection, shoulder navigation and
 `selection` changes still work; supply your own route to the other tabs, such
 as a Menu. `railWidth`,
 `sidebarPreference`, `sections`, accessories and
 `customization = { order, hidden }` refine the presentation. Required tabs
 cannot be hidden.
+
+A sidebar is as wide as its widest tab label plus the tab padding and icon, and
+its labels are centred. Before the labels are measured it is 20 percent of the
+TabView width, from 200 to 280 pixels. `railWidth` sets the width and aligns
+the labels to the leading edge. The tabs of a top bar are centred in it.
 
 `onChange(id)` reports a user selection. A programmatic selection change does
 not look like user input. The control owns scroll and focus restoration and
@@ -1741,11 +1807,14 @@ fixed size.
 
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
-`controlSize` attribute. The strip stays 44 pixels high and centres the tabs
-in it. Without `controlSize`, each tab is 44 pixels high.
+`controlSize` attribute. The strip stays `targetSizes.minimum` high (44
+pixels, 66 at ten feet) and centres the tabs in it. Without `controlSize`,
+each tab is that high too.
 
 A TabView that is built inside the page of another TabView is nested, also
 when a branch of that page builds it later. A nested TabView uses a top band.
+An outer TabView with `placement = "none"` shows no bar, so a TabView in its
+page is not nested and takes the full home policy.
 
 A page change uses a native crossfade. The default is
 `transition = { seconds = 0.2, ease = Compose.easing.outQuad }`. Supply other
@@ -2923,6 +2992,19 @@ weight. The derived role keeps the family, style, size and line height.
   package art for that name wins. Without it, the regular icon draws.
 - `createStyleSheet(runtime, packageOrReadable?, options?)` returns a native
   StyleSheet that Compose owns. See the list below.
+- `forDistance(package, distance)` is the ten-foot metric ladder. `"near"`
+  returns the authored package (the same table). `"ten-foot"` returns a frozen
+  package whose lengths are 1.5 times (`adaptive.TEN_FOOT_SCALE`): `space`,
+  `targetSizes` (a 44 pixel target is 66), `iconSizes`, `strokes`, every
+  `controlSizes` field, `radii` (rounded to whole pixels) and each type role
+  size, so a 16 pixel `body` is 24. A `metrics.controls` value scales unless
+  its name ends in `TextSize`, `Lines`, `Count`, `Duration`, `Seconds`,
+  `Ratio`, `Fraction`, `Scale`, `Opacity` or `Weight`. Motion, colors, chrome
+  art and art insets do not scale. Every proportion of text to its control is
+  the same at both distances. The call is idempotent and reversible:
+  `forDistance(far, "near")` returns the authored package. You rarely call it:
+  controls and a StyleSheet apply it from the ten-foot fact. A frozen
+  package's ladder is cached.
 - `skin(runtime, packageOrReadable, slot, options?)` builds native control
   artwork. The options include `state`, `selected`, `target`, `label`,
   `onCaption`, `ZIndex` and injected `types`. When a state has no art of its
@@ -2953,6 +3035,13 @@ weight. The derived role keeps the family, style, size and line height.
     the `:Hover` rules, so a tapped control does not keep a hover tint. Press
     paint stays. If you omit it, or the readable gives `nil`, the sheet leaves
     out hover paint while UserInputService.PreferredInput is Touch.
+  - `tenFoot`: a boolean or a readable. When it is `true`, the sheet compiles
+    `forDistance(package, "ten-foot")`: the ten-foot type ramp, radii and
+    strokes. If you omit it, the sheet follows `adaptive.isTenFoot` of
+    GuiService and UserInputService. `app.mount` passes the environment's
+    `isTenFoot`. Pass `false` for a SurfaceGui or BillboardGui, whose canvas
+    has its own scale, and give its controls `environment.viewingDistance =
+    "near"`.
 - Colors and opacity use native StyleRule transitions. The default duration is
   `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
   omitted. The easing is Quad Out. The same timing applies across rules. Native
@@ -3124,8 +3213,33 @@ name.
 | `axisFor(width, { stackAbove? })` | `"x"` at or above `stackAbove` (default 600), else `"y"`. |
 | `columnsFor(available, minColumnWidth, gap?)` | The number of columns of at least `minColumnWidth` that fit, at least 1. |
 | `sizeClassAtLeast(value, target)` | `true` when `value` ranks at or above `target` in `compact < regular < wide`. |
+| `isTenFoot({ displaySize?, touch?, mouse?, tenFootInterface?, viewingDistance? })` | `viewingDistance` `"ten-foot"` or `"near"` decides. Otherwise `true` for `GuiService:IsTenFootInterface()` or a `Large` display, when there is no touch and no mouse. A large desk monitor with a mouse is near, and so is Studio, which reports `IsTenFootInterface()` true on a desktop. |
+| `overscanInsets(width, height)` | The console overscan margins for a viewport: `{ top, left, bottom, right }` of 60/1080 of the height and 90/1920 of the width, rounded. |
+| `TEN_FOOT_SCALE` | 1.5, the ten-foot metric factor. |
+| `navPlacement({ sizeClass, heightClass, primary?, displaySize?, tenFoot? })` | The app navigation home, in this order: ten-foot `"topBar"`; compact width `"bottomBar"`; short height `"bottomBarCompact"`; a pointer `"sidebar"`; a gamepad on a `Small` display `"bottomBar"`; otherwise (a roomy touch screen, a gamepad on a larger display) `"topBar"`. |
 | `BREAKPOINTS`, `HEIGHT_BREAKPOINTS` | The same table: `{ regular = 600, wide = 1000 }`. |
 | `DEFAULT_STACK_ABOVE` | 600. |
+
+### Facet.gamepadContention
+
+`Facet.gamepadContention` reports whether the engine's legacy player scripts
+hold input that the controls need. Every probe is guarded: without an engine
+it answers `false` and never throws. Nothing warns on its own; call them from
+a doctor check or when an input looks dead.
+
+| Call | Result |
+|---|---|
+| `legacyStackActive()` | `true` while ContextActionService binds `jumpAction`, which takes gamepad ButtonA before a selected control. |
+| `cameraKeysContended(boundActionInfo?)` | `true` while any ContextActionService binding holds an arrow key (the camera's `RbxCameraKeypress` holds Left and Right). It reads a different binding than `legacyStackActive`. |
+| `traversalKeyContended()` | `true` while the CoreGui players list is enabled, which takes Tab. |
+| `iasPlayerScriptsActive(player?, waitSeconds?)` | `true` when the player has the engine's default `InputContexts` (`CharacterContext`, `CameraContext` or `VehicleContext`), which exist only when `Workspace.PlayerScriptsUseInputActionSystem` is on. |
+| `disableLegacyControls(playerModuleParent?, player?)` | For a UI-only place only: it turns off avatar input. Returns `true, "inert: IAS owns PlayerScripts"` when the player scripts are on the Input Action System, `true, "disabled"` after `PlayerModule:GetControls():Disable()`, `true, "unbound"` when it removed `jumpAction`, else `false, "unavailable"`. |
+| `freedJumpAction(before, after)` | The pure verdict of an unbind: `jumpAction` was bound before and is gone after. |
+| `describeContention()` | The whole explanation as one string, for a log line. |
+
+The fix for a game with an avatar is `Workspace.PlayerScriptsUseInputActionSystem`.
+No script can read or set it, but a Rojo project file can declare it. No
+`InputContext` priority outranks a sinking ContextActionService binding.
 
 ### focusRing
 
@@ -3139,13 +3253,59 @@ the ScreenGui that holds the StyleSheet link. `app.mount` does this for you.
 
 ### focusSection
 
-`UI.focusSection(group)` remembers the item last selected inside the GuiObject
-`group`. When the selection enters the group from outside it, for example a
-gamepad or arrow key moving Left from a detail pane into a sidebar, it lands on
-that item instead of the one the engine finds nearest, while the item is still
-in the group, `Selectable` and visible. Call it inside a component or a Compose
-owner; it stops when the owner ends. It reads `GuiService.SelectedObject` and
-adds no input binding.
+`UI.focusSection(group, options?)` makes the GuiObject `group` an entry
+region for directional navigation. Call it inside a component or a Compose
+owner; it stops when the owner ends. It reads and writes
+`GuiService.SelectedObject` and adds no input binding or focus stop.
+
+| Option | Effect |
+|---|---|
+| `entry` | Where the selection lands when it enters `group` from outside. `"restore"` (the default): the item last selected there, while it is still selectable and visible. `"first"`: the first selectable item in layout order, every time. `"nearest"`: the engine's own choice. |
+| `preferred` | The name, or a relative path such as `"Hero/Play"`, of a descendant. On a `"restore"` entry with nothing remembered, it wins. |
+| `focusOnAppear` | `true` selects the first item in layout order when the section appears; a name or path selects that descendant. It acts only while something is already selected (keyboard or gamepad navigation), so a touch or mouse player gets no selection ring. |
+| `returnFocus` | `true` remembers the selected item when the section appears and selects it again when the section goes away, if it is still selectable and the selection was inside the section or gone. |
+
+An unknown option or `entry` causes an error. A branch that shows a detail
+over a list uses `focusOnAppear` and `returnFocus` together:
+
+```luau
+local open = Compose.cell(false)
+Compose.show(open, function()
+	local detail = UI.VStack "Detail" {
+		UI.Button "Back" { label = "Back", onActivate = function() open:set(false) end },
+	}
+	UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
+	return detail
+end)
+```
+
+### responder
+
+`UI.responder(root, options?) -> Responder` declares how the surface `root`
+(a GuiObject or a LayerCollector) shares the keyboard with the game. Call it
+inside a component or a Compose owner; it stops when the owner ends. It works
+on the engine selection: the surface is engaged while the selection is inside
+it.
+
+| Option | Effect |
+|---|---|
+| `passive` | `true` (the default): a HUD over live gameplay. At rest it binds nothing. Tab is not bound while nothing is selected, a D-pad press does not enter it, and Space reaches the game. It engages when the selection enters it, when the player taps it (the tapped control takes the selection) and on `engage()`. It resigns on a tap outside it, on ButtonB or Escape that no control takes, on `resign()`, and when the selection moves to another surface. `false`: the surface is always engaged, like any screen without a responder. |
+| `gameplayGuard` | `true` (the default): while a passive surface is engaged, a sinking `FacetGameplayGuard` context at priority 3000 takes Space, so the avatar does not jump while the UI has the keyboard. `false`: no guard, and a Button inside `root` binds only Return, so Space reaches the game (a word game over the world). |
+| `traversalWrap` | `true` (the default): Tab and Shift+Tab wrap at the ends of the surface. `false`: they stop at the last and the first control. |
+
+The `Responder` has `state`, a readable of `"passive"` or `"engaged"`, and
+`engage()` and `resign()`. `engage()` binds Tab and the guard; the first Tab
+then enters the surface. `resign()` clears a selection inside `root`. On a
+passive-only screen a gamepad player needs `engage()`, for example from a
+menu button of the game. An unknown option or a value that is not a boolean
+causes an error.
+
+```luau
+local hud = UI.Screen "Hud" { UI.Button "Map" { label = "Map" } }
+local responder = UI.responder(hud)
+-- the game opens its menu with a key of its own
+responder.engage()
+```
 
 ### environment
 
@@ -3160,12 +3320,17 @@ environment keeps the last real size.
 | Field | Source and value |
 |---|---|
 | `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport, in pixels. |
-| `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. |
+| `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
 | `isCompact`, `isRegular`, `isWide`, `isRegularOrWider`, `isShort`, `isTall`, `isLandscape` | Booleans. `isRegular` is the middle class only. Use `isRegularOrWider` for "not compact". |
 | `atLeast(target)` | A new boolean readable for `sizeClassAtLeast(sizeClass, target)`. |
 | `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. |
 | `effectiveInput` | `primary` as `"KeyboardAndMouse"`, `"Touch"` or `"Gamepad"`. |
 | `displaySize` | The name of `GuiService.ViewportDisplaySize`: `"Small"`, `"Medium"` or `"Large"`. |
+| `isTenFoot` | `adaptive.isTenFoot` of the `viewingDistance` option, the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |
+| `viewingDistanceSource` | `"authored"` when the `viewingDistance` option is `"near"` or `"ten-foot"`, else `"inferred"`. |
+| `metricScale` | `adaptive.TEN_FOOT_SCALE` (1.5) at ten feet, else 1. It is the factor of the ten-foot metric ladder (see [Themes](#themes)). |
+| `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
+| `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
 | `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
 | `reducedMotion` | The factory `reducedMotion` option or `GuiService.ReducedMotionEnabled`. |

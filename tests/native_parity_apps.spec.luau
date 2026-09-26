@@ -74,6 +74,7 @@ local helpers: { [string]: boolean } = {
 	scrollToVisible = true,
 	focusRing = true,
 	focusSection = true,
+	responder = true,
 }
 
 local function world(module: any, options: Options?): World
@@ -2288,7 +2289,8 @@ t.describe("native parity reference applications", function()
 				}
 			end)
 			t.expect(ctx.reducedMotion:peek()).toBe(false)
-			press(root, "Settings")
+			press(root, "Showcase")
+			press(assert(find(root, "Section")), "settings")
 			local motion = assert(find(root, "Motion"))
 			press(motion, "reduced")
 			t.expect(ctx.reducedMotion:peek()).toBe(true)
@@ -2300,7 +2302,7 @@ t.describe("native parity reference applications", function()
 			t.expect(pages.second.reducedMotion:peek()).toBe(true)
 			t.expect(ctx.motionMode:peek()).toBe("reduced")
 			t.expect(find(motion, "reduced"):GetAttribute("selected")).toBe(true)
-			press(root, "FollowRobloxMotion")
+			press(motion, "full")
 			t.expect(ctx.reducedMotion:peek()).toBe(false)
 			t.expect(pages.second.reducedMotion:peek()).toBe(false)
 			stop()

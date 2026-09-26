@@ -68,7 +68,11 @@ local region: Frame = UI.Region("Tasks")({
 	rank = 2,
 	mayDrop = true,
 	form = chosen,
+	expand = function(): Instance
+		return UI.Text({ text = "Win a round" })
+	end,
 	UI.Text({ text = "Tasks" }),
+	UI.Text({ text = "1/3" }),
 })
 local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
 return {

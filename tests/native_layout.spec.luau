@@ -453,6 +453,51 @@ t.describe("native layout primitives", function()
 			end
 		end)
 
+		t.it("chrome band rides the free top-bar band, and edge also drops the overscan", function()
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local input = engine.new("UserInputService")
+			local T = engine.types
+			gui.GetGuiInset = function()
+				return T.Vector2.new(0, 58), T.Vector2.zero
+			end
+			gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+			gui.ViewportDisplaySize = T.Enum.DisplaySize.Large
+			local UI = Facet.controls(
+				runtime,
+				{
+					types = T,
+					guiService = gui,
+					userInputService = input,
+					services = { GuiService = gui, UserInputService = input },
+				} :: any
+			)
+			local layer = engine.new("ScreenGui")
+			layer.IgnoreGuiInset = true
+			local roots = {}
+			for _, chrome in { "device", "band", "edge" } do
+				runtime.mount(function()
+					roots[chrome] = UI.Screen { chrome = chrome }
+					return roots[chrome]
+				end, layer)
+				roots[chrome].AbsolutePosition = T.Vector2.new(0, -58)
+			end
+			local function top(chrome: string): any
+				return child(roots[chrome], "UIPadding").PaddingTop
+			end
+			t.expect(top("device")).toBe(T.UDim.new(60 / 1080, 24 + 58))
+			t.expect(top("band")).toBe(T.UDim.new(60 / 1080, 24))
+			t.expect(top("edge")).toBe(T.UDim.new(0, 24))
+			t.expect(child(roots.edge, "UIPadding").PaddingLeft).toBe(T.UDim.new(0, 24))
+			t.expect(pcall(function()
+				runtime.mount(function()
+					return UI.Screen { chrome = "glass" }
+				end, layer)
+			end)).toBe(false)
+			runtime:dispose()
+		end)
+
 		t.it("ignores the top bar on a SurfaceGui", function()
 			local engine: any = engineLib.new()
 			local runtime = Facet.Roblox.createRuntime(engine)

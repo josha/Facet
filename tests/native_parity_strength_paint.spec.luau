@@ -1579,7 +1579,8 @@ t.describe("native paint strength: theme sheets", function()
 			return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
 		end, h.engine.new("Folder"))
 		environment.game = nil
-		t.expect(requested).toEqual({ "GuiService", "GuiService", "UserInputService" })
+		t.expect(requested)
+			.toEqual({ "GuiService", "GuiService", "UserInputService", "GuiService", "UserInputService" })
 		local text = ruleNode(sheet, ".facet-text")
 		local timing = text:GetPropertyTransitions().TextColor3
 		t.expect(timing.Time).toBe(0.2)

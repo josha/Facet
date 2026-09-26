@@ -3426,6 +3426,7 @@ export type Observe = {
 	TextYAlignment: (TextBox | TextButton | TextLabel) -> Compose.Cell<Enum.TextYAlignment>,
 	TopbarInset: (GuiService) -> Compose.Cell<Rect>,
 	TouchEnabled: (UserInputService) -> Compose.Cell<boolean>,
+	ViewportDisplaySize: (GuiService) -> Compose.Cell<Enum.DisplaySize>,
 	Visible: (GuiObject) -> Compose.Cell<boolean>,
 }
 

@@ -24,6 +24,7 @@ local function setup(build: (any, any, any, any) -> any, prepare: ((any, any) ->
 	local runtime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
+	input.KeyboardEnabled = true
 	input.GetFocusedTextBox = function()
 		return nil
 	end

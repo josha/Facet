@@ -125,6 +125,7 @@ local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 			runtime,
 			{
 				types = engine.types,
+				environment = ctx.environment,
 				viewport = ctx.viewport,
 				inputParent = target,
 				guiService = gui,
@@ -183,6 +184,7 @@ local function journeyFixture(theme: any, input: string): (any, any, any, () -> 
 		runtime,
 		{
 			types = engine.types,
+			environment = ctx.environment,
 			viewport = ctx.viewport,
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = service },
@@ -587,8 +589,12 @@ t.describe("native parity weaker navigation", function()
 	t.it("adapts showcase category navigation while keeping the page and its inner top tabs", function()
 		for _, name in { "all_controls", "collections", "motion_layout" } do
 			local scenario = require("../examples/gallery/scenarios/" .. name) :: any
+			local placement = Compose.cell("automatic")
+			local layout = Compose.cell(nil :: any)
 			local ctx, root, stop = galleryFixture(function(context)
 				context.pageVisible = Compose.cell(true)
+				context.categoryPlacement = placement
+				context.categoryLayout = layout
 				return scenario.build(context).screen()
 			end)
 			local Enum, UDim2 = ctx.types.Enum, ctx.types.UDim2
@@ -610,20 +616,28 @@ t.describe("native parity weaker navigation", function()
 				t.expect(direction(first)).toBe(Enum.FillDirection.Horizontal)
 				t.expect(inner:FindFirstChild("Tabs").Position).toBe(UDim2.fromOffset(0, 0))
 			end
-			find(root, "UseTopTabs", "TextButton").Activated.fire()
+			t.expect(layout:peek().available:peek()).toBe(true)
+			t.expect(find(root, "UseTopTabs")).toBe(nil)
+			layout:peek().toggle()
 			t.expect(direction("Categories")).toBe(Enum.FillDirection.Horizontal)
 			unchanged()
-			find(root, "UseSidebar", "TextButton").Activated.fire()
+			layout:peek().toggle()
 			t.expect(direction("Categories")).toBe(Enum.FillDirection.Vertical)
 			unchanged()
+			ctx.inputService.PreferredInput = Enum.PreferredInput.Gamepad
+			t.expect(direction("Categories")).toBe(Enum.FillDirection.Vertical)
+			placement:set("automatic")
 			for _, input in { "Gamepad", "Touch", "KeyboardAndMouse" } do
 				ctx.inputService.PreferredInput = (Enum.PreferredInput :: any)[input]
 				t.expect(direction("Categories"))
-					.toBe(if input == "Gamepad" then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical)
+					.toBe(if input == "KeyboardAndMouse" then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal)
 				unchanged()
 			end
 			categories.AbsoluteSize = ctx.types.Vector2.new(390, 844)
+			t.expect(direction("Categories")).toBe(Enum.FillDirection.Horizontal)
 			t.expect(categories:FindFirstChild("Tabs").Position.Y.Scale).toBe(1)
+			placement:set("side")
+			t.expect(direction("Categories")).toBe(Enum.FillDirection.Horizontal)
 			unchanged()
 			stop()
 			ctx.runtime:dispose()
@@ -651,7 +665,8 @@ t.describe("native parity weaker navigation", function()
 		local scale = find(root, "ViewingDistance", "UIScale")
 		for _, distance in { "ten-foot", "near", "automatic" } do
 			ctx.viewingDistance:set(distance)
-			t.expect(scale.Scale).toBe(if distance == "ten-foot" then 1.5 else 1)
+			t.expect(scale.Scale).toBe(1)
+			t.expect(ctx.metricScale:peek():peek()).toBe(if distance == "ten-foot" then 1.5 else 1)
 			for _, input in { "Gamepad", "Touch", "KeyboardAndMouse" } do
 				ctx.inputService.PreferredInput = (Enum.PreferredInput :: any)[input]
 				t.expect(tabView(root, "Categories")).toBe(categories)
@@ -763,15 +778,18 @@ t.describe("native parity weaker navigation", function()
 			home(390, 844, "bottomBar")
 			home(320, 640, "bottomBar")
 			home(800, 400, "bottomBarCompact")
-			home(900, 900, "bottomBar")
+			home(900, 900, "sidebar")
 			home(1200, 900, "sidebar")
 			world.input.PreferredInput = Enum.PreferredInput.Gamepad
 			t.expect(current).toBe("topBar")
 			t.expect(strip.Position).toBe(UDim2.fromOffset(0, 0))
-			home(390, 844, "topBar")
+			home(390, 844, "bottomBar")
+			world.gui.ViewportDisplaySize = Enum.DisplaySize.Large
+			t.expect(current).toBe("topBar")
+			world.gui.ViewportDisplaySize = Enum.DisplaySize.Medium
 			world.input.PreferredInput = Enum.PreferredInput.Touch
 			t.expect(current).toBe("bottomBar")
-			home(1200, 900, "sidebar")
+			home(1200, 900, "topBar")
 			b.Activated.fire()
 			t.expect(selection:peek()).toBe("b")
 			home(800, 400, "bottomBarCompact")
@@ -811,6 +829,8 @@ t.describe("native parity weaker navigation", function()
 			find(wide.screen, "Adaptable").AbsoluteSize = V2(wide, 900, 900)
 			t.expect(adaptable).toBe("sidebar")
 			find(wide.screen, "Adaptable").AbsoluteSize = V2(wide, 700, 900)
+			t.expect(adaptable).toBe("sidebar")
+			find(wide.screen, "Adaptable").AbsoluteSize = V2(wide, 500, 900)
 			t.expect(adaptable).toBe("bottomBar")
 			local declared = find(wide.screen, "Declared")
 			for _, size in { { 320, 640 }, { 1200, 900 }, { 800, 400 } } do
@@ -823,6 +843,169 @@ t.describe("native parity weaker navigation", function()
 			wide.stop()
 		end
 	)
+
+	t.it("pops back to the control that pushed, found by path when the root rebuilt it", function()
+		local path = Compose.cell({})
+		local version = Compose.cell(1)
+		local world = setup(function(UI, Host)
+			return UI.NavigationStack({
+				path = path,
+				transition = false,
+				root = {
+					content = function()
+						return Host.Frame("Root")({
+							Compose.keyed({
+								from = function(use)
+									return { use(version) }
+								end,
+								render = function()
+									return Host.Frame("Strip")({
+										UI.Button("First")({ label = "First" }),
+										UI.Button("Open")({ label = "Open" }),
+									})
+								end,
+							}),
+						})
+					end,
+				},
+				destinations = {
+					detail = {
+						title = "Detail",
+						content = function()
+							return UI.Button("Inside")({ label = "Inside" })
+						end,
+					},
+				},
+			})
+		end)
+		world.gui.SelectedObject = find(world.screen, "Open", "TextButton")
+		path:set({ { id = "detail" } })
+		version:set(2)
+		path:set({})
+		t.expect(world.gui.SelectedObject).toBe(find(world.screen, "Open", "TextButton"))
+		world.stop()
+	end)
+
+	t.it("a TabView inside a bar-less outer TabView (placement none) takes the full home policy", function()
+		for _, outerPlacement in { "none", "topBar" } do
+			local world = setup(function(UI, Host)
+				return UI.TabView("Outer")({
+					selection = Compose.cell("shell"),
+					placement = outerPlacement,
+					tabs = {
+						{
+							id = "shell",
+							label = "Shell",
+							content = function()
+								return UI.TabView("Inner")({
+									selection = Compose.cell("a"),
+									tabs = {
+										{ id = "a", label = "A", content = page(Host, "a") },
+										{ id = "b", label = "B", content = page(Host, "b") },
+									},
+								})
+							end,
+						},
+					},
+				})
+			end)
+			local inner = find(world.screen, "Inner")
+			inner.AbsoluteSize = V2(world, 390, 844)
+			local strip = inner:FindFirstChild("Tabs")
+			t.expect(`{outerPlacement} {strip.Position.Y.Scale}`)
+				.toBe(`{outerPlacement} {if outerPlacement == "none" then 1 else 0}`)
+			world.stop()
+		end
+	end)
+
+	t.it("moves the selection from a vanished accessory to the current tab when the home changes", function()
+		local preference = Compose.cell("topBar")
+		local world = setup(function(UI, Host)
+			return UI.TabView("Apps")({
+				selection = Compose.cell("a"),
+				style = "sidebarAdaptable",
+				sidebarPreference = preference,
+				accessories = {
+					trailing = function()
+						return Host.TextButton("Switch")({ Selectable = true })
+					end,
+				},
+				tabs = {
+					{ id = "a", label = "A", content = page(Host, "a") },
+					{ id = "b", label = "B", content = page(Host, "b") },
+				},
+			})
+		end)
+		local view = find(world.screen, "Apps")
+		view.AbsoluteSize = V2(world, 1200, 900)
+		world.gui.SelectedObject = find(view, "Switch")
+		preference:set("sidebar")
+		t.expect(world.gui.SelectedObject).toBe(find(view:FindFirstChild("Tabs"), "a", "TextButton"))
+		world.stop()
+	end)
+
+	t.it("expands a distant sidebar on command and ButtonB collapses it back to the top bar", function()
+		local expanded = Compose.cell(false)
+		local world = setup(function(UI, Host)
+			local outer = UI.TabView("Outer")({
+				selection = Compose.cell("shell"),
+				tabs = {
+					{
+						id = "shell",
+						label = "Shell",
+						content = function()
+							return UI.TabView("Apps")({
+								selection = Compose.cell("a"),
+								style = "sidebarAdaptable",
+								sidebarExpanded = expanded,
+								accessories = {
+									trailing = function()
+										return Host.TextButton("Expand")({ Selectable = true })
+									end,
+								},
+								tabs = {
+									{ id = "a", label = "A", content = page(Host, "a") },
+									{ id = "b", label = "B", content = page(Host, "b") },
+								},
+							})
+						end,
+					},
+				},
+			})
+			return outer
+		end)
+		local Enum = world.engine.types.Enum
+		world.gui.ViewportDisplaySize = Enum.DisplaySize.Large
+		world.input.MouseEnabled = false
+		world.input.PreferredInput = Enum.PreferredInput.Gamepad
+		local view = find(world.screen, "Apps")
+		view.AbsoluteSize = V2(world, 1920, 1080)
+		local strip = view:FindFirstChild("Tabs")
+		local layout = strip:FindFirstChildWhichIsA("UIListLayout")
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
+		t.expect(action(world.screen, "SidebarCollapse")).toBeNil()
+		world.gui.SelectedObject = find(view, "Expand")
+		expanded:set(true)
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Vertical)
+		t.expect(world.gui.SelectedObject).toBe(find(strip, "a", "TextButton"))
+		world.gui.SelectedObject = find(strip, "b", "TextButton")
+		local collapse = action(world.screen, "SidebarCollapse")
+		t.expect(collapse ~= nil).toBe(true)
+		t.expect(collapse:FindFirstChildWhichIsA("InputBinding").KeyCode).toBe(Enum.KeyCode.ButtonB)
+		collapse.Pressed.fire()
+		t.expect(expanded:peek()).toBe(false)
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
+		t.expect(world.gui.SelectedObject).toBe(find(strip, "b", "TextButton"))
+		expanded:set(true)
+		world.gui.SelectedObject = nil
+		t.expect(action(world.screen, "SidebarCollapse")).toBeNil()
+		world.gui.ViewportDisplaySize = Enum.DisplaySize.Medium
+		world.input.MouseEnabled = true
+		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
+		view.AbsoluteSize = V2(world, 390, 844)
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
+		world.stop()
+	end)
 
 	t.it("keeps page owners and the strip across every declared home and evicts only on selection", function()
 		for _, style in { "automatic", "sidebarAdaptable" } do
@@ -1103,14 +1286,22 @@ t.describe("native parity weaker navigation", function()
 				local strip = view:FindFirstChild("Tabs")
 				t.expect(trailing.ClipsDescendants).toBe(true)
 				t.expect(trailing.Size.Y).toBe(world.engine.types.UDim.new(0, 44))
-				t.expect(trailing.Position).toBe(UDim2.new(1, -80, 0, 0))
-				t.expect(strip.Position).toBe(UDim2.fromOffset(0, 0))
-				t.expect(strip.Size).toBe(UDim2.new(1, -80, 0, 44))
+				t.expect(trailing.Position).toBe(UDim2.new(1, -80, 0, 3))
+				strip:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+					world.engine.types.Vector2.new(120, 44)
+				t.expect(strip.Size).toBe(UDim2.fromOffset(126, 50))
+				t.expect(strip.Position).toBe(UDim2.fromOffset(397, 0))
+				t.expect(view:FindFirstChild("Track").Size).toBe(strip.Size)
 				local barCentre = strip.Position.Y.Offset + strip.Size.Y.Offset / 2
 				local accessoryCentre = trailing.Position.Y.Offset + trailing.Size.Y.Offset / 2
 				t.expect(barCentre).toBe(accessoryCentre)
-				t.expect(strip.Size.X.Scale).toBe(trailing.Position.X.Scale)
-				t.expect(strip.Size.X.Offset).toBe(trailing.Position.X.Offset)
+				t.expect(strip.Position.X.Offset + strip.Size.X.Offset <= 1000 - 80).toBe(true)
+				view:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(50, 1)
+				strip:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+					world.engine.types.Vector2.new(60, 22)
+				t.expect(strip.Size).toBe(UDim2.fromOffset(126, 50))
+				t.expect(strip.Position).toBe(UDim2.fromOffset(857, 0))
+				view:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(100, 1)
 				placement:set("sidebar")
 				local head, foot = find(world.screen, "Accessory-head"), find(world.screen, "Accessory-foot")
 				head.AbsoluteSize = V2(world, 240, 80)

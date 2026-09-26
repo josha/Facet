@@ -6,6 +6,8 @@ local Media = require("./media_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion")
+local adaptive = require("./adaptive")
+local segmentMetrics = require("./segment_metrics")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -189,6 +191,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"placement",
 			"style",
 			"sidebarPreference",
+			"sidebarExpanded",
 			"restoreScroll",
 			"shoulderNavigation",
 			"restoreFocus",
@@ -217,6 +220,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local primaryInput = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local tenFoot = ctx.tenFoot()
+		local displaySize = if ctx.config.guiService
+			then ctx.observe.ViewportDisplaySize(ctx.config.guiService)
+			else nil
 		local function resolvePlacement(use: ComposeTypes.Use): Nav.Placement
 			if spec.style == "collapsible" then
 				return "topBar"
@@ -225,22 +232,40 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if explicit and explicit ~= "automatic" then
 				return explicit
 			end
+			local distant = tenFoot(use)
+			if spec.style == "sidebarAdaptable" and distant and read(spec.sidebarExpanded, use) == true then
+				return "sidebar"
+			end
 			if use(nested) then
 				return "topBar"
 			end
-			local size = use(dimensions)
-			if use(primaryInput) == E.PreferredInput.Gamepad then
-				return "topBar"
+			local size, preferred = use(dimensions), use(primaryInput)
+			local display = if displaySize then use(displaySize) else nil
+			local home: Nav.Placement = adaptive.navPlacement({
+				sizeClass = adaptive.sizeClass(size.X),
+				heightClass = adaptive.heightClass(size.Y),
+				primary = if preferred == E.PreferredInput.Gamepad
+					then "gamepad"
+					elseif preferred == E.PreferredInput.Touch then "touch"
+					else "pointer",
+				displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else nil,
+				tenFoot = distant,
+			})
+			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
+				local choice = read(spec.sidebarPreference, use)
+				if choice and choice ~= "automatic" then
+					return choice
+				end
 			end
-			if size.X >= 960 or (spec.style == "sidebarAdaptable" and size.X >= 720) then
-				local preferred = read(spec.sidebarPreference, use)
-				return if preferred and preferred ~= "automatic" then preferred else "sidebar"
-			end
-			return if size.Y > 0 and size.X / size.Y > 1.4 then "bottomBarCompact" else "bottomBar"
+			return home
 		end
 		local placement = Compose.formula(resolvePlacement)
-		local function railWidth(use: ComposeTypes.Use): number
-			return read(spec.railWidth, use) or math.clamp(math.floor(use(dimensions).X * 0.2), 200, 280)
+		local function indicatorOf(use: ComposeTypes.Use): Nav.Indicator?
+			local chosen = read(spec.indicator, use)
+			if (chosen == nil or chosen == "automatic") and spec.style == "sidebarAdaptable" then
+				return "pill"
+			end
+			return chosen
 		end
 
 		local COMPACT_HEIGHT = 480
@@ -391,8 +416,62 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return false
 		end)
+		local function band(use: ComposeTypes.Use?): number
+			return ctx.metric("targetSizes.minimum", use)
+		end
 		local function tabHeight(use: ComposeTypes.Use?): number
-			return if spec.controlSize == nil then 44 else ctx.controlSize(spec.controlSize, "height", use)
+			return if spec.controlSize == nil then band(use) else ctx.controlSize(spec.controlSize, "height", use)
+		end
+		local INSET = segmentMetrics.inset
+		local function segmentedTop(use: ComposeTypes.Use): boolean
+			return use(placement) == "topBar" and indicatorOf(use) == "pill"
+		end
+		local function inset(use: ComposeTypes.Use): UDim
+			return D.new(0, if segmentedTop(use) then INSET else 0)
+		end
+		local stripLayout = Host.UIListLayout({
+			FillDirection = function(use: ComposeTypes.Use)
+				return if use(placement) == "sidebar" then E.FillDirection.Vertical else E.FillDirection.Horizontal
+			end,
+			SortOrder = E.SortOrder.LayoutOrder,
+			HorizontalAlignment = E.HorizontalAlignment.Center,
+			VerticalAlignment = function(use: ComposeTypes.Use)
+				return if use(placement) == "sidebar" then E.VerticalAlignment.Top else E.VerticalAlignment.Center
+			end,
+			Padding = D.new(0, 4),
+		})
+		local stripContent = ctx.observe.AbsoluteContentSize(stripLayout)
+		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
+		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
+		local function railWidth(use: ComposeTypes.Use): number
+			local authored = read(spec.railWidth, use)
+			if authored then
+				return authored
+			end
+			local widest = 0
+			for _, width in use(wordWidths) do
+				widest = math.max(widest, width)
+			end
+			if widest <= 0 then
+				return math.clamp(math.floor(use(dimensions).X * 0.2), 200, 280)
+			end
+			local unit = use(unitSize).X / 100
+			local glyph = 0
+			for _, tab in use(visibleTabs) do
+				if tab.icon then
+					glyph = ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
+					break
+				end
+			end
+			local label = widest / (if unit > 0 then unit else 1)
+			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use)) + 16
+		end
+		local function segmentWidth(use: ComposeTypes.Use): (number, number)
+			local unit = use(unitSize).X / 100
+			local scale = if unit > 0 then unit else 1
+			local room = (use(dimensions).X - use(trailingWidth)) / scale
+			local width = math.ceil(math.min(room, use(stripContent).X / scale + 2 * INSET))
+			return width, math.max(0, math.floor((room - width) / 2))
 		end
 		local bar = Host.ScrollingFrame "Tabs" {
 			ZIndex = 2,
@@ -407,26 +486,30 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return if use(placement) == "sidebar" then E.ScrollingDirection.Y else E.ScrollingDirection.X
 			end,
 			Size = function(use: ComposeTypes.Use)
+				if segmentedTop(use) then
+					return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
+				end
 				return if use(placement) == "sidebar"
 					then D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
-					else D2.new(1, -use(trailingWidth), 0, 44)
+					else D2.new(1, -use(trailingWidth), 0, band(use))
 			end,
 			Position = function(use: ComposeTypes.Use)
+				if segmentedTop(use) then
+					local _, left = segmentWidth(use)
+					return D2.fromOffset(left, 0)
+				end
 				return if use(placement) == "sidebar"
 					then D2.fromOffset(8, use(headHeight))
-					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -44)
+					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
 					else D2.fromOffset(0, 0)
 			end,
-			Host.UIListLayout({
-				FillDirection = function(use: ComposeTypes.Use)
-					return if use(placement) == "sidebar" then E.FillDirection.Vertical else E.FillDirection.Horizontal
-				end,
-				SortOrder = E.SortOrder.LayoutOrder,
-				VerticalAlignment = function(use: ComposeTypes.Use)
-					return if use(placement) == "sidebar" then E.VerticalAlignment.Top else E.VerticalAlignment.Center
-				end,
-				Padding = D.new(0, 4),
+			Host.UIPadding({
+				PaddingLeft = inset,
+				PaddingRight = inset,
+				PaddingTop = inset,
+				PaddingBottom = inset,
 			}) :: Types.Child,
+			stripLayout :: Types.Child,
 			Compose.keyed({
 				from = visibleTabs,
 				key = function(tab: Nav.Tab): string
@@ -468,7 +551,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								else E.AutomaticSize.X
 						end,
 						TextXAlignment = function(use: ComposeTypes.Use)
-							return if use(placement) == "sidebar"
+							return if use(placement) == "sidebar" and read(spec.railWidth, use) ~= nil
 								then E.TextXAlignment.Left
 								else E.TextXAlignment.Center
 						end,
@@ -477,7 +560,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return read(spec.enabled, use) ~= false and read(use(current).enabled, use) ~= false
 						end,
 						selected = function(use: ComposeTypes.Use)
-							local indicator = read(spec.indicator, use)
+							local indicator = indicatorOf(use)
 							if use(spec.selection) ~= tab.id or indicator == "none" then
 								return false
 							end
@@ -489,7 +572,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 					})
 					button:AddTag("facet-tab-item")
-					if fit then
+					do
 						local measure = ctx.text({
 							Name = "LabelMeasure",
 							Visible = false,
@@ -498,12 +581,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return tostring(read(use(current).label, use) or tab.id)
 							end,
 							TextSize = function(use: ComposeTypes.Use): number
-								return (ctx.metric("typography.control.size", use))
+								local authored = if fit then nil else read(spec.textSize :: Types.Value<number>, use)
+								return authored or ctx.metric("typography.control.size", use)
 							end,
 						})
 						surfaces.attach(button, { measure :: Types.Child })
 						local natural = ctx.observe.TextBounds(measure)
-						local room = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local width = use(natural).X
 							local widths = table.clone(wordWidths:peek())
@@ -515,6 +598,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							widths[tab.id] = nil
 							wordWidths:set(widths)
 						end)
+					end
+					if fit then
+						local natural = ctx.observe.TextBounds(button:FindFirstChild("LabelMeasure") :: TextLabel)
+						local room = ctx.observe.AbsoluteSize(button)
 						local target = Compose.formula(function(use: ComposeTypes.Use): number?
 							local width = use(natural).X
 							local available = use(room).X - 2 * ctx.controlSize(nil, "paddingX", use)
@@ -630,7 +717,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local current = use(spec.selection) == tab.id
 						local place = use(placement)
 						local filled = current
-							and read(spec.indicator, use) ~= "none"
+							and indicatorOf(use) ~= "none"
 							and (place == "sidebar" or string.find(place, "bottom") ~= nil)
 						local tags: { [string]: boolean } =
 							{ ["facet-tab-current"] = current, ["facet-tab-filled"] = filled }
@@ -645,13 +732,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					surfaces.attach(button, {
 						Host.UISizeConstraint({
 							MinSize = function(use: ComposeTypes.Use)
-								return V2.new(44, tabHeight(use))
+								return V2.new(band(use), tabHeight(use))
 							end,
 						}),
 						Compose.show(function(use: ComposeTypes.Use)
 							return use(spec.selection) == tab.id
-								and read(spec.indicator, use) ~= "none"
-								and read(spec.indicator, use) ~= "pill"
+								and indicatorOf(use) ~= "none"
+								and indicatorOf(use) ~= "pill"
 								and use(placement) == "topBar"
 						end, function()
 							return ctx.styled(
@@ -700,7 +787,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Name = "TabRow-" .. tab.id,
 							LayoutOrder = index,
 							Size = function(use: ComposeTypes.Use)
-								return if use(placement) == "sidebar" then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 44)
+								return if use(placement) == "sidebar"
+									then D2.new(1, 0, 0, 0)
+									else D2.fromOffset(0, band(use))
 							end,
 							AutomaticSize = function(use: ComposeTypes.Use)
 								return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
@@ -791,11 +880,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					state: ComposeTypes.Readable<ComposeTypes.LayerStackState>,
 					id: string
 				): Instance
-					tabDepth += 1
+					local step = if spec.placement == "none" then 0 else 1
+					tabDepth += step
 					local ok, built = pcall(function(): Instance
 						return content(byId[current:peek()].content, nil)
 					end)
-					tabDepth -= 1
+					tabDepth -= step
 					if not ok then
 						error(built, 0)
 					end
@@ -808,7 +898,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return use(state).top
 							end,
 							SelectionGroup = true,
-							Attributes = { FacetTabPage = true } :: Types.Attributes,
+							Attributes = { FacetTabPage = spec.placement ~= "none" } :: Types.Attributes,
 							built,
 						},
 						state,
@@ -886,7 +976,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			}),
 		}
 		tabsReady = true
-		surfaces.attach(root, { bar, layers })
+		local track = Host.Frame "Track" {
+			ZIndex = 1,
+			BorderSizePixel = 0,
+			Visible = function(use: ComposeTypes.Use)
+				return segmentedTop(use) and not use(collapsed)
+			end,
+			Size = function(use: ComposeTypes.Use)
+				return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
+			end,
+			Position = function(use: ComposeTypes.Use)
+				local _, left = segmentWidth(use)
+				return D2.fromOffset(left, 0)
+			end,
+			Host.UICorner({}),
+		}
+		track:AddTag("facet-segmented")
+		surfaces.attach(root, { unitProbe, track, bar, layers })
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
 				return not use(collapsed) and use(placement) ~= "none"
@@ -895,7 +1001,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, {
 			Compose.show(collapsed, function()
 				return UI.Menu "TabsMenu" {
-					Size = D2.fromOffset(0, 44),
+					Size = function(use: ComposeTypes.Use)
+						return D2.fromOffset(0, band(use))
+					end,
 					AutomaticSize = E.AutomaticSize.X,
 					disclosure = true,
 					label = function(use: ComposeTypes.Use)
@@ -959,7 +1067,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Size = function(use: ComposeTypes.Use)
 								return if slot == "head" or slot == "foot"
 									then D2.fromOffset(railWidth(use), 0)
-									elseif slot == "trailing" then D2.fromOffset(0, 44)
+									elseif slot == "trailing" then D2.fromOffset(0, band(use))
 									else D2.new(1, 0, 0, 0)
 							end,
 							AutomaticSize = if slot == "trailing" then E.AutomaticSize.X else E.AutomaticSize.Y,
@@ -990,13 +1098,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									return D2.new(0, 0, 1, -use(footHeight))
 								end
 								if slot == "aboveBar" then
-									return D2.new(0, 0, 1, -44 - use(aboveHeight))
+									return D2.new(0, 0, 1, -band(use) - use(aboveHeight))
 								end
 								return D2.new(
 									1,
 									-use(trailingWidth),
 									if place == "topBar" then 0 else 1,
-									if place == "topBar" then 0 else -44
+									if segmentedTop(use) then INSET elseif place == "topBar" then 0 else -band(use)
 								)
 							end,
 						})
@@ -1041,6 +1149,47 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ctx.action(root, "NextTab", { "ButtonR1" }, active, function()
 				advance(1)
 			end, { priority = 50 + depth })
+			local expanded = spec.sidebarExpanded
+			if expanded ~= nil then
+				assert(
+					type(expanded) == "table" and (expanded :: any).set ~= nil,
+					"Facet UI.TabView: sidebarExpanded must be a writable Compose cell"
+				)
+				ctx.action(root, "SidebarCollapse", { "ButtonB" }, function(use: ComposeTypes.Use)
+					return use(expanded) == true
+						and tenFoot(use)
+						and gui ~= nil
+						and surfaces.within(use(selectedObject), bar)
+				end, function()
+					expanded:set(false)
+				end, { priority = 1100 + depth })
+			end
+			local function inChrome(node: GuiObject?): boolean
+				local content = root:FindFirstChild("Content")
+				return node ~= nil
+					and surfaces.within(node, root)
+					and not (content and surfaces.within(node, content))
+					and not surfaces.within(node, bar)
+			end
+			local accessory: GuiObject? = nil
+			Compose.watch(function(use: ComposeTypes.Use)
+				local current = use(selectedObject) :: GuiObject?
+				accessory = if inChrome(current) then current else nil
+			end)
+			local first = true
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(placement)
+				if first then
+					first = false
+					return
+				end
+				local button = tabButtons[spec.selection:peek()]
+				local current = gui and gui.SelectedObject
+				if gui and button and (accessory ~= nil or inChrome(current)) and current ~= button then
+					accessory = nil
+					gui.SelectedObject = button
+				end
+			end)
 		end
 		return root
 	end)
@@ -1157,7 +1306,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				): Instance
 					local entry = current:peek()
 					local destination = if entry == rootEntry then spec.root else spec.destinations[entry.id]
-					local chrome = if entry ~= rootEntry or destination.title and destination.title ~= "" then 44 else 0
+					local titled = entry ~= rootEntry or (destination.title ~= nil and destination.title ~= "")
+					local function chrome(use: ComposeTypes.Use?): number
+						return if titled then ctx.metric("targetSizes.minimum", use) else 0
+					end
 					local role = Compose.formula(function(use: ComposeTypes.Use): string
 						local list = use(entries)
 						local at = table.find(list, entry)
@@ -1211,24 +1363,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local place, moved = placement(use)
 						return if place == "beneath" then moved + PARALLAX * (1 - moved) else 1
 					end
+					local title = ctx.text({
+						Name = "Title",
+						Text = destination.title or "",
+						Size = D2.fromScale(1, 1),
+						TextTruncate = E.TextTruncate.AtEnd,
+						TextXAlignment = function(use: ComposeTypes.Use)
+							return if use(state).index > 1 then E.TextXAlignment.Center else E.TextXAlignment.Left
+						end,
+					})
 					local navigationBar = Host.Frame "NavigationBar" {
 						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0, chrome),
-						Visible = chrome > 0,
-						ctx.styled(
-							ctx.text({
-								Name = "Title",
-								Text = destination.title or "",
-								Size = D2.fromScale(1, 1),
-								TextTruncate = E.TextTruncate.AtEnd,
-								TextXAlignment = function(use: ComposeTypes.Use)
-									return if use(state).index > 1
-										then E.TextXAlignment.Center
-										else E.TextXAlignment.Left
-								end,
-							}),
-							if entry == rootEntry then "type-title" else "type-heading"
-						) :: Types.Child,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(1, 0, 0, chrome(use))
+						end,
+						Visible = titled,
+						title :: Types.Child,
 						Compose.show(function(use: ComposeTypes.Use)
 							return use(state).index > 1
 						end, function()
@@ -1242,10 +1392,20 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							}
 						end),
 					}
+					local barSize = ctx.observe.AbsoluteSize(navigationBar)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local large = entry == rootEntry and adaptive.sizeClass(use(barSize).X) ~= "compact"
+						title:RemoveTag(if large then "facet-type-heading" else "facet-type-title")
+						title:AddTag(if large then "facet-type-title" else "facet-type-heading")
+					end)
 					local destinationFrame = Host.Frame "Destination" {
 						BackgroundTransparency = 1,
-						Position = D2.fromOffset(0, chrome),
-						Size = D2.new(1, 0, 1, -chrome),
+						Position = function(use: ComposeTypes.Use)
+							return D2.fromOffset(0, chrome(use))
+						end,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(1, 0, 1, -chrome(use))
+						end,
 						Compose.boundary(function()
 							navigationDepth += 1
 							local ok, built =
@@ -1344,14 +1504,31 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 					local visible, parent = ctx.observe.Visible(panel), ctx.observe.Parent(panel)
 					local remembered: GuiObject?
+					local rememberedPath: { string } = {}
 					local previousTop: boolean?
 					local focusing = surfaces.selecting()
 					Compose.watch(function(use: ComposeTypes.Use)
 						local selected = use(selectedObject)
 						if selected and selected:IsA("GuiObject") and surfaces.within(selected, panel) then
 							remembered = selected :: GuiObject
+							table.clear(rememberedPath)
+							local at: Instance? = selected
+							while at and at ~= panel do
+								table.insert(rememberedPath, 1, at.Name)
+								at = at.Parent
+							end
 						end
 					end)
+					local function recall(): GuiObject?
+						if remembered and remembered.Parent then
+							return remembered
+						end
+						local at: Instance? = panel
+						for _, name in rememberedPath do
+							at = if at then at:FindFirstChild(name) else nil
+						end
+						return if at and at ~= panel and at:IsA("GuiObject") then at :: GuiObject else nil
+					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
 						if not use(parent) then
@@ -1367,11 +1544,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							and (gui.SelectedObject ~= nil or handoff or focusing(use))
 						then
 							handoff = false
-							gui.SelectedObject = if remembered
-									and remembered.Parent
-									and remembered.Visible
-									and remembered.Interactable
-								then remembered
+							local back = recall()
+							gui.SelectedObject = if back
+									and back.Visible
+									and back.Interactable
+								then back
 								else surfaces.firstSelectable(panel)
 						end
 						previousTop = top
