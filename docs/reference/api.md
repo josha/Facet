@@ -2621,8 +2621,8 @@ input:
 - Pointer: drag a row, or one of the selected rows to move them all, more than
   6 pixels along the list. There is no handle. Delete or Backspace removes the
   selected rows.
-- Touch and gamepad: a Table without a supplied `editing` shows a toolbar
-  with an `Edit` button (`Done` while editing; its width fits the wider word).
+- Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
+  Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
   Edit mode shows, inside each row band, a round red minus at the leading
   edge (deletable) and a move handle at the trailing edge (reorderable); the
   row content slides to make room (instantly with reduced motion). The minus

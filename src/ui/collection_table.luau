@@ -129,8 +129,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 			local kind = if preferredInput then use(preferredInput) else nil
 			return kind == E.PreferredInput.Touch or kind == E.PreferredInput.Gamepad
 		end
+		local mouse = if input then ctx.observe.MouseEnabled(input) else nil
+		local keyboard = if input then ctx.observe.KeyboardEnabled(input) else nil
 		local function toolbarShown(use: ComposeTypes.Use): boolean
-			return ownsToggle and coarse(use)
+			local keysOnly = spec.reorderable == true
+				and keyboard ~= nil
+				and use(keyboard) == true
+				and mouse ~= nil
+				and use(mouse) == false
+			return ownsToggle and (coarse(use) or keysOnly)
 		end
 		local toolbarHeight = Compose.formula(function(use: ComposeTypes.Use)
 			return if toolbarShown(use) then math.max(ctx.controlSize(nil, "height", use), 44) else 0

@@ -772,6 +772,35 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("offers a table's own Edit toolbar on touch, gamepad and a mouseless keyboard, never with a mouse", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local input = ctx.config.userInputService
+		input.PreferredInput, input.MouseEnabled, input.KeyboardEnabled = E.PreferredInput.KeyboardAndMouse, true, true
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				reorderable = true,
+				onReorder = function() end,
+				columns = { { id = "label", label = "Label", width = 100 } },
+			})
+		end, target)
+		local function shown()
+			return node:FindFirstChild("Toolbar") ~= nil
+		end
+		t.expect(shown()).toBe(false)
+		input.MouseEnabled = false
+		t.expect(shown()).toBe(true)
+		input.MouseEnabled = true
+		input.PreferredInput = E.PreferredInput.Gamepad
+		t.expect(shown()).toBe(true)
+		input.PreferredInput = E.PreferredInput.Touch
+		t.expect(shown()).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
