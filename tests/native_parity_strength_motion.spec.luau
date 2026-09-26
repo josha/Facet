@@ -2089,6 +2089,7 @@ t.describe("performance lab motion flight", function()
 			local V = w.engine.types.Vector2
 			find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(0, 0), V.new(218, 50)
 			find(screen, "SlideUnit").AbsolutePosition = V.new(3, 3)
+			find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(212, 44)
 			for index, name in { "a", "b", "c" } do
 				find(screen, name).AbsolutePosition = V.new(3 + (index - 1) * 72, 3)
 				find(screen, name).AbsoluteSize = V.new(68, 44)
@@ -2100,6 +2101,40 @@ t.describe("performance lab motion flight", function()
 			w.close()
 		end
 	)
+
+	t.it("a stale segment position cannot place the selection fill past the laid-out segments", function()
+		local w = world({ reducedMotion = true })
+		local _, screen = w.mount(function(UI)
+			return UI.Picker "Mode" {
+				style = "segmented",
+				axis = "y",
+				selected = Compose.cell("b"),
+				options = {
+					{ value = "a", label = "Road" },
+					{ value = "b", label = "Rally" },
+					{ value = "c", label = "Drift" },
+				},
+			}
+		end)
+		local V = w.engine.types.Vector2
+		local picker = find(screen, "Mode")
+		picker.AbsolutePosition, picker.AbsoluteSize = V.new(0, 0), V.new(300, 308)
+		picker:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(294, 140)
+		find(screen, "SlideUnit").AbsolutePosition = V.new(3, 3)
+		for index, name in { "a", "b", "c" } do
+			find(screen, name).AbsoluteSize = V.new(294, 44)
+			find(screen, name).AbsolutePosition = V.new(3, 3 + (index - 1) * 48)
+		end
+		find(screen, "b").AbsolutePosition = V.new(3, 267)
+		w.step(0.1)
+		local fill = find(screen, "SelectionFill")
+		t.expect(fill.Position.Y.Offset + fill.Size.Y.Offset <= 140).toBe(true)
+		find(screen, "b").AbsolutePosition = V.new(3, 51)
+		w.step(0.1)
+		t.expect(fill.Position).toBe(w.engine.types.UDim2.fromOffset(0, 48))
+		t.expect(fill.Size).toBe(w.engine.types.UDim2.fromOffset(294, 44))
+		w.close()
+	end)
 
 	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
 		local w = world({ reducedMotion = true })
@@ -2117,6 +2152,7 @@ t.describe("performance lab motion flight", function()
 		local V = w.engine.types.Vector2
 		find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(10, 20), V.new(294, 112)
 		find(screen, "SlideUnit").AbsolutePosition = V.new(10, 20)
+		find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(294, 112)
 		find(screen, "a").AbsolutePosition, find(screen, "a").AbsoluteSize = V.new(10, 20), V.new(294, 54)
 		find(screen, "b").AbsolutePosition, find(screen, "b").AbsoluteSize = V.new(10, 78), V.new(294, 54)
 		w.step(0.1)
@@ -2144,6 +2180,8 @@ t.describe("performance lab motion flight", function()
 					}
 				end)
 				find(screen, "Mode").AbsoluteSize = w.engine.types.Vector2.new(312, 44)
+				find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+					w.engine.types.Vector2.new(312, 44)
 				for index, name in { "a", "b", "c" } do
 					find(screen, name).AbsoluteSize = w.engine.types.Vector2.new(100, 44)
 					find(screen, name).AbsolutePosition = w.engine.types.Vector2.new((index - 1) * 104, 0)

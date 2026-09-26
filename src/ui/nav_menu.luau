@@ -1560,16 +1560,14 @@ return function(
 		local _, slot = runtime.mount(function()
 			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
 		end, picker)
-		local origin = ctx.observe.AbsolutePosition(picker)
-		local bounds = ctx.observe.AbsoluteSize(picker)
+		local laidOut = ctx.observe.AbsoluteContentSize(assert(picker:FindFirstChildWhichIsA("UIListLayout")))
 		local probe = (slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject
 		local unit = ctx.observe.AbsoluteSize(probe)
 		local content = ctx.observe.AbsolutePosition(probe)
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
 			local scale = (use(unit) :: Vector2).X
 			scale = if scale > 0 then scale else 1
-			local inset = use(content) :: Vector2 - use(origin) :: Vector2
-			local room = ((use(bounds) :: Vector2) - inset * 2):Max(V2.zero) / scale
+			local room = (use(laidOut) :: Vector2) / scale
 			for _, box in boxes do
 				if use(box.order) == order then
 					local at = (use(box.at) - use(content) :: Vector2) / scale
