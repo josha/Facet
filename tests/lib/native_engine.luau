@@ -195,6 +195,9 @@ local function new(options: any?)
 				return node[property]
 			end,
 			GetStyledPropertyChangedSignal = function(_, property)
+				if options and options.styleOnlySignals then
+					return signal()
+				end
 				return node:GetPropertyChangedSignal(property)
 			end,
 			ResetPropertyToDefault = function(_, property)

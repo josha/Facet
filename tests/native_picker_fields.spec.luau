@@ -35,9 +35,14 @@ local function all(root: any, name: string): { any }
 	return out
 end
 
-local function world(spec: any, preferred: string?): any
+local function world(spec: any, preferred: string?, tenFoot: boolean?): any
 	local engine: any = engines.new()
 	local gui = engine.new("GuiService")
+	if tenFoot then
+		gui.IsTenFootInterface = function()
+			return true
+		end
+	end
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -457,5 +462,45 @@ t.describe("native Picker option indicator and search rows", function()
 		w.selected:set("hard")
 		expect(value.Text).toBe("Hard")
 		w.stop()
+	end)
+
+	t.it("a segment whose live options carry no description centres its caption like a plain label", function()
+		local w = world({ style = "segmented", options = Compose.cell(THREE) })
+		local content = find(find(w.screen, "hard"), "Content")
+		expect(content.Size.X.Scale).toBe(1)
+		expect(content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment).toBe(w.E.HorizontalAlignment.Center)
+		w.stop()
+	end)
+
+	t.it("a vertical segmented strip grows to its segments and spreads them over a taller box", function()
+		local w = world({
+			style = "segmented",
+			axis = "y",
+			iconOnly = true,
+			options = {
+				{ value = "easy", label = "Easy", icon = "edit" },
+				{ value = "normal", label = "Normal", icon = "flag" },
+			},
+			Size = engines.new().types.UDim2.fromOffset(52, 60),
+		})
+		local strip = find(w.screen, "P")
+		expect(strip.AutomaticSize).toBe(w.E.AutomaticSize.Y)
+		expect(strip:FindFirstChildWhichIsA("UIListLayout").VerticalFlex).toBe(w.E.UIFlexAlignment.Fill)
+		expect(find(strip, "easy").AutomaticSize).toBe(w.E.AutomaticSize.Y)
+		w.stop()
+	end)
+
+	t.it("an automatic picker lists its options as rows at ten feet, whatever the pointer", function()
+		local five = table.clone(THREE)
+		table.insert(five, { value = "expert", label = "Expert" })
+		table.insert(five, { value = "master", label = "Master" })
+		local near = world({ options = five }, "KeyboardAndMouse")
+		near.screen.AbsoluteSize = near.engine.types.Vector2.new(300, 600)
+		expect(find(near.screen, "Trigger") ~= nil).toBe(true)
+		near.stop()
+		local far = world({ options = five }, "KeyboardAndMouse", true)
+		expect(find(far.screen, "Trigger")).toBeNil()
+		expect(find(far.screen, "master") ~= nil).toBe(true)
+		far.stop()
 	end)
 end)

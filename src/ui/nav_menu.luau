@@ -1460,6 +1460,85 @@ return function(
 			return read(use(source).icon, use) or ""
 		end
 	end
+	local function slideSelection(
+		picker: Frame,
+		boxes: {
+			[GuiObject]: { order: ComposeTypes.Readable<number>, size: ComposeTypes.Readable<Vector2> },
+		},
+		currentOrder: ComposeTypes.Cell<number>,
+		indicator: Types.Value<string>?,
+		vertical: (ComposeTypes.Use?) -> boolean,
+		gap: number
+	): ()
+		local reduced = reducedMotion(ctx)
+		local sliding = runtime.spring(function(use: ComposeTypes.Use)
+			return use(currentOrder)
+		end, { period = 0.25, damping = 1, tolerance = 1e-3, reducedMotion = reduced })
+		local _, slot = runtime.mount(function()
+			return Host.Folder "Slide" {}
+		end, picker)
+		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
+			local along, found = 0, nil :: Vector2?
+			for _, box in boxes do
+				local at, size = use(box.order), use(box.size)
+				if at == order then
+					found = size
+				elseif at < order then
+					along += (if vertical(use) then size.Y else size.X) + gap
+				end
+			end
+			if found == nil then
+				return nil, nil
+			end
+			return if vertical(use) then V2.new(0, along) else V2.new(along, 0), found
+		end
+		local rect = Compose.formula(function(use: ComposeTypes.Use): { Vector2 }?
+			local at = use(sliding)
+			local low = math.floor(at)
+			local fromAt, fromSize = rectAt(use, low)
+			local toAt, toSize = rectAt(use, low + 1)
+			local t = at - low
+			if fromAt == nil or fromSize == nil or (t > 0 and (toAt == nil or toSize == nil)) then
+				fromAt, fromSize = rectAt(use, use(currentOrder))
+				t = 0
+			end
+			if fromAt == nil or fromSize == nil then
+				return nil
+			end
+			local place = if t > 0 then fromAt:Lerp(toAt :: Vector2, t) else fromAt
+			local size = if t > 0 then fromSize:Lerp(toSize :: Vector2, t) else fromSize
+			return { place, size }
+		end)
+		local function shown(use: ComposeTypes.Use): boolean
+			return read(indicator, use) ~= "underline" and use(currentOrder) > 0 and use(rect) ~= nil
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if shown(use) then
+				picker:AddTag("facet-segmented-slides")
+			elseif picker:HasTag("facet-segmented-slides") then
+				picker:RemoveTag("facet-segmented-slides")
+			end
+		end)
+		runtime.mount(function()
+			return ctx.styled(
+				Host.Frame "SelectionFill" {
+					ZIndex = 0,
+					Active = false,
+					Visible = shown,
+					Position = function(use: ComposeTypes.Use): UDim2
+						local box = use(rect)
+						return if box then D2.fromOffset(box[1].X, box[1].Y) else D2.new()
+					end,
+					Size = function(use: ComposeTypes.Use): UDim2
+						local box = use(rect)
+						return if box then D2.fromOffset(box[2].X, box[2].Y) else D2.new()
+					end,
+					Host.UICorner({}),
+				},
+				"segment-fill"
+			)
+		end, slot :: Instance)
+	end
 	local function appearanceFor(style: Nav.PickerStyle, word: unknown): string?
 		if word == nil then
 			return nil
@@ -1659,6 +1738,7 @@ return function(
 				then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 				else Compose.cell(nil :: Enum.PreferredInput?)
 			local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
+			local tenFoot = ctx.tenFoot()
 			local width = Compose.cell(0)
 			local measure = ctx.text({
 				Name = "LabelMeasure",
@@ -1694,7 +1774,10 @@ return function(
 					return "segmented"
 				end
 				local kind = use(preferred)
-				if kind == E.PreferredInput.KeyboardAndMouse or kind == E.PreferredInput.Touch then
+				if
+					not tenFoot(use)
+					and (kind == E.PreferredInput.KeyboardAndMouse or kind == E.PreferredInput.Touch)
+				then
 					return "menu"
 				end
 				return if count <= 6 then "inline" else "menu"
@@ -2296,6 +2379,9 @@ return function(
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
 		local room = Compose.cell(math.huge)
+		local segmentBoxes: { [GuiObject]: { order: ComposeTypes.Readable<number>, size: ComposeTypes.Readable<Vector2> } } =
+			{}
+		local currentOrder = Compose.cell(0)
 		local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
 			local extent = ctx.observe.AbsoluteSize(node)
 			local _, units = runtime.mount(function()
@@ -2365,6 +2451,13 @@ return function(
 						then E.UIFlexAlignment.Fill
 						else E.UIFlexAlignment.None
 				end, spec.axis, spec.sizing),
+				VerticalFlex = derive(function(use: ComposeTypes.Use?)
+					return if style == "segmented"
+							and read(spec.axis, use) == "y"
+							and read(spec.sizing, use) ~= "hug"
+						then E.UIFlexAlignment.Fill
+						else E.UIFlexAlignment.None
+				end, spec.axis, spec.sizing),
 			}),
 		}
 		if spec.query then
@@ -2392,9 +2485,7 @@ return function(
 							return ""
 						end
 						local option = if use then use(source) else source:peek()
-						local badge = if style == "segmented" and not sealed then read(option.badge, use) else nil
-						local label: string = read(option.label, use)
-						return label .. (if badge ~= nil and badge ~= "" then " (" .. tostring(badge) .. ")" else "")
+						return read(option.label, use)
 					end
 					local function enabledOf(use: ComposeTypes.Use?): boolean
 						local option = if use then use(source) else source:peek()
@@ -2417,16 +2508,17 @@ return function(
 						AutomaticSize = if style ~= "segmented"
 							then E.AutomaticSize.Y
 							else derive(function(use: ComposeTypes.Use?)
-								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.XY
+								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.Y
 							end, spec.axis),
-						label = derive(
-							labelOf,
-							if fixed then nil else source,
-							spec.iconOnly,
-							current.badge,
-							current.label
-						),
+						label = derive(labelOf, if fixed then nil else source, spec.iconOnly, current.label),
+						name = function(use: ComposeTypes.Use): string
+							local option = use(source)
+							local badge = read(option.badge, use)
+							return tostring(read(option.label, use))
+								.. (if badge ~= nil and badge ~= "" then ` ({badge})` else "")
+						end,
 						subtitle = if source:peek().description ~= nil
+								or source:peek().badge ~= nil
 								or style == "radioGroup"
 								or Compose.isReadable(spec.options)
 								or type(spec.options) == "function"
@@ -2437,6 +2529,7 @@ return function(
 						icon = liveIcon(source),
 						TextSize = spec.textSize,
 						TextWrapped = if style == "segmented" then true else nil,
+						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
 							then "checkmark"
 							else nil,
@@ -2478,8 +2571,7 @@ return function(
 					end
 					local badgeContent = button:FindFirstChild("Content")
 					if
-						style ~= "segmented"
-						and badgeContent
+						badgeContent
 						and (
 							current.badge ~= nil
 							or Compose.isReadable(spec.options)
@@ -2490,7 +2582,7 @@ return function(
 							return {
 								Compose.show(function(use: ComposeTypes.Use)
 									local badge = read(use(source).badge, use)
-									return badge ~= nil and badge ~= ""
+									return badge ~= nil and badge ~= "" and not sealed
 								end, function()
 									local last = tostring(read(source:peek().badge))
 									return UI.Badge({
@@ -2634,8 +2726,10 @@ return function(
 							captionHeights[button] = button.TextBounds.Y
 							measureCaptions()
 						end)
+						segmentBoxes[button] = { order = index, size = extent }
 						Compose.cleanup(function()
 							captionHeights[button] = nil
+							segmentBoxes[button] = nil
 							measureCaptions()
 						end)
 					end
@@ -2653,6 +2747,14 @@ return function(
 							button:AddTag(family .. "-current")
 						elseif button:HasTag(family .. "-current") then
 							button:RemoveTag(family .. "-current")
+						end
+						local order = use(index)
+						if style ~= "segmented" then
+							return
+						elseif current then
+							currentOrder:set(order)
+						elseif currentOrder:peek() == order then
+							currentOrder:set(0)
 						end
 					end)
 					local section = source:peek().sectionTitle
@@ -2718,6 +2820,10 @@ return function(
 					if tall(use) then
 						return if sizing == E.AutomaticSize.XY then E.AutomaticSize.X else E.AutomaticSize.None
 					end
+					if not across(use) then
+						local wide = sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
+						return if wide then E.AutomaticSize.XY else E.AutomaticSize.Y
+					end
 					return sizing
 				end
 				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
@@ -2735,6 +2841,18 @@ return function(
 		local picker = Host.Frame(p)
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
+			if spec.multiple ~= true then
+				slideSelection(
+					picker,
+					segmentBoxes,
+					currentOrder,
+					(spec.indicator :: unknown) :: Types.Value<string>?,
+					function(use: ComposeTypes.Use?)
+						return not across(use)
+					end,
+					4
+				)
+			end
 			if not labelled then
 				local width = layoutWidth(picker)
 				Compose.watch(function(use: ComposeTypes.Use)

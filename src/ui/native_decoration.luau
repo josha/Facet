@@ -81,6 +81,7 @@ return function(
 		end
 		for _, side in { "Left", "Right", "Top", "Bottom" } do
 			table.insert(paddingConnections, padding:GetStyledPropertyChangedSignal("Padding" .. side):Connect(refresh))
+			table.insert(paddingConnections, padding:GetPropertyChangedSignal("Padding" .. side):Connect(refresh))
 		end
 		refresh()
 	end
@@ -135,6 +136,36 @@ return function(
 			}
 			else { x = right + 1, y = bottom + 1, width = pixels.X, height = pixels.Y }
 	end)
+	if target:IsA("ScrollingFrame") then
+		local frame = target :: ScrollingFrame
+		local canvas = Compose.cell(frame.CanvasPosition)
+		table.insert(
+			connections,
+			frame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+				follow(function()
+					canvas:set(frame.CanvasPosition)
+				end)
+			end)
+		)
+		runtime.decorate(boundary, {
+			Position = function(use: ComposeTypes.Use): UDim2
+				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)
+				local padding: Insets = use(insets)
+				if factor.X <= 0 or factor.Y <= 0 then
+					return D2.fromScale(1, 1)
+				end
+				local width, height = rendered.X / factor.X, rendered.Y / factor.Y
+				local function inset(side: string, length: number): number
+					local value = padding[side]
+					return if value then value.Scale * length + value.Offset else 0
+				end
+				return D2.fromOffset(
+					at.X + width - inset("Left", width) - inset("Right", width),
+					at.Y + height - inset("Top", height) - inset("Bottom", height)
+				)
+			end,
+		})
+	end
 	runtime.decorate(container, {
 		Size = function(use)
 			local box: { width: number, height: number } = use(bounds)

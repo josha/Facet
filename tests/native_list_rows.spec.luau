@@ -174,4 +174,24 @@ t.describe("native settings rows share one list row", function()
 			stop()
 		end
 	end)
+
+	t.it("a row Button in a hugging parent takes its natural width instead of collapsing its captions", function()
+		local worlds = require("./lib/content_world")
+		local w = worlds.new(function(UI, Host, engine)
+			return Host.Frame({
+				Name = "Cell",
+				AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+				UI.Button("Row")({
+					label = "Button",
+					row = { description = "Shown in the garage", icon = "settings", value = "On" },
+				}),
+			})
+		end)
+		local row = w.find("Row")
+		t.expect(row.AutomaticSize.Name).toBe("XY")
+		local title = w.find("Title", row)
+		t.expect(`{title.Size.X.Scale} {title.AutomaticSize.Name}`).toBe("0 XY")
+		t.expect(w.find("Value", row).Parent).toBe(w.find("Captions", row).Parent)
+		w.stop()
+	end)
 end)

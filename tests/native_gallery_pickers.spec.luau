@@ -107,8 +107,11 @@ t.describe("native gallery pickers and fields", function()
 			expect(steps.sliderAxis().rear).toBe(90)
 			expect(find(rear, "Thumb").Position.Y.Scale < before).toBe(true)
 			expect(find(find(s.node, "Boost"), "Thumb").Visible).toBe(false)
+			expect(find(find(s.node, "Boost"), "Rail").Size.Y.Offset <= 8).toBe(true)
 			expect(find(find(s.node, "Camera"), "Thumb").Visible).toBe(false)
-			expect(find(find(s.node, "Steer"), "Knob") ~= nil).toBe(true)
+			local knob = find(find(s.node, "Steer"), "Knob")
+			expect(knob ~= nil).toBe(true)
+			expect(knob:FindFirstChildWhichIsA("Path2D", true)).toBeNil()
 			s.built.reset()
 			expect(s.built.report().tilt).toBe(0)
 			s.stop()
@@ -189,7 +192,13 @@ t.describe("native gallery pickers and fields", function()
 		end
 		expect(find(find(s.node, "Accent"), "Well")).toBeNil()
 		expect(find(find(s.node, "Fog"), "Well")).toBeNil()
-		expect(find(find(s.node, "Body"), "Title").Text).toBe("Kart body")
+		local kartBody
+		for _, node in s.node:GetDescendants() do
+			if node.Name == "Body" and not node:IsA("ScrollingFrame") then
+				kartBody = kartBody or node
+			end
+		end
+		expect(find(kartBody, "Title").Text).toBe("Kart body")
 		expect(find(s.node, "Committed").Text).toBe("Committed: nothing yet")
 		local trim = find(s.node, "Trim")
 		local well = find(trim, "Well")

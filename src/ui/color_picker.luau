@@ -1480,22 +1480,21 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			for _, show in shows do
 				table.insert(heights, ctx.observe.AbsoluteSize(show))
 			end
-			local function reserve(use: Use, cap: number): number
-				local active, tallest = use(modeCell), 0
+			local function tech(use: Use): number
+				local tallest, list = 0, 0
 				for index, size in heights do
 					local h = use(size).Y
-					tallest = math.max(tallest, if modes[index] == active then h else math.min(h, cap))
+					if modes[index] == "brick" then
+						list = h
+					else
+						tallest = math.max(tallest, h)
+					end
 				end
-				return tallest
+				return if tallest > 0 then tallest else list
 			end
-			local function tallest(use: Use): number
-				return reserve(use, math.huge)
-			end
-			local function tech(use: Use): number
-				return reserve(use, use(room))
-			end
-			technique.Size = function(use: Use)
-				return D2.new(1, 0, 0, tech(use))
+			local function active(use: Use): number
+				local index = table.find(modes, use(modeCell))
+				return if index then use(heights[index]).Y else 0
 			end
 			local techniqueNode = Host.Frame(technique)
 			local width = ctx.observe.AbsoluteSize(techniqueNode)
@@ -1528,35 +1527,29 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			})
 			table.insert(children, measure(readout))
-			local body: GuiObject
-			if overlay then
-				body = Host.ScrollingFrame "Body" {
-					LayoutOrder = 3,
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Selectable = false,
-					ScrollBarThickness = 4,
-					VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
-					ScrollingDirection = E.ScrollingDirection.Y,
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					CanvasSize = D2.fromOffset(0, 0),
-					Size = function(use: Use)
-						local cap = math.max(0, use(room))
-						return D2.new(1, 0, 0, math.min(tech(use), cap))
-					end,
-					techniqueNode :: Shared.Child,
-				}
-				local window = ctx.observe.AbsoluteWindowSize(body :: ScrollingFrame)
-				runtime.decorate(techniqueNode, {
-					Size = function(use: Use)
-						local across = use(window).X
-						return if across > 0 then D2.fromOffset(across, tech(use)) else D2.new(1, 0, 0, tech(use))
-					end,
-				})
-			else
-				runtime.decorate(techniqueNode, { LayoutOrder = 3 })
-				body = techniqueNode
-			end
+			local body = Host.ScrollingFrame "Body" {
+				LayoutOrder = 3,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Selectable = false,
+				ScrollBarThickness = 4,
+				VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+				ScrollingDirection = E.ScrollingDirection.Y,
+				AutomaticCanvasSize = E.AutomaticSize.Y,
+				CanvasSize = D2.fromOffset(0, 0),
+				Size = function(use: Use)
+					local height = tech(use)
+					return D2.new(1, 0, 0, if overlay then math.min(height, math.max(0, use(room))) else height)
+				end,
+				techniqueNode :: Shared.Child,
+			}
+			local window = ctx.observe.AbsoluteWindowSize(body)
+			runtime.decorate(techniqueNode, {
+				Size = function(use: Use)
+					local across = use(window).X
+					return if across > 0 then D2.fromOffset(across, active(use)) else D2.new(1, 0, 0, active(use))
+				end,
+			})
 			table.insert(children, body)
 			if hasAlpha then
 				local opacity: Inputs.SliderProps = {
@@ -1683,7 +1676,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							else 0
 					)
 			end
-			return { panel = panel, chrome = chromeHeight, tech = tallest }
+			return { panel = panel, chrome = chromeHeight, tech = tech }
 		end
 
 		local function place(
@@ -1868,21 +1861,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local at, bounds = ctx.observe.AbsolutePosition(well), ctx.observe.AbsoluteSize(well)
-					local tenFoot = false
-					if gui then
-						local ok, answer = pcall(function(): boolean
-							return (gui :: GuiService):IsTenFootInterface()
-						end)
-						tenFoot = ok and answer == true
-					end
+					local tenFoot = ctx.tenFoot()
 					local function sheet(use: Use): boolean
 						local offer = use(extent)
-						return tenFoot or (touch(use) and offer.X > 0 and offer.X < 600)
+						return tenFoot(use) or (touch(use) and offer.X > 0 and offer.X < 600)
 					end
 					local room = Compose.cell(math.huge)
 					local view = panelView(true, sheet, room)
 					local where = Compose.formula(function(use: Use): Placement
-						return place(use, view, sheet, extent, origin, at, bounds, tenFoot)
+						return place(use, view, sheet, extent, origin, at, bounds, tenFoot(use))
 					end)
 					Compose.watch(function(use: Use)
 						local spot = use(where)

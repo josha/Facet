@@ -786,6 +786,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			PaddingRight = types.UDim.new(0, paddingX + (buttonInsets.right or 0)),
 		})
 	end
+	rule(".facet-button-glyph::UIPadding", {
+		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
+		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+	})
+	rule(".facet-button-glyph.facet-appearance-utility::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-disclosure::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
 	rule(".facet-button-described::UIPadding", {
 		PaddingTop = types.UDim.new(0, 10 + (buttonInsets.top or 0)),
@@ -802,6 +812,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	})
 	local space: { [string]: number } = package.metrics.space or neutral.metrics.space
 	local rowGap = space.xs or neutral.metrics.space.xs
+	rule(".facet-calendar-choice::UIPadding", {
+		PaddingLeft = types.UDim.new(0, rowGap),
+		PaddingRight = types.UDim.new(0, rowGap),
+	})
 	for _, rung in { "", "xsmall", "compact", "regular", "large" } do
 		local step = if rung == "" then "regular" else rung
 		local paddingX = rungMetric(step, "paddingX")
@@ -822,14 +836,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingBottom = types.UDim.new(0, 0),
 	})
 	rule(".facet-button-media::UIPadding", {
-		PaddingLeft = types.UDim.new(0, 0),
-		PaddingRight = types.UDim.new(0, 0),
-		PaddingTop = types.UDim.new(0, 0),
+		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
+		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+		PaddingTop = types.UDim.new(0, buttonInsets.top or 0),
 		PaddingBottom = types.UDim.new(0, 10 + (buttonInsets.bottom or 0)),
 	})
 	rule(".facet-button-media-body::UIPadding", {
-		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
+		PaddingLeft = types.UDim.new(0, 12),
+		PaddingRight = types.UDim.new(0, 12),
 	})
 	rule(".facet-button-captioned", { TextTransparency = 1 })
 	rule(".facet-badge-captioned", { TextTransparency = 1 })
@@ -1202,6 +1216,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment::UICorner", { CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) })
 	rule(".facet-segmented-pill >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(1, 0) })
 	rule(".facet-segmented-square >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-segment-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	rule(
+		".facet-segment-fill::UICorner",
+		{ CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) }
+	)
+	rule(".facet-segmented-pill >> .facet-segment-fill::UICorner", { CornerRadius = types.UDim.new(1, 0) })
+	rule(".facet-segmented-square >> .facet-segment-fill::UICorner", { CornerRadius = types.UDim.new(0, 0) })
 	rule(".facet-segment >> .facet-button-caption", { TextColor3 = segmentInk })
 	rule(
 		".facet-segment:Hover",
@@ -1322,8 +1343,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-segment-current.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-segment-current > #SkinBoundary", if selectedArt then {} else { Visible = false })
-	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
+	rule(".facet-segment-fill", if selectedArt then { Visible = false } else {})
+	rule(".facet-segmented-slides > .facet-segment-current", if selectedArt then {} else { BackgroundTransparency = 1 })
 	local authoredSelection = false
 	for _, theme in package.style.themes do
 		if type(theme.extra) == "table" and theme.extra.selection ~= nil then
@@ -1395,6 +1416,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
 		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
 	end
+	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
+	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do

@@ -822,7 +822,7 @@ t.describe("native Card", function()
 		end) ~= nil).toBe(true)
 	end)
 
-	t.it("puts an icon tab count on the icon corner and keeps a text tab count in its words", function()
+	t.it("puts an icon tab count on the icon corner and a text tab count in a trailing pill", function()
 		local world = worlds.new(function(UI, Host)
 			return UI.TabView({
 				selection = Compose.cell("inbox"),
@@ -855,7 +855,8 @@ t.describe("native Card", function()
 		t.expect(seal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil).toBe(true)
 		local sent = world.find("sent", tabs)
 		t.expect(sent:FindFirstChild("CornerBadge", true)).toBeNil()
-		t.expect(sent.Text).toBe("Sent (2)")
+		t.expect(sent:FindFirstChild("Count", true).Text).toBe("2")
+		t.expect(sent:GetAttribute("label")).toBe("Sent (2)")
 		world.stop()
 		local pickers = worlds.new(function(UI, Host)
 			return Host.Frame({
@@ -888,7 +889,8 @@ t.describe("native Card", function()
 		t.expect(pickers.find("b", icons):FindFirstChild("CornerBadge", true)).toBeNil()
 		local words = pickers.find("a", pickers.find("Words"))
 		t.expect(words:FindFirstChild("CornerBadge", true)).toBeNil()
-		t.expect(words.Text).toBe("Inbox (3)")
+		t.expect(words:FindFirstChild("Count", true).Text).toBe("3")
+		t.expect(words:GetAttribute("label")).toBe("Inbox (3)")
 		pickers.stop()
 	end)
 

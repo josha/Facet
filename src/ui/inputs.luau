@@ -550,6 +550,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			p.TextTruncate = if dynamic(automatic) then truncate else truncate()
 		end
 		local engaged = Compose.cell(false)
+		local fillsGlyph = false
 		if underline ~= nil then
 			p.RichText = true
 			p.Text = function(use: ComposeTypes.Use): string
@@ -887,6 +888,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Position = function(use: ComposeTypes.Use)
 						return if hasText(description, use) then D2.fromScale(0, 0) else D2.fromScale(0, 0.5)
 					end,
+					Size = if spec.TextXAlignment == nil
+						then nil
+						else function(use: ComposeTypes.Use)
+							return if hasText(description, use) then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+						end,
 				})
 				else ctx.row(content, {
 					Name = "Content",
@@ -897,7 +903,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			if not imageCard then
 				local layout = assert(contentFrame:FindFirstChildWhichIsA("UIListLayout"))
 				layout.VerticalAlignment = E.VerticalAlignment.Center
-				if not spec.row and not description then
+				if not spec.row and (not description or spec.TextXAlignment ~= nil) then
 					local alignment = spec.TextXAlignment
 					if alignment == nil then
 						layout.HorizontalAlignment = E.HorizontalAlignment.Center
@@ -921,6 +927,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				then contentFrame:FindFirstChild("LeadingIcon")
 				else nil
 			if glyph and spec.AutomaticSize == E.AutomaticSize.None and label == "" then
+				fillsGlyph = true
 				contentFrame.AutomaticSize = E.AutomaticSize.None
 				local box = ctx.observe.AbsoluteSize(contentFrame)
 				runtime.mount(function()
@@ -969,6 +976,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			p.PressHapticEffect = Compose.static(pressHaptic)
 		end
 		node = ctx.styled(Host.TextButton(p), "button")
+		if fillsGlyph then
+			node:AddTag("facet-button-glyph")
+		end
 		if rich and spec.image ~= nil then
 			node:AddTag("facet-button-media")
 		end
@@ -1909,6 +1919,15 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(contentProps, mark)
 		end
 		local markContent = Host.Frame(contentProps)
+		local touchFloor = ctx.touchFloor()
+		local function gap(use: ComposeTypes.Use): number
+			return math.max(2, touchFloor(use) - markSize)
+		end
+		runtime.decorate(assert(markContent:FindFirstChildWhichIsA("UIListLayout")), {
+			Padding = function(use: ComposeTypes.Use): UDim
+				return D.new(0, gap(use))
+			end,
+		})
 
 		local root: TextButton
 		local dragging: boolean?
@@ -1951,7 +1970,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Text = "",
 				BackgroundTransparency = 1,
 				AutoButtonColor = false,
-				Size = D2.fromOffset(count * markSize + math.max(0, count - 1) * 2, math.max(44, markSize)),
+				Size = function(use: ComposeTypes.Use): UDim2
+					return D2.fromOffset(count * markSize + math.max(0, count - 1) * gap(use), math.max(44, markSize))
+				end,
 				Selectable = interactive,
 				Interactable = interactive,
 				markContent :: ComposeTypes.Child,

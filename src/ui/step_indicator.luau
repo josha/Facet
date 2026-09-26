@@ -161,7 +161,7 @@ return function(
 			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 			local floor = if side == "left" or side == "right"
 				then ctx.controlSize(spec.controlSize, "paddingX", use)
-				else 0
+				else ctx.metric("space.xs", use)
 			return math.max(floor, insets[side] or 0)
 		end
 		local function padding(side: "left" | "right" | "top" | "bottom")

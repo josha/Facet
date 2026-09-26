@@ -582,6 +582,10 @@ t.describe("native parity navigation", function()
 		local seal = feed:FindFirstChild("CornerBadge", true)
 		seal.AbsoluteSize = world.engine.types.Vector2.new(23.5 * scale, 24 * scale)
 		t.expect(layout.Padding.Offset >= 23.5 / 2 + 2).toBe(true)
+		local wrapper = feed:FindFirstChild("Anchor+badge", true)
+		local side = glyph.Size.X.Offset
+		t.expect(wrapper.Size.X.Offset).toBe(math.round(math.max(0, 23.5 / 2 - side / 4)))
+		t.expect(wrapper.Position.Y.Offset).toBe(-math.round(math.max(0, 24 / 2 - side / 4)))
 		badge:set(nil)
 		t.expect(layout.Padding.Offset).toBe(gap)
 		badge:set(3)
@@ -1036,9 +1040,10 @@ t.describe("native parity navigation", function()
 		local inbox = find(find(world.screen, "Tabs"), "inbox")
 		local function shown()
 			local label = inbox:FindFirstChild("Title", true)
-			return if label then label.Text else inbox.Text
+			local pill = inbox:FindFirstChild("Count", true)
+			return `{if label then label.Text else inbox.Text} {if pill then pill.Text else ""}`
 		end
-		t.expect(shown()).toBe("Inbox (3)")
+		t.expect(shown()).toBe("Inbox 3")
 		selection:set("me")
 		unread:update(function(value)
 			return value + 1
@@ -1047,7 +1052,7 @@ t.describe("native parity navigation", function()
 			return value + 1
 		end)
 		t.expect(builds.inbox).toBeNil()
-		t.expect(shown()).toBe("Inbox (5)")
+		t.expect(shown()).toBe("Inbox 5")
 		t.expect(find(find(world.screen, "Tabs"), "inbox")).toBe(inbox)
 		selection:set("inbox")
 		t.expect(builds.inbox).toBe(1)

@@ -138,7 +138,6 @@ return {
 					step = 5,
 					thumb = "auto",
 					controlSize = "compact",
-					contained = true,
 				},
 				UI.Slider "Camera" {
 					LayoutOrder = 7,
@@ -163,18 +162,6 @@ return {
 							Host.Frame "Plate" {
 								Size = UDim2.fromScale(1, 1),
 								Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
-							},
-							UI.Path "Mark" {
-								points = {
-									{ x = 0.5, y = 0.15, inX = 0, inY = 0, outX = 0, outY = 0 },
-									{ x = 0.9, y = 0.85, inX = 0, inY = 0, outX = 0, outY = 0 },
-									{ x = 0.1, y = 0.85, inX = 0, inY = 0, outX = 0, outY = 0 },
-								},
-								closed = true,
-								thickness = 2,
-								width = 12,
-								AnchorPoint = Vector2.new(0.5, 0.5),
-								Position = UDim2.fromScale(0.5, 0.5),
 							},
 						}
 					end,
@@ -299,7 +286,8 @@ return {
 								iconOnly = true,
 							},
 							Host.Frame "NavRailRow" {
-								Size = UDim2.new(1, 0, 0, 132),
+								Size = UDim2.fromScale(1, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
 								UI.Picker "NavRail" {
 									selected = section,
@@ -307,7 +295,7 @@ return {
 									style = "segmented",
 									axis = "y",
 									iconOnly = true,
-									Size = UDim2.fromOffset(52, 132),
+									Size = UDim2.fromOffset(52, 0),
 								},
 								UI.Text "NavReadout" {
 									text = function(use)

@@ -717,8 +717,11 @@ t.describe("native paint strength: button content", function()
 		t.expect(resolve(sheet, find(b, "SelectionIndicator"), "BackgroundColor3")).toBe(color(h.engine, colors.accent))
 		indicator:set("pill")
 		t.expect(bars(picker)).toBe(0)
-		t.expect(resolve(sheet, b, "BackgroundTransparency")).toBe(0)
-		t.expect(resolve(sheet, b, "BackgroundColor3")).toBe(color(h.engine, colors.accent))
+		local fill = find(picker, "SelectionFill")
+		t.expect(fill.Visible).toBe(true)
+		t.expect(resolve(sheet, fill, "BackgroundTransparency")).toBe(0)
+		t.expect(resolve(sheet, fill, "BackgroundColor3")).toBe(color(h.engine, colors.accent))
+		t.expect(resolve(sheet, b, "BackgroundTransparency")).toBe(1)
 		t.expect(resolve(sheet, a, "BackgroundTransparency")).toBe(1)
 		local one, two = find(root, "one"), find(root, "two")
 		local tabs = one.Parent
@@ -1265,8 +1268,9 @@ t.describe("native paint strength: skins", function()
 				for _, state in { "Idle", "Hover", "Press" } do
 					setState(h, node, state)
 					local transparency = resolve(sheet, node, "BackgroundTransparency")
-					if expectSkinned and node:HasTag("facet-segment-current") then
-						t.expect(transparency).toBe(0)
+					if node:HasTag("facet-segment-current") then
+						t.expect(transparency).toBe(1)
+						t.expect(resolve(sheet, find(node.Parent, "SelectionFill"), "BackgroundTransparency")).toBe(0)
 					elseif expectSkinned then
 						t.expect(transparency).toBe(1)
 					else

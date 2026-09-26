@@ -1057,7 +1057,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			menuName: string,
 			options: (Use) -> { { value: number, label: string, enabled: (Use) -> boolean } },
 			get: (CivilDate) -> number,
-			set: (number) -> ()
+			set: (number) -> (),
+			maxHeight: number?
 		): GuiObject
 			local pick = Compose.cell(get(peekMonth()))
 			Compose.watch(function(use: Use)
@@ -1088,19 +1089,24 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 				return tostring(now)
 			end
-			local trigger = UI.Button({
-				Name = menuName,
-				label = wordsOf,
-				trailingIcon = "chevron.down",
-				appearance = "utility",
-				enabled = function(use: Use)
-					return interactive(use)
-				end,
-			})
+			local trigger = ctx.styled(
+				UI.Button({
+					Name = menuName,
+					label = wordsOf,
+					trailingIcon = "chevron.down",
+					appearance = "utility",
+					enabled = function(use: Use)
+						return interactive(use)
+					end,
+				}),
+				"calendar-choice"
+			)
 			return UI.Menu({
 				items = items,
 				trigger = trigger :: GuiObject,
 				presentation = "menu" :: "menu",
+				align = "center" :: "center",
+				maxHeight = maxHeight,
 				enabled = function(use: Use)
 					return interactive(use)
 				end,
@@ -1152,7 +1158,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				return m.year
 			end, function(v: number)
 				landIn({ year = v, month = peekMonth().month, day = 1 })
-			end)
+			end, 5 * CELL)
 			upTarget:set(monthMenu)
 			local function arrow(name: string, icon: string, words_: string, delta: number): TextButton
 				return UI.Button({
@@ -1792,15 +1798,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local position = ctx.observe.AbsolutePosition(plate)
 					local bounds = ctx.observe.AbsoluteSize(plate)
-					local tenFoot = false
-					if gui then
-						local ok, answer = pcall(function(): boolean
-							return (gui :: GuiService):IsTenFootInterface()
-						end)
-						tenFoot = ok and answer == true
-					end
+					local tenFoot = ctx.tenFoot()
 					local route = Compose.formula(function(use: Use): string
-						if tenFoot then
+						if tenFoot(use) then
 							return "sheet"
 						end
 						local offer = use(extent) :: Vector2
@@ -1850,7 +1850,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local content = ctx.observe.AbsoluteSize(panel)
 					local measured = ctx.observe.AbsoluteSize(surface)
 					local function sheet(use: Use): boolean
-						return use(route) == "sheet" and not tenFoot
+						return use(route) == "sheet" and not tenFoot(use)
 					end
 					runtime.decorate(panel, {
 						Size = function(use: Use)
@@ -1885,7 +1885,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 								use(measured) :: Vector2,
 								use(origin) :: Vector2
 							if use(route) == "sheet" then
-								if tenFoot then
+								if tenFoot(use) then
 									return D2.fromOffset(
 										math.max(8, (offer.X - box.X) / 2),
 										math.max(8, (offer.Y - box.Y) / 2)

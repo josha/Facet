@@ -2051,4 +2051,45 @@ t.describe("performance lab motion flight", function()
 			t.expect(labWorld.engine.heartbeat.count()).toBe(0)
 		end
 	)
+
+	t.it(
+		"the segmented selection fill slides between segments laid out from their sizes and snaps under reduced motion",
+		function()
+			local function run(reduced: boolean): (any, any, any)
+				local w = world({ reducedMotion = reduced })
+				local selected = Compose.cell("a")
+				local _, screen = w.mount(function(UI)
+					return UI.Picker "Mode" {
+						style = "segmented",
+						selected = selected,
+						options = {
+							{ value = "a", label = "A" },
+							{ value = "b", label = "B" },
+							{ value = "c", label = "C" },
+						},
+					}
+				end)
+				for _, name in { "a", "b", "c" } do
+					find(screen, name).AbsoluteSize = w.engine.types.Vector2.new(100, 44)
+				end
+				local fill = find(screen, "SelectionFill")
+				w.step(0.1)
+				t.expect(fill.Visible).toBe(true)
+				t.expect(fill.Position.X.Offset).toBe(0)
+				t.expect(find(screen, "Mode"):HasTag("facet-segmented-slides")).toBe(true)
+				selected:set("c")
+				w.step(0.05)
+				return w, fill, fill.Position.X.Offset
+			end
+			local w, fill, midway = run(false)
+			t.expect(midway > 0 and midway < 208).toBe(true)
+			w.step(1)
+			t.expect(fill.Position.X.Offset).toBe(208)
+			t.expect(fill.Size.X.Offset).toBe(100)
+			w.close()
+			local still, _, snapped = run(true)
+			t.expect(snapped).toBe(208)
+			still.close()
+		end
+	)
 end)

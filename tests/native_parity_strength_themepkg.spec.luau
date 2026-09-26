@@ -1938,4 +1938,87 @@ t.describe("gallery theme packages", function()
 		t.expect(find(g.root, "DemoAction")).toBe(demo)
 		g.stop()
 	end)
+
+	t.it(
+		"every skinned package keeps pictures inside the art carve, an art-less glyph unpadded and calendar choices tight",
+		function()
+			local checked = 0
+			for _, name in SHIPPED do
+				local package = built(name)
+				local skin = package.chrome and package.chrome.control
+				if skin and skin.kind ~= "native" and skin.kind ~= "none" then
+					checked += 1
+					local carve = skin.contentInsets or {}
+					local engine, runtime = world({ theme = package })
+					local sheet, stop = sheetFor(engine, runtime, package)
+					local padding = ruleNode(sheet, ".facet-button-media::UIPadding"):GetProperties()
+					t.expect(
+						`{name} {padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset}`
+					)
+						.toBe(`{name} {carve.left or 0} {carve.right or 0} {carve.top or 0}`)
+					local glyph =
+						ruleNode(sheet, ".facet-button-glyph.facet-appearance-utility::UIPadding"):GetProperties()
+					t.expect(`{name} glyph {glyph.PaddingTop.Offset} {glyph.PaddingLeft.Offset}`)
+						.toBe(`{name} glyph 0 0`)
+					local choice = ruleNode(sheet, ".facet-calendar-choice::UIPadding"):GetProperties()
+					local xs = (package.metrics.space or {}).xs or 4
+					t.expect(`{name} choice {choice.PaddingLeft.Offset}`).toBe(`{name} choice {xs}`)
+					stop()
+					runtime:dispose()
+				end
+			end
+			t.expect(checked > 0).toBe(true)
+		end
+	)
+
+	t.it("every package with panel art dresses a standard Notice in that art", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local art = package.chrome and package.chrome.panel
+			if art and art.kind ~= "native" and art.kind ~= "none" then
+				checked += 1
+				local engine, runtime, UI = world({ theme = package })
+				local stop, node = runtime.mount(function()
+					return UI.Notice("Update")({ title = "Update", message = "A new track pack is ready." })
+				end, engine.new("Folder"))
+				local dressed = false
+				for _, part in node:GetDescendants() do
+					if part:HasTag("facet-skin-art-panel") then
+						dressed = true
+					end
+				end
+				t.expect(`{name} {dressed}`).toBe(`{name} true`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
+	end)
+
+	t.it("a filled tab paints its accent plate over the selected art, so its ink matches its plate", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local plate = package.chrome and package.chrome.control
+			local layers = if plate and plate.kind == "layered" then plate.layers or {} else { plate }
+			local art = false
+			for _, layer in layers do
+				if layer and type(layer.asset) == "table" and layer.asset.selected ~= nil then
+					art = true
+				end
+			end
+			if art then
+				checked += 1
+				local engine, runtime = world({ theme = package })
+				local sheet, stop = sheetFor(engine, runtime, package)
+				local hidden = ruleNode(sheet, ".facet-tab-filled > #SkinBoundary")
+				local shown = ruleNode(sheet, ".facet-skinned.facet-selected > #SkinBoundary")
+				t.expect(`{name} {hidden.Priority > shown.Priority}`).toBe(`{name} true`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
+	end)
 end)

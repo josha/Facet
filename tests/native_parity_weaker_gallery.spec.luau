@@ -1096,6 +1096,7 @@ t.describe("native parity weaker gallery", function()
 		local built, node, stop = mountBuilt(w, load("fixture", "progress_ring"))
 		t.expect(built.steps.setProgress65().progress).toBe(0.65)
 		t.expect(hasText(find(node, "Bar"), "3 of 5")).toBe(true)
+		t.expect(find(find(node, "Loading"), "Fill1") ~= nil).toBe(true)
 		t.expect(built.steps.sizeLarge().controlSize).toBe("large")
 		local large = find(find(node, "Busy"), "Indicator").Size.X.Offset
 		t.expect(built.steps.sizeCompact().controlSize).toBe("compact")

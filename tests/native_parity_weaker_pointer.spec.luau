@@ -59,6 +59,8 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 	end
 	if settings.preferredInput then
 		input.PreferredInput = engine.types.Enum.PreferredInput[settings.preferredInput]
+		input.TouchEnabled = settings.preferredInput == "Touch"
+		input.GamepadEnabled = settings.preferredInput == "Gamepad"
 	end
 	local root = engine.new("ScreenGui")
 	local config: { [string]: any } = {
