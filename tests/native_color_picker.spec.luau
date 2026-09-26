@@ -343,47 +343,53 @@ t.describe("native ColorPicker well and panel", function()
 		expect(shrunk.body).toBe(shrunk.height - (natural - 800))
 	end)
 
-	t.it("the panel keeps one height across every technique, on a pointer panel and a phone sheet", function()
-		for _, case in
-			{
-				{ touch = false, w = 900, h = 900, modes = { "swatches", "spectrum", "sliders", "brick" } },
-				{ touch = true, w = 390, h = 844, modes = { "swatches", "spectrum", "sliders" } },
-			}
-		do
-			local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
-			local probe = world({ value = cell, onChange = change, modes = case.modes })
-			local E = probe.E
-			probe.stop()
-			local w = world(
-				{ value = cell, onChange = change, modes = case.modes },
-				{ preferred = if case.touch then E.PreferredInput.Touch else nil }
-			)
-			w.size(w.screen, case.w, case.h)
-			w.size(w.find("Well"), 44, 44)
-			w.open()
-			expect(w.attr("placement")).toBe(if case.touch then "sheet" else "bottom")
-			local heights = { 180, 300, 240, 500 }
-			for index, mode in case.modes do
-				local label = ({ swatches = "Swatches", spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" })[mode]
-				w.size(w.find("Show" .. label), 300, heights[index])
+	t.it(
+		"every technique shares the tallest picker's height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
+		function()
+			for _, case in
+				{
+					{ touch = false, w = 900, h = 900, modes = { "swatches", "spectrum", "sliders", "brick" } },
+					{ touch = true, w = 390, h = 844, modes = { "swatches", "spectrum", "sliders" } },
+				}
+			do
+				local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+				local probe = world({ value = cell, onChange = change, modes = case.modes })
+				local E = probe.E
+				probe.stop()
+				local w = world(
+					{ value = cell, onChange = change, modes = case.modes },
+					{ preferred = if case.touch then E.PreferredInput.Touch else nil }
+				)
+				w.size(w.screen, case.w, case.h)
+				w.size(w.find("Well"), 44, 44)
+				w.open()
+				expect(w.attr("placement")).toBe(if case.touch then "sheet" else "bottom")
+				local heights = { 180, 300, 240, 500 }
+				for index, mode in case.modes do
+					local label = ({
+						swatches = "Swatches",
+						spectrum = "Spectrum",
+						sliders = "Sliders",
+						brick = "Bricks",
+					})[mode]
+					w.size(w.find("Show" .. label), 300, heights[index])
+				end
+				local tallest = 0
+				for index, mode in case.modes do
+					if mode ~= "brick" then
+						tallest = math.max(tallest, heights[index])
+					end
+				end
+				for index, mode in case.modes do
+					w.find("Modes/" .. mode).Activated.fire()
+					expect(w.attr("mode")).toBe(mode)
+					expect(`{case.w} {mode} {w.find("Body").Size.Y.Offset}`).toBe(`{case.w} {mode} {tallest}`)
+					expect(w.find("Technique").Size.Y.Offset).toBe(heights[index])
+				end
+				w.stop()
 			end
-			local tallest = 0
-			for index = 1, #case.modes do
-				tallest = math.max(tallest, heights[index])
-			end
-			local seen: { string } = {}
-			for _, mode in case.modes do
-				w.find("Modes/" .. mode).Activated.fire()
-				expect(w.attr("mode")).toBe(mode)
-				table.insert(seen, `{w.find("Technique").Size.Y.Offset}/{w.find("Body").Size.Y.Offset}`)
-			end
-			for index = 2, #seen do
-				expect(`{case.w} {seen[index]}`).toBe(`{case.w} {seen[1]}`)
-			end
-			expect(w.find("Technique").Size.Y.Offset).toBe(tallest)
-			w.stop()
 		end
-	end)
+	)
 
 	t.it("the panel's height follows its room, never a height it once measured", function()
 		local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
@@ -400,7 +406,7 @@ t.describe("native ColorPicker well and panel", function()
 			return w.find("Body").Size.Y.Offset
 		end
 		local before = height()
-		expect(before).toBe(600)
+		expect(before).toBe(290)
 		w.size(w.screen, 900, 420)
 		expect(height() < before).toBe(true)
 		w.size(w.screen, 900, 900)
@@ -809,7 +815,8 @@ t.describe("native ColorPicker spectrum plane", function()
 		local E = probe.E
 		probe.stop()
 		local w, cell = spectrum({ preferred = E.PreferredInput.Touch })
-		expect(w.find("Readout").LayoutOrder < w.find("Technique").LayoutOrder).toBe(true)
+		expect(w.find("Readout").LayoutOrder < w.find("Body").LayoutOrder).toBe(true)
+		expect(w.find("Body"):IsA("ScrollingFrame") and w.find("Body").Size.X.Scale == 1).toBe(true)
 		local bubble = w.find("Plane/Bubble")
 		expect(bubble.Visible).toBe(false)
 		local drag = w.find("Plane/Surface"):FindFirstChildWhichIsA("UIDragDetector")
@@ -1409,7 +1416,7 @@ t.describe("native ColorPicker panel fit", function()
 		w.size(w.find("ShowBricks"), 380, 800)
 		local panel = w.find("Panel")
 		expect(panel.Size.X.Offset).toBe(8 * 44 + 7 * 4 + carve.left + carve.right)
-		expect(panel.Size.Y.Offset).toBe(44 + 140 + 800 + 2 * 8 + carve.top + carve.bottom)
+		expect(panel.Size.Y.Offset).toBe(44 + 140 + 290 + 2 * 8 + carve.top + carve.bottom)
 		w.stop()
 	end)
 
