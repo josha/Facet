@@ -782,6 +782,37 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 							end
 						end
 					end)
+					local late: { Instance } = {}
+					local stopLate: (() -> ())? = nil
+					runtime.connect(node, "ChildAdded", function(child: Instance)
+						if not carried(child) or runtime.host.frames == nil then
+							return
+						end
+						table.insert(late, child)
+						if stopLate == nil then
+							stopLate = runtime.host.frames.onFrame(function()
+								if stopLate then
+									stopLate()
+									stopLate = nil
+								end
+								local arrived = late
+								late = {}
+								keepSelection(function()
+									for _, each in arrived do
+										if each.Parent == node and group.Parent == node then
+											each.Parent = group
+										end
+									end
+								end)
+							end)
+						end
+					end)
+					Compose.cleanup(function()
+						if stopLate then
+							stopLate()
+							stopLate = nil
+						end
+					end)
 					Compose.cleanup(function()
 						keepSelection(function()
 							for _, child in group:GetChildren() do

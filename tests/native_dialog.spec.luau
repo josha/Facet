@@ -125,6 +125,22 @@ t.describe("native Dialog: the caller's fact decides", function()
 		w.stop()
 	end)
 
+	t.it("a child that arrives while the entry fade runs joins the fading group", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change))
+		local fade = w.find("Fade")
+		t.expect(fade ~= nil).toBe(true)
+		local late = w.engine.new("Frame")
+		late.Name = "Late"
+		late.Parent = fade.Parent
+		w.advance(1 / 60)
+		t.expect(late.Parent).toBe(fade)
+		w.advance(1, 60)
+		t.expect(w.find("Fade")).toBe(nil)
+		t.expect(late.Parent ~= nil and late.Parent.ClassName ~= "CanvasGroup").toBe(true)
+		w.stop()
+	end)
+
 	t.it("a dialog with actions has no close control unless it asks; one without actions keeps it", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change, { closeButton = true }))
