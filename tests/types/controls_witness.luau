@@ -191,6 +191,14 @@ local snackbarProps: Facet.SnackbarSpec = {
 	end,
 }
 local snackbar: Frame = UI.Snackbar(snackbarProps)
+local toastProps: Facet.ToastSpec = {
+	message = "Saved",
+	key = "save",
+	position = "bottom" :: "bottom",
+	width = "hug" :: "hug",
+	onDismiss = function(reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual") end,
+}
+local toast: Frame = UI.Toast(toastProps)
 local items = { { id = "save", label = "Save", onSelect = nothing } }
 local menu: GuiObject = UI.Menu({ items = items })
 local split: GuiObject = UI.SplitButton({ label = "Save", onActivate = nothing, items = items })
@@ -324,6 +332,7 @@ local mounted: { GuiObject } = {
 	notice,
 	navBar,
 	snackbar,
+	toast,
 	menu,
 	split,
 	picker,
