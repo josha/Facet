@@ -1779,6 +1779,11 @@ as a Menu. `railWidth`,
 `customization = { order, hidden }` refine the presentation. Required tabs
 cannot be hidden.
 
+A sidebar is as wide as its widest tab label plus the tab padding and icon, and
+its labels are centred. Before the labels are measured it is 20 percent of the
+TabView width, from 200 to 280 pixels. `railWidth` sets the width and aligns
+the labels to the leading edge. The tabs of a top bar are centred in it.
+
 `onChange(id)` reports a user selection. A programmatic selection change does
 not look like user input. The control owns scroll and focus restoration and
 shoulder navigation.

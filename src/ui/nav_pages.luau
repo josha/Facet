@@ -267,9 +267,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return chosen
 		end
-		local function railWidth(use: ComposeTypes.Use): number
-			return read(spec.railWidth, use) or math.clamp(math.floor(use(dimensions).X * 0.2), 200, 280)
-		end
 
 		local COMPACT_HEIGHT = 480
 		local collapsed = Compose.formula(function(use: ComposeTypes.Use): boolean
@@ -437,6 +434,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return if use(placement) == "sidebar" then E.FillDirection.Vertical else E.FillDirection.Horizontal
 			end,
 			SortOrder = E.SortOrder.LayoutOrder,
+			HorizontalAlignment = E.HorizontalAlignment.Center,
 			VerticalAlignment = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then E.VerticalAlignment.Top else E.VerticalAlignment.Center
 			end,
@@ -445,6 +443,29 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local stripContent = ctx.observe.AbsoluteContentSize(stripLayout)
 		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
 		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
+		local function railWidth(use: ComposeTypes.Use): number
+			local authored = read(spec.railWidth, use)
+			if authored then
+				return authored
+			end
+			local widest = 0
+			for _, width in use(wordWidths) do
+				widest = math.max(widest, width)
+			end
+			if widest <= 0 then
+				return math.clamp(math.floor(use(dimensions).X * 0.2), 200, 280)
+			end
+			local unit = use(unitSize).X / 100
+			local glyph = 0
+			for _, tab in use(visibleTabs) do
+				if tab.icon then
+					glyph = ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
+					break
+				end
+			end
+			local label = widest / (if unit > 0 then unit else 1)
+			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use)) + 16
+		end
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
 			local unit = use(unitSize).X / 100
 			local scale = if unit > 0 then unit else 1
@@ -530,7 +551,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								else E.AutomaticSize.X
 						end,
 						TextXAlignment = function(use: ComposeTypes.Use)
-							return if use(placement) == "sidebar"
+							return if use(placement) == "sidebar" and read(spec.railWidth, use) ~= nil
 								then E.TextXAlignment.Left
 								else E.TextXAlignment.Center
 						end,
@@ -551,7 +572,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 					})
 					button:AddTag("facet-tab-item")
-					if fit then
+					do
 						local measure = ctx.text({
 							Name = "LabelMeasure",
 							Visible = false,
@@ -560,12 +581,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return tostring(read(use(current).label, use) or tab.id)
 							end,
 							TextSize = function(use: ComposeTypes.Use): number
-								return (ctx.metric("typography.control.size", use))
+								local authored = if fit then nil else read(spec.textSize :: Types.Value<number>, use)
+								return authored or ctx.metric("typography.control.size", use)
 							end,
 						})
 						surfaces.attach(button, { measure :: Types.Child })
 						local natural = ctx.observe.TextBounds(measure)
-						local room = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local width = use(natural).X
 							local widths = table.clone(wordWidths:peek())
@@ -577,6 +598,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							widths[tab.id] = nil
 							wordWidths:set(widths)
 						end)
+					end
+					if fit then
+						local natural = ctx.observe.TextBounds(button:FindFirstChild("LabelMeasure") :: TextLabel)
+						local room = ctx.observe.AbsoluteSize(button)
 						local target = Compose.formula(function(use: ComposeTypes.Use): number?
 							local width = use(natural).X
 							local available = use(room).X - 2 * ctx.controlSize(nil, "paddingX", use)
