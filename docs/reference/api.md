@@ -2369,7 +2369,10 @@ on its two outer sides (`facet-tail`). A thin band in the panel paint
 (`facet-tail-seam`) covers the panel border across the tail's base, so the
 tail and the panel read as one surface. The panel stands the tail's reach off
 its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
-point while it scales, so a moving scale never moves the tip.
+point while it scales, so a moving scale never moves the tip. The tail keeps
+8 pixels from the panel's ends; a panel too short for that (a one-line panel
+beside its source) centres the tail on its side instead of dropping it. The
+tail is dropped only when it would no longer point at the source.
 
 `cancelPolicy` is `dismiss` (the default) or `none`. With `none`, Cancel and a
 tap outside propose nothing, so only the caller's fact or an action in the

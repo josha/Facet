@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Popover, Callout or help panel beside its source (a side edge) that is shorter than 39 pixels keeps its tail, centred on its side. Before, the tail was dropped whenever the panel was too short for the tail plus its 8 pixel end insets.
 - `UI.Text { reveal = "auto" }` (restored from 0.11): a truncated one-line label rests in its ellipsis, then scrolls its whole value left to the tail and back, one strip at a time, never under reduced motion or while its disclosure panel shows.
 - `UI.Toggle { disclose = true }` shows the whole value of a truncated label in the `Disclosure` panel (restored from 0.11), on a settings row too. A Button with a leading icon or a subtitle gates `disclose` on its painted `Title` label; before, it read the empty button text, which always fits, so the panel never showed.
 - `UI.Toast` and `app.presentToast` take `fade = true` (restored from 0.11): the row fades in and out as it slides. By default a toast now only slides, as in 0.11, so its text stays in native glyph rendering; before, every toast faded through a CanvasGroup.

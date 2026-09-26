@@ -133,15 +133,14 @@ function placement.solve(request: Request): Placement
 	local suppressed = true
 	if tail > 0 then
 		local half = tail / 2
-		local low, high = along + tailInset + half, along + alongExtent - tailInset - half
-		if high >= low then
-			local centre = math.clamp(sourceLow + sourceExtent / 2, low, high)
-			suppressed = main ~= edgePosition or centre < sourceLow or centre > sourceLow + sourceExtent
-			if isVertical then
-				tailX, tailY = centre, if resolved == "bottom" then rect.y else rect.y + rect.h
-			else
-				tailX, tailY = if resolved == "right" then rect.x else rect.x + rect.w, centre
-			end
+		local low = math.min(along + tailInset + half, along + alongExtent / 2)
+		local high = math.max(along + alongExtent - tailInset - half, low)
+		local centre = math.clamp(sourceLow + sourceExtent / 2, low, high)
+		suppressed = main ~= edgePosition or centre < sourceLow or centre > sourceLow + sourceExtent
+		if isVertical then
+			tailX, tailY = centre, if resolved == "bottom" then rect.y else rect.y + rect.h
+		else
+			tailX, tailY = if resolved == "right" then rect.x else rect.x + rect.w, centre
 		end
 	end
 	return {
