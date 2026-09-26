@@ -775,7 +775,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local place = use(placement)
 						local filled = current
 							and indicatorOf(use) ~= "none"
-							and (place == "sidebar" or string.find(place, "bottom") ~= nil or segmentedTop(use))
+							and (
+								place == "sidebar"
+								or string.find(place, "bottom") ~= nil
+								or (spec.style == "sidebarAdaptable" and segmentedTop(use))
+							)
 						local tags: { [string]: boolean } =
 							{ ["facet-tab-current"] = current, ["facet-tab-filled"] = filled }
 						for name, active in tags do
