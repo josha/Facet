@@ -141,6 +141,16 @@ t.describe("owner review 2026-09-26b: visual", function()
 		t.expect(offenders).toEqual({})
 	end)
 
+	t.it("tints a skinned status badge's art with its status fill so the on-status digit reads", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local fill = assert(style(sheet, ".facet-status-info")).BackgroundColor3
+			local art = assert(style(sheet, ".facet-badge-standard.facet-status-info > #SkinBoundary >> .facet-skin-art"))
+			t.expect(art.ImageColor3).toBe(fill)
+			stop()
+		end
+	end)
+
 	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)

@@ -919,18 +919,17 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		BackgroundColor3 = types.Color3.new(0, 0, 0),
 		BackgroundTransparency = 1 - math.max(extra.scrimOpacity or 0.45, 0.8),
 	})
-	for status, role in
-		{
-			neutral = "contentSecondary",
-			info = "accent",
-			success = "success",
-			warning = "warning",
-			error = "danger",
-			accent = "accent",
-			voice = "voice",
-			contrast = "contentStrong",
-		} :: { [string]: string }
-	do
+	local statusRoles: { [string]: string } = {
+		neutral = "contentSecondary",
+		info = "accent",
+		success = "success",
+		warning = "warning",
+		error = "danger",
+		accent = "accent",
+		voice = "voice",
+		contrast = "contentStrong",
+	}
+	for status, role in statusRoles do
 		local partner = if status == "neutral"
 			then "surface"
 			elseif status == "error" then "onDanger"
@@ -1311,6 +1310,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 
 	for _, slot in { "control", "field", "panel" } do
 		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
+	end
+	for status, role in statusRoles do
+		rule(".facet-badge-standard.facet-status-" .. status .. " > #SkinBoundary >> .facet-skin-art", {
+			ImageColor3 = c(role),
+		})
 	end
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 	local selectedArt: ThemeTypes.AssetLink? = nil
