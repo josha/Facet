@@ -1938,4 +1938,26 @@ t.describe("gallery theme packages", function()
 		t.expect(find(g.root, "DemoAction")).toBe(demo)
 		g.stop()
 	end)
+
+	t.it("every skinned package keeps a media button's picture inside its art's content carve", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local skin = package.chrome and package.chrome.control
+			if skin and skin.kind ~= "native" and skin.kind ~= "none" then
+				checked += 1
+				local carve = skin.contentInsets or {}
+				local engine, runtime = world({ theme = package })
+				local sheet, stop = sheetFor(engine, runtime, package)
+				local padding = ruleNode(sheet, ".facet-button-media::UIPadding"):GetProperties()
+				t.expect(
+					`{name} {padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset}`
+				)
+					.toBe(`{name} {carve.left or 0} {carve.right or 0} {carve.top or 0}`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
+	end)
 end)
