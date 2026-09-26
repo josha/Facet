@@ -573,11 +573,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return read(use(source)[1] :: Shared.Value<number>, use) or 0
 		end
 		local shown = ctx.observe.Visible(node)
+		local warming = Compose.cell(false)
+		local frames = services.RunService
 		local stop = runtime.mountFragment(function()
 			return {
 				Host.UIGradient "FadePaint" {
 					Transparency = function(use: ComposeTypes.Use)
-						return types.NumberSequence.new(amount(use))
+						return types.NumberSequence.new(if use(warming) then 1 else amount(use))
 					end,
 				},
 				Compose.show(function(use: ComposeTypes.Use)
@@ -586,11 +588,30 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					local automatic = node.AutomaticSize
 					local freeX = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
 					local freeY = automatic == Enum.AutomaticSize.Y or automatic == Enum.AutomaticSize.XY
+					if frames then
+						warming:set(true)
+						local connection: RBXScriptConnection? = nil
+						connection = frames.Heartbeat:Connect(function()
+							if connection then
+								connection:Disconnect()
+								connection = nil
+							end
+							warming:set(false)
+						end)
+						Compose.cleanup(function()
+							if connection then
+								connection:Disconnect()
+							end
+							warming:set(false)
+						end)
+					end
 					local group = Host.CanvasGroup "Fade" {
 						BackgroundTransparency = 1,
 						Size = types.UDim2.fromScale(if freeX then 0 else 1, if freeY then 0 else 1),
 						AutomaticSize = automatic,
-						GroupTransparency = amount,
+						GroupTransparency = function(use: ComposeTypes.Use)
+							return if use(warming) then 0.99 else amount(use)
+						end,
 					}
 					for _, child: Instance in node:GetChildren() do
 						if child:IsA("GuiBase2d") or child:IsA("Folder") or child:IsA("UIGridStyleLayout") then

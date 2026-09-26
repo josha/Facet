@@ -267,7 +267,9 @@ cannot be interacted with, and the selection never stays on it.
 - A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
   the faded node's children. When the fade ends, the children move back and
   the group is removed, so settled text and art are never rasterised. A
-  `UIGradient` named `FadePaint` fades the node's own paint.
+  `UIGradient` named `FadePaint` fades the node's own paint. A new group
+  draws one frame almost transparent before the fade shows it, and the node's
+  own paint waits for that frame, so the panel and its text appear together.
 - Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
   all of this motion. The change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer

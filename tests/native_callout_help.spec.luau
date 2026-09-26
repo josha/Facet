@@ -754,4 +754,36 @@ t.describe("native Callout: the plate and its tail arrive together", function()
 		t.expect(fadeKit.of(panel)).toBe(0)
 		w.stop()
 	end)
+	t.it(
+		"the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
+		function()
+			local w = overlay.new(function(UI, Host)
+				local anchor = UI.Button "Plus" { label = "+" }
+				return Host.Frame({
+					Name = "Editor",
+					Host.Frame({ Name = "Bar", anchor }),
+					UI.Callout "Tip" {
+						anchor = anchor,
+						isPresented = true,
+						content = tip(Host),
+						onRetire = function() end,
+					},
+				})
+			end, { runService = true })
+			local panel = w.find("CalloutPanel")
+			t.expect(panel.Visible).toBe(false)
+			w.advance(0.01)
+			local group = panel:FindFirstChild("Fade")
+			t.expect(group ~= nil and group:IsA("CanvasGroup")).toBe(true)
+			t.expect(fadeKit.of(panel)).toBe(1)
+			t.expect(group.GroupTransparency > 0.98).toBe(true)
+			w.advance(0.01)
+			t.expect(fadeKit.of(panel) < 1).toBe(true)
+			t.expect(math.abs(group.GroupTransparency - fadeKit.of(panel)) < 1e-6).toBe(true)
+			w.advance(0.2)
+			t.expect(panel:FindFirstChild("Fade")).toBeNil()
+			t.expect(fadeKit.of(panel)).toBe(0)
+			w.stop()
+		end
+	)
 end)
