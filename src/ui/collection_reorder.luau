@@ -125,7 +125,7 @@ return function<V, K>(
 	local function movable(item: V): boolean
 		return policy.allows(spec.movable, item) and not policy.disabled(spec.disabled, item)
 	end
-	local function begin(key: K, position: Vector2?): ()
+	local function begin(key: K, position: Vector2?, quiet: boolean?): ()
 		if
 			not reorderable
 			or read(sort) ~= nil
@@ -173,7 +173,7 @@ return function<V, K>(
 			if position and captured and startFrames then
 				startFrames()
 			end
-			if position == nil and keyboardTarget and ctx.config.guiService then
+			if position == nil and not quiet and keyboardTarget and ctx.config.guiService then
 				ctx.config.guiService.SelectedObject = keyboardTarget
 			end
 		end
@@ -841,10 +841,7 @@ return function<V, K>(
 			local function nudge(delta: number)
 				local keys = chosen()
 				if #keys > 0 then
-					local target = keyboardTarget
-					keyboardTarget = nil
-					begin(keys[1])
-					keyboardTarget = target
+					begin(keys[1], nil, true)
 					step(delta)
 					commit()
 				end

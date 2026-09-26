@@ -2654,6 +2654,19 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("a shoulder move in edit mode keeps the pad selection on the moved row", function()
+		for _, list in { false, true } do
+			local w = editableWorld("Gamepad", { reorderable = true, editing = Compose.cell(true) }, list)
+			local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
+			local target = if hit.Selectable then hit else hit:FindFirstChildWhichIsA("GuiButton", true)
+			w.gui.SelectedObject = target
+			w.pressed("MoveRowsLater")
+			t.expect(#w.reorders).toBe(1)
+			t.expect(w.gui.SelectedObject).toBe(target)
+			w.stop()
+		end
+	end)
+
 	t.it("selectionMode takes none, single or multiple and refuses anything else", function()
 		local engine, runtime, UI, target = setup()
 		t.expect(function()
