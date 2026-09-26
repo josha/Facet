@@ -228,6 +228,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end,
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
+				Attributes = { FacetDragExclude = true } :: Types.Attributes,
 				Host.UIListLayout({
 					FillDirection = E.FillDirection.Horizontal,
 					HorizontalAlignment = if edge == "leading"
@@ -517,6 +518,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 					local gutter = if read(spec.editing, use) then use(editWidth) else 0
 					return D2.fromOffset(gutter + paintedOffset(use), 0)
 				end,
+				Attributes = {
+					FacetDragRestX = function(use: ComposeTypes.Use)
+						return if read(spec.editing, use) then use(editWidth) else 0
+					end,
+				} :: Types.Attributes,
 				contentMenu :: ComposeTypes.Child,
 				Host.TextButton "SwipeGrip" {
 					Size = D2.fromScale(1, 1),

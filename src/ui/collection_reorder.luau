@@ -578,9 +578,19 @@ return function<V, K>(
 			for layer = layers, 1, -1 do
 				local copy = if source then source:Clone() else nil
 				if copy then
+					for _, node in copy:GetDescendants() do
+						if node:GetAttribute("FacetDragExclude") == true then
+							node:Destroy()
+						end
+					end
 					local nodes = copy:GetDescendants()
 					table.insert(nodes, copy)
 					for _, node in nodes do
+						local rest = node:GetAttribute("FacetDragRestX")
+						if type(rest) == "number" and node:IsA("GuiObject") then
+							node.Position =
+								D2.new(node.Position.X.Scale, rest, node.Position.Y.Scale, node.Position.Y.Offset)
+						end
 						if node:IsA("GuiObject") then
 							node.Interactable, node.Active, node.Selectable = false, false, false
 						elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then

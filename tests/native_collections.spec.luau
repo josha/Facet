@@ -2536,6 +2536,52 @@ t.describe("Table row tap", function()
 	end)
 end)
 
+t.describe("Row actions under a reorder drag", function()
+	t.it("the drag image carries the row content without its open action tray", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V3 = engine.types.Enum, engine.types.Vector3
+		local opened = Compose.cell(nil)
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" }, { id = 3, name = "Apex" } },
+				key = key,
+				itemSize = 40,
+				reorderable = true,
+				onReorder = function() end,
+				columns = { { id = "name", label = "Name" } },
+				rowActions = function(_, rowKey)
+					return {
+						open = if rowKey == 1 then opened else nil,
+						trailing = { { id = "remove", label = "Remove", onActivate = function() end } },
+					}
+				end,
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 200)
+		local rowNode = body:FindFirstChild("Items"):FindFirstChild("1")
+		local grip = rowNode:FindFirstChild("SwipeGrip", true)
+		local content = grip.Parent
+		content.Parent.AbsoluteSize = engine.types.Vector2.new(400, 40)
+		engine.heartbeat.fire(1)
+		opened:set("trailing")
+		engine.heartbeat.fire(1)
+		t.expect(content.Parent:FindFirstChild("trailing").Visible).toBe(true)
+		t.expect(content.Position.X.Offset < 0).toBe(true)
+		local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(100, 20, 0) }
+		grip.InputBegan.fire(press)
+		local input = ctx.config.userInputService
+		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, 60, 0) })
+		local image = node:FindFirstChild("DragImage", true)
+		t.expect(image ~= nil).toBe(true)
+		local ghost = image:FindFirstChild("SwipeGrip", true).Parent
+		t.expect(ghost.Parent:FindFirstChild("trailing")).toBeNil()
+		t.expect(ghost.Position.X.Offset).toBe(0)
+		stop()
+		runtime:dispose()
+	end)
+end)
+
 t.describe("Row action tray width", function()
 	t.it("an icon action's tray fits its painted icon and keeps the label as its name", function()
 		local engine, runtime, UI, target = setup()
