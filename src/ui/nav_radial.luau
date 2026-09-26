@@ -1130,9 +1130,7 @@ return function(
 				}
 				if corner and launcher and launcher:IsA("GuiObject") then
 					local hidden = launcher :: GuiObject
-					-- hidden only once the modal has recorded the selection it hands back (the engine drops the
-					-- selection from an invisible object), and shown again as the ring starts to leave, so the
-					-- hand-back lands; the centre paints over it while it shrinks
+
 					hideLauncher = function()
 						hidden.Visible = false
 						if phase then
@@ -1432,8 +1430,7 @@ return function(
 					cancel()
 					aimPointer, aimAnalog, candidateSector, freezeCenter, returnSelection = nil, nil, nil, nil, nil
 				end)
-				-- the engine's pad navigation takes Thumbstick1 while anything is selected, so RadialAim would
-				-- never see the stick; the open wheel binds its own D-pad, A and B, and owns the stick meanwhile
+
 				if gui then
 					local before = gui.GuiNavigationEnabled
 					Compose.watch(function(use: ComposeTypes.Use)

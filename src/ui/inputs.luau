@@ -1987,7 +1987,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(contentProps, mark)
 		end
 		local markContent = Host.Frame(contentProps)
-		-- a pad adjusts the whole run with Left and Right, so only a fingertip needs each mark's reach
+
 		local input = ctx.config.services.UserInputService
 		local touch = if input then ctx.observe.TouchEnabled(input) else nil
 		local function gap(use: ComposeTypes.Use): number

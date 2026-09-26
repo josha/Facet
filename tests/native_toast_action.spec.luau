@@ -163,7 +163,7 @@ t.describe("native Toast with an action: presentation", function()
 		c.shown:set(true)
 		local w = mount({ { c = c, message = "Kart sold" } })
 		local action = w.find("Action")
-		-- a link hugs its glyphs with no padding, so the engine's box cut the label off (owner report)
+
 		t.expect(action:HasTag("facet-appearance-link")).toBe(false)
 		t.expect(action.AutomaticSize).toBe(w.Enum.AutomaticSize.XY)
 		t.expect(action.Size.X.Offset == 0 and action.Size.X.Scale == 0).toBe(true)

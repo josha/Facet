@@ -85,7 +85,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	-- a bound toast proposes; the caller's fact going false retires it with the pending reason
 	local function offer(record: Record, reason: Reason, fn: () -> ())
 		record.pending = reason
 		parts.call(fn, function()
@@ -323,7 +322,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return Host.Frame(props)
 	end
 
-	-- a toast without an action: stacked per edge, display-only
 	local function passiveRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec, layer = record.spec, stack.layer
 		local bottom = spec.position == "bottom"
@@ -431,7 +429,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return row
 	end
 
-	-- a toast with an action: one at a time, docked bottom-centre, reachable by pad
 	local function actionRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec, layer = record.spec, stack.layer
 		local extent = ctx.observe.AbsoluteSize(layer)
@@ -607,7 +604,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end)
 		Compose.cleanup(function()
-			-- a row torn down with its owner (before it could retire) still hands the selection back
 			if gui and surfaces.within(gui.SelectedObject, row) then
 				gui.SelectedObject = if returnTo and returnTo.Parent then returnTo else nil
 			end

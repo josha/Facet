@@ -12,7 +12,6 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
 
--- a radio row's 18 px mark and the gap before its caption
 local RADIO_MARK = 18 + 8
 
 type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
@@ -72,7 +71,7 @@ return function(
 		end
 		return labels
 	end
-	-- a node's width in layout units (a scaled ancestor divides out), or huge before it has one
+
 	local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
 		local extent = ctx.observe.AbsoluteSize(node)
 		local _, units = ctx.runtime.mount(function()
@@ -87,7 +86,7 @@ return function(
 			return if width > 0 then width else math.huge
 		end)
 	end
-	-- a caption wraps inside the room its button gives it; `across` is that room before the button's chrome
+
 	local function wrapCaptions(
 		button: GuiObject,
 		controlSize: Types.Value<Types.ControlSize>?,
@@ -2967,7 +2966,7 @@ return function(
 		Compose.watch(function(use: ComposeTypes.Use)
 			room:set(use(width))
 		end)
-		-- the engine honours one UISizeConstraint per object: a segmented strip's row limit rides on TargetFloor
+
 		local limit = picker:FindFirstChild("TargetFloor")
 		local maxSize = function(use: ComposeTypes.Use)
 			return V2.new(use(width), math.huge)

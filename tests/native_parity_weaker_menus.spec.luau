@@ -812,9 +812,7 @@ t.describe("native parity weaker menus", function()
 			end)
 			local row = find(world.root, "Handling")
 			local options = find(row, "Options")
-			-- the fill layout shares the width among the segments and their labels wrap (a fixed-height strip
-			-- cannot take a second line); the engine honours ONE UISizeConstraint per object, so the row limit
-			-- rides on TargetFloor
+
 			t.expect(options:FindFirstChildWhichIsA("UIListLayout").Wraps).toBe(false)
 			local floor = options:FindFirstChild("TargetFloor")
 			t.expect(floor.MinSize.Y).toBe(50)

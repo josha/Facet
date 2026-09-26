@@ -36,7 +36,6 @@ function reservations.set(layer: Instance, token: unknown, edge: Edge, y: number
 	publish(layer)
 end
 
--- `skip` names tokens whose own reservations do not count (a docked surface reading the chrome under it)
 function reservations.reserved(layer: GuiBase2d, edge: Edge, skip: { [unknown]: boolean }?): number
 	local parent = layer.Parent
 	local candidates: { Instance } = if parent then parent:GetChildren() else { layer }

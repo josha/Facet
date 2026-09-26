@@ -1387,7 +1387,7 @@ t.describe("native parity weaker focus", function()
 		end, { reducedMotion = true })
 		world.gui.GuiNavigationEnabled = true
 		hold.Pressed.fire()
-		-- the engine's pad navigation takes Thumbstick1 while anything is selected; an open wheel owns the stick
+
 		t.expect(world.gui.GuiNavigationEnabled).toBe(false)
 		local axis = action(world.screen, "RadialAim")
 		axis.StateChanged.fire(V2(world, 0, 0.9))

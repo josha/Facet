@@ -632,7 +632,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				"grabber"
 			) :: Types.Child,
 		}
-		-- the engine hands a pad's A to a selected UIDragDetector; stand it down so A reaches Activated
+
 		if gui and gui.GetPropertyChangedSignal and preferred then
 			local selection = ctx.observe.SelectedObject(gui)
 			local pad = preferred

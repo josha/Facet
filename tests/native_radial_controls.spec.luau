@@ -966,7 +966,7 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		}, true)
 		local launcher = world.find("Launcher")
 		world.gui.SelectedObject = launcher
-		-- the engine drops the selection from an object that stops being visible
+
 		launcher:GetPropertyChangedSignal("Visible"):Connect(function()
 			if not launcher.Visible and world.gui.SelectedObject == launcher then
 				world.gui.SelectedObject = nil
