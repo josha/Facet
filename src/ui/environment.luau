@@ -334,16 +334,37 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			ctx.runtime.connect(group, "AncestryChanged", claim)
 			claim()
 			if settings.returnFocus then
-				Compose.cleanup(function()
-					local current = gui.SelectedObject
-					if before == nil or (current ~= nil and not current:IsDescendantOf(group)) then
-						return
-					end
-					if before:FindFirstAncestorWhichIsA("LayerCollector") then
-						gui.SelectedObject = before
-					elseif layer then
+				local held, returned = false, false
+				local function restore()
+					returned = true
+					local target = before
+					if target and target:FindFirstAncestorWhichIsA("LayerCollector") then
+						gui.SelectedObject = target
+					elseif target and layer then
 						gui:Select(layer)
 					end
+				end
+				local watched = ctx.observe.SelectedObject(gui)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local current = use(watched) :: GuiObject?
+					local within = current ~= nil and current:IsDescendantOf(group)
+					if
+						held
+						and not within
+						and not returned
+						and group:FindFirstAncestorWhichIsA("LayerCollector") == nil
+					then
+						restore()
+						return
+					end
+					held = within
+				end)
+				Compose.cleanup(function()
+					local current = gui.SelectedObject
+					if returned or before == nil or (current ~= nil and not current:IsDescendantOf(group)) then
+						return
+					end
+					restore()
 				end)
 			end
 		end

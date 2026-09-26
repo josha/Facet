@@ -767,6 +767,18 @@ t.describe("focusSection focusOnAppear / returnFocus (restored from 0.11)", func
 		w.stop()
 	end)
 
+	t.it("returns the selection when the engine reselects as the branch leaves, before its owner ends", function()
+		local w, rows, detail, open = scene()
+		w.gui.SelectedObject = rows[3]
+		local close = open({ focusOnAppear = "Save", returnFocus = true })
+		detail.Parent = nil
+		w.gui.SelectedObject = rows[1]
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		close()
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		w.stop()
+	end)
+
 	t.it("leaves a selection the player moved outside the branch alone", function()
 		local w, rows, _, open = scene()
 		w.gui.SelectedObject = rows[3]
