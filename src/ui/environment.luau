@@ -292,6 +292,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				table.unpack(brackets),
 			}),
 		})
+		Compose.watch(function(use: ComposeTypes.Use)
+			local target = use(selected) :: GuiObject?
+			if target and shown(use) and target:FindFirstAncestorWhichIsA("ScrollingFrame") then
+				local reach = target.AbsoluteSize.Y
+				UI.scrollToVisible(
+					target,
+					{ x = 0, y = -reach, w = target.AbsoluteSize.X, h = 3 * reach },
+					{ animated = false }
+				)
+			end
+		end)
 		playerGui.SelectionImageObject = ring
 		Compose.cleanup(function()
 			if playerGui.SelectionImageObject == ring then

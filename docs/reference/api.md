@@ -3537,6 +3537,10 @@ and the whole look stands 3 pixels off the control, so it lifts clear of the
 control's own edge. A ring is drawn just outside the control at every distance,
 so it never covers a label that runs to the control's edge.
 
+A keyboard or gamepad selection inside a ScrollingFrame scrolls it so the
+selected control and one row of room on each side are in view, so the engine
+can always reach the next control (the pre-0.12 keep-visible rule).
+
 A control whose value has its own part makes that part the selected object,
 so the engine draws the look there: the Slider thumb and each range handle,
 each segment of a segmented Picker. A game control that needs its own look

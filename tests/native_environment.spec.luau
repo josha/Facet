@@ -1273,6 +1273,22 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		w.stop()
 	end)
 
+	t.it("keeps the next control in reach: a keyboard or pad selection scrolls one row of room into view", function()
+		local w, _, stop = ring(nil, { preferredInput = "Gamepad" })
+		local V = w.engine.types.Vector2
+		local screen = w.engine.new("ScreenGui")
+		local list = w.engine.new("ScrollingFrame")
+		list.Parent = screen
+		list.AbsolutePosition, list.AbsoluteWindowSize = V.new(0, 0), V.new(300, 200)
+		list.AbsoluteCanvasSize = V.new(300, 1000)
+		local row = w.engine.new("TextButton")
+		row.Parent = list
+		row.AbsolutePosition, row.AbsoluteSize = V.new(0, 150), V.new(300, 44)
+		w.gui.SelectedObject = row
+		t.expect(list.CanvasPosition.Y).toBe(38)
+		stop()
+	end)
+
 	t.it("colours the focus look from the theme's focus role", function()
 		local ornate = require("../examples/themes/fantasy_parchment").build(Facet.themes)
 		local w = world()
