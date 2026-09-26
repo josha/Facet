@@ -488,6 +488,11 @@ function screen.build(ctx: any)
 			Priority = 13500,
 			Sink = true,
 			action("Activate", Enum.KeyCode.Backquote, nil),
+		}
+		Host.InputContext "ShowcaseChromeShoulders" {
+			Parent = ctx.inputTarget,
+			Priority = 1,
+			Sink = true,
 			action("ActivateDemos", Enum.KeyCode.ButtonL1, "demos"),
 			action("ActivateSettings", Enum.KeyCode.ButtonR1, "settings"),
 		}
