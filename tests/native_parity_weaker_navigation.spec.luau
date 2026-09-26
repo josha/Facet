@@ -843,15 +843,32 @@ t.describe("native parity weaker navigation", function()
 	t.it("expands a distant sidebar on command and ButtonB collapses it back to the top bar", function()
 		local expanded = Compose.cell(false)
 		local world = setup(function(UI, Host)
-			return UI.TabView("Apps")({
-				selection = Compose.cell("a"),
-				style = "sidebarAdaptable",
-				sidebarExpanded = expanded,
+			local outer = UI.TabView("Outer")({
+				selection = Compose.cell("shell"),
 				tabs = {
-					{ id = "a", label = "A", content = page(Host, "a") },
-					{ id = "b", label = "B", content = page(Host, "b") },
+					{
+						id = "shell",
+						label = "Shell",
+						content = function()
+							return UI.TabView("Apps")({
+								selection = Compose.cell("a"),
+								style = "sidebarAdaptable",
+								sidebarExpanded = expanded,
+								accessories = {
+									trailing = function()
+										return Host.TextButton("Expand")({ Selectable = true })
+									end,
+								},
+								tabs = {
+									{ id = "a", label = "A", content = page(Host, "a") },
+									{ id = "b", label = "B", content = page(Host, "b") },
+								},
+							})
+						end,
+					},
 				},
 			})
+			return outer
 		end)
 		local Enum = world.engine.types.Enum
 		world.gui.ViewportDisplaySize = Enum.DisplaySize.Large
@@ -863,8 +880,10 @@ t.describe("native parity weaker navigation", function()
 		local layout = strip:FindFirstChildWhichIsA("UIListLayout")
 		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
 		t.expect(action(world.screen, "SidebarCollapse")).toBeNil()
+		world.gui.SelectedObject = find(view, "Expand")
 		expanded:set(true)
 		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Vertical)
+		t.expect(world.gui.SelectedObject).toBe(find(strip, "a", "TextButton"))
 		world.gui.SelectedObject = find(strip, "b", "TextButton")
 		local collapse = action(world.screen, "SidebarCollapse")
 		t.expect(collapse ~= nil).toBe(true)
@@ -880,7 +899,7 @@ t.describe("native parity weaker navigation", function()
 		world.input.MouseEnabled = true
 		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
 		view.AbsoluteSize = V2(world, 390, 844)
-		t.expect(strip.Position).toBe(world.engine.types.UDim2.new(0, 0, 1, -44))
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
 		world.stop()
 	end)
 

@@ -97,6 +97,23 @@ t.describe("Tab traversal priority and the keyboard opt-in", function()
 	end)
 end)
 
+t.describe("stick entry", function()
+	t.it("a left-stick push enters the selection like a D-pad press; a drift does not", function()
+		local w = setup(function(UI)
+			return UI.Screen "Page" { UI.Button "A" { label = "A" }, UI.Button "B" { label = "B" } }
+		end)
+		local V2 = w.engine.types.Vector2
+		local context = w.find("FacetEntry", w.parent)
+		t.expect(context.Sink).toBe(false)
+		local enter = context:FindFirstChild("Enter")
+		enter.StateChanged.fire(V2.new(0.2, -0.1))
+		t.expect(w.selected()).toBe("nil")
+		enter.StateChanged.fire(V2.new(0, -1))
+		t.expect(w.selected()).toBe("A")
+		w.stop()
+	end)
+end)
+
 t.describe("focusSection entry rules", function()
 	local function sections(options: { [string]: any }?)
 		local shelf: any

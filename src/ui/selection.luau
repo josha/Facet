@@ -418,6 +418,22 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		end
 		if parent then
 			ctx.Host.InputContext({
+				Name = "FacetEntry",
+				Parent = parent,
+				Priority = 1,
+				Sink = false,
+				ctx.Host.InputAction({
+					Name = "Enter",
+					Type = E.InputActionType.Direction2D,
+					StateChanged = function(value: unknown)
+						if typeof(value) == "Vector2" and (value :: Vector2).Magnitude >= 0.5 then
+							enter()
+						end
+					end,
+					ctx.Host.InputBinding({ KeyCode = E.KeyCode.Thumbstick1 }),
+				}),
+			})
+			ctx.Host.InputContext({
 				Name = "FacetTraversal",
 				Parent = parent,
 				Priority = 1500,

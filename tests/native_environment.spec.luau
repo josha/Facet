@@ -144,6 +144,7 @@ t.describe("adaptive: pure decisions with no device names", function()
 		t.expect(adaptive.isTenFoot({ displaySize = "Large", touch = true })).toBe(false)
 		t.expect(adaptive.isTenFoot({ displaySize = "Medium" })).toBe(false)
 		t.expect(adaptive.isTenFoot({ displaySize = "Medium", tenFootInterface = true })).toBe(true)
+		t.expect(adaptive.isTenFoot({ displaySize = "Large", tenFootInterface = true, mouse = true })).toBe(false)
 	end)
 end)
 

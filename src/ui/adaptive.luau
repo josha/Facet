@@ -119,8 +119,9 @@ local function isTenFoot(facts: TenFootFacts): boolean
 	if facts.viewingDistance == "ten-foot" or facts.viewingDistance == "near" then
 		return facts.viewingDistance == "ten-foot"
 	end
-	return facts.tenFootInterface == true
-		or (facts.displaySize == "Large" and facts.touch ~= true and facts.mouse ~= true)
+	return (facts.tenFootInterface == true or facts.displaySize == "Large")
+		and facts.touch ~= true
+		and facts.mouse ~= true
 end
 
 local function overscanInsets(width: number, height: number): Insets

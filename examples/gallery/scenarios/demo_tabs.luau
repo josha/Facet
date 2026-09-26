@@ -43,13 +43,18 @@ return function(ctx: any, id: string, groups: { any })
 				Size = UDim2.fromScale(1, 1),
 			})
 		end
-		local side, roomy = Compose.cell(false), Compose.cell(false)
+		local side, roomy, distant = Compose.cell(false), Compose.cell(false), Compose.cell(false)
+		local expanded = Compose.cell(false)
 		local view = UI.TabView({
 			Name = key,
 			selection = selected,
 			tabs = tabs,
 			style = "sidebarAdaptable",
+			sidebarExpanded = expanded,
 			placement = function(use)
+				if use(distant) then
+					return "automatic"
+				end
 				return if use(side) then "sidebar" else "topBar"
 			end,
 			accessories = {
@@ -59,6 +64,7 @@ return function(ctx: any, id: string, groups: { any })
 						appearance = "utility",
 						Size = UDim2.new(1, 0, 0, 40),
 						onActivate = function()
+							expanded:set(false)
 							preference:set("top")
 						end,
 					}
@@ -71,7 +77,11 @@ return function(ctx: any, id: string, groups: { any })
 						icon = "menu",
 						Visible = roomy,
 						onActivate = function()
-							preference:set("side")
+							if distant:peek() then
+								expanded:set(true)
+							else
+								preference:set("side")
+							end
 						end,
 					}
 				end,
@@ -83,6 +93,7 @@ return function(ctx: any, id: string, groups: { any })
 			local room = use(env.sizeClass) ~= "compact"
 			local choice = use(preference)
 			roomy:set(room)
+			distant:set(use(env.isTenFoot))
 			side:set(if choice == "automatic" then use(env.navPlacement) == "sidebar" else choice == "side" and room)
 		end)
 		return view

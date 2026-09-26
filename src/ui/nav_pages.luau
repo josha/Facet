@@ -232,11 +232,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if explicit and explicit ~= "automatic" then
 				return explicit
 			end
+			local distant = tenFoot(use)
+			if spec.style == "sidebarAdaptable" and distant and read(spec.sidebarExpanded, use) == true then
+				return "sidebar"
+			end
 			if use(nested) then
 				return "topBar"
 			end
 			local size, preferred = use(dimensions), use(primaryInput)
-			local distant = tenFoot(use)
 			local display = if displaySize then use(displaySize) else nil
 			local home: Nav.Placement = adaptive.navPlacement({
 				sizeClass = adaptive.sizeClass(size.X),
@@ -248,9 +251,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else nil,
 				tenFoot = distant,
 			})
-			if spec.style == "sidebarAdaptable" and distant and read(spec.sidebarExpanded, use) == true then
-				return "sidebar"
-			end
 			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
 				local choice = read(spec.sidebarPreference, use)
 				if choice and choice ~= "automatic" then
@@ -419,8 +419,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return false
 		end)
+		local function band(use: ComposeTypes.Use?): number
+			return ctx.metric("targetSizes.minimum", use)
+		end
 		local function tabHeight(use: ComposeTypes.Use?): number
-			return if spec.controlSize == nil then 44 else ctx.controlSize(spec.controlSize, "height", use)
+			return if spec.controlSize == nil then band(use) else ctx.controlSize(spec.controlSize, "height", use)
 		end
 		local INSET = segmentMetrics.inset
 		local function segmentedTop(use: ComposeTypes.Use): boolean
@@ -463,11 +466,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			Size = function(use: ComposeTypes.Use)
 				if segmentedTop(use) then
-					return D2.fromOffset((segmentWidth(use)), 44 + 2 * INSET)
+					return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
 				end
 				return if use(placement) == "sidebar"
 					then D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
-					else D2.new(1, -use(trailingWidth), 0, 44)
+					else D2.new(1, -use(trailingWidth), 0, band(use))
 			end,
 			Position = function(use: ComposeTypes.Use)
 				if segmentedTop(use) then
@@ -476,7 +479,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				return if use(placement) == "sidebar"
 					then D2.fromOffset(8, use(headHeight))
-					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -44)
+					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
 					else D2.fromOffset(0, 0)
 			end,
 			Host.UIPadding({
@@ -704,7 +707,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					surfaces.attach(button, {
 						Host.UISizeConstraint({
 							MinSize = function(use: ComposeTypes.Use)
-								return V2.new(44, tabHeight(use))
+								return V2.new(band(use), tabHeight(use))
 							end,
 						}),
 						Compose.show(function(use: ComposeTypes.Use)
@@ -759,7 +762,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Name = "TabRow-" .. tab.id,
 							LayoutOrder = index,
 							Size = function(use: ComposeTypes.Use)
-								return if use(placement) == "sidebar" then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 44)
+								return if use(placement) == "sidebar"
+									then D2.new(1, 0, 0, 0)
+									else D2.fromOffset(0, band(use))
 							end,
 							AutomaticSize = function(use: ComposeTypes.Use)
 								return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
@@ -952,7 +957,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return segmentedTop(use) and not use(collapsed)
 			end,
 			Size = function(use: ComposeTypes.Use)
-				return D2.fromOffset((segmentWidth(use)), 44 + 2 * INSET)
+				return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local _, left = segmentWidth(use)
@@ -970,7 +975,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, {
 			Compose.show(collapsed, function()
 				return UI.Menu "TabsMenu" {
-					Size = D2.fromOffset(0, 44),
+					Size = function(use: ComposeTypes.Use)
+						return D2.fromOffset(0, band(use))
+					end,
 					AutomaticSize = E.AutomaticSize.X,
 					disclosure = true,
 					label = function(use: ComposeTypes.Use)
@@ -1034,7 +1041,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Size = function(use: ComposeTypes.Use)
 								return if slot == "head" or slot == "foot"
 									then D2.fromOffset(railWidth(use), 0)
-									elseif slot == "trailing" then D2.fromOffset(0, 44)
+									elseif slot == "trailing" then D2.fromOffset(0, band(use))
 									else D2.new(1, 0, 0, 0)
 							end,
 							AutomaticSize = if slot == "trailing" then E.AutomaticSize.X else E.AutomaticSize.Y,
@@ -1065,13 +1072,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									return D2.new(0, 0, 1, -use(footHeight))
 								end
 								if slot == "aboveBar" then
-									return D2.new(0, 0, 1, -44 - use(aboveHeight))
+									return D2.new(0, 0, 1, -band(use) - use(aboveHeight))
 								end
 								return D2.new(
 									1,
 									-use(trailingWidth),
 									if place == "topBar" then 0 else 1,
-									if segmentedTop(use) then INSET elseif place == "topBar" then 0 else -44
+									if segmentedTop(use) then INSET elseif place == "topBar" then 0 else -band(use)
 								)
 							end,
 						})
@@ -1130,6 +1137,24 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end, function()
 					expanded:set(false)
 				end, { priority = 1100 + depth })
+				local first = true
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(expanded)
+					if first then
+						first = false
+						return
+					end
+					local current = gui and gui.SelectedObject
+					local content = root:FindFirstChild("Content")
+					local chrome = current ~= nil
+						and surfaces.within(current, root)
+						and not (content and surfaces.within(current, content))
+						and not surfaces.within(current, bar)
+					local button = tabButtons[spec.selection:peek()]
+					if gui and chrome and button and current ~= button then
+						gui.SelectedObject = button
+					end
+				end)
 			end
 		end
 		return root
@@ -1247,7 +1272,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				): Instance
 					local entry = current:peek()
 					local destination = if entry == rootEntry then spec.root else spec.destinations[entry.id]
-					local chrome = if entry ~= rootEntry or destination.title and destination.title ~= "" then 44 else 0
+					local titled = entry ~= rootEntry or (destination.title ~= nil and destination.title ~= "")
+					local function chrome(use: ComposeTypes.Use?): number
+						return if titled then ctx.metric("targetSizes.minimum", use) else 0
+					end
 					local role = Compose.formula(function(use: ComposeTypes.Use): string
 						local list = use(entries)
 						local at = table.find(list, entry)
@@ -1312,8 +1340,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					})
 					local navigationBar = Host.Frame "NavigationBar" {
 						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0, chrome),
-						Visible = chrome > 0,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(1, 0, 0, chrome(use))
+						end,
+						Visible = titled,
 						title :: Types.Child,
 						Compose.show(function(use: ComposeTypes.Use)
 							return use(state).index > 1
@@ -1336,8 +1366,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 					local destinationFrame = Host.Frame "Destination" {
 						BackgroundTransparency = 1,
-						Position = D2.fromOffset(0, chrome),
-						Size = D2.new(1, 0, 1, -chrome),
+						Position = function(use: ComposeTypes.Use)
+							return D2.fromOffset(0, chrome(use))
+						end,
+						Size = function(use: ComposeTypes.Use)
+							return D2.new(1, 0, 1, -chrome(use))
+						end,
 						Compose.boundary(function()
 							navigationDepth += 1
 							local ok, built =

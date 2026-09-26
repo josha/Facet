@@ -197,7 +197,8 @@ function screen.build(ctx: any)
 	end
 	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local selected = ctx.selection
-	ctx.metricScale:set(UI.environment().metricScale)
+	local environment = UI.environment()
+	ctx.metricScale:set(environment.metricScale)
 	ctx.sceneVisible = Compose.cell(false)
 	local themeName = ctx.themeName or Compose.cell("Neutral")
 	ctx.themeName = themeName
@@ -323,7 +324,8 @@ function screen.build(ctx: any)
 		},
 	}
 	local toolbarSize = toolbar:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		measuredToolbar:set(math.max(56, math.ceil(toolbar.AbsoluteSize.Y)))
+		local scale = ctx.previewScale:peek()
+		measuredToolbar:set(math.max(56, math.ceil(toolbar.AbsoluteSize.Y / (if scale > 0 then scale else 1))))
 	end)
 	Compose.cleanup(function()
 		toolbarSize:Disconnect()
@@ -340,6 +342,20 @@ function screen.build(ctx: any)
 			return UDim2.fromScale(inverse, inverse)
 		end,
 		Host.UIScale "ViewingDistance" { Scale = ctx.previewScale },
+		Host.UIPadding "Overscan" {
+			PaddingTop = function(use)
+				return UDim.new(0, use(environment.overscanInsets).top)
+			end,
+			PaddingBottom = function(use)
+				return UDim.new(0, use(environment.overscanInsets).bottom)
+			end,
+			PaddingLeft = function(use)
+				return UDim.new(0, use(environment.overscanInsets).left)
+			end,
+			PaddingRight = function(use)
+				return UDim.new(0, use(environment.overscanInsets).right)
+			end,
+		},
 		BackgroundTransparency = function(use)
 			return if use(ctx.sceneVisible) then 1 else 0
 		end,
