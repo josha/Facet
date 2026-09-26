@@ -9,6 +9,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local bindThemes = require("./themes")
 local pathShapes = require("./nav_path_shapes")
 local decoration = require("./native_decoration")
+local help = require("./help")
 export type MediaControls = Media.MediaControls
 
 local SETTLE_SECONDS = 0.15
@@ -185,6 +186,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		"direction",
 		"tint",
 		"lines",
+		"disclose",
 	}
 	local ALIGN: { [string]: Enum.TextXAlignment } = {
 		start = E.TextXAlignment.Left,
@@ -373,6 +375,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				use(styledFace)
 				label.Text = middle(label, value, use(width))
 			end)
+		end
+		assert(spec.disclose == nil or type(spec.disclose) == "boolean", "Facet Text disclose must be a boolean")
+		if spec.disclose then
+			local fits, painted = ctx.observe.TextFits(label), ctx.observe.Text(label)
+			help.attach(ctx, label, bind(source, ""), {
+				name = "Disclosure",
+				gate = function(use: ComposeTypes.Use): boolean
+					return not use(fits) or (cut and use(painted) ~= (read(source, use) or ""))
+				end,
+			})
 		end
 		if spec.role ~= nil then
 			Compose.watch(function(use: ComposeTypes.Use)

@@ -4,9 +4,11 @@ local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
 local freeze = require("./freeze")
 
-type Show = (GuiObject, Inputs.Help) -> ()
+export type Plate = { name: string?, gate: Types.Value<boolean>? }
+type Show = (GuiObject, Inputs.Help, Plate?) -> ()
 
 local registry = setmetatable({} :: { [Types.Context]: Show }, { __mode = "k" })
+local pressed = setmetatable({} :: { [Instance]: boolean }, { __mode = "k" })
 
 local help = {}
 
@@ -62,12 +64,26 @@ function help.register(ctx: Types.Context, show: Show)
 	registry[ctx] = show
 end
 
-function help.attach(ctx: Types.Context, anchor: GuiObject, value: Inputs.Help)
+function help.attach(ctx: Types.Context, anchor: GuiObject, value: Inputs.Help, plate: Plate?)
 	help.check(ctx, value)
 	local show = registry[ctx]
 	if show then
-		show(anchor, value)
+		show(anchor, value, plate)
 	end
+end
+
+function help.hold(node: Instance, held: boolean)
+	if held then
+		pressed[node] = true
+	else
+		pressed[node] = nil
+	end
+end
+
+function help.consume(node: Instance): boolean
+	local held = pressed[node] == true
+	pressed[node] = nil
+	return held
 end
 
 return help

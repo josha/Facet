@@ -786,9 +786,11 @@ Presentation options:
 - `haptic`: a boolean or a readable. When it is true, the button plays the
   `pressHaptic` of the controls. The default is false. See [Haptics](#haptics).
 - `help`: one sentence that describes the action. It shows in a small panel
-  when a pointer rests on the button for 0.45 seconds, or when a gamepad
-  selects the button. It does not show on touch, so do not put information in
-  `help` that is available nowhere else. `help` can also be a table
+  when a pointer rests on the button for 0.45 seconds, when a keyboard or a
+  gamepad selection rests on the button for 0.45 seconds, or at once when a
+  touch player long-presses the button. The release of that long-press does
+  not activate the button, and the next touch anywhere closes the panel. So
+  every input can open every help. `help` can also be a table
   `{ title?, body, shortcut?, edge?, align? }`. `title` shows above the body.
   `body` can be empty only when `title` has the words. `shortcut` is a list of
   key chords such as `{ { "Ctrl", "K" }, { "F1" } }`. It is display text only
@@ -797,6 +799,10 @@ Presentation options:
   panel uses the anchored placement of `UI.Popover`. The body fits its text
   up to 264 pixels wide and then wraps. A malformed table stops
   with an error that names `help`.
+- `disclose`: `true` lets a player read the whole label of a text Button
+  that truncates. The label shows in the help panel (named `Disclosure`) on the
+  same routes as `help`, only while the engine reports that the text does not
+  fit (`TextFits`). While it shows, `help` waits: the full value comes first.
 - `compactLabel`: an alternative string or readable. The button uses it when a
   plain text button cannot fit its full label. It does not apply to icon, image
   or subtitle buttons.
@@ -2844,6 +2850,13 @@ or `textRole` instead.
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
 - `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
+- `disclose = true` keeps a truncated value readable. While the engine
+  reports that the text does not fit (`TextFits`), or a middle cut shortens
+  it, the whole value shows in a panel named `Disclosure` beside the label:
+  after a pointer rests on the label for 0.45 seconds, after a keyboard or
+  gamepad selection rests on the label or on the control that holds it, or at
+  once on a touch long-press on the label. The next touch anywhere closes it.
+  The panel takes no selection.
 - `lines = n` shows at most `n` lines. The text fills the width, wraps, and
   ends with an ellipsis when it needs more lines. The box hugs shorter text.
   The limit follows the text size, the line height and the vertical padding.

@@ -315,6 +315,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		"selected",
 		"appearance",
 		"help",
+		"disclose",
 		"controlSize",
 		"corners",
 		"role",
@@ -431,6 +432,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			"Facet.Button: repeat timings must be finite and positive"
 		)
 		local function activate(...)
+			local pressed: Instance? = node
+			if pressed and help.consume(pressed) then
+				return
+			end
 			local route = if node then ctx.shiftActivation(node, (...)) else nil
 			if route and enabled(spec) and ctx.available(node) then
 				route()
@@ -995,8 +1000,20 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end
 			end)
 		end
+		assert(spec.disclose == nil or type(spec.disclose) == "boolean", "Facet.Button: disclose must be a boolean")
+		local fits: ComposeTypes.Readable<boolean>? = nil
+		if spec.disclose then
+			local textFits = ctx.observe.TextFits(node)
+			fits = textFits
+			help.attach(ctx, node, spec.label or "", {
+				name = "Disclosure",
+				gate = function(use: ComposeTypes.Use): boolean
+					return not use(textFits)
+				end,
+			})
+		end
 		if spec.help ~= nil then
-			help.attach(ctx, node, spec.help)
+			help.attach(ctx, node, spec.help, if fits then { gate = fits } else nil)
 		end
 		local owner = assert(Compose.currentOwner(), "Facet.Button requires a Compose owner")
 		local selectionWired = false

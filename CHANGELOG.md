@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Every input can open every Button `help`: a touch long-press shows the panel at once (its release does not activate the button; the next touch closes it), beside the pointer dwell and the keyboard or gamepad selection. Before, help never showed on touch.
+- `UI.Text { disclose = true }` and a text `UI.Button { disclose = true }` show the whole value of a truncated label in a `Disclosure` panel on a pointer dwell, a keyboard or gamepad selection, or a touch long-press (restored from 0.11). A truncated Button label outranks its `help`.
 - `UI.focusSection(group, { focusOnAppear, returnFocus })`: an appearing branch takes the selection (its first stop, or a named descendant) while the player navigates by selection, and gives it back to what held it before when the branch leaves (restored from 0.11).
 - `UI.Menu` takes `controls` and sets `controls.diagnostics()`: advice for a submenu two levels deep, a level of more than five items and a destructive item that is not last (restored from 0.11 `api.diagnostics()`).
 - A theme whose `radii.pill` is 0 draws no round corners: every corner Facet used to force round (a circle Button, the Toggle switch track and knob and the checkbox box, slider thumbs and contained rails, Avatar and circle Image shapes, page dots, the sheet grabber, step dots, status and presence dots) is square, and the segmented track, tooltip and shortcut hint follow `radii.control`. A corner the author asks for (`corners = "pill"`) still wins. Pixel Quest's radii are now all 0, so its flat plates, fields, chips, pills, popups, dots and focus ring are square.

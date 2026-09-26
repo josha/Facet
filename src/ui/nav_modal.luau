@@ -712,20 +712,40 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end,
 		})
 	end
-	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help)
+	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help, plate: help.Plate?)
 		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isReadable(value)
 			then value :: Inputs.HelpSpec
 			else nil
 		local text: Types.Value<string> = if structured then structured.body else value :: Types.Value<string>
+		local gate = plate and plate.gate
 		local state = ctx.observe.GuiState(anchor)
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
+		local held = Compose.cell(false)
+		runtime.connect(anchor, "TouchLongPress", function(_: { Vector2 }, phase: Enum.UserInputState)
+			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
+				held:set(true)
+				help.hold(anchor, true)
+			end
+		end)
+		runtime.connect(anchor, "InputBegan", function()
+			help.hold(anchor, false)
+		end)
+		if input then
+			runtime.connect(input, "InputBegan", function(event: InputObject)
+				if held:peek() and event.UserInputType == E.UserInputType.Touch then
+					held:set(false)
+				end
+			end)
+		end
 		local wanted = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local kind = if preferred then use(preferred) else nil
 			if kind == E.PreferredInput.Touch then
 				return false
 			end
-			return use(state) == E.GuiState.Hover or (selection ~= nil and use(selection) == anchor)
+			local selected = if selection then use(selection) else nil
+			return use(state) == E.GuiState.Hover
+				or (selected ~= nil and (selected == anchor or anchor:IsDescendantOf(selected)))
 		end)
 		local rest = runtime.timeline({ duration = 0.45, autoplay = false })
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -737,7 +757,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 		end)
 		local armed = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return use(wanted) and use(rest.progress) >= 1
+			return ctx.read(gate, use) ~= false and (use(held) or (use(wanted) and use(rest.progress) >= 1))
 		end)
 		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
 		attach(anchor, {
@@ -757,7 +777,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				})
 				label:AddTag("facet-type-caption")
 				local panelProps: Types.CanvasGroupNativeProps = {
-					Name = "Help",
+					Name = plate and plate.name or "Help",
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - amount(use)
 					end,
