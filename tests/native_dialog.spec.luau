@@ -71,6 +71,29 @@ local function actionButton(w: any, id: string): any
 end
 
 t.describe("native Dialog: the caller's fact decides", function()
+	t.it("a ten-foot screen or Larger text stacks the actions full width", function()
+		for _, case in { "near", "tv", "text" } do
+			local open, log, change = caller()
+			open:set(false)
+			local w = mount(standard(open, log, change))
+			if case == "tv" then
+				w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
+				w.input.MouseEnabled = false
+				w.input.TouchEnabled = false
+			elseif case == "text" then
+				w.gui.PreferredTextSize = w.Enum.PreferredTextSize.Larger
+			end
+			open:set(true)
+			local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
+			local vertical = list.FillDirection == w.Enum.FillDirection.Vertical
+			t.expect(`{case}:{vertical}`).toBe(`{case}:{case ~= "near"}`)
+			if case ~= "near" then
+				t.expect(actionButton(w, "Leave").Size.X.Scale).toBe(1)
+			end
+			w.stop()
+		end
+	end)
+
 	t.it("an accepted fact presents the panel with pinned title, body and actions", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change))

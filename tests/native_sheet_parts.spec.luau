@@ -825,6 +825,19 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 		single.stop()
 	end)
 
+	t.it("an automatic sheet moves to the centre of a ten-foot screen and docks at the bottom nearby", function()
+		local shown = Compose.cell(false)
+		local w = mount(nil, { shown = shown })
+		w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
+		w.input.MouseEnabled = false
+		w.input.TouchEnabled = false
+		shown:set(true)
+		t.expect(w.find("SheetPanel"):GetAttribute("FacetPlacement")).toBe("center")
+		w.input.MouseEnabled = true
+		t.expect(w.find("SheetPanel"):GetAttribute("FacetPlacement")).toBe("bottom")
+		w.stop()
+	end)
+
 	t.it(
 		"a press-drag that starts on the grabber pill drags the sheet, shows grab cursors and is not also a tap",
 		function()

@@ -202,7 +202,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return use(mouse) == true and use(touch) ~= true
 			end
 		end
+		local tenFoot = ctx.tenFoot()
 		local placed = Compose.formula(function(use: ComposeTypes.Use): string
+			if (declared == "automatic" or declared == "adaptive") and tenFoot(use) then
+				return "center"
+			end
 			if declared == "adaptive" then
 				return if use(extent).X >= 600 and pointer(use) then "side" else "bottom"
 			end

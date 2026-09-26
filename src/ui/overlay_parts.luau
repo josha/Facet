@@ -236,6 +236,19 @@ end
 
 export type ActionGroup = { frame: Frame, stacked: ComposeTypes.Readable<boolean> }
 
+function parts.stackedForm(ctx: Types.Context): (ComposeTypes.Use) -> boolean
+	local E = ctx.types.Enum
+	local tenFoot = ctx.tenFoot()
+	local gui = ctx.config.guiService
+	local text: ComposeTypes.Readable<unknown>? = if gui and gui.GetPropertyChangedSignal
+		then ctx.observe.PreferredTextSize(gui)
+		else nil
+	return function(use: ComposeTypes.Use): boolean
+		local size = if text then use(text) else nil
+		return tenFoot(use) or size == E.PreferredTextSize.Larger or size == E.PreferredTextSize.Largest
+	end
+end
+
 function parts.actions(
 	ctx: Types.Context,
 	UI: UIControls,
@@ -254,8 +267,9 @@ function parts.actions(
 	local rowHeight = height or 44
 	local widths: { ComposeTypes.Readable<Vector2> } = {}
 	local measured = Compose.cell(0)
+	local form = parts.stackedForm(ctx)
 	local stacked = Compose.formula(function(use: ComposeTypes.Use): boolean
-		if mode == "stacked" or #actions > 2 then
+		if mode == "stacked" or #actions > 2 or (mode ~= "row" and form(use)) then
 			return true
 		end
 		if ctx.read(ctx.config.controlSize, use) == "large" then

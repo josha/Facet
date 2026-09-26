@@ -515,8 +515,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local offer = Compose.cell(V2.new(720, 720))
 				local padding = spec.padding or 20
 				local labelWidths = Compose.cell(0)
+				local form = parts.stackedForm(ctx)
 				local stacked = Compose.formula(function(use: ComposeTypes.Use)
 					return #actions > 2
+						or form(use)
 						or use(offer).X < 480
 						or use(labelWidths) > math.min(use(offer).X - 32, spec.maxWidth or 440) - padding * 2
 				end)

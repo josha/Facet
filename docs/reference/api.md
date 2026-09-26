@@ -2056,7 +2056,8 @@ stays fixed.
 Layout options:
 
 - `placement`: `automatic` (the default, the bottom edge), `adaptive`,
-  `bottom`, `center` or `side`. `adaptive` docks the sheet at the side edge
+  `bottom`, `center` or `side`. On a ten-foot screen `automatic` and
+  `adaptive` centre the sheet, and they dock it again when the screen is near. `adaptive` docks the sheet at the side edge
   when the room is 600 pixels wide or more, a mouse is available and touch is
   not. Otherwise it uses the bottom edge. It changes live with the room and
   the input. The `FacetPlacement` attribute of `SheetPanel` holds the result.
@@ -2262,7 +2263,9 @@ Other options:
 - `hero`: the shared media shape.
 - `actionLayout`: `automatic`, `row` or `stacked`. `automatic` puts two short
   actions in a row and stacks three or more. A row that cannot show the full
-  labels also stacks.
+  labels also stacks, and so do the actions of an Alert, a Dialog and a Sheet
+  on a ten-foot screen (`ctx.tenFoot()`) or at the `Larger` and `Largest`
+  preferred text sizes, each full width.
 - `width`: `automatic`, `narrow` or `wide`.
 - `contentSelectable`: `true` (the default) makes an overflowing body one
   selectable stop. With the selection on it, Up and Down scroll the body. At
