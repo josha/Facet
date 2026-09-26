@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Showcase: the Viewing-distance preview drives the framework (`environment.viewingDistance`), so Distant TV shows the real ten-foot sizes and overscan instead of an app-side 150% zoom, and the TV device preview is ten-foot. Demos lay out against the viewport divided by `metricScale`.
 - `UI.Screen` takes `chrome = "device" | "band" | "edge"`, the platform-chrome policies from before 0.12: device clears the top bar and the overscan (the default), band lets the content ride the free top-bar strip, edge adds neither.
 - `Facet.gamepadContention` is back: `legacyStackActive`, `cameraKeysContended`, `traversalKeyContended`, `iasPlayerScriptsActive`, `disableLegacyControls` (UI-only places), `freedJumpAction` and `describeContention` report and resolve the legacy player scripts holding ButtonA, the arrow keys and Tab. The Virtual Monitors place logs the explanation when the legacy stack is active.
 - `UI.TabView` `style = "sidebarAdaptable"` takes `sidebarExpanded`, a writable cell: at ten feet `true` shows the sidebar instead of the top bar, and ButtonB while the selection is in that sidebar collapses it (the old `expandSidebar()` / `collapseSidebar()`).

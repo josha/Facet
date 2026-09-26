@@ -125,6 +125,7 @@ local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 			runtime,
 			{
 				types = engine.types,
+				environment = ctx.environment,
 				viewport = ctx.viewport,
 				inputParent = target,
 				guiService = gui,
@@ -183,6 +184,7 @@ local function journeyFixture(theme: any, input: string): (any, any, any, () -> 
 		runtime,
 		{
 			types = engine.types,
+			environment = ctx.environment,
 			viewport = ctx.viewport,
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = service },
@@ -659,7 +661,8 @@ t.describe("native parity weaker navigation", function()
 		local scale = find(root, "ViewingDistance", "UIScale")
 		for _, distance in { "ten-foot", "near", "automatic" } do
 			ctx.viewingDistance:set(distance)
-			t.expect(scale.Scale).toBe(if distance == "ten-foot" then 1.5 else 1)
+			t.expect(scale.Scale).toBe(1)
+			t.expect(ctx.metricScale:peek():peek()).toBe(if distance == "ten-foot" then 1.5 else 1)
 			for _, input in { "Gamepad", "Touch", "KeyboardAndMouse" } do
 				ctx.inputService.PreferredInput = (Enum.PreferredInput :: any)[input]
 				t.expect(tabView(root, "Categories")).toBe(categories)

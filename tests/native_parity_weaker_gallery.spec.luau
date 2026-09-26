@@ -146,6 +146,7 @@ local function galleryWorld(options: any?): any
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
 				reducedMotion = ctx.reducedMotion,
+				environment = ctx.environment,
 			} :: any
 		)
 		sheet = Facet.themes.createStyleSheet(runtime, ctx.theme, { types = engine.types, theme = ctx.themeMode })
@@ -972,7 +973,7 @@ t.describe("native parity weaker gallery", function()
 		t.expect(showroom.LayoutOrder < race.LayoutOrder).toBe(true)
 		local scale = find(find(g.root, "Gallery"), "ViewingDistance", "UIScale")
 		g.ctx.viewingDistance:set("ten-foot")
-		t.expect(scale.Scale).toBe(1.5)
+		t.expect(scale.Scale).toBe(1)
 		t.expect(find(g.root, "Showroom")).toBe(showroom)
 		t.expect(find(g.root, "RaceSetup")).toBe(race)
 		t.expect(layout.FillDirection).toBe(g.types.Enum.FillDirection.Vertical)

@@ -77,18 +77,19 @@ local owner = Compose.createRootOwner(function()
 		end,
 	}
 	gallery.configure(context)
-	local sheet = Facet.themes.createStyleSheet(runtime, theme, {
-		theme = selectedTheme,
-		reducedMotion = context.reducedMotion,
-		hover = context.hoverPreview,
-	})
-	context.sheet = sheet
 	context.UI = Facet.controls(runtime, {
 		viewport = viewport,
 		theme = theme,
 		reducedMotion = context.reducedMotion,
 		environment = context.environment,
 	})
+	local sheet = Facet.themes.createStyleSheet(runtime, theme, {
+		theme = selectedTheme,
+		reducedMotion = context.reducedMotion,
+		hover = context.hoverPreview,
+		tenFoot = context.UI.environment().isTenFoot,
+	})
+	context.sheet = sheet
 	local stop, gui = runtime.mount(function()
 		return Host.ScreenGui "FacetGallery" {
 			ResetOnSpawn = false,

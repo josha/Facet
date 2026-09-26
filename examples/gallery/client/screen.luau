@@ -37,13 +37,14 @@ function screen.configure(ctx)
 			inset = gui:GetGuiInset().Y
 		end)
 	end
+	ctx.metricScale = Compose.cell(nil)
 	ctx.previewScale = Compose.formula(function(use)
 		local device = use(ctx.device)
 		if device and display then
 			local size = use(display)
 			return math.min(1, size.width / device.width, (size.height - inset) / device.height)
 		end
-		return if use(ctx.viewingDistance) == "ten-foot" then 1.5 else 1
+		return 1
 	end)
 	if display then
 		ctx.previewViewport = Compose.formula(function(use)
@@ -52,7 +53,8 @@ function screen.configure(ctx)
 		end)
 		ctx.sceneViewport = Compose.formula(function(use)
 			local size = use(ctx.previewViewport)
-			local scale = if use(ctx.device) then 1 else use(ctx.previewScale)
+			local metric = use(ctx.metricScale)
+			local scale = (if use(ctx.device) then 1 else use(ctx.previewScale)) * (if metric then use(metric) else 1)
 			return { width = size.width / scale, height = size.height / scale }
 		end)
 	end
@@ -73,6 +75,7 @@ function screen.configure(ctx)
 		end
 	end
 	ctx.environment = {
+		viewingDistance = ctx.viewingDistance,
 		preferredInput = previewInput,
 		touchEnabled = forced("Touch"),
 		gamepadEnabled = forced("Gamepad"),
@@ -194,6 +197,7 @@ function screen.build(ctx: any)
 	end
 	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local selected = ctx.selection
+	ctx.metricScale:set(UI.environment().metricScale)
 	ctx.sceneVisible = Compose.cell(false)
 	local themeName = ctx.themeName or Compose.cell("Neutral")
 	ctx.themeName = themeName
@@ -435,7 +439,7 @@ function screen.build(ctx: any)
 					}),
 					UI.Text({
 						LayoutOrder = 7,
-						text = "Distant TV previews larger controls at 150% scale. Automatic and Near use normal scale; Roblox text and accessibility preferences still apply.",
+						text = "Distant TV uses the ten-foot sizes: controls, type and spacing at 150%, with TV overscan margins. Automatic follows the device; Near keeps arm's-length sizes.",
 						textRole = "caption",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 0),
