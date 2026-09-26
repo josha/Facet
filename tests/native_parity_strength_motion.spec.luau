@@ -2052,6 +2052,25 @@ t.describe("performance lab motion flight", function()
 		end
 	)
 
+	t.it("the segmented selection fill never reaches past the strip, so it cannot widen it", function()
+		local w = world({ reducedMotion = true })
+		local _, screen = w.mount(function(UI)
+			return UI.Picker "Mode" {
+				style = "segmented",
+				selected = Compose.cell("b"),
+				options = { { value = "a", label = "A long option" }, { value = "b", label = "Rally" } },
+			}
+		end)
+		local V = w.engine.types.Vector2
+		find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(0, 0), V.new(300, 60)
+		find(screen, "a").AbsolutePosition, find(screen, "a").AbsoluteSize = V.new(0, 0), V.new(294, 54)
+		find(screen, "b").AbsolutePosition, find(screen, "b").AbsoluteSize = V.new(298, 0), V.new(294, 54)
+		w.step(0.1)
+		local fill = find(screen, "SelectionFill")
+		t.expect(fill.Position.X.Offset + fill.Size.X.Offset <= 300).toBe(true)
+		w.close()
+	end)
+
 	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
 		local w = world({ reducedMotion = true })
 		local selected = Compose.cell("b")
@@ -2066,7 +2085,7 @@ t.describe("performance lab motion flight", function()
 			}
 		end)
 		local V = w.engine.types.Vector2
-		find(screen, "Mode").AbsolutePosition = V.new(10, 20)
+		find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(10, 20), V.new(294, 112)
 		find(screen, "a").AbsolutePosition, find(screen, "a").AbsoluteSize = V.new(10, 20), V.new(294, 54)
 		find(screen, "b").AbsolutePosition, find(screen, "b").AbsoluteSize = V.new(10, 78), V.new(294, 54)
 		w.step(0.1)
@@ -2093,6 +2112,7 @@ t.describe("performance lab motion flight", function()
 						},
 					}
 				end)
+				find(screen, "Mode").AbsoluteSize = w.engine.types.Vector2.new(312, 44)
 				for index, name in { "a", "b", "c" } do
 					find(screen, name).AbsoluteSize = w.engine.types.Vector2.new(100, 44)
 					find(screen, name).AbsolutePosition = w.engine.types.Vector2.new((index - 1) * 104, 0)

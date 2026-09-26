@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A segmented Picker's selection fill stays inside the strip. Before, a fill on a segment the strip could not fit reached past the strip and, because the strip sizes to its content, widened it, which re-laid the segments in a loop until the engine stopped it ("Maximum event re-entrancy depth exceeded" on a long option in the lab).
 - A Popover, Callout or help plate draws its border as one continuous `Path2D` outline around the panel and the tail, so the edge stroke stops exactly at the tail and joins its sides in every theme. Before, the panel stroke ran under a covering seam and showed stubs beside the tail base.
 - A Dialog with `actions` has no close button by default, as an Alert never had one before 0.12: ButtonB and Escape run the `cancel` action. `closeButton = true` still adds it, and a Dialog without actions keeps it.
 - A segmented Picker places its sliding selection fill on the segment where the layout put it (its `AbsolutePosition` in layout units). Before, the fill summed the widths as one line, so a strip that wrapped (a long option) painted the fill past its end, and that stray fill fed the strip's automatic width back into the layout.

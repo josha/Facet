@@ -1519,13 +1519,18 @@ return function(
 			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
 		end, picker)
 		local origin = ctx.observe.AbsolutePosition(picker)
+		local bounds = ctx.observe.AbsoluteSize(picker)
 		local unit = ctx.observe.AbsoluteSize((slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject)
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
 			local scale = (use(unit) :: Vector2).X
 			scale = if scale > 0 then scale else 1
+			local room = (use(bounds) :: Vector2) / scale
 			for _, box in boxes do
 				if use(box.order) == order then
-					return (use(box.at) - use(origin) :: Vector2) / scale, use(box.size) / scale
+					local at = (use(box.at) - use(origin) :: Vector2) / scale
+					local size = use(box.size) / scale
+					at = V2.new(math.clamp(at.X, 0, room.X), math.clamp(at.Y, 0, room.Y))
+					return at, V2.new(math.min(size.X, room.X - at.X), math.min(size.Y, room.Y - at.Y))
 				end
 			end
 			return nil, nil
