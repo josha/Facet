@@ -47,6 +47,7 @@ return {
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local aboutOpen = Compose.cell(false)
+		local filterOpen, filterBy = Compose.cell(false), Compose.cell("all")
 		local lockedOpen = Compose.cell(false)
 		local allowClose = Compose.cell(false)
 		local sourceOpen = Compose.cell(false)
@@ -189,7 +190,29 @@ return {
 					UI.NavBar "Header" {
 						LayoutOrder = 5,
 						center = UI.TextInput "Search" { value = query, placeholder = COPY.search },
-						trailing = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
+						trailing = UI.Popover "Filters" {
+							isPresented = filterOpen,
+							onPresentedChange = function(nextValue: boolean)
+								filterOpen:set(nextValue)
+							end,
+							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
+							content = function()
+								return UI.Picker "FilterBy" {
+									style = "radioGroup",
+									selected = filterBy,
+									onChange = function(value: string)
+										filterBy:set(value)
+										note(`Last: filter {value}`)
+										filterOpen:set(false)
+									end,
+									options = {
+										{ value = "all", label = "All races" },
+										{ value = "friends", label = "Friends" },
+										{ value = "ranked", label = "Ranked" },
+									},
+								}
+							end,
+						},
 						surface = "panel",
 						padding = 8,
 					},
