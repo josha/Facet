@@ -1143,8 +1143,11 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		t.expect(stroke.Transparency).toBe(0)
 		t.expect(template:FindFirstChild("Glow").Enabled).toBe(false)
 		t.expect(template:FindFirstChild("Art").Visible).toBe(false)
+		t.expect(template.Size).toBe(w.engine.types.UDim2.new(1, 4, 1, 4))
 		distance:set("ten-foot")
 		t.expect(stroke.Thickness).toBe(4)
+		t.expect(template.Size).toBe(w.engine.types.UDim2.new(1, 14, 1, 14))
+		t.expect(template.Position).toBe(w.engine.types.UDim2.fromOffset(-7, -7))
 		stop()
 		t.expect(w ~= nil).toBe(true)
 	end)
@@ -1199,9 +1202,9 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		end
 		local corner = template:FindFirstChildWhichIsA("UICorner")
 		w.gui.SelectedObject = round
-		t.expect(corner.CornerRadius).toBe(D.new(0, 5))
+		t.expect(corner.CornerRadius).toBe(D.new(0, 7))
 		w.gui.SelectedObject = chip
-		t.expect(corner.CornerRadius).toBe(D.new(0, 999))
+		t.expect(corner.CornerRadius).toBe(D.new(0, 1001))
 		w.gui.SelectedObject = plain
 		t.expect(corner.CornerRadius.Scale).toBe(0)
 		stop()

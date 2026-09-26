@@ -177,8 +177,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			table.insert(brackets, bracket(at.name .. "Across", at.x, at.y, true))
 			table.insert(brackets, bracket(at.name .. "Down", at.x, at.y, false))
 		end
+		local function thickness(use: ComposeTypes.Use): number
+			return scaled(use, layer(use).thickness or 2, 2)
+		end
 		local lift = function(use: ComposeTypes.Use): number
-			return if far(use) then 3 else 0
+			return (if far(use) then 3 else 0) + (if layer(use).kind == "ring" then thickness(use) else 0)
 		end
 		local ring = Host.Frame({
 			Name = "FacetFocusRing",
@@ -221,9 +224,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				Enabled = function(use: ComposeTypes.Use): boolean
 					return layer(use).kind == "ring"
 				end,
-				Thickness = function(use: ComposeTypes.Use): number
-					return scaled(use, layer(use).thickness or 2, 2)
-				end,
+				Thickness = thickness,
 				Transparency = function(use: ComposeTypes.Use): number
 					return fade(use, 0.35)
 				end,

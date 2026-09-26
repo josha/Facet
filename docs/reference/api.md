@@ -3534,7 +3534,8 @@ everywhere. The colour is the recipe `color`, or `accent`.
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,
 and the whole look stands 3 pixels off the control, so it lifts clear of the
-control's own edge.
+control's own edge. A ring is drawn just outside the control at every distance,
+so it never covers a label that runs to the control's edge.
 
 A control whose value has its own part makes that part the selected object,
 so the engine draws the look there: the Slider thumb and each range handle,
