@@ -301,6 +301,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local root: Frame
 		local contentFrame: Frame
 		local activeInput: InputObject?
+		local reveal: () -> ()
+		local function began(input: InputObject): ()
+			if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
+				activeInput = input
+			end
+			if input.UserInputType == E.UserInputType.MouseButton2 then
+				reveal()
+			end
+		end
 		local start: Vector2? = nil
 		local startOffset = 0
 		local axis: ("horizontal" | "vertical")? = nil
@@ -511,6 +520,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					ZIndex = 4,
 					Visible = swipeable,
 					InputBegan = function(input: InputObject)
+						began(input)
 						pressed = input
 						local host = collectionRow()
 						local hit = if host then host:FindFirstChild("RowHit") else nil
@@ -575,7 +585,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		Compose.watch(function(use: ComposeTypes.Use)
 			dimensions:set(use(measured))
 		end)
-		local function reveal()
+		function reveal()
 			if read(spec.enabled) ~= false and committing:peek() == nil and #menuItems:peek() > 0 then
 				setOpen(nil)
 				if spec.coordinator then
@@ -585,14 +595,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 
-		runtime.connect(root, "InputBegan", function(input: InputObject)
-			if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
-				activeInput = input
-			end
-			if input.UserInputType == E.UserInputType.MouseButton2 then
-				reveal()
-			end
-		end)
+		runtime.connect(root, "InputBegan", began)
 		local inputService = ctx.config.userInputService
 		if inputService then
 			local function cancelInput(input: InputObject): ()

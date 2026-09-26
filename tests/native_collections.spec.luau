@@ -1317,7 +1317,9 @@ t.describe("Compose native collections", function()
 		t.expect(target:FindFirstChild("MenuPanel", true)).toBeNil()
 		t.expect(gui.SelectedObject).toBe(original)
 		t.expect(invoked).toBe(0)
-		node.InputBegan.fire({ UserInputType = engine.types.Enum.UserInputType.MouseButton2 })
+		node:FindFirstChild("SwipeGrip", true).InputBegan.fire({
+			UserInputType = engine.types.Enum.UserInputType.MouseButton2,
+		})
 		target:FindFirstChild("leading:Read", true).Activated.fire()
 		t.expect(invoked).toBe(1)
 		t.expect(target:FindFirstChild("MenuPanel", true)).toBeNil()
