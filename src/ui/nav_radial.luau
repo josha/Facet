@@ -1092,6 +1092,7 @@ return function(
 					local at = use(center)
 					return D2.fromOffset(at.X, at.Y + hub(use).closeY)
 				end
+				local hideLauncher: (() -> ())? = nil
 				local centerNode = UI.Button "Center" {
 					corners = "pill" :: "pill",
 					appearance = "utility",
@@ -1129,19 +1130,22 @@ return function(
 				}
 				if corner and launcher and launcher:IsA("GuiObject") then
 					local hidden = launcher :: GuiObject
-					hidden.Visible = false
-					-- back as the ring starts to leave, so the modal can hand the selection to it (an invisible
-					-- object refuses the selection); the centre still paints over it while it shrinks
-					if phase then
-						Compose.watch(function(use: ComposeTypes.Use)
-							if use(phase.exiting) then
-								hidden.Visible = true
-							end
+					-- hidden only once the modal has recorded the selection it hands back (the engine drops the
+					-- selection from an invisible object), and shown again as the ring starts to leave, so the
+					-- hand-back lands; the centre paints over it while it shrinks
+					hideLauncher = function()
+						hidden.Visible = false
+						if phase then
+							Compose.watch(function(use: ComposeTypes.Use)
+								if use(phase.exiting) then
+									hidden.Visible = true
+								end
+							end)
+						end
+						Compose.cleanup(function()
+							hidden.Visible = true
 						end)
 					end
-					Compose.cleanup(function()
-						hidden.Visible = true
-					end)
 					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 					if glyph then
 						runtime.decorate(glyph, {
@@ -1500,6 +1504,9 @@ return function(
 					}
 				)
 				surfaces.attach(modal, { centerHit, centerNode, preview })
+				if hideLauncher then
+					hideLauncher()
+				end
 				local catcher = modal:FindFirstChild("DismissOutside")
 				if catcher then
 					if scrim == "dark" then
