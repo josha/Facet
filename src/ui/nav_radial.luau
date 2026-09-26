@@ -9,16 +9,23 @@ local Navigation = require("./navigation_types")
 local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 
-local navigationHolds: { [Instance]: { count: number, saved: boolean } } = setmetatable({} :: any, { __mode = "k" })
+type NavigationHold = { count: number, saved: boolean, changed: boolean, watch: RBXScriptConnection? }
+local navigationHolds: { [Instance]: NavigationHold } = setmetatable({} :: any, { __mode = "k" })
 local function holdNavigation(gui: GuiService): () -> ()
 	local hold = navigationHolds[gui]
 	if hold == nil then
-		hold = { count = 0, saved = gui.GuiNavigationEnabled }
-		navigationHolds[gui] = hold
+		local created: NavigationHold = { count = 0, saved = gui.GuiNavigationEnabled, changed = false }
+		gui.GuiNavigationEnabled = false
+		created.watch = gui:GetPropertyChangedSignal("GuiNavigationEnabled"):Connect(function()
+			if gui.GuiNavigationEnabled then
+				created.changed = true
+			end
+		end)
+		navigationHolds[gui] = created
+		hold = created
 	end
-	local held = hold :: { count: number, saved: boolean }
+	local held = hold :: NavigationHold
 	held.count += 1
-	gui.GuiNavigationEnabled = false
 	local released = false
 	return function()
 		if released then
@@ -28,7 +35,10 @@ local function holdNavigation(gui: GuiService): () -> ()
 		held.count -= 1
 		if held.count == 0 then
 			navigationHolds[gui] = nil
-			if gui.GuiNavigationEnabled == false then
+			if held.watch then
+				held.watch:Disconnect()
+			end
+			if not held.changed and gui.GuiNavigationEnabled == false then
 				gui.GuiNavigationEnabled = held.saved
 			end
 		end

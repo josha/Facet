@@ -2133,8 +2133,11 @@ control. When a submenu replaces the level, the selection moves to the first
 item of the new level. While any ring is open, `GuiService.GuiNavigationEnabled`
 is false, because the engine's pad navigation otherwise takes the left stick
 from the ring; the ring binds its own D-pad, A and B. The value before the
-first ring opened comes back when the last one closes, unless the game changed
-it meanwhile. The ring blooms out of its centre: the items and wedges travel from a
+first ring opened comes back when the last one closes, unless the game turned
+it on at any point while a ring was open; then the game's current value stays.
+Setting it to false while it is already false is not a change the engine
+reports, so a game that wants it off after the rings close sets it after the
+last close. The ring blooms out of its centre: the items and wedges travel from a
 fifth of their distance to their places as they fade in. Reduced motion places
 them at once.
 

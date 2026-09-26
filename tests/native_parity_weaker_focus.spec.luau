@@ -1382,6 +1382,12 @@ t.describe("native parity weaker focus", function()
 			a:set(true)
 			a:set(false)
 			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			world.gui.GuiNavigationEnabled = true
+			a:set(true)
+			world.gui.GuiNavigationEnabled = true
+			world.gui.GuiNavigationEnabled = false
+			a:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
 			world.stop()
 		end
 	)
