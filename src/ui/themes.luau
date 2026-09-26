@@ -1193,6 +1193,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment::UICorner", { CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) })
 	rule(".facet-segmented-pill >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(1, 0) })
 	rule(".facet-segmented-square >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-segment-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	rule(
+		".facet-segment-fill::UICorner",
+		{ CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) }
+	)
+	rule(".facet-segmented-pill >> .facet-segment-fill::UICorner", { CornerRadius = types.UDim.new(1, 0) })
+	rule(".facet-segmented-square >> .facet-segment-fill::UICorner", { CornerRadius = types.UDim.new(0, 0) })
 	rule(".facet-segment >> .facet-button-caption", { TextColor3 = segmentInk })
 	rule(
 		".facet-segment:Hover",
@@ -1303,6 +1310,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-segment-current.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-segment-current > #SkinBoundary", if selectedArt then {} else { Visible = false })
+	rule(".facet-segment-fill", if selectedArt then { Visible = false } else {})
+	rule(".facet-segmented-slides > .facet-segment-current", if selectedArt then {} else { BackgroundTransparency = 1 })
 	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
 	local authoredSelection = false

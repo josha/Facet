@@ -1460,6 +1460,83 @@ return function(
 			return read(use(source).icon, use) or ""
 		end
 	end
+	local function slideSelection(
+		picker: Frame,
+		boxes: {
+			[GuiObject]: {
+				order: ComposeTypes.Readable<number>,
+				at: ComposeTypes.Readable<Vector2>,
+				size: ComposeTypes.Readable<Vector2>,
+			},
+		},
+		currentOrder: ComposeTypes.Cell<number>,
+		indicator: Types.Value<string>?
+	): ()
+		local reduced = reducedMotion(ctx)
+		local sliding = runtime.spring(function(use: ComposeTypes.Use)
+			return use(currentOrder)
+		end, { period = 0.25, damping = 1, reducedMotion = reduced })
+		local _, slot = runtime.mount(function()
+			return Host.Folder "Slide" {
+				Host.Frame "Origin" { BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) },
+			}
+		end, picker)
+		local origin = ctx.observe.AbsolutePosition((slot :: Instance):FindFirstChild("Origin") :: GuiObject)
+		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
+			for _, box in boxes do
+				if use(box.order) == order then
+					return use(box.at), use(box.size)
+				end
+			end
+			return nil, nil
+		end
+		local rect = Compose.formula(function(use: ComposeTypes.Use): { Vector2 }?
+			local at = use(sliding)
+			local low = math.floor(at)
+			local fromAt, fromSize = rectAt(use, low)
+			local toAt, toSize = rectAt(use, low + 1)
+			local t = at - low
+			if fromAt == nil or fromSize == nil or (t > 0 and (toAt == nil or toSize == nil)) then
+				fromAt, fromSize = rectAt(use, use(currentOrder))
+				t = 0
+			end
+			if fromAt == nil or fromSize == nil then
+				return nil
+			end
+			local place = if t > 0 then fromAt:Lerp(toAt :: Vector2, t) else fromAt
+			local size = if t > 0 then fromSize:Lerp(toSize :: Vector2, t) else fromSize
+			return { place - use(origin), size }
+		end)
+		local function shown(use: ComposeTypes.Use): boolean
+			return read(indicator, use) ~= "underline" and use(currentOrder) > 0 and use(rect) ~= nil
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if shown(use) then
+				picker:AddTag("facet-segmented-slides")
+			elseif picker:HasTag("facet-segmented-slides") then
+				picker:RemoveTag("facet-segmented-slides")
+			end
+		end)
+		runtime.mount(function()
+			return ctx.styled(
+				Host.Frame "SelectionFill" {
+					ZIndex = 0,
+					Active = false,
+					Visible = shown,
+					Position = function(use: ComposeTypes.Use): UDim2
+						local box = use(rect)
+						return if box then D2.fromOffset(box[1].X, box[1].Y) else D2.new()
+					end,
+					Size = function(use: ComposeTypes.Use): UDim2
+						local box = use(rect)
+						return if box then D2.fromOffset(box[2].X, box[2].Y) else D2.new()
+					end,
+					Host.UICorner({}),
+				},
+				"segment-fill"
+			)
+		end, slot :: Instance)
+	end
 	local function appearanceFor(style: Nav.PickerStyle, word: unknown): string?
 		if word == nil then
 			return nil
@@ -2296,6 +2373,15 @@ return function(
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
 		local room = Compose.cell(math.huge)
+		local segmentBoxes: {
+			[GuiObject]: {
+				order: ComposeTypes.Readable<number>,
+				at: ComposeTypes.Readable<Vector2>,
+				size: ComposeTypes.Readable<Vector2>,
+			},
+		} =
+			{}
+		local currentOrder = Compose.cell(0)
 		local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
 			local extent = ctx.observe.AbsoluteSize(node)
 			local _, units = runtime.mount(function()
@@ -2642,8 +2728,11 @@ return function(
 							captionHeights[button] = button.TextBounds.Y
 							measureCaptions()
 						end)
+						segmentBoxes[button] =
+							{ order = index, at = ctx.observe.AbsolutePosition(button), size = extent }
 						Compose.cleanup(function()
 							captionHeights[button] = nil
+							segmentBoxes[button] = nil
 							measureCaptions()
 						end)
 					end
@@ -2661,6 +2750,14 @@ return function(
 							button:AddTag(family .. "-current")
 						elseif button:HasTag(family .. "-current") then
 							button:RemoveTag(family .. "-current")
+						end
+						local order = use(index)
+						if style ~= "segmented" then
+							return
+						elseif current then
+							currentOrder:set(order)
+						elseif currentOrder:peek() == order then
+							currentOrder:set(0)
 						end
 					end)
 					local section = source:peek().sectionTitle
@@ -2747,6 +2844,9 @@ return function(
 		local picker = Host.Frame(p)
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
+			if spec.multiple ~= true then
+				slideSelection(picker, segmentBoxes, currentOrder, spec.indicator)
+			end
 			if not labelled then
 				local width = layoutWidth(picker)
 				Compose.watch(function(use: ComposeTypes.Use)
