@@ -2759,9 +2759,11 @@ icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
 
 With `onActivate`, the selection ring of the body surrounds the whole card: the
 artwork, the text and the action row. `ringTarget = "media"` rings only the
-artwork. When the body gains the selection, it takes a copy of the PlayerGui's
-focus look (see [focusRing](#focusring)) sized to that area, so a card draws
-the theme's focus look. A selected action keeps the look on itself.
+artwork. The body keeps the PlayerGui's live focus look (see
+[focusRing](#focusring)) and sets its `FacetFocusHeight` attribute, the height
+of that area as a multiple of the body's, which the look reads. So a card's look
+pulses, hides after mouse input and follows a theme change like every other
+control's. A selected action keeps the look on itself.
 
 Use a Card for a game, a track or a kart, where the picture helps the player
 choose. For rows of text, use VirtualList or Table.
@@ -3534,7 +3536,10 @@ The look takes the shape of the selected control: the control's own
 `UICorner` (a `corners = "pill"` Button, a Slider thumb), a pill for a Chip, a
 circle for a circle Button, and otherwise the theme's `radii.control`. A
 recipe with `corner = "square"` or `corner = "pill"` keeps that shape
-everywhere. The colour is the recipe `color`, or `accent`.
+everywhere. The colour is the recipe `color`, or `accent`. A selected object
+with a number attribute `FacetFocusHeight` gets a look that many times its own
+height, measured down from its top edge (a Card uses this to ring the whole
+card from its body).
 
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,

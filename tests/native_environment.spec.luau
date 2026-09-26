@@ -1212,8 +1212,12 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		w.gui.SelectedObject = chip
 		own.CornerRadius = D.new(0, 3)
 		t.expect(corner.CornerRadius).toBe(D.new(0, 1001))
+		t.expect(template.Size.Y.Scale).toBe(1)
+		chip:SetAttribute("FacetFocusHeight", 1.5)
+		t.expect(template.Size.Y.Scale).toBe(1.5)
 		t.expect(corner.CornerRadius).toBe(D.new(0, 1001))
 		w.gui.SelectedObject = plain
+		t.expect(template.Size.Y.Scale).toBe(1)
 		t.expect(corner.CornerRadius.Scale).toBe(0)
 		stop()
 		local square = define({ kind = "ring", corner = "square", thickness = 3 })

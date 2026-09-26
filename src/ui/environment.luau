@@ -126,6 +126,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			untrack()
 			if observation and target and target:IsA("GuiObject") then
 				table.insert(tracking, observation.observeProperty(target, "AbsoluteSize", bump))
+				local reach = target:GetAttributeChangedSignal("FacetFocusHeight"):Connect(bump)
+				table.insert(tracking, function()
+					reach:Disconnect()
+				end)
 				local own = target:FindFirstChildWhichIsA("UICorner")
 				if own then
 					table.insert(tracking, observation.observeProperty(own, "CornerRadius", bump))
@@ -188,7 +192,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			ScaleType = E.ScaleType.Slice,
 			Size = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)
-				return D2.new(1, 2 * grow, 1, 2 * grow)
+				use(reshaped)
+				local target = use(selected) :: Instance?
+				local height = if target then target:GetAttribute("FacetFocusHeight") else nil
+				return D2.new(1, 2 * grow, if type(height) == "number" then height else 1, 2 * grow)
 			end,
 			Position = function(use: ComposeTypes.Use): UDim2
 				local grow = lift(use)

@@ -525,35 +525,8 @@ return function(
 				local bodyHeight = use(bodyExtent).Y
 				return if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1
 			end)
-			local copy: GuiObject? = nil
-			local function fit(look: GuiObject)
-				local size = look.Size
-				look.Size = D2.new(size.X.Scale, size.X.Offset, ratio:peek(), size.Y.Offset)
-			end
-			runtime.connect(body, "SelectionGained", function()
-				local playerGui = body:FindFirstAncestorWhichIsA("PlayerGui")
-				local look = if playerGui then playerGui.SelectionImageObject else nil
-				if look == nil then
-					return
-				end
-				if copy then
-					copy:Destroy()
-				end
-				local made = look:Clone()
-				fit(made)
-				copy = made
-				body.SelectionImageObject = made
-			end)
 			Compose.watch(function(use: ComposeTypes.Use)
-				use(ratio)
-				if copy then
-					fit(copy)
-				end
-			end)
-			Compose.cleanup(function()
-				if copy then
-					copy:Destroy()
-				end
+				body:SetAttribute("FacetFocusHeight", use(ratio))
 			end)
 		end
 		if (spec :: { [unknown]: unknown }).Position == nil then

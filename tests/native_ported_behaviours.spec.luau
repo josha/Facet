@@ -220,7 +220,7 @@ t.describe("Alert suppression", function()
 end)
 
 t.describe("Card ring", function()
-	t.it("a selected card draws the theme's focus look around the whole card, or the artwork", function()
+	t.it("a selected card keeps the live shared focus look and asks it to reach the whole card, or the artwork", function()
 		for _, target in { "card", "media" } do
 			local w = world(function(UI)
 				return UI.Card "C" {
@@ -233,12 +233,6 @@ t.describe("Card ring", function()
 				}
 			end)
 			w.step(5)
-			local playerGui = w.engine.new("PlayerGui")
-			local look = w.engine.new("ImageLabel")
-			look.Name = "ThemeLook"
-			look.Size = UDim2.new(1, 12, 1, 12)
-			playerGui.SelectionImageObject = look
-			w.screen.Parent = playerGui
 			local body = find(w.screen, "Body")
 			expect(find(w.screen, "CardRingPaint")).toBe(nil)
 			find(w.screen, "C").AbsoluteSize = Vector2.new(160, 200)
@@ -246,14 +240,9 @@ t.describe("Card ring", function()
 			find(w.screen, "Artwork").AbsoluteSize = Vector2.new(160, 90)
 			w.step()
 			body.SelectionGained.fire()
-			local ring = body.SelectionImageObject
-			expect(ring ~= nil and ring.Name == "ThemeLook" and ring ~= look).toBe(true)
-			expect(ring.Size.X.Scale == 1 and ring.Size.X.Offset == 12 and ring.Size.Y.Offset == 12).toBe(true)
-			if target == "card" then
-				expect(math.abs(ring.Size.Y.Scale - 200 / 150) < 1e-5).toBe(true)
-			else
-				expect(math.abs(ring.Size.Y.Scale - 90 / 150) < 1e-5).toBe(true)
-			end
+			expect(body.SelectionImageObject).toBe(nil)
+			local height = body:GetAttribute("FacetFocusHeight")
+			expect(math.abs(height - (if target == "card" then 200 else 90) / 150) < 1e-5).toBe(true)
 			w.stop()
 		end
 		expect(function()
