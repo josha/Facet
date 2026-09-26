@@ -1998,17 +1998,22 @@ Where Back and Close sit depends on the preset, `center` and the room:
   sits in the centre.
 - A corner preset never puts it on the arc or uses `center`: the control on
   the corner, over the launcher, is Close at the root and Back in a submenu.
+  It grows out of the launcher: it opens at the launcher's size with the
+  launcher's glyph, and shrinks to its own size as that glyph crossfades to
+  Close or Back. As the ring closes it grows back into the launcher the same
+  way.
 - The list fallback has one round Back/Close control at the top right, above
   the list, for every preset and `center`.
 
-The centre control is a small round `utility` button, one touch target
-(`targetSizes.minimum`) across, with no theme control art. It shows a close,
-back or first-page icon and keeps the word as its accessible name; on a full
-ring a `centerLabel` shows that text instead. Cancel (the B button) and the
+The centre control is a small round `utility` button, 32 pixels across, with
+no plate and no theme control art. A transparent `CenterHit` target around it
+is one touch target (`targetSizes.minimum`) across and does the same thing. It
+shows a close, back or up-chevron (Home) icon. The word is its accessible name,
+and a `centerLabel` replaces that name; it is never shown as text. Cancel (the B button) and the
 Back/Close control do the same thing. The name of the highlighted item sits in
 the hole under the centre control, on one caption line, truncated to the
 hole's width. Without a centre control the name is centred in the hole. In
-the list fallback the name sits under the list.
+the list fallback the name sits at the bottom left, under the list.
 
 A corner ring names the highlighted item just outside the arc, on the arc's
 middle direction.
@@ -2016,7 +2021,8 @@ middle direction.
 Nothing is highlighted when the ring opens, until the player points at an
 item, presses a direction or moves the stick. With a gamepad as the preferred
 input, the first item is selected, because the console needs a focused
-control. The ring blooms out of its centre: the items and wedges travel from a
+control. When a submenu replaces the level, the selection moves to the first
+item of the new level. The ring blooms out of its centre: the items and wedges travel from a
 fifth of their distance to their places as they fade in. Reduced motion places
 them at once.
 
