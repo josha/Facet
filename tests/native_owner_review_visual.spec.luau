@@ -188,6 +188,26 @@ t.describe("owner review 2026-09-26b: visual", function()
 		world.stop()
 	end)
 
+	t.it("keeps a PageView dot a plain dot on a skinned theme, not a control plate", function()
+		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
+		local world = worlds.new(function(UI, Host)
+			return UI.PageView({
+				selection = Facet.Compose.cell("one"),
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) },
+					{ id = "two", title = "Two", content = Host.Frame({}) },
+				},
+			})
+		end, { reducedMotion = true, theme = parchment })
+		local dots = world.find("Indicators")
+		for _, dot in dots:GetChildren() do
+			if dot:IsA("GuiButton") then
+				t.expect(`{dot.Name} {dot:HasTag("facet-skinned")}`).toBe(`{dot.Name} false`)
+			end
+		end
+		world.stop()
+	end)
+
 	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)

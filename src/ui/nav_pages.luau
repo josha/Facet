@@ -1836,6 +1836,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					LayoutOrder = index,
 					Size = D2.fromOffset(28, 44),
 					AutomaticSize = E.AutomaticSize.None,
+					BackgroundTransparency = 1,
 					selected = function(use: ComposeTypes.Use): boolean
 						return use(spec.selection) == id
 					end,
