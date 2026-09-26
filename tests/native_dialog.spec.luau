@@ -108,6 +108,23 @@ t.describe("native Dialog: the caller's fact decides", function()
 		w.stop()
 	end)
 
+	t.it("keeps the claimed selection when the entry fade hands the panel's children back", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change))
+		local stay = actionButton(w, "Stay")
+		t.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))).toBe(true)
+		t.expect(w.gui.SelectedObject).toBe(stay)
+		stay.AncestryChanged:Connect(function()
+			if w.gui.SelectedObject == stay then
+				w.gui.SelectedObject = nil
+			end
+		end)
+		w.advance(1, 60)
+		t.expect(w.find("Fade")).toBe(nil)
+		t.expect(w.gui.SelectedObject).toBe(stay)
+		w.stop()
+	end)
+
 	t.it("a dialog with actions has no close control unless it asks; one without actions keeps it", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change, { closeButton = true }))

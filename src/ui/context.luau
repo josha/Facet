@@ -748,17 +748,35 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 							return if use(warming) then 0.99 else amount(use)
 						end,
 					}
-					for _, child: Instance in node:GetChildren() do
-						if child:IsA("GuiBase2d") or child:IsA("Folder") or child:IsA("UIGridStyleLayout") then
-							(child :: Instance).Parent = group
+					local gui = config.guiService
+					local function keepSelection(move: () -> ())
+						local held = if gui then gui.SelectedObject else nil
+						move()
+						if gui and held and gui.SelectedObject ~= held and held:IsDescendantOf(node) then
+							gui.SelectedObject = held
 						end
 					end
-					Compose.cleanup(function()
-						for _, child in group:GetChildren() do
-							child.Parent = node
+					group.Parent = node
+					keepSelection(function()
+						for _, child: Instance in node:GetChildren() do
+							if
+								child ~= group
+								and (child:IsA("GuiBase2d") or child:IsA("Folder") or child:IsA("UIGridStyleLayout"))
+							then
+								(child :: Instance).Parent = group
+							end
 						end
 					end)
-					return group
+					Compose.cleanup(function()
+						keepSelection(function()
+							for _, child in group:GetChildren() do
+								child.Parent = node
+							end
+						end)
+					end)
+					return Compose.fragment(function()
+						return {}
+					end)
 				end),
 			}
 		end, node)
