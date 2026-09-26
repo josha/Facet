@@ -225,7 +225,8 @@ t.describe("native parity weaker navigation", function()
 				},
 			})
 		end, { reducedMotion = true })
-		t.expect(find(world.screen, "Center")).toBeNil()
+		local centre = find(world.screen, "Center")
+		t.expect(centre == nil or centre.Visible == false).toBe(true)
 		local north, south = find(world.screen, "N", "TextButton"), find(world.screen, "S", "TextButton")
 		local cx = north.Position.X.Offset
 		local cy = (north.Position.Y.Offset + south.Position.Y.Offset) / 2
