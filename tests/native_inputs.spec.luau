@@ -1489,6 +1489,60 @@ t.describe("native input controls", function()
 		stop()
 	end)
 
+	t.it("maps the named feedback kinds onto pooled engine haptic effects", function()
+		local kind = Compose.cell("error")
+		local UIref
+		local node, stop, engine = world(function(UI, _, runtime)
+			UIref = UI
+			return runtime.constructors.Frame({
+				UI.Button "Saved" { label = "Save", haptic = "success" },
+				UI.Button "Again" { label = "Save", haptic = "success" },
+				UI.Button "Careful" { label = "Sell", haptic = "warning" },
+				UI.Button "Live" { label = "Try", haptic = kind },
+				UI.Button "Plain" { label = "Go", haptic = true },
+				UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
+			})
+		end, function()
+			return { pressHaptic = "selection" }
+		end)
+		local E = engine.types.Enum
+		local saved = find(node, "Saved").PressHapticEffect
+		t.expect(saved.ClassName).toBe("HapticEffect")
+		t.expect(saved.Type).toBe(E.HapticEffectType.UINotification)
+		t.expect(find(node, "Again").PressHapticEffect).toBe(saved)
+		local warning = find(node, "Careful").PressHapticEffect
+		t.expect(warning.Type).toBe(E.HapticEffectType.Custom)
+		t.expect(#warning.WaveformKeys >= 4).toBe(true)
+		for _, key in warning.WaveformKeys do
+			t.expect(key.Value == 0 or key.Value >= 0.3).toBe(true)
+		end
+		local live = find(node, "Live")
+		t.expect(live.PressHapticEffect.Type).toBe(E.HapticEffectType.Custom)
+		t.expect(live.PressHapticEffect == warning).toBe(false)
+		kind:set("impact")
+		t.expect(live.PressHapticEffect.Type).toBe(E.HapticEffectType.GameplayCollision)
+		kind:set(false)
+		t.expect(live.PressHapticEffect).toBe(nil)
+		t.expect(find(node, "Plain").PressHapticEffect.Type).toBe(E.HapticEffectType.UIClick)
+		t.expect(find(node, "Sound").PressHapticEffect).toBe(find(node, "Plain").PressHapticEffect)
+		UIref.feedback("success")
+		t.expect(saved.PlayCount).toBe(1)
+		t.expect(function()
+			UIref.feedback("boom")
+		end).toThrow()
+		t.expect(function()
+			world(function(UI)
+				return UI.Button { label = "Bad", haptic = "boom" }
+			end)
+		end).toThrow()
+		stop()
+		node, stop = world(function(UI)
+			return UI.Button "Bare" { label = "Go", haptic = true }
+		end)
+		t.expect(node.PressHapticEffect).toBe(nil)
+		stop()
+	end)
+
 	t.it("plays the press haptic once for each slider detent and never for a continuous slider", function()
 		local stepped, continuous, plays = Compose.cell(25), Compose.cell(0.5), 0
 		local effect = {
@@ -2020,7 +2074,7 @@ t.describe("native input controls", function()
 			return count
 		end
 		t.expect(activeContextCount()).toBe(0)
-		gui.SelectedObject = find(node, "Track")
+		gui.SelectedObject = find(node, "ThumbStop")
 		t.expect(activeContextCount()).toBe(5)
 		local sliderAction = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
 		sliderAction.Pressed.fire()
@@ -2062,6 +2116,101 @@ t.describe("native input controls", function()
 		t.expect(stepperValue:peek()).toBe(5)
 		initialStop()
 		t.expect(initialAction.isDestroyed()).toBe(true)
+	end)
+
+	t.it("repeats a held Stepper button and a repeating Button only while held", function()
+		local value = Compose.cell(0)
+		local node, stop, engine = world(function(UI)
+			return UI.Stepper({ value = value, max = 100 })
+		end)
+		local held = {
+			UserInputType = engine.types.Enum.UserInputType.Touch,
+			KeyCode = engine.types.Enum.KeyCode.Unknown,
+		}
+		local increase = find(node, "Increase")
+		t.expect(engine.heartbeat.count()).toBe(0)
+		increase.InputBegan.fire(held)
+		t.expect(engine.heartbeat.count()).toBe(1)
+		engine.heartbeat.fire(0.4)
+		engine.heartbeat.fire(0.1)
+		t.expect(value:peek()).toBe(2)
+		increase.InputEnded.fire(held)
+		t.expect(engine.heartbeat.count()).toBe(0)
+		stop()
+	end)
+
+	t.it("lets a game control opt into keyboard and gamepad adjustment with UI.adjustable", function()
+		local steps, calls = {}, 0
+		local gui
+		local node, stop, engine = world(function(UI, engine, runtime)
+			local dial = runtime.constructors.TextButton({ Name = "Dial", Selectable = true })
+			UI.adjustable(dial, {
+				onAdjust = function(direction)
+					calls += 1
+					table.insert(steps, direction)
+				end,
+				axis = "vertical",
+				repeats = true,
+			})
+			local knob = runtime.constructors.TextButton({ Name = "Knob", Selectable = true })
+			UI.adjustable(knob, {
+				onAdjust = function(direction)
+					table.insert(steps, direction * 10)
+				end,
+				axis = "none",
+			})
+			return runtime.constructors.Frame({ dial, knob })
+		end, function(engine)
+			gui = engine.new("GuiService")
+			return { services = { GuiService = gui }, guiService = gui }
+		end)
+		local dial, knob, screen = find(node, "Dial"), find(node, "Knob"), node.Parent
+		t.expect(enabledAction(screen, "IncreaseArrow")).toBe(nil)
+		gui.SelectedObject = dial
+		local up = enabledAction(screen, "IncreaseArrow")
+		t.expect(up ~= nil).toBe(true)
+		t.expect(up:FindFirstChildWhichIsA("InputBinding").KeyCode).toBe(engine.types.Enum.KeyCode.Up)
+		up.Pressed.fire()
+		t.expect(steps[1]).toBe(1)
+		engine.heartbeat.fire(0.4)
+		t.expect(steps[2]).toBe(1)
+		up.Released.fire()
+		t.expect(engine.heartbeat.count()).toBe(0)
+		enabledAction(screen, "Decrease").Pressed.fire()
+		t.expect(steps[3]).toBe(-1)
+		gui.SelectedObject = knob
+		t.expect(enabledAction(screen, "IncreaseArrow")).toBe(nil)
+		local shoulder = enabledAction(screen, "Increase")
+		shoulder.Pressed.fire()
+		t.expect(steps[4]).toBe(10)
+		engine.heartbeat.fire(1)
+		t.expect(#steps).toBe(4)
+		t.expect(engine.heartbeat.count()).toBe(0)
+		stop()
+		t.expect(calls).toBe(3)
+	end)
+
+	t.it("makes the Slider thumb the selection stop so the engine ring lands on it", function()
+		local value = Compose.cell(0.5)
+		local gui
+		local node, stop = world(function(UI, _, runtime)
+			return runtime.constructors.Frame({
+				UI.Slider "Volume" { value = value, step = 0.1 },
+				UI.Slider "Hidden" { value = Compose.cell(0.5), thumb = "auto" },
+			})
+		end, function(engine)
+			gui = engine.new("GuiService")
+			return { services = { GuiService = gui }, guiService = gui }
+		end)
+		local volume = find(node, "Volume")
+		local thumb, track = find(volume, "ThumbStop"), find(volume, "Track")
+		t.expect(thumb.Selectable).toBe(true)
+		t.expect(track.Selectable).toBe(false)
+		t.expect(find(find(node, "Hidden"), "Track").Selectable).toBe(true)
+		gui.SelectedObject = thumb
+		enabledAction(node.Parent, "IncreaseArrow").Pressed.fire()
+		t.expect(math.abs(value:peek() - 0.6) < 1e-9).toBe(true)
+		stop()
 	end)
 
 	t.it("repeats focused value adjustments with bounded catch-up and no idle frame subscription", function()

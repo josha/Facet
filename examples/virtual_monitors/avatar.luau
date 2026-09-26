@@ -136,6 +136,26 @@ return function(ctx)
 			...,
 		})
 	end
+	local function turnButtons()
+		local row = UI.HStack "TurnButtons" {
+			width = "fill",
+			gap = "s",
+			button("TurnLeft", "Turn left", function()
+				model.turn(-1)
+			end, {
+				Size = D2.new(0.5, -4, 0, 44),
+				AutomaticSize = E.AutomaticSize.None,
+			}),
+			button("TurnRight", "Turn right", function()
+				model.turn(1)
+			end, {
+				Size = D2.new(0.5, -4, 0, 44),
+				AutomaticSize = E.AutomaticSize.None,
+			}),
+		}
+		UI.adjustable(row, { onAdjust = model.turn, axis = "none", repeats = true })
+		return row
+	end
 	local preview = UI.ZStack "PreviewPanel" {
 		Size = function(use)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
@@ -352,22 +372,7 @@ return function(ctx)
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
 							},
-							UI.HStack "TurnButtons" {
-								width = "fill",
-								gap = "s",
-								button("TurnLeft", "Turn left", function()
-									model.turn(-1)
-								end, {
-									Size = D2.new(0.5, -4, 0, 44),
-									AutomaticSize = E.AutomaticSize.None,
-								}),
-								button("TurnRight", "Turn right", function()
-									model.turn(1)
-								end, {
-									Size = D2.new(0.5, -4, 0, 44),
-									AutomaticSize = E.AutomaticSize.None,
-								}),
-							},
+							turnButtons(),
 							words("SpinLabel", "Auto-spin", "label"),
 							UI.HStack "AutoSpinRow" {
 								width = "fill",
@@ -414,7 +419,15 @@ return function(ctx)
 				message = "The accent, hat, hat colour and rotation return to their defaults.",
 				actions = {
 					{ id = "cancel", label = "Cancel", role = "cancel" },
-					{ id = "reset", label = "Reset", role = "destructive", onActivate = model.resetAvatar },
+					{
+						id = "reset",
+						label = "Reset",
+						role = "destructive",
+						onActivate = function()
+							model.resetAvatar()
+							UI.feedback("success")
+						end,
+					},
 				},
 			},
 			Compose.keyed({

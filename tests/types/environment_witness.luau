@@ -21,6 +21,16 @@ local function Screen(): Frame
 		end,
 	}
 	UI.dropTarget(list, drop)
+	local dial: Facet.AdjustableOptions = {
+		onAdjust = function(direction: number)
+			print(direction)
+		end,
+		axis = "vertical",
+		repeats = true,
+	}
+	UI.adjustable(list, dial)
+	local kind: Facet.HapticKind = "success"
+	UI.feedback(kind)
 	return UI.Screen({
 		ring :: any,
 		UI.Text({

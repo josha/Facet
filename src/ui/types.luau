@@ -130,6 +130,7 @@ export type Services = {
 	Workspace: Workspace?,
 	TweenService: TweenService?,
 }
+export type HapticKind = "selection" | "impact" | "success" | "warning" | "error"
 export type Config = {
 	types: RobloxTypes?,
 	services: Services?,
@@ -141,7 +142,7 @@ export type Config = {
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
 	reducedMotion: Engine.ValueBoolean?,
-	pressHaptic: HapticEffect?,
+	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
 	keyboardNavigation: boolean?,
@@ -196,6 +197,7 @@ export type Context = {
 	metrics: { textSize: number, controlHeight: number, gap: number, cornerRadius: number },
 	read: Read,
 	readSource: <T>(Readable<T>, Use?) -> T,
+	haptic: (kind: unknown) -> HapticEffect?,
 	metric: (string, Use?) -> number,
 	neutralMetrics: (Use?) -> Theme.Metrics,
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,

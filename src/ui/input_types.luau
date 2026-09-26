@@ -46,7 +46,7 @@ export type ButtonVisualOptions = EnabledOptions & {
 	underline: ("always" | "hover")?,
 }
 export type ButtonInputOptions = {
-	haptic: Shared.ValueBoolean?,
+	haptic: Value<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: Shortcut?,
@@ -273,6 +273,13 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
 	labelPosition: ("start" | "end")?,
 }
 export type ShortcutHintProps = ShortcutHintImplementationProps & ShortcutHintSource
+export type HapticKind = Shared.HapticKind
+export type AdjustableOptions = EnabledOptions & {
+	onAdjust: (direction: number) -> (),
+	axis: ("horizontal" | "vertical" | "none")?,
+	repeats: boolean?,
+	canAdjust: ((direction: number, use: ComposeTypes.Use?) -> boolean)?,
+}
 export type InputControls = {
 	Button: Constructor<ButtonProps, TextButton>,
 	Toggle: Constructor<ToggleProps, TextButton>,

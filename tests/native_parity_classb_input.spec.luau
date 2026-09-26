@@ -178,11 +178,11 @@ t.describe("native parity classb input", function()
 			t.expect(`{node.Name} interactable {node.Interactable}`).toBe(`{node.Name} interactable false`)
 		end
 		local track = find(find(world.screen, "Volume"), "Track")
-		world.gui.SelectedObject = track
+		world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
 		t.expect(world.gui.SelectedObject).toBeNil()
 		t.expect(winner(world.screen, "Period")).toBeNil()
 		enabled:set(true)
-		world.gui.SelectedObject = track
+		world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
 		for _, node in carriers() do
 			t.expect(`{node.Name} interactable {node.Interactable}`).toBe(`{node.Name} interactable true`)
 		end
@@ -207,7 +207,7 @@ t.describe("native parity classb input", function()
 			end)
 			local track = find(world.screen, "Track")
 			world.held[key] = true
-			world.gui.SelectedObject = track
+			world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
 			local arrow = winner(world.screen, key)
 			t.expect(arrow.Name).toBe("IncreaseArrow")
 			arrow.Pressed.fire()

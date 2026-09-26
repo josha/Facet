@@ -255,6 +255,51 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		})
 		return (bound :: unknown) :: Shared.Observe
 	end
+	local hapticWaves: { [string]: { number } } = {
+		warning = { 0, 0, 10, 0.7, 40, 0, 90, 0.7, 130, 0 },
+		error = { 0, 0, 8, 1, 40, 0, 80, 1, 112, 0, 152, 1, 190, 0 },
+	}
+	local hapticPresets: { [string]: string } =
+		{ selection = "UIClick", impact = "GameplayCollision", success = "UINotification" }
+	local hapticPool: { [string]: HapticEffect } = {}
+	ctx.haptic = function(kind: unknown): HapticEffect?
+		if kind == true then
+			kind = config.pressHaptic
+		end
+		if kind == nil or kind == false then
+			return nil
+		end
+		if type(kind) ~= "string" then
+			return kind :: HapticEffect
+		end
+		local pooled = hapticPool[kind]
+		if pooled then
+			return pooled
+		end
+		local wave = hapticWaves[kind]
+		assert(
+			wave or hapticPresets[kind],
+			`Facet haptic: unknown feedback kind '{kind}'. Use selection, impact, success, warning or error`
+		)
+		local effect = runtime.host.render.createNode("HapticEffect") :: HapticEffect
+		effect.Name = `FacetHaptic_{kind}`
+		if wave then
+			effect.Type = Enum.HapticEffectType.Custom
+			local keys = {}
+			for index = 1, #wave, 2 do
+				table.insert(
+					keys,
+					types.FloatCurveKey.new(wave[index], wave[index + 1], Enum.KeyInterpolationMode.Linear)
+				)
+			end
+			effect:SetWaveformKeys(keys)
+		else
+			effect.Type = (Enum.HapticEffectType :: any)[hapticPresets[kind]]
+		end
+		effect.Parent = services.Workspace
+		hapticPool[kind] = effect
+		return effect
+	end
 	ctx.observe = observers(observe)
 	type SelectionWaiters = { waiting: { [Instance]: () -> () }, count: number, stop: (() -> ())? }
 	local selectionWaiters: { [Instance]: SelectionWaiters } = {}

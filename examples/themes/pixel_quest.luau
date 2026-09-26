@@ -237,6 +237,7 @@ function pixel_quest.definition(themes: any): any
 			},
 		},
 		chrome = {
+			focus = { kind = "brackets", corner = "square", size = 12, thickness = 4, outset = 2 },
 			panel = {
 				kind = "nineSlice",
 				asset = "pixel_panel",

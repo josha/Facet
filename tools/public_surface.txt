@@ -199,10 +199,12 @@ controls(runtime).VirtualGrid : function
 controls(runtime).VirtualList : function
 controls(runtime).Vote : function
 controls(runtime).ZStack : function
+controls(runtime).adjustable : function
 controls(runtime).badged : function
 controls(runtime).draggable : function
 controls(runtime).dropTarget : function
 controls(runtime).environment : function
+controls(runtime).feedback : function
 controls(runtime).fill : function
 controls(runtime).focusRing : function
 controls(runtime).focusSection : function
@@ -212,6 +214,7 @@ controls(runtime).scrollToVisible : function
 controls(runtime).worldAnchor : function
 type Adaptive
 type AdaptiveStackProps
+type AdjustableOptions
 type AlertAction
 type AlertSpec
 type AnchoredOptions
@@ -255,6 +258,7 @@ type ErrorBoundaryProps
 type Extent
 type Facet
 type GridProps
+type HapticKind
 type IdentityCollectionSpec
 type IdentityTableSpec
 type ImageProps

@@ -745,6 +745,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					local button = UI.Button(name)({
 						icon = glyph,
 						name = name,
+						repeatDelay = 0.4,
+						repeatInterval = 0.1,
 						LayoutOrder = order,
 						Size = D2.fromOffset(44, 44),
 						AutomaticSize = E.AutomaticSize.None,

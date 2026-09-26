@@ -413,13 +413,7 @@ function fantasy_ornate.definition(themes: any): any
 				},
 			},
 
-			focus = {
-				kind = "glow",
-				color = "$FocusGlow",
-				blurRadius = { scale = 0, offset = 26 },
-				transparency = 0.25,
-				zIndex = -1,
-			},
+			focus = { kind = "nineSlice", asset = "ornate_panel_frame", sliceScale = 0.3, outset = 6, pulse = true },
 
 			sliderTrack = {
 				kind = "nineSlice",

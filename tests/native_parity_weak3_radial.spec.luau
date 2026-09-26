@@ -241,7 +241,7 @@ t.describe("value repeat under gameplay arbitration", function()
 				target.Released.fire()
 			end
 		end
-		world.gui.SelectedObject = find(world.root, "Track")
+		world.gui.SelectedObject = find(world.root, "ThumbStop")
 		press()
 		t.expect(value:peek()).toBe(2)
 		world.step(0.45)

@@ -175,6 +175,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end, spec.controlSize, sizeSources)
 		local visible: Shared.Value<boolean>? = if mode == "always" then nil elseif mode == "none" then false else shown
 		local size = if target then 44 else KNOB
+		local markName = if name == "ThumbStop" then "Thumb" else "Knob"
 		local native: Shared.FrameNativeProps = {
 			Name = name,
 			AnchorPoint = V2.new(0.5, 0.5),
@@ -225,7 +226,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return h.enabled(spec, use)
 				end),
 			})
-			mark = Host.Frame "Knob" {
+			mark = Host.Frame(markName) {
 				BackgroundTransparency = 1,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
@@ -241,7 +242,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			}
 		else
 			mark = h.paintedPart({
-				Name = "Knob",
+				Name = markName,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 				Size = knobBox,
@@ -261,6 +262,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		native.BackgroundTransparency = 1
 		native.Selectable = enabledValue(spec)
 		table.insert(native, mark)
+		table.insert(native, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
 		return Host.Frame(native)
 	end
 
@@ -370,7 +372,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local function single(use: ComposeTypes.Use?): number
 			return read(spec.value :: Shared.Value<number>, use)
 		end
-		local detent = ctx.config.pressHaptic
+		local detent = ctx.haptic(true)
 		local function proposeSingle(value: number): boolean
 			if not h.enabled(spec) then
 				return false
@@ -596,6 +598,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			ctx.skin(fill, "barFill")
 			table.insert(trackChildren, fill)
 		end
+		local thumbStop = not isRange and (spec.thumb or "always") == "always" and spec.thumbContent == nil
 		local handles: { [Thumb]: Frame } = {}
 		local engagedOf: { [Thumb]: ComposeTypes.Cell<boolean> } =
 			{ lower = Compose.cell(false), upper = Compose.cell(false) }
@@ -655,11 +658,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		else
 			table.insert(
 				trackChildren,
-				knob(spec, "Thumb", "value", function(use)
+				knob(spec, if thumbStop then "ThumbStop" else "Thumb", "value", function(use)
 					return single(use)
 				end, function(use)
 					return fraction(single(use))
-				end, dragging, shown, vertical, false, extentOf("value"))
+				end, dragging, shown, vertical, thumbStop, extentOf("value"))
 			)
 		end
 		table.insert(trackChildren, detector)
@@ -673,7 +676,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return degrees(use)
 				end
 				else nil,
-			Selectable = if isRange then false else enabledValue(spec),
+			Selectable = if isRange or thumbStop then false else enabledValue(spec),
 		}
 		for _, child in trackChildren do
 			table.insert(trackProps, child)
@@ -688,6 +691,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			h.attributes(track, {
 				AccessibleLabel = (function(use: ComposeTypes.Use): string
 					return read(trackLabel, use) or ""
+				end) :: Shared.Value<Shared.AttributeValue?>,
+			})
+		end
+		if thumbStop then
+			h.attributes(track:FindFirstChild("ThumbStop") :: Instance, {
+				AccessibleLabel = (function(use: ComposeTypes.Use): string
+					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
+					return if named and named ~= "" then named else model.format(single(use))
 				end) :: Shared.Value<Shared.AttributeValue?>,
 			})
 		end

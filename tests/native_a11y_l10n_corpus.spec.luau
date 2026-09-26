@@ -8,6 +8,8 @@ local HELPERS = {
 	scrollTo = true,
 	scrollToVisible = true,
 	focusRing = true,
+	adjustable = true,
+	feedback = true,
 	focusSection = true,
 	responder = true,
 	draggable = true,
@@ -37,14 +39,6 @@ local KNOWN_UNNAMED: { [string]: { control: string, nameable: boolean, reason: s
 		reason = "Rating has no label or name option; its only text is the star glyphs",
 		props = function()
 			return { value = Compose.cell(2) }
-		end,
-	},
-	["facet-slider-track"] = {
-		control = "Slider",
-		nameable = true,
-		reason = "Slider has no name option, so the selectable track of a Slider without a visible label has no accessible name",
-		props = function()
-			return { value = Compose.cell(0.5) }
 		end,
 	},
 	["facet-text-input"] = {

@@ -21,7 +21,7 @@ export type AppOptions = {
 	reducedMotion: Types.Value<boolean>?,
 	environment: Types.EnvironmentPreview?,
 	keyboardNavigation: boolean?,
-	pressHaptic: HapticEffect?,
+	pressHaptic: (HapticEffect | Types.HapticKind)?,
 	onError: ((unknown) -> ())?,
 	runtime: Types.Runtime?,
 	parent: Instance?,

@@ -1724,6 +1724,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			Text = "",
 			AutoButtonColor = false,
 			Selectable = spec.onActivate ~= nil,
+			Interactable = spec.onActivate ~= nil,
 			Host.UICorner({ CornerRadius = ctx.round }),
 		})
 		local onActivate = spec.onActivate
@@ -1747,6 +1748,21 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			"Facet Avatar takes one face: image, userId, resource or icon"
 		)
 		local root = ctx.styled(Host.TextButton(native), "avatar")
+		if onActivate then
+			local state = ctx.observe.GuiState(root)
+			runtime.mountFragment(function()
+				local ring = Host.UIStroke({
+					Name = "HoverRing",
+					ApplyStrokeMode = E.ApplyStrokeMode.Border,
+					Thickness = 2,
+					Transparency = function(use: ComposeTypes.Use): number
+						return if use(state) == E.GuiState.Hover then 0 else 1
+					end,
+				})
+				ring:AddTag("facet-avatar-hover")
+				return { ring }
+			end, root)
+		end
 		if spec.backplate then
 			ctx.styled(root, "accent")
 		end
@@ -1947,6 +1963,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				or controlSize(spec.controlSize, if spec.form == "icon" then "iconSize" else "height", use)
 		end
 		local spacing = if spec.layout == "spread" then 8 else -10
+		local floor = ctx.touchFloor()
 		local native = ctx.props(spec, {
 			"items",
 			"max",
@@ -2044,7 +2061,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 							local pixels = size(use)
 							return D2.fromOffset(pixels, pixels)
 						end,
-						LayoutOrder = maximum + 1,
+						LayoutOrder = maximum + 2,
 						Text = function(use: ComposeTypes.Use)
 							return if spec.overflow == "ellipsis" then "…" else "+" .. tostring(#use(items) - maximum)
 						end,
@@ -2057,11 +2074,31 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 							end
 						end,
 						Host.UICorner({ CornerRadius = ctx.round }),
+						Host.UISizeConstraint({
+							MinSize = function(use: ComposeTypes.Use): Vector2
+								local minimum = floor(use)
+								return V2.new(minimum, minimum)
+							end,
+						}),
 					},
 					"button"
 				)
 			end)
 		)
+		if spacing < 0 then
+			table.insert(
+				native,
+				Compose.show(function(use: ComposeTypes.Use)
+					return #use(items) > maximum
+				end, function()
+					return Host.Frame "OverflowGap" {
+						BackgroundTransparency = 1,
+						LayoutOrder = maximum + 1,
+						Size = D2.fromOffset(4 - 2 * spacing, 0),
+					}
+				end)
+			)
+		end
 		local group = Host.Frame(native)
 		if spec.layout ~= "spread" then
 			ctx.styled(group, "avatar-stack")

@@ -1108,3 +1108,188 @@ t.describe("focusSection focusOnAppear / returnFocus (restored from 0.11)", func
 		w.stop()
 	end)
 end)
+
+t.describe("focus ring: the engine draws the theme's focus look", function()
+	local function ring(package: any?, environment: any?)
+		local w = world(nil, { theme = package, environment = environment })
+		local playerGui = w.engine.new("PlayerGui")
+		local stop = owned(w.runtime, function()
+			w.UI.focusRing(playerGui)
+		end)
+		local template = playerGui.SelectionImageObject
+		return w, template, function()
+			stop()
+			w.stop()
+		end
+	end
+	local function define(focus: any, assets: any?): any
+		local package, report = Facet.themes.define({
+			base = Facet.themes.neutralPackage(),
+			identity = { id = "focus-test" },
+			chrome = { focus = focus },
+			assets = assets,
+		})
+		assert(package, report and report.errors[1] and report.errors[1].message)
+		return package
+	end
+
+	t.it("hands the engine one selection object with a thicker ring at ten feet", function()
+		local distance = Compose.cell("near")
+		local w, template, stop = ring(nil, { viewingDistance = distance, preferredInput = "Gamepad" })
+		t.expect(template.Name).toBe("FacetFocusRing")
+		local stroke = template:FindFirstChildWhichIsA("UIStroke")
+		t.expect(stroke.Enabled).toBe(true)
+		t.expect(stroke.Thickness).toBe(2)
+		t.expect(stroke.Transparency).toBe(0)
+		t.expect(template:FindFirstChild("Glow").Enabled).toBe(false)
+		t.expect(template:FindFirstChild("Art").Visible).toBe(false)
+		distance:set("ten-foot")
+		t.expect(stroke.Thickness).toBe(4)
+		stop()
+		t.expect(w ~= nil).toBe(true)
+	end)
+
+	t.it("paints a glow theme as a native shadow that grows at ten feet", function()
+		local parchment = require("../examples/themes/fantasy_parchment").build(Facet.themes)
+		local distance = Compose.cell("near")
+		local _, template, stop = ring(parchment, { viewingDistance = distance, preferredInput = "Gamepad" })
+		local glow = template:FindFirstChild("Glow")
+		t.expect(template:FindFirstChildWhichIsA("UIStroke").Enabled).toBe(false)
+		t.expect(glow.Enabled).toBe(true)
+		t.expect(glow.BlurRadius.Offset).toBe(26)
+		t.expect(glow.Transparency).toBe(0.25)
+		distance:set("ten-foot")
+		t.expect(glow.BlurRadius.Offset).toBe(42)
+		t.expect(math.abs(glow.Transparency - 0.1375) < 0.001).toBe(true)
+		stop()
+	end)
+
+	t.it("stretches sliced focus art around the control with an outset", function()
+		local package = define({ kind = "nineSlice", asset = "bracket", outset = 4 }, {
+			bracket = { content = "rbxassetid://5", sliceCenter = { x0 = 8, y0 = 8, x1 = 24, y1 = 24 } },
+		})
+		local distance = Compose.cell("near")
+		local w, template, stop = ring(package, { viewingDistance = distance, preferredInput = "Gamepad" })
+		local art = template:FindFirstChild("Art")
+		t.expect(art.Visible).toBe(true)
+		t.expect(art.Image).toBe("rbxassetid://5")
+		t.expect(art.ScaleType).toBe(w.Enum.ScaleType.Slice)
+		t.expect(art.SliceCenter).toBe(w.engine.types.Rect.new(8, 8, 24, 24))
+		t.expect(art.Size).toBe(w.engine.types.UDim2.new(1, 8, 1, 8))
+		t.expect(art.Position).toBe(w.engine.types.UDim2.fromOffset(-4, -4))
+		t.expect(template:FindFirstChildWhichIsA("UIStroke").Enabled).toBe(false)
+		distance:set("ten-foot")
+		t.expect(art.Size).toBe(w.engine.types.UDim2.new(1, 12, 1, 12))
+		stop()
+	end)
+
+	t.it("takes the shape of the selected control: its own corner, a pill, or the theme's square", function()
+		local w, template, stop = ring(nil, { preferredInput = "Gamepad" })
+		local E, D = w.Enum, w.engine.types.UDim
+		local screen = w.engine.new("ScreenGui")
+		local round = w.engine.new("TextButton")
+		local own = w.engine.new("UICorner")
+		own.CornerRadius = D.new(0, 5)
+		own.Parent = round
+		local chip = w.engine.new("TextButton")
+		chip:AddTag("facet-chip")
+		local plain = w.engine.new("TextButton")
+		for _, node in { round, chip, plain } do
+			node.Parent = screen
+		end
+		local corner = template:FindFirstChildWhichIsA("UICorner")
+		w.gui.SelectedObject = round
+		t.expect(corner.CornerRadius).toBe(D.new(0, 5))
+		w.gui.SelectedObject = chip
+		t.expect(corner.CornerRadius).toBe(D.new(0, 999))
+		w.gui.SelectedObject = plain
+		t.expect(corner.CornerRadius.Scale).toBe(0)
+		stop()
+		local square = define({ kind = "ring", corner = "square", thickness = 3 })
+		w, template, stop = ring(square, { preferredInput = "Gamepad" })
+		w.gui.SelectedObject = chip
+		t.expect(template:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(D.new(0, 0))
+		t.expect(template:FindFirstChildWhichIsA("UIStroke").Thickness).toBe(3)
+		stop()
+		t.expect(E ~= nil).toBe(true)
+	end)
+
+	t.it(
+		"draws Pixel Quest's square corner brackets, Fantasy Ornate's gold frame and a lifted ring at ten feet",
+		function()
+			local pixel = require("../examples/themes/pixel_quest").build(Facet.themes)
+			local distance = Compose.cell("near")
+			local w, template, stop = ring(pixel, { viewingDistance = distance, preferredInput = "Gamepad" })
+			local U = w.engine.types.UDim2
+			local brackets = template:FindFirstChild("Brackets")
+			t.expect(brackets.Visible).toBe(true)
+			t.expect(#brackets:GetChildren()).toBe(8)
+			t.expect(template:FindFirstChildWhichIsA("UIStroke").Enabled).toBe(false)
+			local across, down = brackets:FindFirstChild("TopAcross"), brackets:FindFirstChild("BottomDown")
+			t.expect(across.Size).toBe(U.fromOffset(12, 4))
+			t.expect(across.Position).toBe(U.new(0, -2, 0, -2))
+			t.expect(down.Size).toBe(U.fromOffset(4, 12))
+			t.expect(down.Position).toBe(U.new(1, -2, 1, -10))
+			t.expect(template:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(w.engine.types.UDim.new(0, 0))
+			t.expect(template.Size).toBe(U.fromScale(1, 1))
+			distance:set("ten-foot")
+			t.expect(across.Size).toBe(U.fromOffset(18, 6))
+			t.expect(template.Size).toBe(U.new(1, 6, 1, 6))
+			t.expect(template.Position).toBe(U.fromOffset(-3, -3))
+			stop()
+			local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
+			local _, framed, stopFramed = ring(ornate, { preferredInput = "Gamepad" })
+			local art = framed:FindFirstChild("Art")
+			t.expect(art.Visible).toBe(true)
+			t.expect(art.Image).toBe(ornate.assets.ornate_panel_frame.content)
+			t.expect(art.SliceScale < 1).toBe(true)
+			stopFramed()
+		end
+	)
+
+	t.it("pulses a theme that asks for it, only while shown and never under reduced motion", function()
+		local package = define({ kind = "ring", pulse = true })
+		local motionOff = Compose.cell(false)
+		local w = world(nil, {
+			theme = package,
+			reducedMotion = motionOff,
+			environment = { preferredInput = "Gamepad" },
+		})
+		local playerGui = w.engine.new("PlayerGui")
+		local stop = owned(w.runtime, function()
+			w.UI.focusRing(playerGui)
+		end)
+		local stroke = playerGui.SelectionImageObject:FindFirstChildWhichIsA("UIStroke")
+		t.expect(stroke.Transparency).toBe(0)
+		w.engine.heartbeat.fire(0.5)
+		t.expect(stroke.Transparency > 0.1).toBe(true)
+		motionOff:set(true)
+		t.expect(stroke.Transparency).toBe(0)
+		t.expect(w.engine.heartbeat.count()).toBe(0)
+		stop()
+		w.stop()
+	end)
+
+	t.it("colours the focus look from the theme's focus role", function()
+		local ornate = require("../examples/themes/fantasy_parchment").build(Facet.themes)
+		local w = world()
+		local color
+		for _, package in { Facet.themes.neutralPackage(), ornate } do
+			local _, sheet = w.runtime.mount(function()
+				return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types })
+			end, w.engine.new("Folder"))
+			for _, node in sheet:GetChildren() do
+				if node.Selector == ".facet-focus-ring" then
+					color = node:GetProperties().BackgroundColor3
+				end
+			end
+			if package == ornate then
+				t.expect(color).toBe(w.engine.types.Color3.fromRGB(214, 154, 46))
+			else
+				local accent = package.style.themes[1].colors.accent
+				t.expect(color).toBe(w.engine.types.Color3.new(accent.r, accent.g, accent.b))
+			end
+		end
+		w.stop()
+	end)
+end)

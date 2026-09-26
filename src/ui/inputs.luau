@@ -27,6 +27,7 @@ type LevelSpec = Shared.TextButtonProps & ValueState<number> & InputTypes.LevelO
 }
 type Adjust = {
 	vertical: boolean?,
+	once: boolean?,
 	guard: boolean?,
 	arrows: ((ComposeTypes.Use, number) -> boolean)?,
 	extra: (((ComposeTypes.Use) -> boolean) -> ())?,
@@ -215,7 +216,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							local probe = (action :: unknown) :: { GetState: ((InputAction) -> unknown)? }
 							local state = probe.GetState
 							local engaged = state ~= nil and state(action) == true
-							if runtime.host.frames then
+							if runtime.host.frames and not adjust.once then
 								local elapsed, deadline = 0, 0.4
 								stopFrame = runtime.host.frames.onFrame(function(delta)
 									if
@@ -973,10 +974,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				end)
 			)
 		end
-		local pressHaptic = ctx.config.pressHaptic
-		local hapticSwitch = p.PressHapticEffect == nil and pressHaptic ~= nil and dynamic(spec.haptic)
-		if p.PressHapticEffect == nil and pressHaptic and not hapticSwitch and read(spec.haptic) == true then
-			p.PressHapticEffect = Compose.static(pressHaptic)
+		local hapticSwitch = p.PressHapticEffect == nil and dynamic(spec.haptic)
+		if p.PressHapticEffect == nil and not hapticSwitch then
+			local effect = ctx.haptic(read(spec.haptic))
+			if effect then
+				p.PressHapticEffect = Compose.static(effect)
+			end
 		end
 		node = ctx.styled(Host.TextButton(p), "button")
 		if fillsGlyph then
@@ -1004,7 +1007,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		if hapticSwitch then
 			Compose.watch(function(use: ComposeTypes.Use)
-				node.PressHapticEffect = (if read(spec.haptic, use) == true then pressHaptic else nil) :: HapticEffect
+				node.PressHapticEffect = ctx.haptic(read(spec.haptic, use)) :: HapticEffect
 			end)
 		end
 		if rich and (spec.subtitle ~= nil or spec.hint ~= nil or (spec.row ~= nil and spec.row.description ~= nil)) then
@@ -1282,6 +1285,33 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			or spec.onPointerUp
 			or spec.onPointerCancel
 		then
+			local stopFrame: (() -> ())?
+			local function release()
+				held = false
+				if stopFrame then
+					stopFrame()
+					stopFrame = nil
+				end
+			end
+			local function startRepeat()
+				if stopFrame or not (spec.repeatDelay or spec.repeatInterval) then
+					return
+				end
+				stopFrame = assert(runtime.host.frames).onFrame(function(delta)
+					if not held or not enabled(spec) or not ctx.available(node) then
+						release()
+						return
+					end
+					elapsed += delta
+					local threshold = if repeated then repeatInterval else repeatDelay
+					if elapsed >= threshold then
+						elapsed %= threshold
+						repeated = true
+						activate()
+					end
+				end)
+			end
+			Compose.cleanup(release)
 			runtime.connect(node, "InputBegan", function(input)
 				local kind = input.UserInputType.Name
 				if
@@ -1295,6 +1325,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					)
 				then
 					held, repeated, elapsed = true, false, 0
+					startRepeat()
 					local pointerDown = spec.onPointerDown
 					if pointerDown then
 						pointerDown(input)
@@ -1303,7 +1334,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end)
 			runtime.connect(node, "InputEnded", function(input)
 				if held then
-					held = false
+					release()
 					local pointerUp = spec.onPointerUp
 					if pointerUp then
 						pointerUp(input)
@@ -1314,26 +1345,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				if held and spec.onPointerCancel then
 					spec.onPointerCancel()
 				end
-				held = false
+				release()
 			end)
-			if spec.repeatDelay or spec.repeatInterval then
-				Compose.cleanup(assert(runtime.host.frames).onFrame(function(delta)
-					if not held then
-						return
-					end
-					if not enabled(spec) or not ctx.available(node) then
-						held = false
-						return
-					end
-					elapsed += delta
-					local threshold = if repeated then repeatInterval else repeatDelay
-					if elapsed >= threshold then
-						elapsed %= threshold
-						repeated = true
-						activate()
-					end
-				end))
-			end
 		end
 
 		local bindings: { Shared.InputBindingNativeProps } = {}
@@ -1707,6 +1720,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				icon = glyph,
 				name = name,
 				haptic = true,
+				repeatDelay = 0.4,
+				repeatInterval = 0.1,
 				LayoutOrder = if direction < 0 then 1 else 3,
 				Size = D2.fromOffset(44, 44),
 				AutomaticSize = E.AutomaticSize.None,
@@ -1811,6 +1826,33 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			ctx.skin(node, slot)
 		end
 		return node
+	end
+
+	UI.feedback = function(kind: Shared.HapticKind)
+		assert(type(kind) == "string", "Facet UI.feedback expects a feedback kind")
+		local effect = ctx.haptic(kind) :: HapticEffect
+		effect:Play()
+	end
+
+	UI.adjustable = function(node: GuiObject, options: InputTypes.AdjustableOptions)
+		assert(
+			type(options) == "table" and type(options.onAdjust) == "function",
+			"Facet UI.adjustable requires onAdjust"
+		)
+		local axis = options.axis or "horizontal"
+		assert(
+			axis == "horizontal" or axis == "vertical" or axis == "none",
+			`Facet UI.adjustable: axis '{tostring(axis)}' is not horizontal, vertical or none`
+		)
+		local canAdjust = options.canAdjust
+		local bound = if axis == "none" then nil else math.huge
+		adjustment(node, options :: any, options.onAdjust, nil, if bound then -bound else nil :: any, bound :: any, {
+			vertical = axis == "vertical",
+			once = options.repeats ~= true,
+			arrows = function(use: ComposeTypes.Use, direction: number): boolean
+				return canAdjust == nil or canAdjust(direction, use)
+			end,
+		})
 	end
 
 	require("./slider")(ctx, UI, {
@@ -1980,8 +2022,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				"onChange",
 			},
 			{
-				PressHapticEffect = if spec.PressHapticEffect == nil and ctx.config.pressHaptic
-					then Compose.static(ctx.config.pressHaptic)
+				PressHapticEffect = if spec.PressHapticEffect == nil and ctx.haptic(true)
+					then Compose.static(ctx.haptic(true))
 					else nil,
 				Text = "",
 				BackgroundTransparency = 1,

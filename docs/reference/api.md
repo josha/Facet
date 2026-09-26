@@ -227,8 +227,9 @@ document their own write-then-notify behavior below.
 - `reducedMotion` and `icons`: these can also be reactive. Control motion also
   follows `GuiService.ReducedMotionEnabled`. Motion is reduced when either one
   is true.
-- `pressHaptic`: a native `HapticEffect`. Only a control that changes a state
-  or a value plays it. See [Haptics](#haptics).
+- `pressHaptic`: a native `HapticEffect` or a feedback kind (`"selection"`,
+  `"impact"`, `"success"`, `"warning"` or `"error"`). Only a control that
+  changes a state or a value plays it. See [Haptics](#haptics).
 - `controlSize`: the control-size step (`xsmall`, `compact`, `regular` or
   `large`) for theme icons.
 - `onError`: receives a failure from the content of a presented Alert or
@@ -338,8 +339,28 @@ each ScrollingFrame in the same LayerCollector that is outside the top modal:
 
 A plain Button, a tab, a menu row, a keyboard key and a link do not play it.
 Set `haptic = true` on a Button to play `pressHaptic` for a game-specific
-action. `haptic` can be a readable. An explicit `PressHapticEffect` always
+action. `true` is the shorthand for `pressHaptic`. `haptic` also takes a
+feedback kind, which plays that kind whether or not `pressHaptic` is set.
+`haptic` can be a readable of either. An explicit `PressHapticEffect` always
 wins.
+
+The feedback kinds map to one engine `HapticEffect` each. The controls create
+each effect once, when a control or `UI.feedback` first asks for it, and
+parent it to the Workspace. The engine plays the press effect through
+`GuiButton.PressHapticEffect`.
+
+| Kind | Engine effect | Use it for |
+|---|---|---|
+| `selection` | `UIClick` preset | a choice that changes |
+| `impact` | `GameplayCollision` preset | a heavy press, a hit or a landing |
+| `success` | `UINotification` preset | a completed task |
+| `warning` | `Custom`: two pulses of 0.7 | a choice with a cost |
+| `error` | `Custom`: three pulses of 1 | a refused action |
+
+`UI.feedback(kind)` plays a kind at once, for a result that does not come from
+a press, such as a purchase that the server confirms. An unknown kind causes
+an error that lists the kinds. Studio on a Mac plays no motor; a phone or a
+gamepad on a supported client feels it.
 
 The `theme` option of `controls` does not install paint. Parent a
 `createStyleSheet` result and its StyleLink in the native tree, with the same
@@ -762,8 +783,13 @@ hard error.
 ### Button
 
 `label`, `onActivate`, `enabled`, `disabled` and `busy` define the action. A
-disabled or busy button cannot activate. The optional `repeatDelay` and
-`repeatInterval` have the defaults `0.4` and `0.1` seconds. `shortcut` supplies
+disabled or busy button cannot activate. With `repeatDelay` or
+`repeatInterval` (the defaults are `0.4` and `0.1` seconds), a held button
+activates again after `repeatDelay` and then every `repeatInterval`, for a
+mouse, a touch, Return, Space or ButtonA. The repeat follows the frame clock
+only while the button is held, and it stops on release, when the pointer
+leaves, and when the button is disabled or hidden. The Stepper buttons and the
+NumberInput `stepButtons` repeat in this way. `shortcut` supplies
 a key code and optional modifiers. `dialogAction` is `default` or `cancel`.
 
 A Button keeps the height of its `controlSize` when its `Size` has no height
@@ -1404,7 +1430,10 @@ Button and Toggle rows.
 Slider also supports `onCommit(value)`, `tapToPosition` (default true),
 `thumbImage`, `trackImage` and `row`. Dragging uses native drag detection.
 Keyboard and gamepad adjustment use the input actions of the control.
-A held adjustment repeats after 0.4 seconds, then every 0.1 seconds. The
+The thumb is the selection stop: a 44 by 44 `ThumbStop` frame around the
+painted `Thumb`, so the engine focus look lands on the thumb and follows it.
+With `thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the track is
+the stop. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds. The
 repeat stops when the engine gives the held input to a higher-priority input
 context, for example a gameplay binding with `Sink`. The next change needs a
 new press.
@@ -3023,8 +3052,8 @@ press.
 | `ProgressView` | `value`, `min` (0), `max` (1). `presentation`: bar, circular or spinner. label and endLabel, showValue and format, diameter, thickness, segments, and an optional trail `{ delay, duration }`. The endLabel shows after the value. With a label, a bar shows the value and the endLabel on the label row. Segments require the bar presentation. Diameter requires circular or spinner. A trail holds on damage, settles over its duration, and snaps on healing or reduced motion. A circular value is centered when the native text bounds fit. Otherwise it shows below the ring. A circular ring with no thickness uses 8 percent of its diameter, and not less than the theme metric. On a bar, `controlSize` sets the track thickness: `xsmall` and `compact` use `space.xs`, and `regular` and `large` use `controls.progress.trackHeight`. A bar refuses `controlSize` together with `thickness`, and a ring or a spinner refuses it together with `diameter`. `endLabel` must be a string. |
 | `Skeleton` | A loading placeholder with a configurable form and line count. `corners` rounds a box or a line: `square`, a number of pixels, `control` (or `rounded`) and `panel` for the radii of the theme, or `pill`. A circle refuses `corners`. |
 | `AsyncImage` | An image or source, an optional resource or loader, a placeholder, a failure label and a status callback. `imageProperties` forwards native properties and children to the inner ImageLabel. |
-| `Avatar` | `name`; one face: image, userId, resource or `icon` (an icon name, such as `"person"` for a guest, drawn in place of the initials); loader and onStatus; presence online, away, busy, offline or `inExperience`; presence label and mark; diameter or controlSize; standard or icon form; `background`, a palette role (`surface`, `surfaceStrong`, `control`, `contentStrong`, `accent`, `success`, `warning` or `danger`) for the plate, with its partner color on the initials and the icon; optional activation. `inExperience` draws an `accent` ring with a `surface` gap inside the edge of the face in place of a corner mark. Each band is twice `strokes.hairline` wide. |
-| `AvatarGroup` | `items` with id, name, image, userId, icon and presence, and an optional `resource` shared-resource acquire function. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. |
+| `Avatar` | `name`; one face: image, userId, resource or `icon` (an icon name, such as `"person"` for a guest, drawn in place of the initials); loader and onStatus; presence online, away, busy, offline or `inExperience`; presence label and mark; diameter or controlSize; standard or icon form; `background`, a palette role (`surface`, `surfaceStrong`, `control`, `contentStrong`, `accent`, `success`, `warning` or `danger`) for the plate, with its partner color on the initials and the icon; optional activation. `inExperience` draws an `accent` ring with a `surface` gap inside the edge of the face in place of a corner mark. Each band is twice `strokes.hairline` wide. An Avatar without an activation takes no input. With one, a `HoverRing` stroke in `accent` lights only the avatar under the pointer. |
+| `AvatarGroup` | `items` with id, name, image, userId, icon and presence, and an optional `resource` shared-resource acquire function. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. The faces take no input. The overflow chip is the only target: an `OverflowGap` keeps it clear of the overlapping faces, and with touch or a gamepad it is at least `targetSizes.minimum` on both axes. The group binds no gamepad button, so ButtonB reaches the screen. |
 | `Stage` | A native ViewportFrame. A `camera` CFrame or a borrowed Camera, `fieldOfView`, `content(runtime, world, live)` for 3D content that Compose owns, and `lazy`. |
 
 ### Text
@@ -3313,6 +3342,25 @@ corner and no stroke, for a sidebar or a split pane. Add
 `facet-divider-strong` next to `facet-divider` for a heavier rule, such as a
 pane edge.
 
+The `focus` chrome slot is the focus look that `UI.focusRing` hands to the
+engine:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `"ring"` (the default): an inner stroke. `"glow"`: a native `UIShadow` halo. `"nineSlice"`: the `asset` art, sliced around the control. `"brackets"`: four square corner brackets. |
+| `color` | An RGB or a `$Role` palette token such as `"$FocusGlow"`. The default is `accent`. |
+| `thickness` | The ring stroke (2) or the bracket bar (4), in pixels. |
+| `size` | The bracket arm length (12). |
+| `outset` | Pixels that art and brackets stand outside the control (0). |
+| `sliceScale` | The art `SliceScale`; the asset's own value by default. |
+| `blurRadius`, `transparency`, `zIndex` | The glow (24 pixels, 0.25, -1). |
+| `corner` | `"square"` or `"pill"` for every control; otherwise the selected control's shape. |
+| `pulse` | `true`: the look breathes slowly while it shows. Reduced motion stops it. |
+
+Facet Neutral uses the default thin ring. Pixel Quest draws square
+brackets, Fantasy Ornate its gold frame with a slow pulse, and Fantasy
+Parchment a gold glow.
+
 A chrome slot names its art with `asset`: one asset name, or one name per
 state (`default`, `hover`, `pressed`, `selected`, `disabled`). A state can also
 be `{ asset, rotation, tint }`. `rotation = 180` turns the art over, so a
@@ -3461,13 +3509,31 @@ No script can read or set it, but a Rojo project file can declare it. No
 
 ### focusRing
 
-`UI.focusRing(playerGui) -> Frame` sets `PlayerGui.SelectionImageObject` to one
-focus ring that replaces the engine selection glow: an inner stroke in the
-theme `accent` with the `radii.control` corner, 2 pixels thick, 4 on a `Large`
-display. The ring shows after keyboard or gamepad input, or when the effective
-input is a gamepad, and is transparent after mouse or touch input. Call it
-inside a component and put the returned Frame (an invisible paint probe) in
-the ScreenGui that holds the StyleSheet link. `app.mount` does this for you.
+`UI.focusRing(playerGui) -> Frame` sets `PlayerGui.SelectionImageObject` to
+one selection object that the engine draws on the selected control, so the
+engine owns where the focus is and when it moves. The theme package supplies
+the look in its `chrome.focus` recipe (see [Themes](#themes)). The look shows
+after keyboard or gamepad input, or when the effective input is a gamepad, and
+hides after mouse or touch input. Call it inside a component and put the
+returned Frame (an invisible paint probe) in the ScreenGui that holds the
+StyleSheet link. `app.mount` does this for you.
+
+The look takes the shape of the selected control: the control's own
+`UICorner` (a `corners = "pill"` Button, a Slider thumb), a pill for a Chip, a
+circle for a circle Button, and otherwise the theme's `radii.control`. A
+recipe with `corner = "square"` or `corner = "pill"` keeps that shape
+everywhere. The colour is the recipe `color`, or `accent`.
+
+At ten feet the look is larger: a ring is twice as thick, brackets, art
+outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,
+and the whole look stands 3 pixels off the control, so it lifts clear of the
+control's own edge.
+
+A control whose value has its own part makes that part the selected object,
+so the engine draws the look there: the Slider thumb and each range handle,
+each segment of a segmented Picker. A game control that needs its own look
+sets `SelectionImageObject` on that control; the engine then draws that
+object for it.
 
 ### focusSection
 
@@ -3523,6 +3589,51 @@ local hud = UI.Screen "Hud" { UI.Button "Map" { label = "Map" } }
 local responder = UI.responder(hud)
 -- the game opens its menu with a key of its own
 responder.engage()
+```
+
+### adjustable
+
+`UI.adjustable(node, options)` gives a game control the keyboard and gamepad
+adjustment of the Slider and the Stepper. While the selection is on `node` or
+inside it, Comma and Period and L1 and R1 call `onAdjust(-1)` and
+`onAdjust(1)`, and the arrows of `axis` do too. The other axis keeps moving
+the selection. Call it inside a component or a Compose owner; it stops when
+the owner ends. `node` or a descendant must be selectable.
+
+| Option | Effect |
+|---|---|
+| `onAdjust(direction)` | Required. `direction` is -1 or 1. |
+| `axis` | `"horizontal"` (the default) takes Left and Right, `"vertical"` takes Up and Down, `"none"` takes no arrows and leaves only the shoulders. |
+| `repeats` | `true`: a held key or button adjusts again after 0.4 seconds, then every 0.1 seconds, like the built-in value controls. The default is `false`: one step for each press. |
+| `canAdjust(direction, use?)` | Optional. `false` gives that arrow back to navigation, for example at a limit. |
+| `enabled`, `disabled`, `busy` | Values or readables. A disabled control takes no keys. |
+
+The actions have the priority of the built-in value controls, so a higher
+priority gameplay context still wins, and a held repeat stops when it does.
+An unknown `axis` causes an error.
+
+```luau
+local angle = Compose.cell(0)
+local function turn(direction: number)
+	angle:set(angle:peek() + direction * 15)
+end
+local row = UI.HStack "Turn" {
+	UI.Button "Left" { label = "Turn left", onActivate = function() turn(-1) end },
+	UI.Button "Right" { label = "Turn right", onActivate = function() turn(1) end },
+}
+UI.adjustable(row, { onAdjust = turn, axis = "none", repeats = true })
+```
+
+### feedback
+
+`UI.feedback(kind)` plays one of the named feedback kinds at once. See
+[Haptics](#haptics) for the kinds and their engine effects.
+
+```luau
+local function onPurchaseConfirmed(granted: boolean)
+	UI.feedback(if granted then "success" else "error")
+end
+onPurchaseConfirmed(true)
 ```
 
 ### draggable and dropTarget

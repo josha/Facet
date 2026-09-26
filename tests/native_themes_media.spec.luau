@@ -1749,3 +1749,105 @@ t.describe("native themes and media", function()
 		runtime:dispose()
 	end)
 end)
+
+t.describe("native Avatar and AvatarGroup per-input rules", function()
+	local function inputWorld(touch: boolean)
+		local engine = engineLib.new()
+		local runtime = Roblox.createRuntime(engine)
+		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+		input.TouchEnabled = touch
+		input.MouseEnabled = not touch
+		local UI = controls(Compose, runtime, {
+			types = engine.types,
+			guiService = gui,
+			userInputService = input,
+			services = { GuiService = gui, UserInputService = input },
+		})
+		return engine, runtime, UI, gui
+	end
+	local function find(root: any, name: string): any
+		if root.Name == name then
+			return root
+		end
+		for _, child in root:GetChildren() do
+			local found = find(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+
+	t.it("lights only the avatar under the pointer and leaves passive faces out of input", function()
+		local engine, runtime, UI = inputWorld(false)
+		local screen = engine.new("ScreenGui")
+		local stop = runtime.mount(function()
+			return runtime.constructors.Frame({
+				UI.Avatar "Passive" { name = "Pat Lane" },
+				UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
+				UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },
+			})
+		end, screen)
+		local passive, ada, bo = find(screen, "Passive"), find(screen, "Ada"), find(screen, "Bo")
+		t.expect(passive.Interactable).toBe(false)
+		t.expect(ada.Interactable).toBe(true)
+		local adaRing, boRing = find(ada, "HoverRing"), find(bo, "HoverRing")
+		t.expect(adaRing:HasTag("facet-avatar-hover")).toBe(true)
+		t.expect(adaRing.Transparency).toBe(1)
+		ada.GuiState = engine.types.Enum.GuiState.Hover
+		t.expect(adaRing.Transparency).toBe(0)
+		t.expect(boRing.Transparency).toBe(1)
+		t.expect(find(passive, "HoverRing")).toBe(nil)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("keeps the touch overflow chip its own whole target clear of the stacked faces", function()
+		local engine, runtime, UI = inputWorld(true)
+		local screen = engine.new("ScreenGui")
+		local roster = {}
+		for index = 1, 6 do
+			roster[index] = { id = `p{index}`, name = `Player {index}` }
+		end
+		local stop = runtime.mount(function()
+			return UI.AvatarGroup "Team" { items = roster, max = 3, controlSize = "compact", onOverflow = function() end }
+		end, screen)
+		local group = find(screen, "Team")
+		local chip, gap = group:FindFirstChild("Overflow"), group:FindFirstChild("OverflowGap")
+		local padding = group:FindFirstChildWhichIsA("UIListLayout").Padding.Offset
+		t.expect(padding < 0).toBe(true)
+		t.expect(find(group, "p1").Interactable).toBe(false)
+		t.expect(gap.LayoutOrder < chip.LayoutOrder and gap.LayoutOrder > find(group, "p3").LayoutOrder).toBe(true)
+		t.expect(gap.Size.X.Offset + 2 * padding > 0).toBe(true)
+		local floor = chip:FindFirstChildWhichIsA("UISizeConstraint")
+		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(44, 44))
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("lets gamepad B pass through a selected overflow chip", function()
+		local engine, runtime, UI, gui = inputWorld(false)
+		local screen = engine.new("ScreenGui")
+		local calls = 0
+		local stop = runtime.mount(function()
+			return UI.AvatarGroup "Team" {
+				items = { { id = "a", name = "A" }, { id = "b", name = "B" }, { id = "c", name = "C" } },
+				max = 1,
+				onOverflow = function()
+					calls += 1
+				end,
+			}
+		end, screen)
+		local chip = find(screen, "Overflow")
+		gui.SelectedObject = chip
+		for _, node in screen:GetDescendants() do
+			if node:IsA("InputBinding") then
+				t.expect(node.KeyCode == engine.types.Enum.KeyCode.ButtonB).toBe(false)
+			end
+		end
+		chip.Activated.fire()
+		t.expect(calls).toBe(1)
+		stop()
+		runtime:dispose()
+	end)
+end)

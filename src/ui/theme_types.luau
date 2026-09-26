@@ -119,7 +119,9 @@ export type SkinLayer = {
 		| "edges"
 		| "plaque"
 		| "layered"
-		| "glow",
+		| "glow"
+		| "ring"
+		| "brackets",
 	asset: AssetSource?,
 	text: boolean?,
 	textInsets: Insets?,
@@ -147,6 +149,10 @@ export type SkinLayer = {
 	blurRadius: ShadowAxis?,
 	transparency: number?,
 	zIndex: number?,
+	corner: ("pill" | "square")?,
+	outset: number?,
+	sliceScale: number?,
+	pulse: boolean?,
 }
 export type StyleValue =
 	boolean

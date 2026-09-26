@@ -149,7 +149,7 @@ end
 t.describe("native Slider axis", function()
 	t.it("a vertical track fills from the bottom edge and the thumb climbs as the value rises", function()
 		local w = world({ axis = "y", step = 10 })
-		local fill, thumb = find(w.track, "Fill"), find(w.track, "Thumb")
+		local fill, thumb = find(w.track, "Fill"), find(w.track, "ThumbStop")
 		expect(w.track.Size.Y.Scale).toBe(1)
 		expect(w.track.Size.X.Offset).toBe(44)
 		expect(fill.AnchorPoint.Y).toBe(1)
@@ -168,7 +168,7 @@ t.describe("native Slider axis", function()
 
 	t.it("Up and Down adjust a vertical track and Left and Right do not", function()
 		local w = world({ axis = "y", step = 10 })
-		w.gui.SelectedObject = w.track
+		w.gui.SelectedObject = find(w.track, "ThumbStop")
 		expect(bindings(w, "IncreaseArrow")).toBe("DPadUp Up")
 		expect(bindings(w, "DecreaseArrow")).toBe("DPadDown Down")
 		press(w, "IncreaseArrow")
@@ -177,7 +177,7 @@ t.describe("native Slider axis", function()
 		expect(w.value:peek()).toBe(50)
 		w.stop()
 		local x = world({ step = 10 })
-		x.gui.SelectedObject = x.track
+		x.gui.SelectedObject = find(x.track, "ThumbStop")
 		expect(bindings(x, "IncreaseArrow")).toBe("DPadRight Right")
 		x.stop()
 	end)
@@ -186,7 +186,7 @@ t.describe("native Slider axis", function()
 		for _, key in { "Up", "DPadUp" } do
 			local w = world({ axis = "y", step = 10 })
 			w.held[key] = true
-			w.gui.SelectedObject = w.track
+			w.gui.SelectedObject = find(w.track, "ThumbStop")
 			local increase = action(w, "IncreaseArrow")
 			increase.Pressed.fire()
 			expect(`{key} landed {w.value:peek()}`).toBe(`{key} landed 50`)
@@ -198,7 +198,7 @@ t.describe("native Slider axis", function()
 			w.stop()
 		end
 		local tabbed = world({ axis = "y", step = 10 })
-		tabbed.gui.SelectedObject = tabbed.track
+		tabbed.gui.SelectedObject = find(tabbed.track, "ThumbStop")
 		press(tabbed, "IncreaseArrow")
 		expect(tabbed.value:peek()).toBe(60)
 		tabbed.stop()
@@ -587,7 +587,7 @@ t.describe("native Slider knob travel", function()
 
 	t.it("the default knob stops flush with each end of the rail and the fill ends under its centre", function()
 		local w = world({ value = Compose.cell(0) })
-		local thumb, fill = find(w.track, "Thumb"), find(w.track, "Fill")
+		local thumb, fill = find(w.track, "ThumbStop"), find(w.track, "Fill")
 		local left = span(thumb, 24)
 		expect(left).toBeCloseTo(0)
 		expect(fill.Size.X.Scale * 200 + fill.Size.X.Offset).toBeCloseTo(12)
@@ -634,7 +634,7 @@ t.describe("native Slider knob travel", function()
 
 	t.it("a vertical and a rotated knob stop flush with the rail ends", function()
 		local w = world({ axis = "y", value = Compose.cell(0) })
-		local thumb = find(w.track, "Thumb")
+		local thumb = find(w.track, "ThumbStop")
 		local function centre(): number
 			return thumb.Position.Y.Scale * 200 + thumb.Position.Y.Offset
 		end
@@ -647,7 +647,7 @@ t.describe("native Slider knob travel", function()
 		local turned = world({ rotation = 90, value = Compose.cell(50) })
 		drag(turned, turned.track, v(turned, 100, 22 + 88))
 		expect(turned.value:peek()).toBeCloseTo(100)
-		local _, right = span(find(turned.track, "Thumb"), 24)
+		local _, right = span(find(turned.track, "ThumbStop"), 24)
 		expect(right).toBeCloseTo(200)
 		turned.stop()
 	end)

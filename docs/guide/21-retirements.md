@@ -54,7 +54,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `apps2-210`.
 - PR status: The PR binds no Tab key (`Button` refuses Tab as a shortcut). Roblox engine selection moves by direction only. The b-class record says `nativeEvidence: none`. The live run `artifacts/studio-live/needs_live_input-power-off-traversal-portrait-largest.json` records the check `Tab reaches After` as failed: Tab selected no control, while DPadDown did.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. Tab and Shift+Tab walk the controls inside the active modal or screen, ordered by the native `SelectionOrder` tier and then layout order. `UI.responder` restores the passive first responder, `gameplayGuard` and `traversalWrap`. [Restored before the merge](#restored-before-the-merge) and [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. Tab and Shift+Tab walk the controls inside the active modal or screen, ordered by the native `SelectionOrder` tier and then layout order. `UI.responder` restores the passive first responder, `gameplayGuard` and `traversalWrap`. `keyboardNavigation` stays on by default. [Restored before the merge](#restored-before-the-merge) and [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
 
 ### 4. Ten-foot (viewing distance) profile, including the ten-foot focus ring
 
@@ -63,7 +63,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `navigation-1-13`, `navigation-1-01`, `navigation-4-41`, `apps-190`, `paint-85`, `apps2-134`, `inputs-53`.
 - PR status: The PR has no environment distance fact. The gallery keeps only a `UIScale` 1.5 preview. Console players get desktop density unless each game scales its own UI.
 - Current main `bc9a56a6` still ships this.
-- Decision: Restored. At ten feet (`adaptive.isTenFoot`, or the `viewingDistance` environment option) controls and the StyleSheet use the 1.5 metric ladder (`themes.forDistance`), `UI.Screen` keeps the console overscan margins, Alert stacks its actions, a Sheet is centred and the TabView strip and NavigationStack bar are 66 pixels high. The ten-foot focus ring stays retired: the engine selection highlight is the ring. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
+- Decision: Restored. At ten feet (`adaptive.isTenFoot`, or the `viewingDistance` environment option) controls and the StyleSheet use the 1.5 metric ladder (`themes.forDistance`), `UI.Screen` keeps the console overscan margins, Alert stacks its actions, a Sheet is centred and the TabView strip and NavigationStack bar are 66 pixels high. The ten-foot focus look is restored on the engine selection: a thicker ring, larger brackets, art and glow, and a 3 pixel lift off the control. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
 
 ### 5. Theme-owned focus indicator
 
@@ -72,7 +72,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `mech1-91`.
 - PR status: The PR uses the engine default selection image (`SelectionImageObject` is not set). `theme_types.SkinLayer.kind` still lists `glow`, and two shipped packages still declare focus art that nothing reads (`themes-P2-31` removal text).
 - Current main `bc9a56a6` still ships this.
-- Decision: Accepted. The engine selection highlight is the focus indicator. A game that needs its own indicator sets `SelectionImageObject` on the control.
+- Decision: Restored. The engine draws focus through `SelectionImageObject`, and each theme supplies the look as data in `chrome.focus`: a ring, a glow, sliced art or corner brackets, in the selected control's shape, larger at ten feet, with an optional pulse. The Slider thumb is the selected object, so the look lands on it. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
 
 ### 6. The application handle
 
@@ -141,7 +141,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 - Strengthening notes that retire part of a covered contract: `inputs-76`.
 - PR status: The PR keeps one `pressHaptic` option that plays only on a value change. The motor output on a phone and a gamepad has no physical evidence (`tools/lune/parity_blockers.json` `pendingLiveRisks`).
 - Current main `bc9a56a6` still ships this.
-- Decision: Accepted. A game plays a native `HapticEffect`. The controls play the factory `pressHaptic` option for a change of state or value.
+- Decision: Restored in part. The named kinds `selection`, `impact`, `success`, `warning` and `error` map to engine `HapticEffect`s: `haptic = kind` on a Button, `pressHaptic = kind` and `UI.feedback(kind)`. `haptic = true` stays the shorthand for `pressHaptic`. The feedback bus, `UI.sensoryFeedback` and the rate-limited adapter stay retired. [Restored in the foundation round](#restored-in-the-foundation-round) names the tests.
 
 ### 14. Table selection and editing model
 
@@ -277,7 +277,7 @@ Each item below removed a behavior that a player or a game author uses. The owne
 ### 35. Minimum touch targets
 
 - Main promised: a compact or xsmall control keeps a 44 pixel hit footprint for touch.
-- Decision: Restored for touch and gamepad devices. A Button with a `controlSize` below the minimum target grows to `targetSizes.minimum` on both axes when the device has touch or a gamepad. The native button is its hit area, so the plate grows with the target; main painted a smaller plate inside a larger footprint. On a mouse-only device the compact size stays. Test: `native_inputs` (floors a compact Button to the minimum touch target).
+- Decision: Restored for touch and gamepad devices. A Button with a `controlSize` below the minimum target grows to `targetSizes.minimum` on both axes when the device has touch or a gamepad. The native button is its hit area, so the plate grows with the target; main painted a smaller plate inside a larger footprint. On a mouse-only device the compact size stays. Test: `native_inputs` (floors a compact Button to the minimum touch target). The owner kept this narrowing: a mouse allows the tighter control.
 
 ## Restored before the merge
 
@@ -350,6 +350,10 @@ The foundation round on `facet-port-0.12` restored these pre-0.12 behaviours. Th
 | Menus and radial | Menu diagnostics; RadialMenu corner Close, bloom, anchored launcher, 0.11 Back/Close placement, list preview breadcrumb or "Quick actions" | `native_overlay_reach`, `native_radial_controls`, `native_parity_weak3_radial` |
 | Collections and tables | Row-order Tab, nested reorder autoscroll, edit-mode selection marks, the table row ladder by viewing distance, the table-owned Edit toolbar by input, pad move and delete | `native_collections`, `native_parity_weaker_tables` |
 | Text input | The field scrolls out from under the touch keyboard; the clear circle keeps the 44 pixel floor | `native_fields`, `native_inputs` |
+| Focus looks | Theme `chrome.focus` on the engine `SelectionImageObject` (ring, glow, nineSlice, brackets, shape, ten-foot size and lift, pulse); the Slider `ThumbStop` | `native_environment` (focus ring), `native_inputs`, `native_parity_classb_keyboard` |
+| Haptics | Named feedback kinds, `haptic = kind`, `pressHaptic = kind`, `UI.feedback` | `native_inputs` |
+| Held repeat | Stepper and NumberInput step buttons repeat when held; `UI.adjustable` with `axis` and `repeats` for a game control | `native_inputs`, `native_number_input` |
+| Avatars | Passive faces take no input, an interactive Avatar's hover ring, the AvatarGroup overflow chip clear of the faces with the touch floor, ButtonB passes through | `native_themes_media` |
 
 ## Retired contracts by area
 

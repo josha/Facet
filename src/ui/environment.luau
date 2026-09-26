@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Env = require("./environment_types")
+local ThemeTypes = require("./theme_types")
 local adaptive = require("./adaptive")
 local motion = require("./motion")
 local freeze = require("./freeze")
@@ -55,7 +56,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 
 	UI.focusRing = function(playerGui: PlayerGui): Frame
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusRing must run inside a component or Compose owner")
-		local Host, E, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim2
+		local Host, E, D, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
 		local input = (config.services :: unknown) :: { UserInputService: UserInputService? }
 		local keyed = Compose.cell(false)
 		local function heard(event: InputObject)
@@ -76,24 +77,209 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end)
 		end
 		local env = UI.environment()
+		local far = ctx.tenFoot()
+		local reduced = motion(ctx)
+		local package = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.ThemePackage?
+			return ctx.read(config.theme, use)
+		end)
+		local recipe = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.SkinLayer
+			local current = use(package) :: ThemeTypes.ThemePackage?
+			local chrome = if current then current.chrome else nil
+			return (if chrome then chrome.focus else nil) or { kind = "ring" }
+		end)
+		local function layer(use: ComposeTypes.Use): ThemeTypes.SkinLayer
+			return use(recipe) :: ThemeTypes.SkinLayer
+		end
+		local function shown(use: ComposeTypes.Use): boolean
+			return use(keyed) or use(env.effectiveInput) == "Gamepad"
+		end
+		local function scaled(use: ComposeTypes.Use, value: number, factor: number): number
+			return if far(use) then math.round(value * factor) else value
+		end
+		local pulse = Compose.cell(0)
+		local function fade(use: ComposeTypes.Use, depth: number): number
+			return if shown(use) then use(pulse) * depth else 1
+		end
 		local corner = Host.UICorner({})
 		local paint = Host.Frame({ Name = "FocusRingPaint", Visible = false, Size = D2.fromOffset(0, 0), corner })
 		paint:AddTag("facet-focus-ring")
+		local color = ctx.observeStyled.BackgroundColor3(paint)
+		local themeRadius = ctx.observeStyled.CornerRadius(corner)
+		local gui = config.guiService
+		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell(nil)
+		local frames = runtime.host.frames
+		if frames then
+			runtime.mountFragment(function()
+				return {
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return shown(use) and layer(use).pulse == true and not reduced(use)
+					end, function()
+						local elapsed = 0
+						Compose.cleanup(frames.onFrame(function(delta: number)
+							elapsed += delta
+							pulse:set(0.5 - 0.5 * math.cos(elapsed * math.pi))
+						end))
+						Compose.cleanup(function()
+							pulse:set(0)
+						end)
+						return Compose.fragment(function()
+							return {}
+						end)
+					end),
+				}
+			end, paint)
+		end
+		local function art(use: ComposeTypes.Use): ThemeTypes.Asset?
+			local current = use(package) :: ThemeTypes.ThemePackage?
+			local focus = layer(use)
+			if focus.kind ~= "nineSlice" or type(focus.asset) ~= "string" or current == nil then
+				return nil
+			end
+			return (current.assets or {})[focus.asset :: string]
+		end
+		local function outset(use: ComposeTypes.Use): number
+			return scaled(use, layer(use).outset or 0, 1.5)
+		end
+		local function bracket(name: string, x: number, y: number, horizontal: boolean): Frame
+			return Host.Frame({
+				Name = name,
+				BorderSizePixel = 0,
+				BackgroundColor3 = color,
+				BackgroundTransparency = function(use: ComposeTypes.Use): number
+					return fade(use, 0.35)
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local focus = layer(use)
+					local long, thick = scaled(use, focus.size or 12, 1.5), scaled(use, focus.thickness or 4, 1.5)
+					return if horizontal then D2.fromOffset(long, thick) else D2.fromOffset(thick, long)
+				end,
+				Position = function(use: ComposeTypes.Use): UDim2
+					local focus = layer(use)
+					local long, thick = scaled(use, focus.size or 12, 1.5), scaled(use, focus.thickness or 4, 1.5)
+					local grow = outset(use)
+					local width = if horizontal then long else thick
+					local height = if horizontal then thick else long
+					return D2.new(x, if x == 0 then -grow else grow - width, y, if y == 0 then -grow else grow - height)
+				end,
+			})
+		end
+		local brackets: { ComposeTypes.Child } = {}
+		for _, at in { { "Top", 0, 0 }, { "TopRight", 1, 0 }, { "BottomLeft", 0, 1 }, { "Bottom", 1, 1 } } do
+			table.insert(brackets, bracket(at[1] .. "Across", at[2], at[3], true))
+			table.insert(brackets, bracket(at[1] .. "Down", at[2], at[3], false))
+		end
+		local lift = function(use: ComposeTypes.Use): number
+			return if far(use) then 3 else 0
+		end
 		local ring = Host.Frame({
 			Name = "FacetFocusRing",
 			BackgroundTransparency = 1,
-			Size = D2.fromScale(1, 1),
-			Host.UICorner({ CornerRadius = ctx.observeStyled.CornerRadius(corner) }) :: ComposeTypes.Child,
+			Size = function(use: ComposeTypes.Use): UDim2
+				local grow = lift(use)
+				return D2.new(1, 2 * grow, 1, 2 * grow)
+			end,
+			Position = function(use: ComposeTypes.Use): UDim2
+				local grow = lift(use)
+				return D2.fromOffset(-grow, -grow)
+			end,
+			Host.UICorner({
+				CornerRadius = function(use: ComposeTypes.Use): UDim
+					local shape = layer(use).corner
+					if shape == "square" then
+						return D.new(0, 0)
+					elseif shape == "pill" then
+						return D.new(0.5, 0)
+					end
+					local target = use(selected) :: Instance?
+					local radius = use(themeRadius) :: UDim
+					if target then
+						local own = target:FindFirstChildWhichIsA("UICorner")
+						if own then
+							radius = own.CornerRadius
+						elseif target:HasTag("facet-shape-circle") then
+							return D.new(0.5, 0)
+						elseif target:HasTag("facet-chip") then
+							radius = D.new(0, ctx.metric("radii.pill", use))
+						end
+					end
+					return if radius.Scale > 0 then radius else D.new(0, radius.Offset + lift(use))
+				end,
+			}) :: ComposeTypes.Child,
 			Host.UIStroke({
 				ApplyStrokeMode = E.ApplyStrokeMode.Border,
 				BorderStrokePosition = E.BorderStrokePosition.Inner,
-				Color = ctx.observeStyled.BackgroundColor3(paint),
+				Color = color,
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return layer(use).kind == "ring"
+				end,
 				Thickness = function(use: ComposeTypes.Use): number
-					return if use(env.displaySize) == "Large" then 4 else 2
+					return scaled(use, layer(use).thickness or 2, 2)
 				end,
 				Transparency = function(use: ComposeTypes.Use): number
-					return if use(keyed) or use(env.effectiveInput) == "Gamepad" then 0 else 1
+					return fade(use, 0.35)
 				end,
+			}),
+			Host.UIShadow({
+				Name = "Glow",
+				Color = color,
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return layer(use).kind == "glow" and shown(use)
+				end,
+				BlurRadius = function(use: ComposeTypes.Use): UDim
+					local blur = layer(use).blurRadius or {}
+					return D.new(0, math.round(scaled(use, blur.offset or 24, 1.6)))
+				end,
+				Transparency = function(use: ComposeTypes.Use): number
+					local value = layer(use).transparency or 0.25
+					return math.clamp((if far(use) then value * 0.55 else value) + use(pulse) * 0.2, 0, 1)
+				end,
+				ZIndex = function(use: ComposeTypes.Use): number
+					return layer(use).zIndex or -1
+				end,
+			}),
+			Host.ImageLabel({
+				Name = "Art",
+				BackgroundTransparency = 1,
+				ScaleType = E.ScaleType.Slice,
+				Visible = function(use: ComposeTypes.Use): boolean
+					return art(use) ~= nil and shown(use)
+				end,
+				ImageTransparency = function(use: ComposeTypes.Use): number
+					return fade(use, 0.35)
+				end,
+				Image = function(use: ComposeTypes.Use): string
+					local asset = art(use)
+					return if asset then asset.content or asset.contentId or "" else ""
+				end,
+				SliceCenter = function(use: ComposeTypes.Use): Rect
+					local asset = art(use)
+					local slice = if asset then asset.sliceCenter else nil
+					return if slice
+						then ctx.types.Rect.new(slice.x0, slice.y0, slice.x1, slice.y1)
+						else ctx.types.Rect.new(0, 0, 0, 0)
+				end,
+				SliceScale = function(use: ComposeTypes.Use): number
+					local asset = art(use)
+					local base = layer(use).sliceScale or (if asset then asset.sliceScale else nil) or 1
+					return if far(use) then base * 1.5 else base
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local grow = outset(use)
+					return D2.new(1, 2 * grow, 1, 2 * grow)
+				end,
+				Position = function(use: ComposeTypes.Use): UDim2
+					local grow = outset(use)
+					return D2.fromOffset(-grow, -grow)
+				end,
+			}),
+			Host.Frame({
+				Name = "Brackets",
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(1, 1),
+				Visible = function(use: ComposeTypes.Use): boolean
+					return layer(use).kind == "brackets" and shown(use)
+				end,
+				table.unpack(brackets),
 			}),
 		})
 		playerGui.SelectionImageObject = ring

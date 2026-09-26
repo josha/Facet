@@ -103,9 +103,9 @@ t.describe("native gallery pickers and fields", function()
 			expect(tilt.Rotation).toBe(45)
 			local rear = find(s.node, "Balance")
 			expect(find(rear, "Track").Size.Y.Scale).toBe(1)
-			local before = find(rear, "Thumb").Position.Y.Scale
+			local before = find(rear, "ThumbStop").Position.Y.Scale
 			expect(steps.sliderAxis().rear).toBe(90)
-			expect(find(rear, "Thumb").Position.Y.Scale < before).toBe(true)
+			expect(find(rear, "ThumbStop").Position.Y.Scale < before).toBe(true)
 			expect(find(find(s.node, "Boost"), "Thumb").Visible).toBe(false)
 			expect(find(find(s.node, "Boost"), "Rail").Size.Y.Offset <= 8).toBe(true)
 			expect(find(find(s.node, "Camera"), "Thumb").Visible).toBe(false)
