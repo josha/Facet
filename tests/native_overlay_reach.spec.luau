@@ -1,6 +1,7 @@
 --!strict
 local t = require("./lib/testkit")
 local worlds = require("./lib/content_world")
+local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local lune = require("@lune/roblox")
 local UDim2, Vector2 = lune.UDim2, lune.Vector2
@@ -244,6 +245,37 @@ t.describe("full-value disclosure of truncated text", function()
 		w.advance(0.5)
 		t.expect(w.find("HelpText").Text).toBe(LONG)
 		w.stop()
+	end)
+
+	t.it("a Toggle's truncated label discloses its whole value; without disclose it stays plate-less", function()
+		for _, case in { { disclose = true }, { disclose = true, hint = "Shown on the HUD" }, {} } do
+			local w = overlay.new(function(UI, Host)
+				return Host.Frame({
+					Name = "Screen",
+					UI.Toggle "Music" {
+						label = LONG,
+						value = Compose.cell(false),
+						disclose = case.disclose,
+						hint = case.hint,
+					},
+				})
+			end, { reducedMotion = true })
+			local music = w.find("Music")
+			place(music)
+			local title = music:FindFirstChild("Title", true)
+			music.TextFits = title ~= nil
+			if title then
+				title.TextFits = false
+			end
+			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.gui.SelectedObject = music
+			w.advance(0.5)
+			local help = w.find("HelpText")
+			local where = if case.hint then "hint" elseif case.disclose then "plain" else "undisclosed"
+			t.expect(`{where}: {if help then help.Text else "none"}`)
+				.toBe(`{where}: {if case.disclose then LONG else "none"}`)
+			w.stop()
+		end
 	end)
 
 	t.it("disclose is a boolean", function()

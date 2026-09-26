@@ -860,6 +860,11 @@ toolbar. The `button` presentation refuses `plain`, because its plate shows the
 state. `textSize` is a type role or a number of pixels for the label, as on
 Button. The default is the `control` role.
 
+`disclose = true` lets a player read the whole label of a Toggle whose label
+truncates, as on Button: the label shows in the `Disclosure` panel while the
+engine reports that the painted label does not fit (`TextFits` of the label
+itself on a settings row). Without `disclose` the Toggle shows no panel.
+
 ### TextInput
 
 `value` is the string model. Roblox TextBox owns editing, IME, the caret, the

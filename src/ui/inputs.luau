@@ -1003,7 +1003,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		assert(spec.disclose == nil or type(spec.disclose) == "boolean", "Facet.Button: disclose must be a boolean")
 		local fits: ComposeTypes.Readable<boolean>? = nil
 		if spec.disclose then
-			local textFits = ctx.observe.TextFits(node)
+			local title = node:FindFirstChild("Title", true)
+			local textFits = ctx.observe.TextFits(if title and title:IsA("TextLabel") then title else node)
 			fits = textFits
 			help.attach(ctx, node, spec.label or "", {
 				name = "Disclosure",
