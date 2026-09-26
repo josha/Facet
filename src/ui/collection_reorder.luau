@@ -41,6 +41,8 @@ return function<V, K>(
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local TAP = 3
 	local STACK = 6
+	local HOLD = 0.35
+	local SLOP = 10
 	local reorderable = spec.reorderable == true
 	local deletable = spec.deletable == true
 	local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
@@ -74,14 +76,32 @@ return function<V, K>(
 	local keyboardTarget: TextButton?
 	local stopFrames: ComposeTypes.Dispose?
 	local startFrames: (() -> ())?
+	local frames = assert(ctx.runtime.host.frames)
+	local touchKey: K? = nil
+	local touchOrigin: Vector2? = nil
+	local stopHold: ComposeTypes.Dispose? = nil
+	local scrollLocked: ScrollingFrame? = nil
+	local function disarm()
+		touchKey, touchOrigin = nil, nil
+		if stopHold then
+			stopHold()
+			stopHold = nil
+		end
+	end
 	local function cancel()
 		captured = nil
+		disarm()
 		if stopFrames then
 			stopFrames()
 			stopFrames = nil
 		end
+		if scrollLocked then
+			scrollLocked.ScrollingEnabled = true
+			scrollLocked = nil
+		end
 		moving:set(nil)
 	end
+	Compose.cleanup(disarm)
 	local function movable(item: V): boolean
 		return policy.allows(spec.movable, item) and not policy.disabled(spec.disabled, item)
 	end
@@ -419,9 +439,34 @@ return function<V, K>(
 	local pressed: K? = nil
 	local pressOrigin: Vector2? = nil
 	local function press(key: K, value: InputObject): ()
-		local at = value.Position
-		if reorderable and at and value.UserInputType == E.UserInputType.MouseButton1 and moving:peek() == nil then
+		local at: Vector3? = value.Position
+		if not reorderable or at == nil or moving:peek() ~= nil then
+			return
+		end
+		if value.UserInputType == E.UserInputType.MouseButton1 then
 			pressed, pressOrigin, pendingInput = key, V2.new(at.X, at.Y), value
+		elseif value.UserInputType == E.UserInputType.Touch then
+			disarm()
+			touchKey, touchOrigin, pendingInput = key, V2.new(at.X, at.Y), value
+			local elapsed = 0
+			stopHold = frames.onFrame(function(step: number)
+				elapsed += step
+				if elapsed < HOLD then
+					return
+				end
+				local armedKey, origin = touchKey, touchOrigin
+				disarm()
+				if armedKey ~= nil and origin ~= nil then
+					begin(armedKey, origin)
+					if moving:peek() then
+						local body = bodyOf()
+						if body.ScrollingEnabled then
+							scrollLocked = body
+							body.ScrollingEnabled = false
+						end
+					end
+				end
+			end)
 		end
 	end
 	pressRow = press
@@ -503,6 +548,13 @@ return function<V, K>(
 		end
 		if input then
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
+				if touchOrigin and value == pendingInput then
+					local position = V2.new(value.Position.X, value.Position.Y)
+					if (position - touchOrigin).Magnitude > SLOP then
+						disarm()
+					end
+					return
+				end
 				if
 					pressed ~= nil
 					and pressOrigin ~= nil
@@ -542,6 +594,9 @@ return function<V, K>(
 			ctx.runtime.connect(input, "InputEnded", function(value: InputObject)
 				if value.UserInputType == E.UserInputType.MouseButton1 then
 					pressed, pressOrigin = nil, nil
+				end
+				if touchOrigin and value == pendingInput then
+					disarm()
 				end
 				if
 					captured

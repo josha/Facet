@@ -801,6 +801,52 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("picks a row up from a held finger anywhere on it and leaves a moving finger to the scroll", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V3 = engine.types.Enum, engine.types.Vector3
+		local reorders = 0
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(6),
+				key = key,
+				itemSize = 20,
+				reorderable = true,
+				onReorder = function()
+					reorders += 1
+				end,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 120)
+		local input = ctx.config.userInputService
+		local action = node:FindFirstChild("1", true):FindFirstChild("Action", true)
+		local swipe = { UserInputType = E.UserInputType.Touch, Position = V3.new(50, 10, 0) }
+		action.InputBegan.fire(swipe)
+		swipe.Position = V3.new(50, 40, 0)
+		input.InputChanged.fire(swipe)
+		for _ = 1, 30 do
+			engine.heartbeat.fire(1 / 60)
+		end
+		t.expect(node:FindFirstChild("DragImage", true)).toBeNil()
+		local hold = { UserInputType = E.UserInputType.Touch, Position = V3.new(50, 10, 0) }
+		action.InputBegan.fire(hold)
+		engine.heartbeat.fire(0.2)
+		t.expect(node:FindFirstChild("DragImage", true)).toBeNil()
+		engine.heartbeat.fire(0.2)
+		t.expect(node:FindFirstChild("DragImage", true) ~= nil).toBe(true)
+		t.expect(node.ScrollingEnabled).toBe(false)
+		hold.Position = V3.new(50, 70, 0)
+		input.InputChanged.fire(hold)
+		hold.UserInputState = E.UserInputState.End
+		input.InputEnded.fire(hold)
+		t.expect(reorders).toBe(1)
+		t.expect(node.ScrollingEnabled).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("scrolls a dragged row at the list's edge unless autoscroll is off", function()
 		for _, autoscroll in { true, false } do
 			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })

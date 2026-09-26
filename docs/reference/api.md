@@ -2623,6 +2623,8 @@ input:
   row, stacked two or three deep for a selection, and scrolls the list near its
   edges unless `autoscroll = false`. Delete or Backspace removes the selected
   rows.
+- Touch: hold a finger still on a row for a third of a second to pick it up
+  and move it; a finger that moves first scrolls the list or swipes the row.
 - Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
   Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
   Edit mode shows, inside each row band, a round red minus at the leading
