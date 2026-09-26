@@ -521,27 +521,40 @@ return function(
 		if spec.onActivate then
 			local bodyExtent = ctx.observe.AbsoluteSize(body)
 			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
-			local paint =
-				ctx.styled(Host.Frame "CardRingPaint" { Visible = false, Size = D2.fromOffset(0, 0) }, "card-ring")
-			paint.Parent = card
-			local ring = Host.Frame "CardRing" {
-				BackgroundTransparency = 1,
-				Size = function(use: ComposeTypes.Use): UDim2
-					local bodyHeight = use(bodyExtent).Y
-					return D2.fromScale(1, if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1)
-				end,
-				Host.UICorner {
-					CornerRadius = function(use: ComposeTypes.Use): UDim
-						return D.new(0, ctx.metric("radii.panel", use))
-					end,
-				},
-				Host.UIStroke {
-					ApplyStrokeMode = E.ApplyStrokeMode.Border,
-					Thickness = 2,
-					Color = ctx.observeStyled.BackgroundColor3(paint) :: ComposeTypes.Readable<Color3>,
-				},
-			}
-			body.SelectionImageObject = ring
+			local ratio = Compose.formula(function(use: ComposeTypes.Use): number
+				local bodyHeight = use(bodyExtent).Y
+				return if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1
+			end)
+			local copy: GuiObject? = nil
+			local function fit(look: GuiObject)
+				local size = look.Size
+				look.Size = D2.new(size.X.Scale, size.X.Offset, ratio:peek(), size.Y.Offset)
+			end
+			runtime.connect(body, "SelectionGained", function()
+				local playerGui = body:FindFirstAncestorWhichIsA("PlayerGui")
+				local look = if playerGui then playerGui.SelectionImageObject else nil
+				if look == nil then
+					return
+				end
+				if copy then
+					copy:Destroy()
+				end
+				local made = look:Clone()
+				fit(made)
+				copy = made
+				body.SelectionImageObject = made
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(ratio)
+				if copy then
+					fit(copy)
+				end
+			end)
+			Compose.cleanup(function()
+				if copy then
+					copy:Destroy()
+				end
+			end)
 		end
 		if (spec :: { [unknown]: unknown }).Position == nil then
 			runtime.decorate(card, {

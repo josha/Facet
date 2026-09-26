@@ -2752,9 +2752,9 @@ icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
 
 With `onActivate`, the selection ring of the body surrounds the whole card: the
 artwork, the text and the action row. `ringTarget = "media"` rings only the
-artwork. The ring is the native `SelectionImageObject` of the body, a Frame
-with the `facet-card-ring` tag that the theme paints in `accent`. A selected
-action keeps its own ring.
+artwork. When the body gains the selection, it takes a copy of the PlayerGui's
+focus look (see [focusRing](#focusring)) sized to that area, so a card draws
+the theme's focus look. A selected action keeps the look on itself.
 
 Use a Card for a game, a track or a kart, where the picture helps the player
 choose. For rows of text, use VirtualList or Table.

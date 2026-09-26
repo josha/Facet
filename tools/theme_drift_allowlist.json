@@ -106,13 +106,6 @@
       "reason": "The today ring on a calendar day disc has no theme metric; its colour comes from the theme rule."
     },
     {
-      "path": "src/ui/card.luau",
-      "rule": "stroke",
-      "match": "Thickness = 2,",
-      "status": "no-metric",
-      "reason": "The Card selection ring is a 2 px focus ring, the width of the engine selection outline; the theme strokes cover only the hairline."
-    },
-    {
       "path": "src/ui/environment.luau",
       "rule": "radius",
       "match": "return D.new(0.5, 0)",
