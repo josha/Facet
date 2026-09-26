@@ -176,6 +176,30 @@ t.describe("ten-foot overscan margins on a Screen", function()
 		t.expect(padding.PaddingTop).toBe(w.T.UDim.new(60 / 1080, 24))
 		w.runtime:dispose()
 	end)
+	t.it("a top bar TabView starts its pages below its own band at every distance", function()
+		for _, distant in { false, true } do
+			local w = world(nil, distant)
+			local root = w.mount(function()
+				return w.UI.TabView {
+					style = "collapsible",
+					selection = Compose.cell("a"),
+					tabs = {
+						{
+							id = "a",
+							label = "A",
+							content = function()
+								return w.UI.Text { text = "A" }
+							end,
+						},
+					},
+				}
+			end)
+			local band = if distant then 66 else 44
+			t.expect(root:FindFirstChild("Content").Position.Y.Offset).toBe(band + 8)
+			w.runtime:dispose()
+		end
+	end)
+
 	t.it("adds authored margins in pixels and none opts out", function()
 		local margins = Compose.cell({ top = 10, left = 20, bottom = 10, right = 20 } :: any)
 		local w = world({ environment = { overscanInsets = margins } }, true)
