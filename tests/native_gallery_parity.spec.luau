@@ -125,6 +125,9 @@ t.describe("restored native gallery parity", function()
 			end
 		end
 		t.expect(find(find(node, "Baseline"), "FlexibleGap"):FindFirstChildWhichIsA("UIFlexItem") ~= nil).toBe(true)
+		local back = find(find(node, "details"), "Back")
+		t.expect(back.AutomaticSize.Name .. " " .. back.Size.X.Scale .. " " .. back.Size.X.Offset).toBe("XY 0 0")
+		t.expect(back:FindFirstChild("Title", true).AutomaticSize.Name).toBe("XY")
 		close()
 	end)
 	t.it("reverses automatic equipment rows without changing their instances or balance", function()
