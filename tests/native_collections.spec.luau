@@ -658,6 +658,74 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("glides the rows that follow a deleted row into place and snaps under reduced motion", function()
+		for _, reduced in { false, true } do
+			local engine, runtime, UI, target = setup({ reducedMotion = reduced })
+			local source = Compose.cell(records(5))
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList({
+					from = source,
+					key = key,
+					itemSize = 20,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+			local second = node:FindFirstChild("2", true)
+			t.expect(second.Position.Y.Offset).toBe(20)
+			local remaining = records(5)
+			table.remove(remaining, 1)
+			source:set(remaining)
+			t.expect(second.Position.Y.Offset).toBe(if reduced then 0 else 20)
+			for _ = 1, 30 do
+				engine.heartbeat.fire(1 / 60)
+			end
+			t.expect(second.Position.Y.Offset).toBe(0)
+			stop()
+			runtime:dispose()
+		end
+	end)
+
+	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(20),
+				key = key,
+				direction = "horizontal",
+				itemSize = 100,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = V2.new(300, 100)
+		node.AbsoluteSize = V2.new(300, 100)
+		local input = ctx.config.userInputService
+		local function mouse(kind, x)
+			return { UserInputType = kind, Position = V3.new(x, 50, 0) }
+		end
+		input.InputBegan.fire(mouse(E.UserInputType.MouseButton1, 250))
+		input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, 247))
+		t.expect(node.CanvasPosition.X).toBe(0)
+		input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, 150))
+		t.expect(node.CanvasPosition.X).toBe(100)
+		t.expect(node:FindFirstChild("Items").Interactable).toBe(false)
+		input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, 400))
+		t.expect(node.CanvasPosition.X).toBe(0)
+		input.InputEnded.fire(mouse(E.UserInputType.MouseButton1, 400))
+		engine.heartbeat.fire(1 / 60)
+		t.expect(node:FindFirstChild("Items").Interactable).toBe(true)
+		input.InputBegan.fire(mouse(E.UserInputType.MouseButton1, 900))
+		input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, 700))
+		t.expect(node.CanvasPosition.X).toBe(0)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("draws icon actions at a fixed width and arms the first action past a 0.6 full swipe", function()
 		local engine, runtime, UI, target = setup()
 		local deleted = 0

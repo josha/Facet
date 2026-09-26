@@ -4,6 +4,7 @@ local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
 local createSelection = require("./collection_selection")
 local attachSnap = require("./collection_snap")
+local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -23,6 +24,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local props, observe = ctx.props, ctx.observe
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
+	local GLIDE = 0.22
 	local behavior = {
 		"from",
 		"key",
@@ -139,6 +141,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
 		local measured: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
 		local horizontal = spec.direction == "horizontal"
+		local frames = assert(runtime.host.frames)
+		local motionReduced = reducedMotion(ctx)
+		local function reduced(): boolean
+			return if spec.reducedMotion == nil then motionReduced() else read(spec.reducedMotion) == true
+		end
 		local root: ScrollingFrame
 		local scope: ComposeTypes.FocusScope<K>? = nil
 		local restoring = false
@@ -282,13 +289,46 @@ return function(ctx: Types.Context, UI: Controls): ()
 				render = function(current, placement, key)
 					local lease = pool.acquire()
 					local node = runtime.borrow(lease.value.node) :: Frame
+					local glide = Compose.cell(0)
+					local stopGlide: (() -> ())? = nil
+					local function halt()
+						if stopGlide then
+							stopGlide()
+							stopGlide = nil
+						end
+					end
+					Compose.cleanup(halt)
+					local function shift(use: ComposeTypes.Use?): number
+						return if use then use(glide) else glide:peek()
+					end
+					local previous = placement:peek()
+					Compose.watch(function(use: ComposeTypes.Use)
+						local at = use(placement)
+						local delta = previous.offset + glide:peek() - at.offset
+						local moved = at.index ~= previous.index
+						previous = at
+						if not moved or kind ~= "list" or math.abs(delta) > viewport:peek().size or reduced() then
+							return
+						end
+						halt()
+						local elapsed = 0
+						glide:set(delta)
+						stopGlide = frames.onFrame(function(step: number)
+							elapsed = math.min(GLIDE, elapsed + step)
+							glide:set(delta * (1 - elapsed / GLIDE) ^ 3)
+							if elapsed >= GLIDE then
+								halt()
+							end
+						end)
+					end)
 					runtime.decorate(node, {
 						Name = tostring(key),
 						Position = function(use: ComposeTypes.Use)
 							local at = use(placement)
+							local offset = at.offset + shift(use)
 							return if horizontal
-								then D2.fromOffset(at.offset, at.crossOffset)
-								else D2.fromOffset(at.crossOffset, at.offset)
+								then D2.fromOffset(offset, at.crossOffset)
+								else D2.fromOffset(at.crossOffset, offset)
 						end,
 						Size = function(use: ComposeTypes.Use)
 							local at = use(placement)
@@ -459,6 +499,68 @@ return function(ctx: Types.Context, UI: Controls): ()
 		)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
 		root:SetAttribute("FacetSelectionOwner", true)
+		local input = ctx.config.userInputService
+		if horizontal and input and not spec.reorderable then
+			local pressAt: number? = nil
+			local startOffset, dragging = 0, false
+			local function items(): Instance?
+				return root:FindFirstChild("Items")
+			end
+			local function inside(position: Vector3): boolean
+				local point = V2.new(position.X, position.Y)
+				local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
+				if layer and layer:IsA("ScreenGui") and layer.IgnoreGuiInset and gui then
+					point += gui:GetGuiInset()
+				end
+				local at, size = root.AbsolutePosition, root.AbsoluteSize
+				return point.X >= at.X and point.Y >= at.Y and point.X <= at.X + size.X and point.Y <= at.Y + size.Y
+			end
+			runtime.connect(input, "InputBegan", function(value: InputObject)
+				if
+					value.UserInputType == E.UserInputType.MouseButton1
+					and inside(value.Position)
+					and ctx.available(root)
+				then
+					pressAt, startOffset, dragging = value.Position.X, root.CanvasPosition.X, false
+				end
+			end)
+			runtime.connect(input, "InputChanged", function(value: InputObject)
+				if pressAt == nil or value.UserInputType ~= E.UserInputType.MouseMovement then
+					return
+				end
+				local travel = value.Position.X - pressAt
+				if not dragging and math.abs(travel) >= 6 then
+					dragging = true
+					local node = items()
+					if node and node:IsA("GuiObject") then
+						node.Interactable = false
+					end
+				end
+				if dragging then
+					local limit = math.max(0, root.CanvasSize.X.Offset - root.AbsoluteWindowSize.X)
+					root.CanvasPosition = V2.new(math.clamp(startOffset - travel, 0, limit), root.CanvasPosition.Y)
+				end
+			end)
+			runtime.connect(input, "InputEnded", function(value: InputObject)
+				if value.UserInputType ~= E.UserInputType.MouseButton1 or pressAt == nil then
+					return
+				end
+				pressAt = nil
+				if dragging then
+					dragging = false
+					local stop: (() -> ())? = nil
+					stop = frames.onFrame(function()
+						if stop then
+							stop()
+						end
+						local node = items()
+						if node and node:IsA("GuiObject") then
+							node.Interactable = true
+						end
+					end)
+				end
+			end)
+		end
 		if overlayReorder then
 			runtime.mount(function()
 				return overlayReorder(true)
