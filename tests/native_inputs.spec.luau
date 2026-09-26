@@ -2446,6 +2446,33 @@ t.describe("native input controls", function()
 		t.expect(captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
 
+	t.it("a touch rating tightens its spacing to fit a fixed-width holder, such as a Table column", function()
+		local input
+		local root, stop, engine = world(function(UI, engine, runtime)
+			return runtime.constructors.Frame({
+				Name = "Column",
+				Size = engine.types.UDim2.fromOffset(144, 44),
+				UI.Rating "Stars" { value = Compose.cell(3) },
+			})
+		end, function(engine)
+			input = engine.new("UserInputService")
+			input.TouchEnabled = true
+			return { services = { UserInputService = input } }
+		end)
+		local V = engine.types.Vector2
+		local node = find(root, "Stars")
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
+		mark.AbsoluteSize = V.new(20, 20)
+		root.AbsoluteSize = V.new(144, 44)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 11)
+		mark.AbsoluteSize = V.new(40, 40)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		root.AbsoluteSize = V.new(800, 88)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		stop()
+	end)
+
 	t.it("a rating spaces its stars to the touch target when touch is the effective input", function()
 		local input
 		local node, stop, engine = world(function(UI)

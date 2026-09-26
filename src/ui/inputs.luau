@@ -2023,9 +2023,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local markContent = Host.Frame(contentProps)
 
 		local effectiveInput = ctx.effectiveInput()
+		local room = Compose.cell(math.huge)
 		local function gap(use: ComposeTypes.Use): number
 			local reach = if effectiveInput(use) == "Touch" then ctx.metric("targetSizes.minimum", use) else 0
-			return math.max(2, reach - markSize)
+			local fits = if count > 1 then math.floor((use(room) - count * markSize) / (count - 1)) else math.huge
+			return math.max(2, math.min(reach - markSize, fits))
 		end
 		runtime.decorate(assert(markContent:FindFirstChildWhichIsA("UIListLayout")), {
 			Padding = function(use: ComposeTypes.Use): UDim
@@ -2119,6 +2121,41 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 		end
 		root = ctx.styled(Host.TextButton(p), if rating then "rating" else "level-picker")
+		local parent = ctx.observe.Parent(root)
+		local unit = ctx.observe.AbsoluteSize(marks[1])
+		local holderSize = Compose.cell(0)
+		local observation = runtime.host.observation
+		local stopHolder: (() -> ())? = nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			local holder = use(parent) :: Instance?
+			if stopHolder then
+				stopHolder()
+				stopHolder = nil
+			end
+			local fixed = holder
+				and holder:IsA("GuiObject")
+				and holder.AutomaticSize ~= E.AutomaticSize.X
+				and holder.AutomaticSize ~= E.AutomaticSize.XY
+			if fixed and observation then
+				local frame = holder :: GuiObject
+				local function measure()
+					holderSize:set(frame.AbsoluteSize.X)
+				end
+				stopHolder = observation.observeProperty(frame, "AbsoluteSize", measure)
+				measure()
+			else
+				holderSize:set(0)
+			end
+		end)
+		Compose.cleanup(function()
+			if stopHolder then
+				stopHolder()
+			end
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local width, scale = use(holderSize), (use(unit) :: Vector2).X / markSize
+			room:set(if width > 0 and scale > 0 then width / scale else math.huge)
+		end)
 		local function published(use: ComposeTypes.Use): number
 			return math.clamp(read(spec.value, use), minimum, count)
 		end
