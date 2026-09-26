@@ -617,8 +617,8 @@ function parts.tail(
 			Position = centre,
 			Size = function(use: ComposeTypes.Use)
 				local point, edge = at(use)
-				local base = if point then math.floor(parts.tailSize(ctx, use) * math.sqrt(2) / 2) * 2 - 6 else 0
-				local thick = if point then 4 else 0
+				local base = if point then math.floor(parts.tailSize(ctx, use) * math.sqrt(2) / 2 - 1) * 2 else 0
+				local thick = if point then 2 else 0
 				return if edge == "left" or edge == "right"
 					then D2.fromOffset(thick, base)
 					else D2.fromOffset(base, thick)

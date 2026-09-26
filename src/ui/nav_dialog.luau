@@ -64,7 +64,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.closeButton ~= nil and type(spec.closeButton) ~= "boolean" then
 			error(`Facet {where}: closeButton must be true or false`, 0)
 		end
-		local closeButton = spec.closeButton ~= false
+		local closeButton = if spec.closeButton ~= nil
+			then spec.closeButton
+			else spec.actions == nil or #spec.actions == 0
 		if closeButton and spec.onPresentedChange == nil then
 			error(
 				`Facet {where}: the close button proposes a close and needs onPresentedChange. `

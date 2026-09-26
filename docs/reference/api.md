@@ -2380,8 +2380,11 @@ end, playerGui)
 The caller owns `isPresented`. The dialog reads it and never writes it. The
 close button, Cancel and a tap on the backdrop call `onPresentedChange(false)`.
 The dialog closes only when the fact changes. A refused proposal keeps the same
-panel and selection. Without `onPresentedChange`, set `closeButton = false`.
-Then the backdrop and Cancel do nothing.
+panel and selection. A dialog with `actions` has no close button: ButtonB
+and Escape run its `cancel` action. A dialog without actions shows one;
+`closeButton = true` or `false` decides either way. A dialog that shows a
+close button needs `onPresentedChange`. Without `onPresentedChange`, the
+backdrop and Cancel do nothing.
 
 An action press closes the dialog by default. It runs its `onActivate`, and
 then proposes `onPresentedChange(false)`, as the close button does, so a
