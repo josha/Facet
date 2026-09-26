@@ -29,7 +29,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local tabDepth = 0
-	local CORNER_SHIFT = 0.25
+	local CORNER_OVERLAP = 0.25
 	local navigationDepth = 0
 	local TAB_FADE: Nav.Transition = { seconds = 0.2, ease = Compose.easing.outQuad }
 	local PUSH_SPRING = { period = 0.3, damping = 1, tolerance = 1e-3 }
@@ -571,22 +571,38 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return if badge == nil or badge == "" then nil else tostring(badge)
 					end
 					if tab.badge ~= nil and glyph then
+						local icon = glyph :: GuiObject
 						local corner = UI.badged(
 							Host.Frame({ Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }),
 							badgeOf
 						)
+						local sealSize = Compose.cell(V2.zero)
+						local iconBox, iconSize = ctx.observe.AbsoluteSize(icon), ctx.observe.Size(icon)
+						local function reach(use: ComposeTypes.Use): (number, number, number)
+							local seal, box = use(sealSize), use(iconBox).X
+							local side = (use(iconSize) :: UDim2).X.Offset
+							local ratio = if side > 0 and box > 0 then side / box else 1
+							local lift = side * CORNER_OVERLAP
+							return math.round(math.max(0, seal.X * ratio / 2 - lift)),
+								math.round(math.max(0, seal.Y * ratio / 2 - lift)),
+								ratio
+						end
 						runtime.decorate(corner, {
-							Size = D2.fromScale(1 + CORNER_SHIFT, 1 + CORNER_SHIFT),
-							Position = D2.fromScale(0, -CORNER_SHIFT),
+							Size = function(use: ComposeTypes.Use): UDim2
+								local across, up = reach(use)
+								return D2.new(1, across, 1, up)
+							end,
+							Position = function(use: ComposeTypes.Use): UDim2
+								local _, up = reach(use)
+								return D2.fromOffset(0, -up)
+							end,
 							AutomaticSize = E.AutomaticSize.None,
 						})
 						runtime.mount(function()
 							return corner
-						end, glyph)
+						end, icon)
 						local holder = corner:FindFirstChild("Corner")
-						local flow = glyph.Parent and glyph.Parent:FindFirstChildWhichIsA("UIListLayout")
-						if holder and flow then
-							local sealWidth = Compose.cell(0)
+						if holder then
 							local tracked: RBXScriptConnection?
 							local function track()
 								if tracked then
@@ -594,7 +610,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								end
 								local seal = holder:FindFirstChildWhichIsA("GuiObject")
 								local function measure()
-									sealWidth:set(if seal and seal.Parent == holder then seal.AbsoluteSize.X else 0)
+									sealSize:set(if seal and seal.Parent == holder then seal.AbsoluteSize else V2.zero)
 								end
 								tracked = if seal
 									then seal:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
@@ -610,18 +626,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									tracked:Disconnect()
 								end
 							end)
-							local icon = glyph :: GuiObject
-							local iconBox, iconSize = ctx.observe.AbsoluteSize(icon), ctx.observe.Size(icon)
+						end
+						local flow = icon.Parent and icon.Parent:FindFirstChildWhichIsA("UIListLayout")
+						if flow then
 							local gap = flow.Padding.Offset
 							runtime.decorate(flow, {
 								Padding = function(use: ComposeTypes.Use): UDim
-									local width, box = use(sealWidth), use(iconBox).X
+									local width = use(sealSize).X
 									if width <= 0 or read(spec.iconOnly, use) then
 										return D.new(0, gap)
 									end
-									local side = (use(iconSize) :: UDim2).X.Offset
-									local ratio = if side > 0 and box > 0 then side / box else 1
-									local overhang = math.ceil(width / 2 * ratio + side * CORNER_SHIFT)
+									local across, _, ratio = reach(use)
+									local overhang = math.ceil(across + width * ratio / 2)
 									return D.new(0, math.max(gap, overhang + ctx.metric("space.xs", use)))
 								end,
 							})
