@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- NavigationStack Back returns the selection to the control that pushed, found by its path in the page when the page rebuilt that control. Before, it fell to the page's first control (Foundation lab Browse → Back landed on "Show examples").
 - A TabView inside the page of a bar-less TabView (`placement = "none"`) is not nested: it takes the full home policy (a phone gets the bottom bar). The Showcase categories follow the policy on Automatic again, so a phone shows them in a bottom bar as before 0.12.
 - A TabView whose home changes (a sidebar preference, an expanded sidebar) moves the selection from its accessories to the current tab, instead of letting it fall to a control in the page (found live: "Use sidebar" left the selection on the page's first button).
 - Showcase shell is back to the pre-0.12 design (owner): no "Facet gallery" title; one button named for the current demo (it reads "Close" while open) opens an anchored panel with a Section switch, Demos (one button per demo, the current one emphasised) and Settings (theme, appearance, motion, viewing distance, categories, device preview with orientation, input and text previews). It replaces the demo menu Picker, the Settings gear and the Gallery settings sheet. The categories keep the sidebar at a pointer, top tabs with "Use sidebar" elsewhere, and at ten feet "Use sidebar" expands the sidebar (ButtonB collapses it).

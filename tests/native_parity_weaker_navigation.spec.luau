@@ -840,6 +840,48 @@ t.describe("native parity weaker navigation", function()
 		end
 	)
 
+	t.it("pops back to the control that pushed, found by path when the root rebuilt it", function()
+		local path = Compose.cell({})
+		local version = Compose.cell(1)
+		local world = setup(function(UI, Host)
+			return UI.NavigationStack({
+				path = path,
+				transition = false,
+				root = {
+					content = function()
+						return Host.Frame("Root")({
+							Compose.keyed({
+								from = function(use)
+									return { use(version) }
+								end,
+								render = function()
+									return Host.Frame("Strip")({
+										UI.Button("First")({ label = "First" }),
+										UI.Button("Open")({ label = "Open" }),
+									})
+								end,
+							}),
+						})
+					end,
+				},
+				destinations = {
+					detail = {
+						title = "Detail",
+						content = function()
+							return UI.Button("Inside")({ label = "Inside" })
+						end,
+					},
+				},
+			})
+		end)
+		world.gui.SelectedObject = find(world.screen, "Open", "TextButton")
+		path:set({ { id = "detail" } })
+		version:set(2)
+		path:set({})
+		t.expect(world.gui.SelectedObject).toBe(find(world.screen, "Open", "TextButton"))
+		world.stop()
+	end)
+
 	t.it("a TabView inside a bar-less outer TabView (placement none) takes the full home policy", function()
 		for _, outerPlacement in { "none", "topBar" } do
 			local world = setup(function(UI, Host)

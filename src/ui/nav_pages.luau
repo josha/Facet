@@ -1479,14 +1479,31 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 					local visible, parent = ctx.observe.Visible(panel), ctx.observe.Parent(panel)
 					local remembered: GuiObject?
+					local rememberedPath: { string } = {}
 					local previousTop: boolean?
 					local focusing = surfaces.selecting()
 					Compose.watch(function(use: ComposeTypes.Use)
 						local selected = use(selectedObject)
 						if selected and selected:IsA("GuiObject") and surfaces.within(selected, panel) then
 							remembered = selected :: GuiObject
+							table.clear(rememberedPath)
+							local at: Instance? = selected
+							while at and at ~= panel do
+								table.insert(rememberedPath, 1, at.Name)
+								at = at.Parent
+							end
 						end
 					end)
+					local function recall(): GuiObject?
+						if remembered and remembered.Parent then
+							return remembered
+						end
+						local at: Instance? = panel
+						for _, name in rememberedPath do
+							at = if at then at:FindFirstChild(name) else nil
+						end
+						return if at and at ~= panel and at:IsA("GuiObject") then at :: GuiObject else nil
+					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local top = use(role) == "top"
 						if not use(parent) then
@@ -1502,11 +1519,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							and (gui.SelectedObject ~= nil or handoff or focusing(use))
 						then
 							handoff = false
-							gui.SelectedObject = if remembered
-									and remembered.Parent
-									and remembered.Visible
-									and remembered.Interactable
-								then remembered
+							local back = recall()
+							gui.SelectedObject = if back
+									and back.Visible
+									and back.Interactable
+								then back
 								else surfaces.firstSelectable(panel)
 						end
 						previousTop = top
