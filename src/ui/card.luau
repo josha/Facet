@@ -443,7 +443,12 @@ return function(
 		local plateLayer = ctx.styled(
 			Host.Frame({
 				Name = "Plate",
-				Size = D2.fromScale(1, 1),
+				Position = function(use: ComposeTypes.Use): UDim2
+					return D2.fromOffset(0, -2 * ctx.metric("radii.panel", use))
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					return D2.new(1, 0, 1, 2 * ctx.metric("radii.panel", use))
+				end,
 				Visible = reveal == "automatic",
 				Host.UICorner({}) :: Types.Child,
 			}),
@@ -452,6 +457,7 @@ return function(
 		local plate = ctx.fade {
 			Name = "Reveal",
 			LayoutOrder = 2,
+			ZIndex = 0,
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
