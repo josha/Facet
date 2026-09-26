@@ -1581,6 +1581,11 @@ menus keep the control-specific navigation of the menu.
   row, never a selection stop) and `shortcutLabel` (display text such as
   "Ctrl+B"). `shortcutLabel` binds no key. Bind the key where the action is.
   Picker passes the option `badge` to its menu rows.
+- `controls` is an optional table. The menu sets `controls.diagnostics()`,
+  which returns the platform-guidance advice for the current items: a
+  submenu two or more levels deep, a level of more than five items, and a
+  destructive item that is not the last of its level. Advice never refuses a
+  menu.
 
 ```lua
 UI.Menu {

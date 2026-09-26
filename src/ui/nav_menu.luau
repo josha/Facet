@@ -89,6 +89,7 @@ return function(
 		"align",
 		"width",
 		"maxHeight",
+		"controls",
 	}
 	local DIM_FIELDS: { [string]: { [string]: boolean } } = {
 		fixed = { px = true },
@@ -233,6 +234,37 @@ return function(
 			table.insert(result, item)
 		end
 		return result
+	end
+	local function advice<V>(items: { Nav.MenuItem<V> }, path: string, depth: number, notes: { string }): { string }
+		local actions, destructive = 0, nil :: number?
+		for index, item in items do
+			if item.divider ~= true then
+				actions += 1
+				if read(item.role) == "destructive" then
+					destructive = index
+				end
+				if item.children then
+					local id = item.id or tostring(index)
+					if depth + 1 >= 2 then
+						table.insert(
+							notes,
+							`Facet UI.Menu: submenu '{id}' nests {depth + 1} levels deep. The platform guidance advises a single level.`
+						)
+					end
+					advice(read(item.children), `{path}[{index}].children`, depth + 1, notes)
+				end
+			end
+		end
+		if actions > 5 then
+			table.insert(notes, `Facet UI.Menu: {path} holds {actions} items; past about five, consider a new menu.`)
+		end
+		if destructive and destructive ~= #items then
+			table.insert(
+				notes,
+				`Facet UI.Menu: {path}[{destructive}] is destructive but not last; put destructive items at the end of the menu.`
+			)
+		end
+		return notes
 	end
 	local function menuPanel<V>(
 		spec: Nav.MenuSpec<V>,
@@ -1218,6 +1250,11 @@ return function(
 			"Facet UI.Menu: maxHeight must be a finite number of pixels above 0"
 		)
 		checkWidth(read(spec.width))
+		if spec.controls then
+			spec.controls.diagnostics = function(): { string }
+				return advice(read(spec.items), "items", 0, {})
+			end
+		end
 		if spec.label ~= nil and spec.trigger ~= nil then
 			error("Facet UI.Menu: give label or trigger, not both", 0)
 		end

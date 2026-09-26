@@ -90,6 +90,7 @@ export type MenuSpec<V = string> = Types.FrameProps & {
 	align: MenuAlign?,
 	width: Value<MenuWidth>?,
 	maxHeight: number?,
+	controls: { diagnostics: (() -> { string })? }?,
 }
 export type PickerOption<V = string> = {
 	id: string?,
