@@ -35,7 +35,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local Host, read, types, config, Compose = ctx.Host, ctx.read, ctx.types, ctx.config, ctx.Compose
 	local themes = bindThemes(Compose)
 	local Enum = types.Enum
-	local defaultMetrics = themes.neutralPackage().metrics
 	local kit = {} :: Kit
 	local function live(value: unknown): boolean
 		return Compose.isReadable(value) or type(value) == "function"
@@ -50,7 +49,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return compute(nil)
 	end
-	local steps: { [string]: number } = defaultMetrics.space
 	function kit.spacing(value: Shared.Value<Shared.Space>?, use: ComposeTypes.Use?): number
 		local step = read(value, use)
 		if step == nil then
@@ -64,8 +62,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local package: Theme.ThemePackage? = read(config.theme, use)
 		local space: { [string]: number } = if package and type(package.metrics.space) == "table"
 			then package.metrics.space
-			else steps
-		local pixels: number? = space[step] or steps[step]
+			else ctx.neutralMetrics(use).space
+		local pixels: number? = space[step] or ctx.neutralMetrics(use).space[step]
 		assert(
 			type(pixels) == "number",
 			`Facet spacing step "{step}" is not in the theme; use xs, s, m, l, xl or a number`
@@ -95,7 +93,11 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return value
 			end
 			return derive(function(use)
-				return types.UDim.new(0, kit.spacing(pick(use), use))
+				local value: unknown = pick(use)
+				if typeof(value) == "UDim" then
+					return value :: UDim
+				end
+				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use))
 			end, padding, if type(pick(nil)) == "string" then config.theme else nil)
 		end
 		return Host.UIPadding({

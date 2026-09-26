@@ -154,6 +154,8 @@ export type EnvironmentPreview = {
 	preferredTextSize: Value<(Enum.PreferredTextSize | string)?>?,
 	displaySize: Value<(Enum.DisplaySize | string)?>?,
 	viewportSize: Value<Vector2?>?,
+	viewingDistance: Value<("automatic" | "near" | "ten-foot")?>?,
+	overscanInsets: Value<({ top: number, left: number, bottom: number, right: number } | "none")?>?,
 }
 export type ResolvedConfig = Config & { services: Services }
 export type Read = <T>(Value<T>, Use?) -> T
@@ -190,10 +192,12 @@ export type Context = {
 	read: Read,
 	readSource: <T>(Readable<T>, Use?) -> T,
 	metric: (string, Use?) -> number,
+	neutralMetrics: (Use?) -> Theme.Metrics,
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
 	tenFoot: () -> (Use?) -> boolean,
+	viewingDistance: (Use?) -> "automatic" | "near" | "ten-foot",
 	touchFloor: () -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,

@@ -43,6 +43,9 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local properties, children = split(spec, { "gap", "padding", "align", "distribute", "width", "height" })
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
+		local distant = ctx.tenFoot()
+		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
+		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		local flow: Types.Flow = {
 			gap = spec.gap,
 			align = spec.align,
@@ -52,12 +55,23 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				local sides: Types.Sides = if type(value) == "table"
 					then value :: Types.Sides
 					else { top = value, right = value, bottom = value, left = value }
-				return {
-					top = kit.spacing(sides.top, use) + use(under),
-					right = sides.right,
-					bottom = sides.bottom,
-					left = sides.left,
-				}
+				local margins = read(authored, use)
+				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
+					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
+					if type(margins) == "table" then
+						return ctx.types.UDim.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
+					end
+					local fraction = if margins == nil and distant(use) then FRACTION[name] else 0
+					return ctx.types.UDim.new(fraction, pixels)
+				end
+				return (
+					{
+						top = side("top", use(under)),
+						right = side("right", 0),
+						bottom = side("bottom", 0),
+						left = side("left", 0),
+					} :: unknown
+				) :: Types.Padding
 			end,
 			width = spec.width,
 			height = spec.height,

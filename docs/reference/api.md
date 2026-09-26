@@ -214,7 +214,13 @@ document their own write-then-notify behavior below.
 `controls` accepts these options:
 
 - `theme`: a theme package or a readable of one. The controls use it for
-  metrics, artwork and icon resolution.
+  metrics, artwork and icon resolution. At ten feet (`adaptive.isTenFoot`)
+  they use `themes.forDistance(theme, "ten-foot")`, so every metric length,
+  the 44 pixel hit floor (66) and the control heights are 1.5 times. A
+  readable `environment` preview of the distance, the display size or the
+  pointer makes the ladder follow a change at once. Without one, the controls
+  take the distance when `Facet.controls` runs. `Screen` overscan follows the
+  live fact.
 - `reducedMotion` and `icons`: these can also be reactive. Control motion also
   follows `GuiService.ReducedMotionEnabled`. Motion is reduced when either one
   is true.
@@ -234,8 +240,12 @@ document their own write-then-notify behavior below.
   `DisplaySize`, or its name) replace the `GuiService` facts. `viewportSize`
   replaces the camera viewport of `UI.environment()` without a source. Use it
   for a preview in a catalog or a gallery. The engine input still arrives:
-  a mouse click still works in a touch preview. An unknown field causes an
-  error.
+  a mouse click still works in a touch preview. `viewingDistance`
+  (`"automatic"`, `"near"` or `"ten-foot"`) is the authored viewing context:
+  `"ten-foot"` makes a lounge PC with a mouse a television, and `"near"` keeps
+  a console near. It outranks every inference. `overscanInsets`
+  (`{ top, left, bottom, right }` in pixels, or `"none"`) replaces the default
+  ten-foot margins. An unknown field or value causes an error.
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. A callout and a help
   plate place themselves inside `overlayParent` when you set it.
@@ -2938,6 +2948,19 @@ weight. The derived role keeps the family, style, size and line height.
   package art for that name wins. Without it, the regular icon draws.
 - `createStyleSheet(runtime, packageOrReadable?, options?)` returns a native
   StyleSheet that Compose owns. See the list below.
+- `forDistance(package, distance)` is the ten-foot metric ladder. `"near"`
+  returns the authored package (the same table). `"ten-foot"` returns a frozen
+  package whose lengths are 1.5 times (`adaptive.TEN_FOOT_SCALE`): `space`,
+  `targetSizes` (a 44 pixel target is 66), `iconSizes`, `strokes`, every
+  `controlSizes` field, `radii` (rounded to whole pixels) and each type role
+  size, so a 16 pixel `body` is 24. A `metrics.controls` value scales unless
+  its name ends in `TextSize`, `Lines`, `Count`, `Duration`, `Seconds`,
+  `Ratio`, `Fraction`, `Scale`, `Opacity` or `Weight`. Motion, colors, chrome
+  art and art insets do not scale. Every proportion of text to its control is
+  the same at both distances. The call is idempotent and reversible:
+  `forDistance(far, "near")` returns the authored package. You rarely call it:
+  controls and a StyleSheet apply it from the ten-foot fact. A frozen
+  package's ladder is cached.
 - `skin(runtime, packageOrReadable, slot, options?)` builds native control
   artwork. The options include `state`, `selected`, `target`, `label`,
   `onCaption`, `ZIndex` and injected `types`. When a state has no art of its
@@ -2968,6 +2991,13 @@ weight. The derived role keeps the family, style, size and line height.
     the `:Hover` rules, so a tapped control does not keep a hover tint. Press
     paint stays. If you omit it, or the readable gives `nil`, the sheet leaves
     out hover paint while UserInputService.PreferredInput is Touch.
+  - `tenFoot`: a boolean or a readable. When it is `true`, the sheet compiles
+    `forDistance(package, "ten-foot")`: the ten-foot type ramp, radii and
+    strokes. If you omit it, the sheet follows `adaptive.isTenFoot` of
+    GuiService and UserInputService. `app.mount` passes the environment's
+    `isTenFoot`. Pass `false` for a SurfaceGui or BillboardGui, whose canvas
+    has its own scale, and give its controls `environment.viewingDistance =
+    "near"`.
 - Colors and opacity use native StyleRule transitions. The default duration is
   `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
   omitted. The easing is Quad Out. The same timing applies across rules. Native
@@ -3139,7 +3169,9 @@ name.
 | `axisFor(width, { stackAbove? })` | `"x"` at or above `stackAbove` (default 600), else `"y"`. |
 | `columnsFor(available, minColumnWidth, gap?)` | The number of columns of at least `minColumnWidth` that fit, at least 1. |
 | `sizeClassAtLeast(value, target)` | `true` when `value` ranks at or above `target` in `compact < regular < wide`. |
-| `isTenFoot({ displaySize?, touch?, mouse?, tenFootInterface? })` | `true` for `GuiService:IsTenFootInterface()`, or for a `Large` display with no touch and no mouse. A large desk monitor with a mouse is near, not ten-foot. |
+| `isTenFoot({ displaySize?, touch?, mouse?, tenFootInterface?, viewingDistance? })` | `viewingDistance` `"ten-foot"` or `"near"` decides. Otherwise `true` for `GuiService:IsTenFootInterface()`, or for a `Large` display with no touch and no mouse. A large desk monitor with a mouse is near, not ten-foot. |
+| `overscanInsets(width, height)` | The console overscan margins for a viewport: `{ top, left, bottom, right }` of 60/1080 of the height and 90/1920 of the width, rounded. |
+| `TEN_FOOT_SCALE` | 1.5, the ten-foot metric factor. |
 | `navPlacement({ sizeClass, heightClass, primary?, displaySize?, tenFoot? })` | The app navigation home, in this order: ten-foot `"topBar"`; compact width `"bottomBar"`; short height `"bottomBarCompact"`; a pointer `"sidebar"`; a gamepad on a `Small` display `"bottomBar"`; otherwise (a roomy touch screen, a gamepad on a larger display) `"topBar"`. |
 | `BREAKPOINTS`, `HEIGHT_BREAKPOINTS` | The same table: `{ regular = 600, wide = 1000 }`. |
 | `DEFAULT_STACK_ABOVE` | 600. |
@@ -3183,7 +3215,10 @@ environment keeps the last real size.
 | `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. |
 | `effectiveInput` | `primary` as `"KeyboardAndMouse"`, `"Touch"` or `"Gamepad"`. |
 | `displaySize` | The name of `GuiService.ViewportDisplaySize`: `"Small"`, `"Medium"` or `"Large"`. |
-| `isTenFoot` | `adaptive.isTenFoot` of the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |
+| `isTenFoot` | `adaptive.isTenFoot` of the `viewingDistance` option, the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |
+| `viewingDistanceSource` | `"authored"` when the `viewingDistance` option is `"near"` or `"ten-foot"`, else `"inferred"`. |
+| `metricScale` | `adaptive.TEN_FOOT_SCALE` (1.5) at ten feet, else 1. It is the factor of the ten-foot metric ladder (see [Themes](#themes)). |
+| `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
 | `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
 | `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |

@@ -12,6 +12,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		theme = actions.theme,
 		reducedMotion = actions.reducedMotion,
 		pressHaptic = actions.pressHaptic,
+		environment = if actions.spatial then { viewingDistance = "near" } else nil,
 	})
 	local services = actions.services
 	local environmentGame = getfenv(0).game

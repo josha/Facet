@@ -18,6 +18,7 @@ export type AppOptions = {
 	theme: Types.Value<ThemeTypes.ThemePackage>?,
 	icons: Types.Value<{ [string]: ThemeTypes.IconEntry }>?,
 	reducedMotion: Types.Value<boolean>?,
+	environment: Types.EnvironmentPreview?,
 	pressHaptic: HapticEffect?,
 	onError: ((unknown) -> ())?,
 	runtime: Types.Runtime?,
@@ -72,6 +73,9 @@ return function(
 			end
 			if sheetOptions.reducedMotion == nil then
 				sheetOptions.reducedMotion = settings.reducedMotion
+			end
+			if sheetOptions.tenFoot == nil then
+				sheetOptions.tenFoot = UI.environment().isTenFoot
 			end
 			local sheet = themes.createStyleSheet(runtime, settings.theme, sheetOptions)
 			local props: { [unknown]: unknown } = {}

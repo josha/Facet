@@ -269,9 +269,10 @@ local lifetime = Compose.createRootOwner(function()
 	end
 	for _, name in { "Discover", "Avatar", "Chat" } do
 		runtime.mount(function()
-			local package = theme.create(Facet, name)
+			local package = Facet.themes.forDistance(theme.create(Facet, name), "near")
 			local sheet = Facet.themes.createStyleSheet(runtime, package, {
 				reducedMotion = reducedMotion,
+				tenFoot = false,
 				theme = function(use)
 					return theme.paletteName(use(model.palette), use(dark))
 				end,

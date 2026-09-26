@@ -231,6 +231,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			return freeze(insets)
 		end)
+		local overscan = derived(function(use): Env.SafeInsets
+			local authored = ctx.read(config.environment and config.environment.overscanInsets, use)
+			if authored == "none" or (authored == nil and not tenFoot(use)) then
+				return freeze({ top = 0, left = 0, bottom = 0, right = 0 })
+			end
+			if type(authored) == "table" then
+				return freeze(table.clone(authored))
+			end
+			local size = use(viewportSize)
+			return adaptive.overscanInsets(size.X, size.Y)
+		end)
 		local reduced = motion(ctx)
 		local isTenFoot = derived(function(use): boolean
 			return tenFoot(use)
@@ -273,6 +284,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			effectiveInput = effectiveInput,
 			displaySize = displaySize,
 			isTenFoot = isTenFoot,
+			viewingDistanceSource = (derived(function(use): "authored" | "inferred"
+				return if ctx.viewingDistance(use) == "automatic" then "inferred" else "authored"
+			end) :: unknown) :: ComposeTypes.Readable<"authored" | "inferred">,
+			metricScale = derived(function(use): number
+				return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
+			end),
+			overscanInsets = overscan,
 			navPlacement = (derived(function(use): adaptive.NavPlacement
 				return adaptive.navPlacement({
 					sizeClass = use(sizeClass),

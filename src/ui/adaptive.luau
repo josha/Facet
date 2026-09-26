@@ -13,7 +13,15 @@ export type NavFacts = {
 	displaySize: string?,
 	tenFoot: boolean?,
 }
-export type TenFootFacts = { displaySize: string?, touch: boolean?, mouse: boolean?, tenFootInterface: boolean? }
+export type ViewingDistance = "automatic" | "near" | "ten-foot"
+export type TenFootFacts = {
+	displaySize: string?,
+	touch: boolean?,
+	mouse: boolean?,
+	tenFootInterface: boolean?,
+	viewingDistance: string?,
+}
+export type Insets = { top: number, left: number, bottom: number, right: number }
 export type Adaptive = {
 	BREAKPOINTS: Breakpoints,
 	HEIGHT_BREAKPOINTS: Breakpoints,
@@ -26,6 +34,8 @@ export type Adaptive = {
 	sizeClassAtLeast: (value: string, target: string) -> boolean,
 	navPlacement: (facts: NavFacts) -> NavPlacement,
 	isTenFoot: (facts: TenFootFacts) -> boolean,
+	TEN_FOOT_SCALE: number,
+	overscanInsets: (width: number, height: number) -> Insets,
 }
 
 local BREAKPOINTS: Breakpoints = freeze({ regular = 600, wide = 1000 })
@@ -106,8 +116,17 @@ local function navPlacement(facts: NavFacts): NavPlacement
 end
 
 local function isTenFoot(facts: TenFootFacts): boolean
+	if facts.viewingDistance == "ten-foot" or facts.viewingDistance == "near" then
+		return facts.viewingDistance == "ten-foot"
+	end
 	return facts.tenFootInterface == true
 		or (facts.displaySize == "Large" and facts.touch ~= true and facts.mouse ~= true)
+end
+
+local function overscanInsets(width: number, height: number): Insets
+	local x = math.floor((real(width) or 0) * 90 / 1920 + 0.5)
+	local y = math.floor((real(height) or 0) * 60 / 1080 + 0.5)
+	return freeze({ top = y, left = x, bottom = y, right = x })
 end
 
 local adaptive: Adaptive = freeze({
@@ -122,5 +141,7 @@ local adaptive: Adaptive = freeze({
 	sizeClassAtLeast = sizeClassAtLeast,
 	navPlacement = navPlacement,
 	isTenFoot = isTenFoot,
+	TEN_FOOT_SCALE = 1.5,
+	overscanInsets = overscanInsets,
 })
 return adaptive

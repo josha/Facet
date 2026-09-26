@@ -42,7 +42,7 @@ modules. A directory with a trailing slash owns each module in it.
 | **collections** | `src/ui/collections.luau`, `src/ui/collection_policy.luau`, `src/ui/collection_selection.luau`, `src/ui/collection_reorder.luau`, `src/ui/collection_snap.luau`, `src/ui/collection_row_actions.luau`, `src/ui/collection_table.luau`, `src/ui/collection_table_editors.luau`, `src/ui/collection_types.luau` | Keyed and virtual collections, selection, reorder, snap, row actions and tables. | None. Reach it through `Facet.controls`. |
 | **media** | `src/ui/media.luau`, `src/ui/media_types.luau`, `src/ui/rich_text.luau` | Labels, badges, status, progress, skeletons, images, avatars, stages, paths and rich text escaping. | `Facet.richText`, `Facet.pathShapes`, or through `Facet.controls`. |
 | **content** | `src/ui/pagination.luau`, `src/ui/pagination_window.luau`, `src/ui/step_indicator.luau`, `src/ui/vote.luau`, `src/ui/card.luau`, `src/ui/badge_seal.luau`, `src/ui/content_values.luau`, `src/ui/content_types.luau` | Pagination, step indicators, votes, cards, and the checks that keep the last legal value. | None. Reach it through `Facet.controls`. |
-| **themes** | `src/ui/themes.luau`, `src/ui/theme_types.luau`, `src/ui/icons.luau` | Theme packages, their compilation to native StyleSheets, chrome skins and the standard icons. | `Facet.themes` |
+| **themes** | `src/ui/themes.luau`, `src/ui/theme_types.luau`, `src/ui/theme_distance.luau`, `src/ui/icons.luau` | Theme packages, their compilation to native StyleSheets, the ten-foot metric ladder, chrome skins and the standard icons. | `Facet.themes` |
 
 ## Proof
 

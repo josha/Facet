@@ -212,6 +212,7 @@ export type ThemeOptions = {
 	reducedMotion: Engine.ValueBoolean?,
 	preferredTransparency: Engine.ValueNumber?,
 	hover: Engine.ValueBoolean?,
+	tenFoot: Engine.ValueBoolean?,
 	transition: Engine.Value<TweenInfo | false>?,
 }
 export type SkinOptions = {
@@ -233,6 +234,7 @@ export type Themes = {
 	TYPE_ROLES: { string },
 	REQUIRED_TYPE_ROLES: { string },
 	neutralPackage: () -> ThemePackage,
+	forDistance: (package: ThemePackage, distance: "near" | "ten-foot") -> ThemePackage,
 	define: (definition: ThemeDefinition) -> (ThemePackage?, ThemeReport),
 	checkCoverage: (package: ThemePackage, needs: { CoverageNeed }) -> CoverageReport,
 	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,
