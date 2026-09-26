@@ -950,7 +950,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 			return if direction == "right" or direction == "down" then 1 else -1
 		end
 		for _, binding in directions do
-			ctx.action(root, "Collection" .. binding.name, binding.keys, eligible, function()
+			local along = binding.direction == (if horizontal then "left" else "up")
+				or binding.direction == (if horizontal then "right" else "down")
+			local function enabled(use: ComposeTypes.Use): boolean
+				return (along or kind == "grid") and eligible(use)
+			end
+			ctx.action(root, "Collection" .. binding.name, binding.keys, enabled, function()
 				local before = focusScope.current:peek()
 				local after = focusScope.move(binding.direction)
 				if kind == "grid" and spec.wrapFocus and before ~= nil and after == before then

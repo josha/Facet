@@ -841,6 +841,39 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("leaves the cross-axis D-pad to the engine so focus can leave a rail for the next shelf", function()
+		for _, direction in { "horizontal", "vertical" } do
+			local engine, runtime, UI, target, gui = setup()
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList({
+					from = records(6),
+					key = key,
+					itemSize = 40,
+					direction = direction,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 200)
+			gui.SelectedObject = node:FindFirstChild("1", true):FindFirstChild("Action", true)
+			local enabled = {}
+			for _, context in target:GetChildren() do
+				if context:IsA("InputContext") and context.Enabled then
+					enabled[context.Name] = true
+				end
+			end
+			local along = if direction == "horizontal" then "Right" else "Down"
+			local across = if direction == "horizontal" then "Down" else "Right"
+			t.expect(
+				`{direction} {enabled["FacetCollection" .. along] == true} {enabled["FacetCollection" .. across] == true}`
+			)
+				.toBe(`{direction} true false`)
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it("keeps focus on the item by default and on the slot with focusPolicy index", function()
 		for _, policyName in { "key", "index" } do
 			local engine, runtime, UI, target = setup()
