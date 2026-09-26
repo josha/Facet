@@ -385,7 +385,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				keyboard = use(keyboard) == true,
 			}
 			local primary = primaryInput(use)
-			classes.primary = if primary == "Touch" then "touch" elseif primary == "Gamepad" then "gamepad" else "pointer"
+			classes.primary = if primary == "Touch"
+				then "touch"
+				elseif primary == "Gamepad" then "gamepad"
+				else "pointer"
 			if classes.primary == "pointer" then
 				classes.pointer = true
 			elseif classes.primary == "touch" then
