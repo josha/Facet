@@ -277,6 +277,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		buttonSpec.dismissButton = nil
 		buttonSpec.ref = nil
 		buttonSpec.trailingIcon = spec.trailingIcon or "chevron.down"
+		buttonSpec.corners = spec.corners or "pill"
 		buttonSpec.onActivate = function()
 			spec.expanded:set(not spec.expanded:peek())
 		end
@@ -305,96 +306,110 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 			})
 		end
-		runtime.decorate(root, {
-			ZIndex = function(use: ComposeTypes.Use)
-				local base = read(spec.ZIndex, use) or 1
-				return if use(spec.expanded) or not use(closed) then base + 1 else base
-			end,
-		})
-		ctx.action(root, "CollapsibleCollapse", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
-			return use(spec.expanded)
-		end, collapse, { priority = 300 })
 		local rootBox, rootAt = ctx.observe.AbsoluteSize(root), ctx.observe.AbsolutePosition(root)
 		surfaces.attach(root, {
-			Compose.presence(spec.expanded, function(phase: Nav.PresencePhase)
+			surfaces.overlay(root, spec.expanded, function(phase: Nav.PresencePhase?)
+				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
+					or assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
+				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
+				local column = ctx.column({
+					body(spec.content),
+					Compose.show(function(use: ComposeTypes.Use)
+						return read(spec.dismissButton, use) ~= false or use(preferred) == E.PreferredInput.Gamepad
+					end, function()
+						return UI.Button "Close" { label = "Close", onActivate = collapse }
+					end),
+					ctx.padding(16, 16),
+				}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+				local natural = ctx.observe.AbsoluteSize(column)
+				local target = Compose.formula(function(use: ComposeTypes.Use): Overlay.Rect
+					local room, offset, at, box = use(extent), use(origin), use(rootAt), use(rootBox)
+					local margin = ctx.metric("space.s", use)
+					local w = math.min(
+						math.max(box.X, (ctx.metric("controls.popup.panelWidth", use))),
+						math.max(0, room.X - 2 * margin)
+					)
+					local h = math.min(math.max(use(natural).Y, box.Y), math.max(0, room.Y - 2 * margin))
+					local x, y = at.X - offset.X, at.Y - offset.Y
+					return {
+						x = math.clamp(x, margin, math.max(margin, room.X - margin - w)),
+						y = math.clamp(y, margin, math.max(margin, room.Y - margin - h)),
+						w = w,
+						h = h,
+					}
+				end)
+				local function lerp(use: ComposeTypes.Use): Overlay.Rect
+					local goal, at, box, offset = use(target), use(rootAt), use(rootBox), use(origin)
+					local t = progress(use)
+					local x, y = at.X - offset.X, at.Y - offset.Y
+					return {
+						x = x + (goal.x - x) * t,
+						y = y + (goal.y - y) * t,
+						w = box.X + (goal.w - box.X) * t,
+						h = box.Y + (goal.h - box.Y) * t,
+					}
+				end
 				local fade = ctx.fade {
 					Name = "ExpandedFade",
 					BackgroundTransparency = 1,
-					Size = D2.new(1, 0, 0, 0),
-					AutomaticSize = E.AutomaticSize.Y,
+					Size = function(use: ComposeTypes.Use)
+						local goal = use(target)
+						return D2.fromOffset(goal.w, goal.h)
+					end,
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - progress(use)
 					end,
-					ctx.column({
-						body(spec.content),
-						Compose.show(function(use: ComposeTypes.Use)
-							return read(spec.dismissButton, use) ~= false or use(preferred) == E.PreferredInput.Gamepad
-						end, function()
-							return UI.Button "Close" { label = "Close", onActivate = collapse }
-						end),
-						ctx.padding(16, 16),
-					}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }),
-				}
-				local automatic, height = unroll(progress, ctx.observe.AbsoluteSize(fade))
-				local plate = surfaces.skin(ctx.styled(
-					Host.TextButton "Expanded" {
-						Text = "",
-						AutoButtonColor = false,
+					Host.ScrollingFrame "ExpandedScroll" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = D2.fromScale(1, 1),
+						CanvasSize = function(use: ComposeTypes.Use)
+							return D2.fromOffset(0, use(natural).Y)
+						end,
+						ScrollingDirection = E.ScrollingDirection.Y,
+						ScrollBarThickness = 4,
 						Selectable = false,
+						column,
+					},
+				}
+				local plate = surfaces.skin(ctx.styled(
+					Host.Frame "Expanded" {
+						Active = true,
 						BackgroundTransparency = 0,
 						ClipsDescendants = true,
-						Interactable = function(use: ComposeTypes.Use)
-							return not use(phase.exiting)
+						Position = function(use: ComposeTypes.Use)
+							local rect = lerp(use)
+							return D2.fromOffset(rect.x, rect.y)
 						end,
-						AutomaticSize = automatic,
 						Size = function(use: ComposeTypes.Use)
-							return D2.fromOffset(use(rootBox).X, height(use) or 0)
+							local rect = lerp(use)
+							return D2.fromOffset(rect.w, rect.h)
 						end,
-						Activated = collapse,
 						fade,
 						ctx.corner(),
 					},
 					"panel"
 				))
-				local anchor = Host.Frame "ExpandedAnchor" {
-					BackgroundTransparency = 1,
-					Size = D2.fromOffset(0, 0),
-					plate,
-				}
-				local anchorAt = ctx.observe.AbsolutePosition(anchor)
-				runtime.decorate(plate, {
-					Position = function(use: ComposeTypes.Use)
-						local offset = use(rootAt) - use(anchorAt)
-						return D2.fromOffset(offset.X, offset.Y)
+				ctx.styled(plate, "floating")
+				return surfaces.modal(
+					function()
+						return plate
 					end,
-				})
-				local moved = false
-				local placed = ctx.observe.Parent(anchor)
-				Compose.watch(function(use: ComposeTypes.Use)
-					if use(placed) and gui and not moved and gui.SelectedObject == root then
-						moved = true
-						gui.SelectedObject = surfaces.firstSelectable(plate, spec.initialFocus)
-							or surfaces.firstSelectable(plate)
-							or root
-					end
-				end)
-				local function handBack()
-					local selected = if gui then gui.SelectedObject else nil
-					if gui and selected and (selected.Parent == nil or surfaces.within(selected, anchor)) then
-						gui.SelectedObject = if root.Parent then root else nil
-					end
-				end
-				Compose.watch(function(use: ComposeTypes.Use)
-					if use(phase.exiting) then
-						handBack()
-					end
-				end)
-				Compose.cleanup(handBack)
-				return anchor
+					collapse,
+					{
+						Name = "CollapsibleModal",
+						backgroundTransparency = 1,
+						initialFocus = spec.initialFocus,
+						exiting = if phase then phase.exiting else nil,
+						appearance = progress,
+					}
+				)
 			end, {
-				exit = function()
-					return { completed = closed }
-				end,
+				presence = {
+					exit = function(): ComposeTypes.Exiting
+						return { completed = closed }
+					end,
+				},
 			}),
 		})
 		return root

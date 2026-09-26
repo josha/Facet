@@ -259,7 +259,7 @@ cannot be interacted with, and the selection never stays on it.
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
 | DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
-| CollapsibleView | The plate height opens from 0 over the trigger, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
+| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
 | RadialMenu slot | A slot that enters an open ring fades in and moves from 30 percent of the distance toward its origin to its position, 0.16 seconds. The origin is the parent item for a branch and the center for other slots. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
@@ -2138,23 +2138,26 @@ The chevron keeps its `chevron.trailing` and `chevron.down` art and turns
 between them. For outer layout, use the native properties on their returned
 roots. See [Motion](#motion).
 
-CollapsibleView returns its trigger, a Button. It is not a modal. It has no
-scrim, no presented layer and no outside catcher.
+CollapsibleView returns its trigger, a pill Button (`corners = "pill"` unless
+you pass `corners`).
 
 - Collapsed, the trigger shows `label` on one line. The label truncates at
   the end (`TextTruncate.AtEnd`) and shrinks in the row (a `UIFlexItem` in
   `Shrink` mode). A `chevron.down` trailing icon is the More affordance. Pass
   `trailingIcon` to replace it.
-- When `expanded` is true, a plate named `Expanded` opens over the trigger, at
-  the position and width of the trigger. The page does not move. The plate
-  clips its content, and its height opens with the motion. Then it follows the
-  content with `AutomaticSize`. The content is in a Frame named
-  `ExpandedFade` that fades in. The trigger is raised by one `ZIndex` while it
-  is open, so the plate paints over its siblings.
-- If the trigger has the selection, the selection moves into the plate: to
+- When `expanded` is true, a panel named `Expanded` grows out of the trigger:
+  its rectangle moves from the trigger's rectangle to its open rectangle on
+  the page's layer, and it clips its content. The open panel is at least
+  `controls.popup.panelWidth` wide (or the trigger's width), as tall as its
+  content, and stays inside the layer by `space.s`. A taller content scrolls
+  in a `ScrollingFrame` named `ExpandedScroll`. The content is laid out once at
+  the open size in a Frame named `ExpandedFade`, which fades in, so the text
+  does not rewrap while the panel grows. The page does not move and is not
+  dimmed.
+- The panel is on the modal layer, so the selection moves into it: to
   `initialFocus` if you give it, otherwise to the first selectable node.
-- The trigger (A, Return or a tap), a tap on the plate, the Close button and
-  Cancel (Escape or ButtonB) collapse it. The selection goes back to the
+- The trigger (A, Return or a tap), a tap outside the panel, the Close button
+  and Cancel (Escape or ButtonB) collapse it. The selection goes back to the
   trigger.
 - `dismissButton = false` hides Close unless the preferred input is a gamepad.
 - Reduced motion opens and closes the plate at once.
