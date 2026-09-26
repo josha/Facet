@@ -189,42 +189,72 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end)
 		end
 		if input then
-			local pressed: InputObject?, origin: Vector2? = nil, nil
+			-- A mouse picks the source up after TRAVEL pixels. A finger that moves first is scrolling; a finger held
+			-- still picks it up on the engine's own long press, and the scroller under it stays put until release.
+			local pressed: InputObject?, origin: Vector2?, at: Vector2? = nil, nil, nil
+			local locked: ScrollingFrame?, scrolling = nil, true
+			local function unlock()
+				if locked then
+					locked.ScrollingEnabled = scrolling
+					locked = nil
+				end
+			end
+			Compose.cleanup(unlock)
+			local function pickUpAt(position: Vector2)
+				local updated = table.clone(begin(source, spec, "pointer"))
+				updated.ghost = ghostOf(source)
+				session:set(updated)
+				activation.consume(pressed)
+				if updated.ghost then
+					place(updated.ghost, source, position)
+				end
+				hover(targetAt(position))
+			end
+			local function held(): Session?
+				local current = session:peek()
+				return if current and current.source == source and current.mode == "pointer" then current else nil
+			end
 			ctx.runtime.connect(source, "InputBegan", function(value: InputObject)
 				local kind = value.UserInputType
 				if (kind == E.UserInputType.MouseButton1 or kind == E.UserInputType.Touch) and enabled() then
-					pressed, origin = value, point(value)
+					pressed, origin, at = value, point(value), point(value)
 				end
 			end)
-			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
-				local moved = pressed ~= nil
-					and (
-						value == pressed
-						or (
-							pressed.UserInputType == E.UserInputType.MouseButton1
-							and value.UserInputType == E.UserInputType.MouseMovement
-						)
-					)
-				if not moved or origin == nil then
+			ctx.runtime.connect(source, "TouchLongPress", function(_: unknown, state: Enum.UserInputState)
+				if
+					state ~= E.UserInputState.Begin
+					or pressed == nil
+					or pressed.UserInputType ~= E.UserInputType.Touch
+					or session:peek() ~= nil
+				then
 					return
 				end
-				local at = point(value)
-				local current = session:peek()
-				if current == nil or current.source ~= source then
-					if (at - origin).Magnitude < TRAVEL then
-						return
+				local scroller = source:FindFirstAncestorWhichIsA("ScrollingFrame")
+				if scroller then
+					locked, scrolling = scroller, scroller.ScrollingEnabled
+					scroller.ScrollingEnabled = false
+				end
+				pickUpAt(at :: Vector2)
+			end)
+			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
+				local mouse = pressed ~= nil
+					and pressed.UserInputType == E.UserInputType.MouseButton1
+					and value.UserInputType == E.UserInputType.MouseMovement
+				if pressed == nil or origin == nil or (value ~= pressed and not mouse) then
+					return
+				end
+				at = point(value)
+				local current = held()
+				if current == nil then
+					if mouse and session:peek() == nil and ((at :: Vector2) - origin).Magnitude >= TRAVEL then
+						pickUpAt(at :: Vector2)
 					end
-					current = begin(source, spec, "pointer")
-					local ghost = ghostOf(source)
-					local updated = table.clone(current :: Session)
-					updated.ghost = ghost
-					session:set(updated)
+					return
 				end
-				local live = session:peek() :: Session
-				if live.ghost then
-					place(live.ghost, source, at)
+				if current.ghost then
+					place(current.ghost, source, at :: Vector2)
 				end
-				hover(targetAt(at))
+				hover(targetAt(at :: Vector2))
 			end)
 			ctx.runtime.connect(input, "InputEnded", function(value: InputObject)
 				if pressed == nil then
@@ -240,15 +270,27 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 				local tapped = origin ~= nil and (point(value) - origin).Magnitude < TRAVEL
 				pressed, origin = nil, nil
-				local current = session:peek()
-				if current and current.source == source and current.mode == "pointer" then
+				unlock()
+				if held() then
 					if value.UserInputState == E.UserInputState.Cancel then
 						finish()
 					else
 						commit(targetAt(point(value)))
 					end
-				elseif tapped and spec.armOnTap and current == nil and value.UserInputType == E.UserInputType.Touch then
+				elseif
+					tapped
+					and spec.armOnTap
+					and session:peek() == nil
+					and value.UserInputType == E.UserInputType.Touch
+				then
 					begin(source, spec, "armed")
+				end
+			end)
+			ctx.runtime.connect(input, "WindowFocusReleased", function()
+				pressed, origin = nil, nil
+				unlock()
+				if held() then
+					finish()
 				end
 			end)
 		end

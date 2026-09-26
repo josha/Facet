@@ -63,6 +63,19 @@ function activation.notify(node: Instance, ...: unknown)
 	end
 end
 
+-- A press that became a drag never activates: the drag consumes its input object.
+local consumed = setmetatable({} :: { [unknown]: boolean }, { __mode = "k" })
+
+function activation.consume(input: unknown)
+	if input ~= nil then
+		consumed[input] = true
+	end
+end
+
+function activation.consumed(input: unknown): boolean
+	return input ~= nil and consumed[input] == true
+end
+
 local pressers = setmetatable({} :: { [Instance]: (InputObject) -> () }, { __mode = "k" })
 
 function activation.providePress(node: Instance, press: (InputObject) -> ()): () -> ()

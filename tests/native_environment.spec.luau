@@ -817,6 +817,67 @@ t.describe("draggable and dropTarget", function()
 		w.stop()
 	end)
 
+	t.it(
+		"leaves a moving finger to the scroller and picks up on the engine's long press, whose press never activates",
+		function()
+			local w = world()
+			local screen = w.engine.new("ScreenGui")
+			local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
+			local log, opened = {}, 0
+			local stop, root = w.runtime.mount(function()
+				local card = w.UI.Button "Card" {
+					label = "Card",
+					onActivate = function()
+						opened += 1
+					end,
+				}
+				local slot = w.runtime.constructors.Frame({ Name = "Slot" })
+				w.UI.draggable(card, { payload = "card" })
+				w.UI.dropTarget(slot, {
+					onDrop = function(payload, info)
+						table.insert(log, `{payload} {info.mode}`)
+					end,
+				})
+				return w.runtime.constructors.ScrollingFrame({ Name = "List", card, slot })
+			end, screen)
+			local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
+			card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 0), V2.new(100, 40)
+			slot.AbsolutePosition, slot.AbsoluteSize = V2.new(0, 100), V2.new(100, 40)
+			local function finger(y: number): any
+				local value = w.engine.new("InputObject")
+				value.UserInputType = w.Enum.UserInputType.Touch
+				value.UserInputState = w.Enum.UserInputState.Begin
+				value.Position = V3.new(50, y, 0)
+				return value
+			end
+			local flick = finger(20)
+			card.InputBegan.fire(flick)
+			flick.Position = V3.new(50, 120, 0)
+			w.input.InputChanged.fire(flick)
+			t.expect(screen:FindFirstChild("DragGhost", true)).toBeNil()
+			flick.UserInputState = w.Enum.UserInputState.End
+			w.input.InputEnded.fire(flick)
+			t.expect(#log).toBe(0)
+			local hold = finger(20)
+			card.InputBegan.fire(hold)
+			card.TouchLongPress.fire({ V2.new(50, 20) }, w.Enum.UserInputState.Begin)
+			t.expect(screen:FindFirstChild("DragGhost", true) ~= nil).toBe(true)
+			t.expect(root.ScrollingEnabled).toBe(false)
+			hold.Position = V3.new(50, 120, 0)
+			w.input.InputChanged.fire(hold)
+			hold.UserInputState = w.Enum.UserInputState.End
+			w.input.InputEnded.fire(hold)
+			t.expect(table.concat(log, ";")).toBe("card pointer")
+			t.expect(root.ScrollingEnabled).toBe(true)
+			card.Activated.fire(hold)
+			t.expect(opened).toBe(0)
+			card.Activated.fire(finger(20))
+			t.expect(opened).toBe(1)
+			stop()
+			w.stop()
+		end
+	)
+
 	t.it("arms on a tap when armOnTap is set and places on the next tapped target", function()
 		local w, _, card, open, _, log, stop = stage()
 		local tap = pointer(w, "Touch", 20)

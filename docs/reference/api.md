@@ -3195,11 +3195,15 @@ adds no input binding.
 inside a component or a Compose owner; they stop when the owner ends. Every
 input ends in the same drop:
 
-- Pointer and touch: press the source and move it 6 pixels. A release before
-  that is a tap, and the source's own activation still happens. While the
-  source is held, an inert copy of it (`DragGhost`) follows the pointer at the
-  root of its screen, and the target under the pointer is the aim. Release to
-  drop there.
+- Pointer: press the source and move it 6 pixels. A release before that is a
+  click, and the source's own activation still happens.
+- Touch: a finger that moves first scrolls. Hold the finger still until the
+  engine's long press (`TouchLongPress`) to pick the source up; the
+  ScrollingFrame under it stops scrolling until the finger lifts.
+- While the source is held, an inert copy of it (`DragGhost`) follows the
+  pointer at the root of its screen, and the target under the pointer is the
+  aim. Release to drop there. The press that became a drag never activates a
+  Facet Button, so a drag of a card never opens it.
 - Keyboard and gamepad: select the source and press Return or A to pick it up.
   Move the selection into a target and press Return or A to drop. Escape or B
   puts the source back. On a Facet Button source or target this is the
@@ -3208,7 +3212,8 @@ input ends in the same drop:
   still scrolls, and a tap on a target drops it.
 
 While the source is held it has the `facet-drag-held` tag and the
-`FacetDragHeld` attribute, so a theme or the game can empty its slot.
+`FacetDragHeld` attribute. Every theme hides its text and icons, so its plate
+stays as the empty slot until the drop lands or the source goes back.
 
 ```lua
 UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })

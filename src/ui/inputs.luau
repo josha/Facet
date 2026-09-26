@@ -431,6 +431,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			"Facet.Button: repeat timings must be finite and positive"
 		)
 		local function activate(...)
+			if activation.consumed((...)) then
+				return
+			end
 			local route = if node then ctx.shiftActivation(node, (...)) else nil
 			if route and enabled(spec) and ctx.available(node) then
 				route()

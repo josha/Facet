@@ -861,6 +861,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-selected >> .facet-text", { TextColor3 = onSelected })
 	rule(".facet-disabled", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-icon", { ImageTransparency = extra.disabledContentOpacity })
+	-- a held drag source keeps its plate as the empty slot until the drop lands or it goes back
+	rule(".facet-drag-held", { TextTransparency = 1 })
+	rule(".facet-drag-held >> .facet-text", { TextTransparency = 1 })
+	rule(".facet-drag-held >> .facet-icon", { ImageTransparency = 1 })
 	rule(".facet-accent", { BackgroundColor3 = c("accent"), TextColor3 = c("onAccent") })
 	rule(".facet-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-level-segment", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })

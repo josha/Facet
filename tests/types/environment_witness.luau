@@ -11,6 +11,14 @@ local function Screen(): Frame
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
 	local ring: Frame = UI.focusRing(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
 	UI.focusSection(list)
+	local drag: Facet.DraggableSpec = { payload = "card", armOnTap = true }
+	UI.draggable(list, drag)
+	local drop: Facet.DropTargetSpec = {
+		onDrop = function(payload: any, info: Facet.DropInfo)
+			print(payload, info.mode)
+		end,
+	}
+	UI.dropTarget(list, drop)
 	return UI.Screen({
 		ring :: any,
 		UI.Text({
