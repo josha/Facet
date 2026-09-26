@@ -137,24 +137,30 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 		end)
 		Compose.cleanup(untrack)
-		local frames = runtime.host.frames
-		if frames then
+		local tweens = (config.services :: unknown) :: { TweenService: TweenService? }
+		local tweenService = tweens.TweenService
+		if tweenService and observation then
 			runtime.mountFragment(function()
 				return {
 					Compose.show(function(use: ComposeTypes.Use): boolean
 						return shown(use) and layer(use).pulse == true and not reduced(use)
 					end, function()
-						local elapsed = 0
-						Compose.cleanup(frames.onFrame(function(delta: number)
-							elapsed += delta
-							pulse:set(0.5 - 0.5 * math.cos(elapsed * math.pi))
-						end))
+						local value = Host.NumberValue({ Name = "FocusPulse" })
+						local playback = tweenService:Create(
+							value,
+							ctx.types.TweenInfo.new(1, E.EasingStyle.Sine, E.EasingDirection.InOut, -1, true),
+							{ Value = 1 }
+						)
+						local stop = observation.observeProperty(value, "Value", function()
+							pulse:set(value.Value)
+						end)
+						playback:Play()
 						Compose.cleanup(function()
+							playback:Cancel()
+							stop()
 							pulse:set(0)
 						end)
-						return Compose.fragment(function()
-							return {}
-						end)
+						return value
 					end),
 				}
 			end, paint)
