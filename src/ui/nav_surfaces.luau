@@ -1338,10 +1338,24 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 						linked, linkedTarget = nil, nil
 					end
+					local rebuilt = Compose.cell(0)
+					local leaving: Instance? = nil
+					runtime.connect(panel, "DescendantAdded", function()
+						leaving = nil
+						rebuilt:set(rebuilt:peek() + 1)
+					end)
+					runtime.connect(panel, "DescendantRemoving", function(node: Instance)
+						if linkedTarget and (node == linkedTarget or linkedTarget:IsDescendantOf(node)) then
+							leaving = linkedTarget
+							rebuilt:set(rebuilt:peek() + 1)
+						end
+					end)
 					Compose.watch(function(use: ComposeTypes.Use)
+						use(rebuilt)
 						local below = (use(panelAt) :: Vector2).Y > anchor.AbsolutePosition.Y
 						local direction = if below then "Down" else "Up"
-						local target = surfaces.firstSelectable(panel)
+						local found = surfaces.firstSelectable(panel)
+						local target = if found == leaving then nil else found
 						if linked ~= direction or linkedTarget ~= target then
 							unlink()
 							if target and (anchor :: any)["NextSelection" .. direction] == nil then

@@ -2306,8 +2306,19 @@ t.describe("native navigation controls", function()
 		world.settle()
 		t.expect(anchor.NextSelectionDown).toBe(own)
 		t.expect(anchor.NextSelectionUp).toBe(find(world.screen, "Dismiss"))
+		local dismiss = find(world.screen, "Dismiss")
+		local holder = dismiss.Parent
+		dismiss.Parent = nil
+		world.settle()
+		t.expect(anchor.NextSelectionUp).toBe(nil)
+		local fresh = world.engine.new("TextButton")
+		fresh.Name = "Fresh"
+		fresh.Parent = holder
+		world.settle()
+		t.expect(anchor.NextSelectionUp).toBe(fresh)
 		world.stop()
 		t.expect(anchor.NextSelectionDown).toBe(own)
+		t.expect(anchor.NextSelectionUp).toBe(nil)
 	end)
 
 	t.it("keeps measured callout arrows outside automatic content bounds", function()
