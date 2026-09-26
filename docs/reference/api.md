@@ -339,7 +339,9 @@ these rules:
 - Presentation. A modal presented while a control is selected, or while a
   gamepad is the preferred input, selects its first control. It waits until
   the surface is shown, so it never selects a hidden control.
-- Tab and Shift+Tab. Tab selects the next control in layout order.
+- Tab and Shift+Tab. Tab selects the next control in layout order. In a
+  collection that is row order (each row's `LayoutOrder` is its index), even
+  after scrolling has recycled the row containers.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
   stays inside an open modal. It skips hidden, disabled and removed controls.
   The `FacetTraversal` input context is a child of `inputParent`, or of the

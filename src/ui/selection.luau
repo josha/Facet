@@ -17,7 +17,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 
 	local function ordered(parent: Instance): { Instance }
 		local children = parent:GetChildren()
-		local sorted = false
+		local sorted = parent:GetAttribute("FacetDocumentOrder") == true
 		for _, child in children do
 			if child:IsA("UIGridStyleLayout") and child.SortOrder == E.SortOrder.LayoutOrder then
 				sorted = true

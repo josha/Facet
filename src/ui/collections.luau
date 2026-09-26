@@ -347,6 +347,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end)
 					runtime.decorate(node, {
 						Name = tostring(key),
+						LayoutOrder = function(use: ComposeTypes.Use)
+							return use(placement).index
+						end,
 						Position = function(use: ComposeTypes.Use)
 							local at = use(placement)
 							local offset = at.offset + shift(use)
@@ -497,8 +500,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Compose.show(function(use: ComposeTypes.Use)
 				return spec.mode == "all" or use(viewport).size > 0
 			end, function()
-				local nativeProps: Types.FrameProps =
-					{ Name = "Items", BackgroundTransparency = 1, Size = D2.fromScale(1, 1), directive }
+				local nativeProps: Types.FrameProps = {
+					Name = "Items",
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					-- recycled row containers keep their child slot, so Tab reads the rows' LayoutOrder instead
+					Attributes = { FacetDocumentOrder = true } :: EngineTypes.Attributes,
+					directive,
+				}
 				if kind == "grid" then
 					table.insert(
 						nativeProps,
