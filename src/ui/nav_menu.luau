@@ -1736,6 +1736,7 @@ return function(
 				then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 				else Compose.cell(nil :: Enum.PreferredInput?)
 			local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
+			local tenFoot = ctx.tenFoot()
 			local width = Compose.cell(0)
 			local measure = ctx.text({
 				Name = "LabelMeasure",
@@ -1771,7 +1772,10 @@ return function(
 					return "segmented"
 				end
 				local kind = use(preferred)
-				if kind == E.PreferredInput.KeyboardAndMouse or kind == E.PreferredInput.Touch then
+				if
+					not tenFoot(use)
+					and (kind == E.PreferredInput.KeyboardAndMouse or kind == E.PreferredInput.Touch)
+				then
 					return "menu"
 				end
 				return if count <= 6 then "inline" else "menu"
