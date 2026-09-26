@@ -634,6 +634,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if not framed then
 			ctx.styled(ctx.styled(node, "field"), "text-input")
 		end
+		local keyboard = ctx.config.userInputService
+		if keyboard then
+			local scrolling = (UI :: unknown) :: { scrollTo: ((ScrollingFrame, Vector2) -> boolean)? }
+			local shown = ctx.observe.OnScreenKeyboardVisible(keyboard)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(shown) ~= true or not use(editing) then
+					return
+				end
+				local top = keyboard.OnScreenKeyboardPosition.Y
+				local extent = node.AbsoluteSize
+				local overlap = node.AbsolutePosition.Y + extent.Y + 8 - top
+				local page = node:FindFirstAncestorWhichIsA("ScrollingFrame")
+				local scroll = scrolling.scrollTo
+				if scroll and page and top > 0 and overlap > 0 then
+					scroll(page, page.CanvasPosition + V2.new(0, overlap))
+				end
+			end)
+		end
 
 		local root: TextBox | Frame = node
 		if framed then
