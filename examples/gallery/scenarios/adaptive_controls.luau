@@ -203,9 +203,8 @@ return {
 					UI.Badge "Count" {
 						label = count,
 						status = "info",
-						Size = UDim2.fromOffset(28, 28),
-						AnchorPoint = Vector2.new(1, 0),
-						Position = UDim2.new(1, -6, 0, 6),
+						AnchorPoint = Vector2.new(1, 0.5),
+						Position = UDim2.new(1, -6, 0.5, 0),
 					},
 				})
 				table.insert(tiles, plate(tile))
@@ -403,7 +402,8 @@ return {
 									icon = "more",
 									AnchorPoint = Vector2.new(1, 0),
 									Position = UDim2.fromScale(1, 0),
-									Size = UDim2.fromOffset(80, 40),
+									Size = UDim2.fromOffset(0, 40),
+									AutomaticSize = Enum.AutomaticSize.X,
 									onActivate = noop,
 								},
 							},
