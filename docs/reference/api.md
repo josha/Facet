@@ -2693,10 +2693,16 @@ native activation facts as in VirtualList. The insertion slot of `onReorder` is 
 Sizes:
 
 - The header height starts at 40.
-- The estimated row height starts at the larger of 40 and the regular control
-  height of the theme.
-- The native touch and gamepad minimum row height and header height is `44`.
-- Native text bounds can make both larger.
+- Rows follow a ladder by viewing distance (`itemSize` pins the minimum on
+  every rung):
+  - Near (pointer, keyboard, or a gamepad at a desk): one line, at the larger
+    of 40 and the regular control height (44 with a gamepad).
+  - Touch: cells wrap, and a row starts at two lines of body text plus 16, at
+    least `targetSizes.minimum`.
+  - Ten-foot (`ctx.tenFoot()`: a TV interface, or a Large display with no
+    touch and no mouse): one line, at least the large control height.
+- The native touch and gamepad minimum header height is `44`.
+- Native text bounds can make rows and the header larger.
 
 The header band and each row paint a rounded band (`radii.control`) through
 the theme tags `facet-tablehead` and `facet-tablerow`; a 1 pixel inner

@@ -11,6 +11,9 @@ local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
 local OverlayTypes = require("./overlay_types")
 local tableEditors = require("./collection_table_editors")
+
+local CELL_PADDING = 16
+
 type Controls = {
 	Table: CollectionTypes.TableConstructor,
 	VirtualList: <V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
@@ -115,16 +118,28 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local preferredInput: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 			then ctx.observe.PreferredInput(input)
 			else nil
+		local tenFoot = ctx.tenFoot()
+		local function touchRows(use: ComposeTypes.Use): boolean
+			return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Touch
+		end
+		local function lineBox(use: ComposeTypes.Use): number
+			return math.ceil(ctx.metric("typography.body.size", use) * ctx.metric("typography.body.lineHeight", use))
+		end
+		-- The row ladder is by distance: a touch row wraps and starts at two lines above the target floor, a
+		-- ten-foot row holds one line at the large control height, and a near row one line at the regular height.
+		-- Every row still rises to fit its measured text.
 		local minimumRow = Compose.formula(function(use: ComposeTypes.Use)
 			if spec.itemSize ~= nil then
 				return read(spec.itemSize, use)
 			end
+			if touchRows(use) then
+				return math.max(ctx.metric("targetSizes.minimum", use), 2 * lineBox(use) + CELL_PADDING)
+			end
+			if tenFoot(use) then
+				return math.max(ctx.controlSize("large", "height", use), lineBox(use) + CELL_PADDING)
+			end
 			local kind = if preferredInput then use(preferredInput) else nil
-			return math.max(
-				40,
-				ctx.controlSize(nil, "height", use),
-				if kind == E.PreferredInput.Touch or kind == E.PreferredInput.Gamepad then 44 else 0
-			)
+			return math.max(40, ctx.controlSize(nil, "height", use), if kind == E.PreferredInput.Gamepad then 44 else 0)
 		end)
 		local function coarse(use: ComposeTypes.Use): boolean
 			local kind = if preferredInput then use(preferredInput) else nil
@@ -646,6 +661,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 									ctx.text({
 										Name = "Value",
 										TextTruncate = E.TextTruncate.AtEnd,
+										TextWrapped = touchRows,
 										Size = D2.fromScale(1, 1),
 										AutomaticSize = E.AutomaticSize.None,
 										Text = function(use: ComposeTypes.Use)
@@ -657,7 +673,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 									"TableValue"
 								)
 							if not render then
-								recordHeight(cellHeights, definition.id, content :: TextLabel, 16)
+								recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
 								local fits = ctx.observe.TextFits(content :: TextLabel)
 								Compose.watch(function(use: ComposeTypes.Use)
 									local id = use(column).id

@@ -1371,8 +1371,8 @@ t.describe("adaptive environment strength", function()
 						drag.DragEnd.fire(V2(world, 100, 20))
 					end
 					local expected = if kind == world.engine.types.Enum.PreferredInput.Touch
-							or kind == world.engine.types.Enum.PreferredInput.Gamepad
-						then 44
+						then 56
+						elseif kind == world.engine.types.Enum.PreferredInput.Gamepad then 44
 						else 40
 					t.expect(controls.placementOf(2).offset).toBe(expected)
 					for index = 1, 3 do

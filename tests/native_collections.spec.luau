@@ -801,6 +801,40 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("sizes table rows by viewing distance: dense pointer, two-line touch, one large line at ten feet", function()
+		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local input = ctx.config.userInputService
+		input.PreferredInput, input.MouseEnabled, input.TouchEnabled = E.PreferredInput.Gamepad, false, false
+		gui.ViewportDisplaySize = E.DisplaySize.Large
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				columns = { { id = "label", label = "Label", width = 100 } },
+			})
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(300, 400)
+		local function height()
+			return node:FindFirstChild("1", true).Size.Y.Offset
+		end
+		local function wraps()
+			return node:FindFirstChild("1", true):FindFirstChild("Value", true).TextWrapped
+		end
+		t.expect(height()).toBe(56)
+		t.expect(wraps()).toBe(false)
+		gui.ViewportDisplaySize = E.DisplaySize.Medium
+		t.expect(height()).toBe(44)
+		input.PreferredInput, input.TouchEnabled = E.PreferredInput.Touch, true
+		t.expect(height()).toBe(56)
+		t.expect(wraps()).toBe(true)
+		input.PreferredInput, input.MouseEnabled, input.TouchEnabled = E.PreferredInput.KeyboardAndMouse, true, false
+		t.expect(height()).toBe(44)
+		t.expect(wraps()).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("resizes and sorts a column from the keyboard or pad and releases the grip to its heading", function()
 		local engine, runtime, UI, target, gui = setup()
 		local sort, widths = Compose.cell(nil), Compose.cell({})
@@ -1853,7 +1887,9 @@ t.describe("Compose native collections", function()
 		t.expect(body.Position.Y.Offset).toBe(86)
 		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		row:FindFirstChild("Value", true).TextBounds = engine.types.Vector2.new(100, 8)
-		t.expect(controls.placementOf(2).offset).toBe(44)
+		t.expect(controls.placementOf(2).offset).toBe(56)
+		row:FindFirstChild("Value", true).TextBounds = engine.types.Vector2.new(100, 60)
+		t.expect(controls.placementOf(2).offset).toBe(76)
 		t.expect(body:FindFirstChild("1", true)).toBe(row)
 		node:FindFirstChild("Sort", true).TextBounds = engine.types.Vector2.new(100, 20)
 		t.expect(body.Position.Y.Offset).toBe(44)

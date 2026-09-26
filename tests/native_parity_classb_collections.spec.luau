@@ -311,14 +311,16 @@ t.describe("native parity classb collections", function()
 		world.input.GamepadEnabled = true
 		world.input.PreferredInput = enum.PreferredInput.Gamepad
 		frames(world, 4)
-		t.expect(body.CanvasPosition.Y).toBe(120)
-		t.expect(writes).toBe(0)
+		-- two-line touch rows (56) become one-line near rows (44): the row at the top stays at the top, 8px in
+		t.expect(body.CanvasPosition.Y).toBe(2 * 44 + 8)
+		writes = 0
 		world.input.PreferredInput = enum.PreferredInput.KeyboardAndMouse
 		world.input.TouchEnabled = false
 		world.input.MouseEnabled = true
 		frames(world, 4)
 		t.expect(rowFrame(body, "r4") ~= nil).toBe(true)
-		t.expect(body.CanvasPosition.Y).toBe(120)
+		t.expect(body.CanvasPosition.Y).toBe(2 * 44 + 8)
+		t.expect(writes).toBe(0)
 		world.stop()
 	end)
 	t.it("collections-54 a destructive tray action and a default tray action resolve different paint", function()
