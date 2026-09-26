@@ -156,13 +156,23 @@ return {
 					max = 100,
 					step = 10,
 					thumbContent = function()
+						local knob = Host.Frame "Plate" {
+							Size = UDim2.fromScale(1, 1),
+							Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
+						}
+						knob:AddTag("facet-slider-thumb")
+						ctx.runtime.mount(function()
+							return ctx.Facet.themes.skin(
+								ctx.runtime,
+								ctx.theme,
+								"sliderThumb",
+								{ types = ctx.types, target = knob }
+							)
+						end, knob)
 						return Host.Frame "Knob" {
 							Size = UDim2.fromOffset(24, 24),
 							BackgroundTransparency = 1,
-							Host.Frame "Plate" {
-								Size = UDim2.fromScale(1, 1),
-								Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
-							},
+							knob,
 						}
 					end,
 				},
