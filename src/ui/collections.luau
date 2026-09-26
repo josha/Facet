@@ -49,6 +49,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"maxRetained",
 		"focus",
 		"initialFocus",
+		"focusPolicy",
 		"autoFocus",
 		"wrapFocus",
 		"disabled",
@@ -720,6 +721,34 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end
 			end
 			return nil
+		end
+		local focusPolicy = spec.focusPolicy or "key"
+		assert(focusPolicy == "key" or focusPolicy == "index", "Facet collection focusPolicy must be key or index")
+		if focusPolicy == "index" then
+			local slot: number? = nil
+			local function indexOf(rows: { V }, wanted: K): number?
+				for index, item in rows do
+					if keyOf(item, index) == wanted then
+						return index
+					end
+				end
+				return nil
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				local key = use(focusScope.current)
+				slot = if key ~= nil then indexOf(peekRows(), key) else nil
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local rows = source(use)
+				local key = focusScope.current:peek()
+				if key == nil or slot == nil or (editor and editor.busy()) or indexOf(rows, key) == slot then
+					return
+				end
+				local at = math.min(slot :: number, #rows)
+				if rows[at] ~= nil and not policy.disabled(spec.disabled, rows[at]) then
+					focusScope.focus(keyOf(rows[at], at))
+				end
+			end)
 		end
 		local lastFocused: K? = nil
 		Compose.watch(function(use: ComposeTypes.Use)

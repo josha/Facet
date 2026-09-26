@@ -61,6 +61,7 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	followThreshold: number?,
 	maxRetained: number?,
 	focus: FocusControls<K>?,
+	focusPolicy: ("key" | "index")?,
 	initialFocus: K?,
 	autoFocus: boolean?,
 	wrapFocus: boolean?,

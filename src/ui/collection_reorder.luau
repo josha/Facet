@@ -12,6 +12,7 @@ export type Editor<V, K> = {
 	leading: ComposeTypes.Readable<number>,
 	trailing: ComposeTypes.Readable<number>,
 	press: (K, InputObject) -> (),
+	busy: () -> boolean,
 }
 type Move<V, K> = {
 	key: K,
@@ -819,5 +820,14 @@ return function<V, K>(
 		end
 		return root
 	end
-	return { wrap = wrap, overlay = overlay, leading = leading, trailing = trailing, press = press }
+	return {
+		wrap = wrap,
+		overlay = overlay,
+		leading = leading,
+		trailing = trailing,
+		press = press,
+		busy = function(): boolean
+			return moving:peek() ~= nil
+		end,
+	}
 end

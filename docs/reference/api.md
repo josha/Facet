@@ -2424,7 +2424,11 @@ replaces its Compose `OrderedCollection` and mounts the rows again. Keep durable
 row state in the model. Other values cause an error.
 
 Optional collection focus uses `focus`, `initialFocus`, `autoFocus`,
-`wrapFocus` and `disabled(item)`. With `wrapFocus = true`, `focus.next()`,
+`wrapFocus`, `focusPolicy` and `disabled(item)`. `focusPolicy = "key"` (the
+default) keeps focus on the item when the order changes. `"index"` keeps it on
+the slot, so a live standings list does not walk the gamepad focus up and down.
+It moves focus to the item that now holds the slot, or the last slot when the
+list shrank, and leaves focus alone while a row is being dragged. With `wrapFocus = true`, `focus.next()`,
 `focus.previous()` and the arrow and D-pad actions wrap at the two ends of the
 collection. A list wraps only along its scrolling axis.
 

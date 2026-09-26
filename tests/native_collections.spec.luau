@@ -801,6 +801,43 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("keeps focus on the item by default and on the slot with focusPolicy index", function()
+		for _, policyName in { "key", "index" } do
+			local engine, runtime, UI, target = setup()
+			local source, focus = Compose.cell(records(6)), {}
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList({
+					from = source,
+					key = key,
+					itemSize = 20,
+					focus = focus,
+					focusPolicy = policyName,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 120)
+			focus.focus(2)
+			local reversed = records(6)
+			for index = 1, 3 do
+				reversed[index], reversed[7 - index] = reversed[7 - index], reversed[index]
+			end
+			source:set(reversed)
+			t.expect(focus.current:peek()).toBe(if policyName == "index" then 5 else 2)
+			source:set(records(6))
+			t.expect(focus.current:peek()).toBe(2)
+			stop()
+			runtime:dispose()
+		end
+		local _, runtime, UI, target = setup()
+		t.expect(pcall(function()
+			runtime.mount(function()
+				return UI.VirtualList({ from = {}, render = button, focusPolicy = "slot" })
+			end, target)
+		end)).toBe(false)
+	end)
+
 	t.it("picks a row up from a held finger anywhere on it and leaves a moving finger to the scroll", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V3 = engine.types.Enum, engine.types.Vector3
