@@ -705,3 +705,121 @@ t.describe("native Popover: lifetime and contract", function()
 		end, "widht")
 	end)
 end)
+
+t.describe("native Popover: anchored chrome and the cancel policy (restored from 0.11 presentAnchored)", function()
+	t.it("cancelPolicy = none keeps the panel through Cancel and an outside tap", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change, { cancelPolicy = "none" }))
+		open:set(true)
+		w.find("ModalBack").Pressed.fire()
+		w.find("DismissOutside").Activated.fire({ Position = Vector2.new(790, 590) })
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		t.expect(#log.changes).toBe(0)
+		open:set(false)
+		t.expect(w.find("Panel")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("modal = false is chrome: no catcher, no Cancel, no selection taken", function()
+		local open, log, change = caller()
+		local w = mount(function(UI, Host)
+			local spec = standard(open, log, change, { modal = false })(UI, Host)
+			spec.trigger = nil
+			spec.source = { rect = { x = 100, y = 100, w = 40, h = 40 } }
+			return spec
+		end)
+		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+		local other = w.find("Other")
+		w.gui.SelectedObject = other
+		open:set(true)
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		t.expect(w.find("DismissOutside")).toBeNil()
+		t.expect(w.find("ModalBack")).toBeNil()
+		t.expect(w.find("Popup").Active).toBe(false)
+		t.expect(w.gui.SelectedObject).toBe(other)
+		open:set(false)
+		t.expect(w.find("Panel")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("refuses a malformed modal or cancelPolicy by name", function()
+		for _, extra in { { modal = "no" }, { cancelPolicy = "never" } } do
+			local open, log, change = caller()
+			local ok, failure = pcall(function()
+				mount(standard(open, log, change, extra)).stop()
+			end)
+			t.expect(ok).toBe(false)
+			local key = next(extra)
+			t.expect(string.find(tostring(failure), key :: string, 1, true) ~= nil).toBe(true)
+		end
+	end)
+end)
+
+t.describe("app.presentAnchored", function()
+	local Facet = require("../src") :: any
+	local engineLib = require("./lib/native_engine")
+	local function app(): (any, any)
+		local engine: any = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+		input.GetFocusedTextBox = function()
+			return nil
+		end
+		local target = engine.new("Folder")
+		return Facet.app({
+			runtime = runtime,
+			types = engine.types,
+			parent = target,
+			services = { GuiService = gui, UserInputService = input },
+			reducedMotion = true,
+		} :: any),
+			target
+	end
+
+	t.it("builds a panel beside a rect in its own layer and close releases it", function()
+		local a, target = app()
+		local dismissed = {}
+		local close, screen = a.presentAnchored(function(UI)
+			return UI.Text "Hint" { text = "Drag to steer" }
+		end, {
+			source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
+			modal = false,
+			onDismiss = function(reason)
+				table.insert(dismissed, reason)
+			end,
+		})
+		t.expect(screen.Parent).toBe(target)
+		t.expect(overlay.find(screen, "Hint").Text).toBe("Drag to steer")
+		close()
+		t.expect(screen.Parent).toBeNil()
+		t.expect(dismissed).toEqual({ "cancel" })
+		close()
+		a.dispose()
+	end)
+
+	t.it("an outside tap on a modal panel dismisses it and releases the layer", function()
+		local a = app()
+		local dismissed = {}
+		local _, screen = a.presentAnchored(function(UI)
+			return UI.Text "Hint" { text = "Tap outside" }
+		end, {
+			source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
+			onDismiss = function(reason)
+				table.insert(dismissed, reason)
+			end,
+		})
+		overlay.find(screen, "DismissOutside").Activated.fire({ Position = Vector2.new(790, 590) })
+		t.expect(dismissed).toEqual({ "outside" })
+		t.expect(screen.Parent).toBeNil()
+		a.dispose()
+	end)
+
+	t.it("requires a component function and a source", function()
+		local a = app()
+		t.expect(pcall(a.presentAnchored, "nope", { source = { rect = { x = 0, y = 0, w = 1, h = 1 } } })).toBe(false)
+		t.expect(pcall(a.presentAnchored, function(UI)
+			return UI.Text { text = "x" }
+		end, {})).toBe(false)
+		a.dispose()
+	end)
+end)

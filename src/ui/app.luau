@@ -4,6 +4,7 @@ local Types = require("./types")
 local ControlTypes = require("./control_types")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
+local Overlay = require("./overlay_types")
 local freeze = require("./freeze")
 
 export type Component = () -> ComposeTypes.Child
@@ -26,11 +27,28 @@ export type AppOptions = {
 	screen: Engine.ScreenGuiNativeProps?,
 	sheet: ThemeTypes.ThemeOptions?,
 }
+export type AnchoredOptions = {
+	source: Overlay.PopoverSource,
+	edge: Overlay.Edge?,
+	align: Overlay.Align?,
+	gap: number?,
+	crossOffset: number?,
+	tail: boolean?,
+	maxWidth: number?,
+	maxHeight: number?,
+	modal: boolean?,
+	cancelPolicy: ("dismiss" | "none")?,
+	onDismiss: ((Overlay.PopoverDismissReason) -> ())?,
+}
 export type App = {
 	runtime: Types.Runtime,
 	UI: ControlTypes.Controls,
 	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
 	refusal: (control: string, spec: unknown) -> string?,
+	presentAnchored: (
+		component: (ControlTypes.Controls) -> Instance,
+		options: AnchoredOptions
+	) -> (() -> (), ScreenGui),
 	dispose: () -> (),
 }
 type RobloxModule = { createRuntime: () -> Types.Runtime }
@@ -126,6 +144,51 @@ return function(
 		local text = tostring(failure)
 		return string.match(text, "^[^\n]-:%d+: (.*)$") or text
 	end
+	local function presentAnchored(
+		component: (ControlTypes.Controls) -> Instance,
+		options: AnchoredOptions
+	): (() -> (), ScreenGui)
+		assert(type(component) == "function", "Facet app.presentAnchored: expected a component function")
+		assert(
+			type(options) == "table" and options.source ~= nil,
+			"Facet app.presentAnchored: options.source is required"
+		)
+		local open = Compose.cell(true)
+		local release: () -> () = function() end
+		local released = false
+		local spec: { [string]: unknown } = {}
+		for key, value in (options :: unknown) :: { [string]: unknown } do
+			spec[key] = value
+		end
+		spec.compact = "popover"
+		spec.isPresented = open
+		spec.onPresentedChange = function(value: boolean)
+			open:set(value)
+		end
+		spec.onDismiss = function(reason: Overlay.PopoverDismissReason)
+			if options.onDismiss then
+				options.onDismiss(reason)
+			end
+			if not released then
+				released = true
+				release()
+			end
+		end
+		spec.content = function(): Instance
+			return component(UI)
+		end
+		local stop, screen = mount(function(): ComposeTypes.Child
+			return UI.Popover "Anchored"((spec :: unknown) :: Overlay.PopoverSpec)
+		end)
+		release = stop
+		local function close()
+			if not released then
+				released = true
+				stop()
+			end
+		end
+		return close, screen
+	end
 	local function dispose()
 		if disposed then
 			return
@@ -138,5 +201,12 @@ return function(
 			runtime:dispose()
 		end
 	end
-	return freeze({ runtime = runtime, UI = UI, mount = mount, refusal = refusal, dispose = dispose })
+	return freeze({
+		runtime = runtime,
+		UI = UI,
+		mount = mount,
+		refusal = refusal,
+		presentAnchored = presentAnchored,
+		dispose = dispose,
+	})
 end

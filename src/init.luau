@@ -122,6 +122,7 @@ export type Adaptive = adaptive.Adaptive
 export type App = createApp.App
 export type AppOptions = createApp.AppOptions
 export type Component = createApp.Component
+export type AnchoredOptions = createApp.AnchoredOptions
 export type ControlOptions = ControlTypes.Config
 export type ThemePackage = ThemeTypes.ThemePackage
 export type CivilDate = CivilTypes.CivilDate

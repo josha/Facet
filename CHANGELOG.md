@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `app.presentAnchored(component, options) -> close, screen` shows a panel against a node or a rect (restored from 0.11), and `UI.Popover` takes `modal = false` (chrome: no catcher, no Cancel, no selection claim; input passes through) and `cancelPolicy = "none"` (Cancel and an outside tap propose nothing).
 - Every input can open every Button `help`: a touch long-press shows the panel at once (its release does not activate the button; the next touch closes it), beside the pointer dwell and the keyboard or gamepad selection. Before, help never showed on touch.
 - `UI.Text { disclose = true }` and a text `UI.Button { disclose = true }` show the whole value of a truncated label in a `Disclosure` panel on a pointer dwell, a keyboard or gamepad selection, or a touch long-press (restored from 0.11). A truncated Button label outranks its `help`.
 - `UI.focusSection(group, { focusOnAppear, returnFocus })`: an appearing branch takes the selection (its first stop, or a named descendant) while the player navigates by selection, and gives it back to what held it before when the branch leaves (restored from 0.11).

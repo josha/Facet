@@ -26,6 +26,8 @@ local KEYS = {
 	"maxHeight",
 	"compact",
 	"title",
+	"modal",
+	"cancelPolicy",
 }
 local POPOVER: { enter: number, exit: number } = freeze({ enter = 0.15, exit = 0.1 })
 local SHEET_EXIT = 0.2
@@ -105,7 +107,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.title ~= nil and not parts.bound(ctx, spec.title, "string") then
 			error(`Facet {where}: title must be a string or a bound string`, 0)
 		end
-		local compact = spec.compact or "sheet"
+		if spec.modal ~= nil and type(spec.modal) ~= "boolean" then
+			error(`Facet {where}: modal must be true or false`, 0)
+		end
+		if spec.cancelPolicy ~= nil and spec.cancelPolicy ~= "dismiss" and spec.cancelPolicy ~= "none" then
+			error(`Facet {where}: cancelPolicy must be dismiss or none`, 0)
+		end
+		local chrome = spec.modal == false
+		local compact = if chrome then "popover" else spec.compact or "sheet"
 		if compact ~= "sheet" and compact ~= "popover" then
 			error(`Facet {where}: compact must be sheet or popover`, 0)
 		end
@@ -370,6 +379,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				table.insert(children, tail[1])
 				table.insert(children, tail[2])
 			end
+			if chrome then
+				return Host.Frame "Popup" {
+					BackgroundTransparency = 1,
+					Active = false,
+					Size = D2.fromScale(1, 1),
+					ZIndex = 95,
+					table.unpack(children),
+				}
+			end
 			local modal = surfaces.modal(function()
 				return Host.Frame "Popup" {
 					BackgroundTransparency = 1,
@@ -386,6 +404,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 				exiting = if phase then phase.exiting else nil,
 				appearance = amount,
+				canDismiss = spec.cancelPolicy ~= "none",
 			})
 			modal:SetAttribute("FacetRoute", "popover")
 			return modal
@@ -399,6 +418,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				title = spec.title,
 				content = spec.content,
 			}, function(reason: string): boolean
+				if spec.cancelPolicy == "none" then
+					return false
+				end
 				return propose(false, if reason == "outside" then "outside" else "cancel")
 			end, phase)
 			modal:SetAttribute("FacetRoute", "sheet")

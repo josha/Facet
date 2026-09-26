@@ -80,6 +80,8 @@ export type PopoverSpec = Types.FrameProps & {
 	maxHeight: number?,
 	compact: ("sheet" | "popover")?,
 	title: Types.ValueString?,
+	modal: boolean?,
+	cancelPolicy: ("dismiss" | "none")?,
 }
 
 export type SnackbarDismissReason = "action" | "close" | "timeout" | "superseded" | "cancel"

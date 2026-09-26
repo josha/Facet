@@ -83,6 +83,7 @@ The app has these fields:
 | `UI` | `Facet.controls(runtime, options)`. |
 | `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. In a PlayerGui it also mounts `UI.focusRing(playerGui)` (see [environment](#environment)). It returns the stop function and the ScreenGui. |
 | `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
+| `presentAnchored(component, options)` | Shows `component(app.UI)` in a `UI.Popover` against `options.source` (`{ node }` or `{ rect }`), in its own ScreenGui from `mount`. `options` takes the Popover placement keys (`edge`, `align`, `gap`, `crossOffset`, `tail`, `maxWidth`, `maxHeight`), `modal`, `cancelPolicy` and `onDismiss`. The panel is always anchored, never a sheet. It returns `close, screen`. A dismissal (Cancel, an outside tap, a lost source node) or `close()` reports `onDismiss` once and stops the mount. Use it for a coach mark or a custom anchored panel that no control owns. |
 | `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |
 
 `AppOptions` accepts every `controls` option (see [Factory options](#factory-options))
@@ -2339,6 +2340,16 @@ on its two outer sides (`facet-tail`). A thin band in the panel paint
 tail and the panel read as one surface. The panel stands the tail's reach off
 its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
 point while it scales, so a moving scale never moves the tip.
+
+`cancelPolicy` is `dismiss` (the default) or `none`. With `none`, Cancel and a
+tap outside propose nothing, so only the caller's fact or an action in the
+content closes the panel. The panel stays modal.
+
+`modal = false` makes the panel chrome, such as a coach mark or a hint beside
+a control. There is no backdrop, no outside-tap catcher, no Cancel binding and
+no selection claim, and the full-layer `Popup` Frame is not `Active`, so input
+reaches the controls under and around it. The panel paints in the callout band
+(`ZIndex` 95). A chrome panel always uses the anchored route.
 
 `compact` is `sheet` (the default) or `popover`. With `sheet`, a touch player
 on a layer narrower than 600 pixels gets the Sheet route. A live change of
