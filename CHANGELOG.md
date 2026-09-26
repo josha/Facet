@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A toast with an action docks 16 pixels above the app's reserved bottom chrome (a TabView bottom bar, an affixed Notice), its action is a full Button sized to its label (it was a padding-less link the engine cut off), and a row torn down with its owner still hands the selection back. A corner RadialMenu hands the selection back to its launcher when it closes.
 - A labelled horizontal segmented Picker stays inside its row: the row limit rides on the strip's one `TargetFloor` constraint (the engine honours one `UISizeConstraint` per object, so the second one was ignored and a long-label strip overflowed), and a fill strip shares the width instead of wrapping onto a line its fixed height cannot hold, as `fill` did before 0.12. Long radio-group and card labels wrap inside their rows.
 - A Rating spaces its stars for touch only; a gamepad adjusts the whole run with Left and Right, so the stars pack as for a pointer (a Table's fixed Rating column overflowed at ten feet).
 - A shoulder move in a Table or List edit mode keeps the pad selection on the moved row. A pad-selected Sheet grabber answers A (the grip's `UIDragDetector` stands down while a gamepad has the grabber selected). An open RadialMenu turns `GuiService.GuiNavigationEnabled` off, so the left stick reaches `RadialAim` (engine navigation takes `Thumbstick1` while anything is selected), and restores it on close.
