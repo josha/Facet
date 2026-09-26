@@ -48,15 +48,7 @@ return {
 			})
 		end
 		local function rail(name, order)
-			local width = Compose.cell(0)
-			local cardWidth = Compose.formula(function(use)
-				local available = use(width)
-				if available <= 0 then
-					available = use(ctx.viewport).width - 24
-				end
-				local perView = math.max(1, math.floor((available - 40) / 240))
-				return math.max(1, math.floor((available - 40) / perView))
-			end)
+			local cardWidth = Compose.cell(240)
 			local nameProbe = UI.Text "NameMeasure" {
 				Visible = false,
 				text = "Livery 000",
@@ -99,7 +91,7 @@ return {
 					return item.id
 				end,
 				direction = "horizontal",
-				itemSize = cardWidth,
+				itemSize = "cards",
 				gap = 8,
 				overscan = 2,
 				status = status,
@@ -107,7 +99,13 @@ return {
 				Size = function(use)
 					return D2.new(1, 0, 0, use(height))
 				end,
-				render = function(current, _, key)
+				render = function(current, placement, key)
+					Compose.watch(function(use)
+						local extent = use(placement).size
+						if extent > 1 and cardWidth:peek() ~= extent then
+							cardWidth:set(extent)
+						end
+					end)
 					local track = Host.Path2D "Track" { Thickness = 5 }
 					local points = {}
 					local pointType = ctx.types.Path2DControlPoint or Path2DControlPoint
@@ -170,10 +168,6 @@ return {
 				nameProbe,
 				badgeProbe,
 			})
-			local window = observe(node, "AbsoluteWindowSize")
-			Compose.watch(function(use)
-				width:set(use(window).X)
-			end)
 			rails[name] = { node = node, cardWidth = cardWidth, status = status }
 			return node
 		end

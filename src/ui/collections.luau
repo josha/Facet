@@ -5,6 +5,7 @@ local policy = require("./collection_policy")
 local createSelection = require("./collection_selection")
 local attachSnap = require("./collection_snap")
 local reducedMotion = require("./motion")
+local adaptive = require("./adaptive")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -34,6 +35,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"reducedMotion",
 		"direction",
 		"itemSize",
+		"cards",
 		"gap",
 		"crossGap",
 		"columns",
@@ -141,6 +143,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
 		local measured: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
 		local horizontal = spec.direction == "horizontal"
+		local cardsMode = spec.itemSize == "cards"
+		assert(not cardsMode or horizontal, 'Facet collection: itemSize = "cards" needs a horizontal list')
+		assert(spec.cards == nil or cardsMode, 'Facet collection: cards needs itemSize = "cards"')
+		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
+			then observe.PreferredInput(ctx.config.userInputService)
+			else nil
 		local frames = assert(runtime.host.frames)
 		local motionReduced = reducedMotion(ctx)
 		local function reduced(): boolean
@@ -251,6 +259,20 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end, selection, Compose.cell(nil :: CollectionTypes.Sort?), spec.editing)
 			else nil
 		local overlayReorder = if editor then editor.overlay else nil
+		local function cardLayout(use: ComposeTypes.Use?): (number, number)
+			local options: { perView: number?, minWidth: number?, peek: number? } = spec.cards or {}
+			local available = if use then use(viewport).size else viewport:peek().size
+			local gap: number = read(spec.gap or 0, use)
+			local touch = preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Touch
+			local perView = options.perView
+				or if touch and available < adaptive.BREAKPOINTS.regular
+					then 1
+					else adaptive.columnsFor(available, options.minWidth or 200, gap)
+			local peek = options.peek
+				or if perView == 1 and options.perView == nil then math.clamp(available * 0.1, 24, 56) else 0
+			local extent = (available - peek - gap * (perView - 1) - (if peek > 0 then gap else 0)) / perView
+			return math.max(1, math.floor(extent)), perView
+		end
 		local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
 			return Compose.OrderedCollection({
 				from = source,
@@ -280,7 +302,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					return {
 						kind = kind,
 						columns = columns,
-						itemSize = read(spec.itemSize or 40, use),
+						itemSize = if cardsMode then (cardLayout(use)) else read(spec.itemSize or 40, use) :: number,
 						gap = gap,
 						crossGap = crossGap,
 						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
@@ -973,9 +995,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end
 			end)
 		end
-		if spec.snap == "item" then
+		if spec.snap == "item" or cardsMode then
 			attachSnap(ctx, spec, root, controls, status, viewport, setOffset, function()
 				return writingOffset
+			end, function()
+				local _, perView = cardLayout()
+				return spec.snap == "item" or perView == 1
 			end)
 		end
 		return root

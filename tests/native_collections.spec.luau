@@ -708,6 +708,37 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("resolves a card rail to one card with a peek on compact touch and to whole cards elsewhere", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2 = engine.types.Enum, engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(20),
+				key = key,
+				direction = "horizontal",
+				itemSize = "cards",
+				gap = 8,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = V2.new(1000, 200)
+		t.expect(node:FindFirstChild("1", true).Size.X.Offset).toBe(244)
+		ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+		node.AbsoluteWindowSize = V2.new(400, 200)
+		t.expect(node:FindFirstChild("1", true).Size.X.Offset).toBe(352)
+		t.expect(node:FindFirstChild("2", true).Position.X.Offset).toBe(360)
+		stop()
+		runtime:dispose()
+		t.expect(pcall(function()
+			runtime.mount(function()
+				return UI.VirtualList({ from = {}, render = button, cards = { perView = 2 } })
+			end, target)
+		end)).toBe(false)
+	end)
+
 	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3

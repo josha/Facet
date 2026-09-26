@@ -11,7 +11,8 @@ return function<K>(
 	status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus>,
 	viewport: ComposeTypes.Cell<ComposeTypes.OrderedCollectionViewport>,
 	setOffset: (number) -> (),
-	frameworkWrite: () -> boolean
+	frameworkWrite: () -> boolean,
+	enabled: (() -> boolean)?
 ): ()
 	local Compose, runtime, E = ctx.Compose, ctx.runtime, ctx.types.Enum
 	local frames = assert(runtime.host.frames)
@@ -49,6 +50,9 @@ return function<K>(
 		return low
 	end
 	local function settle()
+		if enabled and not enabled() then
+			return
+		end
 		local current, box = status:peek(), viewport:peek()
 		if current == nil or current.total == nil or current.total == 0 then
 			return
