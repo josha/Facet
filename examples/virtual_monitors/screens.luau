@@ -24,7 +24,6 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		end))
 	end
 	local clock = actions.clock or civil.systemClock()
-	local dropTarget
 	local selectedCard = Compose.cell(nil)
 	local function rounded(radius)
 		return Host.UICorner({ CornerRadius = D.new(0, radius or 12) })
@@ -464,28 +463,10 @@ function screens.create(Facet: any, runtime: any, actions: any)
 	local function gameCard(current)
 		local item = current:peek()
 		local card, preview
-		local suppressPointerActivation = false
-		local dragOrigin, pointerStateConnection
-		local dragged = false
 		local function openCard()
 			selectedCard:set(card)
 			model.selectGame(current:peek())
 		end
-		local function cancelPointer()
-			dragOrigin, dragged = nil, false
-			suppressPointerActivation = true
-			if pointerStateConnection then
-				pointerStateConnection:Disconnect()
-				pointerStateConnection = nil
-			end
-		end
-		Compose.cleanup(cancelPointer)
-		local drag = Host.UIDragDetector "SaveDrag" {
-			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-			Enabled = function(use)
-				return not use(touchEnabled)
-			end,
-		}
 		card = UI.Card("Game_" .. item.id)({
 			title = function(use)
 				return use(current).title
@@ -527,154 +508,19 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							AnchorPoint = V2.new(1, 1),
 						}
 					end),
-					drag,
 				}
+				-- drag the preview onto the Saved shelf to save the game
+				UI.draggable(preview, {
+					payload = function()
+						return current:peek()
+					end,
+				})
 				return preview
 			end,
-			onActivate = function(input)
-				if
-					suppressPointerActivation
-					and input
-					and (
-						input.UserInputType == E.UserInputType.Touch
-						or input.UserInputType == E.UserInputType.MouseButton1
-					)
-				then
-					return
-				end
-				openCard()
-			end,
+			onActivate = openCard,
 			primaryAction = saveAction(current),
 			menu = gameMenu(current),
 		})
-		local function saveAt(position)
-			if not dropTarget then
-				return
-			end
-			local at, size = dropTarget.AbsolutePosition, dropTarget.AbsoluteSize
-			if
-				position.X >= at.X
-				and position.X <= at.X + size.X
-				and position.Y >= at.Y
-				and position.Y <= at.Y + size.Y
-				and not model.saved:peek()[item.id]
-			then
-				model.save(current:peek())
-			end
-		end
-		local function moved(position)
-			return dragOrigin ~= nil and (position - dragOrigin).Magnitude > 6
-		end
-		runtime.connect(drag, "DragStart", function(position)
-			dragOrigin = if drag.Enabled then position else nil
-			dragged = false
-			suppressPointerActivation = true
-		end)
-		runtime.connect(drag, "DragContinue", function(position)
-			dragged = dragged or moved(position)
-		end)
-		runtime.connect(drag, "DragEnd", function(position)
-			local active = drag.Enabled and dragOrigin ~= nil
-			local wasDragged = dragged or moved(position)
-			cancelPointer()
-			drag.Enabled = not touchEnabled:peek()
-			if active then
-				if wasDragged then
-					saveAt(position)
-				else
-					openCard()
-				end
-			end
-		end)
-		if inputService then
-			local contact, position, heldScroller, scrollingEnabled
-			local positionConnection, stateConnection
-			local held = false
-			local function finishTouch(commit)
-				if held or not commit then
-					suppressPointerActivation = true
-				end
-				local save = commit and held
-				local at = position
-				contact, position, held = nil, nil, false
-				if positionConnection then
-					positionConnection:Disconnect()
-					positionConnection = nil
-				end
-				if stateConnection then
-					stateConnection:Disconnect()
-					stateConnection = nil
-				end
-				if heldScroller then
-					heldScroller.ScrollingEnabled = scrollingEnabled
-					heldScroller = nil
-				end
-				if save and at then
-					saveAt(at)
-				end
-			end
-			Compose.cleanup(function()
-				finishTouch(false)
-			end)
-			runtime.connect(preview, "InputBegan", function(input)
-				if input.UserInputType == E.UserInputType.Touch then
-					cancelPointer()
-					suppressPointerActivation = false
-					drag.Enabled = false
-					if contact then
-						finishTouch(false)
-						return
-					end
-					contact, position = input, input.Position
-					positionConnection = input:GetPropertyChangedSignal("Position"):Connect(function()
-						position = input.Position
-					end)
-					stateConnection = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
-						if input.UserInputState == E.UserInputState.Cancel then
-							finishTouch(false)
-						end
-					end)
-				elseif input.UserInputType == E.UserInputType.MouseButton1 then
-					suppressPointerActivation = false
-					drag.Enabled = true
-					if pointerStateConnection then
-						pointerStateConnection:Disconnect()
-					end
-					pointerStateConnection = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
-						if input.UserInputState == E.UserInputState.Cancel then
-							cancelPointer()
-						end
-					end)
-				end
-			end)
-			runtime.connect(preview, "TouchLongPress", function(positions, state)
-				if state ~= E.UserInputState.Begin or contact == nil or held then
-					return
-				end
-				if #positions ~= 1 then
-					finishTouch(false)
-					return
-				end
-				held = true
-				suppressPointerActivation = true
-				heldScroller = card:FindFirstAncestorWhichIsA("ScrollingFrame")
-				if heldScroller then
-					scrollingEnabled = heldScroller.ScrollingEnabled
-					heldScroller.ScrollingEnabled = false
-				end
-			end)
-			runtime.connect(inputService, "InputEnded", function(input)
-				if input == contact then
-					position = input.Position
-					finishTouch(input.UserInputState ~= E.UserInputState.Cancel)
-				end
-			end)
-			runtime.connect(inputService, "WindowFocusReleased", function()
-				cancelPointer()
-				finishTouch(false)
-				drag.Enabled = not touchEnabled:peek()
-			end)
-		end
 		model.catalog.seen(item.index)
 		return card
 	end
@@ -1070,12 +916,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				UI.fill(),
 			},
 		}
-		dropTarget = shelves
-		Compose.cleanup(function()
-			if dropTarget == shelves then
-				dropTarget = nil
-			end
-		end)
+		UI.dropTarget(shelves, {
+			accepts = function(game)
+				return not model.saved:peek()[game.id]
+			end,
+			onDrop = model.save,
+		})
 		local function feedFrame(child)
 			return Host.Frame "Feed" {
 				BackgroundTransparency = 1,
