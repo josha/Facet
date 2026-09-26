@@ -429,16 +429,15 @@ return function<V, K>(
 		local body = bodyOf()
 		local canvasAt, bodyAt, screen =
 			ctx.observe.CanvasPosition(body), ctx.observe.Position(body), ctx.observe.AbsolutePosition(body)
-		local function dragImage(dropY: (ComposeTypes.Use) -> number): CanvasGroup
+		local function dragImage(dropY: (ComposeTypes.Use) -> number): Frame
 			local move = assert(moving:peek())
 			local source = rowNodes[move.key]
 			local size = if source then source.AbsoluteSize else V2.zero
 			local layers = math.min(3, #move.keys)
-			local imageProps: Types.CanvasGroupProps = {
+			local imageProps: Types.FrameProps = {
 				Name = "DragImage",
 				ZIndex = 9,
 				BackgroundTransparency = 1,
-				GroupTransparency = 0.1,
 				Interactable = false,
 				Size = D2.fromOffset(size.X + STACK * (layers - 1), size.Y + STACK * (layers - 1)),
 				Position = function(use: ComposeTypes.Use)
@@ -475,7 +474,7 @@ return function<V, K>(
 					"badge"
 				),
 			}
-			local image = Host.CanvasGroup(imageProps)
+			local image = Host.Frame(imageProps)
 			for layer = layers, 1, -1 do
 				local copy = if source then source:Clone() else nil
 				if copy then
