@@ -16,6 +16,9 @@ type Controls = {
 	VirtualGrid: CollectionTypes.CollectionConstructor,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
 }
+local FLING_FRICTION = 3
+local FLING_MINIMUM = 200
+local FLING_STOP = 20
 type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 
 return function(ctx: Types.Context, UI: Controls): ()
@@ -543,6 +546,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 		if horizontal and input and not spec.reorderable then
 			local pressAt: number? = nil
 			local startOffset, dragging = 0, false
+			local lastX, lastTime, velocity = 0, 0, 0
+			local stopFling: (() -> ())? = nil
+			local function halt(): ()
+				if stopFling then
+					stopFling()
+					stopFling = nil
+				end
+			end
+			Compose.cleanup(halt)
+			local function limit(): number
+				return math.max(0, root.CanvasSize.X.Offset - root.AbsoluteWindowSize.X)
+			end
 			local function items(): Instance?
 				return root:FindFirstChild("Items")
 			end
@@ -561,7 +576,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					and inside(value.Position)
 					and ctx.available(root)
 				then
+					halt()
 					pressAt, startOffset, dragging = value.Position.X, root.CanvasPosition.X, false
+					lastX, lastTime, velocity = value.Position.X, frames.now(), 0
 				end
 			end)
 			runtime.connect(input, "InputChanged", function(value: InputObject)
@@ -576,9 +593,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 						node.Interactable = false
 					end
 				end
+				local now = frames.now()
+				if now - lastTime >= 0.005 then
+					velocity = (lastX - value.Position.X) / (now - lastTime)
+					lastX, lastTime = value.Position.X, now
+				end
 				if dragging then
-					local limit = math.max(0, root.CanvasSize.X.Offset - root.AbsoluteWindowSize.X)
-					root.CanvasPosition = V2.new(math.clamp(startOffset - travel, 0, limit), root.CanvasPosition.Y)
+					root.CanvasPosition = V2.new(math.clamp(startOffset - travel, 0, limit()), root.CanvasPosition.Y)
 				end
 			end)
 			runtime.connect(input, "InputEnded", function(value: InputObject)
@@ -598,6 +619,17 @@ return function(ctx: Types.Context, UI: Controls): ()
 							node.Interactable = true
 						end
 					end)
+					if frames.now() - lastTime < 0.1 and math.abs(velocity) > FLING_MINIMUM then
+						stopFling = frames.onFrame(function(step: number)
+							velocity *= math.exp(-FLING_FRICTION * step)
+							local at = root.CanvasPosition.X
+							local nextX = math.clamp(at + velocity * step, 0, limit())
+							root.CanvasPosition = V2.new(nextX, root.CanvasPosition.Y)
+							if math.abs(velocity) < FLING_STOP or nextX == at then
+								halt()
+							end
+						end)
+					end
 				end
 			end)
 		end

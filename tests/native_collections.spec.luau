@@ -1135,6 +1135,67 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("carries a released mouse drag on a horizontal rail with decaying momentum", function()
+		local now = 0
+		local engine, runtime, UI, target, _, ctx = setup({
+			userInputService = {},
+			clock = function()
+				return now
+			end,
+		})
+		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(40),
+				key = key,
+				direction = "horizontal",
+				itemSize = 100,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = V2.new(300, 100)
+		node.AbsoluteSize = V2.new(300, 100)
+		local input = ctx.config.userInputService
+		local function mouse(kind, x)
+			return { UserInputType = kind, Position = V3.new(x, 50, 0) }
+		end
+		input.InputBegan.fire(mouse(E.UserInputType.MouseButton1, 280))
+		for x = 260, 180, -20 do
+			now += 1 / 60
+			input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, x))
+		end
+		local released = node.CanvasPosition.X
+		t.expect(released).toBe(100)
+		input.InputEnded.fire(mouse(E.UserInputType.MouseButton1, 180))
+		local previous, step = released, 0
+		for _ = 1, 20 do
+			now += 1 / 60
+			engine.heartbeat.fire(1 / 60)
+			local at = node.CanvasPosition.X
+			t.expect(at >= previous).toBe(true)
+			step, previous = at - previous, at
+		end
+		t.expect(previous > released + 100).toBe(true)
+		for _ = 1, 600 do
+			now += 1 / 60
+			engine.heartbeat.fire(1 / 60)
+		end
+		local rest = node.CanvasPosition.X
+		now += 1 / 60
+		engine.heartbeat.fire(1 / 60)
+		t.expect(node.CanvasPosition.X).toBe(rest)
+		t.expect(step > 0).toBe(true)
+		input.InputBegan.fire(mouse(E.UserInputType.MouseButton1, 200))
+		input.InputEnded.fire(mouse(E.UserInputType.MouseButton1, 200))
+		now += 1 / 60
+		engine.heartbeat.fire(1 / 60)
+		t.expect(node.CanvasPosition.X).toBe(rest)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it(
 		"places a dragged row and its image in layout units under a scaled ancestor, as in a ten-foot preview",
 		function()
