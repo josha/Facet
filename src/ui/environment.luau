@@ -327,6 +327,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			entry == "restore" or entry == "first" or entry == "nearest",
 			"Facet UI.focusSection: entry must be restore, first or nearest"
 		)
+		local appear = settings.focusOnAppear
+		assert(
+			appear == nil or type(appear) == "boolean" or (type(appear) == "string" and appear ~= ""),
+			"Facet UI.focusSection: focusOnAppear is a boolean or a descendant name"
+		)
 		local gui = config.guiService
 		if gui == nil then
 			return
@@ -399,38 +404,63 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				last = current
 			end
 		end)
-		local appear = settings.focusOnAppear
-		local returning: GuiObject? = if settings.returnFocus then gui.SelectedObject else nil
-		if appear ~= nil and appear ~= false then
-			local done = false
+		if appear or settings.returnFocus then
+			local input = config.userInputService
+			local before: GuiObject? = nil
+			local layer: LayerCollector? = nil
 			local function claim()
-				if done or gui.SelectedObject == nil or group:FindFirstAncestorWhichIsA("LayerCollector") == nil then
+				local at = group:FindFirstAncestorWhichIsA("LayerCollector")
+				if layer or at == nil then
 					return
 				end
-				done = true
+				layer, before = at, gui.SelectedObject
+				local navigating = before ~= nil
+					or (input ~= nil and input.PreferredInput == ctx.types.Enum.PreferredInput.Gamepad)
+				if not navigating or not appear then
+					return
+				end
 				local target = if type(appear) == "string" then named(appear) else first()
 				if target then
 					gui.SelectedObject = target
+				elseif appear == true then
+					gui:Select(group)
 				end
 			end
 			runtime.connect(group, "AncestryChanged", claim)
 			claim()
-		end
-		if settings.returnFocus then
-			Compose.cleanup(function()
-				local back = returning
-				local current = gui.SelectedObject
-				if
-					back
-					and back.Parent
-					and back.Visible
-					and back.Selectable
-					and back:FindFirstAncestorWhichIsA("LayerCollector")
-					and (current == nil or current == group or current:IsDescendantOf(group) or current.Parent == nil)
-				then
-					gui.SelectedObject = back
+			if settings.returnFocus then
+				local held, returned = false, false
+				local function restore()
+					returned = true
+					local target = before
+					if target and target:FindFirstAncestorWhichIsA("LayerCollector") then
+						gui.SelectedObject = target
+					elseif target and layer then
+						gui:Select(layer)
+					end
 				end
-			end)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local current = use(selected) :: GuiObject?
+					local within = current ~= nil and current:IsDescendantOf(group)
+					if
+						held
+						and not within
+						and not returned
+						and group:FindFirstAncestorWhichIsA("LayerCollector") == nil
+					then
+						restore()
+						return
+					end
+					held = within
+				end)
+				Compose.cleanup(function()
+					local current = gui.SelectedObject
+					if returned or before == nil or (current ~= nil and not current:IsDescendantOf(group)) then
+						return
+					end
+					restore()
+				end)
+			end
 		end
 	end
 	UI.worldAnchor = function(options: Env.WorldAnchorOptions): Env.WorldAnchor

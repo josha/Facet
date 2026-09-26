@@ -512,6 +512,9 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			actions = { { id = "ok", label = "OK", onActivate = function() end } },
 		}
 	end,
+	Toast = function()
+		return { message = "Saved" }
+	end,
 	Snackbar = function()
 		local shown = Compose.cell(true)
 		return {

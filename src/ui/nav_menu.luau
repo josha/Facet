@@ -9,6 +9,8 @@ local fieldChrome = require("./field_chrome")
 local activation = require("./activation")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
+local parts = require("./overlay_parts")
+local Overlay = require("./overlay_types")
 
 type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
 
@@ -20,6 +22,7 @@ return function(
 		SplitButton: Nav.SplitButtonConstructor,
 		ComboBox: Types.Constructor<Nav.ComboBoxSpec, Frame>,
 		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+		Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
 		TextInput: Types.Constructor<Inputs.TextInputProps, TextBox | Frame>,
 		Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
 		Avatar: Types.Constructor<Media.AvatarProps, TextButton>,
@@ -86,6 +89,7 @@ return function(
 		"align",
 		"width",
 		"maxHeight",
+		"controls",
 	}
 	local DIM_FIELDS: { [string]: { [string]: boolean } } = {
 		fixed = { px = true },
@@ -231,6 +235,37 @@ return function(
 		end
 		return result
 	end
+	local function advice<V>(items: { Nav.MenuItem<V> }, path: string, depth: number, notes: { string }): { string }
+		local actions, destructive = 0, nil :: number?
+		for index, item in items do
+			if item.divider ~= true then
+				actions += 1
+				if read(item.role) == "destructive" then
+					destructive = index
+				end
+				if item.children then
+					local id = item.id or tostring(index)
+					if depth + 1 >= 2 then
+						table.insert(
+							notes,
+							`Facet UI.Menu: submenu '{id}' nests {depth + 1} levels deep. The platform guidance advises a single level.`
+						)
+					end
+					advice(read(item.children), `{path}[{index}].children`, depth + 1, notes)
+				end
+			end
+		end
+		if actions > 5 then
+			table.insert(notes, `Facet UI.Menu: {path} holds {actions} items; past about five, consider a new menu.`)
+		end
+		if destructive and destructive ~= #items then
+			table.insert(
+				notes,
+				`Facet UI.Menu: {path}[{destructive}] is destructive but not last; put destructive items at the end of the menu.`
+			)
+		end
+		return notes
+	end
 	local function menuPanel<V>(
 		spec: Nav.MenuSpec<V>,
 		close: () -> (),
@@ -372,12 +407,10 @@ return function(
 			Compose.show(function(use: ComposeTypes.Use)
 				return #use(path) > 0 and use(sheeted)
 			end, function()
-				return UI.Button "Back" {
-					label = spec.backLabel or "Back",
-					onActivate = back,
+				return parts.back(ctx, UI, spec.backLabel, back, {
 					LayoutOrder = -1,
 					Size = D2.new(1, 0, 0, 44),
-				}
+				})
 			end),
 			Compose.keyed({
 				from = entries,
@@ -738,6 +771,7 @@ return function(
 			end
 			return (use(extent).X > 0 and use(extent).X < math.max(600, (#use(path) + 1) * 288 + 16))
 				or use(preferred) == E.PreferredInput.Touch
+				or use(preferred) == E.PreferredInput.Gamepad
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			sheeted:set(use(asSheet))
@@ -1216,6 +1250,11 @@ return function(
 			"Facet UI.Menu: maxHeight must be a finite number of pixels above 0"
 		)
 		checkWidth(read(spec.width))
+		if spec.controls then
+			spec.controls.diagnostics = function(): { string }
+				return advice(read(spec.items), "items", 0, {})
+			end
+		end
 		if spec.label ~= nil and spec.trigger ~= nil then
 			error("Facet UI.Menu: give label or trigger, not both", 0)
 		end
@@ -2139,9 +2178,6 @@ return function(
 					return if word == "contrast" then "emphasis" elseif word == "utility" then "utility" else "standard"
 				end
 				else nil
-			triggerProps.onActivate = function()
-				opened:set(true)
-			end
 			local trigger = UI.Button(triggerProps)
 			local row = trigger:FindFirstChild("Content")
 			local chevron = row and row:FindFirstChild("TrailingIcon")
@@ -2162,8 +2198,18 @@ return function(
 					}
 				end, row)
 			end
-			surfaces.attach(trigger, {
-				surfaces.overlay(trigger, opened, function()
+			UI.Popover {
+				isPresented = opened,
+				onPresentedChange = function(value: boolean)
+					opened:set(value)
+				end,
+				trigger = trigger :: GuiButton,
+				edge = "bottom" :: "bottom",
+				align = "end" :: "end",
+				maxWidth = ctx.metric("controls.popup.panelWidth"),
+				maxHeight = spec.maxHeight or 400,
+				title = spec.label,
+				content = function(): Instance
 					local choices: Nav.PickerSpec<V>
 					if spec.multiple then
 						local source: Nav.MultiplePickerSpec<V> = spec
@@ -2193,45 +2239,15 @@ return function(
 						end
 						choices = child
 					end
-					local results: GuiObject = UI.Picker(choices)
-					if spec.maxHeight then
-						local cap = math.max(44, spec.maxHeight)
-						local list = results
-						local measured = ctx.observe.AbsoluteSize(list)
-						results = Host.ScrollingFrame "Results" {
-							BackgroundTransparency = 1,
-							BorderSizePixel = 0,
-							Selectable = false,
-							ScrollingDirection = E.ScrollingDirection.Y,
-							AutomaticCanvasSize = E.AutomaticSize.Y,
-							CanvasSize = D2.fromOffset(0, 0),
-							Size = function(use: ComposeTypes.Use)
-								local height = use(measured).Y
-								return D2.new(1, 0, 0, if height > 0 then math.min(height, cap) else cap)
-							end,
-							list :: Types.Child,
-						}
-					end
-					return surfaces.modal(function()
-						return surfaces.centered(
-							ctx.column({
-								results,
-								UI.Button "Close" {
-									label = "Close",
-									onActivate = function()
-										opened:set(false)
-									end,
-								},
-								ctx.padding(16, 16),
-								ctx.corner(),
-							}, { Name = "PickerSearch" }),
-							560
-						)
-					end, function()
-						opened:set(false)
-					end)
-				end),
-			})
+					return ctx.column({ UI.Picker(choices) }, {
+						Name = "PickerSearch",
+						Size = function(use: ComposeTypes.Use)
+							return D2.fromOffset(ctx.metric("controls.popup.panelWidth", use) - 16, 0)
+						end,
+						AutomaticSize = E.AutomaticSize.Y,
+					})
+				end,
+			}
 			return trigger
 		end
 		if style == "cards" then

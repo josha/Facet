@@ -26,11 +26,12 @@ local KEYS = {
 	"maxHeight",
 	"compact",
 	"title",
+	"modal",
+	"cancelPolicy",
 }
 local POPOVER: { enter: number, exit: number } = freeze({ enter = 0.15, exit = 0.1 })
 local SHEET_EXIT = 0.2
 local MARGIN = 8
-local TAIL = 10
 local PADDING = 8
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
@@ -106,7 +107,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.title ~= nil and not parts.bound(ctx, spec.title, "string") then
 			error(`Facet {where}: title must be a string or a bound string`, 0)
 		end
-		local compact = spec.compact or "sheet"
+		if spec.modal ~= nil and type(spec.modal) ~= "boolean" then
+			error(`Facet {where}: modal must be true or false`, 0)
+		end
+		if spec.cancelPolicy ~= nil and spec.cancelPolicy ~= "dismiss" and spec.cancelPolicy ~= "none" then
+			error(`Facet {where}: cancelPolicy must be dismiss or none`, 0)
+		end
+		local chrome = spec.modal == false
+		local compact = if chrome then "popover" else spec.compact or "sheet"
 		if compact ~= "sheet" and compact ~= "popover" then
 			error(`Facet {where}: compact must be sheet or popover`, 0)
 		end
@@ -328,15 +336,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						h = use(sourceSize).Y,
 					}
 				local size = use(measured)
+				local side = if tailed then parts.tailSize(ctx, use) else 0
 				return placement.solve({
 					source = source,
 					size = { w = size.X, h = size.Y },
 					safe = safe(use),
 					edge = spec.edge,
 					align = spec.align,
-					gap = spec.gap or 8,
+					gap = (spec.gap or 8) + side * math.sqrt(2) / 2,
 					crossOffset = spec.crossOffset,
-					tail = if tailed then TAIL else 0,
+					tail = side * math.sqrt(2),
 					tailInset = 8,
 				})
 			end)
@@ -349,34 +358,35 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					elseif at.edge == "right" then V2.new(0, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 					else V2.new(size.X, math.clamp((at.tailY or at.y) - at.y, 0, size.Y))
 				return V2.new(at.x, at.y), origin
-			end)
+			end, nil, true)
 			local children: { Types.Child } = { panel }
 			if tailed then
-				table.insert(
-					children,
-					ctx.styled(
-						Host.Frame "Tail" {
-							Size = D2.fromOffset(TAIL, TAIL),
-							AnchorPoint = V2.new(0.5, 0.5),
-							Rotation = 45,
-							BorderSizePixel = 0,
-							ZIndex = 1,
-							Visible = function(use: ComposeTypes.Use)
-								return not use(solved).tailSuppressed
-							end,
-							Host.UIGradient "PresentationFade" {
-								Transparency = function(use: ComposeTypes.Use)
-									return ctx.types.NumberSequence.new(1 - amount(use))
-								end,
-							} :: Types.Child,
-							Position = function(use: ComposeTypes.Use)
-								local at = use(solved)
-								return D2.fromOffset(at.tailX or 0, at.tailY or 0)
-							end,
-						},
-						"panel"
-					)
+				local tail = parts.tail(
+					ctx,
+					"Tail",
+					function(use: ComposeTypes.Use): (Vector2?, string)
+						local at = use(solved)
+						if at.tailSuppressed or at.tailX == nil or at.tailY == nil then
+							return nil, at.edge
+						end
+						return V2.new(at.tailX, at.tailY), at.edge
+					end,
+					amount,
+					function(): number
+						return 2
+					end
 				)
+				table.insert(children, tail[1])
+				table.insert(children, tail[2])
+			end
+			if chrome then
+				return Host.Frame "Popup" {
+					BackgroundTransparency = 1,
+					Active = false,
+					Size = D2.fromScale(1, 1),
+					ZIndex = 95,
+					table.unpack(children),
+				}
 			end
 			local modal = surfaces.modal(function()
 				return Host.Frame "Popup" {
@@ -394,6 +404,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 				exiting = if phase then phase.exiting else nil,
 				appearance = amount,
+				canDismiss = spec.cancelPolicy ~= "none",
 			})
 			modal:SetAttribute("FacetRoute", "popover")
 			return modal
@@ -407,6 +418,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				title = spec.title,
 				content = spec.content,
 			}, function(reason: string): boolean
+				if spec.cancelPolicy == "none" then
+					return false
+				end
 				return propose(false, if reason == "outside" then "outside" else "cancel")
 			end, phase)
 			modal:SetAttribute("FacetRoute", "sheet")

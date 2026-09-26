@@ -176,7 +176,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 	t.it("the Size control reads player words, never a detent id", function()
 		local w = mount({ detents = { "hug", "medium" } })
 		local grabber = w.find("Grabber")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		w.detent:set("hug")
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Fit")
 		w.stop()
@@ -493,18 +493,15 @@ t.describe("native Sheet: parts", function()
 		w.stop()
 	end)
 
-	t.it("coinciding heights keep the declared id; Size cycles distinct ids; ties keep the current", function()
+	t.it("coinciding heights keep the declared id; the grabber grows past ties, then closes", function()
 		local w = mount({
 			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" },
 		}, { detent = "b", reducedMotion = true })
 		t.expect(w.detent:peek()).toBe("b")
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(300)
-		local seen = {}
-		for _ = 1, 3 do
-			w.find("Grabber").Activated.fire()
-			table.insert(seen, w.detent:peek())
-		end
-		t.expect(seen).toEqual({ "large", "a", "b" })
+		w.find("Grabber").Activated.fire()
+		t.expect(w.detent:peek()).toBe("large")
+		w.detent:set("b")
 		local drag = w.find("UIDragDetector")
 		drag.DragStart.fire(w.Vector2.new(0, 0))
 		w.tick(0.5)
@@ -815,6 +812,9 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
 		grabber.Activated.fire()
 		t.expect(w.detent:peek()).toBe("large")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
+		grabber.Activated.fire()
+		t.expect(w.shown:peek()).toBe(false)
 		w.stop()
 		local single = mount({ detents = { "medium" } })
 		local only = single.find("Grabber")
@@ -824,6 +824,43 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 		t.expect(single.shown:peek()).toBe(false)
 		single.stop()
 	end)
+
+	t.it("an automatic sheet moves to the centre of a ten-foot screen and docks at the bottom nearby", function()
+		local shown = Compose.cell(false)
+		local w = mount(nil, { shown = shown })
+		w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
+		w.input.MouseEnabled = false
+		w.input.TouchEnabled = false
+		shown:set(true)
+		t.expect(w.find("SheetPanel"):GetAttribute("FacetPlacement")).toBe("center")
+		w.input.MouseEnabled = true
+		t.expect(w.find("SheetPanel"):GetAttribute("FacetPlacement")).toBe("bottom")
+		w.stop()
+	end)
+
+	t.it(
+		"a press-drag that starts on the grabber pill drags the sheet, shows grab cursors and is not also a tap",
+		function()
+			local w = mount(nil, { reducedMotion = true })
+			local grabber = w.find("Grabber")
+			local drag = grabber:FindFirstChildWhichIsA("UIDragDetector")
+			t.expect(drag ~= nil).toBe(true)
+			t.expect(drag.CursorIcon).toBe("rbxasset://SystemCursors/SizeNS")
+			t.expect(drag.ActivatedCursorIcon).toBe("rbxasset://SystemCursors/ClosedHand")
+			drag.DragStart.fire(w.Vector2.new(0, 0))
+			drag.DragContinue.fire(w.Vector2.new(0, 30))
+			drag.DragEnd.fire()
+			grabber.Activated.fire()
+			t.expect(w.detent:peek()).toBe("medium")
+			t.expect(w.shown:peek()).toBe(true)
+			w.tick(0.5)
+			drag.DragStart.fire(w.Vector2.new(0, 0))
+			drag.DragContinue.fire(w.Vector2.new(0, 500))
+			drag.DragEnd.fire()
+			t.expect(w.shown:peek()).toBe(false)
+			w.stop()
+		end
+	)
 
 	t.it("a hidden grabber gets an icon-only Close in the header's trailing corner", function()
 		local w = mount({ dragIndicator = "hidden" })

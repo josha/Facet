@@ -40,6 +40,7 @@ export type ButtonVisualOptions = EnabledOptions & {
 	subtitle: Shared.ValueString?,
 	hint: Shared.ValueString?,
 	help: Help?,
+	disclose: boolean?,
 	row: Row?,
 	textSize: Value<string | number>?,
 	underline: ("always" | "hover")?,

@@ -1788,11 +1788,12 @@ t.describe("native parity weaker focus", function()
 		world.stop()
 	end)
 
-	t.it("cycles sheet detents from the selectable grabber for tap, mouse and gamepad activation", function()
-		local detent = Compose.cell("medium")
+	t.it("grows sheet detents from the selectable grabber and closes from the tallest on every input", function()
+		local detent = Compose.cell("peek")
+		local presented = Compose.cell(true)
 		local world = setup(function(UI)
 			return UI.Sheet({
-				isPresented = Compose.cell(true),
+				isPresented = presented,
 				detent = detent,
 				detents = { "medium", "large", { id = "peek", height = 160 } },
 				content = function()
@@ -1805,15 +1806,16 @@ t.describe("native parity weaker focus", function()
 		t.expect(grabber:IsA("GuiButton")).toBe(true)
 		t.expect(grabber.Selectable).toBe(true)
 		t.expect(grabber.Interactable).toBe(true)
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Peek")
 		world.gui.SelectedObject = grabber
 		t.expect(world.gui.SelectedObject).toBe(grabber)
 		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Touch })
-		t.expect(detent:peek()).toBe("large")
-		grabber.Activated.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
-		t.expect(detent:peek()).toBe("peek")
-		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
 		t.expect(detent:peek()).toBe("medium")
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
+		t.expect(detent:peek()).toBe("large")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
+		t.expect(presented:peek()).toBe(false)
 		world.stop()
 		local single = setup(function(UI)
 			return UI.Sheet({

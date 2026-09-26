@@ -5,6 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local help = require("./help")
 local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
+local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 local scrollLock = require("./scroll_lock")
 
@@ -149,19 +150,38 @@ return function(ctx: Types.Context): Nav.Surfaces
 		panel: GuiObject,
 		amount: Nav.Appearance,
 		place: (ComposeTypes.Use) -> (Vector2, Vector2),
-		from: number?
+		from: number?,
+		pinned: boolean?
 	): ()
 		local rest = from or 0.9
 		local function scale(use: ComposeTypes.Use): number
 			return rest + (1 - rest) * amount(use)
 		end
-		runtime.decorate(panel, {
-			Position = function(use: ComposeTypes.Use)
-				local at, origin = place(use)
-				local shrink = 1 - scale(use)
-				return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
-			end,
-		})
+		if pinned then
+			local size = ctx.observe.AbsoluteSize(panel)
+			runtime.decorate(panel, {
+				AnchorPoint = function(use: ComposeTypes.Use)
+					local _, origin = place(use)
+					local box = use(size)
+					return V2.new(
+						if box.X > 0 then math.clamp(origin.X / box.X, 0, 1) else 0,
+						if box.Y > 0 then math.clamp(origin.Y / box.Y, 0, 1) else 0
+					)
+				end,
+				Position = function(use: ComposeTypes.Use)
+					local at, origin = place(use)
+					return D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
+				end,
+			})
+		else
+			runtime.decorate(panel, {
+				Position = function(use: ComposeTypes.Use)
+					local at, origin = place(use)
+					local shrink = 1 - scale(use)
+					return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
+				end,
+			})
+		end
 		attach(panel, { Host.UIScale "PresentationScale" { Scale = scale } })
 	end
 	local function attached(anchor: GuiObject): boolean
@@ -692,20 +712,58 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end,
 		})
 	end
-	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help)
+	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help, plate: help.Plate?)
 		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isReadable(value)
 			then value :: Inputs.HelpSpec
 			else nil
 		local text: Types.Value<string> = if structured then structured.body else value :: Types.Value<string>
+		local gate = plate and plate.gate
 		local state = ctx.observe.GuiState(anchor)
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
+		local held = Compose.cell(false)
+		local function press(phase: Enum.UserInputState)
+			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
+				held:set(true)
+				help.hold(anchor, true)
+			end
+		end
+		if anchor:IsA("GuiButton") then
+			runtime.connect(anchor, "TouchLongPress", function(_: { Vector2 }, phase: Enum.UserInputState)
+				press(phase)
+			end)
+		elseif input then
+			runtime.connect(input, "TouchLongPress", function(points: { Vector2 }, phase: Enum.UserInputState)
+				local point: Vector2? = points[1]
+				local layer = anchor:FindFirstAncestorWhichIsA("ScreenGui")
+				if point == nil or layer == nil or not displayed(anchor) then
+					return
+				end
+				local offset = if layer.IgnoreGuiInset and gui then gui:GetGuiInset() else V2.zero
+				local at, size = anchor.AbsolutePosition - offset, anchor.AbsoluteSize
+				if point.X >= at.X and point.X <= at.X + size.X and point.Y >= at.Y and point.Y <= at.Y + size.Y then
+					press(phase)
+				end
+			end)
+		end
+		runtime.connect(anchor, "InputBegan", function()
+			help.hold(anchor, false)
+		end)
+		if input then
+			runtime.connect(input, "InputBegan", function(event: InputObject)
+				if held:peek() and event.UserInputType == E.UserInputType.Touch then
+					held:set(false)
+				end
+			end)
+		end
 		local wanted = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local kind = if preferred then use(preferred) else nil
 			if kind == E.PreferredInput.Touch then
 				return false
 			end
-			return use(state) == E.GuiState.Hover or (selection ~= nil and use(selection) == anchor)
+			local selected = if selection then use(selection) else nil
+			return use(state) == E.GuiState.Hover
+				or (selected ~= nil and (selected == anchor or anchor:IsDescendantOf(selected)))
 		end)
 		local rest = runtime.timeline({ duration = 0.45, autoplay = false })
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -717,10 +775,15 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 		end)
 		local armed = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return use(wanted) and use(rest.progress) >= 1
+			return ctx.read(gate, use) ~= false and (use(held) or (use(wanted) and use(rest.progress) >= 1))
 		end)
-		local short = ctx.metric("motion.fast")
-		local timing: Nav.MotionTiming = { enter = short, exit = short }
+		local shown = plate and plate.shown
+		if shown then
+			Compose.watch(function(use: ComposeTypes.Use)
+				shown:set(use(armed))
+			end)
+		end
+		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
 				local amount = appearance(phase, timing)
@@ -738,7 +801,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				})
 				label:AddTag("facet-type-caption")
 				local panelProps: Types.CanvasGroupNativeProps = {
-					Name = "Help",
+					Name = plate and plate.name or "Help",
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - amount(use)
 					end,
@@ -788,10 +851,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 				local measured = ctx.observe.AbsoluteSize(panel)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
-				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+				local solution = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
 					local anchorAt, anchorSize, offer, offset, box =
 						use(at), use(bounds), use(extent), use(origin), use(measured)
-					local solved = placement.solve({
+					local side = parts.tailSize(ctx, use)
+					return placement.solve({
 						source = {
 							x = anchorAt.X - offset.X,
 							y = anchorAt.Y - offset.Y,
@@ -802,8 +866,14 @@ return function(ctx: Types.Context): Nav.Surfaces
 						safe = { x = 8, y = 8, w = math.max(0, offer.X - 16), h = math.max(0, offer.Y - 16) },
 						edge = edge,
 						align = align,
-						gap = 6,
+						gap = 6 + side * math.sqrt(2) / 2,
+						tail = side * math.sqrt(2),
+						tailInset = 6,
 					})
+				end)
+				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+					local anchorAt, anchorSize, offset, box = use(at), use(bounds), use(origin), use(measured)
+					local solved = use(solution)
 					local centerX = anchorAt.X - offset.X + anchorSize.X / 2 - solved.x
 					local centerY = anchorAt.Y - offset.Y + anchorSize.Y / 2 - solved.y
 					local origin = if solved.edge == "bottom"
@@ -812,8 +882,24 @@ return function(ctx: Types.Context): Nav.Surfaces
 						elseif solved.edge == "right" then V2.new(0, math.clamp(centerY, 0, box.Y))
 						else V2.new(box.X, math.clamp(centerY, 0, box.Y))
 					return V2.new(solved.x, solved.y), origin
-				end)
-				return ctx.styled(panel, "tooltip")
+				end, nil, true)
+				ctx.styled(panel, "tooltip")
+				local tail = parts.tail(
+					ctx,
+					"HelpTail",
+					function(use: ComposeTypes.Use): (Vector2?, string)
+						local solved = use(solution)
+						if solved.tailSuppressed or solved.tailX == nil or solved.tailY == nil then
+							return nil, solved.edge
+						end
+						return V2.new(solved.tailX, solved.tailY), solved.edge
+					end,
+					amount,
+					function()
+						return 96
+					end
+				)
+				return Host.Folder "HelpOverlay" { panel :: Instance, tail[1], tail[2] }
 			end, { motion = timing }),
 		})
 	end)

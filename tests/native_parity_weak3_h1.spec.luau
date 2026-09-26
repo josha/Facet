@@ -242,7 +242,9 @@ t.describe("native parity weak3 h1", function()
 			world.settle()
 		end
 		local function edges(): (number, number)
-			local left = world.root.AbsolutePosition.X + panel.Position.X.Offset
+			local left = math.round(
+				world.root.AbsolutePosition.X + panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X
+			)
 			return left, left + panel.Size.X.Offset
 		end
 		for _, step in { 8, 24 } do

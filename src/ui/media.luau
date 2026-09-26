@@ -9,6 +9,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local bindThemes = require("./themes")
 local pathShapes = require("./nav_path_shapes")
 local decoration = require("./native_decoration")
+local help = require("./help")
+local textReveal = require("./text_reveal")
 export type MediaControls = Media.MediaControls
 
 local SETTLE_SECONDS = 0.15
@@ -185,6 +187,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		"direction",
 		"tint",
 		"lines",
+		"disclose",
+		"reveal",
 	}
 	local ALIGN: { [string]: Enum.TextXAlignment } = {
 		start = E.TextXAlignment.Left,
@@ -250,6 +254,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		)
 		assert(lines == nil or not cut, "Facet Text lines cannot combine with a middle cut")
 		assert(lines == nil or fit == nil, "Facet Text lines cannot combine with a fitted text size")
+		assert(spec.reveal == nil or spec.reveal == "auto", "Facet Text reveal must be auto")
+		assert(
+			spec.reveal == nil or (lines == nil and not cut and spec.wrap ~= true and spec.TextWrapped ~= true),
+			"Facet Text reveal needs one line that truncates at the end; remove wrap, lines or the middle cut"
+		)
 		local defaults: Engine.TextLabelNativeProps = {
 			Text = if cut then read(source) or "" else bind(source, ""),
 		}
@@ -279,7 +288,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			defaults.TextWrapped = false
 			defaults.TextTruncate = E.TextTruncate.None
-		elseif truncate == "end" then
+		elseif truncate == "end" or spec.reveal then
 			defaults.TextTruncate = E.TextTruncate.AtEnd
 		end
 		if lines then
@@ -373,6 +382,21 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				use(styledFace)
 				label.Text = middle(label, value, use(width))
 			end)
+		end
+		assert(spec.disclose == nil or type(spec.disclose) == "boolean", "Facet Text disclose must be a boolean")
+		if spec.disclose or spec.reveal then
+			local fits, painted = ctx.observe.TextFits(label), ctx.observe.Text(label)
+			local shown = Compose.cell(false)
+			help.attach(ctx, label, bind(source, ""), {
+				name = "Disclosure",
+				gate = function(use: ComposeTypes.Use): boolean
+					return not use(fits) or (cut and use(painted) ~= (read(source, use) or ""))
+				end,
+				shown = shown,
+			})
+			if spec.reveal then
+				textReveal(ctx, label, shown)
+			end
 		end
 		if spec.role ~= nil then
 			Compose.watch(function(use: ComposeTypes.Use)

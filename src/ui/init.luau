@@ -16,6 +16,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/nav_popover")(ctx, UI, surfaces)
 	require("@self/nav_notice")(ctx, UI, surfaces)
 	require("@self/nav_snackbar")(ctx, UI, surfaces)
+	require("@self/nav_toast")(ctx, UI, surfaces)
 	require("@self/nav_pages")(ctx, UI, surfaces)
 	require("@self/nav_radial")(ctx, UI, surfaces)
 	require("@self/collections")(ctx, UI)

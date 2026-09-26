@@ -20,7 +20,7 @@ styling. `Host` is the runtime's native constructor table.
   height. They come back when the grid returns to the top.
 - **Avatar:** an animated R15 explorer with a procedural fallback, accent and
   hat choices, a `UI.ColorPicker` for the hat colour, rotation, shared turn
-  increments, auto-spin, reset confirmation and a summary sheet with retained
+  increments, auto-spin, reset confirmation (a `UI.Toast` confirms the reset) and a summary sheet with retained
   detents. `UI.NumberInput` accepts an exact angle or a sum, such as `90+45`,
   with `Facet.recipes.arithmetic.parse`. The preview and the settings share a
   row when space permits and wrap otherwise.

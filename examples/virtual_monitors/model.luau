@@ -46,6 +46,7 @@ function model.new(Compose: any)
 		detailPath = Compose.cell({}),
 		featuredSelection = Compose.cell("1"),
 		resetAvatarPresented = Compose.cell(false),
+		lookResets = Compose.cell(0),
 		hidden = Compose.cell({}),
 		sessions = Compose.cell({}),
 		similarPage = Compose.cell(1),
@@ -218,6 +219,7 @@ function model.new(Compose: any)
 		self.hat:set(true)
 		self.hatTint:set({ 218, 195, 145 })
 		self.angle:set(-15)
+		self.lookResets:set(self.lookResets:peek() + 1)
 	end
 	self.prompt = function(value)
 		self.chatPromptUsed:set(true)

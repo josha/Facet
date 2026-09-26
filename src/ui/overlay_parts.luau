@@ -8,6 +8,7 @@ local freeze = require("./freeze")
 
 type ButtonFactory = Types.Constructor<Inputs.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
+type BackPlace = { AnchorPoint: Vector2?, Position: UDim2?, Size: UDim2?, LayoutOrder: number? }
 
 local parts = {}
 
@@ -235,6 +236,19 @@ end
 
 export type ActionGroup = { frame: Frame, stacked: ComposeTypes.Readable<boolean> }
 
+function parts.stackedForm(ctx: Types.Context): (ComposeTypes.Use) -> boolean
+	local E = ctx.types.Enum
+	local tenFoot = ctx.tenFoot()
+	local gui = ctx.config.guiService
+	local text: ComposeTypes.Readable<unknown>? = if gui and gui.GetPropertyChangedSignal
+		then ctx.observe.PreferredTextSize(gui)
+		else nil
+	return function(use: ComposeTypes.Use): boolean
+		local size = if text then use(text) else nil
+		return tenFoot(use) or size == E.PreferredTextSize.Larger or size == E.PreferredTextSize.Largest
+	end
+end
+
 function parts.actions(
 	ctx: Types.Context,
 	UI: UIControls,
@@ -253,8 +267,9 @@ function parts.actions(
 	local rowHeight = height or 44
 	local widths: { ComposeTypes.Readable<Vector2> } = {}
 	local measured = Compose.cell(0)
+	local form = parts.stackedForm(ctx)
 	local stacked = Compose.formula(function(use: ComposeTypes.Use): boolean
-		if mode == "stacked" or #actions > 2 then
+		if mode == "stacked" or #actions > 2 or (mode ~= "row" and form(use)) then
 			return true
 		end
 		if ctx.read(ctx.config.controlSize, use) == "large" then
@@ -518,6 +533,101 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 			end
 		end)
 	end)
+end
+
+function parts.back(
+	ctx: Types.Context,
+	UI: UIControls,
+	label: Types.Value<string>?,
+	onActivate: () -> (),
+	place: BackPlace?
+): TextButton
+	local at: BackPlace = place or {}
+	local props: Inputs.ButtonProps = {
+		Name = "Back",
+		label = label or "Back",
+		icon = "chevron.leading",
+		appearance = "utility",
+		onActivate = onActivate,
+		AnchorPoint = at.AnchorPoint,
+		Position = at.Position,
+		Size = at.Size,
+		LayoutOrder = at.LayoutOrder,
+	}
+	local button = UI.Button(props)
+	local row = button:FindFirstChildWhichIsA("UIListLayout", true)
+	if row then
+		ctx.runtime.decorate(row, {
+			HorizontalAlignment = ctx.types.Enum.HorizontalAlignment.Left,
+			Padding = function(use: ComposeTypes.Use)
+				return ctx.types.UDim.new(0, ctx.metric("space.xs", use) / 2)
+			end,
+		})
+	end
+	return button
+end
+
+function parts.tailSize(ctx: Types.Context, use: ComposeTypes.Use?): number
+	return ctx.metric("space.m", use)
+end
+
+function parts.tail(
+	ctx: Types.Context,
+	name: string,
+	at: (ComposeTypes.Use) -> (Vector2?, string),
+	amount: (ComposeTypes.Use) -> number,
+	z: (ComposeTypes.Use) -> number
+): { Frame }
+	local Host, D2, V2 = ctx.Host, ctx.types.UDim2, ctx.types.Vector2
+	local function fade(): Types.Child
+		return Host.UIGradient "PresentationFade" {
+			Transparency = function(use: ComposeTypes.Use)
+				return ctx.types.NumberSequence.new(1 - amount(use))
+			end,
+		}
+	end
+	local function centre(use: ComposeTypes.Use): UDim2
+		local point = at(use) or V2.zero
+		return D2.fromOffset(point.X, point.Y)
+	end
+	local wedge = ctx.styled(
+		Host.Frame(name)({
+			Size = function(use: ComposeTypes.Use)
+				local side = if at(use) then parts.tailSize(ctx, use) else 0
+				return D2.fromOffset(side, side)
+			end,
+			AnchorPoint = V2.new(0.5, 0.5),
+			Rotation = 45,
+			BorderSizePixel = 0,
+			ZIndex = function(use: ComposeTypes.Use)
+				return z(use) - 1
+			end,
+			Position = centre,
+			fade(),
+		}),
+		"tail"
+	)
+	local seam = ctx.styled(
+		Host.Frame(name .. "Seam")({
+			AnchorPoint = V2.new(0.5, 0.5),
+			BorderSizePixel = 0,
+			ZIndex = function(use: ComposeTypes.Use)
+				return z(use) + 1
+			end,
+			Position = centre,
+			Size = function(use: ComposeTypes.Use)
+				local point, edge = at(use)
+				local base = if point then math.floor(parts.tailSize(ctx, use) * math.sqrt(2) / 2) * 2 - 6 else 0
+				local thick = if point then 4 else 0
+				return if edge == "left" or edge == "right"
+					then D2.fromOffset(thick, base)
+					else D2.fromOffset(base, thick)
+			end,
+			fade(),
+		}),
+		"tail-seam"
+	)
+	return { wedge, seam }
 end
 
 parts.scroller = measuredScroll

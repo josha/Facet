@@ -80,6 +80,8 @@ export type PopoverSpec = Types.FrameProps & {
 	maxHeight: number?,
 	compact: ("sheet" | "popover")?,
 	title: Types.ValueString?,
+	modal: boolean?,
+	cancelPolicy: ("dismiss" | "none")?,
 }
 
 export type SnackbarDismissReason = "action" | "close" | "timeout" | "superseded" | "cancel"
@@ -123,10 +125,25 @@ export type NavBarSpec = Types.FrameProps & {
 	surface: ("surface" | "panel" | "pane")?,
 }
 
+export type ToastDismissReason = "timeout" | "supersede" | "preempt" | "capacity" | "manual"
+export type ToastSpec = Types.FrameProps & {
+	message: Types.ValueString?,
+	content: (() -> Instance)?,
+	key: string?,
+	priority: number?,
+	duration: number?,
+	readFloor: number?,
+	position: ("top" | "bottom")?,
+	width: ("fill" | "hug")?,
+	fade: boolean?,
+	onDismiss: ((ToastDismissReason) -> ())?,
+}
+
 export type OverlayControls = {
 	Dialog: Types.Constructor<DialogSpec, Frame>,
 	Popover: Types.Constructor<PopoverSpec, GuiObject>,
 	Snackbar: Types.Constructor<SnackbarSpec, Frame>,
+	Toast: Types.Constructor<ToastSpec, Frame>,
 	Notice: Types.Constructor<NoticeSpec, Frame>,
 	NavBar: Types.Constructor<NavBarSpec, Frame>,
 }

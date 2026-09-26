@@ -160,6 +160,9 @@ local function minimalSpecs(Host: any): { [string]: () -> { [string]: any } }
 		Dialog = function()
 			return { isPresented = Compose.cell(false), closeButton = false, title = "Title" }
 		end,
+		Toast = function()
+			return { message = "Saved" }
+		end,
 		Snackbar = function()
 			return { isPresented = Compose.cell(false), message = "Saved", closeButton = false }
 		end,

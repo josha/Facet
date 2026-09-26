@@ -417,5 +417,19 @@ return function(ctx)
 					{ id = "reset", label = "Reset", role = "destructive", onActivate = model.resetAvatar },
 				},
 			},
+			Compose.keyed({
+				from = function(use)
+					local count = use(model.lookResets)
+					return if count > 0 then { count } else {}
+				end,
+				render = function()
+					return UI.Toast "LookReset" {
+						message = "Your look is back to the default.",
+						key = "look",
+						width = "hug",
+						position = "bottom",
+					}
+				end,
+			}),
 		}
 end

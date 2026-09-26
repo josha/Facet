@@ -7,6 +7,9 @@ local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
 local function setup(spec, animated)
 	local engine, now = engines.new(), 0
+	if type(spec) == "function" then
+		spec = spec(engine)
+	end
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -604,8 +607,14 @@ t.describe("native radial interaction policies", function()
 			local centre = world.find("Center")
 			local w, h = centre.Size.X.Offset, centre.Size.Y.Offset
 			t.expect(w).toBe(h)
-			t.expect(w >= 44 and w <= 1.2 * 44).toBe(true)
+			t.expect(w).toBe(32)
+			t.expect(centre.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
 			t.expect(centre:HasTag("facet-appearance-utility")).toBe(true)
+			local hit = world.find("CenterHit")
+			t.expect(hit.Size.X.Offset == 44 and hit.Size.Y.Offset == 44).toBe(true)
+			t.expect(hit.Selectable).toBe(false)
+			t.expect(hit.AnchorPoint).toBe(world.engine.types.Vector2.new(0.5, 0.5))
+			t.expect(hit.Position).toBe(centre.Position)
 			t.expect(centre.Position.X.Offset).toBe(320)
 			local function inside(x, y)
 				return (x - 320) ^ 2 + (y - 240) ^ 2 <= 40 * 40 + 0.5
@@ -616,13 +625,12 @@ t.describe("native radial interaction policies", function()
 						.toBe(true)
 				end
 			end
-			if label then
-				t.expect(centre.Text).toBe(label)
-			else
-				t.expect(centre.Text).toBe("")
-				t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
-			end
+			t.expect(centre.Text).toBe("")
+			t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+			t.expect(centre:GetAttribute("label")).toBe(if label then label else "Close")
 			local preview = world.find("SelectionPreview")
+			t.expect(preview.Text).toBe("")
+			world.find("N").MouseEnter.fire()
 			t.expect(preview.Text).toBe("N")
 			local px, py = preview.Position.X.Offset, preview.Position.Y.Offset
 			local pw, ph = preview.Size.X.Offset, preview.Size.Y.Offset
@@ -636,6 +644,364 @@ t.describe("native radial interaction policies", function()
 			t.expect(py - ph / 2 >= centre.Position.Y.Offset + h / 2).toBe(true)
 			world.stop()
 		end
+	end)
+	t.it("opens with nothing highlighted until the player points, steps or aims", function()
+		local world = setup({ distribution = "compass", items = compass(function() end) })
+		for _, node in world.screen:GetDescendants() do
+			t.expect(node:HasTag("facet-radial-candidate")).toBe(false)
+			if node:IsA("TextButton") and node.Name ~= "Center" then
+				t.expect(node.Parent.Name .. ":" .. tostring(node.Selected == true)).toBe(node.Parent.Name .. ":false")
+			end
+		end
+		world.find("E").MouseEnter.fire()
+		t.expect(world.find("Sector-E"):FindFirstChild("Sector", true):HasTag("facet-radial-candidate")).toBe(true)
+		world.stop()
+	end)
+	t.it("a corner ring keeps Close on its corner and names the item outside the ring", function()
+		local items = {}
+		for _, id in { "look", "pack", "wave" } do
+			table.insert(items, { id = id, label = id, onSelect = function() end })
+		end
+		local world = setup({
+			isPresented = Compose.cell(false),
+			preset = "bottom-left",
+			center = "empty",
+			appearance = "buttons",
+			items = items,
+		})
+		local V2 = world.engine.types.Vector2
+		local launcher = world.find("Launcher")
+		launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+		world.opened:set(true)
+		t.expect(world.find("Sector-$navigation")).toBeNil()
+		local centre = world.find("Center")
+		t.expect(centre.Position.X.Offset).toBe(40)
+		t.expect(centre.Position.Y.Offset).toBe(440)
+		t.expect(centre.Visible).toBe(true)
+		world.find("pack").MouseEnter.fire()
+		local preview = world.find("SelectionPreview")
+		t.expect(preview.Text).toBe("pack")
+		local reach = 0
+		for _, id in { "look", "pack", "wave" } do
+			local at = world.find(id).Position
+			reach = math.max(reach, math.sqrt((at.X.Offset - 40) ^ 2 + (at.Y.Offset - 440) ^ 2))
+		end
+		t.expect(preview.Position.X.Offset > 40 + reach * 0.7).toBe(true)
+		t.expect(preview.Position.Y.Offset < 440 - reach * 0.7).toBe(true)
+		t.expect(preview.AnchorPoint).toBe(V2.new(0, 1))
+		centre.Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+	t.it("blooms from its launcher on a measured screen instead of travelling in from a default one", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			distribution = "compass",
+			items = compass(function() end),
+		}, true)
+		local V2 = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V2.new(1600, 900)
+		local launcher = world.find("Launcher")
+		launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(1380, 680), V2.new(40, 40)
+		world.opened:set(true)
+		local function offset(name)
+			local at = world.find(name).Position
+			return at.X.Offset - 1400, at.Y.Offset - 700
+		end
+		local _, early = offset("N")
+		t.expect(select(1, offset("Center"))).toBe(0)
+		world.step(0.4)
+		t.expect(select(1, offset("Center"))).toBe(0)
+		local _, settled = offset("N")
+		t.expect(math.abs(early) < math.abs(settled) * 0.5).toBe(true)
+		world.stop()
+	end)
+	t.it("takes ringWidth as a theme width or pixels and grows a ring until each label fits", function()
+		local function band(width, label)
+			local world = setup({
+				ringWidth = width,
+				items = {
+					{ id = "a", label = label, onSelect = function() end },
+					{ id = "b", label = "B", onSelect = function() end },
+					{ id = "c", label = "C", onSelect = function() end },
+				},
+			})
+			local reach = 240 - world.find("a").Position.Y.Offset
+			world.stop()
+			return reach
+		end
+		t.expect(band("wide", "A")).toBe(band(88, "A"))
+		t.expect(band("narrow", "A")).toBe(band(48, "A"))
+		t.expect(band("wide", "A") > band("narrow", "A")).toBe(true)
+		t.expect(band(48, "Wear the lantern") > band(48, "A")).toBe(true)
+		local ok, message = pcall(band, "huge", "A")
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(message), "ringWidth", 1, true) ~= nil).toBe(true)
+	end)
+	t.it("shows either a glyph or a word on a ring item, never both over each other", function()
+		local world = setup({
+			appearance = "buttons",
+			items = {
+				{ id = "map", label = "Map", compactLabel = { icon = "flag" }, onSelect = function() end },
+				{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end },
+			},
+		})
+		local function shown(button)
+			local words = button.Text
+			for _, node in button:GetDescendants() do
+				if node:IsA("TextLabel") and node.Visible then
+					words ..= node.Text
+				end
+			end
+			return words .. "|" .. tostring(button:FindFirstChild("LeadingIcon", true).Visible)
+		end
+		t.expect(shown(world.find("map"))).toBe("Map|false")
+		t.expect(shown(world.find("wave"))).toBe("|true")
+		world.stop()
+	end)
+	t.it("puts the launcher over the object it is anchored to", function()
+		local anchor
+		local world = setup(function(engine)
+			anchor = engine.new("Frame")
+			return {
+				isPresented = Compose.cell(false),
+				anchor = anchor,
+				distribution = "compass",
+				items = compass(function() end),
+			}
+		end)
+		local V2 = world.engine.types.Vector2
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(300, 200), V2.new(80, 120)
+		world.find("RadialMenu").AbsolutePosition = V2.new(20, 400)
+		local launcher = world.find("Launcher")
+		t.expect(launcher.AnchorPoint).toBe(V2.new(0.5, 0.5))
+		t.expect(launcher.Position.X.Offset).toBe(320)
+		t.expect(launcher.Position.Y.Offset).toBe(-140)
+		world.stop()
+	end)
+end)
+t.describe("RadialMenu navigation placement (restored from 0.11)", function()
+	local function actions(count)
+		local items = {}
+		for index = 1, count do
+			table.insert(items, { id = `a{index}`, label = `A{index}`, onSelect = function() end })
+		end
+		return items
+	end
+	local function nested()
+		return {
+			{ id = "gear", label = "Gear", children = { { id = "tool", label = "Tool", onSelect = function() end } } },
+			{ id = "wave", label = "Wave", onSelect = function() end },
+		}
+	end
+	local function angleOf(node)
+		local dx, dy = node.Position.X.Offset - 320, node.Position.Y.Offset - 240
+		return math.deg(math.atan2(dx, -dy)) % 360
+	end
+	local function visibleCenter(world)
+		local centre = world.find("Center")
+		return if centre and centre.Visible then centre else nil
+	end
+
+	t.it("an empty or content centre puts Back/Close on the ring at the lower left of an even ring", function()
+		for _, center in { "empty", "content", "root", "close" } do
+			local world = setup({ center = center, items = actions(3) })
+			local nav = world.find("$navigation")
+			t.expect(`{center}: {nav ~= nil}`).toBe(`{center}: true`)
+			t.expect(`{center}: {math.abs(angleOf(nav) - 225) <= 1}`).toBe(`{center}: true`)
+			world.stop()
+		end
+	end)
+
+	t.it("a back centre uses only the centre control, which goes back and closes at the root", function()
+		local world = setup({ items = nested() })
+		t.expect(world.find("$navigation")).toBeNil()
+		local centre = visibleCenter(world)
+		t.expect(centre:GetAttribute("label")).toBe("Close")
+		world.find("gear").Activated.fire()
+		t.expect(visibleCenter(world):GetAttribute("label")).toBe("Back")
+		visibleCenter(world).Activated.fire()
+		t.expect(world.find("wave") ~= nil).toBe(true)
+		t.expect(world.opened:peek()).toBe(true)
+		visibleCenter(world).Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+
+	t.it("an empty centre shows no centre control while the ring holds Back", function()
+		local world = setup({ center = "empty", items = actions(3) })
+		t.expect(visibleCenter(world)).toBeNil()
+		world.stop()
+	end)
+
+	t.it("a full compass with an empty centre uses the external control at the centre", function()
+		local items = {}
+		for _, slot in { "N", "NE", "E", "SE", "S", "SW", "W", "NW" } do
+			table.insert(items, { id = slot, slot = slot, label = slot, onSelect = function() end })
+		end
+		local world = setup({ center = "empty", distribution = "compass", items = items })
+		t.expect(world.find("$navigation")).toBeNil()
+		local centre = visibleCenter(world)
+		t.expect(centre ~= nil).toBe(true)
+		t.expect(centre.Position.X.Offset).toBe(320)
+		t.expect(centre:GetAttribute("label")).toBe("Close")
+		centre.Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+
+	t.it("a compass ring takes the first free slot from SW, S, SE", function()
+		local items = {}
+		for _, slot in { "N", "E", "SW", "W" } do
+			table.insert(items, { id = slot, slot = slot, label = slot, onSelect = function() end })
+		end
+		local world = setup({ center = "empty", distribution = "compass", items = items })
+		t.expect(math.abs(angleOf(world.find("$navigation")) - 180) <= 1).toBe(true)
+		world.stop()
+	end)
+
+	t.it("a corner ring puts Back/Close on the corner whatever the centre, and never on the ring", function()
+		for _, center in { "back", "root", "close", "empty", "content" } do
+			local world = setup({
+				isPresented = Compose.cell(false),
+				preset = "bottom-left",
+				center = center,
+				centerLabel = "Home base",
+				items = nested(),
+			})
+			local V2 = world.engine.types.Vector2
+			local launcher = world.find("Launcher")
+			launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+			world.opened:set(true)
+			t.expect(world.find("$navigation")).toBeNil()
+			local centre = visibleCenter(world)
+			t.expect(`{center}: {centre.Position.X.Offset},{centre.Position.Y.Offset}`).toBe(`{center}: 40,440`)
+			t.expect(`{center}: {centre:GetAttribute("label")}`).toBe(`{center}: Close`)
+			world.find("gear").Activated.fire()
+			t.expect(`{center}: {visibleCenter(world):GetAttribute("label")}`).toBe(`{center}: Back`)
+			visibleCenter(world).Activated.fire()
+			t.expect(`{center}: {world.find("wave") ~= nil and world.opened:peek()}`).toBe(`{center}: true`)
+			visibleCenter(world).Activated.fire()
+			t.expect(`{center}: {world.opened:peek()}`).toBe(`{center}: false`)
+			world.stop()
+		end
+	end)
+
+	t.it("the list fallback has one round Back/Close at the top right for every centre policy", function()
+		for _, center in { "empty", "back", "root", "close", "content" } do
+			local world = setup({ center = center, items = nested() })
+			world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+			t.expect(world.find("RadialPanel"):GetAttribute("Presentation")).toBe("list")
+			t.expect(`{center}: {world.find("$navigation") == nil}`).toBe(`{center}: true`)
+			local centre = visibleCenter(world)
+			t.expect(`{center}: {centre ~= nil}`).toBe(`{center}: true`)
+			t.expect(centre.Position.X.Scale).toBe(1)
+			t.expect(centre.Position.X.Offset + centre.Size.X.Offset * (1 - centre.AnchorPoint.X)).toBe(-16)
+			t.expect(centre.Position.Y.Scale).toBe(0)
+			t.expect(centre.Size.X.Offset).toBe(centre.Size.Y.Offset)
+			t.expect(`{center}: {centre:GetAttribute("label")}`).toBe(`{center}: Close`)
+			centre.Activated.fire()
+			t.expect(`{center}: {world.opened:peek()}`).toBe(`{center}: false`)
+			world.stop()
+		end
+	end)
+end)
+
+t.describe("RadialMenu centre and corner controls (restored from 0.11)", function()
+	local themes = require("../src/ui/themes")(Compose)
+	local function nested()
+		return {
+			{ id = "gear", label = "Gear", children = { { id = "tool", label = "Tool", onSelect = function() end } } },
+			{ id = "wave", label = "Wave", onSelect = function() end },
+		}
+	end
+	t.it("the 44 px hit area around the 32 px centre control does what the control does", function()
+		local world = setup({ items = nested() })
+		world.find("gear").Activated.fire()
+		world.find("CenterHit").Activated.fire()
+		t.expect(world.find("wave") ~= nil and world.opened:peek()).toBe(true)
+		world.find("CenterHit").Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+	t.it("Home in the centre is the up chevron", function()
+		local world = setup({
+			center = "root",
+			items = { { id = "a", label = "A", onSelect = function() end } },
+		})
+		local glyph = world.find("Center"):FindFirstChild("LeadingIcon", true)
+		t.expect(glyph.Image).toBe(themes.resolveIcon({} :: any, "chevron.up"))
+		t.expect(world.find("Center"):GetAttribute("label")).toBe("Home")
+		world.stop()
+	end)
+	t.it("the list fallback names the highlighted item at the bottom left", function()
+		local world = setup({ items = nested() })
+		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+		local preview = world.find("SelectionPreview")
+		t.expect(preview.AnchorPoint).toBe(world.engine.types.Vector2.new(0, 1))
+		t.expect(preview.Position.X.Scale == 0 and preview.Position.Y.Scale == 1).toBe(true)
+		t.expect(preview.TextXAlignment).toBe(world.engine.types.Enum.TextXAlignment.Left)
+		t.expect(preview:IsDescendantOf(world.find("RadialPanel"))).toBe(false)
+		local panel = world.find("RadialPanel")
+		t.expect(panel.Size.Y.Offset + panel.Position.Y.Offset <= preview.Position.Y.Offset - 24).toBe(true)
+		world.stop()
+	end)
+	t.it("a corner control grows out of the launcher and back into it, crossfading the glyphs", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			preset = "bottom-left",
+			items = nested(),
+		}, true)
+		local V2 = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V2.new(640, 480)
+		local launcher = world.find("Launcher")
+		launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+		world.opened:set(true)
+		local function state()
+			local centre = world.find("Center")
+			if not centre then
+				return nil
+			end
+			local back = centre:FindFirstChild("LeadingIcon", true)
+			local own = centre:FindFirstChild("LauncherIcon", true)
+			return centre.Size.X.Offset, centre.Size.Y.Offset, 1 - back.ImageTransparency, 1 - own.ImageTransparency
+		end
+		local w, h, back, own = state()
+		t.expect(w == 40 and h == 40).toBe(true)
+		t.expect(launcher.Visible).toBe(false)
+		t.expect(back == 0 and own == 1).toBe(true)
+		local glyph = world.find("Center"):FindFirstChild("LauncherIcon", true)
+		t.expect(glyph.Image).toBe(themes.resolveIcon({} :: any, "more"))
+		world.step(0.1)
+		w, h, back, own = state()
+		t.expect(w > 32 and w < 40 and w == h).toBe(true)
+		t.expect(math.abs(back + own - 1) < 0.001 and back > 0 and own > 0).toBe(true)
+		world.step(0.3)
+		w, h, back, own = state()
+		t.expect(w == 32 and back == 1 and own == 0).toBe(true)
+		world.opened:set(false)
+		local frames, grew = 0, false
+		for _ = 1, 30 do
+			world.step(1 / 60)
+			local size, _, b, o = state()
+			if size == nil then
+				break
+			end
+			frames += 1
+			grew = grew or size > 32
+			t.expect(math.abs(b + o - 1) < 0.001).toBe(true)
+		end
+		t.expect(frames > 2 and grew).toBe(true)
+		t.expect(world.find("Center")).toBeNil()
+		t.expect(launcher.Visible).toBe(true)
+		world.stop()
+	end)
+	t.it("a gamepad replacing a level lands on the new level's first item", function()
+		local world = setup({ items = nested() })
+		world.gui.SelectedObject = world.find("gear")
+		world.find("gear").Activated.fire()
+		t.expect(world.gui.SelectedObject).toBe(world.find("tool"))
+		world.stop()
 	end)
 end)
 return t

@@ -24286,7 +24286,7 @@
       "candidateCases": [
         "native_navigation::native navigation controls::shows button help after a pointer rests on it and never on touch",
         "native_parity_gaps::native parity gaps::shows button help when gamepad selection rests on the button and hides it on deselection",
-        "native_parity_weaker_actions::native parity weaker actions::waits for a resting pointer, restarts the dwell, shows current help text and never engages on touch"
+        "native_parity_weaker_actions::native parity weaker actions::waits for a resting pointer, restarts the dwell, shows current help text and opens on a touch long-press"
       ]
     },
     {

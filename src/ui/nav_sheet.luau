@@ -202,7 +202,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return use(mouse) == true and use(touch) ~= true
 			end
 		end
+		local tenFoot = ctx.tenFoot()
 		local placed = Compose.formula(function(use: ComposeTypes.Use): string
+			if (declared == "automatic" or declared == "adaptive") and tenFoot(use) then
+				return "center"
+			end
 			if declared == "adaptive" then
 				return if use(extent).X >= 600 and pointer(use) then "side" else "bottom"
 			end
@@ -340,11 +344,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			dragHeight:set(nil)
 			spec.detent:set(id)
 		end
-		local function cycle()
+		local function nextUp(use: ComposeTypes.Use?): Detent?
 			local sorted = ordered()
-			local index = table.find(sorted, selected()) or 1
-			select(sorted[index % #sorted + 1].id)
+			local index = table.find(sorted, selected(use)) or 1
+			return sorted[index + 1]
 		end
+		local dragged = -math.huge
 		local session: Session? = nil
 		local function endSession()
 			session = nil
@@ -383,6 +388,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local current = session
 			if current == nil or current.source ~= source then
 				return
+			end
+			if source == "grip" and math.abs(y - current.origin) > 4 then
+				dragged = now()
 			end
 			if not current.acquired then
 				if math.abs(y - current.origin) < current.slop then
@@ -534,6 +542,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return Host.UIDragDetector({
 				Name = name,
+				CursorIcon = function(use: ComposeTypes.Use): string
+					if source == "panel" then
+						return ""
+					end
+					return if from(use) == "bottom"
+						then "rbxasset://SystemCursors/SizeNS"
+						else "rbxasset://SystemCursors/SizeEW"
+				end,
+				ActivatedCursorIcon = function(): string
+					return if source == "grip" then "rbxasset://SystemCursors/ClosedHand" else ""
+				end,
 				DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 				DragAxis = function(use: ComposeTypes.Use)
 					return if source == "grip" and from(use) ~= "bottom" then V2.new(1, 0) else V2.new(0, 1)
@@ -588,12 +607,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return #detents > 1 or canDismiss(use)
 			end,
 			Activated = function()
-				if #detents > 1 then
-					cycle()
+				if now() - dragged < 0.3 then
+					return
+				end
+				local grow = nextUp()
+				if grow then
+					select(grow.id)
 				else
 					interactive("close")
 				end
 			end,
+			detector("UIDragDetector", "grip"),
 			ctx.styled(
 				Host.Frame "Pill" {
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -610,7 +634,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		Compose.watch(function(use: ComposeTypes.Use)
 			grabber:SetAttribute(
 				"AccessibleLabel",
-				if #detents > 1 then "Resize: " .. word(selected(use).id) else "Close sheet"
+				if nextUp(use) then "Resize: " .. word(selected(use).id) else "Close sheet"
 			)
 		end)
 		local handle = Host.Frame "DragHandle" {
@@ -631,7 +655,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return if from(use) == "bottom" then D2.new(1, 0, 0, HANDLE) else D2.new(0, HANDLE, 1, 0)
 			end,
 			Visible = indicator ~= "hidden",
-			detector("UIDragDetector", "grip"),
 			grabber :: Instance,
 		}
 		local regions: { GuiObject } = {}

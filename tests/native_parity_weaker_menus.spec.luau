@@ -990,17 +990,20 @@ t.describe("native parity weaker menus", function()
 		world.stop()
 	end)
 
-	t.it("presents a wide menu as a cascade for pointer and gamepad and as a sheet for touch", function()
+	t.it("presents a wide menu as a cascade for a pointer and as one sheet panel for gamepad and touch", function()
 		local presented = Compose.cell(true)
 		local world = setup(function(UI)
 			return UI.Menu "Gear" { isPresented = presented, items = NESTED }
 		end)
 		local Enum = world.engine.types.Enum
-		world.input.PreferredInput = Enum.PreferredInput.Gamepad
+		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
 		extent(world, 1280, 720)
 		find(world.root, "adjust").Activated.fire()
 		t.expect(find(world.root, "AncestorMenu") ~= nil).toBe(true)
 		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(0)
+		world.input.PreferredInput = Enum.PreferredInput.Gamepad
+		t.expect(find(world.root, "AncestorMenu")).toBeNil()
+		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(1)
 		world.input.PreferredInput = Enum.PreferredInput.Touch
 		t.expect(find(world.root, "AncestorMenu")).toBeNil()
 		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(1)
@@ -1148,7 +1151,11 @@ t.describe("native parity weaker menus", function()
 			end)
 			find(world.root, "adjust").Activated.fire()
 			local back = find(world.root, "Back")
-			t.expect(back.Text).toBe(case[2])
+			t.expect(find(back, "Title").Text).toBe(case[2])
+			t.expect(find(back, "LeadingIcon") ~= nil).toBe(true)
+			t.expect(back:HasTag("facet-appearance-utility")).toBe(true)
+			t.expect(find(back, "LeadingIcon").Parent:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+				.toBe(world.engine.types.Enum.HorizontalAlignment.Left)
 			t.expect(back.ClassName).toBe("TextButton")
 			t.expect(back.LayoutOrder < find(world.root, "head").LayoutOrder).toBe(true)
 			world.stop()
@@ -1317,43 +1324,46 @@ t.describe("native parity weaker menus", function()
 		end
 	end)
 
-	t.it("becomes a sheet for a touch or narrow menu picker and anchors to its trigger for a wide pointer", function()
-		local seven = {}
-		for index = 1, 7 do
-			table.insert(seven, { value = "v" .. index, label = "Value " .. index })
-		end
-		for _, case in
-			{
-				{ "Touch", 1280, THREE, 1 },
-				{ "Touch", 1280, seven, 1 },
-				{ "KeyboardAndMouse", 360, THREE, 1 },
-				{ "KeyboardAndMouse", 1280, THREE, 0 },
-				{ "Gamepad", 1280, seven, 0 },
-			}
-		do
-			local selected = Compose.cell(case[3][1].value)
-			local world = setup(function(UI)
-				return UI.Picker "Choice" { style = "menu", selected = selected, options = case[3] }
-			end)
-			world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[case[1]]
-			local trigger = find(world.root, "Trigger")
-			place(world, trigger, 40, 40, 160, 44)
-			trigger.Activated.fire()
-			extent(world, case[2], 720)
-			local panel = find(world.root, "MenuPanel")
-			t.expect(panel.Size.X.Scale).toBe(case[4])
-			if case[4] == 1 then
-				t.expect(panel.Size.X.Offset).toBe(-24)
-			else
-				t.expect(panel.Position.X.Offset).toBe(40)
-				t.expect(panel.Position.Y.Offset >= 84).toBe(true)
+	t.it(
+		"becomes a sheet for a touch, gamepad or narrow menu picker and anchors to its trigger for a wide pointer",
+		function()
+			local seven = {}
+			for index = 1, 7 do
+				table.insert(seven, { value = "v" .. index, label = "Value " .. index })
 			end
-			find(panel, case[3][2].value).Activated.fire()
-			t.expect(selected:peek()).toBe(case[3][2].value)
-			t.expect(find(world.root, "MenuPanel")).toBeNil()
-			world.stop()
+			for _, case in
+				{
+					{ "Touch", 1280, THREE, 1 },
+					{ "Touch", 1280, seven, 1 },
+					{ "KeyboardAndMouse", 360, THREE, 1 },
+					{ "KeyboardAndMouse", 1280, THREE, 0 },
+					{ "Gamepad", 1280, seven, 1 },
+				}
+			do
+				local selected = Compose.cell(case[3][1].value)
+				local world = setup(function(UI)
+					return UI.Picker "Choice" { style = "menu", selected = selected, options = case[3] }
+				end)
+				world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[case[1]]
+				local trigger = find(world.root, "Trigger")
+				place(world, trigger, 40, 40, 160, 44)
+				trigger.Activated.fire()
+				extent(world, case[2], 720)
+				local panel = find(world.root, "MenuPanel")
+				t.expect(panel.Size.X.Scale).toBe(case[4])
+				if case[4] == 1 then
+					t.expect(panel.Size.X.Offset).toBe(-24)
+				else
+					t.expect(panel.Position.X.Offset).toBe(40)
+					t.expect(panel.Position.Y.Offset >= 84).toBe(true)
+				end
+				find(panel, case[3][2].value).Activated.fire()
+				t.expect(selected:peek()).toBe(case[3][2].value)
+				t.expect(find(world.root, "MenuPanel")).toBeNil()
+				world.stop()
+			end
 		end
-	end)
+	)
 
 	t.it("forwards authored native properties to a navigation link and fills its search rows", function()
 		local selection, query, opened = Compose.cell("a"), Compose.cell(""), Compose.cell(false)

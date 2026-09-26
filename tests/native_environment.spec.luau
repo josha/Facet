@@ -979,3 +979,132 @@ t.describe("draggable and dropTarget", function()
 		w.stop()
 	end)
 end)
+
+t.describe("focusSection focusOnAppear / returnFocus (restored from 0.11)", function()
+	local function scene()
+		local w = world()
+		local screen = w.engine.new("ScreenGui")
+		local function button(name: string, parent: any): any
+			local node = w.engine.new("TextButton")
+			node.Name = name
+			node.Selectable = true
+			node.Parent = parent
+			return node
+		end
+		w.gui.Select = function(_, parent: any)
+			for _, node in parent:GetDescendants() do
+				if node:IsA("GuiObject") and node.Selectable then
+					w.gui.SelectedObject = node
+					return
+				end
+			end
+		end
+		local list = w.engine.new("Frame")
+		list.Parent = screen
+		local rows = { button("Row1", list), button("Row2", list), button("Row3", list) }
+		local detail = w.engine.new("Frame")
+		detail.Name = "Detail"
+		button("Back", detail)
+		button("Save", detail)
+		local function open(options: any): () -> ()
+			return owned(w.runtime, function()
+				detail.Parent = screen
+				w.UI.focusSection(detail, options)
+			end)
+		end
+		return w, rows, detail, open, screen
+	end
+
+	t.it("focusOnAppear = true lands the selection on the branch's first stop", function()
+		local w, rows, detail, open = scene()
+		w.gui.SelectedObject = rows[2]
+		open({ focusOnAppear = true })
+		t.expect(w.gui.SelectedObject).toBe(detail:FindFirstChild("Back"))
+		w.stop()
+	end)
+
+	t.it("focusOnAppear names a descendant", function()
+		local w, rows, detail, open = scene()
+		w.gui.SelectedObject = rows[1]
+		open({ focusOnAppear = "Save" })
+		t.expect(w.gui.SelectedObject).toBe(detail:FindFirstChild("Save"))
+		w.stop()
+	end)
+
+	t.it("a branch that mounts before it is parented claims when it arrives", function()
+		local w, rows, detail = scene()
+		w.gui.SelectedObject = rows[1]
+		local stop = owned(w.runtime, function()
+			w.UI.focusSection(detail, { focusOnAppear = true })
+		end)
+		t.expect(w.gui.SelectedObject).toBe(rows[1])
+		detail.Parent = rows[1].Parent.Parent
+		t.expect(w.gui.SelectedObject).toBe(detail:FindFirstChild("Back"))
+		stop()
+		w.stop()
+	end)
+
+	t.it("does not take the selection from a pointer or touch player", function()
+		local w, _, _, open = scene()
+		open({ focusOnAppear = true, returnFocus = true })()
+		t.expect(w.gui.SelectedObject).toBeNil()
+		w.stop()
+	end)
+
+	t.it("returnFocus puts the selection back on what held it before the claim", function()
+		local w, rows, detail, open = scene()
+		w.gui.SelectedObject = rows[3]
+		local close = open({ focusOnAppear = "Save", returnFocus = true })
+		t.expect(w.gui.SelectedObject).toBe(detail:FindFirstChild("Save"))
+		detail.Parent = nil
+		close()
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		w.stop()
+	end)
+
+	t.it("returns the selection when the engine reselects as the branch leaves, before its owner ends", function()
+		local w, rows, detail, open = scene()
+		w.gui.SelectedObject = rows[3]
+		local close = open({ focusOnAppear = "Save", returnFocus = true })
+		detail.Parent = nil
+		w.gui.SelectedObject = rows[1]
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		close()
+		t.expect(w.gui.SelectedObject).toBe(rows[3])
+		w.stop()
+	end)
+
+	t.it("leaves a selection the player moved outside the branch alone", function()
+		local w, rows, _, open = scene()
+		w.gui.SelectedObject = rows[3]
+		local close = open({ focusOnAppear = true, returnFocus = true })
+		w.gui.SelectedObject = rows[1]
+		close()
+		t.expect(w.gui.SelectedObject).toBe(rows[1])
+		w.stop()
+	end)
+
+	t.it("a remembered target that is gone falls through to the screen rather than blanking", function()
+		local w, rows, detail, open = scene()
+		w.gui.SelectedObject = rows[3]
+		local close = open({ focusOnAppear = true, returnFocus = true })
+		rows[3].Parent = nil
+		w.gui.SelectedObject = nil
+		detail.Parent = nil
+		close()
+		t.expect(w.gui.SelectedObject).toBe(rows[1])
+		w.stop()
+	end)
+
+	t.it("refuses a misspelled option", function()
+		local w, _, detail = scene()
+		local ok, err = pcall(function()
+			owned(w.runtime, function()
+				w.UI.focusSection(detail, { focusOnApear = true } :: any)
+			end)
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(err), "focusOnApear", 1, true) ~= nil).toBe(true)
+		w.stop()
+	end)
+end)

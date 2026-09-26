@@ -11,6 +11,7 @@ export type Expansion = "fan" | "ring"
 export type Center = "back" | "root" | "close" | "content" | "empty"
 export type Completion = "close" | "back" | "root" | "stay"
 export type Follow = "idle" | "always" | "fixed"
+export type RingWidth = "narrow" | "regular" | "wide"
 export type ContentFit = "both" | "radial" | "angular" | "none"
 export type CompassSlot = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW"
 export type AnchorPoint = { x: number, y: number, visible: boolean?, clearance: number? }
@@ -59,7 +60,7 @@ export type RadialMenuSpec<V = string> = Types.FrameProps & {
 	anchor: Types.Value<Anchor>?,
 	follow: Follow?,
 	clearance: Types.ValueNumber?,
-	ringWidth: Types.ValueNumber?,
+	ringWidth: Types.Value<number | RingWidth>?,
 	contentFit: ContentFit?,
 	gestureSelection: ("bounded" | "direction")?,
 	enabled: Types.ValueBoolean?,

@@ -5,9 +5,11 @@ local Inputs = require("./input_types")
 local Media = require("./media_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
+local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 local adaptive = require("./adaptive")
 local segmentMetrics = require("./segment_metrics")
+local reservations = require("./reservations")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -35,6 +37,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local navigationDepth = 0
 	local TAB_FADE: Nav.Transition = { seconds = 0.2, ease = Compose.easing.outQuad }
 	local PUSH_SPRING = { period = 0.3, damping = 1, tolerance = 1e-3 }
+	local FLING_SPEED = 1200
 	local PARALLAX = 0.3
 	local DIM = 0.1
 	local function content<P>(
@@ -853,6 +856,36 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		Compose.watch(function(use: ComposeTypes.Use)
 			bar:SetAttribute("FacetEntry", use(spec.selection))
 		end)
+		local ancestry, barAt, barSize =
+			Compose.cell(0), ctx.observe.AbsolutePosition(bar), ctx.observe.AbsoluteSize(bar)
+		local reserved: Instance? = nil
+		runtime.connect(bar, "AncestryChanged", function()
+			ancestry:set(ancestry:peek() + 1)
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			local layer = bar:FindFirstAncestorWhichIsA("LayerCollector")
+			if reserved and reserved ~= layer then
+				reservations.clear(reserved, bar)
+			end
+			reserved = layer
+			if layer and layer:IsA("GuiBase2d") then
+				local band = string.find(use(placement), "bottom") ~= nil and use(barSize).Y > 0
+				local top = use(barAt).Y - (layer :: GuiBase2d).AbsolutePosition.Y - use(aboveHeight)
+				reservations.set(
+					layer,
+					bar,
+					"bottom",
+					if band then top else nil,
+					if band then use(barSize).Y + use(aboveHeight) else nil
+				)
+			end
+		end)
+		Compose.cleanup(function()
+			if reserved then
+				reservations.clear(reserved, bar)
+			end
+		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(tabLinks)
 			local vertical = use(placement) == "sidebar"
@@ -1432,14 +1465,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Compose.show(function(use: ComposeTypes.Use)
 							return use(state).index > 1
 						end, function()
-							return UI.Button "Back" {
-								label = spec.backLabel or "Back",
-								icon = "chevron.leading",
-								appearance = "link",
+							return parts.back(ctx, UI, spec.backLabel, pop, {
 								AnchorPoint = V2.new(0, 0.5),
 								Position = D2.fromScale(0, 0.5),
-								onActivate = pop,
-							}
+							})
 						end),
 					}
 					local barSize = ctx.observe.AbsoluteSize(navigationBar)
@@ -1633,10 +1662,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local pageNodes: { [string]: Frame } = {}
 		local gui = surfaces.service("GuiService")
 		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
+		local fling = Compose.cell(false)
 		local layout = Host.UIPageLayout "PagesLayout" {
 			Animated = function(use: ComposeTypes.Use)
 				return read(ctx.config.reducedMotion, use) ~= true and not use(reduced)
 			end,
+			EasingStyle = function(use: ComposeTypes.Use)
+				return if use(fling) then E.EasingStyle.Back else E.EasingStyle.Cubic
+			end,
+			EasingDirection = E.EasingDirection.Out,
+			TweenTime = 0.3,
 			Circular = false,
 			FillDirection = E.FillDirection.Horizontal,
 			SortOrder = E.SortOrder.LayoutOrder,
@@ -1661,6 +1696,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ClipsDescendants = true,
 		}
 		surfaces.attach(pages, children)
+		local pressed: { x: number, at: number }? = nil
+		local function pointer(input: InputObject): boolean
+			return input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1
+		end
+		runtime.connect(pages, "InputBegan", function(input: InputObject)
+			if pointer(input) then
+				pressed = { x = input.Position.X, at = os.clock() }
+			end
+		end)
+		runtime.connect(pages, "InputEnded", function(input: InputObject)
+			local start = pressed
+			pressed = nil
+			if start and pointer(input) then
+				local seconds = math.max(os.clock() - start.at, 1 / 120)
+				fling:set(math.abs(input.Position.X - start.x) / seconds > FLING_SPEED)
+			end
+		end)
 		local changing = false
 		local parent = ctx.observe.Parent(pages)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -1703,6 +1755,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end)
 		local function step(amount: number): ()
+			fling:set(false)
 			local at = math.clamp(indexById[spec.selection:peek()] + amount, 1, #spec.pages)
 			spec.selection:set(spec.pages[at].id)
 		end
@@ -1743,6 +1796,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return use(spec.selection) == id
 					end,
 					onActivate = function()
+						fling:set(false)
 						spec.selection:set(id)
 					end,
 				})

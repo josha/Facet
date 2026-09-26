@@ -18,6 +18,7 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
+	local PAINTED = 32
 	local build: Radial.RadialMenuBuilder = function<V>(spec: Radial.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
 		local function choice<T>(value: T?, fallback: T, choices: { T }, name: string): T
@@ -40,6 +41,15 @@ return function(
 			end
 			return true
 		end
+		local function glyphOnly(item: Radial.RadialItemBase<V>): boolean
+			local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
+			return icon
+				and (
+					item.labelStyle == "icon"
+					or (item.compactLabel ~= nil and item.compactLabel.prefer == true)
+					or (appearance == "buttons" and item.icon ~= nil)
+				)
+		end
 		local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
 		local gestureSelection =
 			choice(spec.gestureSelection, "bounded", { "bounded", "direction" }, "gestureSelection")
@@ -51,6 +61,19 @@ return function(
 		choice(spec.completion, "close", { "close", "back", "root", "stay" }, "completion")
 		choice(spec.buttonSurface, "native", { "native", "none" }, "buttonSurface")
 		local scrim = choice(spec.scrim, "dark", { "dark", "light", "none" }, "scrim")
+		local _, presetSweep = geometry.arc(spec.preset or "donut")
+		local corner = presetSweep < 360
+		local function ringWidth(use: ComposeTypes.Use?): number?
+			local width = read(spec.ringWidth, use)
+			if width == nil or type(width) == "number" then
+				return width
+			end
+			assert(
+				width == "narrow" or width == "regular" or width == "wide",
+				"RadialMenu ringWidth must be a number of pixels or narrow, regular or wide"
+			)
+			return ctx.metric("controls.radial." .. width, use)
+		end
 		local motionReduced = reducedMotion(ctx)
 		local function reduced(use: ComposeTypes.Use?): boolean
 			return spec.transition == false or motionReduced(use)
@@ -99,7 +122,7 @@ return function(
 		local aimAnalog: ((Vector2) -> ())?
 		local candidateSector: (() -> Radial.Sector<V>?)?
 		local freezeCenter: (() -> ())?
-		local returnSelection: ((() -> (), string) -> ())?
+		local returnSelection: ((() -> (), string?) -> ())?
 		local function cancel()
 			capture, analog = nil, false
 			interacting:set(false)
@@ -164,8 +187,15 @@ return function(
 				local entries = table.clone(sector.path)
 				table.insert(entries, item.id)
 				branchOrigin = { path = table.concat(entries, "/"), x = sector.x, y = sector.y }
-				path:set(entries)
-				candidate:set(nil)
+				local function change()
+					path:set(entries)
+					candidate:set(nil)
+				end
+				if returnSelection then
+					returnSelection(change)
+				else
+					change()
+				end
 				return
 			end
 			local state = item.checked or item.selected
@@ -255,6 +285,11 @@ return function(
 				},
 			})
 		end
+		local anchored = read(spec.anchor)
+		local anchorGui = if anchored
+				and (typeof(anchored) == "Instance" or (type(anchored) == "table" and anchored.IsA))
+			then anchored :: GuiObject
+			else nil
 		local root = Host.Frame(ctx.props(spec, {
 			"items",
 			"label",
@@ -289,11 +324,22 @@ return function(
 			Name = "RadialMenu",
 			BackgroundTransparency = 1,
 			Size = D2.fromOffset(0, 0),
-			AutomaticSize = E.AutomaticSize.XY,
+			AutomaticSize = if anchorGui then E.AutomaticSize.None else E.AutomaticSize.XY,
 		}))
 		if spec.launcher ~= false then
+			local overAnchor: ((ComposeTypes.Use) -> UDim2)? = nil
+			if anchorGui then
+				local at, size = ctx.observe.AbsolutePosition(anchorGui), ctx.observe.AbsoluteSize(anchorGui)
+				local own = ctx.observe.AbsolutePosition(root)
+				overAnchor = function(use: ComposeTypes.Use): UDim2
+					local middle = use(at) + use(size) / 2 - use(own)
+					return D2.fromOffset(middle.X, middle.Y)
+				end
+			end
 			surfaces.attach(root, {
 				UI.Button "Launcher" {
+					AnchorPoint = if overAnchor then V2.new(0.5, 0.5) else nil,
+					Position = overAnchor,
 					label = spec.label or "Quick actions",
 					name = spec.label or "Quick actions",
 					icon = spec.icon or (if spec.label == nil then "more" else nil),
@@ -323,8 +369,11 @@ return function(
 		end
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Navigation.PresencePhase?)
-				local viewport = Compose.cell(V2.new(640, 480))
-				local origin = Compose.cell(V2.zero)
+				local layer = ctx.config.overlayParent :: GuiBase2d?
+					or root:FindFirstAncestorWhichIsA("LayerCollector") :: GuiBase2d?
+				local measured = layer ~= nil and layer.AbsoluteSize.X > 0 and layer.AbsoluteSize.Y > 0
+				local viewport = Compose.cell(if measured then (layer :: GuiBase2d).AbsoluteSize else V2.new(640, 480))
+				local origin = Compose.cell(if measured then (layer :: GuiBase2d).AbsolutePosition else V2.zero)
 				local anchor = read(spec.anchor)
 				local launcher = if anchor == nil then root:FindFirstChild("Launcher") else nil
 				local focal = anchor or launcher
@@ -369,8 +418,7 @@ return function(
 					if sweep < 360 then
 						return at
 					end
-					local ringWidth = read(spec.ringWidth, use)
-					local reach = use(rawInner) + (if type(ringWidth) == "number" then ringWidth else 44)
+					local reach = use(rawInner) + (ringWidth(use) or 44)
 					return V2.new(
 						math.clamp(at.X, reach + 12, math.max(reach + 12, size.X - reach - 12)),
 						math.clamp(at.Y, reach + 20, math.max(reach + 20, size.Y - reach - 20))
@@ -405,8 +453,8 @@ return function(
 						then math.min(at.X - 12, size.X - at.X - 12, at.Y - 20, size.Y - at.Y - 20)
 						else math.min(size.X - 28, size.Y - 28)
 					local radius = math.max(inner + 1, math.min(240, room))
-					local ringWidth = read(spec.ringWidth, use)
-					local band = if type(ringWidth) == "number" then ringWidth else math.max(44, radius - inner)
+					local floor = math.max(ctx.metric("targetSizes.minimum", use), ringWidth(use) or 0)
+					local band = math.max(floor, radius - inner)
 					local items = read(spec.items, use)
 					local prefix: { string } = {}
 					local levels: { { Radial.Sector<V> } } = {}
@@ -415,22 +463,12 @@ return function(
 					local padding = ctx.metric("space.s", use)
 					local textSize = ctx.metric("typography.control.size", use)
 					local iconSize = ctx.controlSize(nil, "iconSize", use)
-					local gap = ctx.metric("space.xs", use)
 					local function estimate(item: Radial.RadialItemBase<V>): (number, number)
-						local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
-						if
-							icon
-							and (
-								item.labelStyle == "icon"
-								or (item.compactLabel ~= nil and item.compactLabel.prefer == true)
-							)
-						then
+						if glyphOnly(item) then
 							return iconSize, iconSize
 						end
 						local label = read(item.label, use) or ""
-						local width = (utf8.len(label) or #label) * textSize * 0.6
-						return width + (if icon then iconSize + gap else 0),
-							math.max(textSize, if icon then iconSize else 0)
+						return (utf8.len(label) or #label) * textSize * 0.6, textSize
 					end
 					local navigation, expansion = spec.navigation or "replace", spec.expansion or "fan"
 					local currentStart, currentSweep = start, sweep
@@ -455,7 +493,7 @@ return function(
 								table.insert(shown, item)
 							end
 						end
-						if spec.center and spec.center ~= "back" and #prefix == #use(path) then
+						if spec.center and spec.center ~= "back" and not corner and #prefix == #use(path) then
 							local navigationItem: Radial.RadialItemBase<V> & { checked: nil?, selected: nil?, value: nil?, onChange: nil? } =
 								{
 									id = "$navigation",
@@ -492,12 +530,15 @@ return function(
 						end
 						local ri = ring
 						local distribution = if #prefix == 0 then spec.distribution or "even" else "even"
+						local levelStart = currentStart
+						local last = shown[#shown]
+						if last and last.id == "$navigation" and distribution == "even" and currentSweep == 360 then
+							levelStart = 225 - (#shown - 1) * 360 / #shown
+						end
 						local levelBand = band
-						if type(ringWidth) ~= "number" then
+						do
 							local extent, target = 0, 0
-							for _, probe in
-								geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + 1)
-							do
+							for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
 								local width, height = estimate(probe.item)
 								local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
 								local hw, hh = width / 2 + padding, height / 2 + padding
@@ -512,11 +553,11 @@ return function(
 								target = math.max(target, 2 * (minimum / chord - ri))
 							end
 							local wanted = 2 * math.ceil(math.max(extent, target) / 2)
-							levelBand = math.clamp(wanted, minimum, math.max(minimum, band))
+							levelBand = math.clamp(wanted, floor, band)
 						end
 						ring = ri + levelBand + 4
 						local sectors =
-							geometry.sectors(shown, currentStart, currentSweep, distribution, ri, ri + levelBand)
+							geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + levelBand)
 						for _, sector in sectors do
 							sector.path = table.clone(prefix)
 							sector.key = table.concat(prefix, "/") .. "/" .. sector.id
@@ -567,7 +608,12 @@ return function(
 					end
 					list = list and gestureSelection ~= "direction"
 					if list then
-						result = current
+						result = {}
+						for _, sector in current do
+							if sector.id ~= "$navigation" then
+								table.insert(result, sector)
+							end
+						end
 					end
 					for index, sector in result do
 						sector.index, sector.list = index, list
@@ -590,7 +636,10 @@ return function(
 					end
 					return nil
 				end
-				local entry = runtime.timeline({ duration = 0.16 })
+				local entry = runtime.timeline({ duration = 0.2 })
+				local function spread(use: ComposeTypes.Use): number
+					return if reduced(use) then 1 else 0.2 + 0.8 * Compose.easing.outCubic(use(entry.progress))
+				end
 				local fading = runtime.tween(function(use: ComposeTypes.Use)
 					return if phase and use(phase.exiting) then 1 else 0
 				end, { seconds = 0.12 })
@@ -614,8 +663,14 @@ return function(
 					position = function(sector: Radial.Sector<V>)
 						return if sector.list then 0 else sector.x, if sector.list then sector.index * 48 else sector.y
 					end,
-					autoFocus = true,
+					autoFocus = false,
 				})
+				local selectingInput = surfaces.selecting()
+				Compose.watch(function(use: ComposeTypes.Use)
+					if selectingInput(use) and use(focus.current) == nil and #use(sectors) > 0 then
+						focus.first()
+					end
+				end)
 				local gui = surfaces.service("GuiService")
 				local attributes: Types.Attributes = {
 					Presentation = function(use: ComposeTypes.Use)
@@ -626,7 +681,7 @@ return function(
 					Name = "RadialPanel",
 					BackgroundTransparency = 1,
 					Size = function(use: ComposeTypes.Use)
-						return if use(fallback) then D2.new(1, -32, 1, -64) else D2.fromScale(1, 1)
+						return if use(fallback) then D2.new(1, -32, 1, -80) else D2.fromScale(1, 1)
 					end,
 					Position = function(use: ComposeTypes.Use)
 						return if use(fallback) then D2.fromOffset(16, 48) else D2.fromOffset(0, 0)
@@ -660,7 +715,7 @@ return function(
 										visit(read(item.children, use), if prefix == "" then item.id else key)
 									end
 								end
-								if spec.center and spec.center ~= "back" then
+								if spec.center and spec.center ~= "back" and not corner then
 									table.insert(entries, prefix .. "/$navigation")
 								end
 							end
@@ -751,12 +806,7 @@ return function(
 										ClipsDescendants = appearance == "wedges",
 										label = function(use: ComposeTypes.Use)
 											local live = currentSector(use)
-											return if not live.list
-													and (
-														live.item.labelStyle == "icon"
-														or (live.item.compactLabel and live.item.compactLabel.prefer)
-														or (appearance == "buttons" and live.item.icon ~= nil)
-													)
+											return if not live.list and glyphOnly(live.item)
 												then ""
 												else read(live.item.label, use)
 										end,
@@ -792,7 +842,7 @@ return function(
 											if live.list then
 												return D2.fromOffset(0, 0)
 											end
-											local scale = if reduced(use) then 1 else 0.85 + 0.15 * use(entry.progress)
+											local scale = spread(use)
 											local dx, dy = travel(use, live)
 											return D2.fromOffset(at.X + live.x * scale + dx, at.Y + live.y * scale + dy)
 										end,
@@ -823,6 +873,15 @@ return function(
 										ZIndex = 105,
 									})
 									buttons[sector.key] = button
+									local glyph = button:FindFirstChild("LeadingIcon", true)
+									if glyph then
+										runtime.decorate(glyph, {
+											Visible = function(use: ComposeTypes.Use)
+												local live = currentSector(use)
+												return live.list or glyphOnly(live.item)
+											end,
+										})
+									end
 									if appearance == "wedges" then
 										ctx.styled(button, "radial-item")
 									end
@@ -877,14 +936,7 @@ return function(
 										local live, at = currentSector(use), use(center)
 										local text = use(measured)
 										local label = geometry.labelBounds(live, 40)
-										local iconOnly = not live.list
-											and (
-												live.item.labelStyle == "icon"
-												or (
-													live.item.compactLabel ~= nil
-													and live.item.compactLabel.prefer == true
-												)
-											)
+										local iconOnly = not live.list and glyphOnly(live.item)
 										local iconSize = ctx.controlSize(nil, "iconSize", use)
 										local fitted = geometry.fitContent(
 											live,
@@ -919,7 +971,11 @@ return function(
 										end
 										local bounds = geometry.paint(fitted)
 										local dx, dy = travel(use, live)
-										shape.Position = D2.fromOffset(at.X + bounds.x + dx, at.Y + bounds.y + dy)
+										local lag = spread(use) - 1
+										shape.Position = D2.fromOffset(
+											at.X + bounds.x + dx + lag * live.x,
+											at.Y + bounds.y + dy + lag * live.y
+										)
 										shape.Size = D2.fromOffset(bounds.w, bounds.h)
 										paint.Thickness = math.max(1, fitted.outer - fitted.inner)
 										local points: { Path2DControlPoint } = {}
@@ -949,25 +1005,41 @@ return function(
 					}),
 				}
 				local panel = Host.ScrollingFrame(panelProps)
+				local ringNavigation = spec.center == "empty" or spec.center == "content"
+				local function showCenter(use: ComposeTypes.Use): boolean
+					if corner or use(fallback) or not ringNavigation then
+						return true
+					end
+					for _, sector in use(sectors) do
+						if sector.id == "$navigation" then
+							return false
+						end
+					end
+					return true
+				end
+				local function navigating(use: ComposeTypes.Use?): boolean
+					return corner or ringNavigation or (if use then use(fallback) else fallback:peek())
+				end
 				local function centerAction()
-					if spec.center == "root" then
-						path:set({})
-					elseif spec.center == "close" then
-						close()
-					else
+					if navigating() or spec.center == nil or spec.center == "back" then
 						back()
+					elseif spec.center == "root" then
+						path:set({})
+					else
+						close()
 					end
 				end
-				local closing = spec.center ~= "empty" and spec.center ~= "content"
 				local function hub(
 					use: ComposeTypes.Use
 				): { close: number, closeY: number, labelY: number, labelW: number, labelH: number }
 					local inner = use(layout).inner
 					local gap = ctx.metric("space.xs", use)
-					local labelH = ctx.metric("typography.caption.size", use) + gap
-					local close = if closing then math.min(ctx.metric("targetSizes.minimum", use), 2 * inner - 4) else 0
-					local top = -(close + (if closing then gap else 0) + labelH) / 2
-					local labelTop = top + close + (if closing then gap else 0)
+					local labelH = if corner then 0 else ctx.metric("typography.caption.size", use) + gap
+					local shown = showCenter(use)
+					local close = if shown then math.min(PAINTED, 2 * inner - 4) else 0
+					local between = if shown and not corner then gap else 0
+					local top = -(close + between + labelH) / 2
+					local labelTop = top + close + between
 					local edge = math.max(math.abs(labelTop), math.abs(labelTop + labelH))
 					return {
 						close = close,
@@ -977,58 +1049,94 @@ return function(
 						labelH = labelH,
 					}
 				end
-				if closing then
-					local function centerName(use: ComposeTypes.Use): string
-						local depth = #use(path)
-						return read(spec.centerLabel, use)
-							or if spec.center == "root"
-								then "Home"
-								elseif spec.center == "close" or depth == 0 then "Close"
-								else "Back"
+				local function centerName(use: ComposeTypes.Use): string
+					local depth = #use(path)
+					if navigating(use) or spec.center == nil or spec.center == "back" then
+						return (if navigating(use) then nil else read(spec.centerLabel, use))
+							or if depth == 0 then "Close" else "Back"
 					end
-					local centerIcon: Types.Value<string>? = if spec.centerLabel
-						then nil
-						else function(use: ComposeTypes.Use): string
-							return if spec.center == "root"
-								then "chevron.first"
-								elseif spec.center == "close" or #use(path) == 0 then "close"
-								else "chevron.leading"
-						end
-					surfaces.attach(panel, {
-						UI.Button "Center" {
-							LayoutOrder = -1,
-							corners = "pill" :: "pill",
-							appearance = "utility",
-							name = centerName,
-							label = function(use: ComposeTypes.Use): string
-								return if use(fallback) then centerName(use) else read(spec.centerLabel, use) or ""
+					return read(spec.centerLabel, use) or if spec.center == "root" then "Home" else "Close"
+				end
+				local function morph(use: ComposeTypes.Use): number
+					return 1 - transparency(use)
+				end
+				local function diameter(use: ComposeTypes.Use): number
+					if use(fallback) then
+						return PAINTED
+					end
+					if corner and launcher and anchorSize then
+						local extent = use(anchorSize)
+						local from = math.max(PAINTED, math.min(extent.X, extent.Y))
+						return math.floor(PAINTED + (from - PAINTED) * (1 - morph(use)) + 0.5)
+					end
+					return hub(use).close
+				end
+				local function centerAt(use: ComposeTypes.Use): UDim2
+					if use(fallback) then
+						return D2.new(1, -16 - PAINTED / 2, 0, 2 + PAINTED / 2)
+					end
+					local at = use(center)
+					return D2.fromOffset(at.X, at.Y + hub(use).closeY)
+				end
+				local centerNode = UI.Button "Center" {
+					corners = "pill" :: "pill",
+					appearance = "utility",
+					name = centerName,
+					icon = function(use: ComposeTypes.Use): string
+						return if spec.center == "root" and not navigating(use)
+							then "chevron.up"
+							elseif centerName(use) == "Back" then "chevron.leading"
+							else "close"
+					end,
+					Visible = showCenter,
+					Position = centerAt,
+					AnchorPoint = V2.new(0.5, 0.5),
+					Size = function(use: ComposeTypes.Use)
+						local size = diameter(use)
+						return D2.fromOffset(size, size)
+					end,
+					AutomaticSize = E.AutomaticSize.None,
+					ZIndex = 105,
+					onActivate = centerAction,
+				}
+				local centerHit = Host.TextButton "CenterHit" {
+					Text = "",
+					BackgroundTransparency = 1,
+					Selectable = false,
+					Visible = showCenter,
+					Position = centerAt,
+					AnchorPoint = V2.new(0.5, 0.5),
+					Size = function(use: ComposeTypes.Use)
+						local size = math.max(diameter(use), (ctx.metric("targetSizes.minimum", use)))
+						return D2.fromOffset(size, size)
+					end,
+					ZIndex = 104,
+					Activated = centerAction,
+				}
+				if corner and launcher and launcher:IsA("GuiObject") then
+					local hidden = launcher :: GuiObject
+					hidden.Visible = false
+					Compose.cleanup(function()
+						hidden.Visible = true
+					end)
+					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
+					if glyph then
+						runtime.decorate(glyph, {
+							ImageTransparency = function(use: ComposeTypes.Use): number
+								return 1 - morph(use)
 							end,
-							icon = centerIcon,
-							TextWrapped = true,
-							Visible = function(use: ComposeTypes.Use)
-								return not (use(fallback) and (spec.center == "root" or spec.center == "close"))
-							end,
-							Position = function(use: ComposeTypes.Use)
-								local at = use(center)
-								return if use(fallback)
-									then D2.fromOffset(0, 0)
-									else D2.fromOffset(at.X, at.Y + hub(use).closeY)
-							end,
-							AnchorPoint = function(use: ComposeTypes.Use)
-								return if use(fallback) then V2.zero else V2.new(0.5, 0.5)
-							end,
-							Size = function(use: ComposeTypes.Use)
-								if use(fallback) then
-									return D2.new(1, -8, 0, ctx.metric("targetSizes.minimum", use))
-								end
-								local diameter = hub(use).close
-								return D2.fromOffset(diameter, diameter)
-							end,
-							ZIndex = 105,
-							onActivate = centerAction,
-						},
+						})
+					end
+					surfaces.attach(centerNode, {
+						ctx.icon(spec.icon or "more", {
+							Name = "LauncherIcon",
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							ImageTransparency = morph,
+						}),
 					})
-				elseif spec.center == "content" and spec.centerContent then
+				end
+				if spec.center == "content" and spec.centerContent and not corner then
 					local node = if type(spec.centerContent) == "function"
 						then spec.centerContent()
 						else spec.centerContent
@@ -1042,10 +1150,7 @@ return function(
 					})
 					surfaces.attach(panel, { node })
 				end
-				local centerButton = panel:FindFirstChild("Center")
-				if centerButton and centerButton:IsA("GuiObject") then
-					skin(centerButton, spec.skin and spec.skin.center)
-				end
+				skin(centerNode, spec.skin and spec.skin.center)
 				local panelSize = ctx.observe.AbsoluteSize(panel)
 				local function reachOf(ring: Radial.Layout<V>): number
 					local reach = ring.inner
@@ -1057,52 +1162,63 @@ return function(
 				local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 					local ring = use(layout)
 					if ring.list then
-						return D2.new(0.5, 0, 1, -8), V2.new(0.5, 1)
+						return D2.new(0, 16, 1, -8), V2.new(0, 1)
 					end
 					local at = use(center)
+					if corner then
+						local start = geometry.arc(spec.preset or "donut")
+						local angle = math.rad(start + 45)
+						local dx, dy = math.sin(angle), -math.cos(angle)
+						local reach = reachOf(ring) + ctx.metric("space.s", use)
+						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach),
+							V2.new(if dx > 0 then 0 else 1, if dy > 0 then 0 else 1)
+					end
 					return D2.fromOffset(at.X, at.Y + hub(use).labelY), V2.new(0.5, 0.5)
 				end
-				surfaces.attach(panel, {
-					ctx.text({
-						Name = "SelectionPreview",
-						Size = function(use: ComposeTypes.Use): UDim2
-							if use(layout).list then
-								return D2.fromOffset(320, 0)
+				local preview = ctx.text({
+					Name = "SelectionPreview",
+					Size = function(use: ComposeTypes.Use): UDim2
+						if use(layout).list then
+							return D2.new(1, -32 - 1.5 * PAINTED, 0, 0)
+						end
+						if corner then
+							return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
+						end
+						local place = hub(use)
+						return D2.fromOffset(place.labelW, place.labelH)
+					end,
+					AutomaticSize = function(use: ComposeTypes.Use)
+						return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
+					end,
+					Position = function(use: ComposeTypes.Use): UDim2
+						return (previewPlace(use))
+					end,
+					AnchorPoint = function(use: ComposeTypes.Use): Vector2
+						local _, anchor = previewPlace(use)
+						return anchor
+					end,
+					TextXAlignment = function(use: ComposeTypes.Use)
+						local _, anchor = previewPlace(use)
+						return if anchor.X == 0.5
+							then E.TextXAlignment.Center
+							elseif anchor.X == 0 then E.TextXAlignment.Left
+							else E.TextXAlignment.Right
+					end,
+					TextTruncate = E.TextTruncate.AtEnd,
+					Text = function(use: ComposeTypes.Use)
+						local key = use(candidate) or use(focus.current)
+						local entries = use(sectors)
+						for sectorIndex = 1, #entries do
+							local sector = entries[sectorIndex]
+							if sector.key == key then
+								local label = read(sector.item.label, use) or ""
+								local detail = read(sector.item.description, use)
+								return label .. (if detail then " · " .. detail else "")
 							end
-							local place = hub(use)
-							return D2.fromOffset(place.labelW, place.labelH)
-						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
-						end,
-						Position = function(use: ComposeTypes.Use): UDim2
-							return (previewPlace(use))
-						end,
-						AnchorPoint = function(use: ComposeTypes.Use): Vector2
-							local _, anchor = previewPlace(use)
-							return anchor
-						end,
-						TextXAlignment = E.TextXAlignment.Center,
-						LayoutOrder = 10000,
-						TextWrapped = function(use: ComposeTypes.Use)
-							return use(layout).list
-						end,
-						TextTruncate = E.TextTruncate.AtEnd,
-						Text = function(use: ComposeTypes.Use)
-							local key = use(candidate) or use(focus.current)
-							local entries = use(sectors)
-							for sectorIndex = 1, #entries do
-								local sector = entries[sectorIndex]
-								if sector.key == key then
-									local label = read(sector.item.label, use) or ""
-									local detail = read(sector.item.description, use)
-									return label .. (if detail then " · " .. detail else "")
-								end
-							end
-							return ""
-						end,
-						ZIndex = 106,
-					}),
+						end
+						return ""
+					end,
+					ZIndex = 106,
 				})
 				local function choose(sector: Radial.Sector<V>?): Radial.Sector<V>?
 					if sector and read(sector.item.enabled) == false then
@@ -1253,10 +1369,10 @@ return function(
 						end
 					end
 				end)
-				returnSelection = function(change: () -> (), key: string)
+				returnSelection = function(change: () -> (), key: string?)
 					local held = gui ~= nil and surfaces.within(gui.SelectedObject, panel)
 					change()
-					local button = buttons[key]
+					local button = buttons[key or (if held then focus.first() else nil) or ""]
 					if held and gui and button and button.Parent then
 						gui.SelectedObject = button
 					end
@@ -1326,6 +1442,7 @@ return function(
 						end,
 					}
 				)
+				surfaces.attach(modal, { centerHit, centerNode, preview })
 				local catcher = modal:FindFirstChild("DismissOutside")
 				if catcher then
 					if scrim == "dark" then

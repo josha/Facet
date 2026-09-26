@@ -191,6 +191,7 @@ controls(runtime).TabView : function
 controls(runtime).Table : function
 controls(runtime).Text : function
 controls(runtime).TextInput : function
+controls(runtime).Toast : function
 controls(runtime).Toggle : function
 controls(runtime).VStack : function
 controls(runtime).ViewThatFits : function
@@ -213,6 +214,7 @@ type Adaptive
 type AdaptiveStackProps
 type AlertAction
 type AlertSpec
+type AnchoredOptions
 type App
 type AppOptions
 type AsyncImageProps
@@ -313,6 +315,8 @@ type TableSpec
 type TextInputProps
 type TextProps
 type ThemePackage
+type ToastOptions
+type ToastSpec
 type ToggleProps
 type Use
 type ViewThatFitsProps

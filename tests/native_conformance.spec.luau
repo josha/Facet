@@ -210,6 +210,9 @@ local fixtures = {
 	Snackbar = function()
 		return { isPresented = Compose.cell(false), message = "Saved", closeButton = false }
 	end,
+	Toast = function()
+		return { message = "Saved" }
+	end,
 	Notice = function()
 		return { message = "Saved" }
 	end,
