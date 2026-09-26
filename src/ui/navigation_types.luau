@@ -292,6 +292,7 @@ export type TabViewSpec = Types.FrameProps & {
 	placement: Value<Placement>?,
 	style: "automatic" | "sidebarAdaptable" | "collapsible"?,
 	sidebarPreference: Value<"automatic" | "topBar" | "sidebar">?,
+	sidebarExpanded: ComposeTypes.Cell<boolean>?,
 	restoreScroll: boolean?,
 	restoreFocus: boolean?,
 	shoulderNavigation: "strip" | "content"?,

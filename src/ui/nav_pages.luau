@@ -191,6 +191,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"placement",
 			"style",
 			"sidebarPreference",
+			"sidebarExpanded",
 			"restoreScroll",
 			"shoulderNavigation",
 			"restoreFocus",
@@ -247,6 +248,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else nil,
 				tenFoot = distant,
 			})
+			if spec.style == "sidebarAdaptable" and distant and read(spec.sidebarExpanded, use) == true then
+				return "sidebar"
+			end
 			if spec.style == "sidebarAdaptable" and not distant and (home == "sidebar" or home == "topBar") then
 				local choice = read(spec.sidebarPreference, use)
 				if choice and choice ~= "automatic" then
@@ -1112,6 +1116,21 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ctx.action(root, "NextTab", { "ButtonR1" }, active, function()
 				advance(1)
 			end, { priority = 50 + depth })
+			local expanded = spec.sidebarExpanded
+			if expanded ~= nil then
+				assert(
+					type(expanded) == "table" and (expanded :: any).set ~= nil,
+					"Facet UI.TabView: sidebarExpanded must be a writable Compose cell"
+				)
+				ctx.action(root, "SidebarCollapse", { "ButtonB" }, function(use: ComposeTypes.Use)
+					return use(expanded) == true
+						and tenFoot(use)
+						and gui ~= nil
+						and surfaces.within(use(selectedObject), bar)
+				end, function()
+					expanded:set(false)
+				end, { priority = 1100 + depth })
+			end
 		end
 		return root
 	end)

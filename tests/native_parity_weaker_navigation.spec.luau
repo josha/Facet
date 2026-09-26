@@ -837,6 +837,50 @@ t.describe("native parity weaker navigation", function()
 		end
 	)
 
+	t.it("expands a distant sidebar on command and ButtonB collapses it back to the top bar", function()
+		local expanded = Compose.cell(false)
+		local world = setup(function(UI, Host)
+			return UI.TabView("Apps")({
+				selection = Compose.cell("a"),
+				style = "sidebarAdaptable",
+				sidebarExpanded = expanded,
+				tabs = {
+					{ id = "a", label = "A", content = page(Host, "a") },
+					{ id = "b", label = "B", content = page(Host, "b") },
+				},
+			})
+		end)
+		local Enum = world.engine.types.Enum
+		world.gui.ViewportDisplaySize = Enum.DisplaySize.Large
+		world.input.MouseEnabled = false
+		world.input.PreferredInput = Enum.PreferredInput.Gamepad
+		local view = find(world.screen, "Apps")
+		view.AbsoluteSize = V2(world, 1920, 1080)
+		local strip = view:FindFirstChild("Tabs")
+		local layout = strip:FindFirstChildWhichIsA("UIListLayout")
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
+		t.expect(action(world.screen, "SidebarCollapse")).toBeNil()
+		expanded:set(true)
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Vertical)
+		world.gui.SelectedObject = find(strip, "b", "TextButton")
+		local collapse = action(world.screen, "SidebarCollapse")
+		t.expect(collapse ~= nil).toBe(true)
+		t.expect(collapse:FindFirstChildWhichIsA("InputBinding").KeyCode).toBe(Enum.KeyCode.ButtonB)
+		collapse.Pressed.fire()
+		t.expect(expanded:peek()).toBe(false)
+		t.expect(layout.FillDirection).toBe(Enum.FillDirection.Horizontal)
+		t.expect(world.gui.SelectedObject).toBe(find(strip, "b", "TextButton"))
+		expanded:set(true)
+		world.gui.SelectedObject = nil
+		t.expect(action(world.screen, "SidebarCollapse")).toBeNil()
+		world.gui.ViewportDisplaySize = Enum.DisplaySize.Medium
+		world.input.MouseEnabled = true
+		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
+		view.AbsoluteSize = V2(world, 390, 844)
+		t.expect(strip.Position).toBe(world.engine.types.UDim2.new(0, 0, 1, -44))
+		world.stop()
+	end)
+
 	t.it("keeps page owners and the strip across every declared home and evicts only on selection", function()
 		for _, style in { "automatic", "sidebarAdaptable" } do
 			local selected, placement = Compose.cell("games"), Compose.cell("topBar")

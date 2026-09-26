@@ -1748,6 +1748,12 @@ Use `style = "sidebarAdaptable"` for peer destinations. Its selected tab is a
 pill, and its top bar is a segmented strip: the tabs hug their labels, centred
 on a track. `sidebarPreference` (`"sidebar"` or `"topBar"`) chooses between the
 two roomy homes, except on a ten-foot display, which keeps the top bar.
+`sidebarExpanded`, a writable boolean cell, is the ten-foot command that
+replaces `expandSidebar()` and `collapseSidebar()`: set it to `true` (from a
+Menu or a Button) and a distant screen shows the sidebar; ButtonB while the
+selection is in that sidebar sets it back to `false` and the top bar returns,
+with the selection kept on its tab. A near screen ignores it and follows
+`sidebarPreference`. Page Back keeps ButtonB when the selection is in the page.
 `placement` sets an explicit choice. `placement = "none"` hides the
 bar and gives the page the whole view. Selection, shoulder navigation and
 `selection` changes still work; supply your own route to the other tabs, such
