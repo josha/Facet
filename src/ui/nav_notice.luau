@@ -686,15 +686,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if trailingFrame then
 			local box = ctx.observe.AbsoluteSize(root)
 			local sides = ctx.observe.AbsoluteSize(trailingFrame)
-			local main = ctx.observe.AbsoluteSize(primaryFrame)
-			local middle = ctx.observe.AbsoluteSize(centerFrame)
+			local before: { ComposeTypes.Readable<Vector2> } = {}
+			for _, child in primaryFrame:GetChildren() do
+				if child:IsA("GuiObject") and child ~= centerFrame then
+					table.insert(before, ctx.observe.AbsoluteSize(child))
+				end
+			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
 			Compose.watch(function(use: ComposeTypes.Use)
 				local width = use(box).X
-				if width <= 0 then
+				if width <= 0 or use(sides).X <= 0 then
 					return
 				end
-				local fixed = use(main).X - use(middle).X
+				local fixed = 0
+				for _, size in before do
+					fixed += use(size).X + gap(use)
+				end
 				local room = width - fixed - use(sides).X - gap(use)
 				local wanted = if natural then use(natural).X else ctx.metric("controls.popup.panelWidth", use)
 				local floor = math.min(wanted, width - fixed)

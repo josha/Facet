@@ -356,6 +356,23 @@ t.describe("native NavBar: the slot form", function()
 		w.stop()
 	end)
 
+	t.it("a new bar keeps one row while its filling title row is still laid out, so it never flashes", function()
+		local w = mount(function(UI, Host)
+			return UI.NavBar "Top" {
+				title = "Garage",
+				trailing = Host.Frame({ Name = "Tools", UI.Button "Edit" { label = "Edit" } }),
+			}
+		end)
+		local layout = w.find("Top"):FindFirstChildWhichIsA("UIListLayout")
+		w.find("TitleMeasure").TextBounds = w.Vector2.new(70, 24)
+		w.size(w.find("Trailing"), 40, 40)
+		w.size(w.find("Primary"), 640, 24)
+		w.size(w.find("Center"), 0, 0)
+		w.size(w.find("Top"), 688, 40)
+		t.expect(layout.FillDirection).toBe(w.Enum.FillDirection.Horizontal)
+		w.stop()
+	end)
+
 	t.it("a narrow bar moves the trailing content to a second row, without rebuilding the center", function()
 		local query = Compose.cell("coast")
 		local w = mount(function(UI, Host)
