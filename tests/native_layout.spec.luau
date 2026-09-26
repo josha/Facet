@@ -634,6 +634,8 @@ t.describe("native layout primitives", function()
 			t.expect(root.AutomaticCanvasSize).toBe(E.AutomaticSize.X)
 			t.expect(root.ScrollingDirection).toBe(E.ScrollingDirection.X)
 			t.expect(root.HorizontalScrollBarInset).toBe(E.ScrollBarInset.ScrollBar)
+			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(root.Size.Y.Scale == 0 and root.Size.X.Scale == 1).toBe(true)
 			stop()
 			local both = build(nil, function(UI)
 				return UI.ScrollView { axis = "xy" }

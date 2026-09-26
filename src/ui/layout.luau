@@ -159,7 +159,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local axis = spec.axis or "y"
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
-		local size, automatic = kit.extent(spec, "fill", "fill")
+		local size, automatic = kit.extent(spec, "fill", if axis == "x" then "hug" else "fill")
 		local native: Engine.ScrollingFrameNativeProps = {
 			BorderSizePixel = 0,
 			Size = size,

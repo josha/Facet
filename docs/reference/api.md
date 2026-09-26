@@ -523,7 +523,9 @@ that axis, so the stack keeps its size. Options: `padding`,
 parent by default. It contains a `UIListLayout` and sets `AutomaticCanvasSize`
 and `ScrollingDirection` for its axis. Thus the content fits the scroll window
 beside the scroll bar. `axis` is `"y"` (the default), `"x"` or `"xy"`. The
-`"x"` axis stacks the children horizontally. Options: `axis`, `gap`, `padding`,
+`"x"` axis stacks the children horizontally and, unless you give a `height`,
+hugs their height, so a row of chips never clips when they grow at ten feet.
+Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 
 ### scrollTo and scrollToVisible
