@@ -192,9 +192,6 @@ return function(ctx)
 	local settings = Host.Frame "AvatarSettings" {
 		BorderSizePixel = 0,
 		SelectionGroup = true,
-		SelectionBehaviorDown = E.SelectionBehavior.Stop,
-		SelectionBehaviorLeft = E.SelectionBehavior.Stop,
-		SelectionBehaviorRight = E.SelectionBehavior.Stop,
 		Size = function(use)
 			return if wide(use) then D2.new(0, settingsWidth(use), 1, 0) else D2.new(1, 0, 1, -previewHeight(use) - 16)
 		end,

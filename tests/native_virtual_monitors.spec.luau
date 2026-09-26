@@ -417,9 +417,8 @@ t.describe("native virtual monitors", function()
 				end
 			end
 			t.expect(settings.SelectionGroup).toBe(true)
-			t.expect(settings.SelectionBehaviorUp).toBe(types.Enum.SelectionBehavior.Escape)
-			for _, direction in { "Down", "Left", "Right" } do
-				t.expect(settings["SelectionBehavior" .. direction]).toBe(types.Enum.SelectionBehavior.Stop)
+			for _, direction in { "Up", "Down", "Left", "Right" } do
+				t.expect(settings["SelectionBehavior" .. direction]).toBe(types.Enum.SelectionBehavior.Escape)
 			end
 			t.expect(settings:HasTag("facet-panel")).toBe(true)
 			t.expect(preview:HasTag("facet-panel")).toBe(true)

@@ -96,6 +96,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				tabs = tabs,
 				style = "sidebarAdaptable",
 				sidebarPreference = "sidebar",
+				shoulderNavigation = "content",
 				railWidth = function(use)
 					return if adaptive.sizeClassAtLeast(use(env.sizeClass), "wide") then 176 else 148
 				end,
