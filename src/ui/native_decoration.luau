@@ -81,6 +81,7 @@ return function(
 		end
 		for _, side in { "Left", "Right", "Top", "Bottom" } do
 			table.insert(paddingConnections, padding:GetStyledPropertyChangedSignal("Padding" .. side):Connect(refresh))
+			table.insert(paddingConnections, padding:GetPropertyChangedSignal("Padding" .. side):Connect(refresh))
 		end
 		refresh()
 	end
