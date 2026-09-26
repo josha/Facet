@@ -2634,7 +2634,10 @@ input:
 - Pointer: drag a row, or one of the selected rows to move them all, more than
   6 pixels along the list. There is no handle. The drag shows an image of the
   row, stacked two or three deep for a selection, and scrolls the list near its
-  edges unless `autoscroll = false`. Delete or Backspace removes the selected
+  edges unless `autoscroll = false`. Once the list can move no further that
+  way, the nearest enclosing ScrollingFrame whose own 40 pixel edge band holds
+  the pointer scrolls instead (innermost first), so a list inside a page hands
+  the drag to the page. Delete or Backspace removes the selected
   rows.
 - Touch: hold a finger still on a row for a third of a second to pick it up
   and move it; a finger that moves first scrolls the list or swipes the row.

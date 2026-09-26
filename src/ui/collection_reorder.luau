@@ -685,32 +685,41 @@ return function<V, K>(
 			if stopFrames or spec.autoscroll == false then
 				return
 			end
+			-- Scrollers resolve innermost-outward: the list first (its band also covers a pointer past its ends),
+			-- then each enclosing ScrollingFrame whose own edge band holds the pointer. A scroller already at that
+			-- end passes the drag to its parent, so a short list hands off to the page.
 			stopFrames = assert(ctx.runtime.host.frames).onFrame(function(delta)
 				local move = moving:peek()
 				if move == nil or move.pointer == nil or not captured then
 					return
 				end
-				local size = axis(body.AbsoluteWindowSize) / scaleOf(body)
-				local edge = math.min(40, size / 4)
-				if edge <= 0 then
-					return
+				local scale = scaleOf(body)
+				local scroller: Instance? = body
+				while scroller do
+					if scroller:IsA("ScrollingFrame") and scroller.ScrollingEnabled then
+						local size = axis(scroller.AbsoluteWindowSize) / scale
+						local edge = math.min(40, size / 4)
+						local at = (axis(move.pointer) - axis(scroller.AbsolutePosition)) / scale
+						local inner = scroller == body
+						local speed = if edge <= 0 or (not inner and (at < 0 or at > size))
+							then 0
+							elseif at < edge then -math.clamp((edge - at) / edge, 0, 1)
+							elseif at > size - edge then math.clamp((at - size + edge) / edge, 0, 1)
+							else 0
+						local last = if inner then assert(controls.placementOf)(#move.rows) else nil
+						local limit = if last
+							then last.offset + last.size - size
+							else axis(scroller.AbsoluteCanvasSize) / scale - size
+						local now = axis(scroller.CanvasPosition)
+						local target = math.clamp(now + speed * 600 * delta, 0, math.max(0, limit))
+						if target ~= now then
+							canvasOffset(scroller, target)
+							movePointer(move.pointer)
+							return
+						end
+					end
+					scroller = scroller.Parent
 				end
-				local localY = alongBody(body, move.pointer)
-				local speed = if localY < edge
-					then -math.clamp((edge - localY) / edge, 0, 1)
-					elseif localY > size - edge then math.clamp((localY - size + edge) / edge, 0, 1)
-					else 0
-				if speed == 0 then
-					return
-				end
-				local last = assert(controls.placementOf)(#move.rows)
-				local y = math.clamp(
-					axis(body.CanvasPosition) + speed * 600 * delta,
-					0,
-					math.max(0, last.offset + last.size - size)
-				)
-				canvasOffset(body, y)
-				movePointer(move.pointer)
 			end)
 		end
 		Compose.cleanup(function()

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reorder autoscroll walks the scroller chain again: when the list is at its end, the nearest enclosing ScrollingFrame whose edge band holds the pointer scrolls, so a list or a non-scrolling Table inside a page hands the drag to the page. Before, only the list itself scrolled.
 - A pointer reorder under a scaled ancestor (a UIScale, the TV device preview) reads the pointer in the body's layout units for the drop slot, the drag image and the edge autoscroll. Before, it mixed screen pixels with layout units, so at a scale of 2 the drop slot and the image landed about twice as far down as the pointer.
 - While `editing`, a selectable Table or VirtualList that is not `deletable` marks each row's selection at the leading edge again: a ring (`facet-radio-mark`, the Picker radio mark) with a filled dot on selected rows, which takes no focus. A Table with a supplied `editing` shows it even when it is neither reorderable nor deletable. Before, edit mode showed no selection mark (lost in 0.12).
 - `UI.Table` rows follow a ladder by viewing distance again: a touch row wraps its cells and starts at two lines of body text (56 in Neutral), and a ten-foot row (`ctx.tenFoot()`) holds one line at the large control height (56). A near row is unchanged (40 or the regular control height; 44 with a gamepad). Every row still rises to fit its measured text. Before, touch and ten-foot rows were the one-line 44 of a gamepad at a desk.
