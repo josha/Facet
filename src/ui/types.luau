@@ -171,6 +171,7 @@ export type ActionSettings = {
 	capture: boolean?,
 	group: string?,
 	conditional: { binding: ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
+	direction2D: ((Vector2) -> ())?,
 }
 export type ListRow = {
 	leading: { Child }?,

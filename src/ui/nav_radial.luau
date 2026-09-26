@@ -1436,15 +1436,14 @@ return function(
 					end
 				end)
 				if ctx.action then
-					local axis = ctx.action(
+					ctx.action(
 						panel,
 						"RadialAim",
 						{ "Thumbstick1" },
 						opened,
 						function() end,
-						{ priority = 2200, group = "Radial" }
+						{ priority = 2200, group = "Radial", direction2D = aimAnalog }
 					)
-					runtime.decorate(axis, { Type = E.InputActionType.Direction2D, StateChanged = aimAnalog })
 					ctx.action(panel, "RadialCommit", { "ButtonA", "Return" }, function(use: ComposeTypes.Use)
 						return use(opened) and use(candidate) ~= nil
 					end, function()

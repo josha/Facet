@@ -15,6 +15,7 @@ type ActionSettings = {
 	capture: boolean?,
 	group: string?,
 	conditional: { binding: Shared.ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
+	direction2D: ((Vector2) -> ())?,
 }
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
@@ -1114,7 +1115,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local p: Shared.InputActionNativeProps = {
 			Name = name,
-			Type = Enum.InputActionType.Bool,
+			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
+			StateChanged = settings.direction2D :: ((unknown) -> ())?,
 			Pressed = function()
 				if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 					onPressed()
