@@ -40,6 +40,33 @@ type ToggleButtonProps = InputTypes.ButtonProps & {
 	indicatorPosition: ("leading" | "trailing")?,
 }
 
+local REPEAT_DELAY, REPEAT_INTERVAL = 0.4, 0.1
+
+local function repeatHeld(
+	frames: { onFrame: ((number) -> ()) -> () -> () },
+	delay: number,
+	interval: number,
+	keep: () -> boolean,
+	fire: () -> ()
+): () -> ()
+	local elapsed, deadline = 0, delay
+	return frames.onFrame(function(delta: number)
+		if not keep() then
+			return
+		end
+		elapsed += delta
+		local steps = 0
+		while elapsed >= deadline and steps < 5 do
+			fire()
+			deadline += interval
+			steps += 1
+		end
+		if steps == 5 then
+			deadline = elapsed + interval
+		end
+	end)
+end
+
 return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	local lists = layoutKit.of(ctx)
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
@@ -221,27 +248,26 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							local state = probe.GetState
 							local engaged = state ~= nil and state(action) == true
 							if runtime.host.frames and not adjust.once then
-								local elapsed, deadline = 0, 0.4
-								stopFrame = runtime.host.frames.onFrame(function(delta)
-									if
-										not read(source)
-										or not ctx.available(node)
-										or (engaged and state and state(action) ~= true)
-									then
-										stopRepeat()
-										return
-									end
-									elapsed += delta
-									local steps = 0
-									while elapsed >= deadline and steps < 5 do
+								local timing = (spec :: unknown) :: { repeatDelay: number?, repeatInterval: number? }
+								stopFrame = repeatHeld(
+									runtime.host.frames,
+									timing.repeatDelay or REPEAT_DELAY,
+									timing.repeatInterval or REPEAT_INTERVAL,
+									function(): boolean
+										if
+											not read(source)
+											or not ctx.available(node)
+											or (engaged and state and state(action) ~= true)
+										then
+											stopRepeat()
+											return false
+										end
+										return true
+									end,
+									function()
 										apply(direction)
-										deadline += 0.1
-										steps += 1
 									end
-									if steps == 5 then
-										deadline = elapsed + 0.1
-									end
-								end)
+								)
 							end
 						end, {
 							priority = 250,
@@ -437,7 +463,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			iconState = Compose.cell(initial)
 		end
 		local held, repeated, elapsed = false, false, 0
-		local repeatDelay, repeatInterval = spec.repeatDelay or 0.4, spec.repeatInterval or 0.1
+		local repeatDelay, repeatInterval = spec.repeatDelay or REPEAT_DELAY, spec.repeatInterval or REPEAT_INTERVAL
 		assert(
 			repeatDelay > 0 and repeatDelay < math.huge and repeatInterval > 0 and repeatInterval < math.huge,
 			"Facet.Button: repeat timings must be finite and positive"
@@ -1307,18 +1333,15 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				if stopFrame or not (spec.repeatDelay or spec.repeatInterval) then
 					return
 				end
-				stopFrame = assert(runtime.host.frames).onFrame(function(delta)
+				stopFrame = repeatHeld(assert(runtime.host.frames), repeatDelay, repeatInterval, function(): boolean
 					if not held or not enabled(spec) or not ctx.available(node) then
 						release()
-						return
+						return false
 					end
-					elapsed += delta
-					local threshold = if repeated then repeatInterval else repeatDelay
-					if elapsed >= threshold then
-						elapsed %= threshold
-						repeated = true
-						activate()
-					end
+					return true
+				end, function()
+					repeated = true
+					activate()
 				end)
 			end
 			Compose.cleanup(release)
@@ -1730,8 +1753,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				icon = glyph,
 				name = name,
 				haptic = true,
-				repeatDelay = 0.4,
-				repeatInterval = 0.1,
+				repeatDelay = spec.repeatDelay or REPEAT_DELAY,
+				repeatInterval = spec.repeatInterval or REPEAT_INTERVAL,
 				LayoutOrder = if direction < 0 then 1 else 3,
 				Size = D2.fromOffset(44, 44),
 				AutomaticSize = E.AutomaticSize.None,
@@ -1790,7 +1813,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				})
 			)
 		end
-		local p = props(spec, { "value", "min", "max", "step", "format", "enabled", "onChange", "label" }, {
+		local p = props(spec, {
+			"value",
+			"min",
+			"max",
+			"step",
+			"format",
+			"enabled",
+			"onChange",
+			"label",
+			"repeatDelay",
+			"repeatInterval",
+		}, {
 			Selectable = true,
 			Size = if spec.label then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 			AutomaticSize = if spec.label then E.AutomaticSize.Y else E.AutomaticSize.XY,

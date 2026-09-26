@@ -1433,7 +1433,9 @@ Keyboard and gamepad adjustment use the input actions of the control.
 The thumb is the selection stop: a 44 by 44 `ThumbStop` frame around the
 painted `Thumb`, so the engine focus look lands on the thumb and follows it.
 With `thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the track is
-the stop. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds. The
+the stop. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds
+(a Stepper's `repeatDelay` and `repeatInterval` set both its held arrow keys
+and its held step buttons, with one repeat policy). The
 repeat stops when the engine gives the held input to a higher-priority input
 context, for example a gameplay binding with `Sink`. The next change needs a
 new press.

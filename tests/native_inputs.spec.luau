@@ -2262,6 +2262,38 @@ t.describe("native input controls", function()
 		stop()
 		t.expect(engine.heartbeat.count()).toBe(0)
 	end)
+	t.it("a Stepper's repeatDelay and repeatInterval govern its held arrows and its held buttons alike", function()
+		local value = Compose.cell(0)
+		local node, stop, engine = world(function(UI)
+			return UI.Stepper({ value = value, max = 100, repeatDelay = 1, repeatInterval = 0.5 })
+		end)
+		node.SelectionGained.fire()
+		local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+		increase.Pressed.fire()
+		engine.heartbeat.fire(0.9)
+		t.expect(value:peek()).toBe(1)
+		engine.heartbeat.fire(0.2)
+		t.expect(value:peek()).toBe(2)
+		engine.heartbeat.fire(0.5)
+		t.expect(value:peek()).toBe(3)
+		increase.Released.fire()
+		local button
+		for _, child in node:GetDescendants() do
+			if child.ClassName == "TextButton" and child.Name == "Increase" then
+				button = child
+			end
+		end
+		button.InputBegan.fire({
+			UserInputType = engine.types.Enum.UserInputType.MouseButton1,
+			KeyCode = engine.types.Enum.KeyCode.Unknown,
+		})
+		engine.heartbeat.fire(0.9)
+		t.expect(value:peek()).toBe(3)
+		engine.heartbeat.fire(0.2)
+		t.expect(value:peek()).toBe(4)
+		stop()
+	end)
+
 	t.it("uses native Toggle text and reserved padding while retaining rich hints and live theme insets", function()
 		local label, rung = Compose.cell("Music"), Compose.cell("compact")
 		local node, stop, engine = world(function(UI)

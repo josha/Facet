@@ -149,10 +149,12 @@ export type NumberInputOptions = ValueOptions & {
 	enabled: Shared.ValueBoolean?,
 	label: Shared.ValueString?,
 }
-export type StepperImplementationProps =
-	Shared.FrameProps
-	& NumberInputOptions
-	& { value: Shared.ValueNumber, onChange: ((number) -> ())? }
+export type StepperImplementationProps = Shared.FrameProps & NumberInputOptions & {
+	value: Shared.ValueNumber,
+	onChange: ((number) -> ())?,
+	repeatDelay: number?,
+	repeatInterval: number?,
+}
 export type StepperProps = StepperImplementationProps & ValueBinding<number>
 export type SliderRange = { lower: number, upper: number }
 export type SliderThumb = "value" | "lower" | "upper"
