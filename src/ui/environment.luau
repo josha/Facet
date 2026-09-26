@@ -137,14 +137,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local viewportHeight = derived(function(use): number
 			return use(viewportSize).Y
 		end)
+		local tenFoot = ctx.tenFoot()
 		local sizeClass = (
 			derived(function(use): Env.SizeClass
-				return adaptive.sizeClass(use(viewportWidth))
+				local class: Env.SizeClass = adaptive.sizeClass(use(viewportWidth))
+				return if class == "wide" and tenFoot(use) then "regular" else class
 			end) :: unknown
 		) :: ComposeTypes.Readable<Env.SizeClass>
 		local heightClass = (
 			derived(function(use): Env.HeightClass
-				return adaptive.heightClass(use(viewportHeight))
+				local class: Env.HeightClass = adaptive.heightClass(use(viewportHeight))
+				return if class == "tall" and tenFoot(use) then "medium" else class
 			end) :: unknown
 		) :: ComposeTypes.Readable<Env.HeightClass>
 		local function atLeast(target: Env.SizeClass): ComposeTypes.Readable<boolean>
@@ -229,6 +232,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return freeze(insets)
 		end)
 		local reduced = motion(ctx)
+		local isTenFoot = derived(function(use): boolean
+			return tenFoot(use)
+		end)
 		local environment: Env.Environment = freeze({
 			viewportSize = viewportSize,
 			viewportWidth = viewportWidth,
@@ -266,6 +272,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			interactionClasses = interactionClasses,
 			effectiveInput = effectiveInput,
 			displaySize = displaySize,
+			isTenFoot = isTenFoot,
+			navPlacement = (derived(function(use): adaptive.NavPlacement
+				return adaptive.navPlacement({
+					sizeClass = use(sizeClass),
+					heightClass = use(heightClass),
+					primary = use(interactionClasses).primary,
+					displaySize = use(displaySize),
+					tenFoot = use(isTenFoot),
+				})
+			end) :: unknown) :: ComposeTypes.Readable<adaptive.NavPlacement>,
 			safeInsets = safeInsets,
 			preferredTextSize = preferredTextSize,
 			reducedMotion = derived(function(use): boolean

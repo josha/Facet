@@ -193,6 +193,7 @@ export type Context = {
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
+	tenFoot: () -> (Use?) -> boolean,
 	touchFloor: () -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,
