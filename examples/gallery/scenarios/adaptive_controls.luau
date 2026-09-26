@@ -138,7 +138,6 @@ return {
 					step = 5,
 					thumb = "auto",
 					controlSize = "compact",
-					contained = true,
 				},
 				UI.Slider "Camera" {
 					LayoutOrder = 7,

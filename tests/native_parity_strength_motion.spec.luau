@@ -2039,7 +2039,7 @@ t.describe("performance lab motion flight", function()
 		end
 	)
 
-	t.it("the segmented selection fill slides between segments and snaps under reduced motion", function()
+	t.it("the segmented selection fill slides between segments laid out from their sizes and snaps under reduced motion", function()
 		local function run(reduced: boolean): (any, any, any)
 			local w = world({ reducedMotion = reduced })
 			local selected = Compose.cell("a")
@@ -2054,10 +2054,8 @@ t.describe("performance lab motion flight", function()
 					},
 				}
 			end)
-			for column, name in { "a", "b", "c" } do
-				local segment = find(screen, name)
-				segment.AbsolutePosition = w.engine.types.Vector2.new(100 * (column - 1), 0)
-				segment.AbsoluteSize = w.engine.types.Vector2.new(100, 44)
+			for _, name in { "a", "b", "c" } do
+				find(screen, name).AbsoluteSize = w.engine.types.Vector2.new(100, 44)
 			end
 			local fill = find(screen, "SelectionFill")
 			w.step(0.1)
@@ -2069,13 +2067,13 @@ t.describe("performance lab motion flight", function()
 			return w, fill, fill.Position.X.Offset
 		end
 		local w, fill, midway = run(false)
-		t.expect(midway > 0 and midway < 200).toBe(true)
+		t.expect(midway > 0 and midway < 208).toBe(true)
 		w.step(1)
-		t.expect(fill.Position.X.Offset).toBe(200)
+		t.expect(fill.Position.X.Offset).toBe(208)
 		t.expect(fill.Size.X.Offset).toBe(100)
 		w.close()
 		local still, _, snapped = run(true)
-		t.expect(snapped).toBe(200)
+		t.expect(snapped).toBe(208)
 		still.close()
 	end)
 end)
