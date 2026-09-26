@@ -33,6 +33,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"editing",
 	}
 	local FULL_SWIPE = 0.6
+	local RESISTANCE = 0.55
 	UI.RowActions = ctx.construct("RowActions", function(spec: CollectionTypes.RowActionsSpec): Frame
 		local leading: Types.Value<{ RowAction }> = spec.leading or {}
 		local trailing: Types.Value<{ RowAction }> = spec.trailing or {}
@@ -344,7 +345,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if axis == "horizontal" then
 				local maxLeading = if #actions("leading") > 0 then dimensions:peek().X else 0
 				local maxTrailing = if #actions("trailing") > 0 then dimensions:peek().X else 0
-				drag:set(math.clamp(startOffset + delta.X, -maxTrailing, maxLeading))
+				local raw = startOffset + delta.X
+				local edge: RowEdge = if raw > 0 then "leading" else "trailing"
+				local band = bandWidth(edge)
+				if not fullSwipe(edge) and math.abs(raw) > band then
+					raw = math.sign(raw) * (band + (math.abs(raw) - band) * RESISTANCE)
+				end
+				drag:set(math.clamp(raw, -maxTrailing, maxLeading))
 			end
 		end
 		local pressed: InputObject?

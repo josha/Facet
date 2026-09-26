@@ -65,6 +65,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"snap",
 		"header",
 		"dragLabel",
+		"autoscroll",
 		"onCellChange",
 		"alternatingRows",
 		"deletable",

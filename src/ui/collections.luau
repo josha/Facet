@@ -63,6 +63,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"onDelete",
 		"editing",
 		"dragLabel",
+		"autoscroll",
 		"onSelectionChange",
 		"onActivate",
 		"onReachEnd",

@@ -801,6 +801,41 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("scrolls a dragged row at the list's edge unless autoscroll is off", function()
+		for _, autoscroll in { true, false } do
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local E, V3 = engine.types.Enum, engine.types.Vector3
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList({
+					from = records(20),
+					key = key,
+					itemSize = 20,
+					reorderable = true,
+					autoscroll = autoscroll,
+					onReorder = function() end,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+			node:FindFirstChild("1", true):FindFirstChild("Action", true).InputBegan.fire({
+				UserInputType = E.UserInputType.MouseButton1,
+				Position = V3.new(50, 10, 0),
+			})
+			ctx.config.userInputService.InputChanged.fire({
+				UserInputType = E.UserInputType.MouseMovement,
+				Position = V3.new(50, 98, 0),
+			})
+			for _ = 1, 10 do
+				engine.heartbeat.fire(1 / 60)
+			end
+			t.expect(node.CanvasPosition.Y > 0).toBe(autoscroll)
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it("scrolls a horizontal rail by a mouse drag and keeps the press from activating a card", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3

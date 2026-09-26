@@ -2619,8 +2619,10 @@ destructive `rowActions`, so no swipe, menu or key can remove it. The paths per
 input:
 
 - Pointer: drag a row, or one of the selected rows to move them all, more than
-  6 pixels along the list. There is no handle. Delete or Backspace removes the
-  selected rows.
+  6 pixels along the list. There is no handle. The drag shows an image of the
+  row, stacked two or three deep for a selection, and scrolls the list near its
+  edges unless `autoscroll = false`. Delete or Backspace removes the selected
+  rows.
 - Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
   Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
   Edit mode shows, inside each row band, a round red minus at the leading

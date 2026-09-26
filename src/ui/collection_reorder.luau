@@ -581,7 +581,7 @@ return function<V, K>(
 			end)
 		end
 		startFrames = function()
-			if stopFrames then
+			if stopFrames or spec.autoscroll == false then
 				return
 			end
 			stopFrames = assert(ctx.runtime.host.frames).onFrame(function(delta)

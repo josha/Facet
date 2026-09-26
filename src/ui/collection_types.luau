@@ -39,6 +39,7 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	onDelete: ((keys: { K }) -> ())?,
 	editing: Types.ValueBoolean?,
 	dragLabel: ((item: V) -> string)?,
+	autoscroll: boolean?,
 	direction: ComposeTypes.OrderedCollectionDirection?,
 }
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
