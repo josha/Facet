@@ -1253,6 +1253,7 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 			t.expect(framed.ImageTransparency).toBe(0)
 			t.expect(framed.Image).toBe(ornate.assets.ornate_panel_frame.content)
 			t.expect(framed.SliceScale < 1).toBe(true)
+			t.expect(framed:FindFirstChildWhichIsA("UICorner").CornerRadius).toBe(w.engine.types.UDim.new(0, 0))
 			stopFramed()
 		end
 	)

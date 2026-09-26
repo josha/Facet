@@ -190,7 +190,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			Host.UICorner({
 				CornerRadius = function(use: ComposeTypes.Use): UDim
 					local shape = layer(use).corner
-					if shape == "square" then
+					if shape == "square" or art(use) then
 						return D.new(0, 0)
 					elseif shape == "pill" then
 						return D.new(0.5, 0)
