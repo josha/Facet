@@ -78,6 +78,7 @@ local function new(options: any?)
 		InputBegan = true,
 		InputChanged = true,
 		InputEnded = true,
+		LastInputTypeChanged = true,
 		WindowFocusReleased = true,
 		DragStart = true,
 		DragContinue = true,

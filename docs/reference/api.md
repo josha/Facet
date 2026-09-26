@@ -3517,7 +3517,11 @@ the look in its `chrome.focus` recipe (see [Themes](#themes)). The look shows
 after keyboard or gamepad input, or when the effective input is a gamepad, and
 hides after mouse or touch input. Call it inside a component and put the
 returned Frame (an invisible paint probe) in the ScreenGui that holds the
-StyleSheet link. `app.mount` does this for you.
+StyleSheet link. `app.mount` does this for you; `app({ focusRing = false })`
+leaves the PlayerGui's selection object to the game. Several apps share the one
+engine selection object: the latest mounted look is drawn, unmounting gives
+the previous look back, and the last unmount restores the object the game had
+before.
 
 The look takes the shape of the selected control: the control's own
 `UICorner` (a `corners = "pill"` Button, a Slider thumb), a pill for a Chip, a
@@ -3532,8 +3536,13 @@ control's own edge. A ring is drawn just outside the control at every distance,
 so it never covers a label that runs to the control's edge.
 
 A keyboard or gamepad selection inside a ScrollingFrame scrolls it so the
-selected control and one row of room on each side are in view, so the engine
-can always reach the next control (the pre-0.12 keep-visible rule).
+selected control and some room on each side are in view, so the engine can
+always reach the next control (the pre-0.12 keep-visible rule). The room is
+the control's height, but never more than half the space the control leaves in
+the window, so a tall control stays fully in view. Facet does this for every
+app that observes the selection, with or without `focusRing`; it reads
+`UserInputService:GetLastInputType()`, so a mouse or touch selection does not
+scroll.
 
 A control whose value has its own part makes that part the selected object,
 so the engine draws the look there: the Slider thumb and each range handle,

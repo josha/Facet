@@ -32,6 +32,9 @@ local function enumName(value: unknown, fallback: string): string
 	return fallback
 end
 
+type SelectionOwner = { prior: GuiObject?, rings: { GuiObject } }
+local selectionOwners: { [Instance]: SelectionOwner } = setmetatable({} :: any, { __mode = "k" })
+
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose = ctx.Compose
 	local config = ctx.config
@@ -59,21 +62,20 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local Host, E, D, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
 		local input = (config.services :: unknown) :: { UserInputService: UserInputService? }
 		local keyed = Compose.cell(false)
-		local function heard(event: InputObject)
-			local kind = event.UserInputType
-			if kind == E.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") then
-				keyed:set(true)
-			elseif kind == E.UserInputType.Touch or string.find(kind.Name, "^Mouse") then
-				keyed:set(false)
-			end
+		local function heard(kind: Enum.UserInputType)
+			keyed:set(kind == E.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") ~= nil)
 		end
 		local service = input.UserInputService
 		if service then
-			local began = service.InputBegan:Connect(heard)
-			local changed = service.InputChanged:Connect(heard)
+			local ok, last = pcall(function()
+				return service:GetLastInputType()
+			end)
+			if ok and last then
+				heard(last)
+			end
+			local connection = service.LastInputTypeChanged:Connect(heard)
 			Compose.cleanup(function()
-				began:Disconnect()
-				changed:Disconnect()
+				connection:Disconnect()
 			end)
 		end
 		local env = UI.environment()
@@ -261,21 +263,24 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end,
 			}),
 		})
-		Compose.watch(function(use: ComposeTypes.Use)
-			local target = use(selected) :: GuiObject?
-			if target and shown(use) and target:FindFirstAncestorWhichIsA("ScrollingFrame") then
-				local reach = target.AbsoluteSize.Y
-				UI.scrollToVisible(
-					target,
-					{ x = 0, y = -reach, w = target.AbsoluteSize.X, h = 3 * reach },
-					{ animated = false }
-				)
-			end
-		end)
+		local owner = selectionOwners[playerGui]
+		if owner == nil then
+			owner = { prior = playerGui.SelectionImageObject, rings = {} }
+			selectionOwners[playerGui] = owner
+		end
+		local held = owner :: SelectionOwner
+		table.insert(held.rings, ring)
 		playerGui.SelectionImageObject = ring
 		Compose.cleanup(function()
+			local index = table.find(held.rings, ring)
+			if index then
+				table.remove(held.rings, index)
+			end
 			if playerGui.SelectionImageObject == ring then
-				(playerGui :: any).SelectionImageObject = nil
+				(playerGui :: any).SelectionImageObject = held.rings[#held.rings] or held.prior
+			end
+			if #held.rings == 0 then
+				selectionOwners[playerGui] = nil
 			end
 		end)
 		return paint

@@ -214,11 +214,18 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			local entry = byProperty[property]
 			if entry == nil then
 				local cell = Compose.cell(observation.readProperty(node, property))
+				local selection = property == "SelectedObject"
 				local created: SharedObservation = {
 					cell = cell,
 					users = 0,
 					stop = observation.observeProperty(node, property, function()
-						cell:set(observation.readProperty(node, property))
+						local current = observation.readProperty(node, property)
+						cell:set(current)
+						if selection then
+							for _, hook in ctx.selectionHooks :: { (unknown) -> () } do
+								hook(current)
+							end
+						end
 					end),
 				}
 				byProperty[property] = created
@@ -301,6 +308,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		hapticPool[kind] = effect
 		return effect
 	end
+	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
 	type SelectionWaiters = { waiting: { [Instance]: () -> () }, count: number, stop: (() -> ())? }
 	local selectionWaiters: { [Instance]: SelectionWaiters } = {}

@@ -28,6 +28,7 @@ export type AppOptions = {
 	name: string?,
 	screen: Engine.ScreenGuiNativeProps?,
 	sheet: ThemeTypes.ThemeOptions?,
+	focusRing: boolean?,
 }
 export type AnchoredOptions = {
 	source: Overlay.PopoverSource,
@@ -125,7 +126,7 @@ return function(
 			props[1] = sheet
 			props[2] = Links.StyleLink({ StyleSheet = Compose.static(sheet) })
 			props[3] = component()
-			if target:IsA("PlayerGui") then
+			if target:IsA("PlayerGui") and settings.focusRing ~= false then
 				props[4] = UI.focusRing(target :: PlayerGui)
 			end
 			return Host.ScreenGui((props :: unknown) :: Engine.ScreenGuiNativeProps)

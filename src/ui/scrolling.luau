@@ -126,4 +126,37 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end
 		return moved
 	end
+
+	local function keyed(): boolean
+		local input = config.userInputService
+		if input == nil then
+			return false
+		end
+		local ok, last = pcall(function()
+			return input:GetLastInputType()
+		end)
+		if not ok or last == nil then
+			return false
+		end
+		return last == E.UserInputType.Keyboard or string.find(last.Name, "^Gamepad") ~= nil
+	end
+
+	table.insert(ctx.selectionHooks, function(selected: unknown)
+		if typeof(selected) ~= "Instance" and type(selected) ~= "table" then
+			return
+		end
+		local target = selected :: GuiObject
+		if not target:IsA("GuiObject") or not keyed() then
+			return
+		end
+		local scroller = target:FindFirstAncestorWhichIsA("ScrollingFrame")
+		if scroller == nil then
+			return
+		end
+		local height, window = target.AbsoluteSize.Y, scroller.AbsoluteWindowSize.Y
+		local room = math.clamp((window - height) / 2, 0, height)
+		UI.scrollToVisible(target, { x = 0, y = -room, w = target.AbsoluteSize.X, h = height + 2 * room }, {
+			animated = false,
+		})
+	end)
 end

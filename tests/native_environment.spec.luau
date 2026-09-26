@@ -1283,6 +1283,9 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 
 	t.it("keeps the next control in reach: a keyboard or pad selection scrolls one row of room into view", function()
 		local w, _, stop = ring(nil, { preferredInput = "Gamepad" })
+		w.input.GetLastInputType = function()
+			return w.Enum.UserInputType.Gamepad1
+		end
 		local V = w.engine.types.Vector2
 		local screen = w.engine.new("ScreenGui")
 		local list = w.engine.new("ScrollingFrame")
@@ -1295,6 +1298,75 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 		w.gui.SelectedObject = row
 		t.expect(list.CanvasPosition.Y).toBe(38)
 		stop()
+	end)
+
+	t.it("never scrolls a tall selection out of view to make room around it", function()
+		local w, _, stop = ring(nil, { preferredInput = "Gamepad" })
+		w.input.GetLastInputType = function()
+			return w.Enum.UserInputType.Gamepad1
+		end
+		local V = w.engine.types.Vector2
+		local screen = w.engine.new("ScreenGui")
+		local list = w.engine.new("ScrollingFrame")
+		list.Parent = screen
+		list.AbsolutePosition, list.AbsoluteWindowSize = V.new(0, 0), V.new(300, 200)
+		list.AbsoluteCanvasSize = V.new(300, 2000)
+		list.CanvasPosition = V.new(0, 300)
+		local card = w.engine.new("TextButton")
+		card.Parent = list
+		card.AbsolutePosition, card.AbsoluteSize = V.new(0, 100), V.new(300, 160)
+		w.gui.SelectedObject = card
+		local top = 100 - (list.CanvasPosition.Y - 300)
+		t.expect(top >= 0 and top + 160 <= 200).toBe(true)
+		stop()
+	end)
+
+	t.it("shares the one engine selection object among apps and gives back what was there before", function()
+		local w = world(nil, { environment = { preferredInput = "Gamepad" } })
+		local playerGui = w.engine.new("PlayerGui")
+		local own = w.engine.new("Frame")
+		playerGui.SelectionImageObject = own
+		local stopA = owned(w.runtime, function()
+			w.UI.focusRing(playerGui)
+		end)
+		local first = playerGui.SelectionImageObject
+		local stopB = owned(w.runtime, function()
+			w.UI.focusRing(playerGui)
+		end)
+		local second = playerGui.SelectionImageObject
+		t.expect(first ~= own and second ~= own).toBe(true)
+		stopB()
+		t.expect(playerGui.SelectionImageObject).toBe(first)
+		stopA()
+		t.expect(playerGui.SelectionImageObject).toBe(own)
+		w.stop()
+	end)
+
+	t.it("an app with focusRing = false leaves a game's own selection object alone", function()
+		for _, wanted in { true, false } do
+			local engine: any = require("./lib/native_engine").new()
+			local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			local playerGui = engine.new("PlayerGui")
+			local own = engine.new("Frame")
+			playerGui.SelectionImageObject = own
+			local app = Facet.app({
+				runtime = Facet.Roblox.createRuntime(engine),
+				types = engine.types,
+				parent = playerGui,
+				guiService = gui,
+				services = { GuiService = gui, UserInputService = input },
+				focusRing = if wanted then nil else false,
+			} :: any)
+			local stop = app.mount(function()
+				return app.UI.Button "Play" { label = "Play" }
+			end)
+			t.expect(`{wanted} {playerGui.SelectionImageObject == own}`).toBe(`{wanted} {not wanted}`)
+			stop()
+			t.expect(playerGui.SelectionImageObject).toBe(own)
+		end
 	end)
 
 	t.it("colours the focus look from the theme's focus role", function()
