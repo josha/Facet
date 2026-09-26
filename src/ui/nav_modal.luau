@@ -25,6 +25,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 
 	local function selecting(): (ComposeTypes.Use) -> boolean
 		local active = gui ~= nil and gui.SelectedObject ~= nil
+		if active and input and input.GetLastInputType then
+			local last = input:GetLastInputType()
+			active = last == E.UserInputType.Keyboard or string.find(last.Name, "^Gamepad") ~= nil
+		end
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		return function(use: ComposeTypes.Use): boolean
 			return active or (preferred ~= nil and use(preferred) == E.PreferredInput.Gamepad)

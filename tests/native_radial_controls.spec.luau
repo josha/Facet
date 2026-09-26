@@ -139,6 +139,33 @@ t.describe("native radial interaction policies", function()
 		t.expect(world.find("Center").Position.X.Offset).toBe(360)
 		world.stop()
 	end)
+	t.it("a pointer opening leaves the ring unhighlighted though a stale keyboard selection remains", function()
+		for _, last in { "MouseButton1", "Keyboard" } do
+			local world = setup(function()
+				return {
+					isPresented = Compose.cell(false),
+					center = "empty",
+					items = {
+						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" },
+						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" },
+					},
+				}
+			end)
+			local E = world.engine.types.Enum
+			world.input.GetLastInputType = function()
+				return E.UserInputType[last]
+			end
+			world.gui.SelectedObject = world.find("Launcher")
+			world.opened:set(true)
+			world.step(0.5)
+			local tagged = world.find("Sector-gear"):FindFirstChild("Sector", true):HasTag("facet-radial-candidate")
+			local inside = world.gui.SelectedObject ~= nil
+				and world.gui.SelectedObject:IsDescendantOf(world.find("RadialPanel"))
+			t.expect(`{last}:{tagged}:{inside}`)
+				.toBe(if last == "Keyboard" then `{last}:true:true` else `{last}:false:false`)
+			world.stop()
+		end
+	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")
