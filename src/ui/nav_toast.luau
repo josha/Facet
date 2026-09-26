@@ -608,6 +608,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end)
 		Compose.cleanup(function()
+			-- a row torn down with its owner (before it could retire) still hands the selection back
+			if gui and surfaces.within(gui.SelectedObject, row) then
+				gui.SelectedObject = if returnTo and returnTo.Parent then returnTo else nil
+			end
 			reservations.clear(layer, token)
 			actionRows[row] = nil
 			if record.row == row then
