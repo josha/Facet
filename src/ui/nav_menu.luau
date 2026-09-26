@@ -2365,6 +2365,13 @@ return function(
 						then E.UIFlexAlignment.Fill
 						else E.UIFlexAlignment.None
 				end, spec.axis, spec.sizing),
+				VerticalFlex = derive(function(use: ComposeTypes.Use?)
+					return if style == "segmented"
+							and read(spec.axis, use) == "y"
+							and read(spec.sizing, use) ~= "hug"
+						then E.UIFlexAlignment.Fill
+						else E.UIFlexAlignment.None
+				end, spec.axis, spec.sizing),
 			}),
 		}
 		if spec.query then
@@ -2417,7 +2424,7 @@ return function(
 						AutomaticSize = if style ~= "segmented"
 							then E.AutomaticSize.Y
 							else derive(function(use: ComposeTypes.Use?)
-								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.XY
+								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.Y
 							end, spec.axis),
 						label = derive(
 							labelOf,
@@ -2437,6 +2444,7 @@ return function(
 						icon = liveIcon(source),
 						TextSize = spec.textSize,
 						TextWrapped = if style == "segmented" then true else nil,
+						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
 							then "checkmark"
 							else nil,
@@ -2717,6 +2725,10 @@ return function(
 					local sizing: Enum.AutomaticSize = read(declaredAutomatic, use) or E.AutomaticSize.None
 					if tall(use) then
 						return if sizing == E.AutomaticSize.XY then E.AutomaticSize.X else E.AutomaticSize.None
+					end
+					if not across(use) then
+						local wide = sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
+						return if wide then E.AutomaticSize.XY else E.AutomaticSize.Y
 					end
 					return sizing
 				end

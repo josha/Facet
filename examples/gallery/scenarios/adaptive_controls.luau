@@ -287,7 +287,8 @@ return {
 								iconOnly = true,
 							},
 							Host.Frame "NavRailRow" {
-								Size = UDim2.new(1, 0, 0, 132),
+								Size = UDim2.fromScale(1, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
 								UI.Picker "NavRail" {
 									selected = section,
@@ -295,7 +296,7 @@ return {
 									style = "segmented",
 									axis = "y",
 									iconOnly = true,
-									Size = UDim2.fromOffset(52, 132),
+									Size = UDim2.fromOffset(52, 0),
 								},
 								UI.Text "NavReadout" {
 									text = function(use)

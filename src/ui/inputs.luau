@@ -884,6 +884,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Position = function(use: ComposeTypes.Use)
 						return if hasText(description, use) then D2.fromScale(0, 0) else D2.fromScale(0, 0.5)
 					end,
+					Size = if spec.TextXAlignment == nil
+						then nil
+						else function(use: ComposeTypes.Use)
+							return if hasText(description, use) then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+						end,
 				})
 				else ctx.row(content, {
 					Name = "Content",
@@ -894,7 +899,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			if not imageCard then
 				local layout = assert(contentFrame:FindFirstChildWhichIsA("UIListLayout"))
 				layout.VerticalAlignment = E.VerticalAlignment.Center
-				if not spec.row and not description then
+				if not spec.row and (not description or spec.TextXAlignment ~= nil) then
 					local alignment = spec.TextXAlignment
 					if alignment == nil then
 						layout.HorizontalAlignment = E.HorizontalAlignment.Center

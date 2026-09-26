@@ -458,4 +458,30 @@ t.describe("native Picker option indicator and search rows", function()
 		expect(value.Text).toBe("Hard")
 		w.stop()
 	end)
+
+	t.it("a segment whose live options carry no description centres its caption like a plain label", function()
+		local w = world({ style = "segmented", options = Compose.cell(THREE) })
+		local content = find(find(w.screen, "hard"), "Content")
+		expect(content.Size.X.Scale).toBe(1)
+		expect(content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment).toBe(w.E.HorizontalAlignment.Center)
+		w.stop()
+	end)
+
+	t.it("a vertical segmented strip grows to its segments and spreads them over a taller box", function()
+		local w = world({
+			style = "segmented",
+			axis = "y",
+			iconOnly = true,
+			options = {
+				{ value = "easy", label = "Easy", icon = "edit" },
+				{ value = "normal", label = "Normal", icon = "flag" },
+			},
+			Size = engines.new().types.UDim2.fromOffset(52, 60),
+		})
+		local strip = find(w.screen, "P")
+		expect(strip.AutomaticSize).toBe(w.E.AutomaticSize.Y)
+		expect(strip:FindFirstChildWhichIsA("UIListLayout").VerticalFlex).toBe(w.E.UIFlexAlignment.Fill)
+		expect(find(strip, "easy").AutomaticSize).toBe(w.E.AutomaticSize.Y)
+		w.stop()
+	end)
 end)
