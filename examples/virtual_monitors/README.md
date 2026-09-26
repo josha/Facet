@@ -39,7 +39,10 @@ sets the presence (Online, Away or Busy) of every avatar. About is a
 `UI.ErrorBoundary` contains each app: a failure shows "App stopped" with Try
 again, and the header and the other apps stay. In spatial
 mode, Focus fits a monitor to the camera, and All monitors returns to the
-overview. In screen mode, native Facet tabs select the app. Model state
+overview. In screen mode, native Facet tabs select the app. A
+`UI.Composition` overlay shows a running launch in a bottom-right `UI.Region`
+over every app, also after the details close. When the lane is too narrow,
+the region steps down from the game title and step to a compact chip. Model state
 survives page and monitor disposal. Compact viewports and ten-foot interfaces
 start in screen mode. An explicit choice takes precedence.
 

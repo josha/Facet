@@ -97,6 +97,9 @@ local function tour(world: any)
 	card:_fireSignal("MouseLeave")
 	press(card, "Body")
 	press(press(target, "Play"), "Primary")
+	local overlay = find(world.Desktop, "LaunchOverlay")
+	t.expect(overlay.Visible).toBe(true)
+	t.expect(find(overlay, "LaunchTitle").Text).toBe(model.selectedGame:peek().title)
 	press(target, "AboutRating")
 	press(find(target, "DetailSection"), "similar")
 	press(target, "close")
@@ -122,6 +125,7 @@ local function tour(world: any)
 		model.step(0.1, true)
 	end
 	t.expect(find(chat, "Feedback") ~= nil).toBe(true)
+	t.expect(overlay.Visible).toBe(false)
 	local desktop = world.Desktop
 	t.expect(find(desktop, "Apps") ~= nil).toBe(true)
 end
