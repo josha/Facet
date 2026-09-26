@@ -229,6 +229,12 @@ describe("toast schedule: held entries propose instead of retiring", function()
 		expect(f.events[1].reason).toBe("action")
 	end)
 
+	it("a queue cap below one still lets a toast show", function()
+		local f = fixture({ queueCap = 0 })
+		f.schedule.push({ data = "only" })
+		expect(f.keys()).toBe("only")
+	end)
+
 	it("an infinite duration never times out", function()
 		local f = fixture()
 		f.schedule.push({ data = "sticky", duration = math.huge })

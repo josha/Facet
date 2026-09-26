@@ -51,7 +51,7 @@ function toast_schedule.new(options: Options?): Schedule
 	local settings: Options = options or {}
 	local defaults = toast_schedule.DEFAULTS
 	local maxVisible = math.max(1, math.floor(positive(settings.maxVisible, defaults.maxVisible)))
-	local queueCap = math.floor(positive(settings.queueCap, defaults.queueCap))
+	local queueCap = math.max(1, math.floor(positive(settings.queueCap, defaults.queueCap)))
 	local duration = positive(settings.duration, defaults.duration)
 	local readFloor = positive(settings.readFloor, defaults.readFloor)
 	local now = settings.now or os.clock

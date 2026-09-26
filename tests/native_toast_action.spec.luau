@@ -677,6 +677,23 @@ t.describe("native Toast with an action: focus and input", function()
 		w.stop()
 	end)
 
+	t.it("the Down link from the raiser goes away once the selection moves on", function()
+		local a = caller()
+		local w = mount({ { c = a } })
+		local content = w.find("Content")
+		w.gui.SelectedObject = content
+		a.shown:set(true)
+		t.expect(content.NextSelectionDown).toBe(w.find("Action"))
+		w.gui.SelectedObject = w.find("Action")
+		t.expect(content.NextSelectionDown).toBe(w.find("Action"))
+		local page = w.find("Page")
+		page.Selectable = true
+		w.gui.SelectedObject = page
+		t.expect(content.NextSelectionDown).toBe(nil)
+		t.expect(w.rows()).toBe(1)
+		w.stop()
+	end)
+
 	t.it("a pointer press on Close leaves no click-eating catcher behind", function()
 		local a = caller()
 		a.shown:set(true)

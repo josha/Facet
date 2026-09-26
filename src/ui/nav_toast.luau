@@ -630,11 +630,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local target = surfaces.firstSelectable(row)
 		if raiser and target and (raiser.NextSelectionDown :: GuiObject?) == nil then
 			raiser.NextSelectionDown = target
-			Compose.cleanup(function()
+			local function unlink()
 				if raiser.NextSelectionDown == target then
 					raiser.NextSelectionDown = nil :: any
 				end
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				local selected = use(selection)
+				if selected ~= nil and selected ~= raiser and not surfaces.within(selected, row) then
+					unlink()
+				end
 			end)
+			Compose.cleanup(unlink)
 		end
 		local parent = ctx.observe.Parent(row)
 		Compose.watch(function(use: ComposeTypes.Use)

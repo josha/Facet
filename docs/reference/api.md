@@ -2590,7 +2590,9 @@ affixed Notice; its own reservation does not count). The action
 moves below long text. Arrival never takes the selection, and one Down from
 the control that had it reaches the row. Cancel (Escape or the B button) on a
 selected row proposes or retires with `cancel` and returns the selection to
-the content, also when the caller refuses. A visible row sets the
+the content, also when the caller refuses. The Down link from the control that had the selection lasts
+until the selection moves anywhere else; an action toast still stays until it
+is closed when it has no `duration`, as the snackbar did. A visible row sets the
 `FacetInsetBottom` attribute on its layer until it has slid out, so a bottom
 stack of display-only toasts docks above it. The row is a Frame named `Snack`
 at `ZIndex` 60. It slides up and fades in to enter, and slides down and fades
