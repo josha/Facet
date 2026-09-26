@@ -556,6 +556,7 @@ function parts.back(
 	local row = button:FindFirstChildWhichIsA("UIListLayout", true)
 	if row then
 		ctx.runtime.decorate(row, {
+			HorizontalAlignment = ctx.types.Enum.HorizontalAlignment.Left,
 			Padding = function(use: ComposeTypes.Use)
 				return ctx.types.UDim.new(0, ctx.metric("space.xs", use) / 2)
 			end,
