@@ -136,6 +136,35 @@ return function(
 			}
 			else { x = right + 1, y = bottom + 1, width = pixels.X, height = pixels.Y }
 	end)
+	if target:IsA("ScrollingFrame") then
+		local frame = target :: ScrollingFrame
+		local canvas = Compose.cell(frame.CanvasPosition)
+		table.insert(
+			connections,
+			frame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+				follow(function()
+					canvas:set(frame.CanvasPosition)
+				end)
+			end)
+		)
+		runtime.decorate(boundary, {
+			Position = function(use)
+				local rendered, factor, padding, at = use(size), use(scale), use(insets), use(canvas)
+				if factor.X <= 0 or factor.Y <= 0 then
+					return D2.fromScale(1, 1)
+				end
+				local width, height = rendered.X / factor.X, rendered.Y / factor.Y
+				local function inset(side: string, length: number): number
+					local value = padding[side]
+					return if value then value.Scale * length + value.Offset else 0
+				end
+				return D2.fromOffset(
+					at.X + width - inset("Left", width) - inset("Right", width),
+					at.Y + height - inset("Top", height) - inset("Bottom", height)
+				)
+			end,
+		})
+	end
 	runtime.decorate(container, {
 		Size = function(use)
 			local box: { width: number, height: number } = use(bounds)

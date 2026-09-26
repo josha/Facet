@@ -785,6 +785,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
 		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
 	})
+	rule(".facet-button-glyph.facet-appearance-utility::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-disclosure::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
 	rule(".facet-button-described::UIPadding", {
 		PaddingTop = types.UDim.new(0, 10 + (buttonInsets.top or 0)),
@@ -801,6 +807,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	})
 	local space: { [string]: number } = package.metrics.space or neutral.metrics.space
 	local rowGap = space.xs or neutral.metrics.space.xs
+	rule(".facet-calendar-choice::UIPadding", {
+		PaddingLeft = types.UDim.new(0, rowGap),
+		PaddingRight = types.UDim.new(0, rowGap),
+	})
 	for _, rung in { "", "xsmall", "compact", "regular", "large" } do
 		local step = if rung == "" then "regular" else rung
 		local paddingX = rungMetric(step, "paddingX")

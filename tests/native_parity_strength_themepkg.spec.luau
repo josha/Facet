@@ -1939,25 +1939,35 @@ t.describe("gallery theme packages", function()
 		g.stop()
 	end)
 
-	t.it("every skinned package keeps a media button's picture inside its art's content carve", function()
-		local checked = 0
-		for _, name in SHIPPED do
-			local package = built(name)
-			local skin = package.chrome and package.chrome.control
-			if skin and skin.kind ~= "native" and skin.kind ~= "none" then
-				checked += 1
-				local carve = skin.contentInsets or {}
-				local engine, runtime = world({ theme = package })
-				local sheet, stop = sheetFor(engine, runtime, package)
-				local padding = ruleNode(sheet, ".facet-button-media::UIPadding"):GetProperties()
-				t.expect(
-					`{name} {padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset}`
-				)
-					.toBe(`{name} {carve.left or 0} {carve.right or 0} {carve.top or 0}`)
-				stop()
-				runtime:dispose()
+	t.it(
+		"every skinned package keeps pictures inside the art carve, an art-less glyph unpadded and calendar choices tight",
+		function()
+			local checked = 0
+			for _, name in SHIPPED do
+				local package = built(name)
+				local skin = package.chrome and package.chrome.control
+				if skin and skin.kind ~= "native" and skin.kind ~= "none" then
+					checked += 1
+					local carve = skin.contentInsets or {}
+					local engine, runtime = world({ theme = package })
+					local sheet, stop = sheetFor(engine, runtime, package)
+					local padding = ruleNode(sheet, ".facet-button-media::UIPadding"):GetProperties()
+					t.expect(
+						`{name} {padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset}`
+					)
+						.toBe(`{name} {carve.left or 0} {carve.right or 0} {carve.top or 0}`)
+					local glyph =
+						ruleNode(sheet, ".facet-button-glyph.facet-appearance-utility::UIPadding"):GetProperties()
+					t.expect(`{name} glyph {glyph.PaddingTop.Offset} {glyph.PaddingLeft.Offset}`)
+						.toBe(`{name} glyph 0 0`)
+					local choice = ruleNode(sheet, ".facet-calendar-choice::UIPadding"):GetProperties()
+					local xs = (package.metrics.space or {}).xs or 4
+					t.expect(`{name} choice {choice.PaddingLeft.Offset}`).toBe(`{name} choice {xs}`)
+					stop()
+					runtime:dispose()
+				end
 			end
+			t.expect(checked > 0).toBe(true)
 		end
-		t.expect(checked > 0).toBe(true)
-	end)
+	)
 end)

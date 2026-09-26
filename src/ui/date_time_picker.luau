@@ -1089,15 +1089,18 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 				return tostring(now)
 			end
-			local trigger = UI.Button({
-				Name = menuName,
-				label = wordsOf,
-				trailingIcon = "chevron.down",
-				appearance = "utility",
-				enabled = function(use: Use)
-					return interactive(use)
-				end,
-			})
+			local trigger = ctx.styled(
+				UI.Button({
+					Name = menuName,
+					label = wordsOf,
+					trailingIcon = "chevron.down",
+					appearance = "utility",
+					enabled = function(use: Use)
+						return interactive(use)
+					end,
+				}),
+				"calendar-choice"
+			)
 			return UI.Menu({
 				items = items,
 				trigger = trigger :: GuiObject,
