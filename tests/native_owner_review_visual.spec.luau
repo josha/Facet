@@ -3,6 +3,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local themes = Facet.themes
+local fs = require("@lune/fs")
 
 local SHIPPED = {
 	"classic_desktop",
@@ -117,6 +118,27 @@ t.describe("owner review 2026-09-26b: visual", function()
 			t.expect(track.BackgroundTransparency).toBe(1)
 			stop()
 		end
+	end)
+
+	t.it("pads every gallery page inside its scroller, so an edge control's ring and shadow have room", function()
+		local offenders = {}
+		for _, name in fs.readDir("examples/gallery/scenarios") do
+			local lines = string.split(fs.readFile("examples/gallery/scenarios/" .. name), "\n")
+			local closing: string? = nil
+			for index, line in lines do
+				local indent = string.match(line, "^(\t+)Host%.UIPadding%(")
+				if indent then
+					closing = indent .. "}),"
+				elseif closing and line == closing then
+					local following = lines[index + 1] or ""
+					if string.find(following, "^" .. string.sub(closing, 1, -4) .. "Host%.ScrollingFrame") then
+						table.insert(offenders, name)
+					end
+					closing = nil
+				end
+			end
+		end
+		t.expect(offenders).toEqual({})
 	end)
 
 	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()

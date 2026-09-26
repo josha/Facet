@@ -41,13 +41,13 @@ return {
 			local root = Host.Frame "ProgressRing" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
 				Host.ScrollingFrame "Page" {
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					AutomaticCanvasSize = Enum.AutomaticSize.Y,

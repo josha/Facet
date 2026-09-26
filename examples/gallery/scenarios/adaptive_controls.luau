@@ -217,13 +217,13 @@ return {
 			return Host.Frame "AdaptiveScreen" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
 				Host.ScrollingFrame "BodyScroll" {
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
 					Size = UDim2.new(1, 0, 1, -60),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,

@@ -187,13 +187,13 @@ return {
 			local root = Host.Frame "ToastLab" {
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIPadding({
-					PaddingTop = D.new(0, 16),
-					PaddingBottom = D.new(0, 16),
-					PaddingLeft = D.new(0, 16),
-					PaddingRight = D.new(0, 16),
-				}),
 				Host.ScrollingFrame "Actions" {
+					Host.UIPadding({
+						PaddingTop = D.new(0, 16),
+						PaddingBottom = D.new(0, 16),
+						PaddingLeft = D.new(0, 16),
+						PaddingRight = D.new(0, 16),
+					}),
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					AutomaticCanvasSize = E.AutomaticSize.Y,
