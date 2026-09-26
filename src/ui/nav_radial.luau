@@ -464,11 +464,12 @@ return function(
 				local movingCenter = runtime.spring(function(use: ComposeTypes.Use)
 					return use(centerTarget)
 				end, { period = 0.18, damping = 1 })
+				local following = Compose.cell(false)
 				local center = Compose.formula(function(use: ComposeTypes.Use)
 					if use(interacting) and follow ~= "always" then
 						return use(frozenCenter)
 					end
-					return if reduced(use) then use(centerTarget) else use(movingCenter)
+					return if reduced(use) or not use(following) then use(centerTarget) else use(movingCenter)
 				end)
 				freezeCenter = function()
 					frozenCenter:set(center:peek())
@@ -659,6 +660,12 @@ return function(
 					return nil
 				end
 				local entry = runtime.timeline({ duration = 0.2 })
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(centerTarget)
+					if entry.completed:peek() then
+						following:set(true)
+					end
+				end)
 				local function spread(use: ComposeTypes.Use): number
 					return if reduced(use) then 1 else 0.2 + 0.8 * Compose.easing.outCubic(use(entry.progress))
 				end
