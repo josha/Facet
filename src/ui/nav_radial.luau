@@ -68,20 +68,6 @@ return function(
 			return selected
 		end
 		local appearance = choice(spec.appearance, "wedges", { "wedges", "buttons" }, "appearance")
-		local function iconic(items: { any }): boolean
-			if appearance == "buttons" then
-				return true
-			end
-			if #items == 0 then
-				return false
-			end
-			for _, item in items do
-				if not (item.labelStyle == "icon" or (item.compactLabel and item.compactLabel.prefer)) then
-					return false
-				end
-			end
-			return true
-		end
 		local function glyphOnly(item: Radial.RadialItemBase<V>): boolean
 			local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
 			return icon
@@ -101,7 +87,7 @@ return function(
 		choice(spec.center, "back", { "back", "root", "close", "content", "empty" }, "center")
 		choice(spec.completion, "close", { "close", "back", "root", "stay" }, "completion")
 		choice(spec.buttonSurface, "native", { "native", "none" }, "buttonSurface")
-		local scrim = choice(spec.scrim, "dark", { "dark", "light", "none" }, "scrim")
+		local scrim = choice(spec.scrim, "none", { "dark", "light", "none" }, "scrim")
 		local _, presetSweep = geometry.arc(spec.preset or "donut")
 		local corner = presetSweep < 360
 		local function ringWidth(use: ComposeTypes.Use?): number?
@@ -539,13 +525,8 @@ return function(
 								{
 									id = "$navigation",
 									label = if #prefix > 0 then "Back" else "Close",
-									icon = if not iconic(shown)
-										then nil
-										elseif #prefix > 0 then "chevron.leading"
-										else "close",
-									labelStyle = if iconic(shown) and appearance ~= "buttons"
-										then "icon" :: "icon"
-										else nil,
+									icon = if #prefix > 0 then "chevron.leading" else "close",
+									labelStyle = "icon" :: "icon",
 								}
 							if #prefix == 0 and spec.distribution == "compass" then
 								local slots: { [string]: boolean } = {}

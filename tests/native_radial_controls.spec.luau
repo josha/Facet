@@ -97,6 +97,32 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 
+	t.it("the ring's Back and Close are icon-only even when the level's items carry text labels", function()
+		local world = setup({
+			center = "empty",
+			items = {
+				{
+					id = "gear",
+					label = "Gear",
+					children = { { id = "wear", label = "Wear" }, { id = "tools", label = "Tools" } },
+				},
+				{ id = "wave", label = "Wave" },
+			},
+		})
+		world.step(0.5)
+		local function navigation()
+			local button = world.find("$navigation")
+			return button.Text, button:FindFirstChild("LeadingIcon", true).Visible
+		end
+		local text, glyph = navigation()
+		t.expect(`{text}|{glyph}`).toBe("|true")
+		world.find("gear").Activated.fire()
+		world.step(0.5)
+		text, glyph = navigation()
+		t.expect(`{text}|{glyph}`).toBe("|true")
+		t.expect(world.find("$navigation"):GetAttribute("label") or "Back").toBe("Back")
+		world.stop()
+	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")
@@ -504,7 +530,7 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it("presents on the modal layer over a dimmed page and a still tap outside the ring closes it", function()
-		local world = setup({ distribution = "compass", items = compass(function() end) })
+		local world = setup({ distribution = "compass", scrim = "dark", items = compass(function() end) })
 		local modal = world.find("Modal")
 		t.expect(modal.Parent).toBe(world.screen)
 		t.expect(modal.ZIndex >= 100).toBe(true)
@@ -574,17 +600,17 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it(
-		"scrim sets the ring's dim: dark by default, the theme scrim when light, none clear, and refuses other words",
+		"scrim sets the ring's dim: clear by default as in 0.11, dark or the theme scrim when asked, and refuses other words",
 		function()
 			for _, case in
-				{ { nil, true, true }, { "dark", true, true }, { "light", true, false }, { "none", false, false } }
+				{ { nil, false, false }, { "dark", true, true }, { "light", true, false }, { "none", false, false } }
 			do
 				local world = setup({ distribution = "compass", scrim = case[1], items = compass(function() end) })
 				local scrim = world.find("DismissOutside")
 				t.expect(`{case[1]}:{scrim:HasTag("facet-scrim")}:{scrim:HasTag("facet-radial-scrim")}`)
 					.toBe(`{case[1]}:{case[2]}:{case[3]}`)
 				t.expect(scrim.Visible).toBe(true)
-				if case[1] == "none" then
+				if case[1] == "none" or case[1] == nil then
 					t.expect(scrim.BackgroundTransparency).toBe(1)
 				end
 				world.stop()
@@ -608,6 +634,7 @@ t.describe("native radial interaction policies", function()
 		for _, label in { false, "Leave the wheel" } do
 			local world = setup({
 				distribution = "compass",
+				scrim = "dark",
 				centerLabel = if label then label else nil,
 				items = compass(function() end),
 			})
