@@ -768,7 +768,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				propose({ h = now.h, s = fx, v = 1 - fy })
 			end
 			local function beginDrag(position: Vector2)
-				if not mayEdit() then
+				if not mayEdit() or (gamepad() and read(selected) == (surface :: GuiObject?)) then
 					return
 				end
 				if not dragging:peek() then
