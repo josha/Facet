@@ -1807,6 +1807,10 @@ While the selection is on a control in a page, Left and Right (and the D-pad
 Left and Right) page back and forward. The selection then moves into the new
 page. Up and Down leave the pages.
 
+The native `UIPageLayout` moves between pages over 0.3 seconds, Cubic Out, with
+no overshoot, for Previous, Next, a dot and the arrow keys. A swipe released
+faster than 1200 pixels a second settles with the `Back` overshoot instead.
+
 ### Pagination
 
 Pagination selects one page of numbered results. It does not fetch data.

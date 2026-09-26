@@ -416,6 +416,39 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("eases between pages without overshoot, and overshoots only after a fast swipe", function()
+		local selection = Compose.cell("one")
+		local world = setup(function(UI, Host)
+			return UI.PageView({
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) },
+					{ id = "two", title = "Two", content = Host.Frame({}) },
+				},
+			})
+		end)
+		local Enum = world.engine.types.Enum
+		local layout = find(world.screen, "PagesLayout")
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
+		t.expect(layout.EasingDirection).toBe(Enum.EasingDirection.Out)
+		local pages = find(world.screen, "Pages")
+		local function swipe(distance: number)
+			local V3 = world.engine.types.Vector3
+			pages.InputBegan.fire({ UserInputType = Enum.UserInputType.Touch, Position = V3.new(300, 100, 0) })
+			pages.InputEnded.fire({
+				UserInputType = Enum.UserInputType.Touch,
+				Position = V3.new(300 - distance, 100, 0),
+			})
+		end
+		swipe(1)
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
+		swipe(300)
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Back)
+		find(world.screen, "Next").Activated.fire()
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
+		world.stop()
+	end)
+
 	t.it("snaps the showing page into place without motion when the pages frame resizes", function()
 		local world = setup(function(UI, Host)
 			return UI.PageView({

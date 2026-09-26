@@ -32,6 +32,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local navigationDepth = 0
 	local TAB_FADE: Nav.Transition = { seconds = 0.2, ease = Compose.easing.outQuad }
 	local PUSH_SPRING = { period = 0.3, damping = 1, tolerance = 1e-3 }
+	local FLING_SPEED = 1200
 	local PARALLAX = 0.3
 	local DIM = 0.1
 	local function content<P>(
@@ -1403,10 +1404,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local pageNodes: { [string]: Frame } = {}
 		local gui = surfaces.service("GuiService")
 		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
+		local fling = Compose.cell(false)
 		local layout = Host.UIPageLayout "PagesLayout" {
 			Animated = function(use: ComposeTypes.Use)
 				return read(ctx.config.reducedMotion, use) ~= true and not use(reduced)
 			end,
+			EasingStyle = function(use: ComposeTypes.Use)
+				return if use(fling) then E.EasingStyle.Back else E.EasingStyle.Cubic
+			end,
+			EasingDirection = E.EasingDirection.Out,
+			TweenTime = 0.3,
 			Circular = false,
 			FillDirection = E.FillDirection.Horizontal,
 			SortOrder = E.SortOrder.LayoutOrder,
@@ -1431,6 +1438,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ClipsDescendants = true,
 		}
 		surfaces.attach(pages, children)
+		local pressed: { x: number, at: number }? = nil
+		local function pointer(input: InputObject): boolean
+			return input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1
+		end
+		runtime.connect(pages, "InputBegan", function(input: InputObject)
+			if pointer(input) then
+				pressed = { x = input.Position.X, at = os.clock() }
+			end
+		end)
+		runtime.connect(pages, "InputEnded", function(input: InputObject)
+			local start = pressed
+			pressed = nil
+			if start and pointer(input) then
+				local seconds = math.max(os.clock() - start.at, 1 / 120)
+				fling:set(math.abs(input.Position.X - start.x) / seconds > FLING_SPEED)
+			end
+		end)
 		local changing = false
 		local parent = ctx.observe.Parent(pages)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -1473,6 +1497,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end)
 		local function step(amount: number): ()
+			fling:set(false)
 			local at = math.clamp(indexById[spec.selection:peek()] + amount, 1, #spec.pages)
 			spec.selection:set(spec.pages[at].id)
 		end
@@ -1513,6 +1538,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						return use(spec.selection) == id
 					end,
 					onActivate = function()
+						fling:set(false)
 						spec.selection:set(id)
 					end,
 				})
