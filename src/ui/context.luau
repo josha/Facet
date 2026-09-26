@@ -706,6 +706,24 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			size,
 			function(node: GuiObject)
 				node:AddTag("facet-list-row")
+				local captions = assert(content:FindFirstChild("Captions")) :: GuiObject
+				local wraps = node.AutomaticSize
+				local function hug()
+					local parent = node.Parent
+					local automatic = if parent and parent:IsA("GuiObject") then parent.AutomaticSize else nil
+					local hugging = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
+					local across = if hugging then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y
+					node.AutomaticSize = if hugging then Enum.AutomaticSize.XY else wraps
+					content.AutomaticSize, captions.AutomaticSize = across, across
+					for _, caption in parts.captions do
+						if caption:IsA("TextLabel") then
+							caption.Size = types.UDim2.fromScale(if hugging then 0 else 1, 0)
+							caption.AutomaticSize = across
+						end
+					end
+				end
+				runtime.connect(node, "AncestryChanged", hug)
+				hug()
 				local function tagRung(use: ComposeTypes.Use?)
 					local current = ctx.read(rung, use)
 					for _, name in { "xsmall", "compact", "regular", "large" } do
