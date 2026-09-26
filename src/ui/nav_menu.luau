@@ -741,6 +741,7 @@ return function(
 			CanvasSize = D2.fromOffset(0, 0),
 			ScrollingDirection = E.ScrollingDirection.Y,
 			ScrollBarThickness = 4,
+			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			rows,
 		}
 		local panel = Host.Frame "MenuPanel" {

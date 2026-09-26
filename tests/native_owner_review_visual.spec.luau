@@ -69,4 +69,31 @@ t.describe("owner review 2026-09-26b: visual", function()
 			end
 		end
 	end)
+
+	t.it("strokes a themed border inside the box so a container edge cannot clip it", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local counted = 0
+			for _, node in sheet:GetChildren() do
+				local selector = node.Selector :: string
+				local properties = node:GetProperties()
+				if string.sub(selector, -10) == "::UIStroke" and properties.ApplyStrokeMode.Name == "Border" then
+					counted += 1
+					t.expect(`{entry.label} {selector} {properties.BorderStrokePosition}`)
+						.toBe(`{entry.label} {selector} Enum.BorderStrokePosition.Inner`)
+				end
+			end
+			t.expect(counted > 5).toBe(true)
+			stop()
+		end
+	end)
+
+	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local scrolling = assert(style(sheet, "ScrollingFrame"))
+			t.expect(scrolling.VerticalScrollBarInset.Name).toBe("Always")
+			stop()
+		end
+	end)
 end)

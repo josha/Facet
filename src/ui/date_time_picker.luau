@@ -1829,6 +1829,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							AutomaticCanvasSize = E.AutomaticSize.Y,
 							ScrollingDirection = E.ScrollingDirection.Y,
 							ScrollBarThickness = 4,
+							VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 							panel :: Shared.Child,
 						}
 						ctx.styled(surface, "panel")

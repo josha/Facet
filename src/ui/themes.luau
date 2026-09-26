@@ -638,9 +638,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		})
 	end
 	local function rule(selector: string, properties: ThemeTypes.RuleProperties)
-		if string.sub(selector, -10) == "::UIStroke" and properties.ApplyStrokeMode == nil then
+		if string.sub(selector, -10) == "::UIStroke" then
 			properties = table.clone(properties)
-			properties.ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border
+			properties.ApplyStrokeMode = properties.ApplyStrokeMode or types.Enum.ApplyStrokeMode.Border
+			if properties.ApplyStrokeMode == types.Enum.ApplyStrokeMode.Border then
+				properties.BorderStrokePosition = properties.BorderStrokePosition
+					or types.Enum.BorderStrokePosition.Inner
+			end
 		end
 		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
@@ -648,7 +652,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	rule("ScrollingFrame", {
-		VerticalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
+		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = c("contentSecondary"),
