@@ -85,12 +85,11 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			return value == nil or value == "hug"
 		end
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local frame =
+		local frame = kit.plain(
 			Host.Frame(kit.assemble(native, properties, { kit.insets(spec.padding) }, children, function(node, index)
 				if node.ZIndex == 1 then
 					node.ZIndex = index
@@ -101,7 +100,9 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 						return count + 1
 					end)
 				end
-			end))
+			end)),
+			properties
+		)
 		if aligned then
 			Compose.watch(function(use: ComposeTypes.Use)
 				use(members)
@@ -140,7 +141,6 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
 		local size, automatic = kit.extent(spec, "fill", "fill")
 		local native: Engine.ScrollingFrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
@@ -161,8 +161,11 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			native.HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar
 		end
 		local flow: Types.Flow = { gap = spec.gap, align = spec.align, distribute = spec.distribute }
-		return Host.ScrollingFrame(
-			kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), kit.insets(spec.padding) }, children)
+		return kit.plain(
+			Host.ScrollingFrame(
+				kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), kit.insets(spec.padding) }, children)
+			),
+			properties
 		)
 	end)
 
@@ -226,13 +229,15 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			layout[1] = Host.UIAspectRatioConstraint({ AspectRatio = spec.aspectRatio })
 		end
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local node = Host.Frame(
-			kit.assemble(native, properties, { Host.UIGridLayout(layout), kit.insets(spec.padding) }, children)
+		local node = kit.plain(
+			Host.Frame(
+				kit.assemble(native, properties, { Host.UIGridLayout(layout), kit.insets(spec.padding) }, children)
+			),
+			properties
 		)
 		if flow == "column" then
 			local function count()
@@ -302,16 +307,17 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local size, automatic = kit.extent(flow, "fill", "hug")
 		local layout = kit.list(flow, vertical)
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local node =
+		local node = kit.plain(
 			Host.Frame(kit.assemble(native, properties, { layout, kit.insets(spec.padding) }, children, function(child)
 				shown[child] = ctx.observe.Visible(child)
 				tracked(child, sizes, parents, members)
-			end))
+			end)),
+			properties
+		)
 		local box, holder, content =
 			ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node), ctx.observe.AbsoluteContentSize(layout)
 		local rowNeed, lastCount = 0, 0
@@ -367,14 +373,16 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "fill", "hug")
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local node = Host.Frame(kit.assemble(native, properties, { kit.list({}, true) }, children, function(child)
-			tracked(child, sizes, parents, members)
-		end))
+		local node = kit.plain(
+			Host.Frame(kit.assemble(native, properties, { kit.list({}, true) }, children, function(child)
+				tracked(child, sizes, parents, members)
+			end)),
+			properties
+		)
 		local offered, holder = ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(members)
@@ -414,7 +422,6 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local size, automatic = kit.extent(box, "hug", "hug")
 		local failed: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
@@ -430,7 +437,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			end
 			return (spec.fallback(failure, retry) :: unknown) :: ComposeTypes.Node
 		end)
-		local root = Host.Frame(kit.assemble(native, properties, {}, { region }))
+		local root = kit.plain(Host.Frame(kit.assemble(native, properties, {}, { region })), properties)
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("FacetError", use(failed))
 		end)
@@ -523,11 +530,10 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	UI.Spacer = ctx.construct("Spacer", function(spec: Layout.SpacerProps): Frame
 		local native: Engine.FrameNativeProps = {
 			Name = "Spacer",
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 		}
-		local node = Host.Frame(ctx.props(spec, { "minLength" }, native))
+		local node = kit.plain(Host.Frame(ctx.props(spec, { "minLength" }, native)), spec)
 		local along = stackAxis(node, nil)
 		if spec.Size == nil then
 			runtime.decorate(node, {

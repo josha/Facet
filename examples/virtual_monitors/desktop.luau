@@ -46,7 +46,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			return if launch then launch.stage else 1
 		end
 		local function panel(stack, name, ...)
-			local plate = stack(name)({ gap = "xs", padding = "s", BackgroundTransparency = 0, Host.UICorner({}), ... })
+			local plate = stack(name)({ gap = "xs", padding = "s", Host.UICorner({}), ... })
 			plate:AddTag("facet-panel")
 			return plate
 		end

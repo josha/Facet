@@ -137,7 +137,6 @@ return function(ctx)
 		if isUser then
 			local card = UI.VStack("Message_" .. id)({
 				padding = 14,
-				BackgroundTransparency = 0,
 				ctx.rounded(18),
 				content({
 					Size = D2.new(0, 0, 0, 0),

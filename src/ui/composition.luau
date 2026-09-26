@@ -48,7 +48,6 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end)
 		local properties = (
 			ctx.props(spec, { "zone", "rank", "mayDrop", "form" }, {
-				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
@@ -85,7 +84,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
-		local node = Host.Frame(properties :: any)
+		local node = kit.plain(Host.Frame(properties :: any), spec)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(form)
@@ -166,9 +165,6 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		local gap: Types.Value<Types.Space> = if spec.gap == nil then "s" else spec.gap
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "s" else spec.padding
 		local under = Compose.cell(0)
-		properties.BackgroundTransparency = if properties.BackgroundTransparency == nil
-			then 1
-			else properties.BackgroundTransparency
 		properties.BorderSizePixel = 0
 		properties.Size = if properties.Size == nil then D2.fromScale(1, 1) else properties.Size
 		properties[#properties + 1] = kit.insets(function(use: ComposeTypes.Use): Types.Padding
@@ -212,7 +208,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			table.unpack(placed),
 		}
 		properties[#properties + 1] = safe
-		local root = Host.Frame(properties :: any)
+		local root = kit.plain(Host.Frame(properties :: any), spec)
 		kit.underTopbar(root, under)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false

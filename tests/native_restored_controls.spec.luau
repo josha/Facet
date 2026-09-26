@@ -604,7 +604,7 @@ t.describe("native restored controls: Spacer", function()
 		local space = themes.neutralPackage().metrics.space
 		local row = root:FindFirstChild("Row"):FindFirstChild("Gap")
 		t.expect(row:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(engine.types.Enum.UIFlexMode.Fill)
-		t.expect(row.BackgroundTransparency).toBe(1)
+		t.expect(row:HasTag("facet-layout")).toBe(true)
 		t.expect(row.Size).toBe(UDim2.fromOffset(space.m, 0))
 		floor:set("l")
 		t.expect(row.Size).toBe(UDim2.fromOffset(space.l, 0))

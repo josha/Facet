@@ -16,7 +16,7 @@ local function make(options: { [string]: any }?): (any, any, any)
 	return engine, runtime, Facet.controls(runtime, config :: any)
 end
 
-local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> ())
+local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> (), any)
 	local engine, runtime, UI = make(options)
 	local root: any
 	runtime.mount(function()
@@ -25,7 +25,7 @@ local function build(options: { [string]: any }?, body: (any, any) -> any): (any
 	end, engine.new("ScreenGui"))
 	return root, engine, function()
 		runtime:dispose()
-	end
+	end, runtime
 end
 
 local function child(node: any, className: string): any
@@ -86,7 +86,7 @@ t.describe("native layout primitives", function()
 			end)
 			local E = engine.types.Enum
 			t.expect(root.ClassName).toBe("Frame")
-			t.expect(root.BackgroundTransparency).toBe(1)
+			t.expect(root:HasTag("facet-layout")).toBe(true)
 			t.expect(root.BorderSizePixel).toBe(0)
 			t.expect(root.Size).toBe(engine.types.UDim2.new(0, 0, 0, 0))
 			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.XY)
@@ -408,7 +408,7 @@ t.describe("native layout primitives", function()
 			t.expect(root.Name).toBe("Home")
 			t.expect(root.Size).toBe(engine.types.UDim2.fromScale(1, 1))
 			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.None)
-			t.expect(root.BackgroundTransparency).toBe(1)
+			t.expect(root:HasTag("facet-layout")).toBe(true)
 			t.expect(child(root, "UIPadding").PaddingTop).toBe(engine.types.UDim.new(0, 16))
 			t.expect(child(root, "UIListLayout").FillDirection).toBe(E.FillDirection.Vertical)
 			t.expect(child(root, "UIListLayout").Padding).toBe(engine.types.UDim.new(0, 8))
@@ -555,7 +555,7 @@ t.describe("native layout primitives", function()
 			t.expect(root.AutomaticCanvasSize).toBe(E.AutomaticSize.Y)
 			t.expect(root.ScrollingDirection).toBe(E.ScrollingDirection.Y)
 			t.expect(root.VerticalScrollBarInset).toBe(E.ScrollBarInset.ScrollBar)
-			t.expect(root.BackgroundTransparency).toBe(1)
+			t.expect(root:HasTag("facet-layout")).toBe(true)
 			local layout = child(root, "UIListLayout")
 			t.expect(layout.FillDirection).toBe(E.FillDirection.Vertical)
 			t.expect(layout.Padding).toBe(engine.types.UDim.new(0, 8))
@@ -703,6 +703,95 @@ t.describe("native layout primitives", function()
 			t.expect(ok).toBe(false)
 			t.expect(string.find(tostring(message), "whole number", 1, true) ~= nil).toBe(true)
 			runtime:dispose()
+		end)
+	end)
+
+	t.describe("layout paint belongs to the StyleSheet", function()
+		local styleRules = require("./lib/style_rules")
+
+		local function painted(engine: any, sheet: any, node: any, property: string): any
+			local default = engine.new(node.ClassName)[property]
+			if node[property] ~= default then
+				return node[property]
+			end
+			local ruled = styleRules.resolve(sheet, node, property)
+			return if ruled == nil then default else ruled
+		end
+		local primitives: { [string]: (any, any) -> any } = {
+			VStack = function(UI)
+				return UI.VStack { UI.Text { text = "A" } }
+			end,
+			HStack = function(UI)
+				return UI.HStack { UI.Text { text = "A" } }
+			end,
+			ZStack = function(UI)
+				return UI.ZStack { UI.Text { text = "A" } }
+			end,
+			Screen = function(UI)
+				return UI.Screen { UI.Text { text = "A" } }
+			end,
+			ScrollView = function(UI)
+				return UI.ScrollView { UI.Text { text = "A" } }
+			end,
+			Grid = function(UI)
+				return UI.Grid { columns = 2, UI.Text { text = "A" } }
+			end,
+			AdaptiveStack = function(UI)
+				return UI.AdaptiveStack { UI.Text { text = "A" } }
+			end,
+			ViewThatFits = function(UI)
+				return UI.ViewThatFits { UI.Text { text = "A" } }
+			end,
+			Spacer = function(UI)
+				return UI.Spacer {}
+			end,
+			ErrorBoundary = function(UI)
+				return UI.ErrorBoundary {
+					view = function()
+						return UI.Text { text = "A" }
+					end,
+					fallback = function()
+						return UI.Text { text = "B" }
+					end,
+				}
+			end,
+			Region = function(UI)
+				return UI.Region { zone = "center", rank = 1, UI.Text { text = "A" } }
+			end,
+			Composition = function(UI)
+				return UI.Composition { UI.Region { zone = "center", rank = 1, UI.Text { text = "A" } } }
+			end,
+		}
+
+		t.it("a plain layout primitive stays transparent and one given a panel paints the theme panel", function()
+			local package = themes.neutralPackage()
+			local panel = package.style.themes[1].colors.surfaceStrong
+			for name, body in primitives do
+				local root, engine, stop, runtime = build(nil, body)
+				local _, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
+				end, engine.new("Folder"))
+				t.expect(`{name} plain {painted(engine, sheet, root, "BackgroundTransparency")}`).toBe(`{name} plain 1`)
+				root:AddTag("facet-panel")
+				t.expect(`{name} panel {painted(engine, sheet, root, "BackgroundTransparency")}`).toBe(`{name} panel 0`)
+				t.expect(painted(engine, sheet, root, "BackgroundColor3"))
+					.toBe(engine.types.Color3.new(panel.r, panel.g, panel.b))
+				stop()
+			end
+		end)
+
+		t.it("a caller's own BackgroundTransparency still owns the paint, even the default 0", function()
+			local package = themes.neutralPackage()
+			for _, value in { 0, 0.25 } do
+				local root, engine, stop, runtime = build(nil, function(UI)
+					return UI.VStack { BackgroundTransparency = value }
+				end)
+				local _, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
+				end, engine.new("Folder"))
+				t.expect(painted(engine, sheet, root, "BackgroundTransparency")).toBe(value)
+				stop()
+			end
 		end)
 	end)
 

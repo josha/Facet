@@ -13,6 +13,7 @@ export type Kit = {
 	underTopbar: (GuiObject, ComposeTypes.Cell<number>) -> (),
 	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
+	plain: <N>(N & Instance, unknown?) -> N & Instance,
 	stack: (
 		{ ComposeTypes.Child },
 		Shared.FrameNativeProps?,
@@ -360,6 +361,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return native
 	end
+
+	function kit.plain<N>(node: N & Instance, properties: unknown?): N & Instance
+		if ((properties or {}) :: { BackgroundTransparency: unknown? }).BackgroundTransparency == nil then
+			node:AddTag("facet-layout")
+		end
+		return node
+	end
 	function kit.stack(
 		children: { ComposeTypes.Child },
 		properties: Shared.FrameNativeProps?,
@@ -370,13 +378,15 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	): Frame
 		local size, automatic = kit.extent(flow, width or "hug", height or "hug")
 		local native: Shared.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		return Host.Frame(
-			kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding) }, children)
+		return kit.plain(
+			Host.Frame(
+				kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding) }, children)
+			),
+			properties
 		)
 	end
 	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)

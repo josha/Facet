@@ -49,7 +49,6 @@ return function(ctx)
 					width = "fill",
 					height = "fill",
 					padding = { top = 5, left = 6, right = 6, bottom = 4 },
-					BackgroundTransparency = 0,
 					Host.UICorner({ CornerRadius = ctx.D.new(0, 8) }),
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
@@ -142,7 +141,6 @@ return function(ctx)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
 		end,
 		AutomaticSize = E.AutomaticSize.None,
-		BackgroundTransparency = 0,
 		ctx.rounded(),
 		ctx.panelShadow(),
 		ctx.stage("AvatarPreview", ctx.actions.avatarContent, {

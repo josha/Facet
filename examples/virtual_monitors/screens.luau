@@ -227,7 +227,6 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		local root = UI.ZStack(name)({
 			width = "fill",
 			height = "fill",
-			BackgroundTransparency = 0,
 			SelectionGroup = true,
 			ClipsDescendants = true,
 			UI.Screen "Page" {

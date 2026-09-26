@@ -649,6 +649,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		ScrollBarImageColor3 = c("contentSecondary"),
 		ScrollBarImageTransparency = 0.4,
 	})
+	rule(".facet-layout", { BackgroundTransparency = 1 })
 	rule(".facet-text", {
 		TextColor3 = c("content"),
 		FontFace = f(package.metrics.typography.body.font),
