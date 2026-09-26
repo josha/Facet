@@ -476,7 +476,7 @@ return function(ctx: Shared.Context): Selection
 			ctx.Host.InputContext({
 				Name = "FacetEntry",
 				Parent = parent,
-				Priority = 1,
+				Priority = 30,
 				Sink = false,
 				ctx.Host.InputAction({
 					Name = "Enter",
@@ -630,7 +630,7 @@ return function(ctx: Shared.Context): Selection
 				ctx.Host.InputContext({
 					Name = "FacetResponderCancel",
 					Parent = parent,
-					Priority = 1,
+					Priority = 30,
 					Sink = false,
 					Enabled = function(use: ComposeTypes.Use): boolean
 						return use(engaged)

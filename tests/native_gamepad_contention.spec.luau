@@ -202,16 +202,17 @@ t.describe("inputPriority: the band Facet's own input contexts live in", functio
 		local fs = require("@lune/fs")
 		local band = Facet.inputPriority
 		t.expect(table.isfrozen(band)).toBe(true)
-		local lowest, highest = math.huge, -math.huge
+		local lowest, highest, seen = math.huge, -math.huge, 0
 		for _, file in fs.readDir("src/ui") do
-			if string.sub(file, -6) == ".luau" then
+			if string.sub(file, -5) == ".luau" then
 				local source = fs.readFile("src/ui/" .. file)
 				for value in string.gmatch(source, "[pP]riority = (%d+)") do
 					local number = tonumber(value) :: number
-					lowest, highest = math.min(lowest, number), math.max(highest, number)
+					lowest, highest, seen = math.min(lowest, number), math.max(highest, number), seen + 1
 				end
 			end
 		end
+		t.expect(seen > 50).toBe(true)
 		t.expect(band.belowControls < lowest).toBe(true)
 		t.expect(band.aboveFacet > highest).toBe(true)
 	end)
