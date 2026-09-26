@@ -1794,8 +1794,9 @@ fixed size.
 
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
-`controlSize` attribute. The strip stays 44 pixels high and centres the tabs
-in it. Without `controlSize`, each tab is 44 pixels high.
+`controlSize` attribute. The strip stays `targetSizes.minimum` high (44
+pixels, 66 at ten feet) and centres the tabs in it. Without `controlSize`,
+each tab is that high too.
 
 A TabView that is built inside the page of another TabView is nested, also
 when a branch of that page builds it later. A nested TabView uses a top band.
