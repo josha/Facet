@@ -692,7 +692,7 @@ function parts.tail(
 		end
 		outline:SetControlPoints(native)
 	end)
-	outline.Parent = panel.node
+	outline.Parent = panel.node:FindFirstChild("Fade") or panel.node
 	return { wedge }
 end
 

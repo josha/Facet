@@ -758,12 +758,18 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						end
 					end
 					group.Parent = node
+					local function carried(child: Instance): boolean
+						return child ~= group
+							and (
+								child:IsA("GuiBase2d")
+								or child:IsA("Path2D")
+								or child:IsA("Folder")
+								or child:IsA("UIGridStyleLayout")
+							)
+					end
 					keepSelection(function()
 						for _, child: Instance in node:GetChildren() do
-							if
-								child ~= group
-								and (child:IsA("GuiBase2d") or child:IsA("Folder") or child:IsA("UIGridStyleLayout"))
-							then
+							if carried(child) then
 								(child :: Instance).Parent = group
 							end
 						end
