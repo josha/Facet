@@ -88,6 +88,15 @@ t.describe("owner review 2026-09-26b: visual", function()
 		end
 	end)
 
+	t.it("rounds a menu's first and last rows with the panel's radius so a highlight stays inside the card", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local corner = assert(style(sheet, ".facet-menu-end::UICorner"))
+			t.expect(corner.CornerRadius.Offset).toBe(entry.package.metrics.radii.panel)
+			stop()
+		end
+	end)
+
 	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)

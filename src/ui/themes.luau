@@ -1272,6 +1272,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-menu-item::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-menu-end::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.panel) })
 	rule(".facet-menu-destructive", { TextColor3 = c("content") })
 	rule(".facet-menu-destructive >> .facet-button-caption", { TextColor3 = c("content") })
 	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("content") })
