@@ -2842,9 +2842,16 @@ return function(
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
 			if spec.multiple ~= true then
-				slideSelection(picker, segmentBoxes, currentOrder, spec.indicator, function(use: ComposeTypes.Use?)
-					return not across(use)
-				end, 4)
+				slideSelection(
+					picker,
+					segmentBoxes,
+					currentOrder,
+					(spec.indicator :: unknown) :: Types.Value<string>?,
+					function(use: ComposeTypes.Use?)
+						return not across(use)
+					end,
+					4
+				)
 			end
 			if not labelled then
 				local width = layoutWidth(picker)

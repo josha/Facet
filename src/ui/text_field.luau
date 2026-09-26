@@ -588,7 +588,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				name = "Clear",
 				icon = "close",
 				appearance = "utility",
-				shape = "circle",
+				shape = "circle" :: "circle",
 				Size = function(use: ComposeTypes.Use): UDim2
 					local side = math.max(36, use(textHeight) + 12) - 8
 					return D2.fromOffset(side, side)
@@ -598,7 +598,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						local floor = touchFloor(use)
 						return V2.new(floor, floor)
 					end,
-				},
+				} :: Shared.Child,
 				AnchorPoint = if framed then nil else V2.new(1, 0.5),
 				Position = if framed then nil else D2.fromScale(1, 0.5),
 				LayoutOrder = if framed then 40 else nil,

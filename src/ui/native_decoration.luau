@@ -148,8 +148,9 @@ return function(
 			end)
 		)
 		runtime.decorate(boundary, {
-			Position = function(use)
-				local rendered, factor, padding, at = use(size), use(scale), use(insets), use(canvas)
+			Position = function(use: ComposeTypes.Use): UDim2
+				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)
+				local padding: Insets = use(insets)
 				if factor.X <= 0 or factor.Y <= 0 then
 					return D2.fromScale(1, 1)
 				end

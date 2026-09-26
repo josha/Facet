@@ -221,7 +221,7 @@ return function(ctx: Shared.Context): Chrome
 			local function plateHeight(use: ComposeTypes.Use): number
 				local package = read(ctx.config.theme, use)
 				local skin = package and package.chrome and package.chrome.field
-				local carve = if skin
+				local carve: { top: number?, bottom: number? } = if skin
 						and skin.kind ~= "native"
 						and skin.kind ~= "none"
 					then skin.contentInsets or {}
