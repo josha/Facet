@@ -4,6 +4,7 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local themes = Facet.themes
 local fs = require("@lune/fs")
+local worlds = require("./lib/content_world")
 
 local SHIPPED = {
 	"classic_desktop",
@@ -149,6 +150,40 @@ t.describe("owner review 2026-09-26b: visual", function()
 			t.expect(art.ImageColor3).toBe(fill)
 			stop()
 		end
+	end)
+
+	t.it("skins a table row with the theme's control art, selected art when selected", function()
+		local parchment = (require :: any)("../examples/themes/fantasy_parchment").build(themes)
+		local selection = Facet.Compose.cell({ a = true })
+		local world = worlds.new(function(UI, Host)
+			return UI.Table({
+				from = Facet.Compose.cell({ { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } }),
+				key = "id",
+				selection = selection,
+				columns = {
+					{
+						id = "label",
+						label = "Name",
+						render = function(current)
+							return Host.TextLabel({ Text = current:peek().label })
+						end,
+					},
+				},
+			})
+		end, { reducedMotion = true, theme = parchment })
+		world.find("Body").AbsoluteWindowSize = world.V2(400, 300)
+		local rows = {}
+		for _, node in world.screen:GetDescendants() do
+			if node:HasTag("facet-tablerow") then
+				table.insert(rows, node)
+			end
+		end
+		t.expect(#rows).toBe(2)
+		for _, row in rows do
+			t.expect(row:HasTag("facet-skinned")).toBe(true)
+			t.expect(row:FindFirstChild("Skin", true) ~= nil).toBe(true)
+		end
+		world.stop()
 	end)
 
 	t.it("keeps a persistent vertical scroll bar gutter on every themed scroller", function()
