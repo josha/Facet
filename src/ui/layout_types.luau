@@ -21,6 +21,7 @@ export type StackProps = Engine.FrameProps & {
 	wrap: Types.ValueBoolean?,
 }
 export type ScreenProps = Engine.FrameProps & {
+	chrome: ("device" | "band" | "edge")?,
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,

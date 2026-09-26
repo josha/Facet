@@ -452,8 +452,16 @@ bar: when the screen reaches into the `GuiService.TopbarInset` band, the covered
 height is added to the top padding. This holds with `IgnoreGuiInset` on or off.
 The band covers the full width, as `CoreUISafeInsets` does. The background of
 the screen still fills its parent. A Screen in a SurfaceGui takes no top bar
-padding. Options: `gap`, `padding`, `align`, `distribute`, `width` and
-`height`.
+padding. At ten feet the Screen also adds the environment's `overscanInsets`
+(see [environment](#environment)). Options: `gap`, `padding`, `align`,
+`distribute`, `width`, `height` and `chrome`.
+
+`chrome` is the platform-chrome policy. `"device"` (the default) clears the
+device safe area, the top bar and the overscan. `"band"` lets the content ride
+the free strip of the top bar beside the engine's buttons (a game's own top
+row): no top bar padding, overscan kept. `"edge"` adds neither; pair it with
+`ScreenInsets = Enum.ScreenInsets.None` on the ScreenGui for art that reaches
+the glass. Your own persistent chrome is `padding`.
 
 ### VStack and HStack
 

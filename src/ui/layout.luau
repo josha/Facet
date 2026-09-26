@@ -40,7 +40,13 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	end)
 
 	UI.Screen = ctx.construct("Screen", function(spec: Layout.ScreenProps): Frame
-		local properties, children = split(spec, { "gap", "padding", "align", "distribute", "width", "height" })
+		local properties, children =
+			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome" })
+		local chrome = spec.chrome or "device"
+		assert(
+			chrome == "device" or chrome == "band" or chrome == "edge",
+			"Facet UI.Screen: chrome must be device, band or edge"
+		)
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
 		local distant = ctx.tenFoot()
@@ -58,15 +64,15 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				local margins = read(authored, use)
 				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
 					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
-					if type(margins) == "table" then
+					if type(margins) == "table" and chrome ~= "edge" then
 						return ctx.types.UDim.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
 					end
-					local fraction = if margins == nil and distant(use) then FRACTION[name] else 0
+					local fraction = if margins == nil and chrome ~= "edge" and distant(use) then FRACTION[name] else 0
 					return ctx.types.UDim.new(fraction, pixels)
 				end
 				return (
 					{
-						top = side("top", use(under)),
+						top = side("top", if chrome == "device" then use(under) else 0),
 						right = side("right", 0),
 						bottom = side("bottom", 0),
 						left = side("left", 0),
