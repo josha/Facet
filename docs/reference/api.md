@@ -83,6 +83,7 @@ The app has these fields:
 | `UI` | `Facet.controls(runtime, options)`. |
 | `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. In a PlayerGui it also mounts `UI.focusRing(playerGui)` (see [environment](#environment)). It returns the stop function and the ScreenGui. |
 | `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
+| `presentToast(component, options?)` | Shows `component(app.UI)` as a `UI.Toast` in its own ScreenGui and returns `{ id, dismiss() }`. See [Toast](#toast). |
 | `presentAnchored(component, options)` | Shows `component(app.UI)` in a `UI.Popover` against `options.source` (`{ node }` or `{ rect }`), in its own ScreenGui from `mount`. `options` takes the Popover placement keys (`edge`, `align`, `gap`, `crossOffset`, `tail`, `maxWidth`, `maxHeight`), `modal`, `cancelPolicy` and `onDismiss`. The panel is always anchored, never a sheet. It returns `close, screen`. A dismissal (Cancel, an outside tap, a lost source node) or `close()` reports `onDismiss` once and stops the mount. Use it for a coach mark or a custom anchored panel that no control owns. |
 | `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |
 
@@ -2420,6 +2421,53 @@ so keep Close unless the row times out or its action hides it.
 
 To show a snackbar from code, mount a `UI.Snackbar` with `runtime.mount`. The
 stop function that the mount returns releases the row and reports `cancel`.
+
+### Toast
+
+`UI.Toast` returns an empty anchor Frame. Mounting it shows a transient,
+display-only message in a stack at the top (or bottom) of its layer. It
+retires itself; there is no `isPresented`.
+
+```luau
+runtime.mount(function()
+    return Host.ScreenGui {
+        UI.Toast "Saved" { message = "Settings saved", key = "save", duration = 3 },
+    }
+end, playerGui)
+```
+
+- `message` (a string or a bound string) or `content` (a factory for the
+  body). Give exactly one.
+- `duration`: seconds on screen, default 4. `readFloor`: the seconds before
+  anything may replace it, default 2.5.
+- `priority`: a number, default 0. Higher toasts go first in the queue.
+- `key`: a toast with the same key replaces a queued one at once and a
+  showing one when its read floor is met, so the two never show together.
+- `position`: `top` (the default) or `bottom`, the edge that the stack docks
+  to. Each edge of a layer has its own stack.
+- `width`: `fill` (the default) spans the layer less 16 pixels on each side.
+  `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
+- `onDismiss(reason)` reports the retirement once: `timeout`, `supersede`,
+  `preempt`, `capacity` or `manual` (the Toast unmounted first).
+
+At most three toasts show on an edge and eight wait. The queue is in priority
+order, first in first out within a priority. A more urgent toast replaces the
+weakest showing one, but only after that toast's read floor. At the cap the
+least urgent waiting toast retires with `capacity`; a showing toast never does.
+
+A toast is input-transparent: the row is neither `Active` nor `Interactable`,
+nothing in it is `Selectable`, it binds no input and it never takes the
+selection, so the controls under it work as before. Rows (`ToastRow`) paint
+at `ZIndex` 70, above the page and below a modal. A new row slides in from its
+edge and fades in, and the others slide to close the slot a retired row
+leaves. Under reduced motion the rows are placed at once, for the same times
+in the same order.
+
+`app.presentToast(component, options?) -> { id, dismiss() }` shows
+`component(app.UI)` as a toast in its own ScreenGui. `options` takes the keys
+above except `message` and `content`. `dismiss()` retires it with `manual`
+and returns false when it has already gone. The mount stops when the toast
+retires.
 
 ### Notice
 
