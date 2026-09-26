@@ -792,39 +792,46 @@ t.describe("native parity weaker menus", function()
 			.toBe(true)
 	end)
 
-	t.it("wraps an explicit segmented strip inside the width of its labelled row", function()
-		local world = setup(function(UI, Host)
-			return Host.Frame({
-				UI.Picker "Handling" {
-					label = "Handling",
-					style = "segmented",
-					selected = Compose.cell("a"),
-					options = {
-						{ value = "a", label = "Arcade handling" },
-						{ value = "b", label = "Simulation handling" },
-						{ value = "c", label = "Drift assist" },
-						{ value = "d", label = "Rally gravel" },
+	t.it(
+		"fits an explicit segmented strip inside the width of its labelled row: one constraint, shared width",
+		function()
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Handling" {
+						label = "Handling",
+						style = "segmented",
+						selected = Compose.cell("a"),
+						options = {
+							{ value = "a", label = "Arcade handling" },
+							{ value = "b", label = "Simulation handling" },
+							{ value = "c", label = "Drift assist" },
+							{ value = "d", label = "Rally gravel" },
+						},
 					},
-				},
-			})
-		end)
-		local row = find(world.root, "Handling")
-		local options = find(row, "Options")
-		t.expect(options:FindFirstChildWhichIsA("UIListLayout").Wraps).toBe(true)
-		t.expect(options:FindFirstChild("TargetFloor").MinSize.Y).toBe(50)
-		row.AbsoluteSize = V2(world, 390, 100)
-		local limit
-		for _, child in options:GetChildren() do
-			if child.ClassName == "UISizeConstraint" and child.Name ~= "TargetFloor" then
-				limit = child
+				})
+			end)
+			local row = find(world.root, "Handling")
+			local options = find(row, "Options")
+			-- the fill layout shares the width among the segments and their labels wrap (a fixed-height strip
+			-- cannot take a second line); the engine honours ONE UISizeConstraint per object, so the row limit
+			-- rides on TargetFloor
+			t.expect(options:FindFirstChildWhichIsA("UIListLayout").Wraps).toBe(false)
+			local floor = options:FindFirstChild("TargetFloor")
+			t.expect(floor.MinSize.Y).toBe(50)
+			local constraints = 0
+			for _, child in options:GetChildren() do
+				if child.ClassName == "UISizeConstraint" then
+					constraints += 1
+				end
 			end
+			t.expect(constraints).toBe(1)
+			row.AbsoluteSize = V2(world, 390, 100)
+			t.expect(floor.MaxSize.X).toBe(390)
+			row.AbsoluteSize = V2(world, 1280, 100)
+			t.expect(floor.MaxSize.X).toBe(1280)
+			world.stop()
 		end
-		t.expect(limit ~= nil).toBe(true)
-		t.expect(limit.MaxSize.X).toBe(390)
-		row.AbsoluteSize = V2(world, 1280, 100)
-		t.expect(limit.MaxSize.X).toBe(1280)
-		world.stop()
-	end)
+	)
 
 	t.it("leaves the segmented strip when the measured labels do not fit the width", function()
 		local long = {

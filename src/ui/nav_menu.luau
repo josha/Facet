@@ -12,6 +12,9 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
 
+-- a radio row's 18 px mark and the gap before its caption
+local RADIO_MARK = 18 + 8
+
 type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
 
 return function(
@@ -68,6 +71,31 @@ return function(
 			end
 		end
 		return labels
+	end
+	-- a caption wraps inside the room its button gives it; `across` is that room before the button's chrome
+	local function wrapCaptions(
+		button: GuiObject,
+		controlSize: Types.Value<Types.ControlSize>?,
+		across: (ComposeTypes.Use) -> number
+	)
+		local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
+		local function room(use: ComposeTypes.Use): Vector2
+			local package = ctx.read(ctx.config.theme, use)
+			local recipe = if package and package.chrome then package.chrome.control else nil
+			local insets = if recipe then recipe.contentInsets else nil
+			local side = ctx.controlSize(controlSize, "paddingX", use)
+			local chrome = math.max(side, if insets then insets.left or 0 else 0)
+				+ math.max(side, if insets then insets.right or 0 else 0)
+				+ if glyph then ctx.controlSize(controlSize, "iconSize", use) + 8 else 0
+			return V2.new(math.max(0, across(use) - chrome), math.huge)
+		end
+		for _, name in { "Title", "Description" } do
+			local caption = button:FindFirstChild(name, true)
+			if caption and caption:IsA("TextLabel") then
+				caption.TextWrapped = true
+				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
+			end
+		end
 	end
 	local function writable(cell: { set: unknown }, name: string)
 		assert(type(cell) == "table" and type(cell.set) == "function", name .. " requires a writable Compose cell")
@@ -2317,6 +2345,10 @@ return function(
 							end,
 						})
 						card:AddTag("facet-card-option")
+						local cardExtent = ctx.observe.AbsoluteSize(card)
+						wrapCaptions(card, spec.controlSize, function(use: ComposeTypes.Use): number
+							return use(cardExtent).X
+						end)
 						local content = card:FindFirstChild("Content")
 						if content then
 							runtime.mountFragment(function()
@@ -2467,9 +2499,6 @@ return function(
 				end, spec.axis),
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 4),
-				Wraps = derive(function(use: ComposeTypes.Use?)
-					return style == "segmented" and read(spec.axis, use) ~= "y"
-				end, spec.axis),
 				HorizontalFlex = derive(function(use: ComposeTypes.Use?)
 					return if style == "segmented"
 							and read(spec.axis, use) ~= "y"
@@ -2725,25 +2754,16 @@ return function(
 					end
 					local family = if style == "segmented" then "facet-segment" else "facet-choice"
 					button:AddTag(family)
+					if style == "radioGroup" then
+						local extent = ctx.observe.AbsoluteSize(button)
+						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
+							return use(extent).X - RADIO_MARK
+						end)
+					end
 					if style == "segmented" then
-						local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
-						local function captionRoom(use: ComposeTypes.Use): Vector2
-							local package = read(ctx.config.theme, use)
-							local recipe = if package and package.chrome then package.chrome.control else nil
-							local insets = if recipe then recipe.contentInsets else nil
-							local side = ctx.controlSize(spec.controlSize, "paddingX", use)
-							local chrome = math.max(side, if insets then insets.left or 0 else 0)
-								+ math.max(side, if insets then insets.right or 0 else 0)
-								+ if glyph then ctx.controlSize(spec.controlSize, "iconSize", use) + 8 else 0
-							return V2.new(math.max(0, use(room) - 2 * segmentMetrics.inset - chrome), math.huge)
-						end
-						for _, name in { "Title", "Description" } do
-							local caption = button:FindFirstChild(name, true)
-							if caption and caption:IsA("TextLabel") then
-								caption.TextWrapped = true
-								surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = captionRoom }) })
-							end
-						end
+						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
+							return use(room) - 2 * segmentMetrics.inset
+						end)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
@@ -2945,13 +2965,16 @@ return function(
 		Compose.watch(function(use: ComposeTypes.Use)
 			room:set(use(width))
 		end)
-		surfaces.attach(picker, {
-			Host.UISizeConstraint({
-				MaxSize = function(use: ComposeTypes.Use)
-					return V2.new(use(width), math.huge)
-				end,
-			}),
-		})
+		-- the engine honours one UISizeConstraint per object: a segmented strip's row limit rides on TargetFloor
+		local limit = picker:FindFirstChild("TargetFloor")
+		local maxSize = function(use: ComposeTypes.Use)
+			return V2.new(use(width), math.huge)
+		end
+		if limit then
+			runtime.decorate(limit, { MaxSize = maxSize })
+		else
+			surfaces.attach(picker, { Host.UISizeConstraint({ MaxSize = maxSize }) })
+		end
 		return row
 	end)
 

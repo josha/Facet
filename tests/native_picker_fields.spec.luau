@@ -397,6 +397,20 @@ t.describe("native Picker cards", function()
 		w2.stop()
 	end)
 
+	t.it("a long radio or card label wraps inside its row instead of running past it", function()
+		local LONG = { { value = "a", label = string.rep("A long label ", 12) }, { value = "b", label = "B" } }
+		for _, style in { "radioGroup", "cards" } do
+			local w = world({ style = style, options = LONG, selected = Compose.cell("b") })
+			local button = find(w.screen, if style == "cards" then "Card-a" else "a")
+			button.AbsoluteSize = w.engine.types.Vector2.new(300, 44)
+			local title = find(button, "Title")
+			expect(`{style} {title.TextWrapped}`).toBe(`{style} true`)
+			local limit = title:FindFirstChildWhichIsA("UISizeConstraint")
+			expect(`{style} {limit ~= nil and limit.MaxSize.X < 300}`).toBe(`{style} true`)
+			w.stop()
+		end
+	end)
+
 	t.it("a row of cards wraps and long copy wraps inside its card; cards take no appearance", function()
 		local w = world({ style = "cards", options = CARDS, axis = "x" })
 		local layout = find(w.screen, "Cards"):FindFirstChildWhichIsA("UIListLayout")

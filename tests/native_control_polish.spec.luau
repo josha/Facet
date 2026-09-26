@@ -315,13 +315,7 @@ t.describe("native segmented picker track", function()
 		local options = find(row, "Options")
 		local segment = find(options, "easy"):FindFirstChildWhichIsA("UISizeConstraint")
 		expect(segment.MaxSize.X).toBe(300 - 6)
-		local bound
-		for _, child in options:GetChildren() do
-			if child:IsA("UISizeConstraint") and child.Name ~= "TargetFloor" then
-				bound = child
-			end
-		end
-		expect(bound.MaxSize.X).toBe(300)
+		expect(options:FindFirstChild("TargetFloor").MaxSize.X).toBe(300)
 		w.stop()
 	end)
 
