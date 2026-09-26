@@ -80,6 +80,8 @@ export type Controls = {
 	environment: typeof(((nil :: unknown) :: Env.EnvironmentControls).environment),
 	focusRing: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusRing),
 	focusSection: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusSection),
+	draggable: typeof(((nil :: unknown) :: Env.EnvironmentControls).draggable),
+	dropTarget: typeof(((nil :: unknown) :: Env.EnvironmentControls).dropTarget),
 	worldAnchor: typeof(((nil :: unknown) :: Env.EnvironmentControls).worldAnchor),
 	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
 	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),

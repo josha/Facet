@@ -186,6 +186,8 @@ controls(runtime).VirtualList : function
 controls(runtime).Vote : function
 controls(runtime).ZStack : function
 controls(runtime).badged : function
+controls(runtime).draggable : function
+controls(runtime).dropTarget : function
 controls(runtime).environment : function
 controls(runtime).fill : function
 controls(runtime).focusRing : function

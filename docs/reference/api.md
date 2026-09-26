@@ -3188,6 +3188,60 @@ in the group, `Selectable` and visible. Call it inside a component or a Compose
 owner; it stops when the owner ends. It reads `GuiService.SelectedObject` and
 adds no input binding.
 
+### draggable and dropTarget
+
+`UI.draggable(source, spec)` lets a player pick up the GuiObject `source`, and
+`UI.dropTarget(target, spec)` lets the GuiObject `target` receive it. Call both
+inside a component or a Compose owner; they stop when the owner ends. Every
+input ends in the same drop:
+
+- Pointer and touch: press the source and move it 6 pixels. A release before
+  that is a tap, and the source's own activation still happens. While the
+  source is held, an inert copy of it (`DragGhost`) follows the pointer at the
+  root of its screen, and the target under the pointer is the aim. Release to
+  drop there.
+- Keyboard and gamepad: select the source and press Return or A to pick it up.
+  Move the selection into a target and press Return or A to drop. Escape or B
+  puts the source back.
+- `armOnTap = true`: a touch tap on the source picks it up, the list under it
+  still scrolls, and a tap on a target drops it.
+
+While the source is held it has the `facet-drag-held` tag and the
+`FacetDragHeld` attribute, so a theme or the game can empty its slot.
+
+```lua
+UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
+UI.dropTarget(slot, {
+	accepts = function(payload)
+		if payload.kind ~= "sponsor" then
+			return false, "WRONG_KIND"
+		end
+		return true
+	end,
+	onDrop = function(payload, info)
+		place(payload, info.target)
+	end,
+})
+```
+
+`draggable` spec:
+
+- `payload`: required. The value every target receives. A function is called
+  with the source at pickup.
+- `enabled`: a boolean or a readable. While false the source cannot be picked
+  up, and it stays selectable and activatable.
+- `armOnTap`: a touch tap picks the source up (above). Default `false`.
+
+`dropTarget` spec:
+
+- `onDrop(payload, info)`: required. `info` is `{ source, target, mode }`,
+  where `mode` is `"pointer"` or `"armed"`.
+- `accepts(payload) -> (legal, reason?)`: the game's rule. Without it the
+  target accepts everything. A refused drop calls `onReject(payload, reason)`
+  and puts the source back.
+- `onEnter(payload)` and `onLeave(payload)`: called once each time the aim
+  enters or leaves the target. A nested target wins over the one around it.
+
 ### environment
 
 `UI.environment(source?) -> Environment` returns readables of the engine facts
