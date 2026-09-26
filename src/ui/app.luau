@@ -19,6 +19,7 @@ export type AppOptions = {
 	icons: Types.Value<{ [string]: ThemeTypes.IconEntry }>?,
 	reducedMotion: Types.Value<boolean>?,
 	environment: Types.EnvironmentPreview?,
+	keyboardNavigation: boolean?,
 	pressHaptic: HapticEffect?,
 	onError: ((unknown) -> ())?,
 	runtime: Types.Runtime?,

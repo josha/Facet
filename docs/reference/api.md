@@ -246,6 +246,7 @@ document their own write-then-notify behavior below.
   a console near. It outranks every inference. `overscanInsets`
   (`{ top, left, bottom, right }` in pixels, or `"none"`) replaces the default
   ten-foot margins. An unknown field or value causes an error.
+- `keyboardNavigation`: `false` binds no Tab traversal (see [Selection](#selection)).
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. A callout and a help
   plate place themselves inside `overlayParent` when you set it.
@@ -352,8 +353,20 @@ these rules:
 - Tab and Shift+Tab. Tab selects the next control in layout order.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
   stays inside an open modal. It skips hidden, disabled and removed controls.
-  The `FacetTraversal` input context is a child of `inputParent`, or of the
-  local `PlayerGui` when you do not set `inputParent`.
+  The native `SelectionOrder` of a control is its traversal tier: a lower
+  value comes first, and within a tier layout order wins (the `tabindex`
+  model). The `FacetTraversal` input context is a child of `inputParent`, or
+  of the local `PlayerGui` when you do not set `inputParent`. It is enabled
+  only while `UserInputService.KeyboardEnabled` is true, so a phone binds
+  nothing. The factory option `keyboardNavigation = false` disables it for a
+  HUD over live gameplay, where Tab belongs to the game.
+- Grids and lanes. The engine walks a grid in two dimensions. Use the native
+  properties for the rest: `SelectionGroup = true` on a container keeps the
+  arrows inside it, and `SelectionBehaviorUp`, `Down`, `Left` and `Right`
+  (`Stop` or `Escape`) choose per direction whether the arrows may leave it.
+  `NextSelectionUp`, `Down`, `Left` and `Right` name an explicit neighbour.
+  `UI.focusSection` chooses where the selection lands when it enters a
+  region.
 - Removal. When the selected control goes away, the selection moves to the
   nearest control that remains. A following control comes before a
   preceding control. A collection keeps the selection on its rows by key: it
@@ -3188,13 +3201,28 @@ the ScreenGui that holds the StyleSheet link. `app.mount` does this for you.
 
 ### focusSection
 
-`UI.focusSection(group)` remembers the item last selected inside the GuiObject
-`group`. When the selection enters the group from outside it, for example a
-gamepad or arrow key moving Left from a detail pane into a sidebar, it lands on
-that item instead of the one the engine finds nearest, while the item is still
-in the group, `Selectable` and visible. Call it inside a component or a Compose
-owner; it stops when the owner ends. It reads `GuiService.SelectedObject` and
-adds no input binding.
+`UI.focusSection(group, options?)` makes the GuiObject `group` an entry
+region for directional navigation. Call it inside a component or a Compose
+owner; it stops when the owner ends. It reads and writes
+`GuiService.SelectedObject` and adds no input binding or focus stop.
+
+| Option | Effect |
+|---|---|
+| `entry` | Where the selection lands when it enters `group` from outside. `"restore"` (the default): the item last selected there, while it is still selectable and visible. `"first"`: the first selectable item in layout order, every time. `"nearest"`: the engine's own choice. |
+| `preferred` | The name, or a relative path such as `"Hero/Play"`, of a descendant. On a `"restore"` entry with nothing remembered, it wins. |
+| `focusOnAppear` | `true` selects the first item in layout order when the section appears; a name or path selects that descendant. It acts only while something is already selected (keyboard or gamepad navigation), so a touch or mouse player gets no selection ring. |
+| `returnFocus` | `true` remembers the selected item when the section appears and selects it again when the section goes away, if it is still selectable and the selection was inside the section or gone. |
+
+An unknown option or `entry` causes an error. A branch that shows a detail
+over a list uses `focusOnAppear` and `returnFocus` together:
+
+```luau
+Compose.show(open, function()
+	local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back", onActivate = close } }
+	UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
+	return detail
+end)
+```
 
 ### environment
 

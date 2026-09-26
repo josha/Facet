@@ -139,6 +139,16 @@ return function(ctx: Shared.Context): (Instance) -> ()
 		if #list == 0 then
 			return
 		end
+		local position: { [GuiObject]: number } = {}
+		for index, node in list do
+			position[node] = index
+		end
+		table.sort(list, function(a: GuiObject, b: GuiObject): boolean
+			if a.SelectionOrder ~= b.SelectionOrder then
+				return a.SelectionOrder < b.SelectionOrder
+			end
+			return position[a] < position[b]
+		end)
 		local at = if selected then table.find(list, selected) else nil
 		local target = if at then list[(at - 1 + step) % #list + 1] elseif step < 0 then list[#list] else list[1]
 		local editing = if input and input.GetFocusedTextBox then input:GetFocusedTextBox() else nil
@@ -228,6 +238,7 @@ return function(ctx: Shared.Context): (Instance) -> ()
 			return nil, nil
 		end
 		local selectedObject = ctx.observe.SelectedObject(service)
+		local keyboard = ctx.observe.KeyboardEnabled(keys)
 		local record: Snapshot? = nil
 		local pending = false
 		local function recover(): ()
@@ -411,6 +422,9 @@ return function(ctx: Shared.Context): (Instance) -> ()
 				Parent = parent,
 				Priority = 1500,
 				Sink = true,
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return config.keyboardNavigation ~= false and use(keyboard) == true
+				end,
 				ctx.Host.InputAction({
 					Name = "Traverse",
 					Type = E.InputActionType.Bool,

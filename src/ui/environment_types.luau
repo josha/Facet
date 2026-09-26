@@ -64,10 +64,16 @@ export type WorldAnchor = { anchor: Types.Readable<WorldAnchorPoint>, dispose: (
 export type ScrollPosition = Vector2 | "top" | "bottom" | { x: number?, y: number? }
 export type ScrollOptions = { animated: boolean? }
 export type ScrollRect = { x: number, y: number, w: number, h: number }
+export type FocusSectionOptions = {
+	entry: ("restore" | "first" | "nearest")?,
+	preferred: string?,
+	focusOnAppear: (boolean | string)?,
+	returnFocus: boolean?,
+}
 export type EnvironmentControls = {
 	environment: (source: EnvironmentSource?) -> Environment,
 	focusRing: (playerGui: PlayerGui) -> Frame,
-	focusSection: (group: GuiObject) -> (),
+	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,
 	scrollTo: (frame: ScrollingFrame, position: ScrollPosition, options: ScrollOptions?) -> boolean,
 	scrollToVisible: (node: GuiObject, rect: ScrollRect?, options: ScrollOptions?) -> boolean,

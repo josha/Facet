@@ -144,6 +144,7 @@ export type Config = {
 	pressHaptic: HapticEffect?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
+	keyboardNavigation: boolean?,
 }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,
