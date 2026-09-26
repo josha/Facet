@@ -352,25 +352,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end, nil, true)
 			local children: { Types.Child } = { panel }
 			if tailed then
-				for _, part in
-					parts.tail(
-						ctx,
-						"Tail",
-						function(use: ComposeTypes.Use): (Vector2?, string)
-							local at = use(solved)
-							if at.tailSuppressed or at.tailX == nil or at.tailY == nil then
-								return nil, at.edge
-							end
-							return V2.new(at.tailX, at.tailY), at.edge
-						end,
-						amount,
-						function()
-							return 2
+				local tail = parts.tail(
+					ctx,
+					"Tail",
+					function(use: ComposeTypes.Use): (Vector2?, string)
+						local at = use(solved)
+						if at.tailSuppressed or at.tailX == nil or at.tailY == nil then
+							return nil, at.edge
 						end
-					)
-				do
-					table.insert(children, part)
-				end
+						return V2.new(at.tailX, at.tailY), at.edge
+					end,
+					amount,
+					function(): number
+						return 2
+					end
+				)
+				table.insert(children, tail[1])
+				table.insert(children, tail[2])
 			end
 			local modal = surfaces.modal(function()
 				return Host.Frame "Popup" {

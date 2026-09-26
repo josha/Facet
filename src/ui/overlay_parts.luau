@@ -543,7 +543,8 @@ function parts.back(
 	place: BackPlace?
 ): TextButton
 	local at: BackPlace = place or {}
-	local button = UI.Button "Back" {
+	local props: Inputs.ButtonProps = {
+		Name = "Back",
 		label = label or "Back",
 		icon = "chevron.leading",
 		appearance = "utility",
@@ -553,6 +554,7 @@ function parts.back(
 		Size = at.Size,
 		LayoutOrder = at.LayoutOrder,
 	}
+	local button = UI.Button(props)
 	local row = button:FindFirstChildWhichIsA("UIListLayout", true)
 	if row then
 		ctx.runtime.decorate(row, {

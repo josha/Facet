@@ -2084,8 +2084,8 @@ return function(
 					opened:set(value)
 				end,
 				trigger = trigger :: GuiButton,
-				edge = "bottom",
-				align = "end",
+				edge = "bottom" :: "bottom",
+				align = "end" :: "end",
 				maxWidth = ctx.metric("controls.popup.panelWidth"),
 				maxHeight = spec.maxHeight or 400,
 				title = spec.label,

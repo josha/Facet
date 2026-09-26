@@ -282,7 +282,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			spec.expanded:set(not spec.expanded:peek())
 		end
 		local root = UI.Button(buttonSpec)
-		local gui = surfaces.service("GuiService")
 		local input = surfaces.service("UserInputService")
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
