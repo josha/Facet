@@ -726,6 +726,56 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("drags an image of the row, stacked two or three deep for a selection, from a press anywhere on it", function()
+		for _, count in { 1, 2, 4 } do
+			local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+			local E, V3 = engine.types.Enum, engine.types.Vector3
+			local chosen = {}
+			for index = 1, count do
+				chosen[index] = true
+			end
+			local stop, node = runtime.mount(function()
+				return UI.VirtualList({
+					from = records(6),
+					key = key,
+					itemSize = 20,
+					selection = Compose.cell(chosen),
+					selectionMode = "multiple",
+					reorderable = true,
+					onReorder = function() end,
+					render = function(current)
+						return button(UI, current)
+					end,
+				})
+			end, target)
+			node.AbsoluteWindowSize = engine.types.Vector2.new(200, 120)
+			local row = node:FindFirstChild("1", true)
+			local reorderable = row:FindFirstChild("Reorderable", true)
+			reorderable.AbsoluteSize = engine.types.Vector2.new(200, 20)
+			local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(50, 10, 0) }
+			row:FindFirstChild("Action", true).InputBegan.fire(press)
+			ctx.config.userInputService.InputChanged.fire({
+				UserInputType = E.UserInputType.MouseMovement,
+				Position = V3.new(50, 40, 0),
+			})
+			local image = node:FindFirstChild("DragImage", true)
+			t.expect(image ~= nil).toBe(true)
+			t.expect(image.Interactable).toBe(false)
+			local layers = {}
+			for _, child in image:GetChildren() do
+				if child.Name == "Reorderable" then
+					table.insert(layers, child.Position.X.Offset)
+				end
+			end
+			table.sort(layers)
+			t.expect(table.concat(layers, ",")).toBe(if count == 1 then "0" elseif count == 2 then "0,6" else "0,6,12")
+			t.expect(reorderable.Interactable).toBe(false)
+			t.expect(image:FindFirstChild("DragLabel").Visible).toBe(count > 1)
+			stop()
+			runtime:dispose()
+		end
+	end)
+
 	t.it("draws icon actions at a fixed width and arms the first action past a 0.6 full swipe", function()
 		local engine, runtime, UI, target = setup()
 		local deleted = 0

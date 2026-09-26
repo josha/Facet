@@ -40,6 +40,7 @@ return function<V, K>(
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local TAP = 3
+	local STACK = 6
 	local reorderable = spec.reorderable == true
 	local deletable = spec.deletable == true
 	local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
@@ -207,9 +208,11 @@ return function<V, K>(
 			cancel()
 		end
 	end)
+	local rowNodes: { [K]: Frame } = {}
 	local selectedObject: ComposeTypes.Readable<unknown>? = if ctx.config.guiService
 		then ctx.observe.SelectedObject(ctx.config.guiService)
 		else nil
+	local pressRow: (K, InputObject) -> () = function() end
 	local function wrap(row: GuiObject, current: ComposeTypes.Readable<V>, key: K, painted: boolean?): Frame
 		local handleNode: Instance? = nil
 		local function toggle()
@@ -395,7 +398,23 @@ return function<V, K>(
 				table.insert(nativeProps, control)
 			end
 		end
-		return Host.Frame(nativeProps)
+		nativeProps.Interactable = function(use: ComposeTypes.Use)
+			local move = use(moving)
+			return not (move and move.pointer and move.included[key])
+		end
+		local frame = Host.Frame(nativeProps)
+		rowNodes[key] = frame
+		Compose.cleanup(function()
+			if rowNodes[key] == frame then
+				rowNodes[key] = nil
+			end
+		end)
+		if row:IsA("GuiButton") then
+			ctx.runtime.connect(row, "InputBegan", function(value: InputObject)
+				pressRow(key, value)
+			end)
+		end
+		return frame
 	end
 	local pressed: K? = nil
 	local pressOrigin: Vector2? = nil
@@ -405,8 +424,79 @@ return function<V, K>(
 			pressed, pressOrigin, pendingInput = key, V2.new(at.X, at.Y), value
 		end
 	end
+	pressRow = press
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
+		local canvasAt, bodyAt, screen =
+			ctx.observe.CanvasPosition(body), ctx.observe.Position(body), ctx.observe.AbsolutePosition(body)
+		local function dragImage(dropY: (ComposeTypes.Use) -> number): CanvasGroup
+			local move = assert(moving:peek())
+			local source = rowNodes[move.key]
+			local size = if source then source.AbsoluteSize else V2.zero
+			local layers = math.min(3, #move.keys)
+			local imageProps: Types.CanvasGroupProps = {
+				Name = "DragImage",
+				ZIndex = 9,
+				BackgroundTransparency = 1,
+				GroupTransparency = 0.1,
+				Interactable = false,
+				Size = D2.fromOffset(size.X + STACK * (layers - 1), size.Y + STACK * (layers - 1)),
+				Position = function(use: ComposeTypes.Use)
+					local live = use(moving)
+					local along = if live and live.pointer
+						then axis(live.pointer) - axis(use(screen)) + (if horizontal
+							then use(bodyAt).X.Offset
+							else use(bodyAt).Y.Offset) - axis(size) / 2
+						else dropY(use)
+					return if horizontal then D2.fromOffset(along, 0) else D2.fromOffset(0, along)
+				end,
+				ctx.styled(
+					ctx.text({
+						Name = "DragLabel",
+						ZIndex = 4,
+						BackgroundTransparency = 0,
+						AnchorPoint = V2.new(1, 0),
+						Position = D2.fromScale(1, 0),
+						Visible = #move.keys > 1,
+						Text = function(use: ComposeTypes.Use)
+							local live = use(moving)
+							if live == nil then
+								return ""
+							end
+							if #live.keys > 1 then
+								return tostring(#live.keys) .. " selected"
+							end
+							local index = assert(controls.indexOfKey)(live.key)
+							return if spec.dragLabel and index
+								then spec.dragLabel(live.rows[index])
+								else tostring(live.key)
+						end,
+					}),
+					"badge"
+				),
+			}
+			local image = Host.CanvasGroup(imageProps)
+			for layer = layers, 1, -1 do
+				local copy = if source then source:Clone() else nil
+				if copy then
+					local nodes = copy:GetDescendants()
+					table.insert(nodes, copy)
+					for _, node in nodes do
+						if node:IsA("GuiObject") then
+							node.Interactable, node.Active, node.Selectable = false, false, false
+						elseif node:IsA("UIDragDetector") or node:IsA("InputContext") then
+							(node :: any).Enabled = false
+						end
+					end
+					copy.AnchorPoint = V2.zero
+					copy.Position = D2.fromOffset(STACK * (layer - 1), STACK * (layer - 1))
+					copy.Size = D2.fromOffset(size.X, size.Y)
+					copy.ZIndex = layers - layer + 1
+					copy.Parent = image
+				end
+			end
+			return image
+		end
 		if input then
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
 				if
@@ -523,12 +613,10 @@ return function<V, K>(
 				stopFrames()
 			end
 		end)
-		local offset, origin, screen =
-			ctx.observe.CanvasPosition(body), ctx.observe.Position(body), ctx.observe.AbsolutePosition(body)
 		local rootProps: Types.FrameProps = {
 			Name = "ReorderFeedback",
 			Position = function(use: ComposeTypes.Use)
-				return if insideBody then D2.fromOffset(use(offset).X, use(offset).Y) else D2.fromOffset(0, 0)
+				return if insideBody then D2.fromOffset(use(canvasAt).X, use(canvasAt).Y) else D2.fromOffset(0, 0)
 			end,
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -543,10 +631,10 @@ return function<V, K>(
 					local candidate = move.remaining[move.slot + 1]
 					local index = if candidate then assert(controls.indexOfKey)(candidate) else #move.rows
 					local at = assert(controls.placementOf)(index or 1)
-					return (if insideBody then 0 elseif horizontal then use(origin).X.Offset else use(origin).Y.Offset)
+					return (if insideBody then 0 elseif horizontal then use(bodyAt).X.Offset else use(bodyAt).Y.Offset)
 						+ at.offset
 						+ (if candidate then 0 else at.size)
-						- axis(use(offset))
+						- axis(use(canvasAt))
 				end
 				local keyboardTargetProps: InputTypes.ButtonProps = {
 					Name = "Drop",
@@ -577,34 +665,7 @@ return function<V, K>(
 						},
 						"divider"
 					),
-					ctx.styled(
-						ctx.text({
-							Name = "DragLabel",
-							ZIndex = 9,
-							BackgroundTransparency = 0,
-							Text = function(use: ComposeTypes.Use)
-								local move = use(moving)
-								if move == nil then
-									return ""
-								end
-								if #move.keys > 1 then
-									return tostring(#move.keys) .. " selected"
-								end
-								local index = assert(controls.indexOfKey)(move.key)
-								return if spec.dragLabel and index
-									then spec.dragLabel(move.rows[index])
-									else tostring(move.key)
-							end,
-							Position = function(use: ComposeTypes.Use)
-								local move = use(moving)
-								if move and move.pointer then
-									return D2.fromOffset(12, move.pointer.Y - use(screen).Y + use(origin).Y.Offset + 8)
-								end
-								return D2.fromOffset(12, dropY(use) + 8)
-							end,
-						}),
-						"panel"
-					),
+					dragImage(dropY),
 				}
 				return Host.Frame(nativeProps)
 			end),
