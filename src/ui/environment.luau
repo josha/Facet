@@ -291,11 +291,61 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		return environment
 	end
 
-	UI.focusSection = function(group: GuiObject)
+	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")
+		local settings: Env.FocusSectionOptions = options or {}
+		for key in (settings :: unknown) :: { [unknown]: unknown } do
+			assert(
+				key == "focusOnAppear" or key == "returnFocus",
+				`Facet UI.focusSection: unknown option '{tostring(key)}'`
+			)
+		end
+		local appear = settings.focusOnAppear
+		assert(
+			appear == nil or type(appear) == "boolean" or (type(appear) == "string" and appear ~= ""),
+			"Facet UI.focusSection: focusOnAppear is a boolean or a descendant name"
+		)
 		local gui = config.guiService
 		if gui == nil then
 			return
+		end
+		if appear or settings.returnFocus then
+			local input = config.userInputService
+			local before: GuiObject? = nil
+			local layer: LayerCollector? = nil
+			local function claim()
+				local at = group:FindFirstAncestorWhichIsA("LayerCollector")
+				if layer or at == nil then
+					return
+				end
+				layer, before = at, gui.SelectedObject
+				local navigating = before ~= nil
+					or (input ~= nil and input.PreferredInput == ctx.types.Enum.PreferredInput.Gamepad)
+				if not navigating or not appear then
+					return
+				end
+				local target = if type(appear) == "string" then group:FindFirstChild(appear, true) else nil
+				if target and target:IsA("GuiObject") then
+					gui.SelectedObject = target
+				elseif appear == true then
+					gui:Select(group)
+				end
+			end
+			ctx.runtime.connect(group, "AncestryChanged", claim)
+			claim()
+			if settings.returnFocus then
+				Compose.cleanup(function()
+					local current = gui.SelectedObject
+					if before == nil or (current ~= nil and not current:IsDescendantOf(group)) then
+						return
+					end
+					if before:FindFirstAncestorWhichIsA("LayerCollector") then
+						gui.SelectedObject = before
+					elseif layer then
+						gui:Select(layer)
+					end
+				end)
+			end
 		end
 		local selected = ctx.observe.SelectedObject(gui)
 		local last: GuiObject? = nil
