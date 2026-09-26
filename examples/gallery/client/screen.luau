@@ -442,6 +442,7 @@ function screen.build(ctx: any)
 			align = "start",
 			tail = false,
 			maxWidth = 460,
+			maxHeight = 560,
 			trigger = UI.Button "Showcase" {
 				label = function(use)
 					return if use(open) then "Close" else titles[use(selected)] or "Demos"

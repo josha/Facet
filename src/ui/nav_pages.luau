@@ -1137,25 +1137,33 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end, function()
 					expanded:set(false)
 				end, { priority = 1100 + depth })
-				local first = true
-				Compose.watch(function(use: ComposeTypes.Use)
-					use(expanded)
-					if first then
-						first = false
-						return
-					end
-					local current = gui and gui.SelectedObject
-					local content = root:FindFirstChild("Content")
-					local chrome = current ~= nil
-						and surfaces.within(current, root)
-						and not (content and surfaces.within(current, content))
-						and not surfaces.within(current, bar)
-					local button = tabButtons[spec.selection:peek()]
-					if gui and chrome and button and current ~= button then
-						gui.SelectedObject = button
-					end
-				end)
 			end
+			local function inChrome(node: GuiObject?): boolean
+				local content = root:FindFirstChild("Content")
+				return node ~= nil
+					and surfaces.within(node, root)
+					and not (content and surfaces.within(node, content))
+					and not surfaces.within(node, bar)
+			end
+			local accessory: GuiObject? = nil
+			Compose.watch(function(use: ComposeTypes.Use)
+				local current = use(selectedObject) :: GuiObject?
+				accessory = if inChrome(current) then current else nil
+			end)
+			local first = true
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(placement)
+				if first then
+					first = false
+					return
+				end
+				local button = tabButtons[spec.selection:peek()]
+				local current = gui and gui.SelectedObject
+				if gui and button and (accessory ~= nil or inChrome(current)) and current ~= button then
+					accessory = nil
+					gui.SelectedObject = button
+				end
+			end)
 		end
 		return root
 	end)

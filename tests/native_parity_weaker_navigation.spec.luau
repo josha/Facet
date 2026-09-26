@@ -840,6 +840,32 @@ t.describe("native parity weaker navigation", function()
 		end
 	)
 
+	t.it("moves the selection from a vanished accessory to the current tab when the home changes", function()
+		local preference = Compose.cell("topBar")
+		local world = setup(function(UI, Host)
+			return UI.TabView("Apps")({
+				selection = Compose.cell("a"),
+				style = "sidebarAdaptable",
+				sidebarPreference = preference,
+				accessories = {
+					trailing = function()
+						return Host.TextButton("Switch")({ Selectable = true })
+					end,
+				},
+				tabs = {
+					{ id = "a", label = "A", content = page(Host, "a") },
+					{ id = "b", label = "B", content = page(Host, "b") },
+				},
+			})
+		end)
+		local view = find(world.screen, "Apps")
+		view.AbsoluteSize = V2(world, 1200, 900)
+		world.gui.SelectedObject = find(view, "Switch")
+		preference:set("sidebar")
+		t.expect(world.gui.SelectedObject).toBe(find(view:FindFirstChild("Tabs"), "a", "TextButton"))
+		world.stop()
+	end)
+
 	t.it("expands a distant sidebar on command and ButtonB collapses it back to the top bar", function()
 		local expanded = Compose.cell(false)
 		local world = setup(function(UI, Host)
