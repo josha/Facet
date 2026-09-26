@@ -631,7 +631,7 @@ t.describe("native parity weaker navigation", function()
 			end
 			categories.AbsoluteSize = ctx.types.Vector2.new(390, 844)
 			t.expect(direction("Categories")).toBe(Enum.FillDirection.Horizontal)
-			t.expect(categories:FindFirstChild("Tabs").Position.Y.Scale).toBe(0)
+			t.expect(categories:FindFirstChild("Tabs").Position.Y.Scale).toBe(1)
 			placement:set("side")
 			t.expect(direction("Categories")).toBe(Enum.FillDirection.Horizontal)
 			unchanged()
@@ -839,6 +839,38 @@ t.describe("native parity weaker navigation", function()
 			wide.stop()
 		end
 	)
+
+	t.it("a TabView inside a bar-less outer TabView (placement none) takes the full home policy", function()
+		for _, outerPlacement in { "none", "topBar" } do
+			local world = setup(function(UI, Host)
+				return UI.TabView("Outer")({
+					selection = Compose.cell("shell"),
+					placement = outerPlacement,
+					tabs = {
+						{
+							id = "shell",
+							label = "Shell",
+							content = function()
+								return UI.TabView("Inner")({
+									selection = Compose.cell("a"),
+									tabs = {
+										{ id = "a", label = "A", content = page(Host, "a") },
+										{ id = "b", label = "B", content = page(Host, "b") },
+									},
+								})
+							end,
+						},
+					},
+				})
+			end)
+			local inner = find(world.screen, "Inner")
+			inner.AbsoluteSize = V2(world, 390, 844)
+			local strip = inner:FindFirstChild("Tabs")
+			t.expect(`{outerPlacement} {strip.Position.Y.Scale}`)
+				.toBe(`{outerPlacement} {if outerPlacement == "none" then 1 else 0}`)
+			world.stop()
+		end
+	end)
 
 	t.it("moves the selection from a vanished accessory to the current tab when the home changes", function()
 		local preference = Compose.cell("topBar")

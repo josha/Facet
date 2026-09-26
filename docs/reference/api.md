@@ -1800,6 +1800,8 @@ each tab is that high too.
 
 A TabView that is built inside the page of another TabView is nested, also
 when a branch of that page builds it later. A nested TabView uses a top band.
+An outer TabView with `placement = "none"` shows no bar, so a TabView in its
+page is not nested and takes the full home policy.
 
 A page change uses a native crossfade. The default is
 `transition = { seconds = 0.2, ease = Compose.easing.outQuad }`. Supply other

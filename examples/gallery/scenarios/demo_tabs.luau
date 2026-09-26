@@ -52,7 +52,8 @@ return function(ctx: any, id: string, groups: { any })
 			style = "sidebarAdaptable",
 			sidebarExpanded = expanded,
 			placement = function(use)
-				if use(distant) then
+				local choice = use(preference)
+				if use(distant) or choice == "automatic" then
 					return "automatic"
 				end
 				return if use(side) then "sidebar" else "topBar"

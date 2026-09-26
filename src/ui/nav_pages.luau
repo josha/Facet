@@ -855,11 +855,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					state: ComposeTypes.Readable<ComposeTypes.LayerStackState>,
 					id: string
 				): Instance
-					tabDepth += 1
+					local step = if spec.placement == "none" then 0 else 1
+					tabDepth += step
 					local ok, built = pcall(function(): Instance
 						return content(byId[current:peek()].content, nil)
 					end)
-					tabDepth -= 1
+					tabDepth -= step
 					if not ok then
 						error(built, 0)
 					end
@@ -872,7 +873,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								return use(state).top
 							end,
 							SelectionGroup = true,
-							Attributes = { FacetTabPage = true } :: Types.Attributes,
+							Attributes = { FacetTabPage = spec.placement ~= "none" } :: Types.Attributes,
 							built,
 						},
 						state,
