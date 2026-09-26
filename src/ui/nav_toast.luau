@@ -61,6 +61,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local gui = surfaces.service("GuiService")
 	local stacks: { [Instance]: { [string]: Stack } } = setmetatable({} :: any, { __mode = "k" })
 	local actionRows: { [GuiObject]: boolean } = setmetatable({} :: any, { __mode = "k" })
+	local actionTokens: { [unknown]: boolean } = setmetatable({} :: any, { __mode = "k" })
 	local returnTo: GuiObject? = nil
 
 	local function wanted(record: Record): boolean
@@ -183,9 +184,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if not paused(stack) then
 					stack.time += dt
 				end
-				if stack.lane ~= "action" then
-					stack.inset:set(reservations.reserved(stack.layer, stack.lane :: reservations.Edge))
-				end
+				stack.inset:set(
+					if stack.lane == "action"
+						then reservations.reserved(stack.layer, "bottom", actionTokens)
+						else reservations.reserved(stack.layer, stack.lane :: reservations.Edge)
+				)
 				stack.schedule.update()
 			end)
 		end
@@ -580,8 +583,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local measured = ctx.observe.AbsoluteSize(row)
 		runtime.decorate(row, {
 			Position = function(use: ComposeTypes.Use)
-				local travel = (1 - amount(use)) * (use(measured).Y + 16)
-				return D2.new(0.5, 0, 1, -16 + travel)
+				local travel = (1 - amount(use)) * (use(measured).Y + 16 + use(stack.inset))
+				return D2.new(0.5, 0, 1, -16 - use(stack.inset) + travel)
 			end,
 			Interactable = function(use: ComposeTypes.Use)
 				return not (phase and use(phase.exiting))
@@ -594,6 +597,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		record.row = row
 		actionRows[row] = true
 		local token = {}
+		actionTokens[token] = true
 		local at = ctx.observe.AbsolutePosition(row)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(measured)

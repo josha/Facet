@@ -2578,7 +2578,9 @@ With an action:
 
 One row shows and up to eight wait. Readable time pauses while the row is
 hovered or selected, or while a modal is open. Queued time does not count.
-The row uses `controls.snackbar.maxWidth`, bounded by the layer. The action
+The row uses `controls.snackbar.maxWidth`, bounded by the layer, and docks
+16 pixels above the app's reserved bottom chrome (a TabView bottom bar, an
+affixed Notice; its own reservation does not count). The action
 moves below long text. Arrival never takes the selection, and one Down from
 the control that had it reaches the row. Cancel (Escape or the B button) on a
 selected row proposes or retires with `cancel` and returns the selection to

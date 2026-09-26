@@ -36,7 +36,8 @@ function reservations.set(layer: Instance, token: unknown, edge: Edge, y: number
 	publish(layer)
 end
 
-function reservations.reserved(layer: GuiBase2d, edge: Edge): number
+-- `skip` names tokens whose own reservations do not count (a docked surface reading the chrome under it)
+function reservations.reserved(layer: GuiBase2d, edge: Edge, skip: { [unknown]: boolean }?): number
 	local parent = layer.Parent
 	local candidates: { Instance } = if parent then parent:GetChildren() else { layer }
 	local top, bottom = layer.AbsolutePosition.Y, layer.AbsolutePosition.Y + layer.AbsoluteSize.Y
@@ -46,8 +47,8 @@ function reservations.reserved(layer: GuiBase2d, edge: Edge): number
 		local shown = candidate == layer or not candidate:IsA("LayerCollector") or (candidate :: LayerCollector).Enabled
 		if entries and shown and candidate:IsA("GuiBase2d") then
 			local origin = (candidate :: GuiBase2d).AbsolutePosition.Y
-			for _, entry in entries do
-				if entry.edge == edge then
+			for token, entry in entries do
+				if entry.edge == edge and not (skip and skip[token]) then
 					reserved = math.max(
 						reserved,
 						if edge == "top" then origin + entry.y + entry.h - top else bottom - origin - entry.y
