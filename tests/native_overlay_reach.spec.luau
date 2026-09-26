@@ -169,17 +169,26 @@ t.describe("full-value disclosure of truncated text", function()
 		w.stop()
 	end)
 
-	t.it("touch long-press on a truncated label shows it until the next tap", function()
-		local w = label({ text = LONG, truncate = "end", disclose = true })
-		w.input.PreferredInput = w.Enum.PreferredInput.Touch
-		local name = w.find("Name")
-		name.TextFits = false
-		longPress(w, name)
-		t.expect(w.find("HelpText").Text).toBe(LONG)
-		tap(w)
-		t.expect(w.find("Disclosure")).toBeNil()
-		w.stop()
-	end)
+	t.it(
+		"touch long-press on a truncated label shows it until the next tap (the label is not Active, so the engine long-press is hit-tested)",
+		function()
+			local w = label({ text = LONG, truncate = "end", disclose = true })
+			w.input.PreferredInput = w.Enum.PreferredInput.Touch
+			local name = w.find("Name")
+			name.TextFits = false
+			longPress(w, name)
+			t.expect(w.find("Disclosure")).toBeNil()
+			w.input.TouchLongPress.fire({ Vector2.new(500, 500) }, w.Enum.UserInputState.Begin, false)
+			w.advance(0.05)
+			t.expect(w.find("Disclosure")).toBeNil()
+			w.input.TouchLongPress.fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin, false)
+			w.advance(0.05)
+			t.expect(w.find("HelpText").Text).toBe(LONG)
+			tap(w)
+			t.expect(w.find("Disclosure")).toBeNil()
+			w.stop()
+		end
+	)
 
 	t.it("a keyboard or gamepad selection on the row that holds the label discloses it", function()
 		local w = overlay.new(function(UI, Host)

@@ -722,12 +722,30 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local held = Compose.cell(false)
-		runtime.connect(anchor, "TouchLongPress", function(_: { Vector2 }, phase: Enum.UserInputState)
+		local function press(phase: Enum.UserInputState)
 			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
 				held:set(true)
 				help.hold(anchor, true)
 			end
-		end)
+		end
+		if anchor:IsA("GuiButton") then
+			runtime.connect(anchor, "TouchLongPress", function(_: { Vector2 }, phase: Enum.UserInputState)
+				press(phase)
+			end)
+		elseif input then
+			runtime.connect(input, "TouchLongPress", function(points: { Vector2 }, phase: Enum.UserInputState)
+				local point: Vector2? = points[1]
+				local layer = anchor:FindFirstAncestorWhichIsA("ScreenGui")
+				if point == nil or layer == nil or not displayed(anchor) then
+					return
+				end
+				local offset = if layer.IgnoreGuiInset and gui then gui:GetGuiInset() else V2.zero
+				local at, size = anchor.AbsolutePosition - offset, anchor.AbsoluteSize
+				if point.X >= at.X and point.X <= at.X + size.X and point.Y >= at.Y and point.Y <= at.Y + size.Y then
+					press(phase)
+				end
+			end)
+		end
 		runtime.connect(anchor, "InputBegan", function()
 			help.hold(anchor, false)
 		end)
