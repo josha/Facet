@@ -868,6 +868,7 @@ t.describe("native paint strength: button content", function()
 					})
 				end)
 				local states = {}
+				find(root.Parent, "alpha").MouseEnter.fire()
 				for _, id in { "alpha", "beta" } do
 					local button = find(root.Parent, id)
 					local fill = resolve(sheet, find(button.Parent, "Sector"), "Color3")

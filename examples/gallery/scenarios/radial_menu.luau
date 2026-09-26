@@ -111,7 +111,7 @@ return {
 				end
 				spec.preset, spec.center = "donut", "empty"
 				spec.anchor = stage
-				spec.ringWidth = 48
+				spec.ringWidth = "narrow"
 				spec.appearance = if item.separate then "buttons" else "wedges"
 				items = {
 					{
@@ -235,7 +235,7 @@ return {
 				spec.center = item.center
 				spec.centerPassThrough = item.passThrough
 				spec.clearance = 82
-				spec.ringWidth = 48
+				spec.ringWidth = "narrow"
 				items = {
 					{
 						id = "equipment",
@@ -367,7 +367,7 @@ return {
 					Size = UDim2.new(0, 13, 0, 30),
 				},
 			}
-			if item.kind == "character" then
+			if item.kind == "character" or item.kind == "gestures" then
 				spec.anchor = silhouette
 			end
 			local menuNode = UI.RadialMenu(spec)
@@ -379,6 +379,7 @@ return {
 			end)
 			local corner = string.gsub(item.corner, "%-(%a)", string.upper)
 			return UI.Composition "Scene" {
+				LayoutOrder = 3,
 				Size = UDim2.new(1, 0, 0, 260),
 				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }),
 				UI.Region "Subject" {
@@ -414,6 +415,7 @@ return {
 				else "Open your commands. Equipment leads to Tools. The explorer stays in view."
 		end)
 		local disclosure = UI.DisclosureGroup "Advanced" {
+			LayoutOrder = 5,
 			label = "More options",
 			expanded = advanced,
 			content = function()
@@ -490,10 +492,12 @@ return {
 		local function controls()
 			return {
 				UI.Picker "Tabs" {
+					LayoutOrder = 1,
 					selected = selected,
 					options = modes,
 				},
 				Host.Frame "InstructionPlate" {
+					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -510,6 +514,7 @@ return {
 					},
 				},
 				Host.Frame "ResultPlate" {
+					LayoutOrder = 4,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,

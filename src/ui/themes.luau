@@ -163,6 +163,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			popup = { panelWidth = 360 },
 			dialog = { wideWidth = 800 },
 			snackbar = { maxWidth = 480 },
+			radial = { narrow = 48, regular = 64, wide = 88 },
 		},
 	},
 	chrome = {},

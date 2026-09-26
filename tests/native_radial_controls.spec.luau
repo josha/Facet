@@ -7,6 +7,9 @@ local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
 local function setup(spec, animated)
 	local engine, now = engines.new(), 0
+	if type(spec) == "function" then
+		spec = spec(engine)
+	end
 	local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -623,6 +626,8 @@ t.describe("native radial interaction policies", function()
 				t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
 			end
 			local preview = world.find("SelectionPreview")
+			t.expect(preview.Text).toBe("")
+			world.find("N").MouseEnter.fire()
 			t.expect(preview.Text).toBe("N")
 			local px, py = preview.Position.X.Offset, preview.Position.Y.Offset
 			local pw, ph = preview.Size.X.Offset, preview.Size.Y.Offset
@@ -636,6 +641,140 @@ t.describe("native radial interaction policies", function()
 			t.expect(py - ph / 2 >= centre.Position.Y.Offset + h / 2).toBe(true)
 			world.stop()
 		end
+	end)
+	t.it("opens with nothing highlighted until the player points, steps or aims", function()
+		local world = setup({ distribution = "compass", items = compass(function() end) })
+		for _, node in world.screen:GetDescendants() do
+			t.expect(node:HasTag("facet-radial-candidate")).toBe(false)
+			if node:IsA("TextButton") and node.Name ~= "Center" then
+				t.expect(node.Parent.Name .. ":" .. tostring(node.Selected == true)).toBe(node.Parent.Name .. ":false")
+			end
+		end
+		world.find("E").MouseEnter.fire()
+		t.expect(world.find("Sector-E"):FindFirstChild("Sector", true):HasTag("facet-radial-candidate")).toBe(true)
+		world.stop()
+	end)
+	t.it("a corner ring keeps Close on its corner and names the item outside the ring", function()
+		local items = {}
+		for _, id in { "look", "pack", "wave" } do
+			table.insert(items, { id = id, label = id, onSelect = function() end })
+		end
+		local world = setup({
+			isPresented = Compose.cell(false),
+			preset = "bottom-left",
+			center = "empty",
+			appearance = "buttons",
+			items = items,
+		})
+		local V2 = world.engine.types.Vector2
+		local launcher = world.find("Launcher")
+		launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+		world.opened:set(true)
+		t.expect(world.find("Sector-$navigation")).toBeNil()
+		local centre = world.find("Center")
+		t.expect(centre.Position.X.Offset).toBe(40)
+		t.expect(centre.Position.Y.Offset).toBe(440)
+		t.expect(centre.Visible).toBe(true)
+		world.find("pack").MouseEnter.fire()
+		local preview = world.find("SelectionPreview")
+		t.expect(preview.Text).toBe("pack")
+		local reach = 0
+		for _, id in { "look", "pack", "wave" } do
+			local at = world.find(id).Position
+			reach = math.max(reach, math.sqrt((at.X.Offset - 40) ^ 2 + (at.Y.Offset - 440) ^ 2))
+		end
+		t.expect(preview.Position.X.Offset > 40 + reach * 0.7).toBe(true)
+		t.expect(preview.Position.Y.Offset < 440 - reach * 0.7).toBe(true)
+		t.expect(preview.AnchorPoint).toBe(V2.new(0, 1))
+		centre.Activated.fire()
+		t.expect(world.opened:peek()).toBe(false)
+		world.stop()
+	end)
+	t.it("blooms from its launcher on a measured screen instead of travelling in from a default one", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			distribution = "compass",
+			items = compass(function() end),
+		}, true)
+		local V2 = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V2.new(1600, 900)
+		local launcher = world.find("Launcher")
+		launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(1380, 680), V2.new(40, 40)
+		world.opened:set(true)
+		local function offset(name)
+			local at = world.find(name).Position
+			return at.X.Offset - 1400, at.Y.Offset - 700
+		end
+		local _, early = offset("N")
+		t.expect(select(1, offset("Center"))).toBe(0)
+		world.step(0.4)
+		t.expect(select(1, offset("Center"))).toBe(0)
+		local _, settled = offset("N")
+		t.expect(math.abs(early) < math.abs(settled) * 0.5).toBe(true)
+		world.stop()
+	end)
+	t.it("takes ringWidth as a theme width or pixels and grows a ring until each label fits", function()
+		local function band(width, label)
+			local world = setup({
+				ringWidth = width,
+				items = {
+					{ id = "a", label = label, onSelect = function() end },
+					{ id = "b", label = "B", onSelect = function() end },
+					{ id = "c", label = "C", onSelect = function() end },
+				},
+			})
+			local reach = 240 - world.find("a").Position.Y.Offset
+			world.stop()
+			return reach
+		end
+		t.expect(band("wide", "A")).toBe(band(88, "A"))
+		t.expect(band("narrow", "A")).toBe(band(48, "A"))
+		t.expect(band("wide", "A") > band("narrow", "A")).toBe(true)
+		t.expect(band(48, "Wear the lantern") > band(48, "A")).toBe(true)
+		local ok, message = pcall(band, "huge", "A")
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(message), "ringWidth", 1, true) ~= nil).toBe(true)
+	end)
+	t.it("shows either a glyph or a word on a ring item, never both over each other", function()
+		local world = setup({
+			appearance = "buttons",
+			items = {
+				{ id = "map", label = "Map", compactLabel = { icon = "flag" }, onSelect = function() end },
+				{ id = "wave", label = "Wave", icon = "flag", onSelect = function() end },
+			},
+		})
+		local function shown(button)
+			local words = button.Text
+			for _, node in button:GetDescendants() do
+				if node:IsA("TextLabel") and node.Visible then
+					words ..= node.Text
+				end
+			end
+			return words .. "|" .. tostring(button:FindFirstChild("LeadingIcon", true).Visible)
+		end
+		t.expect(shown(world.find("map"))).toBe("Map|false")
+		t.expect(shown(world.find("wave"))).toBe("|true")
+		world.stop()
+	end)
+	t.it("puts the launcher over the object it is anchored to", function()
+		local anchor
+		local world = setup(function(engine)
+			anchor = engine.new("Frame")
+			return {
+				isPresented = Compose.cell(false),
+				anchor = anchor,
+				distribution = "compass",
+				items = compass(function() end),
+			}
+		end)
+		local V2 = world.engine.types.Vector2
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(300, 200), V2.new(80, 120)
+		world.find("RadialMenu").AbsolutePosition = V2.new(20, 400)
+		local launcher = world.find("Launcher")
+		t.expect(launcher.AnchorPoint).toBe(V2.new(0.5, 0.5))
+		t.expect(launcher.Position.X.Offset).toBe(320)
+		t.expect(launcher.Position.Y.Offset).toBe(-140)
+		world.stop()
 	end)
 end)
 return t

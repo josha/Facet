@@ -1898,7 +1898,8 @@ The required `items` use the menu item model. The options are:
 
 The launcher is a round `more` button whose accessible name is
 `Quick actions`. With a `label`, the launcher is a text button that shows the
-label, and `icon` adds a glyph to it. `launcher = false` hides it.
+label, and `icon` adds a glyph to it. `launcher = false` hides it. With a
+native GuiObject `anchor`, the launcher sits over the centre of that object.
 
 `holdAction` is a native InputAction Instance that the caller owns. The control
 subscribes to its `Pressed` and `Released` events. It does not accept an action
@@ -1930,14 +1931,20 @@ The wedge is the item. Its icon and label are a plate-less `utility` button
 with no theme control art, sized to the largest box that fits inside the wedge
 and clipped to it.
 
-Without `ringWidth`, each ring is just thick enough to hold every item's
-label and icon box, with `space.s` around it, at the item's direction. The box
-is estimated from theme metrics, not measured: the label is its character
-count times 0.6 of `typography.control.size` wide and one control line tall,
-and an icon adds `iconSize` plus `space.xs`. The ring is never thinner than
-`targetSizes.minimum`, is thick enough for each wedge to be one touch target
-wide, and is never wider than the room. The same items and theme always give
-the same ring.
+An item on the ring shows its icon or its label, never both. It shows the
+icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
+is a `buttons` item with an `icon`. Otherwise it shows the label. The list
+fallback shows both.
+
+`ringWidth` is a number of pixels or a theme width: `narrow`, `regular` or
+`wide` (`controls.radial.narrow`, `.regular` and `.wide`). Each ring is at
+least that thick and grows until every item's label or icon box fits, with
+`space.s` around it, at the item's direction. The box is estimated from theme
+metrics, not measured: the label is its character count times 0.6 of
+`typography.control.size` wide and one control line tall, and an icon is
+`iconSize` square. The ring is never thinner than `targetSizes.minimum`, is
+thick enough for each wedge to be one touch target wide, and is never wider
+than the room. The same items and theme always give the same ring.
 
 The centre Back, Close or Home control is a small round `utility` button, one
 touch target (`targetSizes.minimum`) across, with no theme control art. It
@@ -1947,7 +1954,19 @@ sits in the hole under it, on one caption line, truncated to the hole's width.
 Without a centre control the name is centred in the hole. In the list fallback
 the control is a full-width row and the name sits under the list.
 
-Without an `anchor`, the ring opens centred on its launcher. Before the
+A corner preset keeps its Close or Back control on the corner, over the
+launcher, whatever `center` is, and never puts it on the arc. The highlighted
+item's name sits just outside the arc, on the arc's middle direction.
+
+Nothing is highlighted when the ring opens, until the player points at an
+item, presses a direction or moves the stick. With a gamepad as the preferred
+input, the first item is selected, because the console needs a focused
+control. The ring blooms out of its centre: the items and wedges travel from a
+fifth of their distance to their places as they fade in. Reduced motion places
+them at once.
+
+Without an `anchor`, the ring opens centred on its launcher. It is placed on
+the measured presentation layer from the first frame. Before the
 launcher has a size, and with `launcher = false`, the `preset` sets the
 position. A full ring (`donut` or `circle`) then moves inward until its inner
 radius plus `ringWidth` (or 44 pixels) fits inside the presentation area. The
