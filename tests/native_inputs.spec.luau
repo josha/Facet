@@ -2414,7 +2414,7 @@ t.describe("native input controls", function()
 		t.expect(captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
 
-	t.it("a rating spaces its stars to the touch target on touch and packs them for a pointer", function()
+	t.it("a rating spaces its stars to the touch target on touch and packs them for a pointer or a gamepad", function()
 		local input
 		local node, stop = world(function(UI)
 			return UI.Rating({ value = Compose.cell(3) })
@@ -2422,6 +2422,8 @@ t.describe("native input controls", function()
 			input = engine.new("UserInputService")
 			return { services = { UserInputService = input } }
 		end)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		input.GamepadEnabled = true
 		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
 		input.TouchEnabled = true
 		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)

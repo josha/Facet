@@ -1987,9 +1987,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.insert(contentProps, mark)
 		end
 		local markContent = Host.Frame(contentProps)
-		local touchFloor = ctx.touchFloor()
+		-- a pad adjusts the whole run with Left and Right, so only a fingertip needs each mark's reach
+		local input = ctx.config.services.UserInputService
+		local touch = if input then ctx.observe.TouchEnabled(input) else nil
 		local function gap(use: ComposeTypes.Use): number
-			return math.max(2, touchFloor(use) - markSize)
+			local reach = if touch and use(touch) then ctx.metric("targetSizes.minimum", use) else 0
+			return math.max(2, reach - markSize)
 		end
 		runtime.decorate(assert(markContent:FindFirstChildWhichIsA("UIListLayout")), {
 			Padding = function(use: ComposeTypes.Use): UDim
@@ -2105,7 +2108,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				cancel()
 			end
 		end)
-		local input = ctx.config.services.UserInputService
 		if input then
 			local preference = ctx.observe.PreferredInput(input)
 			Compose.watch(function(use: ComposeTypes.Use)
