@@ -5,6 +5,7 @@ local COPY = {
 	caption = "Adjust progress to compare the bar and ring. Activity indicators keep moving while work is running.",
 	determinate = "Downloading",
 	indeterminate = "Working",
+	loading = "Loading tracks",
 	spinner = "Spinner (dots)",
 	bar = "Download progress",
 	adjust = "Adjust progress",
@@ -124,6 +125,9 @@ return {
 						diameter = 120,
 						showValue = true,
 						format = percent,
+					},
+					UI.ProgressView "Loading" {
+						label = COPY.loading,
 					},
 					UI.ProgressView "Busy" {
 						label = COPY.indeterminate,
