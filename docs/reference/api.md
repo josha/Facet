@@ -2110,10 +2110,14 @@ a drag of the grabber toward the sheet's edge moves the whole sheet. A release
 past a third of the width, or faster than 600 pixels a second, closes it.
 Otherwise it slides back.
 
-The grabber is also a selectable button. With more than one detent it moves
-to the next detent, and its accessible label reads `Resize: Medium`, or
-`Resize: Fit` for `hug`. With one detent it closes the sheet, and its label
-reads `Close sheet`. Return and the gamepad A button activate it. A bottom
+The grabber is also a selectable button. A click, tap or press grows the sheet
+to the next taller detent, and its accessible label reads `Resize: Medium`, or
+`Resize: Fit` for `hug`. At the tallest detent, and with one detent, it closes
+the sheet, and its label reads `Close sheet`. The grabber's own drag detector
+takes a press-drag that starts on the pill, and a release after a drag is not
+also a click. The pointer shows a resize cursor over the grabber and a closed
+hand while it drags (`SizeNS`, or `SizeEW` on a side sheet, and
+`ClosedHand`). Return and the gamepad A button activate it. A bottom
 sheet slides up from the bottom and slides down when it closes. The sheet
 stays off screen until its room, width, text and height are the same for two
 frames, and then it starts to move. Thus the text has its final size and wrap
