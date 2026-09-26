@@ -1836,6 +1836,35 @@ t.describe("native parity weaker focus", function()
 		single.stop()
 	end)
 
+	t.it("a pad-selected grabber leaves A to the button: its drag detector stands down", function()
+		local input
+		local world = setup(function(UI)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = Compose.cell("medium"),
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end, {
+			prepare = function(_, service)
+				input = service
+			end,
+		})
+		local Enum = world.engine.types.Enum
+		local grabber = find(world.screen, "Grabber")
+		local detector = grabber:FindFirstChildWhichIsA("UIDragDetector")
+		t.expect(detector.Enabled).toBe(true)
+		input.PreferredInput = Enum.PreferredInput.Gamepad
+		world.gui.SelectedObject = find(world.screen, "Inside")
+		t.expect(detector.Enabled).toBe(true)
+		world.gui.SelectedObject = grabber
+		t.expect(detector.Enabled).toBe(false)
+		world.gui.SelectedObject = nil
+		t.expect(detector.Enabled).toBe(true)
+		world.stop()
+	end)
+
 	t.it("resizes a selected sheet grabber with Left and Right, as the pre-0.12 Adjust did", function()
 		local detent = Compose.cell("peek")
 		local world = setup(function(UI)

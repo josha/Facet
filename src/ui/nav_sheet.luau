@@ -632,6 +632,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				"grabber"
 			) :: Types.Child,
 		}
+		-- the engine hands a pad's A to a selected UIDragDetector; stand it down so A reaches Activated
+		if gui and gui.GetPropertyChangedSignal and preferred then
+			local selection = ctx.observe.SelectedObject(gui)
+			local pad = preferred
+			runtime.decorate(assert(grabber:FindFirstChildWhichIsA("UIDragDetector")), {
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return not (use(pad) == E.PreferredInput.Gamepad and use(selection) == grabber)
+				end,
+			})
+		end
 		local function stepTo(direction: number, use: ComposeTypes.Use?): Detent?
 			local sorted = ordered()
 			return sorted[(table.find(sorted, selected(use)) or 1) + direction]
