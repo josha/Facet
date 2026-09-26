@@ -2650,6 +2650,11 @@ input:
   VirtualList reads the `editing` cell that you supply and show your own
   Edit control.
 - Without a readable input class the edit controls always show.
+- A selectable collection (`selectionMode` other than `"none"`) that is not
+  `deletable` marks each row's selection at the leading edge while `editing`
+  is true: a ring (`facet-radio-mark`) with a filled dot on a selected row. The
+  mark is paint and takes no focus. A Table with a supplied `editing` shows it
+  even when it is neither reorderable nor deletable.
 
 With touch or gamepad input, a Table with the Edit toolbar accepts cell edits
 only while editing; otherwise its editor cells accept edits at all times.

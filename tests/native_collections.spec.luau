@@ -835,6 +835,40 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("marks each row's selection in the leading gutter while a selectable table is editing", function()
+		local engine, runtime, UI, target = setup()
+		local editing, selection = Compose.cell(false), Compose.cell({ [2] = true })
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				editing = editing,
+				selection = selection,
+				selectionMode = "multiple",
+				columns = { { id = "label", label = "Label", width = 100 } },
+			})
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(300, 400)
+		local function mark(row)
+			return node:FindFirstChild("Body"):FindFirstChild(tostring(row), true):FindFirstChild("SelectMark", true)
+		end
+		t.expect(mark(1) == nil or mark(1).Visible == false).toBe(true)
+		editing:set(true)
+		t.expect(mark(1).Visible).toBe(true)
+		t.expect(mark(1):HasTag("facet-radio-mark")).toBe(true)
+		t.expect(mark(1).Selectable).toBe(false)
+		t.expect(mark(1):FindFirstChild("Dot").Visible).toBe(false)
+		t.expect(mark(2):FindFirstChild("Dot").Visible).toBe(true)
+		t.expect(node:FindFirstChild("Header").Position.X.Offset).toBe(44)
+		selection:set({ [1] = true })
+		t.expect(mark(1):FindFirstChild("Dot").Visible).toBe(true)
+		t.expect(mark(2):FindFirstChild("Dot").Visible).toBe(false)
+		editing:set(false)
+		t.expect(mark(1).Visible).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("resizes and sorts a column from the keyboard or pad and releases the grip to its heading", function()
 		local engine, runtime, UI, target, gui = setup()
 		local sort, widths = Compose.cell(nil), Compose.cell({})

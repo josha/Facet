@@ -53,8 +53,14 @@ return function<V, K>(
 		local kind = if preferred then use(preferred) else nil
 		return kind == nil or read(editing, use) == true
 	end)
+	-- A selectable collection that is editing marks each row's selection in the leading gutter, unless the
+	-- delete minus owns that gutter. The mark is paint, not a focus stop.
+	local marked = spec.selectionMode ~= nil and spec.selectionMode ~= "none" and not deletable
+	local markShown = Compose.formula(function(use: ComposeTypes.Use): boolean
+		return marked and read(editing, use) == true
+	end)
 	local leading = Compose.formula(function(use: ComposeTypes.Use): number
-		return if deletable and use(controlsShown) then 44 else 0
+		return if (deletable and use(controlsShown)) or use(markShown) then 44 else 0
 	end)
 	local trailing = Compose.formula(function(use: ComposeTypes.Use): number
 		return if reorderable and use(controlsShown) then 44 else 0
@@ -379,6 +385,32 @@ return function<V, K>(
 		}
 		local minus = if deletable then UI.Button(minusProps) else nil
 		local confirm = if deletable then UI.Button(confirmProps) else nil
+		local mark = if marked
+			then ctx.styled(
+				Host.Frame "SelectMark" {
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = D2.new(0, 22, 0.5, 0),
+					Size = D2.fromOffset(18, 18),
+					BackgroundTransparency = 1,
+					Selectable = false,
+					Visible = markShown,
+					ctx.corner(9) :: Types.Child,
+					ctx.styled(
+						Host.Frame "Dot" {
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							Size = D2.fromOffset(8, 8),
+							Visible = function(use: ComposeTypes.Use)
+								return use(selection)[key] == true
+							end,
+							ctx.corner(4) :: Types.Child,
+						},
+						"fill"
+					) :: Types.Child,
+				},
+				"radio-mark"
+			)
+			else nil
 		local function rightOf(use: ComposeTypes.Use): number
 			return if use(confirming) then 88 else use(trailing)
 		end
@@ -414,7 +446,7 @@ return function<V, K>(
 				row,
 			},
 		}
-		for _, control in { handle, minus, confirm } :: { GuiObject? } do
+		for _, control in { handle, minus, confirm, mark } :: { GuiObject? } do
 			if control then
 				table.insert(nativeProps, control)
 			end

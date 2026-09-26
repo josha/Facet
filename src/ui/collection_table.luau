@@ -547,7 +547,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		}
 		local header = Host.Frame(headerProps)
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
-		if manageable then
+		local selectable = spec.selectionMode ~= nil and spec.selectionMode ~= "none"
+		if manageable or (spec.editing ~= nil and selectable) then
 			editor = reorder(ctx, UI, spec, ordered, keyOf, queries, function()
 				return body
 			end, selection, sort, editing)
