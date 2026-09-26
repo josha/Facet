@@ -166,6 +166,32 @@ t.describe("native radial interaction policies", function()
 			world.stop()
 		end
 	end)
+	t.it("a level's wedges keep their shape while they fade out for the next level", function()
+		local world = setup({
+			center = "empty",
+			contentFit = "radial",
+			items = {
+				{
+					id = "gear",
+					label = "Gear",
+					icon = "menu",
+					labelStyle = "icon",
+					children = { { id = "wear", label = "Wear the lantern" }, { id = "tools", label = "Tools" } },
+				},
+				{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" },
+			},
+		}, true)
+		world.step(1)
+		local wave = world.find("Sector-wave")
+		local paint = wave:FindFirstChild("Paint", true)
+		local before = `{paint.Position.X.Offset},{paint.Position.Y.Offset},{paint:FindFirstChild("Sector").Thickness}`
+		world.find("gear").Activated.fire()
+		world.step(1 / 60)
+		t.expect(wave.Parent ~= nil).toBe(true)
+		local after = `{paint.Position.X.Offset},{paint.Position.Y.Offset},{paint:FindFirstChild("Sector").Thickness}`
+		t.expect(after).toBe(before)
+		world.stop()
+	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")

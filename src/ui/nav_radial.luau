@@ -963,6 +963,9 @@ return function(
 									surfaces.attach(wrapper, { shape })
 									local placed = Compose.cell(nil :: { x: number, y: number }?)
 									Compose.watch(function(use: ComposeTypes.Use)
+										if use(present) == nil then
+											return
+										end
 										local live = currentSector(use)
 										local text = use(measured)
 										local label = geometry.labelBounds(live, 40)
