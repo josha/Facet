@@ -140,6 +140,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function outset(use: ComposeTypes.Use): number
 			return scaled(use, layer(use).outset or 0, 1.5)
 		end
+		local function arms(use: ComposeTypes.Use): (number, number)
+			local focus = layer(use)
+			local size = if type(focus.size) == "number" then focus.size else 12
+			return scaled(use, size, 1.5), scaled(use, focus.thickness or 4, 1.5)
+		end
 		local function bracket(name: string, x: number, y: number, horizontal: boolean): Frame
 			return Host.Frame({
 				Name = name,
@@ -149,13 +154,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					return fade(use, 0.35)
 				end,
 				Size = function(use: ComposeTypes.Use): UDim2
-					local focus = layer(use)
-					local long, thick = scaled(use, focus.size or 12, 1.5), scaled(use, focus.thickness or 4, 1.5)
+					local long, thick = arms(use)
 					return if horizontal then D2.fromOffset(long, thick) else D2.fromOffset(thick, long)
 				end,
 				Position = function(use: ComposeTypes.Use): UDim2
-					local focus = layer(use)
-					local long, thick = scaled(use, focus.size or 12, 1.5), scaled(use, focus.thickness or 4, 1.5)
+					local long, thick = arms(use)
 					local grow = outset(use)
 					local width = if horizontal then long else thick
 					local height = if horizontal then thick else long
@@ -164,9 +167,15 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			})
 		end
 		local brackets: { ComposeTypes.Child } = {}
-		for _, at in { { "Top", 0, 0 }, { "TopRight", 1, 0 }, { "BottomLeft", 0, 1 }, { "Bottom", 1, 1 } } do
-			table.insert(brackets, bracket(at[1] .. "Across", at[2], at[3], true))
-			table.insert(brackets, bracket(at[1] .. "Down", at[2], at[3], false))
+		local corners: { { name: string, x: number, y: number } } = {
+			{ name = "Top", x = 0, y = 0 },
+			{ name = "TopRight", x = 1, y = 0 },
+			{ name = "BottomLeft", x = 0, y = 1 },
+			{ name = "Bottom", x = 1, y = 1 },
+		}
+		for _, at in corners do
+			table.insert(brackets, bracket(at.name .. "Across", at.x, at.y, true))
+			table.insert(brackets, bracket(at.name .. "Down", at.x, at.y, false))
 		end
 		local lift = function(use: ComposeTypes.Use): number
 			return if far(use) then 3 else 0
@@ -226,8 +235,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					return layer(use).kind == "glow" and shown(use)
 				end,
 				BlurRadius = function(use: ComposeTypes.Use): UDim
-					local blur = layer(use).blurRadius or {}
-					return D.new(0, math.round(scaled(use, blur.offset or 24, 1.6)))
+					local blur = layer(use).blurRadius
+					return D.new(0, math.round(scaled(use, (if blur then blur.offset else nil) or 24, 1.6)))
 				end,
 				Transparency = function(use: ComposeTypes.Use): number
 					local value = layer(use).transparency or 0.25

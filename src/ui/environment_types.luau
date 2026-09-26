@@ -1,7 +1,6 @@
 --!strict
 local Types = require("./types")
 local Adaptive = require("./adaptive")
-local Inputs = require("./input_types")
 
 export type SizeClass = Adaptive.SizeClass
 export type HeightClass = Adaptive.HeightClass
@@ -92,8 +91,6 @@ export type EnvironmentControls = {
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
-	adjustable: (node: GuiObject, options: Inputs.AdjustableOptions) -> (),
-	feedback: (kind: Types.HapticKind) -> (),
 	draggable: (source: GuiObject, spec: DraggableSpec) -> (),
 	dropTarget: (target: GuiObject, spec: DropTargetSpec) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,

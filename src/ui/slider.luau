@@ -9,6 +9,7 @@ type Range = InputTypes.SliderRange
 type Thumb = InputTypes.SliderThumb
 type NumberSpec = { value: Shared.Value<number>, onChange: ((number) -> ())? }
 export type Adjust = {
+	once: boolean?,
 	vertical: boolean?,
 	guard: boolean?,
 	arrows: ((ComposeTypes.Use, number) -> boolean)?,

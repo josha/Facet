@@ -1748,13 +1748,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			"Facet Avatar takes one face: image, userId, resource or icon"
 		)
 		local root = ctx.styled(Host.TextButton(native), "avatar")
+		local function ringWidth(use: ComposeTypes.Use): number
+			return 2 * metric("strokes.hairline", use)
+		end
 		if onActivate then
 			local state = ctx.observe.GuiState(root)
 			runtime.mountFragment(function()
 				local ring = Host.UIStroke({
 					Name = "HoverRing",
 					ApplyStrokeMode = E.ApplyStrokeMode.Border,
-					Thickness = 2,
+					Thickness = ringWidth,
 					Transparency = function(use: ComposeTypes.Use): number
 						return if use(state) == E.GuiState.Hover then 0 else 1
 					end,
@@ -1824,9 +1827,6 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end, root)
 		end
 		if spec.presence then
-			local function ringWidth(use: ComposeTypes.Use): number
-				return 2 * metric("strokes.hairline", use)
-			end
 			runtime.mount(function()
 				return Host.Frame "PresenceRing" {
 					BackgroundTransparency = 1,

@@ -1152,7 +1152,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(selector .. " > .facet-icon", { ImageColor3 = c(ink) })
 	end
 	rule(".facet-card-ring", { BackgroundColor3 = c("accent") })
-	local focus = (package.chrome or {}).focus
+	local focus = if package.chrome then package.chrome.focus else nil
 	local focusColor = if focus then focus.color else nil
 	rule(".facet-focus-ring", {
 		BackgroundColor3 = if type(focusColor) == "table"

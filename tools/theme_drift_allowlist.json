@@ -114,10 +114,17 @@
     },
     {
       "path": "src/ui/environment.luau",
+      "rule": "radius",
+      "match": "return D.new(0.5, 0)",
+      "status": "structural",
+      "reason": "A pill or circle focus look: half the smaller side is a shape, not a theme corner size."
+    },
+    {
+      "path": "src/ui/environment.luau",
       "rule": "stroke",
-      "match": "return if use(env.displaySize) == \"Large\" then 4 else 2",
-      "status": "no-metric",
-      "reason": "The focus ring replacing the engine selection glow is 2 px, and 4 px on a Large (ten-foot) display so focus reads across a room; the theme strokes cover only the hairline."
+      "match": "return scaled(use, layer(use).thickness or 2, 2)",
+      "status": "authored",
+      "reason": "The focus ring thickness is the theme's chrome.focus.thickness; 2 is only the default when a package declares none, and ten feet doubles it."
     }
   ]
 }

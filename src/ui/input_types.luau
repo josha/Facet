@@ -274,13 +274,18 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
 }
 export type ShortcutHintProps = ShortcutHintImplementationProps & ShortcutHintSource
 export type HapticKind = Shared.HapticKind
-export type AdjustableOptions = EnabledOptions & {
+export type AdjustableOptions = {
+	enabled: Shared.ValueBoolean?,
+	disabled: Shared.ValueBoolean?,
+	busy: Shared.ValueBoolean?,
 	onAdjust: (direction: number) -> (),
 	axis: ("horizontal" | "vertical" | "none")?,
 	repeats: boolean?,
 	canAdjust: ((direction: number, use: ComposeTypes.Use?) -> boolean)?,
 }
 export type InputControls = {
+	adjustable: (node: GuiObject, options: AdjustableOptions) -> (),
+	feedback: (kind: HapticKind) -> (),
 	Button: Constructor<ButtonProps, TextButton>,
 	Toggle: Constructor<ToggleProps, TextButton>,
 	TextInput: Constructor<TextInputProps, TextBox | Frame>,
