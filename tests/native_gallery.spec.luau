@@ -91,16 +91,17 @@ t.describe("native gallery", function()
 		t.expect(find(gui, "StyleLink").StyleSheet).toBe(sheet)
 		local navigation = find(root, "Demos")
 		t.expect(find(navigation, "Tabs").Visible).toBe(false)
-		local picker = find(find(root, "Toolbar"), "DemoPicker")
+		local button = find(find(root, "Toolbar"), "Showcase")
+		for _, node in find(root, "Toolbar"):GetDescendants() do
+			t.expect(node:IsA("TextLabel") and node.Text == "Facet gallery").toBe(false)
+		end
 		local function pick(id)
-			find(picker, "Trigger").Activated.fire()
-			for _, node in gui:GetDescendants() do
-				if node.Name == id and node:HasTag("facet-menu-item") then
-					node.Activated.fire()
-					return
-				end
+			button.Activated.fire()
+			local row = find(gui, "Demo-" .. id)
+			if row == nil then
+				error("no demo row " .. id)
 			end
-			error("no demo menu row " .. id)
+			row.Activated.fire()
 		end
 		for _, demo in catalogue.list() do
 			pick(demo.id)
@@ -111,8 +112,12 @@ t.describe("native gallery", function()
 		end
 		pick("all-controls")
 		t.expect(ctx.active:peek()).toBe("all-controls")
-		find(root, "Settings").Activated.fire()
-		t.expect(find(root, "GallerySettings") ~= nil).toBe(true)
+		button.Activated.fire()
+		t.expect(find(gui, "Section") ~= nil).toBe(true)
+		t.expect(find(gui, "DemoList") ~= nil).toBe(true)
+		find(find(gui, "Section"), "settings").Activated.fire()
+		t.expect(find(gui, "Theme") ~= nil).toBe(true)
+		t.expect(find(gui, "DemoList")).toBe(nil)
 		stop()
 		t.expect(#target:GetChildren()).toBe(0)
 		ctx.runtime:dispose()

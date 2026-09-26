@@ -383,8 +383,11 @@ t.describe("native parity weaker gallery", function()
 		t.expect(ctx.selection:peek()).toBe("all-controls")
 		t.expect(ctx.active:peek()).toBe("all-controls")
 		t.expect(ctx.errorMessage:peek()).toBe(nil)
-		local picker = find(find(g.root, "Toolbar"), "DemoPicker")
+		local picker = find(find(g.root, "Toolbar"), "Showcase")
 		local function shown(): string
+			if picker.Text ~= "" then
+				return picker.Text
+			end
 			for _, node in picker:GetDescendants() do
 				if (node:IsA("TextLabel") or node:IsA("TextButton")) and node.Text ~= "" then
 					return node.Text
@@ -493,11 +496,11 @@ t.describe("native parity weaker gallery", function()
 
 	t.it("apps-193 collections is the next peer tab after all controls in the one demo list", function()
 		local g = galleryWorld()
-		find(find(find(g.root, "Toolbar"), "DemoPicker"), "Trigger").Activated.fire(input(g, "gamepad"))
+		find(find(g.root, "Toolbar"), "Showcase").Activated.fire(input(g, "gamepad"))
 		local rows = {}
 		for _, node in g.target:GetDescendants() do
-			if node:HasTag("facet-menu-item") then
-				rows[node.Name] = node
+			if string.sub(node.Name, 1, 5) == "Demo-" and node:IsA("GuiButton") then
+				rows[string.sub(node.Name, 6)] = node
 			end
 		end
 		local first, collections = rows["all-controls"], rows.collections

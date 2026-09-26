@@ -19,6 +19,24 @@ local function find(root, name, class)
 	return nil
 end
 
+local function openSettings(root: any)
+	local function seek(node: any, name: string): any
+		if node.Name == name then
+			return node
+		end
+		for _, child in node:GetChildren() do
+			local found = seek(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+	local layer = root:FindFirstAncestorWhichIsA("LayerCollector") or root
+	seek(layer, "Showcase").Activated.fire()
+	seek(seek(layer, "Section"), "settings").Activated.fire()
+end
+
 local function fixture(build)
 	local engine = engineLib.new()
 	local runtime = Facet.Roblox.createRuntime(engine)
@@ -161,7 +179,7 @@ t.describe("native gallery shell parity", function()
 			t.expect(env.displaySize:peek()).toBe(display)
 			t.expect(env.effectiveInput:peek()).toBe(input)
 		end
-		find(root, "Settings", "TextButton").Activated.fire()
+		openSettings(root)
 		t.expect(find(root, "DevicePreview") ~= nil).toBe(true)
 		t.expect(find(root, "OrientationPreview")).toBe(nil)
 		ctx.devicePreview:set("phone")
@@ -218,7 +236,7 @@ t.describe("native gallery shell parity", function()
 		local before = find(root, "first")
 		local surface = find(root, "Gallery")
 		local scale = find(surface, "ViewingDistance", "UIScale")
-		local settings = find(root, "Settings", "TextButton")
+		local settings = find(root, "Showcase", "TextButton")
 		local near = settings.Size.Y.Offset
 		t.expect(ctx.environment.viewingDistance).toBe(ctx.viewingDistance)
 		ctx.viewingDistance:set("ten-foot")
@@ -240,7 +258,7 @@ t.describe("native gallery shell parity", function()
 		t.expect(ctx.theme:peek()).toBe(ctx.packages.Second)
 		t.expect(gallery.dispatch(ctx, "theme", "missing").ok).toBe(false)
 		t.expect(ctx.themeName:peek()).toBe("Second")
-		find(root, "Settings", "TextButton").Activated.fire()
+		openSettings(root)
 		local themePicker = find(root, "Theme")
 		local trigger = find(themePicker, "Trigger")
 		if trigger then

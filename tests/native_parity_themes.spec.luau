@@ -15,6 +15,23 @@ type Harness = {
 	dispose: () -> (),
 }
 
+local function openSettings(root: any)
+	local function seek(node: any, name: string): any
+		if node.Name == name then
+			return node
+		end
+		for _, child in node:GetChildren() do
+			local found = seek(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+	local layer = root:FindFirstAncestorWhichIsA("LayerCollector") or root
+	seek(layer, "Showcase").Activated.fire()
+	seek(seek(layer, "Section"), "settings").Activated.fire()
+end
 local function harness(options: { [string]: any }?): Harness
 	local engine: any = engineLib.new()
 	local runtime = Facet.Roblox.createRuntime(engine)
@@ -966,7 +983,7 @@ t.describe("native parity themes", function()
 			end
 			return labels
 		end
-		find(root, "Settings").Activated.fire()
+		openSettings(root)
 		local picker = find(root, "Theme")
 		t.expect(choices(picker)).toEqual({ "Facet Neutral", "Alpha", "Zeta" })
 		t.expect(choices(find(root, "Mode"))).toEqual({ "Dark", "Light" })
