@@ -551,13 +551,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local primary: { Types.Child } = {}
 		if spec.onBack then
+			table.insert(primary, parts.back(ctx, UI, spec.backLabel, spec.onBack))
 			table.insert(
 				primary,
-				UI.Button "Back" {
-					label = spec.backLabel or "Back",
-					icon = "chevron.leading",
-					appearance = "link",
-					onActivate = spec.onBack,
+				Host.Frame "BackGap" {
+					BackgroundTransparency = 1,
+					Size = function(use: ComposeTypes.Use)
+						return D2.fromOffset(ctx.metric("space.s", use), 0)
+					end,
 				}
 			)
 		end

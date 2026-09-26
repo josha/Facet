@@ -8,6 +8,7 @@ local freeze = require("./freeze")
 
 type ButtonFactory = Types.Constructor<Inputs.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
+type BackPlace = { AnchorPoint: Vector2?, Position: UDim2?, Size: UDim2?, LayoutOrder: number? }
 
 local parts = {}
 
@@ -518,6 +519,35 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 			end
 		end)
 	end)
+end
+
+function parts.back(
+	ctx: Types.Context,
+	UI: UIControls,
+	label: Types.Value<string>?,
+	onActivate: () -> (),
+	place: BackPlace?
+): TextButton
+	local at: BackPlace = place or {}
+	local button = UI.Button "Back" {
+		label = label or "Back",
+		icon = "chevron.leading",
+		appearance = "utility",
+		onActivate = onActivate,
+		AnchorPoint = at.AnchorPoint,
+		Position = at.Position,
+		Size = at.Size,
+		LayoutOrder = at.LayoutOrder,
+	}
+	local row = button:FindFirstChildWhichIsA("UIListLayout", true)
+	if row then
+		ctx.runtime.decorate(row, {
+			Padding = function(use: ComposeTypes.Use)
+				return ctx.types.UDim.new(0, ctx.metric("space.xs", use) / 2)
+			end,
+		})
+	end
+	return button
 end
 
 function parts.tailSize(ctx: Types.Context, use: ComposeTypes.Use?): number

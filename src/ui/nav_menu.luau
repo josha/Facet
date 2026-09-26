@@ -9,6 +9,7 @@ local fieldChrome = require("./field_chrome")
 local activation = require("./activation")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
+local parts = require("./overlay_parts")
 
 type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
 
@@ -372,12 +373,10 @@ return function(
 			Compose.show(function(use: ComposeTypes.Use)
 				return #use(path) > 0 and use(sheeted)
 			end, function()
-				return UI.Button "Back" {
-					label = spec.backLabel or "Back",
-					onActivate = back,
+				return parts.back(ctx, UI, spec.backLabel, back, {
 					LayoutOrder = -1,
 					Size = D2.new(1, 0, 0, 44),
-				}
+				})
 			end),
 			Compose.keyed({
 				from = entries,

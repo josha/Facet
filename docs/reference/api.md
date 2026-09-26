@@ -2426,7 +2426,10 @@ stay on one row when the full title fits beside the trailing node. When the
 full title does not fit, the trailing node moves to a second row. Without a
 title, the bar uses `controls.popup.panelWidth` as the minimum center width. The
 center is not rebuilt, so a search field keeps its text. Back shows the
-`chevron.leading` icon. `gap` and `padding` are pixels or `space` metric
+`chevron.leading` icon beside its word, half a `space.xs` apart, in the
+content colour with no plate (`utility`), and a `space.s` gap keeps the title
+away from it. NavigationStack's Back and the Back row of a sheet menu are the
+same control. `gap` and `padding` are pixels or `space` metric
 names.
 
 ## Collections

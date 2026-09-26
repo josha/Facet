@@ -5,6 +5,7 @@ local Inputs = require("./input_types")
 local Media = require("./media_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
+local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
@@ -1232,14 +1233,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Compose.show(function(use: ComposeTypes.Use)
 							return use(state).index > 1
 						end, function()
-							return UI.Button "Back" {
-								label = spec.backLabel or "Back",
-								icon = "chevron.leading",
-								appearance = "link",
+							return parts.back(ctx, UI, spec.backLabel, pop, {
 								AnchorPoint = V2.new(0, 0.5),
 								Position = D2.fromScale(0, 0.5),
-								onActivate = pop,
-							}
+							})
 						end),
 					}
 					local destinationFrame = Host.Frame "Destination" {
