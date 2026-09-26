@@ -1995,4 +1995,38 @@ t.describe("gallery theme packages", function()
 		end
 		t.expect(checked > 0).toBe(true)
 	end)
+
+	t.it("a selected plate drawn from art keeps the art's ink over any package text rule", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local plate = package.chrome and package.chrome.control
+			local layers = if plate and plate.kind == "layered" then plate.layers or {} else { plate }
+			local art = false
+			for _, layer in layers do
+				if layer and type(layer.asset) == "table" and layer.asset.selected ~= nil then
+					art = true
+				end
+			end
+			if art and package.rules and #package.rules > 0 then
+				checked += 1
+				local engine, runtime = world({ theme = package })
+				local sheet, stop = sheetFor(engine, runtime, package)
+				local ink = ruleNode(sheet, ".facet-button.facet-skinned.facet-selected")
+				local latest = 0
+				for _, node in sheet:GetChildren() do
+					for _, authored in package.rules do
+						if node.Selector == authored.selector then
+							latest = math.max(latest, node.Priority)
+						end
+					end
+				end
+				t.expect(`{name} {ink.Priority > latest} {ink:GetProperties().TextColor3 ~= nil}`)
+					.toBe(`{name} true true`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
+	end)
 end)

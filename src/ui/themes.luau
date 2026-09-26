@@ -1408,6 +1408,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		rule(definition.selector, properties)
 	end
+	local ink = if selectedArt ~= nil then onSelected else nil
+	rule(".facet-button.facet-skinned.facet-selected", { TextColor3 = ink })
+	rule(".facet-button.facet-skinned.facet-selected >> .facet-button-caption", { TextColor3 = ink })
+	rule(".facet-button.facet-skinned.facet-selected >> .facet-text", { TextColor3 = ink })
+	rule(".facet-button.facet-skinned.facet-selected >> .facet-icon", { ImageColor3 = ink })
 	return rules
 end
 
