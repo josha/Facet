@@ -15,7 +15,7 @@ callbacks.
 | Data | VirtualList, VirtualGrid, Table, RowActions, Card |
 | Navigation | TabView, NavigationStack, PageView, NavBar |
 | Presentation | Alert, Dialog, Sheet, Popover, DisclosureGroup, CollapsibleView, Callout |
-| Feedback | Notice, Snackbar |
+| Feedback | Notice, Toast |
 | Data | VirtualList, VirtualGrid, Table, RowActions |
 | Layout | Screen, VStack, HStack, ZStack, ScrollView, Grid, Spacer, Divider |
 | Information | Text, Label, Badge, StatusIndicator, ProgressView, Skeleton, ShortcutHint |

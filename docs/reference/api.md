@@ -275,7 +275,7 @@ cannot be interacted with, and the selection never stays on it.
 | Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
-| Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
+| Toast with an action | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
 | DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
 | CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
@@ -2141,7 +2141,7 @@ has one, and the header title then hides. Without a title the plaque is not
 drawn.
 
 A presented panel with a theme skin keeps its content inside the art. Sheet,
-Dialog, Popover, Snackbar, Menu and the picker panels pad their content by the
+Dialog, Popover, a Toast with an action, Menu and the picker panels pad their content by the
 theme's `panel` chrome `contentInsets` on each side, and never by less than
 their own padding. The padding follows a live theme change.
 
@@ -2336,7 +2336,7 @@ A tail points from the plate to the centre of the anchor.
 The plate stays inside its layer by the `space.s` step of the theme on each
 side. The step follows a live theme change. The layer is the safe area of the
 ScreenGui, so a device safe inset adds to the step.
-A callout and a help plate paint above a snackbar and below a presented modal.
+A callout and a help plate paint above a toast with an action and below a presented modal.
 
 The plate parts are optional, but the plate must show something:
 
@@ -2498,112 +2498,96 @@ header shows only Done.
 The trigger keeps its own `onActivate`. The panel scales and fades from the
 edge nearest to its source. See [Motion](#motion).
 
-### Snackbar
+### Toast
 
-`UI.Snackbar` returns an empty anchor Frame. The row shows at the bottom center
-of the layer.
+`UI.Toast` returns an empty anchor Frame. It shows a transient message. Without
+an `action` it is display-only and stacks at the top (or bottom) of its layer.
+With an `action` it docks at the bottom center, one at a time, and a player can
+reach it. Both modes share one schedule per layer.
 
 ```luau
-local shown = Compose.cell(true)
 runtime.mount(function()
     return Host.ScreenGui {
-        UI.Snackbar "Saved" {
-            isPresented = shown,
-            message = "Settings saved",
-            duration = 4,
-            onPresentedChange = function(nextValue) shown:set(nextValue) end,
+        UI.Toast "Saved" { message = "Settings saved", key = "save", duration = 3 },
+        UI.Toast "Sold" {
+            message = "Kart sold",
             action = { label = "Undo", onActivate = function() print("undo") end },
         },
     }
 end, playerGui)
 ```
 
-The caller owns `isPresented`. Close, Cancel on a selected row, a timeout and a
-supersession propose false through `onPresentedChange(false)`. The row leaves
-only when the fact is false. A refusal keeps the same row. `onDismiss(reason)`
-reports each retirement once: `action`, `close`, `timeout`, `superseded` or
-`cancel`. The caller's own false and owner teardown report `cancel`.
-
-- `message`: a string or a bound string. It wraps.
-- `icon`: an icon name or an image source.
-- `action`: `{ label, onActivate }`. It runs once and never closes the row by
-  itself.
-- `closeButton`: `true` (the default) or `false`. A close button or a
-  `duration` needs `onPresentedChange`.
-- `duration`: seconds of readable time. `nil` keeps the row until the caller
-  hides it. The timeout asks once, at the larger of `duration` and 2.5
-  seconds. A refusal keeps the row.
-- `priority`: higher rows go first. A strictly higher priority can ask the
-  shown row to leave after 2.5 readable seconds, once for each row.
-
-Readable time pauses while the row is hovered or selected, or while a modal is
-open. Queued time does not count. One row shows and up to eight wait. Nine rows
-can be shown, waiting or leaving. A tenth admission stops with an error. A message-only row hugs its text.
-A row with an action or a close button uses `controls.snackbar.maxWidth`,
-bounded by the layer. The action moves below long text. Arrival never takes the
-selection. Cancel on a selected row returns the selection to the content, also
-when the caller refuses. A visible row sets the `FacetInsetBottom` attribute on
-its layer until it has slid out. The row is a Frame named `Snack`. It
-slides up and fades in to enter, and slides down and fades out to leave. A
-leaving row cannot be interacted with. Under reduced motion it arrives and
-leaves at once.
-
-A player dismisses a row with Close, Cancel (Escape or the B button) on a
-selected row, or the action when its handler proposes false. `duration` hides it
-after the timeout. There is no swipe. A row with `closeButton = false`, no
-`duration` and no action gives a pointer or touch player no way to dismiss it,
-so keep Close unless the row times out or its action hides it.
-
-To show a snackbar from code, mount a `UI.Snackbar` with `runtime.mount`. The
-stop function that the mount returns releases the row and reports `cancel`.
-
-### Toast
-
-`UI.Toast` returns an empty anchor Frame. Mounting it shows a transient,
-display-only message in a stack at the top (or bottom) of its layer. It
-retires itself; there is no `isPresented`.
-
-```luau
-runtime.mount(function()
-    return Host.ScreenGui {
-        UI.Toast "Saved" { message = "Settings saved", key = "save", duration = 3 },
-    }
-end, playerGui)
-```
-
 - `message` (a string or a bound string) or `content` (a factory for the
-  body). Give exactly one.
-- `duration`: seconds on screen, default 4. `readFloor`: the seconds before
-  anything may replace it, default 2.5.
+  body). Give exactly one. A toast with an action takes `message`.
+- `icon`: an icon name or an image source, before the message.
+- `duration`: seconds on screen. Without an action the default is 4. With an
+  action, `nil` keeps the row until it is closed, and a timeout waits for at
+  least `readFloor` of readable time. `readFloor`: the seconds before anything
+  may replace it, default 2.5.
 - `priority`: a number, default 0. Higher toasts go first in the queue.
 - `key`: a toast with the same key replaces a queued one at once and a
   showing one when its read floor is met, so the two never show together.
+- `isPresented`: optional, the caller's boolean fact. The toast shows while it
+  is true. A timeout, a replacement, Close, Cancel and the action then propose
+  false through `onPresentedChange(false)`, and the row leaves only when the
+  fact is false. A refusal keeps the same row and is not asked again. A bound
+  toast that can end itself (a duration, or a close button) needs
+  `onPresentedChange`. Without `isPresented`, mounting shows the toast once
+  and it retires itself.
+- `onDismiss(reason)` reports each retirement once: `timeout`, `supersede`
+  (the same key replaced it), `preempt` (a more urgent toast replaced it),
+  `capacity`, `action`, `close`, `cancel` (a bound toast's fact went false, or
+  its owner went away), or `manual` (an unbound toast unmounted first). A
+  bound toast retired for `capacity` or `supersede` also proposes false.
+
+Without an action:
+
 - `position`: `top` (the default) or `bottom`, the edge that the stack docks
   to. Each edge of a layer has its own stack. The stack docks clear of the
   app's reserved chrome on that edge: the deepest `FacetInsetTop` or
   `FacetInsetBottom` reservation of its layer and of every enabled sibling
-  ScreenGui (a TabView bottom bar, a visible Snackbar, an affixed Notice),
-  read each frame while a toast shows.
+  ScreenGui (a TabView bottom bar, a visible toast with an action, an affixed
+  Notice), read each frame while a toast shows.
 - `width`: `fill` (the default) spans the layer less 16 pixels on each side.
   `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
 - `fade`: `true` also fades the row in and out as it slides. By default a row
   only slides, so its text keeps native glyph rendering (a fade draws the row
   through a CanvasGroup while it runs).
-- `onDismiss(reason)` reports the retirement once: `timeout`, `supersede`,
-  `preempt`, `capacity` or `manual` (the Toast unmounted first).
 
 At most three toasts show on an edge and eight wait. The queue is in priority
 order, first in first out within a priority. A more urgent toast replaces the
 weakest showing one, but only after that toast's read floor. At the cap the
 least urgent waiting toast retires with `capacity`; a showing toast never does.
 
-A toast is input-transparent: the row is neither `Active` nor `Interactable`,
+The row is input-transparent: it is neither `Active` nor `Interactable`,
 nothing in it is `Selectable`, it binds no input and it never takes the
 selection, so the controls under it work as before. Rows (`ToastRow`) paint
 at `ZIndex` 70, above the page and below a modal. A new row slides in from its
-edge (and fades in with `fade`), and the others slide to close the slot a retired row
-leaves. Under reduced motion the rows are placed at once, for the same times
-in the same order.
+edge (and fades in with `fade`), and the others slide to close the slot a
+retired row leaves. Under reduced motion the rows are placed at once, for the
+same times in the same order.
+
+With an action:
+
+- `action`: `{ label, onActivate }`. Unbound, it runs and retires the row
+  with `action`. Bound, it runs once and the row leaves when the fact is
+  false.
+- `closeButton`: `true` (the default) or `false`.
+
+One row shows and up to eight wait. Readable time pauses while the row is
+hovered or selected, or while a modal is open. Queued time does not count.
+The row uses `controls.snackbar.maxWidth`, bounded by the layer. The action
+moves below long text. Arrival never takes the selection, and one Down from
+the control that had it reaches the row. Cancel (Escape or the B button) on a
+selected row proposes or retires with `cancel` and returns the selection to
+the content, also when the caller refuses. A visible row sets the
+`FacetInsetBottom` attribute on its layer until it has slid out, so a bottom
+stack of display-only toasts docks above it. The row is a Frame named `Snack`
+at `ZIndex` 60. It slides up and fades in to enter, and slides down and fades
+out to leave. A leaving row cannot be interacted with. Under reduced motion it
+arrives and leaves at once. There is no swipe.
+
+The anchor carries `ToastVisible` and `ToastQueued` attributes.
 
 `app.presentToast(component, options?) -> { id, dismiss() }` shows
 `component(app.UI)` as a toast in the app's toast ScreenGui (named from

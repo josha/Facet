@@ -72,8 +72,8 @@ to select a control. Then read the exact contract of that control in the
 | Inline disclosure and larger content presentation | `UI.DisclosureGroup`, `UI.CollapsibleView` |
 | Contextual teaching | `UI.Callout` |
 | Page status that stays in view | `UI.Notice` |
-| A short confirmation at the bottom of the screen | `UI.Snackbar` |
 | A passing message that asks nothing and never blocks input | `UI.Toast` |
+| A short confirmation with an Undo at the bottom of the screen | `UI.Toast` with an `action` |
 | A surface top bar with Back, a title and tools | `UI.NavBar` |
 | Anchored content for one control | `UI.Popover` |
 | Windowed lists and grids | `UI.VirtualList`, `UI.VirtualGrid` |
