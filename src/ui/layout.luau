@@ -159,7 +159,17 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local axis = spec.axis or "y"
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
-		local size, automatic = kit.extent(spec, "fill", if axis == "x" then "hug" else "fill")
+		local scaled = false
+		for _, child in children do
+			local node = child :: any
+			local gui = (typeof(node) == "Instance" or type(node) == "table")
+				and type(node.IsA) == "function"
+				and node:IsA("GuiObject")
+			if gui and node.Size.Y.Scale > 0 then
+				scaled = true
+			end
+		end
+		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
 		local native: Engine.ScrollingFrameNativeProps = {
 			BorderSizePixel = 0,
 			Size = size,

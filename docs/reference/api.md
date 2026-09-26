@@ -525,6 +525,9 @@ and `ScrollingDirection` for its axis. Thus the content fits the scroll window
 beside the scroll bar. `axis` is `"y"` (the default), `"x"` or `"xy"`. The
 `"x"` axis stacks the children horizontally and, unless you give a `height`,
 hugs their height, so a row of chips never clips when they grow at ten feet.
+When a child passed in the props has a Scale height (`height = "fill"`), the
+ScrollView fills its parent's height instead, as before, because a hugging
+frame would give that child no height.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 

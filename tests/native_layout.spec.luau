@@ -637,6 +637,11 @@ t.describe("native layout primitives", function()
 			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.Y)
 			t.expect(root.Size.Y.Scale == 0 and root.Size.X.Scale == 1).toBe(true)
 			stop()
+			local filled = build(nil, function(UI)
+				return UI.ScrollView { axis = "x", UI.VStack { height = "fill", UI.Text { text = "A" } } }
+			end)
+			t.expect(filled.AutomaticSize).toBe(E.AutomaticSize.None)
+			t.expect(filled.Size.Y.Scale).toBe(1)
 			local both = build(nil, function(UI)
 				return UI.ScrollView { axis = "xy" }
 			end)
