@@ -112,6 +112,21 @@ t.describe("restored native gallery parity", function()
 		close()
 		t.expect(root:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
+	t.it("keeps the journey details rows inside their column: the words hug and a spacer takes the rest", function()
+		local built, node, _, _, close = mount("navigation_stack")
+		built.steps.push()
+		for _, rowName in { "Baseline", "LastBaseline" } do
+			local row = find(node, rowName)
+			t.expect(`{rowName}: {row.Size.X.Scale}`).toBe(`{rowName}: 1`)
+			for _, child in row:GetChildren() do
+				if child:IsA("TextLabel") then
+					t.expect(`{rowName}/{child.Text}: {child.Size.X.Scale}`).toBe(`{rowName}/{child.Text}: 0`)
+				end
+			end
+		end
+		t.expect(find(find(node, "Baseline"), "FlexibleGap"):FindFirstChildWhichIsA("UIFlexItem") ~= nil).toBe(true)
+		close()
+	end)
 	t.it("reverses automatic equipment rows without changing their instances or balance", function()
 		local built, node, _, _, close = mount("component_motion")
 		local scanner, beacon = find(node, "Card-scanner"), find(node, "Card-beacon")

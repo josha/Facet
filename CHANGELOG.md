@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Journey example (NavigationStack gallery scenario): the details page's "Days 3 away" and "Travel light" rows are `HStack`s whose words hug and whose `Spacer` takes the rest, as in 0.11. Before, each word was a full-width Text in a horizontal list, so "3" and "away" painted past the Summary column over "Your notes".
 - A Toast stack docks clear of the app's reserved chrome on its edge, in its own ScreenGui or an enabled sibling one (`reservations.reserved`), and a TabView bottom bar now reserves its band (`FacetInsetBottom`). Before, a bottom toast painted over a bottom bar that lived in another ScreenGui, and no bottom bar reserved anything.
 - A Popover, Callout or help panel beside its source (a side edge) that is shorter than 39 pixels keeps its tail, centred on its side. Before, the tail was dropped whenever the panel was too short for the tail plus its 8 pixel end insets.
 - `UI.Text { reveal = "auto" }` (restored from 0.11): a truncated one-line label rests in its ellipsis, then scrolls its whole value left to the tail and back, one strip at a time, never under reduced motion or while its disclosure panel shows.
