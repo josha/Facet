@@ -191,7 +191,13 @@ t.describe("native gallery pickers and fields", function()
 		end
 		expect(find(find(s.node, "Accent"), "Well")).toBeNil()
 		expect(find(find(s.node, "Fog"), "Well")).toBeNil()
-		expect(find(find(s.node, "Body"), "Title").Text).toBe("Kart body")
+		local kartBody
+		for _, node in s.node:GetDescendants() do
+			if node.Name == "Body" and not node:IsA("ScrollingFrame") then
+				kartBody = kartBody or node
+			end
+		end
+		expect(find(kartBody, "Title").Text).toBe("Kart body")
 		expect(find(s.node, "Committed").Text).toBe("Committed: nothing yet")
 		local trim = find(s.node, "Trim")
 		local well = find(trim, "Well")

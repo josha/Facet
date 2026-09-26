@@ -1475,7 +1475,7 @@ return function(
 		local reduced = reducedMotion(ctx)
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
-		end, { period = 0.25, damping = 1, reducedMotion = reduced })
+		end, { period = 0.25, damping = 1, tolerance = 1e-3, reducedMotion = reduced })
 		local _, slot = runtime.mount(function()
 			return Host.Folder "Slide" {
 				Host.Frame "Origin" { BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) },
@@ -2557,7 +2557,7 @@ return function(
 							Host.Frame({ Name = "Anchor", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }),
 							function(use: ComposeTypes.Use): string?
 								local badge = read(use(source).badge, use)
-								return if badge == nil or not read(spec.iconOnly, use) then nil else tostring(badge)
+								return if badge == nil then nil else tostring(badge)
 							end
 						)
 						runtime.decorate(corner, { Size = D2.fromScale(1, 1), AutomaticSize = E.AutomaticSize.None })
@@ -2586,7 +2586,7 @@ return function(
 							return {
 								Compose.show(function(use: ComposeTypes.Use)
 									local badge = read(use(source).badge, use)
-									return badge ~= nil and badge ~= "" and not (sealed and read(spec.iconOnly, use))
+									return badge ~= nil and badge ~= "" and not sealed
 								end, function()
 									local last = tostring(read(source:peek().badge))
 									return UI.Badge({
