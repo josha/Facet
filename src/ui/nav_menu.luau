@@ -1562,14 +1562,17 @@ return function(
 		end, picker)
 		local origin = ctx.observe.AbsolutePosition(picker)
 		local bounds = ctx.observe.AbsoluteSize(picker)
-		local unit = ctx.observe.AbsoluteSize((slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject)
+		local probe = (slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject
+		local unit = ctx.observe.AbsoluteSize(probe)
+		local content = ctx.observe.AbsolutePosition(probe)
 		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
 			local scale = (use(unit) :: Vector2).X
 			scale = if scale > 0 then scale else 1
-			local room = (use(bounds) :: Vector2) / scale
+			local inset = use(content) :: Vector2 - use(origin) :: Vector2
+			local room = ((use(bounds) :: Vector2) - inset * 2):Max(V2.zero) / scale
 			for _, box in boxes do
 				if use(box.order) == order then
-					local at = (use(box.at) - use(origin) :: Vector2) / scale
+					local at = (use(box.at) - use(content) :: Vector2) / scale
 					local size = use(box.size) / scale
 					at = V2.new(math.clamp(at.X, 0, room.X), math.clamp(at.Y, 0, room.Y))
 					return at, V2.new(math.min(size.X, room.X - at.X), math.min(size.Y, room.Y - at.Y))

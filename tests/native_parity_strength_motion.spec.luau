@@ -2071,6 +2071,36 @@ t.describe("performance lab motion flight", function()
 		w.close()
 	end)
 
+	t.it(
+		"the segmented selection fill is placed in the strip's padded content box, so it cannot grow the strip",
+		function()
+			local w = world({ reducedMotion = true })
+			local _, screen = w.mount(function(UI)
+				return UI.Picker "Mode" {
+					style = "segmented",
+					selected = Compose.cell("b"),
+					options = {
+						{ value = "a", label = "Road" },
+						{ value = "b", label = "Rally" },
+						{ value = "c", label = "Drift" },
+					},
+				}
+			end)
+			local V = w.engine.types.Vector2
+			find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(0, 0), V.new(218, 50)
+			find(screen, "SlideUnit").AbsolutePosition = V.new(3, 3)
+			for index, name in { "a", "b", "c" } do
+				find(screen, name).AbsolutePosition = V.new(3 + (index - 1) * 72, 3)
+				find(screen, name).AbsoluteSize = V.new(68, 44)
+			end
+			w.step(0.1)
+			local fill = find(screen, "SelectionFill")
+			t.expect(fill.Position).toBe(w.engine.types.UDim2.fromOffset(72, 0))
+			t.expect(fill.Size).toBe(w.engine.types.UDim2.fromOffset(68, 44))
+			w.close()
+		end
+	)
+
 	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
 		local w = world({ reducedMotion = true })
 		local selected = Compose.cell("b")
@@ -2086,6 +2116,7 @@ t.describe("performance lab motion flight", function()
 		end)
 		local V = w.engine.types.Vector2
 		find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(10, 20), V.new(294, 112)
+		find(screen, "SlideUnit").AbsolutePosition = V.new(10, 20)
 		find(screen, "a").AbsolutePosition, find(screen, "a").AbsoluteSize = V.new(10, 20), V.new(294, 54)
 		find(screen, "b").AbsolutePosition, find(screen, "b").AbsoluteSize = V.new(10, 78), V.new(294, 54)
 		w.step(0.1)
