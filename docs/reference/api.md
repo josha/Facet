@@ -2943,9 +2943,10 @@ input:
 - Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
   Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
   Edit mode shows, inside each row band, a round red minus at the leading
-  edge (deletable) and a move handle at the trailing edge (reorderable); the
-  row content slides to make room (instantly with reduced motion). The minus
-  reveals a `Delete` button at the trailing edge, which confirms. A handle
+  edge (deletable, unless `selectionMode = "multiple"`) and a move handle at
+  the trailing edge (reorderable); the row content slides to make room
+  (instantly with reduced motion). The minus reveals a `Delete` button at the
+  trailing edge, which confirms. A handle
   drags, or Return or the A button starts a move that the arrows or D-pad
   place and Return, A or `Drop` ends. The X
   button removes the selected rows, and L1 and R1 move them by one slot. A
@@ -2953,10 +2954,17 @@ input:
   Edit control.
 - Without a readable input class the edit controls always show.
 - A selectable collection (`selectionMode` other than `"none"`) that is not
-  `deletable` marks each row's selection at the leading edge while `editing`
-  is true: a ring (`facet-radio-mark`) with a filled dot on a selected row. The
-  mark is paint and takes no focus. A Table with a supplied `editing` shows it
-  even when it is neither reorderable nor deletable.
+  `deletable`, and any `selectionMode = "multiple"` collection, marks each
+  row's selection at the leading edge while `editing` is true: a ring
+  (`facet-radio-mark`) with a filled dot on a selected row. The mark is paint
+  and takes no focus. A Table with a supplied `editing` shows it even when it
+  is neither reorderable nor deletable.
+- While `editing` is true, a tap, a click, Return or the A button on a row of
+  a selectable collection toggles that row's selection and does not run
+  `onActivate`, as in a SwiftUI list's edit mode. A deletable Table's own
+  toolbar shows a `DeleteSelected` button (`Delete`) beside `Edit` while it
+  edits, except with a gamepad, whose X button does the same; it removes the
+  selected rows through `onDelete` and is disabled while nothing is selected.
 
 With touch or gamepad input, a Table with the Edit toolbar accepts cell edits
 only while editing; otherwise its editor cells accept edits at all times.

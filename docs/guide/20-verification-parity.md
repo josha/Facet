@@ -916,7 +916,7 @@ These cases close 19 of the last 22 gap contracts, with 47 main cases.
 | `native_parity_navigation` | keeps both showcase tab levels at the 44 pixel floor, marks each selection and reveals once | navigation-5-47 | 5 |
 | `native_parity_navigation` | pages each showcase tab strip by shoulder, traps the alert and restores its launcher on Back | apps2-232 | 2 |
 | `native_gallery_collections` | opens the mail row menu with Shift+Return on a selected row and runs a chosen item | collections-102 | 1 |
-| `native_gallery_collections` | reaches the mail table edit minus by selection and swipes a table row open without reordering | collections-106 | 2 |
+| `native_gallery_collections` | selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open | collections-106 | 2 |
 | `native_gallery_collections` | mounts the virtual mail surface alone and swipes deletes and opens row menus from each input | collections-108 | 6 |
 | `native_gallery_collections` | drops the mail heading on a short landscape and keeps the first row on every surface | collections-110 | 4 |
 | `native_parity_media` | follows a readable alert source that moves in flight and keeps the last origin when it goes nil | apps-258 | 2 |

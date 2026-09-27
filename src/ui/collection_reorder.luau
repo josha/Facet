@@ -14,6 +14,8 @@ export type Editor<V, K> = {
 	trailing: ComposeTypes.Readable<number>,
 	press: (K, InputObject) -> (),
 	busy: () -> boolean,
+	deleteChosen: () -> (),
+	canDelete: (ComposeTypes.Use?) -> boolean,
 }
 type Move<V, K> = {
 	key: K,
@@ -55,12 +57,14 @@ return function<V, K>(
 		return kind == nil or read(editing, use) == true
 	end)
 
-	local marked = spec.selectionMode ~= nil and spec.selectionMode ~= "none" and not deletable
+	local marked = spec.selectionMode == "multiple"
+		or (spec.selectionMode ~= nil and spec.selectionMode ~= "none" and not deletable)
+	local minusShown = deletable and not marked
 	local markShown = Compose.formula(function(use: ComposeTypes.Use): boolean
 		return marked and read(editing, use) == true
 	end)
 	local leading = Compose.formula(function(use: ComposeTypes.Use): number
-		return if (deletable and use(controlsShown)) or use(markShown) then 44 else 0
+		return if (minusShown and use(controlsShown)) or use(markShown) then 44 else 0
 	end)
 	local trailing = Compose.formula(function(use: ComposeTypes.Use): number
 		return if reorderable and use(controlsShown) then 44 else 0
@@ -413,8 +417,8 @@ return function<V, K>(
 				end
 			end,
 		}
-		local minus = if deletable then UI.Button(minusProps) else nil
-		local confirm = if deletable then UI.Button(confirmProps) else nil
+		local minus = if minusShown then UI.Button(minusProps) else nil
+		local confirm = if minusShown then UI.Button(confirmProps) else nil
 		local mark = if marked
 			then ctx.styled(
 				Host.Frame "SelectMark" {
@@ -530,6 +534,49 @@ return function<V, K>(
 		end
 	end
 	pressRow = press
+	local function chosen(use: ComposeTypes.Use?): { K }
+		local keys, selected = {}, read(selection, use)
+		for index, item in read(source, use) do
+			local key = keyOf(item, index)
+			if selected[key] then
+				table.insert(keys, key)
+			end
+		end
+		if #keys == 0 and read(editing, use) == true then
+			local at: Instance? = if use then use(focus) else focus:peek()
+			while at and #keys == 0 do
+				for _, node in { at, table.unpack(at:GetChildren()) } do
+					local key = rowKeys[node]
+					if key ~= nil then
+						table.insert(keys, key)
+						break
+					end
+				end
+				at = at.Parent
+			end
+		end
+		return keys
+	end
+	local function canDelete(use: ComposeTypes.Use?): boolean
+		return deletable and (if use then use(moving) else moving:peek()) == nil and #chosen(use) > 0
+	end
+	local function deleteChosen(): ()
+		local keys = {}
+		for _, key in chosen() do
+			for index, item in read(source) do
+				if
+					keyOf(item, index) == key
+					and policy.allows(spec.rowDeletable, item)
+					and not policy.disabled(spec.disabled, item)
+				then
+					table.insert(keys, key)
+				end
+			end
+		end
+		if #keys > 0 and spec.onDelete then
+			spec.onDelete(keys)
+		end
+	end
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
 		local canvasAt, bodyAt = ctx.observe.CanvasPosition(body), ctx.observe.Position(body)
@@ -838,29 +885,6 @@ return function<V, K>(
 			commit,
 			{ priority = 400 }
 		)
-		local function chosen(use: ComposeTypes.Use?): { K }
-			local keys, selected = {}, read(selection, use)
-			for index, item in read(source, use) do
-				local key = keyOf(item, index)
-				if selected[key] then
-					table.insert(keys, key)
-				end
-			end
-			if #keys == 0 and read(editing, use) == true then
-				local at: Instance? = if use then use(focus) else focus:peek()
-				while at and at ~= root and #keys == 0 do
-					for _, node in { at, table.unpack(at:GetChildren()) } do
-						local key = rowKeys[node]
-						if key ~= nil then
-							table.insert(keys, key)
-							break
-						end
-					end
-					at = at.Parent
-				end
-			end
-			return keys
-		end
 		if reorderable then
 			local function nudge(delta: number)
 				local keys = chosen()
@@ -885,26 +909,8 @@ return function<V, K>(
 				root,
 				"DeleteRows",
 				{ E.KeyCode.Delete, E.KeyCode.Backspace, E.KeyCode.ButtonX },
-				function(use: ComposeTypes.Use)
-					return use(moving) == nil and #chosen(use) > 0
-				end,
-				function()
-					local keys = {}
-					for _, key in chosen() do
-						for index, item in read(source) do
-							if
-								keyOf(item, index) == key
-								and policy.allows(spec.rowDeletable, item)
-								and not policy.disabled(spec.disabled, item)
-							then
-								table.insert(keys, key)
-							end
-						end
-					end
-					if #keys > 0 and spec.onDelete then
-						spec.onDelete(keys)
-					end
-				end,
+				canDelete,
+				deleteChosen,
 				{ priority = 400 }
 			)
 		end
@@ -919,5 +925,7 @@ return function<V, K>(
 		busy = function(): boolean
 			return moving:peek() ~= nil
 		end,
+		deleteChosen = deleteChosen,
+		canDelete = canDelete,
 	}
 end

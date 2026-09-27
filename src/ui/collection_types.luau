@@ -29,6 +29,7 @@ export type SelectionOptions<V, K> = {
 	selectable: RowPredicate<V>?,
 	disabled: RowPredicate<V>?,
 	onSelectionChange: ((selection: Selection<K>) -> ())?,
+	editing: Types.ValueBoolean?,
 }
 export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	reorderable: boolean?,
@@ -37,7 +38,6 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	deletable: boolean?,
 	rowDeletable: RowPredicate<V>?,
 	onDelete: ((keys: { K }) -> ())?,
-	editing: Types.ValueBoolean?,
 	dragLabel: ((item: V) -> string)?,
 	autoscroll: boolean?,
 	direction: ComposeTypes.OrderedCollectionDirection?,
