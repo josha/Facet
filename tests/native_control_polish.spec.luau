@@ -509,7 +509,9 @@ t.describe("native selection paint", function()
 				end
 				for property, value in pressed do
 					if typeof(value) == "Color3" or string.find(property, "Transparency$") then
-						expect(press:GetPropertyTransitions()[property].Time).toBe(seconds)
+						expect(press:GetPropertyTransitions()[property].Time).toBe(
+							themes.neutralPackage().metrics.motion.press
+						)
 					end
 				end
 			end

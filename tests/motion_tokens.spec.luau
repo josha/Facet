@@ -68,6 +68,8 @@ t.describe("motion values live in the theme", function()
 		local m: any = themes.neutralPackage().metrics.motion
 		t.expect(m.fast).toBe(0.12)
 		t.expect(m.normal).toBe(0.2)
+		t.expect(m.press).toBe(0.08)
+		t.expect(m.hover).toBe(0.15)
 		t.expect(m.popover.enter).toBe(0.15)
 		t.expect(m.popover.exit).toBe(0.1)
 		t.expect(m.dialog.enter).toBe(0.2)

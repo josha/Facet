@@ -1630,7 +1630,7 @@ t.describe("theme paint transitions", function()
 		return typeof(value) == "Color3" or string.find(property, "Transparency$") ~= nil
 	end
 
-	t.it("every shipped package transitions exactly its paint properties on one shared timing", function()
+	t.it("press rules transition in motion.press, hover rules in motion.hover, other rules in motion.normal", function()
 		local themePackages = require("../tools/lune/theme_packages")
 		local packages: { any } = { themes.neutralPackage() }
 		for _, name in themePackages.shippable() do
@@ -1641,7 +1641,10 @@ t.describe("theme paint transitions", function()
 		end
 		t.expect(#packages >= 9).toBe(true)
 		for _, package in packages do
-			local seconds = (package.metrics and package.metrics.motion and package.metrics.motion.normal) or 0.2
+			local m = package.metrics.motion
+			local normal = m.normal
+			local press = math.min(m.press or 0.08, normal)
+			local hover = math.min(m.hover or 0.15, normal)
 			for _, mode in { "full", "reduced", "off" } do
 				local w = world({})
 				local stop, sheet = w.runtime.mount(function()
@@ -1651,19 +1654,28 @@ t.describe("theme paint transitions", function()
 						transition = if mode == "off" then false else nil,
 					})
 				end, w.engine.new("Folder"))
-				local shared = nil
-				local checked = 0
+				local checked = { press = 0, hover = 0, base = 0 }
 				for _, rule in sheet:GetChildren() do
 					if rule.ClassName == "StyleRule" then
+						local kind = if string.find(rule.Selector, ":Press", 1, true)
+							then "press"
+							elseif string.find(rule.Selector, ":Hover", 1, true) then "hover"
+							else "base"
+						local want = if mode ~= "full"
+							then 0
+							elseif kind == "press" then press
+							elseif kind == "hover" then hover
+							else normal
 						local properties = rule:GetProperties()
 						local transitions = rule:GetPropertyTransitions()
 						for property, value in properties do
 							if isPaint(property, value) then
 								local timing = transitions[property]
 								t.expect(timing ~= nil).toBe(true)
-								shared = shared or timing
-								t.expect(timing).toBe(shared)
-								checked += 1
+								t.expect(timing.Time).toBe(want)
+								t.expect(timing.EasingStyle).toBe(w.engine.types.Enum.EasingStyle.Quad)
+								t.expect(timing.EasingDirection).toBe(w.engine.types.Enum.EasingDirection.Out)
+								checked[kind] += 1
 							else
 								t.expect(transitions[property]).toBe(nil)
 							end
@@ -1673,10 +1685,7 @@ t.describe("theme paint transitions", function()
 						end
 					end
 				end
-				t.expect(checked > 30).toBe(true)
-				t.expect(shared.Time).toBe(if mode == "full" then seconds else 0)
-				t.expect(shared.EasingStyle).toBe(w.engine.types.Enum.EasingStyle.Quad)
-				t.expect(shared.EasingDirection).toBe(w.engine.types.Enum.EasingDirection.Out)
+				t.expect(checked.press > 5 and checked.hover > 5 and checked.base > 30).toBe(true)
 				stop()
 				w.close()
 			end

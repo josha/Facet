@@ -124,7 +124,7 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 
 | Group | Tokens |
 |---|---|
-| Paint | `fast` 0.12, `normal` 0.2 |
+| Paint | `fast` 0.12, `normal` 0.2, `press` 0.08, `hover` 0.15 (both no slower than `normal`) |
 | Role timings (`enter`, `exit` seconds) | `popover` 0.15/0.1, `dialog` 0.2/0.15, `reveal` 0.25/0.2, `sheet` 0.3/0.2, `toast` 0.2/0.2, `radial` 0.2/0.12 (and `slot` 0.16) |
 | `durations` (seconds) | `tabFade` 0.2, `pageTurn` 0.3, `popoverSheetExit` 0.2, `rowDeparture` 0.24, `cardFade` 0.15, `regionPop` 0.15, `fieldReject` 0.24, `buttonPop` 0.45, `scrollReveal` 0.25, `focusPulse` 1, `busyLoop` 1, `progressLoop` 1, `spinnerLoop` 1.4, `glide` 0.22 |
 | `springs` (`period`, `damping`) | `snappy` 0.2/1, `quick` 0.18/1, `control` 0.25/1, `move` 0.3/1, `sheet` 0.4/1 |

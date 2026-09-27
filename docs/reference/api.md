@@ -3361,9 +3361,13 @@ weight. The derived role keeps the family, style, size and line height.
     every entry in `package.assets` except those marked `preload = "lazy"`,
     off the calling thread, so a panel that
     first opens later already has its art.
-- Colors and opacity use native StyleRule transitions. The default duration is
-  `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
-  omitted. The easing is Quad Out. The same timing applies across rules. Native
+- Colors and opacity use native StyleRule transitions. `:Press` rules use
+  `metrics.motion.press` (0.08 seconds), `:Hover` rules use
+  `metrics.motion.hover` (0.15 seconds), and other rules use
+  `metrics.motion.normal` (0.2 seconds). Press and hover are never slower than
+  `normal`. The easing is `metrics.motion.styles.paint` (Quad Out). Roblox
+  applies the transition of the rule being entered, so a press arrives in the
+  press time and its release eases back in the normal time. Native
   transitions retarget interrupted changes.
 - Reduced motion or `transition = false` sets zero-duration paint. If you omit
   reduced motion, the sheet follows GuiService.

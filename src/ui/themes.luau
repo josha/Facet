@@ -160,6 +160,8 @@ local neutral: ThemeTypes.ThemePackage = {
 		motion = {
 			fast = 0.12,
 			normal = 0.2,
+			press = 0.08,
+			hover = 0.15,
 			revealFadeShare = 0.5,
 			unfoldStart = 0.25,
 			restLimit = 0.25,
@@ -1733,16 +1735,21 @@ local function createStyleSheet(
 		return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 	end
 	local defaultTimings: { [string]: TweenInfo } = {}
-	local function timingFor(package: ThemeTypes.ThemePackage, use: ComposeTypes.Use): TweenInfo
+	type PaintState = "normal" | "press" | "hover"
+	local function timingFor(package: ThemeTypes.ThemePackage, role: PaintState, use: ComposeTypes.Use): TweenInfo
 		local explicit = read(settings.transition, use)
 		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
+		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
 		if read(reducedMotion, use) == true or explicit == false then
 			seconds = 0
 		elseif explicit ~= nil then
 			return explicit :: TweenInfo
+		elseif role == "normal" then
+			seconds = normal
 		else
-			seconds = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
+			local authored = if motion then (motion :: any)[role] else nil
+			seconds = math.min(authored or (neutral.metrics.motion :: any)[role], normal)
 		end
 		local style = (motion and motion.styles and motion.styles.paint)
 			or (neutral.metrics.motion.styles :: { [string]: string }).paint
@@ -1755,6 +1762,12 @@ local function createStyleSheet(
 			types.TweenInfo.new(seconds, (types.Enum.EasingStyle :: any)[style], types.Enum.EasingDirection.Out)
 		defaultTimings[key] = timing
 		return timing
+	end
+	local function stateOf(selector: string): PaintState
+		return if string.find(selector, ":Press", 1, true)
+			then "press"
+			elseif string.find(selector, ":Hover", 1, true) then "hover"
+			else "normal"
 	end
 	local definitions: { [string]: NativeRule } = {}
 	type CompiledRules = {
@@ -1818,7 +1831,7 @@ local function createStyleSheet(
 		}
 	end
 	local ids = Compose.cell({} :: { string })
-	local currentTiming: TweenInfo? = nil
+	local currentTiming: { normal: TweenInfo, press: TweenInfo, hover: TweenInfo }? = nil
 	type MountedRule = {
 		node: StyleRule,
 		priority: number,
@@ -1905,7 +1918,7 @@ local function createStyleSheet(
 				})
 				local record: MountedRule = { node = node, priority = initial.priority }
 				mounted[id] = record
-				apply(record, initial, currentTiming :: TweenInfo)
+				apply(record, initial, (assert(currentTiming) :: any)[stateOf(initial.selector)])
 				Compose.cleanup(function()
 					if mounted[id] == record then
 						mounted[id] = nil
@@ -1928,8 +1941,12 @@ local function createStyleSheet(
 		if hovering == false then
 			current = withoutHover(current)
 		end
-		local timing = timingFor(package, use)
-		currentTiming = timing
+		local timings = {
+			normal = timingFor(package, "normal", use),
+			press = timingFor(package, "press", use),
+			hover = timingFor(package, "hover", use),
+		}
+		currentTiming = timings
 		local preference = preferenceFor(use)
 		local previousIds = ids:peek()
 		local structureChanged = #previousIds ~= #current
@@ -1942,7 +1959,7 @@ local function createStyleSheet(
 			end
 			local record = mounted[definition.id]
 			if record then
-				apply(record, definition, timing)
+				apply(record, definition, timings[stateOf(definition.selector)])
 			end
 		end
 		if structureChanged then
