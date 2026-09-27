@@ -133,11 +133,16 @@ t.describe("leaving the gamepad", function()
 				return UI.Screen "Page" { UI.Button "Q" { label = "Q" }, UI.Button "W" { label = "W" } }
 			end)
 			local E = w.engine.types.Enum
+			local last = E.UserInputType.Gamepad1
+			w.input.GetLastInputType = function()
+				return last
+			end
 			w.input.PreferredInput = E.PreferredInput.Gamepad
 			w.find("FacetEntry", w.parent):FindFirstChild("Enter").StateChanged.fire(w.engine.types.Vector2.new(0, -1))
 			t.expect(w.selected()).toBe("Q")
 			w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 			t.expect(w.selected()).toBe("nil")
+			last = E.UserInputType.Keyboard
 			w.tab()
 			t.expect(w.selected()).toBe("Q")
 			w.input.PreferredInput = E.PreferredInput.Gamepad
@@ -146,6 +151,39 @@ t.describe("leaving the gamepad", function()
 			w.stop()
 		end
 	)
+
+	t.it("keeps a first Tab that lands before the preferred input leaves the gamepad", function()
+		local w = setup(function(UI)
+			return UI.Screen "Page" { UI.Button "Q" { label = "Q" }, UI.Button "W" { label = "W" } }
+		end)
+		local E = w.engine.types.Enum
+		w.input.GetLastInputType = function()
+			return E.UserInputType.Keyboard
+		end
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		w.tab()
+		t.expect(w.selected()).toBe("Q")
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(w.selected()).toBe("Q")
+		w.stop()
+	end)
+
+	t.it("leaves a game's own pad selection outside Facet alone", function()
+		local own: any
+		local w = setup(function(UI, Host)
+			own = Host.TextButton { Name = "GameMenu", Selectable = true }
+			return Host.Frame { Name = "Legacy", own, UI.Screen "Page" { UI.Button "Q" { label = "Q" } } }
+		end)
+		local E = w.engine.types.Enum
+		w.input.GetLastInputType = function()
+			return E.UserInputType.Gamepad1
+		end
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		w.gui.SelectedObject = own
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(w.selected()).toBe("GameMenu")
+		w.stop()
+	end)
 end)
 
 t.describe("focusSection entry rules", function()

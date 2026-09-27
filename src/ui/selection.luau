@@ -302,9 +302,19 @@ return function(ctx: Shared.Context): Selection
 		local keyboard = ctx.observe.KeyboardEnabled(keys)
 		local preferred = ctx.observe.PreferredInput(keys)
 		local padPreferred, padMade = false, false
+		local function ownedByFacet(node: Instance?): boolean
+			while node do
+				if registry[node] then
+					return true
+				end
+				node = node.Parent
+			end
+			return false
+		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			use(selectedObject)
-			padMade = preferred:peek() == E.PreferredInput.Gamepad
+			local selected = use(selectedObject)
+			local last = if keys.GetLastInputType then keys:GetLastInputType() else nil
+			padMade = last ~= nil and string.find(last.Name, "^Gamepad") ~= nil and ownedByFacet(selected)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local pad = use(preferred) == E.PreferredInput.Gamepad
