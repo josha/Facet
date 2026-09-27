@@ -249,6 +249,47 @@ t.describe("native option rows keep the mark in its own slot", function()
 	end)
 end)
 
+t.describe("native table cell insets", function()
+	t.it("a heading and a custom cell start their content where a value does, in every theme", function()
+		local packages: { any } = { themes.neutralPackage() }
+		for _, module in SHIPPED do
+			table.insert(packages, (module.build(themes)))
+		end
+		for _, package in packages do
+			local id = package.identity.id
+			local w = world(function()
+				return nil
+			end)
+			local sheet = sheetFor(w, package)
+			local order: { [string]: number } = {}
+			for index, node in sheet:GetChildren() do
+				order[node.Selector] = index
+			end
+			local value = rule(sheet, ".facet-tablevalue::UIPadding"):GetProperties()
+			local inset = rule(sheet, ".facet-tablecellinset"):GetProperties()
+			expect(`{id} inset {inset.Position.X.Offset} {-inset.Size.X.Offset}`).toBe(
+				`{id} inset {value.PaddingLeft.Offset} {value.PaddingLeft.Offset + value.PaddingRight.Offset}`
+			)
+			for _, selector in { ".facet-tableheading::UIPadding" } do
+				local found = rule(sheet, selector)
+				expect(`{id} {selector} {tostring(found ~= nil)}`).toBe(`{id} {selector} true`)
+				local padding = found:GetProperties()
+				for _, side in { "PaddingLeft", "PaddingRight" } do
+					expect(`{id} {selector} {side} {padding[side].Offset}`).toBe(
+						`{id} {selector} {side} {value[side].Offset}`
+					)
+				end
+			end
+			expect(
+				`{id} heading after tight {tostring(
+					order[".facet-tableheading::UIPadding"] > order[".facet-button-tight::UIPadding"]
+				)}`
+			).toBe(`{id} heading after tight true`)
+			w.stop()
+		end
+	end)
+end)
+
 t.describe("native segmented picker track", function()
 	t.it("the selected segment sits inside the track with an even inset in every theme and control size", function()
 		local packages: { any } = { themes.neutralPackage() }
@@ -316,6 +357,27 @@ t.describe("native segmented picker track", function()
 		local segment = find(options, "easy"):FindFirstChildWhichIsA("UISizeConstraint")
 		expect(segment.MaxSize.X).toBe(300 - 6)
 		expect(options:FindFirstChild("TargetFloor").MaxSize.X).toBe(300)
+		w.stop()
+	end)
+
+	t.it("an icon-only segment takes the glyph padding so its icon stays centred in a narrow tile", function()
+		local iconOnly = Compose.cell(true)
+		local w = world(function(UI)
+			return UI.Picker "Rail" {
+				style = "segmented",
+				axis = "y",
+				iconOnly = iconOnly,
+				selected = Compose.cell("a"),
+				options = {
+					{ value = "a", label = "Browse", icon = "menu" },
+					{ value = "b", label = "Compose", icon = "edit" },
+				},
+			}
+		end)
+		local segment = find(w.screen, "a")
+		expect(segment:HasTag("facet-button-glyph")).toBe(true)
+		iconOnly:set(false)
+		expect(segment:HasTag("facet-button-glyph")).toBe(false)
 		w.stop()
 	end)
 

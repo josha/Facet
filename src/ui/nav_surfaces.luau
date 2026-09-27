@@ -321,6 +321,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.padding(16, 16),
 				}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 				local natural = ctx.observe.AbsoluteSize(column)
+				local chrome = Compose.cell(V2.zero)
 				local target = Compose.formula(function(use: ComposeTypes.Use): Overlay.Rect
 					local room, offset, at, box = use(extent), use(origin), use(rootAt), use(rootBox)
 					local margin = ctx.metric("space.s", use)
@@ -328,7 +329,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						math.max(box.X, (ctx.metric("controls.popup.panelWidth", use))),
 						math.max(0, room.X - 2 * margin)
 					)
-					local h = math.min(math.max(use(natural).Y, box.Y), math.max(0, room.Y - 2 * margin))
+					local h =
+						math.min(math.max(use(natural).Y + use(chrome).Y, box.Y), math.max(0, room.Y - 2 * margin))
 					local x, y = at.X - offset.X, at.Y - offset.Y
 					return {
 						x = math.clamp(x, margin, math.max(margin, room.X - margin - w)),
@@ -352,8 +354,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					Name = "ExpandedFade",
 					BackgroundTransparency = 1,
 					Size = function(use: ComposeTypes.Use)
-						local goal = use(target)
-						return D2.fromOffset(goal.w, goal.h)
+						local goal, inset = use(target), use(chrome)
+						return D2.fromOffset(goal.w - inset.X, goal.h - inset.Y)
 					end,
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - progress(use)
@@ -386,11 +388,24 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return D2.fromOffset(rect.w, rect.h)
 						end,
 						fade,
+						Host.Frame "ContentBox" {
+							BackgroundTransparency = 1,
+							Interactable = false,
+							Size = D2.fromScale(1, 1),
+						},
 						ctx.corner(),
 					},
 					"panel"
 				))
 				ctx.styled(plate, "floating")
+				local plateBox = ctx.observe.AbsoluteSize(plate)
+				local contentBox = ctx.observe.AbsoluteSize(assert(plate:FindFirstChild("ContentBox")) :: GuiObject)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local outer, inner = use(plateBox), use(contentBox)
+					if inner.X > 0 and inner.Y > 0 then
+						chrome:set(outer - inner)
+					end
+				end)
 				return surfaces.modal(
 					function()
 						return plate
@@ -579,7 +594,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if contentLayout then
 					contentLayout.HorizontalAlignment = E.HorizontalAlignment.Center
 				end
-				local contentSize = ctx.observe.AbsoluteSize(contentRoot)
+				local contentHeight = Compose.cell(0)
 				local actionProps: Types.FrameNativeProps = {
 					Name = "Actions",
 					BackgroundTransparency = 1,
@@ -639,7 +654,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						},
 					}, { Name = "AlertFooter", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 				end
-				local actionSize = ctx.observe.AbsoluteSize(actionBar)
+				local actionSize = ctx.layoutSize(actionBar)
 				local function chrome(use: ComposeTypes.Use): number
 					local package = read(ctx.config.theme, use)
 					local recipe = if package and package.chrome then package.chrome.panel else nil
@@ -649,7 +664,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						+ math.max(0, if inset then inset.top or 0 else 0)
 						+ math.max(0, if inset then inset.bottom or 0 else 0)
 				end
-				local scroll = parts.scroller(ctx, {
+				local scroll, _, _, messageExtent, messageRested = parts.scroller(ctx, {
 					Name = "AlertMessage",
 					Selectable = false,
 					BackgroundTransparency = 1,
@@ -666,12 +681,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							0,
 							0,
 							math.min(
-								use(contentSize).Y,
-								math.max(44, use(offer).Y - use(actionSize).Y - chrome(use) - 32)
+								use(contentHeight),
+								math.max(44, math.floor(use(offer).Y - use(actionSize).Y - chrome(use) - 32))
 							)
 						)
 					end,
-				}, { lists.list({}, true) :: Instance, contentRoot :: Instance })
+				}, { lists.list({}, true) :: Instance, contentRoot :: Instance }, { rest = spec.transition == nil })
 				local layout: GuiObject
 				if fullScreen then
 					local readable = V2.new(spec.maxWidth or 960, math.huge)
@@ -712,7 +727,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				ctx.styled(panel, "panel")
 				surfaces.skin(panel, "panel")
-				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG) else nil
+				local settled = Compose.cell(false)
+				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG, settled) else nil
+				Compose.watch(function(use: ComposeTypes.Use)
+					local height = use(messageExtent)
+					if not use(messageRested) or shown == nil or shown(use) >= 1 then
+						contentHeight:set(height)
+					end
+					settled:set(use(messageRested) or #contents == 0 or reduce(use))
+				end)
 				if shown then
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
 						return 1 - shown(use)
@@ -720,7 +743,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					surfaces.attach(panel, {
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
-								return 0.94 + 0.06 * shown(use)
+								return if use(settled) then 0.94 + 0.06 * shown(use) else 1
 							end,
 						},
 					})

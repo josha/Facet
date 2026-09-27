@@ -117,11 +117,14 @@ t.describe("themed edges, plates and gutters", function()
 		stop()
 	end)
 
-	t.it("rounds a menu's first and last rows with the panel's radius so a highlight stays inside the card", function()
+	t.it("rounds every menu highlight concentric with the card inside the rows' inset", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)
-			local corner = assert(style(sheet, ".facet-menu-end::UICorner"))
-			t.expect(corner.CornerRadius.Offset).toBe(entry.package.metrics.radii.panel)
+			local metrics = entry.package.metrics
+			local inset = (metrics.space or themes.neutralPackage().metrics.space).xs
+			local corner = assert(style(sheet, ".facet-menu-item::UICorner"))
+			t.expect(corner.CornerRadius.Offset).toBe(math.max(0, metrics.radii.panel - inset))
+			t.expect(style(sheet, ".facet-menu-end::UICorner")).toBe(nil)
 			stop()
 		end
 	end)

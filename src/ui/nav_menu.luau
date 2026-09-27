@@ -14,7 +14,7 @@ local Overlay = require("./overlay_types")
 
 local RADIO_MARK = 18 + 8
 
-type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean?, edge: boolean? }
+type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
 
 return function(
 	ctx: Types.Context,
@@ -423,10 +423,6 @@ return function(
 				table.insert(out, { key = key, item = item, ruled = afterRow and item.divider ~= true })
 				afterRow = item.divider ~= true
 			end
-			if #out > 0 then
-				out[1].edge = true
-				out[#out].edge = true
-			end
 			return out
 		end)
 		local rows = Host.Frame "MenuRows" {
@@ -547,13 +543,6 @@ return function(
 						end,
 					})
 					row:AddTag("facet-menu-item")
-					Compose.watch(function(use: ComposeTypes.Use)
-						if use(entrySource).edge == true and not use(sheeted) then
-							row:AddTag("facet-menu-end")
-						else
-							row:RemoveTag("facet-menu-end")
-						end
-					end)
 					fillTitle(row)
 					surfaces.attach(row, {
 						ctx.styled(
@@ -705,16 +694,16 @@ return function(
 			}),
 			Host.UIPadding({
 				PaddingTop = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else 0)
+					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
 				PaddingBottom = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else 0)
+					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
 				PaddingLeft = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else 0)
+					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
 				PaddingRight = function(use: ComposeTypes.Use)
-					return D.new(0, if use(sheeted) then 8 else 0)
+					return D.new(0, if use(sheeted) then 8 else ctx.metric("space.xs", use))
 				end,
 			}) :: Types.Child,
 		}
@@ -1169,6 +1158,7 @@ return function(
 								FillDirection = E.FillDirection.Vertical,
 								SortOrder = E.SortOrder.LayoutOrder,
 							}) :: Types.Child,
+							ctx.padding(ctx.metric("space.xs"), ctx.metric("space.xs")) :: Types.Child,
 							Compose.keyed({
 								from = function(use: ComposeTypes.Use)
 									return use(source).items
@@ -2617,6 +2607,15 @@ return function(
 							select(source:peek().value)
 						end,
 					})
+					if sealed then
+						Compose.watch(function(use: ComposeTypes.Use)
+							if labelOf(use) == "" then
+								button:AddTag("facet-button-glyph")
+							else
+								button:RemoveTag("facet-button-glyph")
+							end
+						end)
+					end
 					local glyph = if sealed then button:FindFirstChild("LeadingIcon", true) else nil
 					if glyph and (current.badge ~= nil or not fixed) then
 						local corner = UI.badged(

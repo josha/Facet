@@ -976,6 +976,14 @@ return function(
 											end,
 										})
 									end
+									Compose.watch(function(use: ComposeTypes.Use)
+										local live = currentSector(use)
+										if not live.list and iconic(use, live) then
+											button:AddTag("facet-button-glyph")
+										else
+											button:RemoveTag("facet-button-glyph")
+										end
+									end)
 									if appearance == "wedges" then
 										ctx.styled(button, "radial-item")
 									end
@@ -1141,7 +1149,14 @@ return function(
 						end,
 					}),
 				}
-				local panel = ctx.styled(Host.ScrollingFrame(panelProps), "panel")
+				local panel = Host.ScrollingFrame(panelProps)
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(fallback) then
+						panel:AddTag("facet-panel")
+					else
+						panel:RemoveTag("facet-panel")
+					end
+				end)
 				local ringNavigation = spec.center == "empty" or spec.center == "content"
 				local function showCenter(use: ComposeTypes.Use): boolean
 					if corner or use(fallback) or not ringNavigation then

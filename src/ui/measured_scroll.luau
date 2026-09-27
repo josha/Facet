@@ -4,13 +4,20 @@ local Types = require("./types")
 local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
+local REST_LIMIT = 0.25
 
 return function(
 	ctx: Types.Context,
 	props: Types.ScrollingFrameNativeProps,
 	children: { Types.Child },
-	options: { hug: boolean?, name: string? }?
-): (ScrollingFrame, Frame, ComposeTypes.Readable<Vector2>)
+	options: { hug: boolean?, name: string?, rest: boolean? }?
+): (
+	ScrollingFrame,
+	Frame,
+	ComposeTypes.Readable<Vector2>,
+	ComposeTypes.Readable<number>,
+	ComposeTypes.Readable<boolean>
+)
 	local Host, Compose, E, D2 = ctx.Host, ctx.Compose, ctx.types.Enum, ctx.types.UDim2
 	local hug = options ~= nil and options.hug == true
 	local flowProps: Types.FrameNativeProps = {
@@ -44,5 +51,31 @@ return function(
 	Compose.watch(function(use: ComposeTypes.Use)
 		extent:set(math.ceil(use(laidOut).Y - 0.01))
 	end)
-	return scroller, flow, size
+	local rested = Compose.cell(false)
+	local frames = ctx.runtime.host.frames
+	if frames and options and options.rest then
+		local last: number? = nil
+		local waited = 0
+		local stop: (() -> ())? = nil
+		stop = frames.onFrame(function(delta: number)
+			local now = extent:peek()
+			waited += delta
+			if (now == last and (now > 0 or size:peek().X > 0)) or waited > REST_LIMIT then
+				rested:set(true)
+				if stop then
+					stop()
+					stop = nil
+				end
+			end
+			last = now
+		end)
+		Compose.cleanup(function()
+			if stop then
+				stop()
+			end
+		end)
+	else
+		rested:set(true)
+	end
+	return scroller, flow, size, extent, rested
 end

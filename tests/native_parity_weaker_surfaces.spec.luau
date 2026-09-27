@@ -786,6 +786,30 @@ t.describe("presented surface strength", function()
 		world.stop()
 	end)
 
+	t.it("fits the expanded content inside the plate's themed inset and grows the plate by it", function()
+		local expanded = Compose.cell(true)
+		local world = setup(function(UI)
+			return UI.CollapsibleView "View" {
+				label = "Race settings",
+				expanded = expanded,
+				content = function()
+					return UI.Button "One" { label = "Coastal circuit" }
+				end,
+			}
+		end)
+		local V2 = world.engine.types.Vector2.new
+		world.screen.AbsoluteSize = V2(800, 600)
+		local plate = find(world.screen, "Expanded")
+		find(plate, "ExpandedBody").AbsoluteSize = V2(312, 200)
+		local fade = find(plate, "ExpandedFade")
+		t.expect(fade.Size.X.Offset).toBe(360)
+		plate.AbsoluteSize = V2(360, 200)
+		find(plate, "ContentBox").AbsoluteSize = V2(312, 152)
+		t.expect(fade.Size.X.Offset).toBe(312)
+		t.expect(fade.Size.Y.Offset).toBe(200)
+		world.stop()
+	end)
+
 	t.it("updates the bound summary label on a choice and returns selection to the same trigger", function()
 		local expanded, label, chosen = Compose.cell(false), Compose.cell("Select course"), false
 		local world = setup(function(UI, Host, _, gui)

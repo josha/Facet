@@ -2105,9 +2105,13 @@ t.describe("native parity navigation", function()
 		local content = find(world.screen, "AlertContent")
 		local scroll = find(world.screen, "AlertMessage")
 		t.expect(find(scroll, "UIListLayout") ~= nil).toBe(true)
-		content.AbsoluteSize = V2(world, 320, 120)
+		local flow = content.Parent
+		flow.AbsoluteSize = V2(world, 320, 120)
 		t.expect(scroll.Size.Y.Offset).toBe(120)
-		content.AbsoluteSize = V2(world, 320, 2000)
+		for _ = 1, 30 do
+			world.engine.heartbeat.fire(1 / 60)
+		end
+		flow.AbsoluteSize = V2(world, 320, 2000)
 		t.expect(scroll.Size.Y.Offset).toBe(844 - 44 - 40 - 40)
 		world.stop()
 	end)
