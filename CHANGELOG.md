@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- DisclosureGroup and CollapsibleView fade their content over the first half of the open (0.125 seconds) and out over the first half of the close (0.1 seconds), through the shared `ctx.fade` path; the height or the panel still moves for the whole 0.25 or 0.2 seconds.
 - **Breaking: a display-only Toast fades in and out as it slides by default** (it only slid unless `fade = true`). The fade is the shared `ctx.fade` path, so settled text is not rasterised; `fade = false` keeps the slide alone.
 - **Breaking: a tap or click on a Sheet's grabber closes the sheet** (it grew the sheet to the next detent). Return and the gamepad A button still grow it and close from the tallest detent; with `interactiveDismissDisabled` a tap grows it as before.
 - A disposed controls context can be collected. Its layout kit, help presenter and reduced-motion source lived in module-scope weak tables keyed by the context, and each value held the context, which Luau's weak keys never release, so every context and its tree stayed in memory.
