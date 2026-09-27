@@ -202,8 +202,8 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			if insets then
 				local padTop, padBottom = ctx.observe.PaddingTop(insets), ctx.observe.PaddingBottom(insets)
 				Compose.watch(function(use: ComposeTypes.Use)
-					top:set((use(padTop) :: UDim).Offset)
-					bottom:set((use(padBottom) :: UDim).Offset)
+					top:set(use(padTop).Offset)
+					bottom:set(use(padBottom).Offset)
 				end)
 			end
 			for _, node in filling do

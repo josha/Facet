@@ -67,7 +67,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			properties[#properties + 1] = ctx.styled(
 				Host.Frame "Reveal" {
 					Size = D2.fromOffset(28, 20),
-					ctx.corner(10),
+					Host.UICorner({ CornerRadius = ctx.round }),
 					ctx.icon("more", {
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
