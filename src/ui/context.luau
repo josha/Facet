@@ -786,7 +786,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local function paint(use: ComposeTypes.Use): NumberSequence
 			return types.NumberSequence.new(if use(warming) then 1 else amount(use))
 		end
-		local fading = Compose.cell(false)
+		local latched = Compose.cell(true)
 		local stop = runtime.mountFragment(function()
 			return {
 				Host.UIGradient "FadePaint" { Transparency = paint },
@@ -794,7 +794,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					Host.UIStroke "FadeStroke" {
 						Host.UIGradient "FadePaint" {
 							Transparency = function(use: ComposeTypes.Use): NumberSequence
-								return if use(fading) then paint(use) else types.NumberSequence.new(1)
+								return if use(latched) then types.NumberSequence.new(1) else paint(use)
 							end,
 						},
 					},
@@ -906,10 +906,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						end)
 					end)
 					node:AddTag("facet-fading")
-					fading:set(true)
+					latched:set(false)
 					Compose.cleanup(function()
 						node:RemoveTag("facet-fading")
-						fading:set(false)
 					end)
 					return Compose.fragment(function()
 						return {}
