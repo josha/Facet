@@ -128,7 +128,6 @@ t.describe("themed edges, plates and gutters", function()
 					t.expect(`{entry.label} {twin.Selector}`)
 						.toBe(`{entry.label} {string.sub(selector, 1, -11)} > .facet-fade-stroke`)
 					local expected = table.clone(node:GetProperties())
-					expected.Transparency = expected.Transparency or 0
 					for key, value in expected do
 						t.expect(`{twin.Selector}.{key}={twin:GetProperties()[key]}`)
 							.toBe(`{twin.Selector}.{key}={value}`)
@@ -140,6 +139,52 @@ t.describe("themed edges, plates and gutters", function()
 			stop()
 		end
 	end)
+
+	t.it(
+		"resolves a fade stroke exactly like the phantom it replaces, a game's partial stroke rule included",
+		function()
+			local styleRules = require("./lib/style_rules")
+			local authored = themes.neutralPackage()
+			authored.rules = { { selector = ".facet-floating::UIStroke", properties = { Thickness = 3 } } }
+			for _, entry in
+				{ { label = "neutral", package = themes.neutralPackage() }, { label = "game", package = authored } }
+			do
+				local engine: any = engineLib.new()
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local _, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, entry.package, { types = engine.types } :: any)
+				end, engine.new("Folder"))
+				for _, tags in { { "facet-floating" }, { "facet-step-circle" }, { "facet-layout" } } do
+					local node = engine.new("Frame")
+					for _, tag in tags do
+						node:AddTag(tag)
+					end
+					local stroke = engine.new("UIStroke")
+					stroke:AddTag("facet-fade-stroke")
+					stroke.Parent = node
+					local label = `{entry.label} {tags[1]}`
+					local phantom = styleRules.resolve(sheet, node, "Thickness", "UIStroke") ~= nil
+						or styleRules.resolve(sheet, node, "Color", "UIStroke") ~= nil
+					for _, property in { "Transparency", "Thickness", "Color" } do
+						local want = styleRules.resolve(sheet, node, property, "UIStroke")
+						if want == nil and property == "Transparency" then
+							want = if phantom then 0 else 1
+						end
+						if want ~= nil then
+							t.expect(`{label} {property} {styleRules.resolve(sheet, stroke, property)}`)
+								.toBe(`{label} {property} {want}`)
+						end
+					end
+					t.expect(`{label} rest {styleRules.resolve(sheet, stroke, "Enabled")}`).toBe(`{label} rest false`)
+					node:AddTag("facet-fading")
+					t.expect(`{label} fading {styleRules.resolve(sheet, stroke, "Enabled")}`)
+						.toBe(`{label} fading true`)
+					t.expect(styleRules.resolve(sheet, node, "Enabled", "UIStroke")).toBe(false)
+				end
+				runtime:dispose()
+			end
+		end
+	)
 
 	t.it("preloads a theme's art once per applied package so a first panel does not open without it", function()
 		local engine: any = engineLib.new()

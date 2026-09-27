@@ -648,9 +648,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			end
 		end
 		if string.sub(selector, -10) == "::UIStroke" then
-			local twin = table.clone(properties)
-			twin.Transparency = properties.Transparency or 0
-			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", twin)
+			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", properties)
 		end
 		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
@@ -1495,7 +1493,29 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		rule(definition.selector, properties, true)
 	end
-	return rules
+	local present: { [string]: boolean } = {}
+	local presence: { NativeRule } = {}
+	for _, definition in rules do
+		local selector = definition.selector
+		if
+			string.sub(selector, -21) == " > .facet-fade-stroke"
+			and selector ~= ".facet-fading > .facet-fade-stroke"
+			and not present[selector]
+		then
+			present[selector] = true
+			table.insert(
+				presence,
+				{ id = selector .. ":presence", selector = selector, properties = { Transparency = 0 }, priority = 0 }
+			)
+		end
+	end
+	local ordered = { rules[1] }
+	table.move(presence, 1, #presence, 2, ordered)
+	table.move(rules, 2, #rules, #ordered + 1, ordered)
+	for index, definition in ordered do
+		definition.priority = (index - 1) * 10
+	end
+	return ordered
 end
 
 local function sameProperties<T>(left: { [string]: T }, right: { [string]: T }): boolean
