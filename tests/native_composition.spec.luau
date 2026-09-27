@@ -300,7 +300,7 @@ t.describe("Composition", function()
 			local disc = w.find("Reveal")
 			t.expect(disc ~= nil).toBe(reveal)
 			if disc then
-				w.size(disc, 44, 44)
+				w.size(disc, 28, 28)
 			end
 			local zones = w.find("Zones")
 			w.size(zones, 800, 400)

@@ -69,6 +69,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				label = "",
 				name = "Show hidden",
 				shape = "circle",
+				controlSize = "xsmall",
 				onActivate = function()
 					open:set(not open:peek())
 				end,

@@ -19,7 +19,7 @@ local MEASURED = {
 	WeaponText = { 52, 12 },
 	Objective = { 120, 26 },
 	ObjectiveShort = { 30, 26 },
-	Reveal = { 44, 44 },
+	Reveal = { 28, 28 },
 }
 local LANDSCAPE, PORTRAIT, TINY = { 828, 256 }, { 374, 560 }, { 300, 140 }
 
