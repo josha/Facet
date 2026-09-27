@@ -2296,7 +2296,10 @@ past a third of the width, or faster than 600 pixels a second, closes it.
 Otherwise it slides back.
 
 The grabber is also a selectable button. A tap or click closes the sheet
-(with `interactiveDismissDisabled` it grows the sheet instead). Return or the
+(with `interactiveDismissDisabled` it grows the sheet instead). The engine
+gives a press on the grabber to its drag detector and never fires the button's
+`Activated`, so a grip drag that ends within 4 pixels of where it started is
+the tap. Return or the
 gamepad A button grows the sheet to the next taller detent, and its accessible
 label reads `Resize: Medium`, or `Resize: Fit` for `hug`. At the tallest
 detent, and with one detent, Return or A closes the sheet, and its label reads

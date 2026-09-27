@@ -1890,6 +1890,35 @@ t.describe("native parity weaker focus", function()
 		world.stop()
 	end)
 
+	t.it("the grabber's own drag detector reads a still press as a tap that closes, and a drag as a resize", function()
+		for _, case in { { nil, 0, -10 }, { "right", -10, 0 } } do
+			for _, travel in { 1, 10 } do
+				local presented = Compose.cell(true)
+				local world = setup(function(UI)
+					return UI.Sheet({
+						isPresented = presented,
+						detent = Compose.cell("medium"),
+						edge = case[1],
+						placement = if case[1] then "side" else nil,
+						detents = { "medium", "large" },
+						content = function()
+							return UI.Button({ label = "Inside" })
+						end,
+					})
+				end)
+				local V2 = world.engine.types.Vector2
+				local detector = find(world.screen, "Grabber"):FindFirstChildWhichIsA("UIDragDetector")
+				local scale = travel / 10
+				detector.DragStart.fire(V2.new(200, 400))
+				detector.DragContinue.fire(V2.new(200 + case[2] * scale, 400 + case[3] * scale))
+				detector.DragEnd.fire()
+				t.expect(`{tostring(case[1])} {travel}: {tostring(presented:peek())}`)
+					.toBe(`{tostring(case[1])} {travel}: {tostring(travel > 4)}`)
+				world.stop()
+			end
+		end
+	end)
+
 	t.it("grows sheet detents from the selectable grabber and closes from the tallest", function()
 		local detent = Compose.cell("peek")
 		local presented = Compose.cell(true)
