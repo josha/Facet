@@ -205,6 +205,15 @@ t.describe("native gallery shell parity", function()
 		ctx.orientationPreview:set("portrait")
 		expectDevice(768, 1024, "Small", "Touch")
 		t.expect(math.abs(scale.Scale - 720 / 1024) < 0.000001).toBe(true)
+		local gui: any = ctx.guiService
+		local top = 58
+		function gui:GetGuiInset()
+			return ctx.types.Vector2.new(0, top), ctx.types.Vector2.new(0, 0)
+		end
+		gui.TopbarInset = top
+		t.expect(math.abs(scale.Scale - (720 - 58) / 1024) < 0.000001).toBe(true)
+		top = 0
+		gui.TopbarInset = top
 		ctx.devicePreview:set("tv")
 		expectDevice(1920, 1080, "Large", "Gamepad")
 		t.expect(disabled(find(root, "Orientation"))).toBe(true)

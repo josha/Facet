@@ -33,10 +33,17 @@ function screen.configure(ctx)
 	end)
 	local display = ctx.viewport
 	local gui = ctx.guiService
-	local inset = 0
+	local inset = Compose.cell(0)
 	if gui then
-		pcall(function()
-			inset = gui:GetGuiInset().Y
+		local function measure()
+			pcall(function()
+				inset:set(gui:GetGuiInset().Y)
+			end)
+		end
+		measure()
+		local connection = gui:GetPropertyChangedSignal("TopbarInset"):Connect(measure)
+		Compose.cleanup(function()
+			connection:Disconnect()
 		end)
 	end
 	ctx.metricScale = Compose.cell(nil)
@@ -44,7 +51,7 @@ function screen.configure(ctx)
 		local device = use(ctx.device)
 		if device and device.width and display then
 			local size = use(display)
-			return math.min(1, size.width / device.width, (size.height - inset) / device.height)
+			return math.min(1, size.width / device.width, (size.height - use(inset)) / device.height)
 		end
 		return 1
 	end)
