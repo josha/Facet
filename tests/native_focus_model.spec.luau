@@ -140,6 +140,7 @@ t.describe("leaving the gamepad", function()
 			t.expect(w.selected()).toBe("nil")
 			w.tab()
 			t.expect(w.selected()).toBe("Q")
+			w.input.PreferredInput = E.PreferredInput.Gamepad
 			w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 			t.expect(w.selected()).toBe("Q")
 			w.stop()
