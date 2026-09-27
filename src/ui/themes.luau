@@ -1503,15 +1503,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			and not present[selector]
 		then
 			present[selector] = true
-			table.insert(
-				presence,
-				{
-					id = selector .. ":presence",
-					selector = selector,
-					properties = { Transparency = 0 },
-					priority = #presence,
-				}
-			)
+			table.insert(presence, {
+				id = selector .. ":presence",
+				selector = selector,
+				properties = { Transparency = 0 },
+				priority = #presence,
+			})
 		end
 	end
 	local ordered = { rules[1] }
