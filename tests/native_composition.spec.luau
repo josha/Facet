@@ -368,6 +368,60 @@ t.describe("Composition", function()
 		end
 	)
 
+	t.it("gathers a zone's dropped regions behind one hit-floor badge beside the zone, outside its flow", function()
+		local overlay = require("./lib/overlay_world")
+		for _, reveal in { true, false } do
+			local feedForm, stayForm = Compose.cell(1), Compose.cell(1)
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Stay" { zone = "left", rank = 1, form = stayForm, Host.Frame { Name = "StayFull" } },
+					UI.Region "Feed" {
+						zone = "left",
+						rank = 2,
+						mayDrop = true,
+						reveal = if reveal then nil else false,
+						form = feedForm,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
+			local feed = w.find("FeedFull")
+			local home = feed.Parent
+			w.size(w.find("StayFull"), 100, 60)
+			w.size(feed, 120, 60)
+			local badge = w.find("Reveal")
+			if badge then
+				w.size(badge, 28, 60)
+			end
+			local zones = w.find("Zones")
+			w.size(zones, 800, 400)
+			local target = w.find("ZoneRevealLeft")
+			t.expect(target ~= nil).toBe(reveal)
+			w.size(zones, 800, 100)
+			t.expect(feedForm:peek()).toBe(0)
+			if target then
+				local left = w.find("Left")
+				w.size(left, 100, 60)
+				left.AbsolutePosition = w.engine.types.Vector2.new(0, 20)
+				t.expect(target.Visible).toBe(true)
+				t.expect(target.Parent).toBe(zones)
+				t.expect(target.Size.X.Offset >= 44 and target.Size.Y.Offset >= 44).toBe(true)
+				t.expect(target.Position.X.Offset >= 100).toBe(true)
+				t.expect(target.AnchorPoint.X).toBe(0)
+				target.Activated.fire()
+				t.expect(feed:IsDescendantOf(w.find("HiddenFeed"))).toBe(true)
+				w.size(zones, 800, 400)
+				t.expect(feedForm:peek()).toBe(1)
+				t.expect(feed.Parent).toBe(home)
+				t.expect(target.Visible).toBe(false)
+			end
+			w.stop()
+		end
+	end)
+
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()
 		local function refusal(body: (any, any) -> any): string
 			local engine, runtime, UI = make()

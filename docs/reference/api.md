@@ -678,8 +678,12 @@ Region options:
   small `Reveal` badge with a "…" icon in the same place, which opens the same
   Popover. The Popover hosts the region's own form 1 node, so its state and
   selection carry over, and puts it back when it closes or the region returns
-  to its richest form. `false` turns the affordance and the badge off, for a
-  region whose reduced forms lose nothing. The badge is the last form, so
+  to its richest form. When not even the badge fits, the region hides and the
+  zone shows one `ZoneReveal<Zone>` "…" button beside the zone, outside its
+  list flow and at least the hit floor in size, while any of its regions is
+  hidden. It opens one Popover that hosts each hidden region's own form 1
+  node. `false` turns the affordance and the badges off, for a region whose
+  reduced forms lose nothing. The badge is the last form, so
   `form` reads one past the authored forms while it shows.
 - `expand`: an optional function that returns content for the Popover in
   place of the region's own form 1.

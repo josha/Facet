@@ -13,6 +13,7 @@ type Declared = {
 	sizes: { ComposeTypes.Cell<Vector2> },
 	form: ComposeTypes.Cell<number>,
 	animate: boolean,
+	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
 
 local POP = 0.15
@@ -106,15 +107,23 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
-		if spec.reveal ~= false and (#sizes > 1 or spec.expand) then
-			local home = assert(richest).Parent
-			local function returnHome()
-				local content = assert(richest)
-				if content.Parent ~= home then
-					content.Parent = home
-				end
-				hosted:set(false)
+		local home = assert(richest).Parent
+		local function returnHome()
+			local content = assert(richest)
+			if content.Parent ~= home then
+				content.Parent = home
 			end
+			hosted:set(false)
+		end
+		local function hostInto(parent: Instance)
+			if spec.expand then
+				spec.expand().Parent = parent
+				return
+			end
+			hosted:set(true)
+			assert(richest).Parent = parent
+		end
+		if spec.reveal ~= false and (#sizes > 1 or spec.expand) then
 			local content = spec.expand
 				or function(): Instance
 					local holder = Host.Frame "Hosted" {
@@ -122,8 +131,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 						Size = D2.new(),
 						AutomaticSize = E.AutomaticSize.XY,
 					}
-					hosted:set(true)
-					assert(richest).Parent = holder
+					hostInto(holder)
 					Compose.cleanup(returnHome)
 					return holder
 				end
@@ -184,6 +192,9 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			sizes = sizes,
 			form = form,
 			animate = false,
+			reveal = if spec.reveal ~= false and spec.mayDrop == true
+				then { host = hostInto, back = returnHome }
+				else nil,
 		}
 		return node
 	end)
@@ -382,6 +393,139 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			})
 		end
 		local safeUnit = ctx.layoutUnit(safe)
+		local floor = ctx.hitFloor()
+		local safeAt = ctx.observe.AbsolutePosition(safe)
+		for zone, children in members do
+			local revealing = false
+			for _, region in children do
+				revealing = revealing or declared[region].reveal ~= nil
+			end
+			if not revealing then
+				continue
+			end
+			local cell = resolver.CELLS[zone]
+			local column, row = cell[1], cell[2]
+			local frame = zones[zone]
+			local zoneAt, zoneSize = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
+			local dropped = Compose.formula(function(use: ComposeTypes.Use): { Frame }
+				local list = {}
+				for _, region in children do
+					local entry = declared[region]
+					if entry.reveal and use(entry.form) == 0 then
+						table.insert(list, region)
+					end
+				end
+				return list
+			end)
+			local open = Compose.cell(false)
+			local hosting: { Frame } = {}
+			local function release()
+				for _, region in hosting do
+					assert(declared[region].reveal).back()
+				end
+				hosting = {}
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(dropped)
+				if open:peek() then
+					open:set(false)
+				end
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not use(open) then
+					release()
+				end
+			end)
+			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
+				local unit, space = use(safeUnit), kit.spacing(gap, use)
+				local at = (use(zoneAt) - use(safeAt)) / unit
+				local size = use(zoneSize) / unit
+				if column == 2 then
+					return if row == 3
+						then D2.fromOffset(at.X + size.X / 2, at.Y - space)
+						else D2.fromOffset(at.X + size.X / 2, at.Y + size.Y + space),
+						V2.new(0.5, if row == 3 then 1 else 0)
+				end
+				local x = if column == 1 then at.X + size.X + space else at.X - space
+				return D2.fromOffset(x, at.Y + size.Y * (row - 1) / 2),
+					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
+			end
+			runtime.mount(function()
+				return (UI :: any).Popover("Hidden" .. frame.Name) {
+					isPresented = open,
+					onPresentedChange = function(value: boolean)
+						open:set(value and #dropped:peek() > 0)
+					end,
+					compact = "popover",
+					edge = if column == 2 and row == 3 then "top" else EXPAND_EDGE[column],
+					content = function(): Instance
+						release()
+						local slots: { [unknown]: unknown } = {
+							Name = "ZoneHidden",
+							BackgroundTransparency = 1,
+							Size = D2.new(),
+							AutomaticSize = E.AutomaticSize.XY,
+							Host.UIListLayout({
+								SortOrder = E.SortOrder.LayoutOrder,
+								Padding = function(use: ComposeTypes.Use): UDim
+									return D.new(0, kit.spacing(gap, use))
+								end,
+							}),
+						}
+						local slotFrames = {}
+						for index, region in dropped:peek() do
+							local slot = Host.Frame("Hidden" .. region.Name)({
+								LayoutOrder = index,
+								BackgroundTransparency = 1,
+								Size = D2.new(),
+								AutomaticSize = E.AutomaticSize.XY,
+							})
+							slots[#slots + 1] = slot
+							slotFrames[region] = slot
+						end
+						local holder = Host.Frame(slots :: any)
+						for region, slot in slotFrames do
+							assert(declared[region].reveal).host(slot)
+							table.insert(hosting, region)
+						end
+						Compose.cleanup(release)
+						return holder
+					end,
+					trigger = Host.TextButton("ZoneReveal" .. frame.Name) {
+						Text = "",
+						BackgroundTransparency = 1,
+						ZIndex = 5,
+						Size = function(use: ComposeTypes.Use): UDim2
+							return D2.fromOffset(floor(use), floor(use))
+						end,
+						Position = function(use: ComposeTypes.Use): UDim2
+							return (place(use))
+						end,
+						AnchorPoint = function(use: ComposeTypes.Use): Vector2
+							local _, anchor = place(use)
+							return anchor
+						end,
+						Visible = function(use: ComposeTypes.Use): boolean
+							return #use(dropped) > 0
+						end,
+						ctx.styled(
+							Host.Frame "Badge" {
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.fromOffset(28, 20),
+								Host.UICorner({ CornerRadius = ctx.round }),
+								ctx.icon("more", {
+									AnchorPoint = V2.new(0.5, 0.5),
+									Position = D2.fromScale(0.5, 0.5),
+									Size = D2.fromOffset(16, 16),
+								}),
+							},
+							"badge"
+						),
+					},
+				}
+			end, safe)
+		end
 		local box = ctx.layoutSize(safe, safeUnit)
 		local last: Vector2? = nil
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
