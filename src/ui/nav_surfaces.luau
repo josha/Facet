@@ -321,6 +321,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.padding(16, 16),
 				}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 				local natural = ctx.observe.AbsoluteSize(column)
+				local chrome = Compose.cell(V2.zero)
 				local target = Compose.formula(function(use: ComposeTypes.Use): Overlay.Rect
 					local room, offset, at, box = use(extent), use(origin), use(rootAt), use(rootBox)
 					local margin = ctx.metric("space.s", use)
@@ -328,7 +329,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						math.max(box.X, (ctx.metric("controls.popup.panelWidth", use))),
 						math.max(0, room.X - 2 * margin)
 					)
-					local h = math.min(math.max(use(natural).Y, box.Y), math.max(0, room.Y - 2 * margin))
+					local h =
+						math.min(math.max(use(natural).Y + use(chrome).Y, box.Y), math.max(0, room.Y - 2 * margin))
 					local x, y = at.X - offset.X, at.Y - offset.Y
 					return {
 						x = math.clamp(x, margin, math.max(margin, room.X - margin - w)),
@@ -352,8 +354,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					Name = "ExpandedFade",
 					BackgroundTransparency = 1,
 					Size = function(use: ComposeTypes.Use)
-						local goal = use(target)
-						return D2.fromOffset(goal.w, goal.h)
+						local goal, inset = use(target), use(chrome)
+						return D2.fromOffset(goal.w - inset.X, goal.h - inset.Y)
 					end,
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - progress(use)
@@ -386,11 +388,24 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return D2.fromOffset(rect.w, rect.h)
 						end,
 						fade,
+						Host.Frame "ContentBox" {
+							BackgroundTransparency = 1,
+							Interactable = false,
+							Size = D2.fromScale(1, 1),
+						},
 						ctx.corner(),
 					},
 					"panel"
 				))
 				ctx.styled(plate, "floating")
+				local plateBox = ctx.observe.AbsoluteSize(plate)
+				local contentBox = ctx.observe.AbsoluteSize(assert(plate:FindFirstChild("ContentBox")) :: GuiObject)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local outer, inner = use(plateBox), use(contentBox)
+					if inner.X > 0 and inner.Y > 0 then
+						chrome:set(outer - inner)
+					end
+				end)
 				return surfaces.modal(
 					function()
 						return plate
