@@ -1919,6 +1919,28 @@ t.describe("native parity weaker focus", function()
 		end
 	end)
 
+	t.it("counts a still grip press once when the engine also activates the grabber", function()
+		local detent = Compose.cell("peek")
+		local world = setup(function(UI)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = detent,
+				interactiveDismissDisabled = true,
+				detents = { "medium", "large", { id = "peek", height = 160 } },
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end)
+		local grabber = find(world.screen, "Grabber")
+		local detector = grabber:FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(world.engine.types.Vector2.new(200, 400))
+		detector.DragEnd.fire()
+		grabber.Activated.fire({ UserInputType = world.engine.types.Enum.UserInputType.Touch })
+		t.expect(detent:peek()).toBe("medium")
+		world.stop()
+	end)
+
 	t.it("grows sheet detents from the selectable grabber and closes from the tallest", function()
 		local detent = Compose.cell("peek")
 		local presented = Compose.cell(true)

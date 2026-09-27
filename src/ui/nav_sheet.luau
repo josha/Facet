@@ -455,6 +455,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			if source == "grip" and not current.moved then
 				endSession()
+				dragged = now()
 				tapped()
 				return
 			end
@@ -544,6 +545,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			held:set(false)
 			if not current.moved then
 				pull:set(0)
+				dragged = now()
 				tapped()
 				return
 			end
