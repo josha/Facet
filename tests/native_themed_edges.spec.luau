@@ -260,4 +260,31 @@ t.describe("themed edges, plates and gutters", function()
 			stop()
 		end
 	end)
+
+	t.it("keeps a horizontal rail free of the vertical gutter", function()
+		local world = worlds.new(function(UI, Host)
+			return Host.Frame {
+				UI.ScrollView "Chips" { axis = "x", UI.Text { text = "A" } },
+				UI.VirtualList "Rail" {
+					from = { { id = 1 }, { id = 2 } },
+					key = function(item)
+						return item.id
+					end,
+					direction = "horizontal",
+					itemSize = 80,
+					render = function()
+						return Host.Frame {}
+					end,
+				},
+			}
+		end)
+		for _, name in { "Chips", "Rail" } do
+			local node = world.find(name)
+			local scroller = if node:IsA("ScrollingFrame")
+				then node
+				else node:FindFirstChildWhichIsA("ScrollingFrame", true)
+			t.expect(`{name} {scroller.VerticalScrollBarInset.Name}`).toBe(`{name} ScrollBar`)
+		end
+		world.stop()
+	end)
 end)

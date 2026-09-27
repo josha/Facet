@@ -184,9 +184,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				elseif axis == "y" then E.ScrollingDirection.Y
 				else E.ScrollingDirection.XY,
 		}
-		if axis ~= "x" then
-			native.VerticalScrollBarInset = E.ScrollBarInset.Always
-		end
+		native.VerticalScrollBarInset = if axis == "x" then E.ScrollBarInset.ScrollBar else E.ScrollBarInset.Always
 		if axis ~= "y" then
 			native.HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar
 		end

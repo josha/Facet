@@ -492,6 +492,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Size = D2.fromScale(1, 1),
 			AutomaticCanvasSize = E.AutomaticSize.None,
 			ScrollingDirection = if horizontal then E.ScrollingDirection.X else E.ScrollingDirection.Y,
+			VerticalScrollBarInset = if horizontal then E.ScrollBarInset.ScrollBar else nil,
 			ScrollBarThickness = 6,
 			SelectionGroup = true,
 			CanvasSize = function(use: ComposeTypes.Use)
