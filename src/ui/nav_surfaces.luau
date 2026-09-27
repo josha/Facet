@@ -401,10 +401,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					"panel"
 				))
 				ctx.styled(plate, "floating")
-				local plateBox = ctx.observe.AbsoluteSize(plate)
-				local contentBox = ctx.observe.AbsoluteSize(assert(plate:FindFirstChild("ContentBox")) :: GuiObject)
+				local content = assert(plate:FindFirstChild("ContentBox")) :: GuiObject
+				local plateBox, contentBox = ctx.observe.AbsoluteSize(plate), ctx.observe.AbsoluteSize(content)
 				Compose.watch(function(use: ComposeTypes.Use)
-					local outer, inner = use(plateBox), use(contentBox)
+					use(plateBox)
+					use(contentBox)
+					local outer, inner = plate.AbsoluteSize, content.AbsoluteSize
 					if inner.X > 0 and inner.Y > 0 then
 						chrome:set(outer - inner)
 					end
