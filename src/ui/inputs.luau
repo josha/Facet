@@ -1031,6 +1031,20 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		Compose.cleanup(activation.provide(node, activate))
 		if not rich then
 			sized(node)
+			if spec.shape ~= "circle" then
+				local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
+				local measured: number? = nil
+				Compose.watch(function(use: ComposeTypes.Use)
+					local width, whole = use(box).X, use(fits)
+					if width ~= measured and node:HasTag("facet-button-tight") then
+						measured = width
+						node:RemoveTag("facet-button-tight")
+					elseif not whole and width > 0 then
+						measured = width
+						node:AddTag("facet-button-tight")
+					end
+				end)
+			end
 		end
 		if underline == "hover" then
 			local state = ctx.observe.GuiState(node)
