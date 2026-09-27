@@ -288,7 +288,9 @@ t.describe("native menu parity with main", function()
 		local rows = panel:FindFirstChild("MenuRows", true)
 		t.expect(rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(0)
 		local padding = rows:FindFirstChildWhichIsA("UIPadding")
-		t.expect(padding.PaddingTop.Offset + padding.PaddingLeft.Offset).toBe(0)
+		for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
+			t.expect(padding[side].Offset).toBe(4)
+		end
 		local ruled = {}
 		for _, id in { "a", "b", "c", "d" } do
 			local row = world.find(id, panel)
@@ -300,11 +302,6 @@ t.describe("native menu parity with main", function()
 			ruled[id] = hairline.Visible
 		end
 		t.expect(ruled).toEqual({ a = false, b = true, c = true, d = false })
-		local ends = {}
-		for _, id in { "a", "b", "c", "d" } do
-			ends[id] = world.find(id, panel):HasTag("facet-menu-end")
-		end
-		t.expect(ends).toEqual({ a = true, b = false, c = false, d = true })
 		t.expect(world.find("b", panel):HasTag("facet-selected")).toBe(true)
 		t.expect(world.find("a", panel):HasTag("facet-selected")).toBe(false)
 		checked:set(false)
@@ -319,7 +316,6 @@ t.describe("native menu parity with main", function()
 		t.expect(rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(8)
 		for index = 1, 3 do
 			t.expect(world.find(`row{index}`, panel):FindFirstChild("Hairline").Visible).toBe(false)
-			t.expect(world.find(`row{index}`, panel):HasTag("facet-menu-end")).toBe(false)
 		end
 		world.stop()
 	end)
