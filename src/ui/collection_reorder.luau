@@ -468,10 +468,6 @@ return function<V, K>(
 				table.insert(nativeProps, control)
 			end
 		end
-		nativeProps.Interactable = function(use: ComposeTypes.Use)
-			local move = use(moving)
-			return not (move and move.pointer and move.included[key])
-		end
 		local frame = Host.Frame(nativeProps)
 		rowNodes[key] = frame
 		Compose.cleanup(function()

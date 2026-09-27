@@ -1276,7 +1276,7 @@ t.describe("Compose native collections", function()
 			end
 			table.sort(layers)
 			t.expect(table.concat(layers, ",")).toBe(if count == 1 then "0" elseif count == 2 then "0,6" else "0,6,12")
-			t.expect(reorderable.Interactable).toBe(false)
+			t.expect(reorderable.Interactable).toBe(true)
 			t.expect(image:FindFirstChild("DragLabel").Visible).toBe(count > 1)
 			stop()
 			runtime:dispose()
@@ -2577,6 +2577,84 @@ t.describe("Row actions under a reorder drag", function()
 		local ghost = image:FindFirstChild("SwipeGrip", true).Parent
 		t.expect(ghost.Parent:FindFirstChild("trailing")).toBeNil()
 		t.expect(ghost.Position.X.Offset).toBe(0)
+		stop()
+		runtime:dispose()
+	end)
+end)
+
+t.describe("Table selection after a pointer reorder", function()
+	t.it("a plain click on another row after a drop selects only that row", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+		local rows = Compose.cell({ { id = 1, name = "Neon" }, { id = 2, name = "Drift" }, { id = 3, name = "Apex" } })
+		local selection = Compose.cell({})
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = rows,
+				key = key,
+				itemSize = 40,
+				selection = selection,
+				selectionMode = "multiple",
+				reorderable = true,
+				onReorder = function(keys, slot)
+					local list = {}
+					for _, item in rows:peek() do
+						if item.id ~= keys[1] then
+							table.insert(list, item)
+						end
+					end
+					table.insert(list, slot + 1, { id = keys[1], name = "moved" })
+					rows:set(list)
+				end,
+				columns = { { id = "name", label = "Name" } },
+				rowActions = function()
+					return { trailing = { { id = "remove", label = "Remove", onActivate = function() end } } }
+				end,
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = V2.new(400, 200)
+		local input = ctx.config.userInputService
+		local function grip(rowKey)
+			return body:FindFirstChild("Items"):FindFirstChild(rowKey):FindFirstChild("SwipeGrip", true)
+		end
+		local function click(rowKey, y)
+			local press = {
+				UserInputType = E.UserInputType.MouseButton1,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(100, y, 0),
+			}
+			local g = grip(rowKey)
+			g.InputBegan.fire(press)
+			local detector = g:FindFirstChildWhichIsA("UIDragDetector")
+			detector.DragStart.fire(V2.new(100, y))
+			detector.DragEnd.fire()
+			press.UserInputState = E.UserInputState.End
+			input.InputEnded.fire(press)
+		end
+		click("3", 100)
+		t.expect(selection:peek()).toEqual({ [3] = true })
+		local press = {
+			UserInputType = E.UserInputType.MouseButton1,
+			UserInputState = E.UserInputState.Begin,
+			Position = V3.new(100, 100, 0),
+		}
+		local g = grip("3")
+		g.InputBegan.fire(press)
+		local detector = g:FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(V2.new(100, 100))
+		for y = 90, 10, -20 do
+			input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, y, 0) })
+			detector.DragContinue.fire(V2.new(100, y))
+		end
+		press.UserInputState = E.UserInputState.End
+		press.Position = V3.new(100, 10, 0)
+		input.InputEnded.fire(press)
+		detector.DragEnd.fire()
+		engine.heartbeat.fire(1)
+		t.expect(rows:peek()[1].id).toBe(3)
+		click("2", 100)
+		t.expect(selection:peek()).toEqual({ [2] = true })
 		stop()
 		runtime:dispose()
 	end)
