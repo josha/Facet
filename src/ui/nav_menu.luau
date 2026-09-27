@@ -322,8 +322,9 @@ return function(
 		local appearance = if phase then surfaces.appearance(phase, timing, entered) else nil
 		local hitFloor = ctx.hitFloor()
 		local path = Compose.cell({} :: { string })
-		local branchY = Compose.cell(0)
-		local enter: (string) -> ()
+		local branchYs = Compose.cell({} :: { number })
+		local rowNodes: { [string]: GuiObject } = {}
+		local enter: (string, GuiObject?, { string }?) -> ()
 		local pendingFocus: string?
 		local sheeted = Compose.cell(false)
 		local reduce = reducedMotion(ctx)
@@ -510,7 +511,8 @@ return function(
 						)
 					end
 					local rowKey = tostring(item.id or index:peek())
-					local row = UI.Button({
+					local row: GuiObject
+					row = UI.Button({
 						Name = rowKey,
 						LayoutOrder = index,
 						Size = function(use: ComposeTypes.Use)
@@ -544,7 +546,7 @@ return function(
 								return
 							end
 							if live.children then
-								enter(assert(live.id))
+								enter(assert(live.id), row)
 							elseif
 								commitItem(live)
 								and (
@@ -557,6 +559,12 @@ return function(
 						end,
 					})
 					row:AddTag("facet-menu-item")
+					rowNodes[rowKey] = row
+					Compose.cleanup(function()
+						if rowNodes[rowKey] == row then
+							rowNodes[rowKey] = nil
+						end
+					end)
 					fillTitle(row)
 					surfaces.attach(row, {
 						ctx.styled(
@@ -804,13 +812,13 @@ return function(
 			return table.concat(use(path), "/")
 		end)
 		local measured, rowSize = sizes[1], sizes[2]
-		enter = function(id: string)
-			local row = rows:FindFirstChild(id, true)
-			if row and row:IsA("GuiObject") then
-				branchY:set(row.AbsolutePosition.Y - panel.AbsolutePosition.Y)
-			end
-			local nextPath = table.clone(path:peek())
+		enter = function(id: string, node: GuiObject?, prefix: { string }?)
+			local nextPath = table.clone(prefix or path:peek())
 			table.insert(nextPath, id)
+			local row = node or rowNodes[id]
+			local ys = table.clone(branchYs:peek())
+			ys[#nextPath] = if row then row.AbsolutePosition.Y - panel.AbsolutePosition.Y else 0
+			branchYs:set(ys)
 			pendingFocus = nil
 			path:set(nextPath)
 		end
@@ -953,9 +961,11 @@ return function(
 			end
 			top = math.max(low.Y, top)
 			local pivot: Vector2
-			if vertical and (depth > 0 or use(levelDirection) < 0) then
-				local facing = if use(levelDirection) >= 0 then 0 else panelSize.X
-				pivot = V2.new(facing, math.clamp(use(branchY), 0, panelSize.Y))
+			local leaving = if phase then use(phase.exiting) else false
+			if vertical and (depth > 0 or use(levelDirection) < 0) and not (leaving and depth == 0) then
+				local back = use(levelDirection) < 0
+				local y = use(branchYs)[if back then depth + 1 else depth] or 0
+				pivot = V2.new(if back then panelSize.X else 0, math.clamp(y, 0, panelSize.Y))
 			elseif vertical then
 				local reach = if depth > 0 or align == "start"
 					then x + depth * 288
@@ -1247,7 +1257,8 @@ return function(
 											"divider"
 										)
 									end
-									local button = UI.Button({
+									local button: GuiObject
+									button = UI.Button({
 										Name = item.id,
 										label = item.label,
 										enabled = item.enabled,
@@ -1279,9 +1290,7 @@ return function(
 											else nil,
 										onActivate = function()
 											if item.children then
-												local next = table.clone(source:peek().prefix)
-												table.insert(next, assert(item.id))
-												path:set(next)
+												enter(assert(item.id), button, source:peek().prefix)
 											elseif
 												commitItem(item)
 												and (

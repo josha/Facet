@@ -673,6 +673,69 @@ t.describe("native menu parity with main", function()
 		world.stop()
 	end)
 
+	t.it("each level remembers its own row, Back to the root uses the root's row, and a root exit faces the trigger", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local deep = {
+			leaf("plain"),
+			{ divider = true },
+			{
+				id = "Divider",
+				label = "More",
+				children = { leaf("x"), leaf("y"), { id = "b", label = "B", children = { leaf("p"), leaf("q") } } },
+			},
+		}
+		local world = labelled({ items = deep, presentation = "menu" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+		local function settle()
+			for _ = 1, 40 do
+				world.engine.heartbeat.fire(FRAME)
+			end
+		end
+		settle()
+		local scale = world.find("PresentationScale", panel)
+		local more = world.find("Divider", panel)
+		for _, node in panel:GetDescendants() do
+			if node.Name == "Divider" and node:IsA("GuiButton") then
+				more = node
+			end
+		end
+		more.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
+		more.Activated.fire()
+		settle()
+		local b = world.find("b", panel)
+		b.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
+		b.Activated.fire()
+		settle()
+		world.action("MenuLeft").Pressed.fire()
+		for _ = 1, 2 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local shrink = 1 - scale.Scale
+		t.expect(shrink > 0).toBe(true)
+		local top = panel.Position.Y.Offset
+		settle()
+		t.expect(math.abs(top - (panel.Position.Y.Offset + 120 * shrink)) < 1.5).toBe(true)
+		world.action("MenuLeft").Pressed.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		shrink = 1 - scale.Scale
+		t.expect(shrink > 0).toBe(true)
+		top = panel.Position.Y.Offset
+		settle()
+		t.expect(math.abs(top - (panel.Position.Y.Offset + 10 * shrink)) < 1.5).toBe(true)
+		local rest = panel.Position.X.Offset
+		world.find("DismissOutside", world.screen.Parent).Activated.fire()
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		t.expect(scale.Scale < 1).toBe(true)
+		t.expect(panel.Position.X.Offset).toBe(rest)
+		world.stop()
+	end)
+
 	t.it("bounds a sheet by the inset at the bottom and the sides", function()
 		local world = labelled({ presentation = "sheet", items = items(3) })
 		world.screen.IgnoreGuiInset = true
