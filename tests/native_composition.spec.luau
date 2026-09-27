@@ -272,6 +272,52 @@ t.describe("Composition", function()
 		w.stop()
 	end)
 
+	t.it("leaves a Show hidden disc in place of a dropped region that can reveal, unless reveal is off", function()
+		local overlay = require("./lib/overlay_world")
+		for _, reveal in { true, false } do
+			local form = Compose.cell(1)
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
+					UI.Region "Feed" {
+						zone = "left",
+						rank = 2,
+						mayDrop = true,
+						reveal = if reveal then nil else false,
+						form = form,
+						expand = function()
+							return Host.TextLabel "FeedRich" { Text = "Ravi eliminated Mo" }
+						end,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
+			w.size(w.find("RoundsFull"), 120, 44)
+			w.size(w.find("FeedFull"), 240, 130)
+			local disc = w.find("Reveal")
+			t.expect(disc ~= nil).toBe(reveal)
+			if disc then
+				w.size(disc, 44, 44)
+			end
+			local zones = w.find("Zones")
+			w.size(zones, 800, 400)
+			t.expect(form:peek()).toBe(1)
+			w.size(zones, 800, 200)
+			t.expect(form:peek()).toBe(if reveal then 2 else 0)
+			if disc then
+				t.expect(disc.Parent.Visible).toBe(true)
+				disc.Activated.fire()
+				t.expect(w.find("FeedRich") ~= nil).toBe(true)
+				w.size(zones, 800, 400)
+				t.expect(w.find("FeedRich")).toBeNil()
+			end
+			w.stop()
+		end
+	end)
+
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()
 		local function refusal(body: (any, any) -> any): string
 			local engine, runtime, UI = make()

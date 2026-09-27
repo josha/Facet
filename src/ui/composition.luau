@@ -43,6 +43,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			spec.expand == nil or type(spec.expand) == "function",
 			"Facet Region expand must be a function that returns the richest content"
 		)
+		assert(spec.reveal == nil or type(spec.reveal) == "boolean", "Facet Region reveal must be a boolean")
 		local form: ComposeTypes.Cell<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
@@ -52,7 +53,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			return if reduced(use) then 1 else 0.94 + 0.06 * (1 - (1 - use(pop.progress)) ^ 3)
 		end)
 		local properties = (
-			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand" }, {
+			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal" }, {
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
@@ -61,6 +62,18 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end,
 			}) :: unknown
 		) :: { [unknown]: unknown }
+		local open = Compose.cell(false)
+		if spec.expand and spec.mayDrop == true and spec.reveal ~= false then
+			properties[#properties + 1] = (UI :: any).Button "Reveal" {
+				icon = "more",
+				label = "",
+				name = "Show hidden",
+				shape = "circle",
+				onActivate = function()
+					open:set(not open:peek())
+				end,
+			}
+		end
 		local sizes: { ComposeTypes.Cell<Vector2> } = {}
 		for index = 1, #properties do
 			local child = properties[index] :: any
@@ -90,7 +103,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
 		if spec.expand then
-			local open, floor = Compose.cell(false), ctx.hitFloor()
+			local floor = ctx.hitFloor()
 			local cell = resolver.CELLS[zone]
 			local edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
 			Compose.watch(function(use: ComposeTypes.Use)

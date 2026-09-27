@@ -25,7 +25,6 @@ local copy = {
 	action3 = "Menu",
 	round1 = "HUD actions",
 	round2 = "Report",
-	round3 = "Show what's hidden",
 	overflowTitle = "Hidden right now",
 	overflowEmpty = "Nothing is hidden — every zone is showing everything it has.",
 	overflowNote = "Nothing is deleted. A zone that gives way is listed here.",
@@ -35,7 +34,7 @@ local copy = {
 	rideOn = "Topbar strip",
 	objective = "Round 3 · Capture",
 	objectiveShort = "R3",
-	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. ··· has the rest.",
+	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. Tap a smaller piece or its ··· to see the rest.",
 }
 local FORMS = {
 	Strip = { "full", "short" },
@@ -71,7 +70,7 @@ return {
 			local named = {}
 			for _, id in ORDER do
 				local index = use(chosen[id])
-				named[id] = if index == 0 then "hidden" else FORMS[id][index]
+				named[id] = if index == 0 then "hidden" else FORMS[id][index] or "reveal"
 			end
 			return named
 		end)
@@ -353,7 +352,6 @@ return {
 				disc("Report" .. suffix, copy.round2, "flag", function()
 					reportOpen:set(true)
 				end),
-				disc("Overflow" .. suffix, copy.round3, "more", steps.openOverflow),
 			}, 8, vertical)
 		end
 		local function region(id, zone, rank, mayDrop, ...)

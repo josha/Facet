@@ -675,6 +675,11 @@ Region options:
   in context too). The target is a transparent button under the forms, at
   least the hit floor in size, so a control inside a reduced form keeps its
   own press. The popover closes when the region returns to its richest form.
+- `reveal`: a boolean, default `true`. A region with `mayDrop` and `expand`
+  steps to one more form before it hides: a `Reveal` "Show hidden" disc in the
+  same place, which opens the `expand` Popover. `false` lets the region hide
+  with no disc. The disc is the last form, so `form` reads one past the
+  authored forms while it shows.
 - The children are the forms of the region, richest first. At least one form
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.
