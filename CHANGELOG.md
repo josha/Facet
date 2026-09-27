@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `themes.define` validates `metrics.motion`: durations and role timings from 0 to 10 seconds, `restLimit` up to 1 second, shares from 0 to 1, spring periods and damping above 0, materialize scales and fling values above 0, easing names that `Compose.easing` has and style names that `Enum.EasingStyle` has. A package that breaks one is refused with a report entry instead of stalling or crashing a control.
 - **Breaking: a pointer Menu's submenu grows from the row you chose**, and Back grows the parent from the side the child was on, instead of re-materialising the panel from its corner. A keyboard or gamepad Right into a submenu takes the same path as a click.
 - **Breaking: a Menu shown as a sheet slides up from the bottom edge with the Sheet's timing** (0.3 seconds in, 0.2 seconds out) instead of growing from its bottom centre, and its level changes cross-fade the rows as they slide. The cross-fade runs on a window-sized `MenuLevel` frame around `MenuScroll`, so a long level never renders through a CanvasGroup as tall as its rows.
 - **Breaking: a press highlights in 0.08 seconds and a hover in 0.15 seconds** (`metrics.motion.press`/`hover`, never slower than `normal`); a release and other paint changes keep `motion.normal`.

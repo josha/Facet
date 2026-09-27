@@ -144,4 +144,26 @@ t.describe("motion values live in the theme", function()
 		t.expect(select("#", ctx.motionStyle("paint"))).toBe(1)
 		stop()
 	end)
+
+	t.it("define refuses motion values that would break a control", function()
+		local bad: { any } = {
+			{ springs = { sheet = { period = 0 } } },
+			{ springs = { sheet = { period = -0.4 } } },
+			{ springs = { control = { damping = 0 } } },
+			{ popover = { enter = -1 } },
+			{ durations = { tabFade = -0.1 } },
+			{ restLimit = 1e9 },
+			{ easing = { present = "bogus" } },
+			{ styles = { paint = "Bogus" } },
+			{ normal = "fast" },
+			{ fling = { maxSpeed = 0 } },
+		}
+		for index, motion in bad do
+			local package, report = themes.define({
+				identity = { id = `bad-{index}`, displayName = "Bad", version = "1.0.0", schemaVersion = themes.SCHEMA },
+				metrics = { motion = motion },
+			})
+			t.expect(`{index} {package == nil} {#report.errors > 0}`).toBe(`{index} true true`)
+		end
+	end)
 end)

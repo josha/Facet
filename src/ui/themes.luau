@@ -15,6 +15,19 @@ export type SkinOptions = ThemeTypes.SkinOptions
 export type Themes = ThemeTypes.Themes
 
 local themes = {}
+local EASING_STYLES: { [string]: boolean } = {
+	Linear = true,
+	Sine = true,
+	Back = true,
+	Quad = true,
+	Quart = true,
+	Quint = true,
+	Bounce = true,
+	Elastic = true,
+	Exponential = true,
+	Circular = true,
+	Cubic = true,
+}
 local function contrast(first: Color3, second: Color3): number
 	local function luminance(value: Color3): number
 		local function linear(channel: number): number
@@ -395,6 +408,87 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 			field = "metrics.targetSizes.pointer",
 			message = "targetSizes.pointer must be from 24 to targetSizes.minimum",
 		})
+	end
+	local motion = (package.metrics :: { motion: unknown }).motion
+	if type(motion) ~= "table" then
+		table.insert(errors, { field = "metrics.motion", message = "Motion tokens must be a table" })
+	else
+		local function issue(path: string, message: string)
+			table.insert(errors, { field = "metrics.motion." .. path, message = message })
+		end
+		local function number(path: string, value: unknown, low: number, high: number, open: boolean?)
+			if
+				type(value) ~= "number"
+				or (value :: number) > high
+				or (value :: number) < low
+				or (open == true and value == low)
+			then
+				issue(path, `must be a number from {low} to {high}{if open then ", above " .. low else ""}`)
+			end
+		end
+		local tokens = motion :: { [string]: unknown }
+		local function each(group: string, check: (string, unknown) -> ())
+			local entries = tokens[group]
+			if entries == nil then
+				return
+			end
+			if type(entries) ~= "table" then
+				issue(group, "must be a table")
+				return
+			end
+			for key, value in entries :: { [unknown]: unknown } do
+				check(group .. "." .. tostring(key), value)
+			end
+		end
+		for _, key in { "fast", "normal", "press", "hover", "reducedFade" } do
+			if tokens[key] ~= nil then
+				number(key, tokens[key], 0, 10)
+			end
+		end
+		for _, key in { "revealFadeShare", "unfoldStart" } do
+			if tokens[key] ~= nil then
+				number(key, tokens[key], 0, 1)
+			end
+		end
+		if tokens.restLimit ~= nil then
+			number("restLimit", tokens.restLimit, 0, 1)
+		end
+		for _, role in { "popover", "dialog", "reveal", "sheet", "toast", "radial" } do
+			each(role, function(path: string, value: unknown)
+				number(path, value, 0, 10)
+			end)
+		end
+		each("durations", function(path: string, value: unknown)
+			number(path, value, 0, 10)
+		end)
+		each("springs", function(path: string, value: unknown)
+			if type(value) ~= "table" then
+				issue(path, "must be { period, damping }")
+				return
+			end
+			local spring = value :: { period: unknown, damping: unknown }
+			number(path .. ".period", spring.period, 0, 10, true)
+			number(path .. ".damping", spring.damping, 0, 10, true)
+		end)
+		each("materialize", function(path: string, value: unknown)
+			number(path, value, 0, 10, true)
+		end)
+		each("distances", function(path: string, value: unknown)
+			number(path, value, 0, 10000)
+		end)
+		each("fling", function(path: string, value: unknown)
+			number(path, value, 0, 100000, true)
+		end)
+		each("easing", function(path: string, value: unknown)
+			if type(value) ~= "string" or (ComposeTypes :: any).easing[value] == nil then
+				issue(path, "must name a Compose.easing function")
+			end
+		end)
+		each("styles", function(path: string, value: unknown)
+			if type(value) ~= "string" or EASING_STYLES[value :: string] == nil then
+				issue(path, "must name an Enum.EasingStyle item")
+			end
+		end)
 	end
 	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
 	local shadows: { [string]: ThemeTypes.Shadow } = package.style.shadows or {}
