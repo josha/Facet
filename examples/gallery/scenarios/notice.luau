@@ -297,13 +297,11 @@ return {
 				return Host.Frame "Notices" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					Host.ScrollingFrame "Content" {
+					UI.ScrollView "Content" {
+						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.fromScale(1, 1),
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						CanvasSize = UDim2.new(),
 						ScrollBarThickness = 6,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 						section(),
 					},
 					affixed(),

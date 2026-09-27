@@ -87,18 +87,11 @@ return {
 		return {
 			section = section,
 			screen = function()
-				return Host.ScrollingFrame "StepsScreen" {
+				return UI.ScrollView "StepsScreen" {
+					padding = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					CanvasSize = UDim2.new(),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
 					ScrollBarThickness = 6,
-					Host.UIPadding({
-						PaddingTop = UDim.new(0, 16),
-						PaddingBottom = UDim.new(0, 16),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
-					}),
 					section(),
 				}
 			end,

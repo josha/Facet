@@ -832,20 +832,12 @@ return {
 				}),
 				VocabularySection(),
 			})
-			local scroller = Host.ScrollingFrame "Content" {
+			local scroller = UI.ScrollView "Content" {
+				padding = 16,
 				BorderSizePixel = 0,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.new(),
 				ScrollBarThickness = 6,
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 				page,
 			}
 			Compose.watch(function(use)

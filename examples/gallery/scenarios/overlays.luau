@@ -166,23 +166,12 @@ return {
 			return Host.Frame "Overlays" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				Host.ScrollingFrame "Content" {
-					Host.UIPadding({
-						PaddingTop = UDim.new(0, 16),
-						PaddingBottom = UDim.new(0, 16),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
-					}),
+				UI.ScrollView "Content" {
+					padding = 16,
+					gap = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 16),
-					}),
 					label("Title", COPY.title, 1, "title"),
 					label("Intro", COPY.intro, 2),
 					label("Status", status, 3),

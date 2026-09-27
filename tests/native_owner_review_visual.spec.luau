@@ -121,21 +121,38 @@ t.describe("owner review 2026-09-26b: visual", function()
 		end
 	end)
 
-	t.it("pads every gallery page inside its scroller, so an edge control's ring and shadow have room", function()
+	t.it("pads every gallery page through UI.ScrollView, never a hand-written UIPadding at its scroller", function()
 		local offenders = {}
 		for _, name in fs.readDir("examples/gallery/scenarios") do
 			local lines = string.split(fs.readFile("examples/gallery/scenarios/" .. name), "\n")
-			local closing: string? = nil
 			for index, line in lines do
 				local indent = string.match(line, "^(\t+)Host%.UIPadding%(")
-				if indent then
-					closing = indent .. "}),"
-				elseif closing and line == closing then
-					local following = lines[index + 1] or ""
-					if string.find(following, "^" .. string.sub(closing, 1, -4) .. "Host%.ScrollingFrame") then
-						table.insert(offenders, name)
+				if indent and not string.find(line, "}%),$") then
+					local closing = indent .. "}),"
+					for after = index + 1, #lines do
+						if lines[after] == closing then
+							if string.find(lines[after + 1] or "", "^" .. indent .. "Host%.ScrollingFrame") then
+								table.insert(offenders, `{name}:{index} wraps a scroller`)
+							end
+							break
+						end
 					end
-					closing = nil
+				end
+				local outer = string.match(line, "^(\t*).-Host%.ScrollingFrame[%s%(]")
+				if outer then
+					local padded, crossAxis = false, false
+					for after = index + 1, #lines do
+						local inner = lines[after]
+						if string.find(inner, "^" .. outer .. "[})]") then
+							break
+						end
+						padded = padded or string.find(inner, "^" .. outer .. "\tHost%.UIPadding%(") ~= nil
+						crossAxis = crossAxis
+							or string.find(inner, "^" .. outer .. "\tScrollingDirection = [%w%.]+%.XY?,") ~= nil
+					end
+					if padded and not crossAxis then
+						table.insert(offenders, `{name}:{index} pads inside a page scroller`)
+					end
 				end
 			end
 		end

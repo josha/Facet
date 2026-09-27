@@ -117,18 +117,11 @@ return {
 			local root = Host.Frame "ToastLab" {
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.ScrollingFrame "Actions" {
-					Host.UIPadding({
-						PaddingTop = D.new(0, 16),
-						PaddingBottom = D.new(0, 16),
-						PaddingLeft = D.new(0, 16),
-						PaddingRight = D.new(0, 16),
-					}),
+				UI.ScrollView "Actions" {
+					padding = 16,
+					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					CanvasSize = D2.new(),
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
 					UI.Text({ text = "Toasts", textRole = "title" }),
 					UI.Text({
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",

@@ -311,19 +311,14 @@ return {
 					shareTip(),
 					avatarTip(),
 				},
-				Host.ScrollingFrame "Page" {
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 8,
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-					}),
 					UI.Text({
 						LayoutOrder = 1,
 						Name = "Title",

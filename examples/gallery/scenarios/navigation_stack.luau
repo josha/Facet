@@ -86,13 +86,11 @@ return {
 			Compose.cleanup(function()
 				exits += 1
 			end)
-			return Host.ScrollingFrame "Scroll" {
+			return UI.ScrollView "Scroll" {
+				padding = 16,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.new(),
 				ScrollBarThickness = 6,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 				Host.Frame "Content" {
 					Size = UDim2.new(1, 0, 0, 0),
 					BackgroundTransparency = 1,

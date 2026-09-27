@@ -41,23 +41,12 @@ return {
 			local root = Host.Frame "ProgressRing" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.ScrollingFrame "Page" {
-					Host.UIPadding({
-						PaddingTop = UDim.new(0, 16),
-						PaddingBottom = UDim.new(0, 16),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
-					}),
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 8,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-					}),
 					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,

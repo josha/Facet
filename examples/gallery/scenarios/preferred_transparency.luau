@@ -28,12 +28,11 @@ return {
 			})
 		end
 		local function screen()
-			return Host.ScrollingFrame "PreferredTransparency" {
+			return UI.ScrollView "PreferredTransparency" {
+				padding = 16,
+				gap = 12,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.new(),
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
 				UI.Text({ text = "Background transparency", TextSize = 24 }),
 				UI.Text({
 					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",

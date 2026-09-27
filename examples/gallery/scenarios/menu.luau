@@ -279,23 +279,12 @@ return {
 			return Host.Frame "MenuDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.ScrollingFrame "Page" {
-					Host.UIPadding({
-						PaddingTop = UDim.new(0, 16),
-						PaddingBottom = UDim.new(0, 16),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
-					}),
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 4,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 4),
-					}),
 					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
