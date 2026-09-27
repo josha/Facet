@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A disposed controls context can be collected. Its layout kit, help presenter and reduced-motion source lived in module-scope weak tables keyed by the context, and each value held the context, which Luau's weak keys never release, so every context and its tree stayed in memory.
 - **Breaking: a Region with two or more forms opens its richest form in a Popover by default.** A tap on a reduced form (a target up to the touch floor around it) moves the region's form 1 node into a Popover and back on close, so state and selection carry over. `expand` is now an optional override for the Popover content, and `reveal = false` keeps the old silent reduction.
 - **Breaking: a `mayDrop` Region steps to a badge form before it drops.** The badge is one form past the authored ones, so a `form` cell reads `#forms + 1` while it shows (read it as "reveal"); `reveal = false` keeps the old drop. A zone gathers its dropped regions behind one "…" beside it, and its Popover stays open while another region in the zone steps between visible forms.
 - **Breaking: under touch or gamepad input a Table's flexible column yields its `minWidth` down to the theme's touch floor** (`targetSizes.minimum`, 44): the columns fit a phone lane beside the edit controls first, and past that floor the pinned-row cells scroll sideways, so no column is lost.

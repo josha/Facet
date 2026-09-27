@@ -24,11 +24,10 @@ export type Kit = {
 	) -> Frame,
 }
 
-local registry = setmetatable({} :: { [Shared.Context]: Kit }, { __mode = "k" })
 local layoutKit = {}
 
 function layoutKit.of(ctx: Shared.Context): Kit
-	return assert(registry[ctx], "Facet layout requires a controls context")
+	return assert(ctx.layoutKit :: Kit?, "Facet layout requires a controls context")
 end
 
 function layoutKit.attach(ctx: Shared.Context): Kit
@@ -409,7 +408,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			)
 		end)
 	end
-	registry[ctx] = kit
+	ctx.layoutKit = kit
 	return kit
 end
 

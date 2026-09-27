@@ -1,4 +1,5 @@
 --!strict
+local process = require("@lune/process")
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -71,6 +72,11 @@ t.describe("native stress invariants", function()
 		t.expect(pcall(sameCensus, engine, baseline, "connection")).toBe(false)
 		connection:Disconnect()
 		sameCensus(engine, baseline, "cleaned")
+	end)
+
+	t.it("lets a disposed runtime's engine be collected", function()
+		local result = process.exec("lune", { "run", "tests/lib/disposed_engine" })
+		t.expect(result.stdout).toBe("collected\n")
 	end)
 
 	t.it("returns all instances and connections to baseline through 200 modal cycles twice", function()

@@ -247,6 +247,9 @@ export type Context = {
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
 	responder: (Instance, ResponderOptions?) -> Responder,
 	spaceActivates: (Instance) -> (Use) -> boolean,
+	layoutKit: unknown?,
+	showHelp: unknown?,
+	reducedMotion: unknown?,
 }
 
 return {}

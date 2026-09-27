@@ -7,7 +7,6 @@ local freeze = require("./freeze")
 export type Plate = { name: string?, gate: Types.Value<boolean>?, shown: Types.Cell<boolean>? }
 type Show = (GuiObject, Inputs.Help, Plate?) -> ()
 
-local registry = setmetatable({} :: { [Types.Context]: Show }, { __mode = "k" })
 local pressed = setmetatable({} :: { [Instance]: boolean }, { __mode = "k" })
 
 local help = {}
@@ -61,12 +60,12 @@ function help.check(ctx: Types.Context, value: unknown)
 end
 
 function help.register(ctx: Types.Context, show: Show)
-	registry[ctx] = show
+	ctx.showHelp = show
 end
 
 function help.attach(ctx: Types.Context, anchor: GuiObject, value: Inputs.Help, plate: Plate?)
 	help.check(ctx, value)
-	local show = registry[ctx]
+	local show = ctx.showHelp :: Show?
 	if show then
 		show(anchor, value, plate)
 	end
