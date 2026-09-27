@@ -551,10 +551,14 @@ return function<V, K>(
 				Size = if horizontal then D2.new(0, extent + stack, 1, 0) else D2.new(1, 0, 0, extent + stack),
 				Position = function(use: ComposeTypes.Use)
 					local live = use(moving)
+					local base = if horizontal then use(bodyAt).X.Offset else use(bodyAt).Y.Offset
+					local window = axis(body.AbsoluteWindowSize) / scaleOf(body)
 					local along = if live and live.pointer
-						then alongBody(body, live.pointer) + (if horizontal
-							then use(bodyAt).X.Offset
-							else use(bodyAt).Y.Offset) - extent / 2
+						then math.clamp(
+							alongBody(body, live.pointer) + base - extent / 2,
+							base,
+							math.max(base, base + window - extent - stack)
+						)
 						else dropY(use)
 					return if horizontal then D2.fromOffset(along, 0) else D2.fromOffset(0, along)
 				end,

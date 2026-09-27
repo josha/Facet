@@ -2966,6 +2966,23 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("the drag image stays over the rows, never over the Edit toolbar or the header", function()
+		local w = editableWorld("Touch", { reorderable = true }, false)
+		local V2 = w.engine.types.Vector2
+		w.node:FindFirstChild("Edit", true).Activated.fire()
+		local detector = w.row(3):FindFirstChild("Move", true):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(V2.new(280, 100))
+		detector.DragContinue.fire(V2.new(280, -200))
+		local image = w.node:FindFirstChild("DragImage", true)
+		local top = w.body.Position.Y.Offset
+		t.expect(top > 0).toBe(true)
+		t.expect(image.Position.Y.Offset).toBe(top)
+		detector.DragContinue.fire(V2.new(280, 900))
+		t.expect(image.Position.Y.Offset).toBe(top + 200 - 40)
+		detector.DragEnd.fire()
+		w.stop()
+	end)
+
 	t.it("a held finger on a Table row that has an Edit mode scrolls instead of picking the row up", function()
 		local w = editableWorld("Touch", { reorderable = true }, false)
 		local E, V3 = w.engine.types.Enum, w.engine.types.Vector3
