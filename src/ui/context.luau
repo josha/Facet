@@ -801,6 +801,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local stop = runtime.mountFragment(function()
 			return {
 				Host.UIGradient "FadePaint" { Transparency = paint },
+				ctx.styled(
+					Host.UIStroke "FadeStroke" {
+						Host.UIGradient "FadePaint" { Transparency = paint },
+					},
+					"fade-stroke"
+				),
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(shown) and amount(use) > 0
 				end, function()
@@ -910,12 +916,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					Compose.cleanup(function()
 						node:RemoveTag("facet-fading")
 					end)
-					return ctx.styled(
-						Host.UIStroke "FadeStroke" {
-							Host.UIGradient "FadePaint" { Transparency = paint },
-						},
-						"fade-stroke"
-					)
+					return Compose.fragment(function()
+						return {}
+					end)
 				end),
 			}
 		end, node)

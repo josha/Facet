@@ -102,15 +102,19 @@ t.describe("themed edges, plates and gutters", function()
 				return a.Priority < b.Priority
 			end)
 			local base = assert(style(sheet, ".facet-fade-stroke"))
-			t.expect(base.Enabled).toBe(false)
+			t.expect(`{base.Enabled} {base.Transparency}`).toBe("false 1")
 			t.expect(ordered[1].Selector).toBe(".facet-fade-stroke")
-			local fading
+			local fading, live
 			for _, node in ordered do
 				if node.Selector == ".facet-fading::UIStroke" then
 					fading = node
+				elseif node.Selector == ".facet-fading > .facet-fade-stroke" then
+					live = node
 				end
 			end
 			t.expect(fading:GetProperties().Enabled).toBe(false)
+			t.expect(live:GetProperties().Enabled).toBe(true)
+			t.expect(live.Priority > fading.Priority).toBe(true)
 			for _, node in ordered do
 				if string.sub(node.Selector, 1, 7) == ".facet-" and string.sub(node.Selector, -10) == "::UIStroke" then
 					t.expect(`{node.Selector} {node.Priority <= fading.Priority}`).toBe(`{node.Selector} true`)
@@ -124,7 +128,7 @@ t.describe("themed edges, plates and gutters", function()
 					t.expect(`{entry.label} {twin.Selector}`)
 						.toBe(`{entry.label} {string.sub(selector, 1, -11)} > .facet-fade-stroke`)
 					local expected = table.clone(node:GetProperties())
-					expected.Enabled = if expected.Enabled == nil then true else expected.Enabled
+					expected.Transparency = expected.Transparency or 0
 					for key, value in expected do
 						t.expect(`{twin.Selector}.{key}={twin:GetProperties()[key]}`)
 							.toBe(`{twin.Selector}.{key}={value}`)

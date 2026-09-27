@@ -648,7 +648,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		if string.sub(selector, -10) == "::UIStroke" then
 			local twin = table.clone(properties)
-			twin.Enabled = if properties.Enabled == nil then true else properties.Enabled
+			twin.Transparency = properties.Transparency or 0
 			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", twin)
 		end
 		add(selector, properties)
@@ -656,7 +656,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			add(string.sub(selector, 1, -12) .. " > UIPadding", properties)
 		end
 	end
-	add(".facet-fade-stroke", { Enabled = false })
+	add(".facet-fade-stroke", { Enabled = false, Transparency = 1 })
 	rule("ScrollingFrame", {
 		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
@@ -1484,6 +1484,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
 		BorderStrokePosition = types.Enum.BorderStrokePosition.Inner,
 	})
+	add(".facet-fading > .facet-fade-stroke", { Enabled = true })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do
