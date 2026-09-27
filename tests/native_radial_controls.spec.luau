@@ -212,6 +212,30 @@ t.describe("native radial interaction policies", function()
 		t.expect(root.AutomaticSize.Name).toBe("XY")
 		world.stop()
 	end)
+	t.it("a corner menu names the hovered button right beside it", function()
+		local world = setup({
+			preset = "bottom-left",
+			appearance = "buttons",
+			items = {
+				{ id = "look", label = "Look", icon = "facet:search" },
+				{ id = "pack", label = "Pack", icon = "menu" },
+				{ id = "wave", label = "Wave", icon = "flag" },
+			},
+		})
+		world.step(0.5)
+		for _, id in { "look", "wave" } do
+			local button = world.find(id)
+			button.MouseEnter.fire()
+			local preview = world.find("SelectionPreview")
+			t.expect(preview.Text).toBe(if id == "look" then "Look" else "Wave")
+			local dx = preview.Position.X.Offset - button.Position.X.Offset
+			local dy = preview.Position.Y.Offset - button.Position.Y.Offset
+			local gap = math.sqrt(dx * dx + dy * dy) - button.Size.X.Offset / 2
+			t.expect(gap >= 0 and gap <= 8).toBe(true)
+			button.MouseLeave.fire()
+		end
+		world.stop()
+	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")

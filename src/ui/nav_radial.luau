@@ -1236,12 +1236,25 @@ return function(
 					end
 					local at = use(center)
 					if corner then
-						local start = geometry.arc(spec.preset or "donut")
-						local angle = math.rad(start + 45)
+						local key = use(candidate) or use(focus.current)
+						local near: Radial.Sector<V>? = nil
+						for _, sector in ring.sectors do
+							if sector.key == key then
+								near = sector
+							end
+						end
+						local angle = math.rad(if near then near.angle else geometry.arc(spec.preset or "donut") + 45)
 						local dx, dy = math.sin(angle), -math.cos(angle)
-						local reach = reachOf(ring) + ctx.metric("space.s", use)
-						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach),
-							V2.new(if dx > 0 then 0 else 1, if dy > 0 then 0 else 1)
+						local reach = if near
+							then math.sqrt(near.x * near.x + near.y * near.y) + math.max(44, near.size) / 2 + ctx.metric(
+								"space.xs",
+								use
+							)
+							else reachOf(ring) + ctx.metric("space.s", use)
+						local function side(value: number): number
+							return if value > 0.3 then 0 elseif value < -0.3 then 1 else 0.5
+						end
+						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach), V2.new(side(dx), side(dy))
 					end
 					return D2.fromOffset(at.X, at.Y + hub(use).labelY), V2.new(0.5, 0.5)
 				end
