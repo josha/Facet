@@ -6,6 +6,7 @@ type Column = {
 	label: string,
 	width: number?,
 	minWidth: number?,
+	priority: number?,
 	resizable: boolean,
 	sortable: boolean,
 	value: (any) -> any,
@@ -182,6 +183,7 @@ function example.build(ctx: any)
 					id = "artist",
 					label = "Artist",
 					minWidth = 72,
+					priority = 1,
 					resizable = true,
 					sortable = true,
 					value = function(item)
