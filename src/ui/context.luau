@@ -779,19 +779,28 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		local unstyled = Compose.cell(frames ~= nil)
 		if frames then
+			local rendered = frames.RenderStepped == nil
+			local rendering: RBXScriptConnection? = if rendered
+				then nil
+				else frames.RenderStepped:Connect(function()
+					rendered = true
+				end)
 			local first: RBXScriptConnection? = nil
+			local function stopWatching()
+				for _, connection in { first, rendering } do
+					if connection then
+						connection:Disconnect()
+					end
+				end
+				first, rendering = nil, nil
+			end
 			first = frames.Heartbeat:Connect(function()
-				if first then
-					first:Disconnect()
-					first = nil
-				end
-				unstyled:set(false)
-			end)
-			Compose.cleanup(function()
-				if first then
-					first:Disconnect()
+				if rendered then
+					stopWatching()
+					unstyled:set(false)
 				end
 			end)
+			Compose.cleanup(stopWatching)
 		end
 		local stop = runtime.mountFragment(function()
 			return {
