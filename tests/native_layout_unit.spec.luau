@@ -129,4 +129,41 @@ t.describe("layout decisions under a preview UIScale", function()
 			end)
 		end
 	end)
+	t.it("a HUD Composition picks the same region forms", function()
+		local sizes = {
+			TasksFull = { 240, 130 },
+			TasksChip = { 90, 44 },
+			ClockFull = { 170, 60 },
+			ClockChip = { 80, 44 },
+			RailFull = { 130, 132 },
+			RailChip = { 80, 44 },
+		}
+		for _, box in { { 844, 330 }, { 844, 230 }, { 390, 780 } } do
+			both(`Composition {box[1]}x{box[2]}`, function(factor)
+				local world = worlds.new(function(UI, Host)
+					local function form(name: string): any
+						return Host.Frame { Name = name }
+					end
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						UI.Region "Tasks" { zone = "left", rank = 3, form("TasksFull"), form("TasksChip") },
+						UI.Region "Clock" { zone = "top", rank = 1, form("ClockFull"), form("ClockChip") },
+						UI.Region "Rail" { zone = "topRight", rank = 2, form("RailFull"), form("RailChip") },
+					}
+				end)
+				scaleProbes(world, factor)
+				for name, size in sizes do
+					world.resize(world.find(name), size[1] * factor, size[2] * factor)
+				end
+				world.resize(world.find("Zones"), box[1] * factor, box[2] * factor)
+				local out = {}
+				for _, name in { "Tasks", "Clock", "Rail" } do
+					table.insert(out, `{name}={world.find(name):GetAttribute("FacetForm")}`)
+				end
+				world.stop()
+				return table.concat(out, ",")
+			end)
+		end
+	end)
 end)

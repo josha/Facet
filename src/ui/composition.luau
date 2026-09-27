@@ -337,22 +337,26 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end,
 			})
 		end
-		local box = ctx.layoutSize(safe)
+		local safeUnit = ctx.layoutUnit(safe)
+		local box = ctx.layoutSize(safe, safeUnit)
 		local last: Vector2? = nil
-		local stripSize = if stripGui then ctx.observe.AbsoluteSize(stripGui) else nil
+		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
+		local stripSize = if stripGui then ctx.layoutSize(stripGui, stripUnit) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local extent = use(box)
+			local rides = riding(use)
 			local list: { resolver.Declared } = {}
 			for index, region in regions do
 				local entry = declared[region]
+				local unit = use(if rides and entry.zone == "topbar" and stripUnit then stripUnit else safeUnit)
 				local measured = {}
 				for form, observed in entry.sizes do
-					local value = use(observed)
+					local value = use(observed) / unit
 					measured[form] = { x = value.X, y = value.Y }
 				end
 				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
 			end
-			local band = if stripSize and riding(use) then use(stripSize) else nil
+			local band = if stripSize and rides then use(stripSize) else nil
 			local chosen = resolver.resolve(
 				extent.X,
 				extent.Y,
