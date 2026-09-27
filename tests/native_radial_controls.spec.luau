@@ -197,6 +197,19 @@ t.describe("native radial interaction policies", function()
 		t.expect(arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value).toBe(0)
 		world.stop()
 	end)
+	t.it("an item that shows only its icon takes the glyph padding, a worded item does not", function()
+		local world = setup({
+			preset = "bottom-left",
+			appearance = "buttons",
+			items = {
+				{ id = "look", label = "Look", icon = "facet:search" },
+				{ id = "wave", label = "Wave" },
+			},
+		})
+		t.expect(world.find("look"):HasTag("facet-button-glyph")).toBe(true)
+		t.expect(world.find("wave"):HasTag("facet-button-glyph")).toBe(false)
+		world.stop()
+	end)
 	t.it("a corner menu keeps its launcher's room while the launcher hides under the open ring", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
@@ -1131,6 +1144,14 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		local glyph = world.find("Center"):FindFirstChild("LeadingIcon", true)
 		t.expect(glyph.Image).toBe(themes.resolveIcon({} :: any, "chevron.up"))
 		t.expect(world.find("Center"):GetAttribute("label")).toBe("Home")
+		world.stop()
+	end)
+	t.it("the ring's full-screen panel takes no panel padding, so a themed inset cannot shift the ring", function()
+		local world = setup({ items = nested() })
+		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(800, 600)
+		local panel = world.find("RadialPanel")
+		t.expect(panel:GetAttribute("Presentation")).toBe("radial")
+		t.expect(panel:HasTag("facet-panel")).toBe(false)
 		world.stop()
 	end)
 	t.it("the list fallback heads its opaque panel with the path, clear of the page below", function()
