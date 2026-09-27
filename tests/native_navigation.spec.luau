@@ -418,6 +418,30 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("hugs its tallest page and centres the footer under it when its height is automatic", function()
+		local selection = Compose.cell("one")
+		local world = setup(function(UI, Host, engine)
+			return UI.PageView({
+				Size = engine.types.UDim2.new(1, 0, 0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame "BodyOne" {} },
+					{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} },
+				},
+			})
+		end)
+		local V = world.engine.types.Vector2
+		find(world.screen, "BodyOne").AbsoluteSize = V.new(300, 180)
+		find(world.screen, "BodyTwo").AbsoluteSize = V.new(300, 212.5)
+		local pages, footer = find(world.screen, "Pages"), find(world.screen, "Footer")
+		t.expect(pages.Size).toBe(world.engine.types.UDim2.new(1, 0, 0, 213))
+		t.expect(footer.Position).toBe(world.engine.types.UDim2.fromOffset(0, 213))
+		t.expect(footer:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+			.toBe(world.engine.types.Enum.HorizontalAlignment.Center)
+		world.stop()
+	end)
+
 	t.it("eases between pages without overshoot, and overshoots only after a fast swipe", function()
 		local selection = Compose.cell("one")
 		local world = setup(function(UI, Host)
@@ -1295,6 +1319,12 @@ t.describe("native navigation controls", function()
 		nested.AbsoluteSize = world.engine.types.Vector2.new(705, 600)
 		t.expect(strip.Visible).toBe(true)
 		t.expect(find(nested, "TabsMenu")).toBe(nil)
+		nested:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(60, 0.6)
+		nested.AbsoluteSize = world.engine.types.Vector2.new(423, 360)
+		t.expect(strip.Visible).toBe(true)
+		t.expect(find(nested, "TabsMenu")).toBe(nil)
+		nested.AbsoluteSize = world.engine.types.Vector2.new(423, 240)
+		t.expect(strip.Visible).toBe(false)
 		world.stop()
 	end)
 
@@ -1594,6 +1624,9 @@ t.describe("native navigation controls", function()
 		end)
 		find(world.screen, "Primary").Activated.fire()
 		t.expect(primary).toBe(1)
+		local chevron = find(world.screen, "Alternatives")
+		t.expect(chevron:HasTag("facet-button")).toBe(true)
+		t.expect(chevron:FindFirstChildWhichIsA("UISizeConstraint")).toBe(nil)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
 		local trigger = find(world.screen, "Primary")
 		t.expect(trigger.Size).toBe(world.engine.types.UDim2.fromScale(1, 1))
@@ -2389,6 +2422,21 @@ t.describe("native navigation controls", function()
 		end
 		local first = outline:GetControlPoints()[1]
 		t.expect(math.abs(first.Position.X.Scale * 30 - 12) < 0.01).toBe(true)
+		panel.AbsoluteSize = V.new(280, 96)
+		anchor.AbsolutePosition = V.new(0, 560)
+		anchor.AbsoluteSize = V.new(8, 44)
+		local points = outline:GetControlPoints()
+		local radius = points[1].Position.X.Scale * 280
+		local tip, depth = 0, 0
+		for _, point in points do
+			local y = point.Position.Y.Scale * 96
+			if y > depth then
+				depth, tip = y, point.Position.X.Scale * 280
+			end
+		end
+		local half = depth - 96
+		t.expect(`tail clears the corner arc by a tail width: {tip - radius - half >= half - 0.01}`)
+			.toBe("tail clears the corner arc by a tail width: true")
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)
 		t.expect(find(world.screen, "CalloutPanel")).toBe(nil)

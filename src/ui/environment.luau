@@ -333,8 +333,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local world = scene()
 			node = if world then ((world :: unknown) :: { CurrentCamera: Instance? }).CurrentCamera else nil
 		end
-		local property = if node and node:IsA("GuiBase2d") then "AbsoluteSize" else "ViewportSize"
-		local engineSize = watched(node, property, V2.zero)
+		local gui2d = node ~= nil and node:IsA("GuiBase2d")
+		local property = if gui2d then "AbsoluteSize" else "ViewportSize"
+		local screenSize = watched(node, property, V2.zero)
+		local unit = if gui2d then ctx.layoutUnit(node :: GuiBase2d) else nil
+		local engineSize: ComposeTypes.Readable<unknown> = if unit
+			then Compose.formula(function(use: ComposeTypes.Use): unknown
+				local size = use(screenSize)
+				return if typeof(size) == "Vector2" then size / use(unit) else size
+			end)
+			else screenSize
 		local forced = if source == nil and config.environment then config.environment.viewportSize else nil
 		local raw: ComposeTypes.Readable<unknown> = if forced == nil
 			then engineSize

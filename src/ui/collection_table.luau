@@ -811,6 +811,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 					row = editor.wrap(row, current, key, true)
 				end
 				local painted = ctx.styled(if editor then row else disclosing, "TableRow")
+				ctx.skin(painted, "control", {
+					selected = function(use: ComposeTypes.Use): boolean
+						return read(selection, use)[key] == true
+					end,
+				})
 				Compose.watch(function(use: ComposeTypes.Use)
 					if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
 						painted:AddTag("facet-tablerow-alternate")

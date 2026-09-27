@@ -185,12 +185,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		table.insert(copy, message)
 		local textService = ctx.config.services and ctx.config.services.TextService
 		if textService then
-			local width = ctx.observe.AbsoluteSize(message)
+			local width, unit = ctx.observe.AbsoluteSize(message), ctx.layoutUnit(message)
 			local face = ctx.observeStyled.FontFace(message)
 			local points = ctx.observeStyled.TextSize(message)
 			local serial, last = 0, ""
 			Compose.watch(function(use: ComposeTypes.Use)
-				local wide = use(width).X
+				local wide = use(width).X / use(unit)
 				local text: string = read(spec.message, use) or ""
 				local font, size = use(face) :: Font, use(points) :: number
 				local key = `{wide}|{text}|{size}|{font.Family}|{font.Weight.Name}`
@@ -696,17 +696,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
+			local unit = ctx.layoutUnit(root :: GuiObject)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local width = use(box).X
+				local scale = use(unit)
+				local width = use(box).X / scale
 				if width <= 0 or use(sides).X <= 0 then
 					return
 				end
 				local fixed = 0
 				for _, size in before do
-					fixed += use(size).X + gap(use)
+					fixed += use(size).X / scale + gap(use)
 				end
-				local room = width - fixed - use(sides).X - gap(use)
-				local wanted = if natural then use(natural).X else ctx.metric("controls.popup.panelWidth", use)
+				local room = width - fixed - use(sides).X / scale - gap(use)
+				local wanted = if natural then use(natural).X / scale else ctx.metric("controls.popup.panelWidth", use)
 				local floor = math.min(wanted, width - fixed)
 				local next = room < floor
 				if next ~= stacked:peek() then

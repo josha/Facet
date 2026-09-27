@@ -367,6 +367,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end,
 						ScrollingDirection = E.ScrollingDirection.Y,
 						ScrollBarThickness = 4,
+						VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 						Selectable = false,
 						column,
 					},
@@ -655,6 +656,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					BorderSizePixel = 0,
 					ScrollingDirection = E.ScrollingDirection.Y,
 					ScrollBarThickness = 4,
+					VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 					Size = function(use: ComposeTypes.Use)
 						if fullScreen then
 							return D2.new(1, 0, 1, -use(actionSize).Y - 12)

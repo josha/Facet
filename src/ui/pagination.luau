@@ -161,8 +161,9 @@ return function(
 			end
 			return `Page {string.rep("0", math.max(4, #tostring(st.current)))}`
 		end)
+		local unit = ctx.layoutUnit(digits)
 		local digitBounds, ellipsisBounds, widestBounds =
-			ctx.observe.TextBounds(digits), ctx.observe.TextBounds(ellipsis), ctx.observe.TextBounds(widest)
+			ctx.layoutBounds(digits, unit), ctx.layoutBounds(ellipsis, unit), ctx.layoutBounds(widest, unit)
 		local offered = Compose.cell(0)
 		local function slotWidth(page: number, use: ComposeTypes.Use?): number
 			local digit = readSource(digitBounds, use).X / 10
@@ -457,7 +458,7 @@ return function(
 			widest :: Types.Child,
 			row :: Types.Child,
 		}))
-		local rootSize = ctx.observe.AbsoluteSize(root)
+		local rootSize = ctx.layoutSize(root, unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			offered:set(use(rootSize).X)
 		end)

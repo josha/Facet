@@ -1377,6 +1377,9 @@ t.describe("native ColorPicker panel fit", function()
 		body.AbsoluteWindowSize = V2(376, 300)
 		local size = w.find("Technique").Size
 		expect(`{size.X.Scale} {size.X.Offset}`).toBe("0 376")
+		w.find("LayoutUnit").AbsoluteSize = V2(50, 0.5)
+		size = w.find("Technique").Size
+		expect(`under a 0.5 UIScale {size.X.Offset}`).toBe("under a 0.5 UIScale 752")
 		w.stop()
 	end)
 

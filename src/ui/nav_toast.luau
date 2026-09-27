@@ -326,7 +326,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local spec, layer = record.spec, stack.layer
 		local bottom = spec.position == "bottom"
 		local hug = spec.width == "hug"
-		local extent = ctx.observe.AbsoluteSize(layer)
+		local extent = ctx.layoutSize(layer)
 		local setting = if gui then ctx.observe.ReducedMotionEnabled(gui) else nil
 		local body: Instance
 		if spec.content then
@@ -431,7 +431,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 
 	local function actionRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec, layer = record.spec, stack.layer
-		local extent = ctx.observe.AbsoluteSize(layer)
+		local extent = ctx.layoutSize(layer)
 		local origin = ctx.observe.AbsolutePosition(layer)
 		local closable = spec.closeButton ~= false
 		local function cap(use: ComposeTypes.Use): number

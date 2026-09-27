@@ -166,13 +166,13 @@ return {
 			return Host.Frame "Overlays" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
 				Host.ScrollingFrame "Content" {
+					Host.UIPadding({
+						PaddingTop = UDim.new(0, 16),
+						PaddingBottom = UDim.new(0, 16),
+						PaddingLeft = UDim.new(0, 16),
+						PaddingRight = UDim.new(0, 16),
+					}),
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					AutomaticCanvasSize = Enum.AutomaticSize.Y,

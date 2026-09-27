@@ -886,6 +886,31 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return ctx.styled(Host.TextLabel(native), "Text")
 	end
+	function ctx.layoutUnit(parent: GuiBase2d): ComposeTypes.Readable<number>
+		local _, probe = runtime.mount(function()
+			return Host.Frame "LayoutUnit" { Size = types.UDim2.fromOffset(100, 1), Visible = false }
+		end, parent)
+		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
+		return Compose.formula(function(use: ComposeTypes.Use): number
+			local unit = (use(size) :: Vector2).X / 100
+			return if unit > 0 then unit else 1
+		end)
+	end
+	function ctx.layoutSize(node: GuiBase2d, unit: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+		local size, unit = ctx.observe.AbsoluteSize(node), unit or ctx.layoutUnit(node)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return (use(size) :: Vector2) / use(unit)
+		end)
+	end
+	function ctx.layoutBounds(
+		label: TextLabel | TextButton | TextBox,
+		unit: ComposeTypes.Readable<number>?
+	): ComposeTypes.Readable<Vector2>
+		local bounds, unit = ctx.observe.TextBounds(label), unit or ctx.layoutUnit(label)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return (use(bounds) :: Vector2) / use(unit)
+		end)
+	end
 	function ctx.row(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, false)
 	end

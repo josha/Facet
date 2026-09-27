@@ -207,7 +207,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"onChange",
 			"controlSize",
 		}, { Name = "TabView", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }))
-		local dimensions = ctx.observe.AbsoluteSize(root)
+		local layoutUnit = ctx.layoutUnit(root)
+		local dimensions = ctx.layoutSize(root, layoutUnit)
 		local function locate()
 			local at: Instance? = root.Parent
 			local inside = depth > 0
@@ -449,8 +450,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Padding = D.new(0, 4),
 		})
 		local stripContent = ctx.observe.AbsoluteContentSize(stripLayout)
-		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
-		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
 		local function railWidth(use: ComposeTypes.Use): number
 			local authored = read(spec.railWidth, use)
 			if authored then
@@ -463,7 +462,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if widest <= 0 then
 				return math.clamp(math.floor(use(dimensions).X * 0.2), 200, 280)
 			end
-			local unit = use(unitSize).X / 100
+			local unit = use(layoutUnit)
 			local glyph = 0
 			for _, tab in use(visibleTabs) do
 				if tab.icon then
@@ -473,12 +472,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			local label = widest / (if unit > 0 then unit else 1)
 			local plate = if indicatorOf(use) == "pill" then 2 * INSET else 0
-			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use)) + 16 + plate
+			local package = read(ctx.config.theme, use)
+			local skin = package and package.chrome and package.chrome.control
+			local insets = if skin then skin.contentInsets else nil
+			local carve = if insets then (insets.left or 0) + (insets.right or 0) else 0
+			return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use) + carve)
+				+ 16
+				+ plate
 		end
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
-			local unit = use(unitSize).X / 100
+			local unit = use(layoutUnit)
 			local scale = if unit > 0 then unit else 1
-			local room = (use(dimensions).X - use(trailingWidth)) / scale
+			local room = use(dimensions).X - use(trailingWidth) / scale
 			local width = math.ceil(math.min(room, use(stripContent).X / scale + 2 * INSET))
 			return width, math.max(0, math.floor((room - width) / 2))
 		end
@@ -487,6 +492,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ScrollBarThickness = 2,
+			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			CanvasSize = D2.fromOffset(0, 0),
 			AutomaticCanvasSize = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
@@ -1086,15 +1092,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local _, left = segmentWidth(use)
 				return D2.fromOffset(left, 0)
 			end,
-			Host.UICorner({}),
-			Host.UIStroke({}),
 		}
 		track:AddTag("facet-segmented")
 		track:AddTag("facet-tab-plate")
-		surfaces.attach(root, { unitProbe, track, bar, layers })
+		surfaces.attach(root, { track, bar, layers })
+		local canvas, window = ctx.observe.AbsoluteCanvasSize(bar), ctx.observe.AbsoluteWindowSize(bar)
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
 				return not use(collapsed) and use(placement) ~= "none"
+			end,
+			ClipsDescendants = function(use: ComposeTypes.Use): boolean
+				local content, room = use(canvas), use(window)
+				return content.X > room.X + 0.5 or content.Y > room.Y + 0.5
 			end,
 		})
 		surfaces.attach(root, {
@@ -1695,20 +1704,38 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			TouchInputEnabled = true,
 			ScrollWheelInputEnabled = false,
 		}
+		local hugs = spec.AutomaticSize == E.AutomaticSize.Y or spec.AutomaticSize == E.AutomaticSize.XY
+		local tallest = Compose.cell(0)
+		local heights: { ComposeTypes.Readable<Vector2> } = {}
 		local children: { Types.Child } = { layout }
 		for index, page in spec.pages do
+			local body = content(page.content, nil)
+			if hugs and body:IsA("GuiObject") then
+				table.insert(heights, ctx.observe.AbsoluteSize(body))
+			end
 			local node = Host.Frame(page.id)({
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 1),
 				LayoutOrder = index,
-				content(page.content, nil),
+				body,
 			})
 			pageNodes[page.id] = node
 			table.insert(children, node)
 		end
+		if hugs then
+			Compose.watch(function(use: ComposeTypes.Use)
+				local most = 0
+				for _, height in heights do
+					most = math.max(most, use(height).Y)
+				end
+				tallest:set(math.ceil(most))
+			end)
+		end
 		local pages = Host.Frame "Pages" {
 			BackgroundTransparency = 1,
-			Size = D2.new(1, 0, 1, -footerHeight),
+			Size = function(use: ComposeTypes.Use)
+				return if hugs then D2.new(1, 0, 0, use(tallest)) else D2.new(1, 0, 1, -footerHeight)
+			end,
 			ClipsDescendants = true,
 		}
 		surfaces.attach(pages, children)
@@ -1808,6 +1835,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					LayoutOrder = index,
 					Size = D2.fromOffset(28, 44),
 					AutomaticSize = E.AutomaticSize.None,
+					BackgroundTransparency = 1,
 					selected = function(use: ComposeTypes.Use): boolean
 						return use(spec.selection) == id
 					end,
@@ -1860,17 +1888,21 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				})
 			)
 		end
+		local column = ctx.column(footer, {
+			Name = "Footer",
+			Position = function(use: ComposeTypes.Use)
+				return if hugs then D2.fromOffset(0, use(tallest)) else D2.new(0, 0, 1, -footerHeight)
+			end,
+			Size = D2.new(1, 0, 0, footerHeight),
+			AutomaticSize = E.AutomaticSize.None,
+		})
+		assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
 		return Host.Frame(ctx.props(spec, { "pages", "selection", "indicators", "summary", "controls" }, {
 			Name = "PageView",
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			pages,
-			ctx.column(footer, {
-				Name = "Footer",
-				Position = D2.new(0, 0, 1, -footerHeight),
-				Size = D2.new(1, 0, 0, footerHeight),
-				AutomaticSize = E.AutomaticSize.None,
-			}),
+			column,
 		}))
 	end)
 end

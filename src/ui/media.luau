@@ -332,7 +332,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end, label)
 		end
 		if cut then
-			local measured = ctx.observe.AbsoluteSize(label)
+			local measured = ctx.layoutSize(label)
 			local insets = Compose.cell({ left = D.new(0, 0), right = D.new(0, 0) })
 			local sideConnections: { RBXScriptConnection } = {}
 			local function paddingChanged()
@@ -1227,7 +1227,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 			table.insert(track, Host.Frame(clipped))
 			content = skin(ctx.styled(Host.Frame(track), "track"), "barTrack")
-			local trackSize = ctx.observe.AbsoluteSize(content)
+			local trackSize = ctx.layoutSize(content)
 			Compose.watch(function(use: ComposeTypes.Use)
 				measured:set(use(trackSize))
 			end)

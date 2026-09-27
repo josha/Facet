@@ -638,9 +638,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		})
 	end
 	local function rule(selector: string, properties: ThemeTypes.RuleProperties)
-		if string.sub(selector, -10) == "::UIStroke" and properties.ApplyStrokeMode == nil then
+		if string.sub(selector, -10) == "::UIStroke" then
 			properties = table.clone(properties)
-			properties.ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border
+			properties.ApplyStrokeMode = properties.ApplyStrokeMode or types.Enum.ApplyStrokeMode.Border
+			if properties.ApplyStrokeMode == types.Enum.ApplyStrokeMode.Border then
+				properties.BorderStrokePosition = properties.BorderStrokePosition
+					or types.Enum.BorderStrokePosition.Inner
+			end
 		end
 		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
@@ -648,7 +652,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	rule("ScrollingFrame", {
-		VerticalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
+		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = c("contentSecondary"),
@@ -915,18 +919,17 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		BackgroundColor3 = types.Color3.new(0, 0, 0),
 		BackgroundTransparency = 1 - math.max(extra.scrimOpacity or 0.45, 0.8),
 	})
-	for status, role in
-		{
-			neutral = "contentSecondary",
-			info = "accent",
-			success = "success",
-			warning = "warning",
-			error = "danger",
-			accent = "accent",
-			voice = "voice",
-			contrast = "contentStrong",
-		} :: { [string]: string }
-	do
+	local statusRoles: { [string]: string } = {
+		neutral = "contentSecondary",
+		info = "accent",
+		success = "success",
+		warning = "warning",
+		error = "danger",
+		accent = "accent",
+		voice = "voice",
+		contrast = "contentStrong",
+	}
+	for status, role in statusRoles do
 		local partner = if status == "neutral"
 			then "surface"
 			elseif status == "error" then "onDanger"
@@ -1198,6 +1201,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-tab-filled >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-stepper-track", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-stepper-track::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(".facet-skinned > #Content > .facet-stepper-track", { BackgroundTransparency = 1 })
 	do
 		local recipe = if package.chrome then package.chrome.stepperPlate else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
@@ -1224,7 +1228,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
 
 	rule(".facet-tab-plate", { BackgroundColor3 = c("surfaceStrong") })
-	rule(".facet-tab-plate::UIStroke", { Color = c("hairline"), Thickness = 1 })
+	rule(".facet-tab-plate::UIStroke", {
+		Color = c("hairline"),
+		Transparency = extra.hairlineOpacity,
+		Thickness = package.metrics.strokes.hairline or 1,
+	})
 	rule(".facet-segmented::UIPadding", {
 		PaddingLeft = types.UDim.new(0, SEGMENT_INSET),
 		PaddingRight = types.UDim.new(0, SEGMENT_INSET),
@@ -1264,6 +1272,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
 	rule(".facet-menu-item::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-menu-end::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.panel) })
 	rule(".facet-menu-destructive", { TextColor3 = c("content") })
 	rule(".facet-menu-destructive >> .facet-button-caption", { TextColor3 = c("content") })
 	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("content") })
@@ -1301,6 +1310,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 
 	for _, slot in { "control", "field", "panel" } do
 		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
+	end
+	for status, role in statusRoles do
+		rule(".facet-badge.facet-status-" .. status .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = c(role) })
+	end
+	for _, appearance in { "status", "utility" } do
+		rule(
+			".facet-badge-" .. appearance .. " > #SkinBoundary >> .facet-skin-art",
+			{ ImageColor3 = types.Color3.new(1, 1, 1) }
+		)
 	end
 	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 	local selectedArt: ThemeTypes.AssetLink? = nil
@@ -1435,8 +1453,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
 		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
 	end
-	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
+	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
+	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do
