@@ -607,11 +607,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Selectable = function(use: ComposeTypes.Use)
 				return #detents > 1 or canDismiss(use)
 			end,
-			Activated = function()
+			Activated = function(input: InputObject?)
 				if now() - dragged < 0.3 then
 					return
 				end
-				local grow = nextUp()
+				local tapped = input ~= nil
+					and (
+						input.UserInputType == E.UserInputType.Touch
+						or input.UserInputType == E.UserInputType.MouseButton1
+					)
+				local grow = if tapped and canDismiss() then nil else nextUp()
 				if grow then
 					select(grow.id)
 				else

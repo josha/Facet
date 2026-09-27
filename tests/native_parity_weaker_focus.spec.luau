@@ -1832,7 +1832,65 @@ t.describe("native parity weaker focus", function()
 		world.stop()
 	end)
 
-	t.it("grows sheet detents from the selectable grabber and closes from the tallest on every input", function()
+	t.it("a tap or click on the grabber closes the sheet; Return and A grow it and close from the tallest", function()
+		for _, kind in { "Touch", "MouseButton1" } do
+			local presented = Compose.cell(true)
+			local detent = Compose.cell("peek")
+			local world = setup(function(UI)
+				return UI.Sheet({
+					isPresented = presented,
+					detent = detent,
+					detents = { "medium", "large", { id = "peek", height = 160 } },
+					content = function()
+						return UI.Button({ label = "Inside" })
+					end,
+				})
+			end)
+			local Enum = world.engine.types.Enum
+			find(world.screen, "Grabber").Activated.fire({ UserInputType = Enum.UserInputType[kind] })
+			t.expect(`{kind}: {tostring(presented:peek())} {detent:peek()}`).toBe(`{kind}: false peek`)
+			world.stop()
+		end
+		local held = Compose.cell("peek")
+		local locked = setup(function(UI)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = held,
+				detents = { "medium", { id = "peek", height = 160 } },
+				interactiveDismissDisabled = true,
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end)
+		local Enum = locked.engine.types.Enum
+		find(locked.screen, "Grabber").Activated.fire({ UserInputType = Enum.UserInputType.Touch })
+		t.expect(held:peek()).toBe("medium")
+		locked.stop()
+		local detent = Compose.cell("peek")
+		local presented = Compose.cell(true)
+		local world = setup(function(UI)
+			return UI.Sheet({
+				isPresented = presented,
+				detent = detent,
+				detents = { "medium", "large", { id = "peek", height = 160 } },
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end)
+		local grabber = find(world.screen, "Grabber")
+		world.gui.SelectedObject = grabber
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.Return })
+		t.expect(detent:peek()).toBe("medium")
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
+		t.expect(detent:peek()).toBe("large")
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
+		t.expect(presented:peek()).toBe(false)
+		world.stop()
+	end)
+
+	t.it("grows sheet detents from the selectable grabber and closes from the tallest", function()
 		local detent = Compose.cell("peek")
 		local presented = Compose.cell(true)
 		local world = setup(function(UI)
@@ -1853,9 +1911,9 @@ t.describe("native parity weaker focus", function()
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Peek")
 		world.gui.SelectedObject = grabber
 		t.expect(world.gui.SelectedObject).toBe(grabber)
-		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Touch })
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.Return })
 		t.expect(detent:peek()).toBe("medium")
-		grabber.Activated.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
+		grabber.Activated.fire()
 		t.expect(detent:peek()).toBe("large")
 		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
