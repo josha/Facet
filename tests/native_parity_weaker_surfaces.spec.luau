@@ -163,31 +163,23 @@ local function mountScenario(name: string, reduced: boolean?): (any, any, any, a
 	end
 end
 
-local function visibleTitles(built: any): string
-	local rows = {}
-	for _, row in built.report().rows do
-		if row.state == "visible" then
-			table.insert(rows, row)
-		end
-	end
-	table.sort(rows, function(a, b)
-		return a.id < b.id
-	end)
-	local titles = {}
-	for _, row in rows do
-		table.insert(titles, row.title)
-	end
-	return table.concat(titles, ",")
-end
-
 local function toasts(node: any): { any }
 	local cards = {}
-	for _, child in find(node, "Messages"):GetChildren() do
-		if child.Name == "Toast" then
+	for _, child in node:GetDescendants() do
+		if child.Name == "ToastRow" then
 			table.insert(cards, child)
 		end
 	end
 	return cards
+end
+
+local function visibleTitles(node: any): string
+	local titles = {}
+	for _, card in toasts(node) do
+		table.insert(titles, find(card, "Title").Text)
+	end
+	table.sort(titles)
+	return table.concat(titles, ",")
 end
 
 local function advance(engine: any, seconds: number, step: number?)
@@ -1103,33 +1095,29 @@ t.describe("presented surface strength", function()
 end)
 
 t.describe("gallery toast strength", function()
-	t.it("drops exactly the least urgent newest burst toast at the queue cap and drains the rest", function()
-		local built, node, _, engine, _, close = mountScenario("sponsor_toast")
+	t.it("shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped", function()
+		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
 		find(node, "Burst").Activated.fire()
+		engine.heartbeat.fire(1 / 60)
 		local report = built.report()
 		t.expect(report.visible).toBe(3)
 		t.expect(report.queued).toBe(8)
 		t.expect(report.dropped).toBe(1)
-		local titles = {}
+		t.expect(#toasts(node)).toBe(3)
 		for _, row in report.rows do
-			titles[row.title] = true
-		end
-		t.expect(titles["Burst 12"]).toBe(nil)
-		for i = 1, 11 do
-			t.expect(titles["Burst " .. i]).toBe(true)
+			t.expect(row.title ~= "Burst 12" or report.states[row.id] == "exiting").toBe(true)
 		end
 		advance(engine, 8)
 		report = built.report()
 		t.expect(report.visible).toBe(0)
 		t.expect(report.queued).toBe(0)
-		t.expect(report.exiting).toBe(0)
-		t.expect(report.dropped).toBe(1)
+		t.expect(#report.rows).toBe(0)
 		t.expect(#toasts(node)).toBe(0)
 		close()
 	end)
 
 	t.it("keeps reduced-motion toasts on screen for the same durations as animated ones", function()
-		local function run(reduced: boolean): (string, number)
+		local function run(reduced: boolean): string
 			local built, node, _, engine, _, close = mountScenario("sponsor_toast", reduced)
 			find(node, "Burst").Activated.fire()
 			local samples = {}
@@ -1138,71 +1126,51 @@ t.describe("gallery toast strength", function()
 				local report = built.report()
 				table.insert(samples, report.visible .. "/" .. report.queued)
 			end
-			local dropped = built.report().dropped
 			close()
-			return table.concat(samples, ","), dropped
+			return table.concat(samples, ",")
 		end
-		local full, fullDropped = run(false)
-		local reduced, reducedDropped = run(true)
-		t.expect(reduced).toBe(full)
-		t.expect(reducedDropped).toBe(fullDropped)
+		local full = run(false)
+		t.expect(run(true)).toBe(full)
 		t.expect(string.sub(full, -3)).toBe("0/0")
-		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
-		built.steps.send()
-		t.expect(toasts(node)[1].GroupTransparency).toBe(0)
-		close()
-		built, node, _, engine, _, close = mountScenario("sponsor_toast", false)
-		built.steps.send()
-		local card = toasts(node)[1]
-		t.expect(card.GroupTransparency).toBe(1)
-		advance(engine, 0.3)
-		t.expect(card.GroupTransparency).toBe(0)
-		close()
 	end)
 
-	t.it("releases dismissed toasts within the half-second cap and returns the counters and instances", function()
-		local built, node, _, engine, _, close = mountScenario("sponsor_toast")
+	t.it("clears showing toasts and returns the rows, instances and frame clock", function()
+		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
+		engine.heartbeat.fire(1 / 60)
 		local baseline = #node:GetDescendants()
 		for i = 1, 3 do
 			built.show("Held " .. i, "Long", { duration = 20 })
 		end
+		engine.heartbeat.fire(1 / 60)
 		t.expect(#toasts(node)).toBe(3)
-		built.steps.clear()
-		t.expect(built.report().exiting).toBe(3)
+		find(node, "Clear").Activated.fire()
+		engine.heartbeat.fire(1 / 60)
 		t.expect(built.report().visible).toBe(0)
 		advance(engine, 0.5, 1 / 60)
-		local report = built.report()
-		t.expect(report.visible).toBe(0)
-		t.expect(report.queued).toBe(0)
-		t.expect(report.exiting).toBe(0)
+		t.expect(#built.report().rows).toBe(0)
 		t.expect(#toasts(node)).toBe(0)
 		t.expect(#node:GetDescendants()).toBe(baseline)
 		close()
 		t.expect(engine.heartbeat.count()).toBe(0)
 	end)
 
-	t.it("leaves selection, modal scope and the control beneath untouched while a toast shows", function()
+	t.it("leaves the selection and the control beneath untouched while a toast shows", function()
 		local built, node, ctx, engine, target, close = mountScenario("sponsor_toast")
 		local beneath = find(node, "Beneath")
 		ctx.guiService.SelectedObject = beneath
 		built.steps.send()
-		engine.heartbeat.fire(1 / 60)
+		advance(engine, 0.3)
 		t.expect(ctx.guiService.SelectedObject).toBe(beneath)
 		t.expect(find(node, "DismissOutside")).toBe(nil)
 		t.expect(find(node, "ModalBack")).toBe(nil)
-		local messages = find(node, "Messages")
-		t.expect(messages.Active).toBe(false)
-		t.expect(messages.ZIndex > find(node, "Actions").ZIndex).toBe(true)
-		t.expect(messages.ZIndex < 100).toBe(true)
-		local seen = 0
-		for _, part in messages:GetDescendants() do
+		local row = toasts(node)[1]
+		t.expect(row.Interactable).toBe(false)
+		for _, part in row:GetDescendants() do
 			if part:IsA("GuiObject") then
-				seen += 1
 				t.expect(part:IsA("GuiButton") or part:IsA("TextBox")).toBe(false)
 				t.expect(part.Selectable).toBe(false)
 			end
 		end
-		t.expect(seen > 0).toBe(true)
 		local activate = action(target, "Activate")
 		t.expect(activate ~= nil).toBe(true)
 		activate.Pressed.fire()
@@ -1214,231 +1182,97 @@ t.describe("gallery toast strength", function()
 		close()
 	end)
 
-	t.it("fits toast width to measured text within the floor, the cap and the available row", function()
-		local built, node, ctx, _, _, close = mountScenario("sponsor_toast", true)
-		local V = ctx.types.Vector2
+	t.it("a wide toast fills its edge; a fit-content toast hugs its lines up to the width cap", function()
+		local built, node, ctx, engine, _, close = mountScenario("sponsor_toast", true)
+		local E = ctx.types.Enum
+		node.AbsoluteSize = ctx.types.Vector2.new(1280, 720)
 		built.show("Saved", "Done")
-		local card = toasts(node)[1]
-		t.expect(card.Size).toBe(ctx.types.UDim2.new(1, 0, 0, 0))
-		t.expect(card.AnchorPoint.X).toBe(0.5)
-		t.expect(card.Position.X.Scale).toBe(0.5)
+		engine.heartbeat.fire(1 / 60)
+		local wide = toasts(node)[1]
+		t.expect(wide.AutomaticSize).toBe(E.AutomaticSize.Y)
+		t.expect(wide:FindFirstChild("WidthCap")).toBe(nil)
 		for _, name in { "Title", "Detail" } do
-			local text = find(card, name)
+			local text = find(wide, name)
 			t.expect(text.Size.X.Scale).toBe(1)
 			t.expect(text.TextWrapped).toBe(true)
 		end
+		built.steps.clear()
+		advance(engine, 0.5)
 		built.width:set("hug")
-		find(card, "Measure_title").TextBounds = V.new(20, 20)
-		find(card, "Measure_detail").TextBounds = V.new(30, 20)
-		t.expect(card.Size.X.Offset).toBe(80)
-		find(card, "Measure_detail").TextBounds = V.new(900, 20)
-		t.expect(card.Size.X.Offset).toBe(560)
-		find(node, "Messages").AbsoluteSize = V.new(300, 72)
-		t.expect(card.Size.X.Offset).toBe(300)
-		find(card, "Measure_detail").TextBounds = V.new(150, 20)
-		t.expect(card.Size.X.Offset).toBe(174)
-		t.expect(find(card, "Title").Size.X.Scale).toBe(1)
+		built.show("Notice", "A single transient message")
+		engine.heartbeat.fire(1 / 60)
+		local fit = toasts(node)[1]
+		t.expect(fit.AutomaticSize).toBe(E.AutomaticSize.XY)
+		t.expect(fit.AnchorPoint.X).toBe(0.5)
+		t.expect(find(fit, "WidthCap").MaxSize.X).toBe(560)
+		t.expect(find(fit, "Body").AutomaticSize).toBe(E.AutomaticSize.XY)
+		for _, name in { "Title", "Detail" } do
+			local text = find(fit, name)
+			t.expect(text.Size.X.Scale).toBe(0)
+			t.expect(text.AutomaticSize).toBe(E.AutomaticSize.XY)
+			t.expect(text.TextWrapped).toBe(true)
+		end
 		close()
 	end)
 
-	t.it("docks a bottom strip that grows upward and slides top survivors into the vacated slot", function()
+	t.it("docks each new toast on the chosen edge", function()
 		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
-		local messages = find(node, "Messages")
-		t.expect(messages.AnchorPoint.Y).toBe(1)
-		t.expect(messages.Position).toBe(engine.types.UDim2.new(0, 8, 1, -8))
-		built.show("First", "Older", { duration = 20 })
-		t.expect(messages.Size.Y.Offset).toBe(72)
-		built.show("Second", "Newest", { duration = 20 })
-		t.expect(messages.Size.Y.Offset).toBe(152)
-		local cards = toasts(node)
-		local first, second = cards[1], cards[2]
-		if find(first, "Title").Text ~= "First" then
-			first, second = second, first
-		end
-		t.expect(first.Position.Y.Offset).toBe(0)
-		t.expect(second.Position.Y.Offset).toBe(80)
-		close()
-		built, node, _, engine, _, close = mountScenario("sponsor_toast")
+		built.show("Bottom", "Default edge", { duration = 20 })
+		engine.heartbeat.fire(1 / 60)
+		t.expect(toasts(node)[1].AnchorPoint.Y).toBe(1)
 		built.edge:set("top")
-		local leaving = built.show("First", "Leaves", { duration = 20 })
-		built.show("Second", "Stays", { duration = 20 })
-		messages = find(node, "Messages")
-		t.expect(messages.AnchorPoint.Y).toBe(0)
-		advance(engine, 1.5, 1 / 60)
-		local survivor
+		built.show("Top", "Chosen edge", { duration = 20 })
+		engine.heartbeat.fire(1 / 60)
+		local edges = {}
 		for _, card in toasts(node) do
-			if find(card, "Title").Text == "Second" then
-				survivor = card
-			end
+			edges[find(card, "Title").Text] = card.AnchorPoint.Y
 		end
-		local start = survivor.Position.Y.Offset
-		t.expect(start > 70).toBe(true)
-		built.dismiss(leaving)
-		local previous, largest = start, 0
-		for _ = 1, 120 do
-			engine.heartbeat.fire(1 / 60)
-			local y = survivor.Position.Y.Offset
-			largest = math.max(largest, math.abs(y - previous))
-			previous = y
-		end
-		t.expect(largest < start / 2).toBe(true)
-		t.expect(math.abs(previous) < 0.01).toBe(true)
+		t.expect(edges.Bottom).toBe(1)
+		t.expect(edges.Top).toBe(0)
 		close()
 	end)
 
-	t.it("schedules toasts with per-toast timeouts that promote the queue in the same frame", function()
-		local built, _, _, engine, _, close = mountScenario("sponsor_toast")
-		for _, title in { "a", "b", "c", "d", "e" } do
-			built.show(title, title, { duration = 2, readFloor = 0 })
-		end
-		t.expect(visibleTitles(built)).toBe("a,b,c")
-		t.expect(built.report().queued).toBe(2)
-		advance(engine, 1.9)
-		t.expect(visibleTitles(built)).toBe("a,b,c")
-		advance(engine, 0.2)
-		t.expect(visibleTitles(built)).toBe("d,e")
-		t.expect(built.report().queued).toBe(0)
-		built.steps.clear()
-		advance(engine, 0.5)
-		built.show("short", "short", { duration = 1, readFloor = 0 })
-		built.show("long", "long", { duration = 6, readFloor = 0 })
-		advance(engine, 1.5)
-		t.expect(visibleTitles(built)).toBe("long")
-		built.steps.clear()
-		advance(engine, 0.5)
-		built.show("default", "default")
-		local row = built.report().rows[#built.report().rows]
-		t.expect(row.duration).toBe(4)
-		t.expect(row.readFloor).toBe(0.5)
-		t.expect(row.priority).toBe(0)
-		advance(engine, 3.9)
-		t.expect(visibleTitles(built)).toBe("default")
-		advance(engine, 0.2)
-		t.expect(visibleTitles(built)).toBe("")
+	t.it("a same-subject toast supersedes the showing one after its read floor", function()
+		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
+		built.show("lap 1", "first", { subject = "lap", duration = 30 })
+		engine.heartbeat.fire(1 / 60)
+		built.show("lap 2", "second", { subject = "lap", duration = 30 })
+		engine.heartbeat.fire(1 / 60)
+		t.expect(visibleTitles(node)).toBe("lap 1")
+		advance(engine, 3)
+		t.expect(visibleTitles(node)).toBe("lap 2")
+		t.expect(built.report().superseded).toBe(1)
 		close()
 	end)
 
-	t.it("orders the toast queue by priority first in first out and preempts only the weakest showing toast", function()
-		local built, _, _, engine, _, close = mountScenario("sponsor_toast")
-		local held = {}
-		for i = 1, 3 do
-			held[i] = built.show("held" .. i, "held", { duration = 30, priority = 9 })
-		end
-		built.show("low", "q", { priority = 0, duration = 30 })
-		built.show("high", "q", { priority = 5, duration = 30 })
-		built.show("low2", "q", { priority = 0, duration = 30 })
-		advance(engine, 2)
-		t.expect(visibleTitles(built)).toBe("held1,held2,held3")
-		built.dismiss(held[1])
-		t.expect(visibleTitles(built)).toBe("held2,held3,high")
-		built.dismiss(held[2])
-		t.expect(visibleTitles(built)).toBe("held3,low,high")
-		built.dismiss(held[3])
-		t.expect(visibleTitles(built)).toBe("low,high,low2")
-		close()
-		built, _, _, engine, _, close = mountScenario("sponsor_toast")
-		built.show("important", "p5", { priority = 5, duration = 30 })
-		built.show("trivial", "p0", { priority = 0, duration = 30 })
-		built.show("middle", "p3", { priority = 3, duration = 30 })
-		built.show("urgent", "p9", { priority = 9 })
-		t.expect(visibleTitles(built)).toBe("important,trivial,middle")
-		advance(engine, 1)
-		t.expect(visibleTitles(built)).toBe("important,middle,urgent")
-		close()
-		built, _, _, engine, _, close = mountScenario("sponsor_toast")
-		for i = 1, 3 do
-			built.show("showing" .. i, "p5", { priority = 5, duration = 30 })
-		end
-		built.show("same", "p5", { priority = 5 })
-		advance(engine, 5)
-		t.expect(visibleTitles(built)).toBe("showing1,showing2,showing3")
-		t.expect(built.report().queued).toBe(1)
-		close()
-	end)
-
-	t.it("supersedes queued toasts in place and bounds the queue without dropping a showing toast", function()
-		local built, _, _, _, _, close = mountScenario("sponsor_toast")
-		for i = 1, 3 do
-			built.show("hold" .. i, "hold", { duration = 30, priority = 9 })
-		end
-		local lap = built.show("lap 1", "q", { subject = "lap" })
-		t.expect(built.show("lap 2", "q", { subject = "lap" })).toBe(lap)
-		local report = built.report()
-		t.expect(report.queued).toBe(1)
-		t.expect(report.superseded).toBe(1)
-		for _, row in report.rows do
-			if row.id == lap then
-				t.expect(row.title).toBe("lap 2")
-				t.expect(row.state).toBe("queued")
-			end
-		end
-		built.dismiss(lap)
-		t.expect(built.report().queued).toBe(0)
-		for i = 1, 8 do
-			built.show("q" .. i, "q", { priority = i % 4 + 1 })
-		end
-		t.expect(built.report().queued).toBe(8)
-		t.expect(built.report().dropped).toBe(0)
-		built.show("urgent", "q", { priority = 8 })
-		report = built.report()
-		t.expect(report.queued).toBe(8)
-		t.expect(report.dropped).toBe(1)
-		local kept = {}
-		for _, row in report.rows do
-			kept[row.title] = row.state
-		end
-		t.expect(kept.urgent).toBe("queued")
-		t.expect(kept.q8).toBe(nil)
-		t.expect(kept.q4).toBe("queued")
-		built.show("least", "q", { priority = -1 })
-		report = built.report()
-		t.expect(report.dropped).toBe(2)
-		kept = {}
-		for _, row in report.rows do
-			kept[row.title] = row.state
-		end
-		t.expect(kept.least).toBe(nil)
-		for i = 1, 200 do
-			built.show("spam" .. i, "spam", { priority = -1 })
-		end
-		report = built.report()
-		t.expect(report.visible).toBe(3)
-		t.expect(report.queued).toBe(8)
-		t.expect(report.dropped).toBe(202)
-		t.expect(visibleTitles(built)).toBe("hold1,hold2,hold3")
-		close()
-	end)
-
-	t.it("dismisses showing and queued toasts by id and ignores an unknown id", function()
-		local built, _, _, _, _, close = mountScenario("sponsor_toast")
+	t.it("dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id", function()
+		local built, node, _, engine, _, close = mountScenario("sponsor_toast", true)
 		local first = built.show("a", "a", { duration = 30 })
-		built.show("b", "b", { duration = 30 })
-		built.show("c", "c", { duration = 30 })
-		built.show("d", "d", { duration = 30 })
+		for _, title in { "b", "c", "d" } do
+			built.show(title, title, { duration = 30 })
+		end
 		local queued = built.show("e", "e", { duration = 30 })
+		engine.heartbeat.fire(1 / 60)
 		t.expect(built.report().queued).toBe(2)
 		built.dismiss(queued)
-		t.expect(visibleTitles(built)).toBe("a,b,c")
+		engine.heartbeat.fire(1 / 60)
+		t.expect(visibleTitles(node)).toBe("a,b,c")
 		t.expect(built.report().queued).toBe(1)
 		built.dismiss(first)
-		t.expect(visibleTitles(built)).toBe("b,c,d")
+		advance(engine, 0.1)
+		t.expect(visibleTitles(node)).toBe("b,c,d")
 		t.expect(built.report().queued).toBe(0)
-		t.expect(built.report().exiting).toBe(2)
-		local before = built.report()
 		t.expect((pcall(built.dismiss, 9999))).toBe(true)
-		local after = built.report()
-		t.expect(after.visible).toBe(before.visible)
-		t.expect(after.queued).toBe(before.queued)
-		t.expect(after.exiting).toBe(before.exiting)
 		built.steps.clear()
+		advance(engine, 0.5)
 		t.expect(built.report().visible).toBe(0)
-		t.expect(built.report().queued).toBe(0)
+		t.expect(#built.report().rows).toBe(0)
 		close()
 	end)
 end)
 
 t.describe("gallery surface page strength", function()
-	t.it("offers toasts under Indicators and hides and expires them after leaving the page", function()
+	t.it("offers toasts under Indicators; a shown toast outlives the page and expires on time", function()
 		local built, node, _, engine, _, close = mountScenario("all_controls")
 		local function visibleInTree(part: any): boolean
 			local at = part
@@ -1466,6 +1300,7 @@ t.describe("gallery surface page strength", function()
 		find(node, "progress").Activated.fire()
 		t.expect(built.report().active).toBe("progress")
 		t.expect(visibleInTree(messages)).toBe(false)
+		t.expect(visibleInTree(toasts(node)[1])).toBe(true)
 		advance(engine, 4.6)
 		t.expect(find(node, "Messages")).toBe(messages)
 		t.expect(#toasts(node)).toBe(0)

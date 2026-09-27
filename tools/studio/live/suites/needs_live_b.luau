@@ -311,10 +311,20 @@ end)
 
 add("toast-wide-and-fit", { "apps2-247", "mech3-87" }, function(t)
 	local stage, built = scenario(t, "sponsor_toast", Vector2.new(390, 700))
+	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector") or stage
+	local function rows()
+		local found = {}
+		for _, node in layer:GetDescendants() do
+			if node.Name == "ToastRow" and node:IsA("GuiObject") and t.visible(node) then
+				table.insert(found, node)
+			end
+		end
+		return found
+	end
 	built.width:set("fill")
 	built.show("Supply drop", "A sponsor sent a crate to the garage.")
 	t.settle(30)
-	local toast = visibleNamed(t, stage, "Toast")
+	local toast = rows()[1]
 	if toast then
 		local title = t.find(toast, "Title")
 		t.check("wide toast is wider than 200 px", toast.AbsoluteSize.X > 200, toast.AbsoluteSize)
@@ -329,35 +339,37 @@ add("toast-wide-and-fit", { "apps2-247", "mech3-87" }, function(t)
 	built.dismiss()
 	t.settle(30)
 	built.width:set("hug")
-	built.show("Saved", "")
+	built.show("Notice", "A single transient message")
 	t.settle(30)
-	local short = visibleNamed(t, stage, "Toast")
-	local shortRect = short and t.rect(short)
+	local short = rows()[1]
+	local detail = short and t.find(short, "Detail")
+	t.check(
+		"fit toast widens before it wraps: its detail is one line",
+		detail ~= nil and detail.TextBounds.Y <= detail.TextSize * 1.5,
+		detail and detail.TextBounds
+	)
 	built.show("A very long sponsor message", string.rep("The crate holds tyres, fuel and a new livery. ", 4))
 	t.settle(30)
-	local strip = t.find(stage, "Messages")
-	local toasts = {}
-	for _, node in stage:GetDescendants() do
-		if node.Name == "Toast" and node:IsA("GuiObject") and t.visible(node) then
-			table.insert(toasts, t.rect(node))
-		end
+	local found = {}
+	for _, node in rows() do
+		table.insert(found, t.rect(node))
 	end
-	if strip and #toasts >= 2 then
-		local s = t.rect(strip)
-		for index, r in toasts do
-			t.near(`fit toast {index} centred on the strip`, r.x + r.w / 2, s.x + s.w / 2, 1)
+	if #found >= 2 then
+		local s = t.rect(layer)
+		for index, r in found do
+			t.near(`fit toast {index} centred on the layer`, r.x + r.w / 2, s.x + s.w / 2, 1)
 			t.check(`fit toast {index} at most 560 wide`, r.w <= 560.5, r.w)
 		end
-		table.sort(toasts, function(a, b)
+		table.sort(found, function(a, b)
 			return a.w < b.w
 		end)
 		t.check(
 			"long toast is taller than the short one",
-			toasts[#toasts].h > toasts[1].h,
-			{ toasts[1].h, toasts[#toasts].h }
+			found[#found].h > found[1].h,
+			{ found[1].h, found[#found].h }
 		)
 	else
-		t.check("strip and two fit toasts found", false, { strip = strip ~= nil, toasts = #toasts, short = shortRect })
+		t.check("two fit toasts found", false, { toasts = #found })
 	end
 end)
 

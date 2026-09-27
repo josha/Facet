@@ -5938,7 +5938,7 @@
       "candidateCases": [
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
         "native_navigation::native navigation controls::hides a callout while its retained tab is away and shows it again on return",
-        "native_parity_weaker_surfaces::gallery surface page strength::offers toasts under Indicators and hides and expires them after leaving the page"
+        "native_parity_weaker_surfaces::gallery surface page strength::offers toasts under Indicators; a shown toast outlives the page and expires on time"
       ]
     },
     {
@@ -6166,7 +6166,7 @@
       "mainCases": 1,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
         "native_parity_strength_lifetime::lifetime parity strength::returns the toast lab to one baseline through twenty cycles in one runtime"
       ]
     },
@@ -6254,16 +6254,16 @@
       "mainCases": 11,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
-        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
+        "native_toast::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_parity_weaker_surfaces::gallery toast strength::drops exactly the least urgent newest burst toast at the queue cap and drains the rest",
+        "native_parity_weaker_surfaces::gallery toast strength::shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped",
         "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
-        "native_parity_weaker_surfaces::gallery toast strength::releases dismissed toasts within the half-second cap and returns the counters and instances",
-        "native_parity_weaker_surfaces::gallery toast strength::leaves selection, modal scope and the control beneath untouched while a toast shows",
-        "native_parity_weaker_surfaces::gallery toast strength::fits toast width to measured text within the floor, the cap and the available row",
-        "native_parity_weaker_surfaces::gallery toast strength::docks a bottom strip that grows upward and slides top survivors into the vacated slot",
-        "native_parity_weaker_surfaces::gallery toast strength::supersedes queued toasts in place and bounds the queue without dropping a showing toast"
+        "native_parity_weaker_surfaces::gallery toast strength::clears showing toasts and returns the rows, instances and frame clock",
+        "native_parity_weaker_surfaces::gallery toast strength::leaves the selection and the control beneath untouched while a toast shows",
+        "native_parity_weaker_surfaces::gallery toast strength::a wide toast fills its edge; a fit-content toast hugs its lines up to the width cap",
+        "native_parity_weaker_surfaces::gallery toast strength::docks each new toast on the chosen edge",
+        "native_parity_weaker_surfaces::gallery toast strength::a same-subject toast supersedes the showing one after its read floor"
       ],
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -24544,15 +24544,15 @@
       "mainCases": 12,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
-        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
+        "native_toast::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_parity_weaker_surfaces::gallery toast strength::releases dismissed toasts within the half-second cap and returns the counters and instances",
-        "native_parity_weaker_surfaces::gallery toast strength::leaves selection, modal scope and the control beneath untouched while a toast shows",
-        "native_parity_weaker_surfaces::gallery toast strength::fits toast width to measured text within the floor, the cap and the available row",
-        "native_parity_weaker_surfaces::gallery toast strength::docks a bottom strip that grows upward and slides top survivors into the vacated slot",
+        "native_parity_weaker_surfaces::gallery toast strength::clears showing toasts and returns the rows, instances and frame clock",
+        "native_parity_weaker_surfaces::gallery toast strength::leaves the selection and the control beneath untouched while a toast shows",
+        "native_parity_weaker_surfaces::gallery toast strength::a wide toast fills its edge; a fit-content toast hugs its lines up to the width cap",
+        "native_parity_weaker_surfaces::gallery toast strength::docks each new toast on the chosen edge",
         "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
-        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id and ignores an unknown id"
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id"
       ],
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -24586,13 +24586,13 @@
       "mainCases": 16,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_parity_weaker_surfaces::gallery toast strength::schedules toasts with per-toast timeouts that promote the queue in the same frame",
-        "native_parity_weaker_surfaces::gallery toast strength::orders the toast queue by priority first in first out and preempts only the weakest showing toast",
-        "native_parity_weaker_surfaces::gallery toast strength::supersedes queued toasts in place and bounds the queue without dropping a showing toast",
-        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id and ignores an unknown id",
-        "native_parity_weaker_surfaces::gallery toast strength::drops exactly the least urgent newest burst toast at the queue cap and drains the rest"
+        "native_toast::toast schedule: showing, queueing and timing out::durations and read floors are per-toast, not global",
+        "native_toast::toast schedule: priority::the queue is priority-ordered, FIFO within a priority",
+        "native_parity_weaker_surfaces::gallery toast strength::a same-subject toast supersedes the showing one after its read floor",
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
+        "native_parity_weaker_surfaces::gallery toast strength::shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped"
       ]
     },
     {

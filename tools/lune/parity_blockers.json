@@ -145,8 +145,8 @@
       "remaining": [],
       "requiredEvidence": "Reproduce send-burst, urgent arrival while reading, subject replacement, edge/width choice and interaction passthrough. Retiring presenter methods does not establish equivalent behavior.",
       "cases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
-        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card"
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
+        "native_toast::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot"
       ],
       "resolution": "Gallery owner restored original player tasks with ordinary native/Compose composition;8 targeted mounted regression cases passed. Live geometry remains separate."
     },
