@@ -374,8 +374,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					tailInset = 8,
 				})
 			end)
-			surfaces.popover(panel, function(use: ComposeTypes.Use): number
-				return if use(settled) then amount(use) else 1
+			surfaces.popover(panel, function(use: ComposeTypes.Use?): number
+				return if read(settled, use) then amount(use) else 1
 			end, function(use: ComposeTypes.Use): (Vector2, Vector2)
 				local at = use(solved)
 				local size = use(measured)

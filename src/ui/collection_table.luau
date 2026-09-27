@@ -744,11 +744,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 									return if touchRows(use) then words(use) else valueText(use)
 								end, true, touchRows)
 							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
-							local content = if definition.render
+							local custom = definition.render
+							local content = if custom
 								then ctx.styled(
 									Host.Frame "Inset" {
 										BackgroundTransparency = 1,
-										render(current, placement, key) :: ComposeTypes.Child,
+										custom(current, placement, key) :: ComposeTypes.Child,
 									},
 									"TableCellInset"
 								)
