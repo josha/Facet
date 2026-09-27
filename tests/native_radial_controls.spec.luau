@@ -1268,6 +1268,26 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(preview.Text).toBe("")
 		world.stop()
 	end)
+	t.it("keeps a held item's name on the screen beside a ring near the edge of a phone", function()
+		local world = setup({
+			distribution = "compass",
+			completion = "stay",
+			items = {
+				{ id = "E", slot = "E", label = "Lantern", icon = "flag", labelStyle = "icon", onSelect = function() end },
+			},
+		})
+		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
+		local preview, east = world.find("SelectionPreview"), world.find("E")
+		local hold = pointer(world, east.Position.X.Offset, east.Position.Y.Offset)
+		world.find("RadialPanel").InputBegan.fire(hold)
+		world.step(0.5)
+		t.expect(preview.Text).toBe("Lantern")
+		local width = preview.Size.X.Offset
+		local left = preview.Position.X.Offset - preview.AnchorPoint.X * width
+		t.expect(left >= 8 and left + width <= 382).toBe(true)
+		world.input.InputEnded.fire(hold)
+		world.stop()
+	end)
 	t.it("keeps a nested level on the ring by replacing its parent before it falls back to a list", function()
 		local function leaf(id: string): any
 			return { id = id, label = id, icon = "flag", labelStyle = "icon", onSelect = function() end }

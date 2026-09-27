@@ -1328,13 +1328,22 @@ return function(
 						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach), V2.new(side(dx), side(dy))
 					end
 				end
+				local function previewWidth(use: ComposeTypes.Use): number
+					local place, anchor = previewPlace(use)
+					local x, room = place.X.Offset, use(viewport).X
+					local fits = if anchor.X == 0
+						then room - 8 - x
+						elseif anchor.X == 1 then x - 8
+						else 2 * math.min(x - 8, room - 8 - x)
+					return math.max(0, math.min(240, fits))
+				end
 				local preview = ctx.text({
 					Name = "SelectionPreview",
 					Size = function(use: ComposeTypes.Use): UDim2
 						if use(layout).list then
 							return D2.new(1, -32 - 1.5 * painted(use), 0, 0)
 						end
-						return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
+						return D2.fromOffset(previewWidth(use), ctx.metric("typography.caption.size", use) + 4)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
 						return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
