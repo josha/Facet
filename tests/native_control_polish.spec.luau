@@ -595,6 +595,11 @@ t.describe("native navigation stack paint", function()
 		key.AbsoluteSize = w.V2.new(30, 44)
 		key.TextFits = false
 		expect(key:HasTag("facet-button-tight")).toBe(true)
+		key.AutomaticSize = w.E.AutomaticSize.X
+		expect(key:HasTag("facet-button-tight")).toBe(false)
+		key.TextFits = true
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(false)
 		w.stop()
 	end)
 end)

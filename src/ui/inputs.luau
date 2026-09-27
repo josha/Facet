@@ -1033,10 +1033,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			sized(node)
 			if spec.shape ~= "circle" then
 				local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
+				local sizing = ctx.observe.AutomaticSize(node)
 				local measured: number? = nil
 				Compose.watch(function(use: ComposeTypes.Use)
-					local width, whole = use(box).X, use(fits)
-					if width ~= measured and node:HasTag("facet-button-tight") then
+					local width, whole, grows = use(box).X, use(fits), use(sizing)
+					if grows == E.AutomaticSize.X or grows == E.AutomaticSize.XY then
+						node:RemoveTag("facet-button-tight")
+					elseif width ~= measured and node:HasTag("facet-button-tight") then
 						measured = width
 						node:RemoveTag("facet-button-tight")
 					elseif not whole and width > 0 then
