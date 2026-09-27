@@ -7,6 +7,7 @@ local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
 local freeze = require("./freeze")
+local reducedMotion = require("./motion")
 
 type Controls = { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
 
@@ -315,6 +316,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Selectable = false,
 			}
 			table.insert(bodyProps, limit)
+			local reduce = reducedMotion(ctx)
 			local body, _, _, extent, rested = parts.scroller(
 				ctx,
 				bodyProps,
@@ -326,7 +328,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if not use(rested) or amount(use) >= 1 then
 					laidOut:set(height)
 				end
-				settled:set(use(rested))
+				settled:set(use(rested) or reduce(use))
 			end)
 			local panel = ctx.styled(
 				ctx.fade {

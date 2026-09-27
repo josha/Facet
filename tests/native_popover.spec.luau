@@ -443,6 +443,27 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		w.stop()
 	end)
 
+	t.it("shows at once under reduced motion instead of waiting for the content to rest", function()
+		local w = mount(function(UI, Host)
+			return {
+				isPresented = Compose.cell(true),
+				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+				content = function()
+					return content(UI, Host)
+				end,
+			}
+		end, { reducedMotion = true })
+		local flow, panel = w.find("Flow"), w.find("Panel")
+		flow.AbsoluteSize = Vector2.new(180, 60)
+		w.advance(1 / 60)
+		flow.AbsoluteSize = Vector2.new(180, 96)
+		w.advance(1 / 60)
+		local fade = panel:FindFirstChild("FadePaint")
+		t.expect(fade == nil or fade.Transparency.Keypoints[1].Value == 0).toBe(true)
+		t.expect(panel:FindFirstChild("Fade")).toBe(nil)
+		w.stop()
+	end)
+
 	t.it("content that fills its width gets the standard popup width instead of collapsing", function()
 		local w = mount(function(UI, Host)
 			return {
