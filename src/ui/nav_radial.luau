@@ -1582,6 +1582,9 @@ return function(
 						else
 							if heldAt and (input.Position - heldAt).Magnitude > 14 then
 								holding:pause()
+								if inspectedUntil == math.huge then
+									inspectedUntil = nil
+								end
 							end
 							naming:set(true)
 							assert(aimPointer)(input.Position, true)

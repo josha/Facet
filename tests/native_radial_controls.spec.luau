@@ -1364,6 +1364,32 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(picked).toBe(2)
 		world.stop()
 	end)
+	t.it("a hold that then slides to another item picks the item under the finger on release", function()
+		local picks = {}
+		local function item(id: string): any
+			return {
+				id = id,
+				slot = id,
+				label = id,
+				icon = "flag",
+				labelStyle = "icon",
+				onSelect = function()
+					table.insert(picks, id)
+				end,
+			}
+		end
+		local world = setup({ distribution = "compass", completion = "stay", items = { item("N"), item("E") } })
+		local panel, north, east = world.find("RadialPanel"), world.find("N"), world.find("E")
+		local hold = pointer(world, north.Position.X.Offset, north.Position.Y.Offset)
+		panel.InputBegan.fire(hold)
+		world.step(0.5)
+		hold.Position = world.engine.types.Vector3.new(east.Position.X.Offset, east.Position.Y.Offset, 0)
+		world.input.InputChanged.fire(hold)
+		hold.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(hold)
+		t.expect(table.concat(picks, ",")).toBe("E")
+		world.stop()
+	end)
 	t.it("keeps a held item's name on the screen beside a ring near the edge of a phone", function()
 		local world = setup({
 			distribution = "compass",
