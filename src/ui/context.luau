@@ -217,6 +217,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				local cell = Compose.cell(observation.readProperty(node, property))
 				local selection = property == "SelectedObject"
 				local preferred = property == "PreferredInput" and node == config.userInputService
+				local stopNudges: (() -> ())? = nil
 				local function publish()
 					local current = observation.readProperty(node, property)
 					if
@@ -227,7 +228,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 							Enum.PreferredInput.KeyboardAndMouse
 						)
 					then
+						stopNudges = stopNudges
+							or preferredInput.nudges(node :: UserInputService, Enum, function()
+								if cell:peek() ~= observation.readProperty(node, property) then
+									publish()
+								end
+							end)
 						return
+					end
+					if stopNudges then
+						stopNudges()
+						stopNudges = nil
 					end
 					cell:set(current)
 					if selection then
@@ -238,14 +249,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 				local stop = observation.observeProperty(node, property, publish)
 				if preferred then
-					local stopNudges = preferredInput.nudges(node :: UserInputService, Enum, function()
-						if cell:peek() ~= observation.readProperty(node, property) then
-							publish()
-						end
-					end)
 					local unobserve = stop
 					stop = function()
-						stopNudges()
+						if stopNudges then
+							stopNudges()
+							stopNudges = nil
+						end
 						unobserve()
 					end
 				end
@@ -777,31 +786,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local function paint(use: ComposeTypes.Use): NumberSequence
 			return types.NumberSequence.new(if use(warming) then 1 else amount(use))
 		end
-		local unstyled = Compose.cell(frames ~= nil)
-		if frames then
-			local rendered = frames.RenderStepped == nil
-			local rendering: RBXScriptConnection? = if rendered
-				then nil
-				else frames.RenderStepped:Connect(function()
-					rendered = true
-				end)
-			local first: RBXScriptConnection? = nil
-			local function stopWatching()
-				for _, connection in { first, rendering } do
-					if connection then
-						connection:Disconnect()
-					end
-				end
-				first, rendering = nil, nil
-			end
-			first = frames.Heartbeat:Connect(function()
-				if rendered then
-					stopWatching()
-					unstyled:set(false)
-				end
-			end)
-			Compose.cleanup(stopWatching)
-		end
+		local fading = Compose.cell(false)
 		local stop = runtime.mountFragment(function()
 			return {
 				Host.UIGradient "FadePaint" { Transparency = paint },
@@ -809,7 +794,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					Host.UIStroke "FadeStroke" {
 						Host.UIGradient "FadePaint" {
 							Transparency = function(use: ComposeTypes.Use): NumberSequence
-								return if use(unstyled) then types.NumberSequence.new(1) else paint(use)
+								return if use(fading) then paint(use) else types.NumberSequence.new(1)
 							end,
 						},
 					},
@@ -921,8 +906,10 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						end)
 					end)
 					node:AddTag("facet-fading")
+					fading:set(true)
 					Compose.cleanup(function()
 						node:RemoveTag("facet-fading")
+						fading:set(false)
 					end)
 					return Compose.fragment(function()
 						return {}

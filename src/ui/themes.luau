@@ -1505,7 +1505,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			present[selector] = true
 			table.insert(
 				presence,
-				{ id = selector .. ":presence", selector = selector, properties = { Transparency = 0 }, priority = 0 }
+				{
+					id = selector .. ":presence",
+					selector = selector,
+					properties = { Transparency = 0 },
+					priority = #presence,
+				}
 			)
 		end
 	end
@@ -1601,23 +1606,32 @@ local function createStyleSheet(
 		local input = globals.game and globals.game:GetService("UserInputService")
 		if input then
 			local held = input.PreferredInput
+			local stopNudges: (() -> ())? = nil
+			local refresh: () -> ()
 			local function pointing(): boolean
 				local current = input.PreferredInput
-				if not preferredInput.withheld(input, current, types.Enum.PreferredInput.KeyboardAndMouse) then
+				if preferredInput.withheld(input, current, types.Enum.PreferredInput.KeyboardAndMouse) then
+					stopNudges = stopNudges or preferredInput.nudges(input, types.Enum, refresh)
+				else
 					held = current
+					if stopNudges then
+						stopNudges()
+						stopNudges = nil
+					end
 				end
 				return held ~= types.Enum.PreferredInput.Touch
 			end
 			local source = Compose.cell(pointing())
 			hover = source
-			local function refresh()
+			refresh = function()
 				source:set(pointing())
 			end
 			local connection = input:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
-			local stopNudges = preferredInput.nudges(input, types.Enum, refresh)
 			Compose.cleanup(function()
 				connection:Disconnect()
-				stopNudges()
+				if stopNudges then
+					stopNudges()
+				end
 			end)
 		end
 	end

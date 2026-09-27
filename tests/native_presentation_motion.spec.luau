@@ -256,7 +256,7 @@ t.describe("presentation motion: DisclosureGroup", function()
 		return w, expanded
 	end
 
-	t.it("keeps a fade node's outline hidden on the frame it mounts, before the theme styles it", function()
+	t.it("keeps a fade node's outline stroke painted out whenever no fade runs, from its first frame", function()
 		local w = overlay.new(function(UI)
 			return UI.DisclosureGroup "Settings" {
 				label = "Appearance",
@@ -269,7 +269,7 @@ t.describe("presentation motion: DisclosureGroup", function()
 		local paint = w.find("RevealFade"):FindFirstChild("FadeStroke"):FindFirstChild("FadePaint")
 		t.expect(paint.Transparency.Keypoints[1].Value).toBe(1)
 		w.advance(FRAME)
-		t.expect(paint.Transparency.Keypoints[1].Value).toBe(0)
+		t.expect(paint.Transparency.Keypoints[1].Value).toBe(1)
 		w.stop()
 	end)
 
