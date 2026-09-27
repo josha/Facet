@@ -426,27 +426,29 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			underline == nil or underline == "always" or underline == "hover",
 			"Facet.Button: underline must be always or hover"
 		)
-		local popTimeline = if spec.pop
-			then runtime.timeline({ duration = ctx.metric("motion.durations.buttonPop"), autoplay = false })
-			else nil
+		local popSeconds = ctx.metric("motion.durations.buttonPop")
+		local popTimeline = if spec.pop then runtime.timeline({ duration = popSeconds, autoplay = false }) else nil
 		local popReduced = if popTimeline then reducedMotion(ctx) else nil
 		local popStart = Compose.cell(1)
 		local popScale
 		if popTimeline then
-			popTimeline:seek(0.45)
+			popTimeline:seek(popSeconds)
+			local present = ctx.motionEase("present")
+			local overshoot = ctx.metric("motion.materialize.popOvershoot")
+			local decay = ctx.metric("motion.materialize.popDecay")
 			popScale = Compose.formula(function(use: ComposeTypes.Use)
 				if assert(popReduced)(use) then
 					return 1
 				end
 				local phase = use(popTimeline.progress)
 				return 1
-					+ (use(popStart) - 1) * (1 - phase) ^ 3
-					+ 0.25 * math.sin(math.pi * phase) * math.exp(-3 * phase)
+					+ (use(popStart) - 1) * (1 - present(phase))
+					+ overshoot * math.sin(math.pi * phase) * math.exp(-decay * phase)
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if assert(popReduced)(use) then
 					popTimeline:pause()
-					popTimeline:seek(0.45)
+					popTimeline:seek(popSeconds)
 				end
 			end)
 		end

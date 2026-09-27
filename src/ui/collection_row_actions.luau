@@ -420,7 +420,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local edge: RowEdge = if value > 0 then "leading" else "trailing"
 				local available = actions(edge)
 				local width = dimensions:peek().X
-				local flung = if now() - previousTime < 0.1 then velocity * 0.08 else 0
+				local flung = if now() - previousTime < 0.1 then velocity * ctx.metric("motion.fling.projection") else 0
 				local projected = if flung * value > 0 then value + flung else value
 				if fullSwipe(edge) and #available > 0 and width > 0 and math.abs(projected) >= width * FULL_SWIPE then
 					execute(available[1], edge)

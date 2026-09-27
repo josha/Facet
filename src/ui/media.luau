@@ -995,10 +995,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			type(count) == "number" and count >= 1 and count < math.huge and count % 1 == 0,
 			"Facet ProgressView segments must be a positive integer"
 		)
-		local delay: number, duration: number = 0.3, 0.35
+		local delay: number, duration: number =
+			ctx.metric("motion.durations.trailDelay"), ctx.metric("motion.durations.trailSettle")
 		if spec.trail then
 			assert(type(spec.trail) == "table", "Facet ProgressView trail must be a table")
-			delay, duration = spec.trail.delay or 0.3, spec.trail.duration or 0.35
+			delay, duration = spec.trail.delay or delay, spec.trail.duration or duration
 			assert(
 				type(delay) == "number"
 					and delay >= 0

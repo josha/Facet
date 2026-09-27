@@ -732,8 +732,11 @@ return function(
 						following:set(true)
 					end
 				end)
+				local spreadFrom = ctx.metric("motion.materialize.radialSpread")
 				local function spread(use: ComposeTypes.Use): number
-					return if reduced(use) then 1 else 0.2 + 0.8 * ctx.motionEase("present", use)(use(entry.progress))
+					return if reduced(use)
+						then 1
+						else spreadFrom + (1 - spreadFrom) * ctx.motionEase("present", use)(use(entry.progress))
 				end
 				local fading = runtime.tween(function(use: ComposeTypes.Use)
 					return if phase and use(phase.exiting) then 1 else 0

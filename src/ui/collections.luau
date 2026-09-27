@@ -341,10 +341,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 						halt()
 						local elapsed = 0
 						local seconds = ctx.metric("motion.durations.glide")
+						local present = ctx.motionEase("present")
 						glide:set(delta)
 						stopGlide = frames.onFrame(function(step: number)
 							elapsed = math.min(seconds, elapsed + step)
-							glide:set(delta * (1 - elapsed / seconds) ^ 3)
+							glide:set(delta * (1 - present(elapsed / seconds)))
 							if elapsed >= seconds then
 								halt()
 							end

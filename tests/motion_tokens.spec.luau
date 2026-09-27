@@ -32,46 +32,149 @@ local ALLOWED: { [string]: string } = {
 	["nav_sheet.luau|seconds = SETTLE_LIMIT"] = "the layout-settle wait before a sheet may move, not motion",
 }
 
+local CONSTANTS: { [string]: string } = {
+	ARC = "radial geometry",
+	CELL = "layout size",
+	CELL_PADDING = "layout size",
+	CELLS = "layout count",
+	CHECKER_CELLS = "layout count",
+	COMPACT_HEIGHT = "layout size",
+	CORNER_OVERLAP = "layout share",
+	DISC = "layout size",
+	FLING_MINIMUM = "interaction threshold",
+	FLING_SPEED = "interaction threshold",
+	FLING_STOP = "interaction threshold",
+	FLING_WINDOW = "interaction threshold",
+	FULL_SWIPE = "interaction threshold",
+	GAP = "layout size",
+	HANDLE = "layout size",
+	HELD_PULL = "drag resistance, interaction",
+	HELP_DWELL = "hover dwell, interaction delay",
+	HOLD = "long-press hold, interaction delay",
+	KNOB = "layout size",
+	MARGIN = "layout size",
+	MAX_COLUMNS = "layout count",
+	MAX_CONTROL_POINTS = "path limit",
+	MAX_DEPTH = "structure limit",
+	MAX_LENGTH = "text limit",
+	MAX_SAFE = "numeric limit",
+	MAX_WINDOW = "layout limit",
+	MEASURE = "layout size",
+	PADDING = "layout size",
+	REFIT_FRAMES = "layout retry count",
+	RESISTANCE = "drag resistance, interaction",
+	ROW = "layout size",
+	SCRUB_PIXELS = "interaction threshold",
+	SETTLE_LIMIT = "layout-settle wait, not motion",
+	SETTLE_SECONDS = "scrub idle wait, interaction delay",
+	SLOP = "interaction threshold",
+	SPAN = "layout size",
+	STACK = "layout count",
+	TAP = "interaction threshold",
+	TRAVEL = "layout size",
+	VISIBLE_FRACTION = "layout share",
+	YEAR_SPAN = "calendar range",
+	PAUSE = "marquee reading pause before it scrolls, a reading delay",
+	STICK_SPEED = "stick input rate, interaction",
+	RADIO_MARK = "layout size",
+	REPEAT_DELAY = "key repeat, an interaction delay",
+	PROJECTION_S = "sheet release decision rule",
+	DISMISS_FRACTION = "sheet release decision rule",
+	POINTER_SLOP = "interaction threshold",
+	RING = "layout size",
+}
+local DECIMALS: { [string]: string } = {
+	["nav_path_shapes.luau"] = "unit-square path geometry",
+	["text_field.luau|repeatDelay"] = "key repeat, an interaction delay",
+	["text_field.luau|repeatInterval"] = "key repeat, an interaction delay",
+	["nav_surfaces.luau|math.max(0.01"] = "a size floor, not motion",
+}
+
+local function lineAt(source: string, at: number): number
+	local _, count = string.gsub(string.sub(source, 1, at), "\n", "")
+	return count + 1
+end
+
+local function scan(source: string, pattern: string, each: (number, ...string) -> ())
+	local init = 1
+	while true do
+		local found = { string.find(source, pattern, init) }
+		if found[1] == nil then
+			return
+		end
+		each(found[1], table.unpack(found, 3))
+		init = found[2] + 1
+	end
+end
+
 local function literals(): { string }
 	local found = {}
 	for _, name in fs.readDir(ROOT) do
 		if string.sub(name, -5) == ".luau" and name ~= "themes.luau" then
 			local source = fs.readFile(ROOT .. name)
-			local line = 0
-			for text in string.gmatch(source .. "\n", "(.-)\n") do
-				line += 1
-				local hits = {}
-				for _, key in KEYS do
-					for value in string.gmatch(text, key .. "%s*=%s*([%w_%.]+)") do
-						if string.match(value, "^[%d%.]+$") or string.match(value, "^[%u_]+$") then
-							table.insert(hits, `{key} = {value}`)
-						end
+			local function hit(at: number, text: string)
+				if ALLOWED[`{name}|{text}`] == nil then
+					table.insert(found, `{name}:{lineAt(source, at)}: {text}`)
+				end
+			end
+			for _, key in KEYS do
+				scan(source, "[^%w_]" .. key .. "%s*=%s*([%w_%.]+)", function(at: number, value: string)
+					if string.match(value, "^[%d%.]+$") or string.match(value, "^[%u_]+$") then
+						hit(at, `{key} = {value}`)
 					end
-				end
-				for hit in string.gmatch(text, "TweenInfo%.new%(%s*[%d%.]+") do
-					table.insert(hits, hit)
-				end
-				for hit in string.gmatch(text, "Compose%.easing%.%a+") do
-					table.insert(hits, hit)
-				end
-				for hit in string.gmatch(text, "EasingStyle%.%a+") do
-					table.insert(hits, hit)
-				end
-				for hit in string.gmatch(text, "enter%s*=%s*[%d%.]+") do
-					table.insert(hits, hit)
-				end
-				for hit in string.gmatch(text, "exit%s*=%s*[%d%.]+") do
-					table.insert(hits, hit)
-				end
-				for _, hit in hits do
-					if ALLOWED[`{name}|{hit}`] == nil then
-						table.insert(found, `{name}:{line}: {hit}`)
+				end)
+			end
+			for _, pattern in
+				{
+					"(TweenInfo%.new%(%s*[%d%.]+)",
+					"(Compose%.easing%.%a+)",
+					"(EasingStyle%.%a+)",
+					"([^%w_]enter%s*=%s*[%d%.]+)",
+					"([^%w_]exit%s*=%s*[%d%.]+)",
+					"(%^%s*3[^%d])",
+				}
+			do
+				scan(source, pattern, function(at: number, text: string)
+					hit(at, (string.gsub(string.gsub(text, "^[^%w]+", ""), "%s+", " ")))
+				end)
+			end
+			for _, pattern in
+				{
+					"\n[ \t]*local[ \t]+([%u][%u_%d]*)[%w_:, \t]*=[ \t]*[%d%.]+",
+					"\n[ \t]*[%l_]+%.([%u][%u_%d]*)[ \t]*=[ \t]*[%d%.]+",
+				}
+			do
+				scan(source, pattern, function(at: number, constant: string)
+					if CONSTANTS[constant] == nil then
+						hit(at + 1, `{constant} = <number>`)
 					end
-				end
+				end)
+			end
+			if DECIMALS[name] == nil then
+				scan(source, "local[ \t]+([%l_][%w_]*)[%w_:, \t]*=[ \t]*%d*%.%d+", function(at: number, left: string)
+					if DECIMALS[`{name}|{left}`] == nil then
+						hit(at, `local {left} = <decimal>`)
+					end
+				end)
+				scan(source, "(math%.%a+%(%s*%d*%.%d+)", function(at: number, call: string)
+					if DECIMALS[`{name}|{call}`] == nil then
+						hit(at, call)
+					end
+				end)
 			end
 		end
 	end
 	return found
+end
+
+local function readers(): string
+	local all = {}
+	for _, name in fs.readDir(ROOT) do
+		if string.sub(name, -5) == ".luau" then
+			table.insert(all, fs.readFile(ROOT .. name))
+		end
+	end
+	return table.concat(all, "\n")
 end
 
 t.describe("motion values live in the theme", function()
@@ -80,6 +183,50 @@ t.describe("motion values live in the theme", function()
 		if #found > 0 then
 			error("hard-coded motion outside the theme:\n" .. table.concat(found, "\n"))
 		end
+	end)
+
+	t.it("every neutral motion token is read by some control", function()
+		local source = readers()
+		local m: any = themes.neutralPackage().metrics.motion
+		local unread = {}
+		local function need(path: string, ...: string)
+			for _, form in { ... } do
+				if string.find(source, form, 1, true) then
+					return
+				end
+			end
+			table.insert(unread, path)
+		end
+		for key, value in m do
+			if type(value) ~= "table" then
+				need(key, `"motion.{key}"`, `motion.{key}`, `timingFor(package, "{key}"`)
+			elseif key == "springs" then
+				for role in value do
+					need(`springs.{role}`, `motionSpring("{role}")`)
+				end
+			elseif key == "easing" then
+				for role in value do
+					need(`easing.{role}`, `motionEase("{role}"`)
+				end
+			elseif key == "styles" then
+				for role in value do
+					need(`styles.{role}`, `motionStyle("{role}")`, `styles.{role}`)
+				end
+			elseif value.enter ~= nil then
+				need(key, `motionTiming("{key}")`, `motion.{key}.enter`)
+				for field in value do
+					if field ~= "enter" and field ~= "exit" then
+						need(`{key}.{field}`, `motion.{key}.{field}`)
+					end
+				end
+			else
+				for field in value do
+					need(`{key}.{field}`, `motion.{key}.{field}`)
+				end
+			end
+		end
+		table.sort(unread)
+		t.expect(table.concat(unread, ", ")).toBe("")
 	end)
 
 	t.it("the neutral package carries today's values", function()

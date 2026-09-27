@@ -48,11 +48,12 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
 		local popSeconds = ctx.metric("motion.durations.regionPop")
+		local present = ctx.motionEase("present")
 		local pop = runtime.timeline({ duration = popSeconds, autoplay = false })
 		pop:seek(popSeconds)
 		local scale = Compose.formula(function(use: ComposeTypes.Use): number
 			local rest = ctx.metric("motion.materialize.modal", use)
-			return if reduced(use) then 1 else rest + (1 - rest) * (1 - (1 - use(pop.progress)) ^ 3)
+			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
 		end)
 		local properties = (
 			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal" }, {
