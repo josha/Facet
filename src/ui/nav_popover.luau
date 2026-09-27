@@ -319,7 +319,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				ctx,
 				bodyProps,
 				{ list, proposed, content },
-				{ hug = true }
+				{ hug = true, rest = true }
 			)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local height = use(extent)

@@ -671,7 +671,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							)
 						)
 					end,
-				}, { lists.list({}, true) :: Instance, contentRoot :: Instance })
+				}, { lists.list({}, true) :: Instance, contentRoot :: Instance }, { rest = spec.transition == nil })
 				local layout: GuiObject
 				if fullScreen then
 					local readable = V2.new(spec.maxWidth or 960, math.huge)
@@ -719,7 +719,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					if not use(messageRested) or shown == nil or shown(use) >= 1 then
 						contentHeight:set(height)
 					end
-					settled:set(use(messageRested) or #contents == 0)
+					settled:set(use(messageRested) or #contents == 0 or reduce(use))
 				end)
 				if shown then
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)

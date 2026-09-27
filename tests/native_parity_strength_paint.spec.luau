@@ -427,7 +427,7 @@ t.describe("native paint strength: button content", function()
 		setState(h, row, "Idle")
 		t.expect(resolve(sheet, title, "TextColor3")).toBe(color(h.engine, colors.content))
 		t.expect(resolve(sheet, row, "BackgroundTransparency")).toBe(1)
-		t.expect(resolve(sheet, row, "CornerRadius", "UICorner")).toBe(h.engine.types.UDim.new(0, 0))
+		t.expect(resolve(sheet, row, "CornerRadius", "UICorner")).toBe(h.engine.types.UDim.new(0, 8))
 		for _, state in { "Hover", "Press" } do
 			setState(h, row, state)
 			t.expect(resolve(sheet, row, "BackgroundColor3")).toBe(color(h.engine, colors.danger))

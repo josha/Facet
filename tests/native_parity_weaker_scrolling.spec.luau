@@ -883,7 +883,8 @@ t.describe("native parity weaker scrolling", function()
 				local types = world.engine.types
 				find(world.screen, "AlertModal").AbsoluteSize = types.Vector2.new(case.modal[1], case.modal[2])
 				find(world.screen, "Actions").AbsoluteSize = types.Vector2.new(case.modal[1] - 40, 44)
-				find(world.screen, "AlertContent").AbsoluteSize = types.Vector2.new(case.modal[1] - 40, case.content)
+				find(world.screen, "AlertContent").Parent.AbsoluteSize =
+					types.Vector2.new(case.modal[1] - 40, case.content)
 				local scroll = find(world.screen, "AlertMessage")
 				t.expect(scroll.ClassName).toBe("ScrollingFrame")
 				t.expect(scroll.ScrollingDirection).toBe(types.Enum.ScrollingDirection.Y)

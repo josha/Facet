@@ -4,12 +4,13 @@ local Types = require("./types")
 local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
+local REST_LIMIT = 0.25
 
 return function(
 	ctx: Types.Context,
 	props: Types.ScrollingFrameNativeProps,
 	children: { Types.Child },
-	options: { hug: boolean?, name: string? }?
+	options: { hug: boolean?, name: string?, rest: boolean? }?
 ): (
 	ScrollingFrame,
 	Frame,
@@ -52,12 +53,14 @@ return function(
 	end)
 	local rested = Compose.cell(false)
 	local frames = ctx.runtime.host.frames
-	if frames then
+	if frames and options and options.rest then
 		local last: number? = nil
+		local waited = 0
 		local stop: (() -> ())? = nil
-		stop = frames.onFrame(function()
+		stop = frames.onFrame(function(delta: number)
 			local now = extent:peek()
-			if now == last and (now > 0 or size:peek().X > 0) then
+			waited += delta
+			if (now == last and (now > 0 or size:peek().X > 0)) or waited > REST_LIMIT then
 				rested:set(true)
 				if stop then
 					stop()
