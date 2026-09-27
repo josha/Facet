@@ -1908,7 +1908,7 @@ local function createStyleSheet(
 		local content: { string } = {}
 		for _, asset in pairs(package.assets or {}) do
 			local id = asset.content or asset.contentId
-			if type(id) == "string" and id ~= "" then
+			if type(id) == "string" and id ~= "" and asset.preload ~= "lazy" then
 				table.insert(content, id)
 			end
 		end

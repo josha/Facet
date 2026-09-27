@@ -207,10 +207,15 @@ t.describe("themed edges, plates and gutters", function()
 		t.expect(#requests).toBe(0)
 		package:set(pixel)
 		t.expect(#requests).toBe(1)
-		local expected = {}
+		local expected, lazy = {}, 0
 		for _, asset in pixel.assets do
-			table.insert(expected, asset.content or asset.contentId)
+			if asset.preload == "lazy" then
+				lazy += 1
+			else
+				table.insert(expected, asset.content or asset.contentId)
+			end
 		end
+		t.expect(lazy > 0).toBe(true)
 		table.sort(expected)
 		table.sort(requests[1])
 		t.expect(table.concat(requests[1], ",")).toBe(table.concat(expected, ","))
