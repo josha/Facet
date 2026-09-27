@@ -1302,7 +1302,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local box = held(use)
 						return D2.fromOffset(
 							math.min(280, math.max(44, use(extent).X - 2 * ctx.metric("space.s", use))),
-							if box then box.Y else 0
+							if box then math.ceil(box.Y) else 0
 						)
 					end,
 					ZIndex = function(use: ComposeTypes.Use): number

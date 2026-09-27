@@ -865,7 +865,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					end,
 					Size = function(use: ComposeTypes.Use)
 						local box = use(held)
-						return if box then D2.fromOffset(box.X, box.Y) else D2.fromOffset(0, 0)
+						return if box then D2.fromOffset(math.ceil(box.X), math.ceil(box.Y)) else D2.fromOffset(0, 0)
 					end,
 					ZIndex = 96,
 				}
