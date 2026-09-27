@@ -276,6 +276,7 @@ cannot be interacted with, and the selection never stays on it.
 | Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
+| Toast | Slides in from its edge and fades in, 0.2 seconds, Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds. |
 | Toast with an action | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
 | DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
 | CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
@@ -2580,9 +2581,9 @@ Without an action:
   Notice), read each frame while a toast shows.
 - `width`: `fill` (the default) spans the layer less 16 pixels on each side.
   `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
-- `fade`: `true` also fades the row in and out as it slides. By default a row
-  only slides, so its text keeps native glyph rendering (a fade draws the row
-  through a CanvasGroup while it runs).
+- `fade`: by default the row fades in and out as it slides (the fade draws
+  the row through a CanvasGroup only while it runs, so settled text keeps
+  native glyph rendering). `false` only slides.
 
 At most three toasts show on an edge and eight wait. The queue is in priority
 order, first in first out within a priority. A more urgent toast replaces the
@@ -2593,7 +2594,7 @@ The row is input-transparent: it is neither `Active` nor `Interactable`,
 nothing in it is `Selectable`, it binds no input and it never takes the
 selection, so the controls under it work as before. Rows (`ToastRow`) paint
 at `ZIndex` 70, above the page and below a modal. A new row slides in from its
-edge (and fades in with `fade`), and the others slide to close the slot a
+edge and fades in (unless `fade = false`), and the others slide to close the slot a
 retired row leaves. Under reduced motion the rows are placed at once, for the
 same times in the same order.
 

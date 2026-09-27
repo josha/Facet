@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking: a display-only Toast fades in and out as it slides by default** (it only slid unless `fade = true`). The fade is the shared `ctx.fade` path, so settled text is not rasterised; `fade = false` keeps the slide alone.
 - **Breaking: a tap or click on a Sheet's grabber closes the sheet** (it grew the sheet to the next detent). Return and the gamepad A button still grow it and close from the tallest detent; with `interactiveDismissDisabled` a tap grows it as before.
 - A disposed controls context can be collected. Its layout kit, help presenter and reduced-motion source lived in module-scope weak tables keyed by the context, and each value held the context, which Luau's weak keys never release, so every context and its tree stayed in memory.
 - **Breaking: a Region with two or more forms opens its richest form in a Popover by default.** A tap on a reduced form (a target up to the touch floor around it) moves the region's form 1 node into a Popover and back on close, so state and selection carry over. `expand` is now an optional override for the Popover content, and `reveal = false` keeps the old silent reduction.
