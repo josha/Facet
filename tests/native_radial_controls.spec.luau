@@ -1273,7 +1273,14 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 			distribution = "compass",
 			completion = "stay",
 			items = {
-				{ id = "E", slot = "E", label = "Lantern", icon = "flag", labelStyle = "icon", onSelect = function() end },
+				{
+					id = "E",
+					slot = "E",
+					label = "Lantern",
+					icon = "flag",
+					labelStyle = "icon",
+					onSelect = function() end,
+				},
 			},
 		})
 		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
