@@ -3055,7 +3055,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		local stop, node = runtime.mount(function()
 			return UI.Table({
-				from = { { id = 1, name = "Neon Straightaway" } },
+				from = { { id = 1, name = "Neon Straightaway MMMM illlllll" } },
 				key = key,
 				columns = { { id = "name", label = "Name" } },
 			})
@@ -3064,8 +3064,9 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
 		local cell = body:FindFirstChild("1", true):FindFirstChild("name", true)
 		local value, word = cell:FindFirstChild("Value"), cell:FindFirstChild("LongestWord")
-		t.expect(word.Text).toBe("Straightaway")
+		t.expect(word.Text).toBe("Neon\nStraightaway\nMMMM\nilllllll")
 		t.expect(word.TextWrapped).toBe(false)
+		t.expect(word.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
 		t.expect(value.TextTruncate).toBe(engine.types.Enum.TextTruncate.AtEnd)
 		word.TextFits = true
 		t.expect(value.TextWrapped).toBe(true)

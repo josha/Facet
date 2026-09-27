@@ -696,19 +696,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 								local result = field(use(current), use(column))
 								return if result == nil then "" else tostring(result)
 							end
-							local function longest(use: ComposeTypes.Use): string
-								local found = ""
+							local function words(use: ComposeTypes.Use): string
+								local lines: { string } = {}
 								for word in string.gmatch(valueText(use), "%S+") do
-									if #word > #found then
-										found = word
-									end
+									table.insert(lines, word)
 								end
-								return found
+								return table.concat(lines, "\n")
 							end
 							local function probe(
 								name: string,
 								text: (ComposeTypes.Use) -> string,
-								share: boolean
+								share: boolean,
+								lines: (ComposeTypes.Use) -> boolean
 							): TextLabel
 								return ctx.styled(
 									ctx.text({
@@ -717,20 +716,31 @@ return function(ctx: Types.Context, UI: Controls): ()
 										TextTransparency = 1,
 										Interactable = false,
 										Size = function(use: ComposeTypes.Use)
-											return D2.new(1, if share then use(disclosureShare) else 0, 1, 0)
+											return D2.new(
+												1,
+												if share then use(disclosureShare) else 0,
+												if lines(use) then 0 else 1,
+												0
+											)
 										end,
-										AutomaticSize = E.AutomaticSize.None,
+										AutomaticSize = function(use: ComposeTypes.Use)
+											return if lines(use) then E.AutomaticSize.Y else E.AutomaticSize.None
+										end,
 										Text = text,
 									}),
 									"TableValue"
 								)
 							end
-							local longestWord = if render then nil else probe("LongestWord", longest, false)
+							local longestWord = if render
+								then nil
+								else probe("LongestWord", words, false, function()
+									return true
+								end)
 							local undisclosed = if render
 								then nil
 								else probe("Undisclosed", function(use: ComposeTypes.Use): string
-									return if touchRows(use) then longest(use) else valueText(use)
-								end, true)
+									return if touchRows(use) then words(use) else valueText(use)
+								end, true, touchRows)
 							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 							local content = if render
 								then render(current, placement, key)
