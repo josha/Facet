@@ -49,6 +49,7 @@ local KEYS = {
 local PLACEMENTS: { [string]: boolean } =
 	freeze({ automatic = true, adaptive = true, bottom = true, side = true, center = true })
 local HANDLE = 20
+local HELD_PULL = 0.2
 local SETTLE_LIMIT = 20
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
@@ -505,7 +506,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				current.moved = true
 			end
 			local amount = math.max(0, (x - current.origin) * toward())
-			pull:set(if canDismiss() then amount else amount * 0.2)
+			pull:set(if canDismiss() then amount else amount * HELD_PULL)
 			table.insert(current.samples, { height = pull:peek(), at = now() })
 		end
 		local function release()
@@ -566,7 +567,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						if pulling == nil then
 							local from = pulled()
 							pullBack.halt()
-							pulling = { origin = position.X - from * toward(), moved = false, samples = {} }
+							local finger = if canDismiss() then from else from / HELD_PULL
+							pulling = { origin = position.X - finger * toward(), moved = false, samples = {} }
 							pull:set(from)
 							held:set(true)
 						end
