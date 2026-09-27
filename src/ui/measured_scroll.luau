@@ -10,7 +10,7 @@ return function(
 	children: { Types.Child },
 	options: { hug: boolean?, name: string? }?
 ): (ScrollingFrame, Frame, ComposeTypes.Readable<Vector2>)
-	local Host, E, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim2
+	local Host, Compose, E, D2 = ctx.Host, ctx.Compose, ctx.types.Enum, ctx.types.UDim2
 	local hug = options ~= nil and options.hug == true
 	local flowProps: Types.FrameNativeProps = {
 		Name = if options and options.name then options.name else "Flow",
@@ -23,9 +23,10 @@ return function(
 	end
 	local flow = Host.Frame(flowProps)
 	local size = ctx.observe.AbsoluteSize(flow)
+	local extent = Compose.cell(0)
 	props.AutomaticCanvasSize = E.AutomaticSize.None
 	props.CanvasSize = function(use: ComposeTypes.Use)
-		return D2.fromOffset(0, use(size).Y)
+		return D2.fromOffset(0, use(extent))
 	end
 	table.insert(
 		props,
@@ -36,5 +37,10 @@ return function(
 			flow,
 		}
 	)
-	return Host.ScrollingFrame(props), flow, size
+	local scroller = Host.ScrollingFrame(props)
+	local laidOut = ctx.layoutSize(flow, ctx.layoutUnit(scroller))
+	Compose.watch(function(use: ComposeTypes.Use)
+		extent:set(math.ceil(use(laidOut).Y - 0.01))
+	end)
+	return scroller, flow, size
 end
