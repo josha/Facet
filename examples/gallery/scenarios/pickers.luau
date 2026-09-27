@@ -224,7 +224,7 @@ return {
 					onChange = accept(raceDay),
 					onCommit = recordDate,
 					min = { year = 2026, month = 3, day = 1 },
-					max = { year = 2026, month = 11, day = 30 },
+					max = { year = 2027, month = 11, day = 30 },
 					isDateDisabled = function(d: any): boolean
 						return d.day == 13
 					end,
