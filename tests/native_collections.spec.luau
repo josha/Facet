@@ -1166,6 +1166,8 @@ t.describe("Compose native collections", function()
 			now += 1 / 60
 			input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, x))
 		end
+		now += 1 / 120
+		input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, 180))
 		local released = node.CanvasPosition.X
 		t.expect(released).toBe(100)
 		input.InputEnded.fire(mouse(E.UserInputType.MouseButton1, 180))

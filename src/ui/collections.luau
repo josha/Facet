@@ -19,6 +19,7 @@ type Controls = {
 local FLING_FRICTION = 3
 local FLING_MINIMUM = 200
 local FLING_STOP = 20
+local FLING_WINDOW = 0.1
 type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 
 return function(ctx: Types.Context, UI: Controls): ()
@@ -546,7 +547,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 		if horizontal and input and not spec.reorderable then
 			local pressAt: number? = nil
 			local startOffset, dragging = 0, false
-			local lastX, lastTime, velocity = 0, 0, 0
+			local samples: { Vector2 } = {}
+			local velocity = 0
 			local stopFling: (() -> ())? = nil
 			local function halt(): ()
 				if stopFling then
@@ -578,7 +580,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				then
 					halt()
 					pressAt, startOffset, dragging = value.Position.X, root.CanvasPosition.X, false
-					lastX, lastTime, velocity = value.Position.X, frames.now(), 0
+					samples = { V2.new(frames.now(), value.Position.X) }
 				end
 			end)
 			runtime.connect(input, "InputChanged", function(value: InputObject)
@@ -594,9 +596,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end
 				end
 				local now = frames.now()
-				if now - lastTime >= 0.005 then
-					velocity = (lastX - value.Position.X) / (now - lastTime)
-					lastX, lastTime = value.Position.X, now
+				table.insert(samples, V2.new(now, value.Position.X))
+				while #samples > 2 and now - samples[1].X > FLING_WINDOW do
+					table.remove(samples, 1)
 				end
 				if dragging then
 					root.CanvasPosition = V2.new(math.clamp(startOffset - travel, 0, limit()), root.CanvasPosition.Y)
@@ -619,7 +621,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 							node.Interactable = true
 						end
 					end)
-					if frames.now() - lastTime < 0.1 and math.abs(velocity) > FLING_MINIMUM then
+					local first, last = samples[1], samples[#samples]
+					local span = last.X - first.X
+					velocity = if span > 0 then (first.Y - last.Y) / span else 0
+					if frames.now() - last.X < FLING_WINDOW and math.abs(velocity) > FLING_MINIMUM then
 						stopFling = frames.onFrame(function(step: number)
 							velocity *= math.exp(-FLING_FRICTION * step)
 							local at = root.CanvasPosition.X
