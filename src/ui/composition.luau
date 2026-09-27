@@ -394,7 +394,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
-		local safeAt = ctx.observe.AbsolutePosition(safe)
+		local safeBox = ctx.layoutSize(safe, safeUnit)
 		for zone, children in members do
 			local revealing = false
 			for _, region in children do
@@ -406,7 +406,8 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			local cell = resolver.CELLS[zone]
 			local column, row = cell[1], cell[2]
 			local frame = zones[zone]
-			local zoneAt, zoneSize = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
+			local zoneSize = ctx.observe.AbsoluteSize(frame)
+			local anchor = V2.new((column - 1) / 2, (row - 1) / 2)
 			local dropped = Compose.formula(function(use: ComposeTypes.Use): { Frame }
 				local list = {}
 				for _, region in children do
@@ -438,8 +439,8 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			end)
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
-				local at = (use(zoneAt) - use(safeAt)) / unit
 				local size = use(zoneSize) / unit
+				local at = (use(safeBox) - size) * anchor
 				if column == 2 then
 					return if row == 3
 						then D2.fromOffset(at.X + size.X / 2, at.Y - space)

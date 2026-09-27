@@ -405,7 +405,6 @@ t.describe("Composition", function()
 			if target then
 				local left = w.find("Left")
 				w.size(left, 100, 60)
-				left.AbsolutePosition = w.engine.types.Vector2.new(0, 20)
 				t.expect(target.Visible).toBe(true)
 				t.expect(target.Parent).toBe(zones)
 				t.expect(target.Size.X.Offset >= 44 and target.Size.Y.Offset >= 44).toBe(true)
