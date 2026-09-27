@@ -29,6 +29,10 @@ SCREEN_FORBIDDEN = FACET_FORBIDDEN + (
     ("key device test", re.compile(r"UserInputType\.(?:Keyboard|Gamepad\w*)\b"), "a screen classifies raw key input itself"),
 )
 
+READ_ONLY_PROBES = {
+    "src/ui/gamepad_contention.luau": "Facet.gamepadContention reads the legacy player scripts' ContextActionService bindings and can unbind their jumpAction; it binds no key",
+}
+
 BINDING_SITE = re.compile(r"\bInputBinding\s*[({]")
 
 PINS = {
@@ -47,6 +51,14 @@ PINS = {
     "examples/gallery/scenarios/shortcut_hint.luau": (
         3,
         "the ShortcutHint recipe owns the InputAction that the hint describes, as docs/reference/api.md documents for its action option",
+    ),
+    "examples/gallery/client/screen.luau": (
+        3,
+        "the Showcase chrome declares LB, RB and the backquote toggle for its demo and settings panel in its own sinking InputContext under ctx.inputTarget, as before 0.12",
+    ),
+    "examples/virtual_monitors/main.client.luau": (
+        1,
+        "the View button switches Screen and Spatial in the entry script's own InputContext at Facet.inputPriority.belowControls, so any Facet control that binds it wins",
     ),
     "examples/gallery/scenarios/outpost_terminal.luau": (
         2,
@@ -155,7 +167,8 @@ def scan():
     offences, sites = [], {}
     for root in FACET_SOURCES:
         for path in files_under(root, {".luau"}):
-            offences += offences_in(relative(path), strip_luau_comments(path.read_text(encoding="utf-8")), FACET_FORBIDDEN, False)
+            rules = FACET_FORBIDDEN[1:] if relative(path) in READ_ONLY_PROBES else FACET_FORBIDDEN
+            offences += offences_in(relative(path), strip_luau_comments(path.read_text(encoding="utf-8")), rules, False)
     for root in SCREEN_SOURCES:
         for path in files_under(root, {".luau", ".lua"}):
             code = strip_luau_comments(path.read_text(encoding="utf-8"))

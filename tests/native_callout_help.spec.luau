@@ -1,11 +1,22 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local placement = require("../src/ui/overlay_placement")
 local Vector2 = require("@lune/roblox").Vector2
 
 local TIP = "Post Avatars to Marketplace"
+local LIFT = 16 * math.sqrt(2) / 2
+
+local function corner(panel: any): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 
 local function tip(Host: any): () -> any
 	return function()
@@ -281,8 +292,7 @@ t.describe("native Callout: rich parts", function()
 		t.expect(overlay.find(panel, "Title").Text).toBe("Try the editor")
 		local media = overlay.find(panel, "Media")
 		t.expect(media.Size.X.Scale).toBe(1)
-		media.AbsoluteSize = Vector2.new(260, 0)
-		t.expect(media.Size.Y.Offset).toBe(130)
+		t.expect(media:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio).toBe(2)
 		t.expect(overlay.find(panel, "Steps").Text).toBe("2 of 3")
 		t.expect(overlay.find(panel, "Body").Text).toBe(TIP)
 		t.expect(table.concat(buttons(panel), ",")).toBe("Actions/Go,Actions/Later,Header/Close")
@@ -537,11 +547,12 @@ t.describe("native help: the structured form and the live plate", function()
 			safe = { x = 8, y = 8, w = 800 - 16, h = 600 - 16 },
 			edge = "trailing",
 			align = "end",
-			gap = 6,
+			gap = 6 + LIFT,
 		})
-		t.expect(panel.Position.X.Offset).toBe(expected.x)
-		t.expect(panel.Position.X.Offset).toBe(300 + 80 + 6)
-		t.expect(panel.Position.Y.Offset).toBe(200 + 44 - 30)
+		local x, y = corner(panel)
+		t.expect(near(x, expected.x)).toBe(true)
+		t.expect(near(x, 300 + 80 + 6 + LIFT)).toBe(true)
+		t.expect(near(y, 200 + 44 - 30)).toBe(true)
 		w.stop()
 	end)
 
@@ -552,8 +563,13 @@ t.describe("native help: the structured form and the live plate", function()
 		t.expect(w.find("HelpText").Text).toBe("Posts this avatar")
 		local panel = w.find("Help")
 		panel.AbsoluteSize = Vector2.new(100, 30)
-		t.expect(panel.Position.Y.Offset).toBe(200 - 30 - 6)
-		t.expect(panel.Position.X.Offset).toBe(300 + 40 - 50)
+		local x, y = corner(panel)
+		t.expect(near(y, 200 - 30 - 6 - LIFT)).toBe(true)
+		t.expect(near(x, 300 + 40 - 50)).toBe(true)
+		t.expect(w.find("HelpTail") ~= nil and w.find("HelpTailSeam") == nil and w.find("Outline") ~= nil).toBe(true)
+		t.expect(w.find("HelpTail").Size.X.Offset).toBe(16)
+		t.expect(near(w.find("HelpTail").Position.Y.Offset, 200 - 6 - LIFT)).toBe(true)
+		t.expect(w.find("HelpTail"):HasTag("facet-tail")).toBe(true)
 		w.stop()
 	end)
 
@@ -593,9 +609,9 @@ t.describe("native help: the structured form and the live plate", function()
 		local w = helped({ body = "Posts it", edge = "trailing" })
 		local panel = w.find("Help")
 		panel.AbsoluteSize = Vector2.new(200, 30)
-		t.expect(panel.Position.X.Offset).toBe(386)
+		t.expect(near((corner(panel)), 386 + LIFT)).toBe(true)
 		w.screen.AbsoluteSize = Vector2.new(500, 600)
-		t.expect(panel.Position.X.Offset + 200 <= 500 - 8).toBe(true)
+		t.expect((corner(panel)) + 200 <= 500 - 8 + 0.5).toBe(true)
 		w.stop()
 	end)
 end)
@@ -645,4 +661,129 @@ t.describe("native Callout: layering", function()
 		end
 		lifted.stop()
 	end)
+end)
+
+t.describe("native help: the plate arrives as one unit", function()
+	local NORMAL = 0.2
+	local function hovered(options: any?): any
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				Name = "Screen",
+				UI.Button "Post" {
+					label = "Post",
+					help = { title = "Save", body = "Saves your setup", shortcut = { { "Ctrl", "S" } }, edge = "top" },
+				},
+			})
+		end, options)
+		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+		w.gui.SelectedObject = w.find("Post")
+		w.advance(0.45)
+		return w
+	end
+
+	t.it("one fade carries the only fade and scale, and the plate holds no extra text node", function()
+		local w = hovered()
+		local panel = w.find("Help")
+		t.expect(panel.ClassName).toBe("Frame")
+		local texts, scales = {}, 0
+		for _, node in panel:GetDescendants() do
+			if node:IsA("TextLabel") then
+				table.insert(texts, node.Name)
+			elseif node:IsA("UIScale") then
+				scales += 1
+				t.expect(node.Parent).toBe(panel)
+			elseif node.Parent ~= panel and (node:IsA("UIGradient") or node:IsA("CanvasGroup")) then
+				error(`a second fade driver {node.Name}`)
+			end
+		end
+		table.sort(texts)
+		t.expect(table.concat(texts, ",")).toBe("HelpShortcut,HelpText,HelpTitle")
+		t.expect(scales).toBe(1)
+		local body = w.find("HelpText")
+		t.expect(body.TextWrapped).toBe(true)
+		t.expect(body.AutomaticSize).toBe(w.Enum.AutomaticSize.XY)
+		local cap = body:FindFirstChildWhichIsA("UISizeConstraint")
+		t.expect(cap ~= nil and cap.MaxSize.X).toBe(264)
+		w.stop()
+	end)
+
+	t.it("the fade and the scale run once, eased, over the theme's normal motion duration", function()
+		local w = hovered()
+		local panel = w.find("Help")
+		local scale = panel:FindFirstChildWhichIsA("UIScale")
+		w.advance(NORMAL / 2)
+		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 0.5).toBe(true)
+		t.expect(scale.Scale > 0.95 and scale.Scale < 1).toBe(true)
+		w.advance(NORMAL / 2)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		t.expect(scale.Scale).toBe(1)
+		w.stop()
+	end)
+
+	t.it("reduced motion shows the plate whole on its first frame", function()
+		local w = hovered({ reducedMotion = true })
+		local panel = w.find("Help")
+		t.expect(fadeKit.of(panel)).toBe(0)
+		t.expect(panel:FindFirstChildWhichIsA("UIScale").Scale).toBe(1)
+		w.stop()
+	end)
+end)
+
+t.describe("native Callout: the plate and its tail arrive together", function()
+	t.it("the panel and the tail both wait for the first styled frame and fade over the short duration", function()
+		local w = overlay.new(function(UI, Host)
+			local anchor = UI.Button "Plus" { label = "+" }
+			return Host.Frame({
+				Name = "Editor",
+				Host.Frame({ Name = "Bar", anchor }),
+				UI.Callout "Tip" {
+					anchor = anchor,
+					isPresented = true,
+					content = tip(Host),
+					onRetire = function() end,
+				},
+			})
+		end, { runService = true })
+		local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
+		t.expect(panel.Visible).toBe(false)
+		t.expect(arrow.Visible).toBe(false)
+		w.advance(0.06)
+		t.expect(panel.Visible).toBe(true)
+		t.expect(arrow.Visible).toBe(true)
+		w.advance(0.06)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		w.stop()
+	end)
+	t.it(
+		"the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
+		function()
+			local w = overlay.new(function(UI, Host)
+				local anchor = UI.Button "Plus" { label = "+" }
+				return Host.Frame({
+					Name = "Editor",
+					Host.Frame({ Name = "Bar", anchor }),
+					UI.Callout "Tip" {
+						anchor = anchor,
+						isPresented = true,
+						content = tip(Host),
+						onRetire = function() end,
+					},
+				})
+			end, { runService = true })
+			local panel = w.find("CalloutPanel")
+			t.expect(panel.Visible).toBe(false)
+			w.advance(0.01)
+			local group = panel:FindFirstChild("Fade")
+			t.expect(group ~= nil and group:IsA("CanvasGroup")).toBe(true)
+			t.expect(fadeKit.of(panel)).toBe(1)
+			t.expect(group.GroupTransparency > 0.98).toBe(true)
+			w.advance(0.01)
+			t.expect(fadeKit.of(panel) < 1).toBe(true)
+			t.expect(math.abs(group.GroupTransparency - fadeKit.of(panel)) < 1e-6).toBe(true)
+			w.advance(0.2)
+			t.expect(panel:FindFirstChild("Fade")).toBeNil()
+			t.expect(fadeKit.of(panel)).toBe(0)
+			w.stop()
+		end
+	)
 end)

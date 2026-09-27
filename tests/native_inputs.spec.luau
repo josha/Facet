@@ -4,6 +4,7 @@ local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
 local context = require("../src/ui/context")
 local register = require("../src/ui/inputs")
+local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 
 local function world(build, configure)
@@ -183,6 +184,38 @@ t.describe("native input controls", function()
 		node.Activated.fire()
 		t.expect(request).toBe(false)
 		t.expect(value:peek()).toBe(true)
+		stop()
+	end)
+
+	t.it("an authored-width Button keeps one em of label room inside the theme padding", function()
+		for _, case in { { "neutral", nil, 0 }, { "parchment", "fantasy_parchment", 24 } } do
+			local package = if case[2] then require("../examples/themes/" .. case[2]).build(Facet.themes) else nil
+			local node, stop = world(function(UI, engine)
+				return UI.Button({ label = "Ed", Size = engine.types.UDim2.fromOffset(52, 40) })
+			end, function()
+				return { theme = package }
+			end)
+			local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
+			t.expect(limit ~= nil).toBe(true)
+			local metrics = (package or Facet.themes.neutralPackage()).metrics
+			local em, paddingX = metrics.typography.control.size, metrics.controlSizes.regular.paddingX
+			t.expect(`{case[1]}:{limit.MinSize.X}`).toBe(`{case[1]}:{2 * paddingX + case[3] + em}`)
+			stop()
+		end
+	end)
+
+	t.it("a busy Button reserves its dots on a real UIPadding, so a hugging parent grows with it", function()
+		local busy = Compose.cell(false)
+		local node, stop = world(function(UI)
+			return UI.Button({ label = "Retry sync", appearance = "link", busy = busy })
+		end)
+		local padding = node:FindFirstChildWhichIsA("UIPadding")
+		t.expect(padding ~= nil).toBe(true)
+		t.expect(padding.PaddingRight.Offset).toBe(0)
+		busy:set(true)
+		t.expect(padding.PaddingRight.Offset).toBe(32)
+		busy:set(false)
+		t.expect(padding.PaddingRight.Offset).toBe(0)
 		stop()
 	end)
 
@@ -439,11 +472,12 @@ t.describe("native input controls", function()
 		value:set(0.75)
 		t.expect(find(inline, "Value").Text).toBe("0.75")
 		t.expect(row.AutomaticSize).toBe(engine.types.Enum.AutomaticSize.Y)
-		t.expect(row:FindFirstChildWhichIsA("UIListLayout").FillDirection)
+		t.expect(find(row, "Content"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
 			.toBe(engine.types.Enum.FillDirection.Horizontal)
 		t.expect(row:HasTag("facet-slider-settings")).toBe(true)
+		t.expect(row.BackgroundTransparency).toBe(1)
 		t.expect(row:FindFirstChildWhichIsA("UIPadding") ~= nil).toBe(true)
-		t.expect(find(row, "Body"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+		t.expect(find(row, "Captions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
 			.toBe(engine.types.Enum.FillDirection.Vertical)
 		t.expect(find(row, "Value").Parent).toBe(find(row, "Header"))
 		t.expect(find(row, "Description").Text).toBe("Playback level")
@@ -486,6 +520,12 @@ t.describe("native input controls", function()
 		end)
 		local clear = find(node, "Clear")
 		t.expect(clear.Visible).toBe(true)
+		t.expect(clear:GetAttribute("label")).toBe("Clear")
+		t.expect(clear:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		t.expect(clear:FindFirstChild("Title", true)).toBeNil()
+		t.expect(clear.Text).toBe("")
+		t.expect(clear.Size.Y.Offset > 0 and clear.Size.Y.Offset < 36).toBe(true)
+		t.expect(clear:HasTag("facet-shape-circle")).toBe(true)
 		clear.Activated.fire()
 		t.expect(value:peek()).toBe("")
 		t.expect(clear.Visible).toBe(false)
@@ -835,6 +875,31 @@ t.describe("native input controls", function()
 		t.expect(actions).toBe(2)
 		stop()
 	end)
+
+	t.it(
+		"keeps an authored Button width: a truncating label stays on one line and an icon button does not grow",
+		function()
+			local node, stop, engine = world(function(UI, engine, runtime)
+				return runtime.constructors.Frame({
+					UI.Button "Plain" {
+						label = "Edit item",
+						TextTruncate = engine.types.Enum.TextTruncate.AtEnd,
+						Size = engine.types.UDim2.fromOffset(52, 40),
+					},
+					UI.Button "Iconed" { label = "Edit", icon = "edit", Size = engine.types.UDim2.fromOffset(52, 40) },
+				})
+			end)
+			local E = engine.types.Enum
+			local plain, iconed = find(node, "Plain"), find(node, "Iconed")
+			t.expect(`{plain.TextWrapped} {plain.TextTruncate.Name} {plain.AutomaticSize.Name}`).toBe("false AtEnd Y")
+			t.expect(iconed.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(find(iconed, "Content").AutomaticSize).toBe(E.AutomaticSize.None)
+			local title = find(iconed, "Title")
+			t.expect(title.TextTruncate).toBe(E.TextTruncate.AtEnd)
+			t.expect(title:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Shrink)
+			stop()
+		end
+	)
 
 	t.it("sizes a Toggle label from a pixel textSize or a type role", function()
 		local node, stop = world(function(UI, engine, runtime)
@@ -1424,6 +1489,60 @@ t.describe("native input controls", function()
 		stop()
 	end)
 
+	t.it("maps the named feedback kinds onto pooled engine haptic effects", function()
+		local kind = Compose.cell("error")
+		local UIref
+		local node, stop, engine = world(function(UI, _, runtime)
+			UIref = UI
+			return runtime.constructors.Frame({
+				UI.Button "Saved" { label = "Save", haptic = "success" },
+				UI.Button "Again" { label = "Save", haptic = "success" },
+				UI.Button "Careful" { label = "Sell", haptic = "warning" },
+				UI.Button "Live" { label = "Try", haptic = kind },
+				UI.Button "Plain" { label = "Go", haptic = true },
+				UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
+			})
+		end, function()
+			return { pressHaptic = "selection" }
+		end)
+		local E = engine.types.Enum
+		local saved = find(node, "Saved").PressHapticEffect
+		t.expect(saved.ClassName).toBe("HapticEffect")
+		t.expect(saved.Type).toBe(E.HapticEffectType.UINotification)
+		t.expect(find(node, "Again").PressHapticEffect).toBe(saved)
+		local warning = find(node, "Careful").PressHapticEffect
+		t.expect(warning.Type).toBe(E.HapticEffectType.Custom)
+		t.expect(#warning.WaveformKeys >= 4).toBe(true)
+		for _, key in warning.WaveformKeys do
+			t.expect(key.Value == 0 or key.Value >= 0.3).toBe(true)
+		end
+		local live = find(node, "Live")
+		t.expect(live.PressHapticEffect.Type).toBe(E.HapticEffectType.Custom)
+		t.expect(live.PressHapticEffect == warning).toBe(false)
+		kind:set("impact")
+		t.expect(live.PressHapticEffect.Type).toBe(E.HapticEffectType.GameplayCollision)
+		kind:set(false)
+		t.expect(live.PressHapticEffect).toBe(nil)
+		t.expect(find(node, "Plain").PressHapticEffect.Type).toBe(E.HapticEffectType.UIClick)
+		t.expect(find(node, "Sound").PressHapticEffect).toBe(find(node, "Plain").PressHapticEffect)
+		UIref.feedback("success")
+		t.expect(saved.PlayCount).toBe(1)
+		t.expect(function()
+			UIref.feedback("boom")
+		end).toThrow()
+		t.expect(function()
+			world(function(UI)
+				return UI.Button { label = "Bad", haptic = "boom" }
+			end)
+		end).toThrow()
+		stop()
+		node, stop = world(function(UI)
+			return UI.Button "Bare" { label = "Go", haptic = true }
+		end)
+		t.expect(node.PressHapticEffect).toBe(nil)
+		stop()
+	end)
+
 	t.it("plays the press haptic once for each slider detent and never for a continuous slider", function()
 		local stepped, continuous, plays = Compose.cell(25), Compose.cell(0.5), 0
 		local effect = {
@@ -1564,6 +1683,28 @@ t.describe("native input controls", function()
 		stop()
 		t.expect(contexts[1].isDestroyed()).toBe(true)
 	end)
+	t.it("a held arrow repeats up to the bound and keeps the selection until it is released", function()
+		local value = Compose.cell(95)
+		local gui
+		local node, stop, engine = world(function(UI)
+			return UI.Slider({ value = value, min = 0, max = 100, step = 1 })
+		end, function(engine)
+			gui = engine.new("GuiService")
+			return { services = { GuiService = gui }, guiService = gui }
+		end)
+		gui.SelectedObject = find(node, "ThumbStop")
+		local increase = enabledAction(node.Parent, "IncreaseArrow")
+		increase.Pressed.fire()
+		for _ = 1, 20 do
+			engine.heartbeat.fire(0.1)
+		end
+		t.expect(value:peek()).toBe(100)
+		t.expect(increase.Parent.Enabled).toBe(true)
+		increase.Released.fire()
+		t.expect(increase.Parent.Enabled).toBe(false)
+		stop()
+	end)
+
 	t.it("yields native directional navigation at value bounds and rearms on focus return", function()
 		local value = Compose.cell(4)
 		local node, stop = world(function(UI)
@@ -1577,6 +1718,8 @@ t.describe("native input controls", function()
 		t.expect(increase.Parent.Enabled).toBe(true)
 		increase.Pressed.fire()
 		t.expect(value:peek()).toBe(5)
+		t.expect(increase.Parent.Enabled).toBe(true)
+		increase.Released.fire()
 		t.expect(increase.Parent.Enabled).toBe(false)
 		t.expect(bumper.Parent.Enabled).toBe(true)
 		t.expect(decrease.Parent.Enabled).toBe(true)
@@ -1905,7 +2048,7 @@ t.describe("native input controls", function()
 		t.expect(node:GetPropertyChangedSignal("FontFace").count()).toBe(0)
 	end)
 
-	t.it("lays out image buttons vertically inside their authored card bounds", function()
+	t.it("lays out image buttons vertically inside their authored card bounds and keeps the image ratio", function()
 		local node, stop, engine = world(function(UI, engine)
 			return UI.Button({
 				label = "A driver with a descriptive title",
@@ -1921,7 +2064,16 @@ t.describe("native input controls", function()
 		t.expect(find(node, "Title").TextWrapped).toBe(true)
 		t.expect(find(node, "Title").Size.X.Scale).toBe(1)
 		t.expect(find(node, "Description").TextWrapped).toBe(true)
-		t.expect(find(node, "Image"):FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio).toBe(2)
+		t.expect(find(node, "Content").Size.Y.Scale).toBe(1)
+		local media = find(node, "Media")
+		t.expect(media:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(engine.types.Enum.UIFlexMode.Fill)
+		t.expect(media:FindFirstChildWhichIsA("UIAspectRatioConstraint")).toBe(nil)
+		local image = find(media, "Image")
+		local ratio = image:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+		t.expect(ratio ~= nil and ratio.AspectRatio).toBe(2)
+		t.expect(ratio.AspectType).toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
+		t.expect(image.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
+		t.expect(image.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
 		stop()
 	end)
 	t.it("allocates native value actions only for the selected control and preserves descendant focus", function()
@@ -1946,7 +2098,7 @@ t.describe("native input controls", function()
 			return count
 		end
 		t.expect(activeContextCount()).toBe(0)
-		gui.SelectedObject = find(node, "Track")
+		gui.SelectedObject = find(node, "ThumbStop")
 		t.expect(activeContextCount()).toBe(5)
 		local sliderAction = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
 		sliderAction.Pressed.fire()
@@ -1990,6 +2142,101 @@ t.describe("native input controls", function()
 		t.expect(initialAction.isDestroyed()).toBe(true)
 	end)
 
+	t.it("repeats a held Stepper button and a repeating Button only while held", function()
+		local value = Compose.cell(0)
+		local node, stop, engine = world(function(UI)
+			return UI.Stepper({ value = value, max = 100 })
+		end)
+		local held = {
+			UserInputType = engine.types.Enum.UserInputType.Touch,
+			KeyCode = engine.types.Enum.KeyCode.Unknown,
+		}
+		local increase = find(node, "Increase")
+		t.expect(engine.heartbeat.count()).toBe(0)
+		increase.InputBegan.fire(held)
+		t.expect(engine.heartbeat.count()).toBe(1)
+		engine.heartbeat.fire(0.4)
+		engine.heartbeat.fire(0.1)
+		t.expect(value:peek()).toBe(2)
+		increase.InputEnded.fire(held)
+		t.expect(engine.heartbeat.count()).toBe(0)
+		stop()
+	end)
+
+	t.it("lets a game control opt into keyboard and gamepad adjustment with UI.adjustable", function()
+		local steps, calls = {}, 0
+		local gui
+		local node, stop, engine = world(function(UI, engine, runtime)
+			local dial = runtime.constructors.TextButton({ Name = "Dial", Selectable = true })
+			UI.adjustable(dial, {
+				onAdjust = function(direction)
+					calls += 1
+					table.insert(steps, direction)
+				end,
+				axis = "vertical",
+				repeats = true,
+			})
+			local knob = runtime.constructors.TextButton({ Name = "Knob", Selectable = true })
+			UI.adjustable(knob, {
+				onAdjust = function(direction)
+					table.insert(steps, direction * 10)
+				end,
+				axis = "none",
+			})
+			return runtime.constructors.Frame({ dial, knob })
+		end, function(engine)
+			gui = engine.new("GuiService")
+			return { services = { GuiService = gui }, guiService = gui }
+		end)
+		local dial, knob, screen = find(node, "Dial"), find(node, "Knob"), node.Parent
+		t.expect(enabledAction(screen, "IncreaseArrow")).toBe(nil)
+		gui.SelectedObject = dial
+		local up = enabledAction(screen, "IncreaseArrow")
+		t.expect(up ~= nil).toBe(true)
+		t.expect(up:FindFirstChildWhichIsA("InputBinding").KeyCode).toBe(engine.types.Enum.KeyCode.Up)
+		up.Pressed.fire()
+		t.expect(steps[1]).toBe(1)
+		engine.heartbeat.fire(0.4)
+		t.expect(steps[2]).toBe(1)
+		up.Released.fire()
+		t.expect(engine.heartbeat.count()).toBe(0)
+		enabledAction(screen, "Decrease").Pressed.fire()
+		t.expect(steps[3]).toBe(-1)
+		gui.SelectedObject = knob
+		t.expect(enabledAction(screen, "IncreaseArrow")).toBe(nil)
+		local shoulder = enabledAction(screen, "Increase")
+		shoulder.Pressed.fire()
+		t.expect(steps[4]).toBe(10)
+		engine.heartbeat.fire(1)
+		t.expect(#steps).toBe(4)
+		t.expect(engine.heartbeat.count()).toBe(0)
+		stop()
+		t.expect(calls).toBe(3)
+	end)
+
+	t.it("makes the Slider thumb the selection stop so the engine ring lands on it", function()
+		local value = Compose.cell(0.5)
+		local gui
+		local node, stop = world(function(UI, _, runtime)
+			return runtime.constructors.Frame({
+				UI.Slider "Volume" { value = value, step = 0.1 },
+				UI.Slider "Hidden" { value = Compose.cell(0.5), thumb = "auto" },
+			})
+		end, function(engine)
+			gui = engine.new("GuiService")
+			return { services = { GuiService = gui }, guiService = gui }
+		end)
+		local volume = find(node, "Volume")
+		local thumb, track = find(volume, "ThumbStop"), find(volume, "Track")
+		t.expect(thumb.Selectable).toBe(true)
+		t.expect(track.Selectable).toBe(false)
+		t.expect(find(find(node, "Hidden"), "Track").Selectable).toBe(true)
+		gui.SelectedObject = thumb
+		enabledAction(node.Parent, "IncreaseArrow").Pressed.fire()
+		t.expect(math.abs(value:peek() - 0.6) < 1e-9).toBe(true)
+		stop()
+	end)
+
 	t.it("repeats focused value adjustments with bounded catch-up and no idle frame subscription", function()
 		local value = Compose.cell(0)
 		local node, stop, engine = world(function(UI)
@@ -2015,6 +2262,38 @@ t.describe("native input controls", function()
 		stop()
 		t.expect(engine.heartbeat.count()).toBe(0)
 	end)
+	t.it("a Stepper's repeatDelay and repeatInterval govern its held arrows and its held buttons alike", function()
+		local value = Compose.cell(0)
+		local node, stop, engine = world(function(UI)
+			return UI.Stepper({ value = value, max = 100, repeatDelay = 1, repeatInterval = 0.5 })
+		end)
+		node.SelectionGained.fire()
+		local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+		increase.Pressed.fire()
+		engine.heartbeat.fire(0.9)
+		t.expect(value:peek()).toBe(1)
+		engine.heartbeat.fire(0.2)
+		t.expect(value:peek()).toBe(2)
+		engine.heartbeat.fire(0.5)
+		t.expect(value:peek()).toBe(3)
+		increase.Released.fire()
+		local button
+		for _, child in node:GetDescendants() do
+			if child.ClassName == "TextButton" and child.Name == "Increase" then
+				button = child
+			end
+		end
+		button.InputBegan.fire({
+			UserInputType = engine.types.Enum.UserInputType.MouseButton1,
+			KeyCode = engine.types.Enum.KeyCode.Unknown,
+		})
+		engine.heartbeat.fire(0.9)
+		t.expect(value:peek()).toBe(3)
+		engine.heartbeat.fire(0.2)
+		t.expect(value:peek()).toBe(4)
+		stop()
+	end)
+
 	t.it("uses native Toggle text and reserved padding while retaining rich hints and live theme insets", function()
 		local label, rung = Compose.cell("Music"), Compose.cell("compact")
 		local node, stop, engine = world(function(UI)
@@ -2025,13 +2304,13 @@ t.describe("native input controls", function()
 		t.expect(node:FindFirstChildWhichIsA("UIListLayout", true)).toBe(nil)
 		t.expect(#node:GetDescendants()).toBe(5)
 		local padding = node:FindFirstChildWhichIsA("UIPadding")
-		t.expect(padding.PaddingLeft.Offset).toBe(46)
+		t.expect(padding.PaddingLeft.Offset).toBe(40)
 		t.expect(padding.PaddingRight.Offset).toBe(0)
-		t.expect(find(node, "Indicator").Position.X.Offset).toBe(-46)
+		t.expect(find(node, "Indicator").Position.X.Offset).toBe(-40)
 		label:set("Music and effects")
 		rung:set("large")
 		t.expect(node.Text).toBe("Music and effects")
-		t.expect(padding.PaddingLeft.Offset).toBe(46)
+		t.expect(padding.PaddingLeft.Offset).toBe(52)
 		stop()
 		local themes = require("../src/ui/themes")(Compose)
 		local package = themes.neutralPackage()
@@ -2105,7 +2384,8 @@ t.describe("native input controls", function()
 		t.expect(skin.Size).toBe(engine.types.UDim2.fromOffset(67, 44))
 		t.expect(skin.Position).toBe(engine.types.UDim2.fromOffset(6, 5))
 		t.expect(skin.AnchorPoint).toBe(engine.types.Vector2.new(1, 1))
-		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(53.3, 37))
+
+		t.expect(label.Size).toBe(engine.types.UDim2.fromOffset(54, 37))
 		t.expect(label.Size.Y.Offset).toBe(37)
 		t.expect(label.Position).toBe(engine.types.UDim2.fromOffset(1, 1))
 		padding.PaddingLeft = engine.types.UDim.new(0, 12)
@@ -2165,4 +2445,85 @@ t.describe("native input controls", function()
 		t.expect(skinBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 		t.expect(captionBoundary:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
+
+	t.it("a touch rating tightens its spacing to fit a fixed-width holder, such as a Table column", function()
+		local input
+		local root, stop, engine = world(function(UI, engine, runtime)
+			return runtime.constructors.Frame({
+				Name = "Column",
+				Size = engine.types.UDim2.fromOffset(144, 44),
+				UI.Rating "Stars" { value = Compose.cell(3) },
+			})
+		end, function(engine)
+			input = engine.new("UserInputService")
+			input.TouchEnabled = true
+			return { services = { UserInputService = input } }
+		end)
+		local V = engine.types.Vector2
+		local node = find(root, "Stars")
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
+		mark.AbsoluteSize = V.new(20, 20)
+		root.AbsoluteSize = V.new(144, 44)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 11)
+		mark.AbsoluteSize = V.new(40, 40)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		root.AbsoluteSize = V.new(800, 88)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		stop()
+	end)
+
+	t.it("a rating spaces its stars to the touch target when touch is the effective input", function()
+		local input
+		local node, stop, engine = world(function(UI)
+			return UI.Rating({ value = Compose.cell(3) })
+		end, function(engine)
+			input = engine.new("UserInputService")
+			return { services = { UserInputService = input } }
+		end)
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		input.GamepadEnabled = true
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		input.TouchEnabled = true
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		t.expect(find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(24)
+		input.MouseEnabled = true
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 24)
+		input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
+		stop()
+	end)
+	t.it(
+		"a touch level picker shrinks beside a sibling in a row and spaces its marks to the width it is drawn at",
+		function()
+			local input
+			local root, stop, engine = world(function(UI, engine, runtime)
+				return runtime.constructors.Frame({
+					Name = "Pair",
+					Size = engine.types.UDim2.fromOffset(337, 44),
+					UI.LevelPicker "Bars" { value = Compose.cell(2), count = 10 },
+				})
+			end, function(engine)
+				input = engine.new("UserInputService")
+				input.TouchEnabled = true
+				return { services = { UserInputService = input } }
+			end)
+			local V = engine.types.Vector2
+			local node = find(root, "Bars")
+			local flex = node:FindFirstChildWhichIsA("UIFlexItem")
+			t.expect(flex and flex.FlexMode).toBe(engine.types.Enum.UIFlexMode.Shrink)
+			local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
+			local spacing = find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout")
+			mark.AbsoluteSize = V.new(20, 20)
+			root.AbsoluteSize = V.new(337, 44)
+			t.expect(node.Size.X.Offset).toBe(10 * 20 + 9 * 15)
+			node.AbsoluteSize = V.new(10 * 20 + 9 * 15, 44)
+			t.expect(spacing.Padding.Offset).toBe(15)
+			node.AbsoluteSize = V.new(10 * 20 + 9 * 6, 44)
+			t.expect(spacing.Padding.Offset).toBe(6)
+			stop()
+		end
+	)
 end)

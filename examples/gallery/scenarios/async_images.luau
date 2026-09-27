@@ -30,12 +30,11 @@ return {
 		end
 		return {
 			screen = function()
-				return Host.ScrollingFrame "AsyncImages" {
+				return UI.ScrollView "AsyncImages" {
+					padding = 16,
+					gap = 12,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					CanvasSize = D2.new(),
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					Host.UIListLayout({ Padding = D.new(0, 12), SortOrder = E.SortOrder.LayoutOrder }),
 					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
 					UI.Text({
 						LayoutOrder = 2,

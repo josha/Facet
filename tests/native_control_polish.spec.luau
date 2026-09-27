@@ -300,6 +300,25 @@ t.describe("native segmented picker track", function()
 		end
 	end)
 
+	t.it("bounds segments in layout units under a scaled ancestor", function()
+		local w = world(function(UI)
+			return UI.Picker "P" {
+				style = "segmented",
+				label = "Mode",
+				selected = Compose.cell("easy"),
+				options = THREE,
+			}
+		end)
+		local row = find(w.screen, "P")
+		find(row, "Unit").AbsoluteSize = w.V2.new(1.25, 1.25)
+		row.AbsoluteSize = w.V2.new(375, 60)
+		local options = find(row, "Options")
+		local segment = find(options, "easy"):FindFirstChildWhichIsA("UISizeConstraint")
+		expect(segment.MaxSize.X).toBe(300 - 6)
+		expect(options:FindFirstChild("TargetFloor").MaxSize.X).toBe(300)
+		w.stop()
+	end)
+
 	t.it("a caller's fixed 44 point track keeps the segments inside it", function()
 		local w = world(function(UI, _, engine)
 			return UI.Picker "P" {
@@ -544,6 +563,43 @@ t.describe("native navigation stack paint", function()
 		w.step(60)
 		expect(detail.isDestroyed()).toBe(true)
 		expect(root.BackgroundTransparency).toBe(1)
+		w.stop()
+	end)
+	t.it("lets a fixed-width button's padding give way before its label vanishes", function()
+		local styleRules = require("./lib/style_rules")
+		local w = world(function(UI, _, engine)
+			return UI.Button "Key" {
+				label = "W",
+				Size = engine.types.UDim2.fromOffset(31, 44),
+				AutomaticSize = engine.types.Enum.AutomaticSize.None,
+			}
+		end)
+		local key = find(w.screen, "Key")
+		local sheet: any
+		w.runtime.mount(function()
+			sheet = themes.createStyleSheet(w.runtime, nil, { types = w.engine.types })
+			return sheet
+		end, w.engine.new("Folder"))
+		local function inset(): number
+			return styleRules.resolve(sheet, key, "PaddingLeft", "UIPadding").Offset
+		end
+		expect(inset()).toBe(12)
+		key.AbsoluteSize = w.V2.new(31, 44)
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(true)
+		expect(inset()).toBe(0)
+		key.TextFits = true
+		expect(key:HasTag("facet-button-tight")).toBe(true)
+		key.AbsoluteSize = w.V2.new(120, 44)
+		expect(key:HasTag("facet-button-tight")).toBe(false)
+		key.AbsoluteSize = w.V2.new(30, 44)
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(true)
+		key.AutomaticSize = w.E.AutomaticSize.X
+		expect(key:HasTag("facet-button-tight")).toBe(false)
+		key.TextFits = true
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(false)
 		w.stop()
 	end)
 end)

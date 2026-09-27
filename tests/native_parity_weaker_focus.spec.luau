@@ -979,7 +979,7 @@ t.describe("native parity weaker focus", function()
 					return item.id
 				end,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				itemSize = 20,
 				overscan = 0,
 				columns = { { id = "label", label = "Label" } },
@@ -1062,7 +1062,7 @@ t.describe("native parity weaker focus", function()
 					return item.id
 				end,
 				selection = selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				editing = editing,
 				rowActions = function()
 					return { trailing = { { id = "Remove", label = "Remove", role = "destructive" } } }
@@ -1242,6 +1242,7 @@ t.describe("native parity weaker focus", function()
 		t.expect(#contexts(world.screen, "DecreaseArrow")).toBe(1)
 		decrease.Pressed.fire()
 		t.expect(value:peek()).toBe(0)
+		decrease.Released.fire()
 		t.expect(decrease.Parent.Enabled).toBe(false)
 		t.expect(increase.Parent.Enabled).toBe(true)
 		t.expect(bumper.Parent.Enabled).toBe(true)
@@ -1288,10 +1289,13 @@ t.describe("native parity weaker focus", function()
 		end
 		t.expect(winner("Right").Name).toBe("IncreaseArrow")
 		t.expect(winner("Left").Name).toBe("DecreaseArrow")
-		winner("Right").Pressed.fire()
-		winner("Right").Pressed.fire()
+		local right = winner("Right")
+		right.Pressed.fire()
+		right.Released.fire()
+		right.Pressed.fire()
 		t.expect(rated:peek()).toBe(5)
-		t.expect(winner("Right").Name ~= "IncreaseArrow").toBe(true)
+		right.Released.fire()
+		t.expect(winner("Right")).toBeNil()
 		t.expect(winner("Down").Name).toBe("CollectionDown")
 		listWorld.stop()
 	end)
@@ -1332,7 +1336,7 @@ t.describe("native parity weaker focus", function()
 				if route == "back" then
 					action(target, "ModalBack").Pressed.fire()
 				else
-					find(panel, "Close").Activated.fire()
+					find(panel, "Done").Activated.fire()
 				end
 				t.expect(model.avatarSummary:peek()).toBe(false)
 				t.expect(find(target, "SheetPanel")).toBeNil()
@@ -1351,6 +1355,42 @@ t.describe("native parity weaker focus", function()
 		lifetime.dispose()
 		runtime:dispose()
 	end)
+
+	t.it(
+		"overlapping radials hold engine pad navigation off until the last closes, then restore the game's value",
+		function()
+			local a, b = Compose.cell(false), Compose.cell(false)
+			local function wheel(UI: any, opened: any): any
+				return UI.RadialMenu({
+					isPresented = opened,
+					launcher = false,
+					items = { { id = "North", label = "North", onSelect = function() end } },
+				})
+			end
+			local world = setup(function(UI, Host)
+				return Host.Frame({ wheel(UI, a), wheel(UI, b) })
+			end, { reducedMotion = true })
+			world.gui.GuiNavigationEnabled = true
+			a:set(true)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			b:set(true)
+			a:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			b:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(true)
+			world.gui.GuiNavigationEnabled = false
+			a:set(true)
+			a:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			world.gui.GuiNavigationEnabled = true
+			a:set(true)
+			world.gui.GuiNavigationEnabled = true
+			world.gui.GuiNavigationEnabled = false
+			a:set(false)
+			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
+			world.stop()
+		end
+	)
 
 	t.it("previews radial aim without committing and closes on semantic Back one level at a time", function()
 		local engine: any = engineLib.new()
@@ -1381,7 +1421,10 @@ t.describe("native parity weaker focus", function()
 				},
 			})
 		end, { reducedMotion = true })
+		world.gui.GuiNavigationEnabled = true
 		hold.Pressed.fire()
+
+		t.expect(world.gui.GuiNavigationEnabled).toBe(false)
 		local axis = action(world.screen, "RadialAim")
 		axis.StateChanged.fire(V2(world, 0, 0.9))
 		t.expect(world.gui.SelectedObject.Name).toBe("North")
@@ -1392,6 +1435,7 @@ t.describe("native parity weaker focus", function()
 		t.expect(keys(back)).toEqual({ "ButtonB", "Escape" })
 		back.Pressed.fire()
 		t.expect(opened:peek()).toBe(false)
+		t.expect(world.gui.GuiNavigationEnabled).toBe(true)
 		t.expect(closes).toBe(1)
 		t.expect(#picked).toBe(0)
 		hold.Released.fire()
@@ -1788,11 +1832,12 @@ t.describe("native parity weaker focus", function()
 		world.stop()
 	end)
 
-	t.it("cycles sheet detents from the selectable grabber for tap, mouse and gamepad activation", function()
-		local detent = Compose.cell("medium")
+	t.it("grows sheet detents from the selectable grabber and closes from the tallest on every input", function()
+		local detent = Compose.cell("peek")
+		local presented = Compose.cell(true)
 		local world = setup(function(UI)
 			return UI.Sheet({
-				isPresented = Compose.cell(true),
+				isPresented = presented,
 				detent = detent,
 				detents = { "medium", "large", { id = "peek", height = 160 } },
 				content = function()
@@ -1805,15 +1850,16 @@ t.describe("native parity weaker focus", function()
 		t.expect(grabber:IsA("GuiButton")).toBe(true)
 		t.expect(grabber.Selectable).toBe(true)
 		t.expect(grabber.Interactable).toBe(true)
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Peek")
 		world.gui.SelectedObject = grabber
 		t.expect(world.gui.SelectedObject).toBe(grabber)
 		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Touch })
-		t.expect(detent:peek()).toBe("large")
-		grabber.Activated.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
-		t.expect(detent:peek()).toBe("peek")
-		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
 		t.expect(detent:peek()).toBe("medium")
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.MouseButton1 })
+		t.expect(detent:peek()).toBe("large")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
+		grabber.Activated.fire({ UserInputType = Enum.UserInputType.Gamepad1, KeyCode = Enum.KeyCode.ButtonA })
+		t.expect(presented:peek()).toBe(false)
 		world.stop()
 		local single = setup(function(UI)
 			return UI.Sheet({
@@ -1825,8 +1871,63 @@ t.describe("native parity weaker focus", function()
 				end,
 			})
 		end)
-		t.expect(find(single.screen, "Grabber").Selectable).toBe(false)
+		t.expect(find(single.screen, "Grabber").Selectable).toBe(true)
+		t.expect(find(single.screen, "Grabber"):GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		single.stop()
+	end)
+
+	t.it("a pad-selected grabber leaves A to the button: its drag detector stands down", function()
+		local input
+		local world = setup(function(UI)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = Compose.cell("medium"),
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end, {
+			prepare = function(_, service)
+				input = service
+			end,
+		})
+		local Enum = world.engine.types.Enum
+		local grabber = find(world.screen, "Grabber")
+		local detector = grabber:FindFirstChildWhichIsA("UIDragDetector")
+		t.expect(detector.Enabled).toBe(true)
+		input.PreferredInput = Enum.PreferredInput.Gamepad
+		world.gui.SelectedObject = find(world.screen, "Inside")
+		t.expect(detector.Enabled).toBe(true)
+		world.gui.SelectedObject = grabber
+		t.expect(detector.Enabled).toBe(false)
+		world.gui.SelectedObject = nil
+		t.expect(detector.Enabled).toBe(true)
+		world.stop()
+	end)
+
+	t.it("resizes a selected sheet grabber with Left and Right, as the pre-0.12 Adjust did", function()
+		local detent = Compose.cell("peek")
+		local world = setup(function(UI)
+			return UI.Sheet({
+				isPresented = Compose.cell(true),
+				detent = detent,
+				detents = { "medium", "large", { id = "peek", height = 160 } },
+				content = function()
+					return UI.Button({ label = "Inside" })
+				end,
+			})
+		end)
+		world.gui.SelectedObject = find(world.screen, "Grabber")
+		action(world.screen, "IncreaseArrow").Pressed.fire()
+		t.expect(detent:peek()).toBe("medium")
+		action(world.screen, "IncreaseArrow").Released.fire()
+		action(world.screen, "IncreaseArrow").Pressed.fire()
+		t.expect(detent:peek()).toBe("large")
+		action(world.screen, "IncreaseArrow").Released.fire()
+		t.expect(action(world.screen, "IncreaseArrow")).toBeNil()
+		action(world.screen, "DecreaseArrow").Pressed.fire()
+		t.expect(detent:peek()).toBe("medium")
+		world.stop()
 	end)
 
 	t.it("retakes the modal entry when the engine refuses it before the panel is laid out", function()

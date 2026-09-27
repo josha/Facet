@@ -17,8 +17,10 @@ and styling. This reference describes the `0.12.0` surface.
 | `COMPOSE_COMMIT` | The full Compose commit of the pinned copy. The Facet tests use this commit. |
 | `civilDate` | Calendar arithmetic, words and fixed-offset instants for civil dates. See [Civil dates](#civil-dates). |
 | `adaptive` | Pure size, height, orientation, axis and column decisions. See [Adaptive environment](#adaptive-environment). |
+| `gamepadContention` | Probes and the one remedy for the legacy player scripts that hold ButtonA, the arrow keys and Tab. See [Facet.gamepadContention](#facetgamepadcontention). |
 | `pathShapes` | Normalized arc, ring and needle points for `UI.Path`. See [Path shapes](#path-shapes). |
 | `richText` | `escape` for player and server text inside rich text. See [Text](#text). |
+| `inputPriority` | `{ belowControls, aboveFacet }`: `InputContext.Priority` values just below and just above every input context Facet creates. A game shortcut at `belowControls` loses to any selected Facet control; one at `aboveFacet` wins over all of them. |
 | `recipes` | Opt-in helpers. `recipes.arithmetic.parse` is a bounded arithmetic parser for a number field. See [Recipes](#recipes). |
 | `bind(Compose, Roblox)` | Returns a Facet table whose `controls` and `themes` use the Compose core module and the Compose Roblox module that you give. See [Your own Compose](#your-own-compose). |
 
@@ -81,7 +83,10 @@ The app has these fields:
 |---|---|
 | `runtime` | `options.runtime`, or a new runtime from `Facet.Roblox.createRuntime()`. |
 | `UI` | `Facet.controls(runtime, options)`. |
-| `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. It returns the stop function and the ScreenGui. |
+| `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. In a PlayerGui it also mounts `UI.focusRing(playerGui)` (see [environment](#environment)). It returns the stop function and the ScreenGui. |
+| `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
+| `presentToast(component, options?)` | Shows `component(app.UI)` as a `UI.Toast` in the app's shared toast ScreenGui and returns `{ id, dismiss() }`. See [Toast](#toast). |
+| `presentAnchored(component, options)` | Shows `component(app.UI)` in a `UI.Popover` against `options.source` (`{ node }` or `{ rect }`), in its own ScreenGui from `mount`. `options` takes the Popover placement keys (`edge`, `align`, `gap`, `crossOffset`, `tail`, `maxWidth`, `maxHeight`), `modal`, `cancelPolicy` and `onDismiss`. The panel is always anchored, never a sheet. It returns `close, screen`. A dismissal (Cancel, an outside tap, a lost source node) or `close()` reports `onDismiss` once and stops the mount. Use it for a coach mark or a custom anchored panel that no control owns. |
 | `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |
 
 `AppOptions` accepts every `controls` option (see [Factory options](#factory-options))
@@ -213,18 +218,43 @@ document their own write-then-notify behavior below.
 `controls` accepts these options:
 
 - `theme`: a theme package or a readable of one. The controls use it for
-  metrics, artwork and icon resolution.
+  metrics, artwork and icon resolution. At ten feet (`adaptive.isTenFoot`)
+  they use `themes.forDistance(theme, "ten-foot")`, so every metric length,
+  the 44 pixel hit floor (66) and the control heights are 1.5 times. A
+  readable `environment` preview of the distance, the display size or the
+  pointer makes the ladder follow a change at once. Without one, the controls
+  take the distance when `Facet.controls` runs. `Screen` overscan follows the
+  live fact.
 - `reducedMotion` and `icons`: these can also be reactive. Control motion also
   follows `GuiService.ReducedMotionEnabled`. Motion is reduced when either one
   is true.
-- `pressHaptic`: a native `HapticEffect`. Only a control that changes a state
-  or a value plays it. See [Haptics](#haptics).
+- `pressHaptic`: a native `HapticEffect` or a feedback kind (`"selection"`,
+  `"impact"`, `"success"`, `"warning"` or `"error"`). Only a control that
+  changes a state or a value plays it. See [Haptics](#haptics).
 - `controlSize`: the control-size step (`xsmall`, `compact`, `regular` or
   `large`) for theme icons.
 - `onError`: receives a failure from the content of a presented Alert or
   Sheet, which then dismisses, and a failure from a Callout `onShow`. It also
   receives a failure that an `ErrorBoundary` without its own `onError`
   contains.
+- `environment`: a preview of the device facts. Each field is a value or a
+  readable. `nil` follows the engine. `preferredInput` (a `PreferredInput` or
+  its name), `touchEnabled`, `mouseEnabled`, `gamepadEnabled` and
+  `keyboardEnabled` replace the `UserInputService` facts that every control
+  reads. `preferredTextSize` and `displaySize` (a `PreferredTextSize` or a
+  `DisplaySize`, or its name) replace the `GuiService` facts. `viewportSize`
+  replaces the camera viewport of `UI.environment()` without a source. Use it
+  for a preview in a catalog or a gallery. The engine input still arrives:
+  a mouse click still works in a touch preview. `viewingDistance`
+  (`"automatic"`, `"near"` or `"ten-foot"`) is the authored viewing context:
+  `"ten-foot"` makes a lounge PC with a mouse a television, and `"near"` keeps
+  a console near. It outranks every inference. `overscanInsets`
+  (`{ top, left, bottom, right }` in pixels, or `"none"`) replaces the default
+  ten-foot margins. An unknown field or value causes an error.
+- `keyboardNavigation`: `true` (the default) binds Tab traversal and Space
+  next to Return on a selected Button. `false` binds neither: Return still
+  activates. Use `false` for an app whose keys belong to the game (see
+  [Selection](#selection) and [responder](#responder)).
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. A callout and a help
   plate place themselves inside `overlayParent` when you set it.
@@ -240,16 +270,25 @@ cannot be interacted with, and the selection never stays on it.
 | NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent to the leading edge and dims. Critically damped spring with a 0.3 second period, visually complete in approximately 0.35 seconds. | Pop is the reverse. |
 | TabView page change | Crossfade, 0.2 seconds, Quad Out. | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds, Cubic Out. A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds. |
-| Alert, Dialog, CollapsibleView | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
-| Callout, Button `help`, Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| Alert, Dialog | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
+| Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
+| Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
-| Snackbar | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
+| Toast with an action | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
 | DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
+| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
 | RadialMenu slot | A slot that enters an open ring fades in and moves from 30 percent of the distance toward its origin to its position, 0.16 seconds. The origin is the parent item for a branch and the center for other slots. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
 
+- A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
+  the faded node's children. When the fade ends, the children move back and
+  the group is removed, so settled text and art are never rasterised. A
+  `UIGradient` named `FadePaint` fades the node's own paint. A new group
+  draws one frame almost transparent before the fade shows it, and the node's
+  own paint waits for that frame, so the panel and its text appear together.
 - Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
   all of this motion. The change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer
@@ -265,7 +304,7 @@ cannot be interacted with, and the selection never stays on it.
 
 ### Modal input
 
-Dialog, Alert, Sheet, Popover, Menu, CollapsibleView and the other modal
+Dialog, Alert, Sheet, Popover, Menu and the other modal
 surfaces put an Active full-screen root and an Active scrim button over the
 layer. Thus a press, a tap or a drag under the modal does not reach the
 content below.
@@ -301,8 +340,28 @@ each ScrollingFrame in the same LayerCollector that is outside the top modal:
 
 A plain Button, a tab, a menu row, a keyboard key and a link do not play it.
 Set `haptic = true` on a Button to play `pressHaptic` for a game-specific
-action. `haptic` can be a readable. An explicit `PressHapticEffect` always
+action. `true` is the shorthand for `pressHaptic`. `haptic` also takes a
+feedback kind, which plays that kind whether or not `pressHaptic` is set.
+`haptic` can be a readable of either. An explicit `PressHapticEffect` always
 wins.
+
+The feedback kinds map to one engine `HapticEffect` each. The controls create
+each effect once, when a control or `UI.feedback` first asks for it, and
+parent it to the Workspace. The engine plays the press effect through
+`GuiButton.PressHapticEffect`.
+
+| Kind | Engine effect | Use it for |
+|---|---|---|
+| `selection` | `UIClick` preset | a choice that changes |
+| `impact` | `GameplayCollision` preset | a heavy press, a hit or a landing |
+| `success` | `UINotification` preset | a completed task |
+| `warning` | `Custom`: two pulses of 0.7 | a choice with a cost |
+| `error` | `Custom`: three pulses of 1 | a refused action |
+
+`UI.feedback(kind)` plays a kind at once, for a result that does not come from
+a press, such as a purchase that the server confirms. An unknown kind causes
+an error that lists the kinds. Studio plays no motor; a phone or a gamepad on
+a supported client feels it.
 
 The `theme` option of `controls` does not install paint. Parent a
 `createStyleSheet` result and its StyleLink in the native tree, with the same
@@ -319,11 +378,33 @@ these rules:
 - Entry. When nothing is selected, the first D-pad press selects the first
   control of the active screen in layout order. An open modal is the active
   screen. The press does not move a selection that already exists.
-- Tab and Shift+Tab. Tab selects the next control in layout order.
+- Presentation. A modal presented while a control is selected, or while a
+  gamepad is the preferred input, selects its first control. It waits until
+  the surface is shown, so it never selects a hidden control.
+- Tab and Shift+Tab. Tab selects the next control in layout order. In a
+  collection that is row order (each row's `LayoutOrder` is its index), even
+  after scrolling has recycled the row containers.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
   stays inside an open modal. It skips hidden, disabled and removed controls.
-  The `FacetTraversal` input context is a child of `inputParent`, or of the
-  local `PlayerGui` when you do not set `inputParent`.
+  The native `SelectionOrder` of a control is its traversal tier: a lower
+  value comes first, and within a tier layout order wins (the `tabindex`
+  model). The `FacetTraversal` input context is a child of `inputParent`, or
+  of the local `PlayerGui` when you do not set `inputParent`. It is enabled
+  only while `UserInputService.KeyboardEnabled` is true, so a phone binds
+  nothing. The factory option `keyboardNavigation = false` disables it for a
+  HUD over live gameplay, where Tab belongs to the game. A passive
+  [responder](#responder) binds it only while it is engaged, and one with
+  `traversalWrap = false` stops the walk at its ends.
+- Grids and lanes. The engine walks a grid in two dimensions. Use the native
+  properties for the rest: `SelectionGroup = true` on a container keeps the
+  arrows inside it, and `SelectionBehaviorUp`, `Down`, `Left` and `Right`
+  (`Stop` or `Escape`) choose per direction whether the arrows may leave it.
+  `NextSelectionUp`, `Down`, `Left` and `Right` name an explicit neighbour.
+  A `UI.Grid` whose last line is short sets `NextSelectionDown` (`Right` for
+  `flow = "column"`) on the cells of the line before it that have no cell
+  below, so the move lands on the last cell. A neighbour that you set wins.
+  `UI.focusSection` chooses where the selection lands when it enters a
+  region.
 - Removal. When the selected control goes away, the selection moves to the
   nearest control that remains. A following control comes before a
   preceding control. A collection keeps the selection on its rows by key: it
@@ -351,9 +432,10 @@ of its root, and a native property that you set replaces the default value.
 
 Write the children as dense numeric children. The container sets the
 `LayoutOrder` of each child to its position in the list. Nodes that a
-`Compose.show` or `Compose.keyed` child adds get the position of that child.
-Nodes in one keyed child share that position. Set `LayoutOrder` in the row
-when their order is important.
+`Compose.show` or `Compose.keyed` child adds sit at the position of that child,
+in the directive's own order: a keyed child keeps its rows in list order. A
+`LayoutOrder` that you set in a row orders it within that child. When the list
+has such a child, the positions are spaced by 65536 (position 2 is 131072).
 
 ```luau
 local sound = Compose.cell(true)
@@ -402,8 +484,21 @@ return UI.Screen "Settings" {
 `UI.Screen(spec) -> Frame` is the root of a screen. It fills its parent
 (`width` and `height` are `"fill"`) and stacks its children vertically. It has
 `padding = "m"` by default. The ScreenGui `ScreenInsets` property keeps the
-screen inside the device safe area. Options: `gap`, `padding`, `align`,
-`distribute`, `width` and `height`.
+screen inside the device safe area. The content never sits under the engine top
+bar: when the screen reaches into the `GuiService.TopbarInset` band, the covered
+height is added to the top padding. This holds with `IgnoreGuiInset` on or off.
+The band covers the full width, as `CoreUISafeInsets` does. The background of
+the screen still fills its parent. A Screen in a SurfaceGui takes no top bar
+padding. At ten feet the Screen also adds the environment's `overscanInsets`
+(see [environment](#environment)). Options: `gap`, `padding`, `align`,
+`distribute`, `width`, `height` and `chrome`.
+
+`chrome` is the platform-chrome policy. `"device"` (the default) clears the
+device safe area, the top bar and the overscan. `"band"` lets the content ride
+the free strip of the top bar beside the engine's buttons (a game's own top
+row): no top bar padding, overscan kept. `"edge"` adds neither; pair it with
+`ScreenInsets = Enum.ScreenInsets.None` on the ScreenGui for art that reaches
+the glass. Your own persistent chrome is `padding`.
 
 ### VStack and HStack
 
@@ -428,7 +523,12 @@ that axis, so the stack keeps its size. Options: `padding`,
 parent by default. It contains a `UIListLayout` and sets `AutomaticCanvasSize`
 and `ScrollingDirection` for its axis. Thus the content fits the scroll window
 beside the scroll bar. `axis` is `"y"` (the default), `"x"` or `"xy"`. The
-`"x"` axis stacks the children horizontally. Options: `axis`, `gap`, `padding`,
+`"x"` axis stacks the children horizontally and, unless you give a `height`,
+hugs their height, so a row of chips never clips when they grow at ten feet.
+When a child passed in the props has a Scale height (`height = "fill"`), the
+ScrollView fills its parent's height instead, as before, because a hugging
+frame would give that child no height.
+Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 
 ### scrollTo and scrollToVisible
@@ -468,6 +568,174 @@ horizontally. The grid fills the width and hugs the height by default.
 The grid keeps `columns` columns and sets the rows from the number of children,
 so a new child moves the others to keep the columns even. The default is
 `flow = "row"`.
+
+### AdaptiveStack
+
+`UI.AdaptiveStack(spec) -> Frame` is a stack that changes its axis. The
+children stay mounted when it turns, so they keep their state, focus and
+scroll position. Options: `axis`, `gap`, `padding`, `align`, `distribute`,
+`width` and `height`. The props type is `AdaptiveStackProps`.
+
+- `axis` is `"x"` or `"y"` and can be bound. The stack then turns when the
+  value changes. Any other value causes an error.
+- Without `axis`, the stack is a row while the row fits its width and a column
+  when it does not. It fills the width and hugs the height by default.
+- The row width is the `AbsoluteContentSize` of its `UIListLayout` while it is
+  a row. As a column it adds the widths of the visible children and the gaps.
+  A child with a `UIFlexItem` or a scale width, such as a `Divider`, counts
+  as no width.
+- When a column turns into a row that does not fit, it turns back and stays a
+  column until its width or its children change. So the stack never flips on
+  every frame.
+- With `align = "stretch"` a column keeps the row width that it last measured,
+  because stretched children fill the column. It measures the row again when a
+  child is added or removed.
+- The stack compares against its width inside its `padding`. Directly in a
+  `ScrollView` that scrolls horizontally, the width is unbounded and the stack
+  stays a row.
+- `align` stays on the cross axis and `distribute` on the main axis when the
+  stack turns. `Divider` and `Spacer` children turn with it.
+
+```luau
+UI.AdaptiveStack "Actions" { gap = "s", save, cancel, help }
+```
+
+### ViewThatFits
+
+`UI.ViewThatFits(spec) -> Frame` shows the first child that fits and hides the
+others. Each child is a candidate, in order of preference. The last candidate
+shows when none fits. It needs at least one candidate. Options: `width` and
+`height`. The props type is `ViewThatFitsProps`.
+
+- A candidate fits when its `AbsoluteSize` is not larger than the size of the
+  container. Roblox measures every candidate, also a hidden one. Facet only
+  sets `Visible`.
+- Give the candidates a `hug` or a pixel width. A candidate that fills the
+  width always fits.
+- The container fills the width and hugs the height by default. An axis that
+  hugs is unbounded, so only the width is tested. With a bounded `height`, the
+  height is tested too. Directly in a `ScrollView`, the scroll axis is
+  unbounded and the first candidate shows.
+
+```luau
+UI.ViewThatFits "Actions" {
+    UI.HStack { gap = "s", save, cancel, help },
+    UI.VStack { gap = "xs", save, cancel, help },
+}
+```
+
+### Composition and Region
+
+`UI.Composition(spec) -> Frame` places ranked regions at the edges and
+corners of the screen, as a game HUD does. `UI.Region(spec) -> Frame` is one
+of those regions. Put the composition in a ScreenGui, or in any Frame that
+covers the area to use. It fills its parent. The ScreenGui `ScreenInsets`
+keeps it inside the device safe area. When the composition reaches into the
+`GuiService.TopbarInset` band, it adds the covered height to its top padding,
+as `Screen` does.
+
+```luau
+local hidden = Compose.cell(1)
+return UI.Composition "Hud" {
+	UI.Region "Score" { zone = "top", rank = 1, UI.Text { text = "12 : 9" } },
+	UI.Region "Tasks" {
+		zone = "left",
+		rank = 3,
+		mayDrop = true,
+		form = hidden,
+		UI.Text { text = "Win a round, land 25 hits" },
+		UI.Button { label = "Tasks 1/2" },
+	},
+	UI.Region "Objective" { zone = "topbar", rank = 2, UI.Text { text = "Round 3" } },
+}
+```
+
+Composition options:
+
+- `gap`: the space between the regions of one zone, between the three lanes
+  and between the zones of one lane. The default is `s`.
+- `padding`: the space inside the edges. The default is `s`.
+- `topbar`: a boolean or a readable. The default is `true`. See `topbar` below.
+- The children are `UI.Region` nodes. A `UI.fill()` child is also allowed, so
+  the composition can take the free height of a stack.
+
+Region options:
+
+- `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
+  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
+- `rank` is required: a whole number, 1 or more. Rank 1 is the most
+  important region.
+- `mayDrop`: when `true`, the region can hide completely after its last form.
+- `form`: a writable cell. The composition writes the index of the form that
+  shows, or 0 when the region is hidden. Read it to offer the hidden content in
+  another place, such as a sheet.
+- `reveal`: a boolean, default `true`. While the region shows a reduced form,
+  a tap, click or `A` on that form opens the richest form in a Popover
+  anchored at the region (`compact = "popover"`, so a phone keeps it in
+  context too). The target is a transparent button under the forms, at least
+  the hit floor in size, so a control inside a reduced form keeps its own
+  press. A region with `mayDrop` steps to one more form before it hides: a
+  small `Reveal` badge with a "…" icon in the same place, which opens the same
+  Popover. The Popover hosts the region's own form 1 node, so its state and
+  selection carry over, and puts it back when it closes or the region returns
+  to its richest form. When not even the badge fits, the region hides and the
+  zone shows one `ZoneReveal<Zone>` "…" button beside the zone, outside its
+  list flow and at least the hit floor in size, while any of its regions is
+  hidden. It opens one Popover that hosts each hidden region's own form 1
+  node. `false` turns the affordance and the badges off, for a region whose
+  reduced forms lose nothing. The badge is the last form, so
+  `form` reads one past the authored forms while it shows.
+- `expand`: an optional function that returns content for the Popover in
+  place of the region's own form 1.
+- The children are the forms of the region, richest first. At least one form
+  is necessary. Give each form a pixel or `hug` size. A form that fills its
+  parent has no size of its own.
+
+Layout:
+
+- A zone is a native Frame with an `AnchorPoint` and a scale `Position` at
+  its edge or corner. It hugs its regions and stacks them
+  in declaration order with a `UIListLayout`.
+- The screen has three lanes of equal width: left, center and right. Each lane
+  reserves its third. An empty lane does not give its width to the others, so
+  a zone stays at its edge.
+- A zone must fit the width of its lane. The zones of one lane must not
+  overlap vertically. The `center` zone stays centred and keeps `gap` from the
+  zones above and below it.
+
+Step-down:
+
+- Every form stays mounted in its own `Form<n>` Frame. Roblox measures each
+  form, also a hidden one. Only the Frame of the chosen form is visible, so a
+  form keeps its own `Visible`. The region has the `FacetForm` attribute.
+- When a lane does not fit, the region with the highest rank in the zones
+  that do not fit shows its next form. After its last form, a region with
+  `mayDrop` hides. With equal ranks, the later region gives way first.
+- When a zone is too wide, only its regions that are wider than the lane give
+  way. A narrow region cannot make the zone narrower.
+- The composition repeats this until every lane fits or no region can give
+  way. It never scales content down.
+- The decision uses only the measured sizes and the size of the composition.
+  Thus a rotation, a resize or a text size change gives the same forms as a
+  new mount of the same size.
+- When the size of the composition changes, for example on a rotation, a
+  region that changes form scales from 0.94 to 1 in 0.15 seconds, Cubic
+  Out, from the edge of its zone. The first layout after a mount does not
+  move. Its measurement holds until the motion ends,
+  so the motion cannot change the decision. Reduced motion removes the motion.
+
+`topbar`:
+
+- A region with `zone = "topbar"` goes into the free strip of the Roblox top
+  bar, level with the Roblox buttons. The composition puts these regions in a
+  second ScreenGui with `ScreenInsets = TopbarSafeInsets`, in the parent of its
+  own ScreenGui. That ScreenGui has the same `DisplayOrder`, follows the
+  `Enabled` of the host and links the same StyleSheet. The regions stack
+  horizontally centred in the strip, and they step down when the strip is too
+  small.
+- When `topbar` is `false`, when `GuiService.TopbarInset` has no width, or
+  when the composition is not in a ScreenGui, these regions come first in the
+  `top` zone.
 
 ### fill
 
@@ -533,8 +801,13 @@ hard error.
 ### Button
 
 `label`, `onActivate`, `enabled`, `disabled` and `busy` define the action. A
-disabled or busy button cannot activate. The optional `repeatDelay` and
-`repeatInterval` have the defaults `0.4` and `0.1` seconds. `shortcut` supplies
+disabled or busy button cannot activate. With `repeatDelay` or
+`repeatInterval` (the defaults are `0.4` and `0.1` seconds), a held button
+activates again after `repeatDelay` and then every `repeatInterval`, for a
+mouse, a touch, Return, Space or ButtonA. The repeat follows the frame clock
+only while the button is held, and it stops on release, when the pointer
+leaves, and when the button is disabled or hidden. The Stepper buttons and the
+NumberInput `stepButtons` repeat in this way. `shortcut` supplies
 a key code and optional modifiers. `dialogAction` is `default` or `cancel`.
 
 A Button keeps the height of its `controlSize` when its `Size` has no height
@@ -548,7 +821,19 @@ Presentation options:
   light plate on a dark theme, and a dark plate on a light theme. It uses the
   `inverseSurface` and `onInverse` colors of the palette. Without them it uses
   `contentStrong` with `surface` text. The button has the
-  `facet-appearance-inverse` tag.
+  `facet-appearance-inverse` tag. A `utility` or `link` Button has no plate:
+  a theme's `control` chrome art paints only the other appearances. A Button
+  whose `BackgroundTransparency` is 1 has no plate art either, so a
+  transparent hit target never covers the content beneath it.
+  A destructive or `emphasis` Button keeps its role on skinned art. When the
+  label (`onDanger` or `onAccent`) is lighter than the fill (`danger` or
+  `accent`), the art is tinted with the fill. When `onAccent` is darker than
+  `accent` in any palette and the `control` slot has `selected` art, every
+  `emphasis` plate of that package shows the selected art with an
+  `onSelected` label instead (Pixel Quest, Fantasy Ornate, Fantasy Parchment).
+  Only a package without selected art falls back to the flat fill, so the
+  label always meets its palette contrast. Skin images have the
+  `facet-skin-art` tag.
 - `controlSize`: `xsmall`, `compact`, `regular` or `large`. `xsmall` is one
   step below `compact` unless the theme package declares
   `metrics.controlSizes.xsmall`. With the neutral values it is 28 pixels high,
@@ -559,8 +844,11 @@ Presentation options:
   player can still tap it. On a mouse-only device an `xsmall` button stays a
   28 pixel target. Use `xsmall` for dense pointer rows. A named step adds the `facet-size-<step>` tag. The theme
   StyleSheet then sets the left and right padding to
-  `controlSizes.<step>.paddingX`, or to the larger chrome inset. Without
-  `controlSize`, the button has no size tag and keeps the padding of 12.
+  `controlSizes.<step>.paddingX`. Without `controlSize`, the button has no
+  size tag and keeps the padding of 12. On skinned `control` art, the art's
+  carve (`chrome.control.contentInsets`) is added to that padding on each
+  side, so the label and a Menu or Picker disclosure icon sit inside the
+  frame. A framed TextInput adds the `field` carve the same way.
 - `textSize`: a type role (`caption`, `label`, `body`, `heading`, `title`,
   `control`, `strong` or `numeral`) or a number of pixels, or a readable of
   one. A role adds the `facet-type-<role>` tag to the label, and a number sets
@@ -577,26 +865,39 @@ Presentation options:
   only keeps that axis and matches the other axis to it.
 - `icon` and `trailingIcon`.
 - `image`, `imageAspectRatio` (default `16/9`) and `imageFraming` (`fit` or
-  `crop`).
+  `crop`). An image button is 240 pixels wide by default. Its height hugs the
+  image and the text. The image fills the width at `imageAspectRatio`, sits
+  flush with the top edge and follows the top corners of the plate. The text
+  keeps the button side insets and a bottom inset. With an authored fixed
+  height, the image fits the space the text leaves at `imageAspectRatio` and
+  is centered in it (a native `UIAspectRatioConstraint`, `FitWithinMaxSize`).
 - `subtitle` and `row = { title, description, value, icon }`. A row button
   fills its width. It shows `icon` on the leading edge, the title and the
   description, and `value` as secondary text on the trailing edge. When the
   button has `onActivate` and no `trailingIcon`, it also shows a disclosure
   chevron. `value` and `icon` are static strings. `hint` shows as a second
-  line of text below the label.
+  line of text below the label. See [Settings rows](#settings-rows).
 - `haptic`: a boolean or a readable. When it is true, the button plays the
   `pressHaptic` of the controls. The default is false. See [Haptics](#haptics).
 - `help`: one sentence that describes the action. It shows in a small panel
-  when a pointer rests on the button for 0.45 seconds, or when a gamepad
-  selects the button. It does not show on touch, so do not put information in
-  `help` that is available nowhere else. `help` can also be a table
+  when a pointer rests on the button for 0.45 seconds, when a keyboard or a
+  gamepad selection rests on the button for 0.45 seconds, or at once when a
+  touch player long-presses the button. The release of that long-press does
+  not activate the button, and the next touch anywhere closes the panel. So
+  every input can open every help. `help` can also be a table
   `{ title?, body, shortcut?, edge?, align? }`. `title` shows above the body.
   `body` can be empty only when `title` has the words. `shortcut` is a list of
   key chords such as `{ { "Ctrl", "K" }, { "F1" } }`. It is display text only
   and binds no key. `edge` (`top`, `bottom`, `leading` or `trailing`) and
   `align` (`start`, `center` or `end`) place the panel against the button. The
-  panel uses the anchored placement of `UI.Popover`. A malformed table stops
+  panel uses the anchored placement of `UI.Popover`. The body fits its text
+  up to 264 pixels wide and then wraps. A malformed table stops
   with an error that names `help`.
+- `disclose`: `true` lets a player read the whole label of a text Button
+  that truncates. With an authored width the label keeps one line and
+  truncates at the end instead of wrapping. The label shows in the help panel (named `Disclosure`) on the
+  same routes as `help`, only while the engine reports that the text does not
+  fit (`TextFits`). While it shows, `help` waits: the full value comes first.
 - `compactLabel`: an alternative string or readable. The button uses it when a
   plain text button cannot fit its full label. It does not apply to icon, image
   or subtitle buttons.
@@ -604,6 +905,17 @@ Presentation options:
 The pointer callbacks are `onPointerDown`, `onPointerUp` and `onPointerCancel`.
 Each callback works alone. `onPointerCancel` runs when a held pointer leaves
 the button.
+
+A text Button with a bounded width truncates its label at the end when the
+label does not fit its box. A Button whose width follows its label does not
+truncate. A text Button or Toggle with an authored `Size` that has a width, and no
+authored `AutomaticSize`, wraps its label inside that width and grows in
+height. With an authored `TextTruncate` other than `None`, it keeps one line
+and truncates instead. An icon Button with an authored width (and no image,
+row, subtitle or hint) keeps that width, and its label truncates at the end.
+An authored width never leaves less than one `control` em for the label inside
+the padding and the theme carve: the Button grows to that minimum.
+Without an authored width, it hugs its label.
 
 ### Toggle
 
@@ -616,6 +928,10 @@ icon size of the rung plus the `xs` space. Without `controlSize` the box is 24
 pixels. The label, row, hint, enabled and common button styling
 options apply.
 
+`controlSize` also sizes the switch. The track is the rung `iconSize` plus 4
+pixels high, its width scales 38 by 24 to that height, and the knob is 6 pixels
+smaller than the track. Without `controlSize`, the switch is 38 by 24 pixels.
+
 A switch or checkbox Toggle paints no plate and takes no `control` art from a
 theme package. A settings row (a Toggle with `row`, `hint` or `icon`) has the
 `facet-toggle-settings` tag. Its horizontal padding is the padding of a
@@ -626,7 +942,9 @@ Button row starts.
 
 The checked mark of a switch and a checkbox uses the `selection` color of the
 palette, and its knob or tick uses `onSelection`. Without them, it uses
-`accent` and `onAccent`.
+`accent` and `onAccent`. An off switch's knob also uses `onSelection`
+when it has at least 3:1 contrast on the `control` track. Otherwise the
+knob uses `content`, so the off switch stays visible.
 
 `appearance = "plain"` makes a switch or checkbox a bare row. The row does not
 get the `facet-selected` tag, so only the mark shows the state. The row has the
@@ -634,6 +952,11 @@ get the `facet-selected` tag, so only the mark shows the state. The row has the
 toolbar. The `button` presentation refuses `plain`, because its plate shows the
 state. `textSize` is a type role or a number of pixels for the label, as on
 Button. The default is the `control` role.
+
+`disclose = true` lets a player read the whole label of a Toggle whose label
+truncates, as on Button: the label shows in the `Disclosure` panel while the
+engine reports that the painted label does not fit (`TextFits` of the label
+itself on a settings row). Without `disclose` the Toggle shows no panel.
 
 ### TextInput
 
@@ -653,6 +976,12 @@ during a commit, the commit stops. `numericValue` does not change and
 The other options are `placeholder`, `multiline`, `invalid`, `enabled`,
 `disabled`, `clearButton` and `clearButtonMode` (`never`, `always`,
 `whileEditing` or `unlessEditing`). Native TextBox properties stay available.
+The placeholder uses the `contentSecondary` colour of the theme. A
+TextInput without field chrome (no `label`, `hint` or other chrome option) is
+the TextBox itself, so it keeps the flat `facet-field` plate in a skinned
+theme. A framed TextInput shows the `field` art on its `Input` plate.
+The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
+`close` icon and no text. Its accessible name is "Clear".
 
 - `readOnly`: a boolean or a readable boolean. A read-only field stays
   selectable, keeps full contrast and can take focus. `TextEditable` is false,
@@ -793,7 +1122,10 @@ UI.ColorPicker "KartPaint" {
 - `alpha` and `onAlphaChange(alpha)`: an opacity from 0 to 1. They add the
   `Opacity` slider, and the text becomes `#RRGGBBAA`.
 - `modes`: the techniques in tab order. Each is `swatches`, `spectrum`,
-  `sliders` or `brick`. The default is the first three. Set it at construction.
+  `sliders` or `brick`. The default is all four. Without `BrickColor` in the
+  controls' `types`, the default is the first three. Set it at construction.
+  With `brick`, a colour that is a BrickColor is named by that brick, for
+  example "Kart paint, Really red".
 - `swatches`: a list of Color3 values or `{ color, label? }` items, or a
   readable of one. The label or the hex text is the key of an item. Without
   it, the control shows a generated grid of 48 colours.
@@ -844,7 +1176,8 @@ takes the larger side, and its `Body` ScrollingFrame scrolls. The panel never
 covers the well. On a touch screen narrower than 600 pixels, the panel is a
 sheet at the bottom of the screen with a Done button. On a ten-foot screen,
 the panel is a sheet at the center of the screen. The `placement` attribute is
-`bottom`, `top`, `right`, `left`, `sheet` or `center`.
+`bottom`, `top`, `right`, `left`, `sheet` or `center`. A skinned theme's panel `contentInsets` pad the panel,
+and the panel grows by them, so the grid keeps 8 columns inside the art.
 
 The panel holds these parts in order:
 
@@ -852,22 +1185,32 @@ The panel holds these parts in order:
    more modes.
 2. `Body`: the `Technique` frame. Each technique stays mounted. The inactive
    techniques are not visible. The frame is as tall as the tallest technique,
-   so the panel keeps one height when the tab changes.
+   so the panel keeps one height when the tab changes. In a scrolling body,
+   an inactive technique reserves at most the height of the body, so a short
+   technique has nothing below it to scroll to. The swatch and brick
+   grids are centred in the panel.
 3. `Opacity`: present only with `alpha`.
 4. `Readout`: the `Preview` swatch, the `Format` picker (RGB, HSV and Hex) and
-   the fields. On a touch screen, the readout comes before the body, so the
-   finger does not cover it.
+   the fields. The preview is two cells wide and one cell tall, and the format
+   picker fills the rest of the row. The fields share the `Fields` row in equal
+   columns with a native `HorizontalFlex`, each with its label above it. The
+   `Hex` field takes the whole row. On a touch screen, the readout comes before
+   the body, so the finger does not cover it.
 5. `Actions`: Cancel and Apply, or Done on a sheet.
 
 #### Techniques
 
 - `swatches`: the `Swatches` grid of 44 by 44 cells, at most 8 in a row. A
-  press on a cell proposes its colour. The chosen cell shows `Check`.
+  press on a cell proposes its colour. The chosen cell shows `Check`. Each
+  cell has the `facet-color-cell` tag and no padding, so its swatch is square.
+  A swatch has the `facet-color-swatch` tag and the theme's `radii.control`
+  corner. The `Save` cell and the `BrickGrid` cells are the same.
 - `spectrum`: the `Plane`, the `StickHint` and the `Hue` slider. The plane is
   two native layers. `Hue` has a white-to-hue UIGradient across. `Value` has
   a black UIGradient that fades in downward. A UIDragDetector on `Surface`
   sets saturation and brightness 1:1. The hue track is a rainbow UIGradient.
-- `sliders`: the `Hue`, `Saturation` and `Brightness` sliders.
+- `sliders`: the `Hue`, `Saturation` and `Brightness` sliders. Their labels
+  share the width of the widest label, so the three tracks start at one x.
 - `brick`: the 128 engine BrickColors in the `BrickGrid`, and the name of the
   chosen brick in `NameField` above the grid.
 
@@ -986,8 +1329,13 @@ does not start a drag, so a tap there still picks.
 
 The field is the `Field` plate in the field chrome. When the preferred input
 is keyboard and mouse, the field holds a native TextBox named `Entry`.
-Otherwise, it holds a button named `Show`. The calendar button `Open` is at
-the trailing edge of the plate.
+Otherwise, it holds a button named `Show`. The calendar button `Open` is 44
+pixels wide, inside the plate at its trailing edge, with no plate of its own.
+The plate is 44 pixels tall, or the `controlSize` height. `Entry`, `Show` and
+`Open` take the plate's full height, so no part paints outside it at any
+size. `Show` and `Open` fill the plate from edge to edge, share its corners,
+and the plate clips their hover and press highlights. `Show` reads in the
+`body` text role, the same as `Entry`.
 
 `Entry` takes the numeric form of the locale when focus leaves it. A year has
 four digits. A typed range is two dates with " – " or " - " between them. If
@@ -998,7 +1346,9 @@ plate. Nothing commits. An empty text proposes an empty value.
 The panel opens below the field, aligned to its leading edge. If there is not
 sufficient room below, the panel opens above the field. The panel stays 8
 pixels from the screen edges. The `CalendarSurface` ScrollingFrame holds the
-calendar. It is never taller than the screen, so a tall calendar scrolls. On a touch screen narrower than 600 pixels, the
+calendar. A skinned theme's panel carve (`chrome.panel.contentInsets`) is added
+around the calendar, so the art never covers it. The surface is never taller
+than the screen, so a tall calendar scrolls. On a touch screen narrower than 600 pixels, the
 panel is a sheet at the bottom of the screen with a Done button. On a ten-foot
 screen, the panel is a sheet at the center of the screen. The panel is a native
 modal. A tap outside the panel, B or Escape closes it. When it closes, the
@@ -1026,9 +1376,9 @@ grid. It is selectable, its label ends with "unavailable", its `Strike` line
 shows, and a press does nothing. A day of the next or the previous month is
 dim. A press chooses it, but it is not selectable.
 
-The month menu disables a month outside the bounds. The year menu lists only
-the years inside `min` and `max`. A side with no bound lists 100 years from
-the shown year. Each menu opens with the selection on the shown month or year.
+The month menu disables a month outside the bounds. The year menu lists the
+years up to 50 before and 50 after the shown year, and only the years inside
+`min` and `max`. Pick an end year to reach years further away. Each menu opens with the selection on the shown month or year.
 A choice moves the calendar to the nearest month inside the bounds. `Previous`
 and `Next` stop at a month that is fully outside the bounds.
 
@@ -1058,7 +1408,28 @@ sends the message to the `onError` factory option.
 The theme paints the calendar through these tags: `facet-calendar-day`,
 `facet-calendar-band`, `facet-calendar-disc`, `facet-calendar-end`,
 `facet-calendar-today`, `facet-calendar-strike`, `facet-calendar-number`,
-`facet-calendar-dim`, `facet-calendar-chosen` and `facet-calendar-chosen-end`.
+`facet-calendar-banded`, `facet-calendar-dim`, `facet-calendar-chosen` and
+`facet-calendar-chosen-end`. The band is `controlSelected`, and a day number on
+it (`facet-calendar-banded`) is `onSelected`.
+
+### Settings rows
+
+The `row` form of Button, Toggle and Slider is one list row. The row has the
+`facet-list-row` tag and one `Content` frame. `Content` holds the
+`LeadingIcon`, then a `Captions` column that fills the width, then the
+trailing parts. `Captions` holds the `Title` and the `Description`. The
+description is secondary text. The trailing part is the value and chevron of
+a Button, the switch of a Toggle, or nothing on a Slider. A Slider puts its
+value next to its title and its track below the description.
+
+A row fills its width. Its minimum height is the `controlSize` height, and it
+grows with its content. The row takes the `facet-size-<step>` tag of its
+`controlSize`, or no size tag for `regular`. Its left and right padding is
+the `paddingX` of the step. Its top and bottom padding is half of the step
+height minus its `iconSize` and the `xs` space, so a one-line row keeps the
+step height. When the `control` chrome of the theme has a larger inset, the
+row uses the inset.
+A row draws no separator. Put a `Divider` between rows when a list needs one.
 
 ### Stepper and Slider
 
@@ -1077,10 +1448,19 @@ Button and Toggle rows.
 Slider also supports `onCommit(value)`, `tapToPosition` (default true),
 `thumbImage`, `trackImage` and `row`. Dragging uses native drag detection.
 Keyboard and gamepad adjustment use the input actions of the control.
-A held adjustment repeats after 0.4 seconds, then every 0.1 seconds. The
+The thumb is the selection stop: a 44 by 44 `ThumbStop` frame around the
+painted `Thumb`, so the engine focus look lands on the thumb and follows it.
+With `thumb = "auto"`, `thumb = "none"` or a `thumbContent` knob, the track is
+the stop. A held adjustment repeats after 0.4 seconds, then every 0.1 seconds
+(a Stepper's `repeatDelay` and `repeatInterval` set both its held arrow keys
+and its held step buttons, with one repeat policy). The
 repeat stops when the engine gives the held input to a higher-priority input
 context, for example a gameplay binding with `Sink`. The next change needs a
 new press.
+
+`contained = true` makes the rail and the fill as thick as the knob, with round
+ends, so the knob rides inside the rail. The fill ends at the center of the
+knob.
 
 Slider shapes. `axis`, `range`, `minGap` and `thumb` are construction options.
 A readable value for one of them causes an error that names the option.
@@ -1214,6 +1594,11 @@ also takes an optional `separator` and `controlSize`. The default separator is
 cap outline. Without it, the outline is `strokes.hairline`. A value of 0 draws
 no outline.
 
+`label` shows the words for the action beside the keys in the secondary text
+color, such as `label = "Interact"`. `labelPosition` is `end` (the default,
+after the keys) or `start`. With a label, ShortcutHint returns a row Frame that
+holds the keys, named `Keys`, and the `Label`.
+
 ## Menus and navigation
 
 ### Menu and SplitButton
@@ -1253,8 +1638,11 @@ menus keep the control-specific navigation of the menu.
   the input is pointer-only. A Picker menu uses the same rows.
 - `triggers` limits the routes that open the menu. The routes are `activate`,
   `secondary`, `longPress`, `keyboard` and `gamepad`. The default is all five.
-- `presentation` is `automatic`, `menu` or `sheet`. `backLabel` sets the text
-  of the Back row. In a sheet, a submenu replaces the rows and adds a Back
+- `presentation` is `automatic`, `menu` or `sheet`. `automatic` is a sheet
+  when the preferred input is touch or a gamepad, or when the layer is too
+  narrow for the open levels side by side, and a floating menu otherwise. So a
+  gamepad gets one panel whose submenus replace its rows, not a cascade.
+  `backLabel` sets the text of the Back row. In a sheet, a submenu replaces the rows and adds a Back
   row. In a floating menu, a submenu opens as a new level beside its parent
   level, which keeps the open row filled. A floating menu has no Back row.
 - When the player navigates by selection, an open menu selects its first
@@ -1287,8 +1675,13 @@ menus keep the control-specific navigation of the menu.
   the rows. The width never goes past the room of the screen. A malformed width
   causes an error that names the field.
 - `maxHeight` bounds the whole floating panel in pixels. The panel is always
-  bounded by the screen, and its rows scroll inside it. The row ids and the
-  activation do not change.
+  bounded by the screen, and its rows scroll inside it. On skinned panel art,
+  the panel is its rows plus the art carve (`chrome.panel.contentInsets`) on
+  each side, and the rows scroll inside the carve. The row ids and the
+  activation do not change. The `MenuPanel` Frame is the plate. It holds the
+  `MenuScroll` ScrollingFrame that holds `MenuRows`. When the menu fades, the
+  `MenuGroup` Frame sits between them and is the size of the panel, so
+  a long list never makes a tall fade group, and its text stays sharp.
 - A level whose `selected` group holds one of its rows opens with the
   selection on that row, and scrolls that row to the center of the list. A
   `checked` item does not move the landing.
@@ -1299,6 +1692,11 @@ menus keep the control-specific navigation of the menu.
   row, never a selection stop) and `shortcutLabel` (display text such as
   "Ctrl+B"). `shortcutLabel` binds no key. Bind the key where the action is.
   Picker passes the option `badge` to its menu rows.
+- `controls` is an optional table. The menu sets `controls.diagnostics()`,
+  which returns the platform-guidance advice for the current items: a
+  submenu two or more levels deep, a level of more than five items, and a
+  destructive item that is not the last of its level. Advice never refuses a
+  menu.
 
 ```lua
 UI.Menu {
@@ -1317,9 +1715,12 @@ SplitButton combines a primary `label` and `onActivate` action with the
 secondary `items` of the menu. Use it when the secondary operations supplement
 one clear primary action.
 
-With a mouse or a gamepad, the primary button and a chevron button sit side by
-side as one control. The chevron opens the menu, and its accessible name is
-`menuLabel` (default `More options`). With touch, SplitButton is one button
+With a mouse or a gamepad, SplitButton is one control plate with two parts:
+the primary action and a narrow chevron segment, joined by a hairline. Only the
+outer corners are round. Each part is its own focus stop and is at least 44
+pixels. The chevron opens the menu. Its accessible name and help text are
+`menuLabel` (default `More options`). A skinned theme paints its `control` art
+once across the whole plate. With touch, SplitButton is one button
 with a trailing chevron: a tap runs the primary action, and a long press opens
 the menu.
 
@@ -1347,8 +1748,13 @@ measured width and the native PreferredInput:
 
 A `label` shows on the leading edge of a horizontal segmented row, with the
 control at its natural width on the trailing edge. A horizontal segmented strip
-wraps its segments onto more lines when they do not fit in the width of the
-row. The label shows above a vertical
+that does not fit in the width of the row stays one line: with `sizing = "fill"`
+(the default) its segments share the width and their labels wrap, and with
+`hug` it keeps their natural widths. A segment is never wider than the strip,
+or than the row of a labelled strip. A radio group or card label that does not
+fit wraps inside its row. A segmented picker
+takes no `query` and causes an error: a strip shows every option at once, so
+use `navigationLink` or `menu` for a searchable list. The label shows above a vertical
 segmented, inline or radio group control. A menu shows the label on the leading
 edge of the row and the value on the trailing edge.
 
@@ -1390,12 +1796,18 @@ Picker is a field. These options apply:
 A labelled `menu` picker shows its title above a trigger at the leading edge.
 With `valueAlignment = "start"`, it shows the title and the trigger on one row.
 A labelled `navigationLink` shows the title and the chosen value in one row
-button. A searchable list marks the chosen row with a check and paints no
+button. It opens its list as a Popover attached to the button: a panel with
+the theme plate and a tail, `controls.popup.panelWidth` wide and at most
+`maxHeight` (400 pixels by default) tall, below the button's trailing end
+where the value shows, and no page dim.
+On a touch layer narrower than 600 pixels it opens as a sheet, the Popover's
+compact route. A searchable list marks the chosen row with a check and paints no
 selection plate. Opening a menu puts the selection on the chosen row.
 
 The `cards` style shows each option as a card with the `facet-card-option`
 tag: the icon, the label, the description, `meta` and `badge`. The chosen card
-has the emphasis plate. With `axis = "x"`, the cards wrap onto more lines.
+has the emphasis plate and is selected, so a skinned theme shows its selected
+art. With `axis = "x"`, the cards wrap onto more lines.
 With `required = false`, activating the chosen card again sets `selected` to
 `nil`.
 
@@ -1421,16 +1833,42 @@ TabView requires a writable `selection` that names a declared tab. It also
 requires `tabs` with unique `{ id, label, content }` entries. Tabs can be a
 plain array or a readable. `content` is a factory that returns native content.
 
+A bottom bar (with its `aboveBar` accessory) sets the `FacetInsetBottom`
+attribute on its layer while it shows, so a bottom Toast docks above it.
+
 By default, Compose `LayerStack` keeps the visited content
 (`retention = "all"`). Use `retention = "top"` to dispose departing pages after
 their transition. Keep durable page state in the model.
 
-Use `style = "sidebarAdaptable"` for peer destinations. The control shows a
-sidebar on a sufficiently wide native viewport. It shows a bottom bar on other
-viewports. `placement` sets an explicit choice. `railWidth`,
+An automatic placement follows `adaptive.navPlacement` of the TabView's own
+size, the preferred input, the display size and ten-foot viewing: a TV takes a
+top bar, a compact width a bottom bar in the thumb zone, a short height the
+compact bottom bar, a pointer a sidebar, and a roomy touch screen or a gamepad
+on a larger display a top bar. A TabView inside another TabView's page keeps a
+top bar.
+
+Use `style = "sidebarAdaptable"` for peer destinations. Its selected tab is a
+pill, and its top bar is a segmented strip: the tabs hug their labels, centred
+on a track. `sidebarPreference` (`"sidebar"` or `"topBar"`) chooses between the
+two roomy homes, except on a ten-foot display, which keeps the top bar.
+`sidebarExpanded`, a writable boolean cell, is the ten-foot command that
+replaces `expandSidebar()` and `collapseSidebar()`: set it to `true` (from a
+Menu or a Button) and a distant screen shows the sidebar; ButtonB while the
+selection is in that sidebar sets it back to `false` and the top bar returns,
+with the selection kept on its tab. A near screen ignores it and follows
+`sidebarPreference`. Page Back keeps ButtonB when the selection is in the page.
+`placement` sets an explicit choice. `placement = "none"` hides the
+bar and gives the page the whole view. Selection, shoulder navigation and
+`selection` changes still work; supply your own route to the other tabs, such
+as a Menu. `railWidth`,
 `sidebarPreference`, `sections`, accessories and
 `customization = { order, hidden }` refine the presentation. Required tabs
 cannot be hidden.
+
+A sidebar is as wide as its widest tab label plus the tab padding and icon, and
+its labels are centred. Before the labels are measured it is 20 percent of the
+TabView width, from 200 to 280 pixels. `railWidth` sets the width and aligns
+the labels to the leading edge. The tabs of a top bar are centred in it.
 
 `onChange(id)` reports a user selection. A programmatic selection change does
 not look like user input. The control owns scroll and focus restoration and
@@ -1442,6 +1880,11 @@ different setting. A tab with `enabled = false` stays in the strip, but no
 route selects it: a press, shoulder navigation and the collapsed menu skip or
 refuse it. A malformed tab indicator causes an error that names `indicator`.
 
+A tab with an `icon` and a `badge` shows the badge on the icon's top corner.
+When the tab also shows its label, the gap between the icon and the label
+grows to hold the half of the badge that sticks out past the icon. Thus the
+badge never covers the label.
+
 `textSize` defaults to `fit`. In a bottom bar each tab gets an equal share of
 the width, and its words shrink from the `control` type size toward the
 `caption` size to fit that share before the engine truncates them. The control
@@ -1450,11 +1893,14 @@ fixed size.
 
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
-`controlSize` attribute. The strip stays 44 pixels high and centres the tabs
-in it. Without `controlSize`, each tab is 44 pixels high.
+`controlSize` attribute. The strip stays `targetSizes.minimum` high (44
+pixels, 66 at ten feet) and centres the tabs in it. Without `controlSize`,
+each tab is that high too.
 
 A TabView that is built inside the page of another TabView is nested, also
 when a branch of that page builds it later. A nested TabView uses a top band.
+An outer TabView with `placement = "none"` shows no bar, so a TabView in its
+page is not nested and takes the full home policy.
 
 A page change uses a native crossfade. The default is
 `transition = { seconds = 0.2, ease = Compose.easing.outQuad }`. Supply other
@@ -1500,6 +1946,10 @@ name is `Page n of m`. `indicators = false` hides them.
 While the selection is on a control in a page, Left and Right (and the D-pad
 Left and Right) page back and forward. The selection then moves into the new
 page. Up and Down leave the pages.
+
+The native `UIPageLayout` moves between pages over 0.3 seconds, Cubic Out, with
+no overshoot, for Previous, Next, a dot and the arrow keys. A swipe released
+faster than 1200 pixels a second settles with the `Back` overshoot instead.
 
 ### Pagination
 
@@ -1571,22 +2021,28 @@ description?, state?, navigable?, enabled? }`. `state` is `complete`,
   supply `onSelect`. Other steps are plain content and never selectable. A
   press on a permitted step calls `onSelect(id)` once. The control never
   writes `current`. Thus a refused step changes nothing.
-- `sizing` is `fill` (default, each step gets the share of the widest label)
-  or `hug` (each step gets its own label width). `listLabel` (default
+- Every step has the same inset as a Button of its `controlSize`, whether it
+  is a Button or plain content. Thus every cue starts at the same place.
+- `sizing` is `fill` (default, every step gets an equal share of the row) or
+  `hug` (each step gets its own width). `listLabel` (default
   "Steps"), `controlSize`, `enabled` and `controls` are optional. The control
   sets `controls.diagnostics()`.
 
 A malformed snapshot at construction causes an error. A later malformed
 snapshot keeps the last legal one, with a warning and a diagnostic line. The
-control measures its root width and the label text. When the steps do not
-fit, the row changes to the summary and a Steps Menu. The menu lists every
+control measures its root width. With `fill` it compares that width with the
+widest step text times the step count. With `hug` it compares that width with
+the laid-out row (the row `UIListLayout.AbsoluteContentSize`). When the steps
+do not fit, the row changes to the summary and a Steps Menu. The menu lists every
 step. Permitted steps select through the same `onSelect`. The menu closes
 when your `current` changes, so a refused step leaves it open. The number
 circle keeps an aspect ratio of 1 at every text size. The row stretches its
 cells to one height with a native `ItemLineAlignment`.
 
 The underline is a `facet-selection-indicator` frame. It moves to the new
-current step on a spring. Reduced motion places it immediately. The root has
+current step on a spring. Reduced motion places it immediately. Its position
+and width are fractions of the row width, so an ancestor `UIScale` (the TV
+scale) does not scale it twice. The root has
 the attributes `FacetCurrent`, `FacetSummary`, `FacetForm` (`row` or
 `summary`) and `FacetListOpen`.
 
@@ -1597,11 +2053,12 @@ The required `items` use the menu item model. The options are:
 `isPresented`, `label`, `launcher`, `preset`, `distribution`, `navigation`,
 `expansion`, `center`, `centerLabel`, `centerContent`, `centerPassThrough`,
 `anchor`, `follow`, `clearance`, `ringWidth`, `contentFit`, `gestureSelection`,
-`holdAction`, `enabled`, `onOpen` and `onClose`.
+`holdAction`, `enabled`, `scrim`, `onOpen` and `onClose`.
 
 The launcher is a round `more` button whose accessible name is
 `Quick actions`. With a `label`, the launcher is a text button that shows the
-label, and `icon` adds a glyph to it. `launcher = false` hides it.
+label, and `icon` adds a glyph to it. `launcher = false` hides it. With a
+native GuiObject `anchor`, the launcher sits over the centre of that object.
 
 `holdAction` is a native InputAction Instance that the caller owns. The control
 subscribes to its `Pressed` and `Released` events. It does not accept an action
@@ -1614,7 +2071,107 @@ their model. The geometry is specific to this control. It does not add a second
 general layout or input system. A native GuiObject anchor or a projected
 screen-point anchor connects the menu to an existing surface.
 
+An open ring is a modal surface on the same layer as Dialog and Menu. It
+blocks the page's input but does not dim it by default, as in 0.11.
+`scrim` sets how much the open ring dims the page: `"none"` (the default),
+`"dark"` or `"light"` (the theme scrim that a Dialog uses). The dark scrim is
+black and at least 80 percent opaque (the theme's `scrimOpacity` when that is
+higher). A scrim reaches past the ScreenGui's safe-area insets to the screen
+edges, the hole included, unless `centerPassThrough` is on. The transparency
+preference scales it like every scrim. A still tap outside
+the ring closes the menu. A press outside the ring that slides onto a wedge
+still selects it. With `centerPassThrough`, the page is not dimmed.
+
+A wedge takes the theme panel paint (`surfaceStrong`) and its label the
+content paint. A hovered, focused, checked or selected wedge takes the selected
+paint (`controlSelected`), the same state its label shows.
+The wedge is the item. Its icon and label are a plate-less `utility` button
+with no theme control art, sized to the largest box that fits inside the wedge
+and clipped to it.
+
+An item on the ring shows its icon or its label, never both. It shows the
+icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
+is a `buttons` item with an `icon`. Otherwise it shows the label. The list
+fallback shows both.
+
+`ringWidth` is a number of pixels or a theme width: `narrow`, `regular` or
+`wide` (`controls.radial.narrow`, `.regular` and `.wide`). Each ring is at
+least that thick and grows until every item's label or icon box fits, with
+`space.s` around it, at the item's direction. The box is estimated from theme
+metrics, not measured: the label is its character count times 0.6 of
+`typography.control.size` wide and one control line tall, and an icon is
+`iconSize` square. The ring is never thinner than `targetSizes.minimum`, is
+thick enough for each wedge to be one touch target wide, and is never wider
+than the room. The same items and theme always give the same ring.
+
+Where Back and Close sit depends on the preset, `center` and the room:
+
+- A full ring (`donut` or `circle`) with `center = "back"` (the default) has
+  one control in the centre hole. It is Close at the root and Back in a
+  submenu; Back goes up one level and Close closes.
+- A full ring with `center = "empty"`, `"content"`, `"root"` or `"close"`
+  puts Back/Close on the ring, as a wedge (or button) of the deepest open
+  level. An even ring turns so that this wedge sits at the lower left. A
+  compass ring gives it the first free slot of `SW`, `S`, `SE`, `NW`, `W`,
+  `E`, `NE`, `N`. `root` also shows Home in the centre, which returns to the
+  root, and `close` shows Close there. With `empty` or `content` the centre
+  holds no control, except on a compass ring with no free slot: then Back/Close
+  sits in the centre.
+- A corner preset never puts it on the arc or uses `center`: the control on
+  the corner, over the launcher, is Close at the root and Back in a submenu.
+  It grows out of the launcher, which it hides while the ring shows: it opens
+  at the launcher's size with the launcher's glyph, and shrinks to its own size as that glyph crossfades to
+  Close or Back. As the ring closes it grows back into the launcher the same
+  way.
+- The list fallback has one round Back/Close control at the top right, above
+  the list, for every preset and `center`.
+
+The centre control is a small round `utility` button, 32 pixels across, with
+no plate and no theme control art. A transparent `CenterHit` target around it
+is one touch target (`targetSizes.minimum`) across and does the same thing. It
+shows a close, back or up-chevron (Home) icon. The word is its accessible name,
+and a `centerLabel` replaces that name; it is never shown as text. Cancel (the B button) and the
+Back/Close control do the same thing. The name of the highlighted item sits in
+the hole under the centre control, on one caption line, truncated to the
+hole's width. Without a centre control the name is centred in the hole. In
+the list fallback the name sits at the bottom left, in its own band under the
+scrolling list, never inside it.
+
+A corner ring names the highlighted item just outside the arc, on the arc's
+middle direction.
+
+Nothing is highlighted when the ring opens, until the player points at an
+item, presses a direction or moves the stick. With a gamepad as the preferred
+input, the first item is selected, because the console needs a focused
+control. When a submenu replaces the level, the selection moves to the first
+item of the new level. While any ring is open, `GuiService.GuiNavigationEnabled`
+is false, because the engine's pad navigation otherwise takes the left stick
+from the ring; the ring binds its own D-pad, A and B. The value before the
+first ring opened comes back when the last one closes, unless the game turned
+it on at any point while a ring was open; then the game's current value stays.
+Setting it to false while it is already false is not a change the engine
+reports, so a game that wants it off after the rings close sets it after the
+last close. The ring blooms out of its centre: the items and wedges travel from a
+fifth of their distance to their places as they fade in. Reduced motion places
+them at once.
+
+Without an `anchor`, the ring opens centred on its launcher. It is placed on
+the measured presentation layer from the first frame. Before the
+launcher has a size, and with `launcher = false`, the `preset` sets the
+position. A full ring (`donut` or `circle`) then moves inward until its inner
+radius plus `ringWidth` (or 44 pixels) fits inside the presentation area. The
+ScreenGui keeps that area inside the safe area. Corner presets are not moved.
+
 ## Presented controls
+
+A Sheet or Dialog title shows in the theme's title plaque when the panel art
+has one, and the header title then hides. Without a title the plaque is not
+drawn.
+
+A presented panel with a theme skin keeps its content inside the art. Sheet,
+Dialog, Popover, a Toast with an action, Menu and the picker panels pad their content by the
+theme's `panel` chrome `contentInsets` on each side, and never by less than
+their own padding. The padding follows a live theme change.
 
 ### Alert
 
@@ -1650,7 +2207,7 @@ Motion options:
 
 The alert clears a writable `error` on dismissal. Use an alert for a brief
 decision. `icon`, `severity`, suppression and custom content refine the
-presentation.
+presentation. The `suppression` checkbox sits below the actions.
 
 ### Sheet
 
@@ -1670,7 +2227,8 @@ stays fixed.
 Layout options:
 
 - `placement`: `automatic` (the default, the bottom edge), `adaptive`,
-  `bottom`, `center` or `side`. `adaptive` docks the sheet at the side edge
+  `bottom`, `center` or `side`. On a ten-foot screen `automatic` and
+  `adaptive` centre the sheet, and they dock it again when the screen is near. `adaptive` docks the sheet at the side edge
   when the room is 600 pixels wide or more, a mouse is available and touch is
   not. Otherwise it uses the bottom edge. It changes live with the room and
   the input. The `FacetPlacement` attribute of `SheetPanel` holds the result.
@@ -1695,8 +2253,13 @@ Layout options:
   padding.
 - `scrollPolicy`: `always` (the default) keeps the body scrolling at every
   height. `atLargestDetent` stops the body scroll below the tallest detent.
-- `closeButton`: `true` (the default), `false`, or a string or readable label
-  for the close button. The default label is `Done`.
+- `closeButton`: absent, `true`, `false`, or a string or readable label.
+  Absent shows no close button while the grabber shows, because the grabber
+  closes and resizes the sheet. With `dragIndicator = "hidden"`, absent shows
+  an icon-only close button in the trailing corner of the header. Its
+  accessible name is `Close`, and its target is 44 pixels. `true` always shows
+  that icon button. A label shows a text button with that label. `false` shows
+  none; Back, Escape and the backdrop still close the sheet.
 
 When the pinned regions and a short body do not fit the panel, every region
 moves into one scrolling column named `Room`. Thus each action stays
@@ -1707,13 +2270,33 @@ Native drag detection resizes the sheet. The grabber detector starts a drag at
 once. A second detector on the panel starts a drag only after 6 pixels, or 14
 pixels on touch. A release goes to the detent nearest to the released height
 plus 0.15 seconds of its velocity. A hold before the release has no velocity.
-A drag below 70 percent of the lowest detent dismisses the sheet. Past the
+Below the lowest detent the whole sheet moves down instead of getting shorter,
+so the header, the body and the pinned actions move together. A drag below 70
+percent of the lowest detent dismisses the sheet, and the exit slide starts
+where the drag left it. Past the
 limits the drag resists. `interactiveDismissDisabled` holds the sheet near its
 lowest detent and blocks Back and the backdrop. An outside detent change
 during a drag ends the drag. Only one drag runs at a time.
 
-The grabber is also a selectable button that moves to the next detent. Its
-accessible label reads `Size: Medium`, and `Size: Fit` for `hug`. A bottom
+The grabber sits on the edge that the sheet came from. A bottom or center
+sheet has a horizontal bar at the top. A side sheet from the right has a
+vertical bar on its left edge, and a side sheet from the left has one on its
+right edge. The grabber sits in its own gutter at that edge, just inside the inner edge
+of the theme's panel art (`contentInsets`), centred along the edge. The
+content reserves only the gutter, 20 pixels plus an 8 pixel gap, on that side
+and keeps equal padding on the other sides. On a side sheet,
+a drag of the grabber toward the sheet's edge moves the whole sheet. A release
+past a third of the width, or faster than 600 pixels a second, closes it.
+Otherwise it slides back.
+
+The grabber is also a selectable button. A click, tap or press grows the sheet
+to the next taller detent, and its accessible label reads `Resize: Medium`, or
+`Resize: Fit` for `hug`. At the tallest detent, and with one detent, it closes
+the sheet, and its label reads `Close sheet`. The grabber's own drag detector
+takes a press-drag that starts on the pill, and a release after a drag is not
+also a click. The pointer shows a resize cursor over the grabber and a closed
+hand while it drags (`SizeNS`, or `SizeEW` on a side sheet, and
+`ClosedHand`). Return and the gamepad A button activate it. A bottom
 sheet slides up from the bottom and slides down when it closes. The sheet
 stays off screen until its room, width, text and height are the same for two
 frames, and then it starts to move. Thus the text has its final size and wrap
@@ -1725,18 +2308,43 @@ reduced motion the sheet appears at rest after the same wait. See
 
 Both require a writable `expanded` and `content`. DisclosureGroup expands its
 content in the document flow. The content is in a clipped Frame named
-`Reveal` that holds a CanvasGroup named `RevealFade`. The height of `Reveal`
+`Reveal` that holds a Frame named `RevealFade`, which fades. The height of `Reveal`
 opens with the motion, and then follows the content with `AutomaticSize`.
 The chevron keeps its `chevron.trailing` and `chevron.down` art and turns
-between them. CollapsibleView opens its content as a larger presented surface
-in a CanvasGroup named `ExpandedPresentation`, with the Dialog motion. For
-outer layout, use the native properties on their returned roots. See
-[Motion](#motion).
+between them. For outer layout, use the native properties on their returned
+roots. See [Motion](#motion).
+
+CollapsibleView returns its trigger, a pill Button (`corners = "pill"` unless
+you pass `corners`).
+
+- Collapsed, the trigger shows `label` on one line. The label truncates at
+  the end (`TextTruncate.AtEnd`) and shrinks in the row (a `UIFlexItem` in
+  `Shrink` mode). A `chevron.down` trailing icon is the More affordance. Pass
+  `trailingIcon` to replace it.
+- When `expanded` is true, a panel named `Expanded` grows out of the trigger:
+  its rectangle moves from the trigger's rectangle to its open rectangle on
+  the page's layer, and it clips its content. The open panel is at least
+  `controls.popup.panelWidth` wide (or the trigger's width), as tall as its
+  content, and stays inside the layer by `space.s`. A taller content scrolls
+  in a `ScrollingFrame` named `ExpandedScroll`. The content is laid out once at
+  the open size in a Frame named `ExpandedFade`, which fades in, so the text
+  does not rewrap while the panel grows. The page does not move and is not
+  dimmed.
+- The panel is on the modal layer, so the selection moves into it: to
+  `initialFocus` if you give it, otherwise to the first selectable node.
+- The trigger (A, Return or a tap), a tap outside the panel, the Close button
+  and Cancel (Escape or ButtonB) collapse it. The selection goes back to the
+  trigger.
+- `dismissButton = false` hides Close unless the preferred input is a gamepad.
+- Reduced motion opens and closes the plate at once.
+- The plate is inside the trigger. An ancestor with `ClipsDescendants`, such
+  as a ScrollingFrame, clips it. Give the trigger room below it.
 
 DisclosureGroup `appearance` is `plain` (the default), `contained`, `divided`
 or `outline`. The root has the `facet-disclosure-<appearance>` tag. `outline`
-is a tree row: the header does not get the `facet-selected` tag while the group
-is expanded, and it keeps focus and activation. `textSize` is a type role or a
+is a tree row: the header starts its chevron and label at the leading edge, it
+does not get the `facet-selected` tag while the group is expanded, and it keeps
+focus and activation. `textSize` is a type role or a
 number of pixels for the header label, as on Button. `indent` is a spacing step
 (`xs`, `s`, `m`, `l` or `xl`) or a number of pixels. It adds a left UIPadding to
 `RevealFade`, so nested groups read as an outline.
@@ -1752,10 +2360,11 @@ teaching attached to a control. It is not a second application presenter.
 `edge = "top"` puts the callout above the anchor. If there is no room above
 and there is room below, the callout goes below the anchor. The callout
 scales and fades from the edge nearest to its anchor. See [Motion](#motion).
+A tail points from the plate to the centre of the anchor.
 The plate stays inside its layer by the `space.s` step of the theme on each
 side. The step follows a live theme change. The layer is the safe area of the
 ScreenGui, so a device safe inset adds to the step.
-A callout and a help plate paint above a snackbar and below a presented modal.
+A callout and a help plate paint above a toast with an action and below a presented modal.
 
 The plate parts are optional, but the plate must show something:
 
@@ -1788,8 +2397,8 @@ runtime.mount(function()
             title = "Leave the race?",
             content = function() return UI.Text { text = "Your lap will not count." } end,
             actions = {
-                { id = "Stay", label = "Stay", role = "cancel", onActivate = function() open:set(false) end },
-                { id = "Leave", label = "Leave", role = "destructive", onActivate = function() open:set(false) end },
+                { id = "Retry", label = "Retry", keepOpen = true, onActivate = function() print("retry") end },
+                { id = "Leave", label = "Leave", role = "destructive", onActivate = function() print("left") end },
             },
         },
     }
@@ -1799,12 +2408,20 @@ end, playerGui)
 The caller owns `isPresented`. The dialog reads it and never writes it. The
 close button, Cancel and a tap on the backdrop call `onPresentedChange(false)`.
 The dialog closes only when the fact changes. A refused proposal keeps the same
-panel and selection. Without `onPresentedChange`, set `closeButton = false`.
-Then the backdrop and Cancel do nothing.
+panel and selection. A dialog with `actions` has no close button: ButtonB
+and Escape run its `cancel` action. A dialog without actions shows one;
+`closeButton = true` or `false` decides either way. A dialog that shows a
+close button needs `onPresentedChange`. Without `onPresentedChange`, the
+backdrop and Cancel do nothing.
 
-Actions never close the dialog. Each action runs its `onActivate`. A false that
-the caller accepts in that callback reports `action`. Cancel runs an enabled
-`role = "cancel"` action first. Otherwise Cancel proposes false. The one
+An action press closes the dialog by default. It runs its `onActivate`, and
+then proposes `onPresentedChange(false)`, as the close button does, so a
+refused proposal keeps the dialog open. An accepted close reports `action`, and
+so does a false that the caller accepts in the callback. An action with
+`keepOpen = true` runs its `onActivate` and proposes nothing. Use it for Apply
+or Next. An action that raises an error proposes nothing. Sheet, Notice
+and Callout actions refuse `keepOpen`. Cancel runs an enabled `role = "cancel"`
+action first. Otherwise Cancel proposes false. The one
 `role = "default"` action answers Return. A disabled or busy action does not
 run. `onDismiss(reason)` reports each closure once, after its cleanup:
 `close`, `outside`, `cancel` or `action`. The caller's own false and owner
@@ -1820,7 +2437,9 @@ Other options:
 - `hero`: the shared media shape.
 - `actionLayout`: `automatic`, `row` or `stacked`. `automatic` puts two short
   actions in a row and stacks three or more. A row that cannot show the full
-  labels also stacks.
+  labels also stacks, and so do the actions of an Alert, a Dialog and a Sheet
+  on a ten-foot screen (`ctx.tenFoot()`) or at the `Larger` and `Largest`
+  preferred text sizes, each full width.
 - `width`: `automatic`, `narrow` or `wide`.
 - `contentSelectable`: `true` (the default) makes an overflowing body one
   selectable stop. With the selection on it, Up and Down scroll the body. At
@@ -1829,7 +2448,7 @@ Other options:
 A dialog needs a title, content, a hero, an action label or actions. The
 height is the layer height less the keyboard height and the margins. When the
 pinned regions and a short body do not fit, every region moves into one
-scrolling column named `Room`. The panel is a CanvasGroup. It scales from
+scrolling column named `Room`. The panel is a Frame. It scales from
 0.94 and fades in with its scrim. See [Motion](#motion).
 
 ### Popover
@@ -1871,6 +2490,31 @@ source before any clamp. `maxWidth` and `maxHeight` bound the whole panel,
 chrome included, inside the live safe box. The body scrolls. `tail = false`
 removes the arrow.
 
+The tail of a Popover, a Callout and a Button `help` plate is one shape: a
+`space.m` square turned 45 degrees under the panel (`facet-tail`), with no
+stroke of its own. One closed native `Path2D` named `Outline` in the panel
+(`facet-outline`, `facet-outline-tooltip` on a help plate) draws the whole
+border: the panel's rounded corners and the tail's two outer sides as one
+line, so the edge stops exactly where the tail begins. Its colour is the
+theme hairline blended over the panel fill, because a `Path2D` has no
+transparency, and it fades with the panel. The panel's own `UIStroke` is off
+(`facet-outlined`). The tail stays clear of the panel's rounded corners. The panel stands the tail's reach off
+its source, so the tip stops at the gap. The panel's `AnchorPoint` is the tail
+point while it scales, so a moving scale never moves the tip. The tail keeps
+8 pixels from the panel's ends; a panel too short for that (a one-line panel
+beside its source) centres the tail on its side instead of dropping it. The
+tail is dropped only when it would no longer point at the source.
+
+`cancelPolicy` is `dismiss` (the default) or `none`. With `none`, Cancel and a
+tap outside propose nothing, so only the caller's fact or an action in the
+content closes the panel. The panel stays modal.
+
+`modal = false` makes the panel chrome, such as a coach mark or a hint beside
+a control. There is no backdrop, no outside-tap catcher, no Cancel binding and
+no selection claim, and the full-layer `Popup` Frame is not `Active`, so input
+reaches the controls under and around it. The panel paints in the callout band
+(`ZIndex` 95). A chrome panel always uses the anchored route.
+
 `compact` is `sheet` (the default) or `popover`. With `sheet`, a touch player
 on a layer narrower than 600 pixels gets the Sheet route. A live change of
 input or width switches the route without a proposal. Only one content owner
@@ -1882,58 +2526,108 @@ header shows only Done.
 The trigger keeps its own `onActivate`. The panel scales and fades from the
 edge nearest to its source. See [Motion](#motion).
 
-### Snackbar
+### Toast
 
-`UI.Snackbar` returns an empty anchor Frame. The row shows at the bottom center
-of the layer.
+`UI.Toast` returns an empty anchor Frame. It shows a transient message. Without
+an `action` it is display-only and stacks at the top (or bottom) of its layer.
+With an `action` it docks at the bottom center, one at a time, and a player can
+reach it. Both modes share one schedule per layer.
 
 ```luau
-local shown = Compose.cell(true)
 runtime.mount(function()
     return Host.ScreenGui {
-        UI.Snackbar "Saved" {
-            isPresented = shown,
-            message = "Settings saved",
-            duration = 4,
-            onPresentedChange = function(nextValue) shown:set(nextValue) end,
+        UI.Toast "Saved" { message = "Settings saved", key = "save", duration = 3 },
+        UI.Toast "Sold" {
+            message = "Kart sold",
             action = { label = "Undo", onActivate = function() print("undo") end },
         },
     }
 end, playerGui)
 ```
 
-The caller owns `isPresented`. Close, Cancel on a selected row, a timeout and a
-supersession propose false through `onPresentedChange(false)`. The row leaves
-only when the fact is false. A refusal keeps the same row. `onDismiss(reason)`
-reports each retirement once: `action`, `close`, `timeout`, `superseded` or
-`cancel`. The caller's own false and owner teardown report `cancel`.
+- `message` (a string or a bound string) or `content` (a factory for the
+  body). Give exactly one. A toast with an action takes `message`.
+- `icon`: an icon name or an image source, before the message.
+- `duration`: seconds on screen. Without an action the default is 4. With an
+  action, `nil` keeps the row until it is closed, and a timeout waits for at
+  least `readFloor` of readable time. `readFloor`: the seconds before anything
+  may replace it, default 2.5.
+- `priority`: a number, default 0. Higher toasts go first in the queue.
+- `key`: a toast with the same key replaces a queued one at once and a
+  showing one when its read floor is met, so the two never show together.
+- `isPresented`: optional, the caller's boolean fact. The toast shows while it
+  is true. A timeout, a replacement, Close, Cancel and the action then propose
+  false through `onPresentedChange(false)`, and the row leaves only when the
+  fact is false. A refusal keeps the same row and is not asked again. A bound
+  toast that can end itself (a duration, or a close button) needs
+  `onPresentedChange`. Without `isPresented`, mounting shows the toast once
+  and it retires itself.
+- `onDismiss(reason)` reports each retirement once: `timeout`, `supersede`
+  (the same key replaced it), `preempt` (a more urgent toast replaced it),
+  `capacity`, `action`, `close`, `cancel` (a bound toast's fact went false, or
+  its owner went away), or `manual` (an unbound toast unmounted first). A
+  bound toast retired for `capacity` or `supersede` also proposes false.
 
-- `message`: a string or a bound string. It wraps.
-- `icon`: an icon name or an image source.
-- `action`: `{ label, onActivate }`. It runs once and never closes the row by
-  itself.
-- `closeButton`: `true` (the default) or `false`. A close button or a
-  `duration` needs `onPresentedChange`.
-- `duration`: seconds of readable time. `nil` keeps the row until the caller
-  hides it. The timeout asks once, at the larger of `duration` and 2.5
-  seconds. A refusal keeps the row.
-- `priority`: higher rows go first. A strictly higher priority can ask the
-  shown row to leave after 2.5 readable seconds, once for each row.
+Without an action:
 
-Readable time pauses while the row is hovered or selected, or while a modal is
-open. Queued time does not count. One row shows and up to eight wait. Nine rows
-can be shown, waiting or leaving. A tenth admission stops with an error. A message-only row hugs its text.
-A row with an action or a close button uses `controls.snackbar.maxWidth`,
-bounded by the layer. The action moves below long text. Arrival never takes the
-selection. Cancel on a selected row returns the selection to the content, also
-when the caller refuses. A visible row sets the `FacetInsetBottom` attribute on
-its layer until it has slid out. The row is a CanvasGroup named `Snack`. It
-slides up and fades in to enter, and slides down and fades out to leave. A
-leaving row cannot be interacted with. Under reduced motion it arrives and
-leaves at once.
+- `position`: `top` (the default) or `bottom`, the edge that the stack docks
+  to. Each edge of a layer has its own stack. The stack docks clear of the
+  app's reserved chrome on that edge: the deepest `FacetInsetTop` or
+  `FacetInsetBottom` reservation of its layer and of every enabled sibling
+  ScreenGui (a TabView bottom bar, a visible toast with an action, an affixed
+  Notice), read each frame while a toast shows.
+- `width`: `fill` (the default) spans the layer less 16 pixels on each side.
+  `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
+- `fade`: `true` also fades the row in and out as it slides. By default a row
+  only slides, so its text keeps native glyph rendering (a fade draws the row
+  through a CanvasGroup while it runs).
 
-To show a snackbar from code, mount a `UI.Snackbar` with `runtime.mount`. The
-stop function that the mount returns releases the row and reports `cancel`.
+At most three toasts show on an edge and eight wait. The queue is in priority
+order, first in first out within a priority. A more urgent toast replaces the
+weakest showing one, but only after that toast's read floor. At the cap the
+least urgent waiting toast retires with `capacity`; a showing toast never does.
+
+The row is input-transparent: it is neither `Active` nor `Interactable`,
+nothing in it is `Selectable`, it binds no input and it never takes the
+selection, so the controls under it work as before. Rows (`ToastRow`) paint
+at `ZIndex` 70, above the page and below a modal. A new row slides in from its
+edge (and fades in with `fade`), and the others slide to close the slot a
+retired row leaves. Under reduced motion the rows are placed at once, for the
+same times in the same order.
+
+With an action:
+
+- `action`: `{ label, onActivate }`. Unbound, it runs and retires the row
+  with `action`. Bound, it runs once and the row leaves when the fact is
+  false.
+- `closeButton`: `true` (the default) or `false`.
+
+One row shows and up to eight wait. Readable time pauses while the row is
+hovered or selected, or while a modal is open. Queued time does not count.
+The row uses `controls.snackbar.maxWidth`, bounded by the layer, and docks
+16 pixels above the app's reserved bottom chrome (a TabView bottom bar, an
+affixed Notice; its own reservation does not count). The action
+moves below long text. Arrival never takes the selection, and one Down from
+the control that had it reaches the row. Cancel (Escape or the B button) on a
+selected row proposes or retires with `cancel` and returns the selection to
+the content, also when the caller refuses. The Down link from the control that had the selection lasts
+until the selection moves anywhere else; an action toast still stays until it
+is closed when it has no `duration`, as the snackbar did. A visible row sets the
+`FacetInsetBottom` attribute on its layer until it has slid out, so a bottom
+stack of display-only toasts docks above it. The row is a Frame named `Snack`
+at `ZIndex` 60. It slides up and fades in to enter, and slides down and fades
+out to leave. A leaving row cannot be interacted with. Under reduced motion it
+arrives and leaves at once. There is no swipe.
+
+The anchor carries `ToastVisible` and `ToastQueued` attributes.
+
+`app.presentToast(component, options?) -> { id, dismiss() }` shows
+`component(app.UI)` as a toast in the app's toast ScreenGui (named from
+`name`, `FacetToasts` by default), which all its toasts share, so they stack
+and queue together. `options` takes the keys
+above except `message` and `content`. `dismiss()` retires it with `manual`
+and returns false when it has already gone. The toast's mount stops when it
+retires.
 
 ### Notice
 
@@ -1969,7 +2663,9 @@ Content that must avoid the notice reads the attribute and pads by it.
 ### NavBar
 
 `UI.NavBar` returns the bar Frame: `{ onBack?, backLabel?, title?, titleSize?,
-leading?, center?, trailing?, gap?, padding? }`.
+leading?, center?, trailing?, gap?, padding?, surface? }`. `surface` paints a
+background plate: `surface`, `panel` or `pane`, the theme roles of the same
+names.
 
 The first row holds Back, `leading` and a `center` that fills the remaining
 width. Without `center`, the title shows on one line and truncates. `trailing`
@@ -1978,7 +2674,10 @@ stay on one row when the full title fits beside the trailing node. When the
 full title does not fit, the trailing node moves to a second row. Without a
 title, the bar uses `controls.popup.panelWidth` as the minimum center width. The
 center is not rebuilt, so a search field keeps its text. Back shows the
-`chevron.leading` icon. `gap` and `padding` are pixels or `space` metric
+`chevron.leading` icon beside its word, half a `space.xs` apart, in the
+content colour with no plate (`utility`), and a `space.s` gap keeps the title
+away from it. NavigationStack's Back and the Back row of a sheet menu are the
+same control. `gap` and `padding` are pixels or `space` metric
 names.
 
 ## Collections
@@ -1997,14 +2696,14 @@ render owner.
 |---|---|
 | `mode` | `windowed`; `all` deliberately mounts the entire collection. |
 | `direction` | `vertical`; `horizontal` changes the scrolling axis. |
-| `itemSize` | `40`, the estimated main-axis extent. |
+| `itemSize` | `40`, the estimated main-axis extent. On a horizontal list, `"cards"` sizes the cards from the space the rail gets. A compact touch rail (under 600 px) shows one card with a peek of the next and snaps to cards. Wider rails show as many whole cards of at least 200 px as fit. `cards = { perView?, minWidth?, peek? }` overrides the count, the floor or the peek. `cards` is refused without `"cards"`. |
 | `gap`, `crossGap` | `0`; the cross gap defaults to the gap. A VirtualGrid keeps half of each gap (rounded up) at its outer edges, as a `UIPadding` on its `Items` frame and in its canvas extent. Thus content that paints past its cell, such as a lifted Card, is not cut by the scroll clip. |
 | `columns` | The grid column count, default `1`; can be reactive. |
 | `overscan` | `2`. |
 | `measure` | `false`; set to observe the rendered native `AbsoluteSize`. |
 | `measured` | An optional readable map from key to extent; overrides observed measurements. |
 | `follow` | `none` or `end`, or a readable of one, with an optional `followThreshold`. |
-| `status` | An optional writable Compose collection status cell. |
+| `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
 
@@ -2020,7 +2719,11 @@ replaces its Compose `OrderedCollection` and mounts the rows again. Keep durable
 row state in the model. Other values cause an error.
 
 Optional collection focus uses `focus`, `initialFocus`, `autoFocus`,
-`wrapFocus` and `disabled(item)`. With `wrapFocus = true`, `focus.next()`,
+`wrapFocus`, `focusPolicy` and `disabled(item)`. `focusPolicy = "key"` (the
+default) keeps focus on the item when the order changes. `"index"` keeps it on
+the slot, so a live standings list does not walk the gamepad focus up and down.
+It moves focus to the item that now holds the slot, or the last slot when the
+list shrank, and leaves focus alone while a row is being dragged. With `wrapFocus = true`, `focus.next()`,
 `focus.previous()` and the arrow and D-pad actions wrap at the two ends of the
 collection. A list wraps only along its scrolling axis.
 
@@ -2068,7 +2771,16 @@ engagement. It requires `title` and `image` (nonempty strings or readables).
 `imageAspectRatio` (default `16/9`),
 `imageFraming` (`fit` or `crop`), `onActivate`, `primaryAction = { label,
 icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
-(`automatic` or `always`), `browseTarget`, `enabled` and `controls`.
+(`automatic` or `always`), `browseTarget`, `enabled`, `ringTarget` and
+`controls`.
+
+With `onActivate`, the selection ring of the body surrounds the whole card: the
+artwork, the text and the action row. `ringTarget = "media"` rings only the
+artwork. The body keeps the PlayerGui's live focus look (see
+[focusRing](#focusring)) and sets its `FacetFocusHeight` attribute, the height
+of that area as a multiple of the body's, which the look reads. So a card's look
+pulses, hides after mouse input and follows a theme change like every other
+control's. A selected action keeps the look on itself.
 
 Use a Card for a game, a track or a kart, where the picture helps the player
 choose. For rows of text, use VirtualList or Table.
@@ -2093,8 +2805,11 @@ choose. For rows of text, use VirtualList or Table.
   on one of its actions, its menu is open, its actions are entered, or the
   `browseTarget` is selected. A card with no body action and no
   `browseTarget` has no stop of its own, so it shows its actions at rest.
-- The plate is a CanvasGroup below the body in the card's own layout. It is
-  always laid out, so the card size never changes and the siblings never move.
+- The plate is a Frame directly below the body in the card's own layout.
+  With `automatic`, it paints a panel surface under the action row. The
+  primary action fills the row and More is an icon button at its end. With
+  `always`, the row has no plate and sits a small gap below the body. The plate
+  is always laid out, so the card size never changes and the siblings never move.
   At rest it is transparent and not `Interactable`, so its actions take no
   press and no selection. The fade uses a Compose tween, so a quick reversal
   continues from the current value. Reduced motion shows and hides it
@@ -2170,18 +2885,86 @@ VirtualList. A column has:
 - `resizable` and `sortable` (both true),
 - `value(item)` or `render(current, placement, key)`.
 
-A numeric `priority` collapses larger values first. `"always"` prevents
-collapse. The first column always stays visible. A shared CollapsibleView shows
-collapsed and natively truncated values through the More action of the row.
-The cell state stays retained.
+A column collapses only when it has a numeric `priority`. Larger values
+collapse first. The first column always stays visible. The other columns
+keep their `minWidth` and truncate their text, so a narrow table scrolls
+sideways and never loses a column. Under touch or gamepad input a flexible
+column's floor is the smaller of its `minWidth` and the theme's touch floor
+(`targetSizes.minimum`, 44), so more columns fit a phone before the table
+scrolls sideways. A Popover shows collapsed and natively
+truncated values through the row's icon-only `more` (…) button, named
+"More actions". The cell
+state stays retained. The header band spans the whole row, edit controls
+included, and shows a hairline divider between headings; the headings sit over
+their columns.
+
+Editable cells. A column with `editor = "text"`, `"number"`, `"toggle"` or
+`"menu"` shows a TextInput, a NumberInput, a plain checkbox Toggle or a menu
+Picker in each cell. The column `value(item)`, or the field named by `id`, is the
+raw value: a string, a number, a boolean or the value of a menu option. `options`
+(`{ { value, label } }`) configures a menu. `min`, `max` and `step` configure a
+number. Each accepted edit calls the `onCellChange(rowKey, columnId, value)` of
+the table, which an editor column requires. The caller updates its rows, and a
+row change updates the cell. An edit that does not change the value proposes
+nothing. A refused edit shows the value of the row again. The editors keep
+their native routes: a click or a tap, Return or the A button starts a text
+edit, and Escape or the B button cancels it. A row that leaves the table, or
+scrolls out of a windowed table, releases its editors and discards an edit in
+progress. An editor with `render`, an unknown editor word, a menu without
+`options`, editor settings on a column without `editor`, and an editor column
+without `onCellChange` cause an error.
+
+Editable collections. Table, VirtualList and VirtualGrid take the same model.
+`reorderable = true` with `onReorder(keys, insertionSlot)` moves rows, and
+`deletable = true` with `onDelete(keys)` removes them; both only propose, and
+the caller changes its rows. `movable(item)` and `rowDeletable(item)` refuse
+single rows. On a Table, a row that `rowDeletable` refuses also loses its
+destructive `rowActions`, so no swipe, menu or key can remove it. The paths per
+input:
+
+- Pointer: drag a row, or one of the selected rows to move them all, more than
+  6 pixels along the list. There is no handle. The drag shows an image of the
+  row, stacked two or three deep for a selection, and scrolls the list near its
+  edges unless `autoscroll = false`. Once the list can move no further that
+  way, the nearest enclosing ScrollingFrame whose own 40 pixel edge band holds
+  the pointer scrolls instead (innermost first), so a list inside a page hands
+  the drag to the page. Delete or Backspace removes the selected
+  rows.
+- Touch: hold a finger still on a row for a third of a second to pick it up
+  and move it; a finger that moves first scrolls the list or swipes the row.
+- Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
+  Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
+  Edit mode shows, inside each row band, a round red minus at the leading
+  edge (deletable) and a move handle at the trailing edge (reorderable); the
+  row content slides to make room (instantly with reduced motion). The minus
+  reveals a `Delete` button at the trailing edge, which confirms. A handle
+  drags, or Return or the A button starts a move that the arrows or D-pad
+  place and Return, A or `Drop` ends. The X
+  button removes the selected rows, and L1 and R1 move them by one slot. A
+  VirtualList reads the `editing` cell that you supply and show your own
+  Edit control.
+- Without a readable input class the edit controls always show.
+- A selectable collection (`selectionMode` other than `"none"`) that is not
+  `deletable` marks each row's selection at the leading edge while `editing`
+  is true: a ring (`facet-radio-mark`) with a filled dot on a selected row. The
+  mark is paint and takes no focus. A Table with a supplied `editing` shows it
+  even when it is neither reorderable nor deletable.
+
+With touch or gamepad input, a Table with the Edit toolbar accepts cell edits
+only while editing; otherwise its editor cells accept edits at all times.
+`rowActions` are independent of edit mode.
 
 `sort` is `nil` or `{ column, direction = "ascending" | "descending" }`.
-`widths` is a map of column widths. `selection` is a key-set map.
-`selectionMode` is `single`, `multi` or `none`. When you supply
+`widths` is a map of column widths. A pointer drags a heading's divider to
+resize the column. With a keyboard or gamepad, focus the divider: Left and
+Right resize, Up and Down sort by the column, and Escape or B returns focus to
+the heading. Comma and Period resize the column whose heading or divider has
+focus. `selection` is a key-set map.
+`selectionMode` is `single`, `multiple` or `none`. When you supply
 `onSortChange`, `onWidthsChange` or `onSelectionChange`, it is a controlled
 request. Otherwise the control updates the writable cells.
 
-In `multi` mode, the selection keys are the same in Table, VirtualList and
+In `multiple` mode, the selection keys are the same in Table, VirtualList and
 VirtualGrid:
 
 - A plain mouse click selects only that row.
@@ -2199,21 +2982,35 @@ VirtualGrid:
   selection.
 
 In `single` mode, each activation selects only that row, and the modifiers
-have no effect. Rows that `selectable` or `disabled` refuse are never selected.
+have no effect. A selected Table row carries the `facet-selected` tag, so the
+theme paints it in `controlSelected`. Rows that `selectable` or `disabled` refuse are never selected.
 
 `selectable(item)`, `disabled(item)`, `onActivate(item, key, input, clickCount)`
 and `rowActions(current, key)` specialize rows. `onActivate` receives the same
-native activation facts as in VirtualList. `reorderable`, `movable(item)` and
-`onReorder(keys, insertionSlot)` support native drag reorder. The insertion
-slot is zero-based among the remaining rows. `editing` is a writable cell.
+native activation facts as in VirtualList. The insertion slot of `onReorder` is zero-based among the remaining rows.
 
 Sizes:
 
 - The header height starts at 40.
-- The estimated row height starts at the larger of 40 and the regular control
-  height of the theme.
-- The native touch and gamepad minimum row height and header height is `44`.
-- Native text bounds can make both larger.
+- Rows follow a ladder by viewing distance (`itemSize` pins the minimum on
+  every rung):
+  - Near (pointer, keyboard, or a gamepad at a desk): one line, at the larger
+    of 40 and the regular control height (44 with a gamepad).
+  - Touch: cells wrap, and a row starts at two lines of body text plus 16, at
+    least `targetSizes.minimum`.
+  - Ten-foot (`ctx.tenFoot()`: a TV interface, or a Large display with no
+    touch and no mouse): one line, at least the large control height.
+- The native touch and gamepad minimum header height is `44`.
+- Native text bounds can make rows and the header larger.
+
+The header band and each row paint a rounded band (`radii.control`) through
+the theme tags `facet-tablehead` and `facet-tablerow`; a 1 pixel inner
+`surface` stroke separates adjacent rows, and a selected row is the same band
+in `controlSelected`.
+`alternatingRows = true` also tags every second row `facet-tablerow-alternate`.
+The palette roles are `tableHeader`, `tableRow` and `tableRowAlternate`. Each
+heading is a standard Button without a plate (`facet-tableheading`) on the
+band, so a skinned theme paints its `control` art on it.
 
 `header = false` removes the header band. `scrolls = false` mounts all rows and
 sizes the table to its content. Otherwise, `mode` selects the Compose windowed
@@ -2227,7 +3024,8 @@ follow options also apply.
 `leading` or `trailing`. `onOpenChange` is controlled.
 
 `actionWidth` has a minimum default of `88`. Native label bounds can make the
-action tray larger. Full swipe is on by default. You can set it for each edge.
+action tray larger. Each action is as wide as its painted label, plus its icon
+and gap when it has an `icon`, plus 32 pixels. Full swipe is on by default. You can set it for each edge.
 A row with no measured width does not open or run an action from a swipe.
 A shared `coordinator` cell lets only one row be open. When a row opens,
 through a gesture or a write to its `open` cell, the other rows close.
@@ -2248,8 +3046,11 @@ consume the input. Thus the control under the pointer also receives the press.
 A transparent `SwipeGrip` button covers the row content while the row has
 actions. It holds the native UIDragDetector, so a drag that starts on a
 content Button also opens the tray. A press and release that moves less than
-8 pixels is a tap. The grip sends a tap to the first Facet Button in the
-content, and that Button activates as if the player pressed it. The grip is
+8 pixels is a tap. In a selectable Table, VirtualList or VirtualGrid row, the
+grip sends the tap to the row, so the tap selects the row with the click rules
+of the collection, and a reorder handle or a cell Button does not activate.
+Otherwise the grip sends a tap to the first Facet Button in the content, and
+that Button activates as if the player pressed it. The grip is
 not a selection stop, so keyboard and gamepad selection still stop on the
 content. With touch input, the grip turns its UIDragDetector off and uses the
 native `TouchPan` gesture. Thus a vertical pan scrolls the list, and a
@@ -2274,13 +3075,13 @@ press.
 | `Label` | An icon and a title in a row. `title` is required, and it is the accessible name. Also `icon`, `presentation`, `iconSize`, `textSize`, `gap` and `iconPosition`. See [Label](#label). |
 | `Image` | A native ImageLabel. `image`, `tint`, `scaleMode`, `tileSize`, `sliceCenter`, `sliceScale`, `resample` and `shape`. See [Image](#image). |
 | `Badge` | `label`, `status`, an optional icon and position, appearance, corners and control size. The icon and the label share one pill. The status appearance keeps a neutral pill and shows the status as a leading dot. |
-| `StatusIndicator` | `status`: `neutral`, `info`, `success`, `warning`, `error` or `accent`. `form`: dot, ring, square or dash. Optional `count`, `max`, `diameter` and `name`. The `name` sets the accessible label. A ring is a native inner stroke in the status color. A count grows into a pill that is never narrower than it is tall. |
+| `StatusIndicator` | `status`: `neutral`, `info`, `success`, `warning`, `error`, `accent`, `voice` or `contrast`. `voice` marks live voice chat in the `voice` color. `contrast` is a `contentStrong` mark that reads on any surface. Badge `status` takes the same words. `form`: dot, ring, square or dash. Optional `count`, `max`, `diameter` and `name`. The `name` sets the accessible label. A ring is a native inner stroke in the status color. A count grows into a pill that is never narrower than it is tall. |
 | `Path` | A stroked vector path on a native `Path2D`, for simple vector icons, arcs and gauge needles. `points` is required: a list, or a readable of a list, of normalized points from `Facet.pathShapes`, at most 100. A new list moves the same stroke. `role` is `content` (the default), `secondary` or `accent`, and the StyleSheet colours the stroke from the active palette. `tint` sets a colour that no role names. `thickness` is pixels or a theme metric name; without it the engine default applies. `closed` joins the last point to the first. `width` and `height` set a square or rectangular box in pixels. The engine strokes a path and does not fill it, and a path has no transparency of its own. |
 | `ProgressView` | `value`, `min` (0), `max` (1). `presentation`: bar, circular or spinner. label and endLabel, showValue and format, diameter, thickness, segments, and an optional trail `{ delay, duration }`. The endLabel shows after the value. With a label, a bar shows the value and the endLabel on the label row. Segments require the bar presentation. Diameter requires circular or spinner. A trail holds on damage, settles over its duration, and snaps on healing or reduced motion. A circular value is centered when the native text bounds fit. Otherwise it shows below the ring. A circular ring with no thickness uses 8 percent of its diameter, and not less than the theme metric. On a bar, `controlSize` sets the track thickness: `xsmall` and `compact` use `space.xs`, and `regular` and `large` use `controls.progress.trackHeight`. A bar refuses `controlSize` together with `thickness`, and a ring or a spinner refuses it together with `diameter`. `endLabel` must be a string. |
-| `Skeleton` | A loading placeholder with a configurable form and line count. |
+| `Skeleton` | A loading placeholder with a configurable form and line count. `corners` rounds a box or a line: `square`, a number of pixels, `control` (or `rounded`) and `panel` for the radii of the theme, or `pill`. A circle refuses `corners`. |
 | `AsyncImage` | An image or source, an optional resource or loader, a placeholder, a failure label and a status callback. `imageProperties` forwards native properties and children to the inner ImageLabel. |
-| `Avatar` | `name`; image, userId or resource; loader and onStatus; presence online, away, busy or offline; presence label and mark; diameter or controlSize; standard or icon form; optional activation. |
-| `AvatarGroup` | `items` with id, name, image, userId and presence, and an optional `resource` shared-resource acquire function. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. |
+| `Avatar` | `name`; one face: image, userId, resource or `icon` (an icon name, such as `"person"` for a guest, drawn in place of the initials); loader and onStatus; presence online, away, busy, offline or `inExperience`; presence label and mark; diameter or controlSize; standard or icon form; `background`, a palette role (`surface`, `surfaceStrong`, `control`, `contentStrong`, `accent`, `success`, `warning` or `danger`) for the plate, with its partner color on the initials and the icon; optional activation. `inExperience` draws an `accent` ring with a `surface` gap inside the edge of the face in place of a corner mark. Each band is twice `strokes.hairline` wide. An Avatar without an activation takes no input. With one, a `HoverRing` stroke in `accent` lights only the avatar under the pointer. |
+| `AvatarGroup` | `items` with id, name, image, userId, icon and presence, and an optional `resource` shared-resource acquire function. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. The faces take no input. The overflow chip is the only target: an `OverflowGap` keeps it clear of the overlapping faces, and with touch or a gamepad it is at least `targetSizes.minimum` on both axes. The group binds no gamepad button, so ButtonB reaches the screen. |
 | `Stage` | A native ViewportFrame. A `camera` CFrame or a borrowed Camera, `fieldOfView`, `content(runtime, world, live)` for 3D content that Compose owns, and `lazy`. |
 
 ### Text
@@ -2301,6 +3102,22 @@ or `textRole` instead.
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
 - `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
+- `disclose = true` keeps a truncated value readable. While the engine
+  reports that the text does not fit (`TextFits`), or a middle cut shortens
+  it, the whole value shows in a panel named `Disclosure` beside the label:
+  after a pointer rests on the label for 0.45 seconds, after a keyboard or
+  gamepad selection rests on the label or on the control that holds it, or at
+  once on a touch long-press on the label. The next touch anywhere closes it.
+  The panel takes no selection.
+- `reveal = "auto"` makes a one-line label that truncates at the end scroll its
+  whole value. It rests in the engine's ellipsis for 1.2 seconds, then the
+  whole string slides left as one strip (`Reveal`, clipped to the label's box)
+  at about three characters a second until the tail shows, holds 1.2 seconds,
+  slides back and rests again. The label's own paint is hidden by a
+  `RevealHold` UIGradient while the strip shows. It is also a `disclose`
+  label, and its `Disclosure` panel stops the strip while it shows. Only one
+  strip moves at a time in the controls. It stays still under reduced motion
+  and while the text fits. `reveal` refuses `wrap`, `lines` and a middle cut.
 - `lines = n` shows at most `n` lines. The text fills the width, wraps, and
   ends with an ellipsis when it needs more lines. The box hugs shorter text.
   The limit follows the text size, the line height and the vertical padding.
@@ -2436,19 +3253,44 @@ weight. The derived role keeps the family, style, size and line height.
   recursively frozen. Callbacks, cycles and malformed definitions are rejected.
   A type role needs a positive size. Each `metrics.space` step needs a pixel
   size of 0 or more. A chrome shadow name must be a
-  package shadow or a preset (`raised` or `overlay`). Each palette pair needs a
+  package shadow or a preset (`raised` or `overlay`). A chrome art link
+  `rotation` must be 0 or 180, and its `tint` needs `r`, `g` and `b` from 0
+  to 1. Each palette pair needs a
   contrast of at least 4.5:1, which includes `onSelected` (or `content`) on
   `controlSelected`.
   Color channels and semantic contrast pairs are validated. A package that
   does not declare `style.themes` gets only the first palette of its base. Thus
   a package derived from Neutral has one palette unless it declares more.
 - `checkCoverage(package, needs)` returns `{ ok, covered, missing }`.
-- `resolveIcon(package, name, state?)` resolves real image content.
+- `resolveIcon(package, name, state?)` resolves real image content. A name
+  that ends in `.fill`, such as `"star.fill"`, is the filled variant. The
+  package art for that name wins. Without it, the regular icon draws.
 - `createStyleSheet(runtime, packageOrReadable?, options?)` returns a native
   StyleSheet that Compose owns. See the list below.
+- `forDistance(package, distance)` is the ten-foot metric ladder. `"near"`
+  returns the authored package (the same table). `"ten-foot"` returns a frozen
+  package whose lengths are 1.5 times (`adaptive.TEN_FOOT_SCALE`): `space`,
+  `targetSizes` (a 44 pixel target is 66), `iconSizes`, `strokes`, every
+  `controlSizes` field, `radii` (rounded to whole pixels) and each type role
+  size, so a 16 pixel `body` is 24. A `metrics.controls` value scales unless
+  its name ends in `TextSize`, `Lines`, `Count`, `Duration`, `Seconds`,
+  `Ratio`, `Fraction`, `Scale`, `Opacity` or `Weight`. Motion, colors, chrome
+  art and art insets do not scale. Every proportion of text to its control is
+  the same at both distances. The call is idempotent and reversible:
+  `forDistance(far, "near")` returns the authored package. You rarely call it:
+  controls and a StyleSheet apply it from the ten-foot fact. A frozen
+  package's ladder is cached.
 - `skin(runtime, packageOrReadable, slot, options?)` builds native control
-  artwork. The options include `state`, `target`, `label`, `ZIndex` and injected
-  `types`.
+  artwork. The options include `state`, `selected`, `target`, `label`,
+  `onCaption`, `ZIndex` and injected `types`. When a state has no art of its
+  own and `selected` is true, the skin uses the `selected` art before the
+  `default` art. A plaque layer with `text = true` is title art: it shows
+  `label` and is drawn only while `label` is not empty. It grows around the
+  text by its `textInsets`, never below its own size, and stays centred on its
+  edge. `onCaption(shown)` reports whether the plaque shows the label.
+  A `target` that is a TextBox gets no art images, only the recipe shadow.
+  Roblox draws children above their parent, so art in a TextBox would cover
+  its text and placeholder.
 
 `createStyleSheet` contract:
 
@@ -2466,8 +3308,15 @@ weight. The derived role keeps the family, style, size and line height.
     GuiService.
   - `hover`: a boolean or a readable. When it is `false`, the sheet leaves out
     the `:Hover` rules, so a tapped control does not keep a hover tint. Press
-    paint stays. If you omit it, the sheet leaves out hover paint while
-    UserInputService.PreferredInput is Touch.
+    paint stays. If you omit it, or the readable gives `nil`, the sheet leaves
+    out hover paint while UserInputService.PreferredInput is Touch.
+  - `tenFoot`: a boolean or a readable. When it is `true`, the sheet compiles
+    `forDistance(package, "ten-foot")`: the ten-foot type ramp, radii and
+    strokes. If you omit it, the sheet follows `adaptive.isTenFoot` of
+    GuiService and UserInputService. `app.mount` passes the environment's
+    `isTenFoot`. Pass `false` for a SurfaceGui or BillboardGui, whose canvas
+    has its own scale, and give its controls `environment.viewingDistance =
+    "near"`.
 - Colors and opacity use native StyleRule transitions. The default duration is
   `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
   omitted. The easing is Quad Out. The same timing applies across rules. Native
@@ -2493,15 +3342,25 @@ as before:
   them. Without them they are `accent` and `onAccent`. When a palette of the
   package declares `selection`, a chosen Chip and a selected `link` Button also
   use it.
+- `voice`: the color of the `voice` status. Without it, it is halfway between
+  `warning` and `danger`.
 - `scrim`: the color of a modal backdrop. `scrimOpacity` sets how much it
   dims. Without it the backdrop is black.
 - `inverseSurface` and `onInverse`: the plate and text of
   `appearance = "inverse"`. Without them they are `contentStrong` and
   `surface`.
+- `tableHeader`, `tableRow` and `tableRowAlternate`: the Table header band,
+  its rows and its alternate rows. Without them they are `control`, `control`
+  and `controlHover`.
 - `dimDisabledPlates = true`: a disabled Button fades its plate toward
   `surface` by `disabledContentOpacity`, in addition to its text. This applies
   to the standard, selected, emphasis, soft, inverse and destructive plates and
   to the Toggle indicator. Without it only the text dims.
+- `artTint`: multiplies the `control`, `field` and `panel` chrome art of
+  that palette, so one art set serves a light and a dark palette. Fantasy
+  Parchment Candlelight darkens its parchment to 0.3 so cream text reads on
+  it. Without it the art is untinted. A selected, emphasis or destructive
+  plate keeps its own tint.
 - `strongHairlineOpacity`: the transparency of `facet-divider-strong`. Without
   it, the strong divider is three times as visible as the hairline (0.76 with
   the neutral 0.92).
@@ -2510,6 +3369,42 @@ Two tags need no control. `facet-pane` paints the `surfaceStrong` fill with no
 corner and no stroke, for a sidebar or a split pane. Add
 `facet-divider-strong` next to `facet-divider` for a heavier rule, such as a
 pane edge.
+
+The `focus` chrome slot is the focus look that `UI.focusRing` hands to the
+engine:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `"ring"` (the default): a stroke just outside the control. `"glow"`: a native `UIShadow` halo, which the engine paints over the control. `"nineSlice"`: the `asset` art, sliced around the control. `"brackets"`: a square stroke masked by a `UIGradient` to its two ends, like `[ ]`. |
+| `color` | An RGB or a `$Role` palette token such as `"$FocusGlow"`. The default is `accent`. |
+| `thickness` | The ring stroke (2) or the bracket bar (4), in pixels. |
+| `size` | How far each bracket reaches along the top and bottom, in pixels (12). |
+| `outset` | Pixels that art and brackets stand outside the control (0). |
+| `sliceScale` | The art `SliceScale`; the asset's own value by default. |
+| `blurRadius`, `transparency`, `zIndex` | The glow (24 pixels, 0.25, -1). |
+| `corner` | `"square"` or `"pill"` for every control; otherwise the selected control's shape. |
+| `pulse` | `true`: the look breathes slowly while it shows. Reduced motion stops it. |
+
+The engine draws only the selection object itself and its UI components
+(`UIStroke`, `UIGradient`, `UICorner`, `UIShadow`), never a child GuiObject,
+so every look is one `ImageLabel` with those components. Facet Neutral uses
+the default thin ring. Pixel Quest draws square brackets, Fantasy Ornate its
+gold frame with a slow pulse, and Fantasy Parchment a gold ring.
+
+A chrome slot names its art with `asset`: one asset name, or one name per
+state (`default`, `hover`, `pressed`, `selected`, `disabled`). A state can also
+be `{ asset, rotation, tint }`. `rotation = 180` turns the art over, so a
+nine-slice frame with a centred slice rect shows its bevel pressed in. `tint`
+is an RGB that multiplies the art (`ImageColor3`). When the `control` slot has
+`selected` art, every skinned selected plate shows that art and never a flat
+fill: a segment, a Picker row or card, a Chip, a Toggle button, a menu row and a
+pill tab. The plate keeps the size of its unselected siblings, and its label is
+`onSelected`. Each shipped skinned package has a selected piece. Pixel Quest
+turns its wood plate over and tints it green. Fantasy Ornate turns its jewelled
+selection plate over, so it sits inset in its gold trim. Fantasy Parchment turns
+its parchment plate over and inks it dark brown, with a vellum label. Glossy
+Touch uses its blue gel selection plate. Compact Pointer uses its pressed button
+tinted blue.
 
 The metrics also have optional entries:
 
@@ -2614,28 +3509,283 @@ name.
 | `axisFor(width, { stackAbove? })` | `"x"` at or above `stackAbove` (default 600), else `"y"`. |
 | `columnsFor(available, minColumnWidth, gap?)` | The number of columns of at least `minColumnWidth` that fit, at least 1. |
 | `sizeClassAtLeast(value, target)` | `true` when `value` ranks at or above `target` in `compact < regular < wide`. |
+| `isTenFoot({ displaySize?, touch?, mouse?, tenFootInterface?, viewingDistance? })` | `viewingDistance` `"ten-foot"` or `"near"` decides. Otherwise `true` for `GuiService:IsTenFootInterface()` or a `Large` display, when there is no touch and no mouse. A large desk monitor with a mouse is near, and so is Studio, which reports `IsTenFootInterface()` true on a desktop. |
+| `overscanInsets(width, height)` | The console overscan margins for a viewport: `{ top, left, bottom, right }` of 60/1080 of the height and 90/1920 of the width, rounded. |
+| `TEN_FOOT_SCALE` | 1.5, the ten-foot metric factor. |
+| `navPlacement({ sizeClass, heightClass, primary?, displaySize?, tenFoot? })` | The app navigation home, in this order: ten-foot `"topBar"`; compact width `"bottomBar"`; short height `"bottomBarCompact"`; a pointer `"sidebar"`; a gamepad on a `Small` display `"bottomBar"`; otherwise (a roomy touch screen, a gamepad on a larger display) `"topBar"`. |
 | `BREAKPOINTS`, `HEIGHT_BREAKPOINTS` | The same table: `{ regular = 600, wide = 1000 }`. |
 | `DEFAULT_STACK_ABOVE` | 600. |
+
+### Facet.gamepadContention
+
+`Facet.gamepadContention` reports whether the engine's legacy player scripts
+hold input that the controls need. Every probe is guarded: without an engine
+it answers `false` and never throws. Nothing warns on its own; call them from
+a doctor check or when an input looks dead.
+
+| Call | Result |
+|---|---|
+| `legacyStackActive()` | `true` while ContextActionService binds `jumpAction`, which takes gamepad ButtonA before a selected control. |
+| `cameraKeysContended(boundActionInfo?)` | `true` while any ContextActionService binding holds an arrow key (the camera's `RbxCameraKeypress` holds Left and Right). It reads a different binding than `legacyStackActive`. |
+| `traversalKeyContended()` | `true` while the CoreGui players list is enabled, which takes Tab. |
+| `iasPlayerScriptsActive(player?, waitSeconds?)` | `true` when the player has the engine's default `InputContexts` (`CharacterContext`, `CameraContext` or `VehicleContext`), which exist only when `Workspace.PlayerScriptsUseInputActionSystem` is on. |
+| `disableLegacyControls(playerModuleParent?, player?)` | For a UI-only place only: it turns off avatar input. Returns `true, "inert: IAS owns PlayerScripts"` when the player scripts are on the Input Action System, `true, "disabled"` after `PlayerModule:GetControls():Disable()`, `true, "unbound"` when it removed `jumpAction`, else `false, "unavailable"`. |
+| `freedJumpAction(before, after)` | The pure verdict of an unbind: `jumpAction` was bound before and is gone after. |
+| `describeContention()` | The whole explanation as one string, for a log line. |
+
+The fix for a game with an avatar is `Workspace.PlayerScriptsUseInputActionSystem`.
+No script can read or set it, but a Rojo project file can declare it. No
+`InputContext` priority outranks a sinking ContextActionService binding.
+
+### focusRing
+
+`UI.focusRing(playerGui) -> Frame` sets `PlayerGui.SelectionImageObject` to
+one selection object that the engine draws on the selected control, so the
+engine owns where the focus is and when it moves. The theme package supplies
+the look in its `chrome.focus` recipe (see [Themes](#themes)). The look shows
+after keyboard or gamepad input, or when the effective input is a gamepad, and
+hides after mouse or touch input. Call it inside a component and put the
+returned Frame (an invisible paint probe) in the ScreenGui that holds the
+StyleSheet link. `app.mount` does this for you; `app({ focusRing = false })`
+leaves the PlayerGui's selection object to the game. Several apps share the one
+engine selection object: the latest mounted look is drawn, unmounting gives
+the previous look back, and the last unmount restores the object the game had
+before.
+
+The look takes the shape of the selected control: the control's own
+`UICorner` (a `corners = "pill"` Button, a Slider thumb), a pill for a Chip, a
+circle for a circle Button, and otherwise the theme's `radii.control`. A
+recipe with `corner = "square"` or `corner = "pill"` keeps that shape
+everywhere. The colour is the recipe `color`, or `accent`. A selected object
+with a number attribute `FacetFocusHeight` gets a look that many times its own
+height, measured down from its top edge (a Card uses this to ring the whole
+card from its body).
+
+At ten feet the look is larger: a ring is twice as thick, brackets, art
+outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,
+and the whole look stands 3 pixels off the control, so it lifts clear of the
+control's own edge. A ring is drawn just outside the control at every distance,
+so it never covers a label that runs to the control's edge.
+
+A keyboard or gamepad selection inside a ScrollingFrame scrolls it so the
+selected control and some room on each side are in view, so the engine can
+always reach the next control (the pre-0.12 keep-visible rule). The room is
+the control's height, but never more than half the space the control leaves in
+the window, so a tall control stays fully in view. Facet does this for every
+app that observes the selection, with or without `focusRing`; it reads
+`UserInputService:GetLastInputType()`, so a mouse or touch selection does not
+scroll.
+
+A control whose value has its own part makes that part the selected object,
+so the engine draws the look there: the Slider thumb and each range handle,
+each segment of a segmented Picker. A game control that needs its own look
+sets `SelectionImageObject` on that control; the engine then draws that
+object for it.
+
+### focusSection
+
+`UI.focusSection(group, options?)` makes the GuiObject `group` an entry
+region for directional navigation. Call it inside a component or a Compose
+owner; it stops when the owner ends. It reads and writes
+`GuiService.SelectedObject` and adds no input binding or focus stop.
+
+| Option | Effect |
+|---|---|
+| `entry` | Where the selection lands when it enters `group` from outside. `"restore"` (the default): the item last selected there, while it is still selectable and visible. `"first"`: the first selectable item in layout order, every time. `"nearest"`: the engine's own choice. |
+| `preferred` | The name, or a relative path such as `"Hero/Play"`, of a descendant. On a `"restore"` entry with nothing remembered, it wins. |
+| `focusOnAppear` | `true` selects the first item in layout order when the section appears; a name or path selects that descendant. It acts only while something is already selected (keyboard or gamepad navigation), so a touch or mouse player gets no selection ring. |
+| `returnFocus` | `true` remembers the selected item when the section appears and selects it again when the section goes away, if it is still selectable and the selection was inside the section or gone. |
+
+An unknown option or `entry` causes an error. A branch that shows a detail
+over a list uses `focusOnAppear` and `returnFocus` together:
+
+```luau
+local open = Compose.cell(false)
+Compose.show(open, function()
+	local detail = UI.VStack "Detail" {
+		UI.Button "Back" { label = "Back", onActivate = function() open:set(false) end },
+	}
+	UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
+	return detail
+end)
+```
+
+### responder
+
+`UI.responder(root, options?) -> Responder` declares how the surface `root`
+(a GuiObject or a LayerCollector) shares the keyboard with the game. Call it
+inside a component or a Compose owner; it stops when the owner ends. It works
+on the engine selection: the surface is engaged while the selection is inside
+it.
+
+| Option | Effect |
+|---|---|
+| `passive` | `true` (the default): a HUD over live gameplay. At rest it binds nothing. Tab is not bound while nothing is selected, a D-pad press does not enter it, and Space reaches the game. It engages when the selection enters it, when the player taps it (the tapped control takes the selection) and on `engage()`. It resigns on a tap outside it, on ButtonB or Escape that no control takes, on `resign()`, and when the selection moves to another surface. `false`: the surface is always engaged, like any screen without a responder. |
+| `gameplayGuard` | `true` (the default): while a passive surface is engaged, a sinking `FacetGameplayGuard` context at priority 3000 takes Space, so the avatar does not jump while the UI has the keyboard. `false`: no guard, and a Button inside `root` binds only Return, so Space reaches the game (a word game over the world). |
+| `traversalWrap` | `true` (the default): Tab and Shift+Tab wrap at the ends of the surface. `false`: they stop at the last and the first control. |
+
+The `Responder` has `state`, a readable of `"passive"` or `"engaged"`, and
+`engage()` and `resign()`. `engage()` binds Tab and the guard; the first Tab
+then enters the surface. `resign()` clears a selection inside `root`. On a
+passive-only screen a gamepad player needs `engage()`, for example from a
+menu button of the game. An unknown option or a value that is not a boolean
+causes an error.
+
+```luau
+local hud = UI.Screen "Hud" { UI.Button "Map" { label = "Map" } }
+local responder = UI.responder(hud)
+-- the game opens its menu with a key of its own
+responder.engage()
+```
+
+### adjustable
+
+`UI.adjustable(node, options)` gives a game control the keyboard and gamepad
+adjustment of the Slider and the Stepper. While the selection is on `node` or
+inside it, Comma and Period and L1 and R1 call `onAdjust(-1)` and
+`onAdjust(1)`, and the arrows of `axis` do too. The other axis keeps moving
+the selection. Call it inside a component or a Compose owner; it stops when
+the owner ends. `node` or a descendant must be selectable.
+
+| Option | Effect |
+|---|---|
+| `onAdjust(direction)` | Required. `direction` is -1 or 1. |
+| `axis` | `"horizontal"` (the default) takes Left and Right, `"vertical"` takes Up and Down, `"none"` takes no arrows and leaves only the shoulders. |
+| `repeats` | `true`: a held key or button adjusts again after 0.4 seconds, then every 0.1 seconds, like the built-in value controls. The default is `false`: one step for each press. |
+| `canAdjust(direction, use?)` | Optional. `false` gives that arrow back to navigation, for example at a limit. |
+| `enabled`, `disabled`, `busy` | Values or readables. A disabled control takes no keys. |
+
+The actions have the priority of the built-in value controls, so a higher
+priority gameplay context still wins, and a held repeat stops when it does.
+An unknown `axis` causes an error.
+
+```luau
+local angle = Compose.cell(0)
+local function turn(direction: number)
+	angle:set(angle:peek() + direction * 15)
+end
+local row = UI.HStack "Turn" {
+	UI.Button "Left" { label = "Turn left", onActivate = function() turn(-1) end },
+	UI.Button "Right" { label = "Turn right", onActivate = function() turn(1) end },
+}
+UI.adjustable(row, { onAdjust = turn, axis = "none", repeats = true })
+```
+
+### feedback
+
+`UI.feedback(kind)` plays one of the named feedback kinds at once. See
+[Haptics](#haptics) for the kinds and their engine effects.
+
+```luau
+local function onPurchaseConfirmed(granted: boolean)
+	UI.feedback(if granted then "success" else "error")
+end
+onPurchaseConfirmed(true)
+```
+
+### draggable and dropTarget
+
+`UI.draggable(source, spec)` lets a player pick up the GuiObject `source`, and
+`UI.dropTarget(target, spec)` lets the GuiObject `target` receive it. Call both
+inside a component or a Compose owner; they stop when the owner ends. Every
+input ends in the same drop:
+
+- Pointer: press the source and move it 6 pixels. A release before that is a
+  click, and the source's own activation still happens.
+- Touch: a finger that moves first scrolls. Hold the finger still until the
+  engine's long press (`TouchLongPress`) to pick the source up; the
+  ScrollingFrame under it stops scrolling until the finger lifts.
+- While the source is held, an inert copy of it (`DragGhost`) follows the
+  pointer at the root of its screen, and the target under the pointer is the
+  aim. Release to drop there. The press that became a drag never activates a
+  Facet Button, so a drag of a card never opens it.
+- Keyboard and gamepad: select the source and press Return or A to pick it up.
+  Move the selection into a target and press Return or A to drop. Escape or B
+  puts the source back. On a Facet Button source or target this is the
+  Button's own activation, so its `onActivate` also runs.
+- `armOnTap = true`: a touch tap on the source picks it up, the list under it
+  still scrolls, and a tap on a target drops it.
+
+While the source is held it has the `facet-drag-held` tag and the
+`FacetDragHeld` attribute. Every theme hides its text and icons, so its plate
+stays as the empty slot until the drop lands or the source goes back.
+
+```lua
+UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
+UI.dropTarget(slot, {
+	accepts = function(payload)
+		if payload.kind ~= "sponsor" then
+			return false, "WRONG_KIND"
+		end
+		return true
+	end,
+	onDrop = function(payload, info)
+		place(payload, info.target)
+	end,
+})
+```
+
+`draggable` spec:
+
+- `payload`: required. The value every target receives. A function is called
+  with the source at pickup.
+- `enabled`: a boolean or a readable. While false the source cannot be picked
+  up, and it stays selectable and activatable.
+- `armOnTap`: a touch tap picks the source up (above). Default `false`.
+
+`dropTarget` spec:
+
+- `onDrop(payload, info)`: required. `info` is `{ source, target, mode }`,
+  where `mode` is `"pointer"` or `"armed"`.
+- `accepts(payload) -> (legal, reason?)`: the game's rule. Without it the
+  target accepts everything. A refused drop calls `onReject(payload, reason)`
+  and puts the source back.
+- `onEnter(payload)` and `onLeave(payload)`: called once each time the aim
+  enters or leaves the target. A nested target wins over the one around it.
+
+`UI.focusSection(group, { focusOnAppear?, returnFocus? })` also says where the
+selection goes when a branch appears and leaves. Call it in the component that
+builds the branch, such as the content of a `Compose.show` or a detail page.
+
+- `focusOnAppear = true` selects the first selectable item in `group`
+  (`GuiService:Select(group)`) when `group` arrives in a ScreenGui.
+  `focusOnAppear = "Save"` selects the descendant with that name. The claim
+  happens only while the player navigates by selection: something is
+  selected, or the preferred input is a gamepad. A pointer or touch player
+  gets no selection.
+- `returnFocus = true` remembers what was selected before the claim. When the
+  owner ends and the selection is inside `group` or gone, the selection
+  returns there. When that item has left the screen, the first selectable item
+  of the screen gets the selection, so the ring never goes blank. A selection
+  that the player moved outside `group` stays.
+
+An unknown option causes an error.
 
 ### environment
 
 `UI.environment(source?) -> Environment` returns readables of the engine facts
 that a screen adapts to. Call it inside a component or a Compose owner. The
 readables stop when the owner ends. `source` is a `GuiBase2d`, whose
-`AbsoluteSize` is the viewport, or a `Camera`, whose `ViewportSize` is the
+`AbsoluteSize` in layout units (divided by the scale of its `UIScale`
+ancestors) is the viewport, or a `Camera`, whose `ViewportSize` is the
 viewport. Without a source it reads the `ViewportSize` of the workspace camera.
 A viewport smaller than 2 by 2 pixels is an engine placeholder. The
 environment keeps the last real size.
 
 | Field | Source and value |
 |---|---|
-| `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport, in pixels. |
-| `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. |
+| `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport: layout units for a `GuiBase2d` source, pixels for a camera. |
+| `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
 | `isCompact`, `isRegular`, `isWide`, `isRegularOrWider`, `isShort`, `isTall`, `isLandscape` | Booleans. `isRegular` is the middle class only. Use `isRegularOrWider` for "not compact". |
 | `atLeast(target)` | A new boolean readable for `sizeClassAtLeast(sizeClass, target)`. |
 | `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. |
 | `effectiveInput` | `primary` as `"KeyboardAndMouse"`, `"Touch"` or `"Gamepad"`. |
 | `displaySize` | The name of `GuiService.ViewportDisplaySize`: `"Small"`, `"Medium"` or `"Large"`. |
+| `isTenFoot` | `adaptive.isTenFoot` of the `viewingDistance` option, the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |
+| `viewingDistanceSource` | `"authored"` when the `viewingDistance` option is `"near"` or `"ten-foot"`, else `"inferred"`. |
+| `metricScale` | `adaptive.TEN_FOOT_SCALE` (1.5) at ten feet, else 1. It is the factor of the ten-foot metric ladder (see [Themes](#themes)). |
+| `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
+| `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
 | `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
 | `reducedMotion` | The factory `reducedMotion` option or `GuiService.ReducedMotionEnabled`. |
@@ -2708,6 +3858,23 @@ any value. Give it to a number field as `parse`. It accepts `+`, `-`, `*`, `/`,
 parentheses, the typographic signs `×`, `÷` and `−`, and blanks. It refuses a
 division by zero, an exponent, a hex number, more than 256 characters and more
 than 32 levels of nesting. It never compiles the text.
+
+## Migrating from 0.11
+
+The 0.11 screen-anchored composition maps to these 0.12 calls:
+
+| 0.11 | 0.12 |
+|---|---|
+| `UI.Composition { groups = Facet.composition.HUD_GROUPS, arrangements = { Facet.composition.HUD } }` | `UI.Composition {}`. The three HUD lanes and nine zones are the only layout. |
+| `UI.Region { group = "topRight", ... }` | `UI.Region { zone = "topRight", ... }`. The nine zone names are the same. |
+| the `topbar` group with `rootPolicy = "bandSafeContent"` | `zone = "topbar"`. The composition uses a native `TopbarSafeInsets` ScreenGui. |
+| `rank`, `mayDrop`, forms as children, richest first | The same. |
+| `holdsLane` | Always on. Each lane reserves its third of the width. |
+| `resolution.unshown`, `simplified` | The `form` cell of each region: 0 is hidden, 2 or more is simplified. |
+| `recover`, `expand`, `dismissButton` | Removed. Make a simplified form a Button that opens the full content, for example in a Sheet. |
+| `floor`, `sizing`, `weight`, `mayScroll`, `reserved`, `exclusions`, `maxMeasure`, spans, custom arrangements | Removed. Use native layout inside a form. Put chrome outside the composition, or give the composition a native `Size` and `Position`. |
+| `UI.Anchor` with `anchor` and offsets on each child | A native Frame with `AnchorPoint` and `Position`, or a one-region `UI.Composition`. |
+| `Facet.composition.resolve` | Removed. The decision runs on the measured native sizes. |
 
 ## Native targets and boundaries
 

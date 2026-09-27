@@ -11,6 +11,10 @@ local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
+local INK = { r = 0.5, g = 0.4, b = 0.3 }
+local INKED = rgb(105, 75, 44)
+local VELLUM = rgb(252, 244, 224)
+
 local DAYLIGHT = {
 	colors = {
 		surface = rgb(226, 210, 176),
@@ -31,8 +35,9 @@ local DAYLIGHT = {
 		control = rgb(214, 194, 156),
 		controlHover = rgb(226, 208, 172),
 		controlPressed = rgb(198, 176, 138),
-		controlSelected = rgb(212, 186, 132),
-		contentSecondary = rgb(110, 92, 66),
+		controlSelected = INKED,
+		onSelected = VELLUM,
+		contentSecondary = rgb(100, 82, 58),
 		hairline = rgb(88, 68, 44),
 
 		focusGlow = rgb(214, 154, 46),
@@ -62,9 +67,12 @@ local CANDLELIGHT = {
 		control = rgb(86, 66, 44),
 		controlHover = rgb(102, 80, 54),
 		controlPressed = rgb(66, 50, 34),
-		controlSelected = rgb(112, 86, 44),
+		controlSelected = INKED,
+		onSelected = VELLUM,
 		contentSecondary = rgb(196, 176, 142),
 		hairline = rgb(226, 200, 150),
+
+		artTint = { r = 0.3, g = 0.3, b = 0.3 },
 
 		focusGlow = rgb(248, 196, 96),
 		hairlineOpacity = 0.7,
@@ -350,7 +358,10 @@ function fantasy_parchment.definition(themes: any): any
 			},
 			control = {
 				kind = "nineSlice",
-				asset = "parchment_button",
+				asset = {
+					default = "parchment_button",
+					selected = { asset = "parchment_button", rotation = 180, tint = INK },
+				},
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 				shadow = "raised",
@@ -362,14 +373,7 @@ function fantasy_parchment.definition(themes: any): any
 				fallback = "native",
 			},
 
-			focus = {
-				kind = "glow",
-				color = "$FocusGlow",
-
-				blurRadius = { scale = 0, offset = 26 },
-				transparency = 0.25,
-				zIndex = -1,
-			},
+			focus = { kind = "ring", color = "$FocusGlow", thickness = 3 },
 
 			selection = { kind = "native" },
 			divider = { kind = "native" },

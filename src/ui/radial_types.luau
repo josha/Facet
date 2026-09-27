@@ -11,6 +11,7 @@ export type Expansion = "fan" | "ring"
 export type Center = "back" | "root" | "close" | "content" | "empty"
 export type Completion = "close" | "back" | "root" | "stay"
 export type Follow = "idle" | "always" | "fixed"
+export type RingWidth = "narrow" | "regular" | "wide"
 export type ContentFit = "both" | "radial" | "angular" | "none"
 export type CompassSlot = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW"
 export type AnchorPoint = { x: number, y: number, visible: boolean?, clearance: number? }
@@ -18,14 +19,14 @@ export type Anchor = GuiObject | AnchorPoint
 export type SkinImages = { default: string?, pressed: string?, hover: string?, selected: string? }
 export type RadialItemBase<V> = {
 	id: string,
-	label: Types.Value<string>,
-	description: Types.Value<string>?,
-	icon: Types.Value<string>?,
-	compactLabel: { prefer: boolean?, icon: Types.Value<string>? }?,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	compactLabel: { prefer: boolean?, icon: Types.ValueString? }?,
 	labelStyle: ("icon" | "text")?,
 	slot: CompassSlot?,
-	enabled: Types.Value<boolean>?,
-	hidden: Types.Value<boolean>?,
+	enabled: Types.ValueBoolean?,
+	hidden: Types.ValueBoolean?,
 	completion: Completion?,
 	navigation: Navigation?,
 	expansion: Expansion?,
@@ -42,8 +43,8 @@ export type RadialItem<V = string> =
 	| (RadialItemBase<V> & { checked: nil?, selected: nil?, value: nil?, onChange: nil? })
 export type RadialMenuSpec<V = string> = Types.FrameProps & {
 	items: Types.Value<{ RadialItem<V> }>,
-	label: Types.Value<string>?,
-	icon: Types.Value<string>?,
+	label: Types.ValueString?,
+	icon: Types.ValueString?,
 	launcher: boolean?,
 	preset: Preset?,
 	appearance: Appearance?,
@@ -52,23 +53,24 @@ export type RadialMenuSpec<V = string> = Types.FrameProps & {
 	navigation: Navigation?,
 	expansion: Expansion?,
 	center: Center?,
-	centerLabel: Types.Value<string>?,
+	centerLabel: Types.ValueString?,
 	centerContent: GuiObject | (() -> GuiObject)?,
 	centerPassThrough: boolean?,
 	completion: Completion?,
 	anchor: Types.Value<Anchor>?,
 	follow: Follow?,
-	clearance: Types.Value<number>?,
-	ringWidth: Types.Value<number>?,
+	clearance: Types.ValueNumber?,
+	ringWidth: Types.Value<number | RingWidth>?,
 	contentFit: ContentFit?,
 	gestureSelection: ("bounded" | "direction")?,
-	enabled: Types.Value<boolean>?,
+	enabled: Types.ValueBoolean?,
 	holdAction: InputAction?,
 	skin: { item: SkinImages?, center: SkinImages?, launcher: SkinImages?, background: SkinImages? }?,
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 	isPresented: ComposeTypes.Cell<boolean>?,
 	transition: boolean?,
+	scrim: ("dark" | "light" | "none")?,
 }
 export type RadialMenuBuilder = <V>(RadialMenuSpec<V>) -> Frame
 export type RadialMenuConstructor = RadialMenuBuilder & ((string) -> RadialMenuBuilder)

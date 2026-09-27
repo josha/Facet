@@ -89,6 +89,8 @@ return {
 						{ value = "warning", label = "Warning" },
 						{ value = "error", label = "Error" },
 						{ value = "accent", label = "Accent" },
+						{ value = "voice", label = "Voice" },
+						{ value = "contrast", label = "Contrast" },
 					},
 				},
 				UI.Picker "Shape" {
@@ -151,19 +153,11 @@ return {
 				return Host.Frame "StatusIndicator" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					Host.UIPadding({
-						PaddingTop = UDim.new(0, 16),
-						PaddingBottom = UDim.new(0, 16),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
-					}),
-					Host.ScrollingFrame "Content" {
+					UI.ScrollView "Content" {
+						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						CanvasSize = UDim2.new(),
 						ScrollBarThickness = 6,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 						section(),
 					},
 				}

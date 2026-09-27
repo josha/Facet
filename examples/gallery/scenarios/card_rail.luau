@@ -48,15 +48,7 @@ return {
 			})
 		end
 		local function rail(name, order)
-			local width = Compose.cell(0)
-			local cardWidth = Compose.formula(function(use)
-				local available = use(width)
-				if available <= 0 then
-					available = use(ctx.viewport).width - 24
-				end
-				local perView = math.max(1, math.floor((available - 40) / 240))
-				return math.max(1, math.floor((available - 40) / perView))
-			end)
+			local cardWidth = Compose.cell(240)
 			local nameProbe = UI.Text "NameMeasure" {
 				Visible = false,
 				text = "Livery 000",
@@ -99,7 +91,7 @@ return {
 					return item.id
 				end,
 				direction = "horizontal",
-				itemSize = cardWidth,
+				itemSize = "cards",
 				gap = 8,
 				overscan = 2,
 				status = status,
@@ -107,7 +99,13 @@ return {
 				Size = function(use)
 					return D2.new(1, 0, 0, use(height))
 				end,
-				render = function(current, _, key)
+				render = function(current, placement, key)
+					Compose.watch(function(use)
+						local extent = use(placement).size
+						if extent > 1 and cardWidth:peek() ~= extent then
+							cardWidth:set(extent)
+						end
+					end)
 					local track = Host.Path2D "Track" { Thickness = 5 }
 					local points = {}
 					local pointType = ctx.types.Path2DControlPoint or Path2DControlPoint
@@ -170,28 +168,16 @@ return {
 				nameProbe,
 				badgeProbe,
 			})
-			local window = observe(node, "AbsoluteWindowSize")
-			Compose.watch(function(use)
-				width:set(use(window).X)
-			end)
 			rails[name] = { node = node, cardWidth = cardWidth, status = status }
 			return node
 		end
 		return {
 			screen = function()
-				return Host.ScrollingFrame "CardRail" {
+				return UI.ScrollView "CardRail" {
+					padding = 16,
+					gap = 8,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					CanvasSize = D2.new(),
-					ScrollingDirection = E.ScrollingDirection.Y,
-					Host.UIPadding({
-						PaddingLeft = D.new(0, 12),
-						PaddingRight = D.new(0, 12),
-						PaddingTop = D.new(0, 12),
-						PaddingBottom = D.new(0, 12),
-					}),
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
 					label("Title", copy.title, 1, 24),
 					label("Hint", copy.hint, 2, 14),
 					rail("Rail", 3),

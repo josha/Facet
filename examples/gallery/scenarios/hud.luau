@@ -10,7 +10,6 @@ local copy = {
 	tasksChip = "Tasks 1/3",
 	timer = "2:14",
 	timerShort = "2m",
-	timerTiny = "2",
 	scoreHome = "12",
 	scoreAway = "9",
 	weapon1 = "Rifle",
@@ -21,108 +20,143 @@ local copy = {
 	ammo3 = "--",
 	weaponName = "Ranger rifle",
 	readout = "60 FPS · 42 ms",
-	healthLabel = "Health",
 	action1 = "Shop",
 	action2 = "Squad",
 	action3 = "Menu",
 	round1 = "HUD actions",
 	round2 = "Report",
-	round3 = "Show what's hidden",
 	overflowTitle = "Hidden right now",
-	overflowClose = "Close",
 	overflowEmpty = "Nothing is hidden — every zone is showing everything it has.",
-	overflowNote = "Every simplified zone remains available here.",
+	overflowNote = "Nothing is deleted. A zone that gives way is listed here.",
 	feed = "Ravi eliminated Mo",
 	urlBarOn = "URL bar",
 	urlBarField = "example.com/play",
+	rideOn = "Topbar strip",
 	objective = "Round 3 · Capture",
 	objectiveShort = "R3",
+	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. Tap a smaller piece or its ··· to see the rest.",
 }
+local FORMS = {
+	Strip = { "full", "short" },
+	Rounds = { "full", "column" },
+	Tasks = { "full", "one", "chip" },
+	Health = { "full", "compact" },
+	Feed = { "full" },
+	Clock = { "full", "timer", "short" },
+	Rail = { "full", "chip" },
+	Readout = { "full" },
+	Actions = { "full", "compact" },
+	Weapon = { "full" },
+}
+local LOSSLESS = { Rounds = true, Actions = true }
+local ORDER = { "Strip", "Rounds", "Tasks", "Health", "Feed", "Clock", "Rail", "Readout", "Actions", "Weapon" }
 return {
 	title = "Screen-anchored HUD",
 	copy = copy,
+	forms = FORMS,
 	build = function(ctx)
-		local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
+		local Host, UI, Compose, Facet = ctx.Host, ctx.UI, ctx.Compose, ctx.Facet
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local health, roundLeft, seconds = Compose.cell(0.84), Compose.cell(0.62), Compose.cell(134)
 		local tasks = { Compose.cell(0.2), Compose.cell(0.4), Compose.cell(0.6) }
-		local urlBar, overflow, reportOpen = Compose.cell(false), Compose.cell(false), Compose.cell(false)
+		local urlBar, ride, overflow, reportOpen =
+			Compose.cell(false), Compose.cell(true), Compose.cell(false), Compose.cell(false)
 		local notice, selectedWeapon = Compose.cell(nil), Compose.cell(1)
-		local bodySize = Compose.cell(V2.zero)
-		local function read(source, use)
-			return if Compose.isReadable(source) then use(source) else source
+		local chosen = {}
+		for _, id in ORDER do
+			chosen[id] = Compose.cell(1)
 		end
-		local offer = Compose.formula(function(use)
-			local measured = use(bodySize)
-			if measured.X > 0 and measured.Y > 0 then
-				return { width = measured.X, height = measured.Y }
-			end
-			local viewport = ctx.viewport and read(ctx.viewport, use) or { width = 960, height = 640 }
-			return {
-				width = math.max(1, viewport.width - 24),
-				height = math.max(1, viewport.height - 140 - (if use(urlBar) then 64 else 0)),
-			}
-		end)
 		local forms = Compose.formula(function(use)
-			local area = use(offer)
-			local width, height = (area.width - 24) / 3, area.height
-			return {
-				Tasks = if height >= 420 and width >= 200 then "full" elseif height >= 240 then "compact" else "hidden",
-				Clock = if width >= 160 and height >= 260 then "full" elseif width >= 100 then "compact" else "tiny",
-				Rail = if width >= 140 and height >= 320 then "full" else "compact",
-				Health = if width >= 140 and height >= 240 then "full" else "compact",
-				Actions = if height >= 320 then "full" else "compact",
-				Feed = if height >= 440 and width >= 180 then "full" else "hidden",
-				Readout = if height >= 520 and width >= 160 then "full" else "hidden",
-				Weapon = if height >= 400 and width >= 160 then "full" else "hidden",
-			}
+			local named = {}
+			for _, id in ORDER do
+				local index = use(chosen[id])
+				named[id] = if index == 0 then "hidden" else FORMS[id][index] or "reveal"
+			end
+			return named
 		end)
-		local order = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" }
 		local unshown = Compose.formula(function(use)
-			local current, result = use(forms), {}
-			for _, id in order do
-				if current[id] ~= "full" then
+			local result = {}
+			for _, id in ORDER do
+				if use(chosen[id]) ~= 1 and id ~= "Rounds" then
 					table.insert(result, id)
 				end
 			end
 			return result
 		end)
-		local function text(name, label, size)
-			return UI.Text({
-				Name = name,
-				text = label,
-				TextSize = size or 15,
-				TextWrapped = true,
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
-			})
-		end
-		local function stack(name, children, horizontal)
-			local properties = {
+		local short = Compose.formula(function(use)
+			local viewport = if ctx.viewport then use(ctx.viewport) else nil
+			return viewport ~= nil and viewport.height < 480
+		end)
+		local function row(name, children, gap, vertical, align)
+			local fields = {
 				Name = name,
 				BackgroundTransparency = 1,
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
 				Host.UIListLayout({
-					FillDirection = if horizontal then E.FillDirection.Horizontal else E.FillDirection.Vertical,
-					Wraps = horizontal == true,
-					Padding = D.new(0, 8),
+					FillDirection = if vertical then E.FillDirection.Vertical else E.FillDirection.Horizontal,
+					HorizontalAlignment = align or E.HorizontalAlignment.Left,
+					VerticalAlignment = E.VerticalAlignment.Center,
+					Padding = D.new(0, gap or 6),
 					SortOrder = E.SortOrder.LayoutOrder,
 				}),
 			}
 			for index, child in children do
 				child.LayoutOrder = index
-				table.insert(properties, child)
+				table.insert(fields, child)
 			end
-			return Host.Frame(properties)
+			return Host.Frame(fields)
 		end
-		local function action(name, label, callback, icon)
+		local function plate(name, slot, content, padX, padY)
+			local node = Host.Frame({
+				Name = name,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+				Host.UICorner({}),
+				Host.UIPadding({}),
+				Host.Frame({
+					Name = "Inset",
+					BackgroundTransparency = 1,
+					Size = D2.new(),
+					AutomaticSize = E.AutomaticSize.XY,
+					Host.UIPadding({
+						PaddingLeft = D.new(0, padX),
+						PaddingRight = D.new(0, padX),
+						PaddingTop = D.new(0, padY),
+						PaddingBottom = D.new(0, padY),
+					}),
+					content,
+				}),
+			})
+			node:AddTag("facet-" .. slot)
+			if ctx.theme then
+				Compose.cleanup((ctx.runtime.mount(function()
+					return Facet.themes.skin(ctx.runtime, ctx.theme, slot, { types = ctx.types, target = node })
+				end, node)))
+			end
+			return node
+		end
+		local function text(name, label, role)
+			return UI.Text({
+				Name = name,
+				text = label,
+				textRole = role or "caption",
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+			})
+		end
+		local function pill(name, label, role)
+			return plate(name, "control", text(name .. "Text", label, role), 10, 4)
+		end
+		local function disc(name, label, icon, onActivate)
 			return UI.Button({
 				Name = name,
-				label = label,
+				label = "",
+				name = label,
 				icon = icon,
-				Size = D2.new(1, 0, 0, 44),
-				onActivate = callback,
+				shape = "circle",
+				Size = D2.fromOffset(44, 44),
+				onActivate = onActivate,
 			})
 		end
 		local function showNotice(message)
@@ -148,6 +182,9 @@ return {
 			closeUrlBar = function()
 				urlBar:set(false)
 			end,
+			rideStrip = function(on)
+				ride:set(on ~= false)
+			end,
 			openOverflow = function()
 				overflow:set(true)
 				return { open = true }
@@ -167,267 +204,258 @@ return {
 		}
 		local function timerText(style, use)
 			local value = use(seconds)
-			if style == "full" then
-				return string.format("%d:%02d", math.floor(value / 60), value % 60)
+			if style == "short" then
+				return tostring(math.floor(value / 60)) .. "m"
 			end
-			return tostring(math.floor(value / 60)) .. (if style == "compact" then "m" else "")
+			return string.format("%d:%02d", math.floor(value / 60), value % 60)
+		end
+		local function bar(name, value, width, segments)
+			return UI.ProgressView({
+				Name = name,
+				value = value,
+				segments = segments,
+				trail = if segments then { delay = 0.2, duration = 0.3 } else nil,
+				Size = D2.fromOffset(width, 8),
+			})
 		end
 		local function taskRow(index)
-			return stack("TaskRow" .. index, {
+			local mark = Host.Frame({
+				Name = "Mark" .. index,
+				Size = D2.fromOffset(8, 8),
+				Host.UICorner({ CornerRadius = D.new(1, 0) }),
+			})
+			mark:AddTag("facet-accent")
+			return row("TaskRow" .. index, {
+				mark,
 				text("TaskName" .. index, copy["task" .. index]),
-				UI.ProgressView({ Name = "Task" .. index, value = tasks[index], Size = D2.new(1, 0, 0, 14) }),
+				bar("Task" .. index, tasks[index], 72),
 				UI.Badge({ Name = "Reward" .. index, label = copy["reward" .. index] }),
 			})
 		end
 		local rich = {}
+		rich.Strip = function()
+			return pill("Objective", copy.objective)
+		end
 		rich.Tasks = function()
-			return stack("TasksFull", { text("TasksTitle", copy.tasksTitle, 18), taskRow(1), taskRow(2), taskRow(3) })
+			return plate(
+				"TasksFull",
+				"panel",
+				row(
+					"TasksBody",
+					{ text("TasksTitle", copy.tasksTitle, "label"), taskRow(1), taskRow(2), taskRow(3) },
+					6,
+					true
+				),
+				12,
+				10
+			)
 		end
 		rich.Clock = function()
-			return stack("ClockFull", {
-				UI.ProgressView "TimerRing" {
-					value = roundLeft,
-					presentation = "circular",
-					diameter = 72,
-					Size = D2.fromOffset(72, 72),
-				},
-				text("TimerText", function(use)
-					return timerText("full", use)
-				end, 26),
-				text("TeamScores", copy.scoreHome .. "  —  " .. copy.scoreAway, 22),
+			local ring = UI.ProgressView({
+				Name = "TimerRing",
+				value = roundLeft,
+				presentation = "circular",
+				diameter = 28,
+				Size = D2.fromOffset(28, 28),
+			})
+			return row("ClockFull", {
+				pill("ScoreHome", copy.scoreHome, "numeral"),
+				plate(
+					"TimerPod",
+					"control",
+					row("TimerRow", {
+						ring,
+						text("TimerText", function(use)
+							return timerText("full", use)
+						end, "numeral"),
+					}, 8),
+					12,
+					4
+				),
+				pill("ScoreAway", copy.scoreAway, "numeral"),
 			})
 		end
 		rich.Rail = function()
-			local children = {}
+			local rows = {}
 			for index = 1, 3 do
 				table.insert(
-					children,
-					UI.Button({
-						Name = "Weapon" .. index,
-						label = copy["weapon" .. index],
-						subtitle = copy["ammo" .. index],
-						selected = function(use)
-							return use(selectedWeapon) == index
-						end,
-						Size = D2.new(1, 0, 0, 64),
-						onActivate = function()
-							selectedWeapon:set(index)
-						end,
+					rows,
+					row("WeaponRow" .. index, {
+						UI.Button({
+							Name = "Weapon" .. index,
+							label = copy["weapon" .. index],
+							controlSize = "compact",
+
+							selected = function(use)
+								return use(selectedWeapon) == index
+							end,
+							onActivate = function()
+								selectedWeapon:set(index)
+							end,
+						}),
+						UI.Badge({ Name = "Ammo" .. index, label = copy["ammo" .. index] }),
 					})
 				)
 			end
-			return stack("RailFull", children)
+			return row("RailFull", rows, 4, true, E.HorizontalAlignment.Right)
 		end
 		rich.Health = function()
-			return stack("HealthFull", {
-				text("HealthLabel", copy.healthLabel),
-				UI.ProgressView "HealthBar" {
-					value = health,
-					segments = 4,
-					trail = { delay = 0.2, duration = 0.3 },
-					Size = D2.new(1, 0, 0, 14),
-				},
-				text("HealthNum", function(use)
-					return tostring(math.floor(use(health) * 100 + 0.5))
-				end, 22),
-			})
+			return plate(
+				"HealthPod",
+				"control",
+				row("HealthRow", {
+					text("HealthNum", function(use)
+						return tostring(math.floor(use(health) * 100 + 0.5))
+					end, "numeral"),
+					bar("HealthBar", health, 96, 4),
+				}, 8),
+				12,
+				4
+			)
 		end
 		rich.Actions = function()
-			return stack("ActionsFull", {
-				action("Shop", copy.action1, function()
+			local node = UI.AdaptiveStack({
+				Name = "ActionsFull",
+				axis = function(use)
+					return if use(short) then "x" else "y"
+				end,
+				gap = "s",
+				width = "hug",
+				disc("Shop", copy.action1, "more", function()
 					showNotice("Shop opened")
-				end, "more"),
-				action("Squad", copy.action2, function()
+				end),
+				disc("Squad", copy.action2, "menu", function()
 					showNotice("Squad ready")
-				end, "more"),
-				action("ActionMenu", copy.action3, steps.openOverflow, "menu"),
+				end),
+				disc("ActionMenu", copy.action3, "checkmark", steps.openOverflow),
 			})
+			return node
 		end
 		rich.Feed = function()
 			return text("FeedText", copy.feed)
 		end
 		rich.Readout = function()
-			return text("ReadoutText", copy.readout, 12)
+			return text("ReadoutText", copy.readout)
 		end
 		rich.Weapon = function()
-			return text("WeaponText", copy.weaponName, 16)
+			return text("WeaponText", copy.weaponName)
 		end
-		local function chip(name, icon, label)
-			return UI.Button({
-				Name = name,
-				icon = icon,
-				label = label,
-				appearance = "soft",
-				onActivate = steps.openOverflow,
-			})
+		local menuItems = {
+			{ id = "damage", label = "Take damage", onSelect = steps.takeDamage },
+			{ id = "heal", label = "Restore health", onSelect = steps.heal },
+			{ id = "tick", label = "Advance clock", onSelect = steps.tickRound },
+			{ id = "notice", label = "Show notification", onSelect = steps.notify },
+		}
+		local function rounds(suffix, vertical)
+			return row(if vertical then "RoundsColumn" else "RoundsRow", {
+				UI.Menu({ trigger = disc("HudActions" .. suffix .. "Trigger", copy.round1, "menu"), items = menuItems }),
+				disc("Report" .. suffix, copy.round2, "flag", function()
+					reportOpen:set(true)
+				end),
+			}, 8, vertical)
 		end
-		local function compact(id)
-			if id == "Clock" then
-				return chip("ClockCompact", "clock", function(use)
-					return timerText(use(forms).Clock, use)
-				end)
-			elseif id == "Health" then
-				return chip("HealthCompact", "person", function(use)
-					return `{copy.healthLabel} {math.floor(use(health) * 100 + 0.5)}`
-				end)
-			elseif id == "Rail" then
-				return chip("RailCompact", "flag", function(use)
-					return copy["weapon" .. use(selectedWeapon)]
-				end)
-			elseif id == "Tasks" then
-				return chip("TasksCompact", "checkmark", copy.tasksChip)
-			end
-			return chip(id .. "Compact", "more", id)
-		end
-		local function region(id)
-			return Host.Frame({
+		local function region(id, zone, rank, mayDrop, ...)
+			return UI.Region({
 				Name = id,
-				BackgroundTransparency = 1,
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
-				Compose.switch(function(use)
-					return use(forms)[id]
-				end, {
-					full = rich[id],
-					compact = function()
-						return compact(id)
-					end,
-					tiny = function()
-						return compact(id)
-					end,
-					hidden = function()
-						return Host.Frame({ Size = D2.fromOffset(0, 0), BackgroundTransparency = 1 })
-					end,
-				}),
-			})
-		end
-		local function lane(name, ids)
-			local children = {}
-			for _, id in ids do
-				table.insert(children, region(id))
-			end
-			return Host.ScrollingFrame({
-				Name = name,
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				CanvasSize = D2.fromOffset(0, 0),
-				AutomaticCanvasSize = E.AutomaticSize.Y,
-				ScrollBarThickness = 3,
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
-				stack("Content", children),
+				zone = zone,
+				rank = rank,
+				mayDrop = mayDrop,
+				form = chosen[id],
+				reveal = not LOSSLESS[id],
+				...,
 			})
 		end
 		return {
 			screen = function()
-				local body = Host.Frame "HudBody" {
-					LayoutOrder = 5,
-					BackgroundTransparency = 1,
-					Size = D2.new(1, 0, 0, 0),
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-					Host.UIGridLayout({
-						FillDirectionMaxCells = 3,
-						CellSize = D2.new(1 / 3, -8, 1, 0),
-						CellPadding = D2.fromOffset(12, 0),
-						SortOrder = E.SortOrder.LayoutOrder,
-					}),
-					lane("Left", { "Tasks", "Health", "Feed" }),
-					lane("Center", { "Clock" }),
-					lane("Right", { "Rail", "Readout", "Weapon", "Actions" }),
-				}
-				local connection = body:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-					bodySize:set(body.AbsoluteSize)
-				end)
-				Compose.cleanup(function()
-					connection:Disconnect()
-				end)
-				bodySize:set(body.AbsoluteSize)
-				return Host.Frame "HudScreen" {
+				local composition = UI.Composition({
+					Name = "HudBody",
+					LayoutOrder = 3,
+					Size = D2.fromScale(1, 0),
+					topbar = ride,
+					UI.fill(),
+					region("Strip", "topbar", 6, false, rich.Strip(), pill("ObjectiveShort", copy.objectiveShort)),
+					region("Rounds", "topLeft", 1, false, rounds("", false), rounds("Column", true)),
+					region(
+						"Tasks",
+						"left",
+						7,
+						true,
+						rich.Tasks(),
+						plate(
+							"TasksOne",
+							"panel",
+							row("TasksOneBody", { text("TasksOneName", copy.task1), bar("TasksOneBar", tasks[1], 72) }),
+							10,
+							6
+						),
+						pill("TasksCompact", copy.tasksChip, "label")
+					),
+					region(
+						"Health",
+						"bottomLeft",
+						5,
+						true,
+						rich.Health(),
+						pill("HealthCompact", function(use)
+							return tostring(math.floor(use(health) * 100 + 0.5))
+						end, "numeral")
+					),
+					region("Feed", "bottomLeft", 8, true, rich.Feed()),
+					region(
+						"Clock",
+						"top",
+						2,
+						false,
+						rich.Clock(),
+						pill("ClockCompact", function(use)
+							return timerText("full", use)
+						end, "numeral"),
+						pill("ClockShort", function(use)
+							return timerText("short", use)
+						end, "numeral")
+					),
+					region(
+						"Rail",
+						"topRight",
+						4,
+						true,
+						rich.Rail(),
+						pill("RailCompact", function(use)
+							return copy["weapon" .. use(selectedWeapon)]
+						end)
+					),
+					region("Readout", "topRight", 9, true, rich.Readout()),
+					region(
+						"Actions",
+						"bottomRight",
+						3,
+						false,
+						rich.Actions(),
+						disc("ActionsCompact", copy.action3, "more", steps.openOverflow)
+					),
+					region("Weapon", "bottomRight", 6, true, rich.Weapon()),
+				})
+				return Host.Frame({
+					Name = "HudScreen",
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					Host.UIPadding({
-						PaddingTop = D.new(0, 12),
-						PaddingBottom = D.new(0, 12),
-						PaddingLeft = D.new(0, 12),
-						PaddingRight = D.new(0, 12),
-					}),
-					Host.UIListLayout({ Padding = D.new(0, 8), SortOrder = E.SortOrder.LayoutOrder }),
-					Host.Frame "BrowserChrome" {
+					Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
+					Host.Frame({
+						Name = "BrowserChrome",
 						LayoutOrder = 1,
 						Visible = urlBar,
 						Size = D2.new(1, 0, 0, 64),
-						text("Address", copy.urlBarField, 16),
-					},
-					Host.Frame "Rounds" {
+						Host.UIPadding({ PaddingLeft = D.new(0, 16), PaddingTop = D.new(0, 12) }),
+						text("Address", copy.urlBarField, "body"),
+					}),
+					Host.Frame({
+						Name = "Notice",
 						LayoutOrder = 2,
-						Size = D2.new(1, 0, 0, 48),
-						BackgroundTransparency = 1,
-						Host.UIListLayout({
-							FillDirection = E.FillDirection.Horizontal,
-							Padding = D.new(0, 8),
-							SortOrder = E.SortOrder.LayoutOrder,
-						}),
-						UI.Menu {
-							trigger = UI.Button "HudActionsTrigger" {
-								label = "",
-								name = copy.round1,
-								icon = "menu",
-								shape = "circle",
-								Size = D2.fromOffset(44, 44),
-							},
-							items = {
-								{ id = "damage", label = "Take damage", onSelect = steps.takeDamage },
-								{ id = "heal", label = "Restore health", onSelect = steps.heal },
-								{ id = "notice", label = "Show notification", onSelect = steps.notify },
-							},
-						},
-						UI.Button "Report" {
-							label = "",
-							name = copy.round2,
-							icon = "flag",
-							shape = "circle",
-							Size = D2.fromOffset(44, 44),
-							onActivate = function()
-								reportOpen:set(true)
-							end,
-						},
-						UI.Button "Overflow" {
-							label = "",
-							name = copy.round3,
-							icon = "more",
-							shape = "circle",
-							Size = D2.fromOffset(44, 44),
-							onActivate = steps.openOverflow,
-						},
-						UI.Text "Objective" {
-							text = function(use)
-								return if use(offer).width < 360 then copy.objectiveShort else copy.objective
-							end,
-							TextWrapped = true,
-							Size = D2.new(1, -156, 1, 0),
-						},
-					},
-					Host.Frame "ChromeControls" {
-						LayoutOrder = 3,
-						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0, 40),
-						Host.UIListLayout({ FillDirection = E.FillDirection.Horizontal, Padding = D.new(0, 8) }),
-						UI.Toggle "UrlBar" {
-							label = copy.urlBarOn,
-							value = urlBar,
-							Size = D2.new(0.5, -4, 1, 0),
-						},
-						UI.Button "Tick" {
-							label = "Advance clock",
-							onActivate = steps.tickRound,
-							Size = D2.new(0.5, -4, 1, 0),
-						},
-					},
-					Host.Frame "Notice" {
-						LayoutOrder = 4,
 						Visible = function(use)
 							return use(notice) ~= nil
 						end,
 						Size = D2.new(1, 0, 0, 40),
+						BackgroundTransparency = 1,
 						UI.Button({
 							label = function(use)
 								return use(notice) or ""
@@ -435,14 +463,47 @@ return {
 							onActivate = steps.clearNotice,
 							Size = D2.fromScale(1, 1),
 						}),
-					},
-					body,
-					UI.Sheet "HudOverflow" {
+					}),
+					composition,
+					Host.Frame({
+						Name = "Drivers",
+						LayoutOrder = 4,
+						BackgroundTransparency = 1,
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+						Host.UIPadding({
+							PaddingLeft = D.new(0, 8),
+							PaddingRight = D.new(0, 8),
+							PaddingBottom = D.new(0, 4),
+						}),
+						Host.UIListLayout({
+							FillDirection = E.FillDirection.Horizontal,
+							Wraps = true,
+							VerticalAlignment = E.VerticalAlignment.Center,
+							Padding = D.new(0, 16),
+							SortOrder = E.SortOrder.LayoutOrder,
+						}),
+						UI.Toggle({ Name = "UrlBar", LayoutOrder = 1, label = copy.urlBarOn, value = urlBar }),
+						UI.Toggle({ Name = "RideStrip", LayoutOrder = 2, label = copy.rideOn, value = ride }),
+						UI.Text({
+							Name = "Ladder",
+							LayoutOrder = 3,
+							text = copy.ladder,
+							textRole = "caption",
+							TextWrapped = true,
+							Size = D2.new(0, 280, 0, 0),
+							AutomaticSize = E.AutomaticSize.Y,
+							Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+						}),
+					}),
+					UI.Sheet({
+						Name = "HudOverflow",
 						isPresented = overflow,
 						detent = Compose.cell("large"),
 						title = copy.overflowTitle,
 						content = function()
-							return Host.ScrollingFrame "OverflowBody" {
+							return Host.ScrollingFrame({
+								Name = "OverflowBody",
 								BackgroundTransparency = 1,
 								Size = D2.fromScale(1, 1),
 								CanvasSize = D2.fromOffset(0, 0),
@@ -458,21 +519,27 @@ return {
 								Compose.keyed({
 									from = unshown,
 									render = function(current, index)
-										local node = rich[current:peek()]()
-										ctx.runtime.decorate(node, { LayoutOrder = index })
-										return node
+										return Host.Frame({
+											Name = "Rich" .. current:peek(),
+											LayoutOrder = index,
+											BackgroundTransparency = 1,
+											Size = D2.new(),
+											AutomaticSize = E.AutomaticSize.XY,
+											rich[current:peek()](),
+										})
 									end,
 								}),
-							}
+							})
 						end,
-					},
-					UI.Alert "ReportDialog" {
+					}),
+					UI.Alert({
+						Name = "ReportDialog",
 						isPresented = reportOpen,
 						title = "Round report",
 						message = "Your report was recorded.",
 						actions = { { id = "close", label = "Done", role = "cancel" } },
-					},
-				}
+					}),
+				})
 			end,
 			steps = steps,
 			model = {
@@ -481,8 +548,10 @@ return {
 				seconds = seconds,
 				tasks = tasks,
 				urlBar = urlBar,
+				ride = ride,
 				overflow = overflow,
 				selectedWeapon = selectedWeapon,
+				forms = chosen,
 			},
 			report = function()
 				return {
@@ -493,6 +562,7 @@ return {
 					unshown = unshown:peek(),
 					overflowOpen = overflow:peek(),
 					urlBar = urlBar:peek(),
+					ride = ride:peek(),
 					notice = notice:peek(),
 				}
 			end,

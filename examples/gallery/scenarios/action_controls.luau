@@ -45,6 +45,7 @@ return {
 		local tokens = signal({ "Rain", "No assists", "Friends" })
 		local editingTags = signal(false)
 		local chosenTags = signal({} :: { [string]: boolean })
+		local driver = signal(nil :: string?)
 		local mounted = false
 		local seconds = 0
 		local readRung = function(): string?
@@ -243,6 +244,7 @@ return {
 		end
 		local function reset()
 			tokens:set({ "Rain", "No assists", "Friends" })
+			driver:set(nil)
 			editingTags:set(false)
 			chosenTags:set({})
 			setRung("compact")
@@ -275,7 +277,7 @@ return {
 			}
 			local rowAction = UI.Button "Equipment" {
 				label = "Manage equipment",
-				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "person" },
+				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "person.fill" },
 				onActivate = function()
 					scrollTarget:set(nil)
 					scrollTarget:set("Drivers")
@@ -422,7 +424,11 @@ return {
 					imageAspectRatio = 1,
 					imageFraming = "crop",
 					enabled = enabled,
+					selected = function(use)
+						return use(driver) == name
+					end,
 					onActivate = function()
+						driver:set(name)
 						status:set(name .. " selected.")
 					end,
 				})
@@ -608,21 +614,43 @@ return {
 					rowToggle,
 					rowSlider,
 				}),
-				heading("Race tags"),
-				UI.Button "EditTags" {
-					label = function(use)
-						return if use(editingTags) then "Done" else "Edit"
-					end,
-					appearance = "soft",
-					controlSize = "compact",
-					onActivate = function()
-						editingTags:set(not editingTags:peek())
-					end,
+				Host.Frame "TagsHeader" {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						VerticalAlignment = Enum.VerticalAlignment.Center,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
+					UI.Text({
+						LayoutOrder = 1,
+						BackgroundTransparency = 1,
+						Size = UDim2.new(0, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = "Race tags",
+						textRole = "heading",
+						TextXAlignment = Enum.TextXAlignment.Left,
+						Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+					}),
+					UI.Button "EditTags" {
+						LayoutOrder = 2,
+						label = function(use)
+							return if use(editingTags) then "Done" else "Edit"
+						end,
+						appearance = "soft",
+						controlSize = "compact",
+						onActivate = function()
+							editingTags:set(not editingTags:peek())
+						end,
+					},
 				},
 				Host.ScrollingFrame "Tokens" {
 					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 44),
-					AutomaticSize = Enum.AutomaticSize.None,
+					Selectable = false,
+					ScrollingDirection = Enum.ScrollingDirection.X,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
 					AutomaticCanvasSize = Enum.AutomaticSize.X,
 					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
@@ -804,14 +832,12 @@ return {
 				}),
 				VocabularySection(),
 			})
-			local scroller = Host.ScrollingFrame "Content" {
+			local scroller = UI.ScrollView "Content" {
+				padding = 16,
 				BorderSizePixel = 0,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.new(),
 				ScrollBarThickness = 6,
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 				page,
 			}
 			Compose.watch(function(use)
@@ -835,12 +861,6 @@ return {
 				Name = "ActionControls",
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
 				scroller,
 				dialog,
 			})

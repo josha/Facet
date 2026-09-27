@@ -4,6 +4,14 @@ local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local placement = require("../src/ui/overlay_placement")
 local Vector2 = require("@lune/roblox").Vector2
+local LIFT = 16 * math.sqrt(2) / 2
+local function corner(panel: any): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 
 type Log = { changes: { boolean }, dismissed: { string } }
 
@@ -91,6 +99,23 @@ t.describe("native Popover: the caller's fact decides, proposals ask", function(
 		t.expect(w.gui.SelectedObject).toBe(inner)
 		t.expect(#log.dismissed).toBe(0)
 		t.expect(log.changes[#log.changes]).toBe(false)
+		w.stop()
+	end)
+
+	t.it("an outside tap closes a popover whose full-screen popup layer covers the tap", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change))
+		open:set(true)
+		local panel = w.find("Panel")
+		panel.Parent.AbsoluteSize = Vector2.new(800, 600)
+		w.find("DismissOutside").Parent.AbsoluteSize = Vector2.new(800, 600)
+		panel.AbsolutePosition = Vector2.new(10, 10)
+		panel.AbsoluteSize = Vector2.new(200, 100)
+		w.find("DismissOutside").Activated.fire({ Position = Vector2.new(100, 50) })
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		w.find("DismissOutside").Activated.fire({ Position = Vector2.new(700, 500) })
+		t.expect(w.find("Panel")).toBeNil()
+		t.expect(table.concat(log.dismissed, ",")).toBe("outside")
 		w.stop()
 	end)
 
@@ -227,7 +252,7 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		target.AbsolutePosition = Vector2.new(100, 100)
 		target.AbsoluteSize = Vector2.new(80, 40)
 		panel.AbsoluteSize = Vector2.new(200, 100)
-		t.expect(panel.Position.Y.Offset).toBe(148)
+		t.expect(near(select(2, corner(panel)), 148 + LIFT)).toBe(true)
 		local holder = target.Parent
 		target.Parent = nil
 		t.expect(w.find("Panel")).toBeNil()
@@ -327,9 +352,10 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		trigger.AbsoluteSize = Vector2.new(100, 44)
 		tailed.find("Panel").AbsoluteSize = Vector2.new(160, 80)
 		local tail = tailed.find("Tail")
-		t.expect(tail.Visible).toBe(true)
+		t.expect(tail.Visible and tail.Size.X.Offset == 16 and tail:HasTag("facet-tail")).toBe(true)
 		t.expect(tail.Position.X.Offset).toBe(350)
-		t.expect(tail.Position.Y.Offset).toBe(152)
+		t.expect(near(tail.Position.Y.Offset, 144 + 8 + LIFT)).toBe(true)
+		t.expect(near(select(2, corner(tailed.find("Panel"))), 144 + 8 + LIFT)).toBe(true)
 		tailed.stop()
 	end)
 
@@ -444,14 +470,14 @@ t.describe("native Popover: the compact sheet and the live route switch", functi
 		w.screen.AbsoluteSize = Vector2.new(390, 800)
 		open:set(true)
 		local panel = w.find("SheetPanel")
-		w.find("Close").Activated.fire()
+		w.find("Grabber").Activated.fire()
 		t.expect(w.find("SheetPanel")).toBe(panel)
 		t.expect(log.changes[#log.changes]).toBe(false)
 		t.expect(#log.dismissed).toBe(0)
 		w.stop()
 		local w2, open2, log2 = compactWorld()
 		open2:set(true)
-		w2.find("Close").Activated.fire()
+		w2.find("Grabber").Activated.fire()
 		t.expect(w2.find("SheetPanel")).toBeNil()
 		t.expect(table.concat(log2.dismissed, ",")).toBe("cancel")
 		w2.stop()
@@ -677,5 +703,123 @@ t.describe("native Popover: lifetime and contract", function()
 		refuses(function(UI, Host)
 			return base(UI, Host, { widht = 3 })
 		end, "widht")
+	end)
+end)
+
+t.describe("native Popover: anchored chrome and the cancel policy (restored from 0.11 presentAnchored)", function()
+	t.it("cancelPolicy = none keeps the panel through Cancel and an outside tap", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change, { cancelPolicy = "none" }))
+		open:set(true)
+		w.find("ModalBack").Pressed.fire()
+		w.find("DismissOutside").Activated.fire({ Position = Vector2.new(790, 590) })
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		t.expect(#log.changes).toBe(0)
+		open:set(false)
+		t.expect(w.find("Panel")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("modal = false is chrome: no catcher, no Cancel, no selection taken", function()
+		local open, log, change = caller()
+		local w = mount(function(UI, Host)
+			local spec = standard(open, log, change, { modal = false })(UI, Host)
+			spec.trigger = nil
+			spec.source = { rect = { x = 100, y = 100, w = 40, h = 40 } }
+			return spec
+		end)
+		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+		local other = w.find("Other")
+		w.gui.SelectedObject = other
+		open:set(true)
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		t.expect(w.find("DismissOutside")).toBeNil()
+		t.expect(w.find("ModalBack")).toBeNil()
+		t.expect(w.find("Popup").Active).toBe(false)
+		t.expect(w.gui.SelectedObject).toBe(other)
+		open:set(false)
+		t.expect(w.find("Panel")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("refuses a malformed modal or cancelPolicy by name", function()
+		for _, extra in { { modal = "no" }, { cancelPolicy = "never" } } do
+			local open, log, change = caller()
+			local ok, failure = pcall(function()
+				mount(standard(open, log, change, extra)).stop()
+			end)
+			t.expect(ok).toBe(false)
+			local key = next(extra)
+			t.expect(string.find(tostring(failure), key :: string, 1, true) ~= nil).toBe(true)
+		end
+	end)
+end)
+
+t.describe("app.presentAnchored", function()
+	local Facet = require("../src") :: any
+	local engineLib = require("./lib/native_engine")
+	local function app(): (any, any)
+		local engine: any = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+		input.GetFocusedTextBox = function()
+			return nil
+		end
+		local target = engine.new("Folder")
+		return Facet.app({
+			runtime = runtime,
+			types = engine.types,
+			parent = target,
+			services = { GuiService = gui, UserInputService = input },
+			reducedMotion = true,
+		} :: any),
+			target
+	end
+
+	t.it("builds a panel beside a rect in its own layer and close releases it", function()
+		local a, target = app()
+		local dismissed = {}
+		local close, screen = a.presentAnchored(function(UI)
+			return UI.Text "Hint" { text = "Drag to steer" }
+		end, {
+			source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
+			modal = false,
+			onDismiss = function(reason)
+				table.insert(dismissed, reason)
+			end,
+		})
+		t.expect(screen.Parent).toBe(target)
+		t.expect(overlay.find(screen, "Hint").Text).toBe("Drag to steer")
+		close()
+		t.expect(screen.Parent).toBeNil()
+		t.expect(dismissed).toEqual({ "cancel" })
+		close()
+		a.dispose()
+	end)
+
+	t.it("an outside tap on a modal panel dismisses it and releases the layer", function()
+		local a = app()
+		local dismissed = {}
+		local _, screen = a.presentAnchored(function(UI)
+			return UI.Text "Hint" { text = "Tap outside" }
+		end, {
+			source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
+			onDismiss = function(reason)
+				table.insert(dismissed, reason)
+			end,
+		})
+		overlay.find(screen, "DismissOutside").Activated.fire({ Position = Vector2.new(790, 590) })
+		t.expect(dismissed).toEqual({ "outside" })
+		t.expect(screen.Parent).toBeNil()
+		a.dispose()
+	end)
+
+	t.it("requires a component function and a source", function()
+		local a = app()
+		t.expect(pcall(a.presentAnchored, "nope", { source = { rect = { x = 0, y = 0, w = 1, h = 1 } } })).toBe(false)
+		t.expect(pcall(a.presentAnchored, function(UI)
+			return UI.Text { text = "x" }
+		end, {})).toBe(false)
+		a.dispose()
 	end)
 end)

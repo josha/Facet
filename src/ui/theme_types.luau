@@ -51,10 +51,15 @@ export type PaletteExtra = {
 	scrimOpacity: number?,
 	selection: RGB?,
 	onSelection: RGB?,
+	voice: RGB?,
 	scrim: RGB?,
 	inverseSurface: RGB?,
 	onInverse: RGB?,
+	tableHeader: RGB?,
+	tableRow: RGB?,
+	tableRowAlternate: RGB?,
 	dimDisabledPlates: boolean?,
+	artTint: RGB?,
 	strongHairlineOpacity: number?,
 	chromeGradient: { [string]: Gradient }?,
 }
@@ -83,7 +88,7 @@ export type Asset = {
 	preload: string?,
 	fallback: string?,
 }
-export type AssetLink = string | { asset: string }
+export type AssetLink = string | { asset: string, rotation: number?, tint: RGB? }
 export type AssetVariants = {
 	default: AssetLink?,
 	hover: AssetLink?,
@@ -114,7 +119,9 @@ export type SkinLayer = {
 		| "edges"
 		| "plaque"
 		| "layered"
-		| "glow",
+		| "glow"
+		| "ring"
+		| "brackets",
 	asset: AssetSource?,
 	text: boolean?,
 	textInsets: Insets?,
@@ -142,6 +149,10 @@ export type SkinLayer = {
 	blurRadius: ShadowAxis?,
 	transparency: number?,
 	zIndex: number?,
+	corner: ("pill" | "square")?,
+	outset: number?,
+	sliceScale: number?,
+	pulse: boolean?,
 }
 export type StyleValue =
 	boolean
@@ -203,18 +214,22 @@ export type CoverageReport = {
 export type ThemeOptions = {
 	types: Engine.RobloxTypes?,
 	name: string?,
-	theme: Engine.Value<string>?,
-	reducedMotion: Engine.Value<boolean>?,
-	preferredTransparency: Engine.Value<number>?,
-	hover: Engine.Value<boolean>?,
+	theme: Engine.ValueString?,
+	reducedMotion: Engine.ValueBoolean?,
+	preferredTransparency: Engine.ValueNumber?,
+	hover: Engine.ValueBoolean?,
+	tenFoot: Engine.ValueBoolean?,
 	transition: Engine.Value<TweenInfo | false>?,
 }
 export type SkinOptions = {
 	types: Engine.RobloxTypes?,
 	target: GuiObject?,
-	label: Engine.Value<string>?,
+	label: Engine.ValueString?,
+	onCaption: ((boolean) -> ())?,
 	state: Engine.Value<SkinState>?,
+	selected: Engine.ValueBoolean?,
 	direction: Engine.Value<FillDirection>?,
+	fit: Engine.ValueNumber?,
 	Size: Engine.Value<UDim2>?,
 	Position: Engine.Value<UDim2>?,
 	AnchorPoint: Engine.Value<Vector2>?,
@@ -225,6 +240,7 @@ export type Themes = {
 	TYPE_ROLES: { string },
 	REQUIRED_TYPE_ROLES: { string },
 	neutralPackage: () -> ThemePackage,
+	forDistance: (package: ThemePackage, distance: "near" | "ten-foot") -> ThemePackage,
 	define: (definition: ThemeDefinition) -> (ThemePackage?, ThemeReport),
 	checkCoverage: (package: ThemePackage, needs: { CoverageNeed }) -> CoverageReport,
 	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,

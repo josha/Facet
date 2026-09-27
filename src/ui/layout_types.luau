@@ -18,9 +18,10 @@ export type StackProps = Engine.FrameProps & {
 	gap: Types.Value<Space>?,
 	align: Types.Value<Align>?,
 	distribute: Types.Value<Distribute>?,
-	wrap: Types.Value<boolean>?,
+	wrap: Types.ValueBoolean?,
 }
 export type ScreenProps = Engine.FrameProps & {
+	chrome: ("device" | "band" | "edge")?,
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,
@@ -48,13 +49,26 @@ export type GridProps = Engine.FrameProps & {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	height: Types.Value<Extent>?,
-	columns: Types.Value<number>,
+	columns: Types.ValueNumber,
 	flow: ("row" | "column")?,
 	gap: Types.Value<Space>?,
 	rowGap: Types.Value<Space>?,
-	cellHeight: Types.Value<number>?,
-	aspectRatio: Types.Value<number>?,
+	cellHeight: Types.ValueNumber?,
+	aspectRatio: Types.ValueNumber?,
 	align: Types.Value<Edge>?,
+}
+export type AdaptiveStackProps = Engine.FrameProps & {
+	padding: Types.Value<Padding>?,
+	width: Types.Value<Extent>?,
+	height: Types.Value<Extent>?,
+	gap: Types.Value<Space>?,
+	align: Types.Value<Align>?,
+	distribute: Types.Value<Distribute>?,
+	axis: Types.Value<"x" | "y">?,
+}
+export type ViewThatFitsProps = Engine.FrameProps & {
+	width: Types.Value<Extent>?,
+	height: Types.Value<Extent>?,
 }
 export type ErrorBoundaryProps = Engine.FrameProps & {
 	view: () -> Types.Child,
@@ -71,6 +85,26 @@ export type DividerProps = Engine.FrameProps & {
 export type SpacerProps = Engine.FrameProps & {
 	minLength: Types.Value<Space>?,
 }
+export type Zone =
+	"topLeft"
+	| "top"
+	| "topRight"
+	| "left"
+	| "center"
+	| "right"
+	| "bottomLeft"
+	| "bottom"
+	| "bottomRight"
+	| "topbar"
+export type RegionProps = Engine.FrameProps & {
+	zone: Zone,
+	rank: number,
+	mayDrop: boolean?,
+	form: Types.Cell<number>?,
+	expand: (() -> Instance)?,
+	reveal: boolean?,
+}
+export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 export type LayoutControls = {
 	Screen: Types.Constructor<ScreenProps, Frame>,
 	VStack: Types.Constructor<StackProps, Frame>,
@@ -78,9 +112,13 @@ export type LayoutControls = {
 	ZStack: Types.Constructor<ZStackProps, Frame>,
 	ScrollView: Types.Constructor<ScrollViewProps, ScrollingFrame>,
 	Grid: Types.Constructor<GridProps, Frame>,
+	AdaptiveStack: Types.Constructor<AdaptiveStackProps, Frame>,
+	ViewThatFits: Types.Constructor<ViewThatFitsProps, Frame>,
 	ErrorBoundary: Types.Constructor<ErrorBoundaryProps, Frame>,
 	Divider: Types.Constructor<DividerProps, Frame>,
 	Spacer: Types.Constructor<SpacerProps, Frame>,
+	Composition: Types.Constructor<CompositionProps, Frame>,
+	Region: Types.Constructor<RegionProps, Frame>,
 	fill: (weight: number?) -> UIFlexItem,
 }
 return {}

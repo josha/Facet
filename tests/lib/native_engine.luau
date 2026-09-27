@@ -78,6 +78,7 @@ local function new(options: any?)
 		InputBegan = true,
 		InputChanged = true,
 		InputEnded = true,
+		LastInputTypeChanged = true,
 		WindowFocusReleased = true,
 		DragStart = true,
 		DragContinue = true,
@@ -195,6 +196,9 @@ local function new(options: any?)
 				return node[property]
 			end,
 			GetStyledPropertyChangedSignal = function(_, property)
+				if options and options.styleOnlySignals then
+					return signal()
+				end
 				return node:GetPropertyChangedSignal(property)
 			end,
 			ResetPropertyToDefault = function(_, property)

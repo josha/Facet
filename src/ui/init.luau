@@ -6,6 +6,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	local ctx = context(Compose, runtime, options)
 	local UI = ({} :: unknown) :: Types.Controls
 	require("@self/layout")(ctx, UI)
+	require("@self/composition")(ctx, UI)
 	require("@self/inputs")(ctx, UI)
 	local surfaces = require("@self/nav_modal")(ctx)
 	require("@self/nav_menu")(ctx, UI, surfaces)
@@ -14,7 +15,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/nav_dialog")(ctx, UI, surfaces)
 	require("@self/nav_popover")(ctx, UI, surfaces)
 	require("@self/nav_notice")(ctx, UI, surfaces)
-	require("@self/nav_snackbar")(ctx, UI, surfaces)
+	require("@self/nav_toast")(ctx, UI, surfaces)
 	require("@self/nav_pages")(ctx, UI, surfaces)
 	require("@self/nav_radial")(ctx, UI, surfaces)
 	require("@self/collections")(ctx, UI)
@@ -29,6 +30,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/date_time_picker")(ctx, UI, surfaces)
 	require("@self/color_picker")(ctx, UI, surfaces)
 	require("@self/environment")(ctx, UI)
+	require("@self/drag")(ctx, UI)
 	require("@self/scrolling")(ctx, UI)
 	return freeze(UI)
 end

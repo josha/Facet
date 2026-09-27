@@ -224,7 +224,7 @@ local function tableState(resizing)
 			},
 			itemSize = 40,
 			header = resizing == true,
-			selectionMode = if resizing then "none" else "multi",
+			selectionMode = if resizing then "none" else "multiple",
 			selection = world.selected,
 			widths = world.widths,
 		})

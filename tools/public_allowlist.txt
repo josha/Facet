@@ -36,16 +36,8 @@ skills/
 .github/
 package/
 artifacts/theme-packages-and-skinning/final-neutral-dump.json
-artifacts/distribution-readiness/
-# ^ the OPEN stage's own ledgers: allowed while the stage runs, archived at close.
-docs/superpowers/
-# ^ the OPEN campaign's own plan and spec drafts (FacetBench + the perf fix
-#   campaign): internal planning, not shipped surface. Same rule as the ledgers
-#   above — allowed while the campaign runs, archived by tools/archive_private.py
-#   at close, so the public tip never carries a plan for work that is finished.
-docs/plans/
-# ^ the wicked-fast campaign's goal + operating-rules docs: the same class as
-#   docs/superpowers/ above, archived by the same tool at close.
+# docs/plans/, docs/superpowers/ and artifacts/distribution-readiness/ hold private
+#   planning; tools/check_public_allowlist.py refuses them even if a line here allows them.
 !tools/lune/gate_manifest.luau
 !tools/lune/gate_legacy.luau
 !tools/lune/verify/convert_manifest.py

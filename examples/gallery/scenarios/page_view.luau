@@ -25,10 +25,6 @@ return {
 		local selected = Compose.cell("coast")
 		local picked = Compose.cell("Choose a course.")
 		local function screen()
-			local viewport = Compose.formula(function(use)
-				local v = use(ctx.viewport)
-				return { w = v.width, h = v.height }
-			end)
 			local pages = {}
 			for _, key in ids do
 				table.insert(pages, {
@@ -112,23 +108,12 @@ return {
 			return Host.Frame "PageView" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.ScrollingFrame "Page" {
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 16),
-					}),
 					UI.Text({
 						LayoutOrder = 1,
 						BackgroundTransparency = 1,
@@ -156,17 +141,8 @@ return {
 					UI.PageView({
 						LayoutOrder = 3,
 						Name = "Courses",
-						Size = function(use)
-							return UDim2.new(
-								0,
-								0,
-								0,
-								(function(use)
-									return math.clamp(use(viewport).h * 0.75, 360, 640)
-								end)(use)
-							)
-						end,
-						AutomaticSize = Enum.AutomaticSize.X,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						selection = selected,
 						pages = pages,
 					}),

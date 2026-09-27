@@ -444,10 +444,11 @@ t.describe("native parity weaker tables", function()
 		local first = body:FindFirstChild("Items"):FindFirstChild("1")
 		local pointer = first.Size.Y.Offset
 		t.expect(pointer).toBe(40)
-		for _, preferred in { E.PreferredInput.Touch, E.PreferredInput.Gamepad } do
+
+		for preferred, height in { [E.PreferredInput.Touch] = 56, [E.PreferredInput.Gamepad] = 44 } do
 			w.input.PreferredInput = preferred
-			t.expect(first.Size.Y.Offset).toBe(44)
-			t.expect(body:FindFirstChild("Items"):FindFirstChild("2").Position.Y.Offset).toBe(44)
+			t.expect(first.Size.Y.Offset).toBe(height)
+			t.expect(body:FindFirstChild("Items"):FindFirstChild("2").Position.Y.Offset).toBe(height)
 			t.expect(first.Size.Y.Offset > pointer).toBe(true)
 		end
 		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
@@ -618,7 +619,7 @@ t.describe("native parity weaker tables", function()
 					itemSize = 40,
 					status = status,
 					selection = chosen,
-					selectionMode = "multi",
+					selectionMode = "multiple",
 					columns = { { id = "name", label = "Name" } },
 				})
 			end)
@@ -794,13 +795,13 @@ t.describe("native parity weaker tables", function()
 				end
 			end
 			local header = w.node:FindFirstChild("Header")
-			local gutter = if reorderable then 56 else 0
+			local gutter = 0
 			t.expect(header.Position.X.Offset).toBe(gutter)
 			for _, rowKey in { "1", "2", "3" } do
 				expectAligned(w.node, rowKey, { "a", "b" })
 			end
 			editing:set(true)
-			t.expect(header.Position.X.Offset > gutter).toBe(true)
+			t.expect(header.Position.X.Offset).toBe(gutter)
 			for _, rowKey in { "1", "2", "3" } do
 				expectAligned(w.node, rowKey, { "a", "b" })
 			end
@@ -866,7 +867,7 @@ t.describe("native parity weaker tables", function()
 				key = id,
 				itemSize = 40,
 				selection = multi,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				columns = { { id = "label", label = "Label", width = 100 } },
 			})
 		end)
@@ -1114,8 +1115,8 @@ t.describe("native parity weaker tables", function()
 				widths = widths,
 				columns = {
 					{ id = "a", label = "A" },
-					{ id = "b", label = "B" },
-					{ id = "c", label = "C" },
+					{ id = "b", label = "B", priority = 2 },
+					{ id = "c", label = "C", priority = 3 },
 				},
 			})
 		end)
@@ -1163,7 +1164,7 @@ t.describe("native parity weaker tables", function()
 		local details = rowNode:FindFirstChild("Details", true)
 		t.expect(details.Size).toBe(w.engine.types.UDim2.new(0, 48, 1, 0))
 		details.Activated.fire()
-		local expanded = w.screen:FindFirstChild("Expanded", true)
+		local expanded = w.screen:FindFirstChild("Popup", true)
 		t.expect(expanded ~= nil).toBe(true)
 		t.expect(expanded:FindFirstChild("c", true):FindFirstChild("FullValue", true).Text).toBe("Charlie one")
 		w.stop()

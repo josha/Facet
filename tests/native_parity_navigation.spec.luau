@@ -227,7 +227,7 @@ t.describe("native parity navigation", function()
 				action(world.screen, "PreviousTab").Pressed.fire()
 				t.expect(selection:peek()).toBe("b")
 				selection:set("a")
-				world.gui.SelectedObject = find(find(world.screen, "Volume"), "Track")
+				world.gui.SelectedObject = find(find(world.screen, "Volume"), "ThumbStop")
 				local increase = action(world.screen, "Increase")
 				t.expect(increase.Parent.Priority > action(world.screen, "NextTab").Parent.Priority).toBe(true)
 			end
@@ -561,6 +561,39 @@ t.describe("native parity navigation", function()
 		t.expect(feed:GetAttribute("FacetLabel")).toBe("Feed")
 		world.stop()
 	end)
+	t.it("keeps a labelled tab's icon badge clear of its title under any UIScale", function()
+		local badge, iconOnly = Compose.cell(12 :: number?), Compose.cell(false)
+		local world = setup(function(UI, Host)
+			return UI.TabView({
+				selection = Compose.cell("home"),
+				iconOnly = iconOnly,
+				tabs = {
+					{ id = "home", content = page(Host, "home") },
+					{ id = "feed", label = "Feed", icon = "checkmark", badge = badge, content = page(Host, "feed") },
+				},
+			})
+		end)
+		local feed = find(find(world.screen, "Tabs"), "feed")
+		local glyph = feed:FindFirstChild("LeadingIcon", true)
+		local layout = glyph.Parent:FindFirstChildWhichIsA("UIListLayout")
+		local gap = layout.Padding.Offset
+		local scale = 1.2047
+		glyph.AbsoluteSize = world.engine.types.Vector2.new(glyph.Size.X.Offset * scale, glyph.Size.Y.Offset * scale)
+		local seal = feed:FindFirstChild("CornerBadge", true)
+		seal.AbsoluteSize = world.engine.types.Vector2.new(23.5 * scale, 24 * scale)
+		t.expect(layout.Padding.Offset >= 23.5 / 2 + 2).toBe(true)
+		local wrapper = feed:FindFirstChild("Anchor+badge", true)
+		local side = glyph.Size.X.Offset
+		t.expect(wrapper.Size.X.Offset).toBe(math.round(math.max(0, 23.5 / 2 - side / 4)))
+		t.expect(wrapper.Position.Y.Offset).toBe(-math.round(math.max(0, 24 / 2 - side / 4)))
+		badge:set(nil)
+		t.expect(layout.Padding.Offset).toBe(gap)
+		badge:set(3)
+		feed:FindFirstChild("CornerBadge", true).AbsoluteSize = seal.AbsoluteSize
+		iconOnly:set(true)
+		t.expect(layout.Padding.Offset).toBe(gap)
+		world.stop()
+	end)
 	t.it(
 		"underlines the selected top tab by default, fills bottom and sidebar tabs and follows the indicator",
 		function()
@@ -687,6 +720,17 @@ t.describe("native parity navigation", function()
 		selection:set("e")
 		t.expect(writes).toBe(1)
 		t.expect(tabs.CanvasPosition.X).toBe(100)
+		for index, id in { "a", "b", "c", "d", "e" } do
+			find(tabs, id).AbsolutePosition = V2(world, (index - 1) * 80 - 100, 0)
+		end
+		tabs.CanvasPosition = V2(world, 0, 0)
+		for index, id in { "a", "b", "c", "d", "e" } do
+			find(tabs, id).AbsolutePosition = V2(world, (index - 1) * 80, 0)
+		end
+		t.expect(tabs.CanvasPosition.X).toBe(0)
+		t.expect(writes).toBe(2)
+		find(tabs, "e").AbsoluteSize = V2(world, 120, 44)
+		t.expect(tabs.CanvasPosition.X).toBe(140)
 		world.stop()
 	end)
 
@@ -709,8 +753,16 @@ t.describe("native parity navigation", function()
 		local tabs, body = view:FindFirstChild("Tabs"), find(world.screen, "aBody")
 		local layout = tabs:FindFirstChildWhichIsA("UIListLayout")
 		t.expect(layout.FillDirection).toBe(world.engine.types.Enum.FillDirection.Vertical)
+
+		local track = view:FindFirstChild("Track")
+		t.expect(track.Visible and track:HasTag("facet-tab-plate")).toBe(true)
+		t.expect(track:FindFirstChildWhichIsA("UIStroke")).toBe(nil)
+		t.expect(track:FindFirstChildWhichIsA("UICorner")).toBe(nil)
+		t.expect(track.Position).toBe(tabs.Position)
 		preference:set("topBar")
 		t.expect(layout.FillDirection).toBe(world.engine.types.Enum.FillDirection.Horizontal)
+		t.expect(track.Visible).toBe(true)
+		t.expect(find(tabs, "a"):HasTag("facet-tab-filled")).toBe(true)
 		preference:set("sidebar")
 		local baseline = world.engine.census()
 		for _ = 1, 12 do
@@ -758,11 +810,13 @@ t.describe("native parity navigation", function()
 		t.expect(find(world.screen, "Accessory-head")).toBeNil()
 		t.expect(find(world.screen, "Accessory-trailing") ~= nil).toBe(true)
 		local tabs = view:FindFirstChild("Tabs")
-		t.expect(tabs.Position).toBe(world.engine.types.UDim2.fromOffset(0, 0))
+		local placed = tabs.Position
+		t.expect(placed.Y.Offset).toBe(0)
+		t.expect(view:FindFirstChild("Track").Visible).toBe(true)
 		t.expect(find(tabs, "b").Visible).toBe(true)
 		find(tabs, "b").Activated.fire()
 		t.expect(selection:peek()).toBe("b")
-		t.expect(tabs.Position).toBe(world.engine.types.UDim2.fromOffset(0, 0))
+		t.expect(tabs.Position).toBe(placed)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(find(world.screen, "Accessory-head") ~= nil).toBe(true)
 		world.stop()
@@ -1005,9 +1059,10 @@ t.describe("native parity navigation", function()
 		local inbox = find(find(world.screen, "Tabs"), "inbox")
 		local function shown()
 			local label = inbox:FindFirstChild("Title", true)
-			return if label then label.Text else inbox.Text
+			local pill = inbox:FindFirstChild("Count", true)
+			return `{if label then label.Text else inbox.Text} {if pill then pill.Text else ""}`
 		end
-		t.expect(shown()).toBe("Inbox (3)")
+		t.expect(shown()).toBe("Inbox 3")
 		selection:set("me")
 		unread:update(function(value)
 			return value + 1
@@ -1016,7 +1071,7 @@ t.describe("native parity navigation", function()
 			return value + 1
 		end)
 		t.expect(builds.inbox).toBeNil()
-		t.expect(shown()).toBe("Inbox (5)")
+		t.expect(shown()).toBe("Inbox 5")
 		t.expect(find(find(world.screen, "Tabs"), "inbox")).toBe(inbox)
 		selection:set("inbox")
 		t.expect(builds.inbox).toBe(1)
@@ -1252,7 +1307,8 @@ t.describe("native parity navigation", function()
 		find(world.screen, "Parent").Activated.fire()
 		local back = find(world.screen, "Back")
 		t.expect(back ~= nil).toBe(true)
-		t.expect(back.Text).toBe("Retour")
+		t.expect(find(back, "Title").Text).toBe("Retour")
+		t.expect(find(back, "LeadingIcon") ~= nil).toBe(true)
 		t.expect(find(world.screen, "AncestorMenu")).toBeNil()
 		presentation:set("menu")
 		t.expect(find(world.screen, "AncestorMenu") ~= nil).toBe(true)
@@ -1262,6 +1318,11 @@ t.describe("native parity navigation", function()
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
 		t.expect(find(world.screen, "AncestorMenu")).toBeNil()
 		t.expect(find(world.screen, "Leaf") ~= nil).toBe(true)
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+		t.expect(find(world.screen, "AncestorMenu") ~= nil).toBe(true)
+		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+		t.expect(find(world.screen, "AncestorMenu")).toBeNil()
+		t.expect(find(world.screen, "Back") ~= nil).toBe(true)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(find(world.screen, "AncestorMenu") ~= nil).toBe(true)
 		modal.AbsoluteSize = V2(world, 360, 720)
@@ -1402,11 +1463,11 @@ t.describe("native parity navigation", function()
 			end
 			world.stop()
 		end
-		local expanded = Compose.cell(true)
 		local world = setup(function(UI, Host)
-			return UI.CollapsibleView({
-				label = "More",
-				expanded = expanded,
+			return UI.Dialog({
+				isPresented = Compose.cell(true),
+				onPresentedChange = function() end,
+				title = "More",
 				content = function()
 					return Host.Frame({})
 				end,
@@ -1868,14 +1929,19 @@ t.describe("native parity navigation", function()
 			local panel = find(world.screen, "CalloutPanel")
 			panel.AbsoluteSize = V2(world, 280, 100)
 			world.engine.heartbeat.fire(1)
-			t.expect(panel.Position.Y.Offset).toBe(660 - 100 - 8)
-			t.expect(panel.Position.X.Offset).toBe(140)
+			local lift = 8 + 16 * math.sqrt(2) / 2
+			local function corner(): (number, number)
+				return math.round(panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X),
+					panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+			end
+			t.expect(math.abs(select(2, corner()) - (660 - 100 - lift)) <= 1).toBe(true)
+			t.expect((corner())).toBe(140)
 			align:set("leading")
-			t.expect(panel.Position.X.Offset).toBe(160)
+			t.expect((corner())).toBe(160)
 			align:set("trailing")
-			t.expect(panel.Position.X.Offset).toBe(160 + 240 - 280)
+			t.expect((corner())).toBe(160 + 240 - 280)
 			anchor.AbsolutePosition = V2(world, 160, 100)
-			t.expect(panel.Position.Y.Offset).toBe(100 + 44 + 8)
+			t.expect(math.abs(select(2, corner()) - (100 + 44 + lift)) <= 1).toBe(true)
 			t.expect(find(world.screen, "Arrow") ~= nil).toBe(true)
 			world.stop()
 			for _, tail in { false, "none" } :: { any } do
@@ -2240,5 +2306,39 @@ t.describe("native parity navigation", function()
 		t.expect(built.report().tip.state).toBe(initial)
 		stop()
 		runtime:dispose()
+	end)
+	t.it("scrolls an overflowing top tab strip from its leading edge with no rail scrollbar", function()
+		local world = setup(function(UI, Host)
+			return UI.TabView({
+				selection = Compose.cell("progress"),
+				placement = "topBar",
+				tabs = {
+					{
+						id = "progress",
+						label = "Progress",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+					{
+						id = "levels",
+						label = "Levels",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			})
+		end)
+		local V2 = world.engine.types.Vector2
+		local bar = find(world.screen, "Tabs")
+		local strip = bar:FindFirstChildWhichIsA("UIListLayout")
+		t.expect(bar.ScrollBarThickness).toBe(0)
+		bar.AbsoluteSize = V2.new(389, 44)
+		strip.AbsoluteContentSize = V2.new(300, 42)
+		t.expect(strip.HorizontalAlignment).toBe(world.engine.types.Enum.HorizontalAlignment.Center)
+		strip.AbsoluteContentSize = V2.new(468, 42)
+		t.expect(strip.HorizontalAlignment).toBe(world.engine.types.Enum.HorizontalAlignment.Left)
+		world.stop()
 	end)
 end)

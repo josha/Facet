@@ -363,20 +363,32 @@ function example.build(ctx: any)
 				}
 				fill:AddTag("facet-control")
 				statusTag(fill, state)
-				local outline = Host.UIStroke "ActiveRow" {
-					Thickness = 2,
+				local outline = Host.UIStroke "Cursor" {
+					Thickness = 1,
+					Transparency = 0.35,
 					Enabled = function(use)
-						return use(playingSig) and use(activeSig) == rr
+						return use(playingSig) and use(state) == "caret"
 					end,
 				}
 				outline:AddTag("facet-status-ring")
-				local tile = UI.ZStack(`tile{r}_{c}`) { width = "fill", height = "fill", fill, outline }
+				local typedRing = Host.UIStroke "TypedRing" { Thickness = 2 }
+				typedRing:AddTag("facet-status-ring")
+				local typed = Host.Frame "Typed" {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					Visible = function(use)
+						return use(state) == "filled"
+					end,
+					Host.UICorner({}),
+					typedRing,
+				}
+				typed:AddTag("facet-status-neutral")
+				local tile = UI.ZStack(`tile{r}_{c}`) { width = "fill", height = "fill", fill, typed, outline }
 				tile:AddTag("facet-status-accent")
 				table.insert(board, tile)
 			end
 		end
-		local keyboard: { any } =
-			{ width = "fill", gap = "s", Host.UISizeConstraint({ MaxSize = Vector2.new(472, math.huge) }) }
+		local keyboard: { any } = { width = "fill", gap = "s" }
 		for ri, keys in KEYBOARD do
 			local units = #keys
 			local row: { any } = { width = "fill", gap = "xs" }
@@ -386,11 +398,11 @@ function example.build(ctx: any)
 					return if isCommand then nil else use(keysSig)[key] or "unknown"
 				end)
 				local button = UI.Button("key_" .. key) {
-					if ri == 3 and not isCommand then UI.fill() else nil,
+					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill(),
 					Size = if ri == 3
 						then UDim2.fromOffset(0, 44)
 						else UDim2.new(1 / units, -math.ceil(4 * (units - 1) / units), 0, 44),
-					AutomaticSize = if isCommand then Enum.AutomaticSize.X else Enum.AutomaticSize.None,
+					AutomaticSize = Enum.AutomaticSize.None,
 					TextSize = if isCommand then 14 else 16,
 					enabled = playingSig,
 					label = if key == "Enter"

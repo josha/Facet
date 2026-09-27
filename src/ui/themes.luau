@@ -5,6 +5,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
+local adaptive = require("./adaptive")
+local themeDistance = require("./theme_distance")
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
 export type ThemeOptions = ThemeTypes.ThemeOptions
@@ -12,9 +14,29 @@ export type SkinOptions = ThemeTypes.SkinOptions
 export type Themes = ThemeTypes.Themes
 
 local themes = {}
+local function contrast(first: Color3, second: Color3): number
+	local function luminance(value: Color3): number
+		local function linear(channel: number): number
+			return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
+		end
+		return 0.2126 * linear(value.R) + 0.7152 * linear(value.G) + 0.0722 * linear(value.B)
+	end
+	local a, b = luminance(first), luminance(second)
+	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
+end
 themes.SCHEMA = "facet-theme/2"
 themes.TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control", "strong", "numeral" })
 themes.REQUIRED_TYPE_ROLES = themes.TYPE_ROLES
+local AVATAR_BACKGROUNDS: { [string]: string } = table.freeze({
+	surface = "content",
+	surfaceStrong = "content",
+	control = "content",
+	contentStrong = "surface",
+	accent = "onAccent",
+	success = "onSuccess",
+	warning = "onWarning",
+	danger = "onDanger",
+})
 
 local function copy<T>(value: T): T
 	if type(value) ~= "table" then
@@ -143,6 +165,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			popup = { panelWidth = 360 },
 			dialog = { wideWidth = 800 },
 			snackbar = { maxWidth = 480 },
+			radial = { narrow = 48, regular = 64, wide = 88 },
 		},
 	},
 	chrome = {},
@@ -185,6 +208,8 @@ end
 function themes.neutralPackage(): ThemeTypes.ThemePackage
 	return copy(neutral)
 end
+
+themes.forDistance = themeDistance(neutral)
 
 local function frozen<T>(value: T): T
 	if type(value) ~= "table" or table.isfrozen(value) then
@@ -330,6 +355,28 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 	end
 	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
 	local shadows: { [string]: ThemeTypes.Shadow } = package.style.shadows or {}
+	local function checkLinks(value: unknown, path: string)
+		if type(value) ~= "table" then
+			return
+		end
+		local link = value :: { rotation: unknown, tint: unknown }
+		if link.rotation ~= nil and link.rotation ~= 0 and link.rotation ~= 180 then
+			table.insert(errors, { field = path .. ".rotation", message = "Art rotation must be 0 or 180" })
+		end
+		local tint = link.tint :: { [string]: unknown }
+		if tint ~= nil then
+			for _, channel in { "r", "g", "b" } do
+				local amount = if type(tint) == "table" then tint[channel] else nil
+				if type(amount) ~= "number" or (amount :: number) < 0 or (amount :: number) > 1 then
+					table.insert(errors, { field = path .. ".tint", message = "Art tint needs r, g and b from 0 to 1" })
+					break
+				end
+			end
+		end
+		for key, child in value :: { [unknown]: unknown } do
+			checkLinks(child, path .. "." .. tostring(key))
+		end
+	end
 	for slot, recipe in chrome do
 		local shadow = recipe.shadow
 		if type(shadow) == "string" and shadows[shadow] == nil and shadowPresets[shadow] == nil then
@@ -338,6 +385,7 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 				{ field = "chrome." .. slot .. ".shadow", message = "Unknown shadow preset " .. shadow }
 			)
 		end
+		checkLinks(recipe, "chrome." .. slot)
 	end
 	if #errors > 0 then
 		return nil, { ok = false, errors = errors, missing = {}, contrast = {} }
@@ -471,6 +519,10 @@ end
 function themes.resolveIcon(package: ThemeTypes.IconRegistry, name: string, state: ThemeTypes.SkinState?): string?
 	local assets: { [string]: ThemeTypes.Asset } = package.assets or {}
 	local entry: unknown = (package.icons or {})[name] or icons.ART[name]
+	local regular = string.match(name, "^(.+)%.fill$")
+	if entry == nil and regular then
+		return themes.resolveIcon(package, regular, state)
+	end
 	if type(entry) == "table" and ((entry :: unknown) :: { default: unknown }).default ~= nil then
 		local variants = (entry :: unknown) :: { [string]: string | ThemeTypes.IconAsset }
 		entry = variants[state or "default"] or variants.default
@@ -531,8 +583,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local colors = merge(neutral.style.themes[1].colors, palette.colors)
 	local extra = merge(neutral.style.themes[1].extra :: ThemeTypes.PaletteExtra, palette.extra)
 	local resolvedColors: { [string]: Color3? }, typefaces: { [string]: Font? } = {}, {}
-	local fallbacks: { [string]: string } =
-		{ selection = "accent", onSelection = "onAccent", inverseSurface = "contentStrong", onInverse = "surface" }
+	local fallbacks: { [string]: string } = {
+		selection = "accent",
+		onSelection = "onAccent",
+		inverseSurface = "contentStrong",
+		onInverse = "surface",
+		tableHeader = "control",
+		tableRow = "control",
+		tableRowAlternate = "controlHover",
+	}
 	local function source(role: string): ThemeTypes.RGB?
 		local value = (colors[role] or extra[role]) :: ThemeTypes.RGB?
 		local fallback = fallbacks[role]
@@ -543,7 +602,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	end
 	local function c(role: string): Color3?
 		if resolvedColors[role] == nil then
-			resolvedColors[role] = color(types, source(role))
+			local value = color(types, source(role))
+			if value == nil and role == "voice" then
+				value = (c("warning") :: Color3):Lerp(c("danger") :: Color3, 0.5)
+			end
+			resolvedColors[role] = value
 		end
 		return resolvedColors[role]
 	end
@@ -574,10 +637,14 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			priority = #rules * 10,
 		})
 	end
-	local function rule(selector: string, properties: ThemeTypes.RuleProperties)
-		if string.sub(selector, -10) == "::UIStroke" and properties.ApplyStrokeMode == nil then
+	local function rule(selector: string, properties: ThemeTypes.RuleProperties, authored: boolean?)
+		if string.sub(selector, -10) == "::UIStroke" then
 			properties = table.clone(properties)
-			properties.ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border
+			properties.ApplyStrokeMode = properties.ApplyStrokeMode or types.Enum.ApplyStrokeMode.Border
+			if not authored and properties.ApplyStrokeMode == types.Enum.ApplyStrokeMode.Border then
+				properties.BorderStrokePosition = properties.BorderStrokePosition
+					or types.Enum.BorderStrokePosition.Inner
+			end
 		end
 		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
@@ -585,12 +652,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 	end
 	rule("ScrollingFrame", {
-		VerticalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
+		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = c("contentSecondary"),
 		ScrollBarImageTransparency = 0.4,
 	})
+	rule(".facet-layout", { BackgroundTransparency = 1 })
 	rule(".facet-text", {
 		TextColor3 = c("content"),
 		FontFace = f(package.metrics.typography.body.font),
@@ -609,6 +677,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	end
 	rule(".facet-validation", { TextColor3 = c("danger"), TextSize = package.metrics.typography.caption.size })
 	rule(".facet-secondary", { TextColor3 = c("contentSecondary") })
+	rule("TextBox.facet-text", { PlaceholderColor3 = c("contentSecondary") })
 	rule(".facet-accent-text", { TextColor3 = c("accent") })
 	rule(".facet-strong", { TextColor3 = c("contentStrong") })
 	for _, role in
@@ -653,63 +722,139 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	do
 		rule(".facet-" .. role, { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
+	rule(".facet-chip::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.pill) })
 	for _, role in { "toggle-mark", "slider-fill", "slider-thumb", "selection-indicator" } do
 		local ink = if role == "slider-fill" or role == "selection-indicator" then "selection" else "accent"
 		rule(".facet-" .. role, { BackgroundColor3 = c(ink), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	end
-	for role, slot in { button = "control", field = "field", badge = "badge", panel = "panel" } :: { [string]: string } do
+	for role, slot in
+		{
+			button = "control",
+			field = "field",
+			badge = "badge",
+			panel = "panel",
+			["control.facet-skinned"] = "control",
+		} :: { [string]: string }
+	do
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
 		local horizontal = if role == "button" then 12 elseif role == "badge" then 8 else 0
 		local vertical = if role == "badge" then 3 else 0
+		local function side(face: number, carve: number?): UDim
+			return types.UDim.new(0, if role == "badge" then math.max(face, carve or 0) else face + (carve or 0))
+		end
 		rule(".facet-" .. role .. "::UIPadding", {
-			PaddingLeft = types.UDim.new(0, math.max(horizontal, inset.left or 0)),
-			PaddingRight = types.UDim.new(0, math.max(horizontal, inset.right or 0)),
-			PaddingTop = types.UDim.new(0, math.max(vertical, inset.top or 0)),
-			PaddingBottom = types.UDim.new(0, math.max(vertical, inset.bottom or 0)),
+			PaddingLeft = side(horizontal, inset.left),
+			PaddingRight = side(horizontal, inset.right),
+			PaddingTop = side(vertical, inset.top),
+			PaddingBottom = side(vertical, inset.bottom),
 		})
 	end
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
+	for _, pair in
+		{ { "tablehead", "tableHeader" }, { "tablerow", "tableRow" }, { "tablerow-alternate", "tableRowAlternate" } }
+	do
+		rule(".facet-" .. pair[1], { BackgroundColor3 = c(pair[2]), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	end
+	for _, band in { "tablehead", "tablerow" } do
+		rule(".facet-" .. band .. "::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	end
+	for _, row in { "tablerow", "row-action" } do
+		rule(".facet-" .. row .. "::UIStroke", {
+			Color = c("surface"),
+			Thickness = 1,
+			Transparency = 0,
+			BorderStrokePosition = types.Enum.BorderStrokePosition.Inner,
+		})
+	end
+	rule(".facet-tableheading", { BackgroundTransparency = 1 })
 	rule(".facet-tablevalue::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
 	})
-	local function rungPadding(rung: string): number
+	local function rungMetric(rung: string, field: string): number
 		local authored = (package.metrics.controlSizes or {})[rung]
-		if authored and type(authored.paddingX) == "number" then
-			return authored.paddingX
+		if authored and type(authored[field]) == "number" then
+			return authored[field]
 		end
 		local fallback = neutral.metrics.controlSizes[rung]
 		if fallback then
-			return fallback.paddingX
+			return fallback[field]
 		end
-		return math.max(0, 2 * rungPadding("compact") - rungPadding("regular"))
+		return math.max(0, 2 * rungMetric("compact", field) - rungMetric("regular", field))
 	end
 	for _, rung in { "xsmall", "compact", "regular", "large" } do
-		local paddingX = rungPadding(rung)
+		local paddingX = rungMetric(rung, "paddingX")
 		rule(".facet-button.facet-size-" .. rung .. "::UIPadding", {
-			PaddingLeft = types.UDim.new(0, math.max(paddingX, buttonInsets.left or 0)),
-			PaddingRight = types.UDim.new(0, math.max(paddingX, buttonInsets.right or 0)),
+			PaddingLeft = types.UDim.new(0, paddingX + (buttonInsets.left or 0)),
+			PaddingRight = types.UDim.new(0, paddingX + (buttonInsets.right or 0)),
 		})
 	end
-	rule(
-		".facet-disclosure::UIPadding",
-		{ PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0) + 20) }
-	)
-	rule(".facet-button-described::UIPadding", {
-		PaddingTop = types.UDim.new(0, math.max(10, buttonInsets.top or 0)),
-		PaddingBottom = types.UDim.new(0, math.max(10, buttonInsets.bottom or 0)),
+	rule(".facet-button-tight::UIPadding", {
+		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
+		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
 	})
+	rule(".facet-button-glyph::UIPadding", {
+		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
+		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+	})
+	rule(".facet-button-glyph.facet-appearance-utility::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
+	rule(".facet-disclosure::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
+	rule(".facet-button-described::UIPadding", {
+		PaddingTop = types.UDim.new(0, 10 + (buttonInsets.top or 0)),
+		PaddingBottom = types.UDim.new(0, 10 + (buttonInsets.bottom or 0)),
+	})
+	rule(".facet-toggle-row::UIPadding", { PaddingLeft = types.UDim.new(0, 0), PaddingRight = types.UDim.new(0, 0) })
+	rule(".facet-toggle-settings::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
+	})
+	rule(".facet-slider-settings::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
+	})
+	local space: { [string]: number } = package.metrics.space or neutral.metrics.space
+	local rowGap = space.xs or neutral.metrics.space.xs
+	rule(".facet-calendar-choice::UIPadding", {
+		PaddingLeft = types.UDim.new(0, rowGap),
+		PaddingRight = types.UDim.new(0, rowGap),
+	})
+	for _, rung in { "", "xsmall", "compact", "regular", "large" } do
+		local step = if rung == "" then "regular" else rung
+		local paddingX = rungMetric(step, "paddingX")
+		local paddingY = math.max(0, (rungMetric(step, "height") - rungMetric(step, "iconSize") - rowGap) // 2)
+		rule(".facet-list-row" .. (if rung == "" then "" else ".facet-size-" .. rung) .. "::UIPadding", {
+			PaddingLeft = types.UDim.new(0, paddingX + (buttonInsets.left or 0)),
+			PaddingRight = types.UDim.new(0, paddingX + (buttonInsets.right or 0)),
+			PaddingTop = types.UDim.new(0, math.max(paddingY, buttonInsets.top or 0)),
+			PaddingBottom = types.UDim.new(0, math.max(paddingY, buttonInsets.bottom or 0)),
+		})
+	end
 	rule(".facet-menu-dense::UIPadding", { PaddingTop = types.UDim.new(0, 0), PaddingBottom = types.UDim.new(0, 0) })
-	rule(".facet-busy::UIPadding", { PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0) + 20) })
+	rule(".facet-busy::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
 	rule(".facet-shape-circle::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),
 		PaddingRight = types.UDim.new(0, 0),
 		PaddingTop = types.UDim.new(0, 0),
 		PaddingBottom = types.UDim.new(0, 0),
+	})
+	rule(".facet-button-media::UIPadding", {
+		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
+		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+		PaddingTop = types.UDim.new(0, buttonInsets.top or 0),
+		PaddingBottom = types.UDim.new(0, 10 + (buttonInsets.bottom or 0)),
+	})
+	rule(".facet-button-media-body::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 12),
+		PaddingRight = types.UDim.new(0, 12),
 	})
 	rule(".facet-button-captioned", { TextTransparency = 1 })
 	rule(".facet-badge-captioned", { TextTransparency = 1 })
@@ -723,7 +868,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-accent >> .facet-button-caption", { TextColor3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-caption", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-text", { TextTransparency = extra.disabledContentOpacity })
-	rule(".facet-skin-caption >> .facet-button-caption", { TextTransparency = 1 })
+	rule(".facet-skin-caption > Frame > Frame > .facet-button-caption", { TextTransparency = 1 })
 	rule(".facet-skin-caption-text", {
 		TextTransparency = 0,
 		TextColor3 = c("content"),
@@ -745,6 +890,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-selected >> .facet-text", { TextColor3 = onSelected })
 	rule(".facet-disabled", { TextTransparency = extra.disabledContentOpacity })
 	rule(".facet-disabled >> .facet-icon", { ImageTransparency = extra.disabledContentOpacity })
+
+	rule(".facet-drag-held", { TextTransparency = 1 })
+	rule(".facet-drag-held >> .facet-text", { TextTransparency = 1 })
+	rule(".facet-drag-held >> .facet-icon", { ImageTransparency = 1 })
 	rule(".facet-accent", { BackgroundColor3 = c("accent"), TextColor3 = c("onAccent") })
 	rule(".facet-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-level-segment", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
@@ -772,21 +921,27 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		BackgroundTransparency = 1 - (extra.scrimOpacity or 0.45),
 		BorderSizePixel = 0,
 	})
-	for status, role in
-		{
-			neutral = "contentSecondary",
-			info = "accent",
-			success = "success",
-			warning = "warning",
-			error = "danger",
-			accent = "accent",
-		} :: { [string]: string }
-	do
+	rule(".facet-scrim.facet-radial-scrim", {
+		BackgroundColor3 = types.Color3.new(0, 0, 0),
+		BackgroundTransparency = 1 - math.max(extra.scrimOpacity or 0.45, 0.8),
+	})
+	local statusRoles: { [string]: string } = {
+		neutral = "contentSecondary",
+		info = "accent",
+		success = "success",
+		warning = "warning",
+		error = "danger",
+		accent = "accent",
+		voice = "voice",
+		contrast = "contentStrong",
+	}
+	for status, role in statusRoles do
 		local partner = if status == "neutral"
 			then "surface"
 			elseif status == "error" then "onDanger"
 			elseif status == "info" or status == "accent" then "onAccent"
-			elseif status == "warning" then "onWarning"
+			elseif status == "warning" or status == "voice" then "onWarning"
+			elseif status == "contrast" then "surface"
 			else "onSuccess"
 		rule(".facet-status-" .. status, { BackgroundColor3 = c(role), TextColor3 = c(partner) })
 		rule(".facet-status-" .. status .. " > .facet-status-ring", { Color = c(role) })
@@ -826,7 +981,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		TextColor3 = c("contentStrong"),
 		TextSize = package.metrics.typography.caption.size,
 	})
-	rule(".facet-shortcut-hint::UICorner", { CornerRadius = types.UDim.new(0, 6) })
+	rule(
+		".facet-shortcut-hint::UICorner",
+		{ CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) }
+	)
 	local families: { [string]: { [string]: number } } = package.metrics.controls or {}
 	local hintFamily: { [string]: number } = families.shortcutHint or {}
 	local capStroke = hintFamily.capStroke or package.metrics.strokes.hairline or 1
@@ -849,23 +1007,20 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-row.facet-selected >> .facet-text", { TextColor3 = c("content") })
 	rule(".facet-toggle-row.facet-selected >> .facet-icon", { ImageColor3 = c("content") })
 	rule(".facet-toggle-plain", { BackgroundTransparency = 1 })
-	rule(".facet-toggle-row::UIPadding", { PaddingLeft = types.UDim.new(0, 0), PaddingRight = types.UDim.new(0, 0) })
-	rule(".facet-toggle-settings::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
-	})
-	rule(".facet-slider-settings::UIPadding", {
-		PaddingLeft = types.UDim.new(0, math.max(12, buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, math.max(12, buttonInsets.right or 0)),
-	})
 	rule(".facet-toggle-indicator", { BackgroundColor3 = c("control"), BackgroundTransparency = 0 })
 	rule(".facet-toggle-on", { BackgroundColor3 = c("selection") })
-	rule(".facet-toggle-switch >> .facet-toggle-mark", { BackgroundColor3 = c("onSelection") })
-	rule(".facet-toggle-checkbox >> .facet-toggle-mark", { BackgroundColor3 = c("onSelection") })
+	local knob, offTrack, loudKnob = c("onSelection") :: Color3, c("control") :: Color3, c("content") :: Color3
+	local offKnob = if contrast(knob, offTrack) >= 3
+			or contrast(knob, offTrack) >= contrast(loudKnob, offTrack)
+		then knob
+		else loudKnob
+	rule(".facet-toggle-switch >> .facet-toggle-mark", { BackgroundColor3 = offKnob })
+	rule(".facet-toggle-checkbox >> .facet-toggle-mark", { BackgroundColor3 = knob })
+	rule(".facet-toggle-on >> .facet-toggle-mark", { BackgroundColor3 = knob })
 	rule(".facet-toggle-check", { ImageColor3 = c("onSelection") })
 	rule(".facet-toggle-checkbox::UIStroke", { Color = c("contentSecondary"), Thickness = 1.5, Transparency = 0.2 })
 	rule(".facet-tooltip", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	rule(".facet-tooltip::UICorner", { CornerRadius = types.UDim.new(0, 6) })
+	rule(".facet-tooltip::UICorner", { CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) })
 	rule(".facet-tooltip::UIStroke", { Color = c("hairline"), Transparency = 0.4, Thickness = 1 })
 	rule(".facet-appearance-utility", { BackgroundTransparency = 1 })
 	rule(".facet-appearance-utility:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
@@ -955,6 +1110,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-menu-item.facet-selected >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-radial-sector", { Color3 = c("surfaceStrong") })
 	rule(".facet-radial-sector.facet-radial-candidate", { Color3 = c("controlSelected") })
+	rule(".facet-radial-item::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-page-indicator", { BackgroundTransparency = 1 })
 	rule(".facet-page-indicator:Hover", { BackgroundTransparency = 1 })
 	rule(".facet-page-indicator:Press", { BackgroundTransparency = 1 })
@@ -966,6 +1127,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		BackgroundTransparency = 0,
 	})
 	rule(".facet-floating::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
+	rule(".facet-tail", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	local outlineInk = c("hairline") :: Color3
+	local outlineFill = c("surfaceStrong") :: Color3
+	rule(".facet-outlined::UIStroke", { Transparency = 1 })
+	rule(".facet-outline", { Color3 = outlineInk:Lerp(outlineFill, 0.3), Thickness = 1 })
+	rule(".facet-outline-tooltip", { Color3 = outlineInk:Lerp(outlineFill, 0.4) })
 	rule(".facet-step-circle::UIStroke", { Color = c("contentSecondary"), Thickness = 1 })
 	rule(".facet-invalid::UIStroke", { Color = c("danger"), Thickness = 1 })
 	rule(".facet-date-time-picker", { BackgroundTransparency = 1 })
@@ -976,20 +1143,55 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-card-option::UIStroke", { Color = c("hairline"), Thickness = 1 })
 	rule(".facet-color-picker", { BackgroundTransparency = 1 })
 	rule(".facet-color-swatch::UIStroke", { Color = c("hairline"), Transparency = 0, Thickness = 1 })
+	rule(".facet-color-swatch >> UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(".facet-color-cell::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	for _, member in { ".facet-avatar", ".facet-button" } do
 		rule(".facet-avatar-stack > " .. member .. "::UIStroke", {
 			Color = c("surface"),
 			Thickness = 2,
 			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
+			BorderStrokePosition = types.Enum.BorderStrokePosition.Outer,
 		})
 	end
+	for role, ink in AVATAR_BACKGROUNDS do
+		local selector = ".facet-avatar-background-" .. role
+		rule(selector, { BackgroundColor3 = c(role), BackgroundTransparency = 0, TextColor3 = c(ink) })
+		rule(selector .. " > .facet-text", { TextColor3 = c(ink) })
+		rule(selector .. " > .facet-icon", { ImageColor3 = c(ink) })
+	end
+	local focus = if package.chrome then package.chrome.focus else nil
+	local focusColor = if focus then focus.color else nil
+	rule(".facet-focus-ring", {
+		BackgroundColor3 = if type(focusColor) == "table"
+			then color(types, focusColor :: ThemeTypes.RGB)
+			elseif type(focusColor) == "string" then c(
+				string.lower(string.sub(focusColor, 2, 2)) .. string.sub(focusColor, 3)
+			) or c("accent")
+			else c("accent"),
+	})
+	rule(".facet-focus-ring::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(".facet-avatar-ring", { Color = c("accent"), Transparency = 0 })
+	rule(".facet-avatar-hover", { Color = c("accent") })
+	rule(".facet-avatar-ring-gap", { Color = c("surface"), Transparency = 0 })
 	rule(".facet-quiet-destructive", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive:Hover", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive:Press", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-button-caption", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-icon", { ImageColor3 = c("danger") })
+
+	local track, quiet, loud = c("control") :: Color3, c("contentSecondary") :: Color3, c("content") :: Color3
+	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
+		then quiet
+		else loud
 	rule(".facet-tab-item", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
 	rule(".facet-tab-item >> .facet-button-caption", { TextColor3 = c("contentSecondary") })
+	rule(".facet-tab-item.facet-skinned", { TextColor3 = segmentInk })
+	rule(".facet-tab-item.facet-skinned >> .facet-button-caption", { TextColor3 = segmentInk })
 	rule(".facet-tab-item:Hover", { BackgroundTransparency = 1, TextColor3 = c("content") })
 	rule(".facet-tab-item:Hover >> .facet-button-caption", { TextColor3 = c("content") })
 	rule(".facet-tab-item:Press", { BackgroundTransparency = 1, TextColor3 = c("content") })
@@ -1006,6 +1208,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-tab-filled >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-stepper-track", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-stepper-track::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(".facet-skinned > #Content > .facet-stepper-track", { BackgroundTransparency = 1 })
 	do
 		local recipe = if package.chrome then package.chrome.stepperPlate else nil
 		local inset: ThemeTypes.Insets = if recipe then recipe.contentInsets or {} else {}
@@ -1028,19 +1231,33 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-choice-current >> .facet-button-caption", { TextColor3 = c("accent") })
 	rule(".facet-choice-current >> .facet-icon", { ImageColor3 = c("accent") })
 	rule(".facet-segmented", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	local trackRadius = package.metrics.radii.control + 2
+	local trackRadius = if package.metrics.radii.control > 0 then package.metrics.radii.control + 2 else 0
 	rule(".facet-segmented::UICorner", { CornerRadius = types.UDim.new(0, trackRadius) })
+
+	rule(".facet-tab-plate", { BackgroundColor3 = c("surfaceStrong") })
+	rule(".facet-tab-plate::UIStroke", {
+		Color = c("hairline"),
+		Transparency = extra.hairlineOpacity,
+		Thickness = package.metrics.strokes.hairline or 1,
+	})
 	rule(".facet-segmented::UIPadding", {
 		PaddingLeft = types.UDim.new(0, SEGMENT_INSET),
 		PaddingRight = types.UDim.new(0, SEGMENT_INSET),
 		PaddingTop = types.UDim.new(0, SEGMENT_INSET),
 		PaddingBottom = types.UDim.new(0, SEGMENT_INSET),
 	})
-	rule(".facet-segment", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
+	rule(".facet-segment", { BackgroundTransparency = 1, TextColor3 = segmentInk })
 	rule(".facet-segment::UICorner", { CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) })
 	rule(".facet-segmented-pill >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(1, 0) })
 	rule(".facet-segmented-square >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(0, 0) })
-	rule(".facet-segment >> .facet-button-caption", { TextColor3 = c("contentSecondary") })
+	rule(".facet-segment-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	rule(
+		".facet-segment-fill::UICorner",
+		{ CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) }
+	)
+	rule(".facet-segmented-pill >> .facet-segment-fill::UICorner", { CornerRadius = types.UDim.new(1, 0) })
+	rule(".facet-segmented-square >> .facet-segment-fill::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-segment >> .facet-button-caption", { TextColor3 = segmentInk })
 	rule(
 		".facet-segment:Hover",
 		{ BackgroundTransparency = 0, BackgroundColor3 = c("controlHover"), TextColor3 = c("content") }
@@ -1061,12 +1278,29 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
+	rule(".facet-menu-item::UICorner", { CornerRadius = types.UDim.new(0, 0) })
+	rule(".facet-menu-end::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.panel) })
+	rule(".facet-menu-destructive", { TextColor3 = c("content") })
+	rule(".facet-menu-destructive >> .facet-button-caption", { TextColor3 = c("content") })
+	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("content") })
+	for _, state in { ":Hover", ":Press" } do
+		rule(".facet-menu-destructive" .. state, { BackgroundTransparency = 0, BackgroundColor3 = c("danger") })
+		rule(".facet-menu-destructive" .. state .. " >> .facet-button-caption", { TextColor3 = c("onDanger") })
+		rule(".facet-menu-destructive" .. state .. " >> .facet-text", { TextColor3 = c("onDanger") })
+		rule(".facet-menu-destructive" .. state .. " >> .facet-icon", { ImageColor3 = c("onDanger") })
+	end
 	rule(".facet-choice-current >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-tab-filled >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-segment-current >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-icon", { ImageColor3 = c("onAccent") })
 	rule(".facet-calendar-day", { BackgroundTransparency = 1 })
+	rule(".facet-calendar-day::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	rule(".facet-calendar-day:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
 	rule(".facet-calendar-day:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
 	rule(".facet-calendar-band", { BackgroundColor3 = c("controlSelected"), BackgroundTransparency = 0 })
@@ -1075,16 +1309,86 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-today::UIStroke", { Color = c("accent"), Thickness = 1 })
 	rule(".facet-calendar-strike", { BackgroundColor3 = c("contentSecondary"), BackgroundTransparency = 0 })
 	rule(".facet-calendar-number", { FontFace = f({ weight = "SemiBold" }) })
+	rule(".facet-calendar-banded", { TextColor3 = onSelected })
 	rule(".facet-calendar-dim", { TextColor3 = c("contentSecondary"), FontFace = f({ weight = "Regular" }) })
 	rule(".facet-calendar-chosen", { TextColor3 = c("onAccent") })
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
+
+	for _, slot in { "control", "field", "panel" } do
+		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
+	end
+	for status, role in statusRoles do
+		rule(".facet-badge.facet-status-" .. status .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = c(role) })
+	end
+	for _, appearance in { "status", "utility" } do
+		rule(
+			".facet-badge-" .. appearance .. " > #SkinBoundary >> .facet-skin-art",
+			{ ImageColor3 = types.Color3.new(1, 1, 1) }
+		)
+	end
+	local plate = ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
+	local selectedArt: ThemeTypes.AssetLink? = nil
+	local selectedLayer = 0
+	local plateLayers: { ThemeTypes.SkinLayer } = if plate == nil
+		then {}
+		elseif plate.kind == "layered" then plate.layers or {}
+		else { plate }
+	for index, layer in plateLayers do
+		local link = if type(layer.asset) == "table" then (layer.asset :: ThemeTypes.AssetVariants).selected else nil
+		if link ~= nil and selectedArt == nil then
+			selectedArt, selectedLayer = link, index
+		end
+	end
+	local selectedLink: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }? = if type(selectedArt)
+			== "string"
+		then { asset = selectedArt }
+		else selectedArt :: any
+	local white, black = types.Color3.new(1, 1, 1), types.Color3.new(0, 0, 0)
+	local art = if selectedLink then (package.assets or {})[selectedLink.asset] else nil
+	local pressedEmphasis = false
+	for _, theme in package.style.themes do
+		local swatch = merge(neutral.style.themes[1].colors, theme.colors)
+		local fill, ink = color(types, swatch.accent), color(types, swatch.onAccent)
+		if art and fill and ink and contrast(ink, black) <= contrast(fill, black) then
+			pressedEmphasis = true
+		end
+	end
+	for _, entry in
+		{ { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } :: { { string } }
+	do
+		local selector, fill, ink = entry[1], c(entry[2]) :: Color3, c(entry[3]) :: Color3
+		local pressed = pressedEmphasis and entry[2] == "accent"
+		local tinted = not pressed and contrast(ink, black) > contrast(fill, black)
+		rule(selector .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = if tinted then fill else white })
+		rule(selector .. ".facet-skinned", {
+			BackgroundTransparency = if tinted or pressed then 1 else 0,
+			TextColor3 = if pressed then onSelected else nil,
+		})
+		rule(selector .. " > #SkinBoundary", { Visible = tinted or pressed })
+		local swapped = pressed and selectedLink ~= nil and art ~= nil
+		rule(
+			selector .. " > #SkinBoundary >> #control" .. math.max(selectedLayer, 1),
+			if swapped
+					and selectedLink
+					and art
+				then {
+					Image = art.content or art.contentId or "",
+					Rotation = selectedLink.rotation or 0,
+					ImageColor3 = color(types, selectedLink.tint) or white,
+				}
+				else {}
+		)
+		rule(selector .. ".facet-skinned >> .facet-button-caption", if swapped then { TextColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-text", if swapped then { TextColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-icon", if swapped then { ImageColor3 = onSelected } else {})
+	end
 	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
-	rule(".facet-segment-current.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-segment-current > #SkinBoundary", { Visible = false })
-	rule(".facet-tab-filled.facet-skinned", { BackgroundTransparency = 0 })
-	rule(".facet-tab-filled > #SkinBoundary", { Visible = false })
+	rule(".facet-segment-current.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
+	rule(".facet-segment-current > #SkinBoundary", if selectedArt then {} else { Visible = false })
+	rule(".facet-segment-fill", if selectedArt then { Visible = false } else {})
+	rule(".facet-segmented-slides > .facet-segment-current", if selectedArt then {} else { BackgroundTransparency = 1 })
 	local authoredSelection = false
 	for _, theme in package.style.themes do
 		if type(theme.extra) == "table" and theme.extra.selection ~= nil then
@@ -1140,6 +1444,24 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			rule(".facet-selection-mark.facet-selected.facet-disabled", { BackgroundColor3 = faded("selection") })
 		end
 	end
+	do
+		local on = selectedArt ~= nil
+		local tint = if selectedLink then selectedLink.tint else nil
+		rule(
+			".facet-skinned.facet-selected",
+			if on then { BackgroundTransparency = 1, TextColor3 = onSelected } else {}
+		)
+		rule(".facet-skinned.facet-selected > #SkinBoundary", if on then { Visible = true } else {})
+		rule(
+			".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art",
+			if on then { ImageColor3 = color(types, tint) or types.Color3.new(1, 1, 1) } else {}
+		)
+		rule(".facet-skinned.facet-selected >> .facet-button-caption", if on then { TextColor3 = onSelected } else {})
+		rule(".facet-skinned.facet-selected >> .facet-text", if on then { TextColor3 = onSelected } else {})
+		rule(".facet-skinned.facet-selected >> .facet-icon", if on then { ImageColor3 = onSelected } else {})
+	end
+	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
+	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do
@@ -1147,7 +1469,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 				properties[key] = c((value :: any).role)
 			end
 		end
-		rule(definition.selector, properties)
+		rule(definition.selector, properties, true)
 	end
 	return rules
 end
@@ -1229,8 +1551,8 @@ local function createStyleSheet(
 			end)
 		end
 	end
-	local hover = settings.hover
-	if hover == nil then
+	local hover: Engine.Value<boolean>? = nil
+	do
 		local globals = getfenv(0)
 		local input = globals.game and globals.game:GetService("UserInputService")
 		if input then
@@ -1244,6 +1566,46 @@ local function createStyleSheet(
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
+			end)
+		end
+	end
+	local distant: Engine.Value<boolean>? = settings.tenFoot
+	if distant == nil then
+		local globals = getfenv(0)
+		local gui = globals.game and globals.game:GetService("GuiService")
+		local input = globals.game and globals.game:GetService("UserInputService")
+		if gui and input then
+			local interface = false
+			pcall(function()
+				interface = gui:IsTenFootInterface()
+			end)
+			local function sample(): boolean
+				return adaptive.isTenFoot({
+					tenFootInterface = interface,
+					displaySize = if typeof(gui.ViewportDisplaySize) == "EnumItem"
+						then gui.ViewportDisplaySize.Name
+						else nil,
+					mouse = input.MouseEnabled,
+					touch = input.TouchEnabled,
+				})
+			end
+			local source = Compose.cell(sample())
+			distant = source
+			local connections = {
+				gui:GetPropertyChangedSignal("ViewportDisplaySize"):Connect(function()
+					source:set(sample())
+				end),
+				input:GetPropertyChangedSignal("MouseEnabled"):Connect(function()
+					source:set(sample())
+				end),
+				input:GetPropertyChangedSignal("TouchEnabled"):Connect(function()
+					source:set(sample())
+				end),
+			}
+			Compose.cleanup(function()
+				for _, connection in connections do
+					connection:Disconnect()
+				end
 			end)
 		end
 	end
@@ -1327,7 +1689,7 @@ local function createStyleSheet(
 		local translucent = definition.properties.BackgroundTransparency
 		if
 			preference >= 1
-			or definition.selector ~= ".facet-scrim"
+			or (definition.selector ~= ".facet-scrim" and definition.selector ~= ".facet-scrim.facet-radial-scrim")
 			or type(translucent) ~= "number"
 			or translucent <= 0
 			or translucent >= 1
@@ -1447,9 +1809,16 @@ local function createStyleSheet(
 		}),
 	})
 	Compose.watch(function(use: ComposeTypes.Use)
-		local package = read(packageOrReadable, use) or neutral
+		local package = themes.forDistance(
+			read(packageOrReadable, use) or neutral,
+			if read(distant, use) == true then "ten-foot" else "near"
+		)
 		local current = compiledRules(package, read(settings.theme, use))
-		if read(hover, use) == false then
+		local hovering = read(settings.hover, use)
+		if hovering == nil then
+			hovering = read(hover, use)
+		end
+		if hovering == false then
 			current = withoutHover(current)
 		end
 		local timing = timingFor(package, use)
@@ -1480,27 +1849,36 @@ local function createStyleSheet(
 	return sheet
 end
 
-local function variantAsset(value: ThemeTypes.AssetSource?, state: ThemeTypes.SkinState): string?
+local function variantAsset(
+	value: ThemeTypes.AssetSource?,
+	state: ThemeTypes.SkinState,
+	selected: boolean
+): (string?, { rotation: number?, tint: ThemeTypes.RGB? })
 	if type(value) == "string" then
-		return value
+		return value, {}
 	end
 	if type(value) ~= "table" then
-		return nil
+		return nil, {}
 	end
 	local linked = ((value :: unknown) :: { asset: unknown }).asset
 	if linked ~= nil then
-		return linked :: string
+		return linked :: string, value :: any
 	end
 	local variants = value :: ThemeTypes.AssetVariants
-	local selected = (
+	local chosen = (
 		if state == "hover"
 			then variants.hover
 			elseif state == "pressed" then variants.pressed
 			elseif state == "selected" then variants.selected
 			elseif state == "disabled" then variants.disabled
 			else nil
-	) or variants.default
-	return if type(selected) == "table" then selected.asset else selected
+	)
+		or (if selected then variants.selected else nil)
+		or variants.default
+	if type(chosen) == "table" then
+		return chosen.asset, chosen
+	end
+	return chosen, {}
 end
 
 type ImageLayer = {
@@ -1519,6 +1897,8 @@ type ImageLayer = {
 	SliceCenter: Rect,
 	SliceScale: number,
 	ResampleMode: Enum.ResamplerMode,
+	Rotation: number,
+	ImageColor3: Color3,
 }
 
 type MountedImage = {
@@ -1527,6 +1907,20 @@ type MountedImage = {
 	caption: ComposeTypes.Cell<ImageLayer>?,
 	visible: boolean,
 }
+
+local function grown(types: Engine.RobloxTypes, value: ImageLayer, fit: Vector2): UDim2
+	local size = value.Size
+	if not value.text or fit.X <= 0 then
+		return size
+	end
+	local inset: ThemeTypes.Insets = value.textInsets or {}
+	return types.UDim2.new(
+		size.X.Scale,
+		math.max(size.X.Offset, math.ceil(fit.X) + (inset.left or 0) + (inset.right or 0)),
+		size.Y.Scale,
+		math.max(size.Y.Offset, math.ceil(fit.Y) + (inset.top or 0) + (inset.bottom or 0))
+	)
+end
 
 local function skin(
 	Compose: typeof(ComposeTypes),
@@ -1587,29 +1981,46 @@ local function skin(
 	type CompiledLayers = {
 		package: ThemeTypes.ThemePackage,
 		state: ThemeTypes.SkinState,
+		selected: boolean,
 		direction: string?,
+		fit: number?,
 		layers: { ImageLayer },
 	}
 	local compiled: { CompiledLayers } = {}
+	local overText = settings.target ~= nil and settings.target:IsA("TextBox")
 	local function buildLayers(use: ComposeTypes.Use): { ImageLayer }
 		local package = read(packageOrReadable, use) or neutral
 		local chrome = package.chrome
 		local recipe = if chrome then chrome[slot] else nil
-		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
+		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" or overText then
 			return {}
 		end
 		local state = (read(settings.state, use) or "default") :: ThemeTypes.SkinState
+		local selected = read(settings.selected, use) == true
 		local direction = if slot == "barCap" then read(settings.direction, use) or "ltr" else nil
+		local fit = read(settings.fit, use)
 		for _, cached in compiled do
-			if cached.package == package and cached.state == state and cached.direction == direction then
+			if
+				cached.package == package
+				and cached.state == state
+				and cached.selected == selected
+				and cached.direction == direction
+				and cached.fit == fit
+			then
 				return cached.layers
 			end
 		end
 		local output: { ImageLayer } = {}
 		local function finish(): { ImageLayer }
 			if deeplyFrozen(package, {}) then
-				local snapshot: CompiledLayers =
-					{ package = package, state = state :: ThemeTypes.SkinState, direction = direction, layers = output }
+				local snapshot: CompiledLayers = {
+					package = package,
+					state = state :: ThemeTypes.SkinState,
+					selected = selected,
+					direction = direction,
+					fit = fit,
+					layers = output,
+				}
 				table.insert(compiled, 1, snapshot)
 				if #compiled > 2 then
 					table.remove(compiled)
@@ -1625,7 +2036,7 @@ local function skin(
 			anchor: Vector2?,
 			source: ThemeTypes.AssetSource?
 		)
-			local assetName = variantAsset(source or layer.asset, state :: ThemeTypes.SkinState)
+			local assetName, link = variantAsset(source or layer.asset, state :: ThemeTypes.SkinState, selected)
 			local asset = assetName and (package.assets or {})[assetName]
 			if not asset then
 				return
@@ -1646,6 +2057,8 @@ local function skin(
 				SliceCenter = types.Rect.new(0, 0, 0, 0),
 				SliceScale = 1,
 				ResampleMode = types.Enum.ResamplerMode.Default,
+				Rotation = link.rotation or 0,
+				ImageColor3 = color(types, link.tint) or types.Color3.new(1, 1, 1),
 			}
 			if layer.kind == "tile" or layer.tile then
 				local tile = layer.tileSize or { w = layer.tile or 32, h = layer.tile or 32 }
@@ -1664,19 +2077,25 @@ local function skin(
 		end
 		if slot == "barCap" or slot == "barCenter" then
 			local size = if type(recipe.size) == "table" then recipe.size else { w = 16, h = 16 }
+			local vertical = direction == "ttb" or direction == "btt"
+			local scale = fit or 1
+			if scale <= 0 then
+				return finish()
+			end
+			local box = D2.fromOffset(math.round(size.w * scale), math.round(size.h * scale))
 			if slot == "barCenter" then
-				image(recipe, "barCenter", D2.fromOffset(size.w, size.h), D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5))
+				image(recipe, "barCenter", box, D2.fromScale(0.5, 0.5), V2.new(0.5, 0.5))
 			else
-				local vertical = direction == "ttb" or direction == "btt"
 				local reverse = direction == "rtl" or direction == "btt"
 				for _, endpoint in { "start", "end" } do
 					local position = if (endpoint == "end") ~= reverse then 1 else 0
+					local at = V2.new(if vertical then 0.5 else position, if vertical then position else 0.5)
 					image(
 						recipe,
 						"barCap-" .. endpoint,
-						D2.fromOffset(size.w, size.h),
-						D2.fromScale(if vertical then 0.5 else position, if vertical then position else 0.5),
-						V2.new(0.5, 0.5),
+						box,
+						D2.fromScale(at.X, at.Y),
+						at,
 						(if endpoint == "start" then recipe.startAsset else recipe.endAsset) or recipe.asset
 					)
 				end
@@ -1737,13 +2156,12 @@ local function skin(
 				local horizontal = edge == "top" or edge == "bottom"
 				local endPoint = edge == "bottom" or edge == "right"
 				local overhang = layer.overhang or 0
+				local reach = (if horizontal then size.h else size.w) / 2 - overhang
+				local offset = if endPoint then -reach else reach
 				local position = if horizontal
-					then D2.new(0.5, 0, if endPoint then 1 else 0, if endPoint then overhang else -overhang)
-					else D2.new(if endPoint then 1 else 0, if endPoint then overhang else -overhang, 0.5, 0)
-				local anchor = if horizontal
-					then V2.new(0.5, if endPoint then 1 else 0)
-					else V2.new(if endPoint then 1 else 0, 0.5)
-				image(layer, name, D2.fromOffset(size.w, size.h), position, anchor)
+					then D2.new(0.5, 0, if endPoint then 1 else 0, offset)
+					else D2.new(if endPoint then 1 else 0, offset, 0.5, 0)
+				image(layer, name, D2.fromOffset(size.w, size.h), position, V2.new(0.5, 0.5))
 			else
 				image(layer, name)
 			end
@@ -1751,10 +2169,15 @@ local function skin(
 		return finish()
 	end
 	local target = settings.target
+	local function labelled(use: ComposeTypes.Use?): boolean
+		local label = settings.label
+		return label ~= nil and (read(label, use) or "") ~= ""
+	end
 	local function createImage(initial: ImageLayer): MountedImage
+		local shown = not initial.text or labelled()
 		local properties: Engine.ImageLabelNativeProps = {
 			Name = initial.id,
-			Visible = true,
+			Visible = shown,
 			Image = initial.Image,
 			Size = initial.Size,
 			Position = initial.Position,
@@ -1767,15 +2190,18 @@ local function skin(
 			SliceCenter = initial.SliceCenter,
 			SliceScale = initial.SliceScale,
 			ResampleMode = initial.ResampleMode,
+			Rotation = initial.Rotation,
+			ImageColor3 = initial.ImageColor3,
 		}
 		local captionSource: ComposeTypes.Cell<ImageLayer>?
+		local fit = Compose.cell(V2.new(0, 0))
 		if settings.label then
 			local current = Compose.cell(initial)
 			captionSource = current
 			table.insert(
 				properties,
 				Compose.show(function(use: ComposeTypes.Use)
-					return use(current).text == true
+					return use(current).text == true and labelled(use)
 				end, function()
 					local padding: Engine.UIPaddingNativeProps = {
 						PaddingLeft = function(use: ComposeTypes.Use)
@@ -1804,11 +2230,33 @@ local function skin(
 						Host.UIPadding(padding),
 					}
 					label:AddTag("facet-skin-caption-text")
+					local observation = runtime.host.observation
+					if observation then
+						Compose.cleanup(observation.observeProperty(label, "TextBounds", function()
+							fit:set(label.TextBounds)
+						end))
+					end
+					fit:set(label.TextBounds)
+					Compose.cleanup(function()
+						fit:set(V2.new(0, 0))
+					end)
 					return label
 				end)
 			)
 		end
-		return { node = Host.ImageLabel(properties), properties = initial, caption = captionSource, visible = true }
+		local node = Host.ImageLabel(properties)
+		node:AddTag("facet-skin-art")
+		node:AddTag("facet-skin-art-" .. slot)
+		if captionSource then
+			local current = captionSource
+			Compose.watch(function(use: ComposeTypes.Use)
+				local size = grown(types, use(current), use(fit))
+				if node.Size ~= size then
+					node.Size = size
+				end
+			end)
+		end
+		return { node = node, properties = initial, caption = captionSource, visible = shown }
 	end
 	local function applyImage(record: MountedImage, value: ImageLayer?, visible: boolean)
 		local node, previous = record.node, record.properties
@@ -1847,8 +2295,14 @@ local function skin(
 			if value.ResampleMode ~= previous.ResampleMode then
 				node.ResampleMode = value.ResampleMode
 			end
+			if value.Rotation ~= previous.Rotation then
+				node.Rotation = value.Rotation
+			end
+			if value.ImageColor3 ~= previous.ImageColor3 then
+				node.ImageColor3 = value.ImageColor3
+			end
 			local caption = record.caption
-			if caption and (value.text ~= previous.text or value.textInsets ~= previous.textInsets) then
+			if caption and value ~= previous then
 				caption:set(value)
 			end
 			record.properties = value
@@ -1889,20 +2343,25 @@ local function skin(
 			end
 			slots:set(nextSlots)
 		end
+		local titled = labelled(use)
 		for index, record in mounted do
-			applyImage(record, active[index], active[index] ~= nil)
+			local layer = active[index]
+			applyImage(record, layer, layer ~= nil and (not layer.text or titled))
+		end
+		local plaque = false
+		for _, layer in active do
+			if layer.text and titled then
+				plaque = true
+			end
+		end
+		if settings.onCaption then
+			settings.onCaption(plaque)
 		end
 		if target then
-			local plaque = false
 			if #active > 0 then
 				target:AddTag("facet-skinned")
 			else
 				target:RemoveTag("facet-skinned")
-			end
-			for _, layer in active do
-				if layer.text then
-					plaque = true
-				end
 			end
 			if plaque then
 				target:AddTag("facet-skin-caption")
@@ -1991,6 +2450,7 @@ return function(Compose: typeof(ComposeTypes)): ThemeTypes.Themes
 		TYPE_ROLES = themes.TYPE_ROLES,
 		REQUIRED_TYPE_ROLES = themes.REQUIRED_TYPE_ROLES,
 		neutralPackage = themes.neutralPackage,
+		forDistance = themes.forDistance,
 		define = themes.define,
 		checkCoverage = themes.checkCoverage,
 		resolveIcon = themes.resolveIcon,

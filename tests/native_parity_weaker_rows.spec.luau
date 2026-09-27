@@ -246,12 +246,13 @@ t.describe("native parity weaker rows", function()
 		t.expect(content.Position.X.Offset).toBe(-264)
 		t.expect(find(row, "trailing").Size.X.Offset).toBe(264)
 		local save = find(find(row, "trailing"), "Save")
-		t.expect(save.Size.X.Scale).toBeCloseTo(1 / 3, 0.001)
+		t.expect(`{save.Size.X.Scale} {save.Size.X.Offset}`).toBe("0 88")
 		t.expect(textOf(save)).toBe("Save")
 		t.expect(find(save, "LeadingIcon")).toBeNil()
 		local pin = find(find(row, "trailing"), "Pin")
 		t.expect(find(pin, "LeadingIcon").Image).toBe("rbxassetid://7")
-		t.expect(textOf(pin)).toBe("Pin")
+		t.expect(textOf(pin)).toBe("")
+		t.expect(pin:GetAttribute("label")).toBe("Pin")
 		open:set(nil)
 		t.expect(content.Position.X.Offset).toBe(0)
 		t.expect(find(row, "trailing").Visible).toBe(false)
@@ -626,7 +627,7 @@ t.describe("native parity weaker rows", function()
 		world.stop()
 	end)
 
-	t.it("collections-67 forwards table editing into hosted rows and deletes the row its minus belongs to", function()
+	t.it("collections-67 table edit mode leaves hosted row actions alone; they stay independent of it", function()
 		local deleted, editing = {}, Compose.cell(false)
 		local world = setup(function(UI)
 			return UI.Table({
@@ -665,16 +666,11 @@ t.describe("native parity weaker rows", function()
 			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
 		end
 		editing:set(true)
-		t.expect(row(3):FindFirstChild("Delete")).toBeNil()
-		local minus = row(2):FindFirstChild("Delete")
-		t.expect(minus.Text).toBe("Remove row 2")
-		t.expect(row(1):FindFirstChild("Delete").Text).toBe("Remove row 1")
-		minus.Activated.fire()
-		minus.Activated.fire()
-		t.expect(deleted).toEqual({ 2 })
-		editing:set(false)
-		t.expect(row(1):FindFirstChild("Delete")).toBeNil()
-		t.expect(deleted).toEqual({ 2 })
+		for rowKey = 1, 3 do
+			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
+			t.expect(row(rowKey):FindFirstChild("SwipeGrip", true).Visible).toBe(true)
+		end
+		t.expect(deleted).toEqual({})
 		world.stop()
 	end)
 
@@ -795,7 +791,7 @@ t.describe("native parity weaker rows", function()
 					key = key,
 					itemSize = 20,
 					selection = selected,
-					selectionMode = "multi",
+					selectionMode = "multiple",
 					reorderable = true,
 					onReorder = function(keys, slot)
 						table.insert(requests, { keys = keys, slot = slot })
@@ -941,7 +937,7 @@ t.describe("native parity weaker rows", function()
 						key = key,
 						itemSize = 20,
 						selection = Compose.cell({}),
-						selectionMode = "multi",
+						selectionMode = "multiple",
 						reorderable = true,
 						onReorder = function(keys, slot)
 							table.insert(requests, { keys = keys, slot = slot, open = true })
@@ -1061,7 +1057,7 @@ t.describe("native parity weaker rows", function()
 				t.expect(flagged).toEqual({ 2 })
 				editing:set(true)
 				t.expect(protected:FindFirstChild("Delete")).toBeNil()
-				t.expect(row(1):FindFirstChild("Delete") ~= nil).toBe(true)
+				t.expect(`{host}:{row(1):FindFirstChild("Delete") ~= nil}`).toBe(`{host}:{host == "list"}`)
 				editing:set(false)
 				world.gui.SelectedObject = find(body:FindFirstChild("2", true), "RowHit")
 				t.expect(world.gui.SelectedObject ~= nil).toBe(true)
@@ -1629,7 +1625,7 @@ t.describe("native parity weaker rows", function()
 		world.input.InputChanged.fire(finger)
 		t.expect(find(node, "DropLine") ~= nil).toBe(true)
 		detector.DragEnd.fire()
-		t.expect(built.baseRows:peek()[1].id).toBe("neon")
+		t.expect(built.baseRows:peek()[1].id).toBe("drift")
 		finger.UserInputState = E.UserInputState.End
 		world.input.InputEnded.fire(finger)
 		t.expect(built.baseRows:peek()[1].id).toBe("drift")

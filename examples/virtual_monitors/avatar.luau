@@ -49,7 +49,6 @@ return function(ctx)
 					width = "fill",
 					height = "fill",
 					padding = { top = 5, left = 6, right = 6, bottom = 4 },
-					BackgroundTransparency = 0,
 					Host.UICorner({ CornerRadius = ctx.D.new(0, 8) }),
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
@@ -137,12 +136,31 @@ return function(ctx)
 			...,
 		})
 	end
+	local function turnButtons()
+		local row = UI.HStack "TurnButtons" {
+			width = "fill",
+			gap = "s",
+			button("TurnLeft", "Turn left", function()
+				model.turn(-1)
+			end, {
+				Size = D2.new(0.5, -4, 0, 44),
+				AutomaticSize = E.AutomaticSize.None,
+			}),
+			button("TurnRight", "Turn right", function()
+				model.turn(1)
+			end, {
+				Size = D2.new(0.5, -4, 0, 44),
+				AutomaticSize = E.AutomaticSize.None,
+			}),
+		}
+		UI.adjustable(row, { onAdjust = model.turn, axis = "none", repeats = true })
+		return row
+	end
 	local preview = UI.ZStack "PreviewPanel" {
 		Size = function(use)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
 		end,
 		AutomaticSize = E.AutomaticSize.None,
-		BackgroundTransparency = 0,
 		ctx.rounded(),
 		ctx.panelShadow(),
 		ctx.stage("AvatarPreview", ctx.actions.avatarContent, {
@@ -174,9 +192,6 @@ return function(ctx)
 	local settings = Host.Frame "AvatarSettings" {
 		BorderSizePixel = 0,
 		SelectionGroup = true,
-		SelectionBehaviorDown = E.SelectionBehavior.Stop,
-		SelectionBehaviorLeft = E.SelectionBehavior.Stop,
-		SelectionBehaviorRight = E.SelectionBehavior.Stop,
 		Size = function(use)
 			return if wide(use) then D2.new(0, settingsWidth(use), 1, 0) else D2.new(1, 0, 1, -previewHeight(use) - 16)
 		end,
@@ -354,22 +369,7 @@ return function(ctx)
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
 							},
-							UI.HStack "TurnButtons" {
-								width = "fill",
-								gap = "s",
-								button("TurnLeft", "Turn left", function()
-									model.turn(-1)
-								end, {
-									Size = D2.new(0.5, -4, 0, 44),
-									AutomaticSize = E.AutomaticSize.None,
-								}),
-								button("TurnRight", "Turn right", function()
-									model.turn(1)
-								end, {
-									Size = D2.new(0.5, -4, 0, 44),
-									AutomaticSize = E.AutomaticSize.None,
-								}),
-							},
+							turnButtons(),
 							words("SpinLabel", "Auto-spin", "label"),
 							UI.HStack "AutoSpinRow" {
 								width = "fill",
@@ -416,8 +416,30 @@ return function(ctx)
 				message = "The accent, hat, hat colour and rotation return to their defaults.",
 				actions = {
 					{ id = "cancel", label = "Cancel", role = "cancel" },
-					{ id = "reset", label = "Reset", role = "destructive", onActivate = model.resetAvatar },
+					{
+						id = "reset",
+						label = "Reset",
+						role = "destructive",
+						onActivate = function()
+							model.resetAvatar()
+							UI.feedback("success")
+						end,
+					},
 				},
 			},
+			Compose.keyed({
+				from = function(use)
+					local count = use(model.lookResets)
+					return if count > 0 then { count } else {}
+				end,
+				render = function()
+					return UI.Toast "LookReset" {
+						message = "Your look is back to the default.",
+						key = "look",
+						width = "hug",
+						position = "bottom",
+					}
+				end,
+			}),
 		}
 end

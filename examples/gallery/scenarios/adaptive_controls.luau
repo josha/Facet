@@ -156,25 +156,23 @@ return {
 					max = 100,
 					step = 10,
 					thumbContent = function()
+						local knob = Host.Frame "Plate" {
+							Size = UDim2.fromScale(1, 1),
+							Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
+						}
+						knob:AddTag("facet-slider-thumb")
+						ctx.runtime.mount(function()
+							return ctx.Facet.themes.skin(
+								ctx.runtime,
+								ctx.theme,
+								"sliderThumb",
+								{ types = ctx.types, target = knob }
+							)
+						end, knob)
 						return Host.Frame "Knob" {
 							Size = UDim2.fromOffset(24, 24),
 							BackgroundTransparency = 1,
-							Host.Frame "Plate" {
-								Size = UDim2.fromScale(1, 1),
-								Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
-							},
-							UI.Path "Mark" {
-								points = {
-									{ x = 0.5, y = 0.15, inX = 0, inY = 0, outX = 0, outY = 0 },
-									{ x = 0.9, y = 0.85, inX = 0, inY = 0, outX = 0, outY = 0 },
-									{ x = 0.1, y = 0.85, inX = 0, inY = 0, outX = 0, outY = 0 },
-								},
-								closed = true,
-								thickness = 2,
-								width = 12,
-								AnchorPoint = Vector2.new(0.5, 0.5),
-								Position = UDim2.fromScale(0.5, 0.5),
-							},
+							knob,
 						}
 					end,
 				},
@@ -186,19 +184,26 @@ return {
 			{ value = "compose", label = "Compose", icon = "edit" },
 			{ value = "more", label = "More", icon = "more" },
 		}
+		local function plate(node)
+			node:AddTag("facet-control")
+			ctx.runtime.mount(function()
+				return ctx.Facet.themes.skin(ctx.runtime, ctx.theme, "control", { types = ctx.types, target = node })
+			end, node)
+			return node
+		end
 		local function screen()
 			local stats, tiles = {}, {}
 			for i = 1, 12 do
-				local stat = label("Stat" .. i, "S" .. i, "caption")
-				ctx.runtime.decorate(stat, {
-					Size = UDim2.fromOffset(72, 30),
-					LayoutOrder = i,
+				local value = label("Value", "S" .. i, "caption")
+				ctx.runtime.decorate(value, {
+					Size = UDim2.fromScale(1, 1),
 					AutomaticSize = Enum.AutomaticSize.None,
 					TextXAlignment = Enum.TextXAlignment.Center,
-					BackgroundTransparency = 0,
 				})
-				stat:AddTag("facet-control")
-				table.insert(stats, stat)
+				table.insert(
+					stats,
+					plate(Host.Frame({ Name = "Stat" .. i, LayoutOrder = i, Size = UDim2.fromOffset(72, 30), value }))
+				)
 			end
 			for i, count in { "3", "9", "1", "7" } do
 				local tile = Host.Frame({
@@ -208,13 +213,11 @@ return {
 					UI.Badge "Count" {
 						label = count,
 						status = "info",
-						Size = UDim2.fromOffset(28, 28),
-						AnchorPoint = Vector2.new(1, 0),
-						Position = UDim2.new(1, -6, 0, 6),
+						AnchorPoint = Vector2.new(1, 0.5),
+						Position = UDim2.new(1, -6, 0.5, 0),
 					},
 				})
-				tile:AddTag("facet-control")
-				table.insert(tiles, tile)
+				table.insert(tiles, plate(tile))
 			end
 			local media = Host.Frame "Media" {
 				Size = UDim2.new(1, 0, 0, 0),
@@ -224,22 +227,14 @@ return {
 			return Host.Frame "AdaptiveScreen" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.ScrollingFrame "BodyScroll" {
+				UI.ScrollView "BodyScroll" {
+					padding = 16,
 					Size = UDim2.new(1, 0, 1, -60),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 4,
 					ScrollBarImageTransparency = 0.4,
 					VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 					Host.Frame "Body" {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -292,7 +287,8 @@ return {
 								iconOnly = true,
 							},
 							Host.Frame "NavRailRow" {
-								Size = UDim2.new(1, 0, 0, 132),
+								Size = UDim2.fromScale(1, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
 								UI.Picker "NavRail" {
 									selected = section,
@@ -300,7 +296,7 @@ return {
 									style = "segmented",
 									axis = "y",
 									iconOnly = true,
-									Size = UDim2.fromOffset(52, 132),
+									Size = UDim2.fromOffset(52, 0),
 								},
 								UI.Text "NavReadout" {
 									text = function(use)
@@ -335,6 +331,7 @@ return {
 											Name = "Vsync",
 											label = "Vertical sync",
 											value = vsync,
+											controlSize = "large",
 											hint = "Keep frames aligned with the display",
 										}),
 										UI.Toggle({
@@ -407,7 +404,8 @@ return {
 									icon = "more",
 									AnchorPoint = Vector2.new(1, 0),
 									Position = UDim2.fromScale(1, 0),
-									Size = UDim2.fromOffset(80, 40),
+									Size = UDim2.fromOffset(0, 40),
+									AutomaticSize = Enum.AutomaticSize.X,
 									onActivate = noop,
 								},
 							},
@@ -425,6 +423,7 @@ return {
 									label = "Edit item",
 									Size = UDim2.new(1, -174, 0, 40),
 									onActivate = noop,
+									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink }),
 								}),
 								UI.Button({
 									LayoutOrder = 2,
@@ -503,27 +502,24 @@ return {
 									HorizontalFlex = Enum.UIFlexAlignment.Fill,
 									Padding = UDim.new(0, 6),
 								}),
-								Host.Frame({
+								plate(Host.Frame({
 									LayoutOrder = 1,
 									Name = "Optional",
 									Size = UDim2.fromOffset(140, 24),
-									BackgroundColor3 = Color3.fromRGB(55, 75, 115),
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 2 }),
-								}),
-								Host.Frame({
+								})),
+								plate(Host.Frame({
 									LayoutOrder = 2,
 									Name = "Useful",
 									Size = UDim2.fromOffset(140, 24),
-									BackgroundColor3 = Color3.fromRGB(70, 90, 130),
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink, ShrinkRatio = 1 }),
-								}),
-								Host.Frame({
+								})),
+								plate(Host.Frame({
 									LayoutOrder = 3,
 									Name = "Essential",
 									Size = UDim2.fromOffset(140, 16),
-									BackgroundColor3 = Color3.fromRGB(85, 110, 155),
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.None }),
-								}),
+								})),
 							},
 							label("SpecTitle", "Row grid", "caption"),
 							Host.Frame "Specs" {

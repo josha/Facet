@@ -47,7 +47,7 @@ local SKY = {
 
 		controlSelected = rgb(20, 81, 194),
 		onSelected = rgb(255, 255, 255),
-		contentSecondary = rgb(88, 100, 120),
+		contentSecondary = rgb(76, 88, 108),
 		hairline = rgb(36, 56, 86),
 		hairlineOpacity = 0.8,
 		scrimOpacity = 0.35,
@@ -208,7 +208,11 @@ function glossy_touch.definition(themes: any): any
 
 			control = {
 				kind = "nineSlice",
-				asset = { default = "glossy_button_default", pressed = "glossy_button_pressed" },
+				asset = {
+					default = "glossy_button_default",
+					pressed = "glossy_button_pressed",
+					selected = "glossy_selection_selected",
+				},
 				contentInsets = { top = 8, right = 14, bottom = 8, left = 14 },
 				fallback = "native",
 			},

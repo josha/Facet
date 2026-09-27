@@ -333,7 +333,7 @@ describe("physical-row provenance", function()
 				instrument = "retail Roblox client, capture scenario perf_capture",
 				deviceModel = "SM-A065F",
 				capturedAt = "2026-07-26T18:00:00Z",
-				attestedBy = "josha",
+				attestedBy = "maintainer",
 			},
 			device = { live = { source = "retail client on the physical device" } },
 			metrics = {

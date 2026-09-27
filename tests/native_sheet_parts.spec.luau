@@ -176,19 +176,19 @@ t.describe("native Sheet: placement, width, title and close", function()
 	t.it("the Size control reads player words, never a detent id", function()
 		local w = mount({ detents = { "hug", "medium" } })
 		local grabber = w.find("Grabber")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		w.detent:set("hug")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Fit")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Fit")
 		w.stop()
 		local custom = mount({ detents = { { id = "compact", fraction = 0.3 }, "large" } }, { detent = "compact" })
-		t.expect(custom.find("Grabber"):GetAttribute("AccessibleLabel")).toBe("Size: Compact")
+		t.expect(custom.find("Grabber"):GetAttribute("AccessibleLabel")).toBe("Resize: Compact")
 		custom.stop()
 	end)
 end)
 
 t.describe("native Sheet: parts", function()
 	t.it("default parts: pinned title and utilities, one body scroller (the panel no longer scrolls)", function()
-		local w = mount()
+		local w = mount({ closeButton = true })
 		local room, body = w.find("Room"), w.find("SheetContent")
 		t.expect(w.find("Title").Parent.Name).toBe("Header")
 		t.expect(w.find("Close").Parent.Name).toBe("Header")
@@ -208,7 +208,7 @@ t.describe("native Sheet: parts", function()
 		w.stop()
 		local none = mount({ contentInset = "none" })
 		t.expect(none.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset).toBe(0)
-		t.expect(none.find("SheetPanel"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset).toBe(16)
+		t.expect(none.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset).toBe(16)
 		none.stop()
 	end)
 
@@ -217,13 +217,14 @@ t.describe("native Sheet: parts", function()
 			header = built(function(_, Host)
 				return Host.TextLabel "Custom" { Text = "Lobby" }
 			end),
+			closeButton = true,
 		})
 		t.expect(w.find("Title")).toBeNil()
 		t.expect(w.find("Custom").Parent.Name).toBe("Header")
 		t.expect(w.find("Close").Parent.Name).toBe("Header")
 		t.expect(w.find("Grabber") ~= nil).toBe(true)
 		w.stop()
-		local bare = mount({ header = false })
+		local bare = mount({ header = false, closeButton = true })
 		t.expect(bare.find("Title")).toBeNil()
 		t.expect(bare.find("Close").Parent.Name).toBe("Header")
 		bare.stop()
@@ -256,6 +257,7 @@ t.describe("native Sheet: parts", function()
 
 	t.it("a room too small for the pinned regions unpins them into one scroller", function()
 		local w = mount({
+			closeButton = true,
 			actionLayout = "stacked",
 			actions = {
 				{ id = "One", label = "One", onActivate = noop },
@@ -303,7 +305,11 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("a sticky image hero stays pinned; header=false puts Close over it", function()
-		local w = mount({ header = false, hero = { image = "rbxassetid://1", height = 160, sticky = true } })
+		local w = mount({
+			header = false,
+			closeButton = true,
+			hero = { image = "rbxassetid://1", height = 160, sticky = true },
+		})
 		local hero = w.find("Hero")
 		t.expect(hero.Parent).toBe(w.find("Room"))
 		t.expect(hero.Size.Y.Offset).toBe(160)
@@ -319,6 +325,7 @@ t.describe("native Sheet: parts", function()
 	t.it("a scrolling content hero reserves the utility strip; utilities stay pinned", function()
 		local w = mount({
 			header = false,
+			closeButton = true,
 			hero = built(function(UI)
 				return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
 			end),
@@ -342,10 +349,9 @@ t.describe("native Sheet: parts", function()
 		t.expect(w.find("Copy").Parent.Name).toBe("Inset")
 		t.expect(w.find("Inset"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset).toBe(8)
 		t.expect(hero.Size.X.Scale).toBe(1)
-		hero.AbsoluteSize = w.engine.types.Vector2.new(480, 0)
-		t.expect(hero.Size.Y.Offset).toBe(math.floor(480 / (16 / 9) + 0.5))
-		hero.AbsoluteSize = w.engine.types.Vector2.new(320, 180)
-		t.expect(hero.Size.Y.Offset).toBe(180)
+		local ratio = hero:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+		t.expect(ratio.AspectRatio).toBe(16 / 9)
+		t.expect(ratio.DominantAxis.Name).toBe("Width")
 		w.stop()
 	end)
 
@@ -487,18 +493,15 @@ t.describe("native Sheet: parts", function()
 		w.stop()
 	end)
 
-	t.it("coinciding heights keep the declared id; Size cycles distinct ids; ties keep the current", function()
+	t.it("coinciding heights keep the declared id; the grabber grows past ties, then closes", function()
 		local w = mount({
 			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" },
 		}, { detent = "b", reducedMotion = true })
 		t.expect(w.detent:peek()).toBe("b")
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(300)
-		local seen = {}
-		for _ = 1, 3 do
-			w.find("Grabber").Activated.fire()
-			table.insert(seen, w.detent:peek())
-		end
-		t.expect(seen).toEqual({ "large", "a", "b" })
+		w.find("Grabber").Activated.fire()
+		t.expect(w.detent:peek()).toBe("large")
+		w.detent:set("b")
 		local drag = w.find("UIDragDetector")
 		drag.DragStart.fire(w.Vector2.new(0, 0))
 		w.tick(0.5)
@@ -737,12 +740,14 @@ t.describe("native Sheet: gestures", function()
 	t.it("resistance holds a dismissal-disabled sheet near its lowest detent", function()
 		local w = mount({ interactiveDismissDisabled = true }, { reducedMotion = true })
 		local drag = flick(w, { { 400, 0.5 } }, false)
-		local height = w.find("SheetPanel").Size.Y.Offset
-		t.expect(height >= 300 - 44 and height < 300).toBe(true)
+		local panel = w.find("SheetPanel")
+		t.expect(panel.Size.Y.Offset).toBe(300)
+		t.expect(panel.Position.Y.Offset > 0 and panel.Position.Y.Offset <= 44).toBe(true)
 		w.tick(0.5)
 		drag.DragEnd.fire()
 		t.expect(w.shown:peek()).toBe(true)
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(300)
+		t.expect(w.find("SheetPanel").Position.Y.Offset).toBe(0)
 		w.stop()
 	end)
 
@@ -794,6 +799,323 @@ t.describe("native Sheet: gestures", function()
 		local after = w.engine.census()
 		t.expect(after.live).toBe(baseline.live)
 		t.expect(after.connections).toBe(baseline.connections)
+		w.stop()
+	end)
+end)
+
+t.describe("native Sheet: the grabber is the close and resize control", function()
+	t.it("a sheet with a grabber shows no Close button; the grabber resizes or closes", function()
+		local w = mount()
+		t.expect(w.find("Close")).toBeNil()
+		local grabber = w.find("Grabber")
+		t.expect(grabber.Selectable).toBe(true)
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
+		grabber.Activated.fire()
+		t.expect(w.detent:peek()).toBe("large")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
+		grabber.Activated.fire()
+		t.expect(w.shown:peek()).toBe(false)
+		w.stop()
+		local single = mount({ detents = { "medium" } })
+		local only = single.find("Grabber")
+		t.expect(only.Selectable).toBe(true)
+		t.expect(only:GetAttribute("AccessibleLabel")).toBe("Close sheet")
+		only.Activated.fire()
+		t.expect(single.shown:peek()).toBe(false)
+		single.stop()
+	end)
+
+	t.it("an automatic sheet moves to the centre of a ten-foot screen and docks at the bottom nearby", function()
+		local shown = Compose.cell(false)
+		local w = mount(nil, { shown = shown })
+		w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
+		w.input.MouseEnabled = false
+		w.input.TouchEnabled = false
+		shown:set(true)
+		t.expect(w.find("SheetPanel"):GetAttribute("FacetPlacement")).toBe("center")
+		w.input.MouseEnabled = true
+		t.expect(w.find("SheetPanel"):GetAttribute("FacetPlacement")).toBe("bottom")
+		w.stop()
+	end)
+
+	t.it(
+		"a press-drag that starts on the grabber pill drags the sheet, shows grab cursors and is not also a tap",
+		function()
+			local w = mount(nil, { reducedMotion = true })
+			local grabber = w.find("Grabber")
+			local drag = grabber:FindFirstChildWhichIsA("UIDragDetector")
+			t.expect(drag ~= nil).toBe(true)
+			t.expect(drag.CursorIcon).toBe("rbxasset://SystemCursors/SizeNS")
+			t.expect(drag.ActivatedCursorIcon).toBe("rbxasset://SystemCursors/ClosedHand")
+			drag.DragStart.fire(w.Vector2.new(0, 0))
+			drag.DragContinue.fire(w.Vector2.new(0, 30))
+			drag.DragEnd.fire()
+			grabber.Activated.fire()
+			t.expect(w.detent:peek()).toBe("medium")
+			t.expect(w.shown:peek()).toBe(true)
+			w.tick(0.5)
+			drag.DragStart.fire(w.Vector2.new(0, 0))
+			drag.DragContinue.fire(w.Vector2.new(0, 500))
+			drag.DragEnd.fire()
+			t.expect(w.shown:peek()).toBe(false)
+			w.stop()
+		end
+	)
+
+	t.it("a hidden grabber gets an icon-only Close in the header's trailing corner", function()
+		local w = mount({ dragIndicator = "hidden" })
+		local close = w.find("Close")
+		t.expect(close.Parent.Name).toBe("Header")
+		t.expect(close:GetAttribute("label")).toBe("Close")
+		t.expect(close.Text).toBe("")
+		t.expect(close.Size.X.Offset >= 44 and close.Size.Y.Offset >= 44).toBe(true)
+		t.expect(close.LayoutOrder > w.find("Title").LayoutOrder).toBe(true)
+		close.Activated.fire()
+		t.expect(w.shown:peek()).toBe(false)
+		w.stop()
+		local opted = mount({ closeButton = true })
+		t.expect(opted.find("Close"):GetAttribute("label")).toBe("Close")
+		t.expect(opted.find("Close").Text).toBe("")
+		opted.stop()
+	end)
+end)
+
+t.describe("native Sheet: the grabber sits on the edge the sheet came from", function()
+	local WIDE = { room = Vector2.new(1200, 800), reducedMotion = true }
+	local function grip(w: any): (any, any, any)
+		local handle = w.find("DragHandle")
+		return handle, w.find("Pill"), w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")
+	end
+
+	t.it("the grip is a direct child of a panel that neither lays out nor pads it", function()
+		local bindThemes = require("../src/ui/themes")
+		local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
+		for _, extra in { {}, { placement = "side" } } :: { any } do
+			local w = mount(extra, { room = WIDE.room, reducedMotion = true, theme = fantasy })
+			local panel = w.find("SheetPanel")
+			t.expect(w.find("DragHandle").Parent).toBe(panel)
+			t.expect(panel:FindFirstChildWhichIsA("UIListLayout")).toBeNil()
+			local inset = panel:FindFirstChildWhichIsA("UIPadding")
+			t.expect(inset == nil or (inset.PaddingLeft.Offset == 0 and inset.PaddingTop.Offset == 0)).toBe(true)
+			t.expect(w.find("SheetColumn").Parent).toBe(panel)
+			w.stop()
+		end
+	end)
+
+	t.it("a bottom sheet has a horizontal bar at the top and reserves the top", function()
+		local w = mount(nil, WIDE)
+		local handle, pill, padding = grip(w)
+		t.expect(handle.Size).toBe(w.engine.types.UDim2.new(1, 0, 0, 20))
+		t.expect(handle.Position).toBe(w.engine.types.UDim2.new(0, 0, 0, 0))
+		t.expect(pill.Size).toBe(w.engine.types.UDim2.fromOffset(36, 5))
+		t.expect(handle:IsDescendantOf(w.find("Room"))).toBe(false)
+		t.expect(padding.PaddingTop.Offset).toBe(40)
+		t.expect(padding.PaddingLeft.Offset).toBe(padding.PaddingRight.Offset)
+		w.stop()
+	end)
+
+	t.it("a sheet from the right has a vertical bar on its left edge and reserves the left", function()
+		local w = mount({ placement = "side" }, WIDE)
+		local handle, pill, padding = grip(w)
+		t.expect(handle.Size).toBe(w.engine.types.UDim2.new(0, 20, 1, 0))
+		t.expect(handle.AnchorPoint).toBe(w.Vector2.new(0, 0))
+		t.expect(handle.Position).toBe(w.engine.types.UDim2.new(0, 0, 0, 0))
+		t.expect(pill.Size).toBe(w.engine.types.UDim2.fromOffset(5, 36))
+		t.expect(padding.PaddingLeft.Offset - 28).toBe(padding.PaddingRight.Offset)
+		t.expect(padding.PaddingTop.Offset).toBe(12)
+		t.expect(padding.PaddingRight.Offset).toBe(16)
+		w.stop()
+		local left = mount({ placement = "side", edge = "left" }, WIDE)
+		local leftHandle, _, leftPadding = grip(left)
+		t.expect(leftHandle.AnchorPoint).toBe(left.Vector2.new(1, 0))
+		t.expect(leftHandle.Position).toBe(left.engine.types.UDim2.new(1, 0, 0, 0))
+		t.expect(leftPadding.PaddingRight.Offset).toBe(44)
+		t.expect(leftPadding.PaddingLeft.Offset).toBe(16)
+		left.stop()
+	end)
+
+	t.it("a hidden grabber reserves no side", function()
+		local w = mount({ dragIndicator = "hidden", placement = "side" }, WIDE)
+		local handle, _, padding = grip(w)
+		t.expect(handle.Visible).toBe(false)
+		t.expect(padding.PaddingLeft.Offset).toBe(16)
+		t.expect(padding.PaddingTop.Offset).toBe(12)
+		w.stop()
+	end)
+
+	t.it("dragging a side grabber toward its edge dismisses; a short pull springs back", function()
+		local w = mount({ placement = "side" }, { room = Vector2.new(1200, 800) })
+		w.advance(0.5, 10)
+		local panel = w.find("SheetPanel")
+		local drag = w.find("UIDragDetector")
+		t.expect(drag.DragAxis).toBe(w.Vector2.new(1, 0))
+		drag.DragStart.fire(w.Vector2.new(100, 300))
+		w.tick(0.5)
+		drag.DragContinue.fire(w.Vector2.new(130, 300))
+		t.expect(panel.Position.X.Offset).toBe(30)
+		w.tick(0.5)
+		drag.DragEnd.fire()
+		t.expect(w.shown:peek()).toBe(true)
+		w.advance(0.5, 10)
+		t.expect(panel.Position.X.Offset).toBe(0)
+		drag.DragStart.fire(w.Vector2.new(100, 300))
+		w.tick(0.5)
+		drag.DragContinue.fire(w.Vector2.new(400, 300))
+		t.expect(panel.Position.X.Offset).toBe(300)
+		w.tick(0.5)
+		drag.DragEnd.fire()
+		t.expect(w.shown:peek()).toBe(false)
+		w.advance(0.05, 1)
+		t.expect(panel.Position.X.Offset >= 300).toBe(true)
+		w.stop()
+	end)
+end)
+
+t.describe("native Sheet: the whole sheet moves as one unit", function()
+	t.it("a drag below the lowest detent moves the whole sheet down; dismissal continues from there", function()
+		local w = mount({ actions = { { id = "Apply", label = "Apply", onActivate = noop } } })
+		w.advance(0.5, 10)
+		local panel = w.find("SheetPanel")
+		local rest = panel.Size.Y.Offset
+		t.expect(rest).toBe(300)
+		local drag = w.find("UIDragDetector")
+		drag.DragStart.fire(w.Vector2.new(0, 0))
+		w.tick(0.5)
+		drag.DragContinue.fire(w.Vector2.new(0, 100))
+		t.expect(panel.Size.Y.Offset).toBe(rest)
+		t.expect(panel.Position.Y.Offset).toBe(100)
+		t.expect(w.find("Actions"):IsDescendantOf(panel)).toBe(true)
+		drag.DragContinue.fire(w.Vector2.new(0, 250))
+		w.tick(0.5)
+		drag.DragEnd.fire()
+		t.expect(w.shown:peek()).toBe(false)
+		t.expect(panel.Position.Y.Offset).toBe(250)
+		w.advance(0.02, 1)
+		t.expect(panel.Size.Y.Offset).toBe(rest)
+		t.expect(panel.Position.Y.Offset >= 250).toBe(true)
+		w.stop()
+	end)
+end)
+
+t.describe("native panels: a skinned panel keeps its content inside the art carve", function()
+	local bindThemes = require("../src/ui/themes")
+	local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
+	local function sides(padding: any): string
+		return `{padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset} {padding.PaddingLeft.Offset}`
+	end
+
+	t.it("a skinned Sheet insets header, body and actions by the carve; the grabber sits inside it", function()
+		local w = mount({ actions = { { id = "Apply", label = "Apply", onActivate = noop } } }, { theme = fantasy })
+		t.expect(sides(w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("58 30 30 30")
+		local bar = w.find("DragHandle").Position.Y.Offset
+		t.expect(bar >= 30 and bar + 20 <= 58).toBe(true)
+		w.stop()
+		local side = mount({ placement = "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
+		t.expect(sides(side.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 58")
+		local x = side.find("DragHandle").Position.X.Offset
+		t.expect(x >= 30 and x + 20 <= 58).toBe(true)
+		side.stop()
+	end)
+
+	t.it("a wrapping Sheet title takes its height at the width it gets, so it never runs into the body", function()
+		local w = mount({ closeButton = true })
+		local title = w.find("Title")
+		t.expect(title.TextWrapped).toBe(true)
+		t.expect(title.AutomaticSize).toBe(w.Enum.AutomaticSize.Y)
+		t.expect(title.Size.X.Scale).toBe(1)
+		w.stop()
+	end)
+
+	t.it("a skinned Dialog and Popover inset by the carve and follow a live theme change", function()
+		local theme = Compose.cell(fantasy)
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({
+				UI.Dialog "Confirm" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					title = "Leave?",
+					content = function()
+						return Host.TextLabel "Line" { Text = "Body" }
+					end,
+				},
+				UI.Popover "Tip" {
+					isPresented = Compose.cell(true),
+					onPresentedChange = noop,
+					trigger = UI.Button "Open" { label = "Open" },
+					content = function()
+						return Host.TextLabel "PopLine" { Text = "Body" }
+					end,
+				},
+			})
+		end, { theme = theme })
+		local dialog = w.find("Panel")
+		local popover = w.find("PopLine")
+		while popover.Name ~= "Panel" do
+			popover = popover.Parent
+		end
+		t.expect(sides(dialog:FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 30")
+		t.expect(sides(popover:FindFirstChildWhichIsA("UIPadding"))).toBe("30 30 30 30")
+		theme:set(bindThemes(Compose).neutralPackage())
+		t.expect(sides(dialog:FindFirstChildWhichIsA("UIPadding"))).toBe("16 16 16 16")
+		w.stop()
+	end)
+end)
+
+t.describe("native panels: the theme title plaque carries the surface title", function()
+	local bindThemes = require("../src/ui/themes")
+	local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
+	local PLAQUE = fantasy.assets.ornate_plaque.content
+	local function plaque(root: any): any
+		for _, node in root:GetDescendants() do
+			if node:IsA("ImageLabel") and node.Image == PLAQUE then
+				return node
+			end
+		end
+		return nil
+	end
+
+	t.it("a titled Sheet paints its title in the plaque, and the header title steps aside", function()
+		local w = mount({ title = "Filters" }, { theme = fantasy })
+		local art = plaque(w.find("SheetPanel"))
+		t.expect(art.Visible).toBe(true)
+		t.expect(overlay.find(art, "PlaqueCaption").Text).toBe("Filters")
+		t.expect(w.find("SheetPanel"):HasTag("facet-skin-caption")).toBe(true)
+		t.expect(w.find("Title").Visible).toBe(false)
+		w.stop()
+	end)
+
+	t.it("a surface without a title draws no plaque", function()
+		local w = overlay.new(function(UI, Host)
+			return UI.Dialog "Plain" {
+				isPresented = Compose.cell(true),
+				onPresentedChange = noop,
+				content = function()
+					return Host.TextLabel "Line" { Text = "Body" }
+				end,
+			}
+		end, { theme = fantasy })
+		local art = plaque(w.find("Panel"))
+		t.expect(art.Visible).toBe(false)
+		t.expect(overlay.find(art, "PlaqueCaption")).toBeNil()
+		t.expect(w.find("Panel"):HasTag("facet-skin-caption")).toBe(false)
+		w.stop()
+	end)
+
+	t.it("the plaque grows around its title, centred on its edge, and never shrinks below its art", function()
+		local w = mount({ title = "Filters" }, { theme = fantasy })
+		local art = plaque(w.find("SheetPanel"))
+		t.expect(art.AnchorPoint).toBe(w.Vector2.new(0.5, 0.5))
+		t.expect(art.Position).toBe(w.engine.types.UDim2.new(0.5, 0, 0, 0))
+		local caption = overlay.find(art, "PlaqueCaption")
+		local insets = caption:FindFirstChildWhichIsA("UIPadding")
+		local across = insets.PaddingLeft.Offset + insets.PaddingRight.Offset
+		local down = insets.PaddingTop.Offset + insets.PaddingBottom.Offset
+		t.expect(art.ScaleType).toBe(w.Enum.ScaleType.Slice)
+		t.expect(insets.PaddingTop.Offset >= 13 and insets.PaddingBottom.Offset >= 15).toBe(true)
+		caption.TextBounds = w.Vector2.new(300.4, 38)
+		t.expect(art.Size).toBe(w.engine.types.UDim2.fromOffset(301 + across, 38 + down))
+		caption.TextBounds = w.Vector2.new(20, 10)
+		t.expect(art.Size).toBe(w.engine.types.UDim2.fromOffset(176, 40))
 		w.stop()
 	end)
 end)

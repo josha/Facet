@@ -5,6 +5,7 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
+local adaptive = require("./adaptive")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -13,6 +14,8 @@ type ActionSettings = {
 	sink: boolean?,
 	capture: boolean?,
 	group: string?,
+	conditional: { binding: Shared.ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
+	direction2D: ((Vector2) -> ())?,
 }
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
@@ -112,10 +115,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return if type(value) == "number" and value == value and math.abs(value) ~= math.huge then value else nil
 	end
+	local distantMetrics = themes.forDistance(themes.neutralPackage(), "ten-foot").metrics
+	local distance: (ComposeTypes.Use?) -> boolean = function()
+		return false
+	end
+	function ctx.neutralMetrics(use: ComposeTypes.Use?): Theme.Metrics
+		return if distance(use) then distantMetrics else defaultMetrics
+	end
 	function ctx.metric(path: string, use: ComposeTypes.Use?): number
 		local package = ctx.read(config.theme, use)
 		return assert(
-			metricAt(if package then package.metrics else nil, path) or metricAt(defaultMetrics, path),
+			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
 		)
 	end
@@ -153,6 +163,46 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		serviceNodes[config.userInputService] = true
 	end
 	local sharedObservations: { [Instance]: { [string]: SharedObservation } } = {}
+	local preview: { [string]: unknown } = (config.environment or {}) :: { [string]: unknown }
+	local PREVIEWED: { [string]: { key: string, enum: string? } } = {
+		PreferredInput = { key = "preferredInput", enum = "PreferredInput" },
+		TouchEnabled = { key = "touchEnabled" },
+		MouseEnabled = { key = "mouseEnabled" },
+		GamepadEnabled = { key = "gamepadEnabled" },
+		KeyboardEnabled = { key = "keyboardEnabled" },
+		PreferredTextSize = { key = "preferredTextSize", enum = "PreferredTextSize" },
+		ViewportDisplaySize = { key = "displaySize", enum = "DisplaySize" },
+	}
+	local previewKeys: { [string]: boolean } = { viewportSize = true, viewingDistance = true, overscanInsets = true }
+	for _, entry in PREVIEWED do
+		previewKeys[entry.key] = true
+	end
+	for key in preview do
+		assert(previewKeys[key], `Facet.controls: unknown environment option '{tostring(key)}'`)
+	end
+	local function previewed(property: string, engine: ComposeTypes.Readable<unknown>): ComposeTypes.Readable<unknown>
+		local entry = PREVIEWED[property]
+		local source = if entry then preview[entry.key] else nil
+		if source == nil then
+			return engine
+		end
+		local enumName = entry.enum
+		return Compose.formula(function(use: ComposeTypes.Use): unknown
+			local value = ctx.read(source, use)
+			if value == nil then
+				return use(engine)
+			end
+			if enumName and type(value) == "string" then
+				return assert(
+					((Enum :: unknown) :: { [string]: { FromName: (unknown, string) -> EnumItem? } })[enumName]:FromName(
+						value
+					),
+					`Facet.controls: environment {entry.key} '{value}' is not a {enumName}`
+				)
+			end
+			return value
+		end)
+	end
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
 		if serviceNodes[node] then
@@ -164,11 +214,18 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			local entry = byProperty[property]
 			if entry == nil then
 				local cell = Compose.cell(observation.readProperty(node, property))
+				local selection = property == "SelectedObject"
 				local created: SharedObservation = {
 					cell = cell,
 					users = 0,
 					stop = observation.observeProperty(node, property, function()
-						cell:set(observation.readProperty(node, property))
+						local current = observation.readProperty(node, property)
+						cell:set(current)
+						if selection then
+							for _, hook in ctx.selectionHooks :: { (unknown) -> () } do
+								hook(current)
+							end
+						end
 					end),
 				}
 				byProperty[property] = created
@@ -185,7 +242,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 			end)
 			held.users += 1
-			return held.cell
+			return (previewed(property, held.cell) :: unknown) :: ComposeTypes.Cell<unknown>
 		end
 		local value = Compose.cell(observation.readProperty(node, property))
 		Compose.cleanup(observation.observeProperty(node, property, function()
@@ -206,6 +263,52 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		})
 		return (bound :: unknown) :: Shared.Observe
 	end
+	local hapticWaves: { [string]: { number } } = {
+		warning = { 0, 0, 10, 0.7, 40, 0, 90, 0.7, 130, 0 },
+		error = { 0, 0, 8, 1, 40, 0, 80, 1, 112, 0, 152, 1, 190, 0 },
+	}
+	local hapticPresets: { [string]: string } =
+		{ selection = "UIClick", impact = "GameplayCollision", success = "UINotification" }
+	local hapticPool: { [string]: HapticEffect } = {}
+	ctx.haptic = function(kind: unknown): HapticEffect?
+		if kind == true then
+			kind = config.pressHaptic
+		end
+		if kind == nil or kind == false then
+			return nil
+		end
+		if type(kind) ~= "string" then
+			return kind :: HapticEffect
+		end
+		local pooled = hapticPool[kind]
+		if pooled then
+			return pooled
+		end
+		local wave = hapticWaves[kind]
+		assert(
+			wave or hapticPresets[kind],
+			`Facet haptic: unknown feedback kind '{kind}'. Use selection, impact, success, warning or error`
+		)
+		local effect = runtime.host.render.createNode("HapticEffect") :: HapticEffect
+		effect.Name = `FacetHaptic_{kind}`
+		if wave then
+			effect.Type = Enum.HapticEffectType.Custom
+			local keys = {}
+			for index = 1, #wave, 2 do
+				table.insert(
+					keys,
+					types.FloatCurveKey.new(wave[index], wave[index + 1], Enum.KeyInterpolationMode.Linear)
+				)
+			end
+			effect:SetWaveformKeys(keys)
+		else
+			effect.Type = (Enum.HapticEffectType :: any)[hapticPresets[kind]]
+		end
+		effect.Parent = services.Workspace
+		hapticPool[kind] = effect
+		return effect
+	end
+	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
 	type SelectionWaiters = { waiting: { [Instance]: () -> () }, count: number, stop: (() -> ())? }
 	local selectionWaiters: { [Instance]: SelectionWaiters } = {}
@@ -260,6 +363,87 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and ctx.readSource(gamepad, use) ~= true
 		end
 	end
+	function ctx.viewingDistance(use: ComposeTypes.Use?): adaptive.ViewingDistance
+		local value = ctx.read(preview.viewingDistance, use)
+		assert(
+			value == nil or value == "automatic" or value == "near" or value == "ten-foot",
+			"Facet environment viewingDistance must be automatic, near or ten-foot"
+		)
+		return (value or "automatic") :: adaptive.ViewingDistance
+	end
+	function ctx.tenFoot(): (ComposeTypes.Use?) -> boolean
+		local gui, input = config.guiService, config.userInputService
+		local interface = false
+		if gui then
+			local ok, answer = pcall(function()
+				return (gui :: GuiService):IsTenFootInterface()
+			end)
+			interface = ok and answer == true
+		end
+		local watchable = function(service: Instance?): boolean
+			return service ~= nil and (service :: any).GetPropertyChangedSignal ~= nil
+		end
+		local display = if watchable(gui) then ctx.observe.ViewportDisplaySize(gui :: GuiService) else nil
+		local mouse = if watchable(input) then ctx.observe.MouseEnabled(input :: UserInputService) else nil
+		local touch = if watchable(input) then ctx.observe.TouchEnabled(input :: UserInputService) else nil
+		return function(use: ComposeTypes.Use?): boolean
+			local size = if display then ctx.readSource(display, use) else nil
+			return adaptive.isTenFoot({
+				viewingDistance = ctx.viewingDistance(use),
+				tenFootInterface = interface,
+				displaySize = if typeof(size) == "EnumItem" then (size :: EnumItem).Name else nil,
+				mouse = if mouse then ctx.readSource(mouse, use) == true else false,
+				touch = if touch then ctx.readSource(touch, use) == true else false,
+			})
+		end
+	end
+	local interface = false
+	if config.guiService then
+		pcall(function()
+			interface = (config.guiService :: GuiService):IsTenFootInterface() == true
+		end)
+	end
+	local function distantNow(use: ComposeTypes.Use?): boolean
+		local gui, input = config.guiService, config.userInputService
+		local function fact(key: string, service: Instance?, property: string): unknown
+			local value = ctx.read(preview[key], use)
+			if value == nil and service ~= nil then
+				value = (service :: any)[property]
+			end
+			return value
+		end
+		local display = fact("displaySize", gui, "ViewportDisplaySize")
+		return adaptive.isTenFoot({
+			viewingDistance = ctx.viewingDistance(use),
+			tenFootInterface = interface,
+			displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else display :: string?,
+			mouse = fact("mouseEnabled", input, "MouseEnabled") == true,
+			touch = fact("touchEnabled", input, "TouchEnabled") == true,
+		})
+	end
+	local authored = config.theme
+	local previewLive = false
+	for _, key in { "viewingDistance", "displaySize", "mouseEnabled", "touchEnabled" } do
+		previewLive = previewLive or live(preview[key])
+	end
+	if previewLive then
+		local distant = Compose.formula(distantNow)
+		distance = function(use: ComposeTypes.Use?): boolean
+			return ctx.readSource(distant, use)
+		end
+	else
+		local fixed = distantNow()
+		distance = function(): boolean
+			return fixed
+		end
+	end
+	if live(authored) or (authored ~= nil and previewLive) then
+		config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
+			return themes.forDistance(ctx.read(authored, use), if distance(use) then "ten-foot" else "near")
+		end)
+	elseif authored ~= nil then
+		config.theme = themes.forDistance(authored :: Theme.ThemePackage, if distantNow() then "ten-foot" else "near")
+	end
 	function ctx.hitFloor(): (ComposeTypes.Use?) -> number
 		local pointerOnly = ctx.pointerOnly()
 		return function(use: ComposeTypes.Use?): number
@@ -270,6 +454,35 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				return minimum
 			end
 			return pointer
+		end
+	end
+	function ctx.effectiveInput(): (ComposeTypes.Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse"
+		local input = config.userInputService
+		local function watch(property: string): ComposeTypes.Readable<unknown>?
+			if input == nil then
+				return nil
+			end
+			local ok, value = pcall((ctx.observe :: any)[property], input)
+			return if ok then value else nil
+		end
+		local preferred, mouse, touch, gamepad =
+			watch("PreferredInput"), watch("MouseEnabled"), watch("TouchEnabled"), watch("GamepadEnabled")
+		local function on(source: ComposeTypes.Readable<unknown>?, use: ComposeTypes.Use?): boolean
+			return source ~= nil and ctx.readSource(source, use) == true
+		end
+		return function(use: ComposeTypes.Use?): "Touch" | "Gamepad" | "KeyboardAndMouse"
+			local report = if preferred then ctx.readSource(preferred, use) else nil
+			local name = if typeof(report) == "EnumItem" then (report :: EnumItem).Name else report
+			if name == "Touch" or name == "Gamepad" then
+				return name
+			elseif on(mouse, use) then
+				return "KeyboardAndMouse"
+			elseif on(touch, use) then
+				return "Touch"
+			elseif on(gamepad, use) then
+				return "Gamepad"
+			end
+			return "KeyboardAndMouse"
 		end
 	end
 	function ctx.touchFloor(): (ComposeTypes.Use?) -> number
@@ -519,8 +732,155 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
 		return assert(layout.insets(sides))
 	end
+	local fades: { [Instance]: ComposeTypes.Cell<{ Shared.Value<number> }> } = setmetatable({}, { __mode = "k" }) :: any
+	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
+		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade"):set({ value })
+	end
+	function ctx.fade(properties: Shared.CanvasGroupNativeProps): Frame
+		local fields = (properties :: unknown) :: { [unknown]: unknown }
+		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
+		fields.GroupTransparency = nil
+		local node = Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
+		fades[node] = source
+		local function amount(use: ComposeTypes.Use): number
+			return read(use(source)[1] :: Shared.Value<number>, use) or 0
+		end
+		local shown = ctx.observe.Visible(node)
+		local warming = Compose.cell(false)
+		local frames = services.RunService
+		local stop = runtime.mountFragment(function()
+			return {
+				Host.UIGradient "FadePaint" {
+					Transparency = function(use: ComposeTypes.Use)
+						return types.NumberSequence.new(if use(warming) then 1 else amount(use))
+					end,
+				},
+				Compose.show(function(use: ComposeTypes.Use)
+					return use(shown) and amount(use) > 0
+				end, function()
+					local automatic = node.AutomaticSize
+					local freeX = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
+					local freeY = automatic == Enum.AutomaticSize.Y or automatic == Enum.AutomaticSize.XY
+					local leaving = frames ~= nil and (read(source:peek()[1] :: Shared.Value<number>) or 0) < 0.5
+					local gather: (() -> ())? = nil
+					if frames then
+						warming:set(not leaving)
+						local connection: RBXScriptConnection? = nil
+						connection = frames.Heartbeat:Connect(function()
+							if connection then
+								connection:Disconnect()
+								connection = nil
+							end
+							warming:set(false)
+							if gather then
+								gather()
+							end
+						end)
+						Compose.cleanup(function()
+							if connection then
+								connection:Disconnect()
+							end
+							warming:set(false)
+						end)
+					end
+					local group = Host.CanvasGroup "Fade" {
+						BackgroundTransparency = 1,
+						Size = types.UDim2.fromScale(if freeX then 0 else 1, if freeY then 0 else 1),
+						AutomaticSize = automatic,
+						GroupTransparency = function(use: ComposeTypes.Use)
+							return if use(warming) then 0.99 else amount(use)
+						end,
+					}
+					local gui = config.guiService
+					local function keepSelection(move: () -> ())
+						local held = if gui then gui.SelectedObject else nil
+						move()
+						if gui and held and gui.SelectedObject ~= held and held:IsDescendantOf(node) then
+							gui.SelectedObject = held
+						end
+					end
+					group.Parent = node
+					local function carried(child: Instance): boolean
+						return child ~= group
+							and (
+								child:IsA("GuiBase2d")
+								or child:IsA("Path2D")
+								or child:IsA("Folder")
+								or child:IsA("UIGridStyleLayout")
+							)
+					end
+					gather = function()
+						gather = nil
+						keepSelection(function()
+							for _, child: Instance in node:GetChildren() do
+								if carried(child) then
+									(child :: Instance).Parent = group
+								end
+							end
+						end)
+					end
+					if not leaving then
+						assert(gather)()
+					end
+					local late: { Instance } = {}
+					local stopLate: (() -> ())? = nil
+					runtime.connect(node, "ChildAdded", function(child: Instance)
+						if not carried(child) or runtime.host.frames == nil then
+							return
+						end
+						table.insert(late, child)
+						if stopLate == nil then
+							stopLate = runtime.host.frames.onFrame(function()
+								if stopLate then
+									stopLate()
+									stopLate = nil
+								end
+								local arrived = late
+								late = {}
+								keepSelection(function()
+									for _, each in arrived do
+										if each.Parent == node and group.Parent == node then
+											each.Parent = group
+										end
+									end
+								end)
+							end)
+						end
+					end)
+					Compose.cleanup(function()
+						if stopLate then
+							stopLate()
+							stopLate = nil
+						end
+					end)
+					Compose.cleanup(function()
+						keepSelection(function()
+							for _, child in group:GetChildren() do
+								child.Parent = node
+							end
+						end)
+					end)
+					return Compose.fragment(function()
+						return {}
+					end)
+				end),
+			}
+		end, node)
+		Compose.cleanup(stop)
+		return node
+	end
+	function ctx.round(use: ComposeTypes.Use?, radius: UDim?): UDim
+		return if ctx.metric("radii.pill", use) > 0 then radius or types.UDim.new(1, 0) else types.UDim.new(0, 0)
+	end
 	function ctx.corner(radius: number?): UICorner
-		return if radius then Host.UICorner({ CornerRadius = types.UDim.new(0, radius) }) else Host.UICorner({})
+		if radius == nil then
+			return Host.UICorner({})
+		end
+		return Host.UICorner({
+			CornerRadius = function(use: ComposeTypes.Use): UDim
+				return ctx.round(use, types.UDim.new(0, radius))
+			end,
+		})
 	end
 	function ctx.text(properties: Shared.TextLabelNativeProps?): TextLabel
 		local native: Shared.TextLabelNativeProps = {
@@ -537,11 +897,111 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return ctx.styled(Host.TextLabel(native), "Text")
 	end
+	function ctx.layoutUnit(parent: GuiBase2d): ComposeTypes.Readable<number>
+		local _, probe = runtime.mount(function()
+			return Host.Frame "LayoutUnit" { Size = types.UDim2.fromOffset(100, 1), Visible = false }
+		end, parent)
+		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
+		return Compose.formula(function(use: ComposeTypes.Use): number
+			local unit = (use(size) :: Vector2).X / 100
+			return if unit > 0 then unit else 1
+		end)
+	end
+	function ctx.layoutSize(node: GuiBase2d, unit: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+		local size, unit = ctx.observe.AbsoluteSize(node), unit or ctx.layoutUnit(node)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return (use(size) :: Vector2) / use(unit)
+		end)
+	end
+	function ctx.layoutBounds(
+		label: TextLabel | TextButton | TextBox,
+		unit: ComposeTypes.Readable<number>?
+	): ComposeTypes.Readable<Vector2>
+		local bounds, unit = ctx.observe.TextBounds(label), unit or ctx.layoutUnit(label)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return (use(bounds) :: Vector2) / use(unit)
+		end)
+	end
 	function ctx.row(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, false)
 	end
 	function ctx.column(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, true)
+	end
+	function ctx.listRow(parts: Shared.ListRow): (Frame, Shared.Value<UDim2>, (GuiObject) -> ())
+		for _, caption in parts.captions do
+			if caption.Name == "Description" then
+				caption:AddTag("facet-secondary")
+			end
+			if caption:IsA("TextLabel") then
+				caption.Size = types.UDim2.fromScale(1, 0)
+				caption.AutomaticSize = Enum.AutomaticSize.Y
+				caption.TextWrapped = true
+			end
+		end
+		local columns: { ComposeTypes.Child } = table.clone(parts.leading or {})
+		table.insert(
+			columns,
+			ctx.column(parts.captions, {
+				Name = "Captions",
+				Size = types.UDim2.new(0, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }) :: ComposeTypes.Child,
+			})
+		)
+		table.move(parts.trailing or {}, 1, #(parts.trailing or {}), #columns + 1, columns)
+		local content = ctx.row(columns, {
+			Name = "Content",
+			ZIndex = 1,
+			Size = types.UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			AnchorPoint = if parts.described then types.Vector2.zero else types.Vector2.new(0, 0.5),
+			Position = types.UDim2.fromScale(0, if parts.described then 0 else 0.5),
+		})
+		assert(content:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = Enum.VerticalAlignment.Center
+		local rung: Shared.Value<Shared.ControlSize>? = parts.controlSize
+		local function height(use: ComposeTypes.Use?): UDim2
+			return types.UDim2.new(1, 0, 0, ctx.controlSize(rung, "height", use))
+		end
+		local size = if live(config.theme) or live(rung) then height else height()
+		return content,
+			size,
+			function(node: GuiObject)
+				node:AddTag("facet-list-row")
+				local captions = assert(content:FindFirstChild("Captions")) :: GuiObject
+				local wraps = node.AutomaticSize
+				local function hug()
+					local parent = node.Parent
+					local automatic = if parent and parent:IsA("GuiObject") then parent.AutomaticSize else nil
+					local hugging = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
+					local across = if hugging then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y
+					node.AutomaticSize = if hugging then Enum.AutomaticSize.XY else wraps
+					content.AutomaticSize, captions.AutomaticSize = across, across
+					for _, caption in parts.captions do
+						if caption:IsA("TextLabel") then
+							caption.Size = types.UDim2.fromScale(if hugging then 0 else 1, 0)
+							caption.AutomaticSize = across
+						end
+					end
+				end
+				runtime.connect(node, "AncestryChanged", hug)
+				hug()
+				local function tagRung(use: ComposeTypes.Use?)
+					local current = ctx.read(rung, use)
+					for _, name in { "xsmall", "compact", "regular", "large" } do
+						if current == name then
+							node:AddTag("facet-size-" .. name)
+						elseif node:HasTag("facet-size-" .. name) then
+							node:RemoveTag("facet-size-" .. name)
+						end
+					end
+				end
+				if live(rung) then
+					Compose.watch(tagRung)
+				else
+					tagRung()
+				end
+			end
 	end
 	function ctx.iconVaries(name: Shared.Value<string>?): boolean
 		if name == nil then
@@ -765,7 +1225,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local p: Shared.InputActionNativeProps = {
 			Name = name,
-			Type = Enum.InputActionType.Bool,
+			Type = if settings.direction2D then Enum.InputActionType.Direction2D else Enum.InputActionType.Bool,
+			StateChanged = settings.direction2D :: ((unknown) -> ())?,
 			Pressed = function()
 				if available:peek() and ctx.available(node) and ctx.read(enabledSource) ~= false then
 					onPressed()
@@ -775,16 +1236,25 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if settings.onReleased then
 			p.Released = settings.onReleased
 		end
+		local function bind(binding: Shared.ActionBinding): Instance
+			return Host.InputBinding(if type(binding) == "table"
+				then binding
+				else {
+					KeyCode = if type(binding) == "string"
+						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
+						else binding,
+				})
+		end
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
+			table.insert(p, bind(binding))
+		end
+		local conditional = settings.conditional
+		if conditional then
 			table.insert(
 				p,
-				Host.InputBinding(if type(binding) == "table"
-					then binding
-					else {
-						KeyCode = if type(binding) == "string"
-							then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
-							else binding,
-					})
+				Compose.show(conditional.when, function()
+					return bind(conditional.binding)
+				end)
 			)
 		end
 		local action = Host.InputAction(p)
@@ -941,10 +1411,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
-				label = if node:IsA("TextButton")
-					then ctx.observe.Text(node)
-					elseif node:IsA("TextLabel") then ctx.observe.Text(node)
+				label = if stateOptions.label ~= nil
+					then stateOptions.label
+					elseif node:IsA("TextButton") or node:IsA("TextLabel") then ctx.observe.Text(node)
 					else nil,
+				onCaption = stateOptions.onCaption,
 				state = function(use: ComposeTypes.Use)
 					if ctx.read(stateOptions.disabled, use) == true then
 						return "disabled"
@@ -961,12 +1432,29 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					end
 					return "default"
 				end,
+				selected = function(use: ComposeTypes.Use)
+					return ctx.read(stateOptions.selected, use) == true
+				end,
 				ZIndex = 0,
 			})
 		end, node)
+		if art and node:FindFirstChildWhichIsA("UIGridStyleLayout") then
+			local _, chrome = runtime.mount(function()
+				return Host.Folder "Chrome" {}
+			end, node);
+			(art :: GuiObject).Parent = chrome :: Instance
+		end
 		return dispose, art :: GuiObject?
 	end
 
-	track = selection(ctx)
+	local selected: selection.Selection
+	function ctx.responder(root: Instance, options: Shared.ResponderOptions?): Shared.Responder
+		return selected.responder(root, options)
+	end
+	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
+		return selected.spaceActivates(node)
+	end
+	selected = selection(ctx)
+	track = selected.track
 	return ctx
 end

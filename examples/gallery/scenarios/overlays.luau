@@ -47,6 +47,7 @@ return {
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local aboutOpen = Compose.cell(false)
+		local filterOpen, filterBy = Compose.cell(false), Compose.cell("all")
 		local lockedOpen = Compose.cell(false)
 		local allowClose = Compose.cell(false)
 		local sourceOpen = Compose.cell(false)
@@ -165,23 +166,12 @@ return {
 			return Host.Frame "Overlays" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.ScrollingFrame "Content" {
+				UI.ScrollView "Content" {
+					padding = 16,
+					gap = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 16),
-					}),
 					label("Title", COPY.title, 1, "title"),
 					label("Intro", COPY.intro, 2),
 					label("Status", status, 3),
@@ -189,7 +179,31 @@ return {
 					UI.NavBar "Header" {
 						LayoutOrder = 5,
 						center = UI.TextInput "Search" { value = query, placeholder = COPY.search },
-						trailing = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
+						trailing = UI.Popover "Filters" {
+							isPresented = filterOpen,
+							onPresentedChange = function(nextValue: boolean)
+								filterOpen:set(nextValue)
+							end,
+							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
+							content = function()
+								return UI.Picker "FilterBy" {
+									style = "radioGroup",
+									selected = filterBy,
+									onChange = function(value: string)
+										filterBy:set(value)
+										note(`Last: filter {value}`)
+										filterOpen:set(false)
+									end,
+									options = {
+										{ value = "all", label = "All races" },
+										{ value = "friends", label = "Friends" },
+										{ value = "ranked", label = "Ranked" },
+									},
+								}
+							end,
+						},
+						surface = "panel",
+						padding = 8,
 					},
 					UI.Popover "About" {
 						LayoutOrder = 6,
@@ -298,7 +312,7 @@ return {
 								label = COPY.stay,
 								role = "cancel",
 								onActivate = function()
-									dialogOpen:set(false)
+									note("Last: stayed in the race")
 								end,
 							},
 							{
@@ -307,7 +321,6 @@ return {
 								role = "destructive",
 								onActivate = function()
 									note("Last: left the race")
-									dialogOpen:set(false)
 								end,
 							},
 						},

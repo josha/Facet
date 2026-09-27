@@ -45,17 +45,11 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					padding,
-					Host.ScrollingFrame "Content" {
+					UI.ScrollView "Content" {
+						gap = 24,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						CanvasSize = UDim2.new(),
 						ScrollBarThickness = 6,
-						Host.UIListLayout({
-							FillDirection = Enum.FillDirection.Vertical,
-							SortOrder = Enum.SortOrder.LayoutOrder,
-							Padding = UDim.new(0, 24),
-						}),
 						UI.Button "Reset" {
 							label = "Reset status",
 							onActivate = reset,

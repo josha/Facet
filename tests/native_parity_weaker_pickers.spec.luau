@@ -394,7 +394,8 @@ t.describe("native parity weaker pickers", function()
 					end
 				end
 				t.expect(`{where}: {table.concat(order, " ")}`).toBe(`{where}: Field Clear`)
-				t.expect(clear.Size.X.Offset >= 44 and clear.Size.Y.Offset >= 44).toBe(true)
+				t.expect(clear.Size.Y.Offset < 36 and clear:HasTag("facet-shape-circle")).toBe(true)
+				t.expect(find(clear, "TouchFloor") ~= nil).toBe(true)
 				press(world, clear, input)
 				t.expect(`{where}: '{value:peek()}'`).toBe(`{where}: ''`)
 				t.expect(clear.Visible).toBe(false)

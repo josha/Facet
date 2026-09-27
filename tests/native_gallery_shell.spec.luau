@@ -7,7 +7,7 @@ local demoTabs = require("../examples/gallery/scenarios/demo_tabs")
 local Compose = Facet.Compose
 
 local function find(root, name, class)
-	if root.Name == name and (not class or root:IsA(class)) then
+	if root.Name == name and (not class or root:IsA(class)) and not root:GetAttribute("FacetTabPage") then
 		return root
 	end
 	for _, child in root:GetChildren() do
@@ -17,6 +17,36 @@ local function find(root, name, class)
 		end
 	end
 	return nil
+end
+
+local function disabled(node: any): boolean
+	if node:HasTag("facet-disabled") then
+		return true
+	end
+	for _, child in node:GetDescendants() do
+		if child:HasTag("facet-disabled") then
+			return true
+		end
+	end
+	return false
+end
+
+local function openSettings(root: any)
+	local function seek(node: any, name: string): any
+		if node.Name == name then
+			return node
+		end
+		for _, child in node:GetChildren() do
+			local found = seek(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+	local layer = root:FindFirstAncestorWhichIsA("LayerCollector") or root
+	seek(layer, "Showcase").Activated.fire()
+	seek(seek(layer, "Section"), "settings").Activated.fire()
 end
 
 local function fixture(build)
@@ -52,6 +82,7 @@ local function fixture(build)
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
 			reducedMotion = ctx.reducedMotion,
+			environment = ctx.environment,
 		})
 		return ctx.Host.ScreenGui "GalleryTest" { build(ctx) }
 	end, target)
@@ -129,6 +160,172 @@ t.describe("native gallery shell parity", function()
 		stop()
 	end)
 
+	t.it("previews a phone, tablet or TV as a device frame that feeds the gallery environment", function()
+		local env
+		local ctx, root, stop = fixture(function(context)
+			context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			context.load = function(_, name)
+				return {
+					build = function(page)
+						return {
+							screen = function()
+								return page.Host.Frame({ Name = name })
+							end,
+						}
+					end,
+				}
+			end
+			env = context.UI.environment()
+			return gallery.build(context)
+		end)
+		local surface = find(root, "Gallery")
+		local scale = find(surface, "ViewingDistance", "UIScale")
+		local function expectDevice(width, height, display, input)
+			t.expect(surface.Size.X.Offset).toBe(width)
+			t.expect(surface.Size.Y.Offset).toBe(height)
+			t.expect(surface.Size.X.Scale).toBe(0)
+			t.expect(env.viewportSize:peek().X).toBe(width)
+			t.expect(env.viewportSize:peek().Y).toBe(height)
+			t.expect(ctx.previewViewport:peek().width).toBe(width)
+			t.expect(ctx.sceneViewport:peek().height).toBe(height / env.metricScale:peek())
+			t.expect(env.displaySize:peek()).toBe(display)
+			t.expect(env.effectiveInput:peek()).toBe(input)
+		end
+		openSettings(root)
+		t.expect(find(root, "Preview") ~= nil).toBe(true)
+		t.expect(disabled(find(root, "Orientation"))).toBe(true)
+		ctx.devicePreview:set("phone")
+		expectDevice(389, 762, "Small", "Touch")
+		t.expect(disabled(find(root, "Orientation"))).toBe(false)
+		t.expect(surface:HasTag("facet-floating")).toBe(true)
+		ctx.orientationPreview:set("landscape")
+		expectDevice(762, 389, "Small", "Touch")
+		ctx.devicePreview:set("tablet")
+		expectDevice(1024, 768, "Small", "Touch")
+		ctx.orientationPreview:set("portrait")
+		expectDevice(768, 1024, "Small", "Touch")
+		t.expect(math.abs(scale.Scale - 720 / 1024) < 0.000001).toBe(true)
+		local gui: any = ctx.guiService
+		local top = 58
+		function gui:GetGuiInset()
+			return ctx.types.Vector2.new(0, top), ctx.types.Vector2.new(0, 0)
+		end
+		gui.TopbarInset = top
+		t.expect(math.abs(scale.Scale - (720 - 58) / 1024) < 0.000001).toBe(true)
+		top = 0
+		gui.TopbarInset = top
+		ctx.devicePreview:set("tv")
+		expectDevice(1920, 1080, "Large", "Gamepad")
+		t.expect(disabled(find(root, "Orientation"))).toBe(true)
+		t.expect(math.abs(scale.Scale - 2 / 3) < 0.000001).toBe(true)
+		ctx.inputPreview:set("KeyboardAndMouse")
+		t.expect(env.effectiveInput:peek()).toBe("KeyboardAndMouse")
+		ctx.inputPreview:set("automatic")
+		ctx.devicePreview:set("automatic")
+		t.expect(surface.Size.X.Scale).toBe(1)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(ctx.previewViewport:peek().width).toBe(1280)
+		t.expect(env.effectiveInput:peek()).toBe("KeyboardAndMouse")
+		t.expect(surface:HasTag("facet-floating")).toBe(false)
+		stop()
+	end)
+
+	t.it("is the pre-0.12 shell: shoulder hints, a card panel, the old settings and Use top tabs", function()
+		local ctx, root, stop = fixture(function(context)
+			context.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
+			context.load = function()
+				return {
+					build = function(page)
+						return demoTabs(page, "TabsTest", {
+							{
+								id = "one",
+								label = "One",
+								scenario = {
+									build = function(inner)
+										return {
+											screen = function()
+												return inner.Host.Frame({ Name = "OnePage" })
+											end,
+										}
+									end,
+								},
+							},
+							{
+								id = "two",
+								label = "Two",
+								scenario = {
+									build = function(inner)
+										return {
+											screen = function()
+												return inner.Host.Frame({ Name = "TwoPage" })
+											end,
+										}
+									end,
+								},
+							},
+						})
+					end,
+				}
+			end
+			return gallery.build(context)
+		end)
+		find(root, "Categories").AbsoluteSize = ctx.types.Vector2.new(1200, 640)
+		local toolbar = find(root, "Toolbar")
+		local lb, rb = find(toolbar, "DemosHint"), find(toolbar, "SettingsHint")
+		t.expect(lb.Text).toBe("LB")
+		t.expect(rb.Text).toBe("RB")
+		t.expect(lb.Visible).toBe(false)
+		ctx.inputPreview:set("Gamepad")
+		t.expect(lb.Visible and rb.Visible).toBe(true)
+		ctx.inputPreview:set("KeyboardAndMouse")
+		local choice = find(toolbar, "ToggleSidebar", "TextButton")
+		t.expect(choice ~= nil).toBe(true)
+		t.expect(find(find(root, "Categories"), "UseTopTabs")).toBe(nil)
+		t.expect(find(find(root, "Categories"), "UseSidebar")).toBe(nil)
+		t.expect(choice:GetAttribute("FacetLabel") or choice.Text).toBe("Use top tabs")
+		choice.Activated.fire()
+		t.expect(choice:GetAttribute("FacetLabel") or choice.Text).toBe("Use sidebar")
+		t.expect(ctx.categoryPlacement:peek()).toBe("top")
+		choice.Activated.fire()
+		t.expect(ctx.categoryPlacement:peek()).toBe("side")
+		t.expect(find(root, "ShowcasePanel")).toBe(nil)
+		local toggle = find(ctx.inputTarget, "ShowcaseChromeShoulders")
+		t.expect(toggle.Priority < 250).toBe(true)
+		t.expect(find(ctx.inputTarget, "ShowcaseChromeToggle"):FindFirstChild("ActivateSettings")).toBe(nil)
+		toggle:FindFirstChild("ActivateSettings").Pressed.fire()
+		local panel = find(root, "ShowcasePanel")
+		t.expect(panel ~= nil and panel:IsDescendantOf(toolbar)).toBe(true)
+		t.expect(find(root, "Popover")).toBe(nil)
+		for _, name in { "Preview", "Orientation", "Input", "ResetAll", "MotionMode", "Packages" } do
+			t.expect(`{name}: {find(panel, name) ~= nil}`).toBe(`{name}: true`)
+		end
+		for _, name in { "ViewingDistance", "CategoryPlacement", "TextPreview" } do
+			t.expect(`{name}: {find(panel, name) ~= nil}`).toBe(`{name}: false`)
+		end
+		local preview = find(panel, "Preview")
+		t.expect(find(preview, "Trigger") ~= nil).toBe(true)
+		t.expect(panel:HasTag("facet-floating") and panel:FindFirstChildWhichIsA("UIStroke") ~= nil).toBe(true)
+
+		ctx.viewingDistance:set("ten-foot")
+		preview = find(panel, "Preview")
+		t.expect(find(preview, "Trigger") == nil and find(preview, "desktop") ~= nil).toBe(true)
+		ctx.viewingDistance:set("automatic")
+		ctx.devicePreview:set("phone")
+		ctx.inputPreview:set("Touch")
+		find(panel, "ResetAll").Activated.fire()
+		t.expect(ctx.devicePreview:peek()).toBe("automatic")
+		t.expect(ctx.inputPreview:peek()).toBe("automatic")
+		toggle:FindFirstChild("ActivateSettings").Pressed.fire()
+		t.expect(find(root, "ShowcasePanel")).toBe(nil)
+		toggle:FindFirstChild("ActivateDemos").Pressed.fire()
+		t.expect(find(root, "Demo-first") ~= nil).toBe(true)
+		find(root, "ShowcaseDismiss").Activated.fire()
+		t.expect(find(root, "ShowcasePanel")).toBe(nil)
+		find(ctx.inputTarget, "ShowcaseChromeToggle"):FindFirstChild("Activate").Pressed.fire()
+		t.expect(find(root, "ShowcasePanel") ~= nil).toBe(true)
+		stop()
+	end)
+
 	t.it("keeps API theme and palette choices consistent and rejects invalid demos", function()
 		local ctx, root, stop = fixture(function(context)
 			local second = Facet.themes.neutralPackage()
@@ -156,12 +353,15 @@ t.describe("native gallery shell parity", function()
 		local before = find(root, "first")
 		local surface = find(root, "Gallery")
 		local scale = find(surface, "ViewingDistance", "UIScale")
+		local settings = find(root, "Showcase", "TextButton")
+		local near = settings.Size.Y.Offset
+		t.expect(ctx.environment.viewingDistance).toBe(ctx.viewingDistance)
 		ctx.viewingDistance:set("ten-foot")
-		t.expect(scale.Scale).toBe(1.5)
-		t.expect(math.abs(surface.Size.X.Scale * scale.Scale - 1) < 0.000001).toBe(true)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(settings.Size.Y.Offset).toBe(near * 1.5)
 		t.expect(find(root, "first")).toBe(before)
 		ctx.viewingDistance:set("near")
-		t.expect(scale.Scale).toBe(1)
+		t.expect(settings.Size.Y.Offset).toBe(near)
 		ctx.viewingDistance:set("automatic")
 		t.expect(scale.Scale).toBe(1)
 		local bad = gallery.dispatch(ctx, "show", "missing")
@@ -175,14 +375,9 @@ t.describe("native gallery shell parity", function()
 		t.expect(ctx.theme:peek()).toBe(ctx.packages.Second)
 		t.expect(gallery.dispatch(ctx, "theme", "missing").ok).toBe(false)
 		t.expect(ctx.themeName:peek()).toBe("Second")
-		find(root, "Settings", "TextButton").Activated.fire()
-		local themePicker = find(root, "Theme")
-		local trigger = find(themePicker, "Trigger")
-		if trigger then
-			t.expect(trigger.Text).toBe("Second")
-		else
-			t.expect(find(themePicker, "Second"):GetAttribute("selected")).toBe(true)
-		end
+		openSettings(root)
+		t.expect(find(root, "P_Second"):GetAttribute("selected")).toBe(true)
+		t.expect(find(root, "P_Neutral"):GetAttribute("selected")).toBe(false)
 		gallery.dispatch(ctx, "next")
 		t.expect(ctx.active:peek()).toBe("second")
 		stop()
@@ -221,7 +416,12 @@ t.describe("native gallery shell parity", function()
 				local function tabViewOf(node: any): any
 					local at = node.Parent
 					while
-						at and not (at:IsA("Frame") and (at.Name == "Categories" or scenarioGroup(scenario, at.Name)))
+						at
+						and not (
+							at:IsA("Frame")
+							and not at:GetAttribute("FacetTabPage")
+							and (at.Name == "Categories" or scenarioGroup(scenario, at.Name))
+						)
 					do
 						at = at.Parent
 					end

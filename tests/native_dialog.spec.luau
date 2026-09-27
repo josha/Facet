@@ -71,6 +71,29 @@ local function actionButton(w: any, id: string): any
 end
 
 t.describe("native Dialog: the caller's fact decides", function()
+	t.it("a ten-foot screen or Larger text stacks the actions full width", function()
+		for _, case in { "near", "tv", "text" } do
+			local open, log, change = caller()
+			open:set(false)
+			local w = mount(standard(open, log, change))
+			if case == "tv" then
+				w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
+				w.input.MouseEnabled = false
+				w.input.TouchEnabled = false
+			elseif case == "text" then
+				w.gui.PreferredTextSize = w.Enum.PreferredTextSize.Larger
+			end
+			open:set(true)
+			local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
+			local vertical = list.FillDirection == w.Enum.FillDirection.Vertical
+			t.expect(`{case}:{vertical}`).toBe(`{case}:{case ~= "near"}`)
+			if case ~= "near" then
+				t.expect(actionButton(w, "Leave").Size.X.Scale).toBe(1)
+			end
+			w.stop()
+		end
+	end)
+
 	t.it("an accepted fact presents the panel with pinned title, body and actions", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change))
@@ -80,14 +103,57 @@ t.describe("native Dialog: the caller's fact decides", function()
 		t.expect(overlay.find(w.find("Body"), "Line") ~= nil).toBe(true)
 		t.expect(actionButton(w, "Leave") ~= nil).toBe(true)
 		t.expect(w.find("Actions"):IsDescendantOf(w.find("Room"))).toBe(true)
-		t.expect(w.find("Close"):IsDescendantOf(w.find("Header"))).toBe(true)
+		t.expect(w.find("Close")).toBe(nil)
 		t.expect(w.find("DialogModal") ~= nil).toBe(true)
 		w.stop()
 	end)
 
+	t.it("keeps the claimed selection when the entry fade hands the panel's children back", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change))
+		local stay = actionButton(w, "Stay")
+		t.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))).toBe(true)
+		t.expect(w.gui.SelectedObject).toBe(stay)
+		stay.AncestryChanged:Connect(function()
+			if w.gui.SelectedObject == stay then
+				w.gui.SelectedObject = nil
+			end
+		end)
+		w.advance(1, 60)
+		t.expect(w.find("Fade")).toBe(nil)
+		t.expect(w.gui.SelectedObject).toBe(stay)
+		w.stop()
+	end)
+
+	t.it("a child that arrives while the entry fade runs joins the fading group", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change))
+		local fade = w.find("Fade")
+		t.expect(fade ~= nil).toBe(true)
+		local late = w.engine.new("Frame")
+		late.Name = "Late"
+		late.Parent = fade.Parent
+		w.advance(1 / 60)
+		t.expect(late.Parent).toBe(fade)
+		w.advance(1, 60)
+		t.expect(w.find("Fade")).toBe(nil)
+		t.expect(late.Parent ~= nil and late.Parent.ClassName ~= "CanvasGroup").toBe(true)
+		w.stop()
+	end)
+
+	t.it("a dialog with actions has no close control unless it asks; one without actions keeps it", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change, { closeButton = true }))
+		t.expect(w.find("Close"):IsDescendantOf(w.find("Header"))).toBe(true)
+		w.stop()
+		local bare = mount(standard(open, log, change, { actions = {} }))
+		t.expect(bare.find("Close") ~= nil).toBe(true)
+		bare.stop()
+	end)
+
 	t.it("the close button proposes: refused keeps the same surface and focus, accepted reports close", function()
 		local open, log, change = caller(false)
-		local w = mount(standard(open, log, change))
+		local w = mount(standard(open, log, change, { closeButton = true }))
 		local panel = w.find("Panel")
 		local close = w.find("Close")
 		w.gui.SelectedObject = close
@@ -98,7 +164,7 @@ t.describe("native Dialog: the caller's fact decides", function()
 		t.expect(#log.dismissed).toBe(0)
 		w.stop()
 		local open2, log2, change2 = caller()
-		local w2 = mount(standard(open2, log2, change2))
+		local w2 = mount(standard(open2, log2, change2, { closeButton = true }))
 		t.expect(w2.gui.SelectedObject).toBe(actionButton(w2, "Stay"))
 		w2.find("Close").Activated.fire()
 		t.expect(w2.find("Panel")).toBe(nil)
@@ -112,7 +178,8 @@ t.describe("native Dialog: the caller's fact decides", function()
 		local w = mount(standard(open, log, change))
 		w.find("ModalBack").Pressed.fire()
 		t.expect(table.concat(log.pressed, ",")).toBe("Stay")
-		t.expect(w.find("Panel") ~= nil).toBe(true)
+		t.expect(w.find("Panel")).toBe(nil)
+		t.expect(table.concat(log.dismissed, ",")).toBe("action")
 		w.stop()
 		local open2, log2, change2 = caller()
 		local w2 = mount(standard(open2, log2, change2, {
@@ -147,7 +214,53 @@ t.describe("native Dialog: the caller's fact decides", function()
 		w.stop()
 	end)
 
-	t.it("an action never closes by itself, and a throwing one leaves the bookkeeping sound", function()
+	t.it("an action press proposes the close after its callback; keepOpen opts out", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change, {
+			actions = {
+				{
+					id = "Apply",
+					label = "Apply",
+					keepOpen = true,
+					onActivate = function()
+						table.insert(log.pressed, "Apply")
+					end,
+				},
+				{
+					id = "Leave",
+					label = "Leave",
+					onActivate = function()
+						table.insert(log.pressed, "Leave")
+					end,
+				},
+			},
+		}))
+		actionButton(w, "Apply").Activated.fire()
+		t.expect(#log.changes).toBe(0)
+		t.expect(w.find("Panel") ~= nil).toBe(true)
+		actionButton(w, "Leave").Activated.fire()
+		t.expect(table.concat(log.pressed, ",")).toBe("Apply,Leave")
+		t.expect(#log.changes == 1 and log.changes[1] == false).toBe(true)
+		t.expect(table.concat(log.dismissed, ",")).toBe("action")
+		w.stop()
+		local refused, refusedLog, refuse = caller(false)
+		local kept = mount(standard(refused, refusedLog, refuse))
+		actionButton(kept, "Leave").Activated.fire()
+		t.expect(#refusedLog.changes == 1 and refusedLog.changes[1] == false).toBe(true)
+		t.expect(kept.find("Panel") ~= nil).toBe(true)
+		t.expect(table.concat(refusedLog.dismissed, ",")).toBe("")
+		kept.stop()
+		t.expect(function()
+			parts.checkActions(
+				{} :: any,
+				"UI.Sheet",
+				{ { id = "A", label = "A", keepOpen = true, onActivate = print } },
+				2
+			)
+		end).toThrow()
+	end)
+
+	t.it("a throwing action proposes nothing and leaves the bookkeeping sound", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change, {
 			actions = {
@@ -173,7 +286,7 @@ t.describe("native Dialog: the caller's fact decides", function()
 		local open, log = caller()
 		local w = mount(standard(open, log, function()
 			error("proposal bug")
-		end))
+		end, { closeButton = true }))
 		local ok, failure = pcall(w.find("Close").Activated.fire)
 		t.expect(ok).toBe(false)
 		t.expect(string.find(tostring(failure), "proposal bug", 1, true) ~= nil).toBe(true)
@@ -555,7 +668,7 @@ t.describe("native Dialog: lifetime", function()
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({
 				Compose.show(shown, function()
-					return UI.Dialog "Confirm"(standard(open, log, change)(UI, Host))
+					return UI.Dialog "Confirm"(standard(open, log, change, { closeButton = true })(UI, Host))
 				end),
 			})
 		end)

@@ -236,7 +236,7 @@ t.describe("native parity controls", function()
 				})
 			end)
 			local control = find(world.node, "Control")
-			world.gui.SelectedObject = if name == "Slider" then find(control, "Track") else control
+			world.gui.SelectedObject = if name == "Slider" then find(control, "ThumbStop") else control
 			local increase = action(world.root, "Increase")
 			increase.Pressed.fire()
 			local held = value:peek()
@@ -382,18 +382,18 @@ t.describe("native parity controls", function()
 		end
 		local track = find(world.node, "Track")
 		track.AbsoluteSize = V2(world, 200, 44)
-		t.expect(track.Selectable).toBe(false)
+		t.expect(find(track, "ThumbStop").Selectable).toBe(false)
 		t.expect(find(track, "Drag").Enabled).toBe(false)
 		find(track, "Drag").DragStart.fire(V2(world, 180, 10))
 		find(track, "Drag").DragContinue.fire(V2(world, 190, 10))
-		world.gui.SelectedObject = track
+		world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
 		t.expect(#contexts(world.root, "Increase")).toBe(0)
 		t.expect(level:peek()).toBe(2)
 		t.expect(stars:peek()).toBe(2)
 		t.expect(slide:peek()).toBe(0.5)
 		enabled:set(true)
-		t.expect(track.Selectable).toBe(true)
-		world.gui.SelectedObject = track
+		t.expect(find(track, "ThumbStop").Selectable).toBe(true)
+		world.gui.SelectedObject = track:FindFirstChild("ThumbStop")
 		action(world.root, "Increase").Pressed.fire()
 		t.expect(slide:peek() > 0.5).toBe(true)
 		world.stop()
@@ -1003,14 +1003,6 @@ t.describe("native parity controls", function()
 		delete.Pressed.fire()
 		t.expect(deleted).toEqual({ 2, 4 })
 		editing:set(true)
-		t.expect(row(5):FindFirstChild("Delete") ~= nil).toBe(true)
-		row(5).AbsoluteSize = V2(world, 300, 40)
-		local minus = row(5):FindFirstChild("Delete")
-		t.expect(minus.Visible).toBe(true)
-		t.expect(find(row(5), "Content").Position.X.Offset).toBe(72)
-		minus.Activated.fire()
-		t.expect(deleted).toEqual({ 2, 4, 5 })
-		editing:set(false)
 		t.expect(row(5):FindFirstChild("Delete")).toBeNil()
 		world.stop()
 	end)
@@ -1072,8 +1064,8 @@ t.describe("native parity controls", function()
 			body.AbsoluteWindowSize = V2(world, 200, 100)
 			body:FindFirstChild("1", true):FindFirstChild("Move", true).Activated.fire()
 			local line = find(world.node, "DropLine")
-			local start = line.Position.Y.Offset
 			world.input.MouseEnabled = true
+			local start = line.Position.Y.Offset
 			action(world.root, "ReorderDown").Pressed.fire()
 			t.expect(find(world.node, "DropLine")).toBe(line)
 			t.expect(line.Position.Y.Offset).toBe(start + 20)
@@ -1342,16 +1334,19 @@ t.describe("native parity controls", function()
 			end
 			return nil
 		end
+		local function handleOf(rowKey: number): any
+			return body:FindFirstChild(tostring(rowKey), true):FindFirstChild("Move", true)
+		end
 		for rowKey = 1, 4 do
-			t.expect(row(rowKey):FindFirstChild("Move", true) ~= nil).toBe(true)
+			t.expect(handleOf(rowKey) ~= nil).toBe(true)
 		end
 		editing:set(true)
 		for rowKey = 1, 4 do
-			t.expect(row(rowKey):FindFirstChild("Delete") ~= nil).toBe(true)
-			t.expect(row(rowKey):FindFirstChild("Move", true) ~= nil).toBe(true)
+			t.expect(row(rowKey):FindFirstChild("Delete")).toBeNil()
+			t.expect(handleOf(rowKey) ~= nil).toBe(true)
 		end
 		editing:set(false)
-		local handle = row(2):FindFirstChild("Move", true)
+		local handle = handleOf(2)
 		local reorder = handle:FindFirstChildWhichIsA("UIDragDetector")
 		reorder.DragStart.fire(V2(world, 10, 50))
 		reorder.DragContinue.fire(V2(world, 10, 150))

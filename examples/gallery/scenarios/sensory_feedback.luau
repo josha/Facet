@@ -115,19 +115,12 @@ return {
 				end,
 			},
 			screen = function()
-				return Host.ScrollingFrame "SensoryFeedback" {
+				return UI.ScrollView "SensoryFeedback" {
+					padding = 16,
+					gap = 16,
 					Size = D2.fromScale(1, 1),
-					CanvasSize = D2.new(),
-					AutomaticCanvasSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 					ScrollBarThickness = 6,
-					Host.UIPadding({
-						PaddingLeft = D.new(0, 16),
-						PaddingRight = D.new(0, 16),
-						PaddingTop = D.new(0, 16),
-						PaddingBottom = D.new(0, 16),
-					}),
-					Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }),
 					effects.press,
 					effects.release,
 					effects.selection,

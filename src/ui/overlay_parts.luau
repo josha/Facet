@@ -4,10 +4,12 @@ local Types = require("./types")
 local Overlay = require("./overlay_types")
 local Inputs = require("./input_types")
 local measuredScroll = require("./measured_scroll")
+local scrollLock = require("./scroll_lock")
 local freeze = require("./freeze")
 
 type ButtonFactory = Types.Constructor<Inputs.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
+type BackPlace = { AnchorPoint: Vector2?, Position: UDim2?, Size: UDim2?, LayoutOrder: number? }
 
 local parts = {}
 
@@ -21,6 +23,7 @@ parts.WIDTHS = WIDTHS
 local MEDIA_KEYS = table.freeze({ "aspectRatio", "background", "height", "image", "scaleMode" })
 local HERO_KEYS = table.freeze({ "aspectRatio", "background", "content", "height", "image", "scaleMode", "sticky" })
 local ACTION_KEYS = table.freeze({ "busy", "enabled", "id", "label", "onActivate", "role" })
+local DIALOG_ACTION_KEYS = table.freeze({ "busy", "enabled", "id", "keepOpen", "label", "onActivate", "role" })
 local SCALE_MODES: { [string]: boolean } = freeze({ fit = true, crop = true, stretch = true })
 local ROLES: { [string]: boolean } = freeze({ default = true, cancel = true, destructive = true })
 
@@ -116,7 +119,8 @@ function parts.checkActions(
 	where: string,
 	actions: unknown,
 	max: number,
-	reserved: { string }?
+	reserved: { string }?,
+	closes: boolean?
 ): number
 	if actions == nil then
 		return 0
@@ -131,7 +135,10 @@ function parts.checkActions(
 			error(`Facet {where}: each action must be a table with id, label and onActivate`, 0)
 		end
 		local action = entry :: { [string]: unknown }
-		parts.known(where, action, ACTION_KEYS, "action")
+		parts.known(where, action, if closes then DIALOG_ACTION_KEYS else ACTION_KEYS, "action")
+		if action.keepOpen ~= nil and type(action.keepOpen) ~= "boolean" then
+			error(`Facet {where}: action keepOpen must be a boolean`, 0)
+		end
 		local id = action.id
 		if type(id) ~= "string" or id == "" or seen[id] or string.find(id, "/", 1, true) then
 			error(`Facet {where}: every action needs a unique string id without '/'`, 0)
@@ -215,26 +222,33 @@ function parts.media(ctx: Types.Context, media: Overlay.Media | Overlay.Hero, na
 			then function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, length(ctx, height, use))
 			end
+			elseif media.aspectRatio then D2.new(1, 0, 0, 100000)
 			else D2.fromScale(1, 0),
 	}
 	for _, child in children do
 		table.insert(props, child)
 	end
-	local frame = Host.Frame(props)
 	local ratio = media.aspectRatio
 	if ratio and not height then
-		local measured = ctx.observe.AbsoluteSize(frame)
-		ctx.runtime.decorate(frame, {
-			Size = function(use: ComposeTypes.Use)
-				local width = (use(measured) :: Vector2).X
-				return D2.new(1, 0, 0, math.floor(width / ratio + 0.5))
-			end,
-		})
+		table.insert(props, Host.UIAspectRatioConstraint({ AspectRatio = ratio, DominantAxis = E.DominantAxis.Width }))
 	end
-	return frame
+	return Host.Frame(props)
 end
 
 export type ActionGroup = { frame: Frame, stacked: ComposeTypes.Readable<boolean> }
+
+function parts.stackedForm(ctx: Types.Context): (ComposeTypes.Use) -> boolean
+	local E = ctx.types.Enum
+	local tenFoot = ctx.tenFoot()
+	local gui = ctx.config.guiService
+	local text: ComposeTypes.Readable<unknown>? = if gui and gui.GetPropertyChangedSignal
+		then ctx.observe.PreferredTextSize(gui)
+		else nil
+	return function(use: ComposeTypes.Use): boolean
+		local size = if text then use(text) else nil
+		return tenFoot(use) or size == E.PreferredTextSize.Larger or size == E.PreferredTextSize.Largest
+	end
+end
 
 function parts.actions(
 	ctx: Types.Context,
@@ -254,8 +268,9 @@ function parts.actions(
 	local rowHeight = height or 44
 	local widths: { ComposeTypes.Readable<Vector2> } = {}
 	local measured = Compose.cell(0)
+	local form = parts.stackedForm(ctx)
 	local stacked = Compose.formula(function(use: ComposeTypes.Use): boolean
-		if mode == "stacked" or #actions > 2 then
+		if mode == "stacked" or #actions > 2 or (mode ~= "row" and form(use)) then
 			return true
 		end
 		if ctx.read(ctx.config.controlSize, use) == "large" then
@@ -394,6 +409,7 @@ function parts.room(
 	end
 	props.Selectable = false
 	local frame = Host.ScrollingFrame(props)
+	scrollLock.own(frame)
 	parts.reach(ctx, frame, tight)
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end
@@ -519,6 +535,168 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 			end
 		end)
 	end)
+end
+
+function parts.back(
+	ctx: Types.Context,
+	UI: UIControls,
+	label: Types.Value<string>?,
+	onActivate: () -> (),
+	place: BackPlace?
+): TextButton
+	local at: BackPlace = place or {}
+	local props: Inputs.ButtonProps = {
+		Name = "Back",
+		label = label or "Back",
+		icon = "chevron.leading",
+		appearance = "utility",
+		onActivate = onActivate,
+		AnchorPoint = at.AnchorPoint,
+		Position = at.Position,
+		Size = at.Size,
+		LayoutOrder = at.LayoutOrder,
+	}
+	local button = UI.Button(props)
+	local row = button:FindFirstChildWhichIsA("UIListLayout", true)
+	if row then
+		ctx.runtime.decorate(row, {
+			HorizontalAlignment = ctx.types.Enum.HorizontalAlignment.Left,
+			Padding = function(use: ComposeTypes.Use)
+				return ctx.types.UDim.new(0, ctx.metric("space.xs", use) / 2)
+			end,
+		})
+	end
+	return button
+end
+
+function parts.tailSize(ctx: Types.Context, use: ComposeTypes.Use?): number
+	return ctx.metric("space.m", use)
+end
+
+export type TailPanel = {
+	node: GuiObject,
+	corner: (ComposeTypes.Use) -> Vector2,
+	size: ComposeTypes.Readable<Vector2>,
+	radius: (ComposeTypes.Use) -> number,
+	role: string,
+}
+
+local ARC = 0.5523
+
+local function outlinePoints(
+	w: number,
+	h: number,
+	r: number,
+	edge: string?,
+	t: number,
+	d: number
+): { { x: number, y: number, inX: number, inY: number, outX: number, outY: number } }
+	local out = {}
+	local function add(x: number, y: number, inX: number?, inY: number?, outX: number?, outY: number?)
+		table.insert(out, { x = x, y = y, inX = inX or 0, inY = inY or 0, outX = outX or 0, outY = outY or 0 })
+	end
+	local k = ARC * r
+	local function tail(side: string, a: number, b: number, c: number, e: number, f: number, g: number)
+		if edge == side then
+			add(a, b)
+			add(c, e)
+			add(f, g)
+		end
+	end
+	add(r, 0, -k, 0, 0, 0)
+	tail("bottom", t - d, 0, t, -d, t + d, 0)
+	add(w - r, 0, 0, 0, k, 0)
+	add(w, r, 0, -k, 0, 0)
+	tail("left", w, t - d, w + d, t, w, t + d)
+	add(w, h - r, 0, 0, 0, k)
+	add(w - r, h, k, 0, 0, 0)
+	tail("top", t + d, h, t, h + d, t - d, h)
+	add(r, h, 0, 0, -k, 0)
+	add(0, h - r, 0, k, 0, 0)
+	tail("right", 0, t + d, -d, t, 0, t - d)
+	add(0, r, 0, 0, 0, -k)
+	return out
+end
+parts.outlinePoints = outlinePoints
+
+function parts.tail(
+	ctx: Types.Context,
+	name: string,
+	at: (ComposeTypes.Use) -> (Vector2?, string),
+	amount: (ComposeTypes.Use) -> number,
+	z: (ComposeTypes.Use) -> number,
+	panel: TailPanel
+): { Frame }
+	local Compose, Host, D2, V2 = ctx.Compose, ctx.Host, ctx.types.UDim2, ctx.types.Vector2
+	local function geometry(use: ComposeTypes.Use): (Vector2?, string, number, number, number)
+		local box = use(panel.size) :: Vector2
+		local point, edge = at(use)
+		local r = math.min(panel.radius(use), box.X / 2, box.Y / 2)
+		local d = parts.tailSize(ctx, use) * math.sqrt(2) / 2
+		if point == nil then
+			return nil, edge, r, d, 0
+		end
+		local corner = panel.corner(use)
+		local across = edge == "left" or edge == "right"
+		local along = if across then box.Y else box.X
+		local t = if across then point.Y - corner.Y else point.X - corner.X
+		d = math.min(d, math.max(0, along / 2 - r))
+		local reach = r + d + math.min(d, math.max(0, along / 2 - r - d))
+		t = math.clamp(t, reach, math.max(reach, along - reach))
+		local placed = if across then V2.new(point.X, corner.Y + t) else V2.new(corner.X + t, point.Y)
+		return placed, edge, r, d, t
+	end
+	local wedge = ctx.styled(
+		Host.Frame(name)({
+			Size = function(use: ComposeTypes.Use)
+				local point, _, _, d = geometry(use)
+				local side = if point then d * math.sqrt(2) else 0
+				return D2.fromOffset(side, side)
+			end,
+			AnchorPoint = V2.new(0.5, 0.5),
+			Rotation = 45,
+			BorderSizePixel = 0,
+			ZIndex = function(use: ComposeTypes.Use)
+				return z(use) - 1
+			end,
+			Position = function(use: ComposeTypes.Use): UDim2
+				local point = geometry(use) or V2.zero
+				return D2.fromOffset(point.X, point.Y)
+			end,
+			Host.UIGradient "PresentationFade" {
+				Transparency = function(use: ComposeTypes.Use)
+					return ctx.types.NumberSequence.new(1 - amount(use))
+				end,
+			},
+		}),
+		"tail"
+	)
+	panel.node:AddTag("facet-outlined")
+	local outline = ctx.styled(Host.Path2D "Outline" { Closed = true }, "outline")
+	if panel.role == "tooltip" then
+		outline:AddTag("facet-outline-tooltip")
+	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		local box = use(panel.size) :: Vector2
+		if box.X <= 0 or box.Y <= 0 then
+			return
+		end
+		local point, edge, r, d, t = geometry(use)
+		local native: { Path2DControlPoint } = {}
+		for _, p in outlinePoints(box.X, box.Y, r, if point then edge else nil, t, d) do
+			table.insert(
+				native,
+				ctx.types.Path2DControlPoint.new(
+					D2.fromScale(p.x / box.X, p.y / box.Y),
+					D2.fromScale(p.inX / box.X, p.inY / box.Y),
+					D2.fromScale(p.outX / box.X, p.outY / box.Y)
+				)
+			)
+		end
+		outline:SetControlPoints(native)
+	end)
+	outline.Parent = panel.node:FindFirstChild("Fade") or panel.node
+	return { wedge }
 end
 
 parts.scroller = measuredScroll

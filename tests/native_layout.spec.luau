@@ -16,7 +16,7 @@ local function make(options: { [string]: any }?): (any, any, any)
 	return engine, runtime, Facet.controls(runtime, config :: any)
 end
 
-local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> ())
+local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> (), any)
 	local engine, runtime, UI = make(options)
 	local root: any
 	runtime.mount(function()
@@ -25,7 +25,7 @@ local function build(options: { [string]: any }?, body: (any, any) -> any): (any
 	end, engine.new("ScreenGui"))
 	return root, engine, function()
 		runtime:dispose()
-	end
+	end, runtime
 end
 
 local function child(node: any, className: string): any
@@ -50,6 +50,26 @@ local function refusal(body: (any, any) -> any): string?
 	return if ok then nil else tostring(message)
 end
 
+local function painted(root: any): string
+	local nodes = {}
+	for _, node in root:GetChildren() do
+		if node:IsA("GuiObject") then
+			table.insert(nodes, node)
+		end
+	end
+	table.sort(nodes, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	local texts = {}
+	for at, node in nodes do
+		table.insert(
+			texts,
+			if at > 1 and nodes[at - 1].LayoutOrder == node.LayoutOrder then "=" .. node.Text else node.Text
+		)
+	end
+	return table.concat(texts, " ")
+end
+
 local function mentions(message: string?, fragment: string): boolean
 	return message ~= nil and string.find(message, fragment, 1, true) ~= nil
 end
@@ -66,7 +86,7 @@ t.describe("native layout primitives", function()
 			end)
 			local E = engine.types.Enum
 			t.expect(root.ClassName).toBe("Frame")
-			t.expect(root.BackgroundTransparency).toBe(1)
+			t.expect(root:HasTag("facet-layout")).toBe(true)
 			t.expect(root.BorderSizePixel).toBe(0)
 			t.expect(root.Size).toBe(engine.types.UDim2.new(0, 0, 0, 0))
 			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.XY)
@@ -265,15 +285,47 @@ t.describe("native layout primitives", function()
 				}
 			end)
 			shown:set(true)
-			local orders = {}
-			for _, node in root:GetChildren() do
-				if node:IsA("GuiObject") then
-					orders[node.Text] = node.LayoutOrder
-				end
-			end
-			t.expect(orders).toEqual({ First = 1, Middle = 2, Last = 3 })
+			t.expect(painted(root)).toBe("First Middle Last")
 			stop()
 		end)
+
+		t.it(
+			"keeps a keyed child's rows in keyed order between their siblings, and a row's own LayoutOrder wins",
+			function()
+				local items = Compose.cell({ "A", "B", "C" })
+				local root, _, stop = build(nil, function(UI)
+					return UI.VStack {
+						UI.Text { text = "Top" },
+						Compose.keyed({
+							from = items,
+							render = function(value, index)
+								return UI.Text {
+									text = value,
+									LayoutOrder = index,
+								}
+							end,
+						}),
+						Compose.keyed({
+							from = items,
+							render = function(value)
+								return UI.Text {
+									text = function(use)
+										return string.lower(use(value))
+									end,
+								}
+							end,
+						}),
+						UI.Text { text = "End" },
+					}
+				end)
+				t.expect(painted(root)).toBe("Top A B C a b c End")
+				items:set({ "B", "C", "A" })
+				t.expect(painted(root)).toBe("Top B C A b c a End")
+				items:set({ "C", "D", "B" })
+				t.expect(painted(root)).toBe("Top C D B c d b End")
+				stop()
+			end
+		)
 
 		t.it("refuses an unknown spacing step, alignment or option and names the vocabulary", function()
 			local engine, runtime, UI = make()
@@ -356,7 +408,7 @@ t.describe("native layout primitives", function()
 			t.expect(root.Name).toBe("Home")
 			t.expect(root.Size).toBe(engine.types.UDim2.fromScale(1, 1))
 			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.None)
-			t.expect(root.BackgroundTransparency).toBe(1)
+			t.expect(root:HasTag("facet-layout")).toBe(true)
 			t.expect(child(root, "UIPadding").PaddingTop).toBe(engine.types.UDim.new(0, 16))
 			t.expect(child(root, "UIListLayout").FillDirection).toBe(E.FillDirection.Vertical)
 			t.expect(child(root, "UIListLayout").Padding).toBe(engine.types.UDim.new(0, 8))
@@ -365,6 +417,104 @@ t.describe("native layout primitives", function()
 				return UI.Screen { padding = 0 }
 			end)
 			t.expect(child(bare, "UIPadding").PaddingLeft).toBe(engine.types.UDim.new(0, 0))
+		end)
+
+		t.it("keeps its content below the engine top bar, the background still fills", function()
+			for _, ignoresInset in { true, false } do
+				local engine: any = engineLib.new()
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local gui = engine.new("GuiService")
+				local T = engine.types
+				local insetTop = if ignoresInset then 58 else 36
+				gui.GetGuiInset = function()
+					return T.Vector2.new(0, insetTop), T.Vector2.zero
+				end
+				gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+				local UI =
+					Facet.controls(runtime, { types = T, guiService = gui, services = { GuiService = gui } } :: any)
+				local layer = engine.new("ScreenGui")
+				layer.IgnoreGuiInset = ignoresInset
+				local root: any
+				runtime.mount(function()
+					root = UI.Screen { UI.Text { text = "A" } }
+					return root
+				end, layer)
+				root.AbsolutePosition = T.Vector2.new(0, if ignoresInset then -58 else 0)
+				local padding = child(root, "UIPadding")
+				t.expect(padding.PaddingTop).toBe(T.UDim.new(0, 16 + 58 - insetTop - root.AbsolutePosition.Y))
+				t.expect(padding.PaddingLeft).toBe(T.UDim.new(0, 16))
+				t.expect(root.Size).toBe(T.UDim2.fromScale(1, 1))
+				gui.TopbarInset = T.Rect.new(0, 0, 0, 0)
+				t.expect(padding.PaddingTop).toBe(T.UDim.new(0, 16))
+				gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+				root.AbsolutePosition = T.Vector2.new(0, 200)
+				t.expect(padding.PaddingTop).toBe(T.UDim.new(0, 16))
+				runtime:dispose()
+			end
+		end)
+
+		t.it("chrome band rides the free top-bar band, and edge also drops the overscan", function()
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local input = engine.new("UserInputService")
+			local T = engine.types
+			gui.GetGuiInset = function()
+				return T.Vector2.new(0, 58), T.Vector2.zero
+			end
+			gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+			gui.ViewportDisplaySize = T.Enum.DisplaySize.Large
+			local UI = Facet.controls(
+				runtime,
+				{
+					types = T,
+					guiService = gui,
+					userInputService = input,
+					services = { GuiService = gui, UserInputService = input },
+				} :: any
+			)
+			local layer = engine.new("ScreenGui")
+			layer.IgnoreGuiInset = true
+			local roots = {}
+			for _, chrome in { "device", "band", "edge" } do
+				runtime.mount(function()
+					roots[chrome] = UI.Screen { chrome = chrome }
+					return roots[chrome]
+				end, layer)
+				roots[chrome].AbsolutePosition = T.Vector2.new(0, -58)
+			end
+			local function top(chrome: string): any
+				return child(roots[chrome], "UIPadding").PaddingTop
+			end
+			t.expect(top("device")).toBe(T.UDim.new(60 / 1080, 24 + 58))
+			t.expect(top("band")).toBe(T.UDim.new(60 / 1080, 24))
+			t.expect(top("edge")).toBe(T.UDim.new(0, 24))
+			t.expect(child(roots.edge, "UIPadding").PaddingLeft).toBe(T.UDim.new(0, 24))
+			t.expect(pcall(function()
+				runtime.mount(function()
+					return UI.Screen { chrome = "glass" }
+				end, layer)
+			end)).toBe(false)
+			runtime:dispose()
+		end)
+
+		t.it("ignores the top bar on a SurfaceGui", function()
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local T = engine.types
+			gui.GetGuiInset = function()
+				return T.Vector2.zero, T.Vector2.zero
+			end
+			gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+			local UI = Facet.controls(runtime, { types = T, guiService = gui, services = { GuiService = gui } } :: any)
+			local root: any
+			runtime.mount(function()
+				root = UI.Screen {}
+				return root
+			end, engine.new("SurfaceGui"))
+			t.expect(child(root, "UIPadding").PaddingTop).toBe(T.UDim.new(0, 16))
+			runtime:dispose()
 		end)
 	end)
 
@@ -449,8 +599,8 @@ t.describe("native layout primitives", function()
 			t.expect(root.CanvasSize).toBe(D2.new())
 			t.expect(root.AutomaticCanvasSize).toBe(E.AutomaticSize.Y)
 			t.expect(root.ScrollingDirection).toBe(E.ScrollingDirection.Y)
-			t.expect(root.VerticalScrollBarInset).toBe(E.ScrollBarInset.ScrollBar)
-			t.expect(root.BackgroundTransparency).toBe(1)
+			t.expect(root.VerticalScrollBarInset).toBe(E.ScrollBarInset.Always)
+			t.expect(root:HasTag("facet-layout")).toBe(true)
 			local layout = child(root, "UIListLayout")
 			t.expect(layout.FillDirection).toBe(E.FillDirection.Vertical)
 			t.expect(layout.Padding).toBe(engine.types.UDim.new(0, 8))
@@ -462,6 +612,115 @@ t.describe("native layout primitives", function()
 				end
 			end
 			t.expect(orders).toEqual({ A = 1, B = 2 })
+			stop()
+		end)
+
+		t.it("gives a fill-height child the padded window as a floor so its bottom stays reachable", function()
+			local roblox = require("@lune/roblox")
+			local root, engine, stop = build(nil, function(UI, Host)
+				return UI.ScrollView "Page" {
+					padding = 16,
+					Host.Frame {
+						Name = "Body",
+						Size = roblox.UDim2.fromScale(1, 1),
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+					},
+				}
+			end)
+			local V2 = engine.types.Vector2
+			local body = root:FindFirstChild("Body")
+			t.expect(body.Size).toBe(engine.types.UDim2.new(1, 0, 0, 0))
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(0, 616))
+			stop()
+		end)
+
+		t.it("lets a grown fill-height child shrink back when the padded window shrinks", function()
+			local roblox = require("@lune/roblox")
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local UI = Facet.controls(
+				runtime,
+				{
+					types = engine.types,
+					guiService = gui,
+					services = { GuiService = gui, RunService = { Heartbeat = engine.heartbeat } },
+				} :: any
+			)
+			local root: any
+			runtime.mount(function()
+				root = UI.ScrollView "Page" {
+					padding = 16,
+					runtime.constructors.Frame {
+						Name = "Body",
+						Size = roblox.UDim2.fromScale(1, 1),
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+					},
+				}
+				return root
+			end, engine.new("ScreenGui"))
+			local V2, E = engine.types.Vector2, engine.types.Enum
+			local body = root:FindFirstChild("Body")
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(0, 616))
+			root.AbsoluteSize = V2.new(749, 300)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(0, 268))
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.None)
+			t.expect(body.Size.Y.Offset).toBe(268)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(body.Size).toBe(engine.types.UDim2.new(1, 0, 0, 0))
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.Y)
+			runtime:dispose()
+		end)
+
+		t.it("a fill-height child's shrink keeps the scroll, its own size constraint and a bound size", function()
+			local roblox = require("@lune/roblox")
+			local height = Compose.cell(0)
+			local root, engine, stop = build(nil, function(UI, Host)
+				return UI.ScrollView "Page" {
+					padding = 16,
+					Host.Frame {
+						Name = "Body",
+						Size = roblox.UDim2.fromScale(1, 1),
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+						Host.UISizeConstraint { MinSize = roblox.Vector2.new(10, 700) },
+					},
+					Host.Frame {
+						Name = "Bound",
+						Size = function(use)
+							return roblox.UDim2.new(1, 0, if use(height) > 0 then 0 else 1, use(height))
+						end,
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+					},
+				}
+			end)
+			local V2, E = engine.types.Vector2, engine.types.Enum
+			local body, bound = root:FindFirstChild("Body"), root:FindFirstChild("Bound")
+			local constraints = 0
+			for _, node in body:GetChildren() do
+				if node:IsA("UISizeConstraint") then
+					constraints += 1
+				end
+			end
+			t.expect(constraints).toBe(1)
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(10, 700))
+			root.AbsoluteSize = V2.new(389, 1000)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(10, 968))
+			height:set(120)
+			root.CanvasPosition = V2.new(0, 200)
+			root.AbsoluteSize = V2.new(749, 300)
+			t.expect(bound.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(bound.Size.Y.Offset).toBe(120)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.None)
+			root.CanvasPosition = V2.new(0, 0)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.Y)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(root.CanvasPosition).toBe(V2.new(0, 200))
 			stop()
 		end)
 
@@ -484,7 +743,14 @@ t.describe("native layout primitives", function()
 			t.expect(root.AutomaticCanvasSize).toBe(E.AutomaticSize.X)
 			t.expect(root.ScrollingDirection).toBe(E.ScrollingDirection.X)
 			t.expect(root.HorizontalScrollBarInset).toBe(E.ScrollBarInset.ScrollBar)
+			t.expect(root.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(root.Size.Y.Scale == 0 and root.Size.X.Scale == 1).toBe(true)
 			stop()
+			local filled = build(nil, function(UI)
+				return UI.ScrollView { axis = "x", UI.VStack { height = "fill", UI.Text { text = "A" } } }
+			end)
+			t.expect(filled.AutomaticSize).toBe(E.AutomaticSize.None)
+			t.expect(filled.Size.Y.Scale).toBe(1)
 			local both = build(nil, function(UI)
 				return UI.ScrollView { axis = "xy" }
 			end)
@@ -598,6 +864,95 @@ t.describe("native layout primitives", function()
 			t.expect(ok).toBe(false)
 			t.expect(string.find(tostring(message), "whole number", 1, true) ~= nil).toBe(true)
 			runtime:dispose()
+		end)
+	end)
+
+	t.describe("layout paint belongs to the StyleSheet", function()
+		local styleRules = require("./lib/style_rules")
+
+		local function painted(engine: any, sheet: any, node: any, property: string): any
+			local default = engine.new(node.ClassName)[property]
+			if node[property] ~= default then
+				return node[property]
+			end
+			local ruled = styleRules.resolve(sheet, node, property)
+			return if ruled == nil then default else ruled
+		end
+		local primitives: { [string]: (any, any) -> any } = {
+			VStack = function(UI)
+				return UI.VStack { UI.Text { text = "A" } }
+			end,
+			HStack = function(UI)
+				return UI.HStack { UI.Text { text = "A" } }
+			end,
+			ZStack = function(UI)
+				return UI.ZStack { UI.Text { text = "A" } }
+			end,
+			Screen = function(UI)
+				return UI.Screen { UI.Text { text = "A" } }
+			end,
+			ScrollView = function(UI)
+				return UI.ScrollView { UI.Text { text = "A" } }
+			end,
+			Grid = function(UI)
+				return UI.Grid { columns = 2, UI.Text { text = "A" } }
+			end,
+			AdaptiveStack = function(UI)
+				return UI.AdaptiveStack { UI.Text { text = "A" } }
+			end,
+			ViewThatFits = function(UI)
+				return UI.ViewThatFits { UI.Text { text = "A" } }
+			end,
+			Spacer = function(UI)
+				return UI.Spacer {}
+			end,
+			ErrorBoundary = function(UI)
+				return UI.ErrorBoundary {
+					view = function()
+						return UI.Text { text = "A" }
+					end,
+					fallback = function()
+						return UI.Text { text = "B" }
+					end,
+				}
+			end,
+			Region = function(UI)
+				return UI.Region { zone = "center", rank = 1, UI.Text { text = "A" } }
+			end,
+			Composition = function(UI)
+				return UI.Composition { UI.Region { zone = "center", rank = 1, UI.Text { text = "A" } } }
+			end,
+		}
+
+		t.it("a plain layout primitive stays transparent and one given a panel paints the theme panel", function()
+			local package = themes.neutralPackage()
+			local panel = package.style.themes[1].colors.surfaceStrong
+			for name, body in primitives do
+				local root, engine, stop, runtime = build(nil, body)
+				local _, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
+				end, engine.new("Folder"))
+				t.expect(`{name} plain {painted(engine, sheet, root, "BackgroundTransparency")}`).toBe(`{name} plain 1`)
+				root:AddTag("facet-panel")
+				t.expect(`{name} panel {painted(engine, sheet, root, "BackgroundTransparency")}`).toBe(`{name} panel 0`)
+				t.expect(painted(engine, sheet, root, "BackgroundColor3"))
+					.toBe(engine.types.Color3.new(panel.r, panel.g, panel.b))
+				stop()
+			end
+		end)
+
+		t.it("a caller's own BackgroundTransparency still owns the paint, even the default 0", function()
+			local package = themes.neutralPackage()
+			for _, value in { 0, 0.25 } do
+				local root, engine, stop, runtime = build(nil, function(UI)
+					return UI.VStack { BackgroundTransparency = value }
+				end)
+				local _, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, { types = engine.types } :: any)
+				end, engine.new("Folder"))
+				t.expect(painted(engine, sheet, root, "BackgroundTransparency")).toBe(value)
+				stop()
+			end
 		end)
 	end)
 

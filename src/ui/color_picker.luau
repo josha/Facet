@@ -54,11 +54,10 @@ local KEYS = {
 }
 local MODE_LABEL: { [string]: string } =
 	{ swatches = "Swatches", spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" }
-local DEFAULT_MODES: { Types.Mode } = { "swatches", "spectrum", "sliders" }
 local FORMATS = { { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" }, { value = "hex", label = "Hex" } }
 local CELL, GAP, PAD, SPACE, MARGIN = 44, 4, 12, 8, 8
 local MAX_COLUMNS = 8
-local PANEL_WIDTH = MAX_COLUMNS * CELL + (MAX_COLUMNS - 1) * GAP + 2 * PAD
+local GRID_WIDTH = MAX_COLUMNS * CELL + (MAX_COLUMNS - 1) * GAP
 local RING, BUBBLE, STRIP = 20, 44, 12
 local STICK_SPEED, DEADZONE = 0.6, 0.2
 local CHECKER_CELLS = 24
@@ -174,7 +173,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			Host.Frame(name)({
 				Size = edge,
 				BackgroundTransparency = 1,
-				ctx.corner(6) :: Shared.Child,
+				ctx.corner() :: Shared.Child,
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
 				Host.Frame(checker),
 				Host.Frame "Plate" {
@@ -187,7 +186,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						local p = paint(use)
 						return if p.color == nil then 1 else 1 - p.alpha
 					end,
-					ctx.corner(6) :: Shared.Child,
+					ctx.corner() :: Shared.Child,
 				},
 				Host.Frame "Empty" {
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -269,7 +268,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		end
 		local modes: { string } = {}
 		do
-			local listed: unknown = spec.modes or DEFAULT_MODES
+			local listed: unknown = spec.modes
+				or if ctx.types.BrickColor
+					then { "swatches", "spectrum", "sliders", "brick" }
+					else { "swatches", "spectrum", "sliders" }
 			if Compose.isReadable(listed) or type(listed) ~= "table" or #(listed :: { unknown }) == 0 then
 				refuse(
 					'`modes` is a non-empty list of "swatches" | "spectrum" | "sliders" | "brick", fixed at construction.'
@@ -766,7 +768,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				propose({ h = now.h, s = fx, v = 1 - fy })
 			end
 			local function beginDrag(position: Vector2)
-				if not mayEdit() then
+				if not mayEdit() or (gamepad() and read(selected) == (surface :: GuiObject?)) then
 					return
 				end
 				if not dragging:peek() then
@@ -1048,34 +1050,42 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					end
 					return true
 				end
-				return UI.Button("Save")({
-					name = "Save colour",
-					appearance = "utility",
-					Size = D2.fromOffset(CELL, CELL),
-					AutomaticSize = E.AutomaticSize.None,
-					LayoutOrder = function(use: Use)
-						return use(index)
-					end,
-					enabled = function(use: Use)
-						return interactive(use) and fresh(use)
-					end,
-					onActivate = function()
-						local value = held:peek()
-						local save = spec.onSaveSwatch
-						if value ~= nil and save ~= nil and fresh() then
-							save(value)
-						end
-					end,
-					Host.Frame "Plus" {
-						Size = D2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						ctx.icon("increment", {
-							Name = "Mark",
-							AnchorPoint = V2.new(0.5, 0.5),
-							Position = D2.fromScale(0.5, 0.5),
-						}),
-					},
-				})
+				return ctx.styled(
+					UI.Button("Save")({
+						name = "Save colour",
+						appearance = "utility",
+						Size = D2.fromOffset(CELL, CELL),
+						AutomaticSize = E.AutomaticSize.None,
+						LayoutOrder = function(use: Use)
+							return use(index)
+						end,
+						enabled = function(use: Use)
+							return interactive(use) and fresh(use)
+						end,
+						onActivate = function()
+							local value = held:peek()
+							local save = spec.onSaveSwatch
+							if value ~= nil and save ~= nil and fresh() then
+								save(value)
+							end
+						end,
+						ctx.styled(
+							Host.Frame "Plus" {
+								Size = D2.fromScale(1, 1),
+								BackgroundTransparency = 1,
+								ctx.corner() :: Shared.Child,
+								Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
+								ctx.icon("increment", {
+									Name = "Mark",
+									AnchorPoint = V2.new(0.5, 0.5),
+									Position = D2.fromScale(0.5, 0.5),
+								}),
+							},
+							"color-swatch"
+						),
+					}),
+					"color-cell"
+				)
 			end
 			local function cell(
 				source: ComposeTypes.Readable<Item>,
@@ -1137,6 +1147,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						}),
 					})
 				end
+				ctx.styled(node, "color-cell")
 				owned[node] = { item = source, index = index }
 				Compose.cleanup(function()
 					owned[node] = nil
@@ -1187,6 +1198,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			return grid
 		end
 
+		local function centred(column: Frame): Frame
+			assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
+			return column
+		end
 		local function swatchesView(): Frame
 			local items = function(use: Use): { Item }
 				local list = table.clone(use(swatchList))
@@ -1214,11 +1229,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				)
 			end
 			table.insert(parts, gridView("Swatches", items, removing))
-			return ctx.column(parts, { Name = "Saved", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			return centred(
+				ctx.column(parts, { Name = "Saved", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			)
 		end
 
 		local function slidersView(): Frame
-			return ctx.column({
+			local sliders = {
 				hueSlider(),
 				channelSlider("Saturation", "Saturation", 100, function(c: Hsv): number
 					return c.s
@@ -1230,12 +1247,36 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end, function(c: Hsv, f: number): Hsv
 					return { h = c.h, s = c.s, v = f }
 				end),
-			}, { Name = "Sliders", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			}
+			local labels: { TextLabel } = {}
+			local bounds: { ComposeTypes.Readable<Vector2> } = {}
+			for _, slider in sliders do
+				local label = slider:FindFirstChild("Label") :: TextLabel
+				table.insert(labels, label)
+				table.insert(bounds, ctx.observe.TextBounds(label))
+			end
+			for _, label in labels do
+				local padding = label:FindFirstChildWhichIsA("UIPadding")
+				local inset = if padding then padding.PaddingLeft.Offset + padding.PaddingRight.Offset else 0
+				runtime.decorate(label, {
+					Size = function(use: Use)
+						local widest = 0
+						for _, size in bounds do
+							widest = math.max(widest, use(size).X)
+						end
+						return D2.fromOffset(math.ceil(widest) + inset, 0)
+					end,
+				})
+			end
+			return ctx.column(
+				sliders,
+				{ Name = "Sliders", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
+			)
 		end
 
 		local function brickView(): Frame
 			local bricks = color.brick()
-			return ctx.column({
+			return centred(ctx.column({
 				ctx.styled(
 					ctx.row({
 						ctx.text({
@@ -1250,7 +1291,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				gridView("BrickGrid", function(): { Item }
 					return bricks
 				end, false),
-			}, { Name = "Brick", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			}, { Name = "Brick", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }))
 		end
 
 		local function numberField(
@@ -1282,7 +1323,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				enabled = function(use: Use): boolean
 					return interactive(use)
 				end,
-				Size = D2.new(1 / 3, -6, 0, 0),
+				Size = D2.fromScale(0, 0),
 				onCommit = function(n: number)
 					local next = with(n)
 					if next ~= nil and propose(next) then
@@ -1292,6 +1333,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			}
 			return UI.NumberInput(name)(props)
+		end
+		local function fieldsRow(fields: { Shared.Child }): Frame
+			local row =
+				ctx.row(fields, { Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			assert(row:FindFirstChildWhichIsA("UIListLayout")).HorizontalFlex = E.UIFlexAlignment.Fill
+			return row
 		end
 		local function rgbFields(): Frame
 			local function channel(index: number, words: string): GuiObject
@@ -1304,10 +1351,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return color.hsvOf(color.fromBytes(bytes[1], bytes[2], bytes[3]), canon:peek())
 				end)
 			end
-			return ctx.row(
-				{ channel(1, "R"), channel(2, "G"), channel(3, "B") },
-				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			return fieldsRow({ channel(1, "R"), channel(2, "G"), channel(3, "B") })
 		end
 		local function hsvFields(): Frame
 			local function channel(key: "h" | "s" | "v", words: string, max: number): GuiObject
@@ -1326,10 +1370,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return c
 				end)
 			end
-			return ctx.row(
-				{ channel("h", "H", 360), channel("s", "S", 100), channel("v", "V", 100) },
-				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			return fieldsRow({ channel("h", "H", 360), channel("s", "S", 100), channel("v", "V", 100) })
 		end
 		local function hexFields(): Frame
 			local text = Compose.cell("")
@@ -1347,6 +1388,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				label = "Hex",
 				value = text,
 				errorText = hexError,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
 				enabled = function(use: Use): boolean
 					return interactive(use)
 				end,
@@ -1367,10 +1410,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					text:set(formatted())
 				end,
 			}
-			return ctx.row(
-				{ UI.TextInput("FieldHex")(props) },
-				{ Name = "Fields", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
-			)
+			return fieldsRow({ UI.TextInput("FieldHex")(props) })
 		end
 		local function readoutView(): Frame
 			local builders: { [string]: () -> Frame } = { rgb = rgbFields, hsv = hsvFields, hex = hexFields }
@@ -1397,8 +1437,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				AutomaticSize = E.AutomaticSize.X,
 			}
 			local picker = UI.Picker("Format")(formatProps)
+			runtime.mount(function()
+				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
+			end, picker)
 			local head = ctx.row({
-				swatch("Preview", D2.fromOffset(CELL, CELL), currentPaint),
+				swatch("Preview", D2.fromOffset(2 * CELL + GAP, CELL), currentPaint),
 				picker,
 			}, { Name = "Head", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 			assert(head:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
@@ -1437,20 +1480,27 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			for _, show in shows do
 				table.insert(heights, ctx.observe.AbsoluteSize(show))
 			end
-			local function tech(use: Use): number
-				local tallest = 0
-				for _, size in heights do
-					tallest = math.max(tallest, use(size).Y)
-				end
-				return tallest
-			end
-			technique.Size = function(use: Use)
-				return D2.new(1, 0, 0, tech(use))
-			end
 			local techniqueNode = Host.Frame(technique)
+			local unit = ctx.layoutUnit(techniqueNode)
+			local function tech(use: Use): number
+				local tallest, list = 0, 0
+				for index, size in heights do
+					local h = use(size).Y / use(unit)
+					if modes[index] == "brick" then
+						list = h
+					else
+						tallest = math.max(tallest, h)
+					end
+				end
+				return if tallest > 0 then tallest else list
+			end
+			local function active(use: Use): number
+				local index = table.find(modes, use(modeCell))
+				return if index then use(heights[index]).Y / use(unit) else 0
+			end
 			local width = ctx.observe.AbsoluteSize(techniqueNode)
 			Compose.watch(function(use: Use)
-				local w = use(width).X
+				local w = use(width).X / use(unit)
 				columns:set(
 					if w > 0 then math.clamp(math.floor((w + GAP) / (CELL + GAP)), 1, MAX_COLUMNS) else MAX_COLUMNS
 				)
@@ -1478,27 +1528,29 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 			})
 			table.insert(children, measure(readout))
-			local body: GuiObject
-			if overlay then
-				body = Host.ScrollingFrame "Body" {
-					LayoutOrder = 3,
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Selectable = false,
-					ScrollBarThickness = 4,
-					ScrollingDirection = E.ScrollingDirection.Y,
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					CanvasSize = D2.fromOffset(0, 0),
-					Size = function(use: Use)
-						local cap = math.max(0, use(room))
-						return D2.new(1, 0, 0, math.min(tech(use), cap))
-					end,
-					techniqueNode :: Shared.Child,
-				}
-			else
-				runtime.decorate(techniqueNode, { LayoutOrder = 3 })
-				body = techniqueNode
-			end
+			local body = Host.ScrollingFrame "Body" {
+				LayoutOrder = 3,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Selectable = false,
+				ScrollBarThickness = 4,
+				VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+				ScrollingDirection = E.ScrollingDirection.Y,
+				AutomaticCanvasSize = E.AutomaticSize.Y,
+				CanvasSize = D2.fromOffset(0, 0),
+				Size = function(use: Use)
+					local height = math.ceil(tech(use))
+					return D2.new(1, 0, 0, if overlay then math.min(height, math.max(0, use(room))) else height)
+				end,
+				techniqueNode :: Shared.Child,
+			}
+			local window = ctx.observe.AbsoluteWindowSize(body)
+			runtime.decorate(techniqueNode, {
+				Size = function(use: Use)
+					local across = use(window).X / use(unit)
+					return if across > 0 then D2.fromOffset(across, active(use)) else D2.new(1, 0, 0, active(use))
+				end,
+			})
 			table.insert(children, body)
 			if hasAlpha then
 				local opacity: Inputs.SliderProps = {
@@ -1617,7 +1669,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						count += 1
 					end
 				end
-				return total + (count - 1) * SPACE + (if overlay then 2 * PAD else 0)
+				return total
+					+ (count - 1) * SPACE
+					+ (
+						if overlay
+							then surfaces.inset(PAD, "top", nil, use) + surfaces.inset(PAD, "bottom", nil, use)
+							else 0
+					)
 			end
 			return { panel = panel, chrome = chromeHeight, tech = tech }
 		end
@@ -1636,10 +1694,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local corner = use(at) - use(origin)
 			local size = use(bounds)
 			local natural = view.chrome(use) + view.tech(use)
+			local wide = GRID_WIDTH + surfaces.inset(PAD, "left", nil, use) + surfaces.inset(PAD, "right", nil, use)
 			if sheet(use) then
 				local h = if offer.Y > 0 then math.min(natural, offer.Y - 2 * PAD) else natural
 				if tenFoot then
-					local w = if offer.X > 0 then math.min(PANEL_WIDTH, offer.X - 2 * PAD) else PANEL_WIDTH
+					local w = if offer.X > 0 then math.min(wide, offer.X - 2 * PAD) else wide
 					return {
 						edge = "center",
 						x = math.max(PAD, (offer.X - w) / 2),
@@ -1650,7 +1709,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 				return { edge = "sheet", x = PAD, y = math.max(PAD, offer.Y - h - PAD), w = offer.X - 2 * PAD, h = h }
 			end
-			local w = if offer.X > 0 then math.min(PANEL_WIDTH, math.max(CELL, offer.X - 2 * MARGIN)) else PANEL_WIDTH
+			local w = if offer.X > 0 then math.min(wide, math.max(CELL, offer.X - 2 * MARGIN)) else wide
 			local below = offer.Y - (corner.Y + size.Y + GAP) - MARGIN
 			local above = corner.Y - GAP - MARGIN
 			local x = math.clamp(corner.X, MARGIN, math.max(MARGIN, offer.X - w - MARGIN))
@@ -1803,21 +1862,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local extent = if layer then ctx.observe.AbsoluteSize(layer) else Compose.cell(V2.zero)
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local at, bounds = ctx.observe.AbsolutePosition(well), ctx.observe.AbsoluteSize(well)
-					local tenFoot = false
-					if gui then
-						local ok, answer = pcall(function(): boolean
-							return (gui :: GuiService):IsTenFootInterface()
-						end)
-						tenFoot = ok and answer == true
-					end
+					local tenFoot = ctx.tenFoot()
 					local function sheet(use: Use): boolean
 						local offer = use(extent)
-						return tenFoot or (touch(use) and offer.X > 0 and offer.X < 600)
+						return tenFoot(use) or (touch(use) and offer.X > 0 and offer.X < 600)
 					end
 					local room = Compose.cell(math.huge)
 					local view = panelView(true, sheet, room)
 					local where = Compose.formula(function(use: Use): Placement
-						return place(use, view, sheet, extent, origin, at, bounds, tenFoot)
+						return place(use, view, sheet, extent, origin, at, bounds, tenFoot(use))
 					end)
 					Compose.watch(function(use: Use)
 						local spot = use(where)

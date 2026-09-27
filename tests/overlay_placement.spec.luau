@@ -155,4 +155,18 @@ t.describe("anchored placement", function()
 		})
 		t.expect(carried.tailSuppressed).toBe(true)
 	end)
+
+	t.it("a side panel too short for the tail's corner insets keeps its tail at its middle", function()
+		local short = placement.solve({
+			source = { x = 300, y = 300, w = 44, h = 44 },
+			size = { w = 200, h = 30 },
+			safe = SAFE,
+			edge = "trailing",
+			tail = 16 * math.sqrt(2),
+			tailInset = 8,
+		})
+		t.expect(short.tailSuppressed).toBe(false)
+		t.expect(short.tailX).toBe(short.x)
+		t.expect(short.tailY).toBe(short.y + 15)
+	end)
 end)

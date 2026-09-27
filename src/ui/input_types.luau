@@ -8,43 +8,45 @@ type Constructor<P, N> = Shared.Constructor<P, N>
 export type ValueBinding<T> =
 	{ value: ComposeTypes.Cell<T>, onChange: ((T) -> ())? }
 	| { value: Value<T>, onChange: (T) -> () }
-export type EnabledOptions = { enabled: Value<boolean>?, disabled: Value<boolean>?, busy: Value<boolean>? }
-export type Row = { title: Value<string>?, description: Value<string>?, value: string?, icon: string? }
+export type EnabledOptions =
+	{ enabled: Shared.ValueBoolean?, disabled: Shared.ValueBoolean?, busy: Shared.ValueBoolean? }
+export type Row = { title: Shared.ValueString?, description: Shared.ValueString?, value: string?, icon: string? }
 export type Shortcut = { keyCode: string, modifiers: { shift: boolean? }? }
 export type HelpSpec = {
-	title: Value<string>?,
-	body: Value<string>,
+	title: Shared.ValueString?,
+	body: Shared.ValueString,
 	shortcut: { { string } }?,
 	edge: ("top" | "bottom" | "leading" | "trailing")?,
 	align: ("start" | "center" | "end")?,
 }
-export type Help = Value<string> | HelpSpec
+export type Help = Shared.ValueString | HelpSpec
 export type ButtonCorners = "pill" | "square"
 export type ButtonRole = "default" | "cancel" | "destructive" | "onIndicator"
 export type ButtonVisualOptions = EnabledOptions & {
-	label: Value<string>?,
-	name: Value<string>?,
-	compactLabel: Value<string>?,
+	label: Shared.ValueString?,
+	name: Shared.ValueString?,
+	compactLabel: Shared.ValueString?,
 	pop: boolean?,
-	appearance: Value<string>?,
+	appearance: Shared.ValueString?,
 	controlSize: Value<Shared.ControlSize>?,
 	corners: Value<ButtonCorners>?,
 	shape: ("rect" | "circle")?,
 	role: Value<ButtonRole>?,
-	icon: Value<string>?,
-	trailingIcon: Value<string>?,
-	image: Value<string>?,
+	icon: Shared.ValueString?,
+	trailingIcon: Shared.ValueString?,
+	image: Shared.ValueString?,
 	imageAspectRatio: number?,
 	imageFraming: ("fit" | "crop")?,
-	subtitle: Value<string>?,
-	hint: Value<string>?,
+	subtitle: Shared.ValueString?,
+	hint: Shared.ValueString?,
 	help: Help?,
+	disclose: boolean?,
 	row: Row?,
 	textSize: Value<string | number>?,
 	underline: ("always" | "hover")?,
 }
 export type ButtonInputOptions = {
-	haptic: Value<boolean>?,
+	haptic: Value<boolean | Shared.HapticKind>?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: Shortcut?,
@@ -54,14 +56,14 @@ export type ButtonInputOptions = {
 	onPointerCancel: (() -> ())?,
 }
 export type ButtonProps = Shared.TextButtonProps & ButtonVisualOptions & ButtonInputOptions & {
-	selected: Value<boolean>?,
+	selected: Shared.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,
 }
 export type ToggleImplementationProps = Shared.TextButtonProps & ButtonVisualOptions & ButtonInputOptions & {
-	value: Value<boolean>,
+	value: Shared.ValueBoolean,
 	onChange: ((boolean) -> ())?,
 	presentation: ("switch" | "checkbox" | "button")?,
-	mixed: Value<boolean>?,
+	mixed: Shared.ValueBoolean?,
 	indicatorPosition: ("leading" | "trailing")?,
 }
 export type ToggleProps = ToggleImplementationProps & ValueBinding<boolean>
@@ -70,11 +72,11 @@ export type CommitReason = TextCommitReason | "clamped"
 export type ClearButtonMode = "never" | "always" | "whileEditing" | "unlessEditing"
 export type SelectOnFocus = "none" | "all" | "end"
 export type FieldAppearance = "standard" | "contrast" | "utility"
-export type TextValue = Value<string>
-export type NumberValue = Value<number>
+export type TextValue = Shared.ValueString
+export type NumberValue = Shared.ValueNumber
 export type TextBinding = ValueBinding<string>
 export type NumberCell = ComposeTypes.Cell<number>
-export type FlagValue = Value<boolean>
+export type FlagValue = Shared.ValueBoolean
 export type SizeValue = Value<Shared.ControlSize>
 export type FieldAppearanceValue = Value<FieldAppearance>
 export type SelectOnFocusValue = Value<SelectOnFocus>
@@ -140,17 +142,19 @@ export type NumberInputProps = TextInputBase & TextBinding & {
 export type ValueOptions = {
 	min: number?,
 	max: number?,
-	step: Value<number>?,
+	step: Shared.ValueNumber?,
 	format: ((number) -> string)?,
 }
 export type NumberInputOptions = ValueOptions & {
-	enabled: Value<boolean>?,
-	label: Value<string>?,
+	enabled: Shared.ValueBoolean?,
+	label: Shared.ValueString?,
 }
-export type StepperImplementationProps =
-	Shared.FrameProps
-	& NumberInputOptions
-	& { value: Value<number>, onChange: ((number) -> ())? }
+export type StepperImplementationProps = Shared.FrameProps & NumberInputOptions & {
+	value: Shared.ValueNumber,
+	onChange: ((number) -> ())?,
+	repeatDelay: number?,
+	repeatInterval: number?,
+}
 export type StepperProps = StepperImplementationProps & ValueBinding<number>
 export type SliderRange = { lower: number, upper: number }
 export type SliderThumb = "value" | "lower" | "upper"
@@ -176,17 +180,18 @@ export type SliderOptions = {
 	trackContent: (() -> Instance)?,
 	rotation: NumberValue?,
 	controlSize: SizeValue?,
+	contained: boolean?,
 }
 export type SliderImplementationProps = Shared.FrameProps & ValueOptions & SliderOptions & {
-	enabled: Value<boolean>?,
-	label: Value<string>?,
-	value: Value<number> | RangeValue,
+	enabled: Shared.ValueBoolean?,
+	label: Shared.ValueString?,
+	value: Shared.ValueNumber | RangeValue,
 	onChange: ((any, SliderChange?) -> ())?,
 }
 export type RangeValue = Value<SliderRange>
 export type SliderBinding =
 	{ range: false?, value: ComposeTypes.Cell<number>, onChange: ((number) -> ())?, onCommit: ((number) -> ())? }
-	| { range: false?, value: Value<number>, onChange: (number) -> (), onCommit: ((number) -> ())? }
+	| { range: false?, value: Shared.ValueNumber, onChange: (number) -> (), onCommit: ((number) -> ())? }
 	| {
 		range: true,
 		value: RangeValue,
@@ -194,8 +199,8 @@ export type SliderBinding =
 		onCommit: ((SliderRange, SliderChange) -> ())?,
 	}
 export type SliderProps = Shared.FrameProps & ValueOptions & SliderOptions & {
-	enabled: Value<boolean>?,
-	label: Value<string>?,
+	enabled: Shared.ValueBoolean?,
+	label: Shared.ValueString?,
 } & SliderBinding
 export type LevelSize = "small" | "medium" | "large"
 export type Glyphs = { filled: string, empty: string }
@@ -203,16 +208,16 @@ export type Images = { filled: string, empty: string }
 export type Tint = { filled: Value<Color3>?, empty: Value<Color3>? }
 export type LevelBinding =
 	{ value: ComposeTypes.Cell<number>, onChange: ((number) -> ())?, readOnly: boolean? }
-	| { value: Value<number>, onChange: (number) -> (), readOnly: boolean? }
-	| { value: Value<number>, readOnly: true, onChange: ((number) -> ())? }
+	| { value: Shared.ValueNumber, onChange: (number) -> (), readOnly: boolean? }
+	| { value: Shared.ValueNumber, readOnly: true, onChange: ((number) -> ())? }
 export type LevelOptions = {
 	count: number?,
 	allowZero: boolean?,
 	readOnly: boolean?,
-	enabled: Value<boolean>?,
+	enabled: Shared.ValueBoolean?,
 }
 export type RatingImplementationProps = Shared.TextButtonProps & LevelOptions & {
-	value: Value<number>,
+	value: Shared.ValueNumber,
 	onChange: ((number) -> ())?,
 	glyphs: Glyphs?,
 	starSize: LevelSize?,
@@ -220,12 +225,12 @@ export type RatingImplementationProps = Shared.TextButtonProps & LevelOptions & 
 export type RatingProps = Shared.TextButtonProps & {
 	count: number?,
 	allowZero: boolean?,
-	enabled: Value<boolean>?,
+	enabled: Shared.ValueBoolean?,
 	glyphs: Glyphs?,
 	starSize: LevelSize?,
 } & LevelBinding
 export type LevelPickerImplementationProps = Shared.TextButtonProps & LevelOptions & {
-	value: Value<number>,
+	value: Shared.ValueNumber,
 	onChange: ((number) -> ())?,
 	segment: ("bar" | "glyph" | "image")?,
 	segmentSize: LevelSize?,
@@ -236,7 +241,7 @@ export type LevelPickerImplementationProps = Shared.TextButtonProps & LevelOptio
 export type LevelPickerProps = Shared.TextButtonProps & {
 	count: number?,
 	allowZero: boolean?,
-	enabled: Value<boolean>?,
+	enabled: Shared.ValueBoolean?,
 	segment: ("bar" | "glyph" | "image")?,
 	segmentSize: LevelSize?,
 	glyphs: Glyphs?,
@@ -245,15 +250,15 @@ export type LevelPickerProps = Shared.TextButtonProps & {
 } & LevelBinding
 export type ChipSelection =
 	{ selected: ComposeTypes.Cell<boolean>, onToggle: ((boolean) -> ())? }
-	| { selected: Value<boolean>, onToggle: (boolean) -> () }
+	| { selected: Shared.ValueBoolean, onToggle: (boolean) -> () }
 	| { selected: nil?, onToggle: nil?, onRemove: () -> () }
 export type ChipImplementationProps = Shared.TextButtonNativeProps & ButtonVisualOptions & ButtonInputOptions & {
 	ref: ((TextButton | Frame) -> ())?,
-	selected: Value<boolean>?,
+	selected: Shared.ValueBoolean?,
 	onToggle: ((boolean) -> ())?,
 	onRemove: (() -> ())?,
 	editing: FlagValue?,
-	removeLabel: Value<string>?,
+	removeLabel: Shared.ValueString?,
 	removeFocusFallback: Value<GuiObject?>?,
 	leading: Instance?,
 	trailing: Instance?,
@@ -264,11 +269,25 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
 	ref: ((TextLabel | Frame) -> ())?,
 	action: InputAction?,
 	keys: Value<{ { string } }>?,
-	separator: Value<string>?,
+	separator: Shared.ValueString?,
 	controlSize: Value<Shared.ControlSize>?,
+	label: Shared.ValueString?,
+	labelPosition: ("start" | "end")?,
 }
 export type ShortcutHintProps = ShortcutHintImplementationProps & ShortcutHintSource
+export type HapticKind = Shared.HapticKind
+export type AdjustableOptions = {
+	enabled: Shared.ValueBoolean?,
+	disabled: Shared.ValueBoolean?,
+	busy: Shared.ValueBoolean?,
+	onAdjust: (direction: number) -> (),
+	axis: ("horizontal" | "vertical" | "none")?,
+	repeats: boolean?,
+	canAdjust: ((direction: number, use: ComposeTypes.Use?) -> boolean)?,
+}
 export type InputControls = {
+	adjustable: (node: GuiObject, options: AdjustableOptions) -> (),
+	feedback: (kind: HapticKind) -> (),
 	Button: Constructor<ButtonProps, TextButton>,
 	Toggle: Constructor<ToggleProps, TextButton>,
 	TextInput: Constructor<TextInputProps, TextBox | Frame>,

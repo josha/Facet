@@ -51,6 +51,13 @@ local function find(root, name)
 	return root:FindFirstChild(name, true)
 end
 
+local measured = require("./lib/hud_measure")
+local measure, LANDSCAPE, PORTRAIT, TINY = measured.measure, measured.LANDSCAPE, measured.PORTRAIT, measured.TINY
+
+local function sink(root)
+	return find(root, if find(root, "Actions"):GetAttribute("FacetForm") == 1 then "ActionMenu" else "ActionsCompact")
+end
+
 local function hasText(root, text)
 	for _, node in root:GetDescendants() do
 		if node.Text == text then
@@ -76,9 +83,10 @@ t.describe("native HUD", function()
 		stop()
 	end)
 	t.it("keeps complete task rewards, weapon ammunition, scores and telemetry", function()
-		local built, root, stop = mount()
-		for _, id in { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" } do
-			t.expect(built.report().forms[id]).toBe("full")
+		local built, root, stop, _, engine = mount()
+		measure(root, engine, LANDSCAPE)
+		for _, id in { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon", "Rounds", "Strip" } do
+			t.expect(`{id} {built.report().forms[id]}`).toBe(`{id} full`)
 		end
 		for _, text in
 			{
@@ -91,9 +99,11 @@ t.describe("native HUD", function()
 				"24/90",
 				"7/21",
 				"--",
-				"12  —  9",
+				"12",
+				"9",
 				"60 FPS · 42 ms",
 				"Ranger rifle",
+				"Ravi eliminated Mo",
 			}
 		do
 			t.expect(hasText(root, text)).toBe(true)
@@ -108,100 +118,99 @@ t.describe("native HUD", function()
 		stop()
 	end)
 	t.it("updates segmented health and full, compact and tiny numeric timer formats", function()
-		local built, root, stop, viewport = mount()
+		local built, root, stop, _, engine = mount()
 		t.expect(find(root, "TimerText").Text).toBe("2:14")
 		built.steps.takeDamage()
 		t.expect(find(root, "HealthNum").Text).toBe("59")
 		t.expect(find(find(root, "HealthBar"), "Fill4").Size.X.Scale).toBe(0)
 		t.expect(find(find(root, "HealthBar"), "Trail") ~= nil).toBe(true)
-		find(root, "Tick").Activated.fire()
+		built.steps.tickRound()
 		t.expect(find(root, "TimerText").Text).toBe("2:04")
-		viewport:set({ width = 480, height = 360 })
-		t.expect(find(find(root, "ClockCompact"), "Title").Text).toBe("2m")
-		viewport:set({ width = 320, height = 240 })
-		t.expect(find(find(root, "ClockCompact"), "Title").Text).toBe("2")
+		t.expect(find(root, "ClockCompactText").Text).toBe("2:04")
+		t.expect(find(root, "ClockShortText").Text).toBe("2m")
+		measure(root, engine, { 150, 400 })
+		t.expect(built.report().forms.Clock).toBe("short")
+		t.expect(find(root, "ClockShort").Parent.Visible).toBe(true)
+		t.expect(find(root, "ClockFull").Parent.Visible).toBe(false)
 		built.steps.heal()
-		t.expect(find(find(root, "HealthCompact"), "Title").Text).toBe("Health 100")
+		t.expect(find(root, "HealthCompactText").Text).toBe("100")
 		stop()
 	end)
 	t.it("restores every resolution after repeated rotations and URL bar episodes", function()
-		local sizes = {
-			{ width = 1079, height = 809 },
-			{ width = 360, height = 691 },
-			{ width = 691, height = 360 },
-			{ width = 320, height = 240 },
-		}
-		local built, root, stop, viewport = mount()
-		for _, size in sizes do
-			viewport:set(size)
-			local fresh, _, stopFresh = mount(size.width, size.height)
+		local boxes = { LANDSCAPE, PORTRAIT, TINY, { 1040, 640 } }
+		local built, root, stop, _, engine = mount()
+		for _, box in boxes do
+			local fresh, freshRoot, stopFresh, _, freshEngine = mount()
+			measure(freshRoot, freshEngine, box)
 			local expected = fresh.report().forms
-			for _, other in sizes do
-				viewport:set(other)
+			stopFresh()
+			for _, other in boxes do
+				measure(root, engine, other)
 				built.steps.openUrlBar()
 				built.steps.openOverflow()
 				built.steps.closeOverflow()
 				built.steps.closeUrlBar()
-				viewport:set(size)
+				measure(root, engine, box)
 				t.expect(built.report().forms).toEqual(expected)
-				find(root, "Overflow").Activated.fire()
+				sink(root).Activated.fire()
 				t.expect(built.report().overflowOpen).toBe(true)
 				built.steps.closeOverflow()
 			end
-			stopFresh()
 		end
-		t.expect(find(root, "HudBody").LayoutOrder).toBe(5)
+		t.expect(find(root, "HudBody").LayoutOrder).toBe(3)
 		t.expect(find(root, "BrowserChrome").Size.Y.Offset).toBe(64)
 		stop()
 	end)
 	t.it("recovers whole simplified zones in overflow and shares their live model", function()
-		local built, root, stop, viewport = mount(320, 240)
-		find(root, "Overflow").Activated.fire()
+		local built, root, stop, _, engine = mount()
+		measure(root, engine, TINY)
+		t.expect(#built.report().unshown > 3).toBe(true)
+		sink(root).Activated.fire()
 		local body = find(root.Parent, "OverflowBody")
 		t.expect(body.ClassName).toBe("ScrollingFrame")
-		for _, text in
-			{
-				"Win a round",
-				"Land 25 hits",
-				"Open a crate",
-				"+50",
-				"+120",
-				"+300",
-				"24/90",
-				"7/21",
-				"--",
-				"2:14",
-				"12  —  9",
-				"Ravi eliminated Mo",
-				"60 FPS · 42 ms",
-				"Ranger rifle",
-			}
-		do
+		for _, id in built.report().unshown do
+			t.expect(`{id} {body:FindFirstChild("Rich" .. id) ~= nil}`).toBe(`{id} true`)
+		end
+		for _, text in { "Win a round", "+120", "24/90", "7/21", "2:14", "12", "9" } do
 			t.expect(hasText(body, text)).toBe(true)
 		end
 		built.steps.advanceTask(2, 0.8)
 		t.expect(find(find(body, "Task2"), "Fill1").Size.X.Scale).toBeCloseTo(0.8)
 		find(body, "Weapon3").Activated.fire()
 		t.expect(built.model.selectedWeapon:peek()).toBe(3)
-		viewport:set({ width = 1079, height = 809 })
+		measure(root, engine, { 1040, 640 })
 		t.expect(#built.report().unshown).toBe(0)
 		t.expect(find(root.Parent, "OverflowEmpty").Text).toBe(hud.copy.overflowEmpty)
 		t.expect(find(find(root, "Task2"), "Fill1").Size.X.Scale).toBeCloseTo(0.8)
-		viewport:set({ width = 320, height = 240 })
+		measure(root, engine, TINY)
 		t.expect(find(root.Parent, "OverflowEmpty")).toBe(nil)
+		stop()
+	end)
+	t.it("expands a collapsed zone in context, anchored at it, instead of the overflow sheet", function()
+		local built, root, stop, _, engine = mount()
+		measure(root, engine, PORTRAIT)
+		t.expect(built.report().forms.Tasks ~= "full" and built.report().forms.Tasks ~= "hidden").toBe(true)
+		find(find(root, "Tasks"), "Expand").Activated.fire()
+		t.expect(built.report().overflowOpen).toBe(false)
+		local modal = find(root.Parent, "ExpandModal")
+		t.expect(modal:GetAttribute("FacetRoute")).toBe("popover")
+		t.expect(hasText(modal, hud.copy.tasksTitle)).toBe(true)
+		t.expect(hasText(modal, "+300")).toBe(true)
+		measure(root, engine, { 1040, 640 })
+		t.expect(find(root.Parent, "ExpandModal")).toBe(nil)
 		stop()
 	end)
 	t.it("uses native body bounds after chrome layout and disconnects on disposal", function()
 		local built, root, stop, _, engine = mount()
-		local body = find(root, "HudBody")
-		body.AbsoluteSize = engine.types.Vector2.new(960, 620)
+		measure(root, engine, { 1040, 640 })
 		local original = built.report().forms
-		body.AbsoluteSize = engine.types.Vector2.new(300, 140)
+		measure(root, engine, TINY)
 		t.expect(built.report().forms.Tasks).toBe("hidden")
-		t.expect(built.report().forms.Clock).toBe("tiny")
-		body.AbsoluteSize = engine.types.Vector2.new(960, 620)
+		t.expect(built.report().forms.Clock).toBe("timer")
+		measure(root, engine, { 1040, 640 })
 		t.expect(built.report().forms).toEqual(original)
-		local signal = body:GetPropertyChangedSignal("AbsoluteSize")
+		local zones = find(root, "Zones")
+		local signal = zones:GetPropertyChangedSignal("AbsoluteSize")
 		stop()
 		t.expect(signal.count()).toBe(0)
 	end)

@@ -726,4 +726,25 @@ t.describe("native TextInput readOnly, selectOnFocus and visibleLines", function
 			expect(err ~= nil).toBe(true)
 		end
 	end)
+
+	t.it("a focused field scrolls its page up out from under the touch keyboard", function()
+		local worlds = require("./lib/content_world")
+		local w = worlds.new(function(UI, Host)
+			return Host.ScrollingFrame({
+				Name = "Page",
+				UI.TextInput("Name")({ value = Compose.cell("Ada") }),
+			})
+		end)
+		local V2 = w.engine.types.Vector2
+		local page, field = w.find("Page"), w.find("Name")
+		page.AbsolutePosition, page.AbsoluteWindowSize, page.AbsoluteCanvasSize =
+			V2.new(0, 0), V2.new(400, 800), V2.new(400, 1400)
+		field.AbsolutePosition, field.AbsoluteSize = V2.new(0, 700), V2.new(400, 44)
+		w.input.OnScreenKeyboardPosition = V2.new(0, 500)
+		field.Focused.fire()
+		expect(page.CanvasPosition.Y).toBe(0)
+		w.input.OnScreenKeyboardVisible = true
+		expect(page.CanvasPosition.Y >= 700 + 44 + 8 - 500).toBe(true)
+		w.stop()
+	end)
 end)

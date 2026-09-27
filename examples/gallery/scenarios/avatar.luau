@@ -72,6 +72,13 @@ return {
 					},
 					UI.Avatar "Initials" { name = "Émile Noël", backplate = true, controlSize = size },
 					UI.Avatar "Icon" { name = "Bo Marchetti", form = "icon", controlSize = size },
+					UI.Avatar "Guest" {
+						name = "Guest",
+						icon = "person",
+						background = "success",
+						presence = "inExperience",
+						controlSize = size,
+					},
 				},
 				UI.Picker "Picture" {
 					label = "Picture",
@@ -95,6 +102,7 @@ return {
 						{ value = "away", label = "Away" },
 						{ value = "busy", label = "Busy" },
 						{ value = "offline", label = "Offline" },
+						{ value = "inExperience", label = "In game" },
 					},
 				},
 				UI.Picker "Size" {
@@ -118,12 +126,10 @@ return {
 		return {
 			section = section,
 			screen = function()
-				return Host.ScrollingFrame "Avatar" {
+				return UI.ScrollView "Avatar" {
+					padding = 16,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					CanvasSize = D2.new(),
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 					section(),
 				}
 			end,

@@ -800,14 +800,20 @@ t.describe("native parity weaker paint", function()
 		for _, package in { themes.neutralPackage(), load("fantasy_ornate") } do
 			local sheet, _, stop = sheetFor(package)
 			local all = rules(sheet)
-			t.expect(all[".facet-tab-filled.facet-skinned"].BackgroundTransparency).toBe(0)
-			t.expect(all[".facet-tab-filled > #SkinBoundary"].Visible).toBe(false)
+			local plate = (package.chrome or {}).control
+			local layers = if plate == nil then {} elseif plate.kind == "layered" then plate.layers or {} else { plate }
+			local selectedArt = false
+			for _, layer in layers do
+				selectedArt = selectedArt or (type(layer.asset) == "table" and layer.asset.selected ~= nil)
+			end
+			t.expect(all[".facet-tab-filled.facet-skinned"].BackgroundTransparency).toBe(if selectedArt then nil else 0)
+			t.expect(all[".facet-tab-filled > #SkinBoundary"].Visible).toBe(if selectedArt then nil else false)
 			t.expect(all[".facet-badge-captioned"].TextTransparency).toBe(1)
 			t.expect(all[".facet-skinned >> .facet-stepper-inset"].PaddingLeft.Offset >= 12).toBe(true)
 			stop()
 		end
 	end)
-	t.it("pads every role by the larger of its floor and the package's chrome insets, zero insets included", function()
+	t.it("pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included", function()
 		local cases = packages()
 		local bare = themes.neutralPackage()
 		bare.chrome = bare.chrome or {}
@@ -827,13 +833,18 @@ t.describe("native parity weaker paint", function()
 				local recipe = (entry.package.chrome or {})[floors.slot]
 				local inset = if recipe then recipe.contentInsets or {} else {}
 				local padding = all[".facet-" .. role .. "::UIPadding"]
+				local function side(floor: number, carve: number?): number
+					return if role == "button" or role == "field"
+						then floor + (carve or 0)
+						else math.max(floor, carve or 0)
+				end
 				t.expect(
 					`{entry.label} {role} {padding.PaddingLeft.Offset},{padding.PaddingRight.Offset},{padding.PaddingTop.Offset},{padding.PaddingBottom.Offset}`
 				).toBe(
-					`{entry.label} {role} {math.max(floors.x, inset.left or 0)},{math.max(floors.x, inset.right or 0)},{math.max(
+					`{entry.label} {role} {side(floors.x, inset.left)},{side(floors.x, inset.right)},{side(
 						floors.y,
-						inset.top or 0
-					)},{math.max(floors.y, inset.bottom or 0)}`
+						inset.top
+					)},{side(floors.y, inset.bottom)}`
 				)
 			end
 			stop()
@@ -852,19 +863,15 @@ t.describe("native parity weaker paint", function()
 		end
 		for _, entry in packages() do
 			local radius = entry.package.metrics.radii.control
+			local track = if radius > 0 then radius + 2 else 0
 			for _, palette in entry.package.style.themes do
 				local sheet, _, stop = sheetFor(entry.package, { theme = palette.name })
 				local all = rules(sheet)
 				local label = `{entry.label}/{palette.name}`
 				t.expect(`{label} track {all[".facet-segmented::UICorner"].CornerRadius.Offset}`)
-					.toBe(`{label} track {radius + 2}`)
+					.toBe(`{label} track {track}`)
 				t.expect(`{label} segment {all[".facet-segment::UICorner"].CornerRadius.Offset}`)
-					.toBe(
-						`{label} segment {math.max(
-							0,
-							radius + 2 - all[".facet-segmented::UIPadding"].PaddingLeft.Offset
-						)}`
-					)
+					.toBe(`{label} segment {math.max(0, track - all[".facet-segmented::UIPadding"].PaddingLeft.Offset)}`)
 				t.expect(all[".facet-segmented-square >> .facet-segment::UICorner"].CornerRadius.Offset).toBe(0)
 				t.expect(
 					`{label} level halves differ {all[".facet-level-segment"].BackgroundColor3 ~= all[".facet-level-on"].BackgroundColor3}`

@@ -35,9 +35,14 @@ local function all(root: any, name: string): { any }
 	return out
 end
 
-local function world(spec: any, preferred: string?): any
+local function world(spec: any, preferred: string?, tenFoot: boolean?): any
 	local engine: any = engines.new()
 	local gui = engine.new("GuiService")
+	if tenFoot then
+		gui.IsTenFootInterface = function()
+			return true
+		end
+	end
 	local input = engine.new("UserInputService")
 	input.GetFocusedTextBox = function()
 		return nil
@@ -185,11 +190,13 @@ t.describe("native Picker menu panel", function()
 			maxHeight = 96,
 			selected = Compose.cell("v1"),
 		})
+		searchable.screen.AbsoluteSize = searchable.engine.types.Vector2.new(800, 600)
 		find(searchable.screen, "P").Activated.fire()
-		local results = find(searchable.screen, "Results")
-		expect(results ~= nil).toBe(true)
-		find(results, "Choices").AbsoluteSize = searchable.engine.types.Vector2.new(400, 1320)
-		expect(results.Size.Y.Offset).toBe(96)
+		local body = find(find(searchable.screen, "PopoverModal"), "Body")
+		expect(find(body, "Choices") ~= nil).toBe(true)
+		find(body, "Flow"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+			searchable.engine.types.Vector2.new(400, 1320)
+		expect(body.Size.Y.Offset).toBe(96 - 16)
 		searchable.stop()
 		local tiny = world({ style = "menu", options = LONG, maxHeight = 10 })
 		open(tiny)
@@ -390,6 +397,21 @@ t.describe("native Picker cards", function()
 		w2.stop()
 	end)
 
+	t.it("a long radio or card label wraps inside its row instead of running past it", function()
+		local LONG = { { value = "a", label = string.rep("A long label ", 12) }, { value = "b", label = "B" } }
+		for _, style in { "radioGroup", "cards" } do
+			local w = world({ style = style, options = LONG, selected = Compose.cell("b") })
+			local button = find(w.screen, if style == "cards" then "Card-a" else "a")
+			local box = if style == "cards" then button else find(w.screen, "P")
+			box.AbsoluteSize = w.engine.types.Vector2.new(300, 44)
+			local title = find(button, "Title")
+			expect(`{style} {title.TextWrapped}`).toBe(`{style} true`)
+			local limit = title:FindFirstChildWhichIsA("UISizeConstraint")
+			expect(`{style} {limit ~= nil and limit.MaxSize.X < 300}`).toBe(`{style} true`)
+			w.stop()
+		end
+	end)
+
 	t.it("a row of cards wraps and long copy wraps inside its card; cards take no appearance", function()
 		local w = world({ style = "cards", options = CARDS, axis = "x" })
 		local layout = find(w.screen, "Cards"):FindFirstChildWhichIsA("UIListLayout")
@@ -456,6 +478,72 @@ t.describe("native Picker option indicator and search rows", function()
 		expect(find(trigger, "TrailingIcon").LayoutOrder > value.LayoutOrder).toBe(true)
 		w.selected:set("hard")
 		expect(value.Text).toBe("Hard")
+		w.stop()
+	end)
+
+	t.it("a segment whose live options carry no description centres its caption like a plain label", function()
+		local w = world({ style = "segmented", options = Compose.cell(THREE) })
+		local content = find(find(w.screen, "hard"), "Content")
+		expect(content.Size.X.Scale).toBe(1)
+		expect(content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment).toBe(w.E.HorizontalAlignment.Center)
+		w.stop()
+	end)
+
+	t.it("a vertical segmented strip grows to its segments and spreads them over a taller box", function()
+		local w = world({
+			style = "segmented",
+			axis = "y",
+			iconOnly = true,
+			options = {
+				{ value = "easy", label = "Easy", icon = "edit" },
+				{ value = "normal", label = "Normal", icon = "flag" },
+			},
+			Size = engines.new().types.UDim2.fromOffset(52, 60),
+		})
+		local strip = find(w.screen, "P")
+		expect(strip.AutomaticSize).toBe(w.E.AutomaticSize.Y)
+		expect(strip:FindFirstChildWhichIsA("UIListLayout").VerticalFlex).toBe(w.E.UIFlexAlignment.Fill)
+		expect(find(strip, "easy").AutomaticSize).toBe(w.E.AutomaticSize.Y)
+		w.stop()
+	end)
+
+	t.it("an automatic picker lists its options as rows at ten feet, whatever the pointer", function()
+		local five = table.clone(THREE)
+		table.insert(five, { value = "expert", label = "Expert" })
+		table.insert(five, { value = "master", label = "Master" })
+		local near = world({ options = five }, "KeyboardAndMouse")
+		near.screen.AbsoluteSize = near.engine.types.Vector2.new(300, 600)
+		expect(find(near.screen, "Trigger") ~= nil).toBe(true)
+		near.stop()
+		local far = world({ options = five }, "KeyboardAndMouse", true)
+		expect(find(far.screen, "Trigger")).toBeNil()
+		expect(find(far.screen, "master") ~= nil).toBe(true)
+		far.stop()
+	end)
+	t.it("a navigation link opens its list in a panel attached to the control, without dimming the page", function()
+		local w = world({ label = "Track", style = "navigationLink" })
+		w.screen.AbsoluteSize = w.engine.types.Vector2.new(800, 600)
+		local trigger = find(w.screen, "P")
+		trigger.AbsolutePosition = w.engine.types.Vector2.new(100, 100)
+		trigger.AbsoluteSize = w.engine.types.Vector2.new(300, 44)
+		trigger.Activated.fire()
+		local modal = find(w.screen, "PopoverModal")
+		expect(modal ~= nil).toBe(true)
+		local backdrop = find(modal, "DismissOutside")
+		expect(backdrop.BackgroundTransparency).toBe(1)
+		expect(backdrop:HasTag("facet-scrim")).toBe(false)
+		local panel = find(modal, "Panel")
+		expect(panel:HasTag("facet-panel")).toBe(true)
+		panel.AbsoluteSize = w.engine.types.Vector2.new(344, 200)
+		local left = panel.Position.X.Offset - panel.AnchorPoint.X * 344
+		local top = panel.Position.Y.Offset - panel.AnchorPoint.Y * 200
+		expect(math.abs(left + 344 - 400) < 1).toBe(true)
+		expect(top > 144).toBe(true)
+		expect(find(panel, "PickerSearch") ~= nil).toBe(true)
+		expect(find(modal, "Tail") ~= nil).toBe(true)
+		find(find(panel, "Choices"), "hard").Activated.fire()
+		expect(w.selected:peek()).toBe("hard")
+		expect(find(w.screen, "PopoverModal")).toBeNil()
 		w.stop()
 	end)
 end)

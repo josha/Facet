@@ -1,8 +1,12 @@
 --!strict
+local activation = require("./activation")
+local scrollLock = require("./scroll_lock")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
 local createSelection = require("./collection_selection")
 local attachSnap = require("./collection_snap")
+local reducedMotion = require("./motion")
+local adaptive = require("./adaptive")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -13,6 +17,10 @@ type Controls = {
 	VirtualGrid: CollectionTypes.CollectionConstructor,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
 }
+local FLING_FRICTION = 3
+local FLING_MINIMUM = 200
+local FLING_STOP = 20
+local FLING_WINDOW = 0.1
 type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 
 return function(ctx: Types.Context, UI: Controls): ()
@@ -22,6 +30,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local props, observe = ctx.props, ctx.observe
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
+	local GLIDE = 0.22
 	local behavior = {
 		"from",
 		"key",
@@ -31,6 +40,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"reducedMotion",
 		"direction",
 		"itemSize",
+		"cards",
 		"gap",
 		"crossGap",
 		"columns",
@@ -44,6 +54,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"maxRetained",
 		"focus",
 		"initialFocus",
+		"focusPolicy",
 		"autoFocus",
 		"wrapFocus",
 		"disabled",
@@ -53,7 +64,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 		"reorderable",
 		"onReorder",
 		"movable",
+		"deletable",
+		"rowDeletable",
+		"onDelete",
+		"editing",
 		"dragLabel",
+		"autoscroll",
 		"onSelectionChange",
 		"onActivate",
 		"onReachEnd",
@@ -110,7 +126,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Compose.cell({ offset = 0, size = 0 })
 		local cross, mountedVersion = Compose.cell(0), Compose.cell(0)
 		local status: ComposeTypes.Cell<ComposeTypes.OrderedCollectionStatus> = spec.status
-			or Compose.cell({
+			or Compose.cell((nil :: unknown) :: ComposeTypes.OrderedCollectionStatus)
+		if status:peek() == nil then
+			status:set({
 				mode = "windowed",
 				direction = "vertical",
 				total = 0,
@@ -124,13 +142,25 @@ return function(ctx: Types.Context, UI: Controls): ()
 				following = false,
 				measured = 0,
 			} :: ComposeTypes.OrderedCollectionStatus)
+		end
 		local controls: ComposeTypes.OrderedCollectionControls<K> = spec.controls or {}
 		local selection: ComposeTypes.Cell<CollectionTypes.Selection<K>> = spec.selection or Compose.cell({})
-		local selectionMode: "none" | "single" | "multi" = spec.selectionMode
+		local selectionMode: "none" | "single" | "multiple" = spec.selectionMode
 			or (if spec.selection or spec.onSelectionChange then "single" else "none")
 		local selectRow, extendSelection = createSelection(ctx, spec, source, keyOf, controls, selection, selectionMode)
 		local measured: ComposeTypes.Cell<{ [K]: number }> = Compose.cell({})
 		local horizontal = spec.direction == "horizontal"
+		local cardsMode = spec.itemSize == "cards"
+		assert(not cardsMode or horizontal, 'Facet collection: itemSize = "cards" needs a horizontal list')
+		assert(spec.cards == nil or cardsMode, 'Facet collection: cards needs itemSize = "cards"')
+		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if ctx.config.userInputService
+			then observe.PreferredInput(ctx.config.userInputService)
+			else nil
+		local frames = assert(runtime.host.frames)
+		local motionReduced = reducedMotion(ctx)
+		local function reduced(): boolean
+			return if spec.reducedMotion == nil then motionReduced() else read(spec.reducedMotion) == true
+		end
 		local root: ScrollingFrame
 		local scope: ComposeTypes.FocusScope<K>? = nil
 		local restoring = false
@@ -193,7 +223,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
-			if policy.disabled(spec.disabled, current:peek()) then
+			if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
 				return
 			end
 			local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
@@ -230,12 +260,25 @@ return function(ctx: Types.Context, UI: Controls): ()
 				wireSelection(child, key)
 			end
 		end
-		local wrapReorder: ((GuiObject, ComposeTypes.Readable<V>, K) -> Frame)?
-		local overlayReorder: ((boolean?) -> Frame)?
-		if spec.reorderable then
-			wrapReorder, overlayReorder = reorder(ctx, UI, spec, source, keyOf, controls, function()
+		local editor = if spec.reorderable or spec.deletable
+			then reorder(ctx, UI, spec, source, keyOf, controls, function()
 				return root
-			end, selection, Compose.cell(nil :: CollectionTypes.Sort?))
+			end, selection, Compose.cell(nil :: CollectionTypes.Sort?), spec.editing)
+			else nil
+		local overlayReorder = if editor then editor.overlay else nil
+		local function cardLayout(use: ComposeTypes.Use?): (number, number)
+			local options: { perView: number?, minWidth: number?, peek: number? } = spec.cards or {}
+			local available = if use then use(viewport).size else viewport:peek().size
+			local gap: number = read(spec.gap or 0, use)
+			local touch = preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Touch
+			local perView = options.perView
+				or if touch and available < adaptive.BREAKPOINTS.regular
+					then 1
+					else adaptive.columnsFor(available, options.minWidth or 200, gap)
+			local peek = options.peek
+				or if perView == 1 and options.perView == nil then math.clamp(available * 0.1, 24, 56) else 0
+			local extent = (available - peek - gap * (perView - 1) - (if peek > 0 then gap else 0)) / perView
+			return math.max(1, math.floor(extent)), perView
 		end
 		local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
 			return Compose.OrderedCollection({
@@ -266,7 +309,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					return {
 						kind = kind,
 						columns = columns,
-						itemSize = read(spec.itemSize or 40, use),
+						itemSize = if cardsMode then (cardLayout(use)) else read(spec.itemSize or 40, use) :: number,
 						gap = gap,
 						crossGap = crossGap,
 						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
@@ -275,13 +318,49 @@ return function(ctx: Types.Context, UI: Controls): ()
 				render = function(current, placement, key)
 					local lease = pool.acquire()
 					local node = runtime.borrow(lease.value.node) :: Frame
+					local glide = Compose.cell(0)
+					local stopGlide: (() -> ())? = nil
+					local function halt()
+						if stopGlide then
+							stopGlide()
+							stopGlide = nil
+						end
+					end
+					Compose.cleanup(halt)
+					local function shift(use: ComposeTypes.Use?): number
+						return if use then use(glide) else glide:peek()
+					end
+					local previous = placement:peek()
+					Compose.watch(function(use: ComposeTypes.Use)
+						local at = use(placement)
+						local delta = previous.offset + glide:peek() - at.offset
+						local moved = at.index ~= previous.index
+						previous = at
+						if not moved or kind ~= "list" or math.abs(delta) > viewport:peek().size or reduced() then
+							return
+						end
+						halt()
+						local elapsed = 0
+						glide:set(delta)
+						stopGlide = frames.onFrame(function(step: number)
+							elapsed = math.min(GLIDE, elapsed + step)
+							glide:set(delta * (1 - elapsed / GLIDE) ^ 3)
+							if elapsed >= GLIDE then
+								halt()
+							end
+						end)
+					end)
 					runtime.decorate(node, {
 						Name = tostring(key),
+						LayoutOrder = function(use: ComposeTypes.Use)
+							return use(placement).index
+						end,
 						Position = function(use: ComposeTypes.Use)
 							local at = use(placement)
+							local offset = at.offset + shift(use)
 							return if horizontal
-								then D2.fromOffset(at.offset, at.crossOffset)
-								else D2.fromOffset(at.crossOffset, at.offset)
+								then D2.fromOffset(offset, at.crossOffset)
+								else D2.fromOffset(at.crossOffset, offset)
 						end,
 						Size = function(use: ComposeTypes.Use)
 							local at = use(placement)
@@ -294,8 +373,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 					placed[key] = placement
 					local stop, mountedContent = runtime.mount(function(): Frame
 						local rendered = spec.render(current, placement, key)
-						if wrapReorder then
-							rendered = wrapReorder(rendered, current, key)
+						if editor then
+							rendered = editor.wrap(rendered, current, key)
+							local press = editor.press
+							Compose.cleanup(activation.providePress(rendered, function(value: InputObject)
+								press(key, value)
+							end))
 						end
 						local children: Types.FrameProps = {
 							Name = "Content",
@@ -304,30 +387,41 @@ return function(ctx: Types.Context, UI: Controls): ()
 							Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
 							rendered,
 						}
-						if spec.onSelectionChange or spec.onActivate or spec.selection or spec.selectionMode then
-							table.insert(
-								children,
-								1,
-								Host.TextButton "RowHit" {
-									AnchorPoint = V2.new(0.5, 0.5),
-									Position = D2.fromScale(0.5, 0.5),
-									Size = D2.fromScale(1, 1),
-									Text = "",
-									BackgroundTransparency = 1,
-									Selectable = true,
-									Interactable = function(use: ComposeTypes.Use)
-										return not policy.disabled(spec.disabled, use(current))
+						if
+							spec.onSelectionChange
+							or spec.onActivate
+							or spec.selection
+							or spec.selectionMode
+							or editor
+						then
+							local hit = Host.TextButton "RowHit" {
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.fromScale(1, 1),
+								Text = "",
+								BackgroundTransparency = 1,
+								Selectable = true,
+								Interactable = function(use: ComposeTypes.Use)
+									return not policy.disabled(spec.disabled, use(current))
+								end,
+								Activated = function(input: InputObject?, clicks: number?)
+									select(key, current, input, clicks)
+								end,
+								Attributes = {
+									FacetSelected = function(use: ComposeTypes.Use)
+										return read(selection, use)[key] == true
 									end,
-									Activated = function(input: InputObject?, clicks: number?)
-										select(key, current, input, clicks)
-									end,
-									Attributes = {
-										FacetSelected = function(use: ComposeTypes.Use)
-											return read(selection, use)[key] == true
-										end,
-									} :: EngineTypes.Attributes,
-								}
-							)
+								} :: EngineTypes.Attributes,
+							}
+							Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
+								select(key, current, input :: InputObject?, clicks :: number?)
+							end))
+							local function pressed(value: InputObject)
+								activation.press(rendered, value)
+							end
+							runtime.connect(hit, "InputBegan", pressed)
+							Compose.cleanup(activation.providePress(hit, pressed))
+							table.insert(children, 1, hit)
 						end
 						return Host.Frame(children)
 					end, node)
@@ -336,12 +430,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 					if spec.measure then
 						local measuredNode = content:GetChildren()[#content:GetChildren()] :: GuiObject
 						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
+						local slot: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(node)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
 						local factor: ComposeTypes.Readable<number> = if lift
 							then observe.Scale(lift)
 							else Compose.cell(1)
 						Compose.watch(function(use: ComposeTypes.Use)
-							local scale = math.max(use(factor), 0.001)
+							local rendered = if horizontal then use(slot).X else use(slot).Y
+							local assigned = if horizontal then node.Size.X.Offset else node.Size.Y.Offset
+							local ancestors = if rendered > 0 and assigned > 0 then rendered / assigned else 1
+							local scale = math.max(use(factor) * ancestors, 0.001)
 							local extent = (if horizontal then use(size).X else use(size).Y) / scale
 							if extent > 0 and measured:peek()[key] ~= extent then
 								local nextSizes = table.clone(measured:peek())
@@ -395,6 +493,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Size = D2.fromScale(1, 1),
 			AutomaticCanvasSize = E.AutomaticSize.None,
 			ScrollingDirection = if horizontal then E.ScrollingDirection.X else E.ScrollingDirection.Y,
+			VerticalScrollBarInset = if horizontal then E.ScrollBarInset.ScrollBar else nil,
 			ScrollBarThickness = 6,
 			SelectionGroup = true,
 			CanvasSize = function(use: ComposeTypes.Use)
@@ -407,8 +506,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 			Compose.show(function(use: ComposeTypes.Use)
 				return spec.mode == "all" or use(viewport).size > 0
 			end, function()
-				local nativeProps: Types.FrameProps =
-					{ Name = "Items", BackgroundTransparency = 1, Size = D2.fromScale(1, 1), directive }
+				local nativeProps: Types.FrameProps = {
+					Name = "Items",
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+
+					Attributes = { FacetDocumentOrder = true } :: EngineTypes.Attributes,
+					directive,
+				}
 				if kind == "grid" then
 					table.insert(
 						nativeProps,
@@ -431,8 +536,111 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return Host.Frame(nativeProps)
 			end)
 		)
+		local unit = Host.Frame({
+			Name = "LayoutUnit",
+			Size = D2.fromOffset(1, 1),
+			BackgroundTransparency = 1,
+			Visible = false,
+		})
+		table.insert(native, unit)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
+		scrollLock.own(root)
 		root:SetAttribute("FacetSelectionOwner", true)
+		local input = ctx.config.userInputService
+		if horizontal and input and not spec.reorderable then
+			local pressAt: number? = nil
+			local startOffset, dragging = 0, false
+			local samples: { Vector2 } = {}
+			local velocity = 0
+			local stopFling: (() -> ())? = nil
+			local function halt(): ()
+				if stopFling then
+					stopFling()
+					stopFling = nil
+				end
+			end
+			Compose.cleanup(halt)
+			local function limit(): number
+				return math.max(0, root.CanvasSize.X.Offset - root.AbsoluteWindowSize.X)
+			end
+			local function items(): Instance?
+				return root:FindFirstChild("Items")
+			end
+			local function inside(position: Vector3): boolean
+				local point = V2.new(position.X, position.Y)
+				local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
+				if layer and layer:IsA("ScreenGui") and layer.IgnoreGuiInset and gui then
+					point += gui:GetGuiInset()
+				end
+				local at, size = root.AbsolutePosition, root.AbsoluteSize
+				return point.X >= at.X and point.Y >= at.Y and point.X <= at.X + size.X and point.Y <= at.Y + size.Y
+			end
+			runtime.connect(input, "InputBegan", function(value: InputObject)
+				if
+					value.UserInputType == E.UserInputType.MouseButton1
+					and inside(value.Position)
+					and ctx.available(root)
+				then
+					halt()
+					pressAt, startOffset, dragging = value.Position.X, root.CanvasPosition.X, false
+					samples = { V2.new(frames.now(), value.Position.X) }
+				end
+			end)
+			runtime.connect(input, "InputChanged", function(value: InputObject)
+				if pressAt == nil or value.UserInputType ~= E.UserInputType.MouseMovement then
+					return
+				end
+				local travel = value.Position.X - pressAt
+				if not dragging and math.abs(travel) >= 6 then
+					dragging = true
+					local node = items()
+					if node and node:IsA("GuiObject") then
+						node.Interactable = false
+					end
+				end
+				local now = frames.now()
+				table.insert(samples, V2.new(now, value.Position.X))
+				while #samples > 2 and now - samples[1].X > FLING_WINDOW do
+					table.remove(samples, 1)
+				end
+				if dragging then
+					root.CanvasPosition = V2.new(math.clamp(startOffset - travel, 0, limit()), root.CanvasPosition.Y)
+				end
+			end)
+			runtime.connect(input, "InputEnded", function(value: InputObject)
+				if value.UserInputType ~= E.UserInputType.MouseButton1 or pressAt == nil then
+					return
+				end
+				pressAt = nil
+				if dragging then
+					dragging = false
+					local stop: (() -> ())? = nil
+					stop = frames.onFrame(function()
+						if stop then
+							stop()
+						end
+						local node = items()
+						if node and node:IsA("GuiObject") then
+							node.Interactable = true
+						end
+					end)
+					local first, last = samples[1], samples[#samples]
+					local span = last.X - first.X
+					velocity = if span > 0 then (first.Y - last.Y) / span else 0
+					if frames.now() - last.X < FLING_WINDOW and math.abs(velocity) > FLING_MINIMUM then
+						stopFling = frames.onFrame(function(step: number)
+							velocity *= math.exp(-FLING_FRICTION * step)
+							local at = root.CanvasPosition.X
+							local nextX = math.clamp(at + velocity * step, 0, limit())
+							root.CanvasPosition = V2.new(nextX, root.CanvasPosition.Y)
+							if math.abs(velocity) < FLING_STOP or nextX == at then
+								halt()
+							end
+						end)
+					end
+				end
+			end)
+		end
 		if overlayReorder then
 			runtime.mount(function()
 				return overlayReorder(true)
@@ -440,8 +648,13 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end
 		local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteWindowSize(root)
 		local position: ComposeTypes.Cell<Vector2> = observe.CanvasPosition(root)
+		local unitSize: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(unit)
 		Compose.watch(function(use: ComposeTypes.Use)
+			local scale = use(unitSize).X
 			local dimensions, at = use(size), use(position)
+			if scale > 0 then
+				dimensions /= scale
+			end
 			local offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge(use))
 			local extent = if horizontal then dimensions.X else dimensions.Y
 			cross:set(if horizontal then dimensions.Y else dimensions.X)
@@ -557,6 +770,34 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end
 			end
 			return nil
+		end
+		local focusPolicy = spec.focusPolicy or "key"
+		assert(focusPolicy == "key" or focusPolicy == "index", "Facet collection focusPolicy must be key or index")
+		if focusPolicy == "index" then
+			local slot: number? = nil
+			local function indexOf(rows: { V }, wanted: K): number?
+				for index, item in rows do
+					if keyOf(item, index) == wanted then
+						return index
+					end
+				end
+				return nil
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				local key = use(focusScope.current)
+				slot = if key ~= nil then indexOf(peekRows(), key) else nil
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local rows = source(use)
+				local key = focusScope.current:peek()
+				if key == nil or slot == nil or (editor and editor.busy()) or indexOf(rows, key) == slot then
+					return
+				end
+				local at = math.min(slot :: number, #rows)
+				if rows[at] ~= nil and not policy.disabled(spec.disabled, rows[at]) then
+					focusScope.focus(keyOf(rows[at], at))
+				end
+			end)
 		end
 		local lastFocused: K? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -758,7 +999,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 			return if direction == "right" or direction == "down" then 1 else -1
 		end
 		for _, binding in directions do
-			ctx.action(root, "Collection" .. binding.name, binding.keys, eligible, function()
+			local along = binding.direction == (if horizontal then "left" else "up")
+				or binding.direction == (if horizontal then "right" else "down")
+			local function enabled(use: ComposeTypes.Use): boolean
+				return (along or kind == "grid") and eligible(use)
+			end
+			ctx.action(root, "Collection" .. binding.name, binding.keys, enabled, function()
 				local before = focusScope.current:peek()
 				local after = focusScope.move(binding.direction)
 				if kind == "grid" and spec.wrapFocus and before ~= nil and after == before then
@@ -833,9 +1079,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end
 			end)
 		end
-		if spec.snap == "item" then
+		if spec.snap == "item" or cardsMode then
 			attachSnap(ctx, spec, root, controls, status, viewport, setOffset, function()
 				return writingOffset
+			end, function()
+				local _, perView = cardLayout()
+				return spec.snap == "item" or perView == 1
 			end)
 		end
 		return root

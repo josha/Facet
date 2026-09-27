@@ -65,12 +65,11 @@ return {
 					end
 				end
 			end)
-			return Host.ScrollingFrame "InheritedSubtree" {
+			return UI.ScrollView "InheritedSubtree" {
+				padding = 16,
+				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				AutomaticCanvasSize = E.AutomaticSize.Y,
-				CanvasSize = D2.new(),
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
 				UI.Text({ text = "Nested color and control state", textRole = "title" }),
 				UI.Toggle "PowerToggle" { label = "Panel power", value = live },
 				UI.Slider "BlendSlider" { label = "Tint", value = blend, min = 0, max = 100, step = 5 },

@@ -4,6 +4,7 @@ local Types = require("./types")
 local Engine = require("./engine_types")
 local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
+local scrollLock = require("./scroll_lock")
 export type LayoutControls = Layout.LayoutControls
 
 return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.LayoutControls
@@ -40,16 +41,52 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	end)
 
 	UI.Screen = ctx.construct("Screen", function(spec: Layout.ScreenProps): Frame
-		local properties, children = split(spec, { "gap", "padding", "align", "distribute", "width", "height" })
+		local properties, children =
+			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome" })
+		local chrome = spec.chrome or "device"
+		assert(
+			chrome == "device" or chrome == "band" or chrome == "edge",
+			"Facet UI.Screen: chrome must be device, band or edge"
+		)
+		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
+		local under = Compose.cell(0)
+		local distant = ctx.tenFoot()
+		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
+		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		local flow: Types.Flow = {
 			gap = spec.gap,
 			align = spec.align,
 			distribute = spec.distribute,
-			padding = if spec.padding == nil then "m" else spec.padding,
+			padding = function(use: ComposeTypes.Use): Types.Padding
+				local value = read(base, use)
+				local sides: Types.Sides = if type(value) == "table"
+					then value :: Types.Sides
+					else { top = value, right = value, bottom = value, left = value }
+				local margins = read(authored, use)
+				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
+					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
+					if type(margins) == "table" and chrome ~= "edge" then
+						return ctx.types.UDim.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
+					end
+					local fraction = if margins == nil and chrome ~= "edge" and distant(use) then FRACTION[name] else 0
+					return ctx.types.UDim.new(fraction, pixels)
+				end
+				return (
+					{
+						top = side("top", if chrome == "device" then use(under) else 0),
+						right = side("right", 0),
+						bottom = side("bottom", 0),
+						left = side("left", 0),
+					} :: unknown
+				) :: Types.Padding
+			end,
 			width = spec.width,
 			height = spec.height,
 		}
-		return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
+		local frame =
+			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
+		kit.underTopbar(frame, under)
+		return frame
 	end)
 
 	UI.ZStack = ctx.construct("ZStack", function(spec: Layout.ZStackProps): Frame
@@ -69,12 +106,11 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			return value == nil or value == "hug"
 		end
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local frame =
+		local frame = kit.plain(
 			Host.Frame(kit.assemble(native, properties, { kit.insets(spec.padding) }, children, function(node, index)
 				if node.ZIndex == 1 then
 					node.ZIndex = index
@@ -85,7 +121,9 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 						return count + 1
 					end)
 				end
-			end))
+			end)),
+			properties
+		)
 		if aligned then
 			Compose.watch(function(use: ComposeTypes.Use)
 				use(members)
@@ -122,9 +160,20 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local axis = spec.axis or "y"
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
-		local size, automatic = kit.extent(spec, "fill", "fill")
+		local scaled = false
+		local filling: { GuiObject } = {}
+		for _, child in children do
+			local node = child :: any
+			local gui = (typeof(node) == "Instance" or type(node) == "table")
+				and type(node.IsA) == "function"
+				and node:IsA("GuiObject")
+			if gui and node.Size.Y.Scale > 0 then
+				scaled = true
+				table.insert(filling, node)
+			end
+		end
+		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
 		local native: Engine.ScrollingFrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
@@ -138,16 +187,97 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				elseif axis == "y" then E.ScrollingDirection.Y
 				else E.ScrollingDirection.XY,
 		}
-		if axis ~= "x" then
-			native.VerticalScrollBarInset = E.ScrollBarInset.ScrollBar
-		end
+		native.VerticalScrollBarInset = if axis == "x" then E.ScrollBarInset.ScrollBar else E.ScrollBarInset.Always
 		if axis ~= "y" then
 			native.HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar
 		end
 		local flow: Types.Flow = { gap = spec.gap, align = spec.align, distribute = spec.distribute }
-		return Host.ScrollingFrame(
-			kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), kit.insets(spec.padding) }, children)
+		local insets = kit.insets(spec.padding)
+		local frame = kit.plain(
+			Host.ScrollingFrame(kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), insets }, children)),
+			properties
 		)
+		scrollLock.own(frame)
+		if axis ~= "x" and #filling > 0 then
+			local window = ctx.layoutSize(frame)
+			local top, bottom = Compose.cell(0), Compose.cell(0)
+			if insets then
+				local padTop, padBottom = ctx.observe.PaddingTop(insets), ctx.observe.PaddingBottom(insets)
+				Compose.watch(function(use: ComposeTypes.Use)
+					top:set(use(padTop).Offset)
+					bottom:set(use(padBottom).Offset)
+				end)
+			end
+			local frames = runtime.host.frames
+			for _, node in filling do
+				local size, automatic = node.Size, node.AutomaticSize
+				local rest = D2.new(size.X.Scale, size.X.Offset, 0, size.Y.Offset)
+				local written = rest
+				local authored = false
+				node.Size = rest
+				local floor = Compose.formula(function(use: ComposeTypes.Use): number
+					local room = use(window).Y - use(top) - use(bottom)
+					return math.max(0, size.Y.Scale * room + size.Y.Offset)
+				end)
+				local constraint = node:FindFirstChildWhichIsA("UISizeConstraint")
+				if constraint then
+					local minimum = constraint.MinSize
+					runtime.decorate(constraint, {
+						MinSize = function(use: ComposeTypes.Use): Vector2
+							return V2.new(minimum.X, math.max(minimum.Y, use(floor)))
+						end,
+					})
+				else
+					runtime.mount(function()
+						return Host.UISizeConstraint({
+							MinSize = function(use: ComposeTypes.Use): Vector2
+								return V2.new(0, use(floor))
+							end,
+						})
+					end, node)
+				end
+				local observed = ctx.observe.Size(node)
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(observed) ~= written then
+						authored = true
+					end
+				end)
+				if frames and (automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY) then
+					local last, settling: (() -> ())? = 0, nil
+					Compose.watch(function(use: ComposeTypes.Use)
+						local now = use(floor)
+						if now < last and settling == nil and not authored then
+							local scrolled, step = frame.CanvasPosition, 0
+							node.AutomaticSize = E.AutomaticSize.None
+							written = D2.new(size.X.Scale, size.X.Offset, 0, now)
+							node.Size = written
+							settling = frames.onFrame(function()
+								step += 1
+								if step == 1 then
+									if not authored then
+										written = rest
+										node.AutomaticSize, node.Size = automatic, rest
+									end
+									return
+								end
+								if settling then
+									settling()
+									settling = nil
+								end
+								frame.CanvasPosition = scrolled
+							end)
+						end
+						last = now
+					end)
+					Compose.cleanup(function()
+						if settling then
+							settling()
+						end
+					end)
+				end
+			end
+		end
+		return frame
 	end)
 
 	UI.Grid = ctx.construct("Grid", function(spec: Layout.GridProps): Frame
@@ -210,13 +340,15 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			layout[1] = Host.UIAspectRatioConstraint({ AspectRatio = spec.aspectRatio })
 		end
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		local node = Host.Frame(
-			kit.assemble(native, properties, { Host.UIGridLayout(layout), kit.insets(spec.padding) }, children)
+		local node = kit.plain(
+			Host.Frame(
+				kit.assemble(native, properties, { Host.UIGridLayout(layout), kit.insets(spec.padding) }, children)
+			),
+			properties
 		)
 		if flow == "column" then
 			local function count()
@@ -232,6 +364,222 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			runtime.connect(node, "ChildRemoved", count)
 			count()
 		end
+
+		local forward = if flow == "column" then "NextSelectionRight" else "NextSelectionDown"
+		local clamped = setmetatable({} :: { [GuiObject]: boolean }, { __mode = "k" })
+		local revision = Compose.cell(0)
+		local function bump()
+			revision:set(revision:peek() + 1)
+		end
+		runtime.connect(node, "ChildAdded", bump)
+		runtime.connect(node, "ChildRemoved", bump)
+		local function selectable(cell: GuiObject): GuiObject?
+			if cell.Selectable then
+				return cell
+			end
+			for _, inner in cell:GetDescendants() do
+				if inner:IsA("GuiObject") and inner.Selectable then
+					return inner
+				end
+			end
+			return nil
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(revision)
+			local list: { GuiObject } = {}
+			local index: { [GuiObject]: number } = {}
+			for position, child in node:GetChildren() do
+				if child:IsA("GuiObject") and child.Visible then
+					table.insert(list, child)
+					index[child] = position
+				end
+			end
+			table.sort(list, function(a: GuiObject, b: GuiObject): boolean
+				return if a.LayoutOrder ~= b.LayoutOrder then a.LayoutOrder < b.LayoutOrder else index[a] < index[b]
+			end)
+			local total = #list
+			local lanes = columns(use)
+			if flow == "column" then
+				lanes = math.max(1, math.ceil(total / lanes))
+			end
+			local lines = math.ceil(total / lanes)
+			local short = total - (lines - 1) * lanes
+			local last = if lines >= 2 and short < lanes then selectable(list[total]) else nil
+			for position, cell in list do
+				local target = selectable(cell)
+				if target then
+					local line, lane = (position - 1) // lanes + 1, (position - 1) % lanes + 1
+					local fields = target :: any
+					if last and line == lines - 1 and lane > short then
+						if fields[forward] == nil or clamped[target] then
+							fields[forward] = last
+							clamped[target] = true
+						end
+					elseif clamped[target] then
+						fields[forward] = nil
+						clamped[target] = nil
+					end
+				end
+			end
+		end)
+		return node
+	end)
+
+	local function scrolls(holder: Instance?, horizontal: boolean): boolean
+		if holder == nil or not holder:IsA("ScrollingFrame") then
+			return false
+		end
+		local direction = (holder :: ScrollingFrame).ScrollingDirection
+		return direction == E.ScrollingDirection.XY
+			or direction == (if horizontal then E.ScrollingDirection.X else E.ScrollingDirection.Y)
+	end
+	local function tracked(
+		node: GuiObject,
+		sizes: { [GuiObject]: ComposeTypes.Cell<Vector2> },
+		parents: { [GuiObject]: ComposeTypes.Cell<Instance?> },
+		members: ComposeTypes.Cell<number>
+	)
+		sizes[node] = ctx.observe.AbsoluteSize(node)
+		parents[node] = ctx.observe.Parent(node)
+		members:update(function(count: number): number
+			return count + 1
+		end)
+	end
+
+	UI.AdaptiveStack = ctx.construct("AdaptiveStack", function(spec: Layout.AdaptiveStackProps): Frame
+		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
+		local flow: Types.Flow = {
+			gap = spec.gap,
+			padding = spec.padding,
+			align = spec.align,
+			distribute = spec.distribute,
+			width = spec.width,
+			height = spec.height,
+		}
+		local axis = spec.axis
+		if axis ~= nil then
+			local function column(use: ComposeTypes.Use?): boolean
+				local value = read(axis, use)
+				assert(value == "x" or value == "y", "Facet AdaptiveStack axis must be x or y")
+				return value == "y"
+			end
+			local vertical: Types.Value<boolean> = if Compose.isReadable(axis) or type(axis) == "function"
+				then column
+				else column(nil)
+			return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
+		end
+		local vertical = Compose.cell(false)
+		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
+		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
+		local shown = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<boolean> }
+		local members = Compose.cell(0)
+		local size, automatic = kit.extent(flow, "fill", "hug")
+		local layout = kit.list(flow, vertical)
+		local native: Engine.FrameNativeProps = {
+			BorderSizePixel = 0,
+			Size = size,
+			AutomaticSize = automatic,
+		}
+		local node = kit.plain(
+			Host.Frame(kit.assemble(native, properties, { layout, kit.insets(spec.padding) }, children, function(child)
+				shown[child] = ctx.observe.Visible(child)
+				tracked(child, sizes, parents, members)
+			end)),
+			properties
+		)
+		local box, holder, content =
+			ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node), ctx.observe.AbsoluteContentSize(layout)
+		local rowNeed, lastCount = 0, 0
+		local retried: string?, refused: string? = nil, nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(members)
+			local width, row = use(box).X, use(content).X
+			if scrolls(use(holder), true) then
+				vertical:set(false)
+				return
+			end
+			local padding = node:FindFirstChildWhichIsA("UIPadding")
+			local offered = if padding then width - padding.PaddingLeft.Offset - padding.PaddingRight.Offset else width
+			local count, total = 0, 0
+			for child, extent in sizes do
+				if use(parents[child]) == node and use(shown[child]) then
+					count += 1
+					if child.Size.X.Scale == 0 and child:FindFirstChildWhichIsA("UIFlexItem") == nil then
+						total += use(extent).X
+					end
+				end
+			end
+			local key = `{total}/{count}/{offered}`
+			if not vertical:peek() then
+				rowNeed = row
+				if rowNeed > offered then
+					refused = retried
+				end
+			elseif read(spec.align, use) ~= "stretch" then
+				rowNeed = if key == refused
+					then math.huge
+					else total + kit.spacing(spec.gap, use) * math.max(count - 1, 0)
+			elseif count ~= lastCount then
+				rowNeed = 0
+			end
+			lastCount = count
+			if width > 0 then
+				if vertical:peek() and rowNeed <= offered then
+					retried = key
+				end
+				vertical:set(rowNeed > offered)
+			end
+		end)
+		return node
+	end)
+
+	UI.ViewThatFits = ctx.construct("ViewThatFits", function(spec: Layout.ViewThatFitsProps): Frame
+		local properties, children = split(spec, { "width", "height" })
+		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
+		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
+		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
+		local members = Compose.cell(0)
+		local box: Types.Box = { width = spec.width, height = spec.height }
+		local size, automatic = kit.extent(box, "fill", "hug")
+		local native: Engine.FrameNativeProps = {
+			BorderSizePixel = 0,
+			Size = size,
+			AutomaticSize = automatic,
+		}
+		local node = kit.plain(
+			Host.Frame(kit.assemble(native, properties, { kit.list({}, true) }, children, function(child)
+				tracked(child, sizes, parents, members)
+			end)),
+			properties
+		)
+		local offered, holder = ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(members)
+			local offer, parent = use(offered), use(holder)
+			local openX = read(spec.width, use) == "hug" or offer.X <= 0 or scrolls(parent, true)
+			local height = read(spec.height, use)
+			local openY = height == nil or height == "hug" or offer.Y <= 0 or scrolls(parent, false)
+			local candidates: { GuiObject } = {}
+			for child in sizes do
+				if use(parents[child]) == node then
+					table.insert(candidates, child)
+				end
+			end
+			table.sort(candidates, function(a, b)
+				return a.LayoutOrder < b.LayoutOrder
+			end)
+			local winner = candidates[#candidates]
+			for _, child in candidates do
+				local extent = use(sizes[child])
+				if (openX or extent.X <= offer.X) and (openY or extent.Y <= offer.Y) then
+					winner = child
+					break
+				end
+			end
+			for _, child in candidates do
+				child.Visible = child == winner
+			end
+		end)
 		return node
 	end)
 
@@ -243,7 +591,6 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local size, automatic = kit.extent(box, "hug", "hug")
 		local failed: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
 		local native: Engine.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
@@ -259,7 +606,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			end
 			return (spec.fallback(failure, retry) :: unknown) :: ComposeTypes.Node
 		end)
-		local root = Host.Frame(kit.assemble(native, properties, {}, { region }))
+		local root = kit.plain(Host.Frame(kit.assemble(native, properties, {}, { region })), properties)
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("FacetError", use(failed))
 		end)
@@ -352,11 +699,10 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 	UI.Spacer = ctx.construct("Spacer", function(spec: Layout.SpacerProps): Frame
 		local native: Engine.FrameNativeProps = {
 			Name = "Spacer",
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 		}
-		local node = Host.Frame(ctx.props(spec, { "minLength" }, native))
+		local node = kit.plain(Host.Frame(ctx.props(spec, { "minLength" }, native)), spec)
 		local along = stackAxis(node, nil)
 		if spec.Size == nil then
 			runtime.decorate(node, {

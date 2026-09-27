@@ -218,18 +218,32 @@ return function(ctx: Shared.Context): Chrome
 		end
 		local body: GuiObject = plate
 		if spec.controlSize ~= nil then
+			local function plateHeight(use: ComposeTypes.Use): number
+				local package = read(ctx.config.theme, use)
+				local skin = package and package.chrome and package.chrome.field
+				local carve: { top: number?, bottom: number? } = if skin
+						and skin.kind ~= "native"
+						and skin.kind ~= "none"
+					then skin.contentInsets or {}
+					else {}
+				local line = ctx.controlSize(spec.controlSize, "iconSize", use)
+				return math.max(
+					ctx.controlSize(spec.controlSize, "height", use),
+					(carve.top or 0) + (carve.bottom or 0) + line
+				)
+			end
 			runtime.decorate(plate, {
 				AnchorPoint = V2.new(0, 0.5),
 				Position = D2.fromScale(0, 0.5),
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(1, 0, 0, ctx.controlSize(spec.controlSize, "height", use))
+					return D2.new(1, 0, 0, plateHeight(use))
 				end,
 				AutomaticSize = E.AutomaticSize.None,
 			})
 			body = Host.Frame(plate.Name .. "+target")({
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
-					return D2.new(1, 0, 0, math.max(44, (ctx.controlSize(spec.controlSize, "height", use))))
+					return D2.new(1, 0, 0, math.max(44, plateHeight(use)))
 				end,
 				plate :: ComposeTypes.Child,
 			})

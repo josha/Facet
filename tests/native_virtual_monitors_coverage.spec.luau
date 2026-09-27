@@ -97,6 +97,9 @@ local function tour(world: any)
 	card:_fireSignal("MouseLeave")
 	press(card, "Body")
 	press(press(target, "Play"), "Primary")
+	local overlay = find(world.Desktop, "LaunchOverlay")
+	t.expect(overlay.Visible).toBe(true)
+	t.expect(find(overlay, "LaunchTitle").Text).toBe(model.selectedGame:peek().title)
 	press(target, "AboutRating")
 	press(find(target, "DetailSection"), "similar")
 	press(target, "close")
@@ -113,6 +116,9 @@ local function tour(world: any)
 	press(avatar, "Summary")
 	press(target, "Done")
 	press(avatar, "MotionRow")
+	model.resetAvatarPresented:set(true)
+	press(target, "reset")
+	t.expect(find(target, "ToastRow") ~= nil).toBe(true)
 	local chat = world.Chat
 	press(chat, "WakeMonitor")
 	model.chat.draft:set("What game should I play with friends?")
@@ -122,6 +128,7 @@ local function tour(world: any)
 		model.step(0.1, true)
 	end
 	t.expect(find(chat, "Feedback") ~= nil).toBe(true)
+	t.expect(overlay.Visible).toBe(false)
 	local desktop = world.Desktop
 	t.expect(find(desktop, "Apps") ~= nil).toBe(true)
 end
@@ -177,6 +184,9 @@ t.describe("native virtual monitors coverage", function()
 		runtime:dispose()
 
 		local entry = entryFields()
+		if entry["Facet.app"] then
+			entry["UI.focusRing"] = true
+		end
 		local missing, total = {}, 0
 		local function check(prefix: string, names: { string })
 			for _, name in names do

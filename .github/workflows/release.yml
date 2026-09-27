@@ -44,7 +44,7 @@ jobs:
       # ORGANIZATION. `github.repository_owner` is the org name when a repository
       # is org-owned, and no human's login equals it, so this step would refuse
       # every actor including a legitimate maintainer. Facet's repository is
-      # user-owned (`josha/Facet`), where the owner's login IS the actor's login.
+      # user-owned (`<owner>/Facet`), where the owner's login IS the actor's login.
       # If it ever moves to an org, replace this with an explicit allowlist or a
       # team-membership check — do not simply delete it, because the protected
       # `release` environment governs WHERE a job may run, not WHO started it.

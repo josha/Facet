@@ -169,47 +169,56 @@ t.describe("native Vote", function()
 		end) ~= nil).toBe(true)
 	end)
 
-	t.it("keeps two votes and a chip as separate targets at the floor, with a disclosed summary", function()
-		local a, b = Compose.cell("up"), Compose.cell("none")
-		local world = mount({
-			value = a,
-			summary = "99% liked",
-			onChange = function(nextValue: string)
-				a:set(nextValue)
-			end,
-		}, function(UI)
-			return {
-				UI.Vote("W")({
-					value = b,
-					controlSize = "compact",
-					onChange = function(nextValue: string)
-						b:set(nextValue)
-					end,
-				}),
-				UI.Chip({ Name = "Tag", label = "Racing", selected = Compose.cell(false) }),
-			}
-		end)
-		local targets = {}
-		for _, root in { "V", "W" } do
-			for side in SEGMENT do
-				local node = option(world, side, root)
-				local constraint = node:FindFirstChildWhichIsA("UISizeConstraint")
-				t.expect(constraint.MinSize.X >= 44 and constraint.MinSize.Y >= 44).toBe(true)
-				t.expect(targets[node]).toBeNil()
-				targets[node] = true
+	t.it(
+		"sizes each vote square to its rung, floors it at the touch target on touch, and discloses the summary",
+		function()
+			local a, b = Compose.cell("up"), Compose.cell("none")
+			local world = mount({
+				value = a,
+				summary = "99% liked",
+				onChange = function(nextValue: string)
+					a:set(nextValue)
+				end,
+			}, function(UI)
+				return {
+					UI.Vote("W")({
+						value = b,
+						controlSize = "compact",
+						onChange = function(nextValue: string)
+							b:set(nextValue)
+						end,
+					}),
+					UI.Chip({ Name = "Tag", label = "Racing", selected = Compose.cell(false) }),
+				}
+			end)
+			local targets = {}
+			for _, root in { "V", "W" } do
+				for side in SEGMENT do
+					local node = option(world, side, root)
+					t.expect(node.Size.X.Offset).toBe(if root == "W" then 36 else 44)
+					t.expect(node.Size.Y.Offset).toBe(node.Size.X.Offset)
+					t.expect(node:HasTag("facet-button-glyph")).toBe(true)
+					t.expect(targets[node]).toBeNil()
+					targets[node] = true
+				end
 			end
+			world.input.TouchEnabled = true
+			for side in SEGMENT do
+				local constraint = option(world, side, "W"):FindFirstChildWhichIsA("UISizeConstraint")
+				t.expect(constraint.MinSize.X >= 44 and constraint.MinSize.Y >= 44).toBe(true)
+			end
+			t.expect(option(world, "up", "W"):GetAttribute("controlSize")).toBe("compact")
+			t.expect(option(world, "up"):GetAttribute("label")).toBe("Upvote")
+			t.expect(option(world, "down"):GetAttribute("label")).toBe("Downvote")
+			local summary = world.find("Summary", world.find("V"))
+			t.expect(summary.Text).toBe("99% liked")
+			t.expect(summary:GetAttribute("FacetLabel")).toBe("99% liked")
+			t.expect(summary.TextWrapped).toBe(false)
+			t.expect(world.find("Summary", world.find("W")).Visible).toBe(false)
+			t.expect(b:peek()).toBe("none")
+			world.stop()
 		end
-		t.expect(option(world, "up", "W"):GetAttribute("controlSize")).toBe("compact")
-		t.expect(option(world, "up"):GetAttribute("label")).toBe("Upvote")
-		t.expect(option(world, "down"):GetAttribute("label")).toBe("Downvote")
-		local summary = world.find("Summary", world.find("V"))
-		t.expect(summary.Text).toBe("99% liked")
-		t.expect(summary:GetAttribute("FacetLabel")).toBe("99% liked")
-		t.expect(summary.TextWrapped).toBe(false)
-		t.expect(world.find("Summary", world.find("W")).Visible).toBe(false)
-		t.expect(b:peek()).toBe("none")
-		world.stop()
-	end)
+	)
 
 	t.it("repaints the Choices vote only from its caller's value and follows the summary", function()
 		local scenario = require("../examples/gallery/scenarios/selection_controls") :: any

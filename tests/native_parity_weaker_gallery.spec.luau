@@ -146,6 +146,7 @@ local function galleryWorld(options: any?): any
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
 				reducedMotion = ctx.reducedMotion,
+				environment = ctx.environment,
 			} :: any
 		)
 		sheet = Facet.themes.createStyleSheet(runtime, ctx.theme, { types = engine.types, theme = ctx.themeMode })
@@ -382,15 +383,19 @@ t.describe("native parity weaker gallery", function()
 		t.expect(ctx.selection:peek()).toBe("all-controls")
 		t.expect(ctx.active:peek()).toBe("all-controls")
 		t.expect(ctx.errorMessage:peek()).toBe(nil)
-		local bar = find(find(g.root, "Demos"), "Tabs")
-		local first = find(bar, "all-controls", "TextButton")
-		t.expect(first:HasTag("facet-tab-current")).toBe(true)
-		t.expect(first:HasTag("facet-tab-filled")).toBe(true)
-		for _, demo in catalogue.list() do
-			if demo.id ~= "all-controls" then
-				t.expect(find(bar, demo.id, "TextButton"):HasTag("facet-tab-current")).toBe(false)
+		local picker = find(find(g.root, "Toolbar"), "Showcase")
+		local function shown(): string
+			if picker.Text ~= "" then
+				return picker.Text
 			end
+			for _, node in picker:GetDescendants() do
+				if (node:IsA("TextLabel") or node:IsA("TextButton")) and node.Text ~= "" then
+					return node.Text
+				end
+			end
+			return ""
 		end
+		t.expect(shown()).toBe("All controls")
 		t.expect(table.concat(demoPanels(g), ",")).toBe("all-controls")
 		local visited = {}
 		for _ = 1, #catalogue.list() do
@@ -398,7 +403,7 @@ t.describe("native parity weaker gallery", function()
 			table.insert(visited, id)
 			t.expect(ctx.active:peek()).toBe(id)
 			t.expect(ctx.errorMessage:peek()).toBe(nil)
-			t.expect(find(bar, id, "TextButton"):HasTag("facet-tab-current")).toBe(true)
+			t.expect(shown()).toBe(catalogue.list()[#visited].title)
 			local answer = gallery.dispatch(ctx, "showNext", 1)
 			t.expect(answer.ok).toBe(true)
 			g.engine.heartbeat.fire(1 / 60)
@@ -409,8 +414,7 @@ t.describe("native parity weaker gallery", function()
 		end
 		t.expect(table.concat(visited, ",")).toBe(table.concat(order, ","))
 		t.expect(ctx.selection:peek()).toBe("all-controls")
-		t.expect(first:HasTag("facet-tab-current")).toBe(true)
-		t.expect(first:HasTag("facet-tab-filled")).toBe(true)
+		t.expect(shown()).toBe("All controls")
 		t.expect(ctx.themeName:peek()).toBe("Neutral")
 		g.stop()
 	end)
@@ -492,14 +496,18 @@ t.describe("native parity weaker gallery", function()
 
 	t.it("apps-193 collections is the next peer tab after all controls in the one demo list", function()
 		local g = galleryWorld()
-		local bar = find(find(g.root, "Demos"), "Tabs")
-		local first, collections = find(bar, "all-controls", "TextButton"), find(bar, "collections", "TextButton")
+		find(find(g.root, "Toolbar"), "Showcase").Activated.fire(input(g, "gamepad"))
+		local rows = {}
+		for _, node in g.target:GetDescendants() do
+			if string.sub(node.Name, 1, 5) == "Demo-" and node:IsA("GuiButton") then
+				rows[string.sub(node.Name, 6)] = node
+			end
+		end
+		local first, collections = rows["all-controls"], rows.collections
 		t.expect(collections.Parent).toBe(first.Parent)
 		t.expect(collections.LayoutOrder).toBe(first.LayoutOrder + 1)
 		t.expect(collections.Selectable).toBe(true)
 		t.expect(collections.Visible).toBe(true)
-		t.expect(first.NextSelectionDown == nil or first.NextSelectionDown == collections).toBe(true)
-		g.gui.SelectedObject = first
 		collections.Activated.fire(input(g, "gamepad"))
 		t.expect(g.ctx.selection:peek()).toBe("collections")
 		t.expect(g.ctx.active:peek()).toBe("collections")
@@ -968,7 +976,7 @@ t.describe("native parity weaker gallery", function()
 		t.expect(showroom.LayoutOrder < race.LayoutOrder).toBe(true)
 		local scale = find(find(g.root, "Gallery"), "ViewingDistance", "UIScale")
 		g.ctx.viewingDistance:set("ten-foot")
-		t.expect(scale.Scale).toBe(1.5)
+		t.expect(scale.Scale).toBe(1)
 		t.expect(find(g.root, "Showroom")).toBe(showroom)
 		t.expect(find(g.root, "RaceSetup")).toBe(race)
 		t.expect(layout.FillDirection).toBe(g.types.Enum.FillDirection.Vertical)
@@ -1088,6 +1096,7 @@ t.describe("native parity weaker gallery", function()
 		local built, node, stop = mountBuilt(w, load("fixture", "progress_ring"))
 		t.expect(built.steps.setProgress65().progress).toBe(0.65)
 		t.expect(hasText(find(node, "Bar"), "3 of 5")).toBe(true)
+		t.expect(find(find(node, "Loading"), "Fill1") ~= nil).toBe(true)
 		t.expect(built.steps.sizeLarge().controlSize).toBe("large")
 		local large = find(find(node, "Busy"), "Indicator").Size.X.Offset
 		t.expect(built.steps.sizeCompact().controlSize).toBe("compact")

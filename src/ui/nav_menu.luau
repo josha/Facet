@@ -9,8 +9,12 @@ local fieldChrome = require("./field_chrome")
 local activation = require("./activation")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
+local parts = require("./overlay_parts")
+local Overlay = require("./overlay_types")
 
-type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean? }
+local RADIO_MARK = 18 + 8
+
+type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, ruled: boolean?, edge: boolean? }
 
 return function(
 	ctx: Types.Context,
@@ -20,6 +24,7 @@ return function(
 		SplitButton: Nav.SplitButtonConstructor,
 		ComboBox: Types.Constructor<Nav.ComboBoxSpec, Frame>,
 		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+		Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
 		TextInput: Types.Constructor<Inputs.TextInputProps, TextBox | Frame>,
 		Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
 		Avatar: Types.Constructor<Media.AvatarProps, TextButton>,
@@ -66,6 +71,46 @@ return function(
 		end
 		return labels
 	end
+
+	local function layoutWidth(node: GuiObject): ComposeTypes.Readable<number>
+		local extent = ctx.observe.AbsoluteSize(node)
+		local _, units = ctx.runtime.mount(function()
+			return ctx.Host.Folder "Units" {
+				ctx.Host.Frame "Unit" { Size = ctx.types.UDim2.fromOffset(1, 1), Visible = false },
+			}
+		end, node)
+		local pixel = ctx.observe.AbsoluteSize((units :: Instance):FindFirstChild("Unit") :: GuiObject)
+		return Compose.formula(function(use: ComposeTypes.Use): number
+			local unit = (use(pixel) :: Vector2).X
+			local width = (use(extent) :: Vector2).X / (if unit > 0 then unit else 1)
+			return if width > 0 then width else math.huge
+		end)
+	end
+
+	local function wrapCaptions(
+		button: GuiObject,
+		controlSize: Types.Value<Types.ControlSize>?,
+		across: (ComposeTypes.Use) -> number
+	)
+		local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
+		local function room(use: ComposeTypes.Use): Vector2
+			local package = ctx.read(ctx.config.theme, use)
+			local recipe = if package and package.chrome then package.chrome.control else nil
+			local insets = if recipe then recipe.contentInsets else nil
+			local side = ctx.controlSize(controlSize, "paddingX", use)
+			local chrome = math.max(side, if insets then insets.left or 0 else 0)
+				+ math.max(side, if insets then insets.right or 0 else 0)
+				+ if glyph then ctx.controlSize(controlSize, "iconSize", use) + 8 else 0
+			return V2.new(math.max(0, across(use) - chrome), math.huge)
+		end
+		for _, name in { "Title", "Description" } do
+			local caption = button:FindFirstChild(name, true)
+			if caption and caption:IsA("TextLabel") then
+				caption.TextWrapped = true
+				surfaces.attach(caption, { Host.UISizeConstraint({ MaxSize = room }) })
+			end
+		end
+	end
 	local function writable(cell: { set: unknown }, name: string)
 		assert(type(cell) == "table" and type(cell.set) == "function", name .. " requires a writable Compose cell")
 	end
@@ -86,6 +131,7 @@ return function(
 		"align",
 		"width",
 		"maxHeight",
+		"controls",
 	}
 	local DIM_FIELDS: { [string]: { [string]: boolean } } = {
 		fixed = { px = true },
@@ -231,6 +277,37 @@ return function(
 		end
 		return result
 	end
+	local function advice<V>(items: { Nav.MenuItem<V> }, path: string, depth: number, notes: { string }): { string }
+		local actions, destructive = 0, nil :: number?
+		for index, item in items do
+			if item.divider ~= true then
+				actions += 1
+				if read(item.role) == "destructive" then
+					destructive = index
+				end
+				if item.children then
+					local id = item.id or tostring(index)
+					if depth + 1 >= 2 then
+						table.insert(
+							notes,
+							`Facet UI.Menu: submenu '{id}' nests {depth + 1} levels deep. The platform guidance advises a single level.`
+						)
+					end
+					advice(read(item.children), `{path}[{index}].children`, depth + 1, notes)
+				end
+			end
+		end
+		if actions > 5 then
+			table.insert(notes, `Facet UI.Menu: {path} holds {actions} items; past about five, consider a new menu.`)
+		end
+		if destructive and destructive ~= #items then
+			table.insert(
+				notes,
+				`Facet UI.Menu: {path}[{destructive}] is destructive but not last; put destructive items at the end of the menu.`
+			)
+		end
+		return notes
+	end
 	local function menuPanel<V>(
 		spec: Nav.MenuSpec<V>,
 		close: () -> (),
@@ -346,6 +423,10 @@ return function(
 				table.insert(out, { key = key, item = item, ruled = afterRow and item.divider ~= true })
 				afterRow = item.divider ~= true
 			end
+			if #out > 0 then
+				out[1].edge = true
+				out[#out].edge = true
+			end
 			return out
 		end)
 		local rows = Host.Frame "MenuRows" {
@@ -372,12 +453,10 @@ return function(
 			Compose.show(function(use: ComposeTypes.Use)
 				return #use(path) > 0 and use(sheeted)
 			end, function()
-				return UI.Button "Back" {
-					label = spec.backLabel or "Back",
-					onActivate = back,
+				return parts.back(ctx, UI, spec.backLabel, back, {
 					LayoutOrder = -1,
 					Size = D2.new(1, 0, 0, 44),
-				}
+				})
 			end),
 			Compose.keyed({
 				from = entries,
@@ -468,6 +547,13 @@ return function(
 						end,
 					})
 					row:AddTag("facet-menu-item")
+					Compose.watch(function(use: ComposeTypes.Use)
+						if use(entrySource).edge == true and not use(sheeted) then
+							row:AddTag("facet-menu-end")
+						else
+							row:RemoveTag("facet-menu-end")
+						end
+					end)
 					fillTitle(row)
 					surfaces.attach(row, {
 						ctx.styled(
@@ -657,28 +743,35 @@ return function(
 				return D2.fromOffset(direction * SLIDE * (1 - level(use)), 0)
 			end,
 		})
-		local panel = Host.ScrollingFrame "MenuPanel" {
+		local scroller = Host.ScrollingFrame "MenuScroll" {
 			Selectable = false,
-			Size = D2.fromOffset(280, 0),
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
 			BorderSizePixel = 0,
 			AutomaticCanvasSize = E.AutomaticSize.Y,
 			CanvasSize = D2.fromOffset(0, 0),
 			ScrollingDirection = E.ScrollingDirection.Y,
 			ScrollBarThickness = 4,
+			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+			rows,
+		}
+		local panel = Host.Frame "MenuPanel" {
+			Size = D2.fromOffset(280, 0),
+			BorderSizePixel = 0,
 			if shown
 				then ctx.styled(
-					Host.CanvasGroup "MenuGroup" {
+					ctx.fade {
+						Name = "MenuGroup",
 						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
+						Size = D2.fromScale(1, 1),
 						GroupTransparency = function(use: ComposeTypes.Use)
 							return 1 - shown(use)
 						end,
-						rows,
+						scroller,
 					},
 					"menu-group"
 				)
-				else rows,
+				else scroller,
 		}
 		if shown then
 			surfaces.attach(panel, {
@@ -732,6 +825,7 @@ return function(
 			end
 			return (use(extent).X > 0 and use(extent).X < math.max(600, (#use(path) + 1) * 288 + 16))
 				or use(preferred) == E.PreferredInput.Touch
+				or use(preferred) == E.PreferredInput.Gamepad
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			sheeted:set(use(asSheet))
@@ -838,9 +932,12 @@ return function(
 		end
 		runtime.decorate(panel, {
 			Size = function(use: ComposeTypes.Use)
+				local function carve(side: string): number
+					return surfaces.inset(0, side, nil, use)
+				end
 				local _, insetTop, _, insetBottom = insets(use)
 				local height = math.min(
-					use(rowSize).Y,
+					use(rowSize).Y + carve("top") + carve("bottom"),
 					math.max(44, use(extent).Y - 24 - insetTop - insetBottom),
 					if spec.maxHeight then math.max(60, spec.maxHeight) else math.huge
 				)
@@ -848,7 +945,7 @@ return function(
 					local insetLeft, _, insetRight = insets(use)
 					return D2.new(1, -24 - insetLeft - insetRight, 0, height)
 				end
-				return D2.fromOffset(panelWidth(use), height)
+				return D2.fromOffset(panelWidth(use) + carve("left") + carve("right"), height)
 			end,
 		})
 		if shown then
@@ -942,6 +1039,7 @@ return function(
 			end
 		end
 		Compose.cleanup(stopSettling)
+		local windowSize = ctx.observe.AbsoluteSize(scroller)
 		local rowLayout = rows:FindFirstChildWhichIsA("UIListLayout")
 		local laidOut = if rowLayout then ctx.observe.AbsoluteContentSize(rowLayout) else Compose.cell(V2.zero)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -955,20 +1053,20 @@ return function(
 				centered = level
 				return
 			end
-			use(measured)
+			use(windowSize)
 			use(rowSize)
 			local row = rows:FindFirstChild(chosen)
 			if row == nil or not row:IsA("GuiObject") then
 				return
 			end
 			local function target(): number?
-				local window, canvas = panel.AbsoluteSize.Y, rows.AbsoluteSize.Y
+				local window, canvas = scroller.AbsoluteSize.Y, rows.AbsoluteSize.Y
 				if window <= 0 or canvas <= 0 or row.Parent ~= rows then
 					return nil
 				end
 				local gap = if rowLayout then rowLayout.Padding.Offset else 0
-				local top = rows.AbsolutePosition.Y - panel.AbsolutePosition.Y + panel.CanvasPosition.Y
-				canvas = math.max(canvas + top, panel.AbsoluteCanvasSize.Y)
+				local top = rows.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
+				canvas = math.max(canvas + top, scroller.AbsoluteCanvasSize.Y)
 				local inset = rows:FindFirstChildWhichIsA("UIPadding")
 				if inset then
 					local ok, styled = pcall(function(): UDim
@@ -997,7 +1095,7 @@ return function(
 			if first == nil then
 				return
 			end
-			panel.CanvasPosition = V2.new(panel.CanvasPosition.X, first)
+			scroller.CanvasPosition = V2.new(scroller.CanvasPosition.X, first)
 			centered = level
 			local services = ctx.config.services
 			local frames = services and services.RunService
@@ -1007,8 +1105,8 @@ return function(
 				settling = frames.Heartbeat:Connect(function()
 					remaining -= 1
 					local fresh = target()
-					if fresh and panel.CanvasPosition.Y ~= fresh then
-						panel.CanvasPosition = V2.new(panel.CanvasPosition.X, fresh)
+					if fresh and scroller.CanvasPosition.Y ~= fresh then
+						scroller.CanvasPosition = V2.new(scroller.CanvasPosition.X, fresh)
 					end
 					if remaining <= 0 then
 						stopSettling()
@@ -1206,6 +1304,11 @@ return function(
 			"Facet UI.Menu: maxHeight must be a finite number of pixels above 0"
 		)
 		checkWidth(read(spec.width))
+		if spec.controls then
+			spec.controls.diagnostics = function(): { string }
+				return advice(read(spec.items), "items", 0, {})
+			end
+		end
 		if spec.label ~= nil and spec.trigger ~= nil then
 			error("Facet UI.Menu: give label or trigger, not both", 0)
 		end
@@ -1450,6 +1553,90 @@ return function(
 			return read(use(source).icon, use) or ""
 		end
 	end
+	local function slideSelection(
+		picker: Frame,
+		boxes: {
+			[GuiObject]: {
+				order: ComposeTypes.Readable<number>,
+				size: ComposeTypes.Readable<Vector2>,
+				at: ComposeTypes.Readable<Vector2>,
+			},
+		},
+		currentOrder: ComposeTypes.Cell<number>,
+		indicator: Types.Value<string>?
+	): ()
+		local reduced = reducedMotion(ctx)
+		local sliding = runtime.spring(function(use: ComposeTypes.Use)
+			return use(currentOrder)
+		end, { period = 0.25, damping = 1, tolerance = 1e-3, reducedMotion = reduced })
+		local _, slot = runtime.mount(function()
+			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
+		end, picker)
+		local laidOut = ctx.observe.AbsoluteContentSize(assert(picker:FindFirstChildWhichIsA("UIListLayout")))
+		local probe = (slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject
+		local unit = ctx.observe.AbsoluteSize(probe)
+		local content = ctx.observe.AbsolutePosition(probe)
+		local function rectAt(use: ComposeTypes.Use, order: number): (Vector2?, Vector2?)
+			local scale = (use(unit) :: Vector2).X
+			scale = if scale > 0 then scale else 1
+			local room = (use(laidOut) :: Vector2) / scale
+			for _, box in boxes do
+				if use(box.order) == order then
+					local at = (use(box.at) - use(content) :: Vector2) / scale
+					local size = use(box.size) / scale
+					at = V2.new(math.clamp(at.X, 0, room.X), math.clamp(at.Y, 0, room.Y))
+					return at, V2.new(math.min(size.X, room.X - at.X), math.min(size.Y, room.Y - at.Y))
+				end
+			end
+			return nil, nil
+		end
+		local rect = Compose.formula(function(use: ComposeTypes.Use): { Vector2 }?
+			local at = use(sliding)
+			local low = math.floor(at)
+			local fromAt, fromSize = rectAt(use, low)
+			local toAt, toSize = rectAt(use, low + 1)
+			local t = at - low
+			if fromAt == nil or fromSize == nil or (t > 0 and (toAt == nil or toSize == nil)) then
+				fromAt, fromSize = rectAt(use, use(currentOrder))
+				t = 0
+			end
+			if fromAt == nil or fromSize == nil then
+				return nil
+			end
+			local place = if t > 0 then fromAt:Lerp(toAt :: Vector2, t) else fromAt
+			local size = if t > 0 then fromSize:Lerp(toSize :: Vector2, t) else fromSize
+			return { place, size }
+		end)
+		local function shown(use: ComposeTypes.Use): boolean
+			return read(indicator, use) ~= "underline" and use(currentOrder) > 0 and use(rect) ~= nil
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if shown(use) then
+				picker:AddTag("facet-segmented-slides")
+			elseif picker:HasTag("facet-segmented-slides") then
+				picker:RemoveTag("facet-segmented-slides")
+			end
+		end)
+		runtime.mount(function()
+			return ctx.styled(
+				Host.Frame "SelectionFill" {
+					ZIndex = 0,
+					Active = false,
+					Visible = shown,
+					Position = function(use: ComposeTypes.Use): UDim2
+						local box = use(rect)
+						return if box then D2.fromOffset(box[1].X, box[1].Y) else D2.new()
+					end,
+					Size = function(use: ComposeTypes.Use): UDim2
+						local box = use(rect)
+						return if box then D2.fromOffset(box[2].X, box[2].Y) else D2.new()
+					end,
+					Host.UICorner({}),
+				},
+				"segment-fill"
+			)
+		end, slot :: Instance)
+	end
 	local function appearanceFor(style: Nav.PickerStyle, word: unknown): string?
 		if word == nil then
 			return nil
@@ -1521,6 +1708,10 @@ return function(
 		assert(
 			spec.valueAlignment == nil or spec.valueAlignment == "start" or spec.valueAlignment == "end",
 			"Facet UI.Picker: valueAlignment must be start or end"
+		)
+		assert(
+			spec.query == nil or declaredStyle ~= "segmented",
+			"Facet UI.Picker: a segmented picker takes no query. Use navigationLink or menu for a searchable list"
 		)
 		assert(
 			spec.indicatorPosition == nil or declaredStyle == "radioGroup",
@@ -1645,6 +1836,7 @@ return function(
 				then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 				else Compose.cell(nil :: Enum.PreferredInput?)
 			local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
+			local tenFoot = ctx.tenFoot()
 			local width = Compose.cell(0)
 			local measure = ctx.text({
 				Name = "LabelMeasure",
@@ -1680,7 +1872,10 @@ return function(
 					return "segmented"
 				end
 				local kind = use(preferred)
-				if kind == E.PreferredInput.KeyboardAndMouse or kind == E.PreferredInput.Touch then
+				if
+					not tenFoot(use)
+					and (kind == E.PreferredInput.KeyboardAndMouse or kind == E.PreferredInput.Touch)
+				then
 					return "menu"
 				end
 				return if count <= 6 then "inline" else "menu"
@@ -2042,9 +2237,6 @@ return function(
 					return if word == "contrast" then "emphasis" elseif word == "utility" then "utility" else "standard"
 				end
 				else nil
-			triggerProps.onActivate = function()
-				opened:set(true)
-			end
 			local trigger = UI.Button(triggerProps)
 			local row = trigger:FindFirstChild("Content")
 			local chevron = row and row:FindFirstChild("TrailingIcon")
@@ -2065,8 +2257,18 @@ return function(
 					}
 				end, row)
 			end
-			surfaces.attach(trigger, {
-				surfaces.overlay(trigger, opened, function()
+			UI.Popover {
+				isPresented = opened,
+				onPresentedChange = function(value: boolean)
+					opened:set(value)
+				end,
+				trigger = trigger :: GuiButton,
+				edge = "bottom" :: "bottom",
+				align = "end" :: "end",
+				maxWidth = ctx.metric("controls.popup.panelWidth"),
+				maxHeight = spec.maxHeight or 400,
+				title = spec.label,
+				content = function(): Instance
 					local choices: Nav.PickerSpec<V>
 					if spec.multiple then
 						local source: Nav.MultiplePickerSpec<V> = spec
@@ -2096,45 +2298,15 @@ return function(
 						end
 						choices = child
 					end
-					local results: GuiObject = UI.Picker(choices)
-					if spec.maxHeight then
-						local cap = math.max(44, spec.maxHeight)
-						local list = results
-						local measured = ctx.observe.AbsoluteSize(list)
-						results = Host.ScrollingFrame "Results" {
-							BackgroundTransparency = 1,
-							BorderSizePixel = 0,
-							Selectable = false,
-							ScrollingDirection = E.ScrollingDirection.Y,
-							AutomaticCanvasSize = E.AutomaticSize.Y,
-							CanvasSize = D2.fromOffset(0, 0),
-							Size = function(use: ComposeTypes.Use)
-								local height = use(measured).Y
-								return D2.new(1, 0, 0, if height > 0 then math.min(height, cap) else cap)
-							end,
-							list :: Types.Child,
-						}
-					end
-					return surfaces.modal(function()
-						return surfaces.centered(
-							ctx.column({
-								results,
-								UI.Button "Close" {
-									label = "Close",
-									onActivate = function()
-										opened:set(false)
-									end,
-								},
-								ctx.padding(16, 16),
-								ctx.corner(),
-							}, { Name = "PickerSearch" }),
-							560
-						)
-					end, function()
-						opened:set(false)
-					end)
-				end),
-			})
+					return ctx.column({ UI.Picker(choices) }, {
+						Name = "PickerSearch",
+						Size = function(use: ComposeTypes.Use)
+							return D2.fromOffset(ctx.metric("controls.popup.panelWidth", use) - 16, 0)
+						end,
+						AutomaticSize = E.AutomaticSize.Y,
+					})
+				end,
+			}
 			return trigger
 		end
 		if style == "cards" then
@@ -2186,6 +2358,7 @@ return function(
 							appearance = function(use: ComposeTypes.Use): string
 								return if chosen(use) then "emphasis" else "standard"
 							end,
+							selected = chosen,
 							enabled = function(use: ComposeTypes.Use)
 								return read(spec.enabled, use) ~= false and read(use(source).enabled, use) ~= false
 							end,
@@ -2199,6 +2372,10 @@ return function(
 							end,
 						})
 						card:AddTag("facet-card-option")
+						local cardWidth = layoutWidth(card)
+						wrapCaptions(card, spec.controlSize, function(use: ComposeTypes.Use): number
+							return use(cardWidth)
+						end)
 						local content = card:FindFirstChild("Content")
 						if content then
 							runtime.mountFragment(function()
@@ -2280,6 +2457,16 @@ return function(
 		local function across(use: ComposeTypes.Use?): boolean
 			return style == "segmented" and read(spec.axis, use) ~= "y"
 		end
+		local room = Compose.cell(math.huge)
+		local segmentBoxes: {
+			[GuiObject]: {
+				order: ComposeTypes.Readable<number>,
+				size: ComposeTypes.Readable<Vector2>,
+				at: ComposeTypes.Readable<Vector2>,
+			},
+		} =
+			{}
+		local currentOrder = Compose.cell(0)
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local textService = surfaces.service("GuiService") :: GuiService?
@@ -2327,12 +2514,16 @@ return function(
 				end, spec.axis),
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 4),
-				Wraps = derive(function(use: ComposeTypes.Use?)
-					return style == "segmented" and read(spec.axis, use) ~= "y"
-				end, spec.axis),
 				HorizontalFlex = derive(function(use: ComposeTypes.Use?)
 					return if style == "segmented"
 							and read(spec.axis, use) ~= "y"
+							and read(spec.sizing, use) ~= "hug"
+						then E.UIFlexAlignment.Fill
+						else E.UIFlexAlignment.None
+				end, spec.axis, spec.sizing),
+				VerticalFlex = derive(function(use: ComposeTypes.Use?)
+					return if style == "segmented"
+							and read(spec.axis, use) == "y"
 							and read(spec.sizing, use) ~= "hug"
 						then E.UIFlexAlignment.Fill
 						else E.UIFlexAlignment.None
@@ -2364,9 +2555,7 @@ return function(
 							return ""
 						end
 						local option = if use then use(source) else source:peek()
-						local badge = if style == "segmented" and not sealed then read(option.badge, use) else nil
-						local label: string = read(option.label, use)
-						return label .. (if badge ~= nil and badge ~= "" then " (" .. tostring(badge) .. ")" else "")
+						return read(option.label, use)
 					end
 					local function enabledOf(use: ComposeTypes.Use?): boolean
 						local option = if use then use(source) else source:peek()
@@ -2389,16 +2578,17 @@ return function(
 						AutomaticSize = if style ~= "segmented"
 							then E.AutomaticSize.Y
 							else derive(function(use: ComposeTypes.Use?)
-								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.XY
+								return if across(use) then E.AutomaticSize.X else E.AutomaticSize.Y
 							end, spec.axis),
-						label = derive(
-							labelOf,
-							if fixed then nil else source,
-							spec.iconOnly,
-							current.badge,
-							current.label
-						),
+						label = derive(labelOf, if fixed then nil else source, spec.iconOnly, current.label),
+						name = function(use: ComposeTypes.Use): string
+							local option = use(source)
+							local badge = read(option.badge, use)
+							return tostring(read(option.label, use))
+								.. (if badge ~= nil and badge ~= "" then ` ({badge})` else "")
+						end,
 						subtitle = if source:peek().description ~= nil
+								or source:peek().badge ~= nil
 								or style == "radioGroup"
 								or Compose.isReadable(spec.options)
 								or type(spec.options) == "function"
@@ -2408,6 +2598,8 @@ return function(
 							else nil,
 						icon = liveIcon(source),
 						TextSize = spec.textSize,
+						TextWrapped = if style == "segmented" then true else nil,
+						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
 							then "checkmark"
 							else nil,
@@ -2449,8 +2641,7 @@ return function(
 					end
 					local badgeContent = button:FindFirstChild("Content")
 					if
-						style ~= "segmented"
-						and badgeContent
+						badgeContent
 						and (
 							current.badge ~= nil
 							or Compose.isReadable(spec.options)
@@ -2461,7 +2652,7 @@ return function(
 							return {
 								Compose.show(function(use: ComposeTypes.Use)
 									local badge = read(use(source).badge, use)
-									return badge ~= nil and badge ~= ""
+									return badge ~= nil and badge ~= "" and not sealed
 								end, function()
 									local last = tostring(read(source:peek().badge))
 									return UI.Badge({
@@ -2547,6 +2738,11 @@ return function(
 							MinSize = derive(function(use: ComposeTypes.Use?)
 								return V2.new(44, if spec.controlSize ~= nil or across(use) then 0 else 44)
 							end, spec.axis),
+							MaxSize = if style == "segmented"
+								then function(use: ComposeTypes.Use): Vector2
+									return V2.new(math.max(44, use(room) - 2 * segmentMetrics.inset), math.huge)
+								end
+								else nil,
 						}),
 						if underlined
 							then Compose.show(function(use: ComposeTypes.Use)
@@ -2573,7 +2769,15 @@ return function(
 					end
 					local family = if style == "segmented" then "facet-segment" else "facet-choice"
 					button:AddTag(family)
+					if style == "radioGroup" then
+						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
+							return use(room) - RADIO_MARK
+						end)
+					end
 					if style == "segmented" then
+						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
+							return use(room) - 2 * segmentMetrics.inset
+						end)
 						local bounds = ctx.observe.TextBounds(button)
 						local extent = ctx.observe.AbsoluteSize(button)
 						Compose.watch(function(use: ComposeTypes.Use)
@@ -2582,8 +2786,11 @@ return function(
 							captionHeights[button] = button.TextBounds.Y
 							measureCaptions()
 						end)
+						segmentBoxes[button] =
+							{ order = index, size = extent, at = ctx.observe.AbsolutePosition(button) }
 						Compose.cleanup(function()
 							captionHeights[button] = nil
+							segmentBoxes[button] = nil
 							measureCaptions()
 						end)
 					end
@@ -2601,6 +2808,14 @@ return function(
 							button:AddTag(family .. "-current")
 						elseif button:HasTag(family .. "-current") then
 							button:RemoveTag(family .. "-current")
+						end
+						local order = use(index)
+						if style ~= "segmented" then
+							return
+						elseif current then
+							currentOrder:set(order)
+						elseif currentOrder:peek() == order then
+							currentOrder:set(0)
 						end
 					end)
 					local section = source:peek().sectionTitle
@@ -2666,6 +2881,10 @@ return function(
 					if tall(use) then
 						return if sizing == E.AutomaticSize.XY then E.AutomaticSize.X else E.AutomaticSize.None
 					end
+					if not across(use) then
+						local wide = sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
+						return if wide then E.AutomaticSize.XY else E.AutomaticSize.Y
+					end
 					return sizing
 				end
 				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
@@ -2681,8 +2900,17 @@ return function(
 			table.insert(p, child)
 		end
 		local picker = Host.Frame(p)
+		if not labelled then
+			local width = layoutWidth(picker)
+			Compose.watch(function(use: ComposeTypes.Use)
+				room:set(use(width))
+			end)
+		end
 		if style == "segmented" then
 			picker:AddTag("facet-segmented")
+			if spec.multiple ~= true then
+				slideSelection(picker, segmentBoxes, currentOrder, (spec.indicator :: unknown) :: Types.Value<string>?)
+			end
 			surfaces.attach(picker, {
 				Host.UISizeConstraint "TargetFloor" {
 					MinSize = derive(function(use: ComposeTypes.Use?)
@@ -2747,15 +2975,20 @@ return function(
 		layout.VerticalAlignment = E.VerticalAlignment.Center
 		layout.Padding = D.new(0, 16)
 		layout.Wraps = true
-		local rowSize = ctx.observe.AbsoluteSize(row)
-		surfaces.attach(picker, {
-			Host.UISizeConstraint({
-				MaxSize = function(use: ComposeTypes.Use)
-					local width = (use(rowSize) :: Vector2).X
-					return V2.new(if width > 0 then width else math.huge, math.huge)
-				end,
-			}),
-		})
+		local width = layoutWidth(row)
+		Compose.watch(function(use: ComposeTypes.Use)
+			room:set(use(width))
+		end)
+
+		local limit = picker:FindFirstChild("TargetFloor")
+		local maxSize = function(use: ComposeTypes.Use)
+			return V2.new(use(width), math.huge)
+		end
+		if limit then
+			runtime.decorate(limit, { MaxSize = maxSize })
+		else
+			surfaces.attach(picker, { Host.UISizeConstraint({ MaxSize = maxSize }) })
+		end
 		return row
 	end)
 
@@ -2773,6 +3006,7 @@ return function(
 		end
 		local function primary()
 			return UI.Button "Primary" {
+				appearance = "utility",
 				label = spec.label,
 				onActivate = spec.onActivate,
 				enabled = spec.enabled,
@@ -2826,11 +3060,23 @@ return function(
 				end, function()
 					local row = ctx.row({
 						primary(),
+						ctx.styled(
+							Host.Frame "Divider" {
+								BorderSizePixel = 0,
+								Size = function(use: ComposeTypes.Use)
+									return D2.fromOffset(ctx.metric("strokes.hairline", use), 0)
+								end,
+								Host.UIFlexItem({ ItemLineAlignment = E.ItemLineAlignment.Stretch }),
+							},
+							"divider"
+						),
 						UI.Menu "Alternatives" {
 							trigger = function(): GuiObject
 								return UI.Button "Trigger" {
+									appearance = "utility",
 									icon = "chevron.down",
 									name = spec.menuLabel or "More options",
+									help = spec.menuLabel or "More options",
 									enabled = enabled,
 									onActivate = function()
 										opened:set(true)
@@ -2841,8 +3087,14 @@ return function(
 							enabled = enabled,
 							isPresented = opened,
 						},
+					}, { Name = "Split" })
+					assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 0)
+					row:ResetPropertyToDefault("BackgroundTransparency")
+					ctx.skin(ctx.styled(row, "control"), "control", {
+						disabled = function(use: ComposeTypes.Use)
+							return not enabled(use)
+						end,
 					})
-					assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = D.new(0, 2)
 					return row
 				end),
 			})

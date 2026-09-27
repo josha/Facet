@@ -5,6 +5,7 @@ import fnmatch, os, subprocess, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LIST = ROOT / "tools" / "public_allowlist.txt"
+PRIVATE = ("docs/plans/", "docs/superpowers/", "artifacts/distribution-readiness/")
 
 
 def load(text: str) -> tuple[list[str], list[str]]:
@@ -29,7 +30,7 @@ def strays(paths: list[str], allows: list[str], denies: list[str]) -> list[str]:
     out = []
     for p in paths:
         allowed = any(matches(p, a) for a in allows)
-        denied = any(matches(p, d) for d in denies)
+        denied = any(matches(p, d) for d in denies) or p.startswith(PRIVATE)
         if not allowed or denied:
             out.append(p)
     return out
@@ -48,6 +49,9 @@ def selftest() -> int:
         "docs/plans/secret-plan.md",
         "src/core/fusion_adapter.luau",
     ]
+    broad, _ = load("docs/\nartifacts/\n")
+    private = ["docs/plans/goal.md", "docs/superpowers/specs/x.md", "artifacts/distribution-readiness/owner.md"]
+    ok = ok and strays(private + ["docs/guide/a.md"], broad, []) == private
     print("check_public_allowlist selftest:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 

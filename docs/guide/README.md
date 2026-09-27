@@ -37,9 +37,17 @@ to select a control. Then read the exact contract of that control in the
 | Control constructors | `Facet.controls(runtime, options?)` |
 | A runtime, controls and a themed ScreenGui mount in one call | `Facet.app(options?)`; `app.mount(Component)`; `app.dispose()` |
 | Screen roots, stacks and layers | `UI.Screen`, `UI.VStack`, `UI.HStack`, `UI.ZStack` |
+| Layouts that adapt to their space | `UI.AdaptiveStack`, `UI.ViewThatFits` |
+| A HUD anchored to the screen edges that steps down by rank | `UI.Composition`, `UI.Region` |
 | Scrolling content and grids | `UI.ScrollView`, `UI.Grid` |
 | Programmatic scrolling to a position or a node | `UI.scrollTo`, `UI.scrollToVisible` |
+| One theme focus ring in place of the engine selection glow | `UI.focusRing` |
+| Selection that returns to the last item of a sidebar or other section | `UI.focusSection` |
+| A HUD that leaves Tab and Space to the game until the player taps it | `UI.responder` |
+| Drag and drop between your own nodes on every input | `UI.draggable`, `UI.dropTarget` |
 | Viewport classes, input classes, safe insets, text size and reduced motion | `UI.environment`, `Facet.adaptive` |
+| Legacy player scripts holding ButtonA, the arrow keys or Tab | `Facet.gamepadContention` |
+| A game shortcut that must lose to, or win over, every Facet control | `Facet.inputPriority` |
 | Screen anchors for world objects | `UI.worldAnchor` |
 | Main-axis fill, flexible space and separators | `UI.fill`, `UI.Spacer`, `UI.Divider` |
 | Failure containment with fallback content | `UI.ErrorBoundary` |
@@ -65,7 +73,8 @@ to select a control. Then read the exact contract of that control in the
 | Inline disclosure and larger content presentation | `UI.DisclosureGroup`, `UI.CollapsibleView` |
 | Contextual teaching | `UI.Callout` |
 | Page status that stays in view | `UI.Notice` |
-| A short confirmation at the bottom of the screen | `UI.Snackbar` |
+| A passing message that asks nothing and never blocks input | `UI.Toast` |
+| A short confirmation with an Undo at the bottom of the screen | `UI.Toast` with an `action` |
 | A surface top bar with Back, a title and tools | `UI.NavBar` |
 | Anchored content for one control | `UI.Popover` |
 | Windowed lists and grids | `UI.VirtualList`, `UI.VirtualGrid` |
@@ -88,6 +97,4 @@ frames and layout objects with theme spacing. Use Host constructors and native
 properties for layout that they do not cover. Use the Compose structural
 operations directly. Do not add Facet aliases for them.
 
-The design records in `docs/plans` and `docs/superpowers` are historical. They
-can describe removed APIs. This guide and the API reference describe the
-supported surface.
+This guide and the API reference describe the supported surface.

@@ -27,6 +27,62 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 					else nil,
 			})
 		end
+		local steps = { "Find server", "Load world", "Join" }
+		local function launching(use)
+			local launch = use(model.launch)
+			return if launch and launch.stage <= 3 then launch else nil
+		end
+		local function title(use)
+			local launch = launching(use)
+			for _, item in if launch then use(model.catalog.items) else {} do
+				if item.id == launch.id then
+					return item.title
+				end
+			end
+			return ""
+		end
+		local function stage(use)
+			local launch = launching(use)
+			return if launch then launch.stage else 1
+		end
+		local function panel(stack, name, ...)
+			local plate = stack(name)({ gap = "xs", padding = "s", Host.UICorner({}), ... })
+			plate:AddTag("facet-panel")
+			return plate
+		end
+		local overlay = UI.Composition "LaunchOverlay" {
+			ZIndex = 4,
+			Visible = function(use)
+				return launching(use) ~= nil
+			end,
+			UI.Region "Launch" {
+				zone = "bottomRight",
+				rank = 1,
+				mayDrop = true,
+				panel(
+					UI.VStack,
+					"LaunchCard",
+					UI.Text "LaunchTitle" { text = title, textRole = "label" },
+					UI.Text "LaunchStage" {
+						role = "secondary",
+						textRole = "caption",
+						text = function(use)
+							return `{steps[stage(use)]}, step {stage(use)} of 3 (simulated)`
+						end,
+					}
+				),
+				panel(
+					UI.HStack,
+					"LaunchChip",
+					UI.Text "LaunchChipText" {
+						textRole = "caption",
+						text = function(use)
+							return `Joining {stage(use)}/3`
+						end,
+					}
+				),
+			},
+		}
 		local root = Host.CanvasGroup "Desktop" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 0,
@@ -40,6 +96,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				tabs = tabs,
 				style = "sidebarAdaptable",
 				sidebarPreference = "sidebar",
+				shoulderNavigation = "content",
 				railWidth = function(use)
 					return if adaptive.sizeClassAtLeast(use(env.sizeClass), "wide") then 176 else 148
 				end,
@@ -48,6 +105,7 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				retention = "top",
 				Size = UDim2.fromScale(1, 1),
 			},
+			overlay,
 			Host.TextLabel "YouMarker" {
 				Text = "You",
 				AutomaticSize = Enum.AutomaticSize.XY,
@@ -65,6 +123,13 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			},
 		}
 		root:AddTag("facet-surface")
+
+		UI.responder(root, { passive = false })
+
+		local sidebar = (root:FindFirstChild("Apps") :: any):FindFirstChild("Tabs")
+		if sidebar then
+			UI.focusSection(sidebar)
+		end
 		return root
 	end
 end

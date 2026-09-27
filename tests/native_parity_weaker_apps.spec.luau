@@ -133,6 +133,10 @@ local function press(node: any, ...: string)
 	target.Activated.fire()
 end
 
+local function dismiss(root: any)
+	assert(find(root, "ModalBack"), "no ModalBack").Pressed.fire()
+end
+
 local function type_(node: any, name: string, value: string)
 	local box = assert(find(node, name), `no text input {name}`)
 	box:CaptureFocus()
@@ -379,7 +383,7 @@ t.describe("Glade", function()
 			pick(w, nectarPicker, gladeSeed.TASK_NECTAR)
 			t.expect(model.complete:peek()).toBe(true)
 			t.expect(hasText(w.root, "Mossholm is ready. Your visiting wisp has a home.")).toBe(true)
-			press(sheet, "Close")
+			dismiss(w.screen)
 			t.expect(modal(w.screen)).toBeNil()
 			local report = w.built.report()
 			local pages_ = {
@@ -1046,7 +1050,7 @@ t.describe("Foyer", function()
 		t.expect(visit.Interactable).toBe(true)
 		t.expect(visit.Text).toBe(foyerStrings.get("en", "detail.visit"))
 		t.expect(hasText(w.root, foyerStrings.get("en", "toast.visited"))).toBe(true)
-		press(sheet, "Close")
+		dismiss(w.screen)
 		t.expect(modal(w.screen)).toBeNil()
 		t.expect(visit.isDestroyed()).toBe(true)
 		t.expect(w.built.report().continued["moss-kingdom"]).toBe(true)

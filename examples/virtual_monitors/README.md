@@ -7,7 +7,7 @@ styling. `Host` is the runtime's native constructor table.
 - **Discover:** a paged, windowed catalog of `UI.Card` items with live
   procedural previews. A card body opens the details. The primary action saves
   the game, and the More menu has Share, Not interested and Report. A save or a
-  hide shows a `UI.Snackbar` with Undo. The details show a launch
+  hide shows a `UI.Toast` with Undo. The details show a launch
   `UI.StepIndicator` (Find server, Load world, Join), a `UI.DateTimePicker` for
   a play session, star ratings, a trend line, and similar games in pages of six
   with `UI.Pagination`. A search with no results shows a `UI.Notice` with Clear
@@ -20,7 +20,7 @@ styling. `Host` is the runtime's native constructor table.
   height. They come back when the grid returns to the top.
 - **Avatar:** an animated R15 explorer with a procedural fallback, accent and
   hat choices, a `UI.ColorPicker` for the hat colour, rotation, shared turn
-  increments, auto-spin, reset confirmation and a summary sheet with retained
+  increments, auto-spin, reset confirmation (a `UI.Toast` confirms the reset) and a summary sheet with retained
   detents. `UI.NumberInput` accepts an exact angle or a sum, such as `90+45`,
   with `Facet.recipes.arithmetic.parse`. The preview and the settings share a
   row when space permits and wrap otherwise.
@@ -39,13 +39,19 @@ sets the presence (Online, Away or Busy) of every avatar. About is a
 `UI.ErrorBoundary` contains each app: a failure shows "App stopped" with Try
 again, and the header and the other apps stay. In spatial
 mode, Focus fits a monitor to the camera, and All monitors returns to the
-overview. In screen mode, native Facet tabs select the app. Model state
+overview. In screen mode, native Facet tabs select the app. A
+`UI.Composition` overlay shows a running launch in a bottom-right `UI.Region`
+over every app, also after the details close. When the lane is too narrow,
+the region steps down from the game title and step to a compact chip. Model state
 survives page and monitor disposal. Compact viewports and ten-foot interfaces
 start in screen mode. An explicit choice takes precedence.
 
 The entry script binds Facet to its Compose copy with
 `Facet.bind(Facet.Compose, Facet.Roblox)`. It mounts ordinary `Host.SurfaceGui`
-and `Host.ScreenGui` instances with `runtime.mount`. Each surface has a native
+and `Host.ScreenGui` instances with `runtime.mount`. The gamepad View button
+switches between Screen and Spatial through an `InputContext` at
+`Facet.inputPriority.belowControls`, so any Facet control that binds it wins.
+Each surface has a native
 StyleSheet and StyleLink. `theme.luau` starts from the neutral type roles,
 makes each app package with `Facet.themes.define`, checks the colors and
 metrics that the screens need with `themes.checkCoverage`, and checks the icon

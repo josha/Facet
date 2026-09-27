@@ -17,6 +17,7 @@ native StyleSheet and StyleLink.
 
 No shipped theme package declares the optional roles and metrics
 (`selection`, `onSelection`, `scrim`, `inverseSurface`, `onInverse`,
+`tableHeader`, `tableRow`, `tableRowAlternate`,
 `dimDisabledPlates`, `strongHairlineOpacity`, `controlSizes.xsmall`,
 `targetSizes.pointer` or `strokes.utility`), so each one paints as before.
 [Custom themes](09-custom-themes.md) tells what each one changes.

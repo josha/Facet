@@ -113,6 +113,52 @@ t.describe("presented surfaces arrive styled", function()
 		t.expect(frames.Heartbeat.count()).toBe(0)
 		stop()
 	end)
+
+	t.it("selects a presented surface's first control only once it is shown, never the hidden or panel node", function()
+		for _, kind in { "RadialMenu", "Dialog" } do
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local frames = { Heartbeat = signal() }
+			local UI = Facet.controls(
+				runtime,
+				{
+					types = engine.types,
+					guiService = gui,
+					reducedMotion = true,
+					services = { GuiService = gui, RunService = frames },
+				} :: any
+			)
+			local open = Compose.cell(false)
+			local stop, screen = runtime.mount(function()
+				return runtime.constructors.ScreenGui({
+					UI.Button "Opener" { label = "Open" },
+					if kind == "RadialMenu"
+						then UI.RadialMenu {
+							launcher = false,
+							isPresented = open,
+							items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
+						}
+						else UI.Dialog {
+							isPresented = open,
+							closeButton = false,
+							title = "Title",
+							content = function()
+								return UI.Button "Inside" { label = "Inside" }
+							end,
+						},
+				})
+			end, engine.new("Folder"))
+			gui.SelectedObject = screen:FindFirstChild("Opener", true)
+			open:set(true)
+			frames.Heartbeat.fire()
+			t.expect(#engine.rejectedSelections).toBe(0)
+			local selected = gui.SelectedObject
+			t.expect(selected.Name).toBe(if kind == "RadialMenu" then "alpha" else "Inside")
+			stop()
+			runtime:dispose()
+		end
+	end)
 end)
 
 return nil

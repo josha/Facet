@@ -127,7 +127,7 @@ t.describe("Facet Farm", function()
 			local row = world.find("Seed_wheat")
 			t.expect(row ~= nil and row ~= previous).toBe(true)
 			previous = row
-			world.find("SheetPanel"):FindFirstChild("Close", true).Activated.fire()
+			world.find("ModalBack").Pressed.fire()
 			world.step(40)
 			t.expect(world.farm.marketOpen:peek()).toBe(false)
 			t.expect(world.find("Seed_wheat")).toBeNil()

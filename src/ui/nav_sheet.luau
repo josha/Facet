@@ -11,6 +11,7 @@ local freeze = require("./freeze")
 type Controls = {
 	Sheet: Types.Constructor<Nav.SheetSpec, Frame>,
 	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 type Detent = { id: string, fraction: number?, height: number?, hug: boolean, index: number }
 type Prepared = { detents: { Detent }, byId: { [string]: Detent }, cancel: Overlay.Action? }
@@ -193,6 +194,37 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 		local extent = Compose.cell(V2.new(0, 720))
+		local pointer: (ComposeTypes.Use) -> boolean = function()
+			return false
+		end
+		if declared == "adaptive" and input and input.GetPropertyChangedSignal then
+			local mouse, touch = ctx.observe.MouseEnabled(input), ctx.observe.TouchEnabled(input)
+			pointer = function(use: ComposeTypes.Use): boolean
+				return use(mouse) == true and use(touch) ~= true
+			end
+		end
+		local tenFoot = ctx.tenFoot()
+		local placed = Compose.formula(function(use: ComposeTypes.Use): string
+			if (declared == "automatic" or declared == "adaptive") and tenFoot(use) then
+				return "center"
+			end
+			if declared == "adaptive" then
+				return if use(extent).X >= 600 and pointer(use) then "side" else "bottom"
+			end
+			return if declared == "automatic" then "bottom" else declared
+		end)
+		local function from(use: ComposeTypes.Use?): string
+			return if read(placed, use) == "side" then edge else "bottom"
+		end
+		local indicator = spec.dragIndicator or "automatic"
+		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
+		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
+		local function reserve(side: string, use: ComposeTypes.Use?): number
+			return if indicator ~= "hidden" and RESERVED[from(use)] == side then HANDLE + 8 else 0
+		end
+		local function pad(side: string, use: ComposeTypes.Use?): number
+			return surfaces.inset(BASE[side], side, nil, use) + reserve(side, use)
+		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
 				or function<T>(source: ComposeTypes.Readable<T>): T
@@ -313,11 +345,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			dragHeight:set(nil)
 			spec.detent:set(id)
 		end
-		local function cycle()
+		local function nextUp(use: ComposeTypes.Use?): Detent?
 			local sorted = ordered()
-			local index = table.find(sorted, selected()) or 1
-			select(sorted[index % #sorted + 1].id)
+			local index = table.find(sorted, selected(use)) or 1
+			return sorted[index + 1]
 		end
+		local dragged = -math.huge
 		local session: Session? = nil
 		local function endSession()
 			session = nil
@@ -357,6 +390,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if current == nil or current.source ~= source then
 				return
 			end
+			if source == "grip" and math.abs(y - current.origin) > 4 then
+				dragged = now()
+			end
 			if not current.acquired then
 				if math.abs(y - current.origin) < current.slop then
 					return
@@ -382,18 +418,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				table.remove(current.samples, 1)
 			end
 		end
-		local function velocity(current: Session): number
-			local count = #current.samples
+		local function velocity(samples: { { height: number, at: number } }): number
+			local count = #samples
 			if count < 2 then
 				return 0
 			end
-			local last = current.samples[count]
+			local last = samples[count]
 			local first = last
 			for index = count - 1, 1, -1 do
-				if last.at - current.samples[index].at > 0.1 then
+				if last.at - samples[index].at > 0.1 then
 					break
 				end
-				first = current.samples[index]
+				first = samples[index]
 			end
 			local span = last.at - first.at
 			if span < 1 / 240 or now() - last.at > 0.1 then
@@ -411,23 +447,37 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return
 			end
 			local height = dragHeight:peek() or current.start
-			local speed = velocity(current)
+			local speed = velocity(current.samples)
 			local choice = release.choose(stops(), height, speed, selected().id, canDismiss())
-			if choice ~= "dismiss" then
-				launch(height, speed)
-			end
-			endSession()
 			if choice == "dismiss" then
-				if request == nil or request("drag") then
-					if request == nil then
-						spec.isPresented:set(false)
-					end
-				else
+				session = nil
+				if request == nil then
+					spec.isPresented:set(false)
+				elseif not request("drag") then
 					select(selected().id)
 				end
 				return
 			end
+			launch(height, speed)
+			endSession()
 			select(choice)
+		end
+		if phase then
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not use(phase.exiting) and session == nil then
+					dragHeight:set(nil)
+				end
+			end)
+		end
+		local function lowest(use: ComposeTypes.Use?): number
+			local out = math.huge
+			for _, d in detents do
+				out = math.min(out, heightOf(d, use))
+			end
+			return out
+		end
+		local function standing(use: ComposeTypes.Use?): number
+			return math.max(painted(use), lowest(use))
 		end
 		local watchedDetent = spec.detent:peek()
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -442,20 +492,96 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		Compose.cleanup(function()
 			session = nil
 		end)
+		local pull = Compose.cell(0)
+		local pulling: { origin: number, samples: { { height: number, at: number } } }? = nil
+		local held = Compose.cell(false)
+		local pulled = runtime.tween(function(use: ComposeTypes.Use)
+			return use(pull)
+		end, {
+			seconds = 0.2,
+			reducedMotion = function(use: ComposeTypes.Use): boolean
+				return use(held) or reduce(use)
+			end,
+		})
+		local function toward(): number
+			return if edge == "left" then -1 else 1
+		end
+		local function pullTo(x: number)
+			local current = pulling
+			if current == nil then
+				return
+			end
+			local amount = math.max(0, (x - current.origin) * toward())
+			pull:set(if canDismiss() then amount else amount * 0.2)
+			table.insert(current.samples, { height = pull:peek(), at = now() })
+		end
+		local function release()
+			local current = pulling
+			pulling = nil
+			if current == nil then
+				return
+			end
+			held:set(false)
+			local amount = pull:peek()
+			local width = math.min(parts.width(ctx, spec.width), extent:peek().X)
+			if canDismiss() and (amount > width / 3 or velocity(current.samples) > 600) then
+				if request == nil then
+					spec.isPresented:set(false)
+					return
+				elseif request("drag") then
+					return
+				end
+			end
+			pull:set(0)
+		end
+		Compose.cleanup(function()
+			pulling = nil
+		end)
 		local function detector(name: string, source: "grip" | "panel"): Instance
+			local function sideways(): boolean
+				return source == "grip" and from() ~= "bottom"
+			end
 			return Host.UIDragDetector({
 				Name = name,
+				CursorIcon = function(use: ComposeTypes.Use): string
+					if source == "panel" then
+						return ""
+					end
+					return if from(use) == "bottom"
+						then "rbxasset://SystemCursors/SizeNS"
+						else "rbxasset://SystemCursors/SizeEW"
+				end,
+				ActivatedCursorIcon = function(): string
+					return if source == "grip" then "rbxasset://SystemCursors/ClosedHand" else ""
+				end,
 				DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
-				DragAxis = V2.new(0, 1),
+				DragAxis = function(use: ComposeTypes.Use)
+					return if source == "grip" and from(use) ~= "bottom" then V2.new(1, 0) else V2.new(0, 1)
+				end,
 				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 				DragStart = function(position: Vector2)
-					grab(source, position.Y)
+					if sideways() then
+						if pulling == nil then
+							pulling = { origin = position.X, samples = {} }
+							held:set(true)
+						end
+					else
+						grab(source, position.Y)
+					end
 				end,
 				DragContinue = function(position: Vector2)
-					move(source, position.Y)
+					if sideways() then
+						pullTo(position.X)
+					else
+						move(source, position.Y)
+					end
 				end,
 				DragEnd = function()
-					finish(source)
+					if sideways() then
+						release()
+					else
+						finish(source)
+					end
 				end,
 			})
 		end
@@ -468,56 +594,125 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return true
 		end)
-		local indicator = spec.dragIndicator or "automatic"
 		local grabber = Host.TextButton "Grabber" {
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
-			Size = D2.fromOffset(88, 44),
+			Size = function(use: ComposeTypes.Use)
+				return if from(use) == "bottom" then D2.fromOffset(88, 44) else D2.fromOffset(44, 88)
+			end,
 			BackgroundTransparency = 1,
 			ZIndex = 2,
 			Text = "",
 			AutoButtonColor = false,
-			Selectable = #detents > 1,
-			Activated = cycle,
+			Selectable = function(use: ComposeTypes.Use)
+				return #detents > 1 or canDismiss(use)
+			end,
+			Activated = function()
+				if now() - dragged < 0.3 then
+					return
+				end
+				local grow = nextUp()
+				if grow then
+					select(grow.id)
+				else
+					interactive("close")
+				end
+			end,
+			detector("UIDragDetector", "grip"),
 			ctx.styled(
 				Host.Frame "Pill" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
-					Size = D2.fromOffset(36, 5),
+					Size = function(use: ComposeTypes.Use)
+						return if from(use) == "bottom" then D2.fromOffset(36, 5) else D2.fromOffset(5, 36)
+					end,
 					BorderSizePixel = 0,
-					Host.UICorner({ CornerRadius = ctx.types.UDim.new(1, 0) }),
+					Host.UICorner({ CornerRadius = ctx.round }),
 				},
 				"grabber"
 			) :: Types.Child,
 		}
+
+		if gui and gui.GetPropertyChangedSignal and preferred then
+			local selection = ctx.observe.SelectedObject(gui)
+			local pad = preferred
+			runtime.decorate(assert(grabber:FindFirstChildWhichIsA("UIDragDetector")), {
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return not (use(pad) == E.PreferredInput.Gamepad and use(selection) == grabber)
+				end,
+			})
+		end
+		local function stepTo(direction: number, use: ComposeTypes.Use?): Detent?
+			local sorted = ordered()
+			return sorted[(table.find(sorted, selected(use)) or 1) + direction]
+		end
+		UI.adjustable(grabber, {
+			axis = "horizontal",
+			onAdjust = function(direction: number)
+				local target = stepTo(direction)
+				if target then
+					select(target.id)
+				end
+			end,
+			canAdjust = function(direction: number, use: ComposeTypes.Use?): boolean
+				return stepTo(direction, use) ~= nil
+			end,
+		})
 		Compose.watch(function(use: ComposeTypes.Use)
-			grabber:SetAttribute("AccessibleLabel", "Size: " .. word(selected(use).id))
+			grabber:SetAttribute(
+				"AccessibleLabel",
+				if nextUp(use) then "Resize: " .. word(selected(use).id) else "Close sheet"
+			)
 		end)
 		local handle = Host.Frame "DragHandle" {
 			BackgroundTransparency = 1,
-			Size = D2.new(1, 0, 0, HANDLE),
+			ZIndex = 2,
+			AnchorPoint = function(use: ComposeTypes.Use)
+				return V2.new(if from(use) == "left" then 1 else 0, 0)
+			end,
+			Position = function(use: ComposeTypes.Use)
+				local side = from(use)
+				local carve = surfaces.inset(0, RESERVED[side], nil, use)
+				if side == "bottom" then
+					return D2.fromOffset(0, carve)
+				end
+				return if side == "left" then D2.new(1, -carve, 0, 0) else D2.fromOffset(carve, 0)
+			end,
+			Size = function(use: ComposeTypes.Use)
+				return if from(use) == "bottom" then D2.new(1, 0, 0, HANDLE) else D2.new(0, HANDLE, 1, 0)
+			end,
 			Visible = indicator ~= "hidden",
-			detector("UIDragDetector", "grip"),
 			grabber :: Instance,
 		}
 		local regions: { GuiObject } = {}
+		local plaqued = Compose.cell(false)
 		local hero = spec.hero
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
-		local closeLabel: Types.Value<string> = if spec.closeButton == nil
-				or type(spec.closeButton) == "boolean"
-			then "Done"
-			else spec.closeButton :: Types.Value<string>
 		local function closeControl(): TextButton?
-			if spec.closeButton == false then
+			local explicit = spec.closeButton
+			local function activate()
+				close("close")
+			end
+			if explicit == false or (explicit == nil and indicator ~= "hidden") then
 				return nil
 			end
+			if explicit ~= nil and explicit ~= true then
+				return UI.Button "Close" {
+					label = explicit :: Types.Value<string>,
+					appearance = if overHero then "inverse" else "link",
+					LayoutOrder = 2,
+					onActivate = activate,
+				}
+			end
 			return UI.Button "Close" {
-				label = closeLabel,
-				appearance = if overHero then "inverse" else "link",
-				onActivate = function()
-					close("close")
-				end,
+				name = "Close",
+				icon = "close",
+				appearance = if overHero then "inverse" else nil,
+				LayoutOrder = 2,
+				Size = D2.fromOffset(44, 44),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = activate,
 			}
 		end
 		local function heroFrame(): Frame
@@ -588,12 +783,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.styled(
 						ctx.text({
 							Name = "Title",
+							LayoutOrder = 1,
+							Visible = function(use: ComposeTypes.Use)
+								return not use(plaqued)
+							end,
 							Text = function(use: ComposeTypes.Use)
 								return read(spec.title, use) or ""
 							end,
 							TextWrapped = true,
-							Size = D2.fromOffset(0, 0),
-							AutomaticSize = E.AutomaticSize.XY,
+							Size = D2.new(1, 0, 0, 0),
+							AutomaticSize = E.AutomaticSize.Y,
 							Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 						}),
 						"type-heading"
@@ -696,10 +895,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return use(contentSize).Y + extra
 		end
 		local chrome = function(use: ComposeTypes.Use): number
-			return (if indicator == "hidden" then 0 else HANDLE) + 24 + 8
+			return pad("top", use) + pad("bottom", use)
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
-			return math.max(0, painted(use) - chrome(use))
+			return math.max(0, standing(use) - chrome(use))
 		end, true)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
@@ -721,21 +920,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Active = tallest,
 			})
 		end
-		local pointer: (ComposeTypes.Use) -> boolean = function()
-			return false
-		end
-		if declared == "adaptive" and input and input.GetPropertyChangedSignal then
-			local mouse, touch = ctx.observe.MouseEnabled(input), ctx.observe.TouchEnabled(input)
-			pointer = function(use: ComposeTypes.Use): boolean
-				return use(mouse) == true and use(touch) ~= true
-			end
-		end
-		local placed = Compose.formula(function(use: ComposeTypes.Use): string
-			if declared == "adaptive" then
-				return if use(extent).X >= 600 and pointer(use) then "side" else "bottom"
-			end
-			return if declared == "automatic" then "bottom" else declared
-		end)
 		local function anchors(use: ComposeTypes.Use): (number, number)
 			local placement = use(placed)
 			return if placement == "side" then (if edge == "left" then 0 else 1) else 0.5,
@@ -745,46 +929,51 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function travel(use: ComposeTypes.Use): (number, number)
 			local rest = 1 - shown(use)
 			if rest <= 0 then
-				return 0, 0
+				return if use(placed) == "side" then toward() * use(pulled) else 0, 0
 			end
 			local placement = use(placed)
 			if placement == "side" then
-				local width = use(panelWidth)
-				return rest * (if edge == "left" then -width else width), 0
+				local shift = use(pulled)
+				return toward() * (shift + (use(panelWidth) - shift) * rest), 0
 			end
 			if placement == "center" then
 				return 0, 0
 			end
 			return 0, math.ceil(painted(use) * rest)
 		end
-		local panel = ctx.column({
-			handle,
-			room.frame,
-			ctx.padding(16, 12),
-			ctx.corner(),
-			detector("PanelDrag", "panel") :: Instance,
-		}, {
+		local column = ctx.column({ room.frame, ctx.padding(BASE.left, BASE.top) }, {
+			Name = "SheetColumn",
+			BackgroundTransparency = 1,
+			AutomaticSize = E.AutomaticSize.None,
+			Size = D2.fromScale(1, 1),
+		})
+		local layout = column:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
+		if layout then
+			layout.Padding = ctx.types.UDim.new(0, 8)
+		end
+		local panelProps: Types.FrameNativeProps = {
 			Name = "SheetPanel",
 			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
 			AnchorPoint = function(use: ComposeTypes.Use)
 				local anchorX, anchorY = anchors(use)
 				return V2.new(anchorX, anchorY)
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local anchorX, anchorY = anchors(use)
-				local y = if anchorY == 1 then -keyboard(use) else -keyboard(use) / 2
+				local y = (if anchorY == 1 then -keyboard(use) else -keyboard(use) / 2) + standing(use) - painted(use)
 				local dx, dy = travel(use)
 				return D2.new(anchorX, dx, anchorY, y + dy)
 			end,
 			AutomaticSize = E.AutomaticSize.None,
 			Size = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(panelWidth), painted(use))
+				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
-		})
-		local layout = panel:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
-		if layout then
-			layout.Padding = ctx.types.UDim.new(0, 8)
+		}
+		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
+			table.insert(panelProps, child)
 		end
+		local panel = Host.Frame(panelProps)
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {
@@ -793,7 +982,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 			},
 		})
-		surfaces.skin(panel)
+		surfaces.skin(panel, nil, {
+			padding = column:FindFirstChildWhichIsA("UIPadding"),
+			reserve = reserve,
+			title = if spec.header == nil then spec.title else nil,
+			onCaption = function(on: boolean)
+				plaqued:set(on)
+			end,
+		})
 		local overlay = surfaces.modal(function()
 			return panel
 		end, function()

@@ -5938,7 +5938,7 @@
       "candidateCases": [
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
         "native_navigation::native navigation controls::hides a callout while its retained tab is away and shows it again on return",
-        "native_parity_weaker_surfaces::gallery surface page strength::offers toasts under Indicators and hides and expires them after leaving the page"
+        "native_parity_weaker_surfaces::gallery surface page strength::offers toasts under Indicators; a shown toast outlives the page and expires on time"
       ]
     },
     {
@@ -6166,7 +6166,7 @@
       "mainCases": 1,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
         "native_parity_strength_lifetime::lifetime parity strength::returns the toast lab to one baseline through twenty cycles in one runtime"
       ]
     },
@@ -6254,16 +6254,16 @@
       "mainCases": 11,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
-        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_parity_weaker_surfaces::gallery toast strength::drops exactly the least urgent newest burst toast at the queue cap and drains the rest",
+        "native_parity_weaker_surfaces::gallery toast strength::shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped",
         "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
-        "native_parity_weaker_surfaces::gallery toast strength::releases dismissed toasts within the half-second cap and returns the counters and instances",
-        "native_parity_weaker_surfaces::gallery toast strength::leaves selection, modal scope and the control beneath untouched while a toast shows",
-        "native_parity_weaker_surfaces::gallery toast strength::fits toast width to measured text within the floor, the cap and the available row",
-        "native_parity_weaker_surfaces::gallery toast strength::docks a bottom strip that grows upward and slides top survivors into the vacated slot",
-        "native_parity_weaker_surfaces::gallery toast strength::supersedes queued toasts in place and bounds the queue without dropping a showing toast"
+        "native_parity_weaker_surfaces::gallery toast strength::clears showing toasts and returns the rows, instances and frame clock",
+        "native_parity_weaker_surfaces::gallery toast strength::leaves the selection and the control beneath untouched while a toast shows",
+        "native_parity_weaker_surfaces::gallery toast strength::a wide toast fills its edge; a fit-content toast hugs its lines up to the width cap",
+        "native_parity_weaker_surfaces::gallery toast strength::docks each new toast on the chosen edge",
+        "native_parity_weaker_surfaces::gallery toast strength::a same-subject toast supersedes the showing one after its read floor"
       ],
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -6477,7 +6477,7 @@
       "candidateCases": [
         "native_virtual_monitors::native virtual monitors::NVM-5 supports native card drop saving and similar-game contextual saving",
         "native_virtual_monitors::native virtual monitors::opens native detector taps once while drags and canceled gestures never open a card",
-        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until native long press and saves only the held contact on release"
+        "native_virtual_monitors::native virtual monitors::keeps touch scrolling available until the native long press and saves only the held contact on release"
       ]
     },
     {
@@ -12195,7 +12195,7 @@
       "class": "a",
       "candidateCases": [
         "native_collections::Compose native collections::respects edge full-swipe policy, edit affordances and focused destructive input",
-        "native_parity_weaker_rows::native parity weaker rows::collections-67 forwards table editing into hosted rows and deletes the row its minus belongs to"
+        "native_parity_weaker_rows::native parity weaker rows::collections-67 table edit mode leaves hosted row actions alone; they stay independent of it"
       ]
     },
     {
@@ -14072,7 +14072,7 @@
       "nativeMechanism": "Native GuiService spatial navigation",
       "nativeEvidence": "none",
       "candidateCases": [
-        "native_parity_classb_collections::native parity classb collections::collections-189 each editing row carries its own minus at its leading edge and it deletes that row"
+        "native_parity_classb_collections::native parity classb collections::collections-189 a deletable table in edit mode gives each row a leading minus that reveals its Delete"
       ]
     },
     {
@@ -24286,7 +24286,7 @@
       "candidateCases": [
         "native_navigation::native navigation controls::shows button help after a pointer rests on it and never on touch",
         "native_parity_gaps::native parity gaps::shows button help when gamepad selection rests on the button and hides it on deselection",
-        "native_parity_weaker_actions::native parity weaker actions::waits for a resting pointer, restarts the dwell, shows current help text and never engages on touch"
+        "native_parity_weaker_actions::native parity weaker actions::waits for a resting pointer, restarts the dwell, shows current help text and opens on a touch long-press"
       ]
     },
     {
@@ -24544,15 +24544,15 @@
       "mainCases": 12,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
-        "native_gallery_parity::restored native gallery parity::reflows measured toast heights with owned motion and releases the departing card",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_parity_weaker_surfaces::gallery toast strength::releases dismissed toasts within the half-second cap and returns the counters and instances",
-        "native_parity_weaker_surfaces::gallery toast strength::leaves selection, modal scope and the control beneath untouched while a toast shows",
-        "native_parity_weaker_surfaces::gallery toast strength::fits toast width to measured text within the floor, the cap and the available row",
-        "native_parity_weaker_surfaces::gallery toast strength::docks a bottom strip that grows upward and slides top survivors into the vacated slot",
+        "native_parity_weaker_surfaces::gallery toast strength::clears showing toasts and returns the rows, instances and frame clock",
+        "native_parity_weaker_surfaces::gallery toast strength::leaves the selection and the control beneath untouched while a toast shows",
+        "native_parity_weaker_surfaces::gallery toast strength::a wide toast fills its edge; a fit-content toast hugs its lines up to the width cap",
+        "native_parity_weaker_surfaces::gallery toast strength::docks each new toast on the chosen edge",
         "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
-        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id and ignores an unknown id"
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id"
       ],
       "liveEvidence": {
         "host": "Roblox Studio playtest, device simulator Xbox One (1920x1080, gamepad preferred input), Medium text; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -24586,13 +24586,13 @@
       "mainCases": 16,
       "class": "a",
       "candidateCases": [
-        "native_gallery_parity::restored native gallery parity::bounds toast priority queues protects reading supersedes in place and reverses dismissal",
+        "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_parity_weaker_surfaces::gallery toast strength::schedules toasts with per-toast timeouts that promote the queue in the same frame",
-        "native_parity_weaker_surfaces::gallery toast strength::orders the toast queue by priority first in first out and preempts only the weakest showing toast",
-        "native_parity_weaker_surfaces::gallery toast strength::supersedes queued toasts in place and bounds the queue without dropping a showing toast",
-        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id and ignores an unknown id",
-        "native_parity_weaker_surfaces::gallery toast strength::drops exactly the least urgent newest burst toast at the queue cap and drains the rest"
+        "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
+        "native_toast_action::native Toast with an action: proposals and reasons::equal priority waits in order; a higher one supersedes after the floor, once",
+        "native_parity_weaker_surfaces::gallery toast strength::a same-subject toast supersedes the showing one after its read floor",
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
+        "native_parity_weaker_surfaces::gallery toast strength::shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped"
       ]
     },
     {
@@ -24877,7 +24877,7 @@
       "mainCases": 9,
       "class": "a",
       "candidateCases": [
-        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds"
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds and keeps the image ratio"
       ],
       "liveEvidence": {
         "host": "Roblox Studio playtest with the device emulator (touch)",
@@ -26977,7 +26977,7 @@
       ],
       "mainCases": 2,
       "class": "c",
-      "removal": "outsideTapCancel/presentModal options deleted (only historical docs/superpowers plan mentions them). Click-through prevention is now the native full-screen DismissOutside TextButton sinking input."
+      "removal": "outsideTapCancel/presentModal options deleted (only a historical design plan mentioned them). Click-through prevention is now the native full-screen DismissOutside TextButton sinking input."
     },
     {
       "id": "navigation-2-63",
@@ -30936,7 +30936,7 @@
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
       "candidateCases": [
-        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+        "native_parity_weaker_paint::native parity weaker paint::pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included"
       ]
     },
     {
@@ -32933,7 +32933,7 @@
         "observed": "No control in the ten demos crosses the screen sides at desktop or on the phone, or in nine themes."
       },
       "candidateCases": [
-        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+        "native_parity_weaker_paint::native parity weaker paint::pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included"
       ]
     },
     {
@@ -35536,7 +35536,7 @@
       "class": "a",
       "candidateCases": [
         "native_inputs::native input controls::isolates artwork and mirrored captions from native automatic sizing while following real padding",
-        "native_parity_weaker_paint::native parity weaker paint::pads every role by the larger of its floor and the package's chrome insets, zero insets included"
+        "native_parity_weaker_paint::native parity weaker paint::pads a button or field by floor plus carve, a badge or panel by the larger, zero insets included"
       ],
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Medium text, and a second session at the Largest text size; a fixed stage size is the screen through a viewport cell and overlayParent",
@@ -37922,7 +37922,7 @@
       "class": "a",
       "candidateCases": [
         "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
-        "native_parity_strength_icons::sliced and bar art::centres end caps on the track edge, centres the centrepiece and defaults the fill to ltr"
+        "native_parity_strength_icons::sliced and bar art::fits end caps inside the track ends, centres the centrepiece and defaults the fill to ltr"
       ]
     },
     {
@@ -41477,7 +41477,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::a registration presents nothing and reserves nothing while its fact is false"
+        "native_toast_action::native Toast with an action: presentation::a registration presents nothing and reserves nothing while its fact is false"
       ],
       "family": "overlays"
     },
@@ -41492,7 +41492,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::shows a message when the caller's fact turns true, and close proposes"
+        "native_toast_action::native Toast with an action: presentation::shows a message when the caller's fact turns true, and close proposes"
       ],
       "family": "overlays"
     },
@@ -41507,7 +41507,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::the six compositions pick their parts and widths"
+        "native_toast_action::native Toast with an action: presentation::the four compositions pick their parts and take the strip's width"
       ],
       "family": "overlays",
       "liveEvidence": {
@@ -41532,7 +41532,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::a plain row hugs a longer message up to the strip's width"
+        "native_toast::UI.Toast: presentation::fill spans the layer less the margins; hug fits the text, centred, up to 560"
       ],
       "family": "overlays",
       "liveEvidence": {
@@ -41557,7 +41557,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::long copy wraps and the action moves below it"
+        "native_toast_action::native Toast with an action: presentation::long copy wraps and the action moves below it"
       ],
       "family": "overlays",
       "liveEvidence": {
@@ -41582,7 +41582,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::an action runs once and leaves the row mounted; closing inside it reports action"
+        "native_toast_action::native Toast with an action: proposals and reasons::an action runs once and leaves the row mounted; closing inside it reports action"
       ],
       "family": "overlays"
     },
@@ -41597,7 +41597,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::a refused close keeps the same row and reports nothing"
+        "native_toast_action::native Toast with an action: proposals and reasons::a refused close keeps the same row and reports nothing"
       ],
       "family": "overlays"
     },
@@ -41613,7 +41613,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::a timeout asks once at max(duration, 2.5 s) of readable time; a refusal makes it persistent"
+        "native_toast_action::native Toast with an action: proposals and reasons::a timeout asks once at max(duration, 2.5 s) of readable time; a refusal makes it persistent"
       ],
       "family": "overlays"
     },
@@ -41629,7 +41629,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::an accepted timeout retires with reason timeout; nil duration never expires"
+        "native_toast_action::native Toast with an action: proposals and reasons::an accepted timeout retires with reason timeout; nil duration never expires"
       ],
       "family": "overlays"
     },
@@ -41645,7 +41645,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::hover and focus pause the dwell; queued time never counts"
+        "native_toast_action::native Toast with an action: proposals and reasons::hover and focus pause the dwell; queued time never counts"
       ],
       "family": "overlays"
     },
@@ -41661,8 +41661,8 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::equal priority waits in order; a higher one supersedes after the floor, once",
-        "native_snackbar::native Snackbar: the schedule under re-entrant callbacks::a refused supersession keeps the contender queued and asks only once"
+        "native_toast_action::native Toast with an action: proposals and reasons::equal priority waits in order; a higher one supersedes after the floor, once",
+        "native_toast_action::native Toast with an action: the schedule under re-entrant callbacks::a refused supersession keeps the contender queued and asks only once"
       ],
       "family": "overlays"
     },
@@ -41677,7 +41677,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::an accepted supersession reports superseded"
+        "native_toast_action::native Toast with an action: proposals and reasons::an accepted pre-emption reports preempt"
       ],
       "family": "overlays"
     },
@@ -41692,7 +41692,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: proposals and reasons::the caller's false while queued removes it and reports cancel once"
+        "native_toast_action::native Toast with an action: proposals and reasons::the caller's false while queued removes it and reports cancel once"
       ],
       "family": "overlays"
     },
@@ -41708,7 +41708,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::the tenth admission is refused at construction, and capacity recovers"
+        "native_toast_action::native Toast with an action: admission and lifetime::past one showing and eight waiting, the newest is dropped: capacity, and its fact is asked false"
       ],
       "family": "overlays"
     },
@@ -41723,7 +41723,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::owner teardown never asks and reports cancel once, like Dialog and Popover"
+        "native_toast_action::native Toast with an action: admission and lifetime::owner teardown never asks and reports cancel once, like Dialog and Popover"
       ],
       "family": "overlays",
       "closeNote": "The promise is the same: owner teardown never asks and reports cancel once. The native form has no separate application, so owner disposal is the only teardown."
@@ -41739,7 +41739,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::two worlds are independent"
+        "native_toast_action::native Toast with an action: admission and lifetime::two worlds are independent"
       ],
       "family": "overlays"
     },
@@ -41754,7 +41754,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::a visible row reserves its bottom rectangle, and releases it after it has slid out"
+        "native_toast_action::native Toast with an action: admission and lifetime::a visible row reserves its bottom rectangle, and releases it after it has slid out"
       ],
       "family": "overlays",
       "closeNote": "The promise is the same: the visible row reserves its bottom rectangle until it has slid out. The native form publishes the reservation as the FacetInsetBottom layer attribute, and the case asserts it through the slide."
@@ -41770,7 +41770,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::a modal blocks the dwell until it closes"
+        "native_toast_action::native Toast with an action: admission and lifetime::a modal blocks the dwell until it closes"
       ],
       "family": "overlays"
     },
@@ -41785,7 +41785,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::refuses a malformed spec before registering"
+        "native_toast_action::native Toast with an action: admission and lifetime::refuses a malformed spec before registering"
       ],
       "family": "overlays"
     },
@@ -41800,7 +41800,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: focus and input::arrival never steals focus; Cancel on a focused row returns focus to the content even when refused"
+        "native_toast_action::native Toast with an action: focus and input::arrival never steals focus; Cancel on a focused row returns focus to the content even when refused"
       ],
       "family": "overlays"
     },
@@ -41815,7 +41815,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: focus and input::accepted removal of the focused row puts focus back on the content"
+        "native_toast_action::native Toast with an action: focus and input::accepted removal of the focused row puts focus back on the content"
       ],
       "family": "overlays"
     },
@@ -41856,7 +41856,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::the strip docks bottom-centre above base screens, and modals and callouts paint above it"
+        "native_toast_action::native Toast with an action: presentation::the strip docks bottom-centre above base screens, and modals and callouts paint above it"
       ],
       "family": "overlays"
     },
@@ -41871,7 +41871,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: an art theme's panel carve::an art theme's frame carve holds the icon, copy and action inside the plate"
+        "native_toast_action::native Toast with an action: an art theme's panel carve::an art theme's frame carve holds the icon, copy and action inside the plate"
       ],
       "family": "overlays",
       "liveEvidence": {
@@ -41897,7 +41897,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: presentation::the strip docks bottom-centre above base screens, and modals and callouts paint above it"
+        "native_toast_action::native Toast with an action: presentation::the strip docks bottom-centre above base screens, and modals and callouts paint above it"
       ],
       "family": "overlays",
       "liveEvidence": {
@@ -41922,7 +41922,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: focus and input::a pointer press on Close leaves no click-eating catcher behind"
+        "native_toast_action::native Toast with an action: focus and input::a pointer press on Close leaves no click-eating catcher behind"
       ],
       "family": "overlays"
     },
@@ -41937,7 +41937,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::a visible row reserves its bottom rectangle, and releases it after it has slid out"
+        "native_toast_action::native Toast with an action: admission and lifetime::a visible row reserves its bottom rectangle, and releases it after it has slid out"
       ],
       "family": "overlays"
     },
@@ -41952,7 +41952,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::a throwing caller callback is raised, and the row stays consistent"
+        "native_toast_action::native Toast with an action: admission and lifetime::a throwing caller callback is raised, and the row stays consistent"
       ],
       "family": "overlays"
     },
@@ -41967,7 +41967,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: admission and lifetime::a construction that raises leaves nothing admitted behind it"
+        "native_toast_action::native Toast with an action: admission and lifetime::a construction that raises leaves nothing admitted behind it"
       ],
       "family": "overlays"
     },
@@ -41997,7 +41997,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_snackbar::native Snackbar: the schedule under re-entrant callbacks::callbacks may show and hide other rows during a retirement without a stale entry"
+        "native_toast_action::native Toast with an action: the schedule under re-entrant callbacks::callbacks may show and hide other rows during a retirement without a stale entry"
       ],
       "family": "overlays"
     },
@@ -46136,7 +46136,7 @@
     {
       "id": "post-pickers-139",
       "group": "menus-pickers",
-      "title": "DateTimePicker: a single date: the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)",
+      "title": "DateTimePicker: a single date: the year and month menus open on the shown ones and honour min/max",
       "mainSpecs": [
         "date_time_picker"
       ],
@@ -46145,7 +46145,7 @@
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "family": "pickers",
       "candidateCases": [
-        "native_date_time_picker::DateTimePicker: a single date::the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)"
+        "native_date_time_picker::DateTimePicker: a single date::the year and month menus open on the shown ones and honour min/max"
       ],
       "liveEvidence": {
         "host": "Roblox Studio 0.740.19 playtest, device simulator Xbox One (1920x1080), Controller Emulator (Virtual Controller) on; real Gamepad1 input sent through UserInputService:CreateVirtualInput() and the emulator key map by live.press (DPadDown 3, DPadLeft 2, DPadRight 4, ButtonA 9, ButtonB 0, ButtonX 8, ButtonY 7, left stick up W); each artifact records the delivered Gamepad1 InputObjects in notes.deliveredInput; Medium text",
@@ -46394,7 +46394,7 @@
     {
       "id": "post-pickers-152",
       "group": "menus-pickers",
-      "title": "DateTimePicker: ranges, presets and drafts: a range's end drags across days and panes, crossing swaps, release commits once (owner)",
+      "title": "DateTimePicker: ranges, presets and drafts: a range's end drags across days and panes, crossing swaps, release commits once",
       "mainSpecs": [
         "date_time_picker"
       ],
@@ -46403,7 +46403,7 @@
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "family": "pickers",
       "candidateCases": [
-        "native_date_time_picker::DateTimePicker: ranges, presets and drafts::a range's end drags across days and panes, crossing swaps, release commits once (owner)"
+        "native_date_time_picker::DateTimePicker: ranges, presets and drafts::a range's end drags across days and panes, crossing swaps, release commits once"
       ],
       "weaker": "Drag positions come from synthetic cell rectangles and fired InputBegan/InputChanged/InputEnded events (needs-live dtp-range-drag)."
     },

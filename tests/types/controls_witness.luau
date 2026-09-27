@@ -181,7 +181,7 @@ local notice: Frame = UI.Notice(noticeProps)
 local navBarProps: Facet.NavBarSpec = { title = text, onBack = nothing, backLabel = "Back" }
 local navBar: Frame = UI.NavBar(navBarProps)
 local snackOpen = Compose.cell(false)
-local snackbarProps: Facet.SnackbarSpec = {
+local snackbarProps: Facet.ToastSpec = {
 	isPresented = snackOpen,
 	message = text,
 	duration = 4,
@@ -190,7 +190,18 @@ local snackbarProps: Facet.SnackbarSpec = {
 		snackOpen:set(nextValue)
 	end,
 }
-local snackbar: Frame = UI.Snackbar(snackbarProps)
+local snackbar: Frame = UI.Toast(snackbarProps)
+local toastProps: Facet.ToastSpec = {
+	message = "Saved",
+	key = "save",
+	position = "bottom" :: "bottom",
+	width = "hug" :: "hug",
+	onDismiss = function(
+		reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual" | "action" | "close" | "cancel"
+	)
+	end,
+}
+local toast: Frame = UI.Toast(toastProps)
 local items = { { id = "save", label = "Save", onSelect = nothing } }
 local menu: GuiObject = UI.Menu({ items = items })
 local split: GuiObject = UI.SplitButton({ label = "Save", onActivate = nothing, items = items })
@@ -324,6 +335,7 @@ local mounted: { GuiObject } = {
 	notice,
 	navBar,
 	snackbar,
+	toast,
 	menu,
 	split,
 	picker,

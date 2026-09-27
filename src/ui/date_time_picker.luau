@@ -75,7 +75,7 @@ local CELLS = 42
 local CELL = 44
 local DISC = 32
 local GAP = 24
-local YEAR_SPAN = 100
+local YEAR_SPAN = 50
 local ROW = 44
 
 local function monthOf(d: CivilDate): CivilDate
@@ -905,6 +905,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				ZIndex = 5,
 			})
 			number:AddTag("facet-calendar-number")
+			tagWhile(number, "facet-calendar-banded", function(use: Use)
+				return use(banded)
+			end)
 			tagWhile(number, "facet-calendar-dim", function(use: Use)
 				return use(outside) or use(disabled)
 			end)
@@ -1054,7 +1057,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			menuName: string,
 			options: (Use) -> { { value: number, label: string, enabled: (Use) -> boolean } },
 			get: (CivilDate) -> number,
-			set: (number) -> ()
+			set: (number) -> (),
+			maxHeight: number?
 		): GuiObject
 			local pick = Compose.cell(get(peekMonth()))
 			Compose.watch(function(use: Use)
@@ -1085,19 +1089,24 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end
 				return tostring(now)
 			end
-			local trigger = UI.Button({
-				Name = menuName,
-				label = wordsOf,
-				trailingIcon = "chevron.down",
-				appearance = "utility",
-				enabled = function(use: Use)
-					return interactive(use)
-				end,
-			})
+			local trigger = ctx.styled(
+				UI.Button({
+					Name = menuName,
+					label = wordsOf,
+					trailingIcon = "chevron.down",
+					appearance = "utility",
+					enabled = function(use: Use)
+						return interactive(use)
+					end,
+				}),
+				"calendar-choice"
+			)
 			return UI.Menu({
 				items = items,
 				trigger = trigger :: GuiObject,
 				presentation = "menu" :: "menu",
+				align = "center" :: "center",
+				maxHeight = maxHeight,
 				enabled = function(use: Use)
 					return interactive(use)
 				end,
@@ -1134,7 +1143,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				local centre = use(viewMonth).year
 				local lo, hi = use(minDate), use(maxDate)
 				local list = {}
-				for y = if lo then lo.year else centre - YEAR_SPAN, if hi then hi.year else centre + YEAR_SPAN do
+				local first = math.max(centre - YEAR_SPAN, if lo then lo.year else -math.huge)
+				for y = first, math.min(centre + YEAR_SPAN, if hi then hi.year else math.huge) do
 					table.insert(list, {
 						value = y,
 						label = tostring(y),
@@ -1148,7 +1158,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				return m.year
 			end, function(v: number)
 				landIn({ year = v, month = peekMonth().month, day = 1 })
-			end)
+			end, 5 * CELL)
 			upTarget:set(monthMenu)
 			local function arrow(name: string, icon: string, words_: string, delta: number): TextButton
 				return UI.Button({
@@ -1650,7 +1660,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					LayoutOrder = 2,
 					icon = "calendar",
 					name = "Choose a date",
-					shape = "circle" :: "circle",
+					Size = D2.new(0, ROW, 1, 0),
+					AutomaticSize = E.AutomaticSize.None,
+					corners = spec.corners,
 					appearance = "utility",
 					enabled = function(use: Use)
 						return interactive(use)
@@ -1669,7 +1681,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					PlaceholderText = spec.placeholder or "",
 					ClearTextOnFocus = false,
 					BackgroundTransparency = 1,
-					Size = D2.new(0, 0, 0, ROW),
+					Size = D2.new(1, -ROW, 1, 0),
 					TextXAlignment = E.TextXAlignment.Left,
 					TextEditable = function(use: Use)
 						return interactive(use)
@@ -1677,7 +1689,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					Selectable = function(use: Use)
 						return interactive(use)
 					end,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+					ctx.padding(12, 0) :: Shared.Child,
 				}
 				ctx.styled(box, "text")
 				entry = box
@@ -1715,9 +1727,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						local s = use(valueText)
 						return if s ~= "" then s else spec.placeholder or ""
 					end,
-					Size = D2.new(0, 0, 0, ROW),
+					Size = D2.new(1, -ROW, 1, 0),
 					AutomaticSize = E.AutomaticSize.None,
 					TextXAlignment = E.TextXAlignment.Left,
+					textSize = "body",
+					corners = spec.corners,
 					appearance = "utility",
 					enabled = function(use: Use)
 						return interactive(use)
@@ -1725,7 +1739,6 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					onActivate = function()
 						requestPresented(true)
 					end,
-					Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 				})
 				tagWhile(show, "facet-secondary", function(use: Use)
 					return use(valueText) == ""
@@ -1734,14 +1747,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end)
 			local plate = ctx.row({ entryView, showView, calendarButton() }, {
 				Name = "Field",
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
+				Size = D2.new(1, 0, 0, ROW),
+				AutomaticSize = E.AutomaticSize.None,
 				BackgroundTransparency = 0,
-				ctx.padding(10, 0) :: Shared.Child,
+				ClipsDescendants = true,
+				ctx.padding(0, 0) :: Shared.Child,
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center
-			layout.Padding = D.new(0, 4)
+			layout.Padding = D.new(0, 0)
 			ctx.styled(plate, "text-input")
 			local failure = chrome.errorOf(chromeSpec, typedError)
 			chrome.paint("DateTimePicker", plate, chromeSpec, function(use: Use?): boolean
@@ -1784,15 +1798,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local origin = if layer then ctx.observe.AbsolutePosition(layer) else Compose.cell(V2.zero)
 					local position = ctx.observe.AbsolutePosition(plate)
 					local bounds = ctx.observe.AbsoluteSize(plate)
-					local tenFoot = false
-					if gui then
-						local ok, answer = pcall(function(): boolean
-							return (gui :: GuiService):IsTenFootInterface()
-						end)
-						tenFoot = ok and answer == true
-					end
+					local tenFoot = ctx.tenFoot()
 					local route = Compose.formula(function(use: Use): string
-						if tenFoot then
+						if tenFoot(use) then
 							return "sheet"
 						end
 						local offer = use(extent) :: Vector2
@@ -1821,6 +1829,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							AutomaticCanvasSize = E.AutomaticSize.Y,
 							ScrollingDirection = E.ScrollingDirection.Y,
 							ScrollBarThickness = 4,
+							VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 							panel :: Shared.Child,
 						}
 						ctx.styled(surface, "panel")
@@ -1842,7 +1851,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local content = ctx.observe.AbsoluteSize(panel)
 					local measured = ctx.observe.AbsoluteSize(surface)
 					local function sheet(use: Use): boolean
-						return use(route) == "sheet" and not tenFoot
+						return use(route) == "sheet" and not tenFoot(use)
 					end
 					runtime.decorate(panel, {
 						Size = function(use: Use)
@@ -1855,8 +1864,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					})
 					runtime.decorate(surface, {
 						Size = function(use: Use)
+							local function carve(side: string): number
+								return surfaces.inset(0, side, nil, use)
+							end
 							local offer = use(extent) :: Vector2
-							local height = (use(content) :: Vector2).Y
+							local height = (use(content) :: Vector2).Y + carve("top") + carve("bottom")
 							if offer.Y > 0 then
 								height = math.min(height, offer.Y - 16)
 							end
@@ -1864,7 +1876,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 								return D2.new(1, -24, 0, height)
 							end
 							local width = if use(dual) then 2 * 7 * CELL + GAP else 7 * CELL
-							return D2.fromOffset(width + 32, height)
+							return D2.fromOffset(width + 32 + carve("left") + carve("right"), height)
 						end,
 						Position = function(use: Use)
 							local at, size, offer, box, offset =
@@ -1874,7 +1886,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 								use(measured) :: Vector2,
 								use(origin) :: Vector2
 							if use(route) == "sheet" then
-								if tenFoot then
+								if tenFoot(use) then
 									return D2.fromOffset(
 										math.max(8, (offer.X - box.X) / 2),
 										math.max(8, (offer.Y - box.Y) / 2)

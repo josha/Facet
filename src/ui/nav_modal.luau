@@ -5,6 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local help = require("./help")
 local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
+local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 local scrollLock = require("./scroll_lock")
 
@@ -24,6 +25,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 
 	local function selecting(): (ComposeTypes.Use) -> boolean
 		local active = gui ~= nil and gui.SelectedObject ~= nil
+		if active and input and input.GetLastInputType then
+			local last = input:GetLastInputType()
+			active = last == E.UserInputType.Keyboard or string.find(last.Name, "^Gamepad") ~= nil
+		end
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		return function(use: ComposeTypes.Use): boolean
 			return active or (preferred ~= nil and use(preferred) == E.PreferredInput.Gamepad)
@@ -45,6 +50,16 @@ return function(ctx: Types.Context): Nav.Surfaces
 			node = node.Parent
 		end
 		return false
+	end
+	local function displayed(node: Instance): boolean
+		local at: Instance? = node
+		while at and not at:IsA("LayerCollector") do
+			if at:IsA("GuiObject") and not at.Visible then
+				return false
+			end
+			at = at.Parent
+		end
+		return at ~= nil
 	end
 	local function firstSelectable(node: Instance, preferred: string?): GuiObject?
 		if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) then
@@ -70,12 +85,40 @@ return function(ctx: Types.Context): Nav.Surfaces
 		Compose.cleanup(stop)
 		return node
 	end
-	local function skin(panel: GuiObject, slot: string?): GuiObject
-		local _, art = ctx.skin(panel, slot or "panel")
-		if art and panel:FindFirstChildWhichIsA("UIListLayout") then
-			local decoration = Host.Folder "Chrome" {}
-			attach(panel, { decoration })
-			art.Parent = decoration
+	local function inset(authored: number, side: string, slot: string?, use: ComposeTypes.Use?): number
+		local package = ctx.read(ctx.config.theme, use)
+		local recipe = if package and package.chrome then package.chrome[slot or "panel"] else nil
+		local carve = if recipe then recipe.contentInsets else nil
+		if carve == nil then
+			return authored
+		end
+		local value = if side == "top"
+			then carve.top
+			elseif side == "bottom" then carve.bottom
+			elseif side == "left" then carve.left
+			else carve.right
+		return math.max(authored, value or 0)
+	end
+	local function skin(panel: GuiObject, slot: string?, options: Nav.PanelSkin?): GuiObject
+		local settings: Nav.PanelSkin = options or {}
+		local extra = settings.reserve
+		ctx.skin(panel, slot or "panel", { label = settings.title, onCaption = settings.onCaption })
+		local padding = settings.padding or panel:FindFirstChildWhichIsA("UIPadding")
+		if padding and (ctx.config.theme ~= nil or extra) then
+			local function side(name: string, authored: UDim): (ComposeTypes.Use) -> UDim
+				return function(use: ComposeTypes.Use): UDim
+					return ctx.types.UDim.new(
+						0,
+						inset(authored.Offset, name, slot, use) + (if extra then extra(name, use) else 0)
+					)
+				end
+			end
+			runtime.decorate(padding, {
+				PaddingTop = side("top", padding.PaddingTop),
+				PaddingBottom = side("bottom", padding.PaddingBottom),
+				PaddingLeft = side("left", padding.PaddingLeft),
+				PaddingRight = side("right", padding.PaddingRight),
+			})
 		end
 		return panel
 	end
@@ -111,23 +154,35 @@ return function(ctx: Types.Context): Nav.Surfaces
 		panel: GuiObject,
 		amount: Nav.Appearance,
 		place: (ComposeTypes.Use) -> (Vector2, Vector2),
-		from: number?
+		from: number?,
+		pinned: boolean?
 	): ()
 		local rest = from or 0.9
 		local function scale(use: ComposeTypes.Use): number
 			return rest + (1 - rest) * amount(use)
 		end
-		runtime.decorate(panel, {
-			Position = function(use: ComposeTypes.Use)
-				local at, origin = place(use)
-				local shrink = 1 - scale(use)
-				return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
-			end,
-		})
-		if panel:IsA("CanvasGroup") then
+		if pinned then
+			local size = ctx.observe.AbsoluteSize(panel)
 			runtime.decorate(panel, {
-				GroupTransparency = function(use: ComposeTypes.Use)
-					return 1 - amount(use)
+				AnchorPoint = function(use: ComposeTypes.Use)
+					local _, origin = place(use)
+					local box = use(size)
+					return V2.new(
+						if box.X > 0 then math.clamp(origin.X / box.X, 0, 1) else 0,
+						if box.Y > 0 then math.clamp(origin.Y / box.Y, 0, 1) else 0
+					)
+				end,
+				Position = function(use: ComposeTypes.Use)
+					local at, origin = place(use)
+					return D2.fromOffset(at.X + origin.X, at.Y + origin.Y)
+				end,
+			})
+		else
+			runtime.decorate(panel, {
+				Position = function(use: ComposeTypes.Use)
+					local at, origin = place(use)
+					local shrink = 1 - scale(use)
+					return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
 				end,
 			})
 		end
@@ -411,6 +466,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				ancestry:set(ancestry:peek() + 1)
 			end)
 			local rootInteractive = ctx.observe.Interactable(root)
+			local rootVisible = ctx.observe.Visible(root)
 			local panelInteractive = ctx.observe.Interactable(panel)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if not use(rootInteractive) or not use(panelInteractive) then
@@ -423,15 +479,18 @@ return function(ctx: Types.Context): Nav.Surfaces
 					end
 				elseif
 					use(mounted)
+					and use(rootVisible)
 					and use(ancestry) >= 0
 					and not (exiting and use(exiting))
 					and focusIn(use)
 					and not within(guiService.SelectedObject, root)
 				then
 					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
-					pcall(function()
-						guiService.SelectedObject = target
-					end)
+					if target and displayed(target) then
+						pcall(function()
+							guiService.SelectedObject = target
+						end)
+					end
 				end
 			end)
 			local selection = ctx.observe.SelectedObject(gui)
@@ -452,6 +511,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					landed
 					or scopes[#scopes] ~= root
 					or not use(mounted)
+					or not use(rootVisible)
 					or (exiting and use(exiting))
 					or not use(rootInteractive)
 					or not use(panelInteractive)
@@ -460,7 +520,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 					return
 				end
 				local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
-				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 then
+				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 and displayed(target) then
 					pcall(function()
 						guiService.SelectedObject = target
 					end)
@@ -535,19 +595,30 @@ return function(ctx: Types.Context): Nav.Surfaces
 
 	local function arrive(node: Instance): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
-		if frames == nil or not node:IsA("GuiObject") or not node.Visible then
+		if frames == nil then
 			return node
 		end
-		local surface = node :: GuiObject
-		surface.Visible = false
+		local surfaces: { GuiObject } = {}
+		local parts: { Instance } = if node:IsA("GuiObject") then { node } else node:GetChildren()
+		for _, part in parts do
+			if part:IsA("GuiObject") and part.Visible then
+				part.Visible = false
+				table.insert(surfaces, part)
+			end
+		end
+		if #surfaces == 0 then
+			return node
+		end
 		local connection: RBXScriptConnection? = nil
 		connection = frames.Heartbeat:Connect(function()
 			if connection then
 				connection:Disconnect()
 				connection = nil
 			end
-			if not surface.Visible then
-				surface.Visible = true
+			for _, surface in surfaces do
+				if not surface.Visible then
+					surface.Visible = true
+				end
 			end
 		end)
 		Compose.cleanup(function()
@@ -556,7 +627,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 				connection = nil
 			end
 		end)
-		return surface
+		return node
 	end
 	local function overlay(
 		anchor: GuiObject,
@@ -645,20 +716,58 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end,
 		})
 	end
-	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help)
+	help.register(ctx, function(anchor: GuiObject, value: Inputs.Help, plate: help.Plate?)
 		local structured: Inputs.HelpSpec? = if type(value) == "table" and not Compose.isReadable(value)
 			then value :: Inputs.HelpSpec
 			else nil
 		local text: Types.Value<string> = if structured then structured.body else value :: Types.Value<string>
+		local gate = plate and plate.gate
 		local state = ctx.observe.GuiState(anchor)
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
+		local held = Compose.cell(false)
+		local function press(phase: Enum.UserInputState)
+			if phase == E.UserInputState.Begin and ctx.read(gate) ~= false then
+				held:set(true)
+				help.hold(anchor, true)
+			end
+		end
+		if anchor:IsA("GuiButton") then
+			runtime.connect(anchor, "TouchLongPress", function(_: { Vector2 }, phase: Enum.UserInputState)
+				press(phase)
+			end)
+		elseif input then
+			runtime.connect(input, "TouchLongPress", function(points: { Vector2 }, phase: Enum.UserInputState)
+				local point: Vector2? = points[1]
+				local layer = anchor:FindFirstAncestorWhichIsA("ScreenGui")
+				if point == nil or layer == nil or not displayed(anchor) then
+					return
+				end
+				local offset = if layer.IgnoreGuiInset and gui then gui:GetGuiInset() else V2.zero
+				local at, size = anchor.AbsolutePosition - offset, anchor.AbsoluteSize
+				if point.X >= at.X and point.X <= at.X + size.X and point.Y >= at.Y and point.Y <= at.Y + size.Y then
+					press(phase)
+				end
+			end)
+		end
+		runtime.connect(anchor, "InputBegan", function()
+			help.hold(anchor, false)
+		end)
+		if input then
+			runtime.connect(input, "InputBegan", function(event: InputObject)
+				if held:peek() and event.UserInputType == E.UserInputType.Touch then
+					held:set(false)
+				end
+			end)
+		end
 		local wanted = Compose.formula(function(use: ComposeTypes.Use): boolean
 			local kind = if preferred then use(preferred) else nil
 			if kind == E.PreferredInput.Touch then
 				return false
 			end
-			return use(state) == E.GuiState.Hover or (selection ~= nil and use(selection) == anchor)
+			local selected = if selection then use(selection) else nil
+			return use(state) == E.GuiState.Hover
+				or (selected ~= nil and (selected == anchor or anchor:IsDescendantOf(selected)))
 		end)
 		local rest = runtime.timeline({ duration = 0.45, autoplay = false })
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -670,41 +779,36 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 		end)
 		local armed = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return use(wanted) and use(rest.progress) >= 1
+			return ctx.read(gate, use) ~= false and (use(held) or (use(wanted) and use(rest.progress) >= 1))
 		end)
+		local shown = plate and plate.shown
+		if shown then
+			Compose.watch(function(use: ComposeTypes.Use)
+				shown:set(use(armed))
+			end)
+		end
+		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
-				local amount = appearance(phase, POPOVER)
+				local amount = appearance(phase, timing)
 				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
 					or assert(anchor:FindFirstAncestorWhichIsA("LayerCollector"))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
-				local measure = ctx.text({
-					Name = "HelpMeasure",
-					Text = function(use: ComposeTypes.Use)
-						return ctx.read(text, use) or ""
-					end,
-					TextWrapped = false,
-					TextTransparency = 1,
-					Size = D2.fromOffset(0, 0),
-					AutomaticSize = E.AutomaticSize.None,
-				})
-				measure:AddTag("facet-type-caption")
-				local natural = ctx.observe.TextBounds(measure)
 				local label = ctx.text({
 					Name = "HelpText",
 					Text = function(use: ComposeTypes.Use)
 						return ctx.read(text, use) or ""
 					end,
 					TextWrapped = true,
-					Size = function(use: ComposeTypes.Use)
-						return D2.fromOffset(math.min(math.ceil(use(natural).X) + 1, 264), 0)
-					end,
-					AutomaticSize = E.AutomaticSize.Y,
+					Host.UISizeConstraint({ MaxSize = V2.new(264, math.huge) }) :: Types.Child,
 				})
 				label:AddTag("facet-type-caption")
 				local panelProps: Types.CanvasGroupNativeProps = {
-					Name = "Help",
+					Name = plate and plate.name or "Help",
+					GroupTransparency = function(use: ComposeTypes.Use)
+						return 1 - amount(use)
+					end,
 					AutomaticSize = E.AutomaticSize.XY,
 					Size = D2.fromOffset(0, 0),
 					ZIndex = 96,
@@ -747,16 +851,15 @@ return function(ctx: Types.Context): Nav.Surfaces
 					hint:AddTag("facet-secondary")
 					table.insert(panelProps, hint)
 				end
-				runtime.decorate(measure, { LayoutOrder = 4 })
-				table.insert(panelProps, measure)
-				local panel = Host.CanvasGroup(panelProps)
+				local panel = ctx.fade(panelProps)
 				local measured = ctx.observe.AbsoluteSize(panel)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
-				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+				local solution = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
 					local anchorAt, anchorSize, offer, offset, box =
 						use(at), use(bounds), use(extent), use(origin), use(measured)
-					local solved = placement.solve({
+					local side = parts.tailSize(ctx, use)
+					return placement.solve({
 						source = {
 							x = anchorAt.X - offset.X,
 							y = anchorAt.Y - offset.Y,
@@ -767,8 +870,14 @@ return function(ctx: Types.Context): Nav.Surfaces
 						safe = { x = 8, y = 8, w = math.max(0, offer.X - 16), h = math.max(0, offer.Y - 16) },
 						edge = edge,
 						align = align,
-						gap = 6,
+						gap = 6 + side * math.sqrt(2) / 2,
+						tail = side * math.sqrt(2),
+						tailInset = 6,
 					})
+				end)
+				popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+					local anchorAt, anchorSize, offset, box = use(at), use(bounds), use(origin), use(measured)
+					local solved = use(solution)
 					local centerX = anchorAt.X - offset.X + anchorSize.X / 2 - solved.x
 					local centerY = anchorAt.Y - offset.Y + anchorSize.Y / 2 - solved.y
 					local origin = if solved.edge == "bottom"
@@ -777,14 +886,43 @@ return function(ctx: Types.Context): Nav.Surfaces
 						elseif solved.edge == "right" then V2.new(0, math.clamp(centerY, 0, box.Y))
 						else V2.new(box.X, math.clamp(centerY, 0, box.Y))
 					return V2.new(solved.x, solved.y), origin
-				end)
-				return ctx.styled(panel, "tooltip")
-			end, { motion = POPOVER }),
+				end, nil, true)
+				ctx.styled(panel, "tooltip")
+				local tail = parts.tail(
+					ctx,
+					"HelpTail",
+					function(use: ComposeTypes.Use): (Vector2?, string)
+						local solved = use(solution)
+						if solved.tailSuppressed or solved.tailX == nil or solved.tailY == nil then
+							return nil, solved.edge
+						end
+						return V2.new(solved.tailX, solved.tailY), solved.edge
+					end,
+					amount,
+					function()
+						return 96
+					end,
+					{
+						node = panel,
+						corner = function(use: ComposeTypes.Use): Vector2
+							local solved = use(solution)
+							return V2.new(solved.x, solved.y)
+						end,
+						size = measured,
+						radius = function(use: ComposeTypes.Use): number
+							return math.min(6, (ctx.metric("radii.control", use)))
+						end,
+						role = "tooltip",
+					}
+				)
+				return Host.Folder "HelpOverlay" { panel :: Instance, tail[1] }
+			end, { motion = timing }),
 		})
 	end)
 	return {
 		modal = modal,
 		skin = skin,
+		inset = inset,
 		centered = centered,
 		attach = attach,
 		service = service :: (("GuiService") -> GuiService?) & (("UserInputService") -> UserInputService?),

@@ -7,7 +7,45 @@ type Layer = {
 	connections: { RBXScriptConnection },
 }
 
+type Hold = { count: number, saved: boolean, watch: RBXScriptConnection }
+
 local layers = setmetatable({} :: { [Instance]: Layer }, { __mode = "k" })
+local holds = setmetatable({} :: { [ScrollingFrame]: Hold }, { __mode = "k" })
+local owned = setmetatable({} :: { [ScrollingFrame]: boolean }, { __mode = "k" })
+
+local function take(frame: ScrollingFrame)
+	local current = holds[frame]
+	if current then
+		current.count += 1
+		return
+	end
+	local created: Hold = {
+		count = 1,
+		saved = frame.ScrollingEnabled,
+		watch = frame:GetPropertyChangedSignal("ScrollingEnabled"):Connect(function()
+			local held = holds[frame]
+			if held and frame.ScrollingEnabled then
+				held.saved = true
+				frame.ScrollingEnabled = false
+			end
+		end),
+	}
+	holds[frame] = created
+	frame.ScrollingEnabled = false
+end
+
+local function give(frame: ScrollingFrame)
+	local current = holds[frame]
+	if current == nil then
+		return
+	end
+	current.count -= 1
+	if current.count == 0 then
+		holds[frame] = nil
+		current.watch:Disconnect()
+		frame.ScrollingEnabled = current.saved
+	end
+end
 
 local function within(node: Instance, ancestor: Instance): boolean
 	local at: Instance? = node
@@ -26,20 +64,19 @@ local function exempt(state: Layer, node: Instance): boolean
 end
 
 local function hold(state: Layer, frame: ScrollingFrame)
-	if state.held[frame] ~= nil then
+	if state.held[frame] then
 		return
 	end
-	state.held[frame] = frame.ScrollingEnabled
-	frame.ScrollingEnabled = false
+	state.held[frame] = true
+	take(frame)
 end
 
 local function free(state: Layer, frame: ScrollingFrame)
-	local previous = state.held[frame]
-	if previous == nil then
+	if not state.held[frame] then
 		return
 	end
 	state.held[frame] = nil
-	frame.ScrollingEnabled = previous
+	give(frame)
 end
 
 local function refresh(layer: Instance, state: Layer)
@@ -113,6 +150,28 @@ function scrollLock.release(layer: Instance, root: Instance)
 	end
 	table.remove(state.stack, index)
 	refresh(layer, state)
+end
+
+function scrollLock.own(frame: ScrollingFrame)
+	owned[frame] = true
+end
+
+function scrollLock.holdOwnedAncestors(node: Instance): () -> ()
+	local held: { ScrollingFrame } = {}
+	local at = node.Parent
+	while at do
+		if at:IsA("ScrollingFrame") and owned[at] then
+			take(at)
+			table.insert(held, at)
+		end
+		at = at.Parent
+	end
+	return function()
+		for _, frame in held do
+			give(frame)
+		end
+		table.clear(held)
+	end
 end
 
 return scrollLock

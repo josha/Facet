@@ -3,6 +3,7 @@ local t = require("./lib/testkit")
 local Facet = require("../src")
 local Roblox = require("@lune/roblox")
 local engineLib = require("./lib/native_engine")
+local styleRules = require("./lib/style_rules")
 local Compose = Facet.Compose
 local expect = t.expect
 local Color3 = Roblox.Color3
@@ -93,7 +94,7 @@ local function world(spec: any, options: any?): any
 	types.BrickColor = BrickShim
 	local UI: any = Facet.controls(
 		runtime,
-		{ types = types, services = { GuiService = gui, UserInputService = proxy }, guiService = gui } :: any
+		{ types = types, services = { GuiService = gui, UserInputService = proxy }, guiService = gui, theme = o.theme } :: any
 	)
 	local target = engine.new("Folder")
 	local Host = runtime.constructors
@@ -205,14 +206,14 @@ t.describe("native ColorPicker colour values", function()
 		local set = Color3.fromHSV(200 / 360, 1, 1)
 		local cell, _, change = caller(set)
 		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
-		w.gui.SelectedObject = w.find("Saturation/Track")
+		w.gui.SelectedObject = w.find("Saturation/Track/ThumbStop")
 		expect(w.press("DecreaseArrow", 100)).toBe(100)
 		expect(hex(cell:peek())).toBe("#FFFFFF")
 		expect(math.floor(w.attr("hue") + 0.5)).toBe(200)
 		w.press("IncreaseArrow", 100)
 		expect(math.floor(w.attr("hue") + 0.5)).toBe(200)
 		expect(hex(cell:peek())).toBe(hex(set))
-		w.gui.SelectedObject = w.find("Brightness/Track")
+		w.gui.SelectedObject = w.find("Brightness/Track/ThumbStop")
 		w.press("DecreaseArrow", 100)
 		expect(hex(cell:peek())).toBe("#000000")
 		w.press("IncreaseArrow", 100)
@@ -265,7 +266,7 @@ t.describe("native ColorPicker well and panel", function()
 		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
 		local w = world({ value = cell, onChange = change })
 		local well = w.find("Well")
-		expect(well:GetAttribute("label")).toBe("#FF0000")
+		expect(well:GetAttribute("label")).toBe("Really red")
 		expect(w.find("Well/Chevron")).toBeNil()
 		expect(hex(w.find("Well/Swatch/Plate").BackgroundColor3)).toBe("#FF0000")
 		expect(`{well.Size.X.Offset}x{well.Size.Y.Offset}`).toBe("44x44")
@@ -274,7 +275,7 @@ t.describe("native ColorPicker well and panel", function()
 		expect(w.find("Well/Swatch"):HasTag("facet-color-swatch")).toBe(true)
 		w.stop()
 		local w2 = world({ value = cell, onChange = change, label = "Kart body", hint = "On the track" })
-		expect(w2.find("Well"):GetAttribute("label")).toBe("Kart body, #FF0000")
+		expect(w2.find("Well"):GetAttribute("label")).toBe("Kart body, Really red")
 		expect(w2.find("Well/Chevron") ~= nil).toBe(true)
 		expect(w2.find("Well/Title").Text).toBe("Kart body")
 		expect(w2.find("Well/Value").Text).toBe("#FF0000")
@@ -342,47 +343,53 @@ t.describe("native ColorPicker well and panel", function()
 		expect(shrunk.body).toBe(shrunk.height - (natural - 800))
 	end)
 
-	t.it("the panel keeps one height across every technique, on a pointer panel and a phone sheet", function()
-		for _, case in
-			{
-				{ touch = false, w = 900, h = 900, modes = { "swatches", "spectrum", "sliders", "brick" } },
-				{ touch = true, w = 390, h = 844, modes = { "swatches", "spectrum", "sliders" } },
-			}
-		do
-			local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
-			local probe = world({ value = cell, onChange = change, modes = case.modes })
-			local E = probe.E
-			probe.stop()
-			local w = world(
-				{ value = cell, onChange = change, modes = case.modes },
-				{ preferred = if case.touch then E.PreferredInput.Touch else nil }
-			)
-			w.size(w.screen, case.w, case.h)
-			w.size(w.find("Well"), 44, 44)
-			w.open()
-			expect(w.attr("placement")).toBe(if case.touch then "sheet" else "bottom")
-			local heights = { 180, 300, 240, 500 }
-			for index, mode in case.modes do
-				local label = ({ swatches = "Swatches", spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" })[mode]
-				w.size(w.find("Show" .. label), 300, heights[index])
+	t.it(
+		"every technique shares the tallest picker's height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
+		function()
+			for _, case in
+				{
+					{ touch = false, w = 900, h = 900, modes = { "swatches", "spectrum", "sliders", "brick" } },
+					{ touch = true, w = 390, h = 844, modes = { "swatches", "spectrum", "sliders" } },
+				}
+			do
+				local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
+				local probe = world({ value = cell, onChange = change, modes = case.modes })
+				local E = probe.E
+				probe.stop()
+				local w = world(
+					{ value = cell, onChange = change, modes = case.modes },
+					{ preferred = if case.touch then E.PreferredInput.Touch else nil }
+				)
+				w.size(w.screen, case.w, case.h)
+				w.size(w.find("Well"), 44, 44)
+				w.open()
+				expect(w.attr("placement")).toBe(if case.touch then "sheet" else "bottom")
+				local heights = { 180, 300, 240, 500 }
+				for index, mode in case.modes do
+					local label = ({
+						swatches = "Swatches",
+						spectrum = "Spectrum",
+						sliders = "Sliders",
+						brick = "Bricks",
+					})[mode]
+					w.size(w.find("Show" .. label), 300, heights[index])
+				end
+				local tallest = 0
+				for index, mode in case.modes do
+					if mode ~= "brick" then
+						tallest = math.max(tallest, heights[index])
+					end
+				end
+				for index, mode in case.modes do
+					w.find("Modes/" .. mode).Activated.fire()
+					expect(w.attr("mode")).toBe(mode)
+					expect(`{case.w} {mode} {w.find("Body").Size.Y.Offset}`).toBe(`{case.w} {mode} {tallest}`)
+					expect(w.find("Technique").Size.Y.Offset).toBe(heights[index])
+				end
+				w.stop()
 			end
-			local tallest = 0
-			for index = 1, #case.modes do
-				tallest = math.max(tallest, heights[index])
-			end
-			local seen: { string } = {}
-			for _, mode in case.modes do
-				w.find("Modes/" .. mode).Activated.fire()
-				expect(w.attr("mode")).toBe(mode)
-				table.insert(seen, `{w.find("Technique").Size.Y.Offset}/{w.find("Body").Size.Y.Offset}`)
-			end
-			for index = 2, #seen do
-				expect(`{case.w} {seen[index]}`).toBe(`{case.w} {seen[1]}`)
-			end
-			expect(w.find("Technique").Size.Y.Offset).toBe(tallest)
-			w.stop()
 		end
-	end)
+	)
 
 	t.it("the panel's height follows its room, never a height it once measured", function()
 		local cell, _, change = caller(Color3.fromRGB(46, 125, 255))
@@ -399,7 +406,7 @@ t.describe("native ColorPicker well and panel", function()
 			return w.find("Body").Size.Y.Offset
 		end
 		local before = height()
-		expect(before).toBe(600)
+		expect(before).toBe(290)
 		w.size(w.screen, 900, 420)
 		expect(height() < before).toBe(true)
 		w.size(w.screen, 900, 900)
@@ -735,6 +742,19 @@ t.describe("native ColorPicker spectrum plane", function()
 		w.stop()
 	end)
 
+	t.it("a gamepad A on the selected plane is not a drag: the colour stays until the stick steers", function()
+		local w, _, commits = spectrum({ preferred = (require("@lune/roblox") :: any).Enum.PreferredInput.Gamepad })
+		local before = w.hsv()
+		local surface = w.find("Plane/Surface")
+		w.gui.SelectedObject = surface
+		local drag = surface:FindFirstChildWhichIsA("UIDragDetector")
+		drag.DragStart.fire(V2(100, 88))
+		drag.DragEnd.fire()
+		expect(w.hsv()).toBe(before)
+		expect(#commits).toBe(0)
+		w.stop()
+	end)
+
 	t.it("the native drag detector follows the plane through a tab round trip", function()
 		local cell, _, change = caller(Color3.fromHSV(0.5, 0.5, 0.5))
 		local w = world({ value = cell, onChange = change, style = "inline", modes = { "spectrum", "sliders" } })
@@ -808,7 +828,8 @@ t.describe("native ColorPicker spectrum plane", function()
 		local E = probe.E
 		probe.stop()
 		local w, cell = spectrum({ preferred = E.PreferredInput.Touch })
-		expect(w.find("Readout").LayoutOrder < w.find("Technique").LayoutOrder).toBe(true)
+		expect(w.find("Readout").LayoutOrder < w.find("Body").LayoutOrder).toBe(true)
+		expect(w.find("Body"):IsA("ScrollingFrame") and w.find("Body").Size.X.Scale == 1).toBe(true)
 		local bubble = w.find("Plane/Bubble")
 		expect(bubble.Visible).toBe(false)
 		local drag = w.find("Plane/Surface"):FindFirstChildWhichIsA("UIDragDetector")
@@ -989,7 +1010,7 @@ t.describe("native ColorPicker alpha, empty, disabled and refusals", function()
 		w.open()
 		local track = w.find("Opacity/Track")
 		expect(track:GetAttribute("AccessibleLabel")).toBe("Opacity")
-		w.gui.SelectedObject = track
+		w.gui.SelectedObject = track:FindFirstChild("ThumbStop") or track
 		w.press("IncreaseArrow", 60)
 		expect(a:peek()).toBe(1)
 		expect(w.find("Well/Swatch/Checker").Visible).toBe(false)
@@ -1252,6 +1273,191 @@ t.describe("native ColorPicker phone sheet", function()
 		done.Activated.fire()
 		expect(w.attr("placement")).toBe("closed")
 		expect(hex(cell:peek())).toBe("#B03A2E")
+		w.stop()
+	end)
+end)
+
+t.describe("native ColorPicker cells, tabs and readout", function()
+	local function sheetFor(w: any, package: any): any
+		local _, sheet = w.runtime.mount(function()
+			return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types } :: any)
+		end, w.engine.new("Folder"))
+		return sheet
+	end
+	local function packages(): { [string]: any }
+		local pixel = (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
+		return { neutral = Facet.themes.neutralPackage(), pixel = pixel }
+	end
+
+	t.it("every swatch, brick and save cell is a square the theme's control radius rounds", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({
+			value = cell,
+			onChange = change,
+			style = "inline",
+			modes = { "swatches", "brick" },
+			swatches = { Color3.fromRGB(0, 0, 255) },
+			onSaveSwatch = function() end,
+		})
+		for name, package in packages() do
+			local sheet = sheetFor(w, package)
+			local radius = package.metrics.radii.control
+			for _, node in { w.cells()[1], w.cells()[2], w.cells("BrickGrid")[1] } do
+				local where = `{name} {node.Name}`
+				expect(`{where} {node.Size.X.Offset}x{node.Size.Y.Offset}`).toBe(`{where} 44x44`)
+				for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
+					local inset = styleRules.resolve(sheet, node, side, "UIPadding")
+					expect(`{where} {side} {if inset then inset.Offset else "none"}`).toBe(`{where} {side} 0`)
+				end
+				for _, corner in node:GetDescendants() do
+					if corner:IsA("UICorner") then
+						local value = styleRules.resolve(sheet, corner, "CornerRadius")
+						expect(`{where} {corner.Parent.Name} {if value then value.Offset else "none"}`).toBe(
+							`{where} {corner.Parent.Name} {radius}`
+						)
+					end
+				end
+			end
+		end
+		w.stop()
+	end)
+
+	t.it("the Bricks technique is a default tab when the engine has BrickColor", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline" })
+		expect(w.find("Modes/brick") ~= nil).toBe(true)
+		expect(#w.cells("BrickGrid")).toBe(128)
+		w.stop()
+	end)
+
+	t.it("the readout leads with a wide preview and lays its fields out in equal columns", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local E = w.E
+		local preview = w.find("Readout/Head/Preview")
+		expect(preview.Size.X.Offset > preview.Size.Y.Offset).toBe(true)
+		expect(preview.Size.Y.Offset).toBe(44)
+		local format = w.find("Readout/Head/Format")
+		expect(format:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Fill)
+		local fields = w.find("Readout/Values/Fields")
+		expect(fields:FindFirstChildWhichIsA("UIListLayout").HorizontalFlex).toBe(E.UIFlexAlignment.Fill)
+		for _, name in { "FieldR", "FieldG", "FieldB" } do
+			local size = fields:FindFirstChild(name).Size
+			expect(`{name} {size.X.Scale} {size.X.Offset}`).toBe(`{name} 0 0`)
+		end
+		w.find("Readout/Head/Format/hex").Activated.fire()
+		expect(w.find("Readout/Values/Fields/FieldHex").Size.X.Scale).toBe(1)
+		w.stop()
+	end)
+
+	t.it("the technique centres its grids in the panel", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		for _, column in { "Saved", "Brick" } do
+			local layout = w.find(column):FindFirstChildWhichIsA("UIListLayout")
+			expect(`{column} {layout.HorizontalAlignment}`).toBe(`{column} {w.E.HorizontalAlignment.Center}`)
+		end
+		w.stop()
+	end)
+end)
+
+t.describe("native ColorPicker panel fit", function()
+	local function pixel(): any
+		return (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
+	end
+
+	t.it("the technique fits the scroll window, never the width under the scrollbar", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, modes = { "swatches", "brick" } })
+		w.size(w.screen, 1200, 900)
+		w.size(w.find("Well"), 44, 44)
+		w.open()
+		local body = w.find("Body")
+		expect(body.VerticalScrollBarInset).toBe(w.E.ScrollBarInset.ScrollBar)
+		body.AbsoluteWindowSize = V2(376, 300)
+		local size = w.find("Technique").Size
+		expect(`{size.X.Scale} {size.X.Offset}`).toBe("0 376")
+		w.find("LayoutUnit").AbsoluteSize = V2(50, 0.5)
+		size = w.find("Technique").Size
+		expect(`under a 0.5 UIScale {size.X.Offset}`).toBe("under a 0.5 UIScale 752")
+		w.stop()
+	end)
+
+	t.it("the Sliders tracks start at one x: the labels share the widest label's column", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "sliders" } })
+		local widths = { Hue = 24, Saturation = 70, Brightness = 76 }
+		for name, width in widths do
+			w.find(`Sliders/{name}/Label`).TextBounds = V2(width, 18)
+		end
+		for name in widths do
+			local label = w.find(`Sliders/{name}/Label`)
+			local pad = label:FindFirstChildWhichIsA("UIPadding")
+			local inset = pad.PaddingLeft.Offset + pad.PaddingRight.Offset
+			expect(`{name} {label.Size.X.Offset}`).toBe(`{name} {76 + inset}`)
+		end
+		w.stop()
+	end)
+
+	t.it("an inactive technique reserves at most the body's room, so a short one never scrolls", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, modes = { "swatches", "brick" } })
+		w.size(w.screen, 1200, 700)
+		w.size(w.find("Well"), 44, 44, 0, 0)
+		w.open()
+		w.size(w.find("Modes"), 380, 44)
+		w.size(w.find("Readout"), 380, 140)
+		w.size(w.find("ShowSwatches"), 380, 290)
+		w.size(w.find("ShowBricks"), 380, 800)
+		local body = w.find("Body").Size.Y.Offset
+		expect(body < 800).toBe(true)
+		expect(w.find("Technique").Size.Y.Offset).toBe(body)
+		w.find("Modes/brick").Activated.fire()
+		expect(w.find("Technique").Size.Y.Offset).toBe(800)
+		expect(w.find("Body").Size.Y.Offset).toBe(body)
+		w.stop()
+	end)
+
+	t.it("a skinned panel keeps its eight columns and its height inside the art's content insets", function()
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local package = pixel()
+		local carve = package.chrome.panel.contentInsets
+		local w = world({ value = cell, onChange = change, modes = { "swatches", "brick" } }, { theme = package })
+		w.size(w.screen, 1200, 1200)
+		w.size(w.find("Well"), 44, 44)
+		w.open()
+		w.size(w.find("Modes"), 380, 44)
+		w.size(w.find("Readout"), 380, 140)
+		w.size(w.find("ShowSwatches"), 380, 290)
+		w.size(w.find("ShowBricks"), 380, 800)
+		local panel = w.find("Panel")
+		expect(panel.Size.X.Offset).toBe(8 * 44 + 7 * 4 + carve.left + carve.right)
+		expect(panel.Size.Y.Offset).toBe(44 + 140 + 290 + 2 * 8 + carve.top + carve.bottom)
+		w.stop()
+	end)
+
+	t.it("an inactive segment's ink is the readable of the theme's secondary and primary ink on the track", function()
+		local function lum(c: any): number
+			local function linear(v: number): number
+				return if v <= 0.04045 then v / 12.92 else ((v + 0.055) / 1.055) ^ 2.4
+			end
+			return 0.2126 * linear(c.R) + 0.7152 * linear(c.G) + 0.0722 * linear(c.B)
+		end
+		local function ratio(a: any, b: any): number
+			local x, y = lum(a), lum(b)
+			return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05)
+		end
+		local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+		local w = world({ value = cell, onChange = change, style = "inline", modes = { "swatches", "brick" } })
+		local segment = w.find("Modes/brick")
+		for name, package in { neutral = Facet.themes.neutralPackage(), pixel = pixel() } do
+			local _, sheet = w.runtime.mount(function()
+				return Facet.themes.createStyleSheet(w.runtime, package, { types = w.engine.types } :: any)
+			end, w.engine.new("Folder"))
+			local ink = styleRules.resolve(sheet, segment, "TextColor3")
+			local track = styleRules.resolve(sheet, w.find("Modes/Presentation"), "BackgroundColor3")
+			expect(`{name} {ratio(ink, track) >= 3}`).toBe(`{name} true`)
+		end
 		w.stop()
 	end)
 end)

@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local Compose = Facet.Compose
@@ -70,7 +71,7 @@ local function primary(world: any): any
 end
 
 local function more(world: any): any
-	return world.find("More"):FindFirstChild("Trigger")
+	return world.find("More")
 end
 
 local function hover(root: any, inside: boolean)
@@ -216,7 +217,7 @@ t.describe("native Card", function()
 		local log: { string } = {}
 		local world, root = mount(cardSpec(log))
 		t.expect(world.find("Body").Parent).toBe(root)
-		t.expect(primary(world).Parent.Parent.Parent).toBe(root)
+		t.expect(fadeKit.layer(primary(world).Parent).Parent).toBe(root)
 		t.expect(root:IsA("GuiButton")).toBe(false)
 		world.find("Body").Activated.fire()
 		t.expect(table.concat(log, ",")).toBe("body")
@@ -348,14 +349,14 @@ t.describe("native Card", function()
 		t.expect(attr(root, "Revealed")).toBe(false)
 		t.expect(reveal.Visible).toBe(true)
 		t.expect(reveal.Interactable).toBe(false)
-		t.expect(reveal.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(reveal)).toBe(1)
 		t.expect(reveal.LayoutOrder > world.find("Body").LayoutOrder).toBe(true)
 		t.expect(reveal.Parent).toBe(root)
 		local size = root.Size
 		hover(root, true)
 		t.expect(attr(root, "Revealed")).toBe(true)
 		t.expect(reveal.Interactable).toBe(true)
-		t.expect(reveal.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(reveal)).toBe(0)
 		t.expect(root.Size).toBe(size)
 		t.expect(reveal.Visible).toBe(true)
 		hover(root, false)
@@ -467,7 +468,7 @@ t.describe("native Card", function()
 		local world, root = mount(cardSpec({}), { reducedMotion = false })
 		local reveal = plate(world)
 		local function alpha(): number
-			return 1 - reveal.GroupTransparency
+			return 1 - fadeKit.of(reveal)
 		end
 		hover(root, true)
 		settle(world, 0.08)
@@ -488,9 +489,42 @@ t.describe("native Card", function()
 	t.it("reveals the action row at rest with reveal always", function()
 		local world, root = mount(cardSpec({}, { reveal = "always" }))
 		t.expect(attr(root, "Revealed")).toBe(true)
-		t.expect(plate(world).GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(plate(world))).toBe(0)
 		t.expect(primary(world) ~= nil).toBe(true)
 		t.expect(plate(world).LayoutOrder).toBe(2)
+		world.stop()
+	end)
+
+	t.it("grows the card's one plate down around Play and More instead of stacking a second one", function()
+		local world, root = mount(cardSpec({}))
+		local E = world.engine.types.Enum
+		local radius = Facet.themes.neutralPackage().metrics.radii.panel
+		t.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(-2 * radius)
+		local reveal = plate(world)
+		local paint = reveal:FindFirstChild("Plate", true)
+		t.expect(paint ~= nil and paint:HasTag("facet-panel")).toBe(true)
+		t.expect(`{paint.Size} {paint.Position}`).toBe(`{UDim2.fromScale(1, 1)} {UDim2.new()}`)
+		t.expect(reveal.ZIndex < world.find("Body").ZIndex).toBe(true)
+		t.expect(paint:FindFirstChildWhichIsA("UICorner")).toBe(nil)
+		local row = reveal:FindFirstChild("Row", true)
+		t.expect(row.ZIndex > paint.ZIndex).toBe(true)
+		t.expect(row:FindFirstChildWhichIsA("UIPadding") ~= nil).toBe(true)
+		local play, trigger = primary(world), more(world)
+		t.expect(play.Parent).toBe(row)
+		t.expect(play:FindFirstChildWhichIsA("UIFlexItem").FlexMode).toBe(E.UIFlexMode.Fill)
+		t.expect(trigger.Parent).toBe(row)
+		t.expect(trigger.LayoutOrder > play.LayoutOrder).toBe(true)
+		t.expect(trigger:GetAttribute("label")).toBe("More")
+		t.expect(trigger:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
+		t.expect(trigger:FindFirstChild("Title", true)).toBeNil()
+		world.stop()
+	end)
+
+	t.it("keeps an always row unplated below the body with a gap", function()
+		local world, root = mount(cardSpec({}, { reveal = "always" }))
+		t.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset > 0).toBe(true)
+		t.expect(plate(world):FindFirstChild("Plate").Visible).toBe(false)
+		t.expect(plate(world):FindFirstChild("Row"):FindFirstChildWhichIsA("UIPadding")).toBeNil()
 		world.stop()
 	end)
 
@@ -637,7 +671,7 @@ t.describe("native Card", function()
 		for _, side in { "Up", "Down", "Left", "Right" } do
 			t.expect(row["SelectionBehavior" .. side].Name).toBe("Stop")
 		end
-		local trigger = card:FindFirstChild("More", true):FindFirstChild("Trigger")
+		local trigger = card:FindFirstChild("More", true)
 		g.world.gui.SelectedObject = trigger
 		trigger.Activated.fire()
 		t.expect(attr(card, "MenuOpen")).toBe(true)
@@ -658,7 +692,7 @@ t.describe("native Card", function()
 		local g = gridWorld(12)
 		g.world.gui.SelectedObject = g.hit("i1")
 		g.hit("i1").Activated.fire()
-		local trigger = g.card("i1"):FindFirstChild("More", true):FindFirstChild("Trigger")
+		local trigger = g.card("i1"):FindFirstChild("More", true)
 		g.world.gui.SelectedObject = trigger
 		trigger.Activated.fire()
 		t.expect(attr(g.card("i1"), "MenuOpen")).toBe(true)
@@ -791,7 +825,7 @@ t.describe("native Card", function()
 		end) ~= nil).toBe(true)
 	end)
 
-	t.it("puts an icon tab count on the icon corner and keeps a text tab count in its words", function()
+	t.it("puts an icon tab count on the icon corner and a text tab count in a trailing pill", function()
 		local world = worlds.new(function(UI, Host)
 			return UI.TabView({
 				selection = Compose.cell("inbox"),
@@ -824,7 +858,8 @@ t.describe("native Card", function()
 		t.expect(seal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil).toBe(true)
 		local sent = world.find("sent", tabs)
 		t.expect(sent:FindFirstChild("CornerBadge", true)).toBeNil()
-		t.expect(sent.Text).toBe("Sent (2)")
+		t.expect(sent:FindFirstChild("Count", true).Text).toBe("2")
+		t.expect(sent:GetAttribute("label")).toBe("Sent (2)")
 		world.stop()
 		local pickers = worlds.new(function(UI, Host)
 			return Host.Frame({
@@ -857,7 +892,8 @@ t.describe("native Card", function()
 		t.expect(pickers.find("b", icons):FindFirstChild("CornerBadge", true)).toBeNil()
 		local words = pickers.find("a", pickers.find("Words"))
 		t.expect(words:FindFirstChild("CornerBadge", true)).toBeNil()
-		t.expect(words.Text).toBe("Inbox (3)")
+		t.expect(words:FindFirstChild("Count", true).Text).toBe("3")
+		t.expect(words:GetAttribute("label")).toBe("Inbox (3)")
 		pickers.stop()
 	end)
 

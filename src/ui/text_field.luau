@@ -87,6 +87,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local chrome = fieldChrome(ctx)
+	local function carved(face: number, side: "left" | "right" | "top" | "bottom"): (ComposeTypes.Use?) -> UDim
+		return function(use: ComposeTypes.Use?): UDim
+			local package = read(ctx.config.theme, use)
+			local recipe = package and package.chrome and package.chrome.field
+			local insets = (recipe and recipe.contentInsets or {}) :: { [string]: number? }
+			return D.new(0, face + (insets[side] or 0))
+		end
+	end
 	local function dynamic(source: unknown): boolean
 		return Compose.isReadable(source) or type(source) == "function"
 	end
@@ -574,11 +582,23 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			table.find({ "always", "never", "whileEditing", "unlessEditing" }, mode),
 			`Facet.{control}: invalid clearButtonMode`
 		)
+		local touchFloor = ctx.touchFloor()
 		local clear = if mode ~= "never"
 			then UI.Button "Clear" {
-				label = "Clear",
-				Size = D2.fromOffset(44, 44),
-				AutomaticSize = E.AutomaticSize.None,
+				name = "Clear",
+				icon = "close",
+				appearance = "utility",
+				shape = "circle" :: "circle",
+				Size = function(use: ComposeTypes.Use): UDim2
+					local side = math.max(36, use(textHeight) + 12) - 8
+					return D2.fromOffset(side, side)
+				end,
+				Host.UISizeConstraint "TouchFloor" {
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						local floor = touchFloor(use)
+						return V2.new(floor, floor)
+					end,
+				} :: Shared.Child,
 				AnchorPoint = if framed then nil else V2.new(1, 0.5),
 				Position = if framed then nil else D2.fromScale(1, 0.5),
 				LayoutOrder = if framed then 40 else nil,
@@ -613,6 +633,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		node = ctx.styled(Host.TextBox(nativeProps), "text")
 		if not framed then
 			ctx.styled(ctx.styled(node, "field"), "text-input")
+		end
+		local keyboard = ctx.config.userInputService
+		if keyboard then
+			local scrolling = (UI :: unknown) :: { scrollTo: ((ScrollingFrame, Vector2) -> boolean)? }
+			local shown = ctx.observe.OnScreenKeyboardVisible(keyboard)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(shown) ~= true or not use(editing) then
+					return
+				end
+				local top = keyboard.OnScreenKeyboardPosition.Y
+				local extent = node.AbsoluteSize
+				local overlap = node.AbsolutePosition.Y + extent.Y + 8 - top
+				local page = node:FindFirstAncestorWhichIsA("ScrollingFrame")
+				local scroll = scrolling.scrollTo
+				if scroll and page and top > 0 and overlap > 0 then
+					scroll(page, page.CanvasPosition + V2.new(0, overlap))
+				end
+			end)
 		end
 
 		local root: TextBox | Frame = node
@@ -707,6 +745,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					local button = UI.Button(name)({
 						icon = glyph,
 						name = name,
+						repeatDelay = 0.4,
+						repeatInterval = 0.1,
 						LayoutOrder = order,
 						Size = D2.fromOffset(44, 44),
 						AutomaticSize = E.AutomaticSize.None,
@@ -741,7 +781,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 0,
-				ctx.padding(10, 4) :: ComposeTypes.Child,
+				Host.UIPadding({
+					PaddingLeft = carved(10, "left"),
+					PaddingRight = carved(10, "right"),
+					PaddingTop = carved(4, "top"),
+					PaddingBottom = carved(4, "bottom"),
+				}) :: ComposeTypes.Child,
 			})
 			local layout = assert(plate:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center

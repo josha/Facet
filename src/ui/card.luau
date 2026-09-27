@@ -58,6 +58,10 @@ return function(
 			spec.imageFraming == nil or spec.imageFraming == "fit" or spec.imageFraming == "crop",
 			"Facet UI.Card: imageFraming must be fit or crop"
 		)
+		assert(
+			spec.ringTarget == nil or spec.ringTarget == "card" or spec.ringTarget == "media",
+			"Facet UI.Card: ringTarget must be card or media"
+		)
 		local reveal = spec.reveal or "automatic"
 		assert(reveal == "automatic" or reveal == "always", "Facet UI.Card: reveal must be automatic or always")
 		assert(
@@ -385,6 +389,7 @@ return function(
 						action.onActivate()
 					end
 				end,
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) :: Types.Child,
 			})
 			primaryButton = button
 			local states = table.clone(actionStates:peek())
@@ -396,18 +401,15 @@ return function(
 			local more = UI.Menu({
 				Name = "More",
 				LayoutOrder = 2,
-				label = menu.label or "More",
+				trigger = UI.Button({ label = "", name = menu.label or "More", icon = "more", enabled = enabled }) :: GuiObject,
 				items = menu.items,
 				isPresented = menuOpen,
 				enabled = enabled,
 			})
-			local trigger = more:FindFirstChild("Trigger")
-			if trigger and trigger:IsA("GuiObject") then
-				moreTrigger = trigger
-				local states = table.clone(actionStates:peek())
-				table.insert(states, holding(trigger))
-				actionStates:set(states)
-			end
+			moreTrigger = more
+			local states = table.clone(actionStates:peek())
+			table.insert(states, holding(more))
+			actionStates:set(states)
 			table.insert(rowChildren, more :: Types.Child)
 		end
 		local rowProps: Types.FrameNativeProps = {
@@ -427,9 +429,39 @@ return function(
 		for _, child in rowChildren do
 			table.insert(rowProps, child)
 		end
+		rowProps.ZIndex = 2
+		local function tuck(use: ComposeTypes.Use): number
+			return 2 * ctx.metric("radii.panel", use)
+		end
+		if reveal == "automatic" then
+			local function side(use: ComposeTypes.Use): UDim
+				return D.new(0, ctx.metric("space.s", use))
+			end
+			table.insert(
+				rowProps,
+				Host.UIPadding({
+					PaddingLeft = side,
+					PaddingRight = side,
+					PaddingTop = function(use: ComposeTypes.Use): UDim
+						return D.new(0, ctx.metric("space.s", use) + tuck(use))
+					end,
+					PaddingBottom = side,
+				})
+			)
+		end
 		local row = Host.Frame(rowProps)
-		local plate = Host.CanvasGroup "Reveal" {
+		local plateLayer = ctx.styled(
+			Host.Frame({
+				Name = "Plate",
+				Size = D2.fromScale(1, 1),
+				Visible = reveal == "automatic",
+			}),
+			"panel"
+		)
+		local plate = ctx.fade {
+			Name = "Reveal",
 			LayoutOrder = 2,
+			ZIndex = 0,
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
@@ -440,6 +472,7 @@ return function(
 				end
 				return 1 - use(fade)
 			end,
+			plateLayer :: Types.Child,
 			row :: Types.Child,
 		}
 		local liftScale = Host.UIScale({ Name = "Lift", Scale = scale })
@@ -457,6 +490,7 @@ return function(
 			"browseTarget",
 			"enabled",
 			"controls",
+			"ringTarget",
 		}, {
 			Name = "Card",
 			BackgroundTransparency = 1,
@@ -485,7 +519,7 @@ return function(
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, ctx.metric("space.xs", use))
+					return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else -tuck(use))
 				end,
 			}) :: Types.Child,
 			liftScale :: Types.Child,
@@ -494,6 +528,17 @@ return function(
 		}))
 		root = card
 		local extent = ctx.observe.AbsoluteSize(card)
+		if spec.onActivate then
+			local bodyExtent = ctx.observe.AbsoluteSize(body)
+			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
+			local ratio = Compose.formula(function(use: ComposeTypes.Use): number
+				local bodyHeight = use(bodyExtent).Y
+				return if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				body:SetAttribute("FacetFocusHeight", use(ratio))
+			end)
+		end
 		if (spec :: { [unknown]: unknown }).Position == nil then
 			runtime.decorate(card, {
 				Position = function(use: ComposeTypes.Use): UDim2

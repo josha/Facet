@@ -687,39 +687,149 @@ t.describe("native parity weaker menus", function()
 		world.stop()
 	end)
 
-	t.it("wraps an explicit segmented strip inside the width of its labelled row", function()
+	local LONG = string.rep("Long segment label ", 5):sub(1, 80)
+	local function segmentLimits(picker: any): ({ any }, number)
+		local segments = {}
+		for _, node in picker:GetDescendants() do
+			if node:HasTag("facet-segment") then
+				table.insert(segments, node)
+			end
+		end
+		local widest = 0
+		for _, segment in segments do
+			local cap = math.huge
+			for _, constraint in segment:GetChildren() do
+				if constraint.ClassName == "UISizeConstraint" then
+					cap = math.min(cap, constraint.MaxSize.X)
+				end
+			end
+			widest = math.max(widest, cap)
+		end
+		return segments, widest
+	end
+	local function captionsWrap(segment: any, bound: number): boolean
+		if segment.Text ~= "" then
+			return segment.TextWrapped and string.find(tostring(segment.TextTruncate), "None", 1, true) ~= nil
+		end
+		for _, node in segment:GetDescendants() do
+			if node:IsA("TextLabel") and node.Text ~= "" then
+				local limit = node:FindFirstChildWhichIsA("UISizeConstraint")
+				if not node.TextWrapped or limit == nil or limit.MaxSize.X > bound then
+					return false
+				end
+			end
+		end
+		return true
+	end
+
+	t.it("bounds a long segment label by the width of an unlabelled segmented strip", function()
+		for _, readable in { false, true } do
+			local options = {
+				{ value = "a", label = LONG },
+				{ value = "b", label = "Rally" },
+			}
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Mode" {
+						style = "segmented",
+						selected = Compose.cell("a"),
+						options = if readable then Compose.cell(options) else options,
+					},
+				})
+			end)
+			local picker = find(world.root, "Mode")
+			picker.AbsoluteSize = V2(world, 300, 50)
+			local segments, widest = segmentLimits(picker)
+			t.expect(#segments).toBe(2)
+			t.expect(widest <= 294).toBe(true)
+			for _, segment in segments do
+				t.expect(captionsWrap(segment, 294)).toBe(true)
+			end
+			picker.AbsoluteSize = V2(world, 1000, 50)
+			t.expect(select(2, segmentLimits(picker))).toBe(994)
+			world.stop()
+		end
+	end)
+
+	t.it("bounds a long segment label by the row width of a labelled segmented picker", function()
 		local world = setup(function(UI, Host)
 			return Host.Frame({
-				UI.Picker "Handling" {
-					label = "Handling",
+				UI.Picker "Mode" {
+					label = "Mode",
 					style = "segmented",
 					selected = Compose.cell("a"),
-					options = {
-						{ value = "a", label = "Arcade handling" },
-						{ value = "b", label = "Simulation handling" },
-						{ value = "c", label = "Drift assist" },
-						{ value = "d", label = "Rally gravel" },
-					},
+					options = { { value = "a", label = LONG }, { value = "b", label = "Drift" } },
 				},
 			})
 		end)
-		local row = find(world.root, "Handling")
-		local options = find(row, "Options")
-		t.expect(options:FindFirstChildWhichIsA("UIListLayout").Wraps).toBe(true)
-		t.expect(options:FindFirstChild("TargetFloor").MinSize.Y).toBe(50)
-		row.AbsoluteSize = V2(world, 390, 100)
-		local limit
-		for _, child in options:GetChildren() do
-			if child.ClassName == "UISizeConstraint" and child.Name ~= "TargetFloor" then
-				limit = child
-			end
+		local row = find(world.root, "Mode")
+		row.AbsoluteSize = V2(world, 300, 100)
+		local segments, widest = segmentLimits(find(row, "Options"))
+		t.expect(#segments).toBe(2)
+		t.expect(widest <= 294).toBe(true)
+		for _, segment in segments do
+			t.expect(captionsWrap(segment, 294)).toBe(true)
 		end
-		t.expect(limit ~= nil).toBe(true)
-		t.expect(limit.MaxSize.X).toBe(390)
-		row.AbsoluteSize = V2(world, 1280, 100)
-		t.expect(limit.MaxSize.X).toBe(1280)
 		world.stop()
 	end)
+
+	t.it("refuses a search query on a segmented Picker", function()
+		local ok, message = pcall(function()
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Mode" {
+						style = "segmented",
+						query = Compose.cell(""),
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "Road" }, { value = "b", label = "Rally" } },
+					},
+				})
+			end)
+			world.stop()
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(message), "Facet UI.Picker: a segmented picker takes no query", 1, true) ~= nil)
+			.toBe(true)
+	end)
+
+	t.it(
+		"fits an explicit segmented strip inside the width of its labelled row: one constraint, shared width",
+		function()
+			local world = setup(function(UI, Host)
+				return Host.Frame({
+					UI.Picker "Handling" {
+						label = "Handling",
+						style = "segmented",
+						selected = Compose.cell("a"),
+						options = {
+							{ value = "a", label = "Arcade handling" },
+							{ value = "b", label = "Simulation handling" },
+							{ value = "c", label = "Drift assist" },
+							{ value = "d", label = "Rally gravel" },
+						},
+					},
+				})
+			end)
+			local row = find(world.root, "Handling")
+			local options = find(row, "Options")
+
+			t.expect(options:FindFirstChildWhichIsA("UIListLayout").Wraps).toBe(false)
+			local floor = options:FindFirstChild("TargetFloor")
+			t.expect(floor.MinSize.Y).toBe(50)
+			local constraints = 0
+			for _, child in options:GetChildren() do
+				if child.ClassName == "UISizeConstraint" then
+					constraints += 1
+				end
+			end
+			t.expect(constraints).toBe(1)
+			row.AbsoluteSize = V2(world, 390, 100)
+			t.expect(floor.MaxSize.X).toBe(390)
+			row.AbsoluteSize = V2(world, 1280, 100)
+			t.expect(floor.MaxSize.X).toBe(1280)
+			world.stop()
+		end
+	)
 
 	t.it("leaves the segmented strip when the measured labels do not fit the width", function()
 		local long = {
@@ -885,17 +995,20 @@ t.describe("native parity weaker menus", function()
 		world.stop()
 	end)
 
-	t.it("presents a wide menu as a cascade for pointer and gamepad and as a sheet for touch", function()
+	t.it("presents a wide menu as a cascade for a pointer and as one sheet panel for gamepad and touch", function()
 		local presented = Compose.cell(true)
 		local world = setup(function(UI)
 			return UI.Menu "Gear" { isPresented = presented, items = NESTED }
 		end)
 		local Enum = world.engine.types.Enum
-		world.input.PreferredInput = Enum.PreferredInput.Gamepad
+		world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
 		extent(world, 1280, 720)
 		find(world.root, "adjust").Activated.fire()
 		t.expect(find(world.root, "AncestorMenu") ~= nil).toBe(true)
 		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(0)
+		world.input.PreferredInput = Enum.PreferredInput.Gamepad
+		t.expect(find(world.root, "AncestorMenu")).toBeNil()
+		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(1)
 		world.input.PreferredInput = Enum.PreferredInput.Touch
 		t.expect(find(world.root, "AncestorMenu")).toBeNil()
 		t.expect(find(world.root, "MenuPanel").Size.X.Scale).toBe(1)
@@ -1043,7 +1156,11 @@ t.describe("native parity weaker menus", function()
 			end)
 			find(world.root, "adjust").Activated.fire()
 			local back = find(world.root, "Back")
-			t.expect(back.Text).toBe(case[2])
+			t.expect(find(back, "Title").Text).toBe(case[2])
+			t.expect(find(back, "LeadingIcon") ~= nil).toBe(true)
+			t.expect(back:HasTag("facet-appearance-utility")).toBe(true)
+			t.expect(find(back, "LeadingIcon").Parent:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+				.toBe(world.engine.types.Enum.HorizontalAlignment.Left)
 			t.expect(back.ClassName).toBe("TextButton")
 			t.expect(back.LayoutOrder < find(world.root, "head").LayoutOrder).toBe(true)
 			world.stop()
@@ -1212,43 +1329,46 @@ t.describe("native parity weaker menus", function()
 		end
 	end)
 
-	t.it("becomes a sheet for a touch or narrow menu picker and anchors to its trigger for a wide pointer", function()
-		local seven = {}
-		for index = 1, 7 do
-			table.insert(seven, { value = "v" .. index, label = "Value " .. index })
-		end
-		for _, case in
-			{
-				{ "Touch", 1280, THREE, 1 },
-				{ "Touch", 1280, seven, 1 },
-				{ "KeyboardAndMouse", 360, THREE, 1 },
-				{ "KeyboardAndMouse", 1280, THREE, 0 },
-				{ "Gamepad", 1280, seven, 0 },
-			}
-		do
-			local selected = Compose.cell(case[3][1].value)
-			local world = setup(function(UI)
-				return UI.Picker "Choice" { style = "menu", selected = selected, options = case[3] }
-			end)
-			world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[case[1]]
-			local trigger = find(world.root, "Trigger")
-			place(world, trigger, 40, 40, 160, 44)
-			trigger.Activated.fire()
-			extent(world, case[2], 720)
-			local panel = find(world.root, "MenuPanel")
-			t.expect(panel.Size.X.Scale).toBe(case[4])
-			if case[4] == 1 then
-				t.expect(panel.Size.X.Offset).toBe(-24)
-			else
-				t.expect(panel.Position.X.Offset).toBe(40)
-				t.expect(panel.Position.Y.Offset >= 84).toBe(true)
+	t.it(
+		"becomes a sheet for a touch, gamepad or narrow menu picker and anchors to its trigger for a wide pointer",
+		function()
+			local seven = {}
+			for index = 1, 7 do
+				table.insert(seven, { value = "v" .. index, label = "Value " .. index })
 			end
-			find(panel, case[3][2].value).Activated.fire()
-			t.expect(selected:peek()).toBe(case[3][2].value)
-			t.expect(find(world.root, "MenuPanel")).toBeNil()
-			world.stop()
+			for _, case in
+				{
+					{ "Touch", 1280, THREE, 1 },
+					{ "Touch", 1280, seven, 1 },
+					{ "KeyboardAndMouse", 360, THREE, 1 },
+					{ "KeyboardAndMouse", 1280, THREE, 0 },
+					{ "Gamepad", 1280, seven, 1 },
+				}
+			do
+				local selected = Compose.cell(case[3][1].value)
+				local world = setup(function(UI)
+					return UI.Picker "Choice" { style = "menu", selected = selected, options = case[3] }
+				end)
+				world.input.PreferredInput = (world.engine.types.Enum.PreferredInput :: any)[case[1]]
+				local trigger = find(world.root, "Trigger")
+				place(world, trigger, 40, 40, 160, 44)
+				trigger.Activated.fire()
+				extent(world, case[2], 720)
+				local panel = find(world.root, "MenuPanel")
+				t.expect(panel.Size.X.Scale).toBe(case[4])
+				if case[4] == 1 then
+					t.expect(panel.Size.X.Offset).toBe(-24)
+				else
+					t.expect(panel.Position.X.Offset).toBe(40)
+					t.expect(panel.Position.Y.Offset >= 84).toBe(true)
+				end
+				find(panel, case[3][2].value).Activated.fire()
+				t.expect(selected:peek()).toBe(case[3][2].value)
+				t.expect(find(world.root, "MenuPanel")).toBeNil()
+				world.stop()
+			end
 		end
-	end)
+	)
 
 	t.it("forwards authored native properties to a navigation link and fills its search rows", function()
 		local selection, query, opened = Compose.cell("a"), Compose.cell(""), Compose.cell(false)

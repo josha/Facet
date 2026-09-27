@@ -267,11 +267,15 @@ local lifetime = Compose.createRootOwner(function()
 		end
 		return actions
 	end
+	if Facet.gamepadContention.legacyStackActive() then
+		warn(Facet.gamepadContention.describeContention())
+	end
 	for _, name in { "Discover", "Avatar", "Chat" } do
 		runtime.mount(function()
-			local package = theme.create(Facet, name)
+			local package = Facet.themes.forDistance(theme.create(Facet, name), "near")
 			local sheet = Facet.themes.createStyleSheet(runtime, package, {
 				reducedMotion = reducedMotion,
+				tenFoot = false,
 				theme = function(use)
 					return theme.paletteName(use(model.palette), use(dark))
 				end,
@@ -391,6 +395,17 @@ local lifetime = Compose.createRootOwner(function()
 	end)
 	entrance:set(1)
 	frameCamera()
+	Host.InputContext "VirtualMonitorsShortcuts" {
+		Parent = players.LocalPlayer:WaitForChild("PlayerGui"),
+		Priority = Facet.inputPriority.belowControls,
+		Host.InputAction "ToggleMode" {
+			Pressed = function()
+				model.modeChosen = true
+				mode:set(if mode:peek() == "Screen" then "Spatial" else "Screen")
+			end,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonSelect }),
+		},
+	}
 	Host.BindableFunction "VirtualMonitorsAPI" {
 		Parent = workspace,
 		OnInvoke = Compose.static(function(command, argument)

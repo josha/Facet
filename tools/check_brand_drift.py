@@ -68,9 +68,7 @@ VENDOR_HISTORY = (
      "never"),
 )
 
-VENDOR_HISTORY_MAINTAINED = (
-    "docs/plans/README.md",
-)
+VENDOR_HISTORY_MAINTAINED = ()
 
 SHIPPED_SURFACE = (
     "docs/guide/",
@@ -204,9 +202,6 @@ ALLOWLIST = [
      "the audit record of main's baseline quotes main's spec names, titles and gap text verbatim; "
      "it is frozen evidence of that baseline, and rewriting it would falsify the comparison",
      "when the parity audit is archived"),
-    ("requirements.json", re.compile(r"2026-07-19-luauui-crossplatform", re.I),
-     "cites the frozen design-spec file under docs/superpowers/ by its real name",
-     "when that design spec is archived"),
     ("tools/check_brand_drift.py", BRAND,
      "the guard's own match data", "never"),
     ("tools/check_brand_drift.py", TAG,

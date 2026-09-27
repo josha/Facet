@@ -1113,7 +1113,7 @@ t.describe("native parity weaker actions", function()
 	)
 
 	t.it(
-		"waits for a resting pointer, restarts the dwell, shows current help text and never engages on touch",
+		"waits for a resting pointer, restarts the dwell, shows current help text and opens on a touch long-press",
 		function()
 			local text = Compose.cell("Posts this avatar")
 			local world = setup(function(UI, Host)
@@ -1143,10 +1143,12 @@ t.describe("native parity weaker actions", function()
 			plus.GuiState = E.GuiState.Idle
 			t.expect(find(world.root, "HelpText")).toBe(nil)
 			world.input.PreferredInput = E.PreferredInput.Touch
-			plus.TouchLongPress.fire({}, E.UserInputState.Begin)
 			plus.GuiState = E.GuiState.Press
 			world.engine.heartbeat.fire(1)
 			t.expect(find(world.root, "HelpText")).toBe(nil)
+			plus.TouchLongPress.fire({}, E.UserInputState.Begin)
+			world.engine.heartbeat.fire(0.1)
+			t.expect(find(world.root, "HelpText").Text).toBe("Shares this avatar")
 			world.stop()
 		end
 	)

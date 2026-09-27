@@ -5,6 +5,7 @@ local COPY = {
 	caption = "Adjust progress to compare the bar and ring. Activity indicators keep moving while work is running.",
 	determinate = "Downloading",
 	indeterminate = "Working",
+	loading = "Loading tracks",
 	spinner = "Spinner (dots)",
 	bar = "Download progress",
 	adjust = "Adjust progress",
@@ -40,23 +41,12 @@ return {
 			local root = Host.Frame "ProgressRing" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.ScrollingFrame "Page" {
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 8,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-					}),
 					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
@@ -124,6 +114,9 @@ return {
 						diameter = 120,
 						showValue = true,
 						format = percent,
+					},
+					UI.ProgressView "Loading" {
+						label = COPY.loading,
 					},
 					UI.ProgressView "Busy" {
 						label = COPY.indeterminate,

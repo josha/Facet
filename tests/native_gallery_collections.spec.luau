@@ -22,6 +22,7 @@ local function mount(name, size)
 	local runtime = Facet.Roblox.createRuntime(engine)
 	local target, guiService = engine.new("Folder"), engine.new("GuiService")
 	local inputService = engine.new("UserInputService")
+	inputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 	local keys = {}
 	inputService.GetFocusedTextBox = function()
 		return nil
@@ -64,6 +65,7 @@ local function mount(name, size)
 		{
 			gui = guiService,
 			keys = keys,
+			input = inputService,
 			target = target,
 			baseline = baseline,
 			viewport = viewport,
@@ -106,7 +108,7 @@ end
 
 t.describe("native gallery collections", function()
 	t.it("reveals distant entrants selects an unmounted range and moves keyed rows", function()
-		local built, node, stop, engine = mount("table_virtualized")
+		local built, node, stop, engine, world = mount("table_virtualized")
 		local tableNode, body = find(node, "Collection"), find(node, "Body")
 		tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
 		viewport(body, engine, 800, 400)
@@ -129,8 +131,10 @@ t.describe("native gallery collections", function()
 		t.expect(built.report().status.first > 1400).toBe(true)
 		t.expect(string.find(find(node, "Status").Text, tostring(built.report().status.first), 1, true) ~= nil)
 			.toBe(true)
+		t.expect(find(node, "Edit")).toBeNil()
+		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(node, "Edit").Activated.fire()
-		t.expect(find(find(body, "e1500"), "Move").Interactable).toBe(true)
+		t.expect(find(find(body, "e1500"), "Move").Visible).toBe(true)
 		t.expect(built.report().selectedCount).toBe(201)
 		find(node, "Reset").Activated.fire()
 		t.expect(built.report().selectedCount).toBe(0)
@@ -144,20 +148,40 @@ t.describe("native gallery collections", function()
 		local list = find(node, "Mail_list")
 		local body = find(list, "Collection")
 		viewport(body, engine, 700, 240)
-		t.expect(contains(find(list, "Row_m1"), "Unread · Kickoff notes")).toBe(true)
-		t.expect(contains(find(list, "Row_m2"), "Read · Order confirmed")).toBe(true)
-		t.expect(contains(find(list, "Row_m3"), "Unread · Flagged · Weekly digest")).toBe(true)
-		t.expect(contains(find(list, "Row_m1"), "Ari Foyer")).toBe(true)
-		t.expect(contains(find(list, "Row_m1"), "Quick recap from the sync")).toBe(true)
+		local function mail(row)
+			return {
+				unread = find(row, "Unread").Visible,
+				flagged = find(row, "Flag").Visible,
+				from = find(row, "From").Text,
+				subject = find(row, "Subject").Text,
+				preview = find(row, "Preview").Text,
+			}
+		end
+		t.expect(mail(find(list, "Row_m1"))).toEqual({
+			unread = true,
+			flagged = false,
+			from = "Ari Foyer",
+			subject = "Kickoff notes",
+			preview = "Quick recap from the sync — three follow-ups, none urgent.",
+		})
+		t.expect(mail(find(list, "Row_m2")).unread).toBe(false)
+		t.expect(mail(find(list, "Row_m3")).flagged).toBe(true)
+		t.expect(contains(find(list, "Row_m1"), "Unread · ")).toBe(false)
+		t.expect(find(find(list, "Row_m1"), "Flag"):IsA("ImageLabel")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "Unread"):IsA("GuiObject")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "Subject"):HasTag("facet-type-label")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "Preview"):HasTag("facet-type-caption")).toBe(true)
+		t.expect(find(find(list, "Row_m1"), "From"):HasTag("facet-type-body")).toBe(true)
+		t.expect(built.report().surfaces.list.status.extent).toBe(6 * 76 + 5 * 8)
 		for _ = 1, 2 do
 			swipe(find(list, "Row_m1"), engine, 10, 300)
 		end
 		t.expect(built.report().surfaces.list.read.m1).toBe(true)
-		t.expect(contains(find(list, "Row_m1"), "Read · Kickoff notes")).toBe(true)
+		t.expect(mail(find(list, "Row_m1")).unread).toBe(false)
 		local row = find(list, "Row_m1")
 		swipe(row, engine, 240, 100)
 		find(row, "flag").Activated.fire()
-		t.expect(contains(row, "Read · Flagged · Kickoff notes")).toBe(true)
+		t.expect(mail(row).flagged).toBe(true)
 		find(list, "Jump").Activated.fire()
 		t.expect(body.CanvasPosition.Y > 0).toBe(true)
 		t.expect(built.report().surfaces.list.status.total).toBe(6)
@@ -171,7 +195,7 @@ t.describe("native gallery collections", function()
 	end)
 
 	t.it("uses mail table activation editing and native row reorder with independent state", function()
-		local built, node, stop, engine = mount("row_actions")
+		local built, node, stop, engine, world = mount("row_actions")
 		find(node, "table").Activated.fire()
 		local page = find(node, "Mail_table")
 		local tableNode, body = find(page, "Collection"), find(page, "Body")
@@ -182,11 +206,14 @@ t.describe("native gallery collections", function()
 		find(find(body, "m1"), "RowHit").Activated.fire()
 		t.expect(built.report().surfaces.table.read.m1).toBe(true)
 		t.expect(built.report().surfaces.list.read.m1).toBe(false)
-		t.expect(contains(find(body, "m1"), "Read · Kickoff notes")).toBe(true)
-		t.expect(find(find(body, "m1"), "Move").Interactable).toBe(false)
+		t.expect(find(find(body, "m1"), "Unread").Visible).toBe(false)
+		t.expect(find(find(body, "m2"), "Subject").Text).toBe("Order confirmed")
+		t.expect(find(find(body, "m1"), "Move").Visible).toBe(false)
+		t.expect(find(page, "Edit")).toBeNil()
+		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(page, "Edit").Activated.fire()
 		local handle = find(find(body, "m1"), "Move")
-		t.expect(handle.Interactable).toBe(true)
+		t.expect(handle.Visible).toBe(true)
 		local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 		detector.DragStart.fire(engine.types.Vector2.new(10, 10))
 		detector.DragContinue.fire(engine.types.Vector2.new(10, 250))
@@ -281,7 +308,7 @@ t.describe("native gallery collections", function()
 		for _, name in { "Rail", "WeekendRail", "RecommendedRail" } do
 			local rail = find(node, name)
 			viewport(rail, engine, 400, 300)
-			t.expect(built.report().rails[name].itemExtent).toBe(360)
+			t.expect(built.report().rails[name].itemExtent).toBe(352)
 			t.expect(built.report().rails[name].status.total).toBe(400)
 			t.expect(built.report().rails[name].status.retained < 12).toBe(true)
 			t.expect(contains(rail, "Livery 001") and contains(rail, "Rally")).toBe(true)
@@ -292,8 +319,8 @@ t.describe("native gallery collections", function()
 			t.expect(built.report().selectedKey).toBe("c1")
 		end
 		viewport(find(node, "Rail"), engine, 1000, 300)
-		t.expect(built.report().rails.Rail.itemExtent).toBe(240)
-		t.expect(built.report().rails.WeekendRail.itemExtent).toBe(360)
+		t.expect(built.report().rails.Rail.itemExtent).toBe(244)
+		t.expect(built.report().rails.WeekendRail.itemExtent).toBe(352)
 		t.expect(contains(find(node, "Selected"), "Selected: Livery 001 · Rally")).toBe(true)
 		t.expect(built.report().shelves).toBe(3)
 		stop()
@@ -341,25 +368,27 @@ t.describe("native gallery collections", function()
 		local tableNode, body = find(page, "Collection"), find(page, "Body")
 		tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
 		viewport(body, engine, 800, 400)
-		t.expect(find(find(body, "m2"), "Row_m2"):FindFirstChild("Delete")).toBeNil()
+		t.expect(find(find(body, "m2"), "Minus").Visible).toBe(false)
+		world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
 		find(page, "Edit").Activated.fire()
-		t.expect(built.report().surfaces.table.editing).toBe(true)
-		local minus = find(find(body, "m2"), "Row_m2"):FindFirstChild("Delete")
-		t.expect(minus ~= nil and minus:IsA("GuiButton")).toBe(true)
-		t.expect(contains(minus, "Delete")).toBe(true)
+		local minus = find(find(body, "m2"), "Minus")
+		t.expect(minus.Visible).toBe(true)
 		world.gui.SelectedObject = minus
 		t.expect(world.gui.SelectedObject).toBe(minus)
 		t.expect(table.find(engine.rejectedSelections, minus)).toBeNil()
 		local activate = action(world.target, "Activate")
 		t.expect(activate ~= nil).toBe(true)
 		activate.Pressed.fire()
+		local confirm = find(find(body, "m2"), "Delete")
+		t.expect(confirm.Visible).toBe(true)
+		confirm.Activated.fire()
 		t.expect(built.report().surfaces.table.count).toBe(5)
 		for _, item in built.report().surfaces.table.rows do
 			t.expect(item.id ~= "m2").toBe(true)
 		end
 		t.expect(find(body, "m2")).toBeNil()
 		find(page, "Edit").Activated.fire()
-		t.expect(built.report().surfaces.table.editing).toBe(false)
+		world.input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		local order = {}
 		for index, item in built.report().surfaces.table.rows do
 			order[index] = item.id

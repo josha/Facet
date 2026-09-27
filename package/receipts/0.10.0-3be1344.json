@@ -13,7 +13,7 @@
   },
   "moderation": "Approved",
   "publishedAt": "2026-08-31T06:34:17Z",
-  "actor": "josha",
+  "actor": "maintainer",
   "route": "open-cloud",
   "toolchain": {
     "rojo": "Rojo 7.7.0",

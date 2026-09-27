@@ -9,6 +9,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local bindThemes = require("./themes")
 local pathShapes = require("./nav_path_shapes")
 local decoration = require("./native_decoration")
+local help = require("./help")
+local textReveal = require("./text_reveal")
 export type MediaControls = Media.MediaControls
 
 local SETTLE_SECONDS = 0.15
@@ -54,7 +56,16 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			local requested = read(source, use)
 			local status = if requested == nil then "neutral" else requested
 			assert(
-				({ neutral = true, info = true, success = true, warning = true, error = true, accent = true })[status],
+				({
+					neutral = true,
+					info = true,
+					success = true,
+					warning = true,
+					error = true,
+					accent = true,
+					voice = true,
+					contrast = true,
+				})[status],
 				"Facet: invalid status"
 			)
 			if previous then
@@ -176,6 +187,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		"direction",
 		"tint",
 		"lines",
+		"disclose",
+		"reveal",
 	}
 	local ALIGN: { [string]: Enum.TextXAlignment } = {
 		start = E.TextXAlignment.Left,
@@ -241,6 +254,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		)
 		assert(lines == nil or not cut, "Facet Text lines cannot combine with a middle cut")
 		assert(lines == nil or fit == nil, "Facet Text lines cannot combine with a fitted text size")
+		assert(spec.reveal == nil or spec.reveal == "auto", "Facet Text reveal must be auto")
+		assert(
+			spec.reveal == nil or (lines == nil and not cut and spec.wrap ~= true and spec.TextWrapped ~= true),
+			"Facet Text reveal needs one line that truncates at the end; remove wrap, lines or the middle cut"
+		)
 		local defaults: Engine.TextLabelNativeProps = {
 			Text = if cut then read(source) or "" else bind(source, ""),
 		}
@@ -270,7 +288,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			defaults.TextWrapped = false
 			defaults.TextTruncate = E.TextTruncate.None
-		elseif truncate == "end" then
+		elseif truncate == "end" or spec.reveal then
 			defaults.TextTruncate = E.TextTruncate.AtEnd
 		end
 		if lines then
@@ -314,7 +332,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end, label)
 		end
 		if cut then
-			local measured = ctx.observe.AbsoluteSize(label)
+			local measured = ctx.layoutSize(label)
 			local insets = Compose.cell({ left = D.new(0, 0), right = D.new(0, 0) })
 			local sideConnections: { RBXScriptConnection } = {}
 			local function paddingChanged()
@@ -364,6 +382,21 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				use(styledFace)
 				label.Text = middle(label, value, use(width))
 			end)
+		end
+		assert(spec.disclose == nil or type(spec.disclose) == "boolean", "Facet Text disclose must be a boolean")
+		if spec.disclose or spec.reveal then
+			local fits, painted = ctx.observe.TextFits(label), ctx.observe.Text(label)
+			local shown = Compose.cell(false)
+			help.attach(ctx, label, bind(source, ""), {
+				name = "Disclosure",
+				gate = function(use: ComposeTypes.Use): boolean
+					return not use(fits) or (cut and use(painted) ~= (read(source, use) or ""))
+				end,
+				shown = shown,
+			})
+			if spec.reveal then
+				textReveal(ctx, label, shown)
+			end
 		end
 		if spec.role ~= nil then
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -562,7 +595,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 		end
 		if spec.shape == "circle" then
-			table.insert(defaults, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
+			table.insert(defaults, Host.UICorner({ CornerRadius = ctx.round }))
 			table.insert(defaults, Host.UIAspectRatioConstraint({ AspectRatio = 1 }))
 		end
 		return Host.ImageLabel(ctx.props(spec, keys, defaults))
@@ -784,7 +817,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				TextXAlignment = E.TextXAlignment.Center,
 				Host.UICorner({
 					CornerRadius = function(use: ComposeTypes.Use)
-						return D.new(if form(use) == "square" then 0 else 1, 0)
+						return if form(use) == "square" then D.new(0, 0) else ctx.round(use)
 					end,
 				}) :: ComposeTypes.Child,
 				Compose.show(function(use: ComposeTypes.Use)
@@ -1066,17 +1099,41 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end
 		local content: GuiObject
 		if presentation == "bar" then
+			local function thickness(use: ComposeTypes.Use): number
+				local rung = read(spec.controlSize, use)
+				return read(spec.thickness, use)
+					or (
+						if rung == "xsmall" or rung == "compact"
+							then metric("space.xs", use)
+							else metric("controls.progress.trackHeight", use)
+					)
+			end
+
+			local measured = Compose.cell(V2.zero)
+			local function ornament(slot: string, use: ComposeTypes.Use): (number, number)
+				local package = read(ctx.config.theme, use)
+				local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer })[slot] else nil
+				if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
+					return 1, 0
+				end
+				local size = if type(recipe.size) == "table" then recipe.size else { w = 16, h = 16 }
+				local along, cross = size.w, size.h
+				if vertical(use) then
+					along, cross = cross, along
+				end
+				local pixels, box = thickness(use), use(measured)
+				local length, depth = if vertical(use) then box.Y else box.X, if vertical(use) then box.X else box.Y
+				local fit = math.min(1, pixels / cross)
+				if depth > 0 then
+					fit = math.min(fit, length * pixels / depth / 4 / along)
+				end
+				return if fit < 0.5 then 0 else fit, if fit < 0.5 then 0 else math.round(along * fit)
+			end
 			local track: Engine.FrameNativeProps = {
 				Name = "Track",
 				Size = fixed(function(use: ComposeTypes.Use)
-					local rung = read(spec.controlSize, use)
-					local thickness = read(spec.thickness, use)
-						or (
-							if rung == "xsmall" or rung == "compact"
-								then metric("space.xs", use)
-								else metric("controls.progress.trackHeight", use)
-						)
-					return if vertical(use) then D2.new(0, thickness, 1, 0) else D2.new(1, 0, 0, thickness)
+					local pixels = thickness(use)
+					return if vertical(use) then D2.new(0, pixels, 1, 0) else D2.new(1, 0, 0, pixels)
 				end),
 				ClipsDescendants = false,
 			}
@@ -1148,8 +1205,20 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					)
 				)
 			end
-			local clipped: Engine.FrameNativeProps =
-				{ Name = "FillClip", Size = D2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true }
+			local clipped: Engine.FrameNativeProps = {
+				Name = "FillClip",
+
+				Size = function(use: ComposeTypes.Use)
+					local _, cap = ornament("barCap", use)
+					return if vertical(use) then D2.new(1, 0, 1, -2 * cap) else D2.new(1, -2 * cap, 1, 0)
+				end,
+				Position = function(use: ComposeTypes.Use)
+					local _, cap = ornament("barCap", use)
+					return if vertical(use) then D2.fromOffset(0, cap) else D2.fromOffset(cap, 0)
+				end,
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
+			}
 			for _, child in ipairs(track) do
 				table.insert(clipped, child)
 			end
@@ -1158,6 +1227,10 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			end
 			table.insert(track, Host.Frame(clipped))
 			content = skin(ctx.styled(Host.Frame(track), "track"), "barTrack")
+			local trackSize = ctx.layoutSize(content)
+			Compose.watch(function(use: ComposeTypes.Use)
+				measured:set(use(trackSize))
+			end)
 			for _, fill in content:GetDescendants() do
 				if string.match(fill.Name, "^Fill%d+$") then
 					local fillIndex = tonumber(string.match(fill.Name, "%d+$")) :: number
@@ -1186,8 +1259,17 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				direction = function(use: ComposeTypes.Use): Theme.FillDirection
 					return use(direction) :: Theme.FillDirection
 				end,
+				fit = function(use: ComposeTypes.Use): number
+					return (ornament("barCap", use))
+				end,
+				ZIndex = 2,
 			})
-			skin(content, "barCenter")
+			skin(content, "barCenter", {
+				fit = function(use: ComposeTypes.Use): number
+					return (ornament("barCenter", use))
+				end,
+				ZIndex = 2,
+			})
 		else
 			local diameter = function(use: ComposeTypes.Use)
 				return read(spec.diameter, use)
@@ -1228,7 +1310,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 									end
 									return ((index / count - value) % 1) * 0.85
 								end,
-								Host.UICorner({ CornerRadius = D.new(1, 0) }),
+								Host.UICorner({ CornerRadius = ctx.round }),
 							}),
 							"fill"
 						)
@@ -1429,7 +1511,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				},
 			}
 			if form == "circle" then
-				table.insert(native, Host.UICorner({ CornerRadius = D.new(1, 0) }))
+				table.insert(native, Host.UICorner({ CornerRadius = ctx.round }))
 			elseif spec.corners then
 				table.insert(
 					native,
@@ -1442,8 +1524,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 							if value == "square" then
 								return D.new(0, 0)
 							end
-							if value == "rounded" then
+							if value == "rounded" or value == "control" then
 								return D.new(0, metric("radii.control", use))
+							end
+							if value == "panel" then
+								return D.new(0, metric("radii.panel", use))
 							end
 							assert(type(value) == "number" and value >= 0, "Facet Skeleton invalid corners")
 							return D.new(0, value)
@@ -1629,6 +1714,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			"loader",
 			"onStatus",
 			"resource",
+			"icon",
+			"background",
 		}, {
 			Size = function(use: ComposeTypes.Use)
 				local pixels = diameter(use)
@@ -1637,7 +1724,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			Text = "",
 			AutoButtonColor = false,
 			Selectable = spec.onActivate ~= nil,
-			Host.UICorner({ CornerRadius = D.new(1, 0) }),
+			Interactable = spec.onActivate ~= nil,
+			Host.UICorner({ CornerRadius = ctx.round }),
 		})
 		local onActivate = spec.onActivate
 		if onActivate then
@@ -1645,15 +1733,51 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				onActivate()
 			end
 		end
+		assert(spec.background == nil or table.find({
+			"surface",
+			"surfaceStrong",
+			"control",
+			"contentStrong",
+			"accent",
+			"success",
+			"warning",
+			"danger",
+		}, spec.background) ~= nil, "Facet Avatar background must be a palette role such as accent or success")
+		assert(
+			spec.icon == nil or not (spec.image or spec.userId or spec.resource),
+			"Facet Avatar takes one face: image, userId, resource or icon"
+		)
 		local root = ctx.styled(Host.TextButton(native), "avatar")
+		local function ringWidth(use: ComposeTypes.Use): number
+			return 2 * metric("strokes.hairline", use)
+		end
+		if onActivate then
+			local state = ctx.observe.GuiState(root)
+			runtime.mountFragment(function()
+				local ring = Host.UIStroke({
+					Name = "HoverRing",
+					ApplyStrokeMode = E.ApplyStrokeMode.Border,
+					Thickness = ringWidth,
+					Transparency = function(use: ComposeTypes.Use): number
+						return if use(state) == E.GuiState.Hover then 0 else 1
+					end,
+				})
+				ring:AddTag("facet-avatar-hover")
+				return { ring }
+			end, root)
+		end
 		if spec.backplate then
 			ctx.styled(root, "accent")
+		end
+		if spec.background then
+			root:AddTag("facet-avatar-background-" .. spec.background)
 		end
 		local function facts(use: ComposeTypes.Use)
 			local name, presence = read(spec.name, use), read(spec.presence, use)
 			assert(type(name) == "string" and name ~= "", "Facet Avatar name must be nonempty")
 			assert(
-				presence == nil or ({ online = true, away = true, busy = true, offline = true })[presence],
+				presence == nil
+					or ({ online = true, away = true, busy = true, offline = true, inExperience = true })[presence],
 				"Facet Avatar invalid presence"
 			)
 			return {
@@ -1674,7 +1798,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			return ctx.text({
 				Name = "Initials",
 				Visible = function(use: ComposeTypes.Use)
-					return not use(pictured)
+					return not use(pictured) and read(spec.icon, use) == nil
 				end,
 				Size = D2.fromScale(1, 1),
 				Text = function(use: ComposeTypes.Use)
@@ -1690,11 +1814,62 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				}),
 			})
 		end, root)
+		if spec.icon ~= nil then
+			runtime.mount(function()
+				return ctx.icon(function(use: ComposeTypes.Use)
+					return read(spec.icon, use) or ""
+				end, {
+					Name = "Face",
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = D2.fromScale(0.5, 0.5),
+					Size = D2.fromScale(0.6, 0.6),
+				})
+			end, root)
+		end
+		if spec.presence then
+			runtime.mount(function()
+				return Host.Frame "PresenceRing" {
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					ZIndex = 2,
+					Visible = function(use: ComposeTypes.Use)
+						return facts(use).presence == "inExperience"
+					end,
+					Host.UICorner({ CornerRadius = ctx.round }),
+					ctx.styled(
+						Host.UIStroke({
+							ApplyStrokeMode = E.ApplyStrokeMode.Border,
+							BorderStrokePosition = E.BorderStrokePosition.Inner,
+							Thickness = ringWidth,
+						}),
+						"avatar-ring"
+					),
+					Host.Frame "Gap" {
+						BackgroundTransparency = 1,
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+						Size = function(use: ComposeTypes.Use)
+							local inset = 2 * ringWidth(use)
+							return D2.new(1, -inset, 1, -inset)
+						end,
+						Host.UICorner({ CornerRadius = ctx.round }),
+						ctx.styled(
+							Host.UIStroke({
+								ApplyStrokeMode = E.ApplyStrokeMode.Border,
+								BorderStrokePosition = E.BorderStrokePosition.Inner,
+								Thickness = ringWidth,
+							}),
+							"avatar-ring-gap"
+						),
+					},
+				}
+			end, root)
+		end
 		local image, userId, onStatus = spec.image, spec.userId, spec.onStatus
 		if image or userId or spec.resource then
 			runtime.mount(function()
 				return UI.AsyncImage({
-					imageProperties = { Host.UICorner({ CornerRadius = D.new(1, 0) }) },
+					imageProperties = { Host.UICorner({ CornerRadius = ctx.round }) },
 					Name = "Portrait",
 					loader = spec.loader,
 					onStatus = function(state: Media.ImageState, failure: unknown)
@@ -1713,7 +1888,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					placeholder = function(_state: ComposeTypes.Readable<Media.ImageState>): Instance
 						return Host.Frame({ BackgroundTransparency = 1, Size = D2.fromScale(1, 1) })
 					end,
-					Host.UICorner({ CornerRadius = D.new(1, 0) }),
+					Host.UICorner({ CornerRadius = ctx.round }),
 				})
 			end, root)
 		end
@@ -1728,7 +1903,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					diameter = 12,
 					cutout = true,
 					Visible = function(use: ComposeTypes.Use)
-						return facts(use).presence ~= nil
+						local presence = facts(use).presence
+						return presence ~= nil and presence ~= "inExperience"
 					end,
 					form = function(use: ComposeTypes.Use): "dot" | "ring" | "square" | "dash"
 						local current = facts(use).presence
@@ -1787,6 +1963,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				or controlSize(spec.controlSize, if spec.form == "icon" then "iconSize" else "height", use)
 		end
 		local spacing = if spec.layout == "spread" then 8 else -10
+		local floor = ctx.touchFloor()
 		local native = ctx.props(spec, {
 			"items",
 			"max",
@@ -1835,18 +2012,27 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 						name = function(use: ComposeTypes.Use)
 							return use(current).name
 						end,
-						image = function(use: ComposeTypes.Use)
-							local item = use(current)
-							return item.image
-								or (
-									if item.userId
-										then "rbxthumb://type=AvatarHeadShot&id=" .. tostring(item.userId) .. "&w=150&h=150"
-										else ""
-								)
-						end,
+						image = if current:peek().icon
+							then nil
+							else function(use: ComposeTypes.Use)
+								local item = use(current)
+								return item.image
+									or (
+										if item.userId
+											then "rbxthumb://type=AvatarHeadShot&id="
+												.. tostring(item.userId)
+												.. "&w=150&h=150"
+											else ""
+									)
+							end,
 						presence = function(use: ComposeTypes.Use): Media.Presence?
 							return use(current).presence :: Media.Presence?
 						end,
+						icon = if current:peek().icon
+							then function(use: ComposeTypes.Use): string?
+								return use(current).icon
+							end
+							else nil,
 						diameter = size,
 						presenceMark = spec.layout == "spread",
 						LayoutOrder = index,
@@ -1875,7 +2061,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 							local pixels = size(use)
 							return D2.fromOffset(pixels, pixels)
 						end,
-						LayoutOrder = maximum + 1,
+						LayoutOrder = maximum + 2,
 						Text = function(use: ComposeTypes.Use)
 							return if spec.overflow == "ellipsis" then "…" else "+" .. tostring(#use(items) - maximum)
 						end,
@@ -1887,12 +2073,32 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 								onOverflow()
 							end
 						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }),
+						Host.UICorner({ CornerRadius = ctx.round }),
+						Host.UISizeConstraint({
+							MinSize = function(use: ComposeTypes.Use): Vector2
+								local minimum = floor(use)
+								return V2.new(minimum, minimum)
+							end,
+						}),
 					},
 					"button"
 				)
 			end)
 		)
+		if spacing < 0 then
+			table.insert(
+				native,
+				Compose.show(function(use: ComposeTypes.Use)
+					return #use(items) > maximum
+				end, function()
+					return Host.Frame "OverflowGap" {
+						BackgroundTransparency = 1,
+						LayoutOrder = maximum + 1,
+						Size = D2.fromOffset(4 - 2 * spacing, 0),
+					}
+				end)
+			)
+		end
 		local group = Host.Frame(native)
 		if spec.layout ~= "spread" then
 			ctx.styled(group, "avatar-stack")

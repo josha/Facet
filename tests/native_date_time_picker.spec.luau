@@ -105,6 +105,7 @@ local function world(build: (any, any) -> any, options: any?): any
 		runtime,
 		{
 			types = engine.types,
+			theme = o.theme,
 			services = { GuiService = gui, UserInputService = input },
 			onError = function(message)
 				table.insert(errors, message)
@@ -233,7 +234,7 @@ t.describe("DateTimePicker: a single date", function()
 		w.stop()
 	end)
 
-	t.it("the year and month menus open on the shown ones and honour min/max (owner: opened at 1926)", function()
+	t.it("the year and month menus open on the shown ones and honour min/max", function()
 		local cell, _, change = caller(D(2026, 9, 5))
 		local w = mount(
 			{ value = cell, onChange = change, style = "inline", min = D(2020, 3, 10), max = D(2030, 6, 1) },
@@ -253,6 +254,125 @@ t.describe("DateTimePicker: a single date", function()
 		rows = must(w.screen, "MenuRows")
 		expect(w.selected()).toBe(must(rows, "6"))
 		expect(`{must(rows, "6").Interactable} {must(rows, "7").Interactable}`).toBe("true false")
+		w.stop()
+	end)
+
+	t.it("the year menu is a short bounded window on the shown year, never thousands of blurred rows", function()
+		local cell, _, change = caller(D(2026, 9, 5))
+		local w = mount({ value = cell, onChange = change, style = "inline", min = D(1, 1, 1) }, { input = "pad" })
+		must(w.picker(), "Year").Activated.fire()
+		local rows = must(w.screen, "MenuRows")
+		local years = {}
+		for _, row in rows:GetChildren() do
+			if tonumber(row.Name) then
+				table.insert(years, tonumber(row.Name))
+			end
+		end
+		table.sort(years)
+		expect(`{#years} {years[1]} {years[#years]}`).toBe("101 1976 2076")
+		local V2 = w.engine.types.Vector2
+		rows.AbsoluteSize = V2.new(200, 101 * 44)
+		must(w.screen, "Modal").AbsoluteSize = V2.new(900, 900)
+		expect(must(w.screen, "MenuPanel").Size.Y.Offset <= 5 * 44).toBe(true)
+		expect(w.selected()).toBe(must(rows, "2026"))
+		must(rows, "1976").Activated.fire()
+		must(w.picker(), "Year").Activated.fire()
+		rows = must(w.screen, "MenuRows")
+		expect(`{find(rows, "1926") ~= nil} {find(rows, "1925") ~= nil} {find(rows, "2026") ~= nil}`).toBe(
+			"true false true"
+		)
+		w.stop()
+	end)
+
+	t.it(
+		"the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped",
+		function()
+			for _, input in { "pointer", "touch" } do
+				local cell, _, change = caller(D(2026, 9, 5))
+				local w = mount({ value = cell, onChange = change }, { input = input })
+				local plate = must(w.picker(), "Field")
+				local open = w.opener()
+				expect(open.Parent).toBe(plate)
+				expect(open:HasTag("facet-shape-circle")).toBe(false)
+				expect(open.Size).toBe(w.engine.types.UDim2.new(0, 44, 1, 0))
+				expect(plate.ClipsDescendants).toBe(true)
+				local pad = plate:FindFirstChildWhichIsA("UIPadding")
+				expect(`{pad.PaddingLeft.Offset} {pad.PaddingRight.Offset}`).toBe("0 0")
+				local layout = plate:FindFirstChildWhichIsA("UIListLayout")
+				expect(layout.Padding.Offset).toBe(0)
+				local last = 0
+				for _, child in plate:GetChildren() do
+					if child:IsA("GuiObject") and child ~= open then
+						last = math.max(last, child.LayoutOrder)
+					end
+				end
+				expect(open.LayoutOrder > last).toBe(true)
+				w.stop()
+			end
+		end
+	)
+
+	t.it("the field's parts take the field's height at every control size", function()
+		for _, input in { "pointer", "touch" } do
+			for _, rung in { "xsmall", "large", "none" } do
+				local cell, _, change = caller(D(2026, 9, 5))
+				local w = mount({
+					value = cell,
+					onChange = change,
+					label = "Race day",
+					controlSize = if rung == "none" then nil else rung,
+				}, { input = input })
+				local plate = must(w.picker(), "Field")
+				if rung == "none" then
+					expect(`{plate.Size.Y.Offset} {plate.AutomaticSize.Name}`).toBe("44 None")
+				end
+				for _, part in plate:GetChildren() do
+					if part:IsA("GuiObject") then
+						expect(`{part.Name} {part.Size.Y.Scale} {part.Size.Y.Offset}`).toBe(`{part.Name} 1 0`)
+					end
+				end
+				expect(w.opener().Size.X.Offset).toBe(44)
+				w.stop()
+			end
+		end
+	end)
+
+	t.it("a custom format shows one Show button that reads in the field's text role", function()
+		for _, input in { "pointer", "touch" } do
+			local cell, _, change = caller(D(2026, 9, 5))
+			local w = mount({
+				value = cell,
+				onChange = change,
+				format = function(d: any): string
+					return `{d.day}/{d.month}/{d.year}`
+				end,
+			}, { input = input })
+			local plate = must(w.picker(), "Field")
+			local shows = all(plate, "Show")
+			expect(#shows).toBe(1)
+			expect(shows[1].Text).toBe("5/9/2026")
+			expect(shows[1]:HasTag("facet-type-body")).toBe(true)
+			expect(shows[1].Size).toBe(w.engine.types.UDim2.new(1, -44, 1, 0))
+			w.stop()
+		end
+	end)
+
+	t.it("a skinned panel's calendar surface adds the art carve around the calendar", function()
+		local themeKit: any = require("../src/ui/themes")(Compose)
+		local module: any = (require :: any)("../examples/themes/pixel_quest")
+		local package = module.build(themeKit)
+		local cell, _, change = caller(D(2026, 9, 5))
+		local w = mount({ value = cell, onChange = change }, { theme = package })
+		local plate = must(w.picker(), "Field")
+		plate.AbsolutePosition = w.V2.new(100, 700)
+		plate.AbsoluteSize = w.V2.new(400, 44)
+		w.open()
+		local panel = w.panel()
+		local surface = must(w.screen, "CalendarSurface")
+		panel.AbsoluteSize = w.V2.new(340, 413)
+		expect(surface.Size).toBe(w.engine.types.UDim2.fromOffset(7 * 44 + 32 + 48, 413 + 48))
+		surface.AbsoluteSize = w.V2.new(388, 461)
+		expect(surface.Position).toBe(w.engine.types.UDim2.fromOffset(100, 700 - 461 - 4))
 		w.stop()
 	end)
 
@@ -807,7 +927,7 @@ t.describe("DateTimePicker: ranges, presets and drafts", function()
 		})
 	end
 
-	t.it("a range's end drags across days and panes, crossing swaps, release commits once (owner)", function()
+	t.it("a range's end drags across days and panes, crossing swaps, release commits once", function()
 		local cell, _, change = caller({ start = D(2026, 9, 10), finish = D(2026, 9, 15) })
 		local commits: { string } = {}
 		local w = mount({
@@ -1082,7 +1202,7 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 	end)
 
 	t.it(
-		"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet a centred sheet",
+		"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet (a TV or a large pad-only display) a centred sheet",
 		function()
 			local cell, _, change = caller(D(2026, 9, 16))
 			local w = mount(
@@ -1111,6 +1231,14 @@ t.describe("DateTimePicker: layout, routes and refusals", function()
 			local icon = must(tv.opener(), "LeadingIcon")
 			expect(icon.Image).toBe("rbxassetid://93477762216058")
 			tv.stop()
+			local lounge = mount({ value = cell, onChange = change }, { input = "pad" })
+			lounge.gui.ViewportDisplaySize = lounge.E.DisplaySize.Large
+			lounge.select(lounge.opener())
+			lounge.open()
+			local centred = must(lounge.screen, "CalendarSurface")
+			centred.AbsoluteSize = lounge.V2.new(340, 400)
+			expect(centred.Position).toBe(lounge.engine.types.UDim2.fromOffset(130, 250))
+			lounge.stop()
 		end
 	)
 

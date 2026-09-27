@@ -357,11 +357,12 @@ do
 			expect(fill(2, 1):HasTag("facet-control")).toBe(true)
 			expect(fill(2, 1):HasTag("facet-status-neutral")).toBe(false)
 			local function outline(r, c)
-				return findPath(ctx.node, game.tilePath(r, c) .. "/ActiveRow")
+				return findPath(ctx.node, game.tilePath(r, c) .. "/Cursor")
 			end
 			expect(outline(2, 1):HasTag("facet-status-ring")).toBe(true)
 			expect(outline(2, 1).Parent:HasTag("facet-status-accent")).toBe(true)
 			expect(outline(2, 1).Enabled).toBe(true)
+			expect(outline(2, 2).Enabled).toBe(false)
 			expect(outline(1, 1).Enabled).toBe(false)
 			guess(game, "ERROR")
 			expect(outline(2, 1).Enabled).toBe(false)

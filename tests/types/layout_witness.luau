@@ -24,6 +24,9 @@ local column: Frame = UI.VStack({
 	UI.Button({ label = "Save" }),
 })
 local row: Frame = UI.HStack("Toolbar")(stackProps)
+local adaptiveProps: Facet.AdaptiveStackProps = { gap = "s", axis = "x" :: "x" }
+local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
+local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
 local layers: Frame = UI.ZStack({ alignH = "center" :: "center", alignV = "end" :: "end", padding = "s" })
 local page: ScrollingFrame = UI.ScrollView({
 	axis = "y" :: "y",
@@ -57,7 +60,25 @@ local dividerProps: Facet.DividerProps =
 local divider: Frame = UI.Divider(dividerProps)
 local spacerProps: Facet.SpacerProps = { minLength = "m" }
 local spacer: Frame = UI.Spacer(spacerProps)
+local adaptive: Frame = UI.AdaptiveStack({ axis = "x" :: "x", gap = "s" })
+local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
+local chosen: Facet.Cell<number> = Compose.cell(1)
+local region: Frame = UI.Region("Tasks")({
+	zone = "left" :: "left",
+	rank = 2,
+	mayDrop = true,
+	form = chosen,
+	expand = function(): Instance
+		return UI.Text({ text = "Win a round" })
+	end,
+	UI.Text({ text = "Tasks" }),
+	UI.Text({ text = "1/3" }),
+})
+local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
 return {
+	adaptive = adaptive,
+	fits = fits,
+	hud = hud,
 	screen = screen,
 	named = named,
 	column = column,

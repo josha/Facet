@@ -1,11 +1,29 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local pathShapes = require("../src/ui/nav_path_shapes")
 local Compose = Facet.Compose
 local themes = Facet.themes
 
+local function openSettings(root: any)
+	local function seek(node: any, name: string): any
+		if node.Name == name then
+			return node
+		end
+		for _, child in node:GetChildren() do
+			local found = seek(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+	local layer = root:FindFirstAncestorWhichIsA("LayerCollector") or root
+	seek(layer, "Showcase").Activated.fire()
+	seek(seek(layer, "Section"), "settings").Activated.fire()
+end
 local function find(root: any, name: string): any
 	if root.Name == name then
 		return root
@@ -548,25 +566,25 @@ t.describe("radial retirement motion", function()
 		local panel, sector = find(screen, "RadialPanel"), find(screen, "Sector-N")
 		local paint = find(sector, "Sector")
 		local thickness = paint.Thickness
-		t.expect(sector.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(sector)).toBe(0)
 		opened:set(false)
 		w.step(0.05)
-		local fading = sector.GroupTransparency
+		local fading = fadeKit.of(sector)
 		t.expect(fading > 0 and fading < 1).toBe(true)
 		t.expect(panel.Interactable).toBe(false)
 		t.expect(paint.Thickness).toBe(thickness)
 		opened:set(true)
 		t.expect(find(screen, "RadialPanel")).toBe(panel)
 		t.expect(find(screen, "Sector-N")).toBe(sector)
-		t.expect(sector.GroupTransparency).toBe(fading)
+		t.expect(fadeKit.of(sector)).toBe(fading)
 		t.expect(panel.Interactable).toBe(true)
-		local previous = sector.GroupTransparency
+		local previous = fadeKit.of(sector)
 		for _ = 1, 30 do
 			w.step(1 / 60)
-			t.expect(sector.GroupTransparency <= previous).toBe(true)
-			previous = sector.GroupTransparency
+			t.expect(fadeKit.of(sector) <= previous).toBe(true)
+			previous = fadeKit.of(sector)
 		end
-		t.expect(sector.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(sector)).toBe(0)
 		opened:set(false)
 		w.step(0.4)
 		t.expect(find(screen, "RadialPanel")).toBe(nil)
@@ -620,7 +638,7 @@ t.describe("radial retirement motion", function()
 		end
 		t.expect(visited.Leaf == true or visited.Twig == true).toBe(true)
 		w.step(0.04)
-		t.expect(retiring.GroupTransparency > 0 and retiring.GroupTransparency < 1).toBe(true)
+		t.expect(fadeKit.of(retiring) > 0 and fadeKit.of(retiring) < 1).toBe(true)
 		t.expect(paint.Thickness).toBe(thickness)
 		t.expect(#paint:GetControlPoints()).toBe(#points)
 		w.step(0.3)
@@ -662,8 +680,8 @@ t.describe("radial retirement motion", function()
 		opened:set(true)
 		local sector = find(screen, "Sector-look")
 		t.expect(sector ~= nil).toBe(true)
-		t.expect(sector.GroupTransparency).toBe(0)
-		t.expect(find(screen, "Sector-wave").GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(sector)).toBe(0)
+		t.expect(fadeKit.of(find(screen, "Sector-wave"))).toBe(0)
 		local button = find(sector, "look")
 		t.expect(find(button, "Title").Text).toBe("Look at the beautiful mountain")
 		t.expect(button:GetAttribute("label")).toBe("Look at the beautiful mountain")
@@ -694,15 +712,15 @@ t.describe("presented surface motion", function()
 		end)
 		shown:set(true)
 		local panel = find(screen, "AlertPanel")
-		t.expect(panel.ClassName).toBe("CanvasGroup")
+		t.expect(panel.ClassName).toBe("Frame")
 		t.expect(panel:HasTag("facet-panel")).toBe(true)
 		t.expect(panel.BackgroundTransparency).toBe(0)
-		t.expect(panel.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(panel)).toBe(1)
 		local previous, enterFrames = 1, 0
 		for frame = 1, 30 do
 			w.step(1 / 60)
-			t.expect(panel.GroupTransparency <= previous).toBe(true)
-			previous = panel.GroupTransparency
+			t.expect(fadeKit.of(panel) <= previous).toBe(true)
+			previous = fadeKit.of(panel)
 			if enterFrames == 0 and previous <= 1e-9 then
 				enterFrames = frame
 			end
@@ -720,9 +738,9 @@ t.describe("presented surface motion", function()
 					goneAt = frame
 				end
 			else
-				t.expect(panel.GroupTransparency >= previous).toBe(true)
-				t.expect(panel.GroupTransparency > 0).toBe(true)
-				previous = panel.GroupTransparency
+				t.expect(fadeKit.of(panel) >= previous).toBe(true)
+				t.expect(fadeKit.of(panel) > 0).toBe(true)
+				previous = fadeKit.of(panel)
 			end
 		end
 		t.expect(goneAt >= 11 and goneAt <= 13).toBe(true)
@@ -835,15 +853,15 @@ t.describe("presented surface motion", function()
 			})
 		end)
 		w.step(0.3)
-		local layerA = find(screen, "AContent").Parent
+		local layerA = fadeKit.layer(find(screen, "AContent"))
 		selection:set("b")
-		local layerB = find(screen, "BContent").Parent
+		local layerB = fadeKit.layer(find(screen, "BContent"))
 		t.expect(layerA.Interactable).toBe(false)
 		t.expect(layerB.Interactable).toBe(true)
 		w.step(0.1)
 		t.expect(layerA.Parent ~= nil).toBe(true)
 		t.expect(layerA.Interactable).toBe(false)
-		t.expect(layerA.GroupTransparency > 0 and layerA.GroupTransparency < 1).toBe(true)
+		t.expect(fadeKit.of(layerA) > 0 and fadeKit.of(layerA) < 1).toBe(true)
 		local slot = find(screen, "Sector-N").Parent
 		t.expect(slot.Interactable).toBe(true)
 		opened:set(false)
@@ -946,23 +964,40 @@ t.describe("tab content transition", function()
 			t.expect(cursor.ClassName == "CanvasGroup").toBe(false)
 			cursor = cursor.Parent
 		end
-		local layerA = find(screen, "AContent").Parent
-		t.expect(layerA.ClassName).toBe("CanvasGroup")
-		t.expect(layerA.GroupTransparency).toBe(0)
+		local layerA = fadeKit.layer(find(screen, "AContent"))
+		t.expect(layerA.ClassName).toBe("Frame")
+		t.expect(fadeKit.of(layerA)).toBe(0)
 		selection:set("b")
-		local layerB = find(screen, "BContent").Parent
-		t.expect(layerB.ClassName).toBe("CanvasGroup")
-		t.expect(layerB.GroupTransparency).toBe(1)
+		local layerB = fadeKit.layer(find(screen, "BContent"))
+		t.expect(layerB.ClassName).toBe("Frame")
+		t.expect(fadeKit.of(layerB)).toBe(1)
 		w.step(0.1)
-		t.expect(layerA.GroupTransparency > 0 and layerA.GroupTransparency < 1).toBe(true)
-		t.expect(layerB.GroupTransparency > 0 and layerB.GroupTransparency < 1).toBe(true)
-		t.expect(math.abs(layerA.GroupTransparency + layerB.GroupTransparency - 1) < 1e-6).toBe(true)
+		t.expect(fadeKit.of(layerA) > 0 and fadeKit.of(layerA) < 1).toBe(true)
+		t.expect(fadeKit.of(layerB) > 0 and fadeKit.of(layerB) < 1).toBe(true)
+		t.expect(math.abs(fadeKit.of(layerA) + fadeKit.of(layerB) - 1) < 1e-6).toBe(true)
 		t.expect(layerA.Visible).toBe(true)
 		t.expect(layerA.Interactable).toBe(false)
 		w.step(0.15)
-		t.expect(layerB.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(layerB)).toBe(0)
 		t.expect(layerA.Visible).toBe(false)
 		t.expect(layerA.isDestroyed()).toBe(false)
+		stop()
+		w.close()
+	end)
+
+	t.it("groups the pages only while they fade and leaves no CanvasGroup once the fade settles", function()
+		local w = world({ reducedMotion = false })
+		local stop, screen, selection = tabs(w, { seconds = 0.2 })
+		w.step(0.3)
+		t.expect(fadeKit.groups(screen)).toBe(0)
+		selection:set("b")
+		w.step(0.1)
+		t.expect(find(screen, "AContent"):FindFirstAncestorWhichIsA("CanvasGroup") ~= nil).toBe(true)
+		t.expect(find(screen, "BContent"):FindFirstAncestorWhichIsA("CanvasGroup") ~= nil).toBe(true)
+		w.step(0.15)
+		t.expect(fadeKit.groups(screen)).toBe(0)
+		t.expect(fadeKit.layer(find(screen, "BContent")).Name).toBe("b")
+		t.expect(fadeKit.layer(find(screen, "AContent")).Name).toBe("a")
 		stop()
 		w.close()
 	end)
@@ -971,7 +1006,7 @@ t.describe("tab content transition", function()
 		local w = world({ reducedMotion = false })
 		local stop, screen, selection = tabs(w, { seconds = 0.2 }, "top")
 		w.step(0.3)
-		local layerA = find(screen, "AContent").Parent
+		local layerA = fadeKit.layer(find(screen, "AContent"))
 		selection:set("b")
 		w.step(0.1)
 		t.expect(layerA.isDestroyed()).toBe(false)
@@ -987,10 +1022,10 @@ t.describe("tab content transition", function()
 		for _, transition in { false :: any, nil } do
 			local w = world({ reducedMotion = false })
 			local stop, screen, selection = tabs(w, transition)
-			local layerA = find(screen, "AContent").Parent
+			local layerA = fadeKit.layer(find(screen, "AContent"))
 			t.expect(layerA.ClassName).toBe("Frame")
 			selection:set("b")
-			t.expect(find(screen, "BContent").Parent.Visible).toBe(true)
+			t.expect(fadeKit.layer(find(screen, "BContent")).Visible).toBe(true)
 			t.expect(layerA.Visible).toBe(false)
 			t.expect(w.engine.heartbeat.count()).toBe(0)
 			stop()
@@ -1396,15 +1431,15 @@ t.describe("control motion policy and lifetime", function()
 			local pop = find(go, "Pop")
 			local content = find(row, "Content")
 			local alertPanel = find(screen, "AlertPanel")
-			local arriving = find(screen, "BPage").Parent
-			local departing = find(screen, "APage").Parent
+			local arriving = fadeKit.layer(find(screen, "BPage"))
+			local departing = fadeKit.layer(find(screen, "APage"))
 			local shimmer = find(screen, "Shimmer")
 			local trail = find(find(screen, "Health"), "Trail")
 			t.expect(pop.Scale ~= 1).toBe(true)
 			t.expect(sheetPanel.Size.Y.Offset > medium).toBe(true)
 			t.expect(content.Position.X.Offset < 0 and content.Position.X.Offset > -88).toBe(true)
-			t.expect(alertPanel.GroupTransparency > 0 and alertPanel.GroupTransparency < 1).toBe(true)
-			t.expect(arriving.GroupTransparency > 0 and arriving.GroupTransparency < 1).toBe(true)
+			t.expect(fadeKit.of(alertPanel) > 0 and fadeKit.of(alertPanel) < 1).toBe(true)
+			t.expect(fadeKit.of(arriving) > 0 and fadeKit.of(arriving) < 1).toBe(true)
 			t.expect(trail.Size.X.Scale > 0.3 + 1e-6).toBe(true)
 			t.expect(shimmer.Enabled).toBe(true)
 			local indicator = find(find(screen, "Busy"), "Indicator")
@@ -1413,8 +1448,8 @@ t.describe("control motion policy and lifetime", function()
 				pop = pop.Scale,
 				sheet = sheetPanel.Size.Y.Offset,
 				row = content.Position.X.Offset,
-				alert = alertPanel.GroupTransparency,
-				arriving = arriving.GroupTransparency,
+				alert = fadeKit.of(alertPanel),
+				arriving = fadeKit.of(arriving),
 				trail = trail.Size.X.Scale,
 				shimmer = shimmer.Offset,
 			}
@@ -1432,8 +1467,8 @@ t.describe("control motion policy and lifetime", function()
 				t.expect(pop.Scale).toBe(landed.pop)
 				t.expect(sheetPanel.Size.Y.Offset).toBe(landed.sheet)
 				t.expect(content.Position.X.Offset).toBe(landed.row)
-				t.expect(alertPanel.GroupTransparency).toBe(landed.alert)
-				t.expect(arriving.GroupTransparency).toBe(landed.arriving)
+				t.expect(fadeKit.of(alertPanel)).toBe(landed.alert)
+				t.expect(fadeKit.of(arriving)).toBe(landed.arriving)
 				t.expect(trail.Size.X.Scale).toBe(landed.trail)
 				t.expect(shimmer.Offset).toBe(landed.shimmer)
 				stepped = stepped or segmentReading(indicator) ~= start
@@ -1571,16 +1606,16 @@ t.describe("control motion policy and lifetime", function()
 		local panel = find(screen, "AlertPanel")
 		shown:set(false)
 		w.step(0.1)
-		local fading = panel.GroupTransparency
+		local fading = fadeKit.of(panel)
 		t.expect(fading > 0 and fading < 1).toBe(true)
 		shown:set(true)
 		t.expect(find(screen, "AlertPanel")).toBe(panel)
-		t.expect(panel.GroupTransparency).toBe(fading)
+		t.expect(fadeKit.of(panel)).toBe(fading)
 		w.step(1 / 60)
-		t.expect(panel.GroupTransparency < fading).toBe(true)
-		t.expect(fading - panel.GroupTransparency < 0.1).toBe(true)
+		t.expect(fadeKit.of(panel) < fading).toBe(true)
+		t.expect(fading - fadeKit.of(panel) < 0.1).toBe(true)
 		w.step(0.3)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		stop()
 		w.close()
 	end)
@@ -1860,16 +1895,13 @@ t.describe("gallery motion setting", function()
 			end
 			return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
 		end, target)
-		local settings
-		for _, node in root:GetDescendants() do
-			if node.Name == "Settings" and node:IsA("TextButton") then
-				settings = node
-			end
+		openSettings(root)
+		t.expect(find(root, "ShowcasePanel") ~= nil or find(root, "Section") ~= nil).toBe(true)
+		local sheet = find(target, "MotionNote")
+		while sheet and sheet.Name ~= "Settings" do
+			sheet = sheet.Parent
 		end
-		settings.Activated.fire()
-		t.expect(find(root, "GallerySettings") ~= nil).toBe(true)
-		local sheet = find(target, "MotionNote").Parent
-		t.expect(sheet.Name).toBe("Settings")
+		t.expect(sheet ~= nil).toBe(true)
 		local picker = find(sheet, "Motion")
 		t.expect(picker ~= nil).toBe(true)
 		local full, reduced = find(picker, "full"), find(picker, "reduced")
@@ -1918,7 +1950,6 @@ t.describe("gallery motion setting", function()
 		full.Activated.fire()
 		t.expect(ctx.reducedMotion:peek()).toBe(true)
 		t.expect(ctx.motionMode:peek()).toBe("reduced")
-		find(sheet, "FollowRobloxMotion").Activated.fire()
 		gui.ReducedMotionEnabled = false
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		t.expect(full:GetAttribute("selected")).toBe(true)
@@ -2018,6 +2049,161 @@ t.describe("performance lab motion flight", function()
 			t.expect(active.springs[1]:peek()).toBe(held)
 			labWorld.dispose()
 			t.expect(labWorld.engine.heartbeat.count()).toBe(0)
+		end
+	)
+
+	t.it("the segmented selection fill never reaches past the strip, so it cannot widen it", function()
+		local w = world({ reducedMotion = true })
+		local _, screen = w.mount(function(UI)
+			return UI.Picker "Mode" {
+				style = "segmented",
+				selected = Compose.cell("b"),
+				options = { { value = "a", label = "A long option" }, { value = "b", label = "Rally" } },
+			}
+		end)
+		local V = w.engine.types.Vector2
+		find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(0, 0), V.new(300, 60)
+		find(screen, "a").AbsolutePosition, find(screen, "a").AbsoluteSize = V.new(0, 0), V.new(294, 54)
+		find(screen, "b").AbsolutePosition, find(screen, "b").AbsoluteSize = V.new(298, 0), V.new(294, 54)
+		w.step(0.1)
+		local fill = find(screen, "SelectionFill")
+		t.expect(fill.Position.X.Offset + fill.Size.X.Offset <= 300).toBe(true)
+		w.close()
+	end)
+
+	t.it(
+		"the segmented selection fill is placed in the strip's padded content box, so it cannot grow the strip",
+		function()
+			local w = world({ reducedMotion = true })
+			local _, screen = w.mount(function(UI)
+				return UI.Picker "Mode" {
+					style = "segmented",
+					selected = Compose.cell("b"),
+					options = {
+						{ value = "a", label = "Road" },
+						{ value = "b", label = "Rally" },
+						{ value = "c", label = "Drift" },
+					},
+				}
+			end)
+			local V = w.engine.types.Vector2
+			find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(0, 0), V.new(218, 50)
+			find(screen, "SlideUnit").AbsolutePosition = V.new(3, 3)
+			find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(212, 44)
+			for index, name in { "a", "b", "c" } do
+				find(screen, name).AbsolutePosition = V.new(3 + (index - 1) * 72, 3)
+				find(screen, name).AbsoluteSize = V.new(68, 44)
+			end
+			w.step(0.1)
+			local fill = find(screen, "SelectionFill")
+			t.expect(fill.Position).toBe(w.engine.types.UDim2.fromOffset(72, 0))
+			t.expect(fill.Size).toBe(w.engine.types.UDim2.fromOffset(68, 44))
+			w.close()
+		end
+	)
+
+	t.it("a stale segment position cannot place the selection fill past the laid-out segments", function()
+		local w = world({ reducedMotion = true })
+		local _, screen = w.mount(function(UI)
+			return UI.Picker "Mode" {
+				style = "segmented",
+				axis = "y",
+				selected = Compose.cell("b"),
+				options = {
+					{ value = "a", label = "Road" },
+					{ value = "b", label = "Rally" },
+					{ value = "c", label = "Drift" },
+				},
+			}
+		end)
+		local V = w.engine.types.Vector2
+		local picker = find(screen, "Mode")
+		picker.AbsolutePosition, picker.AbsoluteSize = V.new(0, 0), V.new(300, 308)
+		picker:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(294, 140)
+		find(screen, "SlideUnit").AbsolutePosition = V.new(3, 3)
+		for index, name in { "a", "b", "c" } do
+			find(screen, name).AbsoluteSize = V.new(294, 44)
+			find(screen, name).AbsolutePosition = V.new(3, 3 + (index - 1) * 48)
+		end
+		find(screen, "b").AbsolutePosition = V.new(3, 267)
+		w.step(0.1)
+		local fill = find(screen, "SelectionFill")
+		t.expect(fill.Position.Y.Offset + fill.Size.Y.Offset <= 140).toBe(true)
+		find(screen, "b").AbsolutePosition = V.new(3, 51)
+		w.step(0.1)
+		t.expect(fill.Position).toBe(w.engine.types.UDim2.fromOffset(0, 48))
+		t.expect(fill.Size).toBe(w.engine.types.UDim2.fromOffset(294, 44))
+		w.close()
+	end)
+
+	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
+		local w = world({ reducedMotion = true })
+		local selected = Compose.cell("b")
+		local _, screen = w.mount(function(UI)
+			return UI.Picker "Mode" {
+				style = "segmented",
+				selected = selected,
+				options = {
+					{ value = "a", label = "A deliberately long label that wraps the strip" },
+					{ value = "b", label = "Rally" },
+				},
+			}
+		end)
+		local V = w.engine.types.Vector2
+		find(screen, "Mode").AbsolutePosition, find(screen, "Mode").AbsoluteSize = V.new(10, 20), V.new(294, 112)
+		find(screen, "SlideUnit").AbsolutePosition = V.new(10, 20)
+		find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(294, 112)
+		find(screen, "a").AbsolutePosition, find(screen, "a").AbsoluteSize = V.new(10, 20), V.new(294, 54)
+		find(screen, "b").AbsolutePosition, find(screen, "b").AbsoluteSize = V.new(10, 78), V.new(294, 54)
+		w.step(0.1)
+		local fill = find(screen, "SelectionFill")
+		t.expect(fill.Position).toBe(w.engine.types.UDim2.fromOffset(0, 58))
+		t.expect(fill.Size).toBe(w.engine.types.UDim2.fromOffset(294, 54))
+		w.close()
+	end)
+
+	t.it(
+		"the segmented selection fill slides between segments laid out from their sizes and snaps under reduced motion",
+		function()
+			local function run(reduced: boolean): (any, any, any)
+				local w = world({ reducedMotion = reduced })
+				local selected = Compose.cell("a")
+				local _, screen = w.mount(function(UI)
+					return UI.Picker "Mode" {
+						style = "segmented",
+						selected = selected,
+						options = {
+							{ value = "a", label = "A" },
+							{ value = "b", label = "B" },
+							{ value = "c", label = "C" },
+						},
+					}
+				end)
+				find(screen, "Mode").AbsoluteSize = w.engine.types.Vector2.new(312, 44)
+				find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize =
+					w.engine.types.Vector2.new(312, 44)
+				for index, name in { "a", "b", "c" } do
+					find(screen, name).AbsoluteSize = w.engine.types.Vector2.new(100, 44)
+					find(screen, name).AbsolutePosition = w.engine.types.Vector2.new((index - 1) * 104, 0)
+				end
+				local fill = find(screen, "SelectionFill")
+				w.step(0.1)
+				t.expect(fill.Visible).toBe(true)
+				t.expect(fill.Position.X.Offset).toBe(0)
+				t.expect(find(screen, "Mode"):HasTag("facet-segmented-slides")).toBe(true)
+				selected:set("c")
+				w.step(0.05)
+				return w, fill, fill.Position.X.Offset
+			end
+			local w, fill, midway = run(false)
+			t.expect(midway > 0 and midway < 208).toBe(true)
+			w.step(1)
+			t.expect(fill.Position.X.Offset).toBe(208)
+			t.expect(fill.Size.X.Offset).toBe(100)
+			w.close()
+			local still, _, snapped = run(true)
+			t.expect(snapped).toBe(208)
+			still.close()
 		end
 	)
 end)

@@ -155,6 +155,20 @@ return function(
 		local cueSize = function(use: ComposeTypes.Use?): number
 			return (ctx.controlSize(spec.controlSize, "iconSize", use))
 		end
+		local function inset(side: "left" | "right" | "top" | "bottom", use: ComposeTypes.Use?): number
+			local package = read(ctx.config.theme, use)
+			local skin = package and package.chrome and package.chrome.control
+			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+			local floor = if side == "left" or side == "right"
+				then ctx.controlSize(spec.controlSize, "paddingX", use)
+				else ctx.metric("space.xs", use)
+			return math.max(floor, insets[side] or 0)
+		end
+		local function padding(side: "left" | "right" | "top" | "bottom")
+			return function(use: ComposeTypes.Use): UDim
+				return D.new(0, inset(side, use))
+			end
+		end
 		local measures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
 		local cells: { [string]: GuiObject } = {}
 		local cellMeasures = Compose.cell({} :: { [string]: { ComposeTypes.Readable<Vector2> } })
@@ -167,17 +181,17 @@ return function(
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 			})
-			local numberBounds = ctx.observe.TextBounds(numberLabel)
+			local numberUnit = ctx.layoutUnit(numberLabel)
+			local numberBounds = ctx.layoutBounds(numberLabel, numberUnit)
 			local numberSize = ctx.observeStyled.TextSize(numberLabel)
 			local numberExtent = ctx.observe.AbsoluteSize(numberLabel)
 			local cue = Host.Frame "Cue" {
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
-					use(numberBounds)
+					local bounds = use(numberBounds)
 					use(numberSize)
 					use(numberExtent)
-					local bounds = numberLabel.TextBounds
 					local line = tonumber(numberLabel:GetStyled("TextSize")) or 0
 					local side = math.max(cueSize(use), math.ceil(math.max(bounds.X, bounds.Y, line)) + 8)
 					return D2.fromOffset(side, side)
@@ -192,7 +206,7 @@ return function(
 							local state = if step then stateOf(step, read(model, use).current) else "upcoming"
 							return state ~= "complete" and state ~= "error"
 						end,
-						Host.UICorner({ CornerRadius = D.new(1, 0) }) :: Types.Child,
+						Host.UICorner({ CornerRadius = ctx.round }) :: Types.Child,
 						Host.UIStroke({ ApplyStrokeMode = E.ApplyStrokeMode.Border }) :: Types.Child,
 						numberLabel :: Types.Child,
 					},
@@ -278,6 +292,12 @@ return function(
 						return D.new(0, ctx.metric("space.s", use))
 					end,
 				}) :: Types.Child,
+				Host.UIPadding({
+					PaddingLeft = padding("left"),
+					PaddingRight = padding("right"),
+					PaddingTop = padding("top"),
+					PaddingBottom = padding("bottom"),
+				}) :: Types.Child,
 				cue :: Types.Child,
 				copy :: Types.Child,
 				measure :: Types.Child,
@@ -298,7 +318,7 @@ return function(
 					Name = `Step-{id}`,
 					LayoutOrder = index,
 					Size = D2.fromScale(0, 0),
-					AutomaticSize = E.AutomaticSize.XY,
+					AutomaticSize = if sizing == "fill" then E.AutomaticSize.Y else E.AutomaticSize.XY,
 				}
 				if permitted(step) then
 					local props: Inputs.ButtonProps = {
@@ -364,16 +384,17 @@ return function(
 				return node
 			end,
 		})
-		local stripX = Compose.cell(0)
+		local stripBox = Compose.cell({ x = 0, width = 0 })
 		local reduced = reducedMotion(ctx)
 		local target = Compose.formula(function(use: ComposeTypes.Use): { x: number, width: number, shown: boolean }
 			local m = use(model)
 			local measured = if m.current then use(cellMeasures)[m.current] else nil
-			if measured == nil then
+			local box = use(stripBox)
+			if measured == nil or box.width <= 0 then
 				return { x = 0, width = 0, shown = false }
 			end
 			local at, size = use(measured[1]), use(measured[2])
-			return { x = at.X - use(stripX), width = size.X, shown = true }
+			return { x = (at.X - box.x) / box.width, width = size.X / box.width, shown = true }
 		end)
 		local springX = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).x
@@ -381,20 +402,22 @@ return function(
 		local springWidth = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).width
 		end, { period = 0.25, damping = 1 })
+		local rowLayout = Host.UIListLayout({
+			FillDirection = E.FillDirection.Horizontal,
+			SortOrder = E.SortOrder.LayoutOrder,
+			VerticalAlignment = E.VerticalAlignment.Top,
+			ItemLineAlignment = E.ItemLineAlignment.Stretch,
+			HorizontalFlex = if sizing == "fill" then E.UIFlexAlignment.Fill else E.UIFlexAlignment.None,
+			Padding = function(use: ComposeTypes.Use)
+				return D.new(0, ctx.metric("space.m", use))
+			end,
+		})
+		local laidOut = ctx.observe.AbsoluteContentSize(rowLayout)
 		local row = Host.Frame "Row" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Horizontal,
-				SortOrder = E.SortOrder.LayoutOrder,
-				VerticalAlignment = E.VerticalAlignment.Top,
-				ItemLineAlignment = E.ItemLineAlignment.Stretch,
-				HorizontalFlex = if sizing == "fill" then E.UIFlexAlignment.Fill else E.UIFlexAlignment.None,
-				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, ctx.metric("space.m", use))
-				end,
-			}) :: Types.Child,
+			rowLayout :: Types.Child,
 			Host.UIPadding({
 				PaddingBottom = function(use: ComposeTypes.Use)
 					return D.new(0, ctx.metric("space.xs", use) + 2)
@@ -413,11 +436,11 @@ return function(
 				end,
 				Position = function(use: ComposeTypes.Use)
 					local x = if reduced(use) then use(target).x else use(springX)
-					return D2.new(0, x, 1, 0)
+					return D2.new(x, 0, 1, 0)
 				end,
 				Size = function(use: ComposeTypes.Use)
 					local width = if reduced(use) then use(target).width else use(springWidth)
-					return D2.fromOffset(width, 2)
+					return D2.new(width, 0, 0, 2)
 				end,
 			}),
 			"selection-indicator"
@@ -429,9 +452,10 @@ return function(
 			row :: Types.Child,
 			underline :: Types.Child,
 		}
-		local stripPosition = ctx.observe.AbsolutePosition(strip)
+		local stripPosition, stripSize = ctx.observe.AbsolutePosition(strip), ctx.observe.AbsoluteSize(strip)
+		local unit = ctx.layoutUnit(strip)
 		Compose.watch(function(use: ComposeTypes.Use)
-			stripX:set(use(stripPosition).X)
+			stripBox:set({ x = use(stripPosition).X, width = use(stripSize).X })
 		end)
 		local root: Frame
 		local offered = Compose.cell(0)
@@ -441,25 +465,23 @@ return function(
 			if #m.steps == 0 or width <= 0 then
 				return "row"
 			end
+			if sizing == "hug" then
+				return if use(laidOut).X / use(unit) <= width then "row" else "summary"
+			end
 			local gap, inner = ctx.metric("space.m", use), ctx.metric("space.s", use)
-			local package = read(ctx.config.theme, use)
-			local skin = package and package.chrome and package.chrome.control
-			local insets: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-			local padding = math.max(12, insets.left or 0) + math.max(12, insets.right or 0)
+			local sides = inset("left", use) + inset("right", use)
 			local all = use(measures)
-			local widest, total = 0, 0
+			local widest = 0
 			for _, step in m.steps do
 				local copyWidth = 0
 				local cellBounds: { ComposeTypes.Readable<Vector2> } = all[step.id] or {}
 				for _, bounds in ipairs(cellBounds) do
-					copyWidth = math.max(copyWidth, use(bounds).X)
+					copyWidth = math.max(copyWidth, use(bounds).X / use(unit))
 				end
-				local cell = cueSize(use) + inner + copyWidth + (if permitted(step) then padding else 0)
+				local cell = cueSize(use) + inner + copyWidth + sides
 				widest = math.max(widest, cell)
-				total += cell
 			end
-			local need = (if sizing == "fill" then widest * #m.steps else total) + gap * (#m.steps - 1)
-			return if need <= width then "row" else "summary"
+			return if widest * #m.steps + gap * (#m.steps - 1) <= width then "row" else "summary"
 		end)
 		local listOpen = Compose.cell(false)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -535,7 +557,7 @@ return function(
 				return use(form) == "summary"
 			end,
 		})
-		local size = ctx.observe.AbsoluteSize(root)
+		local size = ctx.layoutSize(root, unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			offered:set(use(size).X)
 		end)

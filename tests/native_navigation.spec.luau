@@ -1,9 +1,18 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
 local controls = require("../src/ui")
 local engines = require("./lib/native_engine")
+local LIFT = 16 * math.sqrt(2) / 2
+local function corner(panel): (number, number)
+	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
+		panel.Position.Y.Offset - panel.AnchorPoint.Y * panel.AbsoluteSize.Y
+end
+local function near(actual: number, expected: number): boolean
+	return math.abs(actual - expected) <= 1
+end
 local function find(root, name)
 	if root.Name == name then
 		return root
@@ -158,6 +167,8 @@ t.describe("native navigation controls", function()
 		local plain, underlined = find(world.screen, "Plain"), find(world.screen, "Underlined")
 		t.expect(find(plain, "one"):GetAttribute("label")).toBe("One")
 		t.expect(find(plain, "two"):GetAttribute("label")).toBe("Two (3)")
+		t.expect(find(find(plain, "two"), "Count").Text).toBe("3")
+		t.expect(find(find(plain, "one"), "Count")).toBeNil()
 		t.expect(find(underlined, "one"):HasTag("facet-segment-current")).toBe(false)
 		t.expect(find(find(underlined, "one"), "SelectionIndicator") ~= nil).toBe(true)
 		world.stop()
@@ -299,16 +310,14 @@ t.describe("native navigation controls", function()
 				})
 			end)
 			local header = find(world.screen, "Header")
-			t.expect(header.LayoutOrder).toBe(1)
 			t.expect(built).toBe(0)
 			local function checkOrder()
 				local content = find(world.screen, "Details")
 				local wrapped = if appearance == "divided" then content.Parent else content
-				local body = wrapped.Parent.Parent
+				local body = fadeKit.layer(wrapped).Parent
 				t.expect(body.Name).toBe("Reveal")
-				t.expect(wrapped.Parent.Name).toBe("RevealFade")
+				t.expect(fadeKit.layer(wrapped).Name).toBe("RevealFade")
 				t.expect(body.Parent).toBe(header.Parent)
-				t.expect(body.LayoutOrder).toBe(2)
 				t.expect(header.LayoutOrder < body.LayoutOrder).toBe(true)
 				t.expect(header.Parent:FindFirstChildWhichIsA("UIListLayout").SortOrder)
 					.toBe(world.engine.types.Enum.SortOrder.LayoutOrder)
@@ -406,6 +415,63 @@ t.describe("native navigation controls", function()
 		t.expect(layout.CurrentPage.Name).toBe("two")
 		layout:JumpTo(find(find(world.screen, "Pages"), "one"))
 		t.expect(selection:peek()).toBe("one")
+		world.stop()
+	end)
+
+	t.it("hugs its tallest page and centres the footer under it when its height is automatic", function()
+		local selection = Compose.cell("one")
+		local world = setup(function(UI, Host, engine)
+			return UI.PageView({
+				Size = engine.types.UDim2.new(1, 0, 0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame "BodyOne" {} },
+					{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} },
+				},
+			})
+		end)
+		local V = world.engine.types.Vector2
+		find(world.screen, "BodyOne").AbsoluteSize = V.new(300, 180)
+		find(world.screen, "BodyTwo").AbsoluteSize = V.new(300, 212.5)
+		local pages, footer = find(world.screen, "Pages"), find(world.screen, "Footer")
+		t.expect(pages.Size).toBe(world.engine.types.UDim2.new(1, 0, 0, 213))
+		t.expect(footer.Position).toBe(world.engine.types.UDim2.fromOffset(0, 213))
+		t.expect(footer:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+			.toBe(world.engine.types.Enum.HorizontalAlignment.Center)
+		world.stop()
+	end)
+
+	t.it("eases between pages without overshoot, and overshoots only after a fast swipe", function()
+		local selection = Compose.cell("one")
+		local world = setup(function(UI, Host)
+			return UI.PageView({
+				selection = selection,
+				pages = {
+					{ id = "one", title = "One", content = Host.Frame({}) },
+					{ id = "two", title = "Two", content = Host.Frame({}) },
+				},
+			})
+		end)
+		local Enum = world.engine.types.Enum
+		local layout = find(world.screen, "PagesLayout")
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
+		t.expect(layout.EasingDirection).toBe(Enum.EasingDirection.Out)
+		local pages = find(world.screen, "Pages")
+		local function swipe(distance: number)
+			local V3 = world.engine.types.Vector3
+			pages.InputBegan.fire({ UserInputType = Enum.UserInputType.Touch, Position = V3.new(300, 100, 0) })
+			pages.InputEnded.fire({
+				UserInputType = Enum.UserInputType.Touch,
+				Position = V3.new(300 - distance, 100, 0),
+			})
+		end
+		swipe(1)
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
+		swipe(300)
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Back)
+		find(world.screen, "Next").Activated.fire()
+		t.expect(layout.EasingStyle).toBe(Enum.EasingStyle.Cubic)
 		world.stop()
 	end)
 
@@ -1035,6 +1101,41 @@ t.describe("native navigation controls", function()
 		t.expect(retired).toBe(built)
 	end)
 
+	t.it("hides the bar and gives the content the whole view with placement none", function()
+		local selected, placement = Compose.cell("one"), Compose.cell("none")
+		local world = setup(function(UI, Host)
+			return UI.TabView({
+				selection = selected,
+				style = "sidebarAdaptable",
+				placement = placement,
+				tabs = {
+					{
+						id = "one",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+					{
+						id = "two",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			})
+		end)
+		local root = find(world.screen, "TabView")
+		root.AbsoluteSize = world.engine.types.Vector2.new(844, 332)
+		local T = world.engine.types
+		t.expect(find(root, "Tabs").Visible).toBe(false)
+		t.expect(find(root, "Content").Position).toBe(T.UDim2.fromOffset(0, 0))
+		t.expect(find(root, "Content").Size).toBe(T.UDim2.fromScale(1, 1))
+		placement:set("topBar")
+		t.expect(find(root, "Tabs").Visible).toBe(true)
+		t.expect(find(root, "Content").Position).toBe(T.UDim2.fromOffset(0, 52))
+		world.stop()
+	end)
+
 	t.it("removes dynamically deleted tab owners and preserves the selected survivor", function()
 		local selection, tabs, disposed = Compose.cell("one"), nil, 0
 		local world = setup(function(UI, Host)
@@ -1218,6 +1319,12 @@ t.describe("native navigation controls", function()
 		nested.AbsoluteSize = world.engine.types.Vector2.new(705, 600)
 		t.expect(strip.Visible).toBe(true)
 		t.expect(find(nested, "TabsMenu")).toBe(nil)
+		nested:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(60, 0.6)
+		nested.AbsoluteSize = world.engine.types.Vector2.new(423, 360)
+		t.expect(strip.Visible).toBe(true)
+		t.expect(find(nested, "TabsMenu")).toBe(nil)
+		nested.AbsoluteSize = world.engine.types.Vector2.new(423, 240)
+		t.expect(strip.Visible).toBe(false)
 		world.stop()
 	end)
 
@@ -1362,6 +1469,7 @@ t.describe("native navigation controls", function()
 				isPresented = presented,
 				detent = detent,
 				title = "Details",
+				closeButton = true,
 				interactiveDismissDisabled = true,
 				content = function()
 					return Host.ScrollingFrame "DetailBody" {}
@@ -1380,13 +1488,12 @@ t.describe("native navigation controls", function()
 		t.expect(find(world.screen, "Size")).toBe(nil)
 		t.expect(find(world.screen, "Close").Parent.Name).toBe("Header")
 		local grabber = find(world.screen, "Grabber")
-		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Size: Medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Resize: Medium")
 		t.expect(grabber.Selectable).toBe(true)
 		t.expect(grabber.Size.Y.Offset >= 44 and grabber.Size.X.Offset >= 44).toBe(true)
 		grabber.Activated.fire()
 		t.expect(detent:peek()).toBe("large")
-		grabber.Activated.fire()
-		t.expect(detent:peek()).toBe("medium")
+		t.expect(grabber:GetAttribute("AccessibleLabel")).toBe("Close sheet")
 		find(world.screen, "Close").Activated.fire()
 		t.expect(presented:peek()).toBe(false)
 		world.stop()
@@ -1517,6 +1624,9 @@ t.describe("native navigation controls", function()
 		end)
 		find(world.screen, "Primary").Activated.fire()
 		t.expect(primary).toBe(1)
+		local chevron = find(world.screen, "Alternatives")
+		t.expect(chevron:HasTag("facet-button")).toBe(true)
+		t.expect(chevron:FindFirstChildWhichIsA("UISizeConstraint")).toBe(nil)
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
 		local trigger = find(world.screen, "Primary")
 		t.expect(trigger.Size).toBe(world.engine.types.UDim2.fromScale(1, 1))
@@ -1548,6 +1658,37 @@ t.describe("native navigation controls", function()
 		find(find(world.screen, "Choices"), "b").Activated.fire()
 		t.expect(selection:peek()).toBe("b")
 		t.expect(opened:peek()).toBe(false)
+		world.stop()
+	end)
+	t.it("sizes the navigation bar title by the stack's width class", function()
+		local path = Compose.cell({})
+		local world = setup(function(UI, Host)
+			return UI.NavigationStack({
+				path = path,
+				root = {
+					title = "Garage",
+					content = function()
+						return Host.Frame({})
+					end,
+				},
+				destinations = {
+					detail = {
+						title = "Engine",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			})
+		end)
+		local bar = find(world.screen, "NavigationBar")
+		local title = find(bar, "Title")
+		bar.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
+		t.expect(title:HasTag("facet-type-heading")).toBe(true)
+		t.expect(title:HasTag("facet-type-title")).toBe(false)
+		bar.AbsoluteSize = world.engine.types.Vector2.new(1024, 44)
+		t.expect(title:HasTag("facet-type-title")).toBe(true)
+		t.expect(title:HasTag("facet-type-heading")).toBe(false)
 		world.stop()
 	end)
 	t.it("restores surviving navigation focus and moves paging focus into the visible page", function()
@@ -1601,7 +1742,7 @@ t.describe("native navigation controls", function()
 		local panel = find(world.screen, "MenuPanel")
 		panel.Parent.AbsoluteSize = world.engine.types.Vector2.new(700, 300)
 		find(world.screen, "MenuRows").AbsoluteSize = world.engine.types.Vector2.new(280, 1000)
-		t.expect(panel.ClassName).toBe("ScrollingFrame")
+		t.expect(find(panel, "MenuScroll").ClassName).toBe("ScrollingFrame")
 		t.expect(panel.Size.Y.Offset).toBe(276)
 		find(world.screen, "branch").Activated.fire()
 		items:set({ { id = "other", label = "Other", onSelect = function() end } })
@@ -1693,7 +1834,8 @@ t.describe("native navigation controls", function()
 		badge:set(3)
 		t.expect(find(segments, "a")).toBe(a)
 		t.expect(a.Size.X.Scale).toBe(1)
-		t.expect(a.Text).toBe("Alpha (3)")
+		t.expect(a:GetAttribute("label")).toBe("Alpha (3)")
+		t.expect(find(a, "Count").Text).toBe("3")
 		t.expect(segments:FindFirstChildWhichIsA("UIListLayout").FillDirection)
 			.toBe(world.engine.types.Enum.FillDirection.Vertical)
 
@@ -1929,7 +2071,7 @@ t.describe("native navigation controls", function()
 		anchor.AbsoluteSize = V.new(32, 44)
 		panel.AbsoluteSize = V.new(280, 100)
 		world.settle()
-		t.expect(panel.Position.X.Offset).toBe(32)
+		t.expect(near((corner(panel)), 32)).toBe(true)
 		t.expect(world.gui.SelectedObject).toBe(anchor)
 		anchor.Activated.fire()
 		t.expect(presses).toBe(1)
@@ -2016,7 +2158,7 @@ t.describe("native navigation controls", function()
 		for _ = 1, 60 do
 			engine.heartbeat.fire(1 / 60)
 		end
-		t.expect(panel.Position.X.Offset).toBe(32)
+		t.expect(near((corner(panel)), 32)).toBe(true)
 		t.expect(panel.Size.X.Offset).toBe(280)
 		overlay.AbsoluteSize = V.new(200, 400)
 		for _ = 1, 60 do
@@ -2084,14 +2226,14 @@ t.describe("native navigation controls", function()
 		b.AbsoluteSize = world.engine.types.Vector2.new(80, 44)
 		selected:set("b")
 		t.expect(bar.CanvasPosition.X).toBe(140)
-		local panel = find(world.screen, "BContent").Parent
-		t.expect(panel.ClassName).toBe("CanvasGroup")
+		local panel = fadeKit.layer(find(world.screen, "BContent"))
+		t.expect(panel.ClassName).toBe("Frame")
 		world.engine.heartbeat.fire(0.2)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		selected:set("a")
 		t.expect(panel.Interactable).toBe(false)
 		world.gui.ReducedMotionEnabled = true
-		t.expect(find(world.screen, "AContent").Parent.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(fadeKit.layer(find(world.screen, "AContent")))).toBe(0)
 		world.stop()
 	end)
 
@@ -2125,6 +2267,93 @@ t.describe("native navigation controls", function()
 		t.expect(find(world.screen, "PagesLayout").Animated).toBe(false)
 		world.stop()
 	end)
+	t.it("lets one arrow from the anchor reach a callout plate and B dismiss it back to the anchor", function()
+		local reasons = {}
+		local world = setup(function(UI, Host)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor,
+				UI.Callout({
+					anchor = anchor,
+					edge = "bottom",
+					title = "New",
+					onRetire = function(reason)
+						table.insert(reasons, reason)
+					end,
+				}),
+			})
+		end)
+		local V = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V.new(960, 720)
+		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V.new(100, 100), V.new(200, 44)
+		panel.AbsolutePosition, panel.AbsoluteSize = V.new(100, 160), V.new(280, 120)
+		world.settle()
+		local dismiss = find(world.screen, "Dismiss")
+		world.gui.SelectedObject = anchor
+		t.expect(anchor.NextSelectionDown).toBe(dismiss)
+		world.gui.SelectedObject = dismiss
+		local back
+		for _, node in world.screen:GetDescendants() do
+			if node:IsA("InputContext") and node.Enabled then
+				for _, action in node:GetChildren() do
+					for _, binding in action:GetChildren() do
+						if
+							binding:IsA("InputBinding")
+							and binding.KeyCode == world.engine.types.Enum.KeyCode.ButtonB
+						then
+							back = action
+						end
+					end
+				end
+			end
+		end
+		t.expect(back ~= nil).toBe(true)
+		back.Pressed.fire()
+		t.expect(reasons[1]).toBe("dismissed")
+		world.settle()
+		t.expect(world.gui.SelectedObject).toBe(anchor)
+		t.expect(anchor.NextSelectionDown).toBe(nil)
+		world.stop()
+	end)
+
+	t.it("restores only the anchor link the callout set and leaves an app's own link", function()
+		local world = setup(function(UI, Host)
+			local anchor = UI.Button "Anchor" { label = "Anchor" }
+			return Host.Frame({
+				anchor,
+				UI.Button "Own" { label = "Own" },
+				UI.Callout({ anchor = anchor, edge = "bottom", title = "New", onRetire = function() end }),
+			})
+		end)
+		local V = world.engine.types.Vector2
+		world.screen.AbsoluteSize = V.new(960, 720)
+		local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
+		local own = find(world.screen, "Own")
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V.new(100, 300), V.new(200, 44)
+		panel.AbsolutePosition, panel.AbsoluteSize = V.new(100, 360), V.new(280, 120)
+		world.settle()
+		t.expect(anchor.NextSelectionDown).toBe(find(world.screen, "Dismiss"))
+		anchor.NextSelectionDown = own
+		panel.AbsolutePosition = V.new(100, 160)
+		world.settle()
+		t.expect(anchor.NextSelectionDown).toBe(own)
+		t.expect(anchor.NextSelectionUp).toBe(find(world.screen, "Dismiss"))
+		local dismiss = find(world.screen, "Dismiss")
+		local holder = dismiss.Parent
+		dismiss.Parent = nil
+		world.settle()
+		t.expect(anchor.NextSelectionUp).toBe(nil)
+		local fresh = world.engine.new("TextButton")
+		fresh.Name = "Fresh"
+		fresh.Parent = holder
+		world.settle()
+		t.expect(anchor.NextSelectionUp).toBe(fresh)
+		world.stop()
+		t.expect(anchor.NextSelectionDown).toBe(own)
+		t.expect(anchor.NextSelectionUp).toBe(nil)
+	end)
+
 	t.it("keeps measured callout arrows outside automatic content bounds", function()
 		local world = setup(function(UI, Host, engine)
 			local anchor = UI.Button "Anchor" { label = "Anchor" }
@@ -2156,15 +2385,58 @@ t.describe("native navigation controls", function()
 		t.expect(panel.Size.Y.Offset).toBe(0)
 		t.expect(arrow:IsDescendantOf(panel)).toBe(false)
 		t.expect(arrow.Parent).toBe(panel.Parent)
-		t.expect(arrow:HasTag("facet-panel")).toBe(true)
-		t.expect(arrow:HasTag("facet-callout")).toBe(true)
+		t.expect(arrow:HasTag("facet-tail")).toBe(true)
+		t.expect(arrow.Rotation).toBe(45)
 		t.expect(arrow.ZIndex < panel.ZIndex).toBe(true)
+		t.expect(find(world.screen, "ArrowSeam")).toBe(nil)
+		local outline = panel:FindFirstChild("Outline", true)
+		t.expect(outline.ClassName).toBe("Path2D")
+		local fading = panel:FindFirstChild("Fade")
+		t.expect(fading == nil or outline.Parent == fading).toBe(true)
+		t.expect(outline.Closed).toBe(true)
+		t.expect(outline:HasTag("facet-outline")).toBe(true)
+		t.expect(panel:HasTag("facet-outlined")).toBe(true)
 		world.settle()
 		for _, height in { 96, 128, 96 } do
 			panel.AbsoluteSize = V.new(280, height)
-			t.expect(panel.Position.Y.Offset).toBe(560 - height - 8)
-			t.expect(arrow.Position.Y.Offset).toBe(547)
+			local _, top = corner(panel)
+			t.expect(near(top, 560 - height - 8 - LIFT)).toBe(true)
+			t.expect(near(arrow.Position.Y.Offset, 560 - 8 - LIFT)).toBe(true)
+			local points = outline:GetControlPoints()
+			t.expect(#points).toBe(11)
+			local lowest = 0
+			for _, point in points do
+				lowest = math.max(lowest, point.Position.Y.Scale * height)
+			end
+			t.expect(near(lowest, height + arrow.Size.X.Offset * math.sqrt(2) / 2)).toBe(true)
 		end
+		panel.AbsoluteSize = V.new(30, 96)
+		local previous = math.huge
+		for _, point in outline:GetControlPoints() do
+			if point.Position.Y.Scale * 96 >= 96 - 0.01 then
+				local x = point.Position.X.Scale * 30
+				t.expect(`short side runs one way {x <= previous + 0.01} at {x}`)
+					.toBe(`short side runs one way true at {x}`)
+				previous = x
+			end
+		end
+		local first = outline:GetControlPoints()[1]
+		t.expect(math.abs(first.Position.X.Scale * 30 - 12) < 0.01).toBe(true)
+		panel.AbsoluteSize = V.new(280, 96)
+		anchor.AbsolutePosition = V.new(0, 560)
+		anchor.AbsoluteSize = V.new(8, 44)
+		local points = outline:GetControlPoints()
+		local radius = points[1].Position.X.Scale * 280
+		local tip, depth = 0, 0
+		for _, point in points do
+			local y = point.Position.Y.Scale * 96
+			if y > depth then
+				depth, tip = y, point.Position.X.Scale * 280
+			end
+		end
+		local half = depth - 96
+		t.expect(`tail clears the corner arc by a tail width: {tip - radius - half >= half - 0.01}`)
+			.toBe("tail clears the corner arc by a tail width: true")
 		anchor.Visible = false
 		t.expect(find(world.screen, "Arrow")).toBe(nil)
 		t.expect(find(world.screen, "CalloutPanel")).toBe(nil)
@@ -2195,13 +2467,13 @@ t.describe("native navigation controls", function()
 		panel.AbsoluteSize = V.new(280, 106)
 		world.settle()
 		t.expect(find(panel, "PresentationScale").Scale).toBe(1)
-		t.expect(panel.Position.Y.Offset).toBe(18 + 44 + 8)
-		t.expect(arrow.Position.Y.Offset).toBe(18 + 44 + 8 - 5)
+		t.expect(near(select(2, corner(panel)), 18 + 44 + 8 + LIFT)).toBe(true)
+		t.expect(near(arrow.Position.Y.Offset, 18 + 44 + 8 + LIFT)).toBe(true)
 		anchor.AbsolutePosition = V.new(8, 200)
-		t.expect(panel.Position.Y.Offset).toBe(200 - 106 - 8)
+		t.expect(near(select(2, corner(panel)), 200 - 106 - 8 - LIFT)).toBe(true)
 		anchor.AbsolutePosition = V.new(8, 100)
 		panel.AbsoluteSize = V.new(280, 250)
-		t.expect(panel.Position.Y.Offset).toBe(8)
+		t.expect(near(select(2, corner(panel)), 8)).toBe(true)
 		world.stop()
 	end)
 
@@ -2299,6 +2571,39 @@ t.describe("native navigation controls", function()
 		t.expect(expanded:peek()).toBe(false)
 		t.expect(find(world.screen, "DetailsAction")).toBe(nil)
 		t.expect(find(world.screen, "Summary")).toBe(summary)
+		world.stop()
+	end)
+
+	t.it("marks the filled current sidebar tab selected, so a skinned theme paints its selected art", function()
+		local selected = Compose.cell("a")
+		local world = setup(function(UI, Host)
+			return UI.TabView "Sidebar" {
+				selection = selected,
+				placement = "sidebar",
+				tabs = {
+					{
+						id = "a",
+						label = "Alpha",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+					{
+						id = "b",
+						label = "Beta",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			}
+		end)
+		local tabs = find(world.screen, "Tabs")
+		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(true)
+		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(false)
+		selected:set("b")
+		t.expect(find(tabs, "a"):HasTag("facet-selected")).toBe(false)
+		t.expect(find(tabs, "b"):HasTag("facet-selected")).toBe(true)
 		world.stop()
 	end)
 
@@ -2416,8 +2721,8 @@ t.describe("native navigation controls", function()
 		local skin, boundary = find(panel, "Skin"), find(panel, "SkinBoundary")
 		local bounds, art = skin.Parent, find(skin, "panel1")
 		t.expect(art.Image).toBe("rbxassetid://42")
-		t.expect(boundary.Parent:IsA("GuiObject")).toBe(false)
-		t.expect(boundary.Parent.Parent).toBe(panel)
+		t.expect(panel:FindFirstChildWhichIsA("UIGridStyleLayout")).toBeNil()
+		t.expect(boundary.Parent).toBe(panel)
 		t.expect(bounds.Parent).toBe(boundary)
 		t.expect(boundary.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
 		t.expect(boundary.Size.X.Offset).toBe(1)
@@ -2453,7 +2758,7 @@ t.describe("native navigation controls", function()
 		local panel = find(world.screen, "AlertPanel")
 		t.expect(panel.Position.X.Offset).toBe(70)
 		t.expect(panel.Position.Y.Offset).toBe(60)
-		t.expect(panel.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(panel)).toBe(1)
 		find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(800, 600)
 		world.engine.heartbeat.fire(0.2)
 		t.expect(panel.Position.X.Offset).toBe(400)
@@ -2464,7 +2769,7 @@ t.describe("native navigation controls", function()
 		shown:set(true)
 		t.expect(find(world.screen, "AlertPanel")).toBe(panel)
 		world.engine.heartbeat.fire(0.2)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		shown:set(false)
 		world.engine.heartbeat.fire(0.2)
 		t.expect(find(world.screen, "AlertPanel")).toBe(nil)
@@ -2507,6 +2812,13 @@ t.describe("native navigation controls", function()
 		shown:set(true)
 		local panel = find(world.screen, "AlertPanel")
 		local modal = find(world.screen, "AlertModal")
+		do
+			for _, d in world.screen:GetDescendants() do
+				if d:GetAttribute("FacetError") then
+					error(d:GetAttribute("FacetError"))
+				end
+			end
+		end
 		modal.AbsolutePosition = V2.new(10, 10)
 		modal.AbsoluteSize = V2.new(800, 600)
 		local snapshot = find(panel, "SourceSnapshot")
@@ -2523,19 +2835,19 @@ t.describe("native navigation controls", function()
 		t.expect(panel.Size.Y.Offset).toBe(80)
 		t.expect(panel.Position.X.Offset).toBe(10)
 		t.expect(panel.Position.Y.Offset).toBe(20)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		t.expect(panel.ClipsDescendants).toBe(true)
-		t.expect(find(panel, "AlertLayout").GroupTransparency).toBe(0)
+		t.expect(find(panel, "AlertLayout").ClassName).toBe("Frame")
 		t.expect(find(panel, "AlertLayout").Size).toBe(world.engine.types.UDim2.fromOffset(800, 600))
 		t.expect(snapshot.Size).toBe(world.engine.types.UDim2.fromOffset(120, 80))
-		t.expect(find(panel, "SourcePreview").GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(find(panel, "SourcePreview"))).toBe(0)
 		world.engine.heartbeat.fire(0.1)
 		local width, height = panel.Size.X.Offset, panel.Size.Y.Offset
 		t.expect(width > 120 and width < 800).toBe(true)
 		t.expect(height > 80 and height < 600).toBe(true)
 		t.expect(math.abs((width - 120) / 680 - (height - 80) / 520) < 0.0001).toBe(true)
 		t.expect(find(panel, "AlertLayout").Size).toBe(world.engine.types.UDim2.fromOffset(800, 600))
-		t.expect(find(panel, "AlertLayout").GroupTransparency).toBe(0)
+		t.expect(find(panel, "AlertLayout").ClassName).toBe("Frame")
 		t.expect(snapshot.Size).toBe(world.engine.types.UDim2.fromOffset(120, 80))
 		shown:set(false)
 		t.expect(panel.Size.X.Offset).toBe(width)
@@ -2611,7 +2923,7 @@ t.describe("native navigation controls", function()
 		t.expect(panel.Size.X.Offset).toBe(390)
 		t.expect(panel.Size.Y.Offset).toBe(720)
 		t.expect(panel.Position.X.Offset).toBe(0)
-		t.expect(find(panel, "AlertLayout").GroupTransparency).toBe(0)
+		t.expect(find(panel, "AlertLayout").ClassName).toBe("Frame")
 		t.expect(find(panel, "SourcePreview").Visible).toBe(false)
 		shown:set(false)
 		t.expect(find(world.screen, "AlertPanel")).toBe(nil)
@@ -2828,31 +3140,31 @@ t.describe("native navigation controls", function()
 				},
 			})
 		end)
-		local one = find(world.screen, "OneBody").Parent
-		t.expect(one.ClassName).toBe("CanvasGroup")
-		t.expect(one.GroupTransparency).toBe(0)
+		local one = fadeKit.layer(find(world.screen, "OneBody"))
+		t.expect(one.ClassName).toBe("Frame")
+		t.expect(fadeKit.of(one)).toBe(0)
 		selection:set("two")
-		local two = find(world.screen, "TwoBody").Parent
-		t.expect(two.GroupTransparency).toBe(1)
+		local two = fadeKit.layer(find(world.screen, "TwoBody"))
+		t.expect(fadeKit.of(two)).toBe(1)
 		t.expect(two.Interactable).toBe(true)
 		t.expect(one.Interactable).toBe(false)
 		local previous = 1
 		for _ = 1, 6 do
 			world.engine.heartbeat.fire(1 / 60)
-			t.expect(two.GroupTransparency < previous).toBe(true)
-			t.expect(one.GroupTransparency).toBeCloseTo(1 - two.GroupTransparency, 1e-6)
+			t.expect(fadeKit.of(two) < previous).toBe(true)
+			t.expect(fadeKit.of(one)).toBeCloseTo(1 - fadeKit.of(two), 1e-6)
 			t.expect(one.Visible).toBe(true)
-			previous = two.GroupTransparency
+			previous = fadeKit.of(two)
 		end
 		t.expect(previous > 0).toBe(true)
 		for _ = 1, 7 do
 			world.engine.heartbeat.fire(1 / 60)
 		end
-		t.expect(two.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(two)).toBe(0)
 		t.expect(one.Visible).toBe(false)
 		world.gui.ReducedMotionEnabled = true
 		selection:set("one")
-		t.expect(one.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(one)).toBe(0)
 		t.expect(one.Visible).toBe(true)
 		t.expect(two.Visible).toBe(false)
 		world.stop()
@@ -2922,17 +3234,17 @@ t.describe("native navigation controls", function()
 		local panel = find(world.screen, "AlertPanel")
 		local scale = find(panel, "PresentationScale")
 		t.expect(scale.Scale).toBe(0.94)
-		t.expect(panel.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(panel)).toBe(1)
 		world.engine.heartbeat.fire(0.1)
 		t.expect(scale.Scale > 0.94 and scale.Scale < 1).toBe(true)
-		t.expect(panel.GroupTransparency > 0 and panel.GroupTransparency < 1).toBe(true)
+		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1).toBe(true)
 		world.engine.heartbeat.fire(0.1)
 		t.expect(scale.Scale).toBe(1)
-		t.expect(panel.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(panel)).toBe(0)
 		shown:set(false)
 		world.engine.heartbeat.fire(0.1)
 		t.expect(panel.isDestroyed()).toBe(false)
-		t.expect(panel.GroupTransparency > 0).toBe(true)
+		t.expect(fadeKit.of(panel) > 0).toBe(true)
 		world.engine.heartbeat.fire(0.06)
 		t.expect(panel.isDestroyed()).toBe(true)
 		world.stop()
@@ -2962,38 +3274,40 @@ t.describe("native navigation controls", function()
 		callout.AbsoluteSize = V.new(280, 100)
 		local scale = find(callout, "PresentationScale")
 		t.expect(scale.Scale).toBe(0.9)
-		t.expect(callout.GroupTransparency).toBe(1)
-		t.expect(callout.Position.X.Offset).toBe(140 + math.floor(0.1 * 140))
-		t.expect(callout.Position.Y.Offset).toBe(152)
+		t.expect(fadeKit.of(callout)).toBe(1)
+		t.expect(callout.Position.X.Offset).toBe(280)
+		t.expect(near(callout.Position.Y.Offset, 152 + LIFT)).toBe(true)
+		t.expect(callout.AnchorPoint).toBe(V.new(0.5, 0))
 		world.engine.heartbeat.fire(0.075)
 		t.expect(scale.Scale > 0.9 and scale.Scale < 1).toBe(true)
 		world.engine.heartbeat.fire(0.075)
 		t.expect(scale.Scale).toBe(1)
-		t.expect(callout.GroupTransparency).toBe(0)
-		t.expect(callout.Position).toBe(world.engine.types.UDim2.fromOffset(140, 152))
+		t.expect(fadeKit.of(callout)).toBe(0)
+		local left, top = corner(callout)
+		t.expect(left == 140 and near(top, 152 + LIFT)).toBe(true)
 		local plus = find(world.screen, "Plus")
 		world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
 		plus.GuiState = world.engine.types.Enum.GuiState.Hover
 		world.engine.heartbeat.fire(0.5)
 		local help = find(world.screen, "Help")
-		t.expect(help.ClassName).toBe("CanvasGroup")
+		t.expect(help.ClassName).toBe("Frame")
 		t.expect(find(help, "PresentationScale").Scale).toBe(0.9)
 		world.settle()
 		t.expect(find(help, "PresentationScale").Scale).toBe(1)
-		t.expect(help.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(help)).toBe(0)
 		plus.GuiState = world.engine.types.Enum.GuiState.Idle
-		world.engine.heartbeat.fire(0.05)
+		world.engine.heartbeat.fire(0.06)
 		t.expect(help.isDestroyed()).toBe(false)
 		world.engine.heartbeat.fire(0.06)
 		t.expect(help.isDestroyed()).toBe(true)
 		opened:set(true)
 		local menu = find(world.screen, "MenuPanel")
 		local group = find(menu, "MenuGroup")
-		t.expect(group.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(group)).toBe(1)
 		t.expect(find(menu, "PresentationFade").Transparency.Keypoints[1].Value).toBe(1)
 		t.expect(find(menu, "PresentationScale").Scale).toBe(0.96)
 		world.settle()
-		t.expect(group.GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(group)).toBe(0)
 		t.expect(find(menu, "PresentationScale").Scale).toBe(1)
 		find(menu, "Run").Activated.fire()
 		t.expect(find(world.screen, "Modal").Interactable).toBe(false)

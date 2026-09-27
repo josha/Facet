@@ -20,6 +20,7 @@ local DateTimePickerTypes = require("@self/ui/date_time_picker_types")
 local ColorPickerTypes = require("@self/ui/color_picker_types")
 local arithmetic = require("@self/ui/arithmetic")
 local adaptive = require("@self/ui/adaptive")
+local gamepadContention = require("@self/ui/gamepad_contention")
 local pathShapes = require("@self/ui/nav_path_shapes")
 local richText = require("@self/ui/rich_text")
 local EnvironmentTypes = require("@self/ui/environment_types")
@@ -93,9 +94,14 @@ export type ScreenProps = LayoutTypes.ScreenProps
 export type ZStackProps = LayoutTypes.ZStackProps
 export type ScrollViewProps = LayoutTypes.ScrollViewProps
 export type GridProps = LayoutTypes.GridProps
+export type AdaptiveStackProps = LayoutTypes.AdaptiveStackProps
+export type ViewThatFitsProps = LayoutTypes.ViewThatFitsProps
 export type ErrorBoundaryProps = LayoutTypes.ErrorBoundaryProps
 export type DividerProps = LayoutTypes.DividerProps
 export type SpacerProps = LayoutTypes.SpacerProps
+export type CompositionProps = LayoutTypes.CompositionProps
+export type RegionProps = LayoutTypes.RegionProps
+export type Zone = LayoutTypes.Zone
 export type OverlayAction = OverlayTypes.Action
 export type OverlayMedia = OverlayTypes.Media
 export type OverlayHero = OverlayTypes.Hero
@@ -103,7 +109,7 @@ export type DialogSpec = OverlayTypes.DialogSpec
 export type PopoverSpec = OverlayTypes.PopoverSpec
 export type NoticeSpec = OverlayTypes.NoticeSpec
 export type NavBarSpec = OverlayTypes.NavBarSpec
-export type SnackbarSpec = OverlayTypes.SnackbarSpec
+export type ToastSpec = OverlayTypes.ToastSpec
 export type DateTimePickerProps = DateTimePickerTypes.DateTimePickerProps
 export type ColorPickerProps = ColorPickerTypes.ColorPickerProps
 export type Controls = ControlTypes.Controls
@@ -113,10 +119,17 @@ export type SafeInsets = EnvironmentTypes.SafeInsets
 export type WorldAnchorOptions = EnvironmentTypes.WorldAnchorOptions
 export type WorldAnchor = EnvironmentTypes.WorldAnchor
 export type ScrollOptions = EnvironmentTypes.ScrollOptions
+export type DraggableSpec = EnvironmentTypes.DraggableSpec
+export type DropTargetSpec = EnvironmentTypes.DropTargetSpec
+export type DropInfo = EnvironmentTypes.DropInfo
+export type AdjustableOptions = InputTypes.AdjustableOptions
+export type HapticKind = InputTypes.HapticKind
 export type Adaptive = adaptive.Adaptive
 export type App = createApp.App
 export type AppOptions = createApp.AppOptions
 export type Component = createApp.Component
+export type AnchoredOptions = createApp.AnchoredOptions
+export type ToastOptions = createApp.ToastOptions
 export type ControlOptions = ControlTypes.Config
 export type ThemePackage = ThemeTypes.ThemePackage
 export type CivilDate = CivilTypes.CivilDate
@@ -140,13 +153,16 @@ export type Facet = {
 	themes: ThemeTypes.Themes,
 	civilDate: CivilTypes.Module,
 	adaptive: adaptive.Adaptive,
+	gamepadContention: gamepadContention.GamepadContention,
 	pathShapes: typeof(pathShapes),
 	richText: typeof(richText),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
+	inputPriority: { belowControls: number, aboveFacet: number },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
 }
 
 local VERSION = "0.12.0"
+local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
 local COMPOSE_COMMIT = "a921f4350ddcc4966f75cf6a1ec9650b88b334fa"
 local USED = {
 	"boundary",
@@ -168,6 +184,7 @@ local USED = {
 	"switch",
 	"watch",
 	"withOwner",
+	"withRootOwner",
 }
 
 local recipes: { arithmetic: { parse: (unknown) -> number? } } =
@@ -203,9 +220,11 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		themes = themes,
 		civilDate = civilDate,
 		adaptive = adaptive,
+		gamepadContention = gamepadContention,
 		pathShapes = pathShapes,
 		richText = richText,
 		recipes = recipes,
+		inputPriority = INPUT_PRIORITY,
 		bind = bind,
 	})
 	return surface

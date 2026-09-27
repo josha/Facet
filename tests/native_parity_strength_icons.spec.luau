@@ -637,7 +637,7 @@ t.describe("avatar groups", function()
 		t.expect(group:FindFirstChild("p5")).toBe(nil)
 		local overflow = group:FindFirstChild("Overflow")
 		t.expect(overflow.Text).toBe("+2")
-		t.expect(overflow.LayoutOrder).toBe(5)
+		t.expect(overflow.LayoutOrder).toBe(6)
 		t.expect(overflow:GetAttribute("AccessibleLabel")).toBe("2 more players")
 		t.expect(overflow.Selectable).toBe(false)
 		t.expect(group:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(-10)
@@ -1514,47 +1514,60 @@ t.describe("sliced and bar art", function()
 		runtime:dispose()
 	end)
 
-	t.it("paints a nine-slice skin with the package's own image values and no sheet tint", function()
-		local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
-		local asset = package.assets.parchment_panel
-		local engine = engineLib.new()
-		local runtime = Roblox.createRuntime(engine)
-		local target, root, sheet
-		local stop = runtime.mount(function()
-			target = runtime.constructors.Frame({})
-			root = themes.skin(runtime, package, "panel", { types = engine.types, target = target })
-			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
-			return runtime.constructors.Frame({ target, root, sheet })
-		end, engine.new("Folder"))
-		local image = root:FindFirstChild("panel1", true)
-		t.expect(image.Image).toBe(asset.contentId)
-		t.expect(image.Image).toBe("rbxassetid://78012779616687")
-		t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Slice)
-		t.expect(image.SliceCenter).toBe(engine.types.Rect.new(40, 40, 104, 104))
-		t.expect(image.SliceScale).toBe(asset.sliceScale)
-		t.expect(image.ImageColor3).toBe(engine.types.Color3.new(1, 1, 1))
-		t.expect(image.ImageTransparency).toBe(0)
-		t.expect(image.BackgroundTransparency).toBe(1)
-		t.expect(#image:GetTags()).toBe(0)
-		t.expect(target:HasTag("facet-skinned")).toBe(true)
-		local skinned = false
-		for _, rule in sheet:GetChildren() do
-			local properties = rule:GetProperties()
-			t.expect(
-				`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin", 1, true) ~= nil}`
-			)
-				.toBe(`{rule.Selector}: false`)
-			if rule.Selector == ".facet-skinned" then
-				skinned = true
-				t.expect(properties.BackgroundTransparency).toBe(1)
+	t.it(
+		"paints a nine-slice skin with the package's own image values and only the role and palette art tints",
+		function()
+			local package = assert(require("../examples/themes/fantasy_parchment").build(themes))
+			local asset = package.assets.parchment_panel
+			local engine = engineLib.new()
+			local runtime = Roblox.createRuntime(engine)
+			local target, root, sheet
+			local stop = runtime.mount(function()
+				target = runtime.constructors.Frame({})
+				root = themes.skin(runtime, package, "panel", { types = engine.types, target = target })
+				sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
+				return runtime.constructors.Frame({ target, root, sheet })
+			end, engine.new("Folder"))
+			local image = root:FindFirstChild("panel1", true)
+			t.expect(image.Image).toBe(asset.contentId)
+			t.expect(image.Image).toBe("rbxassetid://78012779616687")
+			t.expect(image.ScaleType).toBe(engine.types.Enum.ScaleType.Slice)
+			t.expect(image.SliceCenter).toBe(engine.types.Rect.new(40, 40, 104, 104))
+			t.expect(image.SliceScale).toBe(asset.sliceScale)
+			t.expect(image.ImageColor3).toBe(engine.types.Color3.new(1, 1, 1))
+			t.expect(image.ImageTransparency).toBe(0)
+			t.expect(image.BackgroundTransparency).toBe(1)
+			t.expect(table.concat(image:GetTags(), ",")).toBe("facet-skin-art,facet-skin-art-panel")
+			t.expect(target:HasTag("facet-skinned")).toBe(true)
+			local skinned = false
+			for _, rule in sheet:GetChildren() do
+				local properties = rule:GetProperties()
+				local roleTint = rule.Selector == ".facet-role-destructive > #SkinBoundary >> .facet-skin-art"
+					or rule.Selector == ".facet-accent > #SkinBoundary >> .facet-skin-art"
+					or rule.Selector == ".facet-skinned.facet-selected > #SkinBoundary >> .facet-skin-art"
+					or string.match(
+						rule.Selector,
+						"^%.facet%-badge[%.%-][%a%.%-]+ > #SkinBoundary >> %.facet%-skin%-art$"
+					) ~= nil
+					or (
+						string.match(rule.Selector, "^%.facet%-skin%-art%-%a+$") ~= nil
+						and properties.ImageColor3 ~= nil
+					)
+				t.expect(
+					`{rule.Selector}: {properties.ImageColor3 ~= nil and string.find(rule.Selector, "skin-art", 1, true) ~= nil}`
+				).toBe(`{rule.Selector}: {roleTint}`)
+				if rule.Selector == ".facet-skinned" then
+					skinned = true
+					t.expect(properties.BackgroundTransparency).toBe(1)
+				end
 			end
+			t.expect(skinned).toBe(true)
+			stop()
+			runtime:dispose()
 		end
-		t.expect(skinned).toBe(true)
-		stop()
-		runtime:dispose()
-	end)
+	)
 
-	t.it("centres end caps on the track edge, centres the centrepiece and defaults the fill to ltr", function()
+	t.it("fits end caps inside the track ends, centres the centrepiece and defaults the fill to ltr", function()
 		local package = themes.neutralPackage()
 		package.assets = {
 			fill = { content = "rbxassetid://1" },
@@ -1571,8 +1584,9 @@ t.describe("sliced and bar art", function()
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
+		local thickness = Compose.cell(18)
 		local stop, root = runtime.mount(function()
-			return UI.ProgressView({ value = 0.01 })
+			return UI.ProgressView({ value = 0.01, thickness = thickness })
 		end, engine.new("Folder"))
 		local fill = root:FindFirstChild("Fill1", true)
 		t.expect(fill.AnchorPoint).toBe(engine.types.Vector2.new(0, 0))
@@ -1582,11 +1596,13 @@ t.describe("sliced and bar art", function()
 		t.expect(skin.Size.X.Scale).toBe(100)
 		t.expect(skin.Size.Y.Scale).toBe(1)
 		local start, finish = root:FindFirstChild("barCap-start", true), root:FindFirstChild("barCap-end", true)
+
 		for _, cap in { start, finish } do
-			t.expect(cap.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
 			t.expect(cap.Position.Y.Scale).toBe(0.5)
-			t.expect(cap.Size).toBe(engine.types.UDim2.fromOffset(28, 36))
+			t.expect(cap.Size).toBe(engine.types.UDim2.fromOffset(14, 18))
 		end
+		t.expect(start.AnchorPoint).toBe(engine.types.Vector2.new(0, 0.5))
+		t.expect(finish.AnchorPoint).toBe(engine.types.Vector2.new(1, 0.5))
 		t.expect(start.Position.X.Scale).toBe(0)
 		t.expect(finish.Position.X.Scale).toBe(1)
 		t.expect(start.Image).toBe("rbxassetid://2")
@@ -1594,7 +1610,7 @@ t.describe("sliced and bar art", function()
 		local center = root:FindFirstChild("barCenter", true)
 		t.expect(center.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
 		t.expect(center.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
-		t.expect(center.Size).toBe(engine.types.UDim2.fromOffset(36, 28))
+		t.expect(center.Size).toBe(engine.types.UDim2.fromOffset(23, 18))
 		for _, direction in { "ttb", "btt", "rtl" } do
 			local next = table.clone(package)
 			next.chrome = table.clone(package.chrome)
@@ -1602,7 +1618,7 @@ t.describe("sliced and bar art", function()
 			selected:set(next)
 			t.expect(center.Position).toBe(engine.types.UDim2.fromScale(0.5, 0.5))
 			for _, cap in { start, finish } do
-				t.expect(cap.AnchorPoint).toBe(engine.types.Vector2.new(0.5, 0.5))
+				t.expect(cap.AnchorPoint).toBe(engine.types.Vector2.new(cap.Position.X.Scale, cap.Position.Y.Scale))
 			end
 			if direction == "rtl" then
 				t.expect(start.Position).toBe(engine.types.UDim2.fromScale(1, 0.5))
@@ -1620,6 +1636,13 @@ t.describe("sliced and bar art", function()
 		selected:set(sharedCap)
 		t.expect(start.Image).toBe("rbxassetid://5")
 		t.expect(finish.Image).toBe("rbxassetid://5")
+
+		thickness:set(36)
+		root:FindFirstChild("Track", true).AbsoluteSize = engine.types.Vector2.new(200, 72)
+		t.expect(start.Size).toBe(engine.types.UDim2.fromOffset(25, 32))
+		t.expect(root:FindFirstChild("FillClip", true).Size).toBe(engine.types.UDim2.new(1, -50, 1, 0))
+		thickness:set(8)
+		t.expect(start.Visible or finish.Visible or center.Visible).toBe(false)
 		stop()
 		runtime:dispose()
 	end)
@@ -1635,7 +1658,7 @@ t.describe("sliced and bar art", function()
 		package.chrome.barTrack = { kind = "nineSlice", asset = "track" }
 		package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
 		package.chrome.barCap = { kind = "nineSlice", asset = "cap", size = { w = 12, h = 12 } }
-		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 16, h = 16 } }
+		package.chrome.barCenter = { kind = "nineSlice", asset = "center", size = { w = 12, h = 12 } }
 		local engine = engineLib.new()
 		local folder = engine.new("Folder")
 		local baseline = engine.census()
@@ -1648,7 +1671,9 @@ t.describe("sliced and bar art", function()
 		local track = root:FindFirstChild("Track", true)
 		local clip = track:FindFirstChild("FillClip")
 		t.expect(clip.ClipsDescendants).toBe(true)
-		t.expect(clip.Size).toBe(engine.types.UDim2.fromScale(1, 1))
+
+		t.expect(clip.Size).toBe(engine.types.UDim2.new(1, -12, 1, 0))
+		t.expect(clip.Position).toBe(engine.types.UDim2.fromOffset(6, 0))
 		t.expect(clip.BackgroundTransparency).toBe(1)
 		t.expect(track.ClipsDescendants).toBe(false)
 		local fill = clip:FindFirstChild("Fill1")
@@ -1667,6 +1692,7 @@ t.describe("sliced and bar art", function()
 			end
 			t.expect(branch ~= clip).toBe(true)
 			t.expect(branch.ClipsDescendants).toBe(false)
+			t.expect(branch.ZIndex > clip.ZIndex).toBe(true)
 		end
 		local assembly = { track, clip, fill }
 		for _, node in track:GetDescendants() do

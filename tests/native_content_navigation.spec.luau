@@ -147,7 +147,7 @@ t.describe("native content navigation deltas", function()
 		place(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 400))
 		local rows = panel:FindFirstChild("MenuRows", true)
 		rows.AbsoluteSize = Vector2.new(220, 201 * 44)
-		t.expect(panel:IsA("ScrollingFrame")).toBe(true)
+		t.expect(panel:FindFirstChild("MenuScroll", true):IsA("ScrollingFrame")).toBe(true)
 		t.expect(panel.Size.Y.Offset <= 600 - 24).toBe(true)
 		t.expect(world.find("y201", panel) ~= nil).toBe(true)
 		world.stop()
@@ -171,8 +171,10 @@ t.describe("native content navigation deltas", function()
 			end
 		end
 		rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
+		local scroller = panel:FindFirstChild("MenuScroll", true)
 		panel.AbsoluteSize = Vector2.new(220, 400)
-		local center = panel.CanvasPosition.Y + 400 / 2
+		scroller.AbsoluteSize = Vector2.new(220, 400)
+		local center = scroller.CanvasPosition.Y + 400 / 2
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local top = if inset then inset.PaddingTop.Offset else 0
 		t.expect(math.abs(center - (top + 100 * pitch + 22)) <= 1).toBe(true)
@@ -205,18 +207,20 @@ t.describe("native content navigation deltas", function()
 		local pitch = 44 + gap
 		chosen.AbsoluteSize = Vector2.new(220, 44)
 		rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
+		local scroller = panel:FindFirstChild("MenuScroll", true)
 		panel.AbsoluteSize = Vector2.new(220, 400)
+		scroller.AbsoluteSize = Vector2.new(220, 400)
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local pad = if inset then inset.PaddingTop.Offset else 0
-		t.expect(panel.CanvasPosition.Y).toBe(math.max(0, pad + 100 * gap + 22 - 200))
-		rows.AbsolutePosition = Vector2.new(0, -panel.CanvasPosition.Y)
+		t.expect(scroller.CanvasPosition.Y).toBe(math.max(0, pad + 100 * gap + 22 - 200))
+		rows.AbsolutePosition = Vector2.new(0, -scroller.CanvasPosition.Y)
 		for _, row in rows:GetChildren() do
 			if row:IsA("GuiObject") then
 				row.AbsoluteSize = Vector2.new(220, 44)
 			end
 		end
 		layout.AbsoluteContentSize = Vector2.new(220, 201 * pitch)
-		local center = panel.CanvasPosition.Y + 400 / 2
+		local center = scroller.CanvasPosition.Y + 400 / 2
 		local inset = rows:FindFirstChildWhichIsA("UIPadding")
 		local top = if inset then inset.PaddingTop.Offset else 0
 		t.expect(math.abs(center - (top + 100 * pitch + 22)) <= 1).toBe(true)
@@ -678,6 +682,72 @@ t.describe("native content navigation deltas", function()
 		t.expect(feed.TextSize).toBe(18)
 		world.resize(feed, 40, 44)
 		t.expect(feed.TextSize).toBe(12)
+		world.stop()
+	end)
+
+	t.it("sizes a sidebar rail to its widest tab by default, as before 0.12", function()
+		local world = worlds.new(function(UI, Host)
+			return UI.TabView({ selection = Compose.cell("home"), placement = "sidebar", tabs = tabList(Host) })
+		end, { reducedMotion = true })
+		local view = world.find("TabView")
+		world.resize(view, 1200, 800)
+		local tabs = world.find("Tabs")
+		local content = world.find("Content")
+		for _, id in { "home", "feed", "me" } do
+			world.bounds(world.find(id, tabs):FindFirstChild("LabelMeasure"), if id == "feed" then 90 else 40)
+		end
+		local narrow = tabs.Size.X.Offset
+		t.expect(narrow < 200 - 16).toBe(true)
+		t.expect(content.Position.X.Offset).toBe(narrow + 16)
+		world.bounds(world.find("feed", tabs):FindFirstChild("LabelMeasure"), 120)
+		t.expect(tabs.Size.X.Offset).toBe(narrow + 30)
+		t.expect(content.Position.X.Offset).toBe(narrow + 46)
+		t.expect(world.find("feed", tabs).TextXAlignment.Name).toBe("Center")
+		world.stop()
+	end)
+
+	t.it("widens a sidebar rail by a skinned theme's content insets so a tab label is not truncated", function()
+		local pixel = (require :: any)("../examples/themes/pixel_quest").build(Facet.themes)
+		local bare = table.clone(pixel)
+		bare.chrome = table.clone(pixel.chrome)
+		bare.chrome.control = table.clone(pixel.chrome.control)
+		bare.chrome.control.contentInsets = nil
+		local widths = {}
+		for _, package in { pixel, bare } do
+			local world = worlds.new(function(UI, Host)
+				return UI.TabView({ selection = Compose.cell("home"), placement = "sidebar", tabs = tabList(Host) })
+			end, { reducedMotion = true, theme = package })
+			world.resize(world.find("TabView"), 1200, 800)
+			local tabs = world.find("Tabs")
+			for _, id in { "home", "feed", "me" } do
+				world.bounds(world.find(id, tabs):FindFirstChild("LabelMeasure"), 60)
+			end
+			table.insert(widths, tabs.Size.X.Offset)
+			world.stop()
+		end
+		local insets = pixel.chrome.control.contentInsets
+		t.expect(widths[1] - widths[2]).toBe(insets.left + insets.right)
+	end)
+
+	t.it("clips its tab strip only while the tabs overflow, so a tab's chrome shadow is not cut", function()
+		local world = worlds.new(function(UI, Host)
+			return UI.TabView({ selection = Compose.cell("home"), placement = "topBar", tabs = tabList(Host) })
+		end, { reducedMotion = true })
+		local tabs = world.find("Tabs")
+		tabs.AbsoluteWindowSize = Vector2.new(300, 44)
+		tabs.AbsoluteCanvasSize = Vector2.new(300, 44)
+		t.expect(tabs.ClipsDescendants).toBe(false)
+		tabs.AbsoluteCanvasSize = Vector2.new(420, 44)
+		t.expect(tabs.ClipsDescendants).toBe(true)
+		world.stop()
+	end)
+
+	t.it("centres the tabs of a top bar, as before 0.12", function()
+		local world = worlds.new(function(UI, Host)
+			return UI.TabView({ selection = Compose.cell("home"), placement = "topBar", tabs = tabList(Host) })
+		end, { reducedMotion = true })
+		local layout = world.find("Tabs"):FindFirstChildWhichIsA("UIListLayout")
+		t.expect(layout.HorizontalAlignment.Name).toBe("Center")
 		world.stop()
 	end)
 

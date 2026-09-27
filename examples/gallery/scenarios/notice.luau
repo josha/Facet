@@ -27,10 +27,6 @@ return {
 		end
 
 		local function show(message: string, extra: { [string]: any }?)
-			if #entries:peek() >= 9 then
-				last:set("Last: refused, the snackbar queue is full")
-				return
-			end
 			serial += 1
 			local id = serial
 			local fact = Compose.cell(true)
@@ -43,7 +39,7 @@ return {
 					end
 				end,
 				onDismiss = function(reason: string)
-					last:set(`Last: snackbar {reason}`)
+					last:set(`Last: toast {reason}`)
 					release(id)
 				end,
 			}
@@ -99,7 +95,7 @@ return {
 		end
 
 		local function snackbars(): any
-			return Host.Frame "Snackbars" {
+			return Host.Frame "Toasts" {
 				LayoutOrder = 5,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -109,22 +105,22 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
 				}),
-				label("SnackbarTitle", "Snackbars", 1, "heading"),
+				label("ToastTitle", "Toasts", 1, "heading"),
 				label("Undone", function(use: any): string
 					local n = use(undone)
-					return `Undo pressed {n} {if n == 1 then "time" else "times"}; the snackbar stays until you close it.`
+					return `Undo pressed {n} {if n == 1 then "time" else "times"}; the toast stays until you close it.`
 				end, 2),
 				row("Compositions", 3, {
 					UI.Button "SnackMessage" {
 						label = "Message",
 						onActivate = function()
-							show("Saved to your garage.", { closeButton = false, duration = 4 })
+							show("Saved to your garage.", { duration = 4 })
 						end,
 					},
 					UI.Button "SnackIcon" {
 						label = "Icon and message",
 						onActivate = function()
-							show("Lap record saved.", { icon = "status.success", closeButton = false, duration = 4 })
+							show("Lap record saved.", { icon = "status.success", duration = 4 })
 						end,
 					},
 					UI.Button "SnackAction" {
@@ -134,9 +130,9 @@ return {
 						end,
 					},
 					UI.Button "SnackClose" {
-						label = "With close",
+						label = "Action and close",
 						onActivate = function()
-							show("Friend request sent.")
+							show("Friend request sent.", { action = undo })
 						end,
 					},
 					UI.Button "SnackAll" {
@@ -158,10 +154,10 @@ return {
 						end,
 					},
 					UI.Button "SnackBurst" {
-						label = "Burst of ten",
+						label = "Burst of twelve",
 						onActivate = function()
-							for index = 1, 10 do
-								show(`Queued message {index} of 10.`, { duration = 3 })
+							for index = 1, 12 do
+								show(`Queued message {index} of 12.`, { duration = 3 })
 							end
 						end,
 					},
@@ -173,15 +169,7 @@ return {
 					end,
 					render = function(item: any)
 						local entry: Entry = item:peek()
-						return Host.Folder({
-							Name = `SnackSlot{entry.id}`,
-							Compose.boundary(function()
-								return UI.Snackbar(`Snack{entry.id}`)(entry.spec :: any)
-							end, function()
-								last:set("Last: refused, the snackbar queue is full")
-								return Host.Folder "Refused" {}
-							end),
-						})
+						return UI.Toast(`Snack{entry.id}`)(entry.spec :: any)
 					end,
 				}),
 			}
@@ -309,13 +297,11 @@ return {
 				return Host.Frame "Notices" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					Host.ScrollingFrame "Content" {
+					UI.ScrollView "Content" {
+						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.fromScale(1, 1),
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						CanvasSize = UDim2.new(),
 						ScrollBarThickness = 6,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
 						section(),
 					},
 					affixed(),

@@ -87,7 +87,7 @@ attributes and two `StringValue` children.
 | `SourceCommit` | `git rev-parse HEAD`, with the suffix `-dirty` when `git status --porcelain -- src` is not empty |
 | `SourceHash` | sha256 over the sorted shipped source (see below) |
 | `BuildSchema` | `facet-package/1` |
-| `Repository` | `https://github.com/josha/Facet` |
+| `Repository` | the `origin` remote (`git remote get-url origin`) as an https URL, without credentials |
 
 | Child | Value |
 |---|---|
@@ -431,9 +431,8 @@ Choose ownership once. The Roblox Packages documentation is explicit:
 
 ## Why two routes
 
-These points come from the platform research note
-(`artifacts/distribution-readiness/research/platform-sources.md`, fetched
-2026-08-30):
+These points come from the Roblox Assets API usage guide
+(<https://create.roblox.com/docs/cloud/guides/usage-assets>, read 2026-08-30):
 
 - The supported-types table of the Assets API says that a Model "Will be
   uploaded as packages". This one sentence is the only documented bridge

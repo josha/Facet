@@ -20,7 +20,7 @@
         "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
         "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
         "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
-        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds",
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds and keeps the image ratio",
         "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
       ],
       "behaviors": [
@@ -51,7 +51,7 @@
         "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
         "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
         "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
-        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds",
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds and keeps the image ratio",
         "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
       ],
       "behaviors": [
@@ -214,7 +214,7 @@
         "native_inputs::native input controls::reflows Button and circle sizes from live theme metrics and control rungs",
         "native_inputs::native input controls::retains native keyboard activation after first focus and gates it on live selection",
         "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
-        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds",
+        "native_inputs::native input controls::lays out image buttons vertically inside their authored card bounds and keeps the image ratio",
         "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property"
       ],
       "behaviors": [

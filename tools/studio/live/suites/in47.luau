@@ -426,7 +426,7 @@ add("settings-sheet-stays-over-demo", { "apps2-94" }, function(t)
 	local stage, context = t.gallery({ demo = "all-controls" })
 	t.settle(10)
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-	local settings = visibleNamed(t, gui, "Settings") or visibleNamed(t, gui, "CompactSettings")
+	local settings = visibleNamed(t, gui, "Settings")
 	t.check("the Settings chrome button is visible", settings ~= nil)
 	if not settings then
 		return
@@ -1958,7 +1958,7 @@ add("pad-table-row-a-selects", { "inputs-05" }, function(t)
 			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } },
 			key = "id",
 			selection = selection,
-			selectionMode = "multi",
+			selectionMode = "multiple",
 			Size = UDim2.fromOffset(400, 240),
 			columns = { { id = "name", label = "Name" } },
 		}

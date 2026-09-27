@@ -75,15 +75,7 @@ return function(ctx: any, options: any)
 		moves:set(moves:peek() + 1)
 	end
 	local function edit()
-		local value = not editing:peek()
-		editing:set(value)
-		local nextRows = {}
-		for index, item in rows:peek() do
-			local nextItem = table.clone(item)
-			nextItem.editing = value
-			nextRows[index] = nextItem
-		end
-		rows:set(nextRows)
+		editing:set(not editing:peek())
 	end
 	local function actions(key)
 		return {
@@ -95,6 +87,7 @@ return function(ctx: any, options: any)
 				{
 					id = "read",
 					label = "Mark read",
+					icon = "checkmark",
 					onActivate = function()
 						markRead(key)
 					end,
@@ -104,6 +97,7 @@ return function(ctx: any, options: any)
 				{
 					id = "delete",
 					label = "Delete",
+					icon = "trash",
 					role = "destructive",
 					onActivate = function()
 						remove(key)
@@ -112,6 +106,7 @@ return function(ctx: any, options: any)
 				{
 					id = "flag",
 					label = "Flag",
+					icon = "flag",
 					onActivate = function()
 						flag(key)
 					end,
@@ -140,6 +135,73 @@ return function(ctx: any, options: any)
 		end
 		return result
 	end)
+	local function mailBody(current, key, sender)
+		local function words(field)
+			return function(use)
+				return use(current)[field]
+			end
+		end
+		return Host.Frame({
+			Name = "Mail",
+			Size = D2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Host.UIPadding({ PaddingLeft = D.new(0, 4), PaddingRight = D.new(0, 4) }),
+			Host.UIListLayout({
+				FillDirection = E.FillDirection.Horizontal,
+				VerticalAlignment = E.VerticalAlignment.Center,
+				SortOrder = E.SortOrder.LayoutOrder,
+				Padding = D.new(0, 8),
+			}),
+			UI.StatusIndicator "Unread" {
+				LayoutOrder = 1,
+				form = "dot",
+				status = "accent",
+				name = "Unread",
+				Visible = function(use)
+					return not use(readRows)[key]
+				end,
+			},
+			Host.Frame({
+				Name = "Text",
+				LayoutOrder = 2,
+				BackgroundTransparency = 1,
+				Size = D2.fromScale(0, 1),
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+				Host.UIListLayout({
+					SortOrder = E.SortOrder.LayoutOrder,
+					VerticalAlignment = E.VerticalAlignment.Center,
+					Padding = D.new(0, 2),
+				}),
+				UI.Text "From" {
+					LayoutOrder = 1,
+					Visible = sender,
+					text = words("from"),
+					textRole = "body",
+					truncate = "end",
+				},
+				UI.Text "Subject" { LayoutOrder = 2, text = words("subject"), textRole = "label", truncate = "end" },
+				UI.Text "Preview" {
+					LayoutOrder = 3,
+					text = words("preview"),
+					textRole = "caption",
+					role = "secondary",
+					truncate = "end",
+				},
+			}),
+			UI.Image "Flag" {
+				LayoutOrder = 3,
+				Size = D2.fromOffset(16, 16),
+				tint = ctx.types.Color3.fromRGB(214, 64, 56),
+				image = function(use)
+					local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
+					return ctx.Facet.themes.resolveIcon(package, "flag") or ""
+				end,
+				Visible = function(use)
+					return use(flaggedRows)[key] == true
+				end,
+			},
+		})
+	end
 	local function row(current, placement, key)
 		mounted:set(mounted:peek() + 1)
 		built:set(built:peek() + 1)
@@ -188,35 +250,36 @@ return function(ctx: any, options: any)
 				},
 			})
 		end
-		local button = UI.Button({
-			Name = "Item_" .. key,
-			label = function(use)
-				local item = use(current)
-				if options.mail then
-					return (if use(readRows)[key] then "Read · " else "Unread · ")
-						.. (if use(flaggedRows)[key] then "Flagged · " else "")
-						.. item.subject
-				end
-				return item.label
-			end,
-			subtitle = if options.mail
-				then function(use)
-					return use(current).from .. "\n" .. use(current).preview
-				end
-				else nil,
-			TextSize = function(use)
-				return 16 + use(textOffset)
-			end,
-			TextWrapped = true,
-			Size = D2.fromScale(1, 1),
-			AutomaticSize = E.AutomaticSize.None,
-			onActivate = function()
-				selected:set(key)
-				if options.mail then
+		local button = if options.mail
+			then UI.Button({
+				Name = "Item_" .. key,
+				label = "",
+				name = function(use)
+					return use(current).subject .. " from " .. use(current).from
+				end,
+				Size = D2.fromScale(1, 1),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = function()
+					selected:set(key)
 					markRead(key)
-				end
-			end,
-		})
+				end,
+				mailBody(current, key, true),
+			})
+			else UI.Button({
+				Name = "Item_" .. key,
+				label = function(use)
+					return use(current).label
+				end,
+				TextSize = function(use)
+					return 16 + use(textOffset)
+				end,
+				TextWrapped = true,
+				Size = D2.fromScale(1, 1),
+				AutomaticSize = E.AutomaticSize.None,
+				onActivate = function()
+					selected:set(key)
+				end,
+			})
 		if options.actions then
 			local spec = actions(key)
 			spec.Size, spec.content = D2.fromScale(1, 1), button
@@ -289,24 +352,41 @@ return function(ctx: any, options: any)
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 		}
 		if options.table then
-			common.selection, common.selectionMode = selection, "multi"
+			common.selection, common.selectionMode = selection, "multiple"
 			common.sort, common.widths = Compose.cell(nil), Compose.cell({})
-			common.editing, common.reorderable, common.onReorder = editing, true, reorder
-			common.movable = function(item)
-				return item.editing == true
-			end
+			common.reorderable, common.onReorder = true, reorder
+			common.deletable, common.onDelete =
+				true, function(keys)
+					for _, key in keys do
+						remove(key)
+					end
+				end
 			common.onActivate = function(item, key)
 				selected:set(key)
 				if options.mail then
 					markRead(key)
 				end
 			end
-			common.itemSize = if options.mail then 100 else nil
+			common.itemSize = if options.mail then 76 else nil
 			common.rowActions = if options.actions
 				then function(_, key)
 					return actions(key)
 				end
 				else nil
+			if options.editable then
+				common.alternatingRows = true
+				common.onCellChange = function(key, column, value)
+					local nextRows = table.clone(rows:peek())
+					for index, item in nextRows do
+						if item.id == key then
+							local nextItem = table.clone(item)
+							nextItem[column] = value
+							nextRows[index] = nextItem
+						end
+					end
+					rows:set(nextRows)
+				end
+			end
 			common.columns = options.columns
 				or {
 					{
@@ -323,18 +403,7 @@ return function(ctx: any, options: any)
 						label = "Subject",
 						minWidth = 160,
 						render = function(current, _, key)
-							return UI.Text "Message" {
-								text = function(use)
-									return (if use(readRows)[key] then "Read · " else "Unread · ")
-										.. (if use(flaggedRows)[key] then "Flagged · " else "")
-										.. use(current).subject
-										.. "\n"
-										.. use(current).preview
-								end,
-								TextWrapped = true,
-								Size = D2.fromScale(1, 1),
-								BackgroundTransparency = 1,
-							}
+							return mailBody(current, key, false)
 						end,
 					},
 				}
@@ -344,7 +413,7 @@ return function(ctx: any, options: any)
 			common.render = row
 			common.itemSize = if options.horizontal
 				then 160
-				elseif options.mail then 112
+				elseif options.mail then 76
 				elseif options.measure then 76
 				else function(use)
 					return 64 + use(textOffset) * 2
@@ -359,10 +428,16 @@ return function(ctx: any, options: any)
 		end
 		local nativePosition = observe(body, "CanvasPosition")
 		local buttons = {}
-		local function command(name, label, callback)
+		local function command(name, label, callback, visible)
 			table.insert(
 				buttons,
-				UI.Button({ Name = name, label = label, onActivate = callback, LayoutOrder = #buttons + 1 })
+				UI.Button({
+					Name = name,
+					label = label,
+					onActivate = callback,
+					LayoutOrder = #buttons + 1,
+					Visible = visible,
+				})
 			)
 		end
 		if options.entrants then
@@ -376,10 +451,18 @@ return function(ctx: any, options: any)
 				jump(if options.mail then 4 else 50)
 			end)
 		end
-		if options.mail or options.entrants then
-			command("Edit", function(use)
-				return if use(editing) then "Done" else "Edit"
-			end, edit)
+		if options.mail and not options.table then
+			local env = UI.environment()
+			command(
+				"Edit",
+				function(use)
+					return if use(editing) then "Done" else "Edit"
+				end,
+				edit,
+				function(use)
+					return use(env.effectiveInput) ~= "KeyboardAndMouse" or use(editing)
+				end
+			)
 		end
 		if options.grid then
 			command("Reverse", "Reverse", reverse)

@@ -72,10 +72,14 @@ adaptive : table(frozen)
   adaptive.BREAKPOINTS : table(frozen)
   adaptive.DEFAULT_STACK_ABOVE : number
   adaptive.HEIGHT_BREAKPOINTS : table(frozen)
+  adaptive.TEN_FOOT_SCALE : number
   adaptive.axisFor : function
   adaptive.columnsFor : function
   adaptive.heightClass : function
+  adaptive.isTenFoot : function
+  adaptive.navPlacement : function
   adaptive.orientationFor : function
+  adaptive.overscanInsets : function
   adaptive.sizeClass : function
   adaptive.sizeClassAtLeast : function
 app : function
@@ -103,6 +107,17 @@ civilDate : table(frozen)
   civilDate.weekday : function
   civilDate.within : function
 controls : function
+gamepadContention : table(frozen)
+  gamepadContention.cameraKeysContended : function
+  gamepadContention.describeContention : function
+  gamepadContention.disableLegacyControls : function
+  gamepadContention.freedJumpAction : function
+  gamepadContention.iasPlayerScriptsActive : function
+  gamepadContention.legacyStackActive : function
+  gamepadContention.traversalKeyContended : function
+inputPriority : table(frozen)
+  inputPriority.aboveFacet : number
+  inputPriority.belowControls : number
 pathShapes : table(frozen)
   pathShapes.MAX_CONTROL_POINTS : number
   pathShapes.arc : function
@@ -119,9 +134,11 @@ themes : table
   themes.checkCoverage : function
   themes.createStyleSheet : function
   themes.define : function
+  themes.forDistance : function
   themes.neutralPackage : function
   themes.resolveIcon : function
   themes.skin : function
+controls(runtime).AdaptiveStack : function
 controls(runtime).Alert : function
 controls(runtime).AsyncImage : function
 controls(runtime).Avatar : function
@@ -134,6 +151,7 @@ controls(runtime).Chip : function
 controls(runtime).CollapsibleView : function
 controls(runtime).ColorPicker : function
 controls(runtime).ComboBox : function
+controls(runtime).Composition : function
 controls(runtime).DateTimePicker : function
 controls(runtime).Dialog : function
 controls(runtime).DisclosureGroup : function
@@ -157,6 +175,7 @@ controls(runtime).Popover : function
 controls(runtime).ProgressView : function
 controls(runtime).RadialMenu : function
 controls(runtime).Rating : function
+controls(runtime).Region : function
 controls(runtime).RowActions : function
 controls(runtime).Screen : function
 controls(runtime).ScrollView : function
@@ -164,7 +183,6 @@ controls(runtime).Sheet : function
 controls(runtime).ShortcutHint : function
 controls(runtime).Skeleton : function
 controls(runtime).Slider : function
-controls(runtime).Snackbar : function
 controls(runtime).Spacer : function
 controls(runtime).SplitButton : function
 controls(runtime).Stage : function
@@ -175,21 +193,33 @@ controls(runtime).TabView : function
 controls(runtime).Table : function
 controls(runtime).Text : function
 controls(runtime).TextInput : function
+controls(runtime).Toast : function
 controls(runtime).Toggle : function
 controls(runtime).VStack : function
+controls(runtime).ViewThatFits : function
 controls(runtime).VirtualGrid : function
 controls(runtime).VirtualList : function
 controls(runtime).Vote : function
 controls(runtime).ZStack : function
+controls(runtime).adjustable : function
 controls(runtime).badged : function
+controls(runtime).draggable : function
+controls(runtime).dropTarget : function
 controls(runtime).environment : function
+controls(runtime).feedback : function
 controls(runtime).fill : function
+controls(runtime).focusRing : function
+controls(runtime).focusSection : function
+controls(runtime).responder : function
 controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
 controls(runtime).worldAnchor : function
 type Adaptive
+type AdaptiveStackProps
+type AdjustableOptions
 type AlertAction
 type AlertSpec
+type AnchoredOptions
 type App
 type AppOptions
 type AsyncImageProps
@@ -215,17 +245,22 @@ type ComboBoxSpec
 type Component
 type ComposeModule
 type ComposeRobloxModule
+type CompositionProps
 type ControlOptions
 type Controls
 type DateTimePickerProps
 type DialogSpec
 type DisclosureGroupSpec
 type DividerProps
+type DraggableSpec
+type DropInfo
+type DropTargetSpec
 type Environment
 type ErrorBoundaryProps
 type Extent
 type Facet
 type GridProps
+type HapticKind
 type IdentityCollectionSpec
 type IdentityTableSpec
 type ImageProps
@@ -260,6 +295,7 @@ type RadialItem
 type RadialMenuSpec
 type RatingProps
 type Readable
+type RegionProps
 type RowAction
 type RowActionsSpec
 type Runtime
@@ -271,7 +307,6 @@ type SheetSpec
 type ShortcutHintProps
 type SkeletonProps
 type SliderProps
-type SnackbarSpec
 type Space
 type SpacerProps
 type SplitButtonSpec
@@ -288,9 +323,13 @@ type TableSpec
 type TextInputProps
 type TextProps
 type ThemePackage
+type ToastOptions
+type ToastSpec
 type ToggleProps
 type Use
+type ViewThatFitsProps
 type VoteSpec
 type WorldAnchor
 type WorldAnchorOptions
 type ZStackProps
+type Zone

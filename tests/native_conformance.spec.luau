@@ -1,7 +1,20 @@
 --!strict
 local t = require("./lib/testkit")
-local HELPERS =
-	{ fill = true, badged = true, environment = true, worldAnchor = true, scrollTo = true, scrollToVisible = true }
+local HELPERS = {
+	fill = true,
+	badged = true,
+	environment = true,
+	worldAnchor = true,
+	scrollTo = true,
+	scrollToVisible = true,
+	focusRing = true,
+	adjustable = true,
+	feedback = true,
+	focusSection = true,
+	responder = true,
+	draggable = true,
+	dropTarget = true,
+}
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local Compose = Facet.Compose
@@ -23,6 +36,18 @@ local fixtures = {
 	end,
 	Grid = function()
 		return { columns = 2 }
+	end,
+	AdaptiveStack = function()
+		return { gap = "s" }
+	end,
+	ViewThatFits = function(Host)
+		return { Host.Frame({}) }
+	end,
+	Region = function(Host)
+		return { zone = "top", rank = 1, Host.Frame({}) }
+	end,
+	Composition = function()
+		return {}
 	end,
 	Button = function()
 		return { label = "Press" }
@@ -184,8 +209,8 @@ local fixtures = {
 	Dialog = function()
 		return { title = "Confirm", isPresented = Compose.cell(false), closeButton = false }
 	end,
-	Snackbar = function()
-		return { isPresented = Compose.cell(false), message = "Saved", closeButton = false }
+	Toast = function()
+		return { message = "Saved" }
 	end,
 	Notice = function()
 		return { message = "Saved" }

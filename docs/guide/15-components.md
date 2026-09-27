@@ -167,7 +167,7 @@ Navigation and presented controls animate by default. Do not add your own
 motion to them. NavigationStack slides a pushed page in from the trailing edge.
 TabView crossfades its pages. Sheet slides up. Alert, Dialog and
 CollapsibleView scale and fade in. Callout, Button `help`, Menu and Popover
-scale and fade from their anchor. Snackbar slides up and fades in.
+scale and fade from their anchor. A Toast with an action slides up and fades in.
 DisclosureGroup and Notice open their height. Each exit plays the reverse,
 faster. A presented surface shows from the frame after it mounts, when the
 theme StyleSheet has styled it, so its text never draws at the engine default

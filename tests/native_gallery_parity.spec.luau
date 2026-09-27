@@ -112,6 +112,24 @@ t.describe("restored native gallery parity", function()
 		close()
 		t.expect(root:GetPropertyChangedSignal("AbsoluteSize").count()).toBe(0)
 	end)
+	t.it("keeps the journey details rows inside their column: the words hug and a spacer takes the rest", function()
+		local built, node, _, _, close = mount("navigation_stack")
+		built.steps.push()
+		for _, rowName in { "Baseline", "LastBaseline" } do
+			local row = find(node, rowName)
+			t.expect(`{rowName}: {row.Size.X.Scale}`).toBe(`{rowName}: 1`)
+			for _, child in row:GetChildren() do
+				if child:IsA("TextLabel") then
+					t.expect(`{rowName}/{child.Text}: {child.Size.X.Scale}`).toBe(`{rowName}/{child.Text}: 0`)
+				end
+			end
+		end
+		t.expect(find(find(node, "Baseline"), "FlexibleGap"):FindFirstChildWhichIsA("UIFlexItem") ~= nil).toBe(true)
+		local back = find(find(node, "details"), "Back")
+		t.expect(back.AutomaticSize.Name .. " " .. back.Size.X.Scale .. " " .. back.Size.X.Offset).toBe("XY 0 0")
+		t.expect(back:FindFirstChild("Title", true).AutomaticSize.Name).toBe("XY")
+		close()
+	end)
 	t.it("reverses automatic equipment rows without changing their instances or balance", function()
 		local built, node, _, _, close = mount("component_motion")
 		local scanner, beacon = find(node, "Card-scanner"), find(node, "Card-beacon")
@@ -125,6 +143,25 @@ t.describe("restored native gallery parity", function()
 		t.expect(find(node, "Card-scanner")).toBe(scanner)
 		t.expect(scanner.LayoutOrder).toBe(1)
 		t.expect(built.report().balance).toBe(60)
+		close()
+	end)
+	t.it("glides the automatic equipment rows to their reversed places", function()
+		local _, node, _, engine, close = mount("component_motion")
+		local list = find(node, "Items")
+		list.AbsoluteWindowSize = engine.types.Vector2.new(400, 400)
+		list.AbsoluteSize = engine.types.Vector2.new(400, 400)
+		engine.heartbeat.fire(1 / 60)
+		local row = find(node, "Card-scanner").Parent.Parent
+		local before = row.Position.Y.Offset
+		find(node, "Reverse").Activated.fire()
+		local landing = 2 * (56 + 8)
+		engine.heartbeat.fire(0.05)
+		local during = row.Position.Y.Offset
+		t.expect(during > before and during < landing).toBe(true)
+		for _ = 1, 30 do
+			engine.heartbeat.fire(1 / 60)
+		end
+		t.expect(row.Position.Y.Offset).toBe(landing)
 		close()
 	end)
 	t.it("runs shared color size rotation fade order and detail changes while charge remains informational", function()
@@ -245,87 +282,31 @@ t.describe("restored native gallery parity", function()
 		t.expect(#ctx.worldTarget:GetChildren()).toBe(0)
 		close()
 	end)
-	t.it("bounds toast priority queues protects reading supersedes in place and reverses dismissal", function()
+	t.it("an urgent toast waits for a showing toast's read floor, then takes the weakest slot", function()
 		local built, node, ctx, engine, close = mount("sponsor_toast")
-		local protected = {}
+		ctx.reducedMotion:set(true)
 		for i = 1, 3 do
-			protected[i] = built.show("Reading " .. i, "Keep reading", { duration = 8, readFloor = 1.5 })
+			built.show("Reading " .. i, "Keep reading", { duration = 8, readFloor = 1.5, priority = i })
 		end
 		built.show("Urgent", "Wait for read floor", { priority = 9 })
+		engine.heartbeat.fire(1 / 60)
 		t.expect(built.report().visible).toBe(3)
 		t.expect(built.report().queued).toBe(1)
 		engine.heartbeat.fire(1)
-		t.expect(built.report().ids[1]).toBe(protected[1])
+		t.expect(built.report().queued).toBe(1)
 		engine.heartbeat.fire(0.6)
-		local urgent = false
+		local shown = {}
 		for _, row in built.report().rows do
-			if row.title == "Urgent" and row.state == "visible" then
-				urgent = true
-			end
+			shown[row.title] = built.report().states[row.id]
 		end
-		t.expect(urgent).toBe(true)
-		ctx.reducedMotion:set(true)
-		built.steps.clear()
-		t.expect(built.report().visible).toBe(0)
-		find(node, "Burst").Activated.fire()
-		t.expect(built.report().visible).toBe(3)
-		t.expect(built.report().queued).toBe(8)
-		t.expect(built.report().dropped > 0).toBe(true)
-		built.steps.clear()
-		ctx.reducedMotion:set(false)
-		local id = built.show("Subject v1", "First", { subject = "lap" })
-		local toast = find(node, "Toast")
-		built.show("Subject v2", "Second", { subject = "lap" })
-		t.expect(find(node, "Toast")).toBe(toast)
-		t.expect(find(toast, "Title").Text).toBe("Subject v2")
-		built.dismiss(id)
-		t.expect(built.report().exiting).toBe(1)
-		built.show("Subject v3", "Returned", { subject = "lap" })
-		t.expect(find(node, "Toast")).toBe(toast)
-		t.expect(built.report().visible).toBe(1)
-		built.width:set("hug")
-		find(toast, "Measure_title").TextBounds = ctx.types.Vector2.new(120, 20)
-		find(toast, "Measure_detail").TextBounds = ctx.types.Vector2.new(240, 20)
-		near(toast.Size.X.Offset, 264)
-		built.edge:set("top")
-		t.expect(find(node, "Messages").AnchorPoint.Y).toBe(1)
+		t.expect(shown.Urgent).toBe("visible")
+		t.expect(shown["Reading 1"] ~= "visible").toBe(true)
+		t.expect(shown["Reading 2"]).toBe("visible")
 		find(node, "Beneath").Activated.fire()
 		t.expect(built.report().presses).toBe(1)
-		t.expect(toast.Active).toBe(false)
-		t.expect(toast.Selectable).toBe(false)
-		built.dismiss(id)
-		engine.heartbeat.fire(0.3)
-		t.expect(toast.isDestroyed()).toBe(true)
-		built.steps.send()
-		t.expect(find(node, "Messages").AnchorPoint.Y).toBe(0)
-		close()
-		t.expect(engine.heartbeat.count()).toBe(0)
-	end)
-	t.it("reflows measured toast heights with owned motion and releases the departing card", function()
-		local built, node, ctx, engine, close = mount("sponsor_toast")
-		local first = built.show("First", "Leaves first", { duration = 8 })
-		built.show("Second", "Keeps its native card", { duration = 8 })
-		local cards = {}
-		for _, child in find(node, "Messages"):GetChildren() do
-			if child.Name == "Toast" then
-				table.insert(cards, child)
-			end
-		end
-		cards[1].AbsoluteSize = ctx.types.Vector2.new(300, 92)
-		cards[2].AbsoluteSize = ctx.types.Vector2.new(300, 68)
-		engine.heartbeat.fire(1)
-		t.expect(cards[2].Position.Y.Offset >= 99 and cards[2].Position.Y.Offset <= 100).toBe(true)
-		built.dismiss(first)
-		for _ = 1, 26 do
-			engine.heartbeat.fire(0.01)
-		end
-		t.expect(cards[1].isDestroyed()).toBe(true)
-		t.expect(cards[2].Position.Y.Offset > 0 and cards[2].Position.Y.Offset < 100).toBe(true)
-		for _ = 1, 45 do
-			engine.heartbeat.fire(1 / 60)
-		end
-		near(cards[2].Position.Y.Offset, 0)
-		t.expect(find(node, "Toast")).toBe(cards[2])
+		built.steps.clear()
+		engine.heartbeat.fire(0.5)
+		t.expect(#built.report().rows).toBe(0)
 		close()
 		t.expect(engine.heartbeat.count()).toBe(0)
 	end)

@@ -94,12 +94,11 @@ return {
 			Compose.cleanup(function()
 				connection:Disconnect()
 			end)
-			return Host.ScrollingFrame "WorldMarkers" {
+			return UI.ScrollView "WorldMarkers" {
+				padding = 16,
+				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				AutomaticCanvasSize = E.AutomaticSize.Y,
-				CanvasSize = D2.new(),
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
 				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }),
 				map,
 				UI.Toggle "Move" { label = "Move objective offscreen", value = shifted },

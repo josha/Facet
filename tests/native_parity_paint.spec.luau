@@ -533,7 +533,7 @@ t.describe("native parity paint", function()
 					t.expect(properties.BackgroundColor3).toBe(color(h.engine, extra.control))
 				end
 				t.expect(style(sheet, ".facet-toggle-on").BackgroundColor3).toBe(color(h.engine, colors.accent))
-				t.expect(style(sheet, ".facet-toggle-switch >> .facet-toggle-mark").BackgroundColor3)
+				t.expect(style(sheet, ".facet-toggle-on >> .facet-toggle-mark").BackgroundColor3)
 					.toBe(color(h.engine, colors.onAccent))
 				t.expect(style(sheet, ".facet-toggle-check").ImageColor3).toBe(color(h.engine, colors.onAccent))
 				t.expect(style(sheet, ".facet-level-on").BackgroundColor3).toBe(color(h.engine, colors.accent))
@@ -1156,7 +1156,10 @@ t.describe("native parity paint", function()
 				local plate = entry.selected
 				if plate then
 					local package = shipped((string.gsub(key, "-", "_")))
-					local art = { r = plate.r / 255, g = plate.g / 255, b = plate.b / 255 }
+					local asset = package.chrome.control.asset
+					local link = if type(asset) == "table" then asset.selected else nil
+					local tint = if type(link) == "table" and link.tint then link.tint else { r = 1, g = 1, b = 1 }
+					local art = { r = plate.r / 255 * tint.r, g = plate.g / 255 * tint.g, b = plate.b / 255 * tint.b }
 					for _, palette in package.style.themes do
 						local colors, extra = paletteOf(package, palette)
 						t.expect(contrast(extra.onSelected or colors.content, art) >= 4.5).toBe(true)
@@ -1268,10 +1271,15 @@ t.describe("native parity paint", function()
 					end
 				end
 			end
-			t.expect(#changed).toBe(1)
-			t.expect(changed[1]).toBe(".facet-scrim.BackgroundTransparency")
-			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency)
-				.toBe(before[ruleNode(sheet, ".facet-scrim")].BackgroundTransparency * value)
+			table.sort(changed)
+			t.expect(changed).toEqual({
+				".facet-scrim.BackgroundTransparency",
+				".facet-scrim.facet-radial-scrim.BackgroundTransparency",
+			})
+			for _, selector in { ".facet-scrim", ".facet-scrim.facet-radial-scrim" } do
+				t.expect(style(sheet, selector).BackgroundTransparency)
+					.toBe(before[ruleNode(sheet, selector)].BackgroundTransparency * value)
+			end
 		end
 		t.expect(style(sheet, ".facet-divider").BackgroundTransparency).toBe(0.92)
 		t.expect(style(sheet, ".facet-appearance-soft").BackgroundTransparency).toBe(0.8)
@@ -1405,17 +1413,20 @@ t.describe("native parity paint", function()
 		local game, node, stop = start(ctx, word)
 		game.restart(seed)
 		local function outlined(row: number): boolean
-			local enabled = nil
+			local count = 0
 			for column = 1, word.rules.COLS do
-				local outline = find(find(node, `tile{row}_{column}`), "ActiveRow")
+				local tile = find(node, `tile{row}_{column}`)
+				local outline = find(tile, "Cursor")
 				t.expect(outline.ClassName).toBe("UIStroke")
 				t.expect(outline:HasTag("facet-status-ring")).toBe(true)
-				if enabled == nil then
-					enabled = outline.Enabled
+				if outline.Enabled then
+					count += 1
+					t.expect(game.mark(row, column)).toBe("_")
 				end
-				t.expect(outline.Enabled).toBe(enabled)
+				t.expect(find(tile, "Typed").Visible).toBe(column <= #game.row(row) and game.activeRow() == row)
 			end
-			return enabled == true
+			t.expect(count <= 1).toBe(true)
+			return count == 1
 		end
 		t.expect(outlined(1)).toBe(true)
 		t.expect(outlined(2)).toBe(false)
@@ -1425,6 +1436,7 @@ t.describe("native parity paint", function()
 		for _, letter in { "U", "L", "E", "S" } do
 			game.press(letter)
 		end
+		t.expect(outlined(1)).toBe(false)
 		local function key(letter: string): any
 			return find(node, "key_" .. letter)
 		end
@@ -1492,7 +1504,17 @@ t.describe("native parity paint", function()
 		local expanded: { [string]: { string } } = {
 			["facet-"] = {},
 			["facet-role-"] = { "default", "cancel", "destructive", "onIndicator" },
-			["facet-status-"] = { "neutral", "info", "success", "warning", "error", "accent" },
+			["facet-status-"] = { "neutral", "info", "success", "warning", "error", "accent", "voice", "contrast" },
+			["facet-avatar-background-"] = {
+				"surface",
+				"surfaceStrong",
+				"control",
+				"contentStrong",
+				"accent",
+				"success",
+				"warning",
+				"danger",
+			},
 			["facet-type-"] = table.clone(themes.TYPE_ROLES) :: any,
 			["facet-badge-"] = { "standard", "status", "utility" },
 			["facet-disclosure-"] = { "plain", "contained", "divided" },

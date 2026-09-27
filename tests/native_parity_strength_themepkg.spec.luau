@@ -261,7 +261,7 @@ t.describe("shipped theme contrast", function()
 				t.expect(style(sheet, ".facet-segment-current").BackgroundColor3).toBe(accent)
 				t.expect(style(sheet, ".facet-segment-current >> .facet-button-caption").TextColor3).toBe(onAccent)
 				t.expect(style(sheet, ".facet-tab-filled >> .facet-button-caption").TextColor3).toBe(onAccent)
-				t.expect(style(sheet, ".facet-toggle-switch >> .facet-toggle-mark").BackgroundColor3).toBe(onAccent)
+				t.expect(style(sheet, ".facet-toggle-on >> .facet-toggle-mark").BackgroundColor3).toBe(onAccent)
 				t.expect(
 					ruleNode(sheet, ".facet-role-onIndicator >> .facet-button-caption").Priority
 						> ruleNode(sheet, ".facet-button-caption").Priority
@@ -608,6 +608,41 @@ t.describe("reference theme packages", function()
 		end
 	end)
 
+	t.it("gives every shipped package and palette the same core rule ids, so a theme swap mounts no rule", function()
+		local engine, runtime = world()
+		local function ids(package: any, palette: string?): { [string]: string }
+			local sheet, stop = sheetFor(engine, runtime, package, { theme = palette })
+			local names = {}
+			for _, node in sheet:GetChildren() do
+				names[node.Name] = node.Selector
+			end
+			stop()
+			return names
+		end
+		local base = ids(themes.neutralPackage(), nil)
+		for _, name in SHIPPED do
+			local package = built(name)
+			local own: { [string]: boolean } = {}
+			for _, definition in package.rules or {} do
+				own[definition.selector] = true
+			end
+			for _, palette in package.style.themes do
+				local names, odd = ids(package, palette.name), {}
+				for id in base do
+					if names[id] == nil then
+						table.insert(odd, "-" .. id)
+					end
+				end
+				for id, selector in names do
+					if base[id] == nil and not own[selector] and not string.find(selector, "::UIGradient", 1, true) then
+						table.insert(odd, "+" .. id)
+					end
+				end
+				t.expect(`{name}/{palette.name}:{table.concat(odd, " ")}`).toBe(`{name}/{palette.name}:`)
+			end
+		end
+	end)
+
 	t.it("compiles every reference package to the same complete rule set twice and paints each palette", function()
 		local engine, runtime = world()
 		for _, name in REFERENCE do
@@ -693,11 +728,13 @@ t.describe("reference art packages", function()
 		for _, state in { "default", "hover", "pressed", "error" } do
 			t.expect(package.assets[fill[state]] ~= nil).toBe(true)
 		end
+		t.expect(fill.selected.asset).toBe("ornate_selection_selected")
+		t.expect(fill.selected.rotation).toBe(180)
 		local count = 0
 		for _ in fill do
 			count += 1
 		end
-		t.expect(count).toBe(4)
+		t.expect(count).toBe(5)
 		for slot, states in
 			{
 				selection = chrome.selection.layers[1].asset,
@@ -848,15 +885,15 @@ t.describe("reference art packages", function()
 		local plaque = skin:FindFirstChild("panel6")
 		t.expect(plaque.Image).toBe(assets.ornate_plaque.content)
 		t.expect(plaque.Size).toBe(D2(engine, 0, 176, 0, 40))
-		t.expect(plaque.Position).toBe(D2(engine, 0.5, 0, 0, -20))
-		t.expect(plaque.AnchorPoint).toBe(V2(engine, 0.5, 0))
+		t.expect(plaque.Position).toBe(D2(engine, 0.5, 0, 0, 0))
+		t.expect(plaque.AnchorPoint).toBe(V2(engine, 0.5, 0.5))
 		local caption = plaque:FindFirstChild("PlaqueCaption")
 		t.expect(caption.Text).toBe("Quest Log")
 		t.expect(caption:HasTag("facet-skin-caption-text")).toBe(true)
 		local padding = caption:FindFirstChildWhichIsA("UIPadding")
-		t.expect(padding.PaddingTop.Offset).toBe(8)
+		t.expect(padding.PaddingTop.Offset).toBe(13)
 		t.expect(padding.PaddingRight.Offset).toBe(16)
-		t.expect(padding.PaddingBottom.Offset).toBe(6)
+		t.expect(padding.PaddingBottom.Offset).toBe(15)
 		t.expect(padding.PaddingLeft.Offset).toBe(16)
 		t.expect(target:HasTag("facet-skinned")).toBe(true)
 		t.expect(target:HasTag("facet-skin-caption")).toBe(true)
@@ -949,10 +986,10 @@ t.describe("theme layer boxes", function()
 			t.expect(`{corner} {image.Image}`)
 				.toBe(`{corner} {if corner == "topLeft" then "rbxassetid://16" else "rbxassetid://17"}`)
 		end
-		expectBox(engine, skin:FindFirstChild("panel7"), { 0, 140, 0, 36 }, { 0.5, 0, 0, -18 }, { 0.5, 0 })
-		expectBox(engine, skin:FindFirstChild("panel8"), { 0, 60, 0, 20 }, { 0.5, 0, 1, 10 }, { 0.5, 1 })
-		expectBox(engine, skin:FindFirstChild("panel9"), { 0, 20, 0, 60 }, { 0, -5, 0.5, 0 }, { 0, 0.5 })
-		expectBox(engine, skin:FindFirstChild("panel10"), { 0, 20, 0, 60 }, { 1, 7, 0.5, 0 }, { 1, 0.5 })
+		expectBox(engine, skin:FindFirstChild("panel7"), { 0, 140, 0, 36 }, { 0.5, 0, 0, 0 }, { 0.5, 0.5 })
+		expectBox(engine, skin:FindFirstChild("panel8"), { 0, 60, 0, 20 }, { 0.5, 0, 1, 0 }, { 0.5, 0.5 })
+		expectBox(engine, skin:FindFirstChild("panel9"), { 0, 20, 0, 60 }, { 0, 5, 0.5, 0 }, { 0.5, 0.5 })
+		expectBox(engine, skin:FindFirstChild("panel10"), { 0, 20, 0, 60 }, { 1, -3, 0.5, 0 }, { 0.5, 0.5 })
 		local caption = skin:FindFirstChild("panel7"):FindFirstChild("PlaqueCaption")
 		t.expect(caption.Text).toBe("Title")
 		t.expect(caption.Size).toBe(D2(engine, 1, 0, 1, 0))
@@ -1020,7 +1057,7 @@ t.describe("theme layer boxes", function()
 		t.expect(first[5].Visible).toBe(false)
 		expectBox(engine, second[1], { 0, 6, 1, -24 }, { 0, 0, 0, 12 }, { 0, 0 })
 		expectBox(engine, second[2], { 0, 6, 1, -24 }, { 1, 0, 0, 12 }, { 1, 0 })
-		expectBox(engine, second[3], { 0, 60, 0, 20 }, { 0.5, 0, 1, 10 }, { 0.5, 1 })
+		expectBox(engine, second[3], { 0, 60, 0, 20 }, { 0.5, 0, 1, 0 }, { 0.5, 0.5 })
 		t.expect(second[1].Image).toBe("rbxassetid://15")
 		t.expect(second[1].ScaleType).toBe(T.Enum.ScaleType.Stretch)
 		t.expect(second[1].SliceCenter).toBe(T.Rect.new(0, 0, 0, 0))
@@ -1270,7 +1307,7 @@ t.describe("theme layer values and states", function()
 				stopRight()
 			end
 		end
-		local neutralSheet, stopNeutral = sheetFor(engine, runtime, themes.neutralPackage())
+		local neutralSheet, stopNeutral = sheetFor(engine, runtime, mapped)
 		local bareSheet, stopBare = sheetFor(engine, runtime, bare)
 		local secondSheet, stopSecond = sheetFor(engine, runtime, themes.define(variant("a")))
 		local expected = rulesSignature(neutralSheet)
@@ -1326,7 +1363,7 @@ t.describe("theme layer values and states", function()
 			for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
 				t.expect(circleRule:GetProperties()[side]).toBe(T.UDim.new(0, 0))
 			end
-			t.expect(buttonRule:GetProperties().PaddingLeft).toBe(T.UDim.new(0, 20))
+			t.expect(buttonRule:GetProperties().PaddingLeft).toBe(T.UDim.new(0, 32))
 			t.expect(circleRule.Priority > buttonRule.Priority).toBe(true)
 		end
 		stopSheet()
@@ -1428,7 +1465,7 @@ t.describe("theme sheet paint", function()
 			panel = { 10, 6, 4, 8 },
 			field = { 16, 14, 3, 5 },
 			badge = { 8, 11, 3, 6 },
-			button = { 18, 12, 12, 13 },
+			button = { 30, 21, 12, 13 },
 		}
 		for role, sides in expected do
 			for _, selector in { ".facet-" .. role .. "::UIPadding", ".facet-" .. role .. " > UIPadding" } do
@@ -1444,16 +1481,16 @@ t.describe("theme sheet paint", function()
 					)
 			end
 		end
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(T.UDim.new(0, 12))
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(T.UDim.new(0, 13))
-		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(T.UDim.new(0, 32))
-		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(T.UDim.new(0, 32))
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(T.UDim.new(0, 22))
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(T.UDim.new(0, 23))
+		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(T.UDim.new(0, 41))
+		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(T.UDim.new(0, 41))
 		stop()
 		local ornate, stopOrnate = sheetFor(engine, runtime, built("fantasy_ornate"))
 		t.expect(style(ornate, ".facet-panel::UIPadding").PaddingTop).toBe(T.UDim.new(0, 30))
 		t.expect(style(ornate, ".facet-field > UIPadding").PaddingLeft).toBe(T.UDim.new(0, 12))
 		t.expect(style(ornate, ".facet-badge::UIPadding").PaddingTop).toBe(T.UDim.new(0, 5))
-		t.expect(style(ornate, ".facet-button::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 14))
+		t.expect(style(ornate, ".facet-button::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 26))
 		stopOrnate()
 		local plain, stopPlain = sheetFor(engine, runtime, themes.neutralPackage())
 		t.expect(style(plain, ".facet-panel::UIPadding").PaddingLeft).toBe(T.UDim.new(0, 0))
@@ -1900,5 +1937,88 @@ t.describe("gallery theme packages", function()
 		t.expect(ctx.theme:peek().identity.id).toBe("scifi-hud")
 		t.expect(find(g.root, "DemoAction")).toBe(demo)
 		g.stop()
+	end)
+
+	t.it(
+		"every skinned package keeps pictures inside the art carve, an art-less glyph unpadded and calendar choices tight",
+		function()
+			local checked = 0
+			for _, name in SHIPPED do
+				local package = built(name)
+				local skin = package.chrome and package.chrome.control
+				if skin and skin.kind ~= "native" and skin.kind ~= "none" then
+					checked += 1
+					local carve = skin.contentInsets or {}
+					local engine, runtime = world({ theme = package })
+					local sheet, stop = sheetFor(engine, runtime, package)
+					local padding = ruleNode(sheet, ".facet-button-media::UIPadding"):GetProperties()
+					t.expect(
+						`{name} {padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset}`
+					)
+						.toBe(`{name} {carve.left or 0} {carve.right or 0} {carve.top or 0}`)
+					local glyph =
+						ruleNode(sheet, ".facet-button-glyph.facet-appearance-utility::UIPadding"):GetProperties()
+					t.expect(`{name} glyph {glyph.PaddingTop.Offset} {glyph.PaddingLeft.Offset}`)
+						.toBe(`{name} glyph 0 0`)
+					local choice = ruleNode(sheet, ".facet-calendar-choice::UIPadding"):GetProperties()
+					local xs = (package.metrics.space or {}).xs or 4
+					t.expect(`{name} choice {choice.PaddingLeft.Offset}`).toBe(`{name} choice {xs}`)
+					stop()
+					runtime:dispose()
+				end
+			end
+			t.expect(checked > 0).toBe(true)
+		end
+	)
+
+	t.it("every package with panel art dresses a standard Notice in that art", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local art = package.chrome and package.chrome.panel
+			if art and art.kind ~= "native" and art.kind ~= "none" then
+				checked += 1
+				local engine, runtime, UI = world({ theme = package })
+				local stop, node = runtime.mount(function()
+					return UI.Notice("Update")({ title = "Update", message = "A new track pack is ready." })
+				end, engine.new("Folder"))
+				local dressed = false
+				for _, part in node:GetDescendants() do
+					if part:HasTag("facet-skin-art-panel") then
+						dressed = true
+					end
+				end
+				t.expect(`{name} {dressed}`).toBe(`{name} true`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
+	end)
+
+	t.it("a filled tab paints its accent plate over the selected art, so its ink matches its plate", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = built(name)
+			local plate = package.chrome and package.chrome.control
+			local layers = if plate and plate.kind == "layered" then plate.layers or {} else { plate }
+			local art = false
+			for _, layer in layers do
+				if layer and type(layer.asset) == "table" and layer.asset.selected ~= nil then
+					art = true
+				end
+			end
+			if art then
+				checked += 1
+				local engine, runtime = world({ theme = package })
+				local sheet, stop = sheetFor(engine, runtime, package)
+				local hidden = ruleNode(sheet, ".facet-tab-filled > #SkinBoundary")
+				local shown = ruleNode(sheet, ".facet-skinned.facet-selected > #SkinBoundary")
+				t.expect(`{name} {hidden.Priority > shown.Priority}`).toBe(`{name} true`)
+				stop()
+				runtime:dispose()
+			end
+		end
+		t.expect(checked > 0).toBe(true)
 	end)
 end)

@@ -9,31 +9,31 @@ export type Kit = {
 	spacing: (Shared.Value<Shared.Space>?, ComposeTypes.Use?) -> number,
 	insets: (Shared.Value<Shared.Padding>?) -> UIPadding?,
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>),
-	list: (Shared.Flow, boolean) -> UIListLayout,
+	list: (Shared.Flow, Shared.Value<boolean>) -> UIListLayout,
+	underTopbar: (GuiObject, ComposeTypes.Cell<number>) -> (),
 	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
+	plain: <N>(N & Instance, unknown?) -> N & Instance,
 	stack: (
 		{ ComposeTypes.Child },
 		Shared.FrameNativeProps?,
 		Shared.Flow,
-		boolean,
+		Shared.Value<boolean>,
 		Shared.Extent?,
 		Shared.Extent?
 	) -> Frame,
 }
 
-local registry = setmetatable({} :: { [Shared.Context]: Kit }, { __mode = "k" })
 local layoutKit = {}
 
 function layoutKit.of(ctx: Shared.Context): Kit
-	return assert(registry[ctx], "Facet layout requires a controls context")
+	return assert(ctx.layoutKit :: Kit?, "Facet layout requires a controls context")
 end
 
 function layoutKit.attach(ctx: Shared.Context): Kit
 	local Host, read, types, config, Compose = ctx.Host, ctx.read, ctx.types, ctx.config, ctx.Compose
 	local themes = bindThemes(Compose)
 	local Enum = types.Enum
-	local defaultMetrics = themes.neutralPackage().metrics
 	local kit = {} :: Kit
 	local function live(value: unknown): boolean
 		return Compose.isReadable(value) or type(value) == "function"
@@ -48,7 +48,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return compute(nil)
 	end
-	local steps: { [string]: number } = defaultMetrics.space
 	function kit.spacing(value: Shared.Value<Shared.Space>?, use: ComposeTypes.Use?): number
 		local step = read(value, use)
 		if step == nil then
@@ -62,8 +61,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local package: Theme.ThemePackage? = read(config.theme, use)
 		local space: { [string]: number } = if package and type(package.metrics.space) == "table"
 			then package.metrics.space
-			else steps
-		local pixels: number? = space[step] or steps[step]
+			else ctx.neutralMetrics(use).space
+		local pixels: number? = space[step] or ctx.neutralMetrics(use).space[step]
 		assert(
 			type(pixels) == "number",
 			`Facet spacing step "{step}" is not in the theme; use xs, s, m, l, xl or a number`
@@ -93,7 +92,11 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return value
 			end
 			return derive(function(use)
-				return types.UDim.new(0, kit.spacing(pick(use), use))
+				local value: unknown = pick(use)
+				if typeof(value) == "UDim" then
+					return value :: UDim
+				end
+				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use))
 			end, padding, if type(pick(nil)) == "string" then config.theme else nil)
 		end
 		return Host.UIPadding({
@@ -147,9 +150,21 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local function edge<T>(value: Shared.Align | Shared.Distribute, start: T, center: T, finish: T): T
 		return if value == "center" then center elseif value == "end" then finish else start
 	end
-	function kit.list(flow: Shared.Flow, vertical: boolean): UIListLayout
+	function kit.list(flow: Shared.Flow, vertical: Shared.Value<boolean>): UIListLayout
+		local function column(use: ComposeTypes.Use?): boolean
+			return read(vertical, use) == true
+		end
+		local steady = not live(vertical)
+		local function uses(onColumn: unknown, onRow: unknown): boolean
+			if steady then
+				return if column(nil) then onColumn ~= nil else onRow ~= nil
+			end
+			return onColumn ~= nil or onRow ~= nil
+		end
 		local native: Shared.UIListLayoutNativeProps = {
-			FillDirection = if vertical then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
+			FillDirection = derive(function(use)
+				return if column(use) then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal
+			end, vertical),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}
 		if flow.gap ~= nil then
@@ -159,107 +174,163 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			native.Wraps = flow.wrap
 		end
 		local H, V = Enum.HorizontalAlignment, Enum.VerticalAlignment
-		if flow.align ~= nil then
-			local function align(use: ComposeTypes.Use?): Shared.Align
-				local value: Shared.Align? = read(flow.align, use)
-				assert(
-					value == nil or valid(value, { start = true, center = true, ["end"] = true, stretch = true }),
-					"Facet align must be start, center, end or stretch"
-				)
-				return if value == nil then "start" else value
-			end
-			if vertical then
-				native.HorizontalAlignment = derive(function(use)
-					return edge(align(use), H.Left, H.Center, H.Right)
-				end, flow.align)
-			else
-				native.VerticalAlignment = derive(function(use)
-					return edge(align(use), V.Top, V.Center, V.Bottom)
-				end, flow.align)
-			end
-			if live(flow.align) or align(nil) == "stretch" then
-				native.ItemLineAlignment = derive(function(use)
-					return if align(use) == "stretch"
-						then Enum.ItemLineAlignment.Stretch
-						else Enum.ItemLineAlignment.Automatic
-				end, flow.align)
-				local cross = derive(function(use)
-					return if align(use) == "stretch" then Enum.UIFlexAlignment.Fill else Enum.UIFlexAlignment.None
-				end, flow.align)
-				if vertical then
-					native.HorizontalFlex = cross
-				else
-					native.VerticalFlex = cross
-				end
-			end
+		local function align(use: ComposeTypes.Use?): Shared.Align
+			local value: Shared.Align? = read(flow.align, use)
+			assert(
+				value == nil or valid(value, { start = true, center = true, ["end"] = true, stretch = true }),
+				"Facet align must be start, center, end or stretch"
+			)
+			return if value == nil then "start" else value
 		end
-		if flow.distribute ~= nil then
-			local spread = {
-				spaceBetween = Enum.UIFlexAlignment.SpaceBetween,
-				spaceAround = Enum.UIFlexAlignment.SpaceAround,
-				spaceEvenly = Enum.UIFlexAlignment.SpaceEvenly,
-			}
-			local function distribute(use: ComposeTypes.Use?): Shared.Distribute
-				local value: Shared.Distribute? = read(flow.distribute, use)
-				assert(
-					value == nil
-						or valid(value, { start = true, center = true, ["end"] = true })
-						or valid(value, { spaceBetween = true, spaceAround = true, spaceEvenly = true }),
-					"Facet distribute must be start, center, end, spaceBetween, spaceAround or spaceEvenly"
-				)
-				return if value == nil then "start" else value
+		local spread = {
+			spaceBetween = Enum.UIFlexAlignment.SpaceBetween,
+			spaceAround = Enum.UIFlexAlignment.SpaceAround,
+			spaceEvenly = Enum.UIFlexAlignment.SpaceEvenly,
+		}
+		local function distribute(use: ComposeTypes.Use?): Shared.Distribute
+			local value: Shared.Distribute? = read(flow.distribute, use)
+			assert(
+				value == nil
+					or valid(value, { start = true, center = true, ["end"] = true })
+					or valid(value, { spaceBetween = true, spaceAround = true, spaceEvenly = true }),
+				"Facet distribute must be start, center, end, spaceBetween, spaceAround or spaceEvenly"
+			)
+			return if value == nil then "start" else value
+		end
+		if uses(flow.align, flow.distribute) then
+			native.HorizontalAlignment = derive(function(use)
+				return edge(if column(use) then align(use) else distribute(use), H.Left, H.Center, H.Right)
+			end, vertical, flow.align, flow.distribute)
+		end
+		if uses(flow.distribute, flow.align) then
+			native.VerticalAlignment = derive(function(use)
+				return edge(if column(use) then distribute(use) else align(use), V.Top, V.Center, V.Bottom)
+			end, vertical, flow.align, flow.distribute)
+		end
+		local cross = if flow.align ~= nil and (live(flow.align) or align(nil) == "stretch") then flow.align else nil
+		local main = if flow.distribute ~= nil and (live(flow.distribute) or spread[distribute(nil)])
+			then flow.distribute
+			else nil
+		if cross ~= nil then
+			native.ItemLineAlignment = derive(function(use)
+				return if align(use) == "stretch"
+					then Enum.ItemLineAlignment.Stretch
+					else Enum.ItemLineAlignment.Automatic
+			end, flow.align)
+		end
+		local function flex(use: ComposeTypes.Use?, stretching: boolean): Enum.UIFlexAlignment
+			if stretching then
+				return if cross ~= nil and align(use) == "stretch"
+					then Enum.UIFlexAlignment.Fill
+					else Enum.UIFlexAlignment.None
 			end
-			local function flex(use: ComposeTypes.Use?): Enum.UIFlexAlignment
-				return spread[distribute(use)] or Enum.UIFlexAlignment.None
-			end
-			if vertical then
-				native.VerticalAlignment = derive(function(use)
-					return edge(distribute(use), V.Top, V.Center, V.Bottom)
-				end, flow.distribute)
-				if live(flow.distribute) or spread[distribute(nil)] then
-					native.VerticalFlex = derive(flex, flow.distribute)
-				end
-			else
-				native.HorizontalAlignment = derive(function(use)
-					return edge(distribute(use), H.Left, H.Center, H.Right)
-				end, flow.distribute)
-				if live(flow.distribute) or spread[distribute(nil)] then
-					native.HorizontalFlex = derive(flex, flow.distribute)
-				end
-			end
+			return if main ~= nil
+				then spread[distribute(use)] or Enum.UIFlexAlignment.None
+				else Enum.UIFlexAlignment.None
+		end
+		if uses(cross, main) then
+			native.HorizontalFlex = derive(function(use)
+				return flex(use, column(use))
+			end, vertical, cross, main)
+		end
+		if uses(main, cross) then
+			native.VerticalFlex = derive(function(use)
+				return flex(use, not column(use))
+			end, vertical, cross, main)
 		end
 		return Host.UIListLayout(native)
 	end
+
+	local SPAN = 65536
 	function kit.ordered(children: { ComposeTypes.Child }, place: ((GuiObject, number) -> ())?): { ComposeTypes.Child }
+		local spaced = false
+		for _, child in children do
+			spaced = spaced or type(child) == "function"
+		end
 		local result: { ComposeTypes.Child } = {}
 		for index, child in children do
-			local function stamp(node: Instance)
-				if node:IsA("GuiObject") then
-					local gui = node :: GuiObject
-					gui.LayoutOrder = index
-					if place then
-						place(gui, index)
-					end
-				end
-			end
+			local base = if spaced then index * SPAN else index
 			if type(child) == "function" then
 				local directive = child :: ComposeTypes.Directive
 				result[index] = function(mountPoint: ComposeTypes.MountPoint)
+					local slot: { Instance } = {}
+					local stamped: { [Instance]: number } = {}
+					local own: { [Instance]: number } = {}
+					local watches: { [Instance]: RBXScriptConnection } = {}
+					local function restamp()
+						for at, node in slot do
+							if node:IsA("GuiObject") then
+								local order = base + (own[node] or at)
+								stamped[node] = order;
+								(node :: GuiObject).LayoutOrder = order
+							end
+						end
+					end
+					local function forget(node: Instance)
+						local found = table.find(slot, node)
+						if found then
+							table.remove(slot, found)
+						end
+						if watches[node] then
+							watches[node]:Disconnect()
+						end
+						watches[node], stamped[node], own[node] = nil, nil, nil
+					end
+					Compose.cleanup(function()
+						for node in watches do
+							forget(node)
+						end
+					end)
 					directive({
 						parent = mountPoint.parent,
 						host = mountPoint.host,
-						ordersChildren = mountPoint.ordersChildren,
-						moveTo = mountPoint.moveTo,
-						remove = mountPoint.remove,
+						ordersChildren = true,
 						count = mountPoint.count,
 						insert = function(node: unknown, at: number?)
-							stamp(node :: Instance)
+							local gui = node :: Instance
+							table.insert(slot, at or #slot + 1, gui)
+							if gui:IsA("GuiObject") then
+								local authored = (gui :: GuiObject).LayoutOrder
+								if authored ~= 0 then
+									own[gui] = authored
+								end
+								watches[gui] = gui:GetPropertyChangedSignal("LayoutOrder"):Connect(function()
+									local order = (gui :: GuiObject).LayoutOrder
+									if order ~= stamped[gui] then
+										own[gui] = order
+										restamp()
+									end
+								end)
+								if place then
+									place(gui :: GuiObject, index)
+								end
+							end
+							restamp()
 							mountPoint.insert(node, at)
+						end,
+						moveTo = function(node: unknown, at: number)
+							table.remove(slot, assert(table.find(slot, node :: Instance)))
+							table.insert(slot, at, node :: Instance)
+							restamp()
+							if mountPoint.ordersChildren then
+								mountPoint.moveTo(node, at)
+							end
+						end,
+						remove = function(node: unknown)
+							forget(node :: Instance)
+							mountPoint.remove(node)
+							restamp()
 						end,
 					})
 				end
 			else
-				stamp(child :: Instance)
+				if (child :: Instance):IsA("GuiObject") then
+					local gui = child :: GuiObject
+					gui.LayoutOrder = base
+					if place then
+						place(gui, index)
+					end
+				end
 				result[index] = child
 			end
 		end
@@ -291,26 +362,53 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return native
 	end
+
+	function kit.plain<N>(node: N & Instance, properties: unknown?): N & Instance
+		if ((properties or {}) :: { BackgroundTransparency: unknown? }).BackgroundTransparency == nil then
+			node:AddTag("facet-layout")
+		end
+		return node
+	end
 	function kit.stack(
 		children: { ComposeTypes.Child },
 		properties: Shared.FrameNativeProps?,
 		flow: Shared.Flow,
-		vertical: boolean,
+		vertical: Shared.Value<boolean>,
 		width: Shared.Extent?,
 		height: Shared.Extent?
 	): Frame
 		local size, automatic = kit.extent(flow, width or "hug", height or "hug")
 		local native: Shared.FrameNativeProps = {
-			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		return Host.Frame(
-			kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding) }, children)
+		return kit.plain(
+			Host.Frame(
+				kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding) }, children)
+			),
+			properties
 		)
 	end
-	registry[ctx] = kit
+	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)
+		local gui = config.guiService
+		if gui == nil then
+			return
+		end
+		local topbar, position, parent =
+			ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(parent)
+			local band, top = use(topbar), use(position).Y
+			local ok, inset = pcall(gui.GetGuiInset, gui)
+			under:set(
+				if typeof(band) == "Rect" and frame:FindFirstAncestorWhichIsA("ScreenGui")
+					then math.max(0, band.Max.Y - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top)
+					else 0
+			)
+		end)
+	end
+	ctx.layoutKit = kit
 	return kit
 end
 

@@ -34,6 +34,15 @@ local function cell(world: any, id: string): any
 	return world.find(`Step-{id}`)
 end
 
+local function drawn(world: any, scale: number): string
+	local strip, underline = world.find("Strip"), world.find("Underline")
+	local left = strip.AbsolutePosition.X
+		+ underline.Position.X.Scale * strip.AbsoluteSize.X
+		+ underline.Position.X.Offset * scale
+	local width = underline.Size.X.Scale * strip.AbsoluteSize.X + underline.Size.X.Offset * scale
+	return `{math.round(left * 10) / 10} {math.round(width * 10) / 10}`
+end
+
 t.describe("native StepIndicator", function()
 	t.it("makes only navigable, enabled steps with onSelect into Buttons and the rest into content", function()
 		local world = mount({ steps = workflow(), current = "ship", onSelect = function() end })
@@ -68,14 +77,14 @@ t.describe("native StepIndicator", function()
 		}, 900, { reducedMotion = true })
 		local strip = world.find("Strip")
 		strip.AbsolutePosition = world.V2(10, 0)
+		world.resize(strip, 900, 80)
 		local positions = { cart = 10, ship = 200, pay = 400, done = 600 }
 		for id, x in positions do
 			cell(world, id).AbsolutePosition = world.V2(x, 0)
 			world.resize(cell(world, id), 150, 60)
 		end
-		local underline = world.find("Underline")
 		local function under(id: string): boolean
-			return underline.Position.X.Offset == positions[id] - 10 and underline.Size.X.Offset == 150
+			return drawn(world, 1) == `{positions[id]} 150`
 		end
 		t.expect(under("ship")).toBe(true)
 		t.expect(root:GetAttribute("FacetSummary")).toBe("Step 2 of 4 — Shipping")
@@ -94,6 +103,17 @@ t.describe("native StepIndicator", function()
 		world.stop()
 	end)
 
+	t.it("draws the underline on its step under an ancestor UIScale", function()
+		local world = mount({ steps = workflow(), current = "ship" }, 1200, { reducedMotion = true })
+		local strip = world.find("Strip")
+		strip.AbsolutePosition = world.V2(12, 0)
+		world.resize(strip, 1204.7, 96)
+		cell(world, "ship").AbsolutePosition = world.V2(695.1, 0)
+		world.resize(cell(world, "ship"), 269, 72)
+		t.expect(drawn(world, 1.2047)).toBe("695.1 269")
+		world.stop()
+	end)
+
 	t.it("stretches the row cells to one height on one top edge", function()
 		local world = mount({ steps = workflow(), current = "ship" })
 		local layout = world.find("Row"):FindFirstChildWhichIsA("UIListLayout")
@@ -107,6 +127,36 @@ t.describe("native StepIndicator", function()
 		t.expect(underline:HasTag("facet-selection-indicator")).toBe(true)
 		world.stop()
 	end)
+
+	t.it("gives every fill cell one zero basis so the flex fill shares the row equally", function()
+		for _, pair in { { "fill", "Y" }, { "hug", "XY" } } do
+			local world = mount({ steps = workflow(), current = "ship", sizing = pair[1], onSelect = function() end })
+			for _, id in { "cart", "ship", "pay", "done" } do
+				local node = cell(world, id)
+				t.expect(`{pair[1]} {id} {node.AutomaticSize.Name} {node.Size.X.Scale} {node.Size.X.Offset}`)
+					.toBe(`{pair[1]} {id} {pair[2]} 0 0`)
+			end
+			world.stop()
+		end
+	end)
+
+	t.it(
+		"insets every cell by the control inset, and its marker off the top edge, whether or not it is a Button",
+		function()
+			for _, pair in { { "regular", 12 }, { "large", 16 } } do
+				local world =
+					mount({ steps = workflow(), current = "ship", controlSize = pair[1], onSelect = function() end })
+				for _, id in { "cart", "ship", "pay", "done" } do
+					local padding = cell(world, id):FindFirstChildWhichIsA("UIPadding")
+					local sides = if padding
+						then `{padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset} {padding.PaddingBottom.Offset}`
+						else "none"
+					t.expect(`{pair[1]} {id} {sides}`).toBe(`{pair[1]} {id} {pair[2]} {pair[2]} 4 4`)
+				end
+				world.stop()
+			end
+		end
+	)
 
 	t.it("reserves space under the row so the underline never crosses the state word", function()
 		local world = mount({ steps = workflow(), current = "ship" })
@@ -266,6 +316,7 @@ t.describe("native StepIndicator", function()
 		for _, sizing in { "fill", "hug" } do
 			local world, root = mount({ steps = workflow(), current = "ship", sizing = sizing }, 150)
 			measureAll(world, root, 60)
+			world.find("Row"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = world.V2(600, 60)
 			t.expect(`{sizing} {root:GetAttribute("FacetForm")}`).toBe(`{sizing} summary`)
 			world.resize(root, 950, 80)
 			t.expect(`{sizing} {root:GetAttribute("FacetForm")}`).toBe(`{sizing} row`)
@@ -273,8 +324,8 @@ t.describe("native StepIndicator", function()
 		end
 		local steps = workflow()
 		steps[2].label = "A much longer shipping label"
-		local fill, fillRoot = mount({ steps = steps, current = "ship", sizing = "fill" }, 540)
-		local hug, hugRoot = mount({ steps = steps, current = "ship", sizing = "hug" }, 540)
+		local fill, fillRoot = mount({ steps = steps, current = "ship", sizing = "fill" }, 640)
+		local hug, hugRoot = mount({ steps = steps, current = "ship", sizing = "hug" }, 640)
 		for _, pair in { { fill, fillRoot }, { hug, hugRoot } } do
 			for _, node in pair[2]:GetDescendants() do
 				if node.Name == "Measure" then
@@ -282,14 +333,27 @@ t.describe("native StepIndicator", function()
 				end
 			end
 		end
+		hug.find("Row"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = hug.V2(600, 60)
 		t.expect(fillRoot:GetAttribute("FacetForm")).toBe("summary")
 		t.expect(hugRoot:GetAttribute("FacetForm")).toBe("row")
 		fill.stop()
 		hug.stop()
 	end)
 
-	t.it("measures the whole cell, not the label alone, before it draws the row", function()
-		for _, sizing in { "fill", "hug" } do
+	t.it("switches a hug row to the summary when the laid-out row is wider than its offer", function()
+		local world, root =
+			mount({ steps = workflow(), current = "ship", sizing = "hug", onSelect = function() end }, 400)
+		measureAll(world, root, 10)
+		local layout = world.find("Row"):FindFirstChildWhichIsA("UIListLayout")
+		layout.AbsoluteContentSize = world.V2(520, 60)
+		t.expect(root:GetAttribute("FacetForm")).toBe("summary")
+		layout.AbsoluteContentSize = world.V2(380, 60)
+		t.expect(root:GetAttribute("FacetForm")).toBe("row")
+		world.stop()
+	end)
+
+	t.it("measures the whole fill cell, not the label alone, before it draws the row", function()
+		for _, sizing in { "fill" } do
 			local world, root =
 				mount({ steps = workflow(), current = "ship", sizing = sizing, onSelect = function() end }, 484)
 			for _, node in root:GetDescendants() do

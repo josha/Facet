@@ -19,6 +19,7 @@ return {
 			rows = rows,
 			table = true,
 			entrants = true,
+			editable = true,
 			columns = {
 				{
 					id = "entrant",
@@ -31,7 +32,15 @@ return {
 				{
 					id = "team",
 					label = "Team",
-					minWidth = 100,
+					minWidth = 140,
+					editor = "menu",
+					options = (function()
+						local choices = {}
+						for _, team in TEAMS do
+							table.insert(choices, { value = team, label = team })
+						end
+						return choices
+					end)(),
 					value = function(item)
 						return item.team
 					end,

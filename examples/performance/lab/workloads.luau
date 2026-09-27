@@ -405,7 +405,7 @@ function workloads.create(ctx, name, dataset)
 				itemSize = 40,
 				header = false,
 				selection = state.selected,
-				selectionMode = "multi",
+				selectionMode = "multiple",
 				status = state.status,
 			})
 			for _, child in node:GetChildren() do

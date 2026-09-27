@@ -63,4 +63,40 @@ function activation.notify(node: Instance, ...: unknown)
 	end
 end
 
+local consumed = setmetatable({} :: { [unknown]: boolean }, { __mode = "k" })
+
+function activation.consume(input: unknown)
+	if input ~= nil then
+		consumed[input] = true
+	end
+end
+
+function activation.release(input: unknown)
+	if input ~= nil then
+		consumed[input] = nil
+	end
+end
+
+function activation.consumed(input: unknown): boolean
+	return input ~= nil and consumed[input] == true
+end
+
+local pressers = setmetatable({} :: { [Instance]: (InputObject) -> () }, { __mode = "k" })
+
+function activation.providePress(node: Instance, press: (InputObject) -> ()): () -> ()
+	pressers[node] = press
+	return function()
+		if pressers[node] == press then
+			pressers[node] = nil
+		end
+	end
+end
+
+function activation.press(node: Instance, input: InputObject)
+	local press = pressers[node]
+	if press then
+		press(input)
+	end
+end
+
 return activation

@@ -1,7 +1,20 @@
 --!strict
 local t = require("./lib/testkit")
-local HELPERS =
-	{ fill = true, badged = true, environment = true, worldAnchor = true, scrollTo = true, scrollToVisible = true }
+local HELPERS = {
+	fill = true,
+	badged = true,
+	environment = true,
+	worldAnchor = true,
+	scrollTo = true,
+	scrollToVisible = true,
+	focusRing = true,
+	adjustable = true,
+	feedback = true,
+	focusSection = true,
+	responder = true,
+	draggable = true,
+	dropTarget = true,
+}
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local catalogue = require("../examples/gallery/client/demo_picker")
@@ -26,14 +39,6 @@ local KNOWN_UNNAMED: { [string]: { control: string, nameable: boolean, reason: s
 		reason = "Rating has no label or name option; its only text is the star glyphs",
 		props = function()
 			return { value = Compose.cell(2) }
-		end,
-	},
-	["facet-slider-track"] = {
-		control = "Slider",
-		nameable = true,
-		reason = "Slider has no name option, so the selectable track of a Slider without a visible label has no accessible name",
-		props = function()
-			return { value = Compose.cell(0.5) }
 		end,
 	},
 	["facet-text-input"] = {
@@ -321,6 +326,18 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 	HStack = function()
 		return { gap = "s" }
 	end,
+	AdaptiveStack = function()
+		return { gap = "s" }
+	end,
+	ViewThatFits = function(Host)
+		return { Host.TextLabel { Text = "Wide" }, Host.TextLabel { Text = "Narrow" } }
+	end,
+	Region = function(Host)
+		return { zone = "top", rank = 1, Host.TextLabel { Text = "Score" } }
+	end,
+	Composition = function()
+		return {}
+	end,
 	ZStack = function()
 		return {}
 	end,
@@ -489,7 +506,7 @@ local fixtures: { [string]: (Host: any, engine: any) -> any } = {
 			actions = { { id = "ok", label = "OK", onActivate = function() end } },
 		}
 	end,
-	Snackbar = function()
+	Toast = function()
 		local shown = Compose.cell(true)
 		return {
 			isPresented = shown,

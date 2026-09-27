@@ -24,6 +24,7 @@ return {
 		local advanced = Compose.cell(false)
 		local passThrough = Compose.cell(false)
 		local centerPolicy = Compose.cell("empty")
+		local dim = Compose.cell("none")
 		local lastAction = Compose.cell("ready")
 		local current, currentPresented = nil, nil
 		local worldState = nil
@@ -38,7 +39,9 @@ return {
 				{
 					id = use(selected) .. ":" .. tostring(use(skinned)) .. ":" .. use(centerPolicy) .. ":" .. tostring(
 						use(passThrough)
-					) .. ":" .. tostring(use(separate)) .. ":" .. use(fitting) .. ":" .. use(corner),
+					) .. ":" .. tostring(use(separate)) .. ":" .. use(fitting) .. ":" .. use(corner) .. ":" .. use(
+						dim
+					),
 					kind = use(selected),
 					skin = use(skinned),
 					separate = use(separate),
@@ -46,6 +49,7 @@ return {
 					corner = use(corner),
 					center = use(centerPolicy),
 					passThrough = use(passThrough),
+					scrim = use(dim),
 				},
 			}
 		end)
@@ -61,8 +65,8 @@ return {
 				Name = "Commands",
 
 				center = "empty",
-				label = "Quick actions",
 				contentFit = item.fit,
+				scrim = item.scrim,
 				isPresented = presented,
 				ref = function(record)
 					menu = record
@@ -107,7 +111,7 @@ return {
 				end
 				spec.preset, spec.center = "donut", "empty"
 				spec.anchor = stage
-				spec.ringWidth = 48
+				spec.ringWidth = "narrow"
 				spec.appearance = if item.separate then "buttons" else "wedges"
 				items = {
 					{
@@ -231,7 +235,7 @@ return {
 				spec.center = item.center
 				spec.centerPassThrough = item.passThrough
 				spec.clearance = 82
-				spec.ringWidth = 48
+				spec.ringWidth = "narrow"
 				items = {
 					{
 						id = "equipment",
@@ -363,7 +367,7 @@ return {
 					Size = UDim2.new(0, 13, 0, 30),
 				},
 			}
-			if item.kind == "character" then
+			if item.kind == "character" or item.kind == "gestures" then
 				spec.anchor = silhouette
 			end
 			local menuNode = UI.RadialMenu(spec)
@@ -373,13 +377,28 @@ return {
 					current, currentPresented, worldState = nil, nil, nil
 				end
 			end)
-			local root = Host.Frame "Scene" {
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 0, 380),
-				if item.kind == "world" then stage else silhouette,
-				menuNode,
+			local corner = string.gsub(item.corner, "%-(%a)", string.upper)
+			return UI.Composition "Scene" {
+				LayoutOrder = 3,
+				Size = UDim2.new(1, 0, 0, 260),
+				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }),
+				UI.Region "Subject" {
+					zone = "center",
+					rank = 1,
+					if item.kind == "world"
+						then stage
+						else Host.Frame "Orbit" {
+							BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(140, 120),
+							silhouette,
+						},
+				},
+				UI.Region "LauncherCorner" {
+					zone = if item.kind == "corner" then corner else "bottomLeft",
+					rank = 2,
+					menuNode,
+				},
 			}
-			return root
 		end
 		local modes = {
 			{ value = "corner", label = "Corner commands" },
@@ -396,6 +415,7 @@ return {
 				else "Open your commands. Equipment leads to Tools. The explorer stays in view."
 		end)
 		local disclosure = UI.DisclosureGroup "Advanced" {
+			LayoutOrder = 5,
 			label = "More options",
 			expanded = advanced,
 			content = function()
@@ -440,6 +460,15 @@ return {
 						label = "Allow taps through the center",
 						value = passThrough,
 					},
+					UI.Button "Scrim" {
+						label = Compose.formula(function(use)
+							return "Page dim: " .. use(dim)
+						end),
+						onActivate = function()
+							local order = { "none", "dark", "light" }
+							dim:set(order[(table.find(order, dim:peek()) :: number) % #order + 1])
+						end,
+					},
 					UI.Button "CenterPolicy" {
 						label = Compose.formula(function(use)
 							return "Center: " .. use(centerPolicy)
@@ -463,10 +492,12 @@ return {
 		local function controls()
 			return {
 				UI.Picker "Tabs" {
+					LayoutOrder = 1,
 					selected = selected,
 					options = modes,
 				},
 				Host.Frame "InstructionPlate" {
+					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -483,6 +514,7 @@ return {
 					},
 				},
 				Host.Frame "ResultPlate" {
+					LayoutOrder = 4,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -504,24 +536,22 @@ return {
 		local function screen()
 			local content = controls()
 			table.insert(content, 3, sceneRows())
-			return Host.ScrollingFrame "RadialMenu" {
+			return UI.ScrollView "RadialMenu" {
+				padding = 16,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.fromOffset(0, 0),
 				ScrollBarThickness = 6,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 12),
-				}),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				table.unpack(content),
+				Host.Frame "Body" {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 12),
+					}),
+					table.unpack(content),
+				},
 			}
 		end
 		return {

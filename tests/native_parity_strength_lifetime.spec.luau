@@ -4,6 +4,7 @@ local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local gallery = require("../examples/gallery/client/screen")
 local Compose = Facet.Compose
+local InspectState = require("../src/vendor/compose/core/ownership/inspect")
 
 type Census = { live: number, connections: number, owners: number, holding: number, mounts: number }
 
@@ -50,6 +51,8 @@ end
 
 local function inspected(body: () -> ())
 	Compose.inspect.start({ maxOwners = 1000000, maxNodes = 1000000 })
+
+	setmetatable((InspectState.__state() :: any).records, nil)
 	local ok, failure = pcall(body)
 	Compose.inspect.stop()
 	if not ok then
@@ -832,7 +835,7 @@ t.describe("lifetime parity strength", function()
 				built = hud.build(ctx)
 				return built.screen()
 			end, target)
-			local body = find(root, "HudBody")
+			local body = find(root, "Zones")
 			local signal = body:GetPropertyChangedSignal("AbsoluteSize")
 			built.steps.openUrlBar()
 			viewport:set({ width = 360, height = 691 })
@@ -842,7 +845,7 @@ t.describe("lifetime parity strength", function()
 			built.steps.closeOverflow()
 			viewport:set({ width = 1079, height = 809 })
 			body.AbsoluteSize = engine.types.Vector2.new(1079, 700)
-			find(root, "Overflow").Activated.fire()
+			built.steps.openOverflow()
 			t.expect(built.report().overflowOpen).toBe(true)
 			built.steps.closeOverflow()
 			t.expect(census(engine).live > before.live + 50).toBe(true)
@@ -1713,7 +1716,7 @@ t.describe("lifetime parity strength", function()
 			settle(w.engine, 1.5)
 			t.expect(live).toBe(1)
 			local body = find(w.root, "Body")
-			find(w.root, "Close").Activated.fire()
+			find(w.root, "ModalBack").Pressed.fire()
 			t.expect(shown:peek()).toBe(false)
 			settle(w.engine, 1.5)
 			t.expect(live).toBe(0)
@@ -1993,7 +1996,7 @@ t.describe("lifetime parity strength", function()
 			}
 			package.chrome.barFill = { kind = "nineSlice", asset = "fill" }
 			package.chrome.barCap =
-				{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 28, h = 36 } }
+				{ kind = "nineSlice", startAsset = "start", endAsset = "finish", size = { w = 6, h = 6 } }
 			local w = controlWorld({ theme = package })
 			local before = census(w.engine)
 			local value = Compose.cell(0.25)

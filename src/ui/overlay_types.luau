@@ -24,10 +24,19 @@ export type Hero = {
 export type ActionRole = "default" | "cancel" | "destructive"
 export type Action = {
 	id: string,
-	label: Value<string>,
+	label: Types.ValueString,
 	role: ActionRole?,
-	enabled: Value<boolean>?,
-	busy: Value<boolean>?,
+	enabled: Types.ValueBoolean?,
+	busy: Types.ValueBoolean?,
+	onActivate: () -> (),
+}
+export type DialogAction = {
+	id: string,
+	label: Types.ValueString,
+	role: ActionRole?,
+	enabled: Types.ValueBoolean?,
+	busy: Types.ValueBoolean?,
+	keepOpen: boolean?,
 	onActivate: () -> (),
 }
 export type ActionLayout = "automatic" | "row" | "stacked"
@@ -37,14 +46,14 @@ export type Align = "start" | "center" | "end"
 
 export type DialogDismissReason = "close" | "outside" | "cancel" | "action"
 export type DialogSpec = Types.FrameProps & {
-	isPresented: Value<boolean>,
+	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((DialogDismissReason) -> ())?,
-	title: Value<string>?,
+	title: Types.ValueString?,
 	content: (() -> Instance)?,
 	hero: Media?,
-	actionLabel: Value<string>?,
-	actions: { Action }?,
+	actionLabel: Types.ValueString?,
+	actions: { DialogAction }?,
 	actionLayout: ActionLayout?,
 	closeButton: boolean?,
 	width: WidthPreset?,
@@ -56,7 +65,7 @@ export type DialogConstructor = ((DialogSpec) -> Frame) & ((string) -> (DialogSp
 export type PopoverDismissReason = "cancel" | "outside" | "trigger" | "anchorLost"
 export type PopoverSource = { node: GuiObject } | { rect: Rect }
 export type PopoverSpec = Types.FrameProps & {
-	isPresented: Value<boolean>,
+	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((PopoverDismissReason) -> ())?,
 	trigger: GuiButton?,
@@ -70,32 +79,20 @@ export type PopoverSpec = Types.FrameProps & {
 	maxWidth: number?,
 	maxHeight: number?,
 	compact: ("sheet" | "popover")?,
-	title: Value<string>?,
-}
-
-export type SnackbarDismissReason = "action" | "close" | "timeout" | "superseded" | "cancel"
-export type SnackbarAction = { label: Value<string>, onActivate: () -> () }
-export type SnackbarSpec = Types.FrameProps & {
-	isPresented: Value<boolean>,
-	message: Value<string>,
-	icon: string?,
-	action: SnackbarAction?,
-	closeButton: boolean?,
-	onPresentedChange: ((boolean) -> ())?,
-	onDismiss: ((SnackbarDismissReason) -> ())?,
-	duration: number?,
-	priority: number?,
+	title: Types.ValueString?,
+	modal: boolean?,
+	cancelPolicy: ("dismiss" | "none")?,
 }
 
 export type NoticeSeverity = "info" | "success" | "warning" | "error"
 export type NoticeSpec = Types.FrameProps & {
-	message: Value<string>,
-	title: Value<string>?,
+	message: Types.ValueString,
+	title: Types.ValueString?,
 	severity: NoticeSeverity?,
 	appearance: ("standard" | "emphasis")?,
 	placement: ("inline" | "affixed")?,
 	icon: (boolean | string)?,
-	link: { label: Value<string>, onActivate: () -> () }?,
+	link: { label: Types.ValueString, onActivate: () -> () }?,
 	actions: { Action }?,
 	onDismiss: (() -> ())?,
 	controlSize: Value<Types.ControlSize>?,
@@ -104,19 +101,48 @@ export type NoticeSpec = Types.FrameProps & {
 export type NavBarSpec = Types.FrameProps & {
 	onBack: (() -> ())?,
 	backLabel: string?,
-	title: Value<string>?,
+	title: Types.ValueString?,
 	titleSize: string?,
 	leading: GuiObject?,
 	center: GuiObject?,
 	trailing: GuiObject?,
 	gap: number?,
 	padding: number?,
+	surface: ("surface" | "panel" | "pane")?,
+}
+
+export type ToastDismissReason =
+	"timeout"
+	| "supersede"
+	| "preempt"
+	| "capacity"
+	| "manual"
+	| "action"
+	| "close"
+	| "cancel"
+export type ToastAction = { label: Types.ValueString, onActivate: () -> () }
+export type ToastSpec = Types.FrameProps & {
+	message: Types.ValueString?,
+	content: (() -> Instance)?,
+	icon: string?,
+	action: ToastAction?,
+	closeButton: boolean?,
+	isPresented: Types.ValueBoolean?,
+	onPresentedChange: ((boolean) -> ())?,
+	key: string?,
+	priority: number?,
+	duration: number?,
+	readFloor: number?,
+	position: ("top" | "bottom")?,
+	width: ("fill" | "hug")?,
+	fade: boolean?,
+	onDismiss: ((ToastDismissReason) -> ())?,
 }
 
 export type OverlayControls = {
 	Dialog: Types.Constructor<DialogSpec, Frame>,
 	Popover: Types.Constructor<PopoverSpec, GuiObject>,
-	Snackbar: Types.Constructor<SnackbarSpec, Frame>,
+	Toast: Types.Constructor<ToastSpec, Frame>,
 	Notice: Types.Constructor<NoticeSpec, Frame>,
 	NavBar: Types.Constructor<NavBarSpec, Frame>,
 }

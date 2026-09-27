@@ -165,7 +165,7 @@ local function contrast(first: any, second: any): number
 	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
 end
 
-type Compound = { class: string?, tags: { string }, state: string? }
+type Compound = { class: string?, name: string?, tags: { string }, state: string? }
 type Selector = { parts: { Compound }, combinators: { string }, pseudo: string? }
 
 local function compound(text: string): Compound
@@ -175,6 +175,7 @@ local function compound(text: string): Compound
 	end
 	return {
 		class = string.match(text, "^(%a%w*)"),
+		name = string.match(text, "#([%w_]+)"),
 		tags = tags,
 		state = string.match(text, ":(%a+)$"),
 	}
@@ -207,6 +208,9 @@ end
 
 local function matchesPart(part: Compound, node: any): boolean
 	if part.class and not node:IsA(part.class) then
+		return false
+	end
+	if part.name and node.Name ~= part.name then
 		return false
 	end
 	for _, tag in part.tags do
@@ -270,8 +274,15 @@ local function skinPackage(slots: { [string]: any }): any
 end
 
 local function ownArt(node: any, slot: string): any
-	for _, child in node:GetChildren() do
-		if string.sub(child.Name, -8) == "Boundary" then
+	local children = node:GetChildren()
+	local fade = node:FindFirstChild("Fade")
+	if fade and fade.ClassName == "CanvasGroup" then
+		for _, child in fade:GetChildren() do
+			table.insert(children, child)
+		end
+	end
+	for _, child in children do
+		if string.sub(child.Name, -8) == "Boundary" or (child.ClassName == "Folder" and child.Name == "Chrome") then
 			local art = find(child, slot .. "1")
 			if art then
 				return art
@@ -283,7 +294,14 @@ end
 
 local function ownSlots(node: any): { string }
 	local out = {}
-	for _, child in node:GetChildren() do
+	local children = node:GetChildren()
+	local fade = node:FindFirstChild("Fade")
+	if fade and fade.ClassName == "CanvasGroup" then
+		for _, child in fade:GetChildren() do
+			table.insert(children, child)
+		end
+	end
+	for _, child in children do
 		if string.sub(child.Name, -8) == "Boundary" or (child.ClassName == "Folder" and child.Name == "Chrome") then
 			for _, image in child:GetDescendants() do
 				if image.ClassName == "ImageLabel" and image.Visible then
@@ -395,6 +413,47 @@ t.describe("native paint strength: button content", function()
 		h.dispose()
 	end)
 
+	t.it("writes a destructive menu row in content ink and hovers it on the danger plate in onDanger", function()
+		local h = harness()
+		local colors = neutralColors()
+		local sheet, stopSheet = sheetFor(h, themes.neutralPackage())
+		local root, stop = mount(h, function()
+			return h.UI.Button({ Name = "Delete", label = "Delete", icon = "trash", role = "destructive" })
+		end)
+		local row = find(root, "Delete")
+		row:AddTag("facet-menu-item")
+		row:AddTag("facet-menu-destructive")
+		local title, icon = find(row, "Title"), find(row, "LeadingIcon")
+		setState(h, row, "Idle")
+		t.expect(resolve(sheet, title, "TextColor3")).toBe(color(h.engine, colors.content))
+		t.expect(resolve(sheet, row, "BackgroundTransparency")).toBe(1)
+		t.expect(resolve(sheet, row, "CornerRadius", "UICorner")).toBe(h.engine.types.UDim.new(0, 0))
+		for _, state in { "Hover", "Press" } do
+			setState(h, row, state)
+			t.expect(resolve(sheet, row, "BackgroundColor3")).toBe(color(h.engine, colors.danger))
+			t.expect(resolve(sheet, title, "TextColor3")).toBe(color(h.engine, colors.onDanger))
+			t.expect(resolve(sheet, icon, "ImageColor3")).toBe(color(h.engine, colors.onDanger))
+		end
+		stop()
+		stopSheet()
+		h.dispose()
+	end)
+
+	t.it("rounds a tag to the theme's pill radius", function()
+		local h = harness()
+		local root, stop = mount(h, function()
+			return h.UI.Chip({ Name = "Tag", label = "Rain", selected = Compose.cell(false) })
+		end)
+		local tag = find(root, "Tag")
+		for _, case in { { themes.neutralPackage(), 999 }, { (shipped("pixel_quest")), 0 } } do
+			local sheet, stopSheet = sheetFor(h, case[1])
+			t.expect(resolve(sheet, tag, "CornerRadius", "UICorner")).toBe(h.engine.types.UDim.new(0, case[2]))
+			stopSheet()
+		end
+		stop()
+		h.dispose()
+	end)
+
 	t.it("keeps a hidden plaque caption hidden while its button is disabled", function()
 		local h = harness()
 		local _, extra = neutralColors()
@@ -404,15 +463,42 @@ t.describe("native paint strength: button content", function()
 		end)
 		local button = find(root, "Plaque")
 		button:AddTag("facet-skin-caption")
-		local caption = h.engine.new("TextLabel")
-		caption:AddTag("facet-text")
-		caption:AddTag("facet-button-caption")
-		caption.Parent = button
+		local caption = find(button, "LabelBoundary")
+		caption = if caption then find(caption, "Label") else nil
+		if caption == nil then
+			local boundary, bounds = h.engine.new("Frame"), h.engine.new("Frame")
+			bounds.Parent, boundary.Parent = boundary, button
+			caption = h.engine.new("TextLabel")
+			caption:AddTag("facet-text")
+			caption:AddTag("facet-button-caption")
+			caption.Parent = bounds
+		end
 		t.expect(resolve(sheet, caption, "TextTransparency")).toBe(1)
 		button:RemoveTag("facet-skin-caption")
 		t.expect(resolve(sheet, caption, "TextTransparency")).toBe(extra.disabledContentOpacity)
-		caption:Destroy()
 		stopMount()
+		stop()
+		h.dispose()
+	end)
+
+	t.it("a skin that paints its own caption hides only its own button caption, not the captions inside it", function()
+		local h = harness()
+		local sheet, stop = sheetFor(h, themes.neutralPackage())
+		local panel = h.engine.new("Frame")
+		panel:AddTag("facet-skin-caption")
+		local function caption(parent: any): any
+			local boundary, bounds, label = h.engine.new("Frame"), h.engine.new("Frame"), h.engine.new("TextLabel")
+			label:AddTag("facet-text")
+			label:AddTag("facet-button-caption")
+			label.Parent, bounds.Parent, boundary.Parent = bounds, boundary, parent
+			return label
+		end
+		local own = caption(panel)
+		local room, actions, apply = h.engine.new("Frame"), h.engine.new("Frame"), h.engine.new("TextButton")
+		actions.Parent, room.Parent, apply.Parent = room, panel, actions
+		local inner = caption(apply)
+		t.expect(resolve(sheet, own, "TextTransparency")).toBe(1)
+		t.expect(resolve(sheet, inner, "TextTransparency")).toBe(0)
 		stop()
 		h.dispose()
 	end)
@@ -631,8 +717,11 @@ t.describe("native paint strength: button content", function()
 		t.expect(resolve(sheet, find(b, "SelectionIndicator"), "BackgroundColor3")).toBe(color(h.engine, colors.accent))
 		indicator:set("pill")
 		t.expect(bars(picker)).toBe(0)
-		t.expect(resolve(sheet, b, "BackgroundTransparency")).toBe(0)
-		t.expect(resolve(sheet, b, "BackgroundColor3")).toBe(color(h.engine, colors.accent))
+		local fill = find(picker, "SelectionFill")
+		t.expect(fill.Visible).toBe(true)
+		t.expect(resolve(sheet, fill, "BackgroundTransparency")).toBe(0)
+		t.expect(resolve(sheet, fill, "BackgroundColor3")).toBe(color(h.engine, colors.accent))
+		t.expect(resolve(sheet, b, "BackgroundTransparency")).toBe(1)
 		t.expect(resolve(sheet, a, "BackgroundTransparency")).toBe(1)
 		local one, two = find(root, "one"), find(root, "two")
 		local tabs = one.Parent
@@ -735,6 +824,110 @@ t.describe("native paint strength: button content", function()
 			end)
 		end).toThrow()
 	end)
+
+	t.it("draws each wedge item as plate-less content inside its own wedge, even in a skinned package", function()
+		for _, package in { themes.neutralPackage(), (shipped("pixel_quest")), (shipped("fantasy_ornate")) } do
+			local h = harness({ reducedMotion = true, theme = package })
+			local items = {}
+			for index = 1, 12 do
+				table.insert(items, {
+					id = "item" .. index,
+					label = "Item " .. index,
+					icon = if index % 2 == 0 then "checkmark" else nil,
+					onSelect = function() end,
+				})
+			end
+			local root, stop = mount(h, function()
+				return h.UI.RadialMenu({ isPresented = Compose.cell(true), items = items })
+			end)
+			for index = 1, 12 do
+				local button = find(root.Parent, "item" .. index)
+				local where = `{package.identity.id}/item{index}`
+				t.expect(#ownSlots(button)).toBe(0)
+				t.expect(button:HasTag("facet-appearance-utility")).toBe(true)
+				local paint = find(button.Parent, "Paint")
+				local left = button.Position.X.Offset - button.Size.X.Offset / 2
+				local top = button.Position.Y.Offset - button.Size.Y.Offset / 2
+				local inside = left >= paint.Position.X.Offset - 0.5
+					and top >= paint.Position.Y.Offset - 0.5
+					and left + button.Size.X.Offset <= paint.Position.X.Offset + paint.Size.X.Offset + 0.5
+					and top + button.Size.Y.Offset <= paint.Position.Y.Offset + paint.Size.Y.Offset + 0.5
+				assert(inside, where .. " content leaves its wedge")
+			end
+			local centre = find(root.Parent, "Center")
+			t.expect(#ownSlots(centre)).toBe(0)
+			stop()
+			h.dispose()
+		end
+	end)
+
+	t.it("a dark ring scrim dims the page to at least 80 percent in every shipped package and palette", function()
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			for _, palette in package.style.themes do
+				local h = harness({ reducedMotion = true })
+				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+				local root, stop = mount(h, function()
+					return h.UI.RadialMenu({
+						isPresented = Compose.cell(true),
+						scrim = "dark",
+						items = { { id = "alpha", label = "Alpha", onSelect = function() end } },
+					})
+				end)
+				local scrim = find(root.Parent, "DismissOutside")
+				local where = `{package.identity.id}/{palette.name}`
+				local transparency = resolve(sheet, scrim, "BackgroundTransparency")
+				assert(transparency ~= nil and transparency <= 0.2 + 1e-6, `{where} ring scrim {transparency}`)
+				local tint = resolve(sheet, scrim, "BackgroundColor3")
+				local dark = luminance({ r = tint.R, g = tint.G, b = tint.B })
+				assert(dark <= 0.05, `{where} ring scrim colour luminance {dark}`)
+				stop()
+				stopSheet()
+				h.dispose()
+			end
+		end
+	end)
+
+	t.it("paints each wedge and its label as one readable pair in every shipped package and palette", function()
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			for _, palette in package.style.themes do
+				local h = harness({ reducedMotion = true })
+				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+				local root, stop = mount(h, function()
+					return h.UI.RadialMenu({
+						isPresented = Compose.cell(true),
+						items = {
+							{ id = "alpha", label = "Alpha", onSelect = function() end },
+							{ id = "beta", label = "Beta", onSelect = function() end },
+						},
+					})
+				end)
+				local states = {}
+				find(root.Parent, "alpha").MouseEnter.fire()
+				for _, id in { "alpha", "beta" } do
+					local button = find(root.Parent, id)
+					local fill = resolve(sheet, find(button.Parent, "Sector"), "Color3")
+					local ink = resolve(sheet, button, "TextColor3")
+					local where = `{package.identity.id}/{palette.name}/{id}`
+					assert(fill ~= nil and ink ~= nil, where .. " wedge or label has no theme paint")
+					local ratio = contrast({ r = fill.R, g = fill.G, b = fill.B }, { r = ink.R, g = ink.G, b = ink.B })
+					assert(ratio >= 4.5, `{where} label contrast {ratio}`)
+					states[button:HasTag("facet-selected")] = true
+				end
+				t.expect(states[true] and states[false]).toBe(true)
+				stop()
+				stopSheet()
+				h.dispose()
+			end
+		end
+	end)
 end)
 
 t.describe("native paint strength: skins", function()
@@ -798,6 +991,112 @@ t.describe("native paint strength: skins", function()
 		other.dispose()
 	end)
 
+	t.it("gives a transparent hit-target button no control art over the content beneath it", function()
+		local package = skinPackage({ control = "rbxassetid://21" })
+		local h = harness({ theme = package })
+		local clear = Compose.cell(1)
+		local root, stop = mount(h, function()
+			return h.Host.Frame({
+				h.UI.Button({ Name = "Hit", label = "", BackgroundTransparency = 1 }),
+				h.UI.Button({ Name = "Bound", label = "Go", BackgroundTransparency = clear }),
+				h.UI.Button({ Name = "Plate", label = "Go" }),
+			})
+		end)
+		t.expect(ownArt(find(root, "Hit"), "control")).toBe(nil)
+		t.expect(find(root, "Hit"):HasTag("facet-skinned")).toBe(false)
+		t.expect(ownArt(find(root, "Bound"), "control")).toBe(nil)
+		t.expect(ownArt(find(root, "Plate"), "control") ~= nil).toBe(true)
+		clear:set(0)
+		t.expect(ownArt(find(root, "Bound"), "control") ~= nil).toBe(true)
+		clear:set(1)
+		t.expect(ownArt(find(root, "Bound"), "control")).toBe(nil)
+		stop()
+		h.dispose()
+	end)
+
+	t.it("tints destructive and emphasis plate art with their role and keeps the label readable", function()
+		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
+		local checked = {}
+		for _, name in SHIPPED do
+			local package = shipped(name)
+			local sample = (samples[(string.gsub(name, "_", "-"))] or {}).control
+			local h = harness({ theme = package })
+			local root, stop = mount(h, function()
+				return h.Host.Frame({
+					h.UI.Button({ Name = "Delete", label = "Delete", role = "destructive" }),
+					h.UI.Button({ Name = "Save", label = "Save", appearance = "emphasis" }),
+					h.UI.Button({ Name = "Reset", label = "Reset" }),
+				})
+			end)
+			local art = ownArt(find(root, "Reset"), "control")
+			if art then
+				for _, palette in package.style.themes do
+					local colors, extra = paletteOf(palette)
+					local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+					t.expect(resolve(sheet, art, "ImageColor3"))
+						.toBe(if extra.artTint then color(h.engine, extra.artTint) else nil)
+					local shapes = {}
+					for button, pair in { Delete = { "danger", "onDanger" }, Save = { "accent", "onAccent" } } do
+						local node, tint = find(root, button), colors[pair[1]]
+						local plateArt = ownArt(node, "control")
+						local tinted = resolve(sheet, plateArt, "ImageColor3")
+						t.expect(`{name}/{button}:{resolve(sheet, find(node, "SkinBoundary"), "Visible")}`)
+							.toBe(`{name}/{button}:true`)
+						t.expect(resolve(sheet, node, "BackgroundTransparency")).toBe(1)
+						local pressed = resolve(sheet, plateArt, "Image")
+						if pressed then
+							local _, extra = paletteOf(palette)
+							local control = package.chrome.control
+							local layers = if control.kind == "layered" then control.layers else { control }
+							local link = layers[1].asset.selected
+							link = if type(link) == "string" then { asset = link } else link
+							local art = package.assets[link.asset]
+							local ink = extra.onSelected or colors.content
+							local wash = link.tint or { r = 1, g = 1, b = 1 }
+							local picked = samples[(string.gsub(name, "_", "-"))].selected
+							t.expect(pressed).toBe(art.content or art.contentId)
+							t.expect(resolve(sheet, plateArt, "Rotation")).toBe(link.rotation or 0)
+							t.expect(tinted).toBe(color(h.engine, wash))
+							t.expect(resolve(sheet, node, "TextColor3")).toBe(color(h.engine, ink))
+							for _, caption in tagged(node, "facet-button-caption") do
+								t.expect(resolve(sheet, caption, "TextColor3")).toBe(color(h.engine, ink))
+							end
+							local plate = {
+								r = picked.r / 255 * wash.r,
+								g = picked.g / 255 * wash.g,
+								b = picked.b / 255 * wash.b,
+							}
+							t.expect(contrast(ink, plate) >= 4.5).toBe(true)
+							table.insert(shapes, button .. "=pressed")
+						else
+							t.expect(tinted).toBe(color(h.engine, tint))
+							local plate = if sample
+								then {
+									r = sample.r / 255 * tint.r,
+									g = sample.g / 255 * tint.g,
+									b = sample.b / 255 * tint.b,
+								}
+								else tint
+							t.expect(contrast(colors[pair[2]], plate) >= 4.5).toBe(true)
+							table.insert(shapes, button .. "=art")
+						end
+					end
+					table.sort(shapes)
+					table.insert(checked, `{name}/{palette.name}:{table.concat(shapes, ",")}`)
+					stopSheet()
+				end
+			end
+			stop()
+			h.dispose()
+		end
+		t.expect(table.concat(checked, " ")).toBe(
+			"compact_pointer/Aqua:Delete=art,Save=art fantasy_ornate/Grand Hall:Delete=art,Save=pressed "
+				.. "fantasy_ornate/Crypt:Delete=art,Save=pressed fantasy_parchment/Daylight:Delete=art,Save=pressed "
+				.. "fantasy_parchment/Candlelight:Delete=art,Save=pressed glossy_touch/Sky:Delete=art,Save=art "
+				.. "pixel_quest/Quest:Delete=art,Save=pressed"
+		)
+	end)
+
 	t.it("maps hover and press on each skinned part to that part's state art", function()
 		local package = themes.neutralPackage()
 		local ids = { default = 1, hover = 2, pressed = 3, selected = 4 }
@@ -814,7 +1113,7 @@ t.describe("native paint strength: skins", function()
 		local value = Compose.cell(false)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada") }),
+				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
 				h.UI.Toggle({ Name = "Switch", value = value, label = "On" }),
 				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
@@ -822,7 +1121,7 @@ t.describe("native paint strength: skins", function()
 		end)
 		local switch = find(root, "Switch")
 		local parts = {
-			{ find(root, "Field"), "field" },
+			{ find(root, "Input"), "field" },
 			{ find(root, "Stepper"), "stepperPlate" },
 			{ find(switch, "Indicator"), "toggleTrack" },
 			{ find(switch, "Mark"), "toggleKnob" },
@@ -874,7 +1173,7 @@ t.describe("native paint strength: skins", function()
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
 				h.UI.Button({ Name = "Action", label = "Go" }),
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada") }),
+				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Toggle({ Name = "Switch", value = Compose.cell(true), label = "On" }),
 				h.UI.Stepper({ Name = "Stepper", value = Compose.cell(2), min = 0, max = 5 }),
 				h.UI.Slider({ Name = "Slider", value = Compose.cell(0.5) }),
@@ -891,7 +1190,7 @@ t.describe("native paint strength: skins", function()
 		local panel = find(root.Parent, "AlertPanel")
 		local expected = {
 			{ find(root, "Action"), "control" },
-			{ find(root, "Field"), "field" },
+			{ find(root, "Input"), "field" },
 			{ find(find(root, "Switch"), "Indicator"), "toggleTrack" },
 			{ find(find(root, "Switch"), "Mark"), "toggleKnob" },
 			{ find(root, "Stepper"), "stepperPlate" },
@@ -907,7 +1206,7 @@ t.describe("native paint strength: skins", function()
 		for _, entry in expected do
 			local node, slot = entry[1], entry[2]
 			t.expect(node ~= nil).toBe(true)
-			t.expect(ownSlots(node)).toEqual({ slot })
+			t.expect(`{slot}: {table.concat(ownSlots(node), ",")}`).toBe(`{slot}: {slot}`)
 			t.expect(ownArt(node, slot) ~= nil or find(node, slot .. "1") ~= nil).toBe(true)
 			t.expect((ownArt(node, slot) or find(node, slot .. "1")).Image).toBe(assets[slot])
 			t.expect(node:HasTag("facet-skinned")).toBe(true)
@@ -952,24 +1251,25 @@ t.describe("native paint strength: skins", function()
 		local slider = find(root, "Slider")
 		local nodes = {
 			find(root, "Soft"),
-			find(root, "Utility"),
 			find(root, "Primary"),
 			find(root, "Danger"),
 			find(find(root, "Segmented"), "a"),
-			box,
 			find(slider, "Thumb"),
 			find(slider, "Rail"),
 			find(slider, "Fill"),
 		}
 		t.expect(find(find(root, "Segmented"), "a"):HasTag("facet-segment-current")).toBe(true)
+		t.expect(find(root, "Utility"):HasTag("facet-skinned")).toBe(false)
+		t.expect(box:HasTag("facet-skinned")).toBe(false)
 		local function sweep(expectSkinned: boolean)
 			for _, node in nodes do
 				t.expect(node:HasTag("facet-skinned")).toBe(expectSkinned)
 				for _, state in { "Idle", "Hover", "Press" } do
 					setState(h, node, state)
 					local transparency = resolve(sheet, node, "BackgroundTransparency")
-					if expectSkinned and node:HasTag("facet-segment-current") then
-						t.expect(transparency).toBe(0)
+					if node:HasTag("facet-segment-current") then
+						t.expect(transparency).toBe(1)
+						t.expect(resolve(sheet, find(node.Parent, "SelectionFill"), "BackgroundTransparency")).toBe(0)
 					elseif expectSkinned then
 						t.expect(transparency).toBe(1)
 					else
@@ -980,7 +1280,7 @@ t.describe("native paint strength: skins", function()
 			end
 		end
 		sweep(true)
-		t.expect(resolve(sheet, box, "Transparency", "UIStroke")).toBe(1)
+		t.expect(resolve(sheet, box, "Transparency", "UIStroke")).toBe(0.2)
 		local menu = h.engine.new("Frame")
 		menu:AddTag("facet-menu")
 		menu:AddTag("facet-skinned")
@@ -1024,12 +1324,12 @@ t.describe("native paint strength: skins", function()
 		local sheet, stopSheet = sheetFor(h, selected)
 		local root, stop = mount(h, function()
 			return h.Host.Frame({
-				h.UI.TextInput({ Name = "Field", value = Compose.cell("Ada") }),
+				h.UI.TextInput({ Name = "Framed", value = Compose.cell("Ada"), label = "Name" }),
 				h.UI.Button({ Name = "Action", label = "Go" }),
 			})
 		end)
-		local field, action = find(root, "Field"), find(root, "Action")
-		t.expect(field.ClassName).toBe("TextBox")
+		local field, action = find(root, "Input"), find(root, "Action")
+		t.expect(field.ClassName).toBe("Frame")
 		local plain = {}
 		for _, package in { art, missing, none, art } do
 			selected:set(package)
@@ -1048,7 +1348,7 @@ t.describe("native paint strength: skins", function()
 			t.expect(image == nil or image.Visible == drawn).toBe(true)
 		end
 		t.expect(plain[field] ~= nil and plain[action] ~= nil).toBe(true)
-		t.expect(field.Text).toBe("Ada")
+		t.expect(find(field, "Field").Text).toBe("Ada")
 		stop()
 		stopSheet()
 		h.dispose()
@@ -1323,7 +1623,8 @@ t.describe("native paint strength: theme sheets", function()
 			return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
 		end, h.engine.new("Folder"))
 		environment.game = nil
-		t.expect(requested).toEqual({ "GuiService", "GuiService", "UserInputService" })
+		t.expect(requested)
+			.toEqual({ "GuiService", "GuiService", "UserInputService", "GuiService", "UserInputService" })
 		local text = ruleNode(sheet, ".facet-text")
 		local timing = text:GetPropertyTransitions().TextColor3
 		t.expect(timing.Time).toBe(0.2)
@@ -1382,12 +1683,12 @@ t.describe("native paint strength: theme sheets", function()
 			contentInsets = { left = 20, right = 14, top = 6, bottom = 9 },
 		}
 		package:set(inset)
-		t.expect(padding(".facet-button::UIPadding")).toEqual({ 20, 14, 6, 9 })
-		t.expect(padding(".facet-button > UIPadding")).toEqual({ 20, 14, 6, 9 })
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(UDim.new(0, 10))
-		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(UDim.new(0, 10))
-		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(UDim.new(0, 34))
-		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(UDim.new(0, 34))
+		t.expect(padding(".facet-button::UIPadding")).toEqual({ 32, 26, 6, 9 })
+		t.expect(padding(".facet-button > UIPadding")).toEqual({ 32, 26, 6, 9 })
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingTop).toBe(UDim.new(0, 16))
+		t.expect(style(sheet, ".facet-button-described::UIPadding").PaddingBottom).toBe(UDim.new(0, 19))
+		t.expect(style(sheet, ".facet-busy::UIPadding").PaddingRight).toBe(UDim.new(0, 46))
+		t.expect(style(sheet, ".facet-disclosure::UIPadding").PaddingRight).toBe(UDim.new(0, 46))
 		t.expect(writes[ruleNode(sheet, ".facet-button::UIPadding")]).toBe(1)
 		t.expect(writes[ruleNode(sheet, ".facet-button > UIPadding")]).toBe(1)
 		t.expect(writes[ruleNode(sheet, ".facet-field::UIPadding")]).toBe(nil)
@@ -1407,7 +1708,7 @@ t.describe("native paint strength: theme sheets", function()
 		narrow.chrome = table.clone(same.chrome)
 		narrow.chrome.control = { kind = "nineSlice", asset = "plate", contentInsets = { left = 4, top = 2 } }
 		package:set(narrow)
-		t.expect(padding(".facet-button::UIPadding")).toEqual({ 12, 12, 2, 0 })
+		t.expect(padding(".facet-button::UIPadding")).toEqual({ 16, 12, 2, 0 })
 		table.clear(writes)
 		local metric = table.clone(narrow)
 		metric.metrics = table.clone(narrow.metrics)
@@ -1585,24 +1886,29 @@ t.describe("native paint strength: theme sheets", function()
 				for _, palette in package.style.themes do
 					local colors, extra = paletteOf(palette)
 					local accent = colors.accent
-					local tint = {
-						r = 1 + (accent.r - 1) * 0.35,
-						g = 1 + (accent.g - 1) * 0.35,
-						b = 1 + (accent.b - 1) * 0.35,
-					}
+					local asset = package.chrome.control.asset
+					local link = if type(asset) == "table" then asset.selected else nil
+					local declared = if type(link) == "table" then link.tint else nil
+					local tint = declared
+						or {
+							r = 1 + (accent.r - 1) * 0.35,
+							g = 1 + (accent.g - 1) * 0.35,
+							b = 1 + (accent.b - 1) * 0.35,
+						}
 					local tinted = { r = art.r * tint.r, g = art.g * tint.g, b = art.b * tint.b }
-					t.expect(distance(extra.controlSelected, tinted) <= 0.12).toBe(true)
+					t.expect(distance(extra.controlSelected, tinted) <= if declared then 1 / 255 else 0.12).toBe(true)
 					local label = extra.onSelected or colors.content
-					t.expect(contrast(label, art) >= 4.5).toBe(true)
+					t.expect(contrast(label, if declared then tinted else art) >= 4.5).toBe(true)
 					t.expect(contrast(label, extra.controlSelected) >= 4.5).toBe(true)
 					table.insert(pinned, `{key}/{palette.name}={if extra.onSelected then "onSelected" else "content"}`)
 				end
 			end
 		end
 		table.sort(pinned)
-		t.expect(hashed).toBe(9)
+		t.expect(hashed).toBe(15)
 		t.expect(table.concat(pinned, " ")).toBe(
 			"compact-pointer/Aqua=content fantasy-ornate/Crypt=content fantasy-ornate/Grand Hall=content "
+				.. "fantasy-parchment/Candlelight=onSelected fantasy-parchment/Daylight=onSelected "
 				.. "glossy-touch/Sky=onSelected pixel-quest/Quest=onSelected"
 		)
 	end)
@@ -1689,6 +1995,279 @@ t.describe("native paint strength: theme sheets", function()
 		weak.style.themes[1].colors.accent = { r = 0.1, g = 0.1, b = 0.13 }
 		t.expect(contrast(weak.style.themes[1].colors.accent, weak.style.themes[1].colors.surface) < 3).toBe(true)
 		h.dispose()
+	end)
+
+	t.it("shows an off switch's knob against its track in every shipped package and palette", function()
+		local h = harness()
+		local on = Compose.cell(false)
+		local root, stop = mount(h, function()
+			return h.UI.Toggle({ Name = "Url", label = "URL bar", value = on })
+		end)
+		local indicator = find(root, "Indicator")
+		local knob = find(indicator, "Mark")
+		local entries = { { id = "neutral", package = themes.neutralPackage() } }
+		for _, name in SHIPPED do
+			table.insert(entries, { id = name, package = (shipped(name)) })
+		end
+		local weak = {}
+		for _, entry in entries do
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local sheet, stopSheet = sheetFor(h, entry.package, { theme = palette.name })
+				on:set(false)
+				local ink = resolve(sheet, knob, "BackgroundColor3")
+				local track = resolve(sheet, indicator, "BackgroundColor3")
+				local measured = contrast(
+					{ r = ink.R, g = ink.G, b = ink.B },
+					{ r = track.R, g = track.G, b = track.B }
+				)
+				local art = entry.package.chrome.toggleKnob
+				if measured < 3 and (art == nil or art.kind == "native" or art.kind == "none") then
+					table.insert(weak, `{entry.id}/{palette.name}`)
+				end
+				on:set(true)
+				local selection = extra.onSelection or colors.onAccent
+				t.expect(resolve(sheet, knob, "BackgroundColor3")).toBe(color(h.engine, selection))
+				stopSheet()
+			end
+		end
+		t.expect(table.concat(weak, " ")).toBe("")
+		stop()
+		h.dispose()
+	end)
+
+	t.it(
+		"paints every text field placeholder with contentSecondary, and field text and placeholder clear 4.5:1 on the tinted field art",
+		function()
+			local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
+			local h = harness()
+			local root, stopProbes = mount(h, function()
+				return h.Host.Frame({
+					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Search" },
+					h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
+				})
+			end)
+			local boxes = {}
+			for _, node in root:GetDescendants() do
+				if node.ClassName == "TextBox" then
+					table.insert(boxes, node)
+				end
+			end
+			t.expect(#boxes).toBe(2)
+			local entries = { { id = "neutral", package = themes.neutralPackage() } }
+			for _, name in SHIPPED do
+				table.insert(entries, { id = name, package = (shipped(name)) })
+			end
+			local sampled, unreadable = 0, {}
+			for _, entry in entries do
+				local art = (samples[(string.gsub(entry.id, "_", "-"))] or {}).field
+				for _, palette in entry.package.style.themes do
+					local colors, extra = paletteOf(palette)
+					local secondary = extra.contentSecondary or colors.contentSecondary
+					local tint = extra.artTint or { r = 1, g = 1, b = 1 }
+					local plate = if art
+						then { r = art.r / 255 * tint.r, g = art.g / 255 * tint.g, b = art.b / 255 * tint.b }
+						else extra.control
+					if art then
+						sampled += 1
+					end
+					local sheet, stop = sheetFor(h, entry.package, { theme = palette.name })
+					for _, box in boxes do
+						t.expect(resolve(sheet, box, "PlaceholderColor3")).toBe(color(h.engine, secondary))
+					end
+					if art and (contrast(secondary, plate) < 4.5 or contrast(colors.content, plate) < 4.5) then
+						table.insert(unreadable, `{entry.id}/{palette.name}`)
+					end
+					stop()
+				end
+			end
+			t.expect(sampled).toBe(7)
+			t.expect(table.concat(unreadable, " ")).toBe("")
+			stopProbes()
+			h.dispose()
+		end
+	)
+
+	t.it("paints a table row from the theme row role and every delete control in the danger role", function()
+		local h = harness()
+		local root, stop = mount(h, function()
+			return h.UI.Table({
+				from = { { id = "a", name = "Neon" } },
+				key = "id",
+				editing = Compose.cell(true),
+				reorderable = true,
+				onReorder = function() end,
+				deletable = true,
+				onDelete = function() end,
+				columns = { { id = "name", label = "Name" } },
+				rowActions = function()
+					return {
+						trailing = {
+							{ id = "remove", label = "Remove", role = "destructive", onActivate = function() end },
+						},
+					}
+				end,
+			})
+		end)
+		local body = find(root, "Body")
+		body.AbsoluteWindowSize = h.engine.types.Vector2.new(400, 200)
+		body.AbsoluteSize = h.engine.types.Vector2.new(400, 200)
+		local band = find(root, "Reorderable")
+		local inner = find(root, "DisclosingRow")
+		local minus, confirm = find(root, "Minus"), find(root, "Delete")
+		local function underSwipe(node: any): boolean
+			local cursor = node.Parent
+			while cursor do
+				if cursor:HasTag("facet-rowactions") then
+					return true
+				end
+				cursor = cursor.Parent
+			end
+			return false
+		end
+		t.expect(underSwipe(minus) or underSwipe(confirm) or underSwipe(find(root, "Move"))).toBe(false)
+		for _, entry in
+			{
+				{ id = "neutral", package = themes.neutralPackage() },
+				{ id = "classic_desktop", package = (shipped("classic_desktop")) },
+			}
+		do
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local sheet, stopSheet = sheetFor(h, entry.package, { theme = palette.name })
+				local row = extra.tableRow or extra.control
+				t.expect(`{entry.id}/{palette.name}:{tostring(resolve(sheet, band, "BackgroundColor3"))}`)
+					.toBe(`{entry.id}/{palette.name}:{tostring(color(h.engine, row))}`)
+				t.expect(resolve(sheet, band, "BackgroundTransparency")).toBe(0)
+				t.expect(band.BackgroundTransparency).toBe(0)
+				t.expect(inner.BackgroundTransparency).toBe(1)
+				for _, control in { minus, confirm } do
+					t.expect(control:HasTag("facet-accent")).toBe(false)
+					t.expect(resolve(sheet, control, "BackgroundColor3")).toBe(color(h.engine, colors.danger))
+				end
+				stopSheet()
+			end
+		end
+		stop()
+		h.dispose()
+	end)
+
+	t.it("keeps table row, alternate row, header and selected row text at 4.5:1 in every shipped palette", function()
+		local weak = {}
+		local entries = { { id = "neutral", package = themes.neutralPackage() } }
+		for _, name in SHIPPED do
+			table.insert(entries, { id = name, package = (shipped(name)) })
+		end
+		for _, entry in entries do
+			for _, palette in entry.package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local pairs = {
+					row = { colors.content, extra.tableRow or extra.control },
+					alternate = { colors.content, extra.tableRowAlternate or extra.controlHover },
+					header = { colors.content, extra.tableHeader or extra.control },
+					selected = { extra.onSelected or colors.content, extra.controlSelected },
+				}
+				for name, pair in pairs do
+					if pair[1] and pair[2] and contrast(pair[1], pair[2]) < 4.5 then
+						table.insert(weak, `{entry.id}/{palette.name}:{name}`)
+					end
+				end
+			end
+		end
+		table.sort(weak)
+		t.expect(table.concat(weak, " ")).toBe("")
+	end)
+
+	t.it("pads a skinned control plate by its art carve, so HUD chips keep their content inside the frame", function()
+		local h = harness()
+		local package = shipped("fantasy_parchment")
+		local sheet, stop = sheetFor(h, package)
+		local plate = h.engine.new("Frame")
+		plate:AddTag("facet-control")
+		local padding = h.engine.new("UIPadding")
+		padding.Parent = plate
+		local carve = package.chrome.control.contentInsets
+		t.expect(resolve(sheet, padding, "PaddingTop")).toBe(nil)
+		plate:AddTag("facet-skinned")
+		t.expect(resolve(sheet, padding, "PaddingTop")).toBe(h.engine.types.UDim.new(0, carve.top))
+		t.expect(resolve(sheet, padding, "PaddingLeft")).toBe(h.engine.types.UDim.new(0, carve.left))
+		stop()
+		h.dispose()
+	end)
+
+	t.it("an inactive tab on control art reads at 4.5:1 on the art after the palette's artTint", function()
+		local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
+		local h = harness()
+		local tab = h.engine.new("TextButton")
+		for _, tag in { "facet-button", "facet-tab-item", "facet-skinned" } do
+			tab:AddTag(tag)
+		end
+		local caption = h.engine.new("TextLabel")
+		caption:AddTag("facet-text")
+		caption:AddTag("facet-button-caption")
+		caption.Parent = tab
+		local art = h.engine.new("ImageLabel")
+		art:AddTag("facet-skin-art")
+		art:AddTag("facet-skin-art-control")
+		art.Parent = tab
+		local checked, unreadable = 0, {}
+		for _, name in SHIPPED do
+			local package = shipped(name)
+			local sample = (samples[(string.gsub(name, "_", "-"))] or {}).control
+			if sample then
+				for _, palette in package.style.themes do
+					local _, extra = paletteOf(palette)
+					local sheet, stop = sheetFor(h, package, { theme = palette.name })
+					local tint = resolve(sheet, art, "ImageColor3") or h.engine.types.Color3.new(1, 1, 1)
+					local ink = resolve(sheet, caption, "TextColor3")
+					if extra.artTint then
+						t.expect(tint).toBe(color(h.engine, extra.artTint))
+					end
+					local plate =
+						{ r = sample.r / 255 * tint.R, g = sample.g / 255 * tint.G, b = sample.b / 255 * tint.B }
+					checked += 1
+					if contrast({ r = ink.R, g = ink.G, b = ink.B }, plate) < 4.5 then
+						table.insert(unreadable, `{name}/{palette.name}`)
+					end
+					stop()
+				end
+			end
+		end
+		t.expect(checked).toBe(7)
+		t.expect(table.concat(unreadable, " ")).toBe("")
+		h.dispose()
+	end)
+
+	t.it("never parents field art under a TextBox, where it would cover the text and placeholder", function()
+		local covered = {}
+		for _, name in SHIPPED do
+			local h = harness({ theme = (shipped(name)) })
+			local root, stop = mount(h, function()
+				return h.Host.Frame({
+					h.UI.TextInput "Plain" { value = Compose.cell(""), placeholder = "Name" },
+					h.UI.TextInput "Search" { value = Compose.cell(""), presentation = "search", placeholder = "Filter" },
+					h.UI.TextInput "Framed" { value = Compose.cell(""), placeholder = "Name", label = "Name" },
+				})
+			end)
+			local plates = 0
+			for _, node in root:GetDescendants() do
+				if node:HasTag("facet-skin-art") then
+					plates += 1
+					local parent = node.Parent
+					while parent and parent ~= root do
+						if parent.ClassName == "TextBox" then
+							table.insert(covered, `{name}/{parent.Name}`)
+						end
+						parent = parent.Parent
+					end
+				end
+			end
+			t.expect(plates > 0 or name == "classic_desktop" or name == "glossy_mobile" or name == "scifi_hud")
+				.toBe(true)
+			stop()
+			h.dispose()
+		end
+		t.expect(table.concat(covered, " ")).toBe("")
 	end)
 
 	t.it("composes the sheet scrim and the full-screen backdrop from the same clamped preference", function()
@@ -1962,5 +2541,510 @@ t.describe("native paint strength: value and status paint", function()
 		end).toThrow()
 		stop()
 		h.dispose()
+	end)
+end)
+
+t.describe("native paint strength: split button", function()
+	local function split(h: Harness): (any, () -> ())
+		return mount(h, function()
+			return h.Host.Frame({
+				h.UI.Button({ Name = "Plain", label = "Plain" }),
+				h.UI.SplitButton "Split" {
+					label = "Start race",
+					onActivate = function() end,
+					items = { { id = "practice", label = "Practice", onSelect = function() end } },
+				},
+			})
+		end)
+	end
+
+	t.it("joins the primary and an icon-only menu segment on one plate", function()
+		local package = themes.neutralPackage()
+		local h = harness({ theme = package })
+		local root, stop = split(h)
+		local sheet, stopSheet = sheetFor(h, package)
+		local primary, segment = find(root, "Primary"), find(root, "Alternatives")
+		local plate = primary.Parent
+		t.expect(segment.Parent).toBe(plate)
+		t.expect(plate:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(0)
+		local divider = find(plate, "Divider")
+		t.expect(primary.LayoutOrder < divider.LayoutOrder and divider.LayoutOrder < segment.LayoutOrder).toBe(true)
+		t.expect(divider.Size.Y.Scale).toBe(0)
+		t.expect(divider:FindFirstChildWhichIsA("UIFlexItem").ItemLineAlignment.Name).toBe("Stretch")
+		t.expect(resolve(sheet, plate, "BackgroundTransparency")).toBe(0)
+		t.expect(resolve(sheet, plate, "CornerRadius", "UICorner"))
+			.toBe(resolve(sheet, find(root, "Plain"), "CornerRadius", "UICorner"))
+		t.expect(resolve(sheet, primary, "BackgroundTransparency")).toBe(1)
+		t.expect(resolve(sheet, segment, "BackgroundTransparency")).toBe(1)
+		t.expect(segment.Text).toBe("")
+		t.expect(find(segment, "Title")).toBe(nil)
+		t.expect(find(segment, "LeadingIcon") ~= nil).toBe(true)
+		t.expect(segment:GetAttribute("label")).toBe("More options")
+		t.expect(primary.Size.Y.Offset).toBe(find(root, "Plain").Size.Y.Offset)
+		t.expect(segment.Size.Y.Offset).toBe(primary.Size.Y.Offset)
+		t.expect(primary.Size.Y.Offset >= 44).toBe(true)
+		t.expect(segment:FindFirstChildWhichIsA("UISizeConstraint")).toBe(nil)
+		t.expect(primary.Selectable ~= false and segment.Selectable ~= false).toBe(true)
+		segment.Activated.fire()
+		t.expect(find(root.Parent or root, "MenuPanel") ~= nil).toBe(true)
+		stopSheet()
+		stop()
+		h.dispose()
+	end)
+
+	t.it("paints skinned plate art across the whole split, not per segment", function()
+		local package = skinPackage({ control = "rbxassetid://123" })
+		local h = harness({ theme = package })
+		local root, stop = split(h)
+		local primary = find(root, "Primary")
+		t.expect(ownSlots(primary.Parent)).toEqual({ "control" })
+		t.expect(ownSlots(primary)).toEqual({})
+		t.expect(ownSlots(find(root, "Alternatives"))).toEqual({})
+		stop()
+		h.dispose()
+	end)
+end)
+
+t.describe("native paint strength: media button", function()
+	t.it("hugs an image button to its media and captions with the media flush to the plate top", function()
+		local h = harness()
+		local sheet, stopSheet = sheetFor(h, themes.neutralPackage())
+		local root, stop = mount(h, function()
+			return h.UI.Button "Card" { label = "Button", subtitle = "12 playing", image = "rbxassetid://1" }
+		end)
+		local E = h.engine.types.Enum
+		local plate = find(root, "Card")
+		t.expect(plate.AutomaticSize).toBe(E.AutomaticSize.Y)
+		t.expect(plate.Size.Y.Scale + plate.Size.Y.Offset).toBe(0)
+		local content = find(plate, "Content")
+		t.expect(content.AutomaticSize).toBe(E.AutomaticSize.Y)
+		t.expect(content.Size.Y.Scale).toBe(0)
+		for _, side in { "Top", "Left", "Right" } do
+			t.expect(resolve(sheet, plate, "Padding" .. side, "UIPadding").Offset).toBe(0)
+		end
+		t.expect(resolve(sheet, plate, "PaddingBottom", "UIPadding").Offset).toBe(10)
+		local media = find(plate, "Media")
+		t.expect(media.Parent).toBe(content)
+		t.expect(media.LayoutOrder < find(plate, "Captions").LayoutOrder).toBe(true)
+		t.expect(media.Size.X.Scale).toBe(1)
+		t.expect(media.ClipsDescendants).toBe(true)
+		local aspect = media:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+		t.expect(aspect.AspectRatio).toBe(16 / 9)
+		t.expect(aspect.DominantAxis).toBe(E.DominantAxis.Width)
+		local radius = resolve(sheet, plate, "CornerRadius", "UICorner").Offset
+		t.expect(radius > 0).toBe(true)
+		local image = find(media, "Image")
+		t.expect(image:FindFirstChildWhichIsA("UICorner").CornerRadius.Offset).toBe(radius)
+		t.expect(image.Size.Y.Scale).toBe(1)
+		t.expect(image.Size.Y.Offset).toBe(radius)
+		local captions = find(plate, "Captions")
+		t.expect(resolve(sheet, captions, "PaddingLeft", "UIPadding").Offset).toBe(12)
+		t.expect(resolve(sheet, captions, "PaddingRight", "UIPadding").Offset).toBe(12)
+		stop()
+		stopSheet()
+		h.dispose()
+	end)
+end)
+
+t.describe("native paint strength: pixel quest selected plate", function()
+	t.it("paints every selected Pixel Quest plate as the wood frame turned over and tinted green", function()
+		local package = shipped("pixel_quest")
+		local plate = package.assets.pixel_plate_default
+		local link = package.chrome.control.asset.selected
+		t.expect(link.asset).toBe("pixel_plate_default")
+		t.expect(link.rotation).toBe(180)
+		t.expect(plate.sliceCenter.x0 + plate.sliceCenter.x1).toBe(36)
+		t.expect(plate.sliceCenter.y0 + plate.sliceCenter.y1).toBe(36)
+		local h = harness({ theme = package })
+		local sheet, stopSheet = sheetFor(h, package)
+		local green = color(h.engine, link.tint)
+		local _, extra = paletteOf(package.style.themes[1])
+		local ink = color(h.engine, extra.onSelected)
+		local root, stop = mount(h, function()
+			return h.Host.Frame({
+				h.UI.Picker({
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+				}),
+				h.UI.Picker({
+					style = "inline",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+				}),
+				h.UI.Chip({ Name = "Chip", label = "Rain", selected = Compose.cell(true) }),
+				h.UI.Toggle({ Name = "Toggle", label = "On", presentation = "button", value = Compose.cell(true) }),
+				h.UI.Button({ Name = "Row", label = "Row", selected = true }),
+			})
+		end)
+		local chosen = tagged(root, "facet-selected")
+		t.expect(#chosen >= 5).toBe(true)
+		for _, node in chosen do
+			local art = ownArt(node, "control")
+			t.expect(art.Image).toBe(plate.content)
+			for _, state in { "Idle", "Hover" } do
+				setState(h, node, state)
+				t.expect(art.Rotation).toBe(180)
+				t.expect(art.ImageColor3).toBe(green)
+			end
+			setState(h, node, "Idle")
+			t.expect(resolve(sheet, art.Parent.Parent, "Visible") ~= false).toBe(true)
+			t.expect(resolve(sheet, node, "BackgroundTransparency")).toBe(1)
+			t.expect(resolve(sheet, node, "TextColor3")).toBe(ink)
+			for _, caption in tagged(node, "facet-button-caption") do
+				t.expect(resolve(sheet, caption, "TextColor3")).toBe(ink)
+			end
+		end
+		for _, node in tagged(root, "facet-segment") do
+			if not node:HasTag("facet-selected") then
+				t.expect(ownArt(node, "control").Rotation).toBe(0)
+			end
+		end
+		stop()
+		stopSheet()
+		h.dispose()
+	end)
+
+	t.it("rejects a state link that turns a plate a quarter or tints outside zero to one", function()
+		local function withLink(selected: any): boolean
+			local definition: any = { identity = { id = "x" }, assets = { art = { content = "rbxassetid://1" } } }
+			definition.chrome = { control = { kind = "nineSlice", asset = { default = "art", selected = selected } } }
+			local package = themes.define(definition)
+			return package ~= nil
+		end
+		t.expect(withLink({ asset = "art", rotation = 180, tint = { r = 0.5, g = 1, b = 0.5 } })).toBe(true)
+		t.expect(withLink({ asset = "art", rotation = 90 })).toBe(false)
+		t.expect(withLink({ asset = "art", tint = { r = 2, g = 1, b = 1 } })).toBe(false)
+		t.expect(withLink({ asset = "art", tint = "green" })).toBe(false)
+	end)
+
+	t.it("paints every selected plate in every skinned package with its selected art at its sibling's size", function()
+		local function selectedLink(package: any): any
+			local control = package.chrome.control
+			local layers = if control.kind == "layered" then control.layers else { control }
+			for _, layer in layers do
+				local link = if type(layer.asset) == "table" then layer.asset.selected else nil
+				if link ~= nil then
+					return if type(link) == "string" then { asset = link } else link
+				end
+			end
+			return nil
+		end
+		local covered = {}
+		for _, name in { "compact_pointer", "fantasy_ornate", "fantasy_parchment", "glossy_touch", "pixel_quest" } do
+			local package = shipped(name)
+			local link = selectedLink(package)
+			t.expect(link ~= nil).toBe(true)
+			if link then
+				local asset = package.assets[link.asset]
+				local h = harness({ theme = package })
+				local sheet, stopSheet = sheetFor(h, package)
+				local tint = color(h.engine, link.tint or { r = 1, g = 1, b = 1 })
+				local function picker(style: string, extra: { [string]: any }?): any
+					local props: { [string]: any } = {
+						Name = style .. ((extra or {}).axis or ""),
+						style = style,
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "Rally" }, { value = "b", label = "Road" } },
+					}
+					for key, value in extra or {} do
+						props[key] = value
+					end
+					return h.UI.Picker(props)
+				end
+				local function row(label: string, on: boolean): any
+					local node = h.UI.Button({ Name = label, label = label, selected = on })
+					node:AddTag("facet-menu-item")
+					return node
+				end
+				local root, stop = mount(h, function()
+					return h.Host.Frame({
+						picker("segmented"),
+						picker("inline"),
+						picker("radioGroup"),
+						picker("cards"),
+						picker("cards", { axis = "x" }),
+						h.UI.Chip({ Name = "ChipOn", label = "Rain", selected = Compose.cell(true) }),
+						h.UI.Chip({ Name = "ChipOff", label = "Snow", selected = Compose.cell(false) }),
+						h.UI.Toggle({
+							Name = "ToggleOn",
+							label = "On",
+							presentation = "button",
+							value = Compose.cell(true),
+						}),
+						h.UI.Toggle({
+							Name = "ToggleOff",
+							label = "Off",
+							presentation = "button",
+							value = Compose.cell(false),
+						}),
+						row("RowOn", true),
+						row("RowOff", false),
+					})
+				end)
+				local pairs = {
+					{ find(root, "segmented"), "a", "b" },
+					{ find(root, "inline"), "a", "b" },
+					{ find(root, "radioGroup"), "a", "b" },
+					{ find(root, "cards"), "Card-a", "Card-b" },
+					{ find(root, "cardsx"), "Card-a", "Card-b" },
+					{ root, "ChipOn", "ChipOff" },
+					{ root, "ToggleOn", "ToggleOff" },
+					{ root, "RowOn", "RowOff" },
+				}
+				for _, entry in pairs do
+					local on, off = find(entry[1], entry[2]), find(entry[1], entry[3])
+					if not on:HasTag("facet-selected") then
+						on = find(on, "Toggle") or on
+					end
+					local label = `{name}/{entry[1].Name}/{entry[2]}`
+					t.expect(label .. ":" .. tostring(on:HasTag("facet-selected"))).toBe(label .. ":true")
+					t.expect(off:HasTag("facet-selected")).toBe(false)
+					local art = ownArt(on, "control")
+					t.expect(art ~= nil).toBe(true)
+					t.expect(art.Image).toBe(asset.content or asset.contentId)
+					t.expect(art.Rotation).toBe(link.rotation or 0)
+					t.expect(resolve(sheet, art, "ImageColor3") or art.ImageColor3).toBe(tint)
+					t.expect(label .. ":" .. tostring(resolve(sheet, art.Parent.Parent, "Visible") ~= false))
+						.toBe(label .. ":true")
+					t.expect(label .. ":" .. tostring(resolve(sheet, on, "BackgroundTransparency")))
+						.toBe(label .. ":" .. tostring(resolve(sheet, off, "BackgroundTransparency")))
+					t.expect(on.Size).toBe(off.Size)
+					t.expect(on.AutomaticSize).toBe(off.AutomaticSize)
+					for _, property in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
+						t.expect(resolve(sheet, on, property, "UIPadding"))
+							.toBe(resolve(sheet, off, property, "UIPadding"))
+					end
+					t.expect(resolve(sheet, on, "Thickness", "UIStroke"))
+						.toBe(resolve(sheet, off, "Thickness", "UIStroke"))
+					table.insert(covered, label)
+				end
+				stop()
+				stopSheet()
+				h.dispose()
+			end
+		end
+		t.expect(#covered).toBe(40)
+	end)
+end)
+
+t.describe("native paint strength: table rows", function()
+	t.it("an alternate row resolves to tableRowAlternate in every shipped package and palette", function()
+		local h = harness()
+		local root, stopTable = mount(h, function()
+			return h.UI.Table({
+				from = { { id = "a" }, { id = "b" } },
+				key = "id",
+				scrolls = false,
+				alternatingRows = true,
+				columns = { { id = "id" } },
+			})
+		end)
+		local alternate = tagged(root, "facet-tablerow-alternate")[1]
+		local plain = find(root, "a")
+		t.expect(alternate ~= nil).toBe(true)
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			for _, palette in package.style.themes do
+				local sheet, stop = sheetFor(h, package, { theme = palette.name })
+				t.expect(resolve(sheet, alternate, "BackgroundColor3"))
+					.toBe(style(sheet, ".facet-tablerow-alternate").BackgroundColor3)
+				t.expect(resolve(sheet, tagged(plain, "facet-tablerow")[1], "BackgroundColor3"))
+					.toBe(style(sheet, ".facet-tablerow").BackgroundColor3)
+				stop()
+			end
+		end
+		stopTable()
+		h.dispose()
+	end)
+
+	t.it("the Edit button reserves the width of both Edit and Done in its own font", function()
+		local h = harness({ environment = { preferredInput = "Touch" } })
+		local root, stopTable = mount(h, function()
+			return h.UI.Table({
+				from = { { id = "a" } },
+				key = "id",
+				scrolls = false,
+				deletable = true,
+				onDelete = function() end,
+				columns = { { id = "id" } },
+			})
+		end)
+		local button = find(root, "Edit")
+		local reserve = find(button, "WidthReserve")
+		t.expect(reserve ~= nil).toBe(true)
+		local words = {}
+		for _, label in reserve:GetChildren() do
+			if label:IsA("TextLabel") then
+				t.expect(label.TextTransparency).toBe(1)
+				t.expect(label.Visible).toBe(true)
+				table.insert(words, label.Text)
+			end
+		end
+		table.sort(words)
+		t.expect(table.concat(words, ",")).toBe("Done,Edit")
+		stopTable()
+		h.dispose()
+	end)
+end)
+
+t.describe("native paint strength: calendar day", function()
+	t.it("a calendar day keeps no button inset in any theme, so its range band meets the next day", function()
+		local packages = { themes.neutralPackage() }
+		for _, name in SHIPPED do
+			table.insert(packages, (shipped(name)))
+		end
+		for _, package in packages do
+			local h = harness({ theme = package })
+			local range = Compose.cell({
+				start = { year = 2026, month = 9, day = 8 },
+				finish = { year = 2026, month = 9, day = 17 },
+			})
+			local root, stop = mount(h, function()
+				return h.UI.DateTimePicker("P")({
+					selection = "range",
+					style = "inline",
+					range = range,
+					onRangeChange = function(r: any)
+						range:set(r)
+					end,
+				})
+			end)
+			local sheet, stopSheet = sheetFor(h, package)
+			local day = tagged(root, "facet-calendar-day")[10]
+			local sides = {}
+			for _, side in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
+				local value = resolve(sheet, day, side, "UIPadding")
+				table.insert(sides, if value then value.Offset else 0)
+			end
+			t.expect(table.concat(sides, " ")).toBe("0 0 0 0")
+			stopSheet()
+			stop()
+			h.dispose()
+		end
+	end)
+
+	t.it("paints a day number on the range band in onSelected, readable on controlSelected", function()
+		local checked = 0
+		for _, name in SHIPPED do
+			local package = shipped(name)
+			local h = harness({ theme = package })
+			local range = Compose.cell({
+				start = { year = 2026, month = 9, day = 8 },
+				finish = { year = 2026, month = 9, day = 17 },
+			})
+			local root, stop = mount(h, function()
+				return h.UI.DateTimePicker("P")({
+					selection = "range",
+					style = "inline",
+					range = range,
+					onRangeChange = function(r: any)
+						range:set(r)
+					end,
+				})
+			end)
+			for _, palette in package.style.themes do
+				local colors, extra = paletteOf(palette)
+				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
+				local banded = 0
+				for _, number in tagged(root, "facet-calendar-number") do
+					local band = find(number.Parent, "Band")
+					if band and band.Visible and not number:HasTag("facet-calendar-chosen-end") then
+						local ink = resolve(sheet, number, "TextColor3")
+						t.expect(ink).toBe(color(h.engine, extra.onSelected or colors.content))
+						local fill = extra.controlSelected
+						t.expect(contrast({ r = ink.R, g = ink.G, b = ink.B }, fill) >= 4.5).toBe(true)
+						banded += 1
+					end
+				end
+				t.expect(banded >= 8).toBe(true)
+				checked += 1
+				stopSheet()
+			end
+			stop()
+			h.dispose()
+		end
+		t.expect(checked >= 8).toBe(true)
+	end)
+end)
+
+t.describe("native paint strength: skinned control carve", function()
+	t.it("insets every skinned control's content past its art carve on every side at every rung", function()
+		local SIDES = { left = "PaddingLeft", right = "PaddingRight", top = "PaddingTop", bottom = "PaddingBottom" }
+		local function effective(sheet: any, node: any, property: string): number
+			local own = node:FindFirstChildWhichIsA("UIPadding")
+			if own and own[property].Offset ~= 0 then
+				return own[property].Offset
+			end
+			local styled = resolve(sheet, node, property, "UIPadding")
+			return if styled then styled.Offset else 0
+		end
+		local misses = {}
+		for _, name in { "pixel_quest", "fantasy_ornate", "fantasy_parchment" } do
+			local package = shipped(name)
+			local h = harness({ theme = package })
+			local sheet, stopSheet = sheetFor(h, package)
+			for _, rung in { "xsmall", "compact", "regular", "large" } do
+				local options = { { value = "a", label = "(default)" }, { value = "b", label = "Other" } }
+				local root, stop = mount(h, function()
+					return h.Host.Frame({
+						h.UI.Button({ Name = "Button", label = "Go", controlSize = rung }),
+						h.UI.Chip({ Name = "Chip", label = "Chip", selected = Compose.cell(false), controlSize = rung }),
+						h.UI.Picker({
+							Name = "Menu",
+							style = "menu",
+							controlSize = rung,
+							selected = Compose.cell("a"),
+							options = options,
+						}),
+						h.UI.Picker({
+							Name = "Segmented",
+							style = "segmented",
+							controlSize = rung,
+							selected = Compose.cell("a"),
+							options = options,
+						}),
+						h.UI.TextInput({ Name = "Field", value = Compose.cell("x"), controlSize = rung }),
+					})
+				end)
+				local controls = {
+					{ "Button", find(root, "Button"), "control", 1 },
+					{ "Chip", find(root, "Chip"), "control", 1 },
+					{ "Trigger", find(find(root, "Menu"), "Trigger"), "control", 1 },
+					{ "Segment", find(find(root, "Segmented"), "a"), "control", 1 },
+					{ "Field", find(find(root, "Field"), "Input"), "field", 1 },
+				}
+				for _, entry in controls do
+					local label, node, slot = entry[1], entry[2], entry[3]
+					local carve = package.chrome[slot].contentInsets
+					for side, property in SIDES do
+						local face = if side == "left" or side == "right" then 1 else 0
+						local value = effective(sheet, node, property)
+						if value < (carve[side] or 0) + face then
+							table.insert(misses, `{name}/{rung}/{label}.{side}={value}<{carve[side]}+{face}`)
+						end
+					end
+				end
+				local trigger = find(find(root, "Menu"), "Trigger")
+				local icon = find(trigger, "Disclosure")
+				local right = effective(sheet, trigger, "PaddingRight")
+				local iconRight = right - icon.Position.X.Offset
+				local iconLeft = iconRight + icon.Size.X.Offset
+				if iconRight < package.chrome.control.contentInsets.right + 1 or iconLeft > right then
+					table.insert(misses, `{name}/{rung}/Disclosure right={right} icon={iconRight}..{iconLeft}`)
+				end
+				local E = h.engine.types.Enum
+				if trigger.AutomaticSize ~= E.AutomaticSize.XY and trigger.AutomaticSize ~= E.AutomaticSize.Y then
+					table.insert(misses, `{name}/{rung}/Trigger does not grow around its label`)
+				end
+				stop()
+			end
+			stopSheet()
+			h.dispose()
+		end
+		t.expect(table.concat(misses, "\n")).toBe("")
 	end)
 end)

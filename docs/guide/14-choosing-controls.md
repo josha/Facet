@@ -25,7 +25,7 @@ surface only when the existing surface cannot express the task clearly.
 | Show short content or a small task for one control | Popover. |
 | Teach a contextual action | Callout anchored to the action. |
 | Keep a status in the page until the state changes | Notice. |
-| Confirm what the player just did | Snackbar. |
+| Confirm what the player just did | Toast, with an action for Undo. |
 | Put Back, a title and tools at the top of a surface | NavBar. |
 | Organize named peer destinations | TabView. |
 | Navigate a hierarchy | NavigationStack. |

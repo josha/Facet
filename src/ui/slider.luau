@@ -9,6 +9,7 @@ type Range = InputTypes.SliderRange
 type Thumb = InputTypes.SliderThumb
 type NumberSpec = { value: Shared.Value<number>, onChange: ((number) -> ())? }
 export type Adjust = {
+	once: boolean?,
 	vertical: boolean?,
 	guard: boolean?,
 	arrows: ((ComposeTypes.Use, number) -> boolean)?,
@@ -45,6 +46,7 @@ local SLIDER_KEYS = {
 	"trackContent",
 	"rotation",
 	"controlSize",
+	"contained",
 }
 local THICKNESS: { [string]: number } = { xsmall = 3, compact = 4, regular = 6, large = 8 }
 local KNOB = 24
@@ -174,6 +176,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end, spec.controlSize, sizeSources)
 		local visible: Shared.Value<boolean>? = if mode == "always" then nil elseif mode == "none" then false else shown
 		local size = if target then 44 else KNOB
+		local markName = if name == "ThumbStop" then "Thumb" else "Knob"
 		local native: Shared.FrameNativeProps = {
 			Name = name,
 			AnchorPoint = V2.new(0.5, 0.5),
@@ -204,7 +207,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				Size = knobBox,
 				Visible = visible,
 				ZIndex = 3,
-				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
+				Host.UICorner({ CornerRadius = ctx.round }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 			measure(part)
 			return part
@@ -224,7 +227,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return h.enabled(spec, use)
 				end),
 			})
-			mark = Host.Frame "Knob" {
+			mark = Host.Frame(markName) {
 				BackgroundTransparency = 1,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
@@ -240,12 +243,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			}
 		else
 			mark = h.paintedPart({
-				Name = "Knob",
+				Name = markName,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 				Size = knobBox,
 				Visible = visible,
-				Host.UICorner({ CornerRadius = D.new(0.5, 0) }),
+				Host.UICorner({ CornerRadius = ctx.round }),
 			}, spec.thumbImage, "slider-thumb", "sliderThumb")
 		end
 		measure(if content then mark:FindFirstChildWhichIsA("GuiObject") or mark else mark)
@@ -260,6 +263,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		native.BackgroundTransparency = 1
 		native.Selectable = enabledValue(spec)
 		table.insert(native, mark)
+		table.insert(native, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
 		return Host.Frame(native)
 	end
 
@@ -369,7 +373,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local function single(use: ComposeTypes.Use?): number
 			return read(spec.value :: Shared.Value<number>, use)
 		end
-		local detent = ctx.config.pressHaptic
+		local detent = ctx.haptic(true)
 		local function proposeSingle(value: number): boolean
 			if not h.enabled(spec) then
 				return false
@@ -522,8 +526,22 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		local function fraction(value: number): number
 			return model.fraction(value)
 		end
-		local thin = function(use: ComposeTypes.Use?)
+		assert(
+			spec.contained == nil or type(spec.contained) == "boolean",
+			"Facet UI.Slider: contained must be a boolean"
+		)
+		local contained = spec.contained == true
+		local thin = function(use: ComposeTypes.Use?): number
+			local knob: number = if contained
+				then read(extentOf(if isRange then "lower" else "value") :: any, use) :: number
+				else 0
+			if knob > 0 then
+				return knob
+			end
 			return thickness(spec, use)
+		end
+		local function railCorner(): UICorner
+			return if contained then Host.UICorner({ CornerRadius = ctx.round }) else ctx.corner(3)
 		end
 		local trackChildren: { ComposeTypes.Child } = {}
 		if spec.trackContent then
@@ -545,10 +563,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					Name = "Rail",
 					Size = derive(function(use: ComposeTypes.Use?)
 						return if vertical then D2.new(0, thin(use), 1, 0) else D2.new(1, 0, 0, thin(use))
-					end, spec.controlSize),
+					end, spec.controlSize, if contained then thin else nil),
 					Position = D2.fromScale(if vertical then 0.5 else 0, 0.5),
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, 0.5),
-					ctx.corner(3),
+					railCorner(),
 				}, spec.trackImage, "slider-rail", "sliderTrack")
 			)
 			local fill = ctx.styled(
@@ -574,13 +592,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 						return if vertical then D2.new(0.5, 0, 1 - low, -shift) else D2.new(low, shift, 0.5, 0)
 					end,
 					AnchorPoint = V2.new(if vertical then 0.5 else 0, if vertical then 1 else 0.5),
-					ctx.corner(3),
+					railCorner(),
 				},
 				"slider-fill"
 			)
 			ctx.skin(fill, "barFill")
 			table.insert(trackChildren, fill)
 		end
+		local thumbStop = not isRange and (spec.thumb or "always") == "always" and spec.thumbContent == nil
 		local handles: { [Thumb]: Frame } = {}
 		local engagedOf: { [Thumb]: ComposeTypes.Cell<boolean> } =
 			{ lower = Compose.cell(false), upper = Compose.cell(false) }
@@ -640,11 +659,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		else
 			table.insert(
 				trackChildren,
-				knob(spec, "Thumb", "value", function(use)
+				knob(spec, if thumbStop then "ThumbStop" else "Thumb", "value", function(use)
 					return single(use)
 				end, function(use)
 					return fraction(single(use))
-				end, dragging, shown, vertical, false, extentOf("value"))
+				end, dragging, shown, vertical, thumbStop, extentOf("value"))
 			)
 		end
 		table.insert(trackChildren, detector)
@@ -658,7 +677,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					return degrees(use)
 				end
 				else nil,
-			Selectable = if isRange then false else enabledValue(spec),
+			Selectable = if isRange or thumbStop then false else enabledValue(spec),
 		}
 		for _, child in trackChildren do
 			table.insert(trackProps, child)
@@ -673,6 +692,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			h.attributes(track, {
 				AccessibleLabel = (function(use: ComposeTypes.Use): string
 					return read(trackLabel, use) or ""
+				end) :: Shared.Value<Shared.AttributeValue?>,
+			})
+		end
+		if thumbStop then
+			h.attributes(track:FindFirstChild("ThumbStop") :: Instance, {
+				AccessibleLabel = (function(use: ComposeTypes.Use): string
+					local named = if trackLabel ~= nil then read(trackLabel, use) else nil
+					return if named and named ~= "" then named else model.format(single(use))
 				end) :: Shared.Value<Shared.AttributeValue?>,
 			})
 		end
@@ -787,6 +814,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			})
 		end
 		local parts: { ComposeTypes.Child } = {}
+		local captions: { GuiObject } = {}
 		if spec.row then
 			local row = spec.row
 			local header = { readout }
@@ -795,7 +823,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					header,
 					1,
 					ctx.text({
-						Name = "Label",
+						Name = "Title",
 						Text = row.title or spec.label,
 						Size = D2.fromOffset(0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -805,12 +833,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				)
 			end
 			table.insert(
-				parts,
+				captions,
 				ctx.row(header, { Name = "Header", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 			)
 			if row.description then
 				table.insert(
-					parts,
+					captions,
 					ctx.text({
 						Name = "Description",
 						Text = row.description,
@@ -820,7 +848,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					})
 				)
 			end
-			table.insert(parts, track)
+			table.insert(captions, track)
 		else
 			if spec.label then
 				table.insert(
@@ -844,27 +872,35 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			table.insert(parts, readout)
 		end
 		local native = ctx.props(spec, SLIDER_KEYS, {
+			BackgroundTransparency = 1,
 			Size = if vertical then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.X else E.AutomaticSize.Y,
 		})
 		local node: Frame
 		if spec.row and not vertical then
-			local body = ctx.column(parts, {
-				Name = "Body",
-				Size = D2.new(0, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
-				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+			local content, size, mark = ctx.listRow({
+				leading = if spec.row.icon then { ctx.icon(spec.row.icon, { Name = "LeadingIcon" }) } else nil,
+				captions = captions,
+				described = true,
+				controlSize = spec.controlSize,
 			})
-			local columns: { ComposeTypes.Child } = { body, Host.UIPadding({}) }
-			if spec.row.icon then
-				table.insert(columns, 1, ctx.icon(spec.row.icon, { Name = "LeadingIcon" }))
+			if spec.Size == nil then
+				native.Size = size
+				native.AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y
 			end
-			node = ctx.styled(ctx.row(columns, native), "slider")
-			assert(node:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Top
+			table.insert(native, content)
+			table.insert(native, Host.UIPadding({}))
+			node = ctx.styled(Host.Frame(native), "slider")
+			mark(node)
 			node:AddTag("facet-slider-settings")
 		else
-			node =
-				ctx.styled(if spec.row or vertical then ctx.column(parts, native) else ctx.row(parts, native), "slider")
+			node = ctx.styled(
+				if spec.row
+					then ctx.column(captions :: { any }, native)
+					elseif vertical then ctx.column(parts, native)
+					else ctx.row(parts, native),
+				"slider"
+			)
 		end
 		if vertical then
 			local layout = assert(node:FindFirstChildWhichIsA("UIListLayout"))

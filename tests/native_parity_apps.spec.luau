@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
 local glade = require("../examples/reference/p1_glade")
@@ -71,6 +72,13 @@ local helpers: { [string]: boolean } = {
 	worldAnchor = true,
 	scrollTo = true,
 	scrollToVisible = true,
+	focusRing = true,
+	adjustable = true,
+	feedback = true,
+	focusSection = true,
+	responder = true,
+	draggable = true,
+	dropTarget = true,
 }
 
 local function world(module: any, options: Options?): World
@@ -176,6 +184,10 @@ local function modal(screen: any): any
 		end
 	end
 	return nil
+end
+
+local function dismiss(w: any)
+	assert(find(w.screen, "ModalBack"), "no ModalBack").Pressed.fire()
 end
 
 local function press(node: any, ...: string)
@@ -394,7 +406,7 @@ t.describe("native parity reference applications", function()
 			press(w.root, "Wisps", "emberwisp", "Open")
 			local sheet = assert(modal(w.screen))
 			t.expect(hasText(sheet, "Last seen in Mossholm")).toBe(true)
-			press(sheet, "Close")
+			dismiss(w)
 			t.expect(modal(w.screen)).toBeNil()
 			press(w.root, "Wisps", "frostwisp", "Open")
 			t.expect(hasText(assert(modal(w.screen)), "Not seen yet")).toBe(true)
@@ -831,7 +843,7 @@ t.describe("native parity reference applications", function()
 				steps.advance(orders.brewSeconds())
 				t.expect(orders.remaining(101)).toBe(0)
 				t.expect(orders.statusOf(101)).toBe("brewing")
-				press(sheet, "Close")
+				dismiss(w)
 				steps.collect(101)
 				t.expect(commands.status("finish:101"):peek()).toBe("pending")
 				steps.advance(LATENCY)
@@ -1754,7 +1766,7 @@ t.describe("native parity reference applications", function()
 				for _, notice in foyerSeed.notices do
 					t.expect(hasText(sheet, notice.bodyKeyless)).toBe(true)
 				end
-				press(sheet, "Close")
+				dismiss(w)
 				t.expect(modal(w.screen)).toBeNil()
 
 				local tiles = assert(within(pages(w), "home", "Sections", "picked", "Tiles"))
@@ -2281,7 +2293,8 @@ t.describe("native parity reference applications", function()
 				}
 			end)
 			t.expect(ctx.reducedMotion:peek()).toBe(false)
-			press(root, "Settings")
+			press(root, "Showcase")
+			press(assert(find(root, "Section")), "settings")
 			local motion = assert(find(root, "Motion"))
 			press(motion, "reduced")
 			t.expect(ctx.reducedMotion:peek()).toBe(true)
@@ -2293,7 +2306,7 @@ t.describe("native parity reference applications", function()
 			t.expect(pages.second.reducedMotion:peek()).toBe(true)
 			t.expect(ctx.motionMode:peek()).toBe("reduced")
 			t.expect(find(motion, "reduced"):GetAttribute("selected")).toBe(true)
-			press(root, "FollowRobloxMotion")
+			press(motion, "full")
 			t.expect(ctx.reducedMotion:peek()).toBe(false)
 			t.expect(pages.second.reducedMotion:peek()).toBe(false)
 			stop()
@@ -3311,25 +3324,26 @@ t.describe("native parity reference applications", function()
 						columns = {
 							{ id = "first", width = 120 },
 							{ id = "second", width = 140 },
-							{ id = "third", width = 160 },
+							{ id = "third", width = 160, priority = 3 },
 						},
 					})
-					local gutter = if reorderable then 56 else 0
+					local gutter, trail = 0, if reorderable then 44 else 0
 					world.body.AbsoluteSize = vector(world.engine, 600, 300)
 					world.body.AbsoluteWindowSize = vector(world.engine, 600, 300)
 					t.expect(world.body.CanvasSize.Y.Offset > 300).toBe(true)
 					t.expect(world.body.CanvasSize.X.Offset)
-						.toBe(world.header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize.X + gutter)
+						.toBe(world.header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize.X + gutter + trail)
 					local function check(windowWidth: number, scrollX: number, disclosure: number)
 						local row = find(world.body, "1")
 						local cells = find(row, "Row")
 						local frame = if reorderable then find(row, "Cells") else nil
 						t.expect(world.header.Position.X.Offset).toBe(gutter - scrollX)
 						t.expect(if frame then frame.Position.X.Offset else 0).toBe(gutter)
-						t.expect(world.header.Size.X.Offset).toBe(windowWidth - gutter - disclosure)
+						t.expect(world.header.Size.X.Offset).toBe(windowWidth - gutter - trail - disclosure)
 						t.expect(row.Size.X.Offset).toBe(windowWidth)
-						t.expect(cells.Size.X.Scale).toBe(1)
-						t.expect(cells.Size.X.Offset).toBe(-disclosure)
+						t.expect(cells.Size.X.Scale).toBe(0)
+						t.expect(cells.Size.X.Offset).toBe(windowWidth - gutter - trail - disclosure)
+						t.expect(cells.Position.X.Offset).toBe(-scrollX)
 						local left = 0
 						for _, id in { "first", "second", "third" } do
 							local head, cell = world.header:FindFirstChild(id), cells:FindFirstChild(id)
@@ -3386,7 +3400,7 @@ t.describe("native parity reference applications", function()
 				local row = find(body, "neon")
 				local cells = find(row, "Row")
 				t.expect(header.Position.X.Offset).toBe(find(row, "Cells").Position.X.Offset)
-				t.expect(header.Size.X.Offset).toBe(900 - 56)
+				t.expect(header.Size.X.Offset).toBe(900 + find(row, "Cells").Size.X.Offset)
 				local E = world.engine.types.Enum
 				for id, width in { name = 0, artist = 0, rating = 144 } do
 					t.expect(header:FindFirstChild(id).Size.X.Offset).toBe(width)
@@ -3700,11 +3714,11 @@ t.describe("native parity reference applications", function()
 						return out
 					end
 					t.expect(#controls()).toBe(1)
-					t.expect(controls()[1].Text).toBe("Close")
+					t.expect(controls()[1]:GetAttribute("label")).toBe("Close")
 					world.find("Branch").Activated.fire()
 					t.expect(world.find("Leaf") ~= nil).toBe(true)
 					t.expect(#controls()).toBe(1)
-					t.expect(controls()[1].Text).toBe("Back")
+					t.expect(controls()[1]:GetAttribute("label")).toBe("Back")
 					controls()[1].Activated.fire()
 					t.expect(world.opened:peek()).toBe(true)
 					t.expect(world.find("Leaf")).toBeNil()
@@ -3729,9 +3743,9 @@ t.describe("native parity reference applications", function()
 					})
 					local button = world.find("Center")
 					t.expect(button.Visible).toBe(true)
-					t.expect(button.Text).toBe(labels[1])
+					t.expect(button:GetAttribute("label")).toBe(labels[1])
 					world.find("Branch").Activated.fire()
-					t.expect(button.Text).toBe(labels[2])
+					t.expect(button:GetAttribute("label")).toBe(labels[2])
 					button.Activated.fire()
 					t.expect(world.opened:peek()).toBe(center ~= "close")
 					t.expect(world.find("Leaf")).toBeNil()
@@ -3749,15 +3763,18 @@ t.describe("native parity reference applications", function()
 					},
 				})
 				world.find("Modal").AbsoluteSize = vector(world.engine, 180, 180)
-				t.expect(world.find("$navigation").Text).toBe("Close")
+				t.expect(world.find("$navigation")).toBeNil()
+				local nav = world.find("Center")
+				t.expect(nav.Visible).toBe(true)
+				t.expect(nav:GetAttribute("label")).toBe("Close")
 				world.find("Branch").Activated.fire()
-				t.expect(world.find("$navigation").Text).toBe("Back")
-				world.find("$navigation").Activated.fire()
+				t.expect(nav:GetAttribute("label")).toBe("Back")
+				nav.Activated.fire()
 				t.expect(world.find("Branch") ~= nil).toBe(true)
 				t.expect(world.find("Leaf")).toBeNil()
 				t.expect(world.opened:peek()).toBe(true)
-				t.expect(world.find("$navigation").Text).toBe("Close")
-				world.find("$navigation").Activated.fire()
+				t.expect(nav:GetAttribute("label")).toBe("Close")
+				nav.Activated.fire()
 				t.expect(world.opened:peek()).toBe(false)
 				world.stop()
 			end)
@@ -3887,7 +3904,13 @@ t.describe("native parity reference applications", function()
 
 			t.it("picks the character command ring or list from the viewport height", function()
 				for _, case in
-					{ { 1280, 720, "radial" }, { 960, 540, "radial" }, { 800, 600, "radial" }, { 677, 338, "list" } } :: { { any } }
+					{
+						{ 1280, 720, "radial" },
+						{ 960, 540, "radial" },
+						{ 800, 600, "radial" },
+						{ 677, 338, "radial" },
+						{ 677, 280, "list" },
+					} :: { { any } }
 				do
 					local world = mountGallery(quickActions)
 					world.built.steps.character()
@@ -4532,7 +4555,7 @@ t.describe("native parity reference applications", function()
 					onReorder = function() end,
 					columns = {
 						{ id = "a", width = 100 },
-						{ id = "b", width = 120 },
+						{ id = "b", width = 120, priority = 2 },
 					},
 				})
 			end)
@@ -4544,21 +4567,25 @@ t.describe("native parity reference applications", function()
 			local cells = rowNode:FindFirstChild("Cells", true)
 			local row = cells:FindFirstChild("DisclosingRow"):FindFirstChild("Row")
 			local function cellOrigin(): number
-				return rowNode.Position.X.Offset + cells.Position.X.Offset - body.CanvasPosition.X
+				return rowNode.Position.X.Offset
+					- body.CanvasPosition.X
+					+ cells.Parent.Position.X.Offset
+					+ cells.Position.X.Offset
+					+ row.Position.X.Offset
 			end
 			local function cellWidth(): number
-				return rowNode.Size.X.Offset + cells.Size.X.Offset + row.Size.X.Offset
+				return row.Size.X.Offset
 			end
-			t.expect(header.Position.X.Offset).toBe(56)
-			t.expect(cellOrigin()).toBe(56)
-			t.expect(header.Size.X.Offset).toBe(344)
-			t.expect(cellWidth()).toBe(344)
+			t.expect(header.Position.X.Offset).toBe(0)
+			t.expect(cellOrigin()).toBe(0)
+			t.expect(header.Size.X.Offset).toBe(356)
+			t.expect(cellWidth()).toBe(356)
 			for _, column in { "a", "b" } do
 				t.expect(header:FindFirstChild(column).Size).toBe(row:FindFirstChild(column).Size)
 			end
 			body.CanvasPosition = V2.new(30, 0)
-			t.expect(header.Position.X.Offset).toBe(26)
-			t.expect(cellOrigin()).toBe(26)
+			t.expect(header.Position.X.Offset).toBe(-30)
+			t.expect(cellOrigin()).toBe(-30)
 			body.CanvasPosition = V2.new(0, 0)
 			body.AbsoluteWindowSize = V2.new(250, 200)
 			t.expect(header:FindFirstChild("b").Visible).toBe(false)
@@ -4566,8 +4593,8 @@ t.describe("native parity reference applications", function()
 			t.expect(header:FindFirstChild("a").Visible).toBe(true)
 			t.expect(row:FindFirstChild("a").Visible).toBe(true)
 			t.expect(rowNode:FindFirstChild("Details", true) ~= nil).toBe(true)
-			t.expect(header.Size.X.Offset).toBe(146)
-			t.expect(cellWidth()).toBe(146)
+			t.expect(header.Size.X.Offset).toBe(158)
+			t.expect(cellWidth()).toBe(158)
 			t.expect(cellOrigin()).toBe(header.Position.X.Offset)
 			w.stop()
 		end)
@@ -4604,8 +4631,8 @@ t.describe("native parity reference applications", function()
 					itemSize = 40,
 					columns = {
 						{ id = "a", width = 100 },
-						{ id = "b", width = 100 },
-						{ id = "c", width = 100 },
+						{ id = "b", width = 100, priority = 2 },
+						{ id = "c", width = 100, priority = 3 },
 					},
 				})
 			end)
@@ -4714,9 +4741,14 @@ t.describe("native parity reference applications", function()
 				local rowNode = body:FindFirstChild("Items"):FindFirstChild("2")
 				local cells = rowNode:FindFirstChild("Cells", true)
 				local row = cells:FindFirstChild("DisclosingRow"):FindFirstChild("Row")
-				t.expect(rowNode.Position.X.Offset + cells.Position.X.Offset - body.CanvasPosition.X)
-					.toBe(header.Position.X.Offset)
-				t.expect(rowNode.Size.X.Offset + cells.Size.X.Offset + row.Size.X.Offset).toBe(header.Size.X.Offset)
+				t.expect(
+					rowNode.Position.X.Offset
+						- body.CanvasPosition.X
+						+ cells.Parent.Position.X.Offset
+						+ cells.Position.X.Offset
+						+ row.Position.X.Offset
+				).toBe(header.Position.X.Offset)
+				t.expect(row.Size.X.Offset).toBe(header.Size.X.Offset)
 				for _, column in { "fixed", "fill" } do
 					local top, cell = header:FindFirstChild(column), row:FindFirstChild(column)
 					t.expect(top.Size).toBe(cell.Size)
@@ -5239,35 +5271,35 @@ t.describe("native parity reference applications", function()
 				})
 			end)
 			local root = find(w.screen, "@root")
-			t.expect(root.ClassName).toBe("CanvasGroup")
+			t.expect(root.ClassName).toBe("Frame")
 			w.engine.heartbeat.fire(0.3)
-			t.expect(root.GroupTransparency).toBe(0)
+			t.expect(fadeKit.of(root)).toBe(0)
 			t.expect(root.Visible).toBe(true)
 			t.expect(root.Interactable).toBe(true)
 			path:set({ { id = "detail" } })
-			local detail = find(w.screen, "DetailBody").Parent.Parent
+			local detail = fadeKit.layer(find(w.screen, "DetailBody").Parent)
 			t.expect(detail.Name).toBe("detail")
-			t.expect(detail.ClassName).toBe("CanvasGroup")
-			t.expect(detail.GroupTransparency).toBe(1)
+			t.expect(detail.ClassName).toBe("Frame")
+			t.expect(fadeKit.of(detail)).toBe(1)
 			t.expect(detail.Interactable).toBe(true)
 			t.expect(root.Interactable).toBe(false)
 			w.engine.heartbeat.fire(0.1)
-			t.expect(detail.GroupTransparency).toBeGreaterThan(0)
-			t.expect(detail.GroupTransparency).toBeLessThan(1)
-			t.expect(root.GroupTransparency).toBeGreaterThan(0)
-			t.expect(root.GroupTransparency).toBeLessThan(1)
+			t.expect(fadeKit.of(detail)).toBeGreaterThan(0)
+			t.expect(fadeKit.of(detail)).toBeLessThan(1)
+			t.expect(fadeKit.of(root)).toBeGreaterThan(0)
+			t.expect(fadeKit.of(root)).toBeLessThan(1)
 			t.expect(root.Visible).toBe(true)
 			t.expect(root.Interactable).toBe(false)
 			w.engine.heartbeat.fire(0.2)
-			t.expect(detail.GroupTransparency).toBe(0)
+			t.expect(fadeKit.of(detail)).toBe(0)
 			t.expect(detail.Visible).toBe(true)
 			t.expect(root.Visible).toBe(false)
-			t.expect(root.GroupTransparency).toBe(1)
+			t.expect(fadeKit.of(root)).toBe(1)
 			w.gui.ReducedMotionEnabled = true
 			path:set({ path:peek()[1], { id = "more" } })
-			local more = find(w.screen, "MoreBody").Parent.Parent
+			local more = fadeKit.layer(find(w.screen, "MoreBody").Parent)
 			t.expect(more.Name).toBe("more")
-			t.expect(more.GroupTransparency).toBe(0)
+			t.expect(fadeKit.of(more)).toBe(0)
 			t.expect(more.Visible).toBe(true)
 			t.expect(more.Interactable).toBe(true)
 			t.expect(detail.Visible).toBe(false)
@@ -5307,7 +5339,7 @@ t.describe("native parity reference applications", function()
 			t.expect(#present).toBe(1)
 			t.expect(present[1]).toBe(root)
 			t.expect(root.Visible).toBe(true)
-			t.expect(root.GroupTransparency).toBe(0)
+			t.expect(fadeKit.of(root)).toBe(0)
 			t.expect(root.Interactable).toBe(true)
 			t.expect(find(w.screen, "DetailBody")).toBeNil()
 			t.expect(counts.built - counts.disposed).toBe(1)
@@ -5509,7 +5541,7 @@ t.describe("native parity reference applications", function()
 			t.expect(find(w.screen, "DetailBody")).toBe(body)
 			t.expect(find(w.screen, "detail")).toBe(page)
 			t.expect(page.Visible).toBe(true)
-			t.expect(page.GroupTransparency).toBe(0)
+			t.expect(fadeKit.of(page)).toBe(0)
 			t.expect(counts.built).toBe(2)
 			t.expect(counts.disposed).toBe(0)
 			w.stop()
@@ -5550,13 +5582,12 @@ t.describe("native parity reference applications", function()
 			t.expect(after.live).toBe(settled.live)
 			t.expect(after.connections).toBe(settled.connections)
 			expanded:set(true)
-			local panel, back = find(w.screen, "Expanded"), find(w.screen, "ModalBack")
+			local panel = find(w.screen, "Expanded")
 			t.expect(panel ~= nil).toBe(true)
-			t.expect(back ~= nil).toBe(true)
+			t.expect(find(w.screen, "ModalBack") ~= nil).toBe(true)
 			t.expect(w.gui.SelectedObject ~= summary).toBe(true)
 			w.stop()
 			t.expect(panel:isDestroyed()).toBe(true)
-			t.expect(back:isDestroyed()).toBe(true)
 			t.expect(summary:isDestroyed()).toBe(true)
 			local selected = w.gui.SelectedObject
 			t.expect(selected).toBeNil()

@@ -3,7 +3,7 @@ return function(ctx: any, id: string, groups: { any })
 	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2 = ctx.types.UDim2
 	local selections = {}
-	local preference = Compose.cell("automatic")
+	local preference = ctx.categoryPlacement or Compose.cell("automatic")
 	local builtById = {}
 	local function tabsFor(key, entries, outer, parentVisible)
 		local selected = selections[key]
@@ -34,46 +34,58 @@ return function(ctx: any, id: string, groups: { any })
 				end,
 			})
 		end
-		return UI.TabView({
+		if not outer then
+			return UI.TabView({
+				Name = key,
+				selection = selected,
+				tabs = tabs,
+				shoulderNavigation = "content",
+				Size = UDim2.fromScale(1, 1),
+			})
+		end
+		local home, distant = Compose.cell("automatic"), Compose.cell(false)
+		local effective = Compose.formula(function(use)
+			local choice, place = use(preference), use(home)
+			if use(distant) or choice == "automatic" or string.find(place, "bottom") ~= nil then
+				return place
+			end
+			return if choice == "side" then "sidebar" else "topBar"
+		end)
+		local view = UI.TabView({
 			Name = key,
 			selection = selected,
 			tabs = tabs,
-			style = if outer then "sidebarAdaptable" else "automatic",
-			sidebarPreference = if outer then preference else nil,
-			shoulderNavigation = if outer then nil else "content",
-			accessories = if outer
-				then {
-					head = function()
-						return UI.Button "UseTopTabs" {
-							label = "Use top tabs",
-							appearance = "utility",
-							Size = UDim2.new(1, 0, 0, 40),
-							onActivate = function()
-								preference:set("topBar")
-							end,
-						}
-					end,
-					trailing = function(place)
-						return UI.Button "UseSidebar" {
-							label = if place == "topBar"
-								then function(use)
-									local viewport = ctx.viewport and use(ctx.viewport)
-									local narrow = viewport ~= nil and viewport.width > 0 and viewport.width < 600
-									return if narrow then "" else "Use sidebar"
-								end
-								else nil,
-							name = "Use sidebar",
-							appearance = "utility",
-							icon = "menu",
-							onActivate = function()
-								preference:set("sidebar")
-							end,
-						}
-					end,
-				}
-				else nil,
+			style = "sidebarAdaptable",
+			placement = function(use)
+				local place = use(effective)
+				return if place == use(home) then "automatic" else place
+			end,
 			Size = UDim2.fromScale(1, 1),
 		})
+		local env = UI.environment(view)
+		Compose.watch(function(use)
+			home:set(use(env.navPlacement))
+			distant:set(use(env.isTenFoot))
+		end)
+		if ctx.categoryLayout then
+			local layout = {
+				placement = effective,
+				available = Compose.formula(function(use)
+					local place = use(effective)
+					return not use(distant) and (place == "sidebar" or place == "topBar")
+				end),
+				toggle = function()
+					preference:set(if effective:peek() == "sidebar" then "top" else "side")
+				end,
+			}
+			ctx.categoryLayout:set(layout)
+			Compose.cleanup(function()
+				if ctx.categoryLayout:peek() == layout then
+					ctx.categoryLayout:set(nil)
+				end
+			end)
+		end
+		return view
 	end
 	return {
 		screen = function()

@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local Compose = Facet.Compose
@@ -299,6 +300,11 @@ t.describe("native menu parity with main", function()
 			ruled[id] = hairline.Visible
 		end
 		t.expect(ruled).toEqual({ a = false, b = true, c = true, d = false })
+		local ends = {}
+		for _, id in { "a", "b", "c", "d" } do
+			ends[id] = world.find(id, panel):HasTag("facet-menu-end")
+		end
+		t.expect(ends).toEqual({ a = true, b = false, c = false, d = true })
 		t.expect(world.find("b", panel):HasTag("facet-selected")).toBe(true)
 		t.expect(world.find("a", panel):HasTag("facet-selected")).toBe(false)
 		checked:set(false)
@@ -313,6 +319,7 @@ t.describe("native menu parity with main", function()
 		t.expect(rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(8)
 		for index = 1, 3 do
 			t.expect(world.find(`row{index}`, panel):FindFirstChild("Hairline").Visible).toBe(false)
+			t.expect(world.find(`row{index}`, panel):HasTag("facet-menu-end")).toBe(false)
 		end
 		world.stop()
 	end)
@@ -380,6 +387,61 @@ t.describe("native menu parity with main", function()
 		stop()
 	end)
 
+	t.it("a skinned panel sizes to its rows plus the art carve and keeps them in its content box", function()
+		for _, name in { "pixel_quest", "fantasy_ornate" } do
+			local package = (require :: any)("../examples/themes/" .. name).build(Facet.themes)
+			local carve = package.chrome.panel.contentInsets
+			for _, count in { 3, 30 } do
+				local world = labelled({ items = items(count), presentation = "menu" }, { theme = package })
+				local panel = open(world)
+				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
+				local rows = panel:FindFirstChild("MenuRows", true)
+				rows.AbsoluteSize = Vector2.new(220, count * 44)
+				local padding = panel:FindFirstChildWhichIsA("UIPadding")
+				t.expect(
+					`{padding.PaddingLeft.Offset} {padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset}`
+				).toBe(`{carve.left} {carve.top} {carve.right} {carve.bottom}`)
+				local at = rows.Parent
+				while at ~= panel do
+					if at ~= rows.Parent or at:IsA("ScrollingFrame") then
+						t.expect(`{at.Name} {at.Size} {at.Position}`)
+							.toBe(`{at.Name} {UDim2.fromScale(1, 1)} {UDim2.new()}`)
+					end
+					at = at.Parent
+				end
+				local want = math.min(count * 44 + carve.top + carve.bottom, 600 - 24)
+				t.expect(`{name} {count} {panel.Size.Y.Offset}`).toBe(`{name} {count} {want}`)
+				t.expect(panel.Size.X.Offset).toBe(220 + carve.left + carve.right)
+				world.stop()
+			end
+		end
+	end)
+
+	t.it("a 300-row menu fades through a window-sized group, never one as tall as its rows", function()
+		local world = labelled({ items = items(300), presentation = "menu" }, {})
+		local panel = open(world)
+		local rows = panel:FindFirstChild("MenuRows", true)
+		local groups = {}
+		for _, node in panel:GetDescendants() do
+			if node:IsA("CanvasGroup") and rows:IsDescendantOf(node) then
+				table.insert(groups, node)
+			end
+		end
+		t.expect(#groups).toBe(1)
+		local group = groups[1]
+		t.expect(group.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
+		t.expect(group.Size).toBe(UDim2.fromScale(1, 1))
+		local at = group.Parent
+		while at and at ~= panel do
+			t.expect(at:IsA("ScrollingFrame")).toBe(false)
+			at = at.Parent
+		end
+		t.expect(panel:IsA("ScrollingFrame")).toBe(false)
+		t.expect(rows.Parent:IsA("ScrollingFrame")).toBe(true)
+		t.expect(rows.Parent:IsDescendantOf(group)).toBe(true)
+		world.stop()
+	end)
+
 	t.it("grows each level from 0.96 at the corner it hangs at, fades in and dips out faster", function()
 		local world = labelled({ edge = "top", align = "end", items = NESTED, presentation = "menu" }, {})
 		local panel = open(world)
@@ -387,12 +449,12 @@ t.describe("native menu parity with main", function()
 		local scale = world.find("PresentationScale", panel)
 		local group = world.find("MenuGroup", panel)
 		t.expect(scale.Scale).toBe(0.96)
-		t.expect(group.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(group)).toBe(1)
 		local shrink = 1 - scale.Scale
 		t.expect(panel.Position.X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
 		t.expect(panel.Position.Y.Offset).toBeCloseTo(96 + 200 * shrink, 1)
 		local enter = 0
-		while group.GroupTransparency > 0.05 and enter < 60 do
+		while fadeKit.of(group) > 0.05 and enter < 60 do
 			world.engine.heartbeat.fire(FRAME)
 			enter += 1
 		end
@@ -403,14 +465,14 @@ t.describe("native menu parity with main", function()
 		t.expect(panel.Position).toBe(UDim2.fromOffset(280, 96))
 		world.find("adjust", panel).Activated.fire()
 		t.expect(scale.Scale).toBe(0.96)
-		t.expect(group.GroupTransparency).toBe(1)
+		t.expect(fadeKit.of(group)).toBe(1)
 		for _ = 1, 30 do
 			world.engine.heartbeat.fire(FRAME)
 		end
 		t.expect(scale.Scale).toBe(1)
 		world.find("DismissOutside", world.screen.Parent).Activated.fire()
 		local exit = 0
-		while not panel.isDestroyed() and group.GroupTransparency < 0.95 and exit < 60 do
+		while not panel.isDestroyed() and fadeKit.of(group) < 0.95 and exit < 60 do
 			world.engine.heartbeat.fire(FRAME)
 			exit += 1
 		end
@@ -445,10 +507,10 @@ t.describe("native menu parity with main", function()
 		local world = labelled({ items = NESTED, presentation = "menu" })
 		local panel = open(world)
 		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
-		t.expect(world.find("MenuGroup", panel).GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(0)
 		world.find("adjust", panel).Activated.fire()
 		t.expect(world.find("PresentationScale", panel).Scale).toBe(1)
-		t.expect(world.find("MenuGroup", panel).GroupTransparency).toBe(0)
+		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(0)
 		world.stop()
 	end)
 

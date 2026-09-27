@@ -24,7 +24,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	type CalloutRegistration = { id: number, eligible: ComposeTypes.Readable<boolean>, priority: number }
 	local callouts = Compose.cell({} :: { CalloutRegistration })
-	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
 	local DIALOG: Nav.MotionTiming = { enter = 0.2, exit = 0.15 }
 	local REVEAL: Nav.MotionTiming = { enter = 0.25, exit = 0.2 }
 	local nextCallout = 0
@@ -60,6 +59,37 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
+	local function revealMotion(
+		expanded: ComposeTypes.Cell<boolean>
+	): ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>)
+		local reduce = reducedMotion(ctx)
+		local travel = runtime.tween(function(use: ComposeTypes.Use): number
+			return if use(expanded) then 1 else 0
+		end, {
+			seconds = function(_: ComposeTypes.Use): number
+				return if expanded:peek() then REVEAL.enter else REVEAL.exit
+			end,
+			ease = Compose.easing.outCubic,
+		})
+		local function progress(use: ComposeTypes.Use?): number
+			if reduce(use) then
+				return if read(expanded, use) then 1 else 0
+			end
+			return read(travel, use)
+		end
+		return progress, Compose.formula(function(use: ComposeTypes.Use): boolean
+			return progress(use) <= 0
+		end)
+	end
+	local function unroll(progress: (ComposeTypes.Use?) -> number, natural: ComposeTypes.Readable<Vector2>)
+		return function(use: ComposeTypes.Use): Enum.AutomaticSize
+			return if progress(use) >= 1 then E.AutomaticSize.Y else E.AutomaticSize.None
+		end, function(use: ComposeTypes.Use): number?
+			local amount = progress(use)
+			return if amount >= 1 then nil else math.floor(use(natural).Y * amount + 0.5)
+		end
+	end
+
 	UI.DisclosureGroup = ctx.construct("DisclosureGroup", function(spec: Nav.DisclosureGroupSpec): Frame
 		assert(
 			type(spec.expanded) == "table" and spec.expanded.set,
@@ -92,6 +122,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = D2.new(1, 0, 0, 44),
 			selected = if spec.appearance == "outline" then nil else spec.expanded,
 			appearance = if spec.appearance == "outline" then "utility" else nil,
+			TextXAlignment = if spec.appearance == "outline" then E.TextXAlignment.Left else nil,
 			onActivate = function()
 				local value = not spec.expanded:peek()
 				spec.expanded:set(value)
@@ -113,24 +144,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 
-		local reduce = reducedMotion(ctx)
-		local travel = runtime.tween(function(use: ComposeTypes.Use): number
-			return if use(spec.expanded) then 1 else 0
-		end, {
-			seconds = function(_: ComposeTypes.Use): number
-				return if spec.expanded:peek() then REVEAL.enter else REVEAL.exit
-			end,
-			ease = Compose.easing.outCubic,
-		})
-		local function progress(use: ComposeTypes.Use?): number
-			if reduce(use) then
-				return if read(spec.expanded, use) then 1 else 0
-			end
-			return read(travel, use)
-		end
-		local closed = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return progress(use) <= 0
-		end)
+		local progress, closed = revealMotion(spec.expanded)
 		local caret = header:FindFirstChild(if side == "leading" then "LeadingIcon" else "TrailingIcon", true)
 		if caret and caret:IsA("GuiObject") then
 			runtime.decorate(caret, {
@@ -171,7 +185,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								)
 							end,
 					})
-					local fade = Host.CanvasGroup "RevealFade" {
+					local fade = ctx.fade {
+						Name = "RevealFade",
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
@@ -181,7 +196,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						node,
 					}
 					surfaces.attach(fade, { inset :: Types.Child })
-					local natural = ctx.observe.AbsoluteSize(fade)
+					local automatic, height = unroll(progress, ctx.observe.AbsoluteSize(fade))
 					local reveal = Host.Frame "Reveal" {
 						BackgroundTransparency = 1,
 						ClipsDescendants = true,
@@ -189,14 +204,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Interactable = function(use: ComposeTypes.Use)
 							return not use(phase.exiting)
 						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if progress(use) >= 1 then E.AutomaticSize.Y else E.AutomaticSize.None
-						end,
+						AutomaticSize = automatic,
 						Size = function(use: ComposeTypes.Use)
-							local amount = progress(use)
-							return if amount >= 1
-								then D2.new(1, 0, 0, 0)
-								else D2.new(1, 0, 0, math.floor(use(natural).Y * amount + 0.5))
+							return D2.new(1, 0, 0, height(use) or 0)
 						end,
 						fade,
 					}
@@ -266,6 +276,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		buttonSpec.initialFocus = nil
 		buttonSpec.dismissButton = nil
 		buttonSpec.ref = nil
+		buttonSpec.trailingIcon = spec.trailingIcon or "chevron.down"
+		buttonSpec.corners = spec.corners or "pill"
 		buttonSpec.onActivate = function()
 			spec.expanded:set(not spec.expanded:peek())
 		end
@@ -274,58 +286,131 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local progress, closed = revealMotion(spec.expanded)
+		local function collapse()
+			spec.expanded:set(false)
+		end
+		local title = root:FindFirstChild("Title", true)
+		if title and title:IsA("TextLabel") then
+			runtime.decorate(title, { TextTruncate = E.TextTruncate.AtEnd, TextWrapped = false })
+			runtime.mount(function()
+				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink })
+			end, title)
+		end
+		local caret = root:FindFirstChild("TrailingIcon", true)
+		if spec.trailingIcon == nil and caret and caret:IsA("GuiObject") then
+			runtime.decorate(caret, {
+				Rotation = function(use: ComposeTypes.Use)
+					return 180 * progress(use)
+				end,
+			})
+		end
+		local rootBox, rootAt = ctx.observe.AbsoluteSize(root), ctx.observe.AbsolutePosition(root)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.expanded, function(phase: Nav.PresencePhase?)
-				local function close()
-					spec.expanded:set(false)
+				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
+					or assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
+				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
+				local column = ctx.column({
+					body(spec.content),
+					Compose.show(function(use: ComposeTypes.Use)
+						return read(spec.dismissButton, use) ~= false or use(preferred) == E.PreferredInput.Gamepad
+					end, function()
+						return UI.Button "Close" { label = "Close", onActivate = collapse }
+					end),
+					ctx.padding(16, 16),
+				}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+				local natural = ctx.observe.AbsoluteSize(column)
+				local target = Compose.formula(function(use: ComposeTypes.Use): Overlay.Rect
+					local room, offset, at, box = use(extent), use(origin), use(rootAt), use(rootBox)
+					local margin = ctx.metric("space.s", use)
+					local w = math.min(
+						math.max(box.X, (ctx.metric("controls.popup.panelWidth", use))),
+						math.max(0, room.X - 2 * margin)
+					)
+					local h = math.min(math.max(use(natural).Y, box.Y), math.max(0, room.Y - 2 * margin))
+					local x, y = at.X - offset.X, at.Y - offset.Y
+					return {
+						x = math.clamp(x, margin, math.max(margin, room.X - margin - w)),
+						y = math.clamp(y, margin, math.max(margin, room.Y - margin - h)),
+						w = w,
+						h = h,
+					}
+				end)
+				local function lerp(use: ComposeTypes.Use): Overlay.Rect
+					local goal, at, box, offset = use(target), use(rootAt), use(rootBox), use(origin)
+					local t = progress(use)
+					local x, y = at.X - offset.X, at.Y - offset.Y
+					return {
+						x = x + (goal.x - x) * t,
+						y = y + (goal.y - y) * t,
+						w = box.X + (goal.w - box.X) * t,
+						h = box.Y + (goal.h - box.Y) * t,
+					}
 				end
-				local shown = surfaces.appearance(phase, DIALOG)
+				local fade = ctx.fade {
+					Name = "ExpandedFade",
+					BackgroundTransparency = 1,
+					Size = function(use: ComposeTypes.Use)
+						local goal = use(target)
+						return D2.fromOffset(goal.w, goal.h)
+					end,
+					GroupTransparency = function(use: ComposeTypes.Use)
+						return 1 - progress(use)
+					end,
+					Host.ScrollingFrame "ExpandedScroll" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = D2.fromScale(1, 1),
+						CanvasSize = function(use: ComposeTypes.Use)
+							return D2.fromOffset(0, use(natural).Y)
+						end,
+						ScrollingDirection = E.ScrollingDirection.Y,
+						ScrollBarThickness = 4,
+						VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+						Selectable = false,
+						column,
+					},
+				}
+				local plate = surfaces.skin(ctx.styled(
+					Host.Frame "Expanded" {
+						Active = true,
+						BackgroundTransparency = 0,
+						ClipsDescendants = true,
+						Position = function(use: ComposeTypes.Use)
+							local rect = lerp(use)
+							return D2.fromOffset(rect.x, rect.y)
+						end,
+						Size = function(use: ComposeTypes.Use)
+							local rect = lerp(use)
+							return D2.fromOffset(rect.w, rect.h)
+						end,
+						fade,
+						ctx.corner(),
+					},
+					"panel"
+				))
+				ctx.styled(plate, "floating")
 				return surfaces.modal(
 					function()
-						local sheet = surfaces.skin(ctx.styled(
-							ctx.column({
-								ctx.text({ Text = spec.label }),
-								body(spec.content),
-								Compose.show(function(use: ComposeTypes.Use)
-									return read(spec.dismissButton, use) ~= false
-										or use(preferred) == E.PreferredInput.Gamepad
-								end, function()
-									return UI.Button "Close" { label = "Close", onActivate = close }
-								end),
-								ctx.padding(16, 16),
-								ctx.corner(),
-							}, {
-								Name = "Expanded",
-								BackgroundTransparency = 0,
-								Size = D2.new(1, 0, 0, 0),
-								AutomaticSize = E.AutomaticSize.Y,
-							}),
-							"panel"
-						))
-						return surfaces.centered(
-							Host.CanvasGroup "ExpandedPresentation" {
-								BackgroundTransparency = 1,
-								GroupTransparency = function(use: ComposeTypes.Use)
-									return 1 - shown(use)
-								end,
-								sheet :: Instance,
-								Host.UIScale "PresentationScale" {
-									Scale = function(use: ComposeTypes.Use)
-										return 0.94 + 0.06 * shown(use)
-									end,
-								} :: Instance,
-							},
-							640
-						)
+						return plate
 					end,
-					close,
+					collapse,
 					{
+						Name = "CollapsibleModal",
+						backgroundTransparency = 1,
 						initialFocus = spec.initialFocus,
 						exiting = if phase then phase.exiting else nil,
-						appearance = shown,
+						appearance = progress,
 					}
 				)
-			end, { motion = DIALOG }),
+			end, {
+				presence = {
+					exit = function(): ComposeTypes.Exiting
+						return { completed = closed }
+					end,
+				},
+			}),
 		})
 		return root
 	end)
@@ -430,8 +515,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local offer = Compose.cell(V2.new(720, 720))
 				local padding = spec.padding or 20
 				local labelWidths = Compose.cell(0)
+				local form = parts.stackedForm(ctx)
 				local stacked = Compose.formula(function(use: ComposeTypes.Use)
 					return #actions > 2
+						or form(use)
 						or use(offer).X < 480
 						or use(labelWidths) > math.min(use(offer).X - 32, spec.maxWidth or 440) - padding * 2
 				end)
@@ -483,15 +570,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				if spec.content then
 					table.insert(contents, spec.content(payload))
-				end
-				if spec.suppression then
-					table.insert(
-						contents,
-						UI.Toggle "Suppression" {
-							value = spec.suppression.isSuppressed,
-							label = spec.suppression.label or "Do not show again",
-						}
-					)
 				end
 				local contentRoot = ctx.column(
 					contents,
@@ -551,7 +629,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end
 					labelWidths:set(total)
 				end)
-				local actionBar = Host.Frame(actionProps)
+				local actionBar: GuiObject = Host.Frame(actionProps)
+				if spec.suppression then
+					actionBar = ctx.column({
+						actionBar,
+						UI.Toggle "Suppression" {
+							value = spec.suppression.isSuppressed,
+							label = spec.suppression.label or "Do not show again",
+						},
+					}, { Name = "AlertFooter", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+				end
 				local actionSize = ctx.observe.AbsoluteSize(actionBar)
 				local function chrome(use: ComposeTypes.Use): number
 					local package = read(ctx.config.theme, use)
@@ -569,6 +656,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					BorderSizePixel = 0,
 					ScrollingDirection = E.ScrollingDirection.Y,
 					ScrollBarThickness = 4,
+					VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 					Size = function(use: ComposeTypes.Use)
 						if fullScreen then
 							return D2.new(1, 0, 1, -use(actionSize).Y - 12)
@@ -591,7 +679,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					runtime.decorate(scroll, { AnchorPoint = V2.new(0.5, 0), Position = D2.fromScale(0.5, 0) })
 					surfaces.attach(actionBar, { Host.UISizeConstraint "ReadableWidth" { MaxSize = readable } })
 					surfaces.attach(scroll, { Host.UISizeConstraint "ReadableWidth" { MaxSize = readable } })
-					layout = Host.CanvasGroup "AlertLayout" {
+					layout = Host.Frame "AlertLayout" {
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
 							local destination = use(offer)
@@ -610,7 +698,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					)
 				end
 				local panel = ctx.styled(
-					Host.CanvasGroup "AlertPanel" {
+					ctx.fade {
+						Name = "AlertPanel",
 						BackgroundTransparency = 0,
 						BorderSizePixel = 0,
 						Size = D2.fromScale(1, 1),
@@ -625,11 +714,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				surfaces.skin(panel, "panel")
 				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG) else nil
 				if shown then
-					runtime.decorate(panel, {
-						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - shown(use)
-						end,
-					})
+					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
+						return 1 - shown(use)
+					end)
 					surfaces.attach(panel, {
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
@@ -674,7 +761,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local sourceParent = if source
 							then ctx.observe.Parent(source)
 							else Compose.cell(nil :: Instance?)
-						local corner = ctx.corner(0)
+						local corner = ctx.Host.UICorner({ CornerRadius = ctx.types.UDim.new(0, 0) })
 						local sourceCorner = if source then source:FindFirstChildWhichIsA("UICorner") else nil
 						local radius = if sourceCorner then sourceCorner.CornerRadius.Offset else 12
 						local snapshot = if source then source:Clone() else nil
@@ -734,7 +821,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 								AutomaticSize = E.AutomaticSize.None,
 							})
 							surfaces.attach(panel, {
-								Host.CanvasGroup "SourcePreview" {
+								ctx.fade {
+									Name = "SourcePreview",
 									BackgroundTransparency = 1,
 									Size = D2.fromScale(1, 1),
 									Interactable = false,
@@ -753,7 +841,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							Interactable = function(use: ComposeTypes.Use)
 								return not use(phase.exiting) and amount(use) >= 0.65
 							end,
-							GroupTransparency = 0,
 						})
 						runtime.decorate(panel, {
 							AnchorPoint = V2.zero,
@@ -772,10 +859,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 									size.Y + (destination.Y - size.Y) * t
 								)
 							end,
-							GroupTransparency = function(use: ComposeTypes.Use)
-								return if use(sourceParent) then 0 else 1 - amount(use)
-							end,
 						})
+						ctx.fadeTo(panel, function(use: ComposeTypes.Use)
+							return if use(sourceParent) then 0 else 1 - amount(use)
+						end)
 						runtime.decorate(corner, {
 							CornerRadius = function(use: ComposeTypes.Use)
 								return ctx.types.UDim.new(0, radius * (1 - amount(use)))
@@ -790,10 +877,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							end,
 						})
 					else
+						ctx.fadeTo(panel, function(use: ComposeTypes.Use)
+							return 1 - amount(use)
+						end)
 						runtime.decorate(panel, {
-							GroupTransparency = function(use: ComposeTypes.Use)
-								return 1 - amount(use)
-							end,
 							Position = function(use: ComposeTypes.Use)
 								local size, at, box, offset, t =
 									use(offer), use(sourcePosition), use(sourceSize), use(origin), amount(use)
@@ -974,9 +1061,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				retire("seen")
 			end
 		end)
+		local short = ctx.metric("motion.fast")
+		local timing: Nav.MotionTiming = { enter = short, exit = short }
 		surfaces.attach(root, {
 			surfaces.overlay(spec.anchor, visible, function(phase: Nav.PresencePhase?)
-				local amount = surfaces.appearance(phase, POPOVER)
+				local amount = surfaces.appearance(phase, timing)
 				if spec.onShow then
 					local ok: boolean, failure: unknown = pcall(spec.onShow)
 					if not ok then
@@ -1098,7 +1187,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				table.insert(rows, ctx.padding(12, 12))
 				local panel = ctx.styled(
-					Host.CanvasGroup "CalloutPanel" {
+					ctx.fade {
+						Name = "CalloutPanel",
+						GroupTransparency = function(use: ComposeTypes.Use)
+							return 1 - amount(use)
+						end,
 						Size = D2.fromOffset(280, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						ctx.corner() :: Types.Child,
@@ -1119,6 +1212,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local origin = ctx.observe.AbsolutePosition(layer)
 				local measured = ctx.observe.AbsoluteSize(panel)
+				local tailed = spec.tail ~= false and spec.tail ~= "none"
+				local function lift(use: ComposeTypes.Use): number
+					return 8 + (if tailed then parts.tailSize(ctx, use) * math.sqrt(2) / 2 else 0)
+				end
 				local function above(use: ComposeTypes.Use, floor: number): number
 					use(position)
 					local outermost = 0
@@ -1146,7 +1243,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local above = if read(spec.edge, use) == "top"
 						then roomAbove or not roomBelow
 						else roomAbove and not roomBelow
-					local top = if above then y - box.Y - 8 else y + bounds.Y + 8
+					local top = if above then y - box.Y - lift(use) else y + bounds.Y + lift(use)
 					local gutter = ctx.metric("space.s", use)
 					return {
 						left = math.clamp(left, gutter, math.max(gutter, offer.X - box.X - gutter)),
@@ -1170,40 +1267,42 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
 					local above = anchorAt.Y - offset.Y >= at.top + box.Y
 					return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
-				end)
-				local arrow: Frame?
-				if spec.tail ~= false and spec.tail ~= "none" then
-					arrow = ctx.styled(
-						Host.Frame "Arrow" {
-							Size = D2.fromOffset(10, 10),
-							Rotation = 45,
-							BorderSizePixel = 0,
-							ZIndex = function(use: ComposeTypes.Use): number
-								return above(use, 94)
+				end, nil, true)
+				local arrow: { Frame }? = if tailed
+					then parts.tail(
+						ctx,
+						"Arrow",
+						function(use: ComposeTypes.Use): (Vector2?, string)
+							local at, bounds, offset, box, place =
+								use(position), use(size), use(origin), use(measured), use(placement)
+							local inset = parts.tailSize(ctx, use)
+							local x = math.clamp(
+								at.X - offset.X + bounds.X / 2 - place.left,
+								inset,
+								math.max(inset, box.X - inset)
+							)
+							local below = at.Y - offset.Y < place.top
+							return V2.new(place.left + x, if below then place.top else place.top + box.Y),
+								if below then "bottom" else "top"
+						end,
+						amount,
+						function(use: ComposeTypes.Use): number
+							return above(use, 95)
+						end,
+						{
+							node = panel,
+							corner = function(use: ComposeTypes.Use): Vector2
+								local place = use(placement)
+								return V2.new(place.left, place.top)
 							end,
-							Host.UIGradient "PresentationFade" {
-								Transparency = function(use: ComposeTypes.Use)
-									return ctx.types.NumberSequence.new(1 - amount(use))
-								end,
-							} :: Types.Child,
-							Position = function(use: ComposeTypes.Use)
-								local at, bounds, offset, box, place =
-									use(position), use(size), use(origin), use(measured), use(placement)
-								local x = math.clamp(
-									at.X - offset.X + bounds.X / 2 - place.left,
-									12,
-									math.max(12, box.X - 12)
-								)
-								return D2.fromOffset(
-									place.left + x - 5,
-									place.top + (if at.Y - offset.Y < place.top then -5 else box.Y - 5)
-								)
+							size = measured,
+							radius = function(use: ComposeTypes.Use): number
+								return ctx.metric("radii.panel", use)
 							end,
-						},
-						"callout"
+							role = "floating",
+						}
 					)
-					ctx.styled(arrow :: Frame, "panel")
-				end
+					else nil
 				local input = surfaces.service("UserInputService")
 				if input then
 					runtime.connect(input, "InputBegan", function(event: InputObject, processed: boolean)
@@ -1228,8 +1327,61 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 				end
-				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow } else panel :: Instance
-			end, { motion = POPOVER }),
+				local gui = ctx.config.guiService
+				if gui then
+					local anchor = spec.anchor
+					local selection = ctx.observe.SelectedObject(gui)
+					local panelAt = ctx.observe.AbsolutePosition(panel)
+					local linked: string? = nil
+					local linkedTarget: GuiObject? = nil
+					local function unlink()
+						if linked and (anchor :: any)["NextSelection" .. linked] == linkedTarget then
+							(anchor :: any)["NextSelection" .. linked] = nil
+						end
+						linked, linkedTarget = nil, nil
+					end
+					local rebuilt = Compose.cell(0)
+					local leaving: Instance? = nil
+					runtime.connect(panel, "DescendantAdded", function()
+						leaving = nil
+						rebuilt:set(rebuilt:peek() + 1)
+					end)
+					runtime.connect(panel, "DescendantRemoving", function(node: Instance)
+						if linkedTarget and (node == linkedTarget or linkedTarget:IsDescendantOf(node)) then
+							leaving = linkedTarget
+							rebuilt:set(rebuilt:peek() + 1)
+						end
+					end)
+					Compose.watch(function(use: ComposeTypes.Use)
+						use(rebuilt)
+						local below = (use(panelAt) :: Vector2).Y > anchor.AbsolutePosition.Y
+						local direction = if below then "Down" else "Up"
+						local found = surfaces.firstSelectable(panel)
+						local target = if found == leaving then nil else found
+						if linked ~= direction or linkedTarget ~= target then
+							unlink()
+							if target and (anchor :: any)["NextSelection" .. direction] == nil then
+								(anchor :: any)["NextSelection" .. direction] = target
+								linked, linkedTarget = direction, target
+							end
+						end
+					end)
+					Compose.cleanup(function()
+						unlink()
+						local current = gui.SelectedObject
+						if current and current:IsDescendantOf(panel) then
+							gui.SelectedObject = if anchor.Selectable and anchor.Parent then anchor else nil
+						end
+					end)
+					ctx.action(panel, "CalloutBack", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use)
+						local current = use(selection) :: Instance?
+						return current ~= nil and current:IsDescendantOf(panel)
+					end, function()
+						retire("dismissed")
+					end, { priority = 2000 })
+				end
+				return if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] } else panel :: Instance
+			end, { motion = timing }),
 		})
 		return root
 	end)

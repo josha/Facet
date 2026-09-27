@@ -64,7 +64,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.closeButton ~= nil and type(spec.closeButton) ~= "boolean" then
 			error(`Facet {where}: closeButton must be true or false`, 0)
 		end
-		local closeButton = spec.closeButton ~= false
+		local closeButton = if spec.closeButton ~= nil
+			then spec.closeButton
+			else spec.actions == nil or #spec.actions == 0
 		if closeButton and spec.onPresentedChange == nil then
 			error(
 				`Facet {where}: the close button proposes a close and needs onPresentedChange. `
@@ -96,8 +98,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 		parts.checkMedia(where, spec.hero)
-		local actions: { Overlay.Action } = spec.actions or {}
-		parts.checkActions(ctx, where, spec.actions, math.huge)
+		local actions = ((spec.actions or {}) :: unknown) :: { Overlay.Action }
+		parts.checkActions(ctx, where, spec.actions, math.huge, nil, true)
 		local cancelAction: Overlay.Action? = nil
 		for _, action in actions do
 			if action.role == "cancel" then
@@ -161,6 +163,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					closing = nil
 				end
 			end)
+			if wanted() and not ((action :: unknown) :: Overlay.DialogAction).keepOpen then
+				propose(false, "action")
+			end
 		end
 		local function cancel()
 			if cancelAction and parts.usable(ctx, cancelAction) then
@@ -189,6 +194,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					table.insert(regions, parts.media(ctx, spec.hero, "Hero"))
 				end
 				local header: { Types.Child } = {}
+				local plaqued = Compose.cell(false)
 				if spec.title ~= nil then
 					local title = spec.title
 					local heading = ctx.text({
@@ -200,7 +206,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						Visible = function(use: ComposeTypes.Use)
-							return not blank(read(title, use))
+							return not blank(read(title, use)) and not use(plaqued)
 						end,
 						Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 					})
@@ -323,7 +329,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				local shown = surfaces.appearance(phase, DIALOG)
 				local panel = ctx.styled(
-					Host.CanvasGroup "Panel" {
+					ctx.fade {
+						Name = "Panel",
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = function(use: ComposeTypes.Use)
 							return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
@@ -349,7 +356,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					"dialog"
 				)
 				ctx.styled(panel, "panel")
-				surfaces.skin(panel, "panel")
+				surfaces.skin(panel, "panel", {
+					title = spec.title,
+					onCaption = function(on: boolean)
+						plaqued:set(on)
+					end,
+				})
 				local initial: string? = if cancelAction and parts.usable(ctx, cancelAction)
 					then cancelAction.id
 					else nil

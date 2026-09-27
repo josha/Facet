@@ -69,6 +69,7 @@ return {
 				{ id = "beacon", name = "Beacon", price = 20 },
 			})
 			local balance = Compose.cell(100)
+			local rowStatus = Compose.cell(nil)
 
 			local runtime = ctx.runtime
 			local displayedBalance = if runtime
@@ -141,23 +142,12 @@ return {
 			return Host.Frame "AutomaticMotion" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.ScrollingFrame "Page" {
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Vertical,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 16),
-					}),
 					Section({
 						title = "Equipment",
 						footer = UI.Text({
@@ -173,13 +163,24 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 						children = {
-							Compose.OrderedCollection({
+							UI.VirtualList "Items" {
 								from = items,
 								key = function(entry)
 									return entry.id
 								end,
+								mode = "all",
+								measure = true,
+								itemSize = 56,
+								gap = 8,
+								status = rowStatus,
+								ScrollingEnabled = false,
+								ScrollBarThickness = 0,
+								Size = function(use)
+									local current = use(rowStatus)
+									return UDim2.new(1, 0, 0, if current then current.extent else 0)
+								end,
 								render = ItemRow,
-							}),
+							},
 						},
 					}),
 					UI.Toggle "DetailsToggle" {

@@ -654,7 +654,7 @@ t.describe("native themes and media", function()
 		t.expect(skin:FindFirstChild("control1", true).TileSize.X.Offset).toBe(8)
 		t.expect(skin:FindFirstChild("control2bottom", true).AnchorPoint.Y).toBe(1)
 		t.expect(skin:FindFirstChild("control1", true).ResampleMode).toBe(engine.types.Enum.ResamplerMode.Pixelated)
-		t.expect(style(sheet, ".facet-button::UIPadding").PaddingLeft.Offset).toBe(20)
+		t.expect(style(sheet, ".facet-button::UIPadding").PaddingLeft.Offset).toBe(32)
 		stop()
 		runtime:dispose()
 	end)
@@ -860,7 +860,7 @@ t.describe("native themes and media", function()
 		local UI = media(context(Compose, runtime, { types = engine.types, theme = selected }))
 		local value = Compose.cell(0.25)
 		local stop, root = runtime.mount(function()
-			return UI.ProgressView({ value = value })
+			return UI.ProgressView({ value = value, thickness = 36 })
 		end, engine.new("Folder"))
 		local fill = root:FindFirstChild("Fill1", true)
 		t.expect(fill.AnchorPoint.X).toBe(1)
@@ -899,7 +899,7 @@ t.describe("native themes and media", function()
 		local active = Compose.cell(false)
 		local field, toggle, stepper, slider
 		local stop = runtime.mount(function()
-			field = UI.TextInput({ value = Compose.cell("Ada") })
+			field = UI.TextInput({ value = Compose.cell("Ada"), label = "Name" })
 			toggle = UI.Toggle({ value = active })
 			stepper = UI.Stepper({ value = Compose.cell(2), min = 0, max = 10 })
 			slider = UI.Slider({ value = Compose.cell(0.5), min = 0, max = 1 })
@@ -918,8 +918,8 @@ t.describe("native themes and media", function()
 		do
 			t.expect(root:FindFirstChild(slot .. "1", true).Image).toBe("rbxassetid://30")
 		end
-		t.expect(field.Text).toBe("Ada")
-		t.expect(field:HasTag("facet-skinned")).toBe(true)
+		t.expect(field:FindFirstChild("Field", true).Text).toBe("Ada")
+		t.expect(field:FindFirstChild("Input", true):HasTag("facet-skinned")).toBe(true)
 		active:set(true)
 		t.expect(toggle:FindFirstChild("toggleTrack1", true).Image).toBe("rbxassetid://31")
 		t.expect(toggle:FindFirstChild("toggleKnob1", true).Image).toBe("rbxassetid://31")
@@ -1700,6 +1700,153 @@ t.describe("native themes and media", function()
 		local meter = root:FindFirstChild("MeterTrack", true)
 		t.expect(meter.Size.Y.Offset).toBe(28)
 		t.expect(meter:HasTag("facet-control")).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("skin art follows a host inset that code writes, not only one a style rule writes", function()
+		local engine = engineLib.new({ styleOnlySignals = true })
+		local runtime = Roblox.createRuntime(engine)
+		local decorate = require("../src/ui/native_decoration")
+		local Host = runtime.constructors
+		local stop, host = runtime.mount(function()
+			return Host.Frame({ Name = "Panel", Host.UIPadding({}) })
+		end, engine.new("Folder"))
+		local boundary
+		runtime.mount(function()
+			boundary = decorate(Compose, runtime, engine.types, host, Host.Frame({ Name = "Skin" }))
+			return boundary
+		end, host)
+		host.AbsoluteSize = engine.types.Vector2.new(200, 100)
+		boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
+		host:FindFirstChildWhichIsA("UIPadding").PaddingRight = engine.types.UDim.new(0, 24)
+		host:FindFirstChildWhichIsA("UIPadding").PaddingBottom = engine.types.UDim.new(0, 24)
+		local bounds = boundary:FindFirstChild("SkinBounds")
+		t.expect(`{bounds.Position.X.Offset} {bounds.Position.Y.Offset}`).toBe("25 25")
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("skin art on a scrolling host stays pinned to the window, not the scrolled canvas", function()
+		local engine = engineLib.new()
+		local runtime = Roblox.createRuntime(engine)
+		local decorate = require("../src/ui/native_decoration")
+		local Host = runtime.constructors
+		local stop, host = runtime.mount(function()
+			return Host.ScrollingFrame({ Name = "Surface" })
+		end, engine.new("Folder"))
+		local boundary
+		runtime.mount(function()
+			boundary = decorate(Compose, runtime, engine.types, host, Host.Frame({ Name = "Skin" }))
+			return boundary
+		end, host)
+		host.AbsoluteSize = engine.types.Vector2.new(300, 400)
+		boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
+		host.CanvasPosition = engine.types.Vector2.new(0, 48)
+		t.expect(`{boundary.Position.X.Offset} {boundary.Position.Y.Offset} {boundary.Position.Y.Scale}`)
+			.toBe("300 448 0")
+		stop()
+		runtime:dispose()
+	end)
+end)
+
+t.describe("native Avatar and AvatarGroup per-input rules", function()
+	local function inputWorld(touch: boolean)
+		local engine = engineLib.new()
+		local runtime = Roblox.createRuntime(engine)
+		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+		input.TouchEnabled = touch
+		input.MouseEnabled = not touch
+		local UI = controls(Compose, runtime, {
+			types = engine.types,
+			guiService = gui,
+			userInputService = input,
+			services = { GuiService = gui, UserInputService = input },
+		})
+		return engine, runtime, UI, gui
+	end
+	local function find(root: any, name: string): any
+		if root.Name == name then
+			return root
+		end
+		for _, child in root:GetChildren() do
+			local found = find(child, name)
+			if found then
+				return found
+			end
+		end
+		return nil
+	end
+
+	t.it("lights only the avatar under the pointer and leaves passive faces out of input", function()
+		local engine, runtime, UI = inputWorld(false)
+		local screen = engine.new("ScreenGui")
+		local stop = runtime.mount(function()
+			return runtime.constructors.Frame({
+				UI.Avatar "Passive" { name = "Pat Lane" },
+				UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
+				UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },
+			})
+		end, screen)
+		local passive, ada, bo = find(screen, "Passive"), find(screen, "Ada"), find(screen, "Bo")
+		t.expect(passive.Interactable).toBe(false)
+		t.expect(ada.Interactable).toBe(true)
+		local adaRing, boRing = find(ada, "HoverRing"), find(bo, "HoverRing")
+		t.expect(adaRing:HasTag("facet-avatar-hover")).toBe(true)
+		t.expect(adaRing.Transparency).toBe(1)
+		ada.GuiState = engine.types.Enum.GuiState.Hover
+		t.expect(adaRing.Transparency).toBe(0)
+		t.expect(boRing.Transparency).toBe(1)
+		t.expect(find(passive, "HoverRing")).toBe(nil)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("keeps the touch overflow chip its own whole target clear of the stacked faces", function()
+		local engine, runtime, UI = inputWorld(true)
+		local screen = engine.new("ScreenGui")
+		local roster = {}
+		for index = 1, 6 do
+			roster[index] = { id = `p{index}`, name = `Player {index}` }
+		end
+		local stop = runtime.mount(function()
+			return UI.AvatarGroup "Team" { items = roster, max = 3, controlSize = "compact", onOverflow = function() end }
+		end, screen)
+		local group = find(screen, "Team")
+		local chip, gap = group:FindFirstChild("Overflow"), group:FindFirstChild("OverflowGap")
+		local padding = group:FindFirstChildWhichIsA("UIListLayout").Padding.Offset
+		t.expect(padding < 0).toBe(true)
+		t.expect(find(group, "p1").Interactable).toBe(false)
+		t.expect(gap.LayoutOrder < chip.LayoutOrder and gap.LayoutOrder > find(group, "p3").LayoutOrder).toBe(true)
+		t.expect(gap.Size.X.Offset + 2 * padding > 0).toBe(true)
+		local floor = chip:FindFirstChildWhichIsA("UISizeConstraint")
+		t.expect(floor.MinSize).toBe(engine.types.Vector2.new(44, 44))
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("lets gamepad B pass through a selected overflow chip", function()
+		local engine, runtime, UI, gui = inputWorld(false)
+		local screen = engine.new("ScreenGui")
+		local calls = 0
+		local stop = runtime.mount(function()
+			return UI.AvatarGroup "Team" {
+				items = { { id = "a", name = "A" }, { id = "b", name = "B" }, { id = "c", name = "C" } },
+				max = 1,
+				onOverflow = function()
+					calls += 1
+				end,
+			}
+		end, screen)
+		local chip = find(screen, "Overflow")
+		gui.SelectedObject = chip
+		for _, node in screen:GetDescendants() do
+			if node:IsA("InputBinding") then
+				t.expect(node.KeyCode == engine.types.Enum.KeyCode.ButtonB).toBe(false)
+			end
+		end
+		chip.Activated.fire()
+		t.expect(calls).toBe(1)
 		stop()
 		runtime:dispose()
 	end)

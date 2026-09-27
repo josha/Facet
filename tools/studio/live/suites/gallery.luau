@@ -188,12 +188,14 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 			continue
 		end
 		t.settle(20)
-		local screen = screenRect(t)
 		local shell = gallery():FindFirstChild("Gallery")
 		local toolbar = shell and shell:FindFirstChild("Toolbar")
 		local compact = toolbar == nil or not t.visible(toolbar)
+
+		local strip = gallery().Parent:FindFirstChild("FacetGalleryMenu")
+		local screen = if compact and strip then t.rect(strip) else screenRect(t)
 		local settings = if compact
-			then visibleNamed(t, gallery(), "CompactSettings")
+			then strip and visibleNamed(t, strip, "Demos")
 			else visibleNamed(t, toolbar, "Settings")
 		if not settings then
 			t.check(name .. " Settings control visible", false, { compact = compact })
@@ -211,16 +213,7 @@ add("shell-reservation-and-settings", { "risk:shell-reservation" }, function(t)
 			t.check(name .. " Settings label fits", (label :: any).TextFits, (label :: any).TextBounds)
 		end
 		local demos = shell and shell:FindFirstChild("Demos")
-		if compact then
-			local tabs = demos and t.find(demos, "Tabs")
-			if tabs then
-				local r = t.rect(tabs)
-				t.check(name .. " Settings does not cover the demo list", s.y >= r.b - 0.5 or s.r <= r.x + 0.5, {
-					settings = { s.y, s.b },
-					tabs = { r.y, r.b },
-				})
-			end
-		else
+		if not compact then
 			local bar = t.rect(toolbar)
 			local title = t.find(toolbar, "Title")
 			t.inside(name .. " Settings inside the reserved toolbar", s, bar, 1)

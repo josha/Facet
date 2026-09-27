@@ -91,6 +91,7 @@ return {
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Host.UIListLayout({
 						FillDirection = Enum.FillDirection.Horizontal,
+						Wraps = true,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}),
@@ -232,22 +233,11 @@ return {
 			return Host.Frame "LevelPickerDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				Host.UIPadding({
-					PaddingTop = UDim.new(0, 16),
-					PaddingBottom = UDim.new(0, 16),
-					PaddingLeft = UDim.new(0, 16),
-					PaddingRight = UDim.new(0, 16),
-				}),
-				Host.ScrollingFrame "Page" {
+				UI.ScrollView "Page" {
+					padding = 16,
+					gap = 8,
 					Size = UDim2.new(1, 0, 1, 0),
 					BackgroundTransparency = 1,
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					CanvasSize = UDim2.new(),
-					Host.UIListLayout({
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						FillDirection = Enum.FillDirection.Vertical,
-						Padding = UDim.new(0, 8),
-					}),
 					table.unpack(page),
 				},
 			}

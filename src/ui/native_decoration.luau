@@ -2,6 +2,19 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 type Insets = { [string]: UDim }
+local depth = 0
+local function follow(apply: () -> ())
+	if depth > 0 and task then
+		task.defer(apply)
+		return
+	end
+	depth += 1
+	local ok, failure = pcall(apply :: () -> unknown)
+	depth -= 1
+	if not ok then
+		error(failure, 0)
+	end
+end
 
 return function(
 	Compose: typeof(ComposeTypes),
@@ -68,19 +81,24 @@ return function(
 		end
 		for _, side in { "Left", "Right", "Top", "Bottom" } do
 			table.insert(paddingConnections, padding:GetStyledPropertyChangedSignal("Padding" .. side):Connect(refresh))
+			table.insert(paddingConnections, padding:GetPropertyChangedSignal("Padding" .. side):Connect(refresh))
 		end
 		refresh()
 	end
 	table.insert(
 		connections,
 		target:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			size:set(target.AbsoluteSize)
+			follow(function()
+				size:set(target.AbsoluteSize)
+			end)
 		end)
 	)
 	table.insert(
 		connections,
 		boundary:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			scale:set(boundary.AbsoluteSize)
+			follow(function()
+				scale:set(boundary.AbsoluteSize)
+			end)
 		end)
 	)
 	local function childChanged(child: Instance)
@@ -118,10 +136,40 @@ return function(
 			}
 			else { x = right + 1, y = bottom + 1, width = pixels.X, height = pixels.Y }
 	end)
+	if target:IsA("ScrollingFrame") then
+		local frame = target :: ScrollingFrame
+		local canvas = Compose.cell(frame.CanvasPosition)
+		table.insert(
+			connections,
+			frame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+				follow(function()
+					canvas:set(frame.CanvasPosition)
+				end)
+			end)
+		)
+		runtime.decorate(boundary, {
+			Position = function(use: ComposeTypes.Use): UDim2
+				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)
+				local padding: Insets = use(insets)
+				if factor.X <= 0 or factor.Y <= 0 then
+					return D2.fromScale(1, 1)
+				end
+				local width, height = rendered.X / factor.X, rendered.Y / factor.Y
+				local function inset(side: string, length: number): number
+					local value = padding[side]
+					return if value then value.Scale * length + value.Offset else 0
+				end
+				return D2.fromOffset(
+					at.X + width - inset("Left", width) - inset("Right", width),
+					at.Y + height - inset("Top", height) - inset("Bottom", height)
+				)
+			end,
+		})
+	end
 	runtime.decorate(container, {
 		Size = function(use)
-			local box = use(bounds)
-			return D2.fromOffset(box.width, box.height)
+			local box: { width: number, height: number } = use(bounds)
+			return D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))
 		end,
 		Position = function(use)
 			local box = use(bounds)

@@ -54,17 +54,11 @@ return {
 			})
 		end
 		local function screen()
-			return Host.ScrollingFrame "StateMotion" {
+			return UI.ScrollView "StateMotion" {
+				padding = 16,
+				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				AutomaticCanvasSize = E.AutomaticSize.Y,
-				CanvasSize = D2.new(),
-				Host.UIPadding({
-					PaddingLeft = D.new(0, 12),
-					PaddingRight = D.new(0, 12),
-					PaddingBottom = D.new(0, 12),
-				}),
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
 				label("Title", "One action, one shared motion"),
 				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
 				UI.Button "Animate" { label = "Animate", onActivate = animate },

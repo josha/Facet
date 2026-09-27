@@ -24,6 +24,7 @@ local function setup(build: (any, any, any, any) -> any, prepare: ((any, any) ->
 	local runtime = Facet.Roblox.createRuntime(engine)
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
+	input.KeyboardEnabled = true
 	input.GetFocusedTextBox = function()
 		return nil
 	end
@@ -181,6 +182,66 @@ t.describe("native parity weaker editing", function()
 		deliver(world.root, E.KeyCode.Tab)
 		t.expect(world.gui.SelectedObject).toBe(field)
 		t.expect(#commits).toBe(1)
+		world.stop()
+	end)
+
+	t.it("walks a table's editable cells with Tab in row order after the rows scroll and recycle", function()
+		local rows = {}
+		for index = 1, 30 do
+			rows[index] = { id = index, name = `Row {index}` }
+		end
+		local world = setup(function(UI)
+			return UI.Table({
+				from = rows,
+				key = "id",
+				itemSize = 20,
+				onCellChange = function() end,
+				columns = { { id = "name", label = "Name", editor = "text" } },
+			})
+		end)
+		local E = world.engine.types.Enum
+		local body = find(world.node, "Body")
+		body.AbsoluteWindowSize = V2(world, 300, 100)
+		for _, offset in { 200, 400, 120, 0, 60 } do
+			body.CanvasPosition = V2(world, 0, offset)
+		end
+		local function rowOf(node: any): number?
+			local at = node
+			while at and at ~= body do
+				if at.Parent and at.Parent.Name == "Items" then
+					return tonumber(at.Name)
+				end
+				at = at.Parent
+			end
+			return nil
+		end
+		local editors = {}
+		for _, node in body:GetDescendants() do
+			if node.Name == "Editor" and node:IsA("TextBox") and rowOf(node) then
+				table.insert(editors, node)
+			end
+		end
+		table.sort(editors, function(a, b)
+			return (rowOf(a) :: number) < (rowOf(b) :: number)
+		end)
+		t.expect(#editors >= 3).toBe(true)
+		world.gui.SelectedObject = editors[1]
+		local walked = { rowOf(editors[1]) }
+		for _ = 1, 40 do
+			deliver(world.root, E.KeyCode.Tab)
+			local current = world.gui.SelectedObject
+			if current and current.Name == "Editor" and rowOf(current) then
+				if current == editors[1] then
+					break
+				end
+				table.insert(walked, rowOf(current))
+			end
+		end
+		local expected = {}
+		for index, editor in editors do
+			expected[index] = rowOf(editor)
+		end
+		t.expect(table.concat(walked, ",")).toBe(table.concat(expected, ","))
 		world.stop()
 	end)
 

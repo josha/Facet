@@ -38,6 +38,7 @@ local NAV_KEYS = {
 	"trailing",
 	"gap",
 	"padding",
+	"surface",
 }
 local SEVERITIES: { [string]: string } = freeze({
 	info = "status.info",
@@ -184,12 +185,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		table.insert(copy, message)
 		local textService = ctx.config.services and ctx.config.services.TextService
 		if textService then
-			local width = ctx.observe.AbsoluteSize(message)
+			local width, unit = ctx.observe.AbsoluteSize(message), ctx.layoutUnit(message)
 			local face = ctx.observeStyled.FontFace(message)
 			local points = ctx.observeStyled.TextSize(message)
 			local serial, last = 0, ""
 			Compose.watch(function(use: ComposeTypes.Use)
-				local wide = use(width).X
+				local wide = use(width).X / use(unit)
 				local text: string = read(spec.message, use) or ""
 				local font, size = use(face) :: Font, use(points) :: number
 				local key = `{wide}|{text}|{size}|{font.Family}|{font.Weight.Name}`
@@ -440,6 +441,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		surfaces.attach(root, rowChildren)
 		ctx.styled(root, "notice")
 		ctx.styled(root, if emphasis then "status-" .. severity else "panel")
+		if not emphasis then
+			ctx.skin(root, "panel")
+		end
 		root:SetAttribute("NoticeSeverity", severity)
 		local extent = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -541,18 +545,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if spec.title ~= nil and not parts.bound(ctx, spec.title, "string") then
 			error(`Facet {where}: title must be a string or a bound string`, 0)
 		end
+		local plate = ({ surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" })[spec.surface or ""]
+		if spec.surface ~= nil and plate == nil then
+			error(`Facet {where}: surface must be surface, panel or pane`, 0)
+		end
 		local gap = function(use: ComposeTypes.Use?): number
 			return space(spec.gap, "s", use)
 		end
 		local primary: { Types.Child } = {}
 		if spec.onBack then
+			table.insert(primary, parts.back(ctx, UI, spec.backLabel, spec.onBack))
 			table.insert(
 				primary,
-				UI.Button "Back" {
-					label = spec.backLabel or "Back",
-					icon = "chevron.leading",
-					appearance = "link",
-					onActivate = spec.onBack,
+				Host.Frame "BackGap" {
+					BackgroundTransparency = 1,
+					Size = function(use: ComposeTypes.Use)
+						return D2.fromOffset(ctx.metric("space.s", use), 0)
+					end,
 				}
 			)
 		end
@@ -632,6 +641,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				AutomaticSize = E.AutomaticSize.Y,
 			})
 		)
+		if plate then
+			root:AddTag(plate)
+		end
 		local list = root:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
 		if list then
 			runtime.decorate(list, {
@@ -677,17 +689,26 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if trailingFrame then
 			local box = ctx.observe.AbsoluteSize(root)
 			local sides = ctx.observe.AbsoluteSize(trailingFrame)
-			local main = ctx.observe.AbsoluteSize(primaryFrame)
-			local middle = ctx.observe.AbsoluteSize(centerFrame)
+			local before: { ComposeTypes.Readable<Vector2> } = {}
+			for _, child in primaryFrame:GetChildren() do
+				if child:IsA("GuiObject") and child ~= centerFrame then
+					table.insert(before, ctx.observe.AbsoluteSize(child))
+				end
+			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
+			local unit = ctx.layoutUnit(root :: GuiObject)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local width = use(box).X
-				if width <= 0 then
+				local scale = use(unit)
+				local width = use(box).X / scale
+				if width <= 0 or use(sides).X <= 0 then
 					return
 				end
-				local fixed = use(main).X - use(middle).X
-				local room = width - fixed - use(sides).X - gap(use)
-				local wanted = if natural then use(natural).X else ctx.metric("controls.popup.panelWidth", use)
+				local fixed = 0
+				for _, size in before do
+					fixed += use(size).X / scale + gap(use)
+				end
+				local room = width - fixed - use(sides).X / scale - gap(use)
+				local wanted = if natural then use(natural).X / scale else ctx.metric("controls.popup.panelWidth", use)
 				local floor = math.min(wanted, width - fixed)
 				local next = room < floor
 				if next ~= stacked:peek() then

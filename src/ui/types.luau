@@ -12,6 +12,9 @@ export type Use = ComposeTypes.Use
 export type Child = ComposeTypes.Child
 export type Dispose = ComposeTypes.Dispose
 export type Value<T> = Engine.Value<T>
+export type ValueString = Engine.ValueString
+export type ValueBoolean = Engine.ValueBoolean
+export type ValueNumber = Engine.ValueNumber
 
 export type Constructor<P, N> = Engine.Constructor<P, N>
 export type Host = Engine.Host
@@ -41,7 +44,7 @@ export type Flow = {
 	gap: Value<Space>?,
 	align: Value<Align>?,
 	distribute: Value<Distribute>?,
-	wrap: Value<boolean>?,
+	wrap: Engine.ValueBoolean?,
 }
 
 export type BillboardGuiProps = Engine.BillboardGuiProps
@@ -127,6 +130,7 @@ export type Services = {
 	Workspace: Workspace?,
 	TweenService: TweenService?,
 }
+export type HapticKind = "selection" | "impact" | "success" | "warning" | "error"
 export type Config = {
 	types: RobloxTypes?,
 	services: Services?,
@@ -137,9 +141,23 @@ export type Config = {
 	controlSize: Value<ControlSize>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
-	reducedMotion: Value<boolean>?,
-	pressHaptic: HapticEffect?,
+	reducedMotion: Engine.ValueBoolean?,
+	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
+	environment: EnvironmentPreview?,
+	keyboardNavigation: boolean?,
+}
+export type EnvironmentPreview = {
+	preferredInput: Value<(Enum.PreferredInput | string)?>?,
+	touchEnabled: Value<boolean?>?,
+	mouseEnabled: Value<boolean?>?,
+	gamepadEnabled: Value<boolean?>?,
+	keyboardEnabled: Value<boolean?>?,
+	preferredTextSize: Value<(Enum.PreferredTextSize | string)?>?,
+	displaySize: Value<(Enum.DisplaySize | string)?>?,
+	viewportSize: Value<Vector2?>?,
+	viewingDistance: Value<("automatic" | "near" | "ten-foot")?>?,
+	overscanInsets: Value<({ top: number, left: number, bottom: number, right: number } | "none")?>?,
 }
 export type ResolvedConfig = Config & { services: Services }
 export type Read = <T>(Value<T>, Use?) -> T
@@ -152,8 +170,25 @@ export type ActionSettings = {
 	onReleased: (() -> ())?,
 	capture: boolean?,
 	group: string?,
+	conditional: { binding: ActionBinding, when: (ComposeTypes.Use) -> boolean }?,
+	direction2D: ((Vector2) -> ())?,
 }
-export type SkinStateOptions = { disabled: Value<boolean>?, selected: Value<boolean>? }
+export type ListRow = {
+	leading: { Child }?,
+	captions: { GuiObject },
+	trailing: { Child }?,
+	described: boolean,
+	controlSize: Value<ControlSize>?,
+}
+export type SkinStateOptions = {
+	disabled: Engine.ValueBoolean?,
+	selected: Engine.ValueBoolean?,
+	label: Engine.ValueString?,
+	onCaption: ((boolean) -> ())?,
+}
+export type ResponderOptions = { passive: boolean?, gameplayGuard: boolean?, traversalWrap: boolean? }
+export type ResponderState = "passive" | "engaged"
+export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
 export type Context = {
 	runtime: Runtime,
 	Host: Host,
@@ -163,27 +198,40 @@ export type Context = {
 	metrics: { textSize: number, controlHeight: number, gap: number, cornerRadius: number },
 	read: Read,
 	readSource: <T>(Readable<T>, Use?) -> T,
+	haptic: (kind: unknown) -> HapticEffect?,
 	metric: (string, Use?) -> number,
+	neutralMetrics: (Use?) -> Theme.Metrics,
 	controlSize: (Value<ControlSize>?, "height" | "paddingX" | "iconSize", Use?) -> number,
 	pointerOnly: () -> (Use?) -> boolean,
 	hitFloor: () -> (Use?) -> number,
+	tenFoot: () -> (Use?) -> boolean,
+	viewingDistance: (Use?) -> "automatic" | "near" | "ten-foot",
+	effectiveInput: () -> (Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse",
 	touchFloor: () -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),
 	whenSelected: (Instance, Instance, () -> ()) -> (),
+	selectionHooks: { (unknown) -> () },
 	shiftActivation: (Instance, InputObject?) -> (() -> ())?,
 	playWhileShown: (Playback, Instance) -> (),
 	props: <P>(P, { string } | { [string]: boolean }?, unknown?) -> P,
 	construct: <F>(string, F) -> F & ((string) -> F),
 	styled: <N>(N & Instance, string) -> N & Instance,
 	padding: (number, number) -> UIPadding,
+	round: (ComposeTypes.Use?, UDim?) -> UDim,
 	corner: (number?) -> UICorner,
+	fade: (CanvasGroupNativeProps) -> Frame,
+	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,
+	layoutUnit: (GuiBase2d) -> ComposeTypes.Readable<number>,
+	layoutSize: (GuiBase2d, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,
+	layoutBounds: (TextLabel | TextButton | TextBox, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,
 	column: ({ Child }, FrameNativeProps?) -> Frame,
-	icon: (Value<string>, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,
-	iconVaries: (Value<string>?) -> boolean,
+	listRow: (ListRow) -> (Frame, Value<UDim2>, (GuiObject) -> ()),
+	icon: (Engine.ValueString, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,
+	iconVaries: (Engine.ValueString?) -> boolean,
 	modalScopes: Cell<{ Instance }>,
 	modalPortals: Cell<{ ModalPortal }>,
 	modalPortal: (Instance, Instance) -> (),
@@ -192,11 +240,16 @@ export type Context = {
 		Instance,
 		string,
 		ActionBindings,
-		Value<boolean>?,
+		Engine.ValueBoolean?,
 		() -> (),
 		ActionSettings?
 	) -> (InputAction, InputContext),
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
+	responder: (Instance, ResponderOptions?) -> Responder,
+	spaceActivates: (Instance) -> (Use) -> boolean,
+	layoutKit: unknown?,
+	showHelp: unknown?,
+	reducedMotion: unknown?,
 }
 
 return {}
