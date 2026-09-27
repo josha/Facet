@@ -1480,10 +1480,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			for _, show in shows do
 				table.insert(heights, ctx.observe.AbsoluteSize(show))
 			end
+			local techniqueNode = Host.Frame(technique)
+			local unit = ctx.layoutUnit(techniqueNode)
 			local function tech(use: Use): number
 				local tallest, list = 0, 0
 				for index, size in heights do
-					local h = use(size).Y
+					local h = use(size).Y / use(unit)
 					if modes[index] == "brick" then
 						list = h
 					else
@@ -1494,12 +1496,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end
 			local function active(use: Use): number
 				local index = table.find(modes, use(modeCell))
-				return if index then use(heights[index]).Y else 0
+				return if index then use(heights[index]).Y / use(unit) else 0
 			end
-			local techniqueNode = Host.Frame(technique)
 			local width = ctx.observe.AbsoluteSize(techniqueNode)
 			Compose.watch(function(use: Use)
-				local w = use(width).X
+				local w = use(width).X / use(unit)
 				columns:set(
 					if w > 0 then math.clamp(math.floor((w + GAP) / (CELL + GAP)), 1, MAX_COLUMNS) else MAX_COLUMNS
 				)
@@ -1546,7 +1547,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local window = ctx.observe.AbsoluteWindowSize(body)
 			runtime.decorate(techniqueNode, {
 				Size = function(use: Use)
-					local across = use(window).X
+					local across = use(window).X / use(unit)
 					return if across > 0 then D2.fromOffset(across, active(use)) else D2.new(1, 0, 0, active(use))
 				end,
 			})

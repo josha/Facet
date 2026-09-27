@@ -225,6 +225,7 @@ export type Context = {
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
 	row: ({ Child }, FrameNativeProps?) -> Frame,
+	layoutUnit: (GuiObject) -> ComposeTypes.Readable<number>,
 	column: ({ Child }, FrameNativeProps?) -> Frame,
 	listRow: (ListRow) -> (Frame, Value<UDim2>, (GuiObject) -> ()),
 	icon: (Engine.ValueString, ImageLabelNativeProps?, Value<Theme.SkinState>?) -> ImageLabel,

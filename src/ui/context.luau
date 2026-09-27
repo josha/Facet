@@ -886,6 +886,16 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		end
 		return ctx.styled(Host.TextLabel(native), "Text")
 	end
+	function ctx.layoutUnit(parent: GuiObject): ComposeTypes.Readable<number>
+		local _, probe = runtime.mount(function()
+			return Host.Frame "LayoutUnit" { Size = types.UDim2.fromOffset(100, 1), Visible = false }
+		end, parent)
+		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
+		return Compose.formula(function(use: ComposeTypes.Use): number
+			local unit = (use(size) :: Vector2).X / 100
+			return if unit > 0 then unit else 1
+		end)
+	end
 	function ctx.row(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, false)
 	end

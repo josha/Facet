@@ -207,7 +207,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"onChange",
 			"controlSize",
 		}, { Name = "TabView", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }))
-		local dimensions = ctx.observe.AbsoluteSize(root)
+		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
+		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
+		local screenSize = ctx.observe.AbsoluteSize(root)
+		local dimensions = Compose.formula(function(use: ComposeTypes.Use): Vector2
+			local unit = use(unitSize).X / 100
+			local size = use(screenSize)
+			return if unit > 0 then size / unit else size
+		end)
 		local function locate()
 			local at: Instance? = root.Parent
 			local inside = depth > 0
@@ -449,8 +456,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Padding = D.new(0, 4),
 		})
 		local stripContent = ctx.observe.AbsoluteContentSize(stripLayout)
-		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
-		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
 		local function railWidth(use: ComposeTypes.Use): number
 			local authored = read(spec.railWidth, use)
 			if authored then
@@ -484,7 +489,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
 			local unit = use(unitSize).X / 100
 			local scale = if unit > 0 then unit else 1
-			local room = (use(dimensions).X - use(trailingWidth)) / scale
+			local room = use(dimensions).X - use(trailingWidth) / scale
 			local width = math.ceil(math.min(room, use(stripContent).X / scale + 2 * INSET))
 			return width, math.max(0, math.floor((room - width) / 2))
 		end
