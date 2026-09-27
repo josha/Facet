@@ -104,7 +104,7 @@ return function<V, K>(
 			return
 		end
 		if mode ~= "multiple" then
-			local selected = { [key] = true }
+			local selected = if read(spec.editing) == true and selection:peek()[key] then {} else { [key] = true }
 			anchorAt(key, selected)
 			publish(selected)
 			return

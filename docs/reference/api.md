@@ -2976,7 +2976,9 @@ input:
   is neither reorderable nor deletable.
 - While `editing` is true, a tap, a click, Return or the A button on a row of
   a selectable collection toggles that row's selection and does not run
-  `onActivate`. A deletable Table's own
+  `onActivate`. With `selectionMode = "single"` the row becomes the one
+  selected row, and a second press on it clears the selection. A deletable
+  Table's own
   toolbar shows a `DeleteSelected` button (`Delete`) beside `Edit` while it
   edits, except with a gamepad, whose X button does the same; it removes the
   selected rows through `onDelete` and is disabled while nothing is selected.

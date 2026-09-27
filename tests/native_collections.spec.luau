@@ -3110,6 +3110,26 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("a single-selection List in edit mode toggles its one row: a tap on the chosen row clears it", function()
+		local activated = {}
+		local w = editableWorld("Touch", {
+			selectionMode = "single",
+			editing = Compose.cell(true),
+			onActivate = function(_, rowKey)
+				table.insert(activated, rowKey)
+			end,
+		}, true)
+		local touch = { UserInputType = w.engine.types.Enum.UserInputType.Touch }
+		w.row(2):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({ [2] = true })
+		w.row(3):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({ [3] = true })
+		w.row(3):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({})
+		t.expect(activated).toEqual({})
+		w.stop()
+	end)
+
 	t.it("a handle drag always drops on DragEnd, even when the detector starts before the handle's press", function()
 		local w = editableWorld("Touch", { reorderable = true, editing = Compose.cell(true) }, false)
 		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
