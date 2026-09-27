@@ -1,5 +1,6 @@
 --!strict
 local policy = require("./collection_policy")
+local activation = require("./activation")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
@@ -160,6 +161,7 @@ return function<V, K>(
 		end
 		if #keys > 0 then
 			captured = if position then pendingInput else nil
+			activation.consume(captured)
 			moving:set({
 				key = key,
 				keys = keys,
@@ -603,6 +605,7 @@ return function<V, K>(
 			return image
 		end
 		if input then
+			ctx.runtime.connect(input, "InputBegan", activation.release)
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
 				if touchOrigin and value == pendingInput then
 					local position = V2.new(value.Position.X, value.Position.Y)

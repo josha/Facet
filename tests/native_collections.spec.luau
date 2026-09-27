@@ -2805,6 +2805,29 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end
 	end)
 
+	t.it("a row dragged away and back to its own slot keeps the selection and activates nothing", function()
+		local w =
+			editableWorld("KeyboardAndMouse", { reorderable = true, selected = { [1] = true, [2] = true } }, false)
+		local V2, E = w.engine.types.Vector2, w.engine.types.Enum
+		local hit = w.row(2):FindFirstChild("RowHit", true)
+		local press = { UserInputType = E.UserInputType.MouseButton1, Position = V2.new(10, 50) }
+		hit.InputBegan.fire(press)
+		for _, y in { 150, 50 } do
+			w.service.InputChanged.fire({
+				UserInputType = E.UserInputType.MouseMovement,
+				UserInputState = E.UserInputState.Change,
+				Position = V2.new(10, y),
+			})
+		end
+		w.service.InputEnded.fire(press)
+		hit.Activated.fire(press, 1)
+		t.expect(w.selection:peek()).toEqual({ [1] = true, [2] = true })
+		w.service.InputBegan.fire(press)
+		hit.Activated.fire(press, 1)
+		t.expect(w.selection:peek()).toEqual({ [2] = true })
+		w.stop()
+	end)
+
 	t.it("Delete, Backspace and the X button remove the selected deletable rows through onDelete", function()
 		for _, list in { false, true } do
 			local w =

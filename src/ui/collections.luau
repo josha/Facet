@@ -222,7 +222,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 		end
 		local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
-			if policy.disabled(spec.disabled, current:peek()) then
+			if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
 				return
 			end
 			local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
