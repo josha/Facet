@@ -190,6 +190,11 @@ t.describe("native radial interaction policies", function()
 		t.expect(wave.Parent ~= nil).toBe(true)
 		local after = `{paint.Position.X.Offset},{paint.Position.Y.Offset},{paint:FindFirstChild("Sector").Thickness}`
 		t.expect(after).toBe(before)
+		local arriving = world.find("Sector-wear")
+		local fade = arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value
+		t.expect(fade > 0.5).toBe(true)
+		world.step(0.5)
+		t.expect(arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value).toBe(0)
 		world.stop()
 	end)
 	t.it("a corner menu keeps its launcher's room while the launcher hides under the open ring", function()
@@ -234,6 +239,22 @@ t.describe("native radial interaction policies", function()
 			t.expect(gap >= 0 and gap <= 8).toBe(true)
 			button.MouseLeave.fire()
 		end
+		world.stop()
+	end)
+	t.it("a slim-band ring paints its wedges only once every label on it is measured", function()
+		local world = setup({
+			contentFit = "radial",
+			items = { { id = "wear", label = "Wear" }, { id = "tools", label = "Tools" } },
+		})
+		world.step(0.5)
+		local function shown(id)
+			return world.find("Sector-" .. id):FindFirstChild("Paint").Visible
+		end
+		t.expect(`{shown("wear")} {shown("tools")}`).toBe("false false")
+		world.find("wear").TextBounds = world.engine.types.Vector2.new(34, 16)
+		t.expect(`{shown("wear")} {shown("tools")}`).toBe("false false")
+		world.find("tools").TextBounds = world.engine.types.Vector2.new(38, 16)
+		t.expect(`{shown("wear")} {shown("tools")}`).toBe("true true")
 		world.stop()
 	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()

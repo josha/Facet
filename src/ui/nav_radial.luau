@@ -927,7 +927,10 @@ return function(
 									skin(button, spec.skin and spec.skin.item, function(use: ComposeTypes.Use)
 										return use(candidate) == currentSector(use).key
 									end)
-									local measured = ctx.observe.TextBounds(button)
+									local caption = button:FindFirstChild("Title", true)
+									local measured = ctx.observe.TextBounds(
+										if caption and caption:IsA("TextLabel") then caption else button
+									)
 									local paint = Host.Path2D "Sector" {
 										Thickness = sector.outer - sector.inner,
 										Closed = false,
@@ -960,10 +963,13 @@ return function(
 										end,
 										button,
 									})
+									local shaped = Compose.cell(false)
 									local shape = Host.Frame "Paint" {
 										BackgroundTransparency = 1,
 										Visible = function(use: ComposeTypes.Use)
-											return appearance == "wedges" and not currentSector(use).list
+											return appearance == "wedges"
+												and not currentSector(use).list
+												and use(shaped)
 										end,
 										paint,
 									}
@@ -985,13 +991,18 @@ return function(
 											6,
 											contentFit
 										)
+										local ready = iconOnly or text.X > 0 or (read(live.item.label, use) or "") == ""
+										local complete = ready
 										if contentFit == "radial" then
 											local own = ringFits:peek()[live.key]
 											if
-												not own
-												or own.ring ~= live.inner
-												or own.inner ~= fitted.inner
-												or own.outer ~= fitted.outer
+												ready
+												and (
+													not own
+													or own.ring ~= live.inner
+													or own.inner ~= fitted.inner
+													or own.outer ~= fitted.outer
+												)
 											then
 												local nextFits = table.clone(ringFits:peek())
 												nextFits[live.key] =
@@ -1002,12 +1013,24 @@ return function(
 											for _, entry in use(sectors) do
 												shown[entry.key] = true
 											end
-											for key, fit in use(ringFits) do
+											local fits = use(ringFits)
+											for _, entry in use(sectors) do
+												local fit = fits[entry.key]
+												if
+													entry.inner == live.inner and (fit == nil or fit.ring ~= live.inner)
+												then
+													complete = false
+												end
+											end
+											for key, fit in fits do
 												if shown[key] and fit.ring == live.inner then
 													fitted.inner = math.min(fitted.inner, fit.inner)
 													fitted.outer = math.max(fitted.outer, fit.outer)
 												end
 											end
+										end
+										if complete and not shaped:peek() then
+											shaped:set(true)
 										end
 										local bounds = geometry.paint(fitted)
 										placed:set({ x = bounds.x, y = bounds.y })
