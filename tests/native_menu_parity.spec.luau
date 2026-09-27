@@ -609,6 +609,39 @@ t.describe("native menu parity with main", function()
 		world.stop()
 	end)
 
+	t.it("a pointer submenu grows from the chosen row, and Back grows the parent from the child's side", function()
+		local world = labelled({ items = NESTED, presentation = "menu" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 132))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local adjust = world.find("adjust", panel)
+		adjust.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
+		adjust.Activated.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local scale = world.find("PresentationScale", panel)
+		t.expect(scale.Scale < 1).toBe(true)
+		local shrink = 1 - scale.Scale
+		t.expect(panel.Position.X.Offset).toBeCloseTo(100 + 288, 1)
+		t.expect(panel.Position.Y.Offset).toBeCloseTo(144 + 44 * shrink, 1)
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.action("MenuLeft").Pressed.fire()
+		t.expect(world.find("adjust", panel) ~= nil).toBe(true)
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		t.expect(scale.Scale < 1).toBe(true)
+		shrink = 1 - scale.Scale
+		t.expect(panel.Position.X.Offset).toBeCloseTo(100 + 220 * shrink, 1)
+		t.expect(panel.Position.X.Offset > 101).toBe(true)
+		world.stop()
+	end)
+
 	t.it("bounds a sheet by the inset at the bottom and the sides", function()
 		local world = labelled({ presentation = "sheet", items = items(3) })
 		world.screen.IgnoreGuiInset = true

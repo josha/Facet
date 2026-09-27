@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking: a pointer Menu's submenu grows from the row you chose**, and Back grows the parent from the side the child was on, instead of re-materialising the panel from its corner. A keyboard or gamepad Right into a submenu takes the same path as a click.
 - **Breaking: a Menu shown as a sheet slides up from the bottom edge with the Sheet's timing** (0.3 seconds in, 0.2 seconds out) instead of growing from its bottom centre, and its level changes cross-fade the rows as they slide. `MenuRows` is now a `ctx.fade` node, so it carries the shared fade children (`FadePaint`, `FadeStroke`).
 - **Breaking: a press highlights in 0.08 seconds and a hover in 0.15 seconds** (`metrics.motion.press`/`hover`, never slower than `normal`); a release and other paint changes keep `motion.normal`.
 - A RowActions swipe settles from the finger's release velocity: the tray keeps moving in the swipe's direction on the first frame after release instead of stopping and restarting, and a row grabbed mid-settle continues from where it is drawn (`motion.springs.snappy`). A snapping VirtualList or VirtualGrid glides to its boundary on a critically damped spring (`motion.springs.control`, 0.25 second period) that starts gently from rest instead of a fixed 0.18 second Cubic Out; the `durations.snap` token is gone.

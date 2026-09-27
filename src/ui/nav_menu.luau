@@ -322,6 +322,8 @@ return function(
 		local appearance = if phase then surfaces.appearance(phase, timing, entered) else nil
 		local hitFloor = ctx.hitFloor()
 		local path = Compose.cell({} :: { string })
+		local branchY = Compose.cell(0)
+		local enter: (string) -> ()
 		local pendingFocus: string?
 		local sheeted = Compose.cell(false)
 		local reduce = reducedMotion(ctx)
@@ -543,10 +545,7 @@ return function(
 								return
 							end
 							if live.children then
-								local nextPath = table.clone(path:peek())
-								table.insert(nextPath, assert(live.id))
-								pendingFocus = nil
-								path:set(nextPath)
+								enter(assert(live.id))
 							elseif
 								commitItem(live)
 								and (
@@ -800,6 +799,16 @@ return function(
 			return table.concat(use(path), "/")
 		end)
 		local measured, rowSize = sizes[1], sizes[2]
+		enter = function(id: string)
+			local row = rows:FindFirstChild(id, true)
+			if row and row:IsA("GuiObject") then
+				branchY:set(row.AbsolutePosition.Y - panel.AbsolutePosition.Y)
+			end
+			local nextPath = table.clone(path:peek())
+			table.insert(nextPath, id)
+			pendingFocus = nil
+			path:set(nextPath)
+		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			levelReady:set(use(rested))
 		end)
@@ -939,7 +948,10 @@ return function(
 			end
 			top = math.max(low.Y, top)
 			local pivot: Vector2
-			if vertical then
+			if vertical and (depth > 0 or use(levelDirection) < 0) then
+				local facing = if use(levelDirection) >= 0 then 0 else panelSize.X
+				pivot = V2.new(facing, math.clamp(use(branchY), 0, panelSize.Y))
+			elseif vertical then
 				local reach = if depth > 0 or align == "start"
 					then x + depth * 288
 					elseif align == "end" then x + bounds.X
@@ -1011,9 +1023,7 @@ return function(
 		end, function()
 			local item = selectedBranch()
 			if item then
-				local nextPath = table.clone(path:peek())
-				table.insert(nextPath, assert(item.id))
-				path:set(nextPath)
+				enter(assert(item.id))
 			end
 		end, { priority = 2100, capture = true })
 		ctx.action(modal, "MenuLeft", { E.KeyCode.Left, E.KeyCode.DPadLeft }, function(use: ComposeTypes.Use)
