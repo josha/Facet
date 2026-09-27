@@ -1625,7 +1625,7 @@ t.describe("native parity weaker rows", function()
 		world.input.InputChanged.fire(finger)
 		t.expect(find(node, "DropLine") ~= nil).toBe(true)
 		detector.DragEnd.fire()
-		t.expect(built.baseRows:peek()[1].id).toBe("neon")
+		t.expect(built.baseRows:peek()[1].id).toBe("drift")
 		finger.UserInputState = E.UserInputState.End
 		world.input.InputEnded.fire(finger)
 		t.expect(built.baseRows:peek()[1].id).toBe("drift")
