@@ -900,13 +900,17 @@ t.describe("presented surface motion", function()
 		w.step(1 / 60)
 		local returning = panel.Size.Y.Offset
 		t.expect(math.abs(returning - inFlight) < math.abs(inFlight - medium)).toBe(true)
-		local previous = returning
+		local previous, turned = returning, false
 		for _ = 1, 60 do
 			w.step(1 / 60)
-			t.expect(panel.Size.Y.Offset <= previous + 1e-6).toBe(true)
-			t.expect(panel.Size.Y.Offset >= medium - 1).toBe(true)
-			previous = panel.Size.Y.Offset
+			local height = panel.Size.Y.Offset
+			turned = turned or height < previous
+			t.expect(if turned then height <= previous + 1e-6 else height <= inFlight + 2 * (inFlight - medium))
+				.toBe(true)
+			t.expect(height >= medium - 1).toBe(true)
+			previous = height
 		end
+		t.expect(turned).toBe(true)
 		t.expect(math.abs(panel.Size.Y.Offset - medium) < 0.5).toBe(true)
 		detent:set("large")
 		w.step(1 / 60)
