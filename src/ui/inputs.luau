@@ -2037,15 +2037,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local markContent = Host.Frame(contentProps)
 
 		local effectiveInput = ctx.effectiveInput()
-		local room = Compose.cell(math.huge)
-		local function gap(use: ComposeTypes.Use): number
+		local room, drawn = Compose.cell(math.huge), Compose.cell(math.huge)
+		local function spacing(use: ComposeTypes.Use, width: number): number
 			local reach = if effectiveInput(use) == "Touch" then ctx.metric("targetSizes.minimum", use) else 0
-			local fits = if count > 1 then math.floor((use(room) - count * markSize) / (count - 1)) else math.huge
+			local fits = if count > 1 then math.floor((width - count * markSize) / (count - 1)) else math.huge
 			return math.max(2, math.min(reach - markSize, fits))
+		end
+		local function gap(use: ComposeTypes.Use): number
+			return spacing(use, use(room))
 		end
 		runtime.decorate(assert(markContent:FindFirstChildWhichIsA("UIListLayout")), {
 			Padding = function(use: ComposeTypes.Use): UDim
-				return D.new(0, gap(use))
+				return D.new(0, math.min(gap(use), spacing(use, use(drawn))))
 			end,
 		})
 
@@ -2096,6 +2099,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Selectable = interactive,
 				Interactable = interactive,
 				markContent :: ComposeTypes.Child,
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink }),
 				Host.UIDragDetector "Scrub" {
 					ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 					Enabled = interactive,
@@ -2166,9 +2170,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				stopHolder()
 			end
 		end)
+		local own = ctx.observe.AbsoluteSize(root)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local width, scale = use(holderSize), (use(unit) :: Vector2).X / markSize
 			room:set(if width > 0 and scale > 0 then width / scale else math.huge)
+			local box = use(own).X
+			drawn:set(if box > 0 and scale > 0 then box / scale else math.huge)
 		end)
 		local function published(use: ComposeTypes.Use): number
 			return math.clamp(read(spec.value, use), minimum, count)

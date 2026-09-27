@@ -2495,4 +2495,35 @@ t.describe("native input controls", function()
 		t.expect(node.Size.X.Offset).toBe(5 * 20 + 4 * 2)
 		stop()
 	end)
+	t.it(
+		"a touch level picker shrinks beside a sibling in a row and spaces its marks to the width it is drawn at",
+		function()
+			local input
+			local root, stop, engine = world(function(UI, engine, runtime)
+				return runtime.constructors.Frame({
+					Name = "Pair",
+					Size = engine.types.UDim2.fromOffset(337, 44),
+					UI.LevelPicker "Bars" { value = Compose.cell(2), count = 10 },
+				})
+			end, function(engine)
+				input = engine.new("UserInputService")
+				input.TouchEnabled = true
+				return { services = { UserInputService = input } }
+			end)
+			local V = engine.types.Vector2
+			local node = find(root, "Bars")
+			local flex = node:FindFirstChildWhichIsA("UIFlexItem")
+			t.expect(flex and flex.FlexMode).toBe(engine.types.Enum.UIFlexMode.Shrink)
+			local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
+			local spacing = find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout")
+			mark.AbsoluteSize = V.new(20, 20)
+			root.AbsoluteSize = V.new(337, 44)
+			t.expect(node.Size.X.Offset).toBe(10 * 20 + 9 * 15)
+			node.AbsoluteSize = V.new(10 * 20 + 9 * 15, 44)
+			t.expect(spacing.Padding.Offset).toBe(15)
+			node.AbsoluteSize = V.new(10 * 20 + 9 * 6, 44)
+			t.expect(spacing.Padding.Offset).toBe(6)
+			stop()
+		end
+	)
 end)

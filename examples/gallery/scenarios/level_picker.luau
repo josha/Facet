@@ -91,6 +91,7 @@ return {
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Host.UIListLayout({
 						FillDirection = Enum.FillDirection.Horizontal,
+						Wraps = true,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}),
