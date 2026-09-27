@@ -676,6 +676,54 @@ t.describe("native layout primitives", function()
 			runtime:dispose()
 		end)
 
+		t.it("a fill-height child's shrink keeps the scroll, its own size constraint and a bound size", function()
+			local roblox = require("@lune/roblox")
+			local height = Compose.cell(0)
+			local root, engine, stop = build(nil, function(UI, Host)
+				return UI.ScrollView "Page" {
+					padding = 16,
+					Host.Frame {
+						Name = "Body",
+						Size = roblox.UDim2.fromScale(1, 1),
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+						Host.UISizeConstraint { MinSize = roblox.Vector2.new(10, 700) },
+					},
+					Host.Frame {
+						Name = "Bound",
+						Size = function(use)
+							return roblox.UDim2.new(1, 0, if use(height) > 0 then 0 else 1, use(height))
+						end,
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+					},
+				}
+			end)
+			local V2, E = engine.types.Vector2, engine.types.Enum
+			local body, bound = root:FindFirstChild("Body"), root:FindFirstChild("Bound")
+			local constraints = 0
+			for _, node in body:GetChildren() do
+				if node:IsA("UISizeConstraint") then
+					constraints += 1
+				end
+			end
+			t.expect(constraints).toBe(1)
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(10, 700))
+			root.AbsoluteSize = V2.new(389, 1000)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(10, 968))
+			height:set(120)
+			root.CanvasPosition = V2.new(0, 200)
+			root.AbsoluteSize = V2.new(749, 300)
+			t.expect(bound.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(bound.Size.Y.Offset).toBe(120)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.None)
+			root.CanvasPosition = V2.new(0, 0)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.Y)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(root.CanvasPosition).toBe(V2.new(0, 200))
+			stop()
+		end)
+
 		t.it("stretches the children across the scroll window when align is stretch", function()
 			local root, engine, stop = build(nil, function(UI)
 				return UI.ScrollView { align = "stretch", UI.Text { text = "A" } }

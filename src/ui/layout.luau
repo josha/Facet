@@ -206,42 +206,70 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 					bottom:set(use(padBottom).Offset)
 				end)
 			end
-			local frames = ctx.config.services and ctx.config.services.RunService
+			local frames = runtime.host.frames
 			for _, node in filling do
 				local size, automatic = node.Size, node.AutomaticSize
 				local rest = D2.new(size.X.Scale, size.X.Offset, 0, size.Y.Offset)
+				local written = rest
+				local authored = false
 				node.Size = rest
 				local floor = Compose.formula(function(use: ComposeTypes.Use): number
 					local room = use(window).Y - use(top) - use(bottom)
 					return math.max(0, size.Y.Scale * room + size.Y.Offset)
 				end)
-				runtime.mount(function()
-					return Host.UISizeConstraint({
+				local constraint = node:FindFirstChildWhichIsA("UISizeConstraint")
+				if constraint then
+					local minimum = constraint.MinSize
+					runtime.decorate(constraint, {
 						MinSize = function(use: ComposeTypes.Use): Vector2
-							return V2.new(0, use(floor))
+							return V2.new(minimum.X, math.max(minimum.Y, use(floor)))
 						end,
 					})
-				end, node)
+				else
+					runtime.mount(function()
+						return Host.UISizeConstraint({
+							MinSize = function(use: ComposeTypes.Use): Vector2
+								return V2.new(0, use(floor))
+							end,
+						})
+					end, node)
+				end
+				local observed = ctx.observe.Size(node)
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(observed) ~= written then
+						authored = true
+					end
+				end)
 				if frames and (automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY) then
-					local last, settling: RBXScriptConnection? = 0, nil
+					local last, settling: (() -> ())? = 0, nil
 					Compose.watch(function(use: ComposeTypes.Use)
 						local now = use(floor)
-						if now < last and settling == nil then
+						if now < last and settling == nil and not authored then
+							local scrolled, step = frame.CanvasPosition, 0
 							node.AutomaticSize = E.AutomaticSize.None
-							node.Size = D2.new(size.X.Scale, size.X.Offset, 0, now)
-							settling = frames.Heartbeat:Connect(function()
+							written = D2.new(size.X.Scale, size.X.Offset, 0, now)
+							node.Size = written
+							settling = frames.onFrame(function()
+								step += 1
+								if step == 1 then
+									if not authored then
+										written = rest
+										node.AutomaticSize, node.Size = automatic, rest
+									end
+									return
+								end
 								if settling then
-									settling:Disconnect()
+									settling()
 									settling = nil
 								end
-								node.AutomaticSize, node.Size = automatic, rest
+								frame.CanvasPosition = scrolled
 							end)
 						end
 						last = now
 					end)
 					Compose.cleanup(function()
 						if settling then
-							settling:Disconnect()
+							settling()
 						end
 					end)
 				end
