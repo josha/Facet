@@ -192,6 +192,26 @@ t.describe("native radial interaction policies", function()
 		t.expect(after).toBe(before)
 		world.stop()
 	end)
+	t.it("a corner menu keeps its launcher's room while the launcher hides under the open ring", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			preset = "bottom-left",
+			appearance = "buttons",
+			items = { { id = "look", label = "Look", icon = "facet:search" } },
+		})
+		local launcher = world.find("Launcher")
+		local root = launcher.Parent
+		launcher.AbsoluteSize = world.engine.types.Vector2.new(44, 44)
+		world.opened:set(true)
+		world.step(0.5)
+		t.expect(launcher.Visible).toBe(false)
+		t.expect(`{root.AutomaticSize.Name} {root.Size.X.Offset}x{root.Size.Y.Offset}`).toBe("None 44x44")
+		world.opened:set(false)
+		world.step(0.5)
+		t.expect(launcher.Visible).toBe(true)
+		t.expect(root.AutomaticSize.Name).toBe("XY")
+		world.stop()
+	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")

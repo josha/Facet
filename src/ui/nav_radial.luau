@@ -353,6 +353,13 @@ return function(
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = if anchorGui then E.AutomaticSize.None else E.AutomaticSize.XY,
 		}))
+		surfaces.attach(root, {
+			Host.Frame "LayoutUnit" {
+				Size = D2.fromOffset(1, 1),
+				BackgroundTransparency = 1,
+				Visible = false,
+			},
+		})
 		if spec.launcher ~= false then
 			local overAnchor: ((ComposeTypes.Use) -> UDim2)? = nil
 			if anchorGui then
@@ -1159,17 +1166,28 @@ return function(
 					local hidden = launcher :: GuiObject
 
 					hideLauncher = function()
+						local unit = root:FindFirstChild("LayoutUnit") :: GuiObject?
+						local scale = if unit and unit.AbsoluteSize.X > 0 then unit.AbsoluteSize.X else 1
+						local held = root.AutomaticSize ~= E.AutomaticSize.None
+						local extent = hidden.AbsoluteSize / scale
+						local function show()
+							hidden.Visible = true
+							if held then
+								root.AutomaticSize, root.Size = E.AutomaticSize.XY, D2.fromOffset(0, 0)
+							end
+						end
+						if held then
+							root.AutomaticSize, root.Size = E.AutomaticSize.None, D2.fromOffset(extent.X, extent.Y)
+						end
 						hidden.Visible = false
 						if phase then
 							Compose.watch(function(use: ComposeTypes.Use)
 								if use(phase.exiting) then
-									hidden.Visible = true
+									show()
 								end
 							end)
 						end
-						Compose.cleanup(function()
-							hidden.Visible = true
-						end)
+						Compose.cleanup(show)
 					end
 					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 					if glyph then
