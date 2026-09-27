@@ -426,9 +426,15 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end
 				hosting = {}
 			end
+			local gathered = dropped:peek()
 			Compose.watch(function(use: ComposeTypes.Use)
-				use(dropped)
-				if open:peek() then
+				local list = use(dropped)
+				local same = #list == #gathered
+				for index, region in list do
+					same = same and gathered[index] == region
+				end
+				gathered = list
+				if not same and open:peek() then
 					open:set(false)
 				end
 			end)

@@ -421,6 +421,52 @@ t.describe("Composition", function()
 		end
 	end)
 
+	t.it("keeps the zone's hidden popover open while another region in the zone steps a visible form", function()
+		local overlay = require("./lib/overlay_world")
+		local feedForm, otherForm = Compose.cell(1), Compose.cell(1)
+		local w = overlay.new(function(UI, Host)
+			return UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				topbar = false,
+				UI.Region "Other" {
+					zone = "left",
+					rank = 1,
+					mayDrop = true,
+					form = otherForm,
+					Host.Frame { Name = "OtherFull" },
+					Host.Frame { Name = "OtherChip" },
+				},
+				UI.Region "Feed" {
+					zone = "left",
+					rank = 2,
+					mayDrop = true,
+					form = feedForm,
+					Host.Frame { Name = "FeedFull" },
+				},
+			}
+		end)
+		w.size(w.find("OtherFull"), 100, 60)
+		w.size(w.find("OtherChip"), 40, 40)
+		w.size(w.find("FeedFull"), 120, 60)
+		for _, badge in
+			{ w.find("Other"):FindFirstChild("Reveal", true), w.find("Feed"):FindFirstChild("Reveal", true) }
+		do
+			w.size(badge, 28, 28)
+		end
+		local zones = w.find("Zones")
+		w.size(zones, 800, 400)
+		w.size(zones, 800, 90)
+		t.expect(`{otherForm:peek()} {feedForm:peek()}`).toBe("1 0")
+		w.size(w.find("Left"), 100, 60)
+		w.find("ZoneRevealLeft").Activated.fire()
+		t.expect(w.find("FeedFull"):IsDescendantOf(w.find("HiddenFeed"))).toBe(true)
+		w.size(zones, 800, 50)
+		t.expect(`{otherForm:peek()} {feedForm:peek()}`).toBe("2 0")
+		t.expect(w.find("FeedFull"):IsDescendantOf(w.find("HiddenFeed"))).toBe(true)
+		w.stop()
+	end)
+
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()
 		local function refusal(body: (any, any) -> any): string
 			local engine, runtime, UI = make()
