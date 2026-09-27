@@ -579,7 +579,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if contentLayout then
 					contentLayout.HorizontalAlignment = E.HorizontalAlignment.Center
 				end
-				local contentSize = ctx.observe.AbsoluteSize(contentRoot)
+				local contentHeight = Compose.cell(0)
 				local actionProps: Types.FrameNativeProps = {
 					Name = "Actions",
 					BackgroundTransparency = 1,
@@ -639,7 +639,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						},
 					}, { Name = "AlertFooter", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 				end
-				local actionSize = ctx.observe.AbsoluteSize(actionBar)
+				local actionSize = ctx.layoutSize(actionBar)
 				local function chrome(use: ComposeTypes.Use): number
 					local package = read(ctx.config.theme, use)
 					local recipe = if package and package.chrome then package.chrome.panel else nil
@@ -649,7 +649,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						+ math.max(0, if inset then inset.top or 0 else 0)
 						+ math.max(0, if inset then inset.bottom or 0 else 0)
 				end
-				local scroll = parts.scroller(ctx, {
+				local scroll, _, _, messageExtent, messageRested = parts.scroller(ctx, {
 					Name = "AlertMessage",
 					Selectable = false,
 					BackgroundTransparency = 1,
@@ -666,8 +666,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							0,
 							0,
 							math.min(
-								use(contentSize).Y,
-								math.max(44, use(offer).Y - use(actionSize).Y - chrome(use) - 32)
+								use(contentHeight),
+								math.max(44, math.floor(use(offer).Y - use(actionSize).Y - chrome(use) - 32))
 							)
 						)
 					end,
@@ -712,7 +712,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				ctx.styled(panel, "panel")
 				surfaces.skin(panel, "panel")
-				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG) else nil
+				local settled = Compose.cell(false)
+				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG, settled) else nil
+				Compose.watch(function(use: ComposeTypes.Use)
+					local height = use(messageExtent)
+					if not use(messageRested) or shown == nil or shown(use) >= 1 then
+						contentHeight:set(height)
+					end
+					settled:set(use(messageRested) or #contents == 0)
+				end)
 				if shown then
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
 						return 1 - shown(use)
@@ -720,7 +728,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					surfaces.attach(panel, {
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
-								return 0.94 + 0.06 * shown(use)
+								return if use(settled) then 0.94 + 0.06 * shown(use) else 1
 							end,
 						},
 					})

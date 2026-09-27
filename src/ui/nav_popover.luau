@@ -255,7 +255,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return want and ready and not use(lost)
 		end
 		local function anchored(phase: Nav.PresencePhase?): Frame
-			local amount = surfaces.appearance(phase, POPOVER)
+			local settled = Compose.cell(false)
+			local amount = surfaces.appearance(phase, POPOVER, settled)
 			local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
 			local extent = ctx.observe.AbsoluteSize(layer)
 			local origin = ctx.observe.AbsolutePosition(layer)
@@ -285,15 +286,27 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local limit = Host.UISizeConstraint({
 				MaxSize = cap,
 			})
+			local fills = parts.instance(content)
+				and content:IsA("GuiObject")
+				and content.Size.X.Scale > 0
+				and content.AutomaticSize ~= E.AutomaticSize.X
+				and content.AutomaticSize ~= E.AutomaticSize.XY
+			local proposed = Host.UISizeConstraint({
+				MinSize = function(use: ComposeTypes.Use)
+					if not fills then
+						return V2.zero
+					end
+					return V2.new(math.min(ctx.metric("controls.popup.panelWidth", use) - 2 * PADDING, cap(use).X), 0)
+				end,
+			})
 			local list = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
-			local laidOut = ctx.observe.AbsoluteContentSize(list)
+			local laidOut = Compose.cell(0)
 			local bodyProps: Types.ScrollingFrameNativeProps = {
 				Name = "Body",
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = function(use: ComposeTypes.Use)
-					local extent = use(laidOut) :: Vector2
-					return D2.fromOffset(0, math.min(extent.Y, cap(use).Y))
+					return D2.fromOffset(0, math.min(use(laidOut), cap(use).Y))
 				end,
 				AutomaticSize = E.AutomaticSize.X,
 				ScrollingDirection = E.ScrollingDirection.Y,
@@ -302,7 +315,19 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				Selectable = false,
 			}
 			table.insert(bodyProps, limit)
-			local body = parts.scroller(ctx, bodyProps, { list, content }, { hug = true })
+			local body, _, _, extent, rested = parts.scroller(
+				ctx,
+				bodyProps,
+				{ list, proposed, content },
+				{ hug = true }
+			)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local height = use(extent)
+				if not use(rested) or amount(use) >= 1 then
+					laidOut:set(height)
+				end
+				settled:set(use(rested))
+			end)
 			local panel = ctx.styled(
 				ctx.fade {
 					Name = "Panel",
@@ -349,7 +374,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					tailInset = 8,
 				})
 			end)
-			surfaces.popover(panel, amount, function(use: ComposeTypes.Use): (Vector2, Vector2)
+			surfaces.popover(panel, function(use: ComposeTypes.Use): number
+				return if use(settled) then amount(use) else 1
+			end, function(use: ComposeTypes.Use): (Vector2, Vector2)
 				local at = use(solved)
 				local size = use(measured)
 				local origin = if at.edge == "bottom"

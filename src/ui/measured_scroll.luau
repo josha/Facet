@@ -10,7 +10,13 @@ return function(
 	props: Types.ScrollingFrameNativeProps,
 	children: { Types.Child },
 	options: { hug: boolean?, name: string? }?
-): (ScrollingFrame, Frame, ComposeTypes.Readable<Vector2>)
+): (
+	ScrollingFrame,
+	Frame,
+	ComposeTypes.Readable<Vector2>,
+	ComposeTypes.Readable<number>,
+	ComposeTypes.Readable<boolean>
+)
 	local Host, Compose, E, D2 = ctx.Host, ctx.Compose, ctx.types.Enum, ctx.types.UDim2
 	local hug = options ~= nil and options.hug == true
 	local flowProps: Types.FrameNativeProps = {
@@ -44,5 +50,29 @@ return function(
 	Compose.watch(function(use: ComposeTypes.Use)
 		extent:set(math.ceil(use(laidOut).Y - 0.01))
 	end)
-	return scroller, flow, size
+	local rested = Compose.cell(false)
+	local frames = ctx.runtime.host.frames
+	if frames then
+		local last: number? = nil
+		local stop: (() -> ())? = nil
+		stop = frames.onFrame(function()
+			local now = extent:peek()
+			if now == last and (now > 0 or size:peek().X > 0) then
+				rested:set(true)
+				if stop then
+					stop()
+					stop = nil
+				end
+			end
+			last = now
+		end)
+		Compose.cleanup(function()
+			if stop then
+				stop()
+			end
+		end)
+	else
+		rested:set(true)
+	end
+	return scroller, flow, size, extent, rested
 end

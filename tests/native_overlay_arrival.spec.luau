@@ -108,7 +108,7 @@ t.describe("presented surfaces arrive styled", function()
 			}
 		end)
 		open:set(true)
-		t.expect(frames.Heartbeat.count()).toBe(1)
+		t.expect(frames.Heartbeat.count()).toBe(2)
 		open:set(false)
 		t.expect(frames.Heartbeat.count()).toBe(0)
 		stop()
