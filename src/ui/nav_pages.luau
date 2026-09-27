@@ -1722,15 +1722,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			pageNodes[page.id] = node
 			table.insert(children, node)
 		end
-		if hugs then
-			Compose.watch(function(use: ComposeTypes.Use)
-				local most = 0
-				for _, height in heights do
-					most = math.max(most, use(height).Y)
-				end
-				tallest:set(math.ceil(most))
-			end)
-		end
 		local pages = Host.Frame "Pages" {
 			BackgroundTransparency = 1,
 			Size = function(use: ComposeTypes.Use)
@@ -1897,12 +1888,23 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			AutomaticSize = E.AutomaticSize.None,
 		})
 		assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
-		return Host.Frame(ctx.props(spec, { "pages", "selection", "indicators", "summary", "controls" }, {
+		local root = Host.Frame(ctx.props(spec, { "pages", "selection", "indicators", "summary", "controls" }, {
 			Name = "PageView",
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			pages,
 			column,
 		}))
+		if hugs then
+			local unit = ctx.layoutUnit(root)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local most = 0
+				for _, height in heights do
+					most = math.max(most, use(height).Y)
+				end
+				tallest:set(math.ceil(most / use(unit) - 1e-3))
+			end)
+		end
+		return root
 	end)
 end

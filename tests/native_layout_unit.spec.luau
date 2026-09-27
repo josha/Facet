@@ -166,4 +166,25 @@ t.describe("layout decisions under a preview UIScale", function()
 			end)
 		end
 	end)
+	t.it("a hugging PageView sizes its pages and footer as it does unscaled", function()
+		both("PageView", function(factor)
+			local world = worlds.new(function(UI, Host, engine)
+				return UI.PageView {
+					Size = engine.types.UDim2.new(1, 0, 0, 0),
+					AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+					selection = Compose.cell("one"),
+					pages = {
+						{ id = "one", title = "One", content = Host.Frame "BodyOne" {} },
+						{ id = "two", title = "Two", content = Host.Frame "BodyTwo" {} },
+					},
+				}
+			end)
+			scaleProbes(world, factor)
+			world.resize(world.find("BodyOne"), 300 * factor, 180 * factor)
+			world.resize(world.find("BodyTwo"), 300 * factor, 212 * factor)
+			local out = `{world.find("Pages").Size} {world.find("Footer").Position}`
+			world.stop()
+			return out
+		end)
+	end)
 end)
