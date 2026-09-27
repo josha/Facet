@@ -635,6 +635,47 @@ t.describe("native layout primitives", function()
 			stop()
 		end)
 
+		t.it("lets a grown fill-height child shrink back when the padded window shrinks", function()
+			local roblox = require("@lune/roblox")
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local UI = Facet.controls(
+				runtime,
+				{
+					types = engine.types,
+					guiService = gui,
+					services = { GuiService = gui, RunService = { Heartbeat = engine.heartbeat } },
+				} :: any
+			)
+			local root: any
+			runtime.mount(function()
+				root = UI.ScrollView "Page" {
+					padding = 16,
+					runtime.constructors.Frame {
+						Name = "Body",
+						Size = roblox.UDim2.fromScale(1, 1),
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+					},
+				}
+				return root
+			end, engine.new("ScreenGui"))
+			local V2, E = engine.types.Vector2, engine.types.Enum
+			local body = root:FindFirstChild("Body")
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(0, 616))
+			root.AbsoluteSize = V2.new(749, 300)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(0, 268))
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.None)
+			t.expect(body.Size.Y.Offset).toBe(268)
+			engine.heartbeat.fire(1 / 60)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.Y)
+			t.expect(body.Size).toBe(engine.types.UDim2.new(1, 0, 0, 0))
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(body.AutomaticSize).toBe(E.AutomaticSize.Y)
+			runtime:dispose()
+		end)
+
 		t.it("stretches the children across the scroll window when align is stretch", function()
 			local root, engine, stop = build(nil, function(UI)
 				return UI.ScrollView { align = "stretch", UI.Text { text = "A" } }

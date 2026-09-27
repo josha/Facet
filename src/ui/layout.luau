@@ -206,17 +206,45 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 					bottom:set(use(padBottom).Offset)
 				end)
 			end
+			local frames = ctx.config.services and ctx.config.services.RunService
 			for _, node in filling do
-				local size = node.Size
-				node.Size = D2.new(size.X.Scale, size.X.Offset, 0, size.Y.Offset)
+				local size, automatic = node.Size, node.AutomaticSize
+				local rest = D2.new(size.X.Scale, size.X.Offset, 0, size.Y.Offset)
+				node.Size = rest
+				local floor = Compose.formula(function(use: ComposeTypes.Use): number
+					local room = use(window).Y - use(top) - use(bottom)
+					return math.max(0, size.Y.Scale * room + size.Y.Offset)
+				end)
 				runtime.mount(function()
 					return Host.UISizeConstraint({
 						MinSize = function(use: ComposeTypes.Use): Vector2
-							local room = use(window).Y - use(top) - use(bottom)
-							return V2.new(0, math.max(0, size.Y.Scale * room + size.Y.Offset))
+							return V2.new(0, use(floor))
 						end,
 					})
 				end, node)
+				if frames and (automatic == E.AutomaticSize.Y or automatic == E.AutomaticSize.XY) then
+					local last, settling: RBXScriptConnection? = 0, nil
+					Compose.watch(function(use: ComposeTypes.Use)
+						local now = use(floor)
+						if now < last and settling == nil then
+							node.AutomaticSize = E.AutomaticSize.None
+							node.Size = D2.new(size.X.Scale, size.X.Offset, 0, now)
+							settling = frames.Heartbeat:Connect(function()
+								if settling then
+									settling:Disconnect()
+									settling = nil
+								end
+								node.AutomaticSize, node.Size = automatic, rest
+							end)
+						end
+						last = now
+					end)
+					Compose.cleanup(function()
+						if settling then
+							settling:Disconnect()
+						end
+					end)
+				end
 			end
 		end
 		return frame
