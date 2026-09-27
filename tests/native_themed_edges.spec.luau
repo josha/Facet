@@ -90,6 +90,16 @@ t.describe("themed edges, plates and gutters", function()
 		end
 	end)
 
+	t.it("leaves a game's own stroke rules at the engine's stroke position", function()
+		local authored = themes.neutralPackage()
+		authored.rules = { { selector = ".game-card::UIStroke", properties = { Thickness = 2 } } }
+		local sheet, stop = sheetOf(authored)
+		local properties = assert(style(sheet, ".game-card::UIStroke"))
+		t.expect(properties.ApplyStrokeMode.Name).toBe("Border")
+		t.expect(properties.BorderStrokePosition).toBe(nil)
+		stop()
+	end)
+
 	t.it("rounds a menu's first and last rows with the panel's radius so a highlight stays inside the card", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)

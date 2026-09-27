@@ -637,11 +637,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			priority = #rules * 10,
 		})
 	end
-	local function rule(selector: string, properties: ThemeTypes.RuleProperties)
+	local function rule(selector: string, properties: ThemeTypes.RuleProperties, authored: boolean?)
 		if string.sub(selector, -10) == "::UIStroke" then
 			properties = table.clone(properties)
 			properties.ApplyStrokeMode = properties.ApplyStrokeMode or types.Enum.ApplyStrokeMode.Border
-			if properties.ApplyStrokeMode == types.Enum.ApplyStrokeMode.Border then
+			if not authored and properties.ApplyStrokeMode == types.Enum.ApplyStrokeMode.Border then
 				properties.BorderStrokePosition = properties.BorderStrokePosition
 					or types.Enum.BorderStrokePosition.Inner
 			end
@@ -1464,7 +1464,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 				properties[key] = c((value :: any).role)
 			end
 		end
-		rule(definition.selector, properties)
+		rule(definition.selector, properties, true)
 	end
 	return rules
 end
