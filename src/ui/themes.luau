@@ -1618,11 +1618,12 @@ local function createStyleSheet(
 				end
 				return held ~= types.Enum.PreferredInput.Touch
 			end
-			local source = Compose.cell(pointing())
+			local source = Compose.cell(false)
 			hover = source
 			refresh = function()
 				source:set(pointing())
 			end
+			refresh()
 			local connection = input:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
 			Compose.cleanup(function()
 				connection:Disconnect()

@@ -1258,6 +1258,34 @@ t.describe("native parity paint", function()
 		end
 	)
 
+	t.it("builds its hover source while a modifier is held and follows the next mouse move", function()
+		local h = harness()
+		local E = h.engine.types.Enum
+		local environment = (getfenv :: any)(0)
+		local gui = h.engine.new("GuiService")
+		local input = h.engine.new("UserInputService")
+		local pressed = { { KeyCode = E.KeyCode.LeftShift } }
+		input.GetKeysPressed = function()
+			return pressed
+		end
+		input.GetMouseButtonsPressed = function()
+			return {}
+		end
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		environment.game = {
+			GetService = function(_, name: string)
+				return if name == "UserInputService" then input else gui
+			end,
+		}
+		local sheet, stop = sheetFor(h, themes.neutralPackage())
+		environment.game = nil
+		pressed = {}
+		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+		t.expect(hasRule(sheet, ".facet-button:Hover")).toBe(true)
+		stop()
+		h.dispose()
+	end)
+
 	t.it("treats a garbage transparency preference as the identity", function()
 		local h = harness()
 		local preference = Compose.cell(1 :: any)
