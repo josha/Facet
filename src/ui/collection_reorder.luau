@@ -160,7 +160,10 @@ return function<V, K>(
 			end
 		end
 		if #keys > 0 then
-			captured = if position then pendingInput else nil
+			local live = pendingInput ~= nil
+				and pendingInput.UserInputState ~= E.UserInputState.End
+				and pendingInput.UserInputState ~= E.UserInputState.Cancel
+			captured = if position and live then pendingInput else nil
 			activation.consume(captured)
 			moving:set({
 				key = key,
@@ -346,7 +349,7 @@ return function<V, K>(
 					if tapped then
 						cancel()
 						toggle()
-					elseif captured == nil then
+					else
 						commit()
 					end
 				end,
@@ -361,6 +364,14 @@ return function<V, K>(
 					or value.UserInputType == E.UserInputType.Touch
 				then
 					pendingInput = value
+					local move = moving:peek()
+					if move and move.pointer and captured == nil then
+						captured = value
+						activation.consume(value)
+						if startFrames then
+							startFrames()
+						end
+					end
 				end
 			end)
 		end

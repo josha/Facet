@@ -2934,6 +2934,38 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		pointer.stop()
 	end)
 
+	t.it("a handle drag always drops on DragEnd, even when the detector starts before the handle's press", function()
+		local w = editableWorld("Touch", { reorderable = true, editing = Compose.cell(true) }, false)
+		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
+		local function drag(rowKey, from, to, pressFirst)
+			local handle = w.row(rowKey):FindFirstChild("Move", true)
+			local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
+			local touch = {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(280, from, 0),
+			}
+			if pressFirst then
+				handle.InputBegan.fire(touch)
+			end
+			detector.DragStart.fire(V2.new(280, from))
+			if not pressFirst then
+				handle.InputBegan.fire(touch)
+			end
+			detector.DragContinue.fire(V2.new(280, to))
+			detector.DragEnd.fire()
+			touch.UserInputState = E.UserInputState.End
+			w.service.InputEnded.fire(touch)
+		end
+		drag(1, 20, 100, true)
+		t.expect(#w.reorders).toBe(1)
+		drag(4, 140, 20, false)
+		t.expect(#w.reorders).toBe(2)
+		t.expect(w.node:FindFirstChild("DragImage", true)).toBeNil()
+		t.expect(w.row(4):FindFirstChild("Reorderable", true):GetAttribute("FacetDragging")).toBe(false)
+		w.stop()
+	end)
+
 	t.it("the shoulder buttons move the selected rows by one slot", function()
 		local w = editableWorld("Gamepad", { reorderable = true, selected = { [2] = true } }, false)
 		w.pressed("MoveRowsLater")
