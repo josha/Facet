@@ -453,6 +453,37 @@ t.describe("native menu parity with main", function()
 		world.stop()
 	end)
 
+	t.it("a 300-row sheet level cross-fades through a window-sized group, never one as tall as its rows", function()
+		local world = labelled({
+			items = { { id = "big", label = "Big", children = items(300) } },
+			presentation = "sheet",
+		}, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.find("big", panel).Activated.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local rows = panel:FindFirstChild("MenuRows", true)
+		local scroller = panel:FindFirstChild("MenuScroll", true)
+		local fading = 0
+		for _, node in panel:GetDescendants() do
+			if node:IsA("CanvasGroup") then
+				t.expect(node:IsDescendantOf(scroller)).toBe(false)
+				if rows:IsDescendantOf(node) then
+					t.expect(node.AutomaticSize).toBe(world.engine.types.Enum.AutomaticSize.None)
+					t.expect(node.Size).toBe(UDim2.fromScale(1, 1))
+					fading += 1
+				end
+			end
+		end
+		t.expect(fading >= 1).toBe(true)
+		world.stop()
+	end)
+
 	t.it("grows each level from 0.96 at the corner it hangs at, fades in and dips out faster", function()
 		local world = labelled({ edge = "top", align = "end", items = NESTED, presentation = "menu" }, {})
 		local panel = open(world)
@@ -600,7 +631,7 @@ t.describe("native menu parity with main", function()
 		for _ = 1, 3 do
 			world.engine.heartbeat.fire(FRAME)
 		end
-		local rows = world.find("MenuRows", panel)
+		local rows = world.find("MenuLevel", panel)
 		t.expect(fadeKit.of(rows) > 0).toBe(true)
 		for _ = 1, 30 do
 			world.engine.heartbeat.fire(FRAME)

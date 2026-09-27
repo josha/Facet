@@ -442,8 +442,7 @@ return function(
 			end
 			return out
 		end)
-		local rows = ctx.fade {
-			Name = "MenuRows",
+		local rows = Host.Frame "MenuRows" {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = D2.new(1, 0, 0, 0),
@@ -746,12 +745,6 @@ return function(
 				return D2.fromOffset(direction * slide * (1 - level(use)), 0)
 			end,
 		})
-		ctx.fadeTo(rows, function(use: ComposeTypes.Use): number
-			if not use(sheeted) then
-				return 0
-			end
-			return 1 - level(use)
-		end)
 		local scroller = Host.ScrollingFrame "MenuScroll" {
 			Selectable = false,
 			BackgroundTransparency = 1,
@@ -764,6 +757,18 @@ return function(
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			rows,
 		}
+		local levelFade = ctx.fade {
+			Name = "MenuLevel",
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
+			scroller,
+		}
+		ctx.fadeTo(levelFade, function(use: ComposeTypes.Use): number
+			if not use(sheeted) then
+				return 0
+			end
+			return 1 - level(use)
+		end)
 		local panel = Host.Frame "MenuPanel" {
 			Size = D2.fromOffset(280, 0),
 			BorderSizePixel = 0,
@@ -776,11 +781,11 @@ return function(
 						GroupTransparency = function(use: ComposeTypes.Use)
 							return 1 - shown(use)
 						end,
-						scroller,
+						levelFade,
 					},
 					"menu-group"
 				)
-				else scroller,
+				else levelFade,
 		}
 		if shown then
 			surfaces.attach(panel, {
