@@ -360,6 +360,27 @@ t.describe("native segmented picker track", function()
 		w.stop()
 	end)
 
+	t.it("an icon-only segment takes the glyph padding so its icon stays centred in a narrow tile", function()
+		local iconOnly = Compose.cell(true)
+		local w = world(function(UI)
+			return UI.Picker "Rail" {
+				style = "segmented",
+				axis = "y",
+				iconOnly = iconOnly,
+				selected = Compose.cell("a"),
+				options = {
+					{ value = "a", label = "Browse", icon = "menu" },
+					{ value = "b", label = "Compose", icon = "edit" },
+				},
+			}
+		end)
+		local segment = find(w.screen, "a")
+		expect(segment:HasTag("facet-button-glyph")).toBe(true)
+		iconOnly:set(false)
+		expect(segment:HasTag("facet-button-glyph")).toBe(false)
+		w.stop()
+	end)
+
 	t.it("a caller's fixed 44 point track keeps the segments inside it", function()
 		local w = world(function(UI, _, engine)
 			return UI.Picker "P" {

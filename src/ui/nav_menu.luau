@@ -2607,6 +2607,15 @@ return function(
 							select(source:peek().value)
 						end,
 					})
+					if sealed then
+						Compose.watch(function(use: ComposeTypes.Use)
+							if labelOf(use) == "" then
+								button:AddTag("facet-button-glyph")
+							else
+								button:RemoveTag("facet-button-glyph")
+							end
+						end)
+					end
 					local glyph = if sealed then button:FindFirstChild("LeadingIcon", true) else nil
 					if glyph and (current.badge ~= nil or not fixed) then
 						local corner = UI.badged(
