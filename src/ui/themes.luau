@@ -1151,6 +1151,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			Color = c("surface"),
 			Thickness = 2,
 			ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
+			BorderStrokePosition = types.Enum.BorderStrokePosition.Outer,
 		})
 	end
 	for role, ink in AVATAR_BACKGROUNDS do

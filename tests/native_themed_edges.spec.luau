@@ -79,13 +79,30 @@ t.describe("themed edges, plates and gutters", function()
 			for _, node in sheet:GetChildren() do
 				local selector = node.Selector :: string
 				local properties = node:GetProperties()
-				if string.sub(selector, -10) == "::UIStroke" and properties.ApplyStrokeMode.Name == "Border" then
+				if
+					string.sub(selector, -10) == "::UIStroke"
+					and properties.ApplyStrokeMode.Name == "Border"
+					and not string.find(selector, "facet-avatar-stack", 1, true)
+				then
 					counted += 1
 					t.expect(`{entry.label} {selector} {properties.BorderStrokePosition}`)
 						.toBe(`{entry.label} {selector} Enum.BorderStrokePosition.Inner`)
 				end
 			end
 			t.expect(counted > 5).toBe(true)
+			stop()
+		end
+	end)
+
+	t.it("cuts the avatar-stack separator into the neighbour, outside the avatar's own edge", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			for _, member in { ".facet-avatar", ".facet-button" } do
+				local selector = ".facet-avatar-stack > " .. member .. "::UIStroke"
+				local properties = assert(style(sheet, selector))
+				t.expect(`{entry.label} {selector} {properties.BorderStrokePosition}`)
+					.toBe(`{entry.label} {selector} Enum.BorderStrokePosition.Outer`)
+			end
 			stop()
 		end
 	end)
