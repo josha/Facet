@@ -325,11 +325,15 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			return if flexible > 0 then use(disclosureWidth) / flexible else 0
 		end)
+		local function minimumOf(column: CollectionTypes.TableColumn<V, K>, use: ComposeTypes.Use): number
+			local minimum = column.minWidth or 48
+			return if coarse(use) then math.min(minimum, (ctx.metric("targetSizes.minimum", use))) else minimum
+		end
 		local narrowest = Compose.formula(function(use: ComposeTypes.Use): number
 			local hidden, resized, total = use(collapsed), readSource(widths, use), 0
 			for _, column in read(spec.columns, use) do
 				if not hidden[column.id] then
-					total += resized[column.id] or column.width or (if coarse(use) then 0 else column.minWidth or 48)
+					total += resized[column.id] or column.width or minimumOf(column, use)
 				end
 			end
 			return total
@@ -360,7 +364,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end,
 				Host.UISizeConstraint({
 					MinSize = function(use: ComposeTypes.Use)
-						return V2.new(if coarse(use) then 0 else use(current).minWidth or 48, 0)
+						return V2.new(minimumOf(use(current), use), 0)
 					end,
 					MaxSize = function(use: ComposeTypes.Use)
 						return V2.new(use(current).maxWidth or 1000000, 1000000)

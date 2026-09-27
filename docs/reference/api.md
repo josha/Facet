@@ -2888,7 +2888,10 @@ VirtualList. A column has:
 A column collapses only when it has a numeric `priority`. Larger values
 collapse first. The first column always stays visible. The other columns
 keep their `minWidth` and truncate their text, so a narrow table scrolls
-sideways and never loses a column. A Popover shows collapsed and natively
+sideways and never loses a column. Under touch or gamepad input a flexible
+column's floor is the smaller of its `minWidth` and the theme's touch floor
+(`targetSizes.minimum`, 44), so more columns fit a phone before the table
+scrolls sideways. A Popover shows collapsed and natively
 truncated values through the row's icon-only `more` (…) button, named
 "More actions". The cell
 state stays retained. The header band spans the whole row, edit controls

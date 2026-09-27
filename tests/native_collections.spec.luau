@@ -3021,7 +3021,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		t.expect(header.Size.X.Offset).toBe(359)
 		node:FindFirstChild("Edit", true).Activated.fire()
 		t.expect(header.Size.X.Offset).toBe(271)
-		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(0)
+		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(44)
 		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		t.expect(header.Size.X.Offset).toBe(306)
 		header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
@@ -3064,6 +3064,27 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		word.TextFits = true
 		t.expect(value.TextWrapped).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("touch flexible columns keep the touch floor and scroll sideways instead of shrinking to nothing", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local V2 = engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local columns = {}
+		for index = 1, 6 do
+			table.insert(columns, { id = `c{index}`, label = `Column {index}` })
+		end
+		local stop, node = runtime.mount(function()
+			return UI.Table({ from = records(3), key = key, itemSize = 44, columns = columns })
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(200, 200)
+		local header = node:FindFirstChild("Header")
+		t.expect(header.Size.X.Offset).toBe(6 * 44)
+		for index = 1, 6 do
+			t.expect(header:FindFirstChild(`c{index}`):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(44)
+		end
 		stop()
 		runtime:dispose()
 	end)
