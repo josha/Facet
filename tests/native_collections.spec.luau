@@ -3110,6 +3110,21 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("the focused-row fallback for Delete looks only inside its own collection", function()
+		local w = editableWorld("KeyboardAndMouse", { deletable = true, editing = Compose.cell(true) }, false)
+		local crowd = w.engine.new("Frame")
+		local outside = w.engine.new("TextButton")
+		outside.Parent = crowd
+		crowd.Parent = w.node.Parent
+		w.gui.SelectedObject = outside
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({})
+		w.gui.SelectedObject = w.row(2):FindFirstChildWhichIsA("GuiButton", true) or w.row(2)
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({ { 2 } })
+		w.stop()
+	end)
+
 	t.it("a single-selection List in edit mode toggles its one row: a tap on the chosen row clears it", function()
 		local activated = {}
 		local w = editableWorld("Touch", {

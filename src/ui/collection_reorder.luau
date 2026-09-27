@@ -543,14 +543,23 @@ return function<V, K>(
 			end
 		end
 		if #keys == 0 and read(editing, use) == true then
+			local body = bodyOf()
 			local at: Instance? = if use then use(focus) else focus:peek()
-			while at and #keys == 0 do
-				for _, node in { at, table.unpack(at:GetChildren()) } do
-					local key = rowKeys[node]
-					if key ~= nil then
-						table.insert(keys, key)
-						break
+			if at and not at:IsDescendantOf(body) then
+				at = nil
+			end
+			while at and at ~= body and #keys == 0 do
+				local key = rowKeys[at]
+				if key == nil then
+					for _, node in at:GetChildren() do
+						key = rowKeys[node]
+						if key ~= nil then
+							break
+						end
 					end
+				end
+				if key ~= nil then
+					table.insert(keys, key)
 				end
 				at = at.Parent
 			end
