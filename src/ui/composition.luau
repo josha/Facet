@@ -337,7 +337,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end,
 			})
 		end
-		local box = ctx.observe.AbsoluteSize(safe)
+		local box = ctx.layoutSize(safe)
 		local last: Vector2? = nil
 		local stripSize = if stripGui then ctx.observe.AbsoluteSize(stripGui) else nil
 		Compose.watch(function(use: ComposeTypes.Use)

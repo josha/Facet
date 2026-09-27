@@ -181,17 +181,17 @@ return function(
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
 			})
-			local numberBounds = ctx.observe.TextBounds(numberLabel)
+			local numberUnit = ctx.layoutUnit(numberLabel)
+			local numberBounds = ctx.layoutBounds(numberLabel, numberUnit)
 			local numberSize = ctx.observeStyled.TextSize(numberLabel)
 			local numberExtent = ctx.observe.AbsoluteSize(numberLabel)
 			local cue = Host.Frame "Cue" {
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = function(use: ComposeTypes.Use)
-					use(numberBounds)
+					local bounds = use(numberBounds)
 					use(numberSize)
 					use(numberExtent)
-					local bounds = numberLabel.TextBounds
 					local line = tonumber(numberLabel:GetStyled("TextSize")) or 0
 					local side = math.max(cueSize(use), math.ceil(math.max(bounds.X, bounds.Y, line)) + 8)
 					return D2.fromOffset(side, side)
@@ -453,6 +453,7 @@ return function(
 			underline :: Types.Child,
 		}
 		local stripPosition, stripSize = ctx.observe.AbsolutePosition(strip), ctx.observe.AbsoluteSize(strip)
+		local unit = ctx.layoutUnit(strip)
 		Compose.watch(function(use: ComposeTypes.Use)
 			stripBox:set({ x = use(stripPosition).X, width = use(stripSize).X })
 		end)
@@ -465,7 +466,7 @@ return function(
 				return "row"
 			end
 			if sizing == "hug" then
-				return if use(laidOut).X <= width then "row" else "summary"
+				return if use(laidOut).X / use(unit) <= width then "row" else "summary"
 			end
 			local gap, inner = ctx.metric("space.m", use), ctx.metric("space.s", use)
 			local sides = inset("left", use) + inset("right", use)
@@ -475,7 +476,7 @@ return function(
 				local copyWidth = 0
 				local cellBounds: { ComposeTypes.Readable<Vector2> } = all[step.id] or {}
 				for _, bounds in ipairs(cellBounds) do
-					copyWidth = math.max(copyWidth, use(bounds).X)
+					copyWidth = math.max(copyWidth, use(bounds).X / use(unit))
 				end
 				local cell = cueSize(use) + inner + copyWidth + sides
 				widest = math.max(widest, cell)
@@ -556,7 +557,7 @@ return function(
 				return use(form) == "summary"
 			end,
 		})
-		local size = ctx.observe.AbsoluteSize(root)
+		local size = ctx.layoutSize(root, unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			offered:set(use(size).X)
 		end)
