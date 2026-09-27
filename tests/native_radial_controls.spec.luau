@@ -1268,6 +1268,52 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(preview.Text).toBe("")
 		world.stop()
 	end)
+	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()
+		local picked = 0
+		local world = setup({
+			distribution = "compass",
+			completion = "stay",
+			items = {
+				{
+					id = "N",
+					slot = "N",
+					label = "Lantern",
+					icon = "flag",
+					labelStyle = "icon",
+					onSelect = function()
+						picked += 1
+					end,
+				},
+			},
+		})
+		local preview, panel, north = world.find("SelectionPreview"), world.find("RadialPanel"), world.find("N")
+		local x, y = north.Position.X.Offset, north.Position.Y.Offset
+		local hold = pointer(world, x, y)
+		north.InputBegan.fire(hold)
+		world.step(0.5)
+		t.expect(preview.Text).toBe("Lantern")
+		hold.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(hold)
+		north.Activated.fire(hold)
+		t.expect(picked).toBe(0)
+		local tap = pointer(world, x, y)
+		north.InputBegan.fire(tap)
+		tap.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(tap)
+		north.Activated.fire(tap)
+		t.expect(picked).toBe(1)
+		local slide = pointer(world, x, y)
+		panel.InputBegan.fire(slide)
+		slide.Position = world.engine.types.Vector3.new(x + 30, y, 0)
+		world.input.InputChanged.fire(slide)
+		slide.Position = world.engine.types.Vector3.new(x, y, 0)
+		world.input.InputChanged.fire(slide)
+		world.step(0.5)
+		slide.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(slide)
+		t.expect(picked).toBe(2)
+		world.stop()
+	end)
 	t.it("keeps a held item's name on the screen beside a ring near the edge of a phone", function()
 		local world = setup({
 			distribution = "compass",

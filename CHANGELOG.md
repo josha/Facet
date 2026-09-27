@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking: a RadialMenu long press names the item without picking it.** A finger held still on an item for 0.4 seconds shows its name; that release does nothing and a second tap picks it. A press that slides more than 14 pixels stays a pick-on-release gesture.
 - DisclosureGroup and CollapsibleView fade their content over the first half of the open (0.125 seconds) and out over the first half of the close (0.1 seconds), through the shared `ctx.fade` path; the height or the panel still moves for the whole 0.25 or 0.2 seconds.
 - **Breaking: a display-only Toast fades in and out as it slides by default** (it only slid unless `fade = true`). The fade is the shared `ctx.fade` path, so settled text is not rasterised; `fade = false` keeps the slide alone.
 - **Breaking: a tap or click on a Sheet's grabber closes the sheet** (it grew the sheet to the next detent). Return and the gamepad A button still grow it and close from the tallest detent; with `interactiveDismissDisabled` a tap grows it as before.

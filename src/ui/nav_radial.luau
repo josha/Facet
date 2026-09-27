@@ -142,6 +142,8 @@ return function(
 		local holding = runtime.timeline({ duration = HOLD, autoplay = false })
 		local capture: InputObject?
 		local pressedAt: Vector3?
+		local heldAt: Vector3?
+		local inspectedUntil: number?
 		local analog, held = false, false
 		local suppressedInput: InputObject?
 		local suppressedUntil: number?
@@ -154,6 +156,9 @@ return function(
 		local freezeCenter: (() -> ())?
 		local returnSelection: ((() -> (), string?) -> ())?
 		local function cancel()
+			if inspectedUntil == math.huge then
+				inspectedUntil = os.clock() + 0.3
+			end
 			capture, analog = nil, false
 			interacting:set(false)
 			naming:set(false)
@@ -163,6 +168,7 @@ return function(
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(holding.completed) and capture and capture.UserInputType == E.UserInputType.Touch then
 				naming:set(true)
+				inspectedUntil = math.huge
 			end
 		end)
 		local function close()
@@ -269,6 +275,14 @@ return function(
 			end
 			source = source or "native"
 			if
+				inspectedUntil
+				and os.clock() < inspectedUntil
+				and input
+				and input.UserInputType == E.UserInputType.Touch
+			then
+				return
+			end
+			if
 				suppressedUntil
 				and os.clock() < suppressedUntil
 				and suppressedKey == sector.key
@@ -292,11 +306,11 @@ return function(
 		end
 		local function beginPointer(input: InputObject, onPanel: boolean?)
 			if not capture and opened:peek() and isPointer(input) and aimPointer then
-				suppressedInput, suppressedUntil = nil, nil
+				suppressedInput, suppressedUntil, inspectedUntil = nil, nil, nil
 				if aimPointer(input.Position, false, true) == false then
 					return
 				end
-				capture, pressedAt = input, if onPanel then input.Position else nil
+				capture, pressedAt, heldAt = input, if onPanel then input.Position else nil, input.Position
 				if input.UserInputType == E.UserInputType.Touch then
 					holding:restart()
 				end
@@ -1521,6 +1535,9 @@ return function(
 						if input.UserInputState == E.UserInputState.Cancel then
 							cancel()
 						else
+							if heldAt and (input.Position - heldAt).Magnitude > 14 then
+								holding:pause()
+							end
 							naming:set(true)
 							assert(aimPointer)(input.Position, true)
 						end

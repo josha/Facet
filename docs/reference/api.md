@@ -2141,6 +2141,11 @@ scrolling list, never inside it.
 A corner ring names the highlighted item just outside the arc, on the arc's
 middle direction.
 
+A finger held still on an item for 0.4 seconds names it and does not pick
+it: that release does nothing, and a second tap picks the item. A press that
+slides more than 14 pixels is a gesture, and its release picks the item under
+the finger.
+
 Nothing is highlighted when the ring opens, until the player points at an
 item, presses a direction or moves the stick. With a gamepad as the preferred
 input, the first item is selected, because the console needs a focused
