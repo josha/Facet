@@ -301,7 +301,7 @@ easing, spring, scale and distance below is a token in the theme package's
   the same style pass, so the outline fades with the fill and the content. A
   game rule on `S::UIStroke` gets the same twin. `FindFirstChildWhichIsA("UIStroke")`
   on a faded node returns `FadeStroke`.
-- An Alert, a Popover, a Callout and a Button `help` plate measure themselves
+- An Alert, a Popover, a Menu (and each Menu level), a Callout and a Button `help` plate measure themselves
   at rest before the entrance: each waits, invisible and at scale 1, until its
   size holds for one frame, at most the theme's `motion.restLimit` (0.25
   seconds by default). The placement then reads that rested size for the whole

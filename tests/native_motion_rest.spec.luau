@@ -164,3 +164,83 @@ t.describe("rest tracker", function()
 		w.stop()
 	end)
 end)
+
+local worlds = require("./lib/content_world")
+local lune = require("@lune/roblox")
+local UDim2 = lune.UDim2
+
+local NESTED = {
+	{ id = "plain", label = "Plain", onSelect = function() end },
+	{
+		id = "adjust",
+		label = "Adjust",
+		children = {
+			{ id = "head", label = "Head", onSelect = function() end },
+			{ id = "body", label = "Body", onSelect = function() end },
+		},
+	},
+}
+
+local function menu(spec: { [string]: any }): any
+	spec.label = spec.label or "Options"
+	return worlds.new(function(UI, Host)
+		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
+	end, {})
+end
+
+local function lay(world: any, panel: any, size: Vector2)
+	local trigger = world.find("Trigger")
+	trigger.AbsolutePosition, trigger.AbsoluteSize = Vector2.new(300, 300), Vector2.new(200, 40)
+	local modal = panel.Parent
+	while modal and modal.Parent and modal.Parent.ClassName ~= "ScreenGui" do
+		modal = modal.Parent
+	end
+	modal.AbsoluteSize = Vector2.new(800, 600)
+	panel.AbsoluteSize = size
+	world.find("MenuRows", panel).AbsoluteSize = Vector2.new(size.X, size.Y)
+end
+
+t.describe("present at rest: menu", function()
+	t.it("waits for rest at scale 1, then scales about the rested corner", function()
+		local world = menu({ edge = "top", align = "end", items = NESTED, presentation = "menu" })
+		world.find("Trigger").Activated.fire()
+		local panel = world.find("MenuPanel", world.screen.Parent)
+		lay(world, panel, Vector2.new(220, 200))
+		local scale = world.find("PresentationScale", panel)
+		t.expect(scale.Scale).toBe(1)
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		t.expect(scale.Scale < 1).toBe(true)
+		local shrink = 1 - scale.Scale
+		panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 200 * scale.Scale)
+		t.expect(panel.Position.X.Offset).toBeCloseTo(280 + 220 * shrink, 1)
+		t.expect(panel.Position.Y.Offset).toBeCloseTo(96 + 200 * shrink, 1)
+		world.stop()
+	end)
+
+	t.it("a submenu is measured at rest before its level animates", function()
+		local world = menu({ items = NESTED, presentation = "menu" })
+		world.find("Trigger").Activated.fire()
+		local panel = world.find("MenuPanel", world.screen.Parent)
+		lay(world, panel, Vector2.new(220, 120))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.find("adjust", panel).Activated.fire()
+		local scale = world.find("PresentationScale", panel)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(fadeKit.of(world.find("MenuGroup", panel))).toBe(1)
+		world.find("MenuRows", panel).AbsoluteSize = Vector2.new(220, 90)
+		panel.AbsoluteSize = Vector2.new(220, 90)
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		world.engine.heartbeat.fire(FRAME)
+		t.expect(scale.Scale < 1).toBe(true)
+		t.expect(panel.Size.Y.Offset).toBe(90)
+		panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
+		world.find("MenuRows", panel).AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
+		t.expect(panel.Size.Y.Offset).toBe(90)
+		world.stop()
+	end)
+end)

@@ -316,7 +316,8 @@ return function(
 		local present = ctx.motionEase("present")
 		local slide = ctx.metric("motion.distances.menuSlide")
 		local materialize = ctx.metric("motion.materialize.menu")
-		local appearance = if phase then surfaces.appearance(phase, timing) else nil
+		local entered = Compose.cell(false)
+		local appearance = if phase then surfaces.appearance(phase, timing, entered) else nil
 		local hitFloor = ctx.hitFloor()
 		local path = Compose.cell({} :: { string })
 		local pendingFocus: string?
@@ -324,12 +325,20 @@ return function(
 		local reduce = reducedMotion(ctx)
 		local levelClock = runtime.timeline({ duration = timing.enter, autoplay = false })
 		local levelDirection = Compose.cell(0)
+		local levelReady = Compose.cell(true)
+		local pendingLevel = false
 		local depthSeen = 0
 		Compose.watch(function(use: ComposeTypes.Use)
 			local depth = #use(path)
 			if depth ~= depthSeen then
 				levelDirection:set(if depth > depthSeen then 1 else -1)
 				depthSeen = depth
+				pendingLevel = true
+			end
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(levelReady) and pendingLevel then
+				pendingLevel = false
 				levelClock:restart()
 			end
 		end)
@@ -337,6 +346,9 @@ return function(
 			local direction: number = if use then use(levelDirection) else levelDirection:peek()
 			if direction == 0 or reduce(use) then
 				return 1
+			end
+			if not read(levelReady, use) then
+				return 0
 			end
 			return present(readSource(levelClock.progress, use))
 		end
@@ -708,7 +720,6 @@ return function(
 				end,
 			}) :: Types.Child,
 		}
-		local rowSize = ctx.observe.AbsoluteSize(rows)
 		local room = Compose.cell(0)
 		local function panelWidth(use: ComposeTypes.Use): number
 			local widest = 0
@@ -774,6 +785,15 @@ return function(
 		end
 		ctx.styled(panel, "menu")
 		surfaces.skin(panel)
+		local sizes, rested = surfaces.atRest(shown or function(): number
+			return 1
+		end, entered, { panel, rows }, function(use: ComposeTypes.Use): string
+			return table.concat(use(path), "/")
+		end)
+		local measured, rowSize = sizes[1], sizes[2]
+		Compose.watch(function(use: ComposeTypes.Use)
+			levelReady:set(use(rested))
+		end)
 		local position = ctx.observe.AbsolutePosition(anchor)
 		local size = ctx.observe.AbsoluteSize(anchor)
 		local modal = if nonmodal
@@ -803,7 +823,6 @@ return function(
 		end
 		local extent = ctx.observe.AbsoluteSize(modal)
 		local origin = ctx.observe.AbsolutePosition(modal)
-		local measured = ctx.observe.AbsoluteSize(panel)
 		local input = surfaces.service("UserInputService")
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
@@ -939,7 +958,7 @@ return function(
 			end,
 		})
 		if shown then
-			surfaces.popover(panel, shown, place, { from = materialize })
+			surfaces.popover(panel, shown, place, { from = materialize, rested = rested })
 		else
 			runtime.decorate(panel, {
 				Position = function(use: ComposeTypes.Use)
