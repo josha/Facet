@@ -3751,14 +3751,15 @@ An unknown option causes an error.
 `UI.environment(source?) -> Environment` returns readables of the engine facts
 that a screen adapts to. Call it inside a component or a Compose owner. The
 readables stop when the owner ends. `source` is a `GuiBase2d`, whose
-`AbsoluteSize` is the viewport, or a `Camera`, whose `ViewportSize` is the
+`AbsoluteSize` in layout units (divided by the scale of its `UIScale`
+ancestors) is the viewport, or a `Camera`, whose `ViewportSize` is the
 viewport. Without a source it reads the `ViewportSize` of the workspace camera.
 A viewport smaller than 2 by 2 pixels is an engine placeholder. The
 environment keeps the last real size.
 
 | Field | Source and value |
 |---|---|
-| `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport, in pixels. |
+| `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport: layout units for a `GuiBase2d` source, pixels for a camera. |
 | `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
 | `isCompact`, `isRegular`, `isWide`, `isRegularOrWider`, `isShort`, `isTall`, `isLandscape` | Booleans. `isRegular` is the middle class only. Use `isRegularOrWider` for "not compact". |
 | `atLeast(target)` | A new boolean readable for `sizeClassAtLeast(sizeClass, target)`. |
