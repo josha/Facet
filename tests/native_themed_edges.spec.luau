@@ -56,7 +56,7 @@ local function palettes(package: any): { any }
 	return package.style.themes
 end
 
-t.describe("owner review 2026-09-26b: visual", function()
+t.describe("themed edges, plates and gutters", function()
 	t.it("draws the tab plate's hairline at the theme's hairline strength, not an opaque ring", function()
 		for _, entry in packages() do
 			for _, palette in palettes(entry.package) do
