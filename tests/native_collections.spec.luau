@@ -801,6 +801,31 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("keeps a gap under its Edit toolbar and paints the header band only as wide as the rows", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local input = ctx.config.userInputService
+		input.PreferredInput, input.MouseEnabled = E.PreferredInput.Touch, false
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				reorderable = true,
+				onReorder = function() end,
+				columns = { { id = "label", label = "Label" } },
+			})
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(347, 240)
+		local toolbar, header, band =
+			node:FindFirstChild("Toolbar"), node:FindFirstChild("Header"), node:FindFirstChild("HeaderBand")
+		t.expect(header.Position.Y.Offset - toolbar.Size.Y.Offset).toBe(8)
+		t.expect(band.Position.Y.Offset).toBe(header.Position.Y.Offset)
+		t.expect(band.Size.X.Scale).toBe(0)
+		t.expect(band.Size.X.Offset).toBe(347)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("sizes table rows by viewing distance: dense pointer, two-line touch, one large line at ten feet", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
@@ -2501,7 +2526,7 @@ t.describe("Table compact width", function()
 		local band = node:FindFirstChild("HeaderBand")
 		local gutter = node:FindFirstChild("Header").Position.X.Offset
 		t.expect(band.Position.X.Offset).toBe(gutter)
-		t.expect(band.Size).toBe(engine.types.UDim2.new(1, -gutter, 0, node:FindFirstChild("Header").Size.Y.Offset))
+		t.expect(band.Size).toBe(engine.types.UDim2.fromOffset(300, node:FindFirstChild("Header").Size.Y.Offset))
 		t.expect(band:HasTag("facet-tablehead")).toBe(true)
 		t.expect(node:FindFirstChild("Header").BackgroundTransparency).toBe(1)
 		row:FindFirstChild("Undisclosed", true).TextFits = false

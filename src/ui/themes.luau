@@ -771,10 +771,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		})
 	end
 	rule(".facet-tableheading", { BackgroundTransparency = 1 })
-	rule(".facet-tablevalue::UIPadding", {
-		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
-	})
 	local function rungMetric(rung: string, field: string): number
 		local authored = (package.metrics.controlSizes or {})[rung]
 		if authored and type(authored[field]) == "number" then
@@ -796,6 +792,17 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-button-tight::UIPadding", {
 		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
 		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+	})
+	local cellLeft, cellRight = 12 + (buttonInsets.left or 0), 12 + (buttonInsets.right or 0)
+	for _, cell in { "tablevalue", "tableheading" } do
+		rule(".facet-" .. cell .. "::UIPadding", {
+			PaddingLeft = types.UDim.new(0, cellLeft),
+			PaddingRight = types.UDim.new(0, cellRight),
+		})
+	end
+	rule(".facet-tablecellinset", {
+		Position = types.UDim2.fromOffset(cellLeft, 0),
+		Size = types.UDim2.new(1, -(cellLeft + cellRight), 1, 0),
 	})
 	rule(".facet-button-glyph::UIPadding", {
 		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
