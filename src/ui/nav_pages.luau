@@ -207,14 +207,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"onChange",
 			"controlSize",
 		}, { Name = "TabView", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }))
-		local unitProbe = Host.Frame "LayoutUnit" { Size = D2.fromOffset(100, 1), Visible = false }
-		local unitSize = ctx.observe.AbsoluteSize(unitProbe)
-		local screenSize = ctx.observe.AbsoluteSize(root)
-		local dimensions = Compose.formula(function(use: ComposeTypes.Use): Vector2
-			local unit = use(unitSize).X / 100
-			local size = use(screenSize)
-			return if unit > 0 then size / unit else size
-		end)
+		local layoutUnit = ctx.layoutUnit(root)
+		local dimensions = ctx.layoutSize(root, layoutUnit)
 		local function locate()
 			local at: Instance? = root.Parent
 			local inside = depth > 0
@@ -468,7 +462,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if widest <= 0 then
 				return math.clamp(math.floor(use(dimensions).X * 0.2), 200, 280)
 			end
-			local unit = use(unitSize).X / 100
+			local unit = use(layoutUnit)
 			local glyph = 0
 			for _, tab in use(visibleTabs) do
 				if tab.icon then
@@ -487,7 +481,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				+ plate
 		end
 		local function segmentWidth(use: ComposeTypes.Use): (number, number)
-			local unit = use(unitSize).X / 100
+			local unit = use(layoutUnit)
 			local scale = if unit > 0 then unit else 1
 			local room = use(dimensions).X - use(trailingWidth) / scale
 			local width = math.ceil(math.min(room, use(stripContent).X / scale + 2 * INSET))
@@ -1101,7 +1095,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		}
 		track:AddTag("facet-segmented")
 		track:AddTag("facet-tab-plate")
-		surfaces.attach(root, { unitProbe, track, bar, layers })
+		surfaces.attach(root, { track, bar, layers })
 		local canvas, window = ctx.observe.AbsoluteCanvasSize(bar), ctx.observe.AbsoluteWindowSize(bar)
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
