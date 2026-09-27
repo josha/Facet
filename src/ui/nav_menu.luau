@@ -939,7 +939,7 @@ return function(
 			end,
 		})
 		if shown then
-			surfaces.popover(panel, shown, place, materialize)
+			surfaces.popover(panel, shown, place, { from = materialize })
 		else
 			runtime.decorate(panel, {
 				Position = function(use: ComposeTypes.Use)

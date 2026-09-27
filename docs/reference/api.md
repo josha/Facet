@@ -301,9 +301,12 @@ easing, spring, scale and distance below is a token in the theme package's
   the same style pass, so the outline fades with the fill and the content. A
   game rule on `S::UIStroke` gets the same twin. `FindFirstChildWhichIsA("UIStroke")`
   on a faded node returns `FadeStroke`.
-- An Alert or a Popover measures its content at rest before its entrance: it
-  waits until the content height holds for one frame, at most the theme's
-  `motion.restLimit` (0.25 seconds by default). Reduced motion skips the wait.
+- An Alert, a Popover, a Callout and a Button `help` plate measure themselves
+  at rest before the entrance: each waits, invisible and at scale 1, until its
+  size holds for one frame, at most the theme's `motion.restLimit` (0.25
+  seconds by default). The placement then reads that rested size for the whole
+  entrance and exit, so the scale never moves the plate or its tail. Reduced
+  motion skips the wait.
 - Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
   all of this motion. The change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer

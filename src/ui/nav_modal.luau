@@ -7,6 +7,7 @@ local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
 local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
+local rest = require("./rest")
 local scrollLock = require("./scroll_lock")
 
 local HELP_DWELL = 0.45
@@ -151,19 +152,62 @@ return function(ctx: Types.Context): Nav.Surfaces
 			return ctx.read(progress, use)
 		end
 	end
+	local function atRest(
+		amount: Nav.Appearance,
+		ready: ComposeTypes.Cell<boolean>,
+		nodes: { GuiObject },
+		restart: ((ComposeTypes.Use) -> string)?
+	): ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>)
+		local live: { ComposeTypes.Readable<Vector2> } = {}
+		for index, node in nodes do
+			live[index] = ctx.observe.AbsoluteSize(node)
+		end
+		local rested = rest(ctx, function(): (string, boolean)
+			local parts: { string } = {}
+			local filled = false
+			for index, size in live do
+				local value = size:peek()
+				parts[index] = `{value.X},{value.Y}`
+				filled = filled or (value.X > 0 and value.Y > 0)
+			end
+			return table.concat(parts, ";"), filled
+		end, restart)
+		local held: { ComposeTypes.Readable<Vector2> } = {}
+		for index, size in live do
+			local natural = Compose.cell(size:peek())
+			held[index] = natural
+			Compose.watch(function(use: ComposeTypes.Use)
+				local value = use(size)
+				if not use(rested) or amount(use) >= 1 then
+					natural:set(value)
+				end
+			end)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(rested) then
+				ready:set(true)
+			end
+		end)
+		return held, rested
+	end
 	local function popover(
 		panel: GuiObject,
 		amount: Nav.Appearance,
 		place: (ComposeTypes.Use) -> (Vector2, Vector2),
-		from: number?,
-		pinned: boolean?
+		options: Nav.PopoverOptions?
 	): ()
-		local rest = from or ctx.metric("motion.materialize.anchored")
+		local settings: Nav.PopoverOptions = options or {}
+		local rested = settings.rested
+		local rise = settings.rise
 		local function scale(use: ComposeTypes.Use): number
-			return rest + (1 - rest) * amount(use)
+			if (rested and not use(rested)) or (rise and rise(use) ~= nil) then
+				return 1
+			end
+			local from = settings.from or ctx.metric("motion.materialize.anchored", use)
+			return from + (1 - from) * amount(use)
 		end
-		if pinned then
-			local size = ctx.observe.AbsoluteSize(panel)
+		if settings.pinned then
+			local size = settings.size or ctx.observe.AbsoluteSize(panel)
 			runtime.decorate(panel, {
 				AnchorPoint = function(use: ComposeTypes.Use)
 					local _, origin = place(use)
@@ -182,6 +226,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 			runtime.decorate(panel, {
 				Position = function(use: ComposeTypes.Use)
 					local at, origin = place(use)
+					local distance = if rise then rise(use) else nil
+					if distance then
+						return D2.fromOffset(at.X, at.Y + distance * (1 - amount(use)))
+					end
 					local shrink = 1 - scale(use)
 					return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
 				end,
@@ -791,7 +839,8 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
 		attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
-				local amount = appearance(phase, timing)
+				local settled = Compose.cell(false)
+				local amount = appearance(phase, timing, settled)
 				local layer: GuiBase2d = ctx.config.overlayParent :: GuiBase2d?
 					or assert(anchor:FindFirstAncestorWhichIsA("LayerCollector"))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
@@ -853,7 +902,8 @@ return function(ctx: Types.Context): Nav.Surfaces
 					table.insert(panelProps, hint)
 				end
 				local panel = ctx.fade(panelProps)
-				local measured = ctx.observe.AbsoluteSize(panel)
+				local sizes, rested = atRest(amount, settled, { panel })
+				local measured = sizes[1]
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
 				local solution = Compose.formula(function(use: ComposeTypes.Use): placement.Placement
@@ -887,7 +937,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 						elseif solved.edge == "right" then V2.new(0, math.clamp(centerY, 0, box.Y))
 						else V2.new(box.X, math.clamp(centerY, 0, box.Y))
 					return V2.new(solved.x, solved.y), origin
-				end, nil, true)
+				end, { pinned = true, rested = rested, size = measured })
 				ctx.styled(panel, "tooltip")
 				local tail = parts.tail(
 					ctx,
@@ -934,6 +984,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		overlay = overlay,
 		available = available,
 		appearance = appearance,
+		atRest = atRest,
 		popover = popover,
 		sheetModal = nil,
 	}

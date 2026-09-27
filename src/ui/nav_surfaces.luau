@@ -748,7 +748,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					if not use(messageRested) or shown == nil or shown(use) >= 1 then
 						contentHeight:set(height)
 					end
-					settled:set(use(messageRested) or #contents == 0 or reduce(use))
+					settled:set(use(messageRested) or #contents == 0)
 				end)
 				if shown then
 					ctx.fadeTo(panel, function(use: ComposeTypes.Use)
@@ -1104,7 +1104,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local timing: Nav.MotionTiming = { enter = short, exit = short }
 		surfaces.attach(root, {
 			surfaces.overlay(spec.anchor, visible, function(phase: Nav.PresencePhase?)
-				local amount = surfaces.appearance(phase, timing)
+				local settled = Compose.cell(false)
+				local amount = surfaces.appearance(phase, timing, settled)
 				if spec.onShow then
 					local ok: boolean, failure: unknown = pcall(spec.onShow)
 					if not ok then
@@ -1250,7 +1251,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					or assert(spec.anchor:FindFirstAncestorWhichIsA("LayerCollector"))
 				local extent = ctx.observe.AbsoluteSize(layer)
 				local origin = ctx.observe.AbsolutePosition(layer)
-				local measured = ctx.observe.AbsoluteSize(panel)
+				local sizes, rested = surfaces.atRest(amount, settled, { panel })
+				local measured = sizes[1]
 				local tailed = spec.tail ~= false and spec.tail ~= "none"
 				local function lift(use: ComposeTypes.Use): number
 					return 8 + (if tailed then parts.tailSize(ctx, use) * math.sqrt(2) / 2 else 0)
@@ -1306,7 +1308,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
 					local above = anchorAt.Y - offset.Y >= at.top + box.Y
 					return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
-				end, nil, true)
+				end, { pinned = true, rested = rested, size = measured })
 				local arrow: { Frame }? = if tailed
 					then parts.tail(
 						ctx,
