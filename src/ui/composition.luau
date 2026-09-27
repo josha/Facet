@@ -64,16 +64,18 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		) :: { [unknown]: unknown }
 		local open = Compose.cell(false)
 		if spec.expand and spec.mayDrop == true and spec.reveal ~= false then
-			properties[#properties + 1] = (UI :: any).Button "Reveal" {
-				icon = "more",
-				label = "",
-				name = "Show hidden",
-				shape = "circle",
-				controlSize = "xsmall",
-				onActivate = function()
-					open:set(not open:peek())
-				end,
-			}
+			properties[#properties + 1] = ctx.styled(
+				Host.Frame "Reveal" {
+					Size = D2.fromOffset(28, 20),
+					ctx.corner(10),
+					ctx.icon("more", {
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = D2.fromScale(0.5, 0.5),
+						Size = D2.fromOffset(16, 16),
+					}),
+				},
+				"badge"
+			)
 		end
 		local sizes: { ComposeTypes.Cell<Vector2> } = {}
 		for index = 1, #properties do

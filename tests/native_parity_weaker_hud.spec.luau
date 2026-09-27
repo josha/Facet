@@ -167,10 +167,10 @@ local function find(root: any, name: string): any
 end
 
 local function depth(id: string, name: string): number
-	return if name == "hidden" then 99 else assert(table.find(hud.forms[id], name))
+	return if name == "hidden" then 99 elseif name == "reveal" then 98 else assert(table.find(hud.forms[id], name))
 end
 local LADDER =
-	"Feed:hidden Tasks:one Readout:hidden Weapon:hidden Rail:chip Tasks:hidden Health:hidden Rail:hidden Clock:timer"
+	"Feed:hidden Tasks:one Readout:hidden Weapon:hidden Rail:chip Tasks:reveal Tasks:hidden Health:reveal Rail:hidden Health:hidden Clock:timer"
 local ZONES = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" }
 local SIZES = {
 	{ width = 1079, height = 809 },

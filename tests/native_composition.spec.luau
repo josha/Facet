@@ -300,7 +300,7 @@ t.describe("Composition", function()
 			local disc = w.find("Reveal")
 			t.expect(disc ~= nil).toBe(reveal)
 			if disc then
-				w.size(disc, 28, 28)
+				w.size(disc, 28, 20)
 			end
 			local zones = w.find("Zones")
 			w.size(zones, 800, 400)
@@ -309,7 +309,8 @@ t.describe("Composition", function()
 			t.expect(form:peek()).toBe(if reveal then 2 else 0)
 			if disc then
 				t.expect(disc.Parent.Visible).toBe(true)
-				disc.Activated.fire()
+				t.expect(w.find("Feed"):FindFirstChild("Expand").Visible).toBe(true)
+				w.find("Feed"):FindFirstChild("Expand").Activated.fire()
 				t.expect(w.find("FeedRich") ~= nil).toBe(true)
 				w.size(zones, 800, 400)
 				t.expect(w.find("FeedRich")).toBeNil()
