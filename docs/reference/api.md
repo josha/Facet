@@ -263,25 +263,27 @@ document their own write-then-notify behavior below.
 
 The controls animate navigation and presentation by default. All motion uses
 the Compose runtime. Motion does not block input or focus. An exiting element
-cannot be interacted with, and the selection never stays on it.
+cannot be interacted with, and the selection never stays on it. Every time,
+easing, spring, scale and distance below is a token in the theme package's
+`metrics.motion` (named in brackets). The values are Facet Neutral's.
 
 | Control | Enter | Exit |
 |---|---|---|
-| NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent to the leading edge and dims. Critically damped spring with a 0.3 second period, visually complete in approximately 0.35 seconds. | Pop is the reverse. |
-| TabView page change | Crossfade, 0.2 seconds, Quad Out. | The same. |
-| Sheet | Slides up from the bottom, 0.3 seconds, Cubic Out. A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds. |
-| Alert, Dialog | Scales from 0.94 to 1 and fades in, 0.2 seconds, Cubic Out. The scrim fades in. | The reverse, 0.15 seconds. |
-| Popover | Scales from 0.9 to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds, Cubic Out. | The reverse, 0.1 seconds. |
+| NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent (`distances.parallax`) to the leading edge and dims by 0.1 (`distances.dim`). Critically damped spring with a 0.3 second period (`springs.move`), visually complete in approximately 0.35 seconds. | Pop is the reverse. |
+| TabView page change | Crossfade, 0.2 seconds (`durations.tabFade`), Quad Out (`easing.fade`). | The same. |
+| Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
+| Alert, Dialog | Scales from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
+| Popover | Scales from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
 | Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
 | Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
-| Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
+| Menu, Picker menu | Each level scales from 0.96 (`materialize.menu`) to 1 from the corner where it hangs, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. A sheet submenu slides 32 pixels (`distances.menuSlide`) in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds (`popover.exit`). |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
-| Toast | Slides in from its edge and fades in, 0.2 seconds, Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds. |
-| Toast with an action | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
-| DisclosureGroup | The content height opens from 0, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds, and the content fades out over the same share of that time. |
+| Toast | Slides in from its edge and fades in, 0.2 seconds (`toast.enter`), Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`). |
+| Toast with an action | Slides up from below the layer and fades in, 0.2 seconds (`toast.enter`), Cubic Out. | Slides down and fades out, 0.2 seconds (`toast.exit`). |
+| DisclosureGroup | The content height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
 | CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds, and the content fades out over the same share of that time. |
-| Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
-| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds. A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
+| Notice | The height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds (`reveal.exit`). Then `onDismiss` runs. |
+| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds (`radial.exit`). |
 | NavBar | No motion. | No motion. |
 
 - A fade uses a CanvasGroup named `Fade` only while it runs. The group holds

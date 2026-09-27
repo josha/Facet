@@ -24,8 +24,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	type CalloutRegistration = { id: number, eligible: ComposeTypes.Readable<boolean>, priority: number }
 	local callouts = Compose.cell({} :: { CalloutRegistration })
-	local DIALOG: Nav.MotionTiming = { enter = 0.2, exit = 0.15 }
-	local REVEAL: Nav.MotionTiming = { enter = 0.25, exit = 0.2 }
 	local nextCallout = 0
 	local function body(content: Nav.Content): Instance
 		return if type(content) == "function" then content() else content
@@ -63,6 +61,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ComposeTypes.Use
 	) -> number)
 		local reduce = reducedMotion(ctx)
+		local reveal = ctx.motionTiming("reveal")
 		local function motion(
 			share: (ComposeTypes.Use) -> number,
 			ease: ComposeTypes.Easing?
@@ -71,7 +70,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return if use(expanded) then 1 else 0
 			end, {
 				seconds = function(use: ComposeTypes.Use): number
-					return share(use) * (if expanded:peek() then REVEAL.enter else REVEAL.exit)
+					return share(use) * (if expanded:peek() then reveal.enter else reveal.exit)
 				end,
 				ease = ease,
 			})
@@ -85,7 +84,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local progress, opacity =
 			motion(function()
 				return 1
-			end, Compose.easing.outCubic), motion(function(use: ComposeTypes.Use): number
+			end, ctx.motionEase("present")), motion(function(use: ComposeTypes.Use): number
 				return ctx.metric("motion.revealFadeShare", use)
 			end)
 		return progress,
@@ -741,7 +740,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				ctx.styled(panel, "panel")
 				surfaces.skin(panel, "panel")
 				local settled = Compose.cell(false)
-				local shown = if spec.transition == nil then surfaces.appearance(phase, DIALOG, settled) else nil
+				local shown = if spec.transition == nil
+					then surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
+					else nil
 				Compose.watch(function(use: ComposeTypes.Use)
 					local height = use(messageExtent)
 					if not use(messageRested) or shown == nil or shown(use) >= 1 then
@@ -756,7 +757,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					surfaces.attach(panel, {
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
-								return if use(settled) then 0.94 + 0.06 * shown(use) else 1
+								local rest = ctx.metric("motion.materialize.modal", use)
+								return if use(settled) then rest + (1 - rest) * shown(use) else 1
 							end,
 						},
 					})
@@ -789,7 +791,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local origin = ctx.observe.AbsolutePosition(modal)
 					local progress = runtime.tween(function(use: ComposeTypes.Use)
 						return if use(phase.exiting) then 0 elseif use(ready) then 1 else 0
-					end, { seconds = transition.seconds or 0.2, ease = transition.ease })
+					end, { seconds = transition.seconds or ctx.metric("motion.normal"), ease = transition.ease })
 					local function amount(use: ComposeTypes.Use): number
 						return if reduce(use) then 1 else use(progress)
 					end
@@ -965,12 +967,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							if reduce() then
 								return { completed = Compose.cell(true) }
 							end
-							local motion = runtime.timeline({ duration = read(transition.seconds) or 0.2 })
+							local motion =
+								runtime.timeline({ duration = read(transition.seconds) or ctx.metric("motion.normal") })
 							return { completed = motion.completed }
 						end,
 					}
 					else nil,
-				motion = if spec.transition == nil then DIALOG else nil,
+				motion = if spec.transition == nil then ctx.motionTiming("dialog") else nil,
 				identity = if spec.item
 					then function(use: ComposeTypes.Use): number
 						local value = use(assert(spec.item))

@@ -49,9 +49,6 @@ return function(
 		end
 	end
 	local readSource = ctx.readSource
-	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
-	local SLIDE = 32
-	local MATERIALIZE = 0.96
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local function derive<T>(compute: (ComposeTypes.Use?) -> T, ...: unknown): Types.Value<T>
 		for index = 1, select("#", ...) do
@@ -315,13 +312,17 @@ return function(
 		nonmodal: boolean?,
 		phase: Nav.PresencePhase?
 	): Frame
-		local appearance = if phase then surfaces.appearance(phase, POPOVER) else nil
+		local timing = ctx.motionTiming("popover")
+		local present = ctx.motionEase("present")
+		local slide = ctx.metric("motion.distances.menuSlide")
+		local materialize = ctx.metric("motion.materialize.menu")
+		local appearance = if phase then surfaces.appearance(phase, timing) else nil
 		local hitFloor = ctx.hitFloor()
 		local path = Compose.cell({} :: { string })
 		local pendingFocus: string?
 		local sheeted = Compose.cell(false)
 		local reduce = reducedMotion(ctx)
-		local levelClock = runtime.timeline({ duration = POPOVER.enter, autoplay = false })
+		local levelClock = runtime.timeline({ duration = timing.enter, autoplay = false })
 		local levelDirection = Compose.cell(0)
 		local depthSeen = 0
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -337,7 +338,7 @@ return function(
 			if direction == 0 or reduce(use) then
 				return 1
 			end
-			return Compose.easing.outCubic(readSource(levelClock.progress, use))
+			return present(readSource(levelClock.progress, use))
 		end
 		local shown: Nav.Appearance? = if appearance
 			then function(use: ComposeTypes.Use?): number
@@ -729,7 +730,7 @@ return function(
 				if not use(sheeted) or direction == 0 or reduce(use) then
 					return D2.fromOffset(0, 0)
 				end
-				return D2.fromOffset(direction * SLIDE * (1 - level(use)), 0)
+				return D2.fromOffset(direction * slide * (1 - level(use)), 0)
 			end,
 		})
 		local scroller = Host.ScrollingFrame "MenuScroll" {
@@ -938,7 +939,7 @@ return function(
 			end,
 		})
 		if shown then
-			surfaces.popover(panel, shown, place, MATERIALIZE)
+			surfaces.popover(panel, shown, place, materialize)
 		else
 			runtime.decorate(panel, {
 				Position = function(use: ComposeTypes.Use)
@@ -1497,7 +1498,7 @@ return function(
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Nav.PresencePhase?)
 				return menuPanel(spec, close, trigger, nil, phase)
-			end, { motion = POPOVER }),
+			end, { motion = ctx.motionTiming("popover") }),
 		})
 		return root
 	end
@@ -1569,9 +1570,10 @@ return function(
 		indicator: Types.Value<string>?
 	): ()
 		local reduced = reducedMotion(ctx)
+		local spring = ctx.motionSpring("control")
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
-		end, { period = 0.25, damping = 1, tolerance = 1e-3, reducedMotion = reduced })
+		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = reduced })
 		local _, slot = runtime.mount(function()
 			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
 		end, picker)

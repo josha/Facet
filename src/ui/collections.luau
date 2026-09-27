@@ -17,7 +17,6 @@ type Controls = {
 	VirtualGrid: CollectionTypes.CollectionConstructor,
 	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
 }
-local FLING_FRICTION = 3
 local FLING_MINIMUM = 200
 local FLING_STOP = 20
 local FLING_WINDOW = 0.1
@@ -30,7 +29,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 	local props, observe = ctx.props, ctx.observe
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
-	local GLIDE = 0.22
 	local behavior = {
 		"from",
 		"key",
@@ -342,11 +340,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 						end
 						halt()
 						local elapsed = 0
+						local seconds = ctx.metric("motion.durations.glide")
 						glide:set(delta)
 						stopGlide = frames.onFrame(function(step: number)
-							elapsed = math.min(GLIDE, elapsed + step)
-							glide:set(delta * (1 - elapsed / GLIDE) ^ 3)
-							if elapsed >= GLIDE then
+							elapsed = math.min(seconds, elapsed + step)
+							glide:set(delta * (1 - elapsed / seconds) ^ 3)
+							if elapsed >= seconds then
 								halt()
 							end
 						end)
@@ -629,8 +628,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					local span = last.X - first.X
 					velocity = if span > 0 then (first.Y - last.Y) / span else 0
 					if frames.now() - last.X < FLING_WINDOW and math.abs(velocity) > FLING_MINIMUM then
+						local friction = ctx.metric("motion.fling.friction")
 						stopFling = frames.onFrame(function(step: number)
-							velocity *= math.exp(-FLING_FRICTION * step)
+							velocity *= math.exp(-friction * step)
 							local at = root.CanvasPosition.X
 							local nextX = math.clamp(at + velocity * step, 0, limit())
 							root.CanvasPosition = V2.new(nextX, root.CanvasPosition.Y)

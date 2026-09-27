@@ -6,7 +6,6 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
-local freeze = require("./freeze")
 local reducedMotion = require("./motion")
 
 type Controls = { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
@@ -30,8 +29,6 @@ local KEYS = {
 	"modal",
 	"cancelPolicy",
 }
-local POPOVER: { enter: number, exit: number } = freeze({ enter = 0.15, exit = 0.1 })
-local SHEET_EXIT = 0.2
 local MARGIN = 8
 local PADDING = 8
 
@@ -237,9 +234,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local kind = if preferred then use(preferred) else nil
 			return if kind == E.PreferredInput.Touch and width > 0 and width < 600 then "sheet" else "popover"
 		end)
-		local motion: Nav.MotionTiming = { enter = POPOVER.enter, exit = POPOVER.exit }
+		local popoverTiming = ctx.motionTiming("popover")
+		local sheetExit = ctx.metric("motion.durations.popoverSheetExit")
+		local motion: Nav.MotionTiming = { enter = popoverTiming.enter, exit = popoverTiming.exit }
 		Compose.watch(function(use: ComposeTypes.Use)
-			motion.exit = if use(route) == "sheet" then SHEET_EXIT else POPOVER.exit
+			motion.exit = if use(route) == "sheet" then sheetExit else popoverTiming.exit
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if read(spec.isPresented, use) ~= true then
@@ -257,7 +256,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local function anchored(phase: Nav.PresencePhase?): Frame
 			local settled = Compose.cell(false)
-			local amount = surfaces.appearance(phase, POPOVER, settled)
+			local amount = surfaces.appearance(phase, popoverTiming, settled)
 			local layer = assert(root:FindFirstAncestorWhichIsA("LayerCollector"))
 			local extent = ctx.observe.AbsoluteSize(layer)
 			local origin = ctx.observe.AbsolutePosition(layer)

@@ -157,7 +157,50 @@ local neutral: ThemeTypes.ThemePackage = {
 			regular = { height = 44, paddingX = 12, iconSize = 20 },
 			large = { height = 56, paddingX = 16, iconSize = 24 },
 		},
-		motion = { fast = 0.12, normal = 0.2, revealFadeShare = 0.5, unfoldStart = 0.25, restLimit = 0.25 },
+		motion = {
+			fast = 0.12,
+			normal = 0.2,
+			revealFadeShare = 0.5,
+			unfoldStart = 0.25,
+			restLimit = 0.25,
+			popover = { enter = 0.15, exit = 0.1 },
+			dialog = { enter = 0.2, exit = 0.15 },
+			reveal = { enter = 0.25, exit = 0.2 },
+			sheet = { enter = 0.3, exit = 0.2 },
+			toast = { enter = 0.2, exit = 0.2 },
+			radial = { enter = 0.2, exit = 0.12, slot = 0.16 },
+			durations = {
+				tabFade = 0.2,
+				pageTurn = 0.3,
+				sheetDetent = 0.2,
+				sheetPull = 0.2,
+				popoverSheetExit = 0.2,
+				rowDeparture = 0.24,
+				snap = 0.18,
+				cardFade = 0.15,
+				regionPop = 0.15,
+				fieldReject = 0.24,
+				buttonPop = 0.45,
+				scrollReveal = 0.25,
+				focusPulse = 1,
+				busyLoop = 1,
+				progressLoop = 1,
+				spinnerLoop = 1.4,
+				glide = 0.22,
+			},
+			springs = {
+				snappy = { period = 0.2, damping = 1 },
+				quick = { period = 0.18, damping = 1 },
+				control = { period = 0.25, damping = 1 },
+				move = { period = 0.3, damping = 1 },
+				sheet = { period = 0.4, damping = 1 },
+			},
+			materialize = { anchored = 0.9, menu = 0.96, modal = 0.94, branch = 0.3, lift = 1.04 },
+			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
+			easing = { present = "outCubic", fade = "outQuad" },
+			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Back", pulse = "Sine" },
+			fling = { friction = 3 },
+		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
 			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },
@@ -1692,25 +1735,28 @@ local function createStyleSheet(
 		local value = read(preferredTransparency, use)
 		return if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 1
 	end
-	local defaultTimings: { [number]: TweenInfo } = {}
+	local defaultTimings: { [string]: TweenInfo } = {}
 	local function timingFor(package: ThemeTypes.ThemePackage, use: ComposeTypes.Use): TweenInfo
 		local explicit = read(settings.transition, use)
+		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
 		local seconds
 		if read(reducedMotion, use) == true or explicit == false then
 			seconds = 0
 		elseif explicit ~= nil then
 			return explicit :: TweenInfo
 		else
-			seconds = ((package.metrics or {}) :: { motion: { [string]: number }? }).motion
-					and package.metrics.motion.normal
-				or 0.2
+			seconds = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		end
-		local cached: TweenInfo? = defaultTimings[seconds]
+		local style = (motion and motion.styles and motion.styles.paint)
+			or (neutral.metrics.motion.styles :: { [string]: string }).paint
+		local key = `{seconds}|{style}`
+		local cached: TweenInfo? = defaultTimings[key]
 		if cached then
 			return cached
 		end
-		local timing = types.TweenInfo.new(seconds, types.Enum.EasingStyle.Quad, types.Enum.EasingDirection.Out)
-		defaultTimings[seconds] = timing
+		local timing =
+			types.TweenInfo.new(seconds, (types.Enum.EasingStyle :: any)[style], types.Enum.EasingDirection.Out)
+		defaultTimings[key] = timing
 		return timing
 	end
 	local definitions: { [string]: NativeRule } = {}

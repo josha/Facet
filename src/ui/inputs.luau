@@ -426,7 +426,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			underline == nil or underline == "always" or underline == "hover",
 			"Facet.Button: underline must be always or hover"
 		)
-		local popTimeline = if spec.pop then runtime.timeline({ duration = 0.45, autoplay = false }) else nil
+		local popTimeline = if spec.pop
+			then runtime.timeline({ duration = ctx.metric("motion.durations.buttonPop"), autoplay = false })
+			else nil
 		local popReduced = if popTimeline then reducedMotion(ctx) else nil
 		local popStart = Compose.cell(1)
 		local popScale
@@ -703,7 +705,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				Compose.show(function(use: ComposeTypes.Use)
 					return read(spec.busy, use) == true
 				end, function()
-					local phase = runtime.timeline({ duration = 1, repeats = math.huge })
+					local phase =
+						runtime.timeline({ duration = ctx.metric("motion.durations.busyLoop"), repeats = math.huge })
 					local dotsReduced = reducedMotion(ctx)
 					local dots: Shared.FrameNativeProps = {
 						Name = "Busy",

@@ -47,7 +47,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local editWidth = Compose.cell(72)
 		local actionWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 		local rowToken = {}
-		local departure = runtime.timeline({ duration = 0.24, autoplay = false })
+		local departure = runtime.timeline({ duration = ctx.metric("motion.durations.rowDeparture"), autoplay = false })
 		local committing: ComposeTypes.Cell<{ action: RowAction, edge: RowEdge, from: number }?> =
 			Compose.cell(nil :: { action: RowAction, edge: RowEdge, from: number }?)
 		local fired = false
@@ -128,9 +128,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			local edge = use(open) :: RowEdge?
 			return if edge == nil then 0 else bandWidth(edge, use) * (if edge == "leading" then 1 else -1)
 		end)
+		local settleSpring = ctx.motionSpring("snappy")
 		local animated = runtime.spring(function(use: ComposeTypes.Use)
 			return use(offset)
-		end, { period = 0.2, damping = 1 })
+		end, { period = settleSpring.period, damping = settleSpring.damping })
 		local function invoke(action: RowAction): ()
 			if action.onActivate then
 				action.onActivate()

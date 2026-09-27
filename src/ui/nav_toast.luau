@@ -348,10 +348,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				hug
 			)
 		end
+		local toastTiming, present = ctx.motionTiming("toast"), ctx.motionEase("present")
 		local entered = Compose.cell(false)
 		local slide = runtime.tween(function(use: ComposeTypes.Use): number
 			return if phase and use(phase.exiting) then 0 elseif use(entered) then 1 else 0
-		end, { seconds = 0.2, ease = Compose.easing.outCubic })
+		end, {
+			seconds = function(_: ComposeTypes.Use): number
+				return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
+			end,
+			ease = present,
+		})
 		local function amount(use: ComposeTypes.Use): number
 			if reduced(use, setting) then
 				return if phase and use(phase.exiting) then 0 else 1
@@ -368,7 +374,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return offset
 		end
-		local settle = runtime.tween(target, { seconds = 0.2, ease = Compose.easing.outCubic })
+		local settle = runtime.tween(target, { seconds = toastTiming.enter, ease = present })
 		local props: Types.CanvasGroupNativeProps = {
 			Name = "ToastRow",
 			BackgroundTransparency = 0,
@@ -564,10 +570,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
 		local setting = if gui then ctx.observe.ReducedMotionEnabled(gui) else nil
+		local toastTiming, present = ctx.motionTiming("toast"), ctx.motionEase("present")
 		local shown = Compose.cell(false)
 		local slide = runtime.tween(function(use: ComposeTypes.Use)
 			return if phase and use(phase.exiting) then 0 elseif use(shown) then 1 else 0
-		end, { seconds = 0.2, ease = Compose.easing.outCubic })
+		end, {
+			seconds = function(_: ComposeTypes.Use): number
+				return if phase and phase.exiting:peek() then toastTiming.exit else toastTiming.enter
+			end,
+			ease = present,
+		})
 		local function amount(use: ComposeTypes.Use): number
 			if reduced(use, setting) then
 				return if phase and use(phase.exiting) then 0 else 1
@@ -740,7 +752,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						if reduced() then
 							return { completed = Compose.cell(true) }
 						end
-						return { completed = runtime.timeline({ duration = 0.2 }).completed }
+						return { completed = runtime.timeline({ duration = ctx.metric("motion.toast.exit") }).completed }
 					end,
 				},
 			}),

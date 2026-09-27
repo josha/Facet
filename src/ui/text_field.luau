@@ -215,7 +215,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		local invalid = Compose.cell(false)
 		local validationMessage = Compose.cell("")
 		local mayReject = numeric or spec.invalid ~= nil
-		local errorTimeline = if mayReject then runtime.timeline({ duration = 0.24, autoplay = false }) else nil
+		local errorTimeline = if mayReject
+			then runtime.timeline({ duration = ctx.metric("motion.durations.fieldReject"), autoplay = false })
+			else nil
 		local errorReduced = if errorTimeline then reducedMotion(ctx) else nil
 		if errorTimeline then
 			errorTimeline:seek(0.24)

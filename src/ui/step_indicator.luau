@@ -396,12 +396,13 @@ return function(
 			local at, size = use(measured[1]), use(measured[2])
 			return { x = (at.X - box.x) / box.width, width = size.X / box.width, shown = true }
 		end)
+		local indicatorSpring = ctx.motionSpring("control")
 		local springX = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).x
-		end, { period = 0.25, damping = 1 })
+		end, { period = indicatorSpring.period, damping = indicatorSpring.damping })
 		local springWidth = runtime.spring(function(use: ComposeTypes.Use)
 			return use(target).width
-		end, { period = 0.25, damping = 1 })
+		end, { period = indicatorSpring.period, damping = indicatorSpring.damping })
 		local rowLayout = Host.UIListLayout({
 			FillDirection = E.FillDirection.Horizontal,
 			SortOrder = E.SortOrder.LayoutOrder,

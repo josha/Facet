@@ -9,6 +9,8 @@ local parts = require("./overlay_parts")
 local reducedMotion = require("./motion")
 local scrollLock = require("./scroll_lock")
 
+local HELP_DWELL = 0.45
+
 return function(ctx: Types.Context): Nav.Surfaces
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
@@ -21,7 +23,6 @@ return function(ctx: Types.Context): Nav.Surfaces
 	end
 	local gui = service("GuiService") :: GuiService?
 	local input = service("UserInputService") :: UserInputService?
-	local POPOVER: Nav.MotionTiming = { enter = 0.15, exit = 0.1 }
 
 	local function selecting(): (ComposeTypes.Use) -> boolean
 		local active = gui ~= nil and gui.SelectedObject ~= nil
@@ -137,7 +138,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			seconds = function(_: ComposeTypes.Use): number
 				return if exiting:peek() then timing.exit else timing.enter
 			end,
-			ease = Compose.easing.outCubic,
+			ease = ctx.motionEase("present"),
 		})
 		shown:set(true)
 		return function(use: ComposeTypes.Use?): number
@@ -157,7 +158,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		from: number?,
 		pinned: boolean?
 	): ()
-		local rest = from or 0.9
+		local rest = from or ctx.metric("motion.materialize.anchored")
 		local function scale(use: ComposeTypes.Use): number
 			return rest + (1 - rest) * amount(use)
 		end
@@ -769,7 +770,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 			return use(state) == E.GuiState.Hover
 				or (selected ~= nil and (selected == anchor or anchor:IsDescendantOf(selected)))
 		end)
-		local rest = runtime.timeline({ duration = 0.45, autoplay = false })
+		local rest = runtime.timeline({ duration = HELP_DWELL, autoplay = false })
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(wanted) then
 				rest:restart()

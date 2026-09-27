@@ -17,7 +17,7 @@ return function<K>(
 	local Compose, runtime, E = ctx.Compose, ctx.runtime, ctx.types.Enum
 	local frames = assert(runtime.host.frames)
 	local clock = frames.now
-	local motion = runtime.timeline({ duration = 0.18, autoplay = false })
+	local motion = runtime.timeline({ duration = ctx.metric("motion.durations.snap"), autoplay = false })
 	local held, running, writing = false, false, false
 	local stopWait: ComposeTypes.Dispose? = nil
 	local idle, from, target = 0, 0, 0

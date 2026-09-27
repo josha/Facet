@@ -48,9 +48,7 @@ local KEYS = {
 local PLACEMENTS: { [string]: boolean } =
 	freeze({ automatic = true, adaptive = true, bottom = true, side = true, center = true })
 local HANDLE = 20
-local SHEET: { enter: number, exit: number } = freeze({ enter = 0.3, exit = 0.2 })
 local SETTLE_LIMIT = 20
-local SETTLE_PERIOD = 0.4
 
 return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
@@ -271,7 +269,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local motion = runtime.tween(function(use: ComposeTypes.Use)
 			return use(dragHeight) or heightOf(selected(use), use)
 		end, {
-			seconds = 0.2,
+			seconds = ctx.metric("motion.durations.sheetDetent"),
 			reducedMotion = function(use: ComposeTypes.Use): boolean
 				return not use(ready)
 			end,
@@ -303,7 +301,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return
 			end
 			local position, velocity = from, speed
-			local stiffness, damping = (2 * math.pi / SETTLE_PERIOD) ^ 2, 4 * math.pi / SETTLE_PERIOD
+			local period = ctx.motionSpring("sheet").period
+			local stiffness, damping = (2 * math.pi / period) ^ 2, 4 * math.pi / period
 			settling:set(position)
 			stopSettle = frames.onFrame(function(delta: number)
 				local target = heightOf(selected())
@@ -515,7 +514,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local pulled = runtime.tween(function(use: ComposeTypes.Use)
 			return use(pull)
 		end, {
-			seconds = 0.2,
+			seconds = ctx.metric("motion.durations.sheetPull"),
 			reducedMotion = function(use: ComposeTypes.Use): boolean
 				return use(held) or reduce(use)
 			end,
@@ -962,7 +961,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			return if placement == "side" then (if edge == "left" then 0 else 1) else 0.5,
 				if placement == "center" then 0.5 else 1
 		end
-		local shown = surfaces.appearance(phase, SHEET, ready)
+		local shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
 		local function travel(use: ComposeTypes.Use): (number, number)
 			local rest = 1 - shown(use)
 			if rest <= 0 then
@@ -1138,7 +1137,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			surfaces.overlay(root, spec.isPresented, function(phase)
 				return modalFor(spec, prepared, nil, phase)
 			end, {
-				motion = SHEET,
+				motion = ctx.motionTiming("sheet"),
 				failure = function(failure)
 					root:SetAttribute("FacetError", tostring(failure))
 					spec.isPresented:set(false)

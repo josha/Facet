@@ -1008,7 +1008,9 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			)
 		end
 		local indeterminate = spec.value == nil
-		local timeline = if indeterminate then runtime.timeline({ duration = 1, repeats = math.huge }) else nil
+		local timeline = if indeterminate
+			then runtime.timeline({ duration = ctx.metric("motion.durations.progressLoop"), repeats = math.huge })
+			else nil
 		local progress = Compose.formula(function(use: ComposeTypes.Use)
 			if timeline then
 				local phase = use(timeline.progress)
@@ -1466,7 +1468,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 	end)
 
 	local skeletonClock = Compose.createSharedResource(function(): (Types.Playback, (() -> ())?)
-		local clock = runtime.timeline({ duration = 1.4, repeats = math.huge })
+		local clock = runtime.timeline({ duration = ctx.metric("motion.durations.spinnerLoop"), repeats = math.huge })
 		local motionReduced = reducedMotion(ctx)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if motionReduced(use) then
