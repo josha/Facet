@@ -6255,7 +6255,7 @@
       "class": "a",
       "candidateCases": [
         "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
-        "native_toast::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot",
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
         "native_parity_weaker_surfaces::gallery toast strength::shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped",
         "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
@@ -24545,7 +24545,7 @@
       "class": "a",
       "candidateCases": [
         "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
-        "native_toast::UI.Toast: presentation::stacks down from the top edge and the survivors close a vacated slot",
+        "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
         "native_parity_weaker_surfaces::gallery toast strength::clears showing toasts and returns the rows, instances and frame clock",
         "native_parity_weaker_surfaces::gallery toast strength::leaves the selection and the control beneath untouched while a toast shows",
@@ -24588,8 +24588,8 @@
       "candidateCases": [
         "native_gallery_parity::restored native gallery parity::an urgent toast waits for a showing toast's read floor, then takes the weakest slot",
         "native_gallery_workflows::native gallery workflows::expires passive toasts while retaining access to the underlying action",
-        "native_toast::toast schedule: showing, queueing and timing out::durations and read floors are per-toast, not global",
-        "native_toast::toast schedule: priority::the queue is priority-ordered, FIFO within a priority",
+        "native_parity_weaker_surfaces::gallery toast strength::keeps reduced-motion toasts on screen for the same durations as animated ones",
+        "native_toast_action::native Toast with an action: proposals and reasons::equal priority waits in order; a higher one supersedes after the floor, once",
         "native_parity_weaker_surfaces::gallery toast strength::a same-subject toast supersedes the showing one after its read floor",
         "native_parity_weaker_surfaces::gallery toast strength::dismisses showing and queued toasts by id, promotes the queue and ignores an unknown id",
         "native_parity_weaker_surfaces::gallery toast strength::shows a burst through UI.Toast: three visible, eight waiting, the least urgent newest dropped"

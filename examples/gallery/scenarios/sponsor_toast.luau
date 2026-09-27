@@ -58,7 +58,7 @@ return {
 			local now = use(clock.elapsed)
 			local kept, pruned = {}, false
 			for _, row in rows:peek() do
-				if row.retired and now - row.retired >= 0.3 then
+				if row.retired and now - row.retired >= 0.25 then
 					pruned = true
 				else
 					table.insert(kept, row)
