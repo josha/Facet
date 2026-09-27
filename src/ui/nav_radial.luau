@@ -353,13 +353,7 @@ return function(
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = if anchorGui then E.AutomaticSize.None else E.AutomaticSize.XY,
 		}))
-		surfaces.attach(root, {
-			Host.Frame "LayoutUnit" {
-				Size = D2.fromOffset(1, 1),
-				BackgroundTransparency = 1,
-				Visible = false,
-			},
-		})
+		local layoutUnit = ctx.layoutUnit(root)
 		if spec.launcher ~= false then
 			local overAnchor: ((ComposeTypes.Use) -> UDim2)? = nil
 			if anchorGui then
@@ -1189,14 +1183,13 @@ return function(
 					local hidden = launcher :: GuiObject
 
 					hideLauncher = function()
-						local unit = root:FindFirstChild("LayoutUnit") :: GuiObject?
-						local scale = if unit and unit.AbsoluteSize.X > 0 then unit.AbsoluteSize.X else 1
-						local held = root.AutomaticSize ~= E.AutomaticSize.None
-						local extent = hidden.AbsoluteSize / scale
+						local automatic, size = root.AutomaticSize, root.Size
+						local held = automatic ~= E.AutomaticSize.None
+						local extent = root.AbsoluteSize / layoutUnit:peek()
 						local function show()
 							hidden.Visible = true
 							if held then
-								root.AutomaticSize, root.Size = E.AutomaticSize.XY, D2.fromOffset(0, 0)
+								root.AutomaticSize, root.Size = automatic, size
 							end
 						end
 						if held then

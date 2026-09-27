@@ -207,6 +207,7 @@ t.describe("native radial interaction policies", function()
 		local launcher = world.find("Launcher")
 		local root = launcher.Parent
 		launcher.AbsoluteSize = world.engine.types.Vector2.new(44, 44)
+		root.AbsoluteSize = world.engine.types.Vector2.new(44, 44)
 		world.opened:set(true)
 		world.step(0.5)
 		t.expect(launcher.Visible).toBe(false)
@@ -215,6 +216,31 @@ t.describe("native radial interaction policies", function()
 		world.step(0.5)
 		t.expect(launcher.Visible).toBe(true)
 		t.expect(root.AutomaticSize.Name).toBe("XY")
+		world.stop()
+	end)
+	t.it("a corner menu holds its own room in layout units and hands back the caller's size", function()
+		local world = setup(function(engine)
+			return {
+				isPresented = Compose.cell(false),
+				preset = "bottom-left",
+				appearance = "buttons",
+				Size = engine.types.UDim2.fromOffset(60, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+				items = { { id = "look", label = "Look", icon = "facet:search" } },
+			}
+		end)
+		local V2 = world.engine.types.Vector2
+		local launcher = world.find("Launcher")
+		local root = launcher.Parent
+		root:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(62, 0.62)
+		launcher.AbsoluteSize = V2.new(27.28, 27.28)
+		root.AbsoluteSize = V2.new(37.2, 27.28)
+		world.opened:set(true)
+		world.step(0.5)
+		t.expect(`{root.AutomaticSize.Name} {root.Size.X.Offset}x{root.Size.Y.Offset}`).toBe("None 60x44")
+		world.opened:set(false)
+		world.step(0.5)
+		t.expect(`{root.AutomaticSize.Name} {root.Size}`).toBe("Y 0, 60, 0, 0")
 		world.stop()
 	end)
 	t.it("a corner menu names the hovered button right beside it", function()
