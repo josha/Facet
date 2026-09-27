@@ -274,14 +274,14 @@ easing, spring, scale and distance below is a token in the theme package's
 | Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. A detent change, a released drag and a side sheet's released pull settle on one critically damped spring (`springs.sheet`, a 0.4 second period, visually complete in about 0.45 seconds) that starts from the finger's release velocity; a detent change retargeted mid-flight keeps its velocity. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
 | Alert, Dialog | Scales from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
 | Popover | Scales from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
-| Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
-| Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
+| Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
+| Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | The panel scales from 0.96 (`materialize.menu`) to 1 from the corner where it hangs; a pointer submenu grows from the chosen row (about that row's top edge, on the side facing the parent), and Back grows the parent from the side that faced the child; and fades in, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Toast | Slides in from its edge and fades in, 0.2 seconds (`toast.enter`), Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`). |
 | Toast with an action | Slides up from below the layer and fades in, 0.2 seconds (`toast.enter`), Cubic Out. | Slides down and fades out, 0.2 seconds (`toast.exit`). |
 | DisclosureGroup | The content height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
-| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds, and the content fades out over the same share of that time. |
+| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds (`reveal.enter`), Cubic Out (`easing.present`), and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
 | Notice | The height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds (`reveal.exit`). Then `onDismiss` runs. |
 | RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds (`radial.exit`). |
 | NavBar | No motion. | No motion. |
@@ -3365,10 +3365,15 @@ weight. The derived role keeps the family, style, size and line height.
   `metrics.motion.press` (0.08 seconds), `:Hover` rules use
   `metrics.motion.hover` (0.15 seconds), and other rules use
   `metrics.motion.normal` (0.2 seconds). Press and hover are never slower than
-  `normal`. The easing is `metrics.motion.styles.paint` (Quad Out). Roblox
-  applies the transition of the rule being entered, so a press arrives in the
-  press time and its release eases back in the normal time. Native
-  transitions retarget interrupted changes.
+  `normal`. The easing is `metrics.motion.styles.paint` (Quad Out). The theme
+  StyleSheet carries the three timings as TweenInfo attributes
+  (`FacetMotionNormal`, `FacetMotionPress`, `FacetMotionHover`), and each rule's
+  transitions reference one of them as a `$` token, so a timing change updates
+  three attributes and rewrites no rule. Roblox applies the transition of the
+  rule being entered, so a press arrives in the press time; its release eases
+  back in the normal time, or in the hover time while the pointer is still over
+  the control (the release enters `:Hover`). Native transitions retarget
+  interrupted changes.
 - Reduced motion or `transition = false` sets zero-duration paint. If you omit
   reduced motion, the sheet follows GuiService.
 - Explicit Instance paint still overrides stylesheet paint.

@@ -137,8 +137,8 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 - A role timing is the time a surface takes to arrive (`enter`) and to leave
   (`exit`).
 - A duration is one fixed-length animation or loop.
-- A spring is a period in seconds (Apple's response) and a damping ratio; 1
-  never overshoots.
+- A spring is a period in seconds (the time one oscillation would take) and a
+  damping ratio; 1 never overshoots.
 - A materialize value is the scale a surface grows from, or to for `lift`.
 - A distance is in pixels (`menuSlide`) or a share of the page (`parallax`,
   `dim`).

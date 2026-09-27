@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local transitionOf = require("./lib/transition")
 local Facet = require("../src")
 local engines = require("./lib/native_engine")
 local Vector2 = require("@lune/roblox").Vector2
@@ -509,9 +510,7 @@ t.describe("native selection paint", function()
 				end
 				for property, value in pressed do
 					if typeof(value) == "Color3" or string.find(property, "Transparency$") then
-						expect(press:GetPropertyTransitions()[property].Time).toBe(
-							themes.neutralPackage().metrics.motion.press
-						)
+						expect(transitionOf(press, property).Time).toBe(themes.neutralPackage().metrics.motion.press)
 					end
 				end
 			end

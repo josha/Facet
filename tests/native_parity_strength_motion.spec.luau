@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local transitionOf = require("./lib/transition")
 local fadeKit = require("./lib/fade")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
@@ -1182,7 +1183,7 @@ t.describe("reduced motion preference", function()
 			local scale = find(button, "Pop")
 			local text = ruleFor(sheet, ".facet-text")
 			local function sheetReduced(): boolean
-				return text:GetPropertyTransitions().TextColor3.Time == 0
+				return transitionOf(text, "TextColor3").Time == 0
 			end
 			local function pressMoves(): boolean
 				button.Activated.fire()
@@ -1223,7 +1224,7 @@ t.describe("reduced motion preference", function()
 					UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end }),
 				})
 			end)
-			t.expect(ruleFor(sheet, ".facet-surface"):GetPropertyTransitions().BackgroundColor3.Time).toBe(0)
+			t.expect(transitionOf(ruleFor(sheet, ".facet-surface"), "BackgroundColor3").Time).toBe(0)
 			local scale = find(find(screen, "Go"), "Pop")
 			find(screen, "Go").Activated.fire()
 			for _ = 1, 10 do
@@ -1670,7 +1671,13 @@ t.describe("theme paint transitions", function()
 						local transitions = rule:GetPropertyTransitions()
 						for property, value in properties do
 							if isPaint(property, value) then
-								local timing = transitions[property]
+								t.expect(transitions[property]).toBe(
+									if kind == "press"
+										then "$FacetMotionPress"
+										elseif kind == "hover" then "$FacetMotionHover"
+										else "$FacetMotionNormal"
+								)
+								local timing = transitionOf(rule, property)
 								t.expect(timing ~= nil).toBe(true)
 								t.expect(timing.Time).toBe(want)
 								t.expect(timing.EasingStyle).toBe(w.engine.types.Enum.EasingStyle.Quad)

@@ -199,7 +199,7 @@ t.describe("motion values live in the theme", function()
 		end
 		for key, value in m do
 			if type(value) ~= "table" then
-				need(key, `"motion.{key}"`, `motion.{key}`, `timingFor(package, "{key}"`)
+				need(key, `"motion.{key}"`, `motion.{key}`, `{key} = "FacetMotion`)
 			elseif key == "springs" then
 				for role in value do
 					need(`springs.{role}`, `motionSpring("{role}")`)

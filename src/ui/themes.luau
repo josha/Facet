@@ -1936,20 +1936,21 @@ local function createStyleSheet(
 		}
 	end
 	local ids = Compose.cell({} :: { string })
-	local currentTiming: { normal: TweenInfo, press: TweenInfo, hover: TweenInfo }? = nil
+	local TOKENS: { [PaintState]: string } =
+		{ normal = "FacetMotionNormal", press = "FacetMotionPress", hover = "FacetMotionHover" }
 	type MountedRule = {
 		node: StyleRule,
 		priority: number,
 		properties: ThemeTypes.RuleProperties?,
-		transitions: { [string]: TweenInfo }?,
-		timing: TweenInfo?,
+		transitions: { [string]: string }?,
+		timing: string?,
 	}
 	local mounted: { [string]: MountedRule } = {}
-	type ByTiming = { [TweenInfo]: { [string]: TweenInfo } }
+	type ByTiming = { [string]: { [string]: string } }
 	local transitionTables = (
 		setmetatable({} :: { [ThemeTypes.RuleProperties]: ByTiming }, { __mode = "k" }) :: unknown
 	) :: { [ThemeTypes.RuleProperties]: ByTiming }
-	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: TweenInfo): { [string]: TweenInfo }
+	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
 		local byTiming = transitionTables[properties]
 		if byTiming == nil then
 			local fresh = (setmetatable({} :: ByTiming, { __mode = "k" }) :: unknown) :: ByTiming
@@ -1958,16 +1959,16 @@ local function createStyleSheet(
 		end
 		local transitions = byTiming[timing]
 		if transitions == nil then
-			local built: { [string]: TweenInfo } = {}
+			local built: { [string]: string } = {}
 			for property, value in properties do
 				if typeof(value) == "Color3" or string.find(property, "Transparency$") then
-					built[property] = timing
+					built[property] = "$" .. timing
 				end
 			end
 			byTiming[timing] = built
 			transitions = built
 		end
-		return transitions :: { [string]: TweenInfo }
+		return transitions :: { [string]: string }
 	end
 	type Known = { [ThemeTypes.RuleProperties]: boolean }
 	local comparisons = (
@@ -1986,7 +1987,7 @@ local function createStyleSheet(
 		end
 		return same :: boolean
 	end
-	local function apply(record: MountedRule, definition: NativeRule, timing: TweenInfo)
+	local function apply(record: MountedRule, definition: NativeRule, timing: string)
 		if record.priority ~= definition.priority then
 			record.node.Priority = definition.priority
 			record.priority = definition.priority
@@ -2023,7 +2024,7 @@ local function createStyleSheet(
 				})
 				local record: MountedRule = { node = node, priority = initial.priority }
 				mounted[id] = record
-				apply(record, initial, (assert(currentTiming) :: any)[stateOf(initial.selector)])
+				apply(record, initial, TOKENS[stateOf(initial.selector)])
 				Compose.cleanup(function()
 					if mounted[id] == record then
 						mounted[id] = nil
@@ -2046,12 +2047,9 @@ local function createStyleSheet(
 		if hovering == false then
 			current = withoutHover(current)
 		end
-		local timings = {
-			normal = timingFor(package, "normal", use),
-			press = timingFor(package, "press", use),
-			hover = timingFor(package, "hover", use),
-		}
-		currentTiming = timings
+		for state, token in TOKENS do
+			sheet:SetAttribute(token, timingFor(package, state :: PaintState, use))
+		end
 		local preference = preferenceFor(use)
 		local previousIds = ids:peek()
 		local structureChanged = #previousIds ~= #current
@@ -2064,7 +2062,7 @@ local function createStyleSheet(
 			end
 			local record = mounted[definition.id]
 			if record then
-				apply(record, definition, timings[stateOf(definition.selector)])
+				apply(record, definition, TOKENS[stateOf(definition.selector)])
 			end
 		end
 		if structureChanged then
