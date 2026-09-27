@@ -953,7 +953,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local start = if vertical then at.Y - origin.Y else at.X - origin.X
 			local length = if vertical then size.Y else size.X
 			local visible = if vertical then extent.Y else extent.X
-			local key = `{selected}:{visible}`
+			local key = `{selected}:{visible}:{length}:{use(stripContent).X}:{use(stripOverflows)}`
 			if visible <= 0 or length <= 0 or revealed == key then
 				return
 			end

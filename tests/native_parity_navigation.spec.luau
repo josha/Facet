@@ -729,6 +729,8 @@ t.describe("native parity navigation", function()
 		end
 		t.expect(tabs.CanvasPosition.X).toBe(0)
 		t.expect(writes).toBe(2)
+		find(tabs, "e").AbsoluteSize = V2(world, 120, 44)
+		t.expect(tabs.CanvasPosition.X).toBe(140)
 		world.stop()
 	end)
 
