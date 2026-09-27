@@ -1462,6 +1462,54 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("a horizontal touch pan holds the enclosing scrollers until release; a vertical one leaves them", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local V2 = engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+		local open = Compose.cell(nil)
+		local stop, page = runtime.mount(function()
+			return ctx.Host.ScrollingFrame "Page" {
+				ctx.Host.ScrollingFrame "Body" {
+					UI.RowActions({
+						Name = "Row",
+						open = open,
+						content = UI.Button "Mail" { label = "Mail" },
+						trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
+					}),
+				},
+			}
+		end, target)
+		local body = page:FindFirstChild("Body")
+		local row = body:FindFirstChild("Row")
+		row.AbsoluteSize = V2.new(300, 40)
+		local grip = row:FindFirstChild("SwipeGrip", true)
+		local function pan(to: any, from: any, state: any)
+			grip.TouchPan.fire({ to }, to - from, V2.zero, state)
+		end
+		local function held(): string
+			return `{page.ScrollingEnabled} {body.ScrollingEnabled}`
+		end
+		pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.Begin)
+		t.expect(held()).toBe("false false")
+		pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.Change)
+		pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.End)
+		t.expect(held()).toBe("true true")
+		t.expect(open:peek()).toBe("trailing")
+		open:set(nil)
+		engine.heartbeat.fire(1 / 60)
+		pan(V2.new(202, 6), V2.new(200, 20), E.UserInputState.Begin)
+		pan(V2.new(204, -60), V2.new(200, 20), E.UserInputState.Change)
+		t.expect(held()).toBe("true true")
+		pan(V2.new(204, -60), V2.new(200, 20), E.UserInputState.End)
+		t.expect(open:peek()).toBeNil()
+		pan(V2.new(186, 20), V2.new(200, 20), E.UserInputState.Begin)
+		pan(V2.new(186, 20), V2.new(200, 20), E.UserInputState.Cancel)
+		t.expect(held()).toBe("true true")
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("selects ranges across unmounted rows while honoring row capability policies", function()
 		local shifted = false
 		local engine, runtime, UI, target = setup({

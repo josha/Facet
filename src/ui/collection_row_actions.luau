@@ -444,21 +444,44 @@ return function(ctx: Types.Context, UI: Controls): ()
 				stopPan = nil
 			end
 		end)
+		local heldScrollers: { [ScrollingFrame]: boolean } = {}
+		local function freeScrollers(): ()
+			for scroller, enabled in heldScrollers do
+				scroller.ScrollingEnabled = enabled
+			end
+			table.clear(heldScrollers)
+		end
+		local function holdScrollers(): ()
+			local at = root.Parent
+			while at do
+				if at:IsA("ScrollingFrame") and heldScrollers[at] == nil then
+					heldScrollers[at] = at.ScrollingEnabled
+					at.ScrollingEnabled = false
+				end
+				at = at.Parent
+			end
+		end
+		Compose.cleanup(freeScrollers)
 		local function pan(positions: { Vector2 }, translation: Vector2, _: Vector2, state: Enum.UserInputState): ()
 			local position: Vector2? = positions[1]
 			if position == nil then
 				return
 			end
-			if state == E.UserInputState.Begin then
-				panned = true
-				begin(position - translation)
+			if state == E.UserInputState.Begin or state == E.UserInputState.Change then
+				if state == E.UserInputState.Begin then
+					panned = true
+					begin(position - translation)
+				end
 				move(position)
-			elseif state == E.UserInputState.Change then
-				move(position)
+				if axis == "horizontal" then
+					holdScrollers()
+				end
 			elseif state == E.UserInputState.End then
+				freeScrollers()
 				finish()
 				settlePan()
 			else
+				freeScrollers()
 				cancelDrag()
 				settlePan()
 			end
