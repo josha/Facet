@@ -27,7 +27,7 @@ export type Kit = {
 local layoutKit = {}
 
 function layoutKit.of(ctx: Shared.Context): Kit
-	return assert(ctx.layoutKit :: Kit?, "Facet layout requires a controls context")
+	return (assert(ctx.layoutKit :: Kit?, "Facet layout requires a controls context"))
 end
 
 function layoutKit.attach(ctx: Shared.Context): Kit

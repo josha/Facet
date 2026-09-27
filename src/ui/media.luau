@@ -280,7 +280,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		if spec.textAlign ~= nil then
 			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
 				local align = read(spec.textAlign, use) or "start"
-				return assert(ALIGN[align], "Facet Text textAlign must be start, center or end")
+				return (assert(ALIGN[align], "Facet Text textAlign must be start, center or end"))
 			end
 		end
 		if cut then
@@ -570,9 +570,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					not live or (mode ~= "tile" and mode ~= "slice"),
 					"Facet UI.Image: a bound scaleMode cannot be tile or slice, which need static geometry"
 				)
-				return assert(
-					modes[mode or "stretch"],
-					"Facet UI.Image: scaleMode must be fit, fill, crop, stretch, tile or slice"
+				return (
+					assert(
+						modes[mode or "stretch"],
+						"Facet UI.Image: scaleMode must be fit, fill, crop, stretch, tile or slice"
+					)
 				)
 			end
 		end

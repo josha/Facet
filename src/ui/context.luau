@@ -129,10 +129,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	function ctx.metric(path: string, use: ComposeTypes.Use?): number
 		local package = ctx.read(config.theme, use)
-		return assert(
+		local value = assert(
 			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
 		)
+		return value
 	end
 	local function motionName(path: string, use: ComposeTypes.Use?): string
 		local package = ctx.read(config.theme, use)
@@ -140,7 +141,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if type(found) ~= "string" then
 			found = valueAt(ctx.neutralMetrics(use), path)
 		end
-		return assert(if type(found) == "string" then found else nil, `Facet motion name {path} is missing`)
+		local name = assert(if type(found) == "string" then found else nil, `Facet motion name {path} is missing`)
+		return name
 	end
 	function ctx.motionTiming(role: string, use: ComposeTypes.Use?): { enter: number, exit: number }
 		return { enter = ctx.metric(`motion.{role}.enter`, use), exit = ctx.metric(`motion.{role}.exit`, use) }
@@ -153,11 +155,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	function ctx.motionEase(role: string, use: ComposeTypes.Use?): (number) -> number
 		local name = motionName(`motion.easing.{role}`, use)
-		return assert((Compose.easing :: any)[name], `Facet motion easing {name} is not a Compose easing`)
+		local ease = assert((Compose.easing :: any)[name], `Facet motion easing {name} is not a Compose easing`)
+		return ease
 	end
 	function ctx.motionStyle(role: string, use: ComposeTypes.Use?): Enum.EasingStyle
 		local name = motionName(`motion.styles.{role}`, use)
-		return assert((types.Enum.EasingStyle :: any)[name], `Facet motion style {name} is not an EasingStyle`)
+		local style = assert((types.Enum.EasingStyle :: any)[name], `Facet motion style {name} is not an EasingStyle`)
+		return style
 	end
 	function ctx.controlSize(
 		source: Shared.Value<Shared.ControlSize>?,
@@ -223,12 +227,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				return use(engine)
 			end
 			if enumName and type(value) == "string" then
-				return assert(
+				local item = assert(
 					((Enum :: unknown) :: { [string]: { FromName: (unknown, string) -> EnumItem? } })[enumName]:FromName(
 						value
 					),
 					`Facet.controls: environment {entry.key} '{value}' is not a {enumName}`
 				)
+				return item
 			end
 			return value
 		end)
