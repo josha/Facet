@@ -569,6 +569,46 @@ t.describe("native menu parity with main", function()
 		plain.stop()
 	end)
 
+	t.it("a menu shown as a sheet slides up from below the layer and never scales", function()
+		local world = labelled({ items = items(3), presentation = "sheet" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local scale = world.find("PresentationScale", panel)
+		t.expect(scale.Scale).toBe(1)
+		local early = panel.Position.Y.Offset
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local rest = panel.Position.Y.Offset
+		t.expect(early > rest).toBe(true)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(rest).toBe(600 - 200 - 12)
+		world.stop()
+	end)
+
+	t.it("a sheet menu level change cross-fades its rows while they slide", function()
+		local world = labelled({ items = NESTED, presentation = "sheet" }, {})
+		local panel = open(world)
+		lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
+		for _ = 1, 40 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		world.find("adjust", panel).Activated.fire()
+		for _ = 1, 3 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		local rows = world.find("MenuRows", panel)
+		t.expect(fadeKit.of(rows) > 0).toBe(true)
+		for _ = 1, 30 do
+			world.engine.heartbeat.fire(FRAME)
+		end
+		t.expect(fadeKit.of(rows)).toBe(0)
+		world.stop()
+	end)
+
 	t.it("bounds a sheet by the inset at the bottom and the sides", function()
 		local world = labelled({ presentation = "sheet", items = items(3) })
 		world.screen.IgnoreGuiInset = true

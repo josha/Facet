@@ -310,9 +310,11 @@ return function(
 		close: () -> (),
 		anchor: GuiObject,
 		nonmodal: boolean?,
-		phase: Nav.PresencePhase?
+		phase: Nav.PresencePhase?,
+		motion: Nav.MotionTiming?
 	): Frame
-		local timing = ctx.motionTiming("popover")
+		local popoverTiming, sheetTiming = ctx.motionTiming("popover"), ctx.motionTiming("sheet")
+		local timing: Nav.MotionTiming = motion or { enter = popoverTiming.enter, exit = popoverTiming.exit }
 		local present = ctx.motionEase("present")
 		local slide = ctx.metric("motion.distances.menuSlide")
 		local materialize = ctx.metric("motion.materialize.menu")
@@ -323,7 +325,7 @@ return function(
 		local pendingFocus: string?
 		local sheeted = Compose.cell(false)
 		local reduce = reducedMotion(ctx)
-		local levelClock = runtime.timeline({ duration = timing.enter, autoplay = false })
+		local levelClock = runtime.timeline({ duration = popoverTiming.enter, autoplay = false })
 		local levelDirection = Compose.cell(0)
 		local levelReady = Compose.cell(true)
 		local pendingLevel = false
@@ -438,7 +440,8 @@ return function(
 			end
 			return out
 		end)
-		local rows = Host.Frame "MenuRows" {
+		local rows = ctx.fade {
+			Name = "MenuRows",
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = D2.new(1, 0, 0, 0),
@@ -744,6 +747,12 @@ return function(
 				return D2.fromOffset(direction * slide * (1 - level(use)), 0)
 			end,
 		})
+		ctx.fadeTo(rows, function(use: ComposeTypes.Use): number
+			if not use(sheeted) then
+				return 0
+			end
+			return 1 - level(use)
+		end)
 		local scroller = Host.ScrollingFrame "MenuScroll" {
 			Selectable = false,
 			BackgroundTransparency = 1,
@@ -837,7 +846,10 @@ return function(
 				or use(preferred) == E.PreferredInput.Gamepad
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			sheeted:set(use(asSheet))
+			local sheet = use(asSheet)
+			sheeted:set(sheet)
+			timing.enter = if sheet then sheetTiming.enter else popoverTiming.enter
+			timing.exit = if sheet then sheetTiming.exit else popoverTiming.exit
 		end)
 		local guiService = surfaces.service("GuiService")
 		local layerOf = ctx.observe.Parent(modal)
@@ -879,7 +891,7 @@ return function(
 				V2.new(insetLeft + 8, insetTop + 8), V2.new(offer.X - insetRight - 8, offer.Y - insetBottom - 8)
 			if use(asSheet) then
 				return V2.new(12 + insetLeft, math.max(12 + insetTop, offer.Y - insetBottom - panelSize.Y - 12)),
-					V2.new(panelSize.X / 2, panelSize.Y)
+					V2.zero
 			end
 			local x, y = at.X - offset.X, at.Y - offset.Y
 			local depth = #use(path)
@@ -958,7 +970,17 @@ return function(
 			end,
 		})
 		if shown then
-			surfaces.popover(panel, shown, place, { from = materialize, rested = rested })
+			surfaces.popover(panel, shown, place, {
+				from = materialize,
+				rested = rested,
+				rise = function(use: ComposeTypes.Use): number?
+					if not use(asSheet) then
+						return nil
+					end
+					local _, _, _, insetBottom = insets(use)
+					return use(measured).Y + 12 + insetBottom
+				end,
+			})
 		else
 			runtime.decorate(panel, {
 				Position = function(use: ComposeTypes.Use)
@@ -1514,10 +1536,11 @@ return function(
 				return surfaces.within(use(selected), root)
 			end, open, { priority = 1200 })
 		end
+		local motion = ctx.motionTiming("popover")
 		surfaces.attach(root, {
 			surfaces.overlay(root, opened, function(phase: Nav.PresencePhase?)
-				return menuPanel(spec, close, trigger, nil, phase)
-			end, { motion = ctx.motionTiming("popover") }),
+				return menuPanel(spec, close, trigger, nil, phase, motion)
+			end, { motion = motion }),
 		})
 		return root
 	end
