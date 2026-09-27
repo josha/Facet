@@ -1302,5 +1302,86 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(world.find("x") ~= nil).toBe(true)
 		world.stop()
 	end)
+	t.it("fits an anchored ring inside the page space that holds its anchor, down to the touch floor", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, icon = "flag", labelStyle = "icon", onSelect = function() end }
+		end
+		local scene, anchor
+		local world = setup(function(engine)
+			scene, anchor = engine.new("Frame"), engine.new("Frame")
+			anchor.Parent = scene
+			return {
+				anchor = anchor,
+				clearance = 82,
+				ringWidth = "narrow",
+				center = "empty",
+				contentFit = "none",
+				items = {
+					leaf("wave"),
+					leaf("look"),
+					{
+						id = "gear",
+						label = "Gear",
+						icon = "menu",
+						labelStyle = "icon",
+						navigation = "replace",
+						children = {
+							{
+								id = "tools",
+								label = "Tools",
+								icon = "edit",
+								labelStyle = "icon",
+								navigation = "expand",
+								expansion = "fan",
+								children = { leaf("x"), leaf("y"), leaf("z") },
+							},
+							leaf("wear"),
+						},
+					},
+				},
+			}
+		end)
+		local V2 = world.engine.types.Vector2
+		world.find("Modal").AbsoluteSize = V2.new(390, 760)
+		scene.AbsolutePosition, scene.AbsoluteSize = V2.new(16, 200), V2.new(358, 260)
+		anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(157, 275), V2.new(76, 110)
+		world.find("gear").Activated.fire()
+		world.find("tools").Activated.fire()
+		t.expect(world.find("RadialPanel"):GetAttribute("Presentation")).toBe("radial")
+		local painted = 0
+		for _, node in world.screen:GetDescendants() do
+			if node.Name == "Paint" and node.Visible and node.Parent.Parent.Interactable then
+				painted += 1
+				local x, y = node.Position.X.Offset, node.Position.Y.Offset
+				t.expect(x >= 16 and x + node.Size.X.Offset <= 374).toBe(true)
+				t.expect(y >= 200 and y + node.Size.Y.Offset <= 460).toBe(true)
+			end
+		end
+		t.expect(painted).toBe(4)
+		world.stop()
+	end)
+	t.it("shows an item's icon instead of a word that is wider than its fitted slot", function()
+		local world = setup({
+			items = {
+				{ id = "lantern", label = "Lantern", compactLabel = { icon = "increment" }, onSelect = function() end },
+				{ id = "stow", label = "Stow", icon = "flag", onSelect = function() end },
+				{ id = "go", label = "Go", onSelect = function() end },
+			},
+		})
+		local V2 = world.engine.types.Vector2
+		world.find("Modal").AbsoluteSize = V2.new(390, 760)
+		local function title(id: string): any
+			local button = world.find(id)
+			return button:FindFirstChild("Title", true) or button
+		end
+		for _, id in { "lantern", "stow", "go" } do
+			title(id).TextBounds = V2.new(400, 16)
+		end
+		t.expect(title("lantern").Text).toBe("")
+		t.expect(world.find("lantern"):FindFirstChild("LeadingIcon", true).Visible).toBe(true)
+		t.expect(title("stow").Text).toBe("")
+		t.expect(title("go").Text).toBe("Go")
+		world.stop()
+	end)
 end)
 return t

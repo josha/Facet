@@ -427,6 +427,16 @@ return function(
 				local nativeAnchor = focal and (typeof(focal) == "Instance" or (type(focal) == "table" and focal.IsA))
 				local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(focal :: GuiObject) else nil
 				local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(focal :: GuiObject) else nil
+				local shelves: { { position: ComposeTypes.Readable<Vector2>, size: ComposeTypes.Readable<Vector2> } } =
+					{}
+				local shelf = if nativeAnchor and not corner then (focal :: Instance).Parent else nil
+				while shelf and shelf ~= layer and shelf:IsA("GuiObject") do
+					table.insert(shelves, {
+						position = ctx.observe.AbsolutePosition(shelf :: GuiObject),
+						size = ctx.observe.AbsoluteSize(shelf :: GuiObject),
+					})
+					shelf = shelf.Parent
+				end
 				local rawInner = Compose.formula(function(use: ComposeTypes.Use): number
 					local inner = math.max(
 						24,
@@ -500,14 +510,27 @@ return function(
 					local room = if sweep == 360
 						then math.min(at.X - 12, size.X - at.X - 12, at.Y - 20, size.Y - at.Y - 20)
 						else math.min(size.X - 28, size.Y - 28)
+					local minimum = ctx.metric("targetSizes.minimum", use)
+					for _, space in shelves do
+						local position, extent = use(space.position) - use(origin), use(space.size)
+						local fit = math.min(
+							at.X - position.X,
+							position.X + extent.X - at.X,
+							at.Y - position.Y,
+							position.Y + extent.Y - at.Y
+						)
+						if fit >= inner + minimum then
+							room = math.min(room, fit)
+							break
+						end
+					end
 					local radius = math.max(inner + 1, math.min(240, room))
-					local floor = math.max(ctx.metric("targetSizes.minimum", use), ringWidth(use) or 0)
-					local band = math.max(floor, radius - inner)
+					local band = math.max(minimum, radius - inner)
+					local floor = math.min(band, math.max(minimum, ringWidth(use) or 0))
 					local items = read(spec.items, use)
 					local prefix: { string } = {}
 					local levels: { { Radial.Sector<V> } } = {}
 					local ring = inner
-					local minimum = ctx.metric("targetSizes.minimum", use)
 					local padding = ctx.metric("space.s", use)
 					local textSize = ctx.metric("typography.control.size", use)
 					local iconSize = ctx.controlSize(nil, "iconSize", use)
@@ -640,7 +663,7 @@ return function(
 						current = append()
 					end
 					local result: { Radial.Sector<V> } = {}
-					local list = room < inner + band or band < 44
+					local list = room < inner + band or band < minimum
 					for levelIndex = 1, #levels do
 						local level = levels[levelIndex]
 						for sectorIndex = 1, #level do
@@ -709,6 +732,18 @@ return function(
 				local buttons: { [string]: TextButton } = {}
 				local ringFits: ComposeTypes.Cell<{ [string]: { ring: number, inner: number, outer: number } }> =
 					Compose.cell({})
+				local wordWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
+				local function iconic(use: ComposeTypes.Use, live: Radial.Sector<V>): boolean
+					if live.list then
+						return false
+					end
+					if glyphOnly(live.item) then
+						return true
+					end
+					local item = live.item
+					local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
+					return icon and (use(wordWidths)[live.key] or 0) > geometry.labelBounds(live, 40).w
+				end
 				local focus = Compose.createFocusScope({
 					from = sectors,
 					key = function(sector: Radial.Sector<V>)
@@ -865,9 +900,7 @@ return function(
 										ClipsDescendants = appearance == "wedges",
 										label = function(use: ComposeTypes.Use)
 											local live = currentSector(use)
-											return if not live.list and glyphOnly(live.item)
-												then ""
-												else read(live.item.label, use)
+											return if iconic(use, live) then "" else read(live.item.label, use)
 										end,
 										name = function(use: ComposeTypes.Use): string
 											return read(currentSector(use).item.label, use) or ""
@@ -939,7 +972,7 @@ return function(
 										runtime.decorate(glyph, {
 											Visible = function(use: ComposeTypes.Use)
 												local live = currentSector(use)
-												return live.list or glyphOnly(live.item)
+												return live.list or iconic(use, live)
 											end,
 										})
 									end
@@ -956,6 +989,14 @@ return function(
 									local measured = ctx.observe.TextBounds(
 										if caption and caption:IsA("TextLabel") then caption else button
 									)
+									Compose.watch(function(use: ComposeTypes.Use)
+										local width = use(measured).X
+										if width > 0 and wordWidths:peek()[sector.key] ~= width then
+											local widths = table.clone(wordWidths:peek())
+											widths[sector.key] = width
+											wordWidths:set(widths)
+										end
+									end)
 									local paint = Host.Path2D "Sector" {
 										Thickness = sector.outer - sector.inner,
 										Closed = false,
@@ -1007,7 +1048,7 @@ return function(
 										local live = currentSector(use)
 										local text = use(measured)
 										local label = geometry.labelBounds(live, 40)
-										local iconOnly = not live.list and glyphOnly(live.item)
+										local iconOnly = iconic(use, live)
 										local iconSize = ctx.controlSize(nil, "iconSize", use)
 										local fitted = geometry.fitContent(
 											live,
@@ -1319,7 +1360,7 @@ return function(
 							local entries = use(sectors)
 							for sectorIndex = 1, #entries do
 								local sector = entries[sectorIndex]
-								if sector.key == key and glyphOnly(sector.item) then
+								if sector.key == key and iconic(use, sector) then
 									local label = read(sector.item.label, use) or ""
 									local detail = read(sector.item.description, use)
 									return label .. (if detail then " · " .. detail else "")
