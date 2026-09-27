@@ -647,10 +647,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			end
 		end
 		add(selector, properties)
+		if string.sub(selector, -10) == "::UIStroke" then
+			local twin = table.clone(properties)
+			twin.Enabled = if properties.Enabled == nil then true else properties.Enabled
+			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", twin)
+		end
 		if string.sub(selector, -11) == "::UIPadding" then
 			add(string.sub(selector, 1, -12) .. " > UIPadding", properties)
 		end
 	end
+	add(".facet-fade-stroke", { Enabled = false })
 	rule("ScrollingFrame", {
 		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
@@ -1482,6 +1488,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		rule(definition.selector, properties, true)
 	end
+	add(".facet-fading::UIStroke", { Enabled = false })
 	return rules
 end
 

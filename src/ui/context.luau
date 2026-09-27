@@ -795,13 +795,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local shown = ctx.observe.Visible(node)
 		local warming = Compose.cell(false)
 		local frames = services.RunService
+		local function paint(use: ComposeTypes.Use): NumberSequence
+			return types.NumberSequence.new(if use(warming) then 1 else amount(use))
+		end
 		local stop = runtime.mountFragment(function()
 			return {
-				Host.UIGradient "FadePaint" {
-					Transparency = function(use: ComposeTypes.Use)
-						return types.NumberSequence.new(if use(warming) then 1 else amount(use))
-					end,
-				},
+				Host.UIGradient "FadePaint" { Transparency = paint },
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(shown) and amount(use) > 0
 				end, function()
@@ -907,9 +906,16 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 							end
 						end)
 					end)
-					return Compose.fragment(function()
-						return {}
+					node:AddTag("facet-fading")
+					Compose.cleanup(function()
+						node:RemoveTag("facet-fading")
 					end)
+					return ctx.styled(
+						Host.UIStroke "FadeStroke" {
+							Host.UIGradient "FadePaint" { Transparency = paint },
+						},
+						"fade-stroke"
+					)
 				end),
 			}
 		end, node)

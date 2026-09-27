@@ -81,6 +81,7 @@ t.describe("themed edges, plates and gutters", function()
 				local properties = node:GetProperties()
 				if
 					string.sub(selector, -10) == "::UIStroke"
+					and properties.ApplyStrokeMode ~= nil
 					and properties.ApplyStrokeMode.Name == "Border"
 					and not string.find(selector, "facet-avatar-stack", 1, true)
 				then
@@ -90,6 +91,39 @@ t.describe("themed edges, plates and gutters", function()
 				end
 			end
 			t.expect(counted > 5).toBe(true)
+			stop()
+		end
+	end)
+
+	t.it("gives every themed stroke a fade twin that a shared fade swaps in for the phantom", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local ordered = sheet:GetChildren()
+			table.sort(ordered, function(a, b)
+				return a.Priority < b.Priority
+			end)
+			local base = assert(style(sheet, ".facet-fade-stroke"))
+			t.expect(base.Enabled).toBe(false)
+			t.expect(ordered[1].Selector).toBe(".facet-fade-stroke")
+			t.expect(ordered[#ordered].Selector).toBe(".facet-fading::UIStroke")
+			t.expect(ordered[#ordered]:GetProperties().Enabled).toBe(false)
+			local twins = 0
+			for index, node in ordered do
+				local selector = node.Selector :: string
+				if string.sub(selector, -10) == "::UIStroke" and selector ~= ".facet-fading::UIStroke" then
+					local twin = ordered[index + 1]
+					t.expect(`{entry.label} {twin.Selector}`)
+						.toBe(`{entry.label} {string.sub(selector, 1, -11)} > .facet-fade-stroke`)
+					local expected = table.clone(node:GetProperties())
+					expected.Enabled = if expected.Enabled == nil then true else expected.Enabled
+					for key, value in expected do
+						t.expect(`{twin.Selector}.{key}={twin:GetProperties()[key]}`)
+							.toBe(`{twin.Selector}.{key}={value}`)
+					end
+					twins += 1
+				end
+			end
+			t.expect(twins > 10).toBe(true)
 			stop()
 		end
 	end)

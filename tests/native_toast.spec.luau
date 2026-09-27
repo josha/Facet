@@ -519,11 +519,25 @@ describe("UI.Toast: presentation", function()
 		faded.world.advance(0.05, 3)
 		local group = rows(faded.world)[1]:FindFirstChild("Fade")
 		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
+		local function outline(row: any): number?
+			local stroke = row:FindFirstChild("FadeStroke")
+			if stroke == nil then
+				return nil
+			end
+			expect(stroke.ClassName).toBe("UIStroke")
+			expect(stroke:HasTag("facet-fade-stroke")).toBe(true)
+			expect(row:HasTag("facet-fading")).toBe(true)
+			return stroke:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value
+		end
+		expect(outline(rows(faded.world)[1])).toBe(group.GroupTransparency)
 		faded.world.advance(0.5, 30)
 		expect(rows(faded.world)[1]:FindFirstChild("Fade")).toBeNil()
+		expect(outline(rows(faded.world)[1])).toBeNil()
+		expect(rows(faded.world)[1]:HasTag("facet-fading")).toBe(false)
 		faded.world.advance(0.55, 33)
 		group = rows(faded.world)[1]:FindFirstChild("Fade")
 		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
+		expect(outline(rows(faded.world)[1])).toBe(group.GroupTransparency)
 		faded.world.stop()
 	end)
 
