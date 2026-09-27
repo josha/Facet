@@ -167,6 +167,42 @@ t.describe("rest tracker", function()
 		w.stop()
 	end)
 
+	t.it("reduced motion switched on during the wait shows the plate on the next frame", function()
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end)
+		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+		w.gui.SelectedObject = w.find("Post")
+		w.advance(0.5, 10)
+		local panel = w.find("Help")
+		w.advance(FRAME)
+		t.expect(fadeKit.of(panel)).toBe(1)
+		w.gui.ReducedMotionEnabled = true
+		w.advance(FRAME)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		w.stop()
+	end)
+
+	t.it("rest waits for a size that holds for a frame, not merely a filled one", function()
+		local w = overlay.new(function(UI, Host)
+			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+		end)
+		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+		w.gui.SelectedObject = w.find("Post")
+		w.advance(0.5, 10)
+		local panel = w.find("Help")
+		local scale = panel:FindFirstChildWhichIsA("UIScale")
+		for index = 1, 5 do
+			panel.AbsoluteSize = Vector2.new(100 + index, 30)
+			w.advance(FRAME)
+			t.expect(scale.Scale).toBe(1)
+		end
+		w.advance(FRAME)
+		w.advance(FRAME)
+		t.expect(scale.Scale < 1).toBe(true)
+		w.stop()
+	end)
+
 	t.it("a layout that never stops moving still enters after 0.25 seconds", function()
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })

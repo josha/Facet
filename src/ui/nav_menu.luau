@@ -806,10 +806,16 @@ return function(
 		end
 		ctx.styled(panel, "menu")
 		surfaces.skin(panel)
+		local restKey = ""
 		local sizes, rested = surfaces.atRest(shown or function(): number
 			return 1
 		end, entered, { panel, rows }, function(use: ComposeTypes.Use): string
-			return table.concat(use(path), "/")
+			local key = table.concat(use(path), "/")
+			if phase and use(phase.exiting) then
+				return restKey
+			end
+			restKey = key
+			return key
 		end)
 		local measured, rowSize = sizes[1], sizes[2]
 		enter = function(id: string, node: GuiObject?, prefix: { string }?)

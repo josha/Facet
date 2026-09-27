@@ -30,15 +30,20 @@ return function(
 		rested:set(false)
 		local last: string? = nil
 		local waited = 0
-		stop = frames.onFrame(function(delta: number)
+		local mine: (() -> ())? = nil
+		mine = frames.onFrame(function(delta: number)
+			if stop ~= mine then
+				return
+			end
 			waited += delta
 			local now, filled = sample()
-			if (now == last and filled) or waited > limit then
+			if reduce() or (now == last and filled) or waited > limit then
 				halt()
 				rested:set(true)
 			end
 			last = now
 		end)
+		stop = mine
 	end
 	if restart then
 		local seen: string? = nil
