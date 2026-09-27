@@ -3336,6 +3336,11 @@ weight. The derived role keeps the family, style, size and line height.
     `isTenFoot`. Pass `false` for a SurfaceGui or BillboardGui, whose canvas
     has its own scale, and give its controls `environment.viewingDistance =
     "near"`.
+  - `contentProvider`: the ContentProvider that warms the package's art. If
+    you omit it, the sheet uses the engine's ContentProvider. The first time
+    the sheet applies a package, it calls `PreloadAsync` once on the content of
+    every entry in `package.assets`, off the calling thread, so a panel that
+    first opens later already has its art.
 - Colors and opacity use native StyleRule transitions. The default duration is
   `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
   omitted. The easing is Quad Out. The same timing applies across rules. Native

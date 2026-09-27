@@ -1864,6 +1864,31 @@ local function createStyleSheet(
 			ids:set(nextIds)
 		end
 	end)
+	local provider: ContentProvider? = settings.contentProvider
+	if provider == nil then
+		local globals = getfenv(0)
+		provider = globals.game and globals.game:GetService("ContentProvider")
+	end
+	local warmed: { [ThemeTypes.ThemePackage]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+	Compose.watch(function(use: ComposeTypes.Use)
+		local package = read(packageOrReadable, use)
+		if provider == nil or package == nil or warmed[package] then
+			return
+		end
+		warmed[package] = true
+		local content: { string } = {}
+		for _, asset in package.assets or {} do
+			local id = asset.content or asset.contentId
+			if type(id) == "string" and id ~= "" then
+				table.insert(content, id)
+			end
+		end
+		if #content > 0 and task then
+			task.spawn(provider.PreloadAsync, provider, content)
+		elseif #content > 0 then
+			provider:PreloadAsync(content)
+		end
+	end)
 	return sheet
 end
 

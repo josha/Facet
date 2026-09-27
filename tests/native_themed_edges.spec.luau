@@ -128,6 +128,40 @@ t.describe("themed edges, plates and gutters", function()
 		end
 	end)
 
+	t.it("preloads a theme's art once per applied package so a first panel does not open without it", function()
+		local engine: any = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local requests: { { string } } = {}
+		local provider = {
+			PreloadAsync = function(_, content: { string })
+				table.insert(requests, content)
+			end,
+		}
+		local pixel = require("../examples/themes/pixel_quest").build(themes)
+		local package = Facet.Compose.cell(themes.neutralPackage())
+		runtime.mount(function()
+			return themes.createStyleSheet(
+				runtime,
+				package,
+				{ types = engine.types, contentProvider = provider } :: any
+			)
+		end, engine.new("Folder"))
+		t.expect(#requests).toBe(0)
+		package:set(pixel)
+		t.expect(#requests).toBe(1)
+		local expected = {}
+		for _, asset in pixel.assets do
+			table.insert(expected, asset.content or asset.contentId)
+		end
+		table.sort(expected)
+		table.sort(requests[1])
+		t.expect(table.concat(requests[1], ",")).toBe(table.concat(expected, ","))
+		package:set(themes.neutralPackage())
+		package:set(pixel)
+		t.expect(#requests).toBe(1)
+		runtime:dispose()
+	end)
+
 	t.it("cuts the avatar-stack separator into the neighbour, outside the avatar's own edge", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)
