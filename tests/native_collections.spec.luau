@@ -801,6 +801,55 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("a bare modifier press does not flip a touch table to its pointer layout; a real key does", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local input = ctx.config.userInputService
+		local pressed = {}
+		input.GetKeysPressed = function()
+			return pressed
+		end
+		input.GetMouseButtonsPressed = function()
+			return {}
+		end
+		input.PreferredInput, input.TouchEnabled, input.MouseEnabled = E.PreferredInput.Touch, true, true
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				deletable = true,
+				onDelete = function() end,
+				columns = { { id = "label", label = "Label", width = 100 } },
+			})
+		end, target)
+		local function shown()
+			return node:FindFirstChild("Toolbar") ~= nil
+		end
+		t.expect(shown()).toBe(true)
+		for _, modifier in { E.KeyCode.LeftSuper, E.KeyCode.LeftControl, E.KeyCode.LeftShift } do
+			pressed = { { KeyCode = modifier } }
+			input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = modifier })
+			input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(shown()).toBe(true)
+			pressed = {}
+			input.PreferredInput = E.PreferredInput.Touch
+		end
+		pressed = { { KeyCode = E.KeyCode.LeftSuper } }
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(shown()).toBe(true)
+		pressed = { { KeyCode = E.KeyCode.LeftSuper }, { KeyCode = E.KeyCode.C } }
+		input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.C })
+		t.expect(shown()).toBe(false)
+		pressed = {}
+		input.PreferredInput = E.PreferredInput.Touch
+		t.expect(shown()).toBe(true)
+		pressed = { { KeyCode = E.KeyCode.A } }
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(shown()).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("sizes table rows by viewing distance: dense pointer, two-line touch, one large line at ten feet", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum

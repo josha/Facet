@@ -203,6 +203,31 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return value
 		end)
 	end
+	local MODIFIERS: { [string]: boolean } = {
+		LeftShift = true,
+		RightShift = true,
+		LeftControl = true,
+		RightControl = true,
+		LeftAlt = true,
+		RightAlt = true,
+		LeftMeta = true,
+		RightMeta = true,
+		LeftSuper = true,
+		RightSuper = true,
+	}
+	local function modifiersOnly(input: UserInputService): boolean
+		local ok, keys = pcall(input.GetKeysPressed, input)
+		if not ok or type(keys) ~= "table" or #keys == 0 then
+			return false
+		end
+		for _, key in keys do
+			if not MODIFIERS[key.KeyCode.Name] then
+				return false
+			end
+		end
+		local clicked, buttons = pcall(input.GetMouseButtonsPressed, input)
+		return not (clicked and type(buttons) == "table" and #buttons > 0)
+	end
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
 		if serviceNodes[node] then
@@ -215,18 +240,40 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			if entry == nil then
 				local cell = Compose.cell(observation.readProperty(node, property))
 				local selection = property == "SelectedObject"
+				local preferred = property == "PreferredInput" and node == config.userInputService
+				local function publish()
+					local current = observation.readProperty(node, property)
+					if
+						preferred
+						and current == Enum.PreferredInput.KeyboardAndMouse
+						and modifiersOnly(node :: UserInputService)
+					then
+						return
+					end
+					cell:set(current)
+					if selection then
+						for _, hook in ctx.selectionHooks :: { (unknown) -> () } do
+							hook(current)
+						end
+					end
+				end
+				local stop = observation.observeProperty(node, property, publish)
+				if preferred then
+					local began = (node :: UserInputService).InputBegan:Connect(function()
+						if cell:peek() ~= observation.readProperty(node, property) then
+							publish()
+						end
+					end)
+					local unobserve = stop
+					stop = function()
+						began:Disconnect()
+						unobserve()
+					end
+				end
 				local created: SharedObservation = {
 					cell = cell,
 					users = 0,
-					stop = observation.observeProperty(node, property, function()
-						local current = observation.readProperty(node, property)
-						cell:set(current)
-						if selection then
-							for _, hook in ctx.selectionHooks :: { (unknown) -> () } do
-								hook(current)
-							end
-						end
-					end),
+					stop = stop,
 				}
 				byProperty[property] = created
 				entry = created
