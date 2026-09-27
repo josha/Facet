@@ -826,6 +826,34 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("holds a custom cell's content in the themed inset a text value uses", function()
+		local engine, runtime, UI, target = setup()
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(1),
+				key = key,
+				columns = {
+					{ id = "label", label = "Label" },
+					{
+						id = "mark",
+						label = "Mark",
+						width = 120,
+						render = function()
+							return runtime.constructors.Frame({ Name = "Mark" })
+						end,
+					},
+				},
+			})
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		local mark = node:FindFirstChild("Mark", true)
+		t.expect(mark.Parent.Name).toBe("Inset")
+		t.expect(mark.Parent:HasTag("facet-tablecellinset")).toBe(true)
+		t.expect(mark.Parent.Parent:HasTag("facet-tablecell")).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("sizes table rows by viewing distance: dense pointer, two-line touch, one large line at ten feet", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
