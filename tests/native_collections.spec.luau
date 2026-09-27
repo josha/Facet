@@ -2494,6 +2494,37 @@ t.describe("Compose native collections", function()
 		stopLarge()
 		runtime:dispose()
 	end)
+	t.it("a list that opts into motion still lands its snap when the device asks for reduced motion", function()
+		local now = 0
+		local engine, runtime, UI, target = setup({
+			clock = function()
+				return now
+			end,
+			reducedMotion = true,
+		})
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(20),
+				key = key,
+				itemSize = 40,
+				snap = "item",
+				reducedMotion = false,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		now = 1
+		node.CanvasPosition = engine.types.Vector2.new(0, 26)
+		for _ = 1, 60 do
+			now += 1 / 60
+			engine.heartbeat.fire(1 / 60)
+		end
+		t.expect(node.CanvasPosition.Y).toBe(40)
+		stop()
+		runtime:dispose()
+	end)
 	t.it("a snap starts gently from rest and lands flush", function()
 		local now = 0
 		local engine, runtime, UI, target = setup({

@@ -130,3 +130,69 @@ t.describe("settle: row actions", function()
 		w.stop()
 	end)
 end)
+
+t.describe("settle: the primitive", function()
+	local Roblox = require("../src/vendor/compose/roblox")
+	local context = require("../src/ui/context")
+	local settle = require("../src/ui/settle")
+	local engineLib = require("./lib/native_engine")
+	local function run(build: (any) -> ()): any
+		local engine = engineLib.new()
+		local runtime = Roblox.createRuntime(engine)
+		local stop = runtime.mount(function()
+			build(context(Compose, runtime, { types = engine.types, services = {}, reducedMotion = false }))
+			return runtime.constructors.Folder({})
+		end, engine.new("Folder"))
+		return engine, function()
+			stop()
+			runtime:dispose()
+		end
+	end
+
+	t.it("a release velocity past motion.fling.maxSpeed is clamped before it seeds the spring", function()
+		local s: any
+		local engine, stop = run(function(ctx)
+			s = settle(ctx, function(): number
+				return 0
+			end, { period = 0.2, damping = 1 })
+		end)
+		t.expect(s.launch(0, 100000)).toBe(true)
+		local farthest = 0
+		for _ = 1, 120 do
+			engine.heartbeat.fire(FRAME)
+			farthest = math.max(farthest, s.value:peek() or 0)
+		end
+		t.expect(farthest > 10 and farthest < 60).toBe(true)
+		t.expect(s.value:peek()).toBeNil()
+		stop()
+	end)
+
+	t.it("a spring that goes non-finite halts at its target instead of running every frame", function()
+		local s: any
+		local engine, stop = run(function(ctx)
+			s = settle(ctx, function(): number
+				return 10
+			end, { period = 0, damping = 1 })
+		end)
+		s.launch(0, 0)
+		engine.heartbeat.fire(FRAME)
+		engine.heartbeat.fire(FRAME)
+		t.expect(s.value:peek()).toBeNil()
+		t.expect(engine.heartbeat.count()).toBe(0)
+		stop()
+	end)
+
+	t.it("a caller's own reduced reader decides, and launch reports that nothing started", function()
+		local s: any
+		local _, stop = run(function(ctx)
+			s = settle(ctx, function(): number
+				return 0
+			end, { period = 0.2, damping = 1 }, function(): boolean
+				return true
+			end)
+		end)
+		t.expect(s.launch(10, 0)).toBe(false)
+		t.expect(s.value:peek()).toBeNil()
+		stop()
+	end)
+end)

@@ -19,13 +19,16 @@ return function<K>(
 	local frames = assert(runtime.host.frames)
 	local clock = frames.now
 	local idle, target = 0, 0
+	local motionReduced = reducedMotion(ctx)
+	local function reduced(): boolean
+		return if spec.reducedMotion == nil then motionReduced() else ctx.read(spec.reducedMotion) == true
+	end
 	local glide = settling(ctx, function(): number
 		return target
-	end, ctx.motionSpring("control"))
+	end, ctx.motionSpring("control"), reduced)
 	local held, running, writing = false, false, false
 	local stopWait: ComposeTypes.Dispose? = nil
 	local previous, previousTime, velocity, gestureStart = 0, clock(), 0, 0
-	local motionReduced = reducedMotion(ctx)
 	local function cancel()
 		running = false
 		glide.halt()
@@ -91,11 +94,10 @@ return function<K>(
 		if math.abs(desired - box.offset) < 0.5 then
 			return
 		end
-		if if spec.reducedMotion == nil then motionReduced() else ctx.read(spec.reducedMotion) == true then
+		target, running = desired, true
+		if not glide.launch(box.offset, 0) then
+			running = false
 			write(desired)
-		else
-			target, running = desired, true
-			glide.launch(box.offset, 0)
 		end
 	end
 	local function waitForRest()

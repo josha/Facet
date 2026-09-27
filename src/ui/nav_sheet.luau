@@ -279,7 +279,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if reduce(use) then
 				return heightOf(selected(use), use)
 			end
-			return readSource(settleTo.value, use) or heightOf(selected(use), use)
+			local settling = readSource(settleTo.value, use)
+			if settling then
+				return math.clamp(settling, minimum(use), available(use))
+			end
+			return heightOf(selected(use), use)
 		end
 		local shownHeight = heightOf(selected())
 		Compose.watch(function(use: ComposeTypes.Use)

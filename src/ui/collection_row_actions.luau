@@ -130,9 +130,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 			return if edge == nil then 0 else bandWidth(edge, use) * (if edge == "leading" then 1 else -1)
 		end)
 		local shownOffset = offset:peek()
-		local rowSettle = settling(ctx, function(): number
-			return shownOffset
-		end, ctx.motionSpring("snappy"))
+		local rowSettle = settling(
+			ctx,
+			function(): number
+				return shownOffset
+			end,
+			ctx.motionSpring("snappy"),
+			function(): boolean
+				return reduced()
+			end
+		)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local live = use(offset)
 			if use(drag) ~= nil or use(committing) ~= nil then
