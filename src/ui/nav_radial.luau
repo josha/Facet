@@ -10,6 +10,7 @@ local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 
 type NavigationHold = { count: number, saved: boolean, changed: boolean, watch: RBXScriptConnection? }
+local HOLD = 0.4
 local navigationHolds: { [Instance]: NavigationHold } = setmetatable({} :: any, { __mode = "k" })
 local function holdNavigation(gui: GuiService): () -> ()
 	local hold = navigationHolds[gui]
@@ -137,6 +138,8 @@ return function(
 		local candidate: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
 		local branchOrigin: { path: string, x: number, y: number }? = nil
 		local interacting = Compose.cell(false)
+		local naming = Compose.cell(false)
+		local holding = runtime.timeline({ duration = HOLD, autoplay = false })
 		local capture: InputObject?
 		local pressedAt: Vector3?
 		local analog, held = false, false
@@ -153,8 +156,15 @@ return function(
 		local function cancel()
 			capture, analog = nil, false
 			interacting:set(false)
+			naming:set(false)
+			holding:pause()
 			candidate:set(nil)
 		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(holding.completed) and capture and capture.UserInputType == E.UserInputType.Touch then
+				naming:set(true)
+			end
+		end)
 		local function close()
 			if not opened:peek() then
 				return
@@ -271,6 +281,12 @@ return function(
 				input, os.clock() + 0.3, sector.key, source
 			activate(sector)
 		end
+		local function pointing(): boolean
+			local input = surfaces.service("UserInputService") :: any
+			return input ~= nil
+				and type(input.GetLastInputType) == "function"
+				and input:GetLastInputType() == E.UserInputType.MouseMovement
+		end
 		local function isPointer(input: InputObject): boolean
 			return input.UserInputType == E.UserInputType.MouseButton1 or input.UserInputType == E.UserInputType.Touch
 		end
@@ -281,6 +297,9 @@ return function(
 					return
 				end
 				capture, pressedAt = input, if onPanel then input.Position else nil
+				if input.UserInputType == E.UserInputType.Touch then
+					holding:restart()
+				end
 				if freezeCenter then
 					freezeCenter()
 				end
@@ -475,7 +494,7 @@ return function(
 				freezeCenter = function()
 					frozenCenter:set(center:peek())
 				end
-				local layout = Compose.formula(function(use: ComposeTypes.Use): Radial.Layout<V>
+				local function solve(use: ComposeTypes.Use, flatten: boolean): Radial.Layout<V>
 					local size, at, inner = use(viewport), use(centerTarget), use(innerTarget)
 					local start, sweep = geometry.arc(spec.preset or "donut")
 					local room = if sweep == 360
@@ -602,7 +621,7 @@ return function(
 						if not parent or not parent.item.children then
 							break
 						end
-						navigation = parent.item.navigation or navigation
+						navigation = if flatten then "replace" else parent.item.navigation or navigation
 						expansion = parent.item.expansion or expansion
 						table.insert(prefix, id)
 						items = read(parent.item.children, use)
@@ -643,6 +662,14 @@ return function(
 						sector.index, sector.list = index, list
 					end
 					return { sectors = result, list = list, inner = inner, path = prefix }
+				end
+				local layout = Compose.formula(function(use: ComposeTypes.Use): Radial.Layout<V>
+					local stacked = solve(use, false)
+					if not stacked.list or #use(path) == 0 then
+						return stacked
+					end
+					local flat = solve(use, true)
+					return if flat.list then stacked else flat
 				end)
 				local sectors = Compose.formula(function(use: ComposeTypes.Use)
 					return use(layout).sectors
@@ -709,7 +736,9 @@ return function(
 				}
 				local panelProps: Types.ScrollingFrameNativeProps = {
 					Name = "RadialPanel",
-					BackgroundTransparency = 1,
+					BackgroundTransparency = function(use: ComposeTypes.Use)
+						return if use(fallback) then 0 else 1
+					end,
 					Size = function(use: ComposeTypes.Use)
 						return if use(fallback) then D2.new(1, -32, 1, -80) else D2.fromScale(1, 1)
 					end,
@@ -859,11 +888,13 @@ return function(
 										MouseEnter = function()
 											if not capture and not analog then
 												candidate:set(currentSector().key)
+												naming:set(pointing())
 											end
 										end,
 										MouseLeave = function()
 											if not capture and not analog then
 												candidate:set(nil)
+												naming:set(false)
 											end
 										end,
 										AutomaticSize = E.AutomaticSize.None,
@@ -1069,7 +1100,7 @@ return function(
 						end,
 					}),
 				}
-				local panel = Host.ScrollingFrame(panelProps)
+				local panel = ctx.styled(Host.ScrollingFrame(panelProps), "panel")
 				local ringNavigation = spec.center == "empty" or spec.center == "content"
 				local function showCenter(use: ComposeTypes.Use): boolean
 					if corner or use(fallback) or not ringNavigation then
@@ -1094,25 +1125,8 @@ return function(
 						close()
 					end
 				end
-				local function hub(
-					use: ComposeTypes.Use
-				): { close: number, closeY: number, labelY: number, labelW: number, labelH: number }
-					local inner = use(layout).inner
-					local gap = ctx.metric("space.xs", use)
-					local labelH = if corner then 0 else ctx.metric("typography.caption.size", use) + gap
-					local shown = showCenter(use)
-					local close = if shown then math.min(painted(use), 2 * inner - 4) else 0
-					local between = if shown and not corner then gap else 0
-					local top = -(close + between + labelH) / 2
-					local labelTop = top + close + between
-					local edge = math.max(math.abs(labelTop), math.abs(labelTop + labelH))
-					return {
-						close = close,
-						closeY = top + close / 2,
-						labelY = labelTop + labelH / 2,
-						labelW = math.max(0, 2 * math.sqrt(math.max(0, inner * inner - edge * edge)) - 2 * gap),
-						labelH = labelH,
-					}
+				local function hub(use: ComposeTypes.Use): number
+					return if showCenter(use) then math.min(painted(use), 2 * use(layout).inner - 4) else 0
 				end
 				local function centerName(use: ComposeTypes.Use): string
 					local depth = #use(path)
@@ -1134,14 +1148,14 @@ return function(
 						local from = math.max(painted(use), math.min(extent.X, extent.Y))
 						return math.floor(painted(use) + (from - painted(use)) * (1 - morph(use)) + 0.5)
 					end
-					return hub(use).close
+					return hub(use)
 				end
 				local function centerAt(use: ComposeTypes.Use): UDim2
 					if use(fallback) then
 						return D2.new(1, -16 - painted(use) / 2, 0, 2 + painted(use) / 2)
 					end
 					local at = use(center)
-					return D2.fromOffset(at.X, at.Y + hub(use).closeY)
+					return D2.fromOffset(at.X, at.Y)
 				end
 				local hideLauncher: (() -> ())? = nil
 				local centerNode = UI.Button "Center" {
@@ -1248,11 +1262,11 @@ return function(
 				local function previewPlace(use: ComposeTypes.Use): (UDim2, Vector2)
 					local ring = use(layout)
 					if ring.list then
-						return D2.new(0, 16, 1, -8), V2.new(0, 1)
+						return D2.fromOffset(16, 40), V2.new(0, 1)
 					end
 					local at = use(center)
-					if corner then
-						local key = use(candidate) or use(focus.current)
+					do
+						local key = use(candidate)
 						local near: Radial.Sector<V>? = nil
 						for _, sector in ring.sectors do
 							if sector.key == key then
@@ -1272,7 +1286,6 @@ return function(
 						end
 						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach), V2.new(side(dx), side(dy))
 					end
-					return D2.fromOffset(at.X, at.Y + hub(use).labelY), V2.new(0.5, 0.5)
 				end
 				local preview = ctx.text({
 					Name = "SelectionPreview",
@@ -1280,11 +1293,7 @@ return function(
 						if use(layout).list then
 							return D2.new(1, -32 - 1.5 * painted(use), 0, 0)
 						end
-						if corner then
-							return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
-						end
-						local place = hub(use)
-						return D2.fromOffset(place.labelW, place.labelH)
+						return D2.fromOffset(240, ctx.metric("typography.caption.size", use) + 4)
 					end,
 					AutomaticSize = function(use: ComposeTypes.Use)
 						return if use(layout).list then E.AutomaticSize.Y else E.AutomaticSize.None
@@ -1305,18 +1314,17 @@ return function(
 					end,
 					TextTruncate = E.TextTruncate.AtEnd,
 					Text = function(use: ComposeTypes.Use)
-						local key = use(candidate) or use(focus.current)
-						local list = use(layout).list
-						local entries = use(sectors)
-						for sectorIndex = 1, #entries do
-							local sector = entries[sectorIndex]
-							if sector.key == key then
-								local label = read(sector.item.label, use) or ""
-								local detail = if list then nil else read(sector.item.description, use)
-								return label .. (if detail then " · " .. detail else "")
+						if not use(layout).list then
+							local key = if use(naming) then use(candidate) else nil
+							local entries = use(sectors)
+							for sectorIndex = 1, #entries do
+								local sector = entries[sectorIndex]
+								if sector.key == key and glyphOnly(sector.item) then
+									local label = read(sector.item.label, use) or ""
+									local detail = read(sector.item.description, use)
+									return label .. (if detail then " · " .. detail else "")
+								end
 							end
-						end
-						if not list then
 							return ""
 						end
 
@@ -1417,6 +1425,7 @@ return function(
 					end
 					analog = true
 					interacting:set(true)
+					naming:set(true)
 					if fallback:peek() then
 						if entering then
 							candidate:set(focus.move(if value.Y > 0 then "up" else "down"))
@@ -1462,6 +1471,7 @@ return function(
 						if input.UserInputState == E.UserInputState.Cancel then
 							cancel()
 						else
+							naming:set(true)
 							assert(aimPointer)(input.Position, true)
 						end
 					end
@@ -1565,6 +1575,7 @@ return function(
 							interacting:set(false)
 							local key = focus.move(direction :: ComposeTypes.FocusDirection)
 							candidate:set(key)
+							naming:set(true)
 							if gui and key and buttons[key] then
 								gui.SelectedObject = buttons[key]
 							end

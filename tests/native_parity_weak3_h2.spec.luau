@@ -49,7 +49,7 @@ end
 
 local function centerOf(world: any): (number, number)
 	local position = world.find("Center").Position
-	return position.X.Offset, position.Y.Offset + (4 + 12 + 4) / 2
+	return position.X.Offset, position.Y.Offset
 end
 
 local function paintOf(world: any, id: string): any
