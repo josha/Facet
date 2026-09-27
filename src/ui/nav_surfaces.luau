@@ -1253,6 +1253,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				local origin = ctx.observe.AbsolutePosition(layer)
 				local sizes, rested = surfaces.atRest(amount, settled, { panel })
 				local measured = sizes[1]
+				local function held(use: ComposeTypes.Use): Vector2?
+					return if use(rested) and amount(use) < 1 then use(measured) else nil
+				end
 				local tailed = spec.tail ~= false and spec.tail ~= "none"
 				local function lift(use: ComposeTypes.Use): number
 					return 8 + (if tailed then parts.tailSize(ctx, use) * math.sqrt(2) / 2 else 0)
@@ -1292,10 +1295,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					}
 				end)
 				runtime.decorate(panel, {
+					AutomaticSize = function(use: ComposeTypes.Use)
+						return if held(use) then E.AutomaticSize.None else E.AutomaticSize.Y
+					end,
 					Size = function(use: ComposeTypes.Use)
+						local box = held(use)
 						return D2.fromOffset(
 							math.min(280, math.max(44, use(extent).X - 2 * ctx.metric("space.s", use))),
-							0
+							if box then box.Y else 0
 						)
 					end,
 					ZIndex = function(use: ComposeTypes.Use): number
