@@ -15,6 +15,7 @@ return function(ctx: Types.Context, target: () -> number, spring: { period: numb
 	local reduce = reducedMotion(ctx)
 	local value: ComposeTypes.Cell<number?> = Compose.cell(nil :: number?)
 	local stop: (() -> ())? = nil
+	local disposed = false
 	local function halt()
 		local current = stop
 		stop = nil
@@ -25,7 +26,7 @@ return function(ctx: Types.Context, target: () -> number, spring: { period: numb
 	end
 	local function launch(from: number, velocity: number)
 		halt()
-		if frames == nil or reduce() then
+		if disposed or frames == nil or reduce() then
 			return
 		end
 		local state = Compose.createSpringState({ from }, 1)
@@ -45,6 +46,9 @@ return function(ctx: Types.Context, target: () -> number, spring: { period: numb
 			value:set(now)
 		end)
 	end
-	Compose.cleanup(halt)
+	Compose.cleanup(function()
+		disposed = true
+		halt()
+	end)
 	return { value = value, launch = launch, halt = halt }
 end

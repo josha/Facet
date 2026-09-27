@@ -2494,6 +2494,46 @@ t.describe("Compose native collections", function()
 		stopLarge()
 		runtime:dispose()
 	end)
+	t.it("a snap starts gently from rest and lands flush", function()
+		local now = 0
+		local engine, runtime, UI, target = setup({
+			clock = function()
+				return now
+			end,
+			reducedMotion = false,
+		})
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(20),
+				key = key,
+				itemSize = 40,
+				snap = "item",
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+		now = 1
+		node.CanvasPosition = engine.types.Vector2.new(0, 26)
+		local offsets = {}
+		for _ = 1, 40 do
+			now += 1 / 60
+			engine.heartbeat.fire(1 / 60)
+			table.insert(offsets, node.CanvasPosition.Y)
+		end
+		local moves = {}
+		for index = 2, #offsets do
+			if offsets[index] ~= offsets[index - 1] then
+				table.insert(moves, offsets[index] - offsets[index - 1])
+			end
+		end
+		t.expect(#moves >= 4).toBe(true)
+		t.expect(moves[1] < moves[4]).toBe(true)
+		t.expect(offsets[#offsets]).toBe(40)
+		stop()
+		runtime:dispose()
+	end)
 	t.it("cancels native row gestures and keeps destructive opt-outs behind every action route", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local enabled, open, invoked = Compose.cell(false), Compose.cell(nil), 0

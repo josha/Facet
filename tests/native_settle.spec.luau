@@ -75,3 +75,58 @@ t.describe("settle: the sheet", function()
 		w.stop()
 	end)
 end)
+
+t.describe("settle: row actions", function()
+	t.it("a fast swipe that opens the tray keeps moving on the first frame after release", function()
+		local w = overlay.new(function(UI)
+			return UI.RowActions({
+				fullSwipe = false,
+				content = UI.Button "Body" { label = "Row" },
+				trailing = { { id = "Archive", label = "Archive" } },
+			})
+		end)
+		local content = w.find("Content")
+		local node = content.Parent
+		node.AbsoluteSize = Vector2.new(320, 44)
+		local detector = node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(Vector2.new(300, 20))
+		w.advance(FRAME)
+		detector.DragContinue.fire(Vector2.new(280, 20))
+		w.advance(FRAME)
+		detector.DragContinue.fire(Vector2.new(250, 20))
+		local released = content.Position.X.Offset
+		detector.DragEnd.fire()
+		w.advance(FRAME)
+		t.expect(content.Position.X.Offset < released).toBe(true)
+		w.advance(1, 60)
+		t.expect(content.Position.X.Offset < -40).toBe(true)
+		w.stop()
+	end)
+
+	t.it("a grab mid-settle starts the finger from the painted offset", function()
+		local w = overlay.new(function(UI)
+			return UI.RowActions({
+				fullSwipe = false,
+				content = UI.Button "Body" { label = "Row" },
+				trailing = { { id = "Archive", label = "Archive" } },
+			})
+		end)
+		local content = w.find("Content")
+		local node = content.Parent
+		node.AbsoluteSize = Vector2.new(320, 44)
+		local detector = node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(Vector2.new(300, 20))
+		w.advance(FRAME)
+		detector.DragContinue.fire(Vector2.new(240, 20))
+		w.advance(0.2, 2)
+		detector.DragEnd.fire()
+		w.advance(FRAME, 1)
+		w.advance(FRAME, 1)
+		local painted = content.Position.X.Offset
+		t.expect(painted < -60 and painted > -88).toBe(true)
+		detector.DragStart.fire(Vector2.new(200, 20))
+		detector.DragContinue.fire(Vector2.new(209, 20))
+		t.expect(math.abs(content.Position.X.Offset - (painted + 9)) <= 1).toBe(true)
+		w.stop()
+	end)
+end)

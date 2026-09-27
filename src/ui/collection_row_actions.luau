@@ -2,6 +2,7 @@
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
 local reducedMotion = require("./motion")
+local settling = require("./settle")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
@@ -128,10 +129,24 @@ return function(ctx: Types.Context, UI: Controls): ()
 			local edge = use(open) :: RowEdge?
 			return if edge == nil then 0 else bandWidth(edge, use) * (if edge == "leading" then 1 else -1)
 		end)
-		local settleSpring = ctx.motionSpring("snappy")
-		local animated = runtime.spring(function(use: ComposeTypes.Use)
-			return use(offset)
-		end, { period = settleSpring.period, damping = settleSpring.damping })
+		local shownOffset = offset:peek()
+		local rowSettle = settling(ctx, function(): number
+			return shownOffset
+		end, ctx.motionSpring("snappy"))
+		Compose.watch(function(use: ComposeTypes.Use)
+			local live = use(offset)
+			if use(drag) ~= nil or use(committing) ~= nil then
+				shownOffset = live
+				return
+			end
+			if rowSettle.value:peek() == nil and math.abs(live - shownOffset) > 0.5 then
+				rowSettle.launch(shownOffset, 0)
+			end
+			shownOffset = live
+		end)
+		local function current(): number
+			return if drag:peek() ~= nil or reduced() then offset:peek() else (rowSettle.value:peek() or offset:peek())
+		end
 		local function invoke(action: RowAction): ()
 			if action.onActivate then
 				action.onActivate()
@@ -162,7 +177,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if committing:peek() or read(spec.enabled) == false or read(action.enabled) == false then
 				return
 			end
-			local from = if drag:peek() ~= nil or reduced() then offset:peek() else animated:peek()
+			local from = current()
 			drag:set(nil)
 			menuOpen:set(false)
 			setOpen(nil)
@@ -201,7 +216,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 		end)
 
 		local function paintedOffset(use: ComposeTypes.Use): number
-			return if use(drag) ~= nil or use(committing) ~= nil or reduced(use) then use(offset) else use(animated)
+			return if use(drag) ~= nil
+					or use(committing) ~= nil
+					or reduced(use)
+				then use(offset)
+				else (use(rowSettle.value) or use(offset))
 		end
 		local function armed(edge: RowEdge, use: ComposeTypes.Use): boolean
 			local commit = use(committing)
@@ -328,8 +347,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if committing:peek() or read(spec.enabled) == false or not ctx.available(root) then
 				return
 			end
-			start, startOffset, axis =
-				position, if drag:peek() ~= nil or reduced() then offset:peek() else animated:peek(), nil
+			start, startOffset, axis = position, current(), nil
+			rowSettle.halt()
 			previousX, previousTime, velocity = position.X, now(), 0
 		end
 		local function move(position: Vector2): ()
@@ -389,6 +408,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				return
 			end
 			local value = drag:peek()
+			local fling = if now() - previousTime < 0.1 then velocity else 0
 			if value ~= nil and value ~= 0 and axis == "horizontal" and dimensions:peek().X > 0 then
 				local edge: RowEdge = if value > 0 then "leading" else "trailing"
 				local available = actions(edge)
@@ -412,6 +432,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			start, axis = nil, nil
 			drag:set(nil)
+			if value ~= nil and committing:peek() == nil then
+				rowSettle.launch(value, fling)
+			end
 		end
 		local function release(): ()
 			local tapped = start ~= nil and axis == nil and committing:peek() == nil

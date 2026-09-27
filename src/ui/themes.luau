@@ -174,7 +174,6 @@ local neutral: ThemeTypes.ThemePackage = {
 				pageTurn = 0.3,
 				popoverSheetExit = 0.2,
 				rowDeparture = 0.24,
-				snap = 0.18,
 				cardFade = 0.15,
 				regionPop = 0.15,
 				fieldReject = 0.24,
