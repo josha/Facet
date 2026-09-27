@@ -343,6 +343,21 @@ t.describe("native menu parity with main", function()
 		end
 	end)
 
+	t.it("insets an open ancestor level by the current theme's space.xs, following a theme swap", function()
+		local theme = Compose.cell(themes.neutralPackage())
+		local world = labelled({ presentation = "menu", items = NESTED }, { reducedMotion = true, theme = theme })
+		local panel = open(world)
+		world.find("adjust", panel).Activated.fire()
+		local parent = world.find("AncestorMenu", world.screen.Parent)
+		local padding = parent:FindFirstChildWhichIsA("UIPadding")
+		t.expect(padding.PaddingLeft.Offset).toBe(theme:peek().metrics.space.xs)
+		local roomy = themes.neutralPackage()
+		roomy.metrics.space.xs = 10
+		theme:set(roomy)
+		t.expect(`{padding.PaddingLeft.Offset} {padding.PaddingTop.Offset}`).toBe("10 10")
+		world.stop()
+	end)
+
 	t.it("paints a selected row with the accent under an onAccent label at 4.5:1 or better", function()
 		local sheet, stop = sheetRules()
 		local hover = ruleIndex(sheet, ".facet-menu-item:Hover")

@@ -1158,7 +1158,20 @@ return function(
 								FillDirection = E.FillDirection.Vertical,
 								SortOrder = E.SortOrder.LayoutOrder,
 							}) :: Types.Child,
-							ctx.padding(ctx.metric("space.xs"), ctx.metric("space.xs")) :: Types.Child,
+							Host.UIPadding({
+								PaddingTop = function(use: ComposeTypes.Use)
+									return D.new(0, ctx.metric("space.xs", use))
+								end,
+								PaddingBottom = function(use: ComposeTypes.Use)
+									return D.new(0, ctx.metric("space.xs", use))
+								end,
+								PaddingLeft = function(use: ComposeTypes.Use)
+									return D.new(0, ctx.metric("space.xs", use))
+								end,
+								PaddingRight = function(use: ComposeTypes.Use)
+									return D.new(0, ctx.metric("space.xs", use))
+								end,
+							}) :: Types.Child,
 							Compose.keyed({
 								from = function(use: ComposeTypes.Use)
 									return use(source).items
