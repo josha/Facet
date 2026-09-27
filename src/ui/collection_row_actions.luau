@@ -570,6 +570,22 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Visible = function(use: ComposeTypes.Use)
 						return readSource(open, use) ~= nil and use(committing) == nil
 					end,
+					InputBegan = function(input: InputObject)
+						if
+							input.UserInputType ~= E.UserInputType.MouseButton1
+							and input.UserInputType ~= E.UserInputType.Touch
+						then
+							return
+						end
+						local host = collectionRow()
+						local hit = if host then host:FindFirstChild("RowHit") else nil
+						if hit then
+							activation.press(hit, input)
+						end
+						if readSource(open) ~= nil and committing:peek() == nil then
+							setOpen(nil)
+						end
+					end,
 					Activated = function()
 						if readSource(open) ~= nil and committing:peek() == nil then
 							setOpen(nil)
