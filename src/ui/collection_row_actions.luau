@@ -228,6 +228,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end,
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
+				Attributes = { FacetDragExclude = true } :: Types.Attributes,
 				Host.UIListLayout({
 					FillDirection = E.FillDirection.Horizontal,
 					HorizontalAlignment = if edge == "leading"
@@ -277,6 +278,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							end,
 						}
 						local button = UI.Button(buttonProps)
+						button:AddTag("facet-row-action")
 						local caption = button:FindFirstChild("Title", true)
 						local bounds = if caption and caption:IsA("TextLabel")
 							then ctx.observe.TextBounds(caption)
@@ -517,6 +519,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 					local gutter = if read(spec.editing, use) then use(editWidth) else 0
 					return D2.fromOffset(gutter + paintedOffset(use), 0)
 				end,
+				Attributes = {
+					FacetDragRestX = function(use: ComposeTypes.Use)
+						return if read(spec.editing, use) then use(editWidth) else 0
+					end,
+				} :: Types.Attributes,
 				contentMenu :: ComposeTypes.Child,
 				Host.TextButton "SwipeGrip" {
 					Size = D2.fromScale(1, 1),
@@ -562,6 +569,22 @@ return function(ctx: Types.Context, UI: Controls): ()
 					ZIndex = 5,
 					Visible = function(use: ComposeTypes.Use)
 						return readSource(open, use) ~= nil and use(committing) == nil
+					end,
+					InputBegan = function(input: InputObject)
+						if
+							input.UserInputType ~= E.UserInputType.MouseButton1
+							and input.UserInputType ~= E.UserInputType.Touch
+						then
+							return
+						end
+						local host = collectionRow()
+						local hit = if host then host:FindFirstChild("RowHit") else nil
+						if hit then
+							activation.press(hit, input)
+						end
+						if readSource(open) ~= nil and committing:peek() == nil then
+							setOpen(nil)
+						end
 					end,
 					Activated = function()
 						if readSource(open) ~= nil and committing:peek() == nil then

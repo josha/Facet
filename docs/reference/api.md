@@ -2059,15 +2059,14 @@ their model. The geometry is specific to this control. It does not add a second
 general layout or input system. A native GuiObject anchor or a projected
 screen-point anchor connects the menu to an existing surface.
 
-An open ring is a modal surface on the same layer as Dialog and Menu. The
-theme scrim dims the page behind it and blocks its input. The ring's scrim is
+An open ring is a modal surface on the same layer as Dialog and Menu. It
+blocks the page's input but does not dim it by default, as in 0.11.
+`scrim` sets how much the open ring dims the page: `"none"` (the default),
+`"dark"` or `"light"` (the theme scrim that a Dialog uses). The dark scrim is
 black and at least 80 percent opaque (the theme's `scrimOpacity` when that is
-higher), so page text does not compete with the wedge labels. It reaches past
-the ScreenGui's safe-area insets to the screen edges, the hole included, unless
-`centerPassThrough` is on. The transparency preference scales it like every
-scrim. `scrim` sets how much the open ring dims the page: `"dark"` (the
-default, as above), `"light"` (the theme scrim that a Dialog uses) or
-`"none"` (no dim; a tap outside still closes). A still tap outside
+higher). A scrim reaches past the ScreenGui's safe-area insets to the screen
+edges, the hole included, unless `centerPassThrough` is on. The transparency
+preference scales it like every scrim. A still tap outside
 the ring closes the menu. A press outside the ring that slides onto a wedge
 still selects it. With `centerPassThrough`, the page is not dimmed.
 

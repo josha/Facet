@@ -1135,6 +1135,69 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("carries a released mouse drag on a horizontal rail with decaying momentum", function()
+		local now = 0
+		local engine, runtime, UI, target, _, ctx = setup({
+			userInputService = {},
+			clock = function()
+				return now
+			end,
+		})
+		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+		local stop, node = runtime.mount(function()
+			return UI.VirtualList({
+				from = records(40),
+				key = key,
+				direction = "horizontal",
+				itemSize = 100,
+				render = function(current)
+					return button(UI, current)
+				end,
+			})
+		end, target)
+		node.AbsoluteWindowSize = V2.new(300, 100)
+		node.AbsoluteSize = V2.new(300, 100)
+		local input = ctx.config.userInputService
+		local function mouse(kind, x)
+			return { UserInputType = kind, Position = V3.new(x, 50, 0) }
+		end
+		input.InputBegan.fire(mouse(E.UserInputType.MouseButton1, 280))
+		for x = 260, 180, -20 do
+			now += 1 / 60
+			input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, x))
+		end
+		now += 1 / 120
+		input.InputChanged.fire(mouse(E.UserInputType.MouseMovement, 180))
+		local released = node.CanvasPosition.X
+		t.expect(released).toBe(100)
+		input.InputEnded.fire(mouse(E.UserInputType.MouseButton1, 180))
+		local previous, step = released, 0
+		for _ = 1, 20 do
+			now += 1 / 60
+			engine.heartbeat.fire(1 / 60)
+			local at = node.CanvasPosition.X
+			t.expect(at >= previous).toBe(true)
+			step, previous = at - previous, at
+		end
+		t.expect(previous > released + 100).toBe(true)
+		for _ = 1, 600 do
+			now += 1 / 60
+			engine.heartbeat.fire(1 / 60)
+		end
+		local rest = node.CanvasPosition.X
+		now += 1 / 60
+		engine.heartbeat.fire(1 / 60)
+		t.expect(node.CanvasPosition.X).toBe(rest)
+		t.expect(step > 0).toBe(true)
+		input.InputBegan.fire(mouse(E.UserInputType.MouseButton1, 200))
+		input.InputEnded.fire(mouse(E.UserInputType.MouseButton1, 200))
+		now += 1 / 60
+		engine.heartbeat.fire(1 / 60)
+		t.expect(node.CanvasPosition.X).toBe(rest)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it(
 		"places a dragged row and its image in layout units under a scaled ancestor, as in a ten-foot preview",
 		function()
@@ -1215,7 +1278,7 @@ t.describe("Compose native collections", function()
 			end
 			table.sort(layers)
 			t.expect(table.concat(layers, ",")).toBe(if count == 1 then "0" elseif count == 2 then "0,6" else "0,6,12")
-			t.expect(reorderable.Interactable).toBe(false)
+			t.expect(reorderable.Interactable).toBe(true)
 			t.expect(image:FindFirstChild("DragLabel").Visible).toBe(count > 1)
 			stop()
 			runtime:dispose()
@@ -2475,6 +2538,159 @@ t.describe("Table row tap", function()
 	end)
 end)
 
+t.describe("Row actions under a reorder drag", function()
+	t.it("the drag image carries the row content without its open action tray", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V3 = engine.types.Enum, engine.types.Vector3
+		local opened = Compose.cell(nil)
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = { { id = 1, name = "Neon" }, { id = 2, name = "Drift" }, { id = 3, name = "Apex" } },
+				key = key,
+				itemSize = 40,
+				reorderable = true,
+				onReorder = function() end,
+				columns = { { id = "name", label = "Name" } },
+				rowActions = function(_, rowKey)
+					return {
+						open = if rowKey == 1 then opened else nil,
+						trailing = { { id = "remove", label = "Remove", onActivate = function() end } },
+					}
+				end,
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 200)
+		local rowNode = body:FindFirstChild("Items"):FindFirstChild("1")
+		local grip = rowNode:FindFirstChild("SwipeGrip", true)
+		local content = grip.Parent
+		content.Parent.AbsoluteSize = engine.types.Vector2.new(400, 40)
+		engine.heartbeat.fire(1)
+		opened:set("trailing")
+		engine.heartbeat.fire(1)
+		t.expect(content.Parent:FindFirstChild("trailing").Visible).toBe(true)
+		t.expect(content.Position.X.Offset < 0).toBe(true)
+		local press = { UserInputType = E.UserInputType.MouseButton1, Position = V3.new(100, 20, 0) }
+		local dismiss = content:FindFirstChild("DismissTray")
+		t.expect(dismiss.Visible).toBe(true)
+		dismiss.InputBegan.fire(press)
+		t.expect(opened:peek()).toBeNil()
+		local input = ctx.config.userInputService
+		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, 60, 0) })
+		local image = node:FindFirstChild("DragImage", true)
+		t.expect(image ~= nil).toBe(true)
+		local ghost = image:FindFirstChild("SwipeGrip", true).Parent
+		t.expect(ghost.Parent:FindFirstChild("trailing")).toBeNil()
+		t.expect(ghost.Position.X.Offset).toBe(0)
+		stop()
+		runtime:dispose()
+	end)
+end)
+
+t.describe("Table selection after a pointer reorder", function()
+	t.it("a plain click on another row after a drop selects only that row", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
+		local rows = Compose.cell({ { id = 1, name = "Neon" }, { id = 2, name = "Drift" }, { id = 3, name = "Apex" } })
+		local selection = Compose.cell({})
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = rows,
+				key = key,
+				itemSize = 40,
+				selection = selection,
+				selectionMode = "multiple",
+				reorderable = true,
+				onReorder = function(keys, slot)
+					local list = {}
+					for _, item in rows:peek() do
+						if item.id ~= keys[1] then
+							table.insert(list, item)
+						end
+					end
+					table.insert(list, slot + 1, { id = keys[1], name = "moved" })
+					rows:set(list)
+				end,
+				columns = { { id = "name", label = "Name" } },
+				rowActions = function()
+					return { trailing = { { id = "remove", label = "Remove", onActivate = function() end } } }
+				end,
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = V2.new(400, 200)
+		local input = ctx.config.userInputService
+		local function grip(rowKey)
+			return body:FindFirstChild("Items"):FindFirstChild(rowKey):FindFirstChild("SwipeGrip", true)
+		end
+		local function click(rowKey, y)
+			local press = {
+				UserInputType = E.UserInputType.MouseButton1,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(100, y, 0),
+			}
+			local g = grip(rowKey)
+			g.InputBegan.fire(press)
+			local detector = g:FindFirstChildWhichIsA("UIDragDetector")
+			detector.DragStart.fire(V2.new(100, y))
+			detector.DragEnd.fire()
+			press.UserInputState = E.UserInputState.End
+			input.InputEnded.fire(press)
+		end
+		click("3", 100)
+		t.expect(selection:peek()).toEqual({ [3] = true })
+		local press = {
+			UserInputType = E.UserInputType.MouseButton1,
+			UserInputState = E.UserInputState.Begin,
+			Position = V3.new(100, 100, 0),
+		}
+		local g = grip("3")
+		g.InputBegan.fire(press)
+		local detector = g:FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(V2.new(100, 100))
+		for y = 90, 10, -20 do
+			input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(100, y, 0) })
+			detector.DragContinue.fire(V2.new(100, y))
+		end
+		press.UserInputState = E.UserInputState.End
+		press.Position = V3.new(100, 10, 0)
+		input.InputEnded.fire(press)
+		detector.DragEnd.fire()
+		engine.heartbeat.fire(1)
+		t.expect(rows:peek()[1].id).toBe(3)
+		click("2", 100)
+		t.expect(selection:peek()).toEqual({ [2] = true })
+		stop()
+		runtime:dispose()
+	end)
+end)
+
+t.describe("Table keyed reorder motion", function()
+	t.it("a Table glides its rows to a reversed order like VirtualList", function()
+		local engine, runtime, UI, target = setup({ reducedMotion = false })
+		local rows = Compose.cell({ { id = 1, name = "A" }, { id = 2, name = "B" }, { id = 3, name = "C" } })
+		local stop, node = runtime.mount(function()
+			return UI.Table({ from = rows, key = key, itemSize = 40, columns = { { id = "name", label = "Name" } } })
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(400, 300)
+		engine.heartbeat.fire(1 / 60)
+		local first = body:FindFirstChild("Items"):FindFirstChild("1")
+		local before = first.Position.Y.Offset
+		rows:set({ rows:peek()[3], rows:peek()[2], rows:peek()[1] })
+		engine.heartbeat.fire(0.05)
+		local during = first.Position.Y.Offset
+		for _ = 1, 30 do
+			engine.heartbeat.fire(1 / 60)
+		end
+		local after = first.Position.Y.Offset
+		t.expect(after > before).toBe(true)
+		t.expect(during > before and during < after).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+end)
+
 t.describe("Row action tray width", function()
 	t.it("an icon action's tray fits its painted icon and keeps the label as its name", function()
 		local engine, runtime, UI, target = setup()
@@ -2488,6 +2704,7 @@ t.describe("Row action tray width", function()
 		actions.AbsoluteSize = engine.types.Vector2.new(500, 40)
 		local remove = actions:FindFirstChild("remove", true)
 		t.expect(remove:GetAttribute("label")).toBe("Remove")
+		t.expect(remove:HasTag("facet-row-action")).toBe(true)
 		t.expect(actions:FindFirstChild("trailing").Size.X.Offset).toBe(math.max(64, 32 + 20 + 8))
 		stop()
 		runtime:dispose()

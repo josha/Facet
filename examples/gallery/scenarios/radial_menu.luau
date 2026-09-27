@@ -24,7 +24,7 @@ return {
 		local advanced = Compose.cell(false)
 		local passThrough = Compose.cell(false)
 		local centerPolicy = Compose.cell("empty")
-		local dim = Compose.cell("dark")
+		local dim = Compose.cell("none")
 		local lastAction = Compose.cell("ready")
 		local current, currentPresented = nil, nil
 		local worldState = nil
@@ -465,7 +465,7 @@ return {
 							return "Page dim: " .. use(dim)
 						end),
 						onActivate = function()
-							local order = { "dark", "light", "none" }
+							local order = { "none", "dark", "light" }
 							dim:set(order[(table.find(order, dim:peek()) :: number) % #order + 1])
 						end,
 					},

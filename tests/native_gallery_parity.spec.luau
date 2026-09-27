@@ -145,6 +145,25 @@ t.describe("restored native gallery parity", function()
 		t.expect(built.report().balance).toBe(60)
 		close()
 	end)
+	t.it("glides the automatic equipment rows to their reversed places", function()
+		local _, node, _, engine, close = mount("component_motion")
+		local list = find(node, "Items")
+		list.AbsoluteWindowSize = engine.types.Vector2.new(400, 400)
+		list.AbsoluteSize = engine.types.Vector2.new(400, 400)
+		engine.heartbeat.fire(1 / 60)
+		local row = find(node, "Card-scanner").Parent.Parent
+		local before = row.Position.Y.Offset
+		find(node, "Reverse").Activated.fire()
+		local landing = 2 * (56 + 8)
+		engine.heartbeat.fire(0.05)
+		local during = row.Position.Y.Offset
+		t.expect(during > before and during < landing).toBe(true)
+		for _ = 1, 30 do
+			engine.heartbeat.fire(1 / 60)
+		end
+		t.expect(row.Position.Y.Offset).toBe(landing)
+		close()
+	end)
 	t.it("runs shared color size rotation fade order and detail changes while charge remains informational", function()
 		local built, node, _, engine, close = mount("with_animation")
 		local alpha, pip, puck = find(node, "Alpha"), find(node, "Pip"), find(node, "Puck")

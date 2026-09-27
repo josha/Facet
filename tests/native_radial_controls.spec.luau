@@ -97,6 +97,166 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 
+	t.it("the ring's Back and Close are icon-only even when the level's items carry text labels", function()
+		local world = setup({
+			center = "empty",
+			items = {
+				{
+					id = "gear",
+					label = "Gear",
+					children = { { id = "wear", label = "Wear" }, { id = "tools", label = "Tools" } },
+				},
+				{ id = "wave", label = "Wave" },
+			},
+		})
+		world.step(0.5)
+		local function navigation()
+			local button = world.find("$navigation")
+			return button.Text, button:FindFirstChild("LeadingIcon", true).Visible
+		end
+		local text, glyph = navigation()
+		t.expect(`{text}|{glyph}`).toBe("|true")
+		world.find("gear").Activated.fire()
+		world.step(0.5)
+		text, glyph = navigation()
+		t.expect(`{text}|{glyph}`).toBe("|true")
+		t.expect(world.find("$navigation"):GetAttribute("label") or "Back").toBe("Back")
+		world.stop()
+	end)
+	t.it("opens at the anchor's measured place instead of gliding in from where it was first read", function()
+		local anchor = Compose.cell({ x = 40, y = 40 })
+		local world = setup({ anchor = anchor, distribution = "compass", items = compass(function() end) }, true)
+		anchor:set({ x = 320, y = 240 })
+		world.step(1 / 60)
+		local centre = world.find("Center")
+		t.expect(centre.Position.X.Offset).toBe(320)
+		world.step(1)
+		anchor:set({ x = 360, y = 240 })
+		world.step(1 / 60)
+		local x = world.find("Center").Position.X.Offset
+		t.expect(x > 320 and x < 360).toBe(true)
+		world.step(1)
+		t.expect(world.find("Center").Position.X.Offset).toBe(360)
+		world.stop()
+	end)
+	t.it("a pointer opening leaves the ring unhighlighted though a stale keyboard selection remains", function()
+		for _, last in { "MouseButton1", "Keyboard" } do
+			local world = setup(function()
+				return {
+					isPresented = Compose.cell(false),
+					center = "empty",
+					items = {
+						{ id = "gear", label = "Gear", icon = "menu", labelStyle = "icon" },
+						{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" },
+					},
+				}
+			end)
+			local E = world.engine.types.Enum
+			world.input.GetLastInputType = function()
+				return E.UserInputType[last]
+			end
+			world.gui.SelectedObject = world.find("Launcher")
+			world.opened:set(true)
+			world.step(0.5)
+			local tagged = world.find("Sector-gear"):FindFirstChild("Sector", true):HasTag("facet-radial-candidate")
+			local inside = world.gui.SelectedObject ~= nil
+				and world.gui.SelectedObject:IsDescendantOf(world.find("RadialPanel"))
+			t.expect(`{last}:{tagged}:{inside}`)
+				.toBe(if last == "Keyboard" then `{last}:true:true` else `{last}:false:false`)
+			world.stop()
+		end
+	end)
+	t.it("a level's wedges keep their shape while they fade out for the next level", function()
+		local world = setup({
+			center = "empty",
+			contentFit = "radial",
+			items = {
+				{
+					id = "gear",
+					label = "Gear",
+					icon = "menu",
+					labelStyle = "icon",
+					children = { { id = "wear", label = "Wear the lantern" }, { id = "tools", label = "Tools" } },
+				},
+				{ id = "wave", label = "Wave", icon = "flag", labelStyle = "icon" },
+			},
+		}, true)
+		world.step(1)
+		local wave = world.find("Sector-wave")
+		local paint = wave:FindFirstChild("Paint", true)
+		local before = `{paint.Position.X.Offset},{paint.Position.Y.Offset},{paint:FindFirstChild("Sector").Thickness}`
+		world.find("gear").Activated.fire()
+		world.step(1 / 60)
+		t.expect(wave.Parent ~= nil).toBe(true)
+		local after = `{paint.Position.X.Offset},{paint.Position.Y.Offset},{paint:FindFirstChild("Sector").Thickness}`
+		t.expect(after).toBe(before)
+		local arriving = world.find("Sector-wear")
+		local fade = arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value
+		t.expect(fade > 0.5).toBe(true)
+		world.step(0.5)
+		t.expect(arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value).toBe(0)
+		world.stop()
+	end)
+	t.it("a corner menu keeps its launcher's room while the launcher hides under the open ring", function()
+		local world = setup({
+			isPresented = Compose.cell(false),
+			preset = "bottom-left",
+			appearance = "buttons",
+			items = { { id = "look", label = "Look", icon = "facet:search" } },
+		})
+		local launcher = world.find("Launcher")
+		local root = launcher.Parent
+		launcher.AbsoluteSize = world.engine.types.Vector2.new(44, 44)
+		world.opened:set(true)
+		world.step(0.5)
+		t.expect(launcher.Visible).toBe(false)
+		t.expect(`{root.AutomaticSize.Name} {root.Size.X.Offset}x{root.Size.Y.Offset}`).toBe("None 44x44")
+		world.opened:set(false)
+		world.step(0.5)
+		t.expect(launcher.Visible).toBe(true)
+		t.expect(root.AutomaticSize.Name).toBe("XY")
+		world.stop()
+	end)
+	t.it("a corner menu names the hovered button right beside it", function()
+		local world = setup({
+			preset = "bottom-left",
+			appearance = "buttons",
+			items = {
+				{ id = "look", label = "Look", icon = "facet:search" },
+				{ id = "pack", label = "Pack", icon = "menu" },
+				{ id = "wave", label = "Wave", icon = "flag" },
+			},
+		})
+		world.step(0.5)
+		for _, id in { "look", "wave" } do
+			local button = world.find(id)
+			button.MouseEnter.fire()
+			local preview = world.find("SelectionPreview")
+			t.expect(preview.Text).toBe(if id == "look" then "Look" else "Wave")
+			local dx = preview.Position.X.Offset - button.Position.X.Offset
+			local dy = preview.Position.Y.Offset - button.Position.Y.Offset
+			local gap = math.sqrt(dx * dx + dy * dy) - button.Size.X.Offset / 2
+			t.expect(gap >= 0 and gap <= 8).toBe(true)
+			button.MouseLeave.fire()
+		end
+		world.stop()
+	end)
+	t.it("a slim-band ring paints its wedges only once every label on it is measured", function()
+		local world = setup({
+			contentFit = "radial",
+			items = { { id = "wear", label = "Wear" }, { id = "tools", label = "Tools" } },
+		})
+		world.step(0.5)
+		local function shown(id)
+			return world.find("Sector-" .. id):FindFirstChild("Paint").Visible
+		end
+		t.expect(`{shown("wear")} {shown("tools")}`).toBe("false false")
+		world.find("wear").TextBounds = world.engine.types.Vector2.new(34, 16)
+		t.expect(`{shown("wear")} {shown("tools")}`).toBe("false false")
+		world.find("tools").TextBounds = world.engine.types.Vector2.new(38, 16)
+		t.expect(`{shown("wear")} {shown("tools")}`).toBe("true true")
+		world.stop()
+	end)
 	t.it("NRAD-1 analog hold commits once and respects dead-zone hysteresis", function()
 		local engine, picked = engines.new(), {}
 		local hold = engine.new("InputAction")
@@ -504,7 +664,7 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it("presents on the modal layer over a dimmed page and a still tap outside the ring closes it", function()
-		local world = setup({ distribution = "compass", items = compass(function() end) })
+		local world = setup({ distribution = "compass", scrim = "dark", items = compass(function() end) })
 		local modal = world.find("Modal")
 		t.expect(modal.Parent).toBe(world.screen)
 		t.expect(modal.ZIndex >= 100).toBe(true)
@@ -574,17 +734,17 @@ t.describe("native radial interaction policies", function()
 		world.stop()
 	end)
 	t.it(
-		"scrim sets the ring's dim: dark by default, the theme scrim when light, none clear, and refuses other words",
+		"scrim sets the ring's dim: clear by default as in 0.11, dark or the theme scrim when asked, and refuses other words",
 		function()
 			for _, case in
-				{ { nil, true, true }, { "dark", true, true }, { "light", true, false }, { "none", false, false } }
+				{ { nil, false, false }, { "dark", true, true }, { "light", true, false }, { "none", false, false } }
 			do
 				local world = setup({ distribution = "compass", scrim = case[1], items = compass(function() end) })
 				local scrim = world.find("DismissOutside")
 				t.expect(`{case[1]}:{scrim:HasTag("facet-scrim")}:{scrim:HasTag("facet-radial-scrim")}`)
 					.toBe(`{case[1]}:{case[2]}:{case[3]}`)
 				t.expect(scrim.Visible).toBe(true)
-				if case[1] == "none" then
+				if case[1] == "none" or case[1] == nil then
 					t.expect(scrim.BackgroundTransparency).toBe(1)
 				end
 				world.stop()
@@ -608,6 +768,7 @@ t.describe("native radial interaction policies", function()
 		for _, label in { false, "Leave the wheel" } do
 			local world = setup({
 				distribution = "compass",
+				scrim = "dark",
 				centerLabel = if label then label else nil,
 				items = compass(function() end),
 			})
@@ -767,7 +928,7 @@ t.describe("native radial interaction policies", function()
 			end
 			return words .. "|" .. tostring(button:FindFirstChild("LeadingIcon", true).Visible)
 		end
-		t.expect(shown(world.find("map"))).toBe("Map|false")
+		t.expect(shown(world.find("map"))).toBe("|true")
 		t.expect(shown(world.find("wave"))).toBe("|true")
 		world.stop()
 	end)

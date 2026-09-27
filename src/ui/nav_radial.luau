@@ -68,27 +68,13 @@ return function(
 			return selected
 		end
 		local appearance = choice(spec.appearance, "wedges", { "wedges", "buttons" }, "appearance")
-		local function iconic(items: { any }): boolean
-			if appearance == "buttons" then
-				return true
-			end
-			if #items == 0 then
-				return false
-			end
-			for _, item in items do
-				if not (item.labelStyle == "icon" or (item.compactLabel and item.compactLabel.prefer)) then
-					return false
-				end
-			end
-			return true
-		end
 		local function glyphOnly(item: Radial.RadialItemBase<V>): boolean
 			local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
 			return icon
 				and (
 					item.labelStyle == "icon"
 					or (item.compactLabel ~= nil and item.compactLabel.prefer == true)
-					or (appearance == "buttons" and item.icon ~= nil)
+					or appearance == "buttons"
 				)
 		end
 		local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
@@ -101,7 +87,7 @@ return function(
 		choice(spec.center, "back", { "back", "root", "close", "content", "empty" }, "center")
 		choice(spec.completion, "close", { "close", "back", "root", "stay" }, "completion")
 		choice(spec.buttonSurface, "native", { "native", "none" }, "buttonSurface")
-		local scrim = choice(spec.scrim, "dark", { "dark", "light", "none" }, "scrim")
+		local scrim = choice(spec.scrim, "none", { "dark", "light", "none" }, "scrim")
 		local _, presetSweep = geometry.arc(spec.preset or "donut")
 		local corner = presetSweep < 360
 		local function ringWidth(use: ComposeTypes.Use?): number?
@@ -367,6 +353,13 @@ return function(
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = if anchorGui then E.AutomaticSize.None else E.AutomaticSize.XY,
 		}))
+		surfaces.attach(root, {
+			Host.Frame "LayoutUnit" {
+				Size = D2.fromOffset(1, 1),
+				BackgroundTransparency = 1,
+				Visible = false,
+			},
+		})
 		if spec.launcher ~= false then
 			local overAnchor: ((ComposeTypes.Use) -> UDim2)? = nil
 			if anchorGui then
@@ -478,11 +471,12 @@ return function(
 				local movingCenter = runtime.spring(function(use: ComposeTypes.Use)
 					return use(centerTarget)
 				end, { period = 0.18, damping = 1 })
+				local following = Compose.cell(false)
 				local center = Compose.formula(function(use: ComposeTypes.Use)
 					if use(interacting) and follow ~= "always" then
 						return use(frozenCenter)
 					end
-					return if reduced(use) then use(centerTarget) else use(movingCenter)
+					return if reduced(use) or not use(following) then use(centerTarget) else use(movingCenter)
 				end)
 				freezeCenter = function()
 					frozenCenter:set(center:peek())
@@ -539,13 +533,8 @@ return function(
 								{
 									id = "$navigation",
 									label = if #prefix > 0 then "Back" else "Close",
-									icon = if not iconic(shown)
-										then nil
-										elseif #prefix > 0 then "chevron.leading"
-										else "close",
-									labelStyle = if iconic(shown) and appearance ~= "buttons"
-										then "icon" :: "icon"
-										else nil,
+									icon = if #prefix > 0 then "chevron.leading" else "close",
+									labelStyle = "icon" :: "icon",
 								}
 							if #prefix == 0 and spec.distribution == "compass" then
 								local slots: { [string]: boolean } = {}
@@ -678,6 +667,12 @@ return function(
 					return nil
 				end
 				local entry = runtime.timeline({ duration = 0.2 })
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(centerTarget)
+					if entry.completed:peek() then
+						following:set(true)
+					end
+				end)
 				local function spread(use: ComposeTypes.Use): number
 					return if reduced(use) then 1 else 0.2 + 0.8 * Compose.easing.outCubic(use(entry.progress))
 				end
@@ -932,7 +927,10 @@ return function(
 									skin(button, spec.skin and spec.skin.item, function(use: ComposeTypes.Use)
 										return use(candidate) == currentSector(use).key
 									end)
-									local measured = ctx.observe.TextBounds(button)
+									local caption = button:FindFirstChild("Title", true)
+									local measured = ctx.observe.TextBounds(
+										if caption and caption:IsA("TextLabel") then caption else button
+									)
 									local paint = Host.Path2D "Sector" {
 										Thickness = sector.outer - sector.inner,
 										Closed = false,
@@ -965,16 +963,22 @@ return function(
 										end,
 										button,
 									})
+									local shaped = Compose.cell(false)
 									local shape = Host.Frame "Paint" {
 										BackgroundTransparency = 1,
 										Visible = function(use: ComposeTypes.Use)
-											return appearance == "wedges" and not currentSector(use).list
+											return appearance == "wedges"
+												and not currentSector(use).list
+												and use(shaped)
 										end,
 										paint,
 									}
 									surfaces.attach(wrapper, { shape })
 									local placed = Compose.cell(nil :: { x: number, y: number }?)
 									Compose.watch(function(use: ComposeTypes.Use)
+										if use(present) == nil then
+											return
+										end
 										local live = currentSector(use)
 										local text = use(measured)
 										local label = geometry.labelBounds(live, 40)
@@ -987,13 +991,18 @@ return function(
 											6,
 											contentFit
 										)
+										local ready = iconOnly or text.X > 0 or (read(live.item.label, use) or "") == ""
+										local complete = ready
 										if contentFit == "radial" then
 											local own = ringFits:peek()[live.key]
 											if
-												not own
-												or own.ring ~= live.inner
-												or own.inner ~= fitted.inner
-												or own.outer ~= fitted.outer
+												ready
+												and (
+													not own
+													or own.ring ~= live.inner
+													or own.inner ~= fitted.inner
+													or own.outer ~= fitted.outer
+												)
 											then
 												local nextFits = table.clone(ringFits:peek())
 												nextFits[live.key] =
@@ -1004,12 +1013,24 @@ return function(
 											for _, entry in use(sectors) do
 												shown[entry.key] = true
 											end
-											for key, fit in use(ringFits) do
+											local fits = use(ringFits)
+											for _, entry in use(sectors) do
+												local fit = fits[entry.key]
+												if
+													entry.inner == live.inner and (fit == nil or fit.ring ~= live.inner)
+												then
+													complete = false
+												end
+											end
+											for key, fit in fits do
 												if shown[key] and fit.ring == live.inner then
 													fitted.inner = math.min(fitted.inner, fit.inner)
 													fitted.outer = math.max(fitted.outer, fit.outer)
 												end
 											end
+										end
+										if complete and not shaped:peek() then
+											shaped:set(true)
 										end
 										local bounds = geometry.paint(fitted)
 										placed:set({ x = bounds.x, y = bounds.y })
@@ -1168,17 +1189,28 @@ return function(
 					local hidden = launcher :: GuiObject
 
 					hideLauncher = function()
+						local unit = root:FindFirstChild("LayoutUnit") :: GuiObject?
+						local scale = if unit and unit.AbsoluteSize.X > 0 then unit.AbsoluteSize.X else 1
+						local held = root.AutomaticSize ~= E.AutomaticSize.None
+						local extent = hidden.AbsoluteSize / scale
+						local function show()
+							hidden.Visible = true
+							if held then
+								root.AutomaticSize, root.Size = E.AutomaticSize.XY, D2.fromOffset(0, 0)
+							end
+						end
+						if held then
+							root.AutomaticSize, root.Size = E.AutomaticSize.None, D2.fromOffset(extent.X, extent.Y)
+						end
 						hidden.Visible = false
 						if phase then
 							Compose.watch(function(use: ComposeTypes.Use)
 								if use(phase.exiting) then
-									hidden.Visible = true
+									show()
 								end
 							end)
 						end
-						Compose.cleanup(function()
-							hidden.Visible = true
-						end)
+						Compose.cleanup(show)
 					end
 					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 					if glyph then
@@ -1227,12 +1259,25 @@ return function(
 					end
 					local at = use(center)
 					if corner then
-						local start = geometry.arc(spec.preset or "donut")
-						local angle = math.rad(start + 45)
+						local key = use(candidate) or use(focus.current)
+						local near: Radial.Sector<V>? = nil
+						for _, sector in ring.sectors do
+							if sector.key == key then
+								near = sector
+							end
+						end
+						local angle = math.rad(if near then near.angle else geometry.arc(spec.preset or "donut") + 45)
 						local dx, dy = math.sin(angle), -math.cos(angle)
-						local reach = reachOf(ring) + ctx.metric("space.s", use)
-						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach),
-							V2.new(if dx > 0 then 0 else 1, if dy > 0 then 0 else 1)
+						local reach = if near
+							then math.sqrt(near.x * near.x + near.y * near.y) + math.max(44, near.size) / 2 + ctx.metric(
+								"space.xs",
+								use
+							)
+							else reachOf(ring) + ctx.metric("space.s", use)
+						local function side(value: number): number
+							return if value > 0.3 then 0 elseif value < -0.3 then 1 else 0.5
+						end
+						return D2.fromOffset(at.X + dx * reach, at.Y + dy * reach), V2.new(side(dx), side(dy))
 					end
 					return D2.fromOffset(at.X, at.Y + hub(use).labelY), V2.new(0.5, 0.5)
 				end

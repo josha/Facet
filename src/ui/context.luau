@@ -761,8 +761,10 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					local automatic = node.AutomaticSize
 					local freeX = automatic == Enum.AutomaticSize.X or automatic == Enum.AutomaticSize.XY
 					local freeY = automatic == Enum.AutomaticSize.Y or automatic == Enum.AutomaticSize.XY
+					local leaving = frames ~= nil and (read(source:peek()[1] :: Shared.Value<number>) or 0) < 0.5
+					local gather: (() -> ())? = nil
 					if frames then
-						warming:set(true)
+						warming:set(not leaving)
 						local connection: RBXScriptConnection? = nil
 						connection = frames.Heartbeat:Connect(function()
 							if connection then
@@ -770,6 +772,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 								connection = nil
 							end
 							warming:set(false)
+							if gather then
+								gather()
+							end
 						end)
 						Compose.cleanup(function()
 							if connection then
@@ -804,13 +809,19 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 								or child:IsA("UIGridStyleLayout")
 							)
 					end
-					keepSelection(function()
-						for _, child: Instance in node:GetChildren() do
-							if carried(child) then
-								(child :: Instance).Parent = group
+					gather = function()
+						gather = nil
+						keepSelection(function()
+							for _, child: Instance in node:GetChildren() do
+								if carried(child) then
+									(child :: Instance).Parent = group
+								end
 							end
-						end
-					end)
+						end)
+					end
+					if not leaving then
+						assert(gather)()
+					end
 					local late: { Instance } = {}
 					local stopLate: (() -> ())? = nil
 					runtime.connect(node, "ChildAdded", function(child: Instance)
