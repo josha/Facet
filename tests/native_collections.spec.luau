@@ -2996,6 +2996,51 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("columns that cannot fit beside the edit controls scroll inside a pinned lane, never clip", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local V2 = engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				itemSize = 44,
+				reorderable = true,
+				deletable = true,
+				onReorder = function() end,
+				onDelete = function() end,
+				columns = {
+					{ id = "name", label = "Name", minWidth = 90 },
+					{ id = "artist", label = "Artist", minWidth = 72 },
+					{ id = "rating", label = "Rating", width = 144 },
+				},
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = V2.new(359, 200)
+		local header = node:FindFirstChild("Header")
+		t.expect(header.Size.X.Offset).toBe(359)
+		node:FindFirstChild("Edit", true).Activated.fire()
+		t.expect(header.Size.X.Offset).toBe(271)
+		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(0)
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		t.expect(header.Size.X.Offset).toBe(306)
+		header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
+		t.expect(body.CanvasSize.X.Offset).toBe(306 + 88)
+		local lane = body:FindFirstChild("1", true):FindFirstChild("Row", true)
+		local painted = lane:FindFirstAncestorWhichIsA("Frame")
+		while not painted:HasTag("facet-tablerow") do
+			painted = painted.Parent
+		end
+		t.expect(lane.Size.X.Offset).toBe(306)
+		body.CanvasPosition = V2.new(35, 0)
+		t.expect(lane.Position.X.Offset).toBe(-35)
+		t.expect(painted.Position.X.Offset).toBe(35)
+		t.expect(lane.Parent.ClipsDescendants).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("the shoulder buttons move the selected rows by one slot", function()
 		local w = editableWorld("Gamepad", { reorderable = true, selected = { [2] = true } }, false)
 		w.pressed("MoveRowsLater")
