@@ -68,9 +68,7 @@ VENDOR_HISTORY = (
      "never"),
 )
 
-VENDOR_HISTORY_MAINTAINED = (
-    "docs/plans/README.md",
-)
+VENDOR_HISTORY_MAINTAINED = ()
 
 SHIPPED_SURFACE = (
     "docs/guide/",

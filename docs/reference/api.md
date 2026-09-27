@@ -360,8 +360,8 @@ parent it to the Workspace. The engine plays the press effect through
 
 `UI.feedback(kind)` plays a kind at once, for a result that does not come from
 a press, such as a purchase that the server confirms. An unknown kind causes
-an error that lists the kinds. Studio on a Mac plays no motor; a phone or a
-gamepad on a supported client feels it.
+an error that lists the kinds. Studio plays no motor; a phone or a gamepad on
+a supported client feels it.
 
 The `theme` option of `controls` does not install paint. Parent a
 `createStyleSheet` result and its StyleLink in the native tree, with the same
