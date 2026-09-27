@@ -415,6 +415,9 @@ local function new(options: any?)
 				if key == "TextBounds" and options and options.measureText then
 					return options.measureText(node)
 				end
+				if key == "TextFits" and options and options.textFits and options.textFits(node) ~= nil then
+					return options.textFits(node)
+				end
 				if properties[key] ~= nil then
 					return properties[key]
 				end

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A fixed-width Button no longer sticks in its tight padding (`facet-button-tight`) after a label that fits. The padding gave way on a fit report the engine had not yet refreshed (taken before the theme's font and size arrived) and only a width change released it. It now decides from the live `TextFits` and `AbsoluteSize`, re-tests when the text, the styled `TextSize` or the styled `FontFace` changes, and watches only while the button does not grow on X.
 - A Table's "…" Details button is a `utility` button, like the reorder handle beside it: it has no plate at rest, so a selected row's fill shows behind it and the row's bottom separator runs under it in pointer and edit modes.
 - A shared fade (Toast, Alert, Popover pages, RadialMenu, DisclosureGroup and CollapsibleView content) now fades the theme outline with the fill and the content. The theme's `::UIStroke` is a phantom that no per-node value reaches, so every stroke rule `S::UIStroke` gains a twin `S > .facet-fade-stroke`; while a fade runs the node is tagged `facet-fading` (its phantom stroke is disabled) and carries a real `UIStroke` tagged `facet-fade-stroke` whose `UIGradient` follows the fade. A game's own stroke rules get the same twin.
 - **Breaking: an anchored menu insets its rows by `space.xs` and rounds every row's highlight to `radii.panel - space.xs`**, so a selected or hovered row stays inside the card's stroke and corners. The `facet-menu-end` tag and its `::UICorner` rule are gone; a game rule on `facet-menu-end` no longer matches.

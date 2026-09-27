@@ -47,6 +47,7 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?)
 			local text = node.Text or ""
 			return Vector2.new(#text * 11, if #text > 0 then 20 else 0)
 		end,
+		textFits = o.textFits,
 	})
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
@@ -657,11 +658,62 @@ t.describe("native navigation stack paint", function()
 		key.AbsoluteSize = w.V2.new(30, 44)
 		key.TextFits = false
 		expect(key:HasTag("facet-button-tight")).toBe(true)
+		key.TextFits = true
+		for _, arrive in
+			{
+				function()
+					key.TextSize = 18
+				end,
+				function()
+					key.FontFace = w.engine.types.Font.fromName("Gotham")
+				end,
+				function()
+					key.Text = "Q"
+				end,
+			}
+		do
+			arrive()
+			expect(key:HasTag("facet-button-tight")).toBe(false)
+			key.TextFits = false
+			expect(key:HasTag("facet-button-tight")).toBe(true)
+			key.TextFits = true
+		end
+		key.TextFits = false
 		key.AutomaticSize = w.E.AutomaticSize.X
 		expect(key:HasTag("facet-button-tight")).toBe(false)
 		key.TextFits = true
 		key.TextFits = false
 		expect(key:HasTag("facet-button-tight")).toBe(false)
+		w.stop()
+	end)
+
+	t.it("decides the tight padding from the engine's live fit, not a fit report still in flight", function()
+		local live: boolean? = nil
+		local w = world(function(UI, _, engine)
+			return UI.Button "Tab" {
+				label = "Inputs",
+				Size = engine.types.UDim2.fromOffset(94, 44),
+				AutomaticSize = engine.types.Enum.AutomaticSize.None,
+			}
+		end, {
+			textFits = function()
+				return live
+			end,
+		})
+		local tab = find(w.screen, "Tab")
+		tab.AbsoluteSize = w.V2.new(44, 44)
+		tab.TextFits = false
+		expect(tab:HasTag("facet-button-tight")).toBe(true)
+		live = true
+		tab.AbsoluteSize = w.V2.new(94, 44)
+		tab.TextSize = 18
+		expect(tab:HasTag("facet-button-tight")).toBe(false)
+		live = nil
+		tab.TextFits = true
+		tab.TextFits = false
+		expect(tab:HasTag("facet-button-tight")).toBe(true)
+		tab.FontFace = w.engine.types.Font.fromName("Gotham")
+		expect(tab:HasTag("facet-button-tight")).toBe(true)
 		w.stop()
 	end)
 end)
