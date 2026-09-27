@@ -2861,6 +2861,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			local w = editableWorld(input, { reorderable = true, deletable = true }, false)
 			local edit = w.node:FindFirstChild("Edit", true)
 			t.expect(edit ~= nil and edit.Text == "Edit").toBe(true)
+			t.expect(edit:HasTag("facet-appearance-utility")).toBe(false)
 			t.expect(w.row(1):FindFirstChild("Move", true).Visible).toBe(false)
 			t.expect(w.row(1):FindFirstChild("Minus", true).Visible).toBe(false)
 			edit.Activated.fire()

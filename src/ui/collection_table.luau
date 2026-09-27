@@ -912,7 +912,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 						label = function(use: ComposeTypes.Use): string
 							return if read(editing, use) then "Done" else "Edit"
 						end,
-						appearance = "utility",
 						AnchorPoint = V2.new(1, 0),
 						Position = D2.fromScale(1, 0),
 						Size = D2.new(0, 0, 1, 0),
