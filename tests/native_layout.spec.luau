@@ -615,6 +615,26 @@ t.describe("native layout primitives", function()
 			stop()
 		end)
 
+		t.it("gives a fill-height child the padded window as a floor so its bottom stays reachable", function()
+			local roblox = require("@lune/roblox")
+			local root, engine, stop = build(nil, function(UI, Host)
+				return UI.ScrollView "Page" {
+					padding = 16,
+					Host.Frame {
+						Name = "Body",
+						Size = roblox.UDim2.fromScale(1, 1),
+						AutomaticSize = roblox.Enum.AutomaticSize.Y,
+					},
+				}
+			end)
+			local V2 = engine.types.Vector2
+			local body = root:FindFirstChild("Body")
+			t.expect(body.Size).toBe(engine.types.UDim2.new(1, 0, 0, 0))
+			root.AbsoluteSize = V2.new(389, 648)
+			t.expect(child(body, "UISizeConstraint").MinSize).toBe(V2.new(0, 616))
+			stop()
+		end)
+
 		t.it("stretches the children across the scroll window when align is stretch", function()
 			local root, engine, stop = build(nil, function(UI)
 				return UI.ScrollView { align = "stretch", UI.Text { text = "A" } }

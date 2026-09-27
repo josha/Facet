@@ -160,6 +160,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		local axis = spec.axis or "y"
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
 		local scaled = false
+		local filling: { GuiObject } = {}
 		for _, child in children do
 			local node = child :: any
 			local gui = (typeof(node) == "Instance" or type(node) == "table")
@@ -167,6 +168,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 				and node:IsA("GuiObject")
 			if gui and node.Size.Y.Scale > 0 then
 				scaled = true
+				table.insert(filling, node)
 			end
 		end
 		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
@@ -189,12 +191,35 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			native.HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar
 		end
 		local flow: Types.Flow = { gap = spec.gap, align = spec.align, distribute = spec.distribute }
-		return kit.plain(
-			Host.ScrollingFrame(
-				kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), kit.insets(spec.padding) }, children)
-			),
+		local insets = kit.insets(spec.padding)
+		local frame = kit.plain(
+			Host.ScrollingFrame(kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), insets }, children)),
 			properties
 		)
+		if axis ~= "x" and #filling > 0 then
+			local window = ctx.layoutSize(frame)
+			local top, bottom = Compose.cell(0), Compose.cell(0)
+			if insets then
+				local padTop, padBottom = ctx.observe.PaddingTop(insets), ctx.observe.PaddingBottom(insets)
+				Compose.watch(function(use: ComposeTypes.Use)
+					top:set((use(padTop) :: UDim).Offset)
+					bottom:set((use(padBottom) :: UDim).Offset)
+				end)
+			end
+			for _, node in filling do
+				local size = node.Size
+				node.Size = D2.new(size.X.Scale, size.X.Offset, 0, size.Y.Offset)
+				runtime.mount(function()
+					return Host.UISizeConstraint({
+						MinSize = function(use: ComposeTypes.Use): Vector2
+							local room = use(window).Y - use(top) - use(bottom)
+							return V2.new(0, math.max(0, size.Y.Scale * room + size.Y.Offset))
+						end,
+					})
+				end, node)
+			end
+		end
+		return frame
 	end)
 
 	UI.Grid = ctx.construct("Grid", function(spec: Layout.GridProps): Frame
