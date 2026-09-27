@@ -646,12 +646,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 					or types.Enum.BorderStrokePosition.Inner
 			end
 		end
-		add(selector, properties)
 		if string.sub(selector, -10) == "::UIStroke" then
 			local twin = table.clone(properties)
 			twin.Enabled = if properties.Enabled == nil then true else properties.Enabled
 			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", twin)
 		end
+		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
 			add(string.sub(selector, 1, -12) .. " > UIPadding", properties)
 		end
@@ -1479,6 +1479,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	end
 	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
+	add(".facet-fading::UIStroke", {
+		Enabled = false,
+		ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
+		BorderStrokePosition = types.Enum.BorderStrokePosition.Inner,
+	})
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do
@@ -1488,7 +1493,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		rule(definition.selector, properties, true)
 	end
-	add(".facet-fading::UIStroke", { Enabled = false })
 	return rules
 end
 
@@ -1864,29 +1868,31 @@ local function createStyleSheet(
 			ids:set(nextIds)
 		end
 	end)
-	local provider: ContentProvider? = settings.contentProvider
-	if provider == nil then
-		local globals = getfenv(0)
-		provider = globals.game and globals.game:GetService("ContentProvider")
-	end
 	local warmed: { [ThemeTypes.ThemePackage]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 	Compose.watch(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use)
-		if provider == nil or package == nil or warmed[package] then
+		if package == nil or warmed[package] then
 			return
 		end
 		warmed[package] = true
 		local content: { string } = {}
-		for _, asset in package.assets or {} do
+		for _, asset in pairs(package.assets or {}) do
 			local id = asset.content or asset.contentId
 			if type(id) == "string" and id ~= "" then
 				table.insert(content, id)
 			end
 		end
-		if #content > 0 and task then
-			task.spawn(provider.PreloadAsync, provider, content)
-		elseif #content > 0 then
-			provider:PreloadAsync(content)
+		local provider: ContentProvider? = settings.contentProvider
+		if provider == nil and #content > 0 then
+			local globals = getfenv(0)
+			provider = globals.game and globals.game:GetService("ContentProvider")
+		end
+		if provider and #content > 0 then
+			if task then
+				task.spawn(provider.PreloadAsync, provider, content)
+			else
+				provider:PreloadAsync(content)
+			end
 		end
 	end)
 	return sheet
