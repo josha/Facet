@@ -12816,9 +12816,9 @@
       },
       "auditClass": "d",
       "candidateCases": [
-        "native_gallery_collections::native gallery collections::reaches the mail table edit minus by selection and swipes a table row open without reordering"
+        "native_gallery_collections::native gallery collections::selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open"
       ],
-      "closedBy": "native_gallery_collections::native gallery collections::reaches the mail table edit minus by selection and swipes a table row open without reordering"
+      "closedBy": "native_gallery_collections::native gallery collections::selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open"
     },
     {
       "id": "collections-107",

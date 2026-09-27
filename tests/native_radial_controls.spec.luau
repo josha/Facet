@@ -1289,6 +1289,81 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(preview.Text).toBe("")
 		world.stop()
 	end)
+	t.it("a submenu's ring unfolds along the ring from the chosen item, not out of the centre", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local world = setup({
+			distribution = "compass",
+			items = {
+				{ id = "gear", slot = "N", label = "Gear", children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") } },
+				{ id = "E", slot = "E", label = "E", onSelect = function() end },
+			},
+		}, true)
+		world.step(0.5)
+		world.find("gear").Activated.fire()
+		world.step(1 / 60)
+		local function at(id: string): any
+			local node = world.find(id)
+			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+		end
+		local early = at("c")
+		world.step(0.5)
+		local final = { a = at("a"), b = at("b"), c = at("c"), d = at("d") }
+		local centre = (final.a + final.b + final.c + final.d) / 4
+		local ring = (final.c - centre).Magnitude
+		local offset = early - centre
+		t.expect(offset.Magnitude > 0.9 * ring).toBe(true)
+		t.expect(offset.Y < 0).toBe(true)
+		t.expect((final.c - centre).Y > 0).toBe(true)
+		world.stop()
+	end)
+	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()
+		local picked = 0
+		local world = setup({
+			distribution = "compass",
+			completion = "stay",
+			items = {
+				{
+					id = "N",
+					slot = "N",
+					label = "Lantern",
+					icon = "flag",
+					labelStyle = "icon",
+					onSelect = function()
+						picked += 1
+					end,
+				},
+			},
+		})
+		local preview, panel, north = world.find("SelectionPreview"), world.find("RadialPanel"), world.find("N")
+		local x, y = north.Position.X.Offset, north.Position.Y.Offset
+		local hold = pointer(world, x, y)
+		north.InputBegan.fire(hold)
+		world.step(0.5)
+		t.expect(preview.Text).toBe("Lantern")
+		hold.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(hold)
+		north.Activated.fire(hold)
+		t.expect(picked).toBe(0)
+		local tap = pointer(world, x, y)
+		north.InputBegan.fire(tap)
+		tap.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(tap)
+		north.Activated.fire(tap)
+		t.expect(picked).toBe(1)
+		local slide = pointer(world, x, y)
+		panel.InputBegan.fire(slide)
+		slide.Position = world.engine.types.Vector3.new(x + 30, y, 0)
+		world.input.InputChanged.fire(slide)
+		slide.Position = world.engine.types.Vector3.new(x, y, 0)
+		world.input.InputChanged.fire(slide)
+		world.step(0.5)
+		slide.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(slide)
+		t.expect(picked).toBe(2)
+		world.stop()
+	end)
 	t.it("keeps a held item's name on the screen beside a ring near the edge of a phone", function()
 		local world = setup({
 			distribution = "compass",

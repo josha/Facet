@@ -59,27 +59,34 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	local function revealMotion(
-		expanded: ComposeTypes.Cell<boolean>
-	): ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>)
+	local function revealMotion(expanded: ComposeTypes.Cell<boolean>): ((ComposeTypes.Use?) -> number, ComposeTypes.Readable<boolean>, (
+		ComposeTypes.Use
+	) -> number)
 		local reduce = reducedMotion(ctx)
-		local travel = runtime.tween(function(use: ComposeTypes.Use): number
-			return if use(expanded) then 1 else 0
-		end, {
-			seconds = function(_: ComposeTypes.Use): number
-				return if expanded:peek() then REVEAL.enter else REVEAL.exit
-			end,
-			ease = Compose.easing.outCubic,
-		})
-		local function progress(use: ComposeTypes.Use?): number
-			if reduce(use) then
-				return if read(expanded, use) then 1 else 0
+		local function motion(share: number, ease: ComposeTypes.Easing?): (ComposeTypes.Use?) -> number
+			local value = runtime.tween(function(use: ComposeTypes.Use): number
+				return if use(expanded) then 1 else 0
+			end, {
+				seconds = function(_: ComposeTypes.Use): number
+					return share * (if expanded:peek() then REVEAL.enter else REVEAL.exit)
+				end,
+				ease = ease,
+			})
+			return function(use: ComposeTypes.Use?): number
+				if reduce(use) then
+					return if read(expanded, use) then 1 else 0
+				end
+				return read(value, use)
 			end
-			return read(travel, use)
 		end
-		return progress, Compose.formula(function(use: ComposeTypes.Use): boolean
-			return progress(use) <= 0
-		end)
+		local progress, opacity = motion(1, Compose.easing.outCubic), motion(0.5)
+		return progress,
+			Compose.formula(function(use: ComposeTypes.Use): boolean
+				return progress(use) <= 0
+			end),
+			function(use: ComposeTypes.Use): number
+				return 1 - opacity(use)
+			end
 	end
 	local function unroll(progress: (ComposeTypes.Use?) -> number, natural: ComposeTypes.Readable<Vector2>)
 		return function(use: ComposeTypes.Use): Enum.AutomaticSize
@@ -144,7 +151,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 		end
 
-		local progress, closed = revealMotion(spec.expanded)
+		local progress, closed, hidden = revealMotion(spec.expanded)
 		local caret = header:FindFirstChild(if side == "leading" then "LeadingIcon" else "TrailingIcon", true)
 		if caret and caret:IsA("GuiObject") then
 			runtime.decorate(caret, {
@@ -190,9 +197,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
-						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - progress(use)
-						end,
+						GroupTransparency = hidden,
 						node,
 					}
 					surfaces.attach(fade, { inset :: Types.Child })
@@ -286,7 +291,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
-		local progress, closed = revealMotion(spec.expanded)
+		local progress, closed, hidden = revealMotion(spec.expanded)
 		local function collapse()
 			spec.expanded:set(false)
 		end
@@ -357,9 +362,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local goal, inset = use(target), use(chrome)
 						return D2.fromOffset(goal.w - inset.X, goal.h - inset.Y)
 					end,
-					GroupTransparency = function(use: ComposeTypes.Use)
-						return 1 - progress(use)
-					end,
+					GroupTransparency = hidden,
 					Host.ScrollingFrame "ExpandedScroll" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,

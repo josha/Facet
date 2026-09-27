@@ -638,6 +638,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			selectable = spec.selectable,
 			onSelectionChange = spec.onSelectionChange,
 			onActivate = spec.onActivate,
+			editing = editing,
 
 			render = function(
 				current: ComposeTypes.Readable<V>,
@@ -1054,6 +1055,22 @@ return function(ctx: Types.Context, UI: Controls): ()
 					if spec.reorderable then
 						table.insert(words, "L1 / R1 Move")
 					end
+					local function pad(use: ComposeTypes.Use): boolean
+						return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad
+					end
+					local remove = if spec.deletable and editor
+						then UI.Button "DeleteSelected" {
+							label = "Delete",
+							role = "destructive" :: InputTypes.ButtonRole,
+							Size = D2.new(0, 0, 1, 0),
+							AutomaticSize = E.AutomaticSize.X,
+							Visible = function(use: ComposeTypes.Use)
+								return read(editing, use) == true and not pad(use)
+							end,
+							enabled = editor.canDelete,
+							onActivate = editor.deleteChosen,
+						}
+						else nil
 					return Host.Frame({
 						Name = "Toolbar",
 						BackgroundTransparency = 1,
@@ -1069,13 +1086,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 								Position = D2.fromScale(0, 0.5),
 								AutomaticSize = E.AutomaticSize.XY,
 								Visible = function(use: ComposeTypes.Use)
-									return read(editing, use) == true
-										and preferredInput ~= nil
-										and use(preferredInput) == E.PreferredInput.Gamepad
+									return read(editing, use) == true and pad(use)
 								end,
 							}),
 							"secondary"
 						),
+						remove,
 					})
 				end),
 				body,

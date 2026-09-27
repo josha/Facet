@@ -22,6 +22,7 @@ type Session = {
 	detent: string,
 	acquired: boolean,
 	slop: number,
+	moved: boolean,
 	samples: { { height: number, at: number } },
 }
 
@@ -375,6 +376,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				detent = selected().id,
 				acquired = source == "grip",
 				slop = if source == "grip" then 0 elseif kind == E.PreferredInput.Touch then 14 else 6,
+				moved = false,
 				samples = {},
 			}
 			local current = assert(session)
@@ -392,6 +394,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			if source == "grip" and math.abs(y - current.origin) > 4 then
 				dragged = now()
+				current.moved = true
 			end
 			if not current.acquired then
 				if math.abs(y - current.origin) < current.slop then
@@ -437,9 +440,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			return (last.height - first.height) / span
 		end
+		local function tapped()
+			local grow = if canDismiss() then nil else nextUp()
+			if grow then
+				select(grow.id)
+			else
+				interactive("close")
+			end
+		end
 		local function finish(source: "grip" | "panel")
 			local current = session
 			if current == nil or current.source ~= source then
+				return
+			end
+			if source == "grip" and not current.moved then
+				endSession()
+				tapped()
 				return
 			end
 			if not current.acquired then
@@ -493,7 +509,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			session = nil
 		end)
 		local pull = Compose.cell(0)
-		local pulling: { origin: number, samples: { { height: number, at: number } } }? = nil
+		local pulling: { origin: number, moved: boolean, samples: { { height: number, at: number } } }? = nil
 		local held = Compose.cell(false)
 		local pulled = runtime.tween(function(use: ComposeTypes.Use)
 			return use(pull)
@@ -511,6 +527,10 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if current == nil then
 				return
 			end
+			if math.abs(x - current.origin) > 4 then
+				dragged = now()
+				current.moved = true
+			end
 			local amount = math.max(0, (x - current.origin) * toward())
 			pull:set(if canDismiss() then amount else amount * 0.2)
 			table.insert(current.samples, { height = pull:peek(), at = now() })
@@ -522,6 +542,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return
 			end
 			held:set(false)
+			if not current.moved then
+				pull:set(0)
+				tapped()
+				return
+			end
 			local amount = pull:peek()
 			local width = math.min(parts.width(ctx, spec.width), extent:peek().X)
 			if canDismiss() and (amount > width / 3 or velocity(current.samples) > 600) then
@@ -562,7 +587,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				DragStart = function(position: Vector2)
 					if sideways() then
 						if pulling == nil then
-							pulling = { origin = position.X, samples = {} }
+							pulling = { origin = position.X, moved = false, samples = {} }
 							held:set(true)
 						end
 					else
@@ -607,8 +632,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Selectable = function(use: ComposeTypes.Use)
 				return #detents > 1 or canDismiss(use)
 			end,
-			Activated = function()
+			Activated = function(input: InputObject?)
 				if now() - dragged < 0.3 then
+					return
+				end
+				if
+					input ~= nil
+					and (
+						input.UserInputType == E.UserInputType.Touch
+						or input.UserInputType == E.UserInputType.MouseButton1
+					)
+				then
+					tapped()
 					return
 				end
 				local grow = nextUp()

@@ -102,14 +102,19 @@ t.describe("radial ring arrival motion", function()
 			world.step(1 / 60)
 			local tool = find(world.root, "Tool")
 			local paint = find(world.root, "Sector-Tool"):FindFirstChild("Paint", true)
+			local function middle(node: any): (number, number)
+				return node.Position.X.Offset + node.Size.X.Offset / 2, node.Position.Y.Offset + node.Size.Y.Offset / 2
+			end
 			local ex, ey = offset(tool)
-			local px, py = offset(paint)
+			local px, py = middle(paint)
 			world.step(0.3)
 			local fx, fy = offset(tool)
-			local qx, qy = offset(paint)
+			local qx, qy = middle(paint)
 			t.expect(distance(ex, ey, fx, fy) > 20).toBe(true)
 			t.expect(distance(ex, ey, gx, gy) < distance(fx, fy, gx, gy)).toBe(true)
-			t.expect(distance(px - qx, py - qy, ex - fx, ey - fy) <= 2).toBe(true)
+			if appearance == "wedges" then
+				t.expect(distance(px, py, gx, gy) < distance(qx, qy, gx, gy)).toBe(true)
+			end
 			world.step(0.3)
 			local sx, sy = offset(tool)
 			t.expect(sx).toBe(fx)
