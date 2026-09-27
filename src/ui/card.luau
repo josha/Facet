@@ -430,25 +430,30 @@ return function(
 			table.insert(rowProps, child)
 		end
 		rowProps.ZIndex = 2
+		local function tuck(use: ComposeTypes.Use): number
+			return 2 * ctx.metric("radii.panel", use)
+		end
 		if reveal == "automatic" then
 			local function side(use: ComposeTypes.Use): UDim
 				return D.new(0, ctx.metric("space.s", use))
 			end
 			table.insert(
 				rowProps,
-				Host.UIPadding({ PaddingLeft = side, PaddingRight = side, PaddingTop = side, PaddingBottom = side })
+				Host.UIPadding({
+					PaddingLeft = side,
+					PaddingRight = side,
+					PaddingTop = function(use: ComposeTypes.Use): UDim
+						return D.new(0, ctx.metric("space.s", use) + tuck(use))
+					end,
+					PaddingBottom = side,
+				})
 			)
 		end
 		local row = Host.Frame(rowProps)
 		local plateLayer = ctx.styled(
 			Host.Frame({
 				Name = "Plate",
-				Position = function(use: ComposeTypes.Use): UDim2
-					return D2.fromOffset(0, -2 * ctx.metric("radii.panel", use))
-				end,
-				Size = function(use: ComposeTypes.Use): UDim2
-					return D2.new(1, 0, 1, 2 * ctx.metric("radii.panel", use))
-				end,
+				Size = D2.fromScale(1, 1),
 				Visible = reveal == "automatic",
 			}),
 			"panel"
@@ -514,7 +519,7 @@ return function(
 				FillDirection = E.FillDirection.Vertical,
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = function(use: ComposeTypes.Use)
-					return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else 0)
+					return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else -tuck(use))
 				end,
 			}) :: Types.Child,
 			liftScale :: Types.Child,

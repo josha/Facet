@@ -498,13 +498,12 @@ t.describe("native Card", function()
 	t.it("grows the card's one plate down around Play and More instead of stacking a second one", function()
 		local world, root = mount(cardSpec({}))
 		local E = world.engine.types.Enum
-		t.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(0)
+		local radius = Facet.themes.neutralPackage().metrics.radii.panel
+		t.expect(root:FindFirstChildWhichIsA("UIListLayout").Padding.Offset).toBe(-2 * radius)
 		local reveal = plate(world)
 		local paint = reveal:FindFirstChild("Plate", true)
 		t.expect(paint ~= nil and paint:HasTag("facet-panel")).toBe(true)
-		local radius = Facet.themes.neutralPackage().metrics.radii.panel
-		t.expect(paint.Size).toBe(UDim2.new(1, 0, 1, 2 * radius))
-		t.expect(paint.Position).toBe(UDim2.fromOffset(0, -2 * radius))
+		t.expect(`{paint.Size} {paint.Position}`).toBe(`{UDim2.fromScale(1, 1)} {UDim2.new()}`)
 		t.expect(reveal.ZIndex < world.find("Body").ZIndex).toBe(true)
 		t.expect(paint:FindFirstChildWhichIsA("UICorner")).toBe(nil)
 		local row = reveal:FindFirstChild("Row", true)
