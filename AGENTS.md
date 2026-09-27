@@ -15,6 +15,16 @@ contract.
 - Use the native engine mechanisms: layout objects, constraints, text editing,
   scrolling, selection, input contexts, drag detectors and StyleSheets. Put only
   control-specific policy in Facet. Do not rebuild a general engine mechanism.
+- Before you write custom code, check the Roblox engine API reference in
+  [creator-docs](https://github.com/Roblox/creator-docs/tree/main/content/en-us/reference/engine).
+  Use the native API first and extend it when it falls short. Write custom code
+  only when no native API fits, and name the APIs you checked and why they did
+  not fit in the commit message or receipt.
+- Fix a shared cause in Facet itself, not in an example, the lab or one theme's
+  numbers.
+- Motion timing belongs to the theme. Durations, easings and springs are theme
+  tokens, applied through StyleSheet transitions where the engine supports
+  them. Do not hard-code a motion value in a control.
 - The consumer game owns game state and server validation. A Compose component
   owns local state. The model owns durable row state and route state.
 - Keep existing control behavior and the actual showcase content. Do not remove
