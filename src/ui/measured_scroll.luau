@@ -1,6 +1,7 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
+local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
 
@@ -38,6 +39,7 @@ return function(
 		}
 	)
 	local scroller = Host.ScrollingFrame(props)
+	scrollLock.own(scroller)
 	local laidOut = ctx.layoutSize(flow, ctx.layoutUnit(scroller))
 	Compose.watch(function(use: ComposeTypes.Use)
 		extent:set(math.ceil(use(laidOut).Y - 0.01))

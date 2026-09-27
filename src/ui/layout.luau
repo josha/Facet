@@ -4,6 +4,7 @@ local Types = require("./types")
 local Engine = require("./engine_types")
 local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
+local scrollLock = require("./scroll_lock")
 export type LayoutControls = Layout.LayoutControls
 
 return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.LayoutControls
@@ -196,6 +197,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			Host.ScrollingFrame(kit.assemble(native, properties, { kit.list(flow, axis ~= "x"), insets }, children)),
 			properties
 		)
+		scrollLock.own(frame)
 		if axis ~= "x" and #filling > 0 then
 			local window = ctx.layoutSize(frame)
 			local top, bottom = Compose.cell(0), Compose.cell(0)

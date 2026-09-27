@@ -1,5 +1,6 @@
 --!strict
 local activation = require("./activation")
+local scrollLock = require("./scroll_lock")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
 local createSelection = require("./collection_selection")
@@ -543,6 +544,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		})
 		table.insert(native, unit)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
+		scrollLock.own(root)
 		root:SetAttribute("FacetSelectionOwner", true)
 		local input = ctx.config.userInputService
 		if horizontal and input and not spec.reorderable then

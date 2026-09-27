@@ -1462,7 +1462,7 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
-	t.it("a horizontal touch pan holds the enclosing scrollers until release; a vertical one leaves them", function()
+	t.it("a horizontal touch pan holds Facet's enclosing scrollers until release; a vertical one leaves them", function()
 		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
 		local V2 = engine.types.Vector2
@@ -1480,7 +1480,9 @@ t.describe("Compose native collections", function()
 				},
 			}
 		end, target)
+		local scrollLock = require("../src/ui/scroll_lock")
 		local body = page:FindFirstChild("Body")
+		scrollLock.own(body)
 		local row = body:FindFirstChild("Row")
 		row.AbsoluteSize = V2.new(300, 40)
 		local grip = row:FindFirstChild("SwipeGrip", true)
@@ -1491,11 +1493,19 @@ t.describe("Compose native collections", function()
 			return `{page.ScrollingEnabled} {body.ScrollingEnabled}`
 		end
 		pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.Begin)
-		t.expect(held()).toBe("false false")
+		t.expect(held()).toBe("true false")
 		pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.Change)
 		pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.End)
 		t.expect(held()).toBe("true true")
 		t.expect(open:peek()).toBe("trailing")
+		local sheet = engine.new("Frame")
+		sheet.Parent = target
+		pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.Begin)
+		scrollLock.acquire(target, sheet)
+		pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.End)
+		t.expect(held()).toBe("false false")
+		scrollLock.release(target, sheet)
+		t.expect(held()).toBe("true true")
 		open:set(nil)
 		engine.heartbeat.fire(1 / 60)
 		pan(V2.new(202, 6), V2.new(200, 20), E.UserInputState.Begin)

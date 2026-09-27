@@ -1,5 +1,6 @@
 --!strict
 local activation = require("./activation")
+local scrollLock = require("./scroll_lock")
 local reducedMotion = require("./motion")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
@@ -444,21 +445,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 				stopPan = nil
 			end
 		end)
-		local heldScrollers: { [ScrollingFrame]: boolean } = {}
+		local releaseScrollers: (() -> ())? = nil
 		local function freeScrollers(): ()
-			for scroller, enabled in heldScrollers do
-				scroller.ScrollingEnabled = enabled
+			if releaseScrollers then
+				releaseScrollers()
+				releaseScrollers = nil
 			end
-			table.clear(heldScrollers)
 		end
 		local function holdScrollers(): ()
-			local at = root.Parent
-			while at do
-				if at:IsA("ScrollingFrame") and heldScrollers[at] == nil then
-					heldScrollers[at] = at.ScrollingEnabled
-					at.ScrollingEnabled = false
-				end
-				at = at.Parent
+			if releaseScrollers == nil then
+				releaseScrollers = scrollLock.holdOwnedAncestors(root)
 			end
 		end
 		Compose.cleanup(freeScrollers)

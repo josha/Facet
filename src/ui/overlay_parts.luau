@@ -4,6 +4,7 @@ local Types = require("./types")
 local Overlay = require("./overlay_types")
 local Inputs = require("./input_types")
 local measuredScroll = require("./measured_scroll")
+local scrollLock = require("./scroll_lock")
 local freeze = require("./freeze")
 
 type ButtonFactory = Types.Constructor<Inputs.ButtonProps, TextButton>
@@ -408,6 +409,7 @@ function parts.room(
 	end
 	props.Selectable = false
 	local frame = Host.ScrollingFrame(props)
+	scrollLock.own(frame)
 	parts.reach(ctx, frame, tight)
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end
