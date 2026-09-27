@@ -126,12 +126,10 @@ return {
 		return {
 			section = section,
 			screen = function()
-				return Host.ScrollingFrame "Avatar" {
+				return UI.ScrollView "Avatar" {
+					padding = 16,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					CanvasSize = D2.new(),
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 					section(),
 				}
 			end,

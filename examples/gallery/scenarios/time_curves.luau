@@ -61,7 +61,6 @@ return {
 		end
 		local function screen()
 			local children = {
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
 				label("Title", "Time curves — a duration a spring cannot promise"),
 				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
 				label("RaceHeading", "Cooldown: on time versus approaching"),
@@ -141,12 +140,11 @@ return {
 					label("PanelCaption", "The plate doubles its height on the same curve, in the same action."),
 				}
 			)
-			return Host.ScrollingFrame "TimeCurves" {
+			return UI.ScrollView "TimeCurves" {
+				padding = 16,
+				gap = 12,
 				Size = D2.fromScale(1, 1),
-				AutomaticCanvasSize = E.AutomaticSize.Y,
-				CanvasSize = D2.new(),
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 				table.unpack(children),
 			}
 		end

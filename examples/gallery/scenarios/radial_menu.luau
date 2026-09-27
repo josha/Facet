@@ -536,11 +536,10 @@ return {
 		local function screen()
 			local content = controls()
 			table.insert(content, 3, sceneRows())
-			return Host.ScrollingFrame "RadialMenu" {
+			return UI.ScrollView "RadialMenu" {
+				padding = 16,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.fromOffset(0, 0),
 				ScrollBarThickness = 6,
 				Host.Frame "Body" {
 					BackgroundTransparency = 1,
@@ -550,12 +549,6 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
-					}),
-					Host.UIPadding({
-						PaddingTop = UDim.new(0, 16),
-						PaddingBottom = UDim.new(0, 16),
-						PaddingLeft = UDim.new(0, 16),
-						PaddingRight = UDim.new(0, 16),
 					}),
 					table.unpack(content),
 				},

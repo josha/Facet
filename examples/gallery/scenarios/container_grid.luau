@@ -150,12 +150,11 @@ return {
 		end
 		return {
 			screen = function()
-				return Host.ScrollingFrame "ContainerGrid" {
+				return UI.ScrollView "ContainerGrid" {
+					padding = 16,
+					gap = 12,
 					Size = D2.fromScale(1, 1),
-					AutomaticCanvasSize = E.AutomaticSize.Y,
-					CanvasSize = D2.new(),
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 12) }),
 					UI.Text({ text = "One screen, three containers", textRole = "title" }),
 					UI.Text({
 						text = "Each panel reads its own width; its cells use the actual space inside the frame.",

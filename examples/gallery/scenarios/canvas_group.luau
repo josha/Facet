@@ -42,12 +42,11 @@ return {
 					})
 				)
 			end
-			return Host.ScrollingFrame "CanvasGroupDemo" {
+			return UI.ScrollView "CanvasGroupDemo" {
+				padding = 16,
+				gap = 12,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				CanvasSize = UDim2.new(),
-				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }),
 				UI.Text({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }),
 				UI.Text({
 					LayoutOrder = 2,
