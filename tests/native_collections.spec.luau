@@ -2141,15 +2141,14 @@ t.describe("Compose native collections", function()
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(250, 100)
 		local row = body:FindFirstChild("1", true)
-		local value = row:FindFirstChild("Value", true)
 		t.expect(row:FindFirstChild("Details", true)).toBeNil()
-		value.TextFits = false
+		row:FindFirstChild("Undisclosed", true).TextFits = false
 		row:FindFirstChild("Details", true).Activated.fire()
 		local expanded = target:FindFirstChild("Popup", true)
 		t.expect(expanded:FindFirstChild("FullValue", true).Text).toBe("Long value that should be disclosed")
 		source:set({ { id = 1, label = "Updated entire value" } })
 		t.expect(expanded:FindFirstChild("FullValue", true).Text).toBe("Updated entire value")
-		value.TextFits = true
+		row:FindFirstChild("Undisclosed", true).TextFits = true
 		t.expect(target:FindFirstChild("Popup", true)).toBeNil()
 		t.expect(body:FindFirstChild("1", true)).toBe(row)
 		stop()
@@ -2492,7 +2491,7 @@ t.describe("Table compact width", function()
 		t.expect(band.Size).toBe(engine.types.UDim2.new(1, -gutter, 0, node:FindFirstChild("Header").Size.Y.Offset))
 		t.expect(band:HasTag("facet-tablehead")).toBe(true)
 		t.expect(node:FindFirstChild("Header").BackgroundTransparency).toBe(1)
-		row:FindFirstChild("Value", true).TextFits = false
+		row:FindFirstChild("Undisclosed", true).TextFits = false
 		local more = row:FindFirstChild("Details", true)
 		t.expect(more:FindFirstChild("Title", true) == nil or not more:FindFirstChild("Title", true).Visible).toBe(true)
 		t.expect(more:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
@@ -3037,6 +3036,34 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		t.expect(lane.Position.X.Offset).toBe(-35)
 		t.expect(painted.Position.X.Offset).toBe(35)
 		t.expect(lane.Parent.ClipsDescendants).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("a touch cell wraps only at word boundaries and truncates when one word cannot fit", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = { { id = 1, name = "Neon Straightaway" } },
+				key = key,
+				columns = { { id = "name", label = "Name" } },
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		local cell = body:FindFirstChild("1", true):FindFirstChild("name", true)
+		local value, word = cell:FindFirstChild("Value"), cell:FindFirstChild("LongestWord")
+		t.expect(word.Text).toBe("Straightaway")
+		t.expect(word.TextWrapped).toBe(false)
+		t.expect(value.TextTruncate).toBe(engine.types.Enum.TextTruncate.AtEnd)
+		word.TextFits = true
+		t.expect(value.TextWrapped).toBe(true)
+		word.TextFits = false
+		t.expect(value.TextWrapped).toBe(false)
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		word.TextFits = true
+		t.expect(value.TextWrapped).toBe(false)
 		stop()
 		runtime:dispose()
 	end)

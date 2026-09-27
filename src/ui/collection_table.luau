@@ -313,6 +313,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			return 0
 		end)
+		local disclosureShare = Compose.formula(function(use: ComposeTypes.Use): number
+			if next(use(collapsed)) ~= nil then
+				return 0
+			end
+			local hidden, resized, flexible = use(collapsed), readSource(widths, use), 0
+			for _, column in read(spec.columns, use) do
+				if not hidden[column.id] and resized[column.id] == nil and column.width == nil then
+					flexible += 1
+				end
+			end
+			return if flexible > 0 then use(disclosureWidth) / flexible else 0
+		end)
 		local narrowest = Compose.formula(function(use: ComposeTypes.Use): number
 			local hidden, resized, total = use(collapsed), readSource(widths, use), 0
 			for _, column in read(spec.columns, use) do
@@ -333,7 +345,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
 			index: ComposeTypes.Readable<number>,
 			content: GuiObject,
-			extra: GuiObject?
+			extra: GuiObject?,
+			more: GuiObject?
 		): Frame
 			local nativeProps: Types.FrameProps = {
 				Name = current:peek().id,
@@ -360,6 +373,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				}),
 				content,
 				extra,
+				more,
 			}
 			return Host.Frame(nativeProps)
 		end
@@ -674,26 +688,64 @@ return function(ctx: Types.Context, UI: Controls): ()
 										return field(item, definition)
 									end, assert(spec.onCellChange), cellsLive)
 									else nil
+							local function valueText(use: ComposeTypes.Use): string
+								local result = field(use(current), use(column))
+								return if result == nil then "" else tostring(result)
+							end
+							local function longest(use: ComposeTypes.Use): string
+								local found = ""
+								for word in string.gmatch(valueText(use), "%S+") do
+									if #word > #found then
+										found = word
+									end
+								end
+								return found
+							end
+							local function probe(
+								name: string,
+								text: (ComposeTypes.Use) -> string,
+								share: boolean
+							): TextLabel
+								return ctx.styled(
+									ctx.text({
+										Name = name,
+										TextWrapped = false,
+										TextTransparency = 1,
+										Interactable = false,
+										Size = function(use: ComposeTypes.Use)
+											return D2.new(1, if share then use(disclosureShare) else 0, 1, 0)
+										end,
+										AutomaticSize = E.AutomaticSize.None,
+										Text = text,
+									}),
+									"TableValue"
+								)
+							end
+							local longestWord = if render then nil else probe("LongestWord", longest, false)
+							local undisclosed = if render
+								then nil
+								else probe("Undisclosed", function(use: ComposeTypes.Use): string
+									return if touchRows(use) then longest(use) else valueText(use)
+								end, true)
+							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 							local content = if render
 								then render(current, placement, key)
 								else ctx.styled(
 									ctx.text({
 										Name = "Value",
 										TextTruncate = E.TextTruncate.AtEnd,
-										TextWrapped = touchRows,
+										TextWrapped = function(use: ComposeTypes.Use): boolean
+											return touchRows(use) and use(assert(wordFits)) ~= false
+										end,
 										Size = D2.fromScale(1, 1),
 										AutomaticSize = E.AutomaticSize.None,
-										Text = function(use: ComposeTypes.Use)
-											local item, value = use(current), use(column)
-											local result = field(item, value)
-											return if result == nil then "" else tostring(result)
-										end,
+										Text = valueText,
 									}),
 									"TableValue"
 								)
 							if not render then
 								recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
-								local fits = ctx.observe.TextFits(content :: TextLabel)
+								local fits = ctx.observe.TextFits(assert(undisclosed))
 								Compose.watch(function(use: ComposeTypes.Use)
 									local id = use(column).id
 									local hidden = use(fits) == false
@@ -711,7 +763,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 									end
 								end)
 							end
-							local cell = ctx.styled(columnFrame(column, index, content), "TableCell")
+							local cell =
+								ctx.styled(columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
 							cell.ClipsDescendants = true
 							return cell
 						end,
