@@ -2,6 +2,8 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
+local overlay = require("./lib/overlay_world")
+local Vector2 = require("@lune/roblox").Vector2
 local Compose = Facet.Compose
 
 local PREVIEW = 0.62
@@ -186,5 +188,30 @@ t.describe("layout decisions under a preview UIScale", function()
 			world.stop()
 			return out
 		end)
+	end)
+	t.it("a Toast with an action places it beside or below the copy as it does unscaled", function()
+		for _, copy in { 120, 250 } do
+			both(`Toast {copy}`, function(factor)
+				local w = overlay.new(function(UI)
+					return UI.Toast "Saved" {
+						isPresented = Compose.cell(true),
+						onPresentedChange = function() end,
+						message = "Saved to garage",
+						action = { label = "Undo", onActivate = function() end },
+					}
+				end, { size = Vector2.new(390 * factor, 844 * factor), reducedMotion = true })
+				for _, node in w.screen:GetDescendants() do
+					if node.Name == "LayoutUnit" then
+						node.AbsoluteSize = w.Vector2.new(100 * factor, factor)
+					end
+				end
+				local row = w.find("Snack")
+				overlay.find(row, "Action").AbsoluteSize = w.Vector2.new(100 * factor, 44 * factor)
+				overlay.find(row, "MessageMeasure").TextBounds = w.Vector2.new(copy * factor, 18 * factor)
+				local out = tostring(overlay.find(row, "Body"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+				w.stop()
+				return out
+			end)
+		end
 	end)
 end)

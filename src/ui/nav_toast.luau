@@ -431,12 +431,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 
 	local function actionRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec, layer = record.spec, stack.layer
-		local extent = ctx.layoutSize(layer)
 		local origin = ctx.observe.AbsolutePosition(layer)
 		local closable = spec.closeButton ~= false
-		local function cap(use: ComposeTypes.Use): number
-			return math.max(0, math.min(ctx.metric("controls.snackbar.maxWidth", use), use(extent).X - 32))
-		end
 		local measure = ctx.text({
 			Name = "MessageMeasure",
 			Text = function(use: ComposeTypes.Use)
@@ -448,7 +444,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			AutomaticSize = E.AutomaticSize.None,
 			Visible = false,
 		})
-		local natural = ctx.observe.TextBounds(measure)
+		local unit = ctx.layoutUnit(measure)
+		local extent = ctx.layoutSize(layer, unit)
+		local function cap(use: ComposeTypes.Use): number
+			return math.max(0, math.min(ctx.metric("controls.snackbar.maxWidth", use), use(extent).X - 32))
+		end
+		local natural = ctx.layoutBounds(measure, unit)
 		local actionWidth = Compose.cell(0)
 		local function chrome(use: ComposeTypes.Use): number
 			local package = ctx.read(ctx.config.theme, use)
@@ -496,7 +497,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end,
 		}
-		local buttonSize = ctx.observe.AbsoluteSize(button)
+		local buttonSize = ctx.layoutSize(button, unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			actionWidth:set(use(buttonSize).X)
 		end)
