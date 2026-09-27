@@ -846,6 +846,14 @@ t.describe("Compose native collections", function()
 		pressed = { { KeyCode = E.KeyCode.A } }
 		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
 		t.expect(shown()).toBe(false)
+		pressed = {}
+		input.PreferredInput = E.PreferredInput.Touch
+		pressed = { { KeyCode = E.KeyCode.LeftShift } }
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(shown()).toBe(true)
+		pressed = {}
+		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+		t.expect(shown()).toBe(false)
 		stop()
 		runtime:dispose()
 	end)

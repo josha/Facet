@@ -1212,6 +1212,52 @@ t.describe("native parity paint", function()
 		end
 	)
 
+	t.it(
+		"keeps touch hover rules out while only a modifier key is down, then follows a real key or the mouse",
+		function()
+			local h = harness()
+			local E = h.engine.types.Enum
+			local environment = (getfenv :: any)(0)
+			local gui = h.engine.new("GuiService")
+			local input = h.engine.new("UserInputService")
+			local pressed = {}
+			input.GetKeysPressed = function()
+				return pressed
+			end
+			input.GetMouseButtonsPressed = function()
+				return {}
+			end
+			input.PreferredInput = E.PreferredInput.Touch
+			environment.game = {
+				GetService = function(_, name: string)
+					return if name == "UserInputService" then input else gui
+				end,
+			}
+			local sheet, stop = sheetFor(h, themes.neutralPackage())
+			environment.game = nil
+			local function hovering(): boolean
+				return hasRule(sheet, ".facet-button:Hover")
+			end
+			t.expect(hovering()).toBe(false)
+			pressed = { { KeyCode = E.KeyCode.LeftSuper } }
+			input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(hovering()).toBe(false)
+			pressed = {}
+			input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+			t.expect(hovering()).toBe(true)
+			input.PreferredInput = E.PreferredInput.Touch
+			t.expect(hovering()).toBe(false)
+			pressed = { { KeyCode = E.KeyCode.LeftShift } }
+			input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(hovering()).toBe(false)
+			pressed = { { KeyCode = E.KeyCode.LeftShift }, { KeyCode = E.KeyCode.C } }
+			input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.C })
+			t.expect(hovering()).toBe(true)
+			stop()
+			h.dispose()
+		end
+	)
+
 	t.it("treats a garbage transparency preference as the identity", function()
 		local h = harness()
 		local preference = Compose.cell(1 :: any)

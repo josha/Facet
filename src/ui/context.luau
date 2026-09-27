@@ -6,6 +6,7 @@ local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
 local adaptive = require("./adaptive")
+local preferredInput = require("./preferred_input")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -203,31 +204,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return value
 		end)
 	end
-	local MODIFIERS: { [string]: boolean } = {
-		LeftShift = true,
-		RightShift = true,
-		LeftControl = true,
-		RightControl = true,
-		LeftAlt = true,
-		RightAlt = true,
-		LeftMeta = true,
-		RightMeta = true,
-		LeftSuper = true,
-		RightSuper = true,
-	}
-	local function modifiersOnly(input: UserInputService): boolean
-		local ok, keys = pcall(input.GetKeysPressed, input)
-		if not ok or type(keys) ~= "table" or #keys == 0 then
-			return false
-		end
-		for _, key in keys do
-			if not MODIFIERS[key.KeyCode.Name] then
-				return false
-			end
-		end
-		local clicked, buttons = pcall(input.GetMouseButtonsPressed, input)
-		return not (clicked and type(buttons) == "table" and #buttons > 0)
-	end
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
 		if serviceNodes[node] then
@@ -245,8 +221,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					local current = observation.readProperty(node, property)
 					if
 						preferred
-						and current == Enum.PreferredInput.KeyboardAndMouse
-						and modifiersOnly(node :: UserInputService)
+						and preferredInput.withheld(
+							node :: UserInputService,
+							current,
+							Enum.PreferredInput.KeyboardAndMouse
+						)
 					then
 						return
 					end
@@ -259,14 +238,14 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 				local stop = observation.observeProperty(node, property, publish)
 				if preferred then
-					local began = (node :: UserInputService).InputBegan:Connect(function()
+					local stopNudges = preferredInput.nudges(node :: UserInputService, Enum, function()
 						if cell:peek() ~= observation.readProperty(node, property) then
 							publish()
 						end
 					end)
 					local unobserve = stop
 					stop = function()
-						began:Disconnect()
+						stopNudges()
 						unobserve()
 					end
 				end

@@ -6,6 +6,7 @@ local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local adaptive = require("./adaptive")
+local preferredInput = require("./preferred_input")
 local themeDistance = require("./theme_distance")
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
@@ -1579,16 +1580,24 @@ local function createStyleSheet(
 		local globals = getfenv(0)
 		local input = globals.game and globals.game:GetService("UserInputService")
 		if input then
+			local held = input.PreferredInput
 			local function pointing(): boolean
-				return input.PreferredInput ~= types.Enum.PreferredInput.Touch
+				local current = input.PreferredInput
+				if not preferredInput.withheld(input, current, types.Enum.PreferredInput.KeyboardAndMouse) then
+					held = current
+				end
+				return held ~= types.Enum.PreferredInput.Touch
 			end
 			local source = Compose.cell(pointing())
 			hover = source
-			local connection = input:GetPropertyChangedSignal("PreferredInput"):Connect(function()
+			local function refresh()
 				source:set(pointing())
-			end)
+			end
+			local connection = input:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
+			local stopNudges = preferredInput.nudges(input, types.Enum, refresh)
 			Compose.cleanup(function()
 				connection:Disconnect()
+				stopNudges()
 			end)
 		end
 	end
