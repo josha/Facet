@@ -102,6 +102,7 @@ export type RegionProps = Engine.FrameProps & {
 	mayDrop: boolean?,
 	form: Types.Cell<number>?,
 	expand: (() -> Instance)?,
+	reveal: boolean?,
 }
 export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 export type LayoutControls = {

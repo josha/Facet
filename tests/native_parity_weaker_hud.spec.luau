@@ -167,10 +167,10 @@ local function find(root: any, name: string): any
 end
 
 local function depth(id: string, name: string): number
-	return if name == "hidden" then 99 else assert(table.find(hud.forms[id], name))
+	return if name == "hidden" then 99 elseif name == "reveal" then 98 else assert(table.find(hud.forms[id], name))
 end
 local LADDER =
-	"Feed:hidden Tasks:one Readout:hidden Weapon:hidden Rail:chip Tasks:hidden Health:hidden Rail:hidden Clock:timer"
+	"Feed:hidden Tasks:one Readout:hidden Weapon:hidden Rail:chip Tasks:reveal Tasks:hidden Health:reveal Rail:hidden Health:hidden Clock:timer"
 local ZONES = { "Tasks", "Clock", "Rail", "Health", "Actions", "Feed", "Readout", "Weapon" }
 local SIZES = {
 	{ width = 1079, height = 809 },
@@ -182,7 +182,7 @@ local LANDSCAPE = { width = 691, height = 360 }
 local PORTRAIT = { width = 360, height = 691 }
 
 local function assertStrip(w: any, where: string)
-	for _, name in { "HudActionsTrigger", "Report", "Overflow" } do
+	for _, name in { "HudActionsTrigger", "Report" } do
 		local button = find(w.root, name)
 		t.expect(`{where}: {name} present={button ~= nil}`).toBe(`{where}: {name} present=true`)
 		local cursor = button
@@ -195,7 +195,7 @@ local function assertStrip(w: any, where: string)
 		end
 		t.expect(`{where}: {name} visible={visible}`).toBe(`{where}: {name} visible=true`)
 	end
-	find(w.root, "Overflow").Activated.fire()
+	w.built.steps.openOverflow()
 	t.expect(`{where}: sink opens={w.built.report().overflowOpen}`).toBe(`{where}: sink opens=true`)
 	t.expect(find(w.target, "OverflowBody") ~= nil).toBe(true)
 	w.built.steps.closeOverflow()
@@ -439,7 +439,6 @@ t.describe("native parity weaker hud-world", function()
 			{
 				{ "HudActionsTrigger", hud.copy.round1 },
 				{ "Report", hud.copy.round2 },
-				{ "Overflow", hud.copy.round3 },
 			}
 		do
 			local disc = find(w.root, entry[1])

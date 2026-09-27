@@ -2296,4 +2296,38 @@ t.describe("native parity navigation", function()
 		stop()
 		runtime:dispose()
 	end)
+	t.it("scrolls an overflowing top tab strip from its leading edge with no rail scrollbar", function()
+		local world = setup(function(UI, Host)
+			return UI.TabView({
+				selection = Compose.cell("progress"),
+				placement = "topBar",
+				tabs = {
+					{
+						id = "progress",
+						label = "Progress",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+					{
+						id = "levels",
+						label = "Levels",
+						content = function()
+							return Host.Frame({})
+						end,
+					},
+				},
+			})
+		end)
+		local V2 = world.engine.types.Vector2
+		local bar = find(world.screen, "Tabs")
+		local strip = bar:FindFirstChildWhichIsA("UIListLayout")
+		t.expect(bar.ScrollBarThickness).toBe(0)
+		bar.AbsoluteSize = V2.new(389, 44)
+		strip.AbsoluteContentSize = V2.new(300, 42)
+		t.expect(strip.HorizontalAlignment).toBe(world.engine.types.Enum.HorizontalAlignment.Center)
+		strip.AbsoluteContentSize = V2.new(468, 42)
+		t.expect(strip.HorizontalAlignment).toBe(world.engine.types.Enum.HorizontalAlignment.Left)
+		world.stop()
+	end)
 end)

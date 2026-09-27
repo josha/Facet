@@ -103,6 +103,39 @@ t.describe("layout decisions under a preview UIScale", function()
 		end
 	end)
 
+	t.it("a Sheet's measured scroller sets its canvas to the whole content, rounded up", function()
+		both("Sheet canvas", function(factor)
+			local world = worlds.new(function(UI, Host)
+				return UI.Sheet "Briefing" {
+					isPresented = Compose.cell(true),
+					detent = Compose.cell("medium"),
+					content = function()
+						return Host.Frame "Details" {}
+					end,
+				}
+			end)
+			scaleProbes(world, factor)
+			local body = world.find("SheetContent")
+			world.resize(body:FindFirstChild("SheetFlow", true), 347 * factor, 292.8 * factor)
+			local out = tostring(body.CanvasSize.Y.Offset)
+			world.stop()
+			return out
+		end)
+		local world = worlds.new(function(UI, Host)
+			return UI.Sheet "Briefing" {
+				isPresented = Compose.cell(true),
+				detent = Compose.cell("medium"),
+				content = function()
+					return Host.Frame "Details" {}
+				end,
+			}
+		end)
+		local body = world.find("SheetContent")
+		world.resize(body:FindFirstChild("SheetFlow", true), 347, 292.8)
+		t.expect(body.CanvasSize.Y.Offset).toBe(293)
+		world.stop()
+	end)
+
 	t.it("StepIndicator picks the row or the summary as it does unscaled", function()
 		for _, width in { 900, 300 } do
 			both(`StepIndicator {width}`, function(factor)

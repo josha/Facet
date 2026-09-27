@@ -320,8 +320,15 @@ t.describe("pointer, touch and drag strength", function()
 		function()
 			local picked = {}
 			local opened = Compose.cell(false)
-			local world = radial({ isPresented = opened, distribution = "compass", items = compass(picked) })
+			local items = compass(picked)
+			for _, item in items do
+				item.icon, item.labelStyle = "flag", "icon"
+			end
+			local world = radial({ isPresented = opened, distribution = "compass", items = items })
 			local launcher = find(world.root, "Launcher")
+			world.input.GetLastInputType = function()
+				return world.engine.types.Enum.UserInputType.MouseMovement
+			end
 			for _, kind in { "Touch", "MouseButton1" } do
 				local press = touch(world, 320, 240)
 				press.UserInputType = world.engine.types.Enum.UserInputType[kind]
@@ -422,7 +429,7 @@ t.describe("pointer, touch and drag strength", function()
 				find(world.root, "RadialPanel").InputBegan.fire(press)
 				moveTo(world, press, 710, 100)
 				t.expect(presentation(world)).toBe("radial")
-				t.expect(preview(world)).toBe("E")
+				t.expect(find(world.root, "E"):HasTag("facet-selected")).toBe(true)
 				t.expect(#picked).toBe(0)
 				release(world, press)
 				t.expect(table.concat(picked, ",")).toBe("E")

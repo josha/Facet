@@ -55,8 +55,7 @@ local measured = require("./lib/hud_measure")
 local measure, LANDSCAPE, PORTRAIT, TINY = measured.measure, measured.LANDSCAPE, measured.PORTRAIT, measured.TINY
 
 local function sink(root)
-	local row = find(root, "Overflow")
-	return if row.Parent.Parent.Visible then row else find(root, "OverflowColumn")
+	return find(root, if find(root, "Actions"):GetAttribute("FacetForm") == 1 then "ActionMenu" else "ActionsCompact")
 end
 
 local function hasText(root, text)

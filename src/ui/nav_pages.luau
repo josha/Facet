@@ -438,12 +438,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function inset(use: ComposeTypes.Use): UDim
 			return D.new(0, if plated(use) then INSET else 0)
 		end
+		local stripOverflows = Compose.cell(false)
 		local stripLayout = Host.UIListLayout({
 			FillDirection = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then E.FillDirection.Vertical else E.FillDirection.Horizontal
 			end,
 			SortOrder = E.SortOrder.LayoutOrder,
-			HorizontalAlignment = E.HorizontalAlignment.Center,
+			HorizontalAlignment = function(use: ComposeTypes.Use)
+				return if use(stripOverflows) then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
+			end,
 			VerticalAlignment = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then E.VerticalAlignment.Top else E.VerticalAlignment.Center
 			end,
@@ -491,7 +494,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			ZIndex = 2,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			ScrollBarThickness = 2,
+			ScrollBarThickness = function(use: ComposeTypes.Use)
+				return if use(placement) == "sidebar" then 2 else 0
+			end,
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			CanvasSize = D2.fromOffset(0, 0),
 			AutomaticCanvasSize = function(use: ComposeTypes.Use)
@@ -929,6 +934,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local barSize, barPosition = ctx.observe.AbsoluteSize(bar), ctx.observe.AbsolutePosition(bar)
 		Compose.watch(function(use: ComposeTypes.Use)
 			barExtent:set(use(barSize))
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local room = use(barSize).X
+			stripOverflows:set(
+				use(placement) ~= "sidebar" and room > 0 and use(stripContent).X > room - 2 * inset(use).Offset + 0.5
+			)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local selected = use(spec.selection)

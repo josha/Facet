@@ -97,6 +97,11 @@ local function mount(options: { [string]: any }?, topbar: any?): (any, any, any,
 	for name, size in SIZES do
 		sized(engine, root:FindFirstChild(name, true), size[1], size[2])
 	end
+	for _, node in root:GetDescendants() do
+		if node.Name == "Reveal" then
+			sized(engine, node, 28, 20)
+		end
+	end
 	return root, engine, forms, gui, function()
 		runtime:dispose()
 	end
@@ -270,6 +275,150 @@ t.describe("Composition", function()
 		t.expect(form:peek()).toBe(1)
 		t.expect(w.find("TasksRich")).toBeNil()
 		w.stop()
+	end)
+
+	t.it("leaves a Show hidden disc in place of a dropped region that can reveal, unless reveal is off", function()
+		local overlay = require("./lib/overlay_world")
+		for _, reveal in { true, false } do
+			local form = Compose.cell(1)
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
+					UI.Region "Feed" {
+						zone = "left",
+						rank = 2,
+						mayDrop = true,
+						reveal = if reveal then nil else false,
+						form = form,
+						expand = function()
+							return Host.TextLabel "FeedRich" { Text = "Ravi eliminated Mo" }
+						end,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
+			w.size(w.find("RoundsFull"), 120, 44)
+			w.size(w.find("FeedFull"), 240, 130)
+			local disc = w.find("Reveal")
+			t.expect(disc ~= nil).toBe(reveal)
+			if disc then
+				w.size(disc, 28, 20)
+			end
+			local zones = w.find("Zones")
+			w.size(zones, 800, 400)
+			t.expect(form:peek()).toBe(1)
+			w.size(zones, 800, 200)
+			t.expect(form:peek()).toBe(if reveal then 2 else 0)
+			if disc then
+				t.expect(disc.Parent.Visible).toBe(true)
+				t.expect(w.find("Feed"):FindFirstChild("Expand").Visible).toBe(true)
+				w.find("Feed"):FindFirstChild("Expand").Activated.fire()
+				t.expect(w.find("FeedRich") ~= nil).toBe(true)
+				w.size(zones, 800, 400)
+				t.expect(w.find("FeedRich")).toBeNil()
+			end
+			w.stop()
+		end
+	end)
+
+	t.it(
+		"reveals a dropped region's own content in place when it has no expand, and puts the same node back",
+		function()
+			local overlay = require("./lib/overlay_world")
+			local form = Compose.cell(1)
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
+					UI.Region "Feed" {
+						zone = "left",
+						rank = 2,
+						mayDrop = true,
+						form = form,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
+			local feed = w.find("FeedFull")
+			local home = feed.Parent
+			w.size(w.find("RoundsFull"), 120, 44)
+			w.size(feed, 240, 130)
+			w.size(w.find("Reveal"), 28, 20)
+			local zones = w.find("Zones")
+			w.size(zones, 800, 400)
+			w.size(zones, 800, 200)
+			t.expect(form:peek()).toBe(2)
+			local target = w.find("Feed"):FindFirstChild("Expand")
+			t.expect(target.Visible).toBe(true)
+			target.Activated.fire()
+			t.expect(w.find("ExpandModal") ~= nil).toBe(true)
+			t.expect(feed.Parent.Name).toBe("Hosted")
+			t.expect(feed:IsDescendantOf(w.find("ExpandModal"))).toBe(true)
+			w.size(feed, 200, 100)
+			w.size(zones, 800, 400)
+			t.expect(form:peek()).toBe(1)
+			t.expect(feed.Parent).toBe(home)
+			t.expect(feed.Parent ~= nil and home.Visible).toBe(true)
+			w.stop()
+		end
+	)
+
+	t.it("gathers a zone's dropped regions behind one hit-floor badge beside the zone, outside its flow", function()
+		local overlay = require("./lib/overlay_world")
+		for _, reveal in { true, false } do
+			local feedForm, stayForm = Compose.cell(1), Compose.cell(1)
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Stay" { zone = "left", rank = 1, form = stayForm, Host.Frame { Name = "StayFull" } },
+					UI.Region "Feed" {
+						zone = "left",
+						rank = 2,
+						mayDrop = true,
+						reveal = if reveal then nil else false,
+						form = feedForm,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
+			local feed = w.find("FeedFull")
+			local home = feed.Parent
+			w.size(w.find("StayFull"), 100, 60)
+			w.size(feed, 120, 60)
+			local badge = w.find("Reveal")
+			if badge then
+				w.size(badge, 28, 60)
+			end
+			local zones = w.find("Zones")
+			w.size(zones, 800, 400)
+			local target = w.find("ZoneRevealLeft")
+			t.expect(target ~= nil).toBe(reveal)
+			w.size(zones, 800, 100)
+			t.expect(feedForm:peek()).toBe(0)
+			if target then
+				local left = w.find("Left")
+				w.size(left, 100, 60)
+				t.expect(target.Visible).toBe(true)
+				t.expect(target.Parent).toBe(zones)
+				t.expect(target.Size.X.Offset >= 44 and target.Size.Y.Offset >= 44).toBe(true)
+				t.expect(target.Position.X.Offset >= 100).toBe(true)
+				t.expect(target.AnchorPoint.X).toBe(0)
+				target.Activated.fire()
+				t.expect(feed:IsDescendantOf(w.find("HiddenFeed"))).toBe(true)
+				w.size(zones, 800, 400)
+				t.expect(feedForm:peek()).toBe(1)
+				t.expect(feed.Parent).toBe(home)
+				t.expect(target.Visible).toBe(false)
+			end
+			w.stop()
+		end
 	end)
 
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()

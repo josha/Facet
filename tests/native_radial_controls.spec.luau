@@ -254,6 +254,9 @@ t.describe("native radial interaction policies", function()
 			},
 		})
 		world.step(0.5)
+		world.input.GetLastInputType = function()
+			return world.engine.types.Enum.UserInputType.MouseMovement
+		end
 		for _, id in { "look", "wave" } do
 			local button = world.find(id)
 			button.MouseEnter.fire()
@@ -557,9 +560,11 @@ t.describe("native radial interaction policies", function()
 			},
 		})
 		world.find("Branch").Activated.fire()
+		world.input.GetLastInputType = function()
+			return world.engine.types.Enum.UserInputType.MouseMovement
+		end
 		world.find("Action").MouseEnter.fire()
 		t.expect(world.find("SelectionPreview").Text).toBe("Long readable action")
-		t.expect(world.find("SelectionPreview").TextXAlignment).toBe(world.engine.types.Enum.TextXAlignment.Center)
 		world.find("$navigation").Activated.fire()
 		t.expect(world.find("Branch") ~= nil).toBe(true)
 		world.stop()
@@ -726,7 +731,7 @@ t.describe("native radial interaction policies", function()
 			world.opened:set(true)
 			local at = world.find("Center").Position
 			world.opened:set(false)
-			return at.X.Offset, at.Y.Offset + (4 + 12 + 4) / 2
+			return at.X.Offset, at.Y.Offset
 		end
 		local x, y = centre(140, 200)
 		t.expect(x).toBe(160)
@@ -790,7 +795,7 @@ t.describe("native radial interaction policies", function()
 		t.expect(world.find("Center").Size.X.Offset).toBe(48)
 		world.stop()
 	end)
-	t.it("puts a small plate-less close and the highlighted name inside the hole over a full dark scrim", function()
+	t.it("puts a small plate-less close in the hole over a full dark scrim and names no labelled wedge", function()
 		for _, label in { false, "Leave the wheel" } do
 			local world = setup({
 				distribution = "compass",
@@ -828,19 +833,11 @@ t.describe("native radial interaction policies", function()
 			t.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
 			t.expect(centre:GetAttribute("label")).toBe(if label then label else "Close")
 			local preview = world.find("SelectionPreview")
-			t.expect(preview.Text).toBe("")
-			world.find("N").MouseEnter.fire()
-			t.expect(preview.Text).toBe("N")
-			local px, py = preview.Position.X.Offset, preview.Position.Y.Offset
-			local pw, ph = preview.Size.X.Offset, preview.Size.Y.Offset
-			t.expect(preview.AnchorPoint.X == 0.5 and preview.AnchorPoint.Y == 0.5).toBe(true)
-			t.expect(pw > 0 and ph > 0).toBe(true)
-			for _, dx in { -pw / 2, pw / 2 } do
-				for _, dy in { -ph / 2, ph / 2 } do
-					t.expect(inside(px + dx, py + dy)).toBe(true)
-				end
+			world.input.GetLastInputType = function()
+				return world.engine.types.Enum.UserInputType.MouseMovement
 			end
-			t.expect(py - ph / 2 >= centre.Position.Y.Offset + h / 2).toBe(true)
+			world.find("N").MouseEnter.fire()
+			t.expect(preview.Text).toBe("")
 			world.stop()
 		end
 	end)
@@ -859,7 +856,7 @@ t.describe("native radial interaction policies", function()
 	t.it("a corner ring keeps Close on its corner and names the item outside the ring", function()
 		local items = {}
 		for _, id in { "look", "pack", "wave" } do
-			table.insert(items, { id = id, label = id, onSelect = function() end })
+			table.insert(items, { id = id, label = id, icon = "flag", onSelect = function() end })
 		end
 		local world = setup({
 			isPresented = Compose.cell(false),
@@ -877,6 +874,9 @@ t.describe("native radial interaction policies", function()
 		t.expect(centre.Position.X.Offset).toBe(40)
 		t.expect(centre.Position.Y.Offset).toBe(440)
 		t.expect(centre.Visible).toBe(true)
+		world.input.GetLastInputType = function()
+			return world.engine.types.Enum.UserInputType.MouseMovement
+		end
 		world.find("pack").MouseEnter.fire()
 		local preview = world.find("SelectionPreview")
 		t.expect(preview.Text).toBe("pack")
@@ -1133,16 +1133,18 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(world.find("Center"):GetAttribute("label")).toBe("Home")
 		world.stop()
 	end)
-	t.it("the list fallback names the highlighted item at the bottom left", function()
+	t.it("the list fallback heads its opaque panel with the path, clear of the page below", function()
 		local world = setup({ items = nested() })
 		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
 		local preview = world.find("SelectionPreview")
 		t.expect(preview.AnchorPoint).toBe(world.engine.types.Vector2.new(0, 1))
-		t.expect(preview.Position.X.Scale == 0 and preview.Position.Y.Scale == 1).toBe(true)
+		t.expect(preview.Position.Y.Scale).toBe(0)
 		t.expect(preview.TextXAlignment).toBe(world.engine.types.Enum.TextXAlignment.Left)
 		t.expect(preview:IsDescendantOf(world.find("RadialPanel"))).toBe(false)
 		local panel = world.find("RadialPanel")
-		t.expect(panel.Size.Y.Offset + panel.Position.Y.Offset <= preview.Position.Y.Offset - 24).toBe(true)
+		t.expect(preview.Position.Y.Offset <= panel.Position.Y.Offset).toBe(true)
+		t.expect(panel.BackgroundTransparency).toBe(0)
+		t.expect(panel:HasTag("facet-panel")).toBe(true)
 		world.stop()
 	end)
 	t.it("closing a corner ring hands the selection back to its launcher", function()
@@ -1224,6 +1226,80 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		world.gui.SelectedObject = world.find("gear")
 		world.find("gear").Activated.fire()
 		t.expect(world.gui.SelectedObject).toBe(world.find("tool"))
+		world.stop()
+	end)
+	t.it("names an icon item only while a finger holds it, never on a tap or a level change", function()
+		local function leaf(id: string, label: string): any
+			return { id = id, slot = "N", label = label, icon = "flag", labelStyle = "icon", onSelect = function() end }
+		end
+		local world = setup({
+			distribution = "compass",
+			completion = "stay",
+			items = {
+				leaf("N", "Lantern"),
+				{
+					id = "E",
+					slot = "E",
+					label = "Tools",
+					icon = "menu",
+					labelStyle = "icon",
+					children = { leaf("stow", "Stow") },
+				},
+			},
+		})
+		local preview, panel = world.find("SelectionPreview"), world.find("RadialPanel")
+		local north = world.find("N")
+		local x, y = north.Position.X.Offset, north.Position.Y.Offset
+		local tap = pointer(world, x, y)
+		panel.InputBegan.fire(tap)
+		world.input.InputEnded.fire(tap)
+		t.expect(preview.Text).toBe("")
+		local hold = pointer(world, x, y)
+		panel.InputBegan.fire(hold)
+		t.expect(preview.Text).toBe("")
+		world.step(0.5)
+		t.expect(preview.Text).toBe("Lantern")
+		world.input.InputEnded.fire(hold)
+		t.expect(preview.Text).toBe("")
+		world.find("E").Activated.fire()
+		t.expect(world.find("stow") ~= nil).toBe(true)
+		t.expect(preview.Text).toBe("")
+		world.find("stow").MouseEnter.fire()
+		t.expect(preview.Text).toBe("")
+		world.stop()
+	end)
+	t.it("keeps a nested level on the ring by replacing its parent before it falls back to a list", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, icon = "flag", labelStyle = "icon", onSelect = function() end }
+		end
+		local world = setup({
+			items = {
+				leaf("a"),
+				leaf("b"),
+				leaf("c"),
+				{
+					id = "gear",
+					label = "Gear",
+					icon = "menu",
+					labelStyle = "icon",
+					children = {
+						{
+							id = "tools",
+							label = "Tools",
+							navigation = "expand",
+							expansion = "fan",
+							children = { leaf("x"), leaf("y"), leaf("z") },
+						},
+						{ id = "wear", label = "Wear", children = { leaf("w") } },
+					},
+				},
+			},
+		})
+		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(360, 240)
+		world.find("gear").Activated.fire()
+		world.find("tools").Activated.fire()
+		t.expect(world.find("RadialPanel"):GetAttribute("Presentation")).toBe("radial")
+		t.expect(world.find("x") ~= nil).toBe(true)
 		world.stop()
 	end)
 end)

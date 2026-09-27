@@ -565,4 +565,41 @@ t.describe("native navigation stack paint", function()
 		expect(root.BackgroundTransparency).toBe(1)
 		w.stop()
 	end)
+	t.it("lets a fixed-width button's padding give way before its label vanishes", function()
+		local styleRules = require("./lib/style_rules")
+		local w = world(function(UI, _, engine)
+			return UI.Button "Key" {
+				label = "W",
+				Size = engine.types.UDim2.fromOffset(31, 44),
+				AutomaticSize = engine.types.Enum.AutomaticSize.None,
+			}
+		end)
+		local key = find(w.screen, "Key")
+		local sheet: any
+		w.runtime.mount(function()
+			sheet = themes.createStyleSheet(w.runtime, nil, { types = w.engine.types })
+			return sheet
+		end, w.engine.new("Folder"))
+		local function inset(): number
+			return styleRules.resolve(sheet, key, "PaddingLeft", "UIPadding").Offset
+		end
+		expect(inset()).toBe(12)
+		key.AbsoluteSize = w.V2.new(31, 44)
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(true)
+		expect(inset()).toBe(0)
+		key.TextFits = true
+		expect(key:HasTag("facet-button-tight")).toBe(true)
+		key.AbsoluteSize = w.V2.new(120, 44)
+		expect(key:HasTag("facet-button-tight")).toBe(false)
+		key.AbsoluteSize = w.V2.new(30, 44)
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(true)
+		key.AutomaticSize = w.E.AutomaticSize.X
+		expect(key:HasTag("facet-button-tight")).toBe(false)
+		key.TextFits = true
+		key.TextFits = false
+		expect(key:HasTag("facet-button-tight")).toBe(false)
+		w.stop()
+	end)
 end)
