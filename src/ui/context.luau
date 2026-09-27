@@ -777,12 +777,32 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local function paint(use: ComposeTypes.Use): NumberSequence
 			return types.NumberSequence.new(if use(warming) then 1 else amount(use))
 		end
+		local unstyled = Compose.cell(frames ~= nil)
+		if frames then
+			local first: RBXScriptConnection? = nil
+			first = frames.Heartbeat:Connect(function()
+				if first then
+					first:Disconnect()
+					first = nil
+				end
+				unstyled:set(false)
+			end)
+			Compose.cleanup(function()
+				if first then
+					first:Disconnect()
+				end
+			end)
+		end
 		local stop = runtime.mountFragment(function()
 			return {
 				Host.UIGradient "FadePaint" { Transparency = paint },
 				ctx.styled(
 					Host.UIStroke "FadeStroke" {
-						Host.UIGradient "FadePaint" { Transparency = paint },
+						Host.UIGradient "FadePaint" {
+							Transparency = function(use: ComposeTypes.Use): NumberSequence
+								return if use(unstyled) then types.NumberSequence.new(1) else paint(use)
+							end,
+						},
 					},
 					"fade-stroke"
 				),

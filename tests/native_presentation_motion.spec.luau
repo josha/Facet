@@ -256,6 +256,23 @@ t.describe("presentation motion: DisclosureGroup", function()
 		return w, expanded
 	end
 
+	t.it("keeps a fade node's outline hidden on the frame it mounts, before the theme styles it", function()
+		local w = overlay.new(function(UI)
+			return UI.DisclosureGroup "Settings" {
+				label = "Appearance",
+				expanded = Compose.cell(true),
+				content = function()
+					return UI.Button "Palette" { label = "Palette" }
+				end,
+			}
+		end, { runService = true })
+		local paint = w.find("RevealFade"):FindFirstChild("FadeStroke"):FindFirstChild("FadePaint")
+		t.expect(paint.Transparency.Keypoints[1].Value).toBe(1)
+		w.advance(FRAME)
+		t.expect(paint.Transparency.Keypoints[1].Value).toBe(0)
+		w.stop()
+	end)
+
 	t.it("reveals the height, fades the content in its first half and turns the chevron, frame by frame", function()
 		local w, expanded = disclosureWorld()
 		local caret = overlay.find(w.find("Header"), "LeadingIcon")
