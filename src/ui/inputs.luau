@@ -1032,21 +1032,42 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if not rich then
 			sized(node)
 			if spec.shape ~= "circle" then
-				local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
 				local sizing = ctx.observe.AutomaticSize(node)
-				local measured: number? = nil
-				Compose.watch(function(use: ComposeTypes.Use)
-					local width, whole, grows = use(box).X, use(fits), use(sizing)
-					if grows == E.AutomaticSize.X or grows == E.AutomaticSize.XY then
-						node:RemoveTag("facet-button-tight")
-					elseif width ~= measured and node:HasTag("facet-button-tight") then
-						measured = width
-						node:RemoveTag("facet-button-tight")
-					elseif not whole and width > 0 then
-						measured = width
-						node:AddTag("facet-button-tight")
-					end
-				end)
+				runtime.mountFragment(function()
+					return {
+						Compose.show(function(use: ComposeTypes.Use)
+							local grows = use(sizing)
+							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
+						end, function()
+							local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
+							local words, points, face =
+								ctx.observe.Text(node),
+								ctx.observeStyled.TextSize(node),
+								ctx.observeStyled.FontFace(node)
+							local measured: string? = nil
+							Compose.watch(function(use: ComposeTypes.Use)
+								use(box)
+								use(fits)
+								local width, whole = node.AbsoluteSize.X, node.TextFits
+								local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
+								if metrics ~= measured and node:HasTag("facet-button-tight") then
+									measured = metrics
+									node:RemoveTag("facet-button-tight")
+								end
+								if not whole and width > 0 and not node:HasTag("facet-button-tight") then
+									measured = metrics
+									node:AddTag("facet-button-tight")
+								end
+							end)
+							Compose.cleanup(function()
+								node:RemoveTag("facet-button-tight")
+							end)
+							return Compose.fragment(function()
+								return {}
+							end)
+						end),
+					}
+				end, node)
 			end
 		end
 		if underline == "hover" then

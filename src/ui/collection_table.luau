@@ -154,7 +154,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			return ownsToggle and (coarse(use) or keysOnly)
 		end
 		local toolbarHeight = Compose.formula(function(use: ComposeTypes.Use)
-			return if toolbarShown(use) then math.max(ctx.controlSize(nil, "height", use), 44) else 0
+			return if toolbarShown(use)
+				then math.max(ctx.controlSize(nil, "height", use), 44) + ctx.metric("space.s", use)
+				else 0
 		end)
 		local cellsLive = function(use: ComposeTypes.Use): boolean
 			return not toolbarShown(use) or read(editing, use) == true
@@ -636,6 +638,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 			selectable = spec.selectable,
 			onSelectionChange = spec.onSelectionChange,
 			onActivate = spec.onActivate,
+			editing = editing,
 
 			render = function(
 				current: ComposeTypes.Readable<V>,
@@ -742,8 +745,16 @@ return function(ctx: Types.Context, UI: Controls): ()
 									return if touchRows(use) then words(use) else valueText(use)
 								end, true, touchRows)
 							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
-							local content = if render
-								then render(current, placement, key)
+							local custom = definition.render
+							local content = if custom
+								then ctx.styled(
+									Host.Frame "Inset" {
+										BackgroundTransparency = 1,
+										custom(current, placement, key) :: ComposeTypes.Child,
+									},
+									"TableCellInset"
+								)
+								elseif render then render(current, placement, key)
 								else ctx.styled(
 									ctx.text({
 										Name = "Value",
@@ -812,6 +823,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							trigger = UI.Button "Details" {
 								icon = "more",
 								name = "More actions",
+								appearance = "utility",
 								Size = D2.new(0, 48, 1, 0),
 								Position = D2.new(1, -48, 0, 0),
 								AutomaticSize = E.AutomaticSize.None,
@@ -995,7 +1007,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 							return D2.fromOffset(0, use(toolbarHeight))
 						end,
 						Size = function(use: ComposeTypes.Use)
-							return D2.new(1, 0, 0, use(headerHeight))
+							local width = use(window).X
+							return if width > 0
+								then D2.fromOffset(width, use(headerHeight))
+								else D2.new(1, 0, 0, use(headerHeight))
 						end,
 					}),
 					"TableHead"
@@ -1041,11 +1056,27 @@ return function(ctx: Types.Context, UI: Controls): ()
 					if spec.reorderable then
 						table.insert(words, "L1 / R1 Move")
 					end
+					local function pad(use: ComposeTypes.Use): boolean
+						return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad
+					end
+					local remove = if spec.deletable and editor
+						then UI.Button "DeleteSelected" {
+							label = "Delete",
+							role = "destructive" :: InputTypes.ButtonRole,
+							Size = D2.new(0, 0, 1, 0),
+							AutomaticSize = E.AutomaticSize.X,
+							Visible = function(use: ComposeTypes.Use)
+								return read(editing, use) == true and not pad(use)
+							end,
+							enabled = editor.canDeleteSelected,
+							onActivate = editor.deleteSelected,
+						}
+						else nil
 					return Host.Frame({
 						Name = "Toolbar",
 						BackgroundTransparency = 1,
 						Size = function(use: ComposeTypes.Use)
-							return D2.new(1, 0, 0, use(toolbarHeight))
+							return D2.new(1, 0, 0, use(toolbarHeight) - ctx.metric("space.s", use))
 						end,
 						button :: ComposeTypes.Child,
 						ctx.styled(
@@ -1056,13 +1087,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 								Position = D2.fromScale(0, 0.5),
 								AutomaticSize = E.AutomaticSize.XY,
 								Visible = function(use: ComposeTypes.Use)
-									return read(editing, use) == true
-										and preferredInput ~= nil
-										and use(preferredInput) == E.PreferredInput.Gamepad
+									return read(editing, use) == true and pad(use)
 								end,
 							}),
 							"secondary"
 						),
+						remove,
 					})
 				end),
 				body,

@@ -526,7 +526,7 @@ function screen.build(ctx: any)
 		local size = if ctx.previewViewport then use(ctx.previewViewport) else { width = 1e4, height = 1e4 }
 		return math.min(460 * use(environment.metricScale), size.width - 28)
 	end
-	local function panel()
+	local function demoList()
 		local demoButtons = {}
 		for index, tab in tabs do
 			table.insert(
@@ -544,7 +544,9 @@ function screen.build(ctx: any)
 				})
 			)
 		end
-
+		return UI.VStack "DemoList" { gap = "xs", align = "center", width = "fill", table.unpack(demoButtons) }
+	end
+	local function panel()
 		local content = Compose.cell(0)
 		local card = UI.ScrollView "ShowcasePanel" {
 			gap = "s",
@@ -569,7 +571,6 @@ function screen.build(ctx: any)
 					return ctx.types.Vector2.new(if wide > 0 then wide else size.width - 28, math.huge)
 				end,
 			},
-			caption("SectionTitle", "Section"),
 			UI.Picker "Section" {
 				style = "segmented",
 				selected = section,
@@ -577,9 +578,7 @@ function screen.build(ctx: any)
 			},
 			Compose.show(function(use)
 				return use(section) == "demos"
-			end, function()
-				return UI.VStack "DemoList" { gap = "xs", align = "center", width = "fill", table.unpack(demoButtons) }
-			end, settingsContent),
+			end, demoList, settingsContent),
 		}
 		card:AddTag("facet-panel")
 		card:AddTag("facet-floating")

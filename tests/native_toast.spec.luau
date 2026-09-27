@@ -501,8 +501,11 @@ describe("UI.Toast: presentation", function()
 		f.world.stop()
 	end)
 
-	it("slides in with native text by default; fade = true also fades it in and out", function()
-		local plain = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { reducedMotion = false })
+	it("fades in and out as it slides by default; fade = false only slides, keeping native text", function()
+		local plain = toasts(
+			{ { message = "a", duration = 1, readFloor = 0, fade = false } },
+			{ reducedMotion = false }
+		)
 		plain.world.advance(0.05, 3)
 		local row = rows(plain.world)[1]
 		expect(row.Position.Y.Offset < 8).toBe(true)
@@ -512,15 +515,30 @@ describe("UI.Toast: presentation", function()
 		expect(row ~= nil and row.Position.Y.Offset < 8).toBe(true)
 		expect(row:FindFirstChild("Fade")).toBeNil()
 		plain.world.stop()
-		local faded = toasts({ { message = "a", duration = 1, readFloor = 0, fade = true } }, { reducedMotion = false })
+		local faded = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { reducedMotion = false })
 		faded.world.advance(0.05, 3)
 		local group = rows(faded.world)[1]:FindFirstChild("Fade")
 		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
+		local function outline(row: any): number?
+			local stroke = row:FindFirstChild("FadeStroke")
+			expect(stroke.ClassName).toBe("UIStroke")
+			expect(stroke:HasTag("facet-fade-stroke")).toBe(true)
+			return if row:HasTag("facet-fading")
+				then stroke:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value
+				else nil
+		end
+		local stroke = rows(faded.world)[1]:FindFirstChild("FadeStroke")
+		expect(outline(rows(faded.world)[1])).toBe(group.GroupTransparency)
 		faded.world.advance(0.5, 30)
 		expect(rows(faded.world)[1]:FindFirstChild("Fade")).toBeNil()
+		expect(outline(rows(faded.world)[1])).toBeNil()
+		expect(rows(faded.world)[1]:FindFirstChild("FadeStroke")).toBe(stroke)
+		expect(stroke:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value).toBe(0)
 		faded.world.advance(0.55, 33)
 		group = rows(faded.world)[1]:FindFirstChild("Fade")
 		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
+		expect(outline(rows(faded.world)[1])).toBe(group.GroupTransparency)
+		expect(rows(faded.world)[1]:FindFirstChild("FadeStroke")).toBe(stroke)
 		faded.world.stop()
 	end)
 

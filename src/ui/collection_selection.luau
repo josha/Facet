@@ -104,7 +104,7 @@ return function<V, K>(
 			return
 		end
 		if mode ~= "multiple" then
-			local selected = { [key] = true }
+			local selected = if read(spec.editing) == true and selection:peek()[key] then {} else { [key] = true }
 			anchorAt(key, selected)
 			publish(selected)
 			return
@@ -113,7 +113,12 @@ return function<V, K>(
 			return
 		end
 		local selected: CollectionTypes.Selection<K> = {}
-		if held(toggle) or input == nil or input.UserInputType ~= E.UserInputType.MouseButton1 then
+		if
+			held(toggle)
+			or input == nil
+			or input.UserInputType ~= E.UserInputType.MouseButton1
+			or read(spec.editing) == true
+		then
 			local current = selection:peek()
 			for other, on in current do
 				if on and other ~= key then

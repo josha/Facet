@@ -692,7 +692,11 @@ t.describe("native help: the plate arrives as one unit", function()
 			elseif node:IsA("UIScale") then
 				scales += 1
 				t.expect(node.Parent).toBe(panel)
-			elseif node.Parent ~= panel and (node:IsA("UIGradient") or node:IsA("CanvasGroup")) then
+			elseif
+				node.Parent ~= panel
+				and node.Parent.Name ~= "FadeStroke"
+				and (node:IsA("UIGradient") or node:IsA("CanvasGroup"))
+			then
 				error(`a second fade driver {node.Name}`)
 			end
 		end

@@ -231,7 +231,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			if not double then
 				selectRow(key, current:peek(), input)
 			end
-			if spec.onActivate and (selectionMode == "none" or not pointer or double) then
+			local choosing = selectionMode ~= "none" and read(spec.editing) == true
+			if spec.onActivate and not choosing and (selectionMode == "none" or not pointer or double) then
 				spec.onActivate(current:peek(), key, input, clicks)
 			end
 		end

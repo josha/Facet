@@ -4,6 +4,7 @@ local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local placement = require("../src/ui/overlay_placement")
 local Vector2 = require("@lune/roblox").Vector2
+local UDim2 = require("@lune/roblox").UDim2
 local LIFT = 16 * math.sqrt(2) / 2
 local function corner(panel: any): (number, number)
 	return panel.Position.X.Offset - panel.AnchorPoint.X * panel.AbsoluteSize.X,
@@ -379,10 +380,10 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		local flow = w.find("Flow")
 		flow.AbsoluteSize = Vector2.new(200, 1050)
 		t.expect(body.CanvasSize.Y.Offset).toBe(1050)
-		local list = flow:FindFirstChildWhichIsA("UIListLayout")
-		list.AbsoluteContentSize = Vector2.new(200, 60)
+		w.advance(0.5, 10)
+		flow.AbsoluteSize = Vector2.new(200, 60)
 		t.expect(body.Size.Y.Offset).toBe(60)
-		list.AbsoluteContentSize = Vector2.new(200, 1050)
+		flow.AbsoluteSize = Vector2.new(200, 1050)
 		t.expect(body.Size.Y.Offset).toBe(180 - 16)
 		t.expect(body.AutomaticSize).toBe(w.Enum.AutomaticSize.X)
 		w.screen.AbsoluteSize = Vector2.new(150, 600)
@@ -390,6 +391,96 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 		local panel = w.find("Panel")
 		panel.AbsoluteSize = Vector2.new(134, 164)
 		t.expect(panel.Position.X.Offset + 134 <= 150 - 8).toBe(true)
+		w.stop()
+	end)
+
+	t.it("the body is exactly as tall as its canvas while a presentation scale shrinks the panel", function()
+		local w = mount(function(UI, Host)
+			return {
+				isPresented = Compose.cell(true),
+				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+				content = function()
+					return content(UI, Host)
+				end,
+			}
+		end)
+		local body, flow = w.find("Body"), w.find("Flow")
+		overlay.find(body, "LayoutUnit").AbsoluteSize = Vector2.new(90, 0.9)
+		flow.AbsoluteSize = Vector2.new(180, 32.4)
+		flow:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = Vector2.new(180, 32.4)
+		t.expect(body.CanvasSize.Y.Offset).toBe(36)
+		t.expect(body.Size.Y.Offset).toBe(body.CanvasSize.Y.Offset)
+		w.stop()
+	end)
+
+	t.it("measures the content at rest before the entrance and holds that height while the panel scales", function()
+		local w = mount(function(UI, Host)
+			return {
+				isPresented = Compose.cell(true),
+				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+				content = function()
+					return content(UI, Host)
+				end,
+			}
+		end)
+		local body, flow, panel = w.find("Body"), w.find("Flow"), w.find("Panel")
+		local scale = panel:FindFirstChild("PresentationScale")
+		t.expect(scale.Scale).toBe(1)
+		flow.AbsoluteSize = Vector2.new(180, 60)
+		w.advance(1 / 60)
+		flow.AbsoluteSize = Vector2.new(180, 96)
+		w.advance(1 / 60)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(body.Size.Y.Offset).toBe(96)
+		w.advance(1 / 60)
+		w.advance(1 / 60)
+		t.expect(scale.Scale < 1).toBe(true)
+		flow.AbsoluteSize = Vector2.new(180, 94)
+		t.expect(body.Size.Y.Offset).toBe(96)
+		w.advance(0.5, 10)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(body.Size.Y.Offset).toBe(94)
+		w.stop()
+	end)
+
+	t.it("shows at once under reduced motion instead of waiting for the content to rest", function()
+		local w = mount(function(UI, Host)
+			return {
+				isPresented = Compose.cell(true),
+				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+				content = function()
+					return content(UI, Host)
+				end,
+			}
+		end, { reducedMotion = true })
+		local flow, panel = w.find("Flow"), w.find("Panel")
+		flow.AbsoluteSize = Vector2.new(180, 60)
+		w.advance(1 / 60)
+		flow.AbsoluteSize = Vector2.new(180, 96)
+		w.advance(1 / 60)
+		local fade = panel:FindFirstChild("FadePaint")
+		t.expect(fade == nil or fade.Transparency.Keypoints[1].Value == 0).toBe(true)
+		t.expect(panel:FindFirstChild("Fade")).toBe(nil)
+		w.stop()
+	end)
+
+	t.it("content that fills its width gets the standard popup width instead of collapsing", function()
+		local w = mount(function(UI, Host)
+			return {
+				isPresented = Compose.cell(true),
+				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+				content = function()
+					return Host.Frame({ Name = "Wide", Size = UDim2.new(1, 0, 0, 40) })
+				end,
+			}
+		end)
+		local floor
+		for _, node in w.find("Flow"):GetChildren() do
+			if node.ClassName == "UISizeConstraint" then
+				floor = node
+			end
+		end
+		t.expect(floor.MinSize.X).toBe(360 - 16)
 		w.stop()
 	end)
 

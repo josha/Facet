@@ -1,6 +1,7 @@
 --!strict
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
+local Facet = require("../src")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local Vector2 = require("@lune/roblox").Vector2
@@ -130,6 +131,20 @@ t.describe("CollapsibleView in place", function()
 		return w, expanded
 	end
 
+	t.it("takes the content fade's share of the reveal from the theme's motion tokens", function()
+		local package = Facet.themes.neutralPackage()
+		t.expect(package.metrics.motion.revealFadeShare).toBe(0.5)
+		package.metrics.motion.revealFadeShare = 1
+		local w, expanded = tipsWorld({ theme = package })
+		expanded:set(true)
+		local fade = w.find("ExpandedFade")
+		w.advance(0.15, 9)
+		t.expect(fadeKit.of(fade) > 0).toBe(true)
+		w.advance(0.15, 9)
+		t.expect(fadeKit.of(fade)).toBe(0)
+		w.stop()
+	end)
+
 	t.it("collapsed shows a one-line clamped summary with a More chevron", function()
 		local w = tipsWorld()
 		local trigger = w.find("Tips")
@@ -183,7 +198,7 @@ t.describe("CollapsibleView in place", function()
 		w.stop()
 	end)
 
-	t.it("one tween grows the plate out of the trigger's own rectangle and fades the content in", function()
+	t.it("the plate grows out of the trigger's rectangle; the content fades over the first half of it", function()
 		local w, expanded = tipsWorld()
 		local trigger = w.find("Tips")
 		trigger.AbsolutePosition, trigger.AbsoluteSize = w.Vector2.new(100, 100), w.Vector2.new(120, 44)
@@ -195,16 +210,21 @@ t.describe("CollapsibleView in place", function()
 		t.expect(plate.Size).toBe(w.engine.types.UDim2.fromOffset(120, 44))
 		t.expect(fade.Size).toBe(w.engine.types.UDim2.fromOffset(360, 200))
 		t.expect(fadeKit.of(fade)).toBe(1)
-		w.advance(0.1, 6)
+		w.advance(0.05, 3)
 		t.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360).toBe(true)
 		t.expect(fadeKit.of(fade) > 0 and fadeKit.of(fade) < 1).toBe(true)
-		w.advance(0.2, 12)
+		w.advance(0.1, 6)
 		t.expect(fadeKit.of(fade)).toBe(0)
+		t.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360).toBe(true)
+		w.advance(0.15, 9)
 		t.expect(plate.Size).toBe(w.engine.types.UDim2.fromOffset(360, 200))
 		expanded:set(false)
-		w.advance(0.1, 6)
+		w.advance(0.05, 3)
+		t.expect(fadeKit.of(fade) > 0 and fadeKit.of(fade) < 1).toBe(true)
+		w.advance(0.05, 3)
 		t.expect(plate.isDestroyed()).toBe(false)
-		t.expect(fadeKit.of(fade) > 0).toBe(true)
+		t.expect(fadeKit.of(fade)).toBe(1)
+		t.expect(plate.Size.X.Offset > 120 and plate.Size.X.Offset < 360).toBe(true)
 		w.advance(0.2, 12)
 		t.expect(plate.isDestroyed()).toBe(true)
 		w.stop()
@@ -236,7 +256,24 @@ t.describe("presentation motion: DisclosureGroup", function()
 		return w, expanded
 	end
 
-	t.it("reveals the height, fades the content and turns the chevron, frame by frame", function()
+	t.it("keeps a fade node's outline stroke painted out whenever no fade runs, from its first frame", function()
+		local w = overlay.new(function(UI)
+			return UI.DisclosureGroup "Settings" {
+				label = "Appearance",
+				expanded = Compose.cell(true),
+				content = function()
+					return UI.Button "Palette" { label = "Palette" }
+				end,
+			}
+		end, { runService = true })
+		local paint = w.find("RevealFade"):FindFirstChild("FadeStroke"):FindFirstChild("FadePaint")
+		t.expect(paint.Transparency.Keypoints[1].Value).toBe(1)
+		w.advance(FRAME)
+		t.expect(paint.Transparency.Keypoints[1].Value).toBe(1)
+		w.stop()
+	end)
+
+	t.it("reveals the height, fades the content in its first half and turns the chevron, frame by frame", function()
 		local w, expanded = disclosureWorld()
 		local caret = overlay.find(w.find("Header"), "LeadingIcon")
 		t.expect(caret.Rotation).toBe(0)
@@ -256,6 +293,7 @@ t.describe("presentation motion: DisclosureGroup", function()
 			height, rotation = reveal.Size.Y.Offset, caret.Rotation
 		end
 		t.expect(height > 0 and height < 120).toBe(true)
+		t.expect(fadeKit.of(fade)).toBe(0)
 		w.advance(0.1, 6)
 		t.expect(reveal.AutomaticSize).toBe(w.Enum.AutomaticSize.Y)
 		t.expect(reveal.Size.Y.Offset).toBe(0)

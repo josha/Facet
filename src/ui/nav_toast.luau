@@ -406,7 +406,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ctx.styled(row, "panel")
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
-		if spec.fade then
+		if spec.fade ~= false then
 			ctx.fadeTo(row, function(use: ComposeTypes.Use)
 				return 1 - amount(use)
 			end)

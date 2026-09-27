@@ -801,6 +801,116 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("a bare modifier press does not flip a touch table to its pointer layout; a real key does", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local input = ctx.config.userInputService
+		local pressed = {}
+		input.GetKeysPressed = function()
+			return pressed
+		end
+		input.GetMouseButtonsPressed = function()
+			return {}
+		end
+		input.PreferredInput, input.TouchEnabled, input.MouseEnabled = E.PreferredInput.Touch, true, true
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				deletable = true,
+				onDelete = function() end,
+				columns = { { id = "label", label = "Label", width = 100 } },
+			})
+		end, target)
+		local function shown()
+			return node:FindFirstChild("Toolbar") ~= nil
+		end
+		t.expect(shown()).toBe(true)
+		for _, modifier in { E.KeyCode.LeftSuper, E.KeyCode.LeftControl, E.KeyCode.LeftShift } do
+			pressed = { { KeyCode = modifier } }
+			input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = modifier })
+			input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			t.expect(shown()).toBe(true)
+			pressed = {}
+			input.PreferredInput = E.PreferredInput.Touch
+		end
+		pressed = { { KeyCode = E.KeyCode.LeftSuper } }
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(shown()).toBe(true)
+		pressed = { { KeyCode = E.KeyCode.LeftSuper }, { KeyCode = E.KeyCode.C } }
+		input.InputBegan.fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.C })
+		t.expect(shown()).toBe(false)
+		pressed = {}
+		input.PreferredInput = E.PreferredInput.Touch
+		t.expect(shown()).toBe(true)
+		pressed = { { KeyCode = E.KeyCode.A } }
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(shown()).toBe(false)
+		pressed = {}
+		input.PreferredInput = E.PreferredInput.Touch
+		pressed = { { KeyCode = E.KeyCode.LeftShift } }
+		input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(shown()).toBe(true)
+		pressed = {}
+		input.InputChanged.fire({ UserInputType = E.UserInputType.MouseMovement })
+		t.expect(shown()).toBe(false)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("keeps a gap under its Edit toolbar and paints the header band only as wide as the rows", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local input = ctx.config.userInputService
+		input.PreferredInput, input.MouseEnabled = E.PreferredInput.Touch, false
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				reorderable = true,
+				onReorder = function() end,
+				columns = { { id = "label", label = "Label" } },
+			})
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(347, 240)
+		local toolbar, header, band =
+			node:FindFirstChild("Toolbar"), node:FindFirstChild("Header"), node:FindFirstChild("HeaderBand")
+		t.expect(header.Position.Y.Offset - toolbar.Size.Y.Offset).toBe(8)
+		t.expect(band.Position.Y.Offset).toBe(header.Position.Y.Offset)
+		t.expect(band.Size.X.Scale).toBe(0)
+		t.expect(band.Size.X.Offset).toBe(347)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("holds a custom cell's content in the themed inset a text value uses", function()
+		local engine, runtime, UI, target = setup()
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(1),
+				key = key,
+				columns = {
+					{ id = "label", label = "Label" },
+					{
+						id = "mark",
+						label = "Mark",
+						width = 120,
+						render = function()
+							return runtime.constructors.Frame({ Name = "Mark" })
+						end,
+					},
+				},
+			})
+		end, target)
+		node:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		local mark = node:FindFirstChild("Mark", true)
+		t.expect(mark.Parent.Name).toBe("Inset")
+		t.expect(mark.Parent:HasTag("facet-tablecellinset")).toBe(true)
+		t.expect(mark.Parent.Parent:HasTag("facet-tablecell")).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("sizes table rows by viewing distance: dense pointer, two-line touch, one large line at ten feet", function()
 		local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 		local E = engine.types.Enum
@@ -2501,7 +2611,7 @@ t.describe("Table compact width", function()
 		local band = node:FindFirstChild("HeaderBand")
 		local gutter = node:FindFirstChild("Header").Position.X.Offset
 		t.expect(band.Position.X.Offset).toBe(gutter)
-		t.expect(band.Size).toBe(engine.types.UDim2.new(1, -gutter, 0, node:FindFirstChild("Header").Size.Y.Offset))
+		t.expect(band.Size).toBe(engine.types.UDim2.fromOffset(300, node:FindFirstChild("Header").Size.Y.Offset))
 		t.expect(band:HasTag("facet-tablehead")).toBe(true)
 		t.expect(node:FindFirstChild("Header").BackgroundTransparency).toBe(1)
 		row:FindFirstChild("Undisclosed", true).TextFits = false
@@ -2509,6 +2619,7 @@ t.describe("Table compact width", function()
 		t.expect(more:FindFirstChild("Title", true) == nil or not more:FindFirstChild("Title", true).Visible).toBe(true)
 		t.expect(more:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
 		t.expect(more:GetAttribute("label")).toBe("More actions")
+		t.expect(more:HasTag("facet-appearance-utility")).toBe(true)
 		stop()
 		runtime:dispose()
 	end)
@@ -2916,34 +3027,137 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		end
 	end)
 
-	t.it("touch and gamepad reach reorder and delete through Edit, which reveals the handles and Delete", function()
+	t.it("touch and gamepad multi-select in Edit: marks, a tap or A toggles a row, Delete removes them", function()
 		for _, input in { "Touch", "Gamepad" } do
-			local w = editableWorld(input, { reorderable = true, deletable = true }, false)
+			local activated = {}
+			local w = editableWorld(input, {
+				reorderable = true,
+				deletable = true,
+				onActivate = function(_, rowKey)
+					table.insert(activated, rowKey)
+				end,
+			}, false)
+			local E = w.engine.types.Enum
+			local press = if input == "Touch"
+				then { UserInputType = E.UserInputType.Touch }
+				else { UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }
 			local edit = w.node:FindFirstChild("Edit", true)
 			t.expect(edit ~= nil and edit.Text == "Edit").toBe(true)
 			t.expect(edit:HasTag("facet-appearance-utility")).toBe(false)
 			t.expect(w.row(1):FindFirstChild("Move", true).Visible).toBe(false)
-			t.expect(w.row(1):FindFirstChild("Minus", true).Visible).toBe(false)
+			t.expect(w.row(1):FindFirstChild("Minus", true)).toBeNil()
+			t.expect(w.row(1):FindFirstChild("SelectMark", true).Visible).toBe(false)
 			edit.Activated.fire()
 			t.expect(edit.Text).toBe("Done")
-			local move, minus = w.row(1):FindFirstChild("Move", true), w.row(1):FindFirstChild("Minus", true)
+			local move, mark = w.row(1):FindFirstChild("Move", true), w.row(1):FindFirstChild("SelectMark", true)
 			t.expect(move.Visible and move.AnchorPoint.X == 1 and move.Position.X.Scale == 1).toBe(true)
-			t.expect(minus.Visible and minus.Position.X.Scale == 0).toBe(true)
+			t.expect(mark.Visible and mark.Position.X.Scale == 0).toBe(true)
 			local cells = w.row(1):FindFirstChild("Cells", true)
 			t.expect(cells.Position.X.Offset).toBe(44)
 			t.expect(cells.Size.X.Offset).toBe(-88)
 			t.expect(cells.Parent:HasTag("facet-tablerow")).toBe(true)
-			minus.Activated.fire()
-			t.expect(#w.deletes).toBe(0)
-			local confirm = w.row(1):FindFirstChild("Delete", true)
-			t.expect(confirm.Visible and not move.Visible).toBe(true)
-			confirm.Activated.fire()
-			t.expect(w.deletes).toEqual({ { 1 } })
+			local delete = w.node:FindFirstChild("DeleteSelected", true)
+			t.expect(delete.Visible).toBe(input == "Touch")
+			t.expect(w.node:FindFirstChild("PadHints", true).Visible).toBe(input == "Gamepad")
+			t.expect(delete.Interactable).toBe(false)
+			w.row(1):FindFirstChild("RowHit", true).Activated.fire(press, 1)
+			w.row(3):FindFirstChild("RowHit", true).Activated.fire(press, 1)
+			t.expect(w.selection:peek()).toEqual({ [1] = true, [3] = true })
+			t.expect(mark:FindFirstChild("Dot").Visible).toBe(true)
+			w.row(3):FindFirstChild("RowHit", true).Activated.fire(press, 1)
+			w.row(4):FindFirstChild("RowHit", true).Activated.fire(press, 1)
+			t.expect(w.selection:peek()).toEqual({ [1] = true, [4] = true })
+			t.expect(activated).toEqual({})
+			if input == "Touch" then
+				t.expect(delete.Interactable).toBe(true)
+				delete.Activated.fire(press)
+			else
+				w.pressed("DeleteRows")
+			end
+			t.expect(w.deletes).toEqual({ { 1, 4 } })
+			edit.Activated.fire()
+			t.expect(mark.Visible).toBe(false)
+			w.row(2):FindFirstChild("RowHit", true).Activated.fire(press, 1)
+			t.expect(activated).toEqual({ 2 })
 			w.stop()
 		end
 		local pointer = editableWorld("KeyboardAndMouse", { reorderable = true, deletable = true }, false)
 		t.expect(pointer.node:FindFirstChild("Edit", true)).toBeNil()
 		pointer.stop()
+	end)
+
+	t.it("a List in edit mode marks its rows and a tap toggles one without activating it", function()
+		local activated, editing = {}, Compose.cell(true)
+		local w = editableWorld("Touch", {
+			deletable = true,
+			editing = editing,
+			onActivate = function(_, rowKey)
+				table.insert(activated, rowKey)
+			end,
+		}, true)
+		local touch = { UserInputType = w.engine.types.Enum.UserInputType.Touch }
+		t.expect(w.row(2):FindFirstChild("SelectMark", true).Visible).toBe(true)
+		t.expect(w.row(2):FindFirstChild("Minus", true)).toBeNil()
+		w.row(2):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		w.row(3):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({ [2] = true, [3] = true })
+		t.expect(activated).toEqual({})
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({ { 2, 3 } })
+		editing:set(false)
+		w.row(1):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(activated).toEqual({ 1 })
+		w.stop()
+	end)
+
+	t.it("the focused-row fallback for Delete looks only inside its own collection", function()
+		local w = editableWorld("KeyboardAndMouse", { deletable = true, editing = Compose.cell(true) }, false)
+		local crowd = w.engine.new("Frame")
+		local outside = w.engine.new("TextButton")
+		outside.Parent = crowd
+		crowd.Parent = w.node.Parent
+		w.gui.SelectedObject = outside
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({})
+		w.gui.SelectedObject = w.row(2):FindFirstChildWhichIsA("GuiButton", true) or w.row(2)
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({ { 2 } })
+		w.stop()
+	end)
+
+	t.it("the toolbar Delete acts on the selection only; the focused-row fallback belongs to the key", function()
+		local w = editableWorld("Touch", { reorderable = true, deletable = true }, false)
+		w.node:FindFirstChild("Edit", true).Activated.fire()
+		local delete = w.node:FindFirstChild("DeleteSelected", true)
+		local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
+		w.gui.SelectedObject = if hit.Selectable then hit else hit:FindFirstChildWhichIsA("GuiButton", true)
+		t.expect(w.gui.SelectedObject ~= nil).toBe(true)
+		t.expect(delete.Interactable).toBe(false)
+		delete.Activated.fire({ UserInputType = w.engine.types.Enum.UserInputType.Touch })
+		t.expect(w.deletes).toEqual({})
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({ { 2 } })
+		w.stop()
+	end)
+
+	t.it("a single-selection List in edit mode toggles its one row: a tap on the chosen row clears it", function()
+		local activated = {}
+		local w = editableWorld("Touch", {
+			selectionMode = "single",
+			editing = Compose.cell(true),
+			onActivate = function(_, rowKey)
+				table.insert(activated, rowKey)
+			end,
+		}, true)
+		local touch = { UserInputType = w.engine.types.Enum.UserInputType.Touch }
+		w.row(2):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({ [2] = true })
+		w.row(3):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({ [3] = true })
+		w.row(3):FindFirstChild("RowHit", true).Activated.fire(touch, 1)
+		t.expect(w.selection:peek()).toEqual({})
+		t.expect(activated).toEqual({})
+		w.stop()
 	end)
 
 	t.it("a handle drag always drops on DragEnd, even when the detector starts before the handle's press", function()

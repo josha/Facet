@@ -6,6 +6,7 @@ local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local adaptive = require("./adaptive")
+local preferredInput = require("./preferred_input")
 local themeDistance = require("./theme_distance")
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
@@ -156,7 +157,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			regular = { height = 44, paddingX = 12, iconSize = 20 },
 			large = { height = 56, paddingX = 16, iconSize = 24 },
 		},
-		motion = { fast = 0.12, normal = 0.2 },
+		motion = { fast = 0.12, normal = 0.2, revealFadeShare = 0.5, unfoldStart = 0.25, restLimit = 0.25 },
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
 			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },
@@ -646,11 +647,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 					or types.Enum.BorderStrokePosition.Inner
 			end
 		end
+		if string.sub(selector, -10) == "::UIStroke" then
+			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", properties)
+		end
 		add(selector, properties)
 		if string.sub(selector, -11) == "::UIPadding" then
 			add(string.sub(selector, 1, -12) .. " > UIPadding", properties)
 		end
 	end
+	add(".facet-fade-stroke", { Enabled = false, Transparency = 1 })
 	rule("ScrollingFrame", {
 		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
@@ -771,10 +776,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		})
 	end
 	rule(".facet-tableheading", { BackgroundTransparency = 1 })
-	rule(".facet-tablevalue::UIPadding", {
-		PaddingLeft = types.UDim.new(0, 12 + (buttonInsets.left or 0)),
-		PaddingRight = types.UDim.new(0, 12 + (buttonInsets.right or 0)),
-	})
 	local function rungMetric(rung: string, field: string): number
 		local authored = (package.metrics.controlSizes or {})[rung]
 		if authored and type(authored[field]) == "number" then
@@ -796,6 +797,17 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-button-tight::UIPadding", {
 		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
 		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
+	})
+	local cellLeft, cellRight = 12 + (buttonInsets.left or 0), 12 + (buttonInsets.right or 0)
+	for _, cell in { "tablevalue", "tableheading" } do
+		rule(".facet-" .. cell .. "::UIPadding", {
+			PaddingLeft = types.UDim.new(0, cellLeft),
+			PaddingRight = types.UDim.new(0, cellRight),
+		})
+	end
+	rule(".facet-tablecellinset", {
+		Position = types.UDim2.fromOffset(cellLeft, 0),
+		Size = types.UDim2.new(1, -(cellLeft + cellRight), 1, 0),
 	})
 	rule(".facet-button-glyph::UIPadding", {
 		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
@@ -1278,8 +1290,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-soft >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-appearance-link >> .facet-text", { TextColor3 = c("accent") })
 	rule(".facet-quiet-destructive >> .facet-text", { TextColor3 = c("danger") })
-	rule(".facet-menu-item::UICorner", { CornerRadius = types.UDim.new(0, 0) })
-	rule(".facet-menu-end::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.panel) })
+	rule(".facet-menu-item::UICorner", {
+		CornerRadius = types.UDim.new(
+			0,
+			math.max(0, package.metrics.radii.panel - (package.metrics.space or neutral.metrics.space).xs)
+		),
+	})
 	rule(".facet-menu-destructive", { TextColor3 = c("content") })
 	rule(".facet-menu-destructive >> .facet-button-caption", { TextColor3 = c("content") })
 	rule(".facet-menu-destructive >> .facet-text", { TextColor3 = c("content") })
@@ -1462,6 +1478,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	end
 	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
+	add(".facet-fading::UIStroke", {
+		Enabled = false,
+		ApplyStrokeMode = types.Enum.ApplyStrokeMode.Border,
+		BorderStrokePosition = types.Enum.BorderStrokePosition.Inner,
+	})
+	add(".facet-fading > .facet-fade-stroke", { Enabled = true })
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties = table.clone(definition.properties or definition.props or {})
 		for key, value in properties do
@@ -1471,7 +1493,31 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		end
 		rule(definition.selector, properties, true)
 	end
-	return rules
+	local present: { [string]: boolean } = {}
+	local presence: { NativeRule } = {}
+	for _, definition in rules do
+		local selector = definition.selector
+		if
+			string.sub(selector, -21) == " > .facet-fade-stroke"
+			and selector ~= ".facet-fading > .facet-fade-stroke"
+			and not present[selector]
+		then
+			present[selector] = true
+			table.insert(presence, {
+				id = selector .. ":presence",
+				selector = selector,
+				properties = { Transparency = 0 },
+				priority = #presence,
+			})
+		end
+	end
+	local ordered = { rules[1] }
+	table.move(presence, 1, #presence, 2, ordered)
+	table.move(rules, 2, #rules, #ordered + 1, ordered)
+	for index, definition in ordered do
+		definition.priority = (index - 1) * 10
+	end
+	return ordered
 end
 
 local function sameProperties<T>(left: { [string]: T }, right: { [string]: T }): boolean
@@ -1556,16 +1602,34 @@ local function createStyleSheet(
 		local globals = getfenv(0)
 		local input = globals.game and globals.game:GetService("UserInputService")
 		if input then
+			local held = input.PreferredInput
+			local stopNudges: (() -> ())? = nil
+			local refresh: () -> ()
 			local function pointing(): boolean
-				return input.PreferredInput ~= types.Enum.PreferredInput.Touch
+				local current = input.PreferredInput
+				if preferredInput.withheld(input, current, types.Enum.PreferredInput.KeyboardAndMouse) then
+					stopNudges = stopNudges or preferredInput.nudges(input, types.Enum, refresh)
+				else
+					held = current
+					if stopNudges then
+						stopNudges()
+						stopNudges = nil
+					end
+				end
+				return held ~= types.Enum.PreferredInput.Touch
 			end
-			local source = Compose.cell(pointing())
+			local source = Compose.cell(false)
 			hover = source
-			local connection = input:GetPropertyChangedSignal("PreferredInput"):Connect(function()
+			refresh = function()
 				source:set(pointing())
-			end)
+			end
+			refresh()
+			local connection = input:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
 			Compose.cleanup(function()
 				connection:Disconnect()
+				if stopNudges then
+					stopNudges()
+				end
 			end)
 		end
 	end
@@ -1844,6 +1908,33 @@ local function createStyleSheet(
 				table.insert(nextIds, definition.id)
 			end
 			ids:set(nextIds)
+		end
+	end)
+	local warmed: { [ThemeTypes.ThemePackage]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+	Compose.watch(function(use: ComposeTypes.Use)
+		local package = read(packageOrReadable, use)
+		if package == nil or warmed[package] then
+			return
+		end
+		warmed[package] = true
+		local content: { string } = {}
+		for _, asset in pairs(package.assets or {}) do
+			local id = asset.content or asset.contentId
+			if type(id) == "string" and id ~= "" and asset.preload ~= "lazy" then
+				table.insert(content, id)
+			end
+		end
+		local provider: ContentProvider? = settings.contentProvider
+		if provider == nil and #content > 0 then
+			local globals = getfenv(0)
+			provider = globals.game and globals.game:GetService("ContentProvider")
+		end
+		if provider and #content > 0 then
+			if task then
+				task.spawn(provider.PreloadAsync, provider, content)
+			else
+				provider:PreloadAsync(content)
+			end
 		end
 	end)
 	return sheet

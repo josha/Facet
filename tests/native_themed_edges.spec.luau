@@ -94,6 +94,137 @@ t.describe("themed edges, plates and gutters", function()
 		end
 	end)
 
+	t.it("gives every themed stroke a fade twin that a shared fade swaps in for the phantom", function()
+		for _, entry in packages() do
+			local sheet, stop = sheetOf(entry.package)
+			local ordered = sheet:GetChildren()
+			table.sort(ordered, function(a, b)
+				return a.Priority < b.Priority
+			end)
+			local base = assert(style(sheet, ".facet-fade-stroke"))
+			t.expect(`{base.Enabled} {base.Transparency}`).toBe("false 1")
+			t.expect(ordered[1].Selector).toBe(".facet-fade-stroke")
+			local fading, live
+			for _, node in ordered do
+				if node.Selector == ".facet-fading::UIStroke" then
+					fading = node
+				elseif node.Selector == ".facet-fading > .facet-fade-stroke" then
+					live = node
+				end
+			end
+			t.expect(fading:GetProperties().Enabled).toBe(false)
+			t.expect(live:GetProperties().Enabled).toBe(true)
+			t.expect(live.Priority > fading.Priority).toBe(true)
+			for _, node in ordered do
+				if string.sub(node.Selector, 1, 7) == ".facet-" and string.sub(node.Selector, -10) == "::UIStroke" then
+					t.expect(`{node.Selector} {node.Priority <= fading.Priority}`).toBe(`{node.Selector} true`)
+				end
+			end
+			local twins = 0
+			for index, node in ordered do
+				local selector = node.Selector :: string
+				if string.sub(selector, -10) == "::UIStroke" and selector ~= ".facet-fading::UIStroke" then
+					local twin = ordered[index - 1]
+					t.expect(`{entry.label} {twin.Selector}`)
+						.toBe(`{entry.label} {string.sub(selector, 1, -11)} > .facet-fade-stroke`)
+					local expected = table.clone(node:GetProperties())
+					for key, value in expected do
+						t.expect(`{twin.Selector}.{key}={twin:GetProperties()[key]}`)
+							.toBe(`{twin.Selector}.{key}={value}`)
+					end
+					twins += 1
+				end
+			end
+			t.expect(twins > 10).toBe(true)
+			stop()
+		end
+	end)
+
+	t.it(
+		"resolves a fade stroke exactly like the phantom it replaces, a game's partial stroke rule included",
+		function()
+			local styleRules = require("./lib/style_rules")
+			local authored = themes.neutralPackage()
+			authored.rules = { { selector = ".facet-floating::UIStroke", properties = { Thickness = 3 } } }
+			for _, entry in
+				{ { label = "neutral", package = themes.neutralPackage() }, { label = "game", package = authored } }
+			do
+				local engine: any = engineLib.new()
+				local runtime = Facet.Roblox.createRuntime(engine)
+				local _, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, entry.package, { types = engine.types } :: any)
+				end, engine.new("Folder"))
+				for _, tags in { { "facet-floating" }, { "facet-step-circle" }, { "facet-layout" } } do
+					local node = engine.new("Frame")
+					for _, tag in tags do
+						node:AddTag(tag)
+					end
+					local stroke = engine.new("UIStroke")
+					stroke:AddTag("facet-fade-stroke")
+					stroke.Parent = node
+					local label = `{entry.label} {tags[1]}`
+					local phantom = styleRules.resolve(sheet, node, "Thickness", "UIStroke") ~= nil
+						or styleRules.resolve(sheet, node, "Color", "UIStroke") ~= nil
+					for _, property in { "Transparency", "Thickness", "Color" } do
+						local want = styleRules.resolve(sheet, node, property, "UIStroke")
+						if want == nil and property == "Transparency" then
+							want = if phantom then 0 else 1
+						end
+						if want ~= nil then
+							t.expect(`{label} {property} {styleRules.resolve(sheet, stroke, property)}`)
+								.toBe(`{label} {property} {want}`)
+						end
+					end
+					t.expect(`{label} rest {styleRules.resolve(sheet, stroke, "Enabled")}`).toBe(`{label} rest false`)
+					node:AddTag("facet-fading")
+					t.expect(`{label} fading {styleRules.resolve(sheet, stroke, "Enabled")}`)
+						.toBe(`{label} fading true`)
+					t.expect(styleRules.resolve(sheet, node, "Enabled", "UIStroke")).toBe(false)
+				end
+				runtime:dispose()
+			end
+		end
+	)
+
+	t.it("preloads a theme's art once per applied package so a first panel does not open without it", function()
+		local engine: any = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local requests: { { string } } = {}
+		local provider = {
+			PreloadAsync = function(_, content: { string })
+				table.insert(requests, content)
+			end,
+		}
+		local pixel = require("../examples/themes/pixel_quest").build(themes)
+		local package = Facet.Compose.cell(themes.neutralPackage())
+		runtime.mount(function()
+			return themes.createStyleSheet(
+				runtime,
+				package,
+				{ types = engine.types, contentProvider = provider } :: any
+			)
+		end, engine.new("Folder"))
+		t.expect(#requests).toBe(0)
+		package:set(pixel)
+		t.expect(#requests).toBe(1)
+		local expected, lazy = {}, 0
+		for _, asset in pixel.assets do
+			if asset.preload == "lazy" then
+				lazy += 1
+			else
+				table.insert(expected, asset.content or asset.contentId)
+			end
+		end
+		t.expect(lazy > 0).toBe(true)
+		table.sort(expected)
+		table.sort(requests[1])
+		t.expect(table.concat(requests[1], ",")).toBe(table.concat(expected, ","))
+		package:set(themes.neutralPackage())
+		package:set(pixel)
+		t.expect(#requests).toBe(1)
+		runtime:dispose()
+	end)
+
 	t.it("cuts the avatar-stack separator into the neighbour, outside the avatar's own edge", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)
@@ -117,11 +248,14 @@ t.describe("themed edges, plates and gutters", function()
 		stop()
 	end)
 
-	t.it("rounds a menu's first and last rows with the panel's radius so a highlight stays inside the card", function()
+	t.it("rounds every menu highlight concentric with the card inside the rows' inset", function()
 		for _, entry in packages() do
 			local sheet, stop = sheetOf(entry.package)
-			local corner = assert(style(sheet, ".facet-menu-end::UICorner"))
-			t.expect(corner.CornerRadius.Offset).toBe(entry.package.metrics.radii.panel)
+			local metrics = entry.package.metrics
+			local inset = (metrics.space or themes.neutralPackage().metrics.space).xs
+			local corner = assert(style(sheet, ".facet-menu-item::UICorner"))
+			t.expect(corner.CornerRadius.Offset).toBe(math.max(0, metrics.radii.panel - inset))
+			t.expect(style(sheet, ".facet-menu-end::UICorner")).toBe(nil)
 			stop()
 		end
 	end)

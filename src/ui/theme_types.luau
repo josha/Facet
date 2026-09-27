@@ -220,6 +220,7 @@ export type ThemeOptions = {
 	hover: Engine.ValueBoolean?,
 	tenFoot: Engine.ValueBoolean?,
 	transition: Engine.Value<TweenInfo | false>?,
+	contentProvider: ContentProvider?,
 }
 export type SkinOptions = {
 	types: Engine.RobloxTypes?,

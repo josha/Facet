@@ -136,12 +136,14 @@ return function(
 		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(spec.launcher == false)
 		local path: ComposeTypes.Cell<{ string }> = Compose.cell({})
 		local candidate: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
-		local branchOrigin: { path: string, x: number, y: number }? = nil
+		local branchOrigin: { path: string, shape: Radial.SectorShape }? = nil
 		local interacting = Compose.cell(false)
 		local naming = Compose.cell(false)
 		local holding = runtime.timeline({ duration = HOLD, autoplay = false })
 		local capture: InputObject?
 		local pressedAt: Vector3?
+		local heldAt: Vector3?
+		local inspectedUntil: number?
 		local analog, held = false, false
 		local suppressedInput: InputObject?
 		local suppressedUntil: number?
@@ -154,6 +156,9 @@ return function(
 		local freezeCenter: (() -> ())?
 		local returnSelection: ((() -> (), string?) -> ())?
 		local function cancel()
+			if inspectedUntil == math.huge then
+				inspectedUntil = os.clock() + 0.3
+			end
 			capture, analog = nil, false
 			interacting:set(false)
 			naming:set(false)
@@ -163,6 +168,7 @@ return function(
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(holding.completed) and capture and capture.UserInputType == E.UserInputType.Touch then
 				naming:set(true)
+				inspectedUntil = math.huge
 			end
 		end)
 		local function close()
@@ -223,7 +229,7 @@ return function(
 			if item.children then
 				local entries = table.clone(sector.path)
 				table.insert(entries, item.id)
-				branchOrigin = { path = table.concat(entries, "/"), x = sector.x, y = sector.y }
+				branchOrigin = { path = table.concat(entries, "/"), shape = sector :: Radial.SectorShape }
 				local function change()
 					path:set(entries)
 					candidate:set(nil)
@@ -269,6 +275,14 @@ return function(
 			end
 			source = source or "native"
 			if
+				inspectedUntil
+				and os.clock() < inspectedUntil
+				and input
+				and input.UserInputType == E.UserInputType.Touch
+			then
+				return
+			end
+			if
 				suppressedUntil
 				and os.clock() < suppressedUntil
 				and suppressedKey == sector.key
@@ -292,11 +306,11 @@ return function(
 		end
 		local function beginPointer(input: InputObject, onPanel: boolean?)
 			if not capture and opened:peek() and isPointer(input) and aimPointer then
-				suppressedInput, suppressedUntil = nil, nil
+				suppressedInput, suppressedUntil, inspectedUntil = nil, nil, nil
 				if aimPointer(input.Position, false, true) == false then
 					return
 				end
-				capture, pressedAt = input, if onPanel then input.Position else nil
+				capture, pressedAt, heldAt = input, if onPanel then input.Position else nil, input.Position
 				if input.UserInputType == E.UserInputType.Touch then
 					holding:restart()
 				end
@@ -868,20 +882,46 @@ return function(
 									end, { seconds = 0.16 })
 									local sector = assert(currentSector())
 									local from = branchOrigin
-									local origin: { x: number, y: number }? = if from
-											and from.path == table.concat(sector.path, "/")
-										then from
-										elseif entry.completed:peek() then { x = 0, y = 0 }
+									local branch = if from and from.path == table.concat(sector.path, "/")
+										then from.shape
 										else nil
+									local centred = branch == nil and entry.completed:peek()
+									local function unfold(
+										use: ComposeTypes.Use,
+										shape: Radial.SectorShape
+									): Radial.SectorShape
+										local parent = assert(branch)
+										local p = Compose.easing.outCubic(use(arrival))
+										local start = ctx.metric("motion.unfoldStart", use)
+										local factor = start + (1 - start) * p
+										local middle = (parent.inner + parent.outer) / 2
+										local radius = middle
+											+ (math.sqrt(shape.x * shape.x + shape.y * shape.y) - middle) * p
+										local angle = parent.angle + geometry.delta(shape.angle, parent.angle) * factor
+										local result = table.clone(shape)
+										result.angle, result.span = angle, shape.span * factor
+										result.inner = parent.inner + (shape.inner - parent.inner) * p
+										result.outer = parent.outer + (shape.outer - parent.outer) * p
+										result.x = math.sin(math.rad(angle)) * radius
+										result.y = -math.cos(math.rad(angle)) * radius
+										return result
+									end
+									local function moving(use: ComposeTypes.Use, live: Radial.Sector<V>): boolean
+										return (branch ~= nil or centred) and not live.list and not reduced(use)
+									end
 									local function travel(
 										use: ComposeTypes.Use,
 										live: Radial.Sector<V>
 									): (number, number)
-										if origin == nil or live.list or reduced(use) then
+										if not moving(use, live) then
 											return 0, 0
 										end
+										if branch then
+											local shown = unfold(use, live)
+											return shown.x - live.x, shown.y - live.y
+										end
 										local amount = 0.3 * (1 - use(arrival))
-										return (origin.x - live.x) * amount, (origin.y - live.y) * amount
+										return -live.x * amount, -live.y * amount
 									end
 									local function chosen(use: ComposeTypes.Use): boolean
 										local live = currentSector(use)
@@ -976,6 +1016,14 @@ return function(
 											end,
 										})
 									end
+									Compose.watch(function(use: ComposeTypes.Use)
+										local live = currentSector(use)
+										if not live.list and iconic(use, live) then
+											button:AddTag("facet-button-glyph")
+										else
+											button:RemoveTag("facet-button-glyph")
+										end
+									end)
 									if appearance == "wedges" then
 										ctx.styled(button, "radial-item")
 									end
@@ -1098,7 +1146,9 @@ return function(
 										if complete and not shaped:peek() then
 											shaped:set(true)
 										end
-										local bounds = geometry.paint(fitted)
+										local bounds = geometry.paint(
+											if branch and moving(use, live) then unfold(use, fitted) else fitted
+										)
 										placed:set({ x = bounds.x, y = bounds.y })
 										shape.Size = D2.fromOffset(bounds.w, bounds.h)
 										paint.Thickness = math.max(1, fitted.outer - fitted.inner)
@@ -1121,7 +1171,10 @@ return function(
 											return
 										end
 										local live, at = currentSector(use), use(center)
-										local dx, dy = travel(use, live)
+										local dx, dy = 0, 0
+										if not branch then
+											dx, dy = travel(use, live)
+										end
 										local lag = spread(use) - 1
 										shape.Position = D2.fromOffset(
 											at.X + bounds.x + dx + lag * live.x,
@@ -1141,7 +1194,14 @@ return function(
 						end,
 					}),
 				}
-				local panel = ctx.styled(Host.ScrollingFrame(panelProps), "panel")
+				local panel = Host.ScrollingFrame(panelProps)
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(fallback) then
+						panel:AddTag("facet-panel")
+					else
+						panel:RemoveTag("facet-panel")
+					end
+				end)
 				local ringNavigation = spec.center == "empty" or spec.center == "content"
 				local function showCenter(use: ComposeTypes.Use): boolean
 					if corner or use(fallback) or not ringNavigation then
@@ -1521,6 +1581,12 @@ return function(
 						if input.UserInputState == E.UserInputState.Cancel then
 							cancel()
 						else
+							if heldAt and (input.Position - heldAt).Magnitude > 14 then
+								holding:pause()
+								if inspectedUntil == math.huge then
+									inspectedUntil = nil
+								end
+							end
 							naming:set(true)
 							assert(aimPointer)(input.Position, true)
 						end

@@ -276,11 +276,12 @@ cannot be interacted with, and the selection never stays on it.
 | Button `help` | Scales from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
 | Menu, Picker menu | Each level scales from 0.96 to 1 from the corner where it hangs, and fades in, 0.15 seconds, Cubic Out. A sheet submenu slides 32 pixels in from the trailing side, and Back slides the parent in from the leading side. | The reverse, 0.1 seconds. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
+| Toast | Slides in from its edge and fades in, 0.2 seconds, Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds. |
 | Toast with an action | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
-| DisclosureGroup | The content height opens from 0, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 90 degrees with it. | The reverse, 0.2 seconds. |
-| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, and the content fades in, 0.25 seconds, Cubic Out. The chevron turns 180 degrees with it. | The reverse, 0.2 seconds. |
+| DisclosureGroup | The content height opens from 0, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds, and the content fades out over the same share of that time. |
+| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds, and the content fades out over the same share of that time. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
-| RadialMenu slot | A slot that enters an open ring fades in and moves from 30 percent of the distance toward its origin to its position, 0.16 seconds. The origin is the parent item for a branch and the center for other slots. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
+| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds. A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
 
 - A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
@@ -289,6 +290,18 @@ cannot be interacted with, and the selection never stays on it.
   `UIGradient` named `FadePaint` fades the node's own paint. A new group
   draws one frame almost transparent before the fade shows it, and the node's
   own paint waits for that frame, so the panel and its text appear together.
+- A faded node also carries a `UIStroke` named `FadeStroke` (tag
+  `facet-fade-stroke`) with its own `FadePaint` gradient. It is disabled at
+  rest. Every theme stroke rule `S::UIStroke` has a twin
+  `S > .facet-fade-stroke` with the same properties, so the stroke resolves
+  exactly like the node's theme stroke. While a fade runs the node is tagged
+  `facet-fading`: its `::UIStroke` is disabled and `FadeStroke` is enabled in
+  the same style pass, so the outline fades with the fill and the content. A
+  game rule on `S::UIStroke` gets the same twin. `FindFirstChildWhichIsA("UIStroke")`
+  on a faded node returns `FadeStroke`.
+- An Alert or a Popover measures its content at rest before its entrance: it
+  waits until the content height holds for one frame, at most the theme's
+  `motion.restLimit` (0.25 seconds by default). Reduced motion skips the wait.
 - Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
   all of this motion. The change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer
@@ -2140,6 +2153,11 @@ scrolling list, never inside it.
 A corner ring names the highlighted item just outside the arc, on the arc's
 middle direction.
 
+A finger held still on an item for 0.4 seconds names it and does not pick
+it: that release does nothing, and a second tap picks the item. A press that
+slides more than 14 pixels is a gesture, and its release picks the item under
+the finger.
+
 Nothing is highlighted when the ring opens, until the player points at an
 item, presses a direction or moves the stick. With a gamepad as the preferred
 input, the first item is selected, because the console needs a focused
@@ -2289,10 +2307,15 @@ a drag of the grabber toward the sheet's edge moves the whole sheet. A release
 past a third of the width, or faster than 600 pixels a second, closes it.
 Otherwise it slides back.
 
-The grabber is also a selectable button. A click, tap or press grows the sheet
-to the next taller detent, and its accessible label reads `Resize: Medium`, or
-`Resize: Fit` for `hug`. At the tallest detent, and with one detent, it closes
-the sheet, and its label reads `Close sheet`. The grabber's own drag detector
+The grabber is also a selectable button. A tap or click closes the sheet
+(with `interactiveDismissDisabled` it grows the sheet instead). The engine
+gives a press on the grabber to its drag detector and never fires the button's
+`Activated`, so a grip drag that ends within 4 pixels of where it started is
+the tap. Return or the
+gamepad A button grows the sheet to the next taller detent, and its accessible
+label reads `Resize: Medium`, or `Resize: Fit` for `hug`. At the tallest
+detent, and with one detent, Return or A closes the sheet, and its label reads
+`Close sheet`. The grabber's own drag detector
 takes a press-drag that starts on the pill, and a release after a drag is not
 also a click. The pointer shows a resize cursor over the grabber and a closed
 hand while it drags (`SizeNS`, or `SizeEW` on a side sheet, and
@@ -2578,9 +2601,9 @@ Without an action:
   Notice), read each frame while a toast shows.
 - `width`: `fill` (the default) spans the layer less 16 pixels on each side.
   `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
-- `fade`: `true` also fades the row in and out as it slides. By default a row
-  only slides, so its text keeps native glyph rendering (a fade draws the row
-  through a CanvasGroup while it runs).
+- `fade`: by default the row fades in and out as it slides (the fade draws
+  the row through a CanvasGroup only while it runs, so settled text keeps
+  native glyph rendering). `false` only slides.
 
 At most three toasts show on an edge and eight wait. The queue is in priority
 order, first in first out within a priority. A more urgent toast replaces the
@@ -2591,7 +2614,7 @@ The row is input-transparent: it is neither `Active` nor `Interactable`,
 nothing in it is `Selectable`, it binds no input and it never takes the
 selection, so the controls under it work as before. Rows (`ToastRow`) paint
 at `ZIndex` 70, above the page and below a modal. A new row slides in from its
-edge (and fades in with `fade`), and the others slide to close the slot a
+edge and fades in (unless `fade = false`), and the others slide to close the slot a
 retired row leaves. Under reduced motion the rows are placed at once, for the
 same times in the same order.
 
@@ -2935,9 +2958,10 @@ input:
 - Touch and gamepad, and a keyboard with no mouse on a reorderable Table: a
   Table without a supplied `editing` shows a toolbar with an `Edit` button (`Done` while editing; its width fits the wider word).
   Edit mode shows, inside each row band, a round red minus at the leading
-  edge (deletable) and a move handle at the trailing edge (reorderable); the
-  row content slides to make room (instantly with reduced motion). The minus
-  reveals a `Delete` button at the trailing edge, which confirms. A handle
+  edge (deletable, unless `selectionMode = "multiple"`) and a move handle at
+  the trailing edge (reorderable); the row content slides to make room
+  (instantly with reduced motion). The minus reveals a `Delete` button at the
+  trailing edge, which confirms. A handle
   drags, or Return or the A button starts a move that the arrows or D-pad
   place and Return, A or `Drop` ends. The X
   button removes the selected rows, and L1 and R1 move them by one slot. A
@@ -2945,10 +2969,19 @@ input:
   Edit control.
 - Without a readable input class the edit controls always show.
 - A selectable collection (`selectionMode` other than `"none"`) that is not
-  `deletable` marks each row's selection at the leading edge while `editing`
-  is true: a ring (`facet-radio-mark`) with a filled dot on a selected row. The
-  mark is paint and takes no focus. A Table with a supplied `editing` shows it
-  even when it is neither reorderable nor deletable.
+  `deletable`, and any `selectionMode = "multiple"` collection, marks each
+  row's selection at the leading edge while `editing` is true: a ring
+  (`facet-radio-mark`) with a filled dot on a selected row. The mark is paint
+  and takes no focus. A Table with a supplied `editing` shows it even when it
+  is neither reorderable nor deletable.
+- While `editing` is true, a tap, a click, Return or the A button on a row of
+  a selectable collection toggles that row's selection and does not run
+  `onActivate`. With `selectionMode = "single"` the row becomes the one
+  selected row, and a second press on it clears the selection. A deletable
+  Table's own
+  toolbar shows a `DeleteSelected` button (`Delete`) beside `Edit` while it
+  edits, except with a gamepad, whose X button does the same; it removes the
+  selected rows through `onDelete` and is disabled while nothing is selected.
 
 With touch or gamepad input, a Table with the Edit toolbar accepts cell edits
 only while editing; otherwise its editor cells accept edits at all times.
@@ -3317,6 +3350,12 @@ weight. The derived role keeps the family, style, size and line height.
     `isTenFoot`. Pass `false` for a SurfaceGui or BillboardGui, whose canvas
     has its own scale, and give its controls `environment.viewingDistance =
     "near"`.
+  - `contentProvider`: the ContentProvider that warms the package's art. If
+    you omit it, the sheet uses the engine's ContentProvider. The first time
+    the sheet applies a package, it calls `PreloadAsync` once on the content of
+    every entry in `package.assets` except those marked `preload = "lazy"`,
+    off the calling thread, so a panel that
+    first opens later already has its art.
 - Colors and opacity use native StyleRule transitions. The default duration is
   `metrics.motion.normal` of the theme package, or 0.2 seconds if it is
   omitted. The easing is Quad Out. The same timing applies across rules. Native
@@ -3778,7 +3817,7 @@ environment keeps the last real size.
 | `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
 | `isCompact`, `isRegular`, `isWide`, `isRegularOrWider`, `isShort`, `isTall`, `isLandscape` | Booleans. `isRegular` is the middle class only. Use `isRegularOrWider` for "not compact". |
 | `atLeast(target)` | A new boolean readable for `sizeClassAtLeast(sizeClass, target)`. |
-| `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. |
+| `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. A press of modifier keys alone (Shift, Control, Alt, Meta or Super, with no other key or mouse button down) does not move Facet to keyboard and mouse, though the engine's `PreferredInput` changes; the next other key, mouse button, mouse movement or wheel does. Every control, and the theme StyleSheet's hover paint, reads `PreferredInput` through this rule. |
 | `effectiveInput` | `primary` as `"KeyboardAndMouse"`, `"Touch"` or `"Gamepad"`. |
 | `displaySize` | The name of `GuiService.ViewportDisplaySize`: `"Small"`, `"Medium"` or `"Large"`. |
 | `isTenFoot` | `adaptive.isTenFoot` of the `viewingDistance` option, the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |

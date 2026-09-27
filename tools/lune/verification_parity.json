@@ -12816,9 +12816,9 @@
       },
       "auditClass": "d",
       "candidateCases": [
-        "native_gallery_collections::native gallery collections::reaches the mail table edit minus by selection and swipes a table row open without reordering"
+        "native_gallery_collections::native gallery collections::selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open"
       ],
-      "closedBy": "native_gallery_collections::native gallery collections::reaches the mail table edit minus by selection and swipes a table row open without reordering"
+      "closedBy": "native_gallery_collections::native gallery collections::selects a mail table row in edit mode, deletes it from the toolbar and swipes a row open"
     },
     {
       "id": "collections-107",
@@ -35379,7 +35379,7 @@
       ],
       "mainCases": 2,
       "class": "c",
-      "removal": "chrome_slots.assetsToPreload and planFor are removed. `preload` remains only as an unused Asset type field. CAND preloads only AsyncImage sources (media.luau PreloadAsync). A nineSlice recipe whose asset has no sliceC..."
+      "removal": "chrome_slots.assetsToPreload and planFor are removed. `preload` is read only as the `\"lazy\"` opt-out of the theme sheet's preload. A nineSlice recipe whose asset has no sliceC..."
     },
     {
       "id": "themes-P2-19",
@@ -35769,7 +35769,7 @@
       ],
       "mainCases": 6,
       "class": "c",
-      "removal": "themes.define no longer inspects icons or metrics.iconSizes. There is no stamp and no preload seam. api.md promises only 'resolveIcon(package, name, state?) resolves real image content'."
+      "removal": "themes.define no longer inspects icons or metrics.iconSizes. There is no stamp and no define-time preload check. api.md promises only 'resolveIcon(package, name, state?) resolves real image content'."
     },
     {
       "id": "themes-P2-42",
@@ -36354,7 +36354,7 @@
       ],
       "mainCases": 3,
       "class": "c",
-      "removal": "Install-time preload step deleted with the controller; asset field `preload` is no longer read anywhere in CAND src (grep preload in themes.luau: none; only media.luau AsyncImage uses ContentProvider per image). No ap..."
+      "removal": "Install-time preload step deleted with the controller; the asset field `preload` is read only as the `\"lazy\"` opt-out of the theme sheet's preload. No ap..."
     },
     {
       "id": "themes-P3-14",
@@ -36979,7 +36979,7 @@
       ],
       "mainCases": 6,
       "class": "c",
-      "removal": "No overhang reservation/outset or census in CAND (solver and snapshot deleted); plaque simply overhangs via Position offset in themes.skin. No theme preload seam (ThemeTypes.Asset.preload is unread). Not promised."
+      "removal": "No overhang reservation/outset or census in CAND (solver and snapshot deleted); plaque simply overhangs via Position offset in themes.skin. No per-layer preload seam; the theme sheet preloads the package's assets, skipping `preload = \"lazy\"`. Not promised."
     },
     {
       "id": "themes-P4-19",
@@ -37440,7 +37440,7 @@
       ],
       "mainCases": 3,
       "class": "c",
-      "removal": "No normalization, asset-declaration check or preload seam in CAND define/skin."
+      "removal": "No normalization, asset-declaration check or per-state preload in CAND define/skin."
     },
     {
       "id": "themes-P4-50",

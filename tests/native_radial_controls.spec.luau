@@ -197,6 +197,19 @@ t.describe("native radial interaction policies", function()
 		t.expect(arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value).toBe(0)
 		world.stop()
 	end)
+	t.it("an item that shows only its icon takes the glyph padding, a worded item does not", function()
+		local world = setup({
+			preset = "bottom-left",
+			appearance = "buttons",
+			items = {
+				{ id = "look", label = "Look", icon = "facet:search" },
+				{ id = "wave", label = "Wave" },
+			},
+		})
+		t.expect(world.find("look"):HasTag("facet-button-glyph")).toBe(true)
+		t.expect(world.find("wave"):HasTag("facet-button-glyph")).toBe(false)
+		world.stop()
+	end)
 	t.it("a corner menu keeps its launcher's room while the launcher hides under the open ring", function()
 		local world = setup({
 			isPresented = Compose.cell(false),
@@ -1133,6 +1146,14 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(world.find("Center"):GetAttribute("label")).toBe("Home")
 		world.stop()
 	end)
+	t.it("the ring's full-screen panel takes no panel padding, so a themed inset cannot shift the ring", function()
+		local world = setup({ items = nested() })
+		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(800, 600)
+		local panel = world.find("RadialPanel")
+		t.expect(panel:GetAttribute("Presentation")).toBe("radial")
+		t.expect(panel:HasTag("facet-panel")).toBe(false)
+		world.stop()
+	end)
 	t.it("the list fallback heads its opaque panel with the path, clear of the page below", function()
 		local world = setup({ items = nested() })
 		world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
@@ -1266,6 +1287,107 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(preview.Text).toBe("")
 		world.find("stow").MouseEnter.fire()
 		t.expect(preview.Text).toBe("")
+		world.stop()
+	end)
+	t.it("a submenu's ring unfolds along the ring from the chosen item, not out of the centre", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local world = setup({
+			distribution = "compass",
+			items = {
+				{ id = "gear", slot = "N", label = "Gear", children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") } },
+				{ id = "E", slot = "E", label = "E", onSelect = function() end },
+			},
+		}, true)
+		world.step(0.5)
+		world.find("gear").Activated.fire()
+		world.step(1 / 60)
+		local function at(id: string): any
+			local node = world.find(id)
+			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+		end
+		local early = at("c")
+		world.step(0.5)
+		local final = { a = at("a"), b = at("b"), c = at("c"), d = at("d") }
+		local centre = (final.a + final.b + final.c + final.d) / 4
+		local ring = (final.c - centre).Magnitude
+		local offset = early - centre
+		t.expect(offset.Magnitude > 0.9 * ring).toBe(true)
+		t.expect(offset.Y < 0).toBe(true)
+		t.expect((final.c - centre).Y > 0).toBe(true)
+		world.stop()
+	end)
+	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()
+		local picked = 0
+		local world = setup({
+			distribution = "compass",
+			completion = "stay",
+			items = {
+				{
+					id = "N",
+					slot = "N",
+					label = "Lantern",
+					icon = "flag",
+					labelStyle = "icon",
+					onSelect = function()
+						picked += 1
+					end,
+				},
+			},
+		})
+		local preview, panel, north = world.find("SelectionPreview"), world.find("RadialPanel"), world.find("N")
+		local x, y = north.Position.X.Offset, north.Position.Y.Offset
+		local hold = pointer(world, x, y)
+		north.InputBegan.fire(hold)
+		world.step(0.5)
+		t.expect(preview.Text).toBe("Lantern")
+		hold.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(hold)
+		north.Activated.fire(hold)
+		t.expect(picked).toBe(0)
+		local tap = pointer(world, x, y)
+		north.InputBegan.fire(tap)
+		tap.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(tap)
+		north.Activated.fire(tap)
+		t.expect(picked).toBe(1)
+		local slide = pointer(world, x, y)
+		panel.InputBegan.fire(slide)
+		slide.Position = world.engine.types.Vector3.new(x + 30, y, 0)
+		world.input.InputChanged.fire(slide)
+		slide.Position = world.engine.types.Vector3.new(x, y, 0)
+		world.input.InputChanged.fire(slide)
+		world.step(0.5)
+		slide.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(slide)
+		t.expect(picked).toBe(2)
+		world.stop()
+	end)
+	t.it("a hold that then slides to another item picks the item under the finger on release", function()
+		local picks = {}
+		local function item(id: string): any
+			return {
+				id = id,
+				slot = id,
+				label = id,
+				icon = "flag",
+				labelStyle = "icon",
+				onSelect = function()
+					table.insert(picks, id)
+				end,
+			}
+		end
+		local world = setup({ distribution = "compass", completion = "stay", items = { item("N"), item("E") } })
+		local panel, north, east = world.find("RadialPanel"), world.find("N"), world.find("E")
+		local hold = pointer(world, north.Position.X.Offset, north.Position.Y.Offset)
+		panel.InputBegan.fire(hold)
+		world.step(0.5)
+		hold.Position = world.engine.types.Vector3.new(east.Position.X.Offset, east.Position.Y.Offset, 0)
+		world.input.InputChanged.fire(hold)
+		hold.UserInputState = world.engine.types.Enum.UserInputState.End
+		world.input.InputEnded.fire(hold)
+		t.expect(table.concat(picks, ",")).toBe("E")
 		world.stop()
 	end)
 	t.it("keeps a held item's name on the screen beside a ring near the edge of a phone", function()

@@ -6,6 +6,7 @@ local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
 local adaptive = require("./adaptive")
+local preferredInput = require("./preferred_input")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -215,18 +216,52 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			if entry == nil then
 				local cell = Compose.cell(observation.readProperty(node, property))
 				local selection = property == "SelectedObject"
+				local preferred = property == "PreferredInput" and node == config.userInputService
+				local stopNudges: (() -> ())? = nil
+				local function publish()
+					local current = observation.readProperty(node, property)
+					if
+						preferred
+						and preferredInput.withheld(
+							node :: UserInputService,
+							current,
+							Enum.PreferredInput.KeyboardAndMouse
+						)
+					then
+						stopNudges = stopNudges
+							or preferredInput.nudges(node :: UserInputService, Enum, function()
+								if cell:peek() ~= observation.readProperty(node, property) then
+									publish()
+								end
+							end)
+						return
+					end
+					if stopNudges then
+						stopNudges()
+						stopNudges = nil
+					end
+					cell:set(current)
+					if selection then
+						for _, hook in ctx.selectionHooks :: { (unknown) -> () } do
+							hook(current)
+						end
+					end
+				end
+				local stop = observation.observeProperty(node, property, publish)
+				if preferred then
+					local unobserve = stop
+					stop = function()
+						if stopNudges then
+							stopNudges()
+							stopNudges = nil
+						end
+						unobserve()
+					end
+				end
 				local created: SharedObservation = {
 					cell = cell,
 					users = 0,
-					stop = observation.observeProperty(node, property, function()
-						local current = observation.readProperty(node, property)
-						cell:set(current)
-						if selection then
-							for _, hook in ctx.selectionHooks :: { (unknown) -> () } do
-								hook(current)
-							end
-						end
-					end),
+					stop = stop,
 				}
 				byProperty[property] = created
 				entry = created
@@ -748,13 +783,23 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		local shown = ctx.observe.Visible(node)
 		local warming = Compose.cell(false)
 		local frames = services.RunService
+		local function paint(use: ComposeTypes.Use): NumberSequence
+			return types.NumberSequence.new(if use(warming) then 1 else amount(use))
+		end
+		local latched = Compose.cell(true)
 		local stop = runtime.mountFragment(function()
 			return {
-				Host.UIGradient "FadePaint" {
-					Transparency = function(use: ComposeTypes.Use)
-						return types.NumberSequence.new(if use(warming) then 1 else amount(use))
-					end,
-				},
+				Host.UIGradient "FadePaint" { Transparency = paint },
+				ctx.styled(
+					Host.UIStroke "FadeStroke" {
+						Host.UIGradient "FadePaint" {
+							Transparency = function(use: ComposeTypes.Use): NumberSequence
+								return if use(latched) then types.NumberSequence.new(1) else paint(use)
+							end,
+						},
+					},
+					"fade-stroke"
+				),
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(shown) and amount(use) > 0
 				end, function()
@@ -859,6 +904,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 								child.Parent = node
 							end
 						end)
+					end)
+					node:AddTag("facet-fading")
+					latched:set(false)
+					Compose.cleanup(function()
+						node:RemoveTag("facet-fading")
 					end)
 					return Compose.fragment(function()
 						return {}
