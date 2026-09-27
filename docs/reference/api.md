@@ -278,10 +278,10 @@ cannot be interacted with, and the selection never stays on it.
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Toast | Slides in from its edge and fades in, 0.2 seconds, Cubic Out. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds. |
 | Toast with an action | Slides up from below the layer and fades in, 0.2 seconds, Cubic Out. | Slides down and fades out, 0.2 seconds. |
-| DisclosureGroup | The content height opens from 0, 0.25 seconds, Cubic Out, and the content fades in over the first half of that time. The chevron turns 90 degrees with it. | The height closes in 0.2 seconds, and the content fades out over the first half of that time. |
-| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds, Cubic Out, and the content fades in over the first half of that time. The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds, and the content fades out over the first half of that time. |
+| DisclosureGroup | The content height opens from 0, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds, and the content fades out over the same share of that time. |
+| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds, Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds, and the content fades out over the same share of that time. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
-| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds. A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from a quarter of its arc (Cubic Out). Other slots move from 30 percent of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
+| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds. A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
 
 - A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
@@ -290,6 +290,18 @@ cannot be interacted with, and the selection never stays on it.
   `UIGradient` named `FadePaint` fades the node's own paint. A new group
   draws one frame almost transparent before the fade shows it, and the node's
   own paint waits for that frame, so the panel and its text appear together.
+- A faded node also carries a `UIStroke` named `FadeStroke` (tag
+  `facet-fade-stroke`) with its own `FadePaint` gradient. It is disabled at
+  rest. Every theme stroke rule `S::UIStroke` has a twin
+  `S > .facet-fade-stroke` with the same properties, so the stroke resolves
+  exactly like the node's theme stroke. While a fade runs the node is tagged
+  `facet-fading`: its `::UIStroke` is disabled and `FadeStroke` is enabled in
+  the same style pass, so the outline fades with the fill and the content. A
+  game rule on `S::UIStroke` gets the same twin. `FindFirstChildWhichIsA("UIStroke")`
+  on a faded node returns `FadeStroke`.
+- An Alert or a Popover measures its content at rest before its entrance: it
+  waits until the content height holds for one frame, at most the theme's
+  `motion.restLimit` (0.25 seconds by default). Reduced motion skips the wait.
 - Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
   all of this motion. The change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer

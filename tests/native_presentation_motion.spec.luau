@@ -1,6 +1,7 @@
 --!strict
 local t = require("./lib/testkit")
 local fadeKit = require("./lib/fade")
+local Facet = require("../src")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local Vector2 = require("@lune/roblox").Vector2
@@ -129,6 +130,20 @@ t.describe("CollapsibleView in place", function()
 		end, options)
 		return w, expanded
 	end
+
+	t.it("takes the content fade's share of the reveal from the theme's motion tokens", function()
+		local package = Facet.themes.neutralPackage()
+		t.expect(package.metrics.motion.revealFadeShare).toBe(0.5)
+		package.metrics.motion.revealFadeShare = 1
+		local w, expanded = tipsWorld({ theme = package })
+		expanded:set(true)
+		local fade = w.find("ExpandedFade")
+		w.advance(0.15, 9)
+		t.expect(fadeKit.of(fade) > 0).toBe(true)
+		w.advance(0.15, 9)
+		t.expect(fadeKit.of(fade)).toBe(0)
+		w.stop()
+	end)
 
 	t.it("collapsed shows a one-line clamped summary with a More chevron", function()
 		local w = tipsWorld()

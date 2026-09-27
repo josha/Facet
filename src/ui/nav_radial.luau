@@ -892,7 +892,8 @@ return function(
 									): Radial.SectorShape
 										local parent = assert(branch)
 										local p = Compose.easing.outCubic(use(arrival))
-										local factor = 0.25 + 0.75 * p
+										local start = ctx.metric("motion.unfoldStart", use)
+										local factor = start + (1 - start) * p
 										local middle = (parent.inner + parent.outer) / 2
 										local radius = middle
 											+ (math.sqrt(shape.x * shape.x + shape.y * shape.y) - middle) * p

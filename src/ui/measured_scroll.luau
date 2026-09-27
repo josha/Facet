@@ -4,7 +4,6 @@ local Types = require("./types")
 local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
-local REST_LIMIT = 0.25
 
 return function(
 	ctx: Types.Context,
@@ -60,7 +59,7 @@ return function(
 		stop = frames.onFrame(function(delta: number)
 			local now = extent:peek()
 			waited += delta
-			if (now == last and (now > 0 or size:peek().X > 0)) or waited > REST_LIMIT then
+			if (now == last and (now > 0 or size:peek().X > 0)) or waited > ctx.metric("motion.restLimit") then
 				rested:set(true)
 				if stop then
 					stop()

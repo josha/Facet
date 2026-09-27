@@ -157,7 +157,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			regular = { height = 44, paddingX = 12, iconSize = 20 },
 			large = { height = 56, paddingX = 16, iconSize = 24 },
 		},
-		motion = { fast = 0.12, normal = 0.2 },
+		motion = { fast = 0.12, normal = 0.2, revealFadeShare = 0.5, unfoldStart = 0.25, restLimit = 0.25 },
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
 			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },

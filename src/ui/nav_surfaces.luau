@@ -63,12 +63,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		ComposeTypes.Use
 	) -> number)
 		local reduce = reducedMotion(ctx)
-		local function motion(share: number, ease: ComposeTypes.Easing?): (ComposeTypes.Use?) -> number
+		local function motion(
+			share: (ComposeTypes.Use) -> number,
+			ease: ComposeTypes.Easing?
+		): (ComposeTypes.Use?) -> number
 			local value = runtime.tween(function(use: ComposeTypes.Use): number
 				return if use(expanded) then 1 else 0
 			end, {
-				seconds = function(_: ComposeTypes.Use): number
-					return share * (if expanded:peek() then REVEAL.enter else REVEAL.exit)
+				seconds = function(use: ComposeTypes.Use): number
+					return share(use) * (if expanded:peek() then REVEAL.enter else REVEAL.exit)
 				end,
 				ease = ease,
 			})
@@ -79,7 +82,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return read(value, use)
 			end
 		end
-		local progress, opacity = motion(1, Compose.easing.outCubic), motion(0.5)
+		local progress, opacity =
+			motion(function()
+				return 1
+			end, Compose.easing.outCubic), motion(function(use: ComposeTypes.Use): number
+				return ctx.metric("motion.revealFadeShare", use)
+			end)
 		return progress,
 			Compose.formula(function(use: ComposeTypes.Use): boolean
 				return progress(use) <= 0
