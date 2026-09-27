@@ -62,8 +62,9 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end,
 			}) :: unknown
 		) :: { [unknown]: unknown }
-		local open = Compose.cell(false)
-		if spec.expand and spec.mayDrop == true and spec.reveal ~= false then
+		local open, hosted = Compose.cell(false), Compose.cell(false)
+		local richest = properties[1] :: GuiObject?
+		if spec.mayDrop == true and spec.reveal ~= false then
 			properties[#properties + 1] = ctx.styled(
 				Host.Frame "Reveal" {
 					Size = D2.fromOffset(28, 20),
@@ -87,7 +88,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 			local observed, settled = ctx.observe.AbsoluteSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
-				if use(scale) == 1 then
+				if use(scale) == 1 and not (index == 1 and use(hosted)) then
 					settled:set(size)
 				end
 			end)
@@ -105,7 +106,34 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
-		if spec.expand then
+		if spec.reveal ~= false and (#sizes > 1 or spec.expand) then
+			local home = assert(richest).Parent
+			local function returnHome()
+				local content = assert(richest)
+				if content.Parent ~= home then
+					content.Parent = home
+				end
+				hosted:set(false)
+			end
+			local content = spec.expand
+				or function(): Instance
+					local holder = Host.Frame "Hosted" {
+						BackgroundTransparency = 1,
+						Size = D2.new(),
+						AutomaticSize = E.AutomaticSize.XY,
+					}
+					hosted:set(true)
+					assert(richest).Parent = holder
+					Compose.cleanup(returnHome)
+					return holder
+				end
+			if not spec.expand then
+				Compose.watch(function(use: ComposeTypes.Use)
+					if not use(open) then
+						returnHome()
+					end
+				end)
+			end
 			local floor = ctx.hitFloor()
 			local cell = resolver.CELLS[zone]
 			local edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
@@ -121,7 +149,7 @@ return function(ctx: Types.Context, UI: Layout.LayoutControls)
 				end,
 				compact = "popover",
 				edge = edge,
-				content = spec.expand,
+				content = content,
 				trigger = Host.TextButton "Expand" {
 					Text = "",
 					BackgroundTransparency = 1,

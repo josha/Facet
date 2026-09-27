@@ -97,6 +97,11 @@ local function mount(options: { [string]: any }?, topbar: any?): (any, any, any,
 	for name, size in SIZES do
 		sized(engine, root:FindFirstChild(name, true), size[1], size[2])
 	end
+	for _, node in root:GetDescendants() do
+		if node.Name == "Reveal" then
+			sized(engine, node, 28, 20)
+		end
+	end
 	return root, engine, forms, gui, function()
 		runtime:dispose()
 	end
@@ -318,6 +323,50 @@ t.describe("Composition", function()
 			w.stop()
 		end
 	end)
+
+	t.it(
+		"reveals a dropped region's own content in place when it has no expand, and puts the same node back",
+		function()
+			local overlay = require("./lib/overlay_world")
+			local form = Compose.cell(1)
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition "Hud" {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Rounds" { zone = "topLeft", rank = 1, Host.Frame { Name = "RoundsFull" } },
+					UI.Region "Feed" {
+						zone = "left",
+						rank = 2,
+						mayDrop = true,
+						form = form,
+						Host.Frame { Name = "FeedFull" },
+					},
+				}
+			end)
+			local feed = w.find("FeedFull")
+			local home = feed.Parent
+			w.size(w.find("RoundsFull"), 120, 44)
+			w.size(feed, 240, 130)
+			w.size(w.find("Reveal"), 28, 20)
+			local zones = w.find("Zones")
+			w.size(zones, 800, 400)
+			w.size(zones, 800, 200)
+			t.expect(form:peek()).toBe(2)
+			local target = w.find("Feed"):FindFirstChild("Expand")
+			t.expect(target.Visible).toBe(true)
+			target.Activated.fire()
+			t.expect(w.find("ExpandModal") ~= nil).toBe(true)
+			t.expect(feed.Parent.Name).toBe("Hosted")
+			t.expect(feed:IsDescendantOf(w.find("ExpandModal"))).toBe(true)
+			w.size(feed, 200, 100)
+			w.size(zones, 800, 400)
+			t.expect(form:peek()).toBe(1)
+			t.expect(feed.Parent).toBe(home)
+			t.expect(feed.Parent ~= nil and home.Visible).toBe(true)
+			w.stop()
+		end
+	)
 
 	t.it("refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region", function()
 		local function refusal(body: (any, any) -> any): string

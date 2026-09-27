@@ -48,7 +48,7 @@ local FORMS = {
 	Actions = { "full", "compact" },
 	Weapon = { "full" },
 }
-local EXPANDS = { Strip = true, Tasks = true, Health = true, Clock = true, Rail = true }
+local LOSSLESS = { Rounds = true, Actions = true }
 local ORDER = { "Strip", "Rounds", "Tasks", "Health", "Feed", "Clock", "Rail", "Readout", "Actions", "Weapon" }
 return {
 	title = "Screen-anchored HUD",
@@ -361,7 +361,7 @@ return {
 				rank = rank,
 				mayDrop = mayDrop,
 				form = chosen[id],
-				expand = if EXPANDS[id] then rich[id] else nil,
+				reveal = not LOSSLESS[id],
 				...,
 			})
 		end
