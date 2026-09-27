@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A RadialMenu submenu unfolds from the chosen item again, as before 0.12: each new slot starts at that item's angle and band and sweeps along the ring to its place, and a wedge grows from a quarter of its arc. 0.12 only pulled a slot 30 percent toward the item, so on a full ring most slots rose out of the centre.
 - **Breaking: edit mode selects rows on every input, as in SwiftUI.** While `editing` is true, a tap, click, Return or A on a row of a selectable List or Table toggles its selection and no longer runs `onActivate`. A `selectionMode = "multiple"` collection shows the selection ring on each row in edit mode instead of the per-row minus (a deletable single-selection collection keeps the minus). A deletable Table's own toolbar shows `Delete` (`DeleteSelected`) beside `Edit` while it edits on touch, keyboard and mouse; on a gamepad X removes the selected rows as before. `editing` moves from `ReorderOptions` to `SelectionOptions` in the collection types.
 - **Breaking: a RadialMenu long press names the item without picking it.** A finger held still on an item for 0.4 seconds shows its name; that release does nothing and a second tap picks it. A press that slides more than 14 pixels stays a pick-on-release gesture.
 - DisclosureGroup and CollapsibleView fade their content over the first half of the open (0.125 seconds) and out over the first half of the close (0.1 seconds), through the shared `ctx.fade` path; the height or the panel still moves for the whole 0.25 or 0.2 seconds.

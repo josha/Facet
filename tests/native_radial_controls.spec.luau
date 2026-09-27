@@ -1268,6 +1268,35 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(preview.Text).toBe("")
 		world.stop()
 	end)
+	t.it("a submenu's ring unfolds along the ring from the chosen item, not out of the centre", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local world = setup({
+			distribution = "compass",
+			items = {
+				{ id = "gear", slot = "N", label = "Gear", children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") } },
+				{ id = "E", slot = "E", label = "E", onSelect = function() end },
+			},
+		}, true)
+		world.step(0.5)
+		world.find("gear").Activated.fire()
+		world.step(1 / 60)
+		local function at(id: string): any
+			local node = world.find(id)
+			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+		end
+		local early = at("c")
+		world.step(0.5)
+		local final = { a = at("a"), b = at("b"), c = at("c"), d = at("d") }
+		local centre = (final.a + final.b + final.c + final.d) / 4
+		local ring = (final.c - centre).Magnitude
+		local offset = early - centre
+		t.expect(offset.Magnitude > 0.9 * ring).toBe(true)
+		t.expect(offset.Y < 0).toBe(true)
+		t.expect((final.c - centre).Y > 0).toBe(true)
+		world.stop()
+	end)
 	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()
 		local picked = 0
 		local world = setup({

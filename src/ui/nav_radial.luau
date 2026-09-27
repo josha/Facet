@@ -136,7 +136,7 @@ return function(
 		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(spec.launcher == false)
 		local path: ComposeTypes.Cell<{ string }> = Compose.cell({})
 		local candidate: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
-		local branchOrigin: { path: string, x: number, y: number }? = nil
+		local branchOrigin: { path: string, shape: Radial.SectorShape }? = nil
 		local interacting = Compose.cell(false)
 		local naming = Compose.cell(false)
 		local holding = runtime.timeline({ duration = HOLD, autoplay = false })
@@ -229,7 +229,7 @@ return function(
 			if item.children then
 				local entries = table.clone(sector.path)
 				table.insert(entries, item.id)
-				branchOrigin = { path = table.concat(entries, "/"), x = sector.x, y = sector.y }
+				branchOrigin = { path = table.concat(entries, "/"), shape = sector :: Radial.SectorShape }
 				local function change()
 					path:set(entries)
 					candidate:set(nil)
@@ -882,20 +882,45 @@ return function(
 									end, { seconds = 0.16 })
 									local sector = assert(currentSector())
 									local from = branchOrigin
-									local origin: { x: number, y: number }? = if from
-											and from.path == table.concat(sector.path, "/")
-										then from
-										elseif entry.completed:peek() then { x = 0, y = 0 }
+									local branch = if from and from.path == table.concat(sector.path, "/")
+										then from.shape
 										else nil
+									local centred = branch == nil and entry.completed:peek()
+									local function unfold(
+										use: ComposeTypes.Use,
+										shape: Radial.SectorShape
+									): Radial.SectorShape
+										local parent = assert(branch)
+										local p = Compose.easing.outCubic(use(arrival))
+										local factor = 0.25 + 0.75 * p
+										local middle = (parent.inner + parent.outer) / 2
+										local radius = middle
+											+ (math.sqrt(shape.x * shape.x + shape.y * shape.y) - middle) * p
+										local angle = parent.angle + geometry.delta(shape.angle, parent.angle) * factor
+										local result = table.clone(shape)
+										result.angle, result.span = angle, shape.span * factor
+										result.inner = parent.inner + (shape.inner - parent.inner) * p
+										result.outer = parent.outer + (shape.outer - parent.outer) * p
+										result.x = math.sin(math.rad(angle)) * radius
+										result.y = -math.cos(math.rad(angle)) * radius
+										return result
+									end
+									local function moving(use: ComposeTypes.Use, live: Radial.Sector<V>): boolean
+										return (branch ~= nil or centred) and not live.list and not reduced(use)
+									end
 									local function travel(
 										use: ComposeTypes.Use,
 										live: Radial.Sector<V>
 									): (number, number)
-										if origin == nil or live.list or reduced(use) then
+										if not moving(use, live) then
 											return 0, 0
 										end
+										if branch then
+											local shown = unfold(use, live)
+											return shown.x - live.x, shown.y - live.y
+										end
 										local amount = 0.3 * (1 - use(arrival))
-										return (origin.x - live.x) * amount, (origin.y - live.y) * amount
+										return -live.x * amount, -live.y * amount
 									end
 									local function chosen(use: ComposeTypes.Use): boolean
 										local live = currentSector(use)
@@ -1112,7 +1137,9 @@ return function(
 										if complete and not shaped:peek() then
 											shaped:set(true)
 										end
-										local bounds = geometry.paint(fitted)
+										local bounds = geometry.paint(
+											if branch and moving(use, live) then unfold(use, fitted) else fitted
+										)
 										placed:set({ x = bounds.x, y = bounds.y })
 										shape.Size = D2.fromOffset(bounds.w, bounds.h)
 										paint.Thickness = math.max(1, fitted.outer - fitted.inner)
@@ -1135,7 +1162,10 @@ return function(
 											return
 										end
 										local live, at = currentSector(use), use(center)
-										local dx, dy = travel(use, live)
+										local dx, dy = 0, 0
+										if not branch then
+											dx, dy = travel(use, live)
+										end
 										local lag = spread(use) - 1
 										shape.Position = D2.fromOffset(
 											at.X + bounds.x + dx + lag * live.x,

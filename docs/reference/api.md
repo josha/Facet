@@ -281,7 +281,7 @@ cannot be interacted with, and the selection never stays on it.
 | DisclosureGroup | The content height opens from 0, 0.25 seconds, Cubic Out, and the content fades in over the first half of that time. The chevron turns 90 degrees with it. | The height closes in 0.2 seconds, and the content fades out over the first half of that time. |
 | CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds, Cubic Out, and the content fades in over the first half of that time. The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds, and the content fades out over the first half of that time. |
 | Notice | The height opens from 0, 0.25 seconds, Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds. Then `onDismiss` runs. |
-| RadialMenu slot | A slot that enters an open ring fades in and moves from 30 percent of the distance toward its origin to its position, 0.16 seconds. The origin is the parent item for a branch and the center for other slots. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
+| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds. A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from a quarter of its arc (Cubic Out). Other slots move from 30 percent of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds. |
 | NavBar | No motion. | No motion. |
 
 - A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
