@@ -246,6 +246,16 @@ t.describe("native gallery pickers and fields", function()
 		expect(raceDay:GetAttribute("text")).toBe("10/04/2026")
 		expect(s.built.report().raceDay).toBe("10/04/2026")
 		expect(find(s.node, "Committed").Text).toBe("Committed: 09/21/2026 – 09/27/2026")
+		find(find(raceDay, "Field"), "Open").Activated.fire()
+		find(calendar(), "Year").Activated.fire()
+		local years = {}
+		for _, row in find(s.target, "MenuRows"):GetChildren() do
+			if tonumber(row.Name) then
+				table.insert(years, tonumber(row.Name))
+			end
+		end
+		table.sort(years)
+		expect(table.concat(years, " ")).toBe("2026 2027")
 		s.stop()
 	end)
 end)

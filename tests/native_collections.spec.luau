@@ -1462,6 +1462,54 @@ t.describe("Compose native collections", function()
 		runtime:dispose()
 	end)
 
+	t.it("a horizontal touch pan holds the enclosing scrollers until release; a vertical one leaves them", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local E = engine.types.Enum
+		local V2 = engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = E.PreferredInput.Touch
+		local open = Compose.cell(nil)
+		local stop, page = runtime.mount(function()
+			return ctx.Host.ScrollingFrame "Page" {
+				ctx.Host.ScrollingFrame "Body" {
+					UI.RowActions({
+						Name = "Row",
+						open = open,
+						content = UI.Button "Mail" { label = "Mail" },
+						trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
+					}),
+				},
+			}
+		end, target)
+		local body = page:FindFirstChild("Body")
+		local row = body:FindFirstChild("Row")
+		row.AbsoluteSize = V2.new(300, 40)
+		local grip = row:FindFirstChild("SwipeGrip", true)
+		local function pan(to: any, from: any, state: any)
+			grip.TouchPan.fire({ to }, to - from, V2.zero, state)
+		end
+		local function held(): string
+			return `{page.ScrollingEnabled} {body.ScrollingEnabled}`
+		end
+		pan(V2.new(186, 22), V2.new(200, 20), E.UserInputState.Begin)
+		t.expect(held()).toBe("false false")
+		pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.Change)
+		pan(V2.new(120, 24), V2.new(200, 20), E.UserInputState.End)
+		t.expect(held()).toBe("true true")
+		t.expect(open:peek()).toBe("trailing")
+		open:set(nil)
+		engine.heartbeat.fire(1 / 60)
+		pan(V2.new(202, 6), V2.new(200, 20), E.UserInputState.Begin)
+		pan(V2.new(204, -60), V2.new(200, 20), E.UserInputState.Change)
+		t.expect(held()).toBe("true true")
+		pan(V2.new(204, -60), V2.new(200, 20), E.UserInputState.End)
+		t.expect(open:peek()).toBeNil()
+		pan(V2.new(186, 20), V2.new(200, 20), E.UserInputState.Begin)
+		pan(V2.new(186, 20), V2.new(200, 20), E.UserInputState.Cancel)
+		t.expect(held()).toBe("true true")
+		stop()
+		runtime:dispose()
+	end)
+
 	t.it("selects ranges across unmounted rows while honoring row capability policies", function()
 		local shifted = false
 		local engine, runtime, UI, target = setup({
@@ -2093,15 +2141,14 @@ t.describe("Compose native collections", function()
 		local body = node:FindFirstChild("Body")
 		body.AbsoluteWindowSize = engine.types.Vector2.new(250, 100)
 		local row = body:FindFirstChild("1", true)
-		local value = row:FindFirstChild("Value", true)
 		t.expect(row:FindFirstChild("Details", true)).toBeNil()
-		value.TextFits = false
+		row:FindFirstChild("Undisclosed", true).TextFits = false
 		row:FindFirstChild("Details", true).Activated.fire()
 		local expanded = target:FindFirstChild("Popup", true)
 		t.expect(expanded:FindFirstChild("FullValue", true).Text).toBe("Long value that should be disclosed")
 		source:set({ { id = 1, label = "Updated entire value" } })
 		t.expect(expanded:FindFirstChild("FullValue", true).Text).toBe("Updated entire value")
-		value.TextFits = true
+		row:FindFirstChild("Undisclosed", true).TextFits = true
 		t.expect(target:FindFirstChild("Popup", true)).toBeNil()
 		t.expect(body:FindFirstChild("1", true)).toBe(row)
 		stop()
@@ -2444,7 +2491,7 @@ t.describe("Table compact width", function()
 		t.expect(band.Size).toBe(engine.types.UDim2.new(1, -gutter, 0, node:FindFirstChild("Header").Size.Y.Offset))
 		t.expect(band:HasTag("facet-tablehead")).toBe(true)
 		t.expect(node:FindFirstChild("Header").BackgroundTransparency).toBe(1)
-		row:FindFirstChild("Value", true).TextFits = false
+		row:FindFirstChild("Undisclosed", true).TextFits = false
 		local more = row:FindFirstChild("Details", true)
 		t.expect(more:FindFirstChild("Title", true) == nil or not more:FindFirstChild("Title", true).Visible).toBe(true)
 		t.expect(more:FindFirstChild("LeadingIcon", true) ~= nil).toBe(true)
@@ -2861,6 +2908,7 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 			local w = editableWorld(input, { reorderable = true, deletable = true }, false)
 			local edit = w.node:FindFirstChild("Edit", true)
 			t.expect(edit ~= nil and edit.Text == "Edit").toBe(true)
+			t.expect(edit:HasTag("facet-appearance-utility")).toBe(false)
 			t.expect(w.row(1):FindFirstChild("Move", true).Visible).toBe(false)
 			t.expect(w.row(1):FindFirstChild("Minus", true).Visible).toBe(false)
 			edit.Activated.fire()
@@ -2883,6 +2931,141 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		local pointer = editableWorld("KeyboardAndMouse", { reorderable = true, deletable = true }, false)
 		t.expect(pointer.node:FindFirstChild("Edit", true)).toBeNil()
 		pointer.stop()
+	end)
+
+	t.it("a handle drag always drops on DragEnd, even when the detector starts before the handle's press", function()
+		local w = editableWorld("Touch", { reorderable = true, editing = Compose.cell(true) }, false)
+		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
+		local function drag(rowKey, from, to, pressFirst)
+			local handle = w.row(rowKey):FindFirstChild("Move", true)
+			local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
+			local touch = {
+				UserInputType = E.UserInputType.Touch,
+				UserInputState = E.UserInputState.Begin,
+				Position = V3.new(280, from, 0),
+			}
+			if pressFirst then
+				handle.InputBegan.fire(touch)
+			end
+			detector.DragStart.fire(V2.new(280, from))
+			if not pressFirst then
+				handle.InputBegan.fire(touch)
+			end
+			detector.DragContinue.fire(V2.new(280, to))
+			detector.DragEnd.fire()
+			touch.UserInputState = E.UserInputState.End
+			w.service.InputEnded.fire(touch)
+		end
+		drag(1, 20, 100, true)
+		t.expect(#w.reorders).toBe(1)
+		drag(4, 140, 20, false)
+		t.expect(#w.reorders).toBe(2)
+		t.expect(w.node:FindFirstChild("DragImage", true)).toBeNil()
+		t.expect(w.row(4):FindFirstChild("Reorderable", true):GetAttribute("FacetDragging")).toBe(false)
+		w.stop()
+	end)
+
+	t.it("the drag image stays over the rows, never over the Edit toolbar or the header", function()
+		local w = editableWorld("Touch", { reorderable = true }, false)
+		local V2 = w.engine.types.Vector2
+		w.node:FindFirstChild("Edit", true).Activated.fire()
+		local detector = w.row(3):FindFirstChild("Move", true):FindFirstChildWhichIsA("UIDragDetector")
+		detector.DragStart.fire(V2.new(280, 100))
+		detector.DragContinue.fire(V2.new(280, -200))
+		local image = w.node:FindFirstChild("DragImage", true)
+		local top = w.body.Position.Y.Offset
+		t.expect(top > 0).toBe(true)
+		t.expect(image.Position.Y.Offset).toBe(top)
+		detector.DragContinue.fire(V2.new(280, 900))
+		t.expect(image.Position.Y.Offset).toBe(top + 200 - 40)
+		detector.DragEnd.fire()
+		w.stop()
+	end)
+
+	t.it("a held finger on a Table row that has an Edit mode scrolls instead of picking the row up", function()
+		local w = editableWorld("Touch", { reorderable = true }, false)
+		local E, V3 = w.engine.types.Enum, w.engine.types.Vector3
+		local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
+		hit.InputBegan.fire({ UserInputType = E.UserInputType.Touch, Position = V3.new(50, 60, 0) })
+		for _ = 1, 30 do
+			w.engine.heartbeat.fire(1 / 60)
+		end
+		t.expect(w.node:FindFirstChild("DragImage", true)).toBeNil()
+		t.expect(w.body.ScrollingEnabled).toBe(true)
+		w.stop()
+	end)
+
+	t.it("columns that cannot fit beside the edit controls scroll inside a pinned lane, never clip", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		local V2 = engine.types.Vector2
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = records(3),
+				key = key,
+				itemSize = 44,
+				reorderable = true,
+				deletable = true,
+				onReorder = function() end,
+				onDelete = function() end,
+				columns = {
+					{ id = "name", label = "Name", minWidth = 90 },
+					{ id = "artist", label = "Artist", minWidth = 72 },
+					{ id = "rating", label = "Rating", width = 144 },
+				},
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = V2.new(359, 200)
+		local header = node:FindFirstChild("Header")
+		t.expect(header.Size.X.Offset).toBe(359)
+		node:FindFirstChild("Edit", true).Activated.fire()
+		t.expect(header.Size.X.Offset).toBe(271)
+		t.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X).toBe(0)
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		t.expect(header.Size.X.Offset).toBe(306)
+		header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
+		t.expect(body.CanvasSize.X.Offset).toBe(306 + 88)
+		local lane = body:FindFirstChild("1", true):FindFirstChild("Row", true)
+		local painted = lane:FindFirstAncestorWhichIsA("Frame")
+		while not painted:HasTag("facet-tablerow") do
+			painted = painted.Parent
+		end
+		t.expect(lane.Size.X.Offset).toBe(306)
+		body.CanvasPosition = V2.new(35, 0)
+		t.expect(lane.Position.X.Offset).toBe(-35)
+		t.expect(painted.Position.X.Offset).toBe(35)
+		t.expect(lane.Parent.ClipsDescendants).toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
+	t.it("a touch cell wraps only at word boundaries and truncates when one word cannot fit", function()
+		local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.Touch
+		local stop, node = runtime.mount(function()
+			return UI.Table({
+				from = { { id = 1, name = "Neon Straightaway" } },
+				key = key,
+				columns = { { id = "name", label = "Name" } },
+			})
+		end, target)
+		local body = node:FindFirstChild("Body")
+		body.AbsoluteWindowSize = engine.types.Vector2.new(300, 200)
+		local cell = body:FindFirstChild("1", true):FindFirstChild("name", true)
+		local value, word = cell:FindFirstChild("Value"), cell:FindFirstChild("LongestWord")
+		t.expect(word.Text).toBe("Straightaway")
+		t.expect(word.TextWrapped).toBe(false)
+		t.expect(value.TextTruncate).toBe(engine.types.Enum.TextTruncate.AtEnd)
+		word.TextFits = true
+		t.expect(value.TextWrapped).toBe(true)
+		word.TextFits = false
+		t.expect(value.TextWrapped).toBe(false)
+		ctx.config.userInputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		word.TextFits = true
+		t.expect(value.TextWrapped).toBe(false)
+		stop()
+		runtime:dispose()
 	end)
 
 	t.it("the shoulder buttons move the selected rows by one slot", function()

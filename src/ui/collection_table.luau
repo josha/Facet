@@ -313,6 +313,27 @@ return function(ctx: Types.Context, UI: Controls): ()
 			end
 			return 0
 		end)
+		local disclosureShare = Compose.formula(function(use: ComposeTypes.Use): number
+			if next(use(collapsed)) ~= nil then
+				return 0
+			end
+			local hidden, resized, flexible = use(collapsed), readSource(widths, use), 0
+			for _, column in read(spec.columns, use) do
+				if not hidden[column.id] and resized[column.id] == nil and column.width == nil then
+					flexible += 1
+				end
+			end
+			return if flexible > 0 then use(disclosureWidth) / flexible else 0
+		end)
+		local narrowest = Compose.formula(function(use: ComposeTypes.Use): number
+			local hidden, resized, total = use(collapsed), readSource(widths, use), 0
+			for _, column in read(spec.columns, use) do
+				if not hidden[column.id] then
+					total += resized[column.id] or column.width or (if coarse(use) then 0 else column.minWidth or 48)
+				end
+			end
+			return total
+		end)
 		local function columnWidth(
 			current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
 			use: ComposeTypes.Use
@@ -324,7 +345,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 			current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
 			index: ComposeTypes.Readable<number>,
 			content: GuiObject,
-			extra: GuiObject?
+			extra: GuiObject?,
+			more: GuiObject?
 		): Frame
 			local nativeProps: Types.FrameProps = {
 				Name = current:peek().id,
@@ -338,7 +360,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				end,
 				Host.UISizeConstraint({
 					MinSize = function(use: ComposeTypes.Use)
-						return V2.new(use(current).minWidth or 48, 0)
+						return V2.new(if coarse(use) then 0 else use(current).minWidth or 48, 0)
 					end,
 					MaxSize = function(use: ComposeTypes.Use)
 						return V2.new(use(current).maxWidth or 1000000, 1000000)
@@ -351,6 +373,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				}),
 				content,
 				extra,
+				more,
 			}
 			return Host.Frame(nativeProps)
 		end
@@ -532,6 +555,14 @@ return function(ctx: Types.Context, UI: Controls): ()
 		local function trailingGutter(use: ComposeTypes.Use): number
 			return if editor then use(editor.trailing) else 0
 		end
+		local window = Compose.cell(V2.zero)
+		local scrolledX = Compose.cell(0)
+		local function laneWidth(use: ComposeTypes.Use): number?
+			local width = use(window).X
+			return if width > 0
+				then math.max(use(narrowest), width - reorderGutter(use) - trailingGutter(use) - use(disclosureWidth))
+				else nil
+		end
 		local headerLayout = lists.list({}, false)
 		local headerProps: Types.FrameProps = {
 			Name = "Header",
@@ -566,7 +597,10 @@ return function(ctx: Types.Context, UI: Controls): ()
 			mode = if spec.scrolls == false then "all" :: ComposeTypes.OrderedCollectionMode else spec.mode,
 			ScrollingDirection = E.ScrollingDirection.XY,
 			CanvasSize = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(headerExtent).X + reorderGutter(use) + trailingGutter(use), use(contentExtent))
+				return D2.fromOffset(
+					use(headerExtent).X + reorderGutter(use) + trailingGutter(use) + use(disclosureWidth),
+					use(contentExtent)
+				)
 			end,
 			from = ordered,
 			key = keyOf,
@@ -654,26 +688,64 @@ return function(ctx: Types.Context, UI: Controls): ()
 										return field(item, definition)
 									end, assert(spec.onCellChange), cellsLive)
 									else nil
+							local function valueText(use: ComposeTypes.Use): string
+								local result = field(use(current), use(column))
+								return if result == nil then "" else tostring(result)
+							end
+							local function longest(use: ComposeTypes.Use): string
+								local found = ""
+								for word in string.gmatch(valueText(use), "%S+") do
+									if #word > #found then
+										found = word
+									end
+								end
+								return found
+							end
+							local function probe(
+								name: string,
+								text: (ComposeTypes.Use) -> string,
+								share: boolean
+							): TextLabel
+								return ctx.styled(
+									ctx.text({
+										Name = name,
+										TextWrapped = false,
+										TextTransparency = 1,
+										Interactable = false,
+										Size = function(use: ComposeTypes.Use)
+											return D2.new(1, if share then use(disclosureShare) else 0, 1, 0)
+										end,
+										AutomaticSize = E.AutomaticSize.None,
+										Text = text,
+									}),
+									"TableValue"
+								)
+							end
+							local longestWord = if render then nil else probe("LongestWord", longest, false)
+							local undisclosed = if render
+								then nil
+								else probe("Undisclosed", function(use: ComposeTypes.Use): string
+									return if touchRows(use) then longest(use) else valueText(use)
+								end, true)
+							local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 							local content = if render
 								then render(current, placement, key)
 								else ctx.styled(
 									ctx.text({
 										Name = "Value",
 										TextTruncate = E.TextTruncate.AtEnd,
-										TextWrapped = touchRows,
+										TextWrapped = function(use: ComposeTypes.Use): boolean
+											return touchRows(use) and use(assert(wordFits)) ~= false
+										end,
 										Size = D2.fromScale(1, 1),
 										AutomaticSize = E.AutomaticSize.None,
-										Text = function(use: ComposeTypes.Use)
-											local item, value = use(current), use(column)
-											local result = field(item, value)
-											return if result == nil then "" else tostring(result)
-										end,
+										Text = valueText,
 									}),
 									"TableValue"
 								)
 							if not render then
 								recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
-								local fits = ctx.observe.TextFits(content :: TextLabel)
+								local fits = ctx.observe.TextFits(assert(undisclosed))
 								Compose.watch(function(use: ComposeTypes.Use)
 									local id = use(column).id
 									local hidden = use(fits) == false
@@ -691,7 +763,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 									end
 								end)
 							end
-							local cell = ctx.styled(columnFrame(column, index, content), "TableCell")
+							local cell =
+								ctx.styled(columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
 							cell.ClipsDescendants = true
 							return cell
 						end,
@@ -700,13 +773,18 @@ return function(ctx: Types.Context, UI: Controls): ()
 				local row = Host.Frame(rowProps)
 				runtime.decorate(row, {
 					Size = function(use: ComposeTypes.Use)
-						return D2.new(1, -use(disclosureWidth), 1, 0)
+						local lane = laneWidth(use)
+						return if lane then D2.new(0, lane, 1, 0) else D2.new(1, -use(disclosureWidth), 1, 0)
+					end,
+					Position = function(use: ComposeTypes.Use)
+						return D2.fromOffset(-use(scrolledX), 0)
 					end,
 				})
 				local cellRow = row
 				local rowProps: Types.FrameProps = {
 					Name = "DisclosingRow",
 					Size = D2.fromScale(1, 1),
+					ClipsDescendants = true,
 					cellRow :: ComposeTypes.Child,
 					Compose.show(function(use: ComposeTypes.Use)
 						return use(disclosureWidth) > 0
@@ -811,6 +889,11 @@ return function(ctx: Types.Context, UI: Controls): ()
 					row = editor.wrap(row, current, key, true)
 				end
 				local painted = ctx.styled(if editor then row else disclosing, "TableRow")
+				runtime.decorate(painted, {
+					Position = function(use: ComposeTypes.Use)
+						return D2.fromOffset(use(scrolledX), 0)
+					end,
+				})
 				ctx.skin(painted, "control", {
 					selected = function(use: ComposeTypes.Use): boolean
 						return read(selection, use)[key] == true
@@ -851,30 +934,27 @@ return function(ctx: Types.Context, UI: Controls): ()
 		})
 		local position, rendered = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
 		local unitSize = ctx.observe.AbsoluteSize(unit)
-		local window = Compose.formula(function(use: ComposeTypes.Use): Vector2
+		Compose.watch(function(use: ComposeTypes.Use)
 			local scale = use(unitSize).X
 			local size = use(rendered)
-			return if scale > 0 then size / scale else size
+			window:set(if scale > 0 then size / scale else size)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(position)
 			viewportWidth:set(use(window).X - reorderGutter(use) - trailingGutter(use))
 			coordinator:set(nil)
 		end)
-		local scrolledX = Compose.formula(function(use: ComposeTypes.Use): number
-			return use(position).X
+		Compose.watch(function(use: ComposeTypes.Use)
+			scrolledX:set(use(position).X)
 		end)
 		runtime.decorate(header, {
 			Position = function(use: ComposeTypes.Use)
 				return D2.fromOffset(reorderGutter(use) - use(scrolledX), use(toolbarHeight))
 			end,
 			Size = function(use: ComposeTypes.Use)
-				local width = use(window).X
-				return if width > 0
-					then D2.fromOffset(
-						math.max(0, width - reorderGutter(use) - trailingGutter(use) - use(disclosureWidth)),
-						use(headerHeight)
-					)
+				local lane = laneWidth(use)
+				return if lane
+					then D2.fromOffset(lane, use(headerHeight))
 					else D2.new(
 						1,
 						-reorderGutter(use) - trailingGutter(use) - use(disclosureWidth),
@@ -912,7 +992,6 @@ return function(ctx: Types.Context, UI: Controls): ()
 						label = function(use: ComposeTypes.Use): string
 							return if read(editing, use) then "Done" else "Edit"
 						end,
-						appearance = "utility",
 						AnchorPoint = V2.new(1, 0),
 						Position = D2.fromScale(1, 0),
 						Size = D2.new(0, 0, 1, 0),

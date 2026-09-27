@@ -3341,8 +3341,9 @@ t.describe("native parity reference applications", function()
 						t.expect(if frame then frame.Position.X.Offset else 0).toBe(gutter)
 						t.expect(world.header.Size.X.Offset).toBe(windowWidth - gutter - trail - disclosure)
 						t.expect(row.Size.X.Offset).toBe(windowWidth)
-						t.expect(cells.Size.X.Scale).toBe(1)
-						t.expect(cells.Size.X.Offset).toBe(-disclosure)
+						t.expect(cells.Size.X.Scale).toBe(0)
+						t.expect(cells.Size.X.Offset).toBe(windowWidth - gutter - trail - disclosure)
+						t.expect(cells.Position.X.Offset).toBe(-scrollX)
 						local left = 0
 						for _, id in { "first", "second", "third" } do
 							local head, cell = world.header:FindFirstChild(id), cells:FindFirstChild(id)
@@ -4566,10 +4567,14 @@ t.describe("native parity reference applications", function()
 			local cells = rowNode:FindFirstChild("Cells", true)
 			local row = cells:FindFirstChild("DisclosingRow"):FindFirstChild("Row")
 			local function cellOrigin(): number
-				return rowNode.Position.X.Offset + cells.Position.X.Offset - body.CanvasPosition.X
+				return rowNode.Position.X.Offset
+					- body.CanvasPosition.X
+					+ cells.Parent.Position.X.Offset
+					+ cells.Position.X.Offset
+					+ row.Position.X.Offset
 			end
 			local function cellWidth(): number
-				return rowNode.Size.X.Offset + cells.Size.X.Offset + row.Size.X.Offset
+				return row.Size.X.Offset
 			end
 			t.expect(header.Position.X.Offset).toBe(0)
 			t.expect(cellOrigin()).toBe(0)
@@ -4736,9 +4741,14 @@ t.describe("native parity reference applications", function()
 				local rowNode = body:FindFirstChild("Items"):FindFirstChild("2")
 				local cells = rowNode:FindFirstChild("Cells", true)
 				local row = cells:FindFirstChild("DisclosingRow"):FindFirstChild("Row")
-				t.expect(rowNode.Position.X.Offset + cells.Position.X.Offset - body.CanvasPosition.X)
-					.toBe(header.Position.X.Offset)
-				t.expect(rowNode.Size.X.Offset + cells.Size.X.Offset + row.Size.X.Offset).toBe(header.Size.X.Offset)
+				t.expect(
+					rowNode.Position.X.Offset
+						- body.CanvasPosition.X
+						+ cells.Parent.Position.X.Offset
+						+ cells.Position.X.Offset
+						+ row.Position.X.Offset
+				).toBe(header.Position.X.Offset)
+				t.expect(row.Size.X.Offset).toBe(header.Size.X.Offset)
 				for _, column in { "fixed", "fill" } do
 					local top, cell = header:FindFirstChild(column), row:FindFirstChild(column)
 					t.expect(top.Size).toBe(cell.Size)

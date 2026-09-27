@@ -160,7 +160,10 @@ return function<V, K>(
 			end
 		end
 		if #keys > 0 then
-			captured = if position then pendingInput else nil
+			local live = pendingInput ~= nil
+				and pendingInput.UserInputState ~= E.UserInputState.End
+				and pendingInput.UserInputState ~= E.UserInputState.Cancel
+			captured = if position and live then pendingInput else nil
 			activation.consume(captured)
 			moving:set({
 				key = key,
@@ -346,7 +349,7 @@ return function<V, K>(
 					if tapped then
 						cancel()
 						toggle()
-					elseif captured == nil then
+					else
 						commit()
 					end
 				end,
@@ -361,6 +364,14 @@ return function<V, K>(
 					or value.UserInputType == E.UserInputType.Touch
 				then
 					pendingInput = value
+					local move = moving:peek()
+					if move and move.pointer and captured == nil then
+						captured = value
+						activation.consume(value)
+						if startFrames then
+							startFrames()
+						end
+					end
 				end
 			end)
 		end
@@ -494,7 +505,7 @@ return function<V, K>(
 		end
 		if value.UserInputType == E.UserInputType.MouseButton1 then
 			pressed, pressOrigin, pendingInput = key, V2.new(at.X, at.Y), value
-		elseif value.UserInputType == E.UserInputType.Touch then
+		elseif value.UserInputType == E.UserInputType.Touch and editing == nil then
 			disarm()
 			touchKey, touchOrigin, pendingInput = key, V2.new(at.X, at.Y), value
 			local elapsed = 0
@@ -540,10 +551,14 @@ return function<V, K>(
 				Size = if horizontal then D2.new(0, extent + stack, 1, 0) else D2.new(1, 0, 0, extent + stack),
 				Position = function(use: ComposeTypes.Use)
 					local live = use(moving)
+					local base = if horizontal then use(bodyAt).X.Offset else use(bodyAt).Y.Offset
+					local window = axis(body.AbsoluteWindowSize) / scaleOf(body)
 					local along = if live and live.pointer
-						then alongBody(body, live.pointer) + (if horizontal
-							then use(bodyAt).X.Offset
-							else use(bodyAt).Y.Offset) - extent / 2
+						then math.clamp(
+							alongBody(body, live.pointer) + base - extent / 2,
+							base,
+							math.max(base, base + window - extent - stack)
+						)
 						else dropY(use)
 					return if horizontal then D2.fromOffset(along, 0) else D2.fromOffset(0, along)
 				end,
