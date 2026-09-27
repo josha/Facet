@@ -941,6 +941,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				use(placement) ~= "sidebar" and room > 0 and use(stripContent).X > room - 2 * inset(use).Offset + 0.5
 			)
 		end)
+		local revealed: string? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local selected = use(spec.selection)
 			local measure = tabMeasures[selected]
@@ -952,9 +953,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local start = if vertical then at.Y - origin.Y else at.X - origin.X
 			local length = if vertical then size.Y else size.X
 			local visible = if vertical then extent.Y else extent.X
-			if visible <= 0 then
+			local key = `{selected}:{visible}`
+			if visible <= 0 or length <= 0 or revealed == key then
 				return
 			end
+			revealed = key
 			local delta = if start < 0 then start elseif start + length > visible then start + length - visible else 0
 			if delta ~= 0 then
 				bar.CanvasPosition = if vertical

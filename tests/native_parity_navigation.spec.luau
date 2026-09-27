@@ -720,6 +720,15 @@ t.describe("native parity navigation", function()
 		selection:set("e")
 		t.expect(writes).toBe(1)
 		t.expect(tabs.CanvasPosition.X).toBe(100)
+		for index, id in { "a", "b", "c", "d", "e" } do
+			find(tabs, id).AbsolutePosition = V2(world, (index - 1) * 80 - 100, 0)
+		end
+		tabs.CanvasPosition = V2(world, 0, 0)
+		for index, id in { "a", "b", "c", "d", "e" } do
+			find(tabs, id).AbsolutePosition = V2(world, (index - 1) * 80, 0)
+		end
+		t.expect(tabs.CanvasPosition.X).toBe(0)
+		t.expect(writes).toBe(2)
 		world.stop()
 	end)
 

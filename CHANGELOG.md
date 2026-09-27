@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A TabView top strip that overflows scrolls freely: it reveals the selected tab once per selection or strip width, so a scroll that moves the selected tab out of view is no longer pulled back.
 - **Breaking: Facet's own theme `::UIStroke` rules stroke inside the box** (`BorderStrokePosition.Inner`) unless a rule says otherwise, so a border at a clipping edge is not cut. A game's `package.rules` keep the engine's stroke position, and the AvatarGroup separator stays outside the avatar.
 - **Breaking: vertical scrollers keep a persistent bar gutter** (`VerticalScrollBarInset = Always` on the theme's `ScrollingFrame` rule and `UI.ScrollView`), so a vertical scroller's content is 4 pixels narrower even when it does not scroll. Horizontal rails, menus, tab rails, the calendar and alert bodies keep the on-demand reserve.
 - **Breaking: `UI.environment(frame)` reports the frame's size in layout units** (its `AbsoluteSize` divided by the scale of its `UIScale` ancestors), so a scaled preview keeps its size class. A camera source still reports `ViewportSize` in pixels.
