@@ -278,6 +278,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 							end,
 						}
 						local button = UI.Button(buttonProps)
+						button:AddTag("facet-row-action")
 						local caption = button:FindFirstChild("Title", true)
 						local bounds = if caption and caption:IsA("TextLabel")
 							then ctx.observe.TextBounds(caption)
