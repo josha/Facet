@@ -2966,6 +2966,19 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("a held finger on a Table row that has an Edit mode scrolls instead of picking the row up", function()
+		local w = editableWorld("Touch", { reorderable = true }, false)
+		local E, V3 = w.engine.types.Enum, w.engine.types.Vector3
+		local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
+		hit.InputBegan.fire({ UserInputType = E.UserInputType.Touch, Position = V3.new(50, 60, 0) })
+		for _ = 1, 30 do
+			w.engine.heartbeat.fire(1 / 60)
+		end
+		t.expect(w.node:FindFirstChild("DragImage", true)).toBeNil()
+		t.expect(w.body.ScrollingEnabled).toBe(true)
+		w.stop()
+	end)
+
 	t.it("the shoulder buttons move the selected rows by one slot", function()
 		local w = editableWorld("Gamepad", { reorderable = true, selected = { [2] = true } }, false)
 		w.pressed("MoveRowsLater")

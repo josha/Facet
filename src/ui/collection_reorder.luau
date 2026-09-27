@@ -505,7 +505,7 @@ return function<V, K>(
 		end
 		if value.UserInputType == E.UserInputType.MouseButton1 then
 			pressed, pressOrigin, pendingInput = key, V2.new(at.X, at.Y), value
-		elseif value.UserInputType == E.UserInputType.Touch then
+		elseif value.UserInputType == E.UserInputType.Touch and editing == nil then
 			disarm()
 			touchKey, touchOrigin, pendingInput = key, V2.new(at.X, at.Y), value
 			local elapsed = 0
