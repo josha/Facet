@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A Table's "…" Details button is a `utility` button, like the reorder handle beside it: it has no plate at rest, so a selected row's fill shows behind it and the row's bottom separator runs under it in pointer and edit modes.
 - A shared fade (Toast, Alert, Popover pages, RadialMenu, DisclosureGroup and CollapsibleView content) now fades the theme outline with the fill and the content. The theme's `::UIStroke` is a phantom that no per-node value reaches, so every stroke rule `S::UIStroke` gains a twin `S > .facet-fade-stroke`; while a fade runs the node is tagged `facet-fading` (its phantom stroke is disabled) and carries a real `UIStroke` tagged `facet-fade-stroke` whose `UIGradient` follows the fade. A game's own stroke rules get the same twin.
 - **Breaking: an anchored menu insets its rows by `space.xs` and rounds every row's highlight to `radii.panel - space.xs`**, so a selected or hovered row stays inside the card's stroke and corners. The `facet-menu-end` tag and its `::UICorner` rule are gone; a game rule on `facet-menu-end` no longer matches.
 - **Breaking: a Table holds a custom `render` cell's content in an `Inset` frame** (tag `facet-tablecellinset`) that the theme places at the value inset, so custom cells, headings and text values start at the same x. The content's parent is the `Inset` frame, not the cell. A heading takes the value inset even when its button latched `facet-button-tight`, the header band is as wide as the rows (not the scroll bar gutter), and the Edit toolbar keeps `space.s` above the header.
