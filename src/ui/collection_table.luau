@@ -1068,8 +1068,8 @@ return function(ctx: Types.Context, UI: Controls): ()
 							Visible = function(use: ComposeTypes.Use)
 								return read(editing, use) == true and not pad(use)
 							end,
-							enabled = editor.canDelete,
-							onActivate = editor.deleteChosen,
+							enabled = editor.canDeleteSelected,
+							onActivate = editor.deleteSelected,
 						}
 						else nil
 					return Host.Frame({

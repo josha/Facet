@@ -14,8 +14,8 @@ export type Editor<V, K> = {
 	trailing: ComposeTypes.Readable<number>,
 	press: (K, InputObject) -> (),
 	busy: () -> boolean,
-	deleteChosen: () -> (),
-	canDelete: (ComposeTypes.Use?) -> boolean,
+	deleteSelected: () -> (),
+	canDeleteSelected: (ComposeTypes.Use?) -> boolean,
 }
 type Move<V, K> = {
 	key: K,
@@ -534,7 +534,7 @@ return function<V, K>(
 		end
 	end
 	pressRow = press
-	local function chosen(use: ComposeTypes.Use?): { K }
+	local function chosen(use: ComposeTypes.Use?, selectedOnly: boolean?): { K }
 		local keys, selected = {}, read(selection, use)
 		for index, item in read(source, use) do
 			local key = keyOf(item, index)
@@ -542,7 +542,7 @@ return function<V, K>(
 				table.insert(keys, key)
 			end
 		end
-		if #keys == 0 and read(editing, use) == true then
+		if #keys == 0 and not selectedOnly and read(editing, use) == true then
 			local body = bodyOf()
 			local at: Instance? = if use then use(focus) else focus:peek()
 			if at and not at:IsDescendantOf(body) then
@@ -566,12 +566,15 @@ return function<V, K>(
 		end
 		return keys
 	end
-	local function canDelete(use: ComposeTypes.Use?): boolean
-		return deletable and (if use then use(moving) else moving:peek()) == nil and #chosen(use) > 0
+	local function deletes(selectedOnly: boolean?): (ComposeTypes.Use?) -> boolean
+		return function(use: ComposeTypes.Use?): boolean
+			return deletable and (if use then use(moving) else moving:peek()) == nil and #chosen(use, selectedOnly) > 0
+		end
 	end
-	local function deleteChosen(): ()
+	local canDelete, canDeleteSelected = deletes(false), deletes(true)
+	local function remove(selectedOnly: boolean?): ()
 		local keys = {}
-		for _, key in chosen() do
+		for _, key in chosen(nil, selectedOnly) do
 			for index, item in read(source) do
 				if
 					keyOf(item, index) == key
@@ -919,7 +922,9 @@ return function<V, K>(
 				"DeleteRows",
 				{ E.KeyCode.Delete, E.KeyCode.Backspace, E.KeyCode.ButtonX },
 				canDelete,
-				deleteChosen,
+				function()
+					remove(false)
+				end,
 				{ priority = 400 }
 			)
 		end
@@ -934,7 +939,9 @@ return function<V, K>(
 		busy = function(): boolean
 			return moving:peek() ~= nil
 		end,
-		deleteChosen = deleteChosen,
-		canDelete = canDelete,
+		deleteSelected = function()
+			remove(true)
+		end,
+		canDeleteSelected = canDeleteSelected,
 	}
 end

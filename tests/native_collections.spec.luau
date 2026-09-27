@@ -3125,6 +3125,21 @@ t.describe("editable collections: reorderable and deletable on every input", fun
 		w.stop()
 	end)
 
+	t.it("the toolbar Delete acts on the selection only; the focused-row fallback belongs to the key", function()
+		local w = editableWorld("Touch", { reorderable = true, deletable = true }, false)
+		w.node:FindFirstChild("Edit", true).Activated.fire()
+		local delete = w.node:FindFirstChild("DeleteSelected", true)
+		local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
+		w.gui.SelectedObject = if hit.Selectable then hit else hit:FindFirstChildWhichIsA("GuiButton", true)
+		t.expect(w.gui.SelectedObject ~= nil).toBe(true)
+		t.expect(delete.Interactable).toBe(false)
+		delete.Activated.fire({ UserInputType = w.engine.types.Enum.UserInputType.Touch })
+		t.expect(w.deletes).toEqual({})
+		w.pressed("DeleteRows")
+		t.expect(w.deletes).toEqual({ { 2 } })
+		w.stop()
+	end)
+
 	t.it("a single-selection List in edit mode toggles its one row: a tap on the chosen row clears it", function()
 		local activated = {}
 		local w = editableWorld("Touch", {
