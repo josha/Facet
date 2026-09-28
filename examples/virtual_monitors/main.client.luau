@@ -355,7 +355,7 @@ local lifetime = Compose.createRootOwner(function()
 		local views = screens.create(Facet, runtime, sceneActions(false, desktopPackage))
 		return desktop.create(Facet, runtime, views, model, modeProgress, {
 			theme = desktopPackage,
-			reducedMotion = reducedMotion,
+			motionLevel = motionLevel,
 			pressHaptic = pressHaptic,
 			player = players.LocalPlayer,
 		})()
