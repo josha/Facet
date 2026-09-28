@@ -59,6 +59,15 @@ local function setup(build: (any, any) -> any, options: { [string]: any }?): any
 		assert(context and context.Enabled, "the stick adjust context is live")
 		context:FindFirstChild("StickAdjust").StateChanged.fire(engine.types.Vector2.new(x, y))
 	end
+	function world.action(name: string)
+		for _, node in parent:GetDescendants() do
+			if node:IsA("InputContext") and node.Name == "Facet" .. name and node.Enabled then
+				node:FindFirstChild(name).Pressed.fire()
+				return true
+			end
+		end
+		return false
+	end
 	function world.stop()
 		stop()
 		runtime:dispose()
@@ -238,6 +247,42 @@ t.describe("M1: the Stepper", function()
 		t.expect(stepper.NextSelectionDown).toBe(nil)
 		w.find("Increase", stepper).Activated.fire()
 		t.expect(value:peek()).toBe(5)
+		w.stop()
+	end)
+end)
+
+t.describe("the range Slider is one stop", function()
+	t.it("lands on the lower handle, A switches, arrows and stick move the adjusted handle", function()
+		local value = Compose.cell({ lower = 20, upper = 60 })
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Slider("Tilt")({ value = value, range = true, min = 0, max = 100, step = 5 }) })
+		end)
+		local slider = w.find("Tilt")
+		t.expect(slider.Selectable).toBe(true)
+		t.expect(selectableInside(slider)).toEqual({})
+		w.gui.SelectedObject = slider
+		t.expect(slider:GetAttribute("adjusting")).toBe("lower")
+		t.expect(string.find(slider:GetAttribute("FacetFocusPart"), "HandleLower", 1, true) ~= nil).toBe(true)
+		w.press("DPadRight")
+		t.expect(value:peek().lower).toBe(25)
+		local names = {}
+		for _, binding in w.find("FacetSwitchThumb", w.parent):FindFirstChild("SwitchThumb"):GetChildren() do
+			table.insert(names, binding.KeyCode.Name)
+		end
+		table.sort(names)
+		t.expect(names).toEqual({ "ButtonA", "Return" })
+		t.expect(w.action("SwitchThumb")).toBe(true)
+		t.expect(slider:GetAttribute("adjusting")).toBe("upper")
+		t.expect(string.find(slider:GetAttribute("FacetFocusPart"), "HandleUpper", 1, true) ~= nil).toBe(true)
+		w.stick(1, 0)
+		w.stick(0, 0)
+		t.expect(value:peek().upper).toBe(65)
+		t.expect(w.action("SwitchThumb")).toBe(true)
+		t.expect(slider:GetAttribute("adjusting")).toBe("lower")
+		t.expect(w.action("SwitchThumb")).toBe(true)
+		w.gui.SelectedObject = nil
+		w.gui.SelectedObject = slider
+		t.expect(slider:GetAttribute("adjusting")).toBe("lower")
 		w.stop()
 	end)
 end)

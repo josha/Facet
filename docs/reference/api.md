@@ -1532,13 +1532,16 @@ A readable value for one of them causes an error that names the option.
 - `range`: `value` holds `{ lower, upper }`. Each change calls
   `onChange(pair, { thumb = "lower" | "upper" })`, and each completed gesture
   calls `onCommit(pair, { thumb })` once. The two handles, `HandleLower` and
-  `HandleUpper`, are 44 by 44 selection stops, and the fill spans between
+  `HandleUpper`, are 44 by 44 touch targets, and the fill spans between
   them. The handles never cross. A drag keeps the handle that it started
   with. A press on the track moves the nearer handle. For coincident handles,
   a press below the pair moves the lower one and a press above moves the upper
-  one. The arrows move the selected handle and stay on it when `minGap` stops
-  the move. With gamepad input, the arrows move the selection between the
-  handles until ButtonA engages the handle. ButtonB releases it. A pair that
+  one. The range Slider is one selection stop. The selection always lands on
+  the lower handle; A (gamepad) or Return (keyboard) switches the handle that
+  the arrows and the left stick move, and the arrows stay on that handle when
+  `minGap` stops the move. The focus look is drawn on the handle being moved,
+  and the Slider's `adjusting` attribute (`lower` or `upper`) and accessible
+  label name it. A pair that
   is not legal at construction causes an error. A pair that becomes illegal
   later is not painted or written back: the control keeps the last legal pair
   and adds a line to the `diagnostics` attribute.

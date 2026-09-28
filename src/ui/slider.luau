@@ -261,9 +261,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			return Host.Frame(native)
 		end
 		native.BackgroundTransparency = 1
-		if thumb ~= "value" then
-			native.Selectable = enabledValue(spec)
-		end
 		table.insert(native, mark)
 		table.insert(native, Host.UICorner({ CornerRadius = D.new(0.5, 0) }))
 		return Host.Frame(native)
@@ -603,8 +600,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local thumbStop = not isRange and (spec.thumb or "always") == "always" and spec.thumbContent == nil
 		local handles: { [Thumb]: Frame } = {}
-		local engagedOf: { [Thumb]: ComposeTypes.Cell<boolean> } =
-			{ lower = Compose.cell(false), upper = Compose.cell(false) }
 		if isRange then
 			for index = 1, 2 do
 				local thumb: Thumb = if index == 1 then "lower" else "upper"
@@ -635,15 +630,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 							end,
 							DragStart = function()
 								if not h.enabled(spec) then
-									return
-								end
-								local selector = ctx.config.services.GuiService
-								if
-									read(preferred) == E.PreferredInput.Gamepad
-									and selector ~= nil
-									and selector.SelectedObject == handle
-								then
-									engagedOf[thumb]:set(true)
 									return
 								end
 								begin(thumb)
@@ -798,7 +784,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 		end
 		local native = ctx.props(spec, SLIDER_KEYS, {
 			BackgroundTransparency = 1,
-			Selectable = if isRange then false else enabledValue(spec),
+			Selectable = enabledValue(spec),
 			Size = if vertical then D2.new(0, 0, 1, 0) else D2.new(1, 0, 0, 0),
 			AutomaticSize = if vertical then E.AutomaticSize.X else E.AutomaticSize.Y,
 		})
@@ -863,60 +849,66 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			end, cancel, model.min, model.max, { vertical = vertical, guard = true })
 		end
 		if isRange then
-			for index = 1, 2 do
-				local thumb: Thumb = if index == 1 then "lower" else "upper"
-				local handle = handles[thumb]
-				local engaged = engagedOf[thumb]
-				local proxy: NumberSpec = {
-					value = function(use: ComposeTypes.Use)
+			local adjusting = Compose.cell("lower" :: Thumb)
+			if selection then
+				local observed = selection
+				Compose.watch(function(use: ComposeTypes.Use)
+					if use(observed) ~= node then
+						adjusting:set("lower")
+					end
+				end)
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				local thumb = use(adjusting) :: Thumb
+				node:SetAttribute("adjusting", thumb)
+				node:SetAttribute("FacetFocusPart", relative(handles[thumb]))
+			end)
+			h.attributes(node, {
+				AccessibleLabel = function(use: ComposeTypes.Use): string
+					local named = read(spec.label, use)
+					local side = use(adjusting) :: string
+					return if named and named ~= "" then `{named} {side}` else `Range {side}`
+				end,
+			})
+			h.adjustment(
+				node,
+				(spec :: unknown) :: NumberSpec,
+				function(direction)
+					local thumb = adjusting:peek() :: Thumb
+					local current = pair()
+					local base = if thumb == "lower" then current.lower else current.upper
+					if moveThumb(thumb, model.stepped(base, direction)) then
+						commit(thumb)
+					end
+				end,
+				cancel,
+				model.min,
+				model.max,
+				{
+					vertical = vertical,
+					guard = true,
+					arrows = function(use: ComposeTypes.Use, direction: number): boolean
 						local current = pair(use)
-						return if thumb == "lower" then current.lower else current.upper
-					end,
-					onChange = function() end,
-				}
-				local function gamepad(use: ComposeTypes.Use?): boolean
-					return read(preferred, use) == E.PreferredInput.Gamepad
-				end
-				h.adjustment(
-					handle,
-					proxy,
-					function(direction)
-						local current = pair()
+						local thumb = use(adjusting) :: Thumb
 						local base = if thumb == "lower" then current.lower else current.upper
-						if moveThumb(thumb, model.stepped(base, direction)) then
-							commit(thumb)
-						end
+						return if direction < 0 then base > model.min else base < model.max
 					end,
-					function()
-						cancel()
-						engaged:set(false)
+					extra = function(active: (ComposeTypes.Use) -> boolean)
+						ctx.action(node, "SwitchThumb", { E.KeyCode.ButtonA, E.KeyCode.Return }, active, function()
+							adjusting:set(if adjusting:peek() == "lower" then "upper" else "lower")
+						end, { priority = 250 })
 					end,
-					model.min,
-					model.max,
-					{
-						vertical = vertical,
-						guard = true,
-						arrows = function(use: ComposeTypes.Use)
-							return not gamepad(use) or use(engaged)
-						end,
-					}
-				)
-				if selection then
-					local observed = selection
-					Compose.watch(function(use: ComposeTypes.Use)
-						if use(observed) ~= handle then
-							engaged:set(false)
-						end
-					end)
-				end
-				h.attributes(handle, {
+				}
+			)
+			for _, thumb in { "lower", "upper" } :: { Thumb } do
+				h.attributes(handles[thumb], {
 					AccessibleLabel = function(use: ComposeTypes.Use): string
 						local named = read(spec.label, use)
-						local side = if thumb == "lower" then "lower" else "upper"
-						return if named and named ~= "" then `{named} {side}` else `Range {side}`
+						return if named and named ~= "" then `{named} {thumb}` else `Range {thumb}`
 					end,
 					value = function(use: ComposeTypes.Use): number
-						return read(proxy.value, use)
+						local current = pair(use)
+						return if thumb == "lower" then current.lower else current.upper
 					end,
 					minimum = model.min,
 					maximum = model.max,

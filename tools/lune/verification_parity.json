@@ -45627,7 +45627,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_slider_shapes::native Slider range::keyboard: each thumb is its own stop, and the arrows adjust the one holding the ring"
+        "native_slider_shapes::native Slider range::keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move"
       ],
       "family": "pickers",
       "closeNote": "Owner decision 2026-09-25: the part main asserted beyond the candidate is main-internal machinery or a deliberate native difference that api.md does not promise, so it is retired (docs/guide/21-retirements.md, owner decisions 23 to 34). Former weaker note: Roblox has no Tab traversal; each handle is Selectable and the ring is set through GuiService.SelectedObject."
@@ -45643,10 +45643,10 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_slider_shapes::native Slider range::gamepad: the arrows move nothing until Activate engages, and Cancel ends it"
+        "native_slider_shapes::native Slider range::keyboard and gamepad: the range is one stop and Return or A switches the handle the arrows move"
       ],
       "family": "pickers",
-      "weaker": "Native selection moves between the handles; that move is live."
+      "weaker": "Owner ruling 2026-09-27 (D3): the range Slider is one stop; A or Return switches the handle the arrows move, so no selection move between handles exists."
     },
     {
       "id": "post-pickers-112",
@@ -45982,7 +45982,7 @@
       "class": "a",
       "mainBaseline": "bc9a56a67934c017bba202f4e8179305dc3756e6",
       "candidateCases": [
-        "native_slider_shapes::native Slider range::a keyboard Return on a handle does not latch the pad adjust mode"
+        "native_slider_shapes::native Slider range::a range Slider has no pad Engage action"
       ],
       "family": "pickers"
     },
