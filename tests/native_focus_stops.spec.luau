@@ -325,4 +325,95 @@ t.describe("other adjustables are one stop", function()
 	end)
 end)
 
+local function controlsFor(ctx)
+	return Facet.controls(ctx.runtime, {
+		types = ctx.types,
+		viewport = ctx.viewport,
+		guiService = ctx.guiService,
+		motionLevel = Compose.formula(function(use)
+			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+		end),
+	})
+end
+
+local function nativeContext()
+	local engine = engineLib.new()
+	local runtime = Facet.Roblox.createRuntime(engine)
+	local viewport = Compose.cell({ width = 1280, height = 720 })
+	local target = engine.new("Folder")
+	local guiService = engine.new("GuiService")
+	local ctx = {
+		Facet = Facet,
+		Compose = Compose,
+		runtime = runtime,
+		Host = runtime.constructors,
+		types = engine.types,
+		viewport = viewport,
+		inputTarget = target,
+		worldTarget = engine.new("Folder"),
+		guiService = guiService,
+		runService = { Heartbeat = engine.heartbeat },
+	}
+	ctx.UI = controlsFor(ctx)
+	return ctx, engine, target
+end
+
+local function load(kind, name)
+	return require("../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name)
+end
+
+local catalogue = require("../examples/gallery/client/demo_picker")
+local gallery = require("../examples/gallery/client/screen")
+
+local function offenders(root: any): { string }
+	local bad = {}
+	for _, node in root:GetDescendants() do
+		if node:HasTag("facet-adjustable") and node.Interactable ~= false then
+			if not node.Selectable then
+				table.insert(bad, `{node:GetFullName()} is not a stop`)
+			end
+			for _, inner in node:GetDescendants() do
+				if inner:IsA("GuiObject") and inner.Selectable then
+					table.insert(bad, `{inner:GetFullName()} is a stop inside {node.Name}`)
+				end
+			end
+		end
+	end
+	return bad
+end
+
+t.describe("every Showcase value control is one stop", function()
+	local function check(label: string, build: (any) -> any)
+		t.it(label, function()
+			local ctx, _, target = nativeContext()
+			local stop, node = ctx.runtime.mount(function()
+				gallery.configure(ctx)
+				ctx.UI = controlsFor(ctx)
+				local built = build(ctx)
+				if built.dispose then
+					Compose.cleanup(built.dispose)
+				end
+				return built.screen()
+			end, target)
+			t.expect(offenders(node)).toEqual({})
+			stop()
+			ctx.runtime:dispose()
+		end)
+	end
+	for _, demo in catalogue.list() do
+		check("lint " .. demo.id, function(ctx)
+			return load(demo.kind, demo.module).build(ctx)
+		end)
+	end
+	for _, groupName in { "all_controls", "collections", "motion_layout" } do
+		for _, section in load("fixture", groupName).groups do
+			for _, tab in section.tabs do
+				check(`lint {groupName}/{section.id}/{tab.id}`, function(ctx)
+					return tab.scenario.build(ctx)
+				end)
+			end
+		end
+	end
+end)
+
 return nil
