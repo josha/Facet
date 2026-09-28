@@ -3369,7 +3369,11 @@ weight. The derived role keeps the family, style, size and line height.
   StyleSheet carries the three timings as TweenInfo attributes
   (`FacetMotionNormal`, `FacetMotionPress`, `FacetMotionHover`), and each rule's
   transitions reference one of them as a `$` token, so a timing change updates
-  three attributes and rewrites no rule. Roblox applies the transition of the
+  three attributes and rewrites no rule. The engine reads the token when a
+  transition starts, so a new timing applies to the next change. The three
+  attributes belong to Facet: a game rule may reference them but must not write
+  them, and the sheet writes a cleared or overwritten one back at once (a rule
+  whose token is missing falls back to another matching rule's timing). Roblox applies the transition of the
   rule being entered, so a press arrives in the press time; its release eases
   back in the normal time, or in the hover time while the pointer is still over
   the control (the release enters `:Hover`). Native transitions retarget

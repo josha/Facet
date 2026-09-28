@@ -488,7 +488,7 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 			number(path, value, 0, 10000)
 		end)
 		each("fling", function(path: string, value: unknown)
-			number(path, value, 0, 100000, true)
+			number(path, value, 0, 100000, path ~= "fling.projection")
 		end)
 		each("easing", function(path: string, value: unknown)
 			if type(value) ~= "string" or (ComposeTypes :: any).easing[value] == nil then
@@ -2011,6 +2011,7 @@ local function createStyleSheet(
 		end
 		record.timing = timing
 	end
+	local written: { [string]: TweenInfo } = {}
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
 			from = ids,
@@ -2048,7 +2049,9 @@ local function createStyleSheet(
 			current = withoutHover(current)
 		end
 		for state, token in TOKENS do
-			sheet:SetAttribute(token, timingFor(package, state :: PaintState, use))
+			local timing = timingFor(package, state :: PaintState, use)
+			written[token] = timing
+			sheet:SetAttribute(token, timing)
 		end
 		local preference = preferenceFor(use)
 		local previousIds = ids:peek()
@@ -2073,6 +2076,17 @@ local function createStyleSheet(
 			ids:set(nextIds)
 		end
 	end)
+	for _, token in TOKENS do
+		local connection = sheet:GetAttributeChangedSignal(token):Connect(function()
+			local timing: unknown = written[token]
+			if timing ~= nil and sheet:GetAttribute(token) ~= timing then
+				sheet:SetAttribute(token, timing)
+			end
+		end)
+		Compose.cleanup(function()
+			connection:Disconnect()
+		end)
+	end
 	local warmed: { [ThemeTypes.ThemePackage]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 	Compose.watch(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use)

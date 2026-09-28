@@ -1631,6 +1631,21 @@ t.describe("theme paint transitions", function()
 		return typeof(value) == "Color3" or string.find(property, "Transparency$") ~= nil
 	end
 
+	t.it("the sheet puts back a FacetMotion token that other code clears or overwrites", function()
+		local w = world({})
+		local stop, sheet = w.runtime.mount(function()
+			return themes.createStyleSheet(w.runtime, themes.neutralPackage(), { types = w.engine.types })
+		end, w.engine.new("Folder"))
+		local press = sheet:GetAttribute("FacetMotionPress")
+		t.expect(press.Time).toBe(0.08)
+		sheet:SetAttribute("FacetMotionPress", nil)
+		t.expect(sheet:GetAttribute("FacetMotionPress")).toBe(press)
+		sheet:SetAttribute("FacetMotionNormal", w.engine.types.TweenInfo.new(5))
+		t.expect(sheet:GetAttribute("FacetMotionNormal").Time).toBe(0.2)
+		stop()
+		w.close()
+	end)
+
 	t.it("press rules transition in motion.press, hover rules in motion.hover, other rules in motion.normal", function()
 		local themePackages = require("../tools/lune/theme_packages")
 		local packages: { any } = { themes.neutralPackage() }

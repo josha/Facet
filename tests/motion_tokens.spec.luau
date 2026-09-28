@@ -131,7 +131,9 @@ local function literals(): { string }
 					"(EasingStyle%.%a+)",
 					"([^%w_]enter%s*=%s*[%d%.]+)",
 					"([^%w_]exit%s*=%s*[%d%.]+)",
-					"(%^%s*3[^%d])",
+					"(%(%s*1%s*%-[^()]*%)%s*%^%s*[%d%.]+)",
+					"(task%.wait%(%s*[%d%.]+)",
+					"(task%.delay%(%s*[%d%.]+)",
 				}
 			do
 				scan(source, pattern, function(at: number, text: string)
@@ -312,5 +314,18 @@ t.describe("motion values live in the theme", function()
 			})
 			t.expect(`{index} {package == nil} {#report.errors > 0}`).toBe(`{index} true true`)
 		end
+	end)
+
+	t.it("a package may turn the row swipe projection off", function()
+		local package, report = themes.define({
+			identity = {
+				id = "no-projection",
+				displayName = "No projection",
+				version = "1.0.0",
+				schemaVersion = themes.SCHEMA,
+			},
+			metrics = { motion = { fling = { projection = 0 } } },
+		})
+		t.expect(`{package ~= nil} {#report.errors}`).toBe("true 0")
 	end)
 end)
