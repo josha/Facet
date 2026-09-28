@@ -92,8 +92,9 @@ return function(
 			use(words)
 			use(points)
 			use(face)
-			label.TextWrapped = false
-			label.TextWrapped = not label.TextFits
+			local text = label :: TextLabel
+			text.TextWrapped = false
+			text.TextWrapped = not text.TextFits
 		end)
 	end
 
