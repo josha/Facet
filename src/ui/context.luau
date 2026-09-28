@@ -29,7 +29,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	if type(config.motionLevel) == "string" then
 		motion.check(config.motionLevel)
 	end
-	motion.publish(runtime, config.motionLevel)
+	motion.publish(Compose, runtime, config.motionLevel)
 	local types: Shared.RobloxTypes = config.types
 		or {
 			UDim = UDim,

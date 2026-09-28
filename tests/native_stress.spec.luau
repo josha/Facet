@@ -74,10 +74,13 @@ t.describe("native stress invariants", function()
 		sameCensus(engine, baseline, "cleaned")
 	end)
 
-	t.it("collects 50 disposed runtimes whose reactive motion level closes over its runtime", function()
-		local result = process.exec("lune", { "run", "tests/lib/motion_level_leak" })
-		t.expect(result.stdout).toBe("retained 0\n")
-	end)
+	t.it(
+		"collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them",
+		function()
+			local result = process.exec("lune", { "run", "tests/lib/motion_level_leak" })
+			t.expect(result.stdout).toBe("retained 0\npublished 0 contexts 0\n")
+		end
+	)
 
 	t.it("lets a disposed runtime's engine be collected", function()
 		local result = process.exec("lune", { "run", "tests/lib/disposed_engine" })

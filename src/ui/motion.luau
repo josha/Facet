@@ -31,18 +31,32 @@ local function resolve(chosen: unknown, engineReduced: boolean): Level
 	return if RANK[chosen :: string] > RANK[device] then chosen :: Level else device
 end
 
-local function publish(runtime: unknown, value: unknown)
+local function publish(Compose: typeof(ComposeTypes), runtime: unknown, value: unknown)
 	if value == nil then
 		return
 	end
 	local owner = runtime :: { [unknown]: { unknown }? }
 	local list = owner[PUBLISHED] or {}
 	owner[PUBLISHED] = list
-	table.insert(list, value)
+	local entry = { value }
+	table.insert(list, entry)
+	if Compose.currentOwner() ~= nil then
+		Compose.cleanup(function()
+			local at = table.find(list, entry)
+			if at then
+				table.remove(list, at)
+			end
+		end)
+	end
 end
 
 local function publishedFor(runtime: unknown): { unknown }
-	return (runtime :: { [unknown]: { unknown }? })[PUBLISHED] or {}
+	local out = {}
+	local list: { { unknown } } = (runtime :: { [unknown]: { { unknown } }? })[PUBLISHED] or {}
+	for _, entry in list do
+		table.insert(out, entry[1])
+	end
+	return out
 end
 
 local function level(ctx: Shared.Context): (ComposeTypes.Use?) -> Level
