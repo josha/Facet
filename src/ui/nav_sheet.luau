@@ -1120,12 +1120,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				previous = signature
 			end)
 		end
-		local heroContent = spec.hero and spec.hero.content
-		if heroContent and type(heroContent) ~= "function" then
-			Compose.cleanup(function()
-				(heroContent :: Instance).Parent = nil
-			end)
-		end
+		surfaces.keep(spec.content, spec.header, spec.hero and spec.hero.content)
 		return overlay
 	end
 

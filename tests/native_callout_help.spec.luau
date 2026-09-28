@@ -267,6 +267,26 @@ t.describe("native Callout: two worlds and a recycled source keep their own reso
 		t.expect(#w.findAll("CalloutPanel")).toBe(1)
 		w.stop()
 	end)
+
+	t.it("an Instance content survives the callout leaving and shows in the next one", function()
+		local gate, body = Compose.cell(true), nil
+		local w = overlay.new(function(UI, Host)
+			local anchor = UI.Button "Plus" { label = "+" }
+			body = Host.TextLabel "Body" { Text = TIP }
+			return Host.Frame({
+				Host.Frame({ anchor }),
+				Compose.show(gate, function()
+					return UI.Callout "Callout" { anchor = anchor, content = body, onRetire = function() end }
+				end),
+			})
+		end)
+		t.expect(body:IsDescendantOf(w.find("CalloutPanel"))).toBe(true)
+		gate:set(false)
+		t.expect(body.isDestroyed()).toBe(false)
+		gate:set(true)
+		t.expect(body:IsDescendantOf(w.find("CalloutPanel"))).toBe(true)
+		w.stop()
+	end)
 end)
 
 t.describe("native Callout: rich parts", function()

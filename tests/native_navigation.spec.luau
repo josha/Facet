@@ -398,6 +398,27 @@ t.describe("native navigation controls", function()
 		t.expect(disposed).toBe(2)
 	end)
 
+	t.it("a destination given as an Instance survives a pop and shows on the next push", function()
+		local path = Compose.cell({})
+		local page
+		local world = setup(function(UI, Host)
+			page = Host.Frame({ Name = "Shared" })
+			return UI.NavigationStack({
+				path = path,
+				root = { title = "Root", content = Host.Frame({ Name = "Root" }) },
+				destinations = { detail = { title = "Detail", content = page } },
+			})
+		end)
+		for _ = 1, 2 do
+			path:set({ { id = "detail" } })
+			t.expect(page.isDestroyed()).toBe(false)
+			t.expect(page.Parent ~= nil).toBe(true)
+			path:set({})
+		end
+		t.expect(page.isDestroyed()).toBe(false)
+		world.stop()
+	end)
+
 	t.it("uses native page layout for model navigation and engine swipes", function()
 		local selection = Compose.cell("one")
 		local world = setup(function(UI, Host)
