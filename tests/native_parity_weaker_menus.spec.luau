@@ -804,6 +804,35 @@ t.describe("native parity weaker menus", function()
 		end
 	end)
 
+	t.it("floors a strip segment at a 44 pixel target including its padding, not 44 plus padding", function()
+		local world = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Picker "Strip" {
+					style = "segmented",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "On" }, { value = "b", label = "Off" } },
+				},
+				UI.Picker "Column" {
+					style = "segmented",
+					axis = "y",
+					selected = Compose.cell("a"),
+					options = { { value = "a", label = "On" }, { value = "b", label = "Off" } },
+				},
+			})
+		end)
+		local function floor(picker: string): number
+			for _, child in find(find(world.root, picker), "a"):GetChildren() do
+				if child.ClassName == "UISizeConstraint" then
+					return child.MinSize.X
+				end
+			end
+			return -1
+		end
+		t.expect(floor("Strip")).toBe(20)
+		t.expect(floor("Column")).toBe(44)
+		world.stop()
+	end)
+
 	t.it("keeps a segment word whole: it wraps between words and ends a word that cannot fit in an ellipsis", function()
 		local writes = 0
 		local world = setup(function(UI, Host)

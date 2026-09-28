@@ -164,6 +164,19 @@ return function(
 		end)
 	end
 
+	local function sideChrome(
+		controlSize: Types.Value<Types.ControlSize>?,
+		use: ComposeTypes.Use?,
+		glyph: boolean?
+	): number
+		local package = ctx.read(ctx.config.theme, use)
+		local recipe = if package and package.chrome then package.chrome.control else nil
+		local insets = if recipe then recipe.contentInsets else nil
+		local side = if glyph then 0 else ctx.controlSize(controlSize, "paddingX", use)
+		return math.max(side, if insets then insets.left or 0 else 0)
+			+ math.max(side, if insets then insets.right or 0 else 0)
+	end
+
 	local function wrapCaptions(
 		button: GuiObject,
 		controlSize: Types.Value<Types.ControlSize>?,
@@ -172,12 +185,7 @@ return function(
 	)
 		local glyph = button:FindFirstChild("LeadingIcon", true) ~= nil
 		local function room(use: ComposeTypes.Use): Vector2
-			local package = ctx.read(ctx.config.theme, use)
-			local recipe = if package and package.chrome then package.chrome.control else nil
-			local insets = if recipe then recipe.contentInsets else nil
-			local side = ctx.controlSize(controlSize, "paddingX", use)
-			local chrome = math.max(side, if insets then insets.left or 0 else 0)
-				+ math.max(side, if insets then insets.right or 0 else 0)
+			local chrome = sideChrome(controlSize, use)
 				+ if glyph then ctx.controlSize(controlSize, "iconSize", use) + 8 else 0
 			return V2.new(math.max(0, across(use) - chrome), math.huge)
 		end
@@ -2928,9 +2936,25 @@ return function(
 						or spec.indicator == "underline"
 					surfaces.attach(button, {
 						Host.UISizeConstraint({
-							MinSize = derive(function(use: ComposeTypes.Use?)
-								return V2.new(44, if spec.controlSize ~= nil or across(use) then 0 else 44)
-							end, spec.axis),
+							MinSize = derive(
+								function(use: ComposeTypes.Use?)
+									local strip = across(use)
+									return V2.new(
+										if strip
+											then math.max(
+												0,
+												44 - sideChrome(spec.controlSize, use, sealed and labelOf(use) == "")
+											)
+											else 44,
+										if spec.controlSize ~= nil or strip then 0 else 44
+									)
+								end,
+								spec.axis,
+								spec.controlSize,
+								ctx.config.theme,
+								spec.iconOnly,
+								if fixed then nil else source
+							),
 							MaxSize = if style == "segmented"
 								then function(use: ComposeTypes.Use): Vector2
 									return V2.new(math.max(44, use(room) - 2 * segmentMetrics.inset), math.huge)
