@@ -152,6 +152,49 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
+	t.it("a held push that wobbles around half-way steps once, then repeats on the repeat timer", function()
+		local value = Compose.cell(5)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
+		end)
+		w.gui.SelectedObject = w.find("Volume")
+		for _, x in { 0.51, 0.49, 0.51, 0.45, 0.52, 0.4, 0.51 } do
+			w.stick(x, 0.01)
+		end
+		t.expect(value:peek()).toBe(6)
+		w.engine.heartbeat.fire(0.41)
+		t.expect(value:peek()).toBe(7)
+		w.stick(0.3, 0)
+		t.expect(w.engine.heartbeat.count()).toBe(0)
+		for _, push in { { 0.6, 0.59 }, { 0.59, 0.6 }, { 0.6, 0.59 }, { 0.62, 0.6 } } do
+			w.stick(push[1], push[2])
+		end
+		t.expect(value:peek()).toBe(7)
+		w.stick(0, 0)
+		w.stick(-0.9, 0)
+		t.expect(value:peek()).toBe(6)
+		w.stop()
+	end)
+
+	t.it("a stick already pushed when the selection lands waits for a release first", function()
+		local value = Compose.cell(5)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
+		end)
+		local E = w.engine.types.Enum
+		w.input.GetGamepadState = function()
+			return { { KeyCode = E.KeyCode.Thumbstick1, Position = { Magnitude = 0.9 } } }
+		end
+		w.gui.SelectedObject = w.find("Volume")
+		w.stick(0.9, 0)
+		w.stick(0.8, 0)
+		t.expect(value:peek()).toBe(5)
+		w.stick(0, 0)
+		w.stick(0.9, 0)
+		t.expect(value:peek()).toBe(6)
+		w.stop()
+	end)
+
 	t.it("the stick context does not sink, so the engine still moves on the other axis", function()
 		local w = setup(function(UI, Host)
 			return Host.Frame({ UI.Stepper("Volume")({ value = Compose.cell(5), max = 10 }) })

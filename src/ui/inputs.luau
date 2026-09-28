@@ -41,7 +41,7 @@ type ToggleButtonProps = InputTypes.ButtonProps & {
 }
 
 local REPEAT_DELAY, REPEAT_INTERVAL = 0.4, 0.1
-local STICK_PRESS = 0.5
+local STICK_PRESS, STICK_RELEASE, STICK_DOMINANCE = 0.5, 0.35, 1.2
 
 local function repeatHeld(
 	frames: { onFrame: ((number) -> ()) -> () -> () },
@@ -336,15 +336,19 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 									return
 								end
 								local along = if adjust.vertical then raw.Y else raw.X
-								local across = if adjust.vertical then raw.X else raw.Y
-								local direction = if math.abs(along) >= STICK_PRESS
-										and math.abs(along) > math.abs(across)
-									then (if along > 0 then 1 else -1)
-									else 0
+								local across = math.abs(if adjust.vertical then raw.X else raw.Y)
+								local reach = math.abs(along)
+								local sign = if along > 0 then 1 else -1
 								if settling then
-									settling = direction ~= 0
+									settling = reach >= STICK_RELEASE
 									return
 								end
+								local direction = if leaning == sign
+										and reach >= STICK_RELEASE
+										and reach >= across
+									then sign
+									elseif reach >= STICK_PRESS and reach > across * STICK_DOMINANCE then sign
+									else 0
 								if direction == leaning then
 									return
 								end
