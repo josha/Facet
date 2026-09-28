@@ -267,6 +267,27 @@ t.describe("UI.focusQuery", function()
 		w.stop()
 	end)
 
+	t.it("a SelectionGroup counts through a Folder between it and the control", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Near")({ label = "Near" }),
+				Host.Frame({
+					Name = "Group",
+					SelectionGroup = true,
+					Host.Folder({
+						UI.Button("Top")({ label = "Top" }),
+						UI.Button("Low")({ label = "Low" }),
+					}),
+				}),
+			})
+		end)
+		local top = w.place("Top", 100, 100, 687, 44)
+		local low = w.place("Low", 100, 300, 44, 100)
+		w.place("Near", 400, 160, 200, 44)
+		t.expect(w.UI.focusQuery(top).Down.target).toBe(low)
+		w.stop()
+	end)
+
 	t.it("adds no per-frame work", function()
 		local w = world(function(UI, Host)
 			return Host.Frame({ UI.Button("A")({ label = "A" }), UI.Button("B")({ label = "B" }) })

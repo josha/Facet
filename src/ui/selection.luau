@@ -250,7 +250,7 @@ return function(ctx: Shared.Context): Selection
 	local function inView(origin: GuiObject, candidate: GuiObject): boolean
 		local at, size = candidate.AbsolutePosition, candidate.AbsoluteSize
 		local parent = candidate.Parent
-		while parent and parent:IsA("GuiObject") do
+		while parent and not parent:IsA("LayerCollector") do
 			if parent:IsA("ScrollingFrame") then
 				if origin:IsDescendantOf(parent) then
 					return true
@@ -273,8 +273,8 @@ return function(ctx: Shared.Context): Selection
 	local function groupsOf(node: GuiObject): { GuiObject }
 		local found = {}
 		local at = node.Parent
-		while at and at:IsA("GuiObject") do
-			if (at :: GuiObject).SelectionGroup then
+		while at and not at:IsA("LayerCollector") do
+			if at:IsA("GuiObject") and (at :: GuiObject).SelectionGroup then
 				table.insert(found, at :: GuiObject)
 			end
 			at = at.Parent
