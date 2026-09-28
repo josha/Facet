@@ -181,6 +181,20 @@ is listed in `divergences.json` with its fact id from the input guide.
 `FACET_FOCUS_ATLAS` points the spec at another atlas directory, and
 `FACET_FOCUS_WALK_REPORT` names a directory for a JSON report per failing page.
 
+### Walk opened controls
+
+The `focus_opened` live suite opens a list of controls (menus and a submenu,
+a menu shown as a sheet, CollapsibleView, DisclosureGroup, Sheets, Popover,
+Dialog, Alert, the date and colour pickers, Callout, RadialMenu and the
+Showcase demo panel) with A, waits for the selection to enter, walks every new
+stop (D-pad, D-pad Up through the `pad_key` stream, stick), and closes with B
+until the surface is gone. Each case checks that the selection entered, every
+item is reachable, no move lands on the page behind, the surface closed and
+the selection returned to the control that opened it. `shared.FacetFocusOpened
+= { keys = true }` runs the same cases with Return, Escape and the arrows
+(Controller Emulator off). Reports save as `focus-opened-<case>` in the live
+artifacts.
+
 ### Limits of the harness
 
 - Studio input tools send D-pad key codes as keyboard input. Engine
