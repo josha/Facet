@@ -1655,13 +1655,26 @@ return function(
 	): ()
 		local reduced = reducedMotion(ctx)
 		local spring = ctx.motionSpring("control")
+		local laidOut = ctx.observe.AbsoluteContentSize(assert(picker:FindFirstChildWhichIsA("UIListLayout")))
+		local seenOrder: number?, seenStrip: Vector2? = nil, nil
+		local function reshaped(before: Vector2, after: Vector2): boolean
+			if before.Y <= 0 or after.Y <= 0 then
+				return math.abs(after.X - before.X) > 0.5 or math.abs(after.Y - before.Y) > 0.5
+			end
+			return math.abs(after.X * before.Y - before.X * after.Y) > 0.5 * math.max(before.Y, after.Y)
+		end
+		local function landsWithStrip(use: ComposeTypes.Use): boolean
+			local order, strip = use(currentOrder), use(laidOut) :: Vector2
+			local reflowed = order == seenOrder and seenStrip ~= nil and reshaped(seenStrip, strip)
+			seenOrder, seenStrip = order, strip
+			return reduced(use) or reflowed
+		end
 		local sliding = runtime.spring(function(use: ComposeTypes.Use)
 			return use(currentOrder)
-		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = reduced })
+		end, { period = spring.period, damping = spring.damping, tolerance = 1e-3, reducedMotion = landsWithStrip })
 		local _, slot = runtime.mount(function()
 			return Host.Folder "Slide" { Host.Frame "SlideUnit" { Size = D2.fromOffset(1, 1), Visible = false } }
 		end, picker)
-		local laidOut = ctx.observe.AbsoluteContentSize(assert(picker:FindFirstChildWhichIsA("UIListLayout")))
 		local probe = (slot :: Instance):FindFirstChild("SlideUnit") :: GuiObject
 		local unit = ctx.observe.AbsoluteSize(probe)
 		local content = ctx.observe.AbsolutePosition(probe)
