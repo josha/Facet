@@ -2270,4 +2270,47 @@ t.describe("performance lab motion flight", function()
 			still.close()
 		end
 	)
+
+	t.it("the segmented selection fill lands with the strip when the strip reflows during its slide", function()
+		local w = world({ motionLevel = "normal" })
+		local selected = Compose.cell("c")
+		local _, screen = w.mount(function(UI)
+			return UI.Picker "Mode" {
+				style = "segmented",
+				selected = selected,
+				options = {
+					{ value = "a", label = "A" },
+					{ value = "b", label = "B" },
+					{ value = "c", label = "C" },
+				},
+			}
+		end)
+		local V = w.engine.types.Vector2
+		local function lay(width: number)
+			find(screen, "Mode").AbsoluteSize = V.new(3 * width + 12, 44)
+			find(screen, "Mode"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V.new(3 * width + 12, 44)
+			for index, name in { "a", "b", "c" } do
+				find(screen, name).AbsoluteSize = V.new(width, 44)
+				find(screen, name).AbsolutePosition = V.new((index - 1) * (width + 4), 0)
+			end
+		end
+		lay(100)
+		local fill = find(screen, "SelectionFill")
+		w.step(0.1)
+		t.expect(fill.Position.X.Offset).toBe(208)
+		selected:set("a")
+		w.step(0.02)
+		t.expect(fill.Position.X.Offset > 0).toBe(true)
+		lay(40)
+		w.step(0.01)
+		t.expect(fill.Position.X.Offset).toBe(0)
+		t.expect(fill.Size.X.Offset).toBe(40)
+		selected:set("b")
+		w.step(0.02)
+		local sliding = fill.Position.X.Offset
+		t.expect(sliding > 0 and sliding < 44).toBe(true)
+		w.step(1)
+		t.expect(fill.Position.X.Offset).toBe(44)
+		w.close()
+	end)
 end)
