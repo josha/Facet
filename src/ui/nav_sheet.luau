@@ -1042,7 +1042,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local width = readSource(panelWidth, use)
 					return if width > 0 then base * math.clamp(1 - pulled(use) / width, 0, 1) else base
 				end
-				local rest = heightOf(selected(use), use)
+				local rest = lowest(use)
 				return if rest > 0 then base * math.clamp(painted(use) / rest, 0, 1) else base
 			end,
 		})

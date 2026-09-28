@@ -250,6 +250,17 @@ t.describe("settle: the sheet follows the finger", function()
 		w.stop()
 	end)
 
+	t.it("the scrim stays whole while the sheet grows to a larger detent", function()
+		local w = sheet()
+		local rest = scrimAlpha(w)
+		w.detent:set("large")
+		for _ = 1, 40 do
+			w.advance(FRAME)
+			t.expect(scrimAlpha(w)).toBe(rest)
+		end
+		w.stop()
+	end)
+
 	t.it("a dismissal-disabled sheet keeps its scrim while dragged", function()
 		local w = sheet({ interactiveDismissDisabled = true })
 		local rest = scrimAlpha(w)
