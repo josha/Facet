@@ -392,7 +392,12 @@ return function(ctx: Shared.Context): Selection
 			return
 		end
 		local selected = gui.SelectedObject
-		local list = scopeOf(selected)
+		local list = {}
+		for _, node in scopeOf(selected) do
+			if not node:IsA("ScrollingFrame") then
+				table.insert(list, node)
+			end
+		end
 		if #list == 0 then
 			return
 		end
