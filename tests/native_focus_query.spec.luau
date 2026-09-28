@@ -288,6 +288,23 @@ t.describe("UI.focusQuery", function()
 		w.stop()
 	end)
 
+	t.it("at a limit a value control's axis reports the control beyond it", function()
+		local value = Facet.Compose.cell(0)
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("L")({ label = "L" }),
+				UI.Stepper("Volume")({ value = value, max = 9 }),
+				UI.Button("R")({ label = "R" }),
+			})
+		end)
+		local l = w.place("L", 0, 100, 100, 44)
+		local volume = w.place("Volume", 120, 100, 200, 44)
+		w.place("R", 340, 100, 100, 44)
+		t.expect(w.UI.focusQuery(volume).Left.target).toBe(l)
+		t.expect(w.UI.focusQuery(volume).Right.rule).toBe("capture")
+		w.stop()
+	end)
+
 	t.it("adds no per-frame work", function()
 		local w = world(function(UI, Host)
 			return Host.Frame({ UI.Button("A")({ label = "A" }), UI.Button("B")({ label = "B" }) })

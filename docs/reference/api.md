@@ -463,7 +463,9 @@ these rules:
 - Value controls. While a Slider, Stepper, Rating, LevelPicker or
   `UI.adjustable` node has the selection, Left and Right (Up and Down for a
   vertical control; the D-pad, the arrow keys and the left stick) change the
-  value at every value; a press at a limit does nothing. The control claims the
+  value. A held or repeating press stops at the minimum or maximum; a new press
+  toward a limit the value is already at moves the selection to the next control
+  that way, if there is one. The control claims the
   axis only while it is the selected object itself, never while a part inside
   it is. Its root has the tag `facet-adjustable`, the attribute `axis`
   (`horizontal` or `vertical`) and the attribute `disabled`. A disabled value
@@ -476,12 +478,6 @@ these rules:
   selection, from the D-pad and the arrow keys only. A Menu row with a submenu
   opens it on Right, and Left returns to the parent row. The other axis still
   moves the selection.
-- Known limit: because a value control keeps its axis at its limits, a
-  horizontal value control with no control above or below it (for example
-  `[Back] [Stepper] [Next]` alone in a row) can be left only with Tab on a
-  keyboard; a gamepad cannot move the selection off it. A vertical one with
-  nothing beside it is the same. Give such a control a neighbour on its other
-  axis.
 
 A control that restores its own selection sets the `FacetSelectionOwner`
 attribute on its root. The removal and scroll-container rules do not change

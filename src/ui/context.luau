@@ -1592,6 +1592,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	function ctx.focusQuery(from: GuiObject?): Shared.FocusQuery
 		return selected.query(from)
 	end
+	function ctx.focusPast(origin: GuiObject, direction: Shared.FocusDirection): GuiObject?
+		return selected.past(origin, direction)
+	end
 	selected = selection(ctx)
 	track = selected.track
 	return ctx

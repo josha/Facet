@@ -111,6 +111,44 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
+	t.it("a fresh press at a limit passes to the next control that way; a held press stops at the limit", function()
+		local left, right = Compose.cell(8), Compose.cell(3)
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Stepper("A")({ value = left, max = 10 }),
+				UI.Stepper("B")({ value = right, max = 10 }),
+			})
+		end)
+		local V = w.engine.types.Vector2
+		local a, b = w.find("A"), w.find("B")
+		a.AbsolutePosition, a.AbsoluteSize = V.new(0, 0), V.new(200, 44)
+		b.AbsolutePosition, b.AbsoluteSize = V.new(220, 0), V.new(200, 44)
+		w.gui.SelectedObject = a
+		w.stick(1, 0)
+		t.expect(left:peek()).toBe(9)
+		for _ = 1, 6 do
+			w.engine.heartbeat.fire(0.41)
+		end
+		t.expect(left:peek()).toBe(10)
+		t.expect(w.gui.SelectedObject).toBe(a)
+		w.stickEnded()
+		w.stick(1, 0)
+		t.expect(w.gui.SelectedObject).toBe(b)
+		w.stickEnded()
+		w.gui.SelectedObject = a
+		w.press("DPadRight")
+		t.expect(w.gui.SelectedObject).toBe(b)
+		t.expect(right:peek()).toBe(3)
+		w.press("DPadLeft")
+		w.press("DPadLeft")
+		w.press("DPadLeft")
+		t.expect(right:peek()).toBe(0)
+		t.expect(w.gui.SelectedObject).toBe(b)
+		w.press("DPadLeft")
+		t.expect(w.gui.SelectedObject).toBe(a)
+		w.stop()
+	end)
+
 	t.it("keeps the axis at a bound: Left at the minimum stays and changes nothing", function()
 		local value = Compose.cell(0)
 		local w = setup(function(UI, Host)

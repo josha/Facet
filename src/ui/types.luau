@@ -256,6 +256,7 @@ export type Context = {
 	responder: (Instance, ResponderOptions?) -> Responder,
 	spaceActivates: (Instance) -> (Use) -> boolean,
 	focusQuery: (GuiObject?) -> FocusQuery,
+	focusPast: (GuiObject, FocusDirection) -> GuiObject?,
 	layoutKit: unknown?,
 	showHelp: unknown?,
 	reducedMotion: unknown?,

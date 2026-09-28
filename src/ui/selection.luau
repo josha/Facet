@@ -12,7 +12,8 @@ export type Selection = {
 	track: (Instance) -> (),
 	responder: (Instance, Env.ResponderOptions?) -> Env.Responder,
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
-	query: (GuiObject?) -> Env.FocusQuery,
+	query: (GuiObject?, boolean?) -> Env.FocusQuery,
+	past: (GuiObject, Env.FocusDirection) -> GuiObject?,
 }
 
 local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
@@ -293,7 +294,17 @@ return function(ctx: Shared.Context): Selection
 		return axis == "vertical" and (direction == "Up" or direction == "Down")
 	end
 
-	local function query(from: GuiObject?): Env.FocusQuery
+	local function atLimit(origin: GuiObject, direction: string): boolean
+		local value, low, high =
+			origin:GetAttribute("value"), origin:GetAttribute("minimum"), origin:GetAttribute("maximum")
+		if type(value) ~= "number" or type(low) ~= "number" or type(high) ~= "number" then
+			return false
+		end
+		local increase = direction == "Right" or direction == "Up"
+		return if increase then value >= high else value <= low
+	end
+
+	local function query(from: GuiObject?, past: boolean?): Env.FocusQuery
 		local origin = from or (if gui then gui.SelectedObject else nil)
 		local result: { [string]: Env.FocusMove } = {}
 		if origin == nil then
@@ -342,7 +353,9 @@ return function(ctx: Shared.Context): Selection
 		end
 		for _, direction in DIRECTIONS do
 			local link = (origin :: any)["NextSelection" .. direction] :: GuiObject?
-			if link == origin or capturedAxis(origin, direction) then
+			if past or (capturedAxis(origin, direction) and atLimit(origin, direction)) then
+				link = if link == origin then nil else link
+			elseif link == origin or capturedAxis(origin, direction) then
 				result[direction] = table.freeze({ target = origin, rule = "capture" })
 				continue
 			end
@@ -860,5 +873,13 @@ return function(ctx: Shared.Context): Selection
 		end
 	end
 
-	return { track = track, responder = responder, spaceActivates = spaceActivates, query = query }
+	return {
+		track = track,
+		responder = responder,
+		spaceActivates = spaceActivates,
+		query = query,
+		past = function(origin: GuiObject, direction: Env.FocusDirection): GuiObject?
+			return query(origin, true)[direction].target
+		end,
+	}
 end

@@ -278,6 +278,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						stopRepeat()
 						local can = movable(direction)
 						if not can() then
+							local gui = ctx.config.guiService
+							if gui and minimum ~= nil and maximum ~= nil and active(peekUse :: any) then
+								local way: Shared.FocusDirection = if adjust.vertical
+									then (if direction < 0 then "Down" else "Up")
+									else (if direction < 0 then "Left" else "Right")
+								local target = ctx.focusPast(node, way)
+								if target then
+									gui.SelectedObject = target
+								end
+							end
 							return
 						end
 						apply(direction)
