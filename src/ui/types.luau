@@ -130,6 +130,7 @@ export type Services = {
 	Workspace: Workspace?,
 	TweenService: TweenService?,
 }
+export type MotionLevel = "normal" | "limited" | "none"
 export type HapticKind = "selection" | "impact" | "success" | "warning" | "error"
 export type Config = {
 	types: RobloxTypes?,
@@ -141,7 +142,7 @@ export type Config = {
 	controlSize: Value<ControlSize>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
-	reducedMotion: Engine.ValueBoolean?,
+	motionLevel: Value<MotionLevel>?,
 	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,

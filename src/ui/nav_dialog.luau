@@ -326,7 +326,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
 					bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
 				end
-				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"))
+				local settled = Compose.cell(false)
+				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
+				local shown = surfaces.appearance(phase, ctx.motionTiming("dialog"), settled)
 				local panel = ctx.styled(
 					ctx.fade {
 						Name = "Panel",
@@ -335,27 +337,37 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							return D2.new(0.5, 0, 0.5, -keyboard(use) / 2)
 						end,
 						Size = function(use: ComposeTypes.Use)
-							return D2.fromOffset(widthPx(use), 0)
+							local box = use(held)
+							return D2.fromOffset(widthPx(use), if box then math.ceil(box.Y) else 0)
 						end,
-						AutomaticSize = E.AutomaticSize.Y,
+						AutomaticSize = function(use: ComposeTypes.Use)
+							return if use(held) then E.AutomaticSize.None else E.AutomaticSize.Y
+						end,
 						BackgroundTransparency = 0,
 						BorderSizePixel = 0,
 						GroupTransparency = function(use: ComposeTypes.Use)
-							return 1 - shown(use)
+							return 1 - shown.opacity(use)
 						end,
 						room.frame :: Instance,
 						ctx.padding(16, 16),
 						ctx.corner(),
 						Host.UIScale "PresentationScale" {
 							Scale = function(use: ComposeTypes.Use)
+								if not use(settled) then
+									return 1
+								end
 								local rest = ctx.metric("motion.materialize.modal", use)
-								return rest + (1 - rest) * shown(use)
+								return rest + (1 - rest) * shown.travel(use)
 							end,
 						} :: Instance,
 					},
 					"dialog"
 				)
 				ctx.styled(panel, "panel")
+				local sizes, rested = surfaces.atRest(shown.travel, settled, { panel })
+				Compose.watch(function(use: ComposeTypes.Use)
+					held:set(if use(rested) and shown.travel(use) < 1 then use(sizes[1]) else nil)
+				end)
 				surfaces.skin(panel, "panel", {
 					title = spec.title,
 					onCaption = function(on: boolean)
@@ -400,7 +412,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						propose(false, "outside")
 					end,
 					exiting = if phase then phase.exiting else nil,
-					appearance = shown,
+					appearance = shown.opacity,
 				})
 			end, { motion = ctx.motionTiming("dialog") }),
 		})

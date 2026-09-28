@@ -34,7 +34,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -1080,7 +1080,7 @@ t.describe("native parity weaker values", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local stopAvatar, avatar = runtime.mount(views.Avatar, target)
 			find(find(avatar, "SettingsDisclosure"), "Header").Activated.fire()

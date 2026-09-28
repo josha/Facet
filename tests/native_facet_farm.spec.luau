@@ -29,7 +29,7 @@ local function mount()
 		{
 			types = engine.types,
 			theme = theme.create(Facet),
-			reducedMotion = true,
+			motionLevel = "none",
 			services = { GuiService = gui, UserInputService = input },
 		} :: any
 	)

@@ -75,7 +75,7 @@ local function sheetFor(w: any, package: any): any
 			{
 				types = w.engine.types,
 				preferredTransparency = 1,
-				reducedMotion = false,
+				motionLevel = "normal",
 			} :: any
 		)
 	end, w.engine.new("Folder"))

@@ -146,7 +146,9 @@ local function mountScenario(name: string, reduced: boolean?): (any, any, any, a
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = input },
 			inputParent = target,
-			reducedMotion = ctx.reducedMotion,
+			motionLevel = Compose.formula(function(use)
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+			end),
 		} :: any
 	)
 	local built: any
@@ -212,7 +214,7 @@ local function withMonitors(body: (any) -> ())
 			model = model,
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
-			reducedMotion = true,
+			motionLevel = "none",
 		})
 		local world: any = { model = model, engine = engine, target = target, gui = gui, input = input }
 		for _, name in { "Discover", "Avatar" } do

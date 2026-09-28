@@ -1,6 +1,6 @@
 --!strict
 local layoutKit = require("./layout_kit")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local Types = require("./types")
 local Engine = require("./engine_types")
 local Media = require("./media_types")

@@ -326,6 +326,7 @@ export type PageViewSpec = Types.FrameProps & {
 export type PresencePhase = { exiting: ComposeTypes.Readable<boolean> }
 export type MotionTiming = { enter: number, exit: number }
 export type Appearance = (ComposeTypes.Use?) -> number
+export type Presence = { opacity: Appearance, travel: Appearance }
 export type PopoverOptions = {
 	from: number?,
 	pinned: boolean?,
@@ -370,7 +371,7 @@ export type Surfaces = {
 	inset: (number, string, string?, ComposeTypes.Use?) -> number,
 	modal: (() -> GuiObject, (string?) -> (), ModalOptions?) -> Frame,
 	overlay: (GuiObject, Types.ValueBoolean, (PresencePhase?) -> Instance, OverlayOptions?) -> Types.Child,
-	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Appearance,
+	appearance: (PresencePhase?, MotionTiming, ComposeTypes.Readable<boolean>?) -> Presence,
 	popover: (GuiObject, Appearance, (ComposeTypes.Use) -> (Vector2, Vector2), PopoverOptions?) -> (),
 	atRest: (
 		Appearance,

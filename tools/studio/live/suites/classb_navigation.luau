@@ -366,7 +366,7 @@ local function pager(t: any, size: any, reduced: boolean): (any, any)
 			})
 		end
 		return UI.PageView "Pager" { selection = value.selection, pages = pages }
-	end, { size = size, reducedMotion = reduced, frames = 12 })
+	end, { size = size, motionLevel = if reduced then "none" else "normal", frames = 12 })
 	return stage, value
 end
 

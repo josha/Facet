@@ -21,7 +21,7 @@ local function setup(spec, animated, environment)
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = not animated,
+		motionLevel = if not animated then "none" else "normal",
 		environment = environment,
 	})
 	local opened = spec.isPresented or Compose.cell(true)
@@ -594,7 +594,7 @@ t.describe("native radial interaction policies", function()
 			UI = controls(
 				Compose,
 				runtime,
-				{ types = engine.types, services = { GuiService = engine.new("GuiService") }, reducedMotion = true }
+				{ types = engine.types, services = { GuiService = engine.new("GuiService") }, motionLevel = "none" }
 			),
 		}
 		local built
@@ -1316,6 +1316,87 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		t.expect(offset.Magnitude > 0.9 * ring).toBe(true)
 		t.expect(offset.Y < 0).toBe(true)
 		t.expect((final.c - centre).Y > 0).toBe(true)
+		world.stop()
+	end)
+	t.it("Back folds the submenu into its item and re-opens the parent ring around it", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local function ring(): any
+			return setup({
+				distribution = "compass",
+				items = {
+					{
+						id = "gear",
+						slot = "N",
+						label = "Gear",
+						children = { leaf("a"), leaf("b"), leaf("c"), leaf("d") },
+					},
+					{ id = "E", slot = "E", label = "E", onSelect = function() end },
+				},
+			}, true)
+		end
+		local world = ring()
+		local function at(id: string, other: any?): any
+			local node = (other or world).find(id)
+			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+		end
+		local function reopen(target: any): any
+			target.opened:set(false)
+			target.step(0.5)
+			target.opened:set(true)
+			target.step(1 / 60)
+			return at("E", target)
+		end
+		world.step(0.5)
+		local gear, restE = at("gear"), at("E")
+		world.find("gear").Activated.fire()
+		world.step(0.5)
+		local restC = at("c")
+		local nav = world.find("$navigation")
+		local centre = world.find("Center")
+		assert(nav or centre).Activated.fire()
+		world.step(1 / 60)
+		world.step(1 / 60)
+		local child = world.find("c")
+		t.expect(child ~= nil).toBe(true)
+		t.expect((at("c") - gear).Magnitude < (restC - gear).Magnitude).toBe(true)
+		t.expect((at("E") - gear).Magnitude < (restE - gear).Magnitude).toBe(true)
+		world.step(0.5)
+		t.expect((at("E") - restE).Magnitude < 0.5).toBe(true)
+		t.expect(world.find("c")).toBeNil()
+		local plain = ring()
+		plain.step(0.5)
+		t.expect((reopen(world) - reopen(plain)).Magnitude < 0.5).toBe(true)
+		plain.stop()
+		world.stop()
+	end)
+	t.it("Back re-opens the parent around the item's current place after the ring re-lays out", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local gear = { id = "gear", label = "Gear", children = { leaf("x"), leaf("y") } }
+		local items = Compose.cell({ leaf("a"), gear })
+		local world = setup({ distribution = "even", items = items }, true)
+		local function at(id: string): any
+			local node = world.find(id)
+			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+		end
+		world.step(0.5)
+		local before = at("gear")
+		world.find("gear").Activated.fire()
+		world.step(0.5)
+		items:set({ leaf("a"), gear, leaf("c"), leaf("d") })
+		world.step(0.2)
+		local nav = world.find("$navigation")
+		local centre = world.find("Center")
+		assert(nav or centre).Activated.fire()
+		world.step(1 / 60)
+		local early = at("a")
+		world.step(0.5)
+		local after = at("gear")
+		t.expect((after - before).Magnitude > 20).toBe(true)
+		t.expect((early - after).Magnitude < (early - before).Magnitude).toBe(true)
 		world.stop()
 	end)
 	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()

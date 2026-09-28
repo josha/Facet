@@ -70,7 +70,7 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
 		overlayParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in settings.config or {} do
 		config[key] = value
@@ -202,7 +202,13 @@ t.describe("pointer, touch and drag strength", function()
 				gallery.configure(ctx)
 				ctx.UI = Facet.controls(
 					runtime,
-					{ types = engine.types, viewport = viewport, reducedMotion = ctx.reducedMotion } :: any
+					{
+						types = engine.types,
+						viewport = viewport,
+						motionLevel = Compose.formula(function(use)
+							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						end),
+					} :: any
 				)
 				game = match3.build(ctx)
 				return ctx.Host.ScreenGui("GameScreen")({ game.screen() })
@@ -1112,7 +1118,7 @@ t.describe("adaptive environment strength", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local stop, discover: any = runtime.mount(views.Discover, target)
 			discover.AbsoluteSize = engine.types.Vector2.new(920, 690)
@@ -1493,57 +1499,62 @@ t.describe("adaptive environment strength", function()
 		query.stop()
 	end)
 
-	t.it("follows GuiService transparency and motion preferences from attach and live without wiring", function()
-		local engine: any = engineLib.new()
-		local runtime = Facet.Roblox.createRuntime(engine)
-		local gui = engine.new("GuiService")
-		gui.PreferredTransparency = 0.5
-		gui.ReducedMotionEnabled = true
-		local services = {
-			GetService = function(_: any, name: string)
-				return if name == "GuiService" then gui else nil
-			end,
-		}
-		local sheet: any
-		local stop: any
-		withGame(services, function()
-			stop = runtime.mount(function()
-				sheet = Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
-				return runtime.constructors.Folder({ sheet })
-			end, engine.new("Folder"))
-		end)
-		local scrim = scrimOf(sheet)
-		local authored = 0.55
-		t.expect(math.abs(scrim:GetProperties().BackgroundTransparency - authored * 0.5) < 1e-6).toBe(true)
-		t.expect(transitionOf(scrim, "BackgroundTransparency").Time).toBe(0)
-		gui.PreferredTransparency = 0
-		t.expect(scrim:GetProperties().BackgroundTransparency).toBe(0)
-		gui.PreferredTransparency = 1
-		t.expect(math.abs(scrim:GetProperties().BackgroundTransparency - authored) < 1e-6).toBe(true)
-		gui.ReducedMotionEnabled = false
-		t.expect(transitionOf(scrim, "BackgroundTransparency").Time > 0).toBe(true)
-		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
-		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(1)
-		stop()
-		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
-		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
-		local explicit: any
-		withGame(services, function()
-			local stopExplicit = runtime.mount(function()
-				explicit = Facet.themes.createStyleSheet(
-					runtime,
-					Facet.themes.neutralPackage(),
-					{ types = engine.types, preferredTransparency = 1, reducedMotion = false }
-				)
-				return runtime.constructors.Folder({ explicit })
-			end, engine.new("Folder"))
-			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
+	t.it(
+		"follows GuiService transparency from attach and live without wiring, and keeps paint fades under Reduce Motion",
+		function()
+			local engine: any = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			gui.PreferredTransparency = 0.5
+			gui.ReducedMotionEnabled = true
+			local services = {
+				GetService = function(_: any, name: string)
+					return if name == "GuiService" then gui else nil
+				end,
+			}
+			local sheet: any
+			local stop: any
+			withGame(services, function()
+				stop = runtime.mount(function()
+					sheet =
+						Facet.themes.createStyleSheet(runtime, Facet.themes.neutralPackage(), { types = engine.types })
+					return runtime.constructors.Folder({ sheet })
+				end, engine.new("Folder"))
+			end)
+			local scrim = scrimOf(sheet)
+			local authored = 0.55
+			t.expect(math.abs(scrim:GetProperties().BackgroundTransparency - authored * 0.5) < 1e-6).toBe(true)
+			t.expect(transitionOf(scrim, "BackgroundTransparency").Time > 0).toBe(true)
 			gui.PreferredTransparency = 0
-			t.expect(math.abs(scrimOf(explicit):GetProperties().BackgroundTransparency - authored) < 1e-6).toBe(true)
-			stopExplicit()
-		end)
-		runtime:dispose()
-	end)
+			t.expect(scrim:GetProperties().BackgroundTransparency).toBe(0)
+			gui.PreferredTransparency = 1
+			t.expect(math.abs(scrim:GetProperties().BackgroundTransparency - authored) < 1e-6).toBe(true)
+			gui.ReducedMotionEnabled = false
+			t.expect(transitionOf(scrim, "BackgroundTransparency").Time > 0).toBe(true)
+			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
+			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
+			stop()
+			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
+			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
+			local explicit: any
+			withGame(services, function()
+				local stopExplicit = runtime.mount(function()
+					explicit = Facet.themes.createStyleSheet(
+						runtime,
+						Facet.themes.neutralPackage(),
+						{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" }
+					)
+					return runtime.constructors.Folder({ explicit })
+				end, engine.new("Folder"))
+				t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
+				gui.PreferredTransparency = 0
+				t.expect(math.abs(scrimOf(explicit):GetProperties().BackgroundTransparency - authored) < 1e-6)
+					.toBe(true)
+				stopExplicit()
+			end)
+			runtime:dispose()
+		end
+	)
 end)
 
 return t

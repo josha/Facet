@@ -57,7 +57,7 @@ local function scenario(t: any, name: string, options: { [string]: any }?): (any
 	end, {
 		size = config.size,
 		theme = config.theme,
-		reducedMotion = config.reducedMotion,
+		motionLevel = config.motionLevel,
 		frames = config.frames or 20,
 	})
 	return stage, built

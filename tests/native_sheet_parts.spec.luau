@@ -80,7 +80,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 	end)
 
 	t.it("side placement docks to its physical edge, detents stay vertical", function()
-		local w = mount({ placement = "side" }, { room = Vector2.new(1200, 800), reducedMotion = true })
+		local w = mount({ placement = "side" }, { room = Vector2.new(1200, 800), motionLevel = "none" })
 		local panel = w.find("SheetPanel")
 		t.expect(panel.AnchorPoint).toBe(w.Vector2.new(1, 1))
 		t.expect(panel.Position.X.Scale).toBe(1)
@@ -90,7 +90,7 @@ t.describe("native Sheet: placement, width, title and close", function()
 		w.stop()
 		local left = mount(
 			{ placement = "side", edge = "left", width = "narrow" },
-			{ room = Vector2.new(1200, 800), reducedMotion = true }
+			{ room = Vector2.new(1200, 800), motionLevel = "none" }
 		)
 		local leftPanel = left.find("SheetPanel")
 		t.expect(leftPanel.AnchorPoint).toBe(left.Vector2.new(0, 1))
@@ -264,7 +264,7 @@ t.describe("native Sheet: parts", function()
 				{ id = "Two", label = "Two", onActivate = noop },
 				{ id = "Three", label = "Three", onActivate = noop },
 			},
-		}, { room = Vector2.new(800, 400), reducedMotion = true })
+		}, { room = Vector2.new(800, 400), motionLevel = "none" })
 		local room, body = w.find("Room"), w.find("SheetContent")
 		w.size(w.find("Header"), 500, 44)
 		w.size(w.find("Actions"), 500, 3 * 44 + 16)
@@ -358,7 +358,7 @@ t.describe("native Sheet: parts", function()
 	t.it("the keyboard takes its room from the one safe rectangle", function()
 		local w = mount(
 			{ actions = { { id = "Go", label = "Go", onActivate = noop } } },
-			{ detent = "large", reducedMotion = true }
+			{ detent = "large", motionLevel = "none" }
 		)
 		local panel = w.find("SheetPanel")
 		local tall = panel.Size.Y.Offset
@@ -404,7 +404,7 @@ t.describe("native Sheet: parts", function()
 		local w = mount({
 			detents = { "hug", "large" },
 			actions = { { id = "Go", label = "Go", onActivate = noop } },
-		}, { detent = "hug", reducedMotion = true })
+		}, { detent = "hug", motionLevel = "none" })
 		local panel, body = w.find("SheetPanel"), w.find("SheetContent")
 		w.size(w.find("Header"), 500, 44)
 		w.size(w.find("Actions"), 500, 44)
@@ -476,7 +476,7 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("reduced motion also waits for the settled layout, then appears at rest", function()
-		local w = mount(nil, { unsettled = true, reducedMotion = true })
+		local w = mount(nil, { unsettled = true, motionLevel = "none" })
 		local panel = w.find("SheetPanel")
 		t.expect(panel.Position.Y.Offset).toBe(panel.Size.Y.Offset)
 		w.advance(1 / 300, 2)
@@ -485,7 +485,7 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("hug clamps to the safe room and keeps the minimum floor", function()
-		local w = mount({ detents = { "hug" } }, { detent = "hug", reducedMotion = true })
+		local w = mount({ detents = { "hug" } }, { detent = "hug", motionLevel = "none" })
 		content(w, 5000)
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(600)
 		content(w, 1)
@@ -496,7 +496,7 @@ t.describe("native Sheet: parts", function()
 	t.it("coinciding heights keep the declared id; the grabber grows past ties, then closes", function()
 		local w = mount({
 			detents = { { id = "a", height = 300 }, { id = "b", height = 300 }, "large" },
-		}, { detent = "b", reducedMotion = true })
+		}, { detent = "b", motionLevel = "none" })
 		t.expect(w.detent:peek()).toBe("b")
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(300)
 		w.find("Grabber").Activated.fire()
@@ -513,7 +513,7 @@ t.describe("native Sheet: parts", function()
 	end)
 
 	t.it("an invalid late detent keeps the last geometry and a valid one recovers", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		local panel = w.find("SheetPanel")
 		local before = panel.Size.Y.Offset
 		w.detent:set("bogus")
@@ -628,19 +628,19 @@ t.describe("native Sheet: gestures", function()
 	end
 
 	t.it("a fast flick projects past the nearest detent; a slow drag does not", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		flick(w, { { -40, 0.01 }, { -40, 0.01 } })
 		t.expect(380 + 4000 * release.PROJECTION_S > 570).toBe(true)
 		t.expect(w.detent:peek()).toBe("large")
 		w.stop()
-		local slow = mount(nil, { reducedMotion = true })
+		local slow = mount(nil, { motionLevel = "none" })
 		flick(slow, { { -40, 0.5 }, { -40, 0.5 } })
 		t.expect(slow.detent:peek()).toBe("medium")
 		slow.stop()
 	end)
 
 	t.it("a hold after motion does not fling", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		local drag = flick(w, { { -80, 0.01 } }, false)
 		w.tick(0.6)
 		drag.DragEnd.fire()
@@ -649,7 +649,7 @@ t.describe("native Sheet: gestures", function()
 	end)
 
 	t.it("an unrelated input change carries the drag", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		flick(w, { { -150, 0.1 } }, false)
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(450)
@@ -657,7 +657,7 @@ t.describe("native Sheet: gestures", function()
 	end)
 
 	t.it("an external detent change during a drag wins and drops the stale session", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		local drag = flick(w, { { -100, 0.1 } }, false)
 		w.detent:set("large")
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBe(570)
@@ -669,7 +669,7 @@ t.describe("native Sheet: gestures", function()
 	end)
 
 	t.it("the panel's native detector acquires only past the pointer slop", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		local panel = w.find("SheetPanel")
 		local detector = w.find("PanelDrag")
 		t.expect(detector.Parent).toBe(panel)
@@ -692,7 +692,7 @@ t.describe("native Sheet: gestures", function()
 	end)
 
 	t.it("a drag on the panel drives the sheet; a second stream cannot take it over", function()
-		local w = mount(nil, { reducedMotion = true })
+		local w = mount(nil, { motionLevel = "none" })
 		local detector, grip = w.find("PanelDrag"), w.find("UIDragDetector")
 		detector.DragStart.fire(w.Vector2.new(400, 300))
 		w.tick(0.3)
@@ -708,7 +708,7 @@ t.describe("native Sheet: gestures", function()
 		detector.DragEnd.fire()
 		t.expect(w.detent:peek()).toBe("large")
 		w.stop()
-		local touch = mount(nil, { reducedMotion = true })
+		local touch = mount(nil, { motionLevel = "none" })
 		touch.input.PreferredInput = touch.Enum.PreferredInput.Touch
 		local panel = touch.find("PanelDrag")
 		panel.DragStart.fire(touch.Vector2.new(400, 300))
@@ -723,10 +723,10 @@ t.describe("native Sheet: gestures", function()
 	t.it(
 		"default scrollPolicy never hands a body pan to the sheet; atLargestDetent yields below the tallest",
 		function()
-			local w = mount(nil, { reducedMotion = true })
+			local w = mount(nil, { motionLevel = "none" })
 			t.expect(w.find("SheetContent").ScrollingEnabled).toBe(true)
 			w.stop()
-			local policy = mount({ scrollPolicy = "atLargestDetent" }, { reducedMotion = true })
+			local policy = mount({ scrollPolicy = "atLargestDetent" }, { motionLevel = "none" })
 			local body = policy.find("SheetContent")
 			t.expect(body.ScrollingEnabled).toBe(false)
 			t.expect(body.Active).toBe(false)
@@ -738,7 +738,7 @@ t.describe("native Sheet: gestures", function()
 	)
 
 	t.it("resistance holds a dismissal-disabled sheet near its lowest detent", function()
-		local w = mount({ interactiveDismissDisabled = true }, { reducedMotion = true })
+		local w = mount({ interactiveDismissDisabled = true }, { motionLevel = "none" })
 		local drag = flick(w, { { 400, 0.5 } }, false)
 		local panel = w.find("SheetPanel")
 		t.expect(panel.Size.Y.Offset).toBe(300)
@@ -751,7 +751,7 @@ t.describe("native Sheet: gestures", function()
 		w.stop()
 	end)
 
-	t.it("a flick hands its speed to the settle; reduced motion snaps", function()
+	t.it("a flick hands its speed to the settle and bounces under 2 percent; reduced motion snaps", function()
 		local w = mount()
 		flick(w, { { -40, 0.01 }, { -40, 0.01 } })
 		t.expect(w.detent:peek()).toBe("large")
@@ -764,11 +764,11 @@ t.describe("native Sheet: gestures", function()
 			w.advance(1 / 60)
 			peak = math.max(peak, w.find("SheetPanel").Size.Y.Offset)
 		end
-		t.expect(peak <= 570).toBe(true)
+		t.expect(peak > 570 and peak <= 570 * 1.02 + 1).toBe(true)
 		w.advance(1, 30)
 		t.expect(w.find("SheetPanel").Size.Y.Offset).toBeCloseTo(570, 0.5)
 		w.stop()
-		local snap = mount(nil, { reducedMotion = true })
+		local snap = mount(nil, { motionLevel = "none" })
 		flick(snap, { { -40, 0.01 }, { -40, 0.01 } })
 		t.expect(snap.find("SheetPanel").Size.Y.Offset).toBe(570)
 		snap.stop()
@@ -789,7 +789,7 @@ t.describe("native Sheet: gestures", function()
 					}
 				end),
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local baseline = w.engine.census()
 		mounted:set(true)
 		flick(w, { { -100, 0.1 } }, false)
@@ -841,7 +841,7 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 	t.it(
 		"a press-drag that starts on the grabber pill drags the sheet, shows grab cursors and is not also a tap",
 		function()
-			local w = mount(nil, { reducedMotion = true })
+			local w = mount(nil, { motionLevel = "none" })
 			local grabber = w.find("Grabber")
 			local drag = grabber:FindFirstChildWhichIsA("UIDragDetector")
 			t.expect(drag ~= nil).toBe(true)
@@ -881,7 +881,7 @@ t.describe("native Sheet: the grabber is the close and resize control", function
 end)
 
 t.describe("native Sheet: the grabber sits on the edge the sheet came from", function()
-	local WIDE = { room = Vector2.new(1200, 800), reducedMotion = true }
+	local WIDE = { room = Vector2.new(1200, 800), motionLevel = "none" }
 	local function grip(w: any): (any, any, any)
 		local handle = w.find("DragHandle")
 		return handle, w.find("Pill"), w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")
@@ -891,7 +891,7 @@ t.describe("native Sheet: the grabber sits on the edge the sheet came from", fun
 		local bindThemes = require("../src/ui/themes")
 		local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
 		for _, extra in { {}, { placement = "side" } } :: { any } do
-			local w = mount(extra, { room = WIDE.room, reducedMotion = true, theme = fantasy })
+			local w = mount(extra, { room = WIDE.room, motionLevel = "none", theme = fantasy })
 			local panel = w.find("SheetPanel")
 			t.expect(w.find("DragHandle").Parent).toBe(panel)
 			t.expect(panel:FindFirstChildWhichIsA("UIListLayout")).toBeNil()

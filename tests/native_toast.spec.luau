@@ -312,7 +312,7 @@ local function toasts(specs: { { [string]: any } }, options: any?): Toasts
 			)
 		end
 		return Host.Frame({ Name = "S", table.unpack(children) })
-	end, options or { reducedMotion = true })
+	end, options or { motionLevel = "none" })
 	return { world = world, shown = shown, reasons = reasons }
 end
 
@@ -470,7 +470,7 @@ describe("UI.Toast: presentation", function()
 					})
 				end
 				return UI.TabView({ selection = Compose.cell("home"), placement = case[1], tabs = tabs })
-			end, { reducedMotion = true })
+			end, { motionLevel = "none" })
 			local bar = world.find("Tabs")
 			bar.AbsolutePosition = Vector2.new(0, if case[2] > 0 then 556 else 0)
 			bar.AbsoluteSize = Vector2.new(800, 44)
@@ -491,7 +491,7 @@ describe("UI.Toast: presentation", function()
 	end)
 
 	it("fill spans the layer less the margins; hug fits the text, centred, up to 560", function()
-		local f = toasts({ { message = "a" }, { message = "b", width = "hug" } }, { reducedMotion = true })
+		local f = toasts({ { message = "a" }, { message = "b", width = "hug" } }, { motionLevel = "none" })
 		f.world.advance(0.1)
 		local list = rows(f.world)
 		expect(list[1].Size.X.Offset).toBe(800 - 32)
@@ -504,7 +504,7 @@ describe("UI.Toast: presentation", function()
 	it("fades in and out as it slides by default; fade = false only slides, keeping native text", function()
 		local plain = toasts(
 			{ { message = "a", duration = 1, readFloor = 0, fade = false } },
-			{ reducedMotion = false }
+			{ motionLevel = "normal" }
 		)
 		plain.world.advance(0.05, 3)
 		local row = rows(plain.world)[1]
@@ -515,7 +515,7 @@ describe("UI.Toast: presentation", function()
 		expect(row ~= nil and row.Position.Y.Offset < 8).toBe(true)
 		expect(row:FindFirstChild("Fade")).toBeNil()
 		plain.world.stop()
-		local faded = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { reducedMotion = false })
+		local faded = toasts({ { message = "a", duration = 1, readFloor = 0 } }, { motionLevel = "normal" })
 		faded.world.advance(0.05, 3)
 		local group = rows(faded.world)[1]:FindFirstChild("Fade")
 		expect(group ~= nil and group.GroupTransparency > 0).toBe(true)
@@ -575,7 +575,7 @@ describe("app.presentToast", function()
 			types = engine.types,
 			parent = target,
 			services = { GuiService = gui, UserInputService = input },
-			reducedMotion = true,
+			motionLevel = "none",
 		} :: any)
 		local live = 0
 		local toast = app.presentToast(function(UI)

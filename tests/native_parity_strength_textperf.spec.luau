@@ -36,7 +36,7 @@ local function world(options: { [string]: any }?): (any, any, any, any)
 	end
 	local config: { [string]: any } = {
 		types = engine.types,
-		reducedMotion = true,
+		motionLevel = "none",
 		guiService = gui,
 		userInputService = input,
 		services = { GuiService = gui, UserInputService = input },

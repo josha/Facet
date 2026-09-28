@@ -1,7 +1,7 @@
 --!strict
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 
 local PAUSE, GLYPHS_PER_SECOND, SLACK = 1.2, 3, 2
 

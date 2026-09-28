@@ -72,7 +72,7 @@ local function world(options: any?): any
 			services = { GuiService = gui, UserInputService = input },
 			inputParent = target,
 			theme = opts.theme,
-			reducedMotion = if opts.reducedMotion == nil then true else opts.reducedMotion,
+			motionLevel = if opts.reducedMotion == false then "normal" else "none",
 		} :: any
 	)
 	return {
@@ -91,7 +91,7 @@ local function mountBuilt(w: any, definition: any): (any, any, () -> ())
 	local built
 	local stop, node = w.runtime.mount(function()
 		gallery.configure(w.ctx)
-		w.ctx.motionPreference:set(w.reducedMotion)
+		w.ctx.motionPreference:set(if w.reducedMotion then "none" else "normal")
 		built = definition.build(w.ctx)
 		if built.dispose then
 			Compose.cleanup(built.dispose)
@@ -145,7 +145,9 @@ local function galleryWorld(options: any?): any
 				inputParent = target,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				reducedMotion = ctx.reducedMotion,
+				motionLevel = Compose.formula(function(use)
+					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+				end),
 				environment = ctx.environment,
 			} :: any
 		)
@@ -561,7 +563,7 @@ t.describe("native parity weaker gallery", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = uis },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local _, discover = runtime.mount(views.Discover, target)
 			local body = find(discover, "DiscoverBody")

@@ -65,11 +65,11 @@ colors on screen. Layout and typography changes apply immediately.
 
 ```luau
 local selectedPalette = Compose.cell("dark")
-local reducedMotion = Compose.cell(false)
+local motionLevel = Compose.cell("normal")
 local sheet = Facet.themes.createStyleSheet(runtime, package, {
     theme = selectedPalette,
     transition = TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    reducedMotion = reducedMotion,
+    motionLevel = motionLevel,
 })
 return Host.ScreenGui {
     sheet,
@@ -81,7 +81,8 @@ return Host.ScreenGui {
 The transition override and the reduced-motion input can be Compose readables.
 
 - Set `transition = false` for immediate paint.
-- Reduced motion also disables transitions.
+- Motion level `none` also disables transitions. Level `limited` (the
+  engine's Reduce Motion) keeps these colour fades.
 - If you do not supply a reduced-motion input, the helper observes GuiService.
 
 Keep custom screen paint in StyleRules. Then it follows the same theme

@@ -30,7 +30,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		types = engine.types,
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -85,7 +85,7 @@ local function styleSheet(world: World, package: any): any
 		return themes.createStyleSheet(
 			world.runtime,
 			package,
-			{ types = world.engine.types, preferredTransparency = 1, reducedMotion = true } :: any
+			{ types = world.engine.types, preferredTransparency = 1, motionLevel = "none" } :: any
 		)
 	end, world.engine.new("Folder"))
 	return sheet

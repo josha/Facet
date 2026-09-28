@@ -1,6 +1,6 @@
 --!strict
 local layoutKit = require("./layout_kit")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local decoration = require("./native_decoration")
 local richText = require("./rich_text")
 local help = require("./help")
@@ -1588,6 +1588,24 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				},
 				"toggle-mark"
 			)
+			if presentation == "switch" then
+				local knobReduced = reducedMotion(ctx)
+				local spring = ctx.motionSpring("control")
+				local knob = runtime.spring(function(use: ComposeTypes.Use): number
+					return if read(spec.value, use) == true then 0.7 else 0.3
+				end, {
+					period = spring.period,
+					damping = spring.damping,
+					reducedMotion = function(use: ComposeTypes.Use): boolean
+						return knobReduced(use)
+					end,
+				})
+				runtime.decorate(mark, {
+					Position = function(use: ComposeTypes.Use)
+						return D2.fromScale(use(knob), 0.5)
+					end,
+				})
+			end
 			local check = if presentation == "checkbox"
 				then ctx.icon("checkmark", {
 					Name = "Check",
@@ -1630,9 +1648,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			)
 			local function updateIndicator(use)
 				local value, mixed = read(spec.value, use), read(spec.mixed, use) == true
-				if presentation == "switch" then
-					mark.Position = D2.fromScale(if value then 0.7 else 0.3, 0.5)
-				else
+				if presentation ~= "switch" then
 					mark.Size = D2.fromOffset(12, 4)
 					mark.Visible = mixed
 					if check then

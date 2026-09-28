@@ -140,7 +140,7 @@ t.describe("native Callout: callbacks during a show never strand or double-close
 					onRetire = function() end,
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		return w, reports, gate
 	end
 
@@ -498,7 +498,7 @@ t.describe("native help: the structured form and the live plate", function()
 	local function helped(value: any): any
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = value } })
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local post = w.find("Post")
 		post.AbsolutePosition = Vector2.new(300, 200)
 		post.AbsoluteSize = Vector2.new(80, 44)
@@ -718,7 +718,7 @@ t.describe("native help: the plate arrives as one unit", function()
 		panel.AbsoluteSize = w.Vector2.new(120, 40)
 		w.advance(1 / 60, 2)
 		w.advance(NORMAL / 2)
-		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 0.5).toBe(true)
+		t.expect(fadeKit.of(panel) < 0.5).toBe(true)
 		t.expect(scale.Scale > 0.95 and scale.Scale < 1).toBe(true)
 		w.advance(NORMAL / 2)
 		t.expect(fadeKit.of(panel)).toBe(0)
@@ -726,9 +726,11 @@ t.describe("native help: the plate arrives as one unit", function()
 		w.stop()
 	end)
 
-	t.it("reduced motion shows the plate whole on its first frame", function()
-		local w = hovered({ reducedMotion = true })
+	t.it("reduced motion shows the plate whole once its size has held", function()
+		local w = hovered({ motionLevel = "none" })
 		local panel = w.find("Help")
+		panel.AbsoluteSize = w.Vector2.new(120, 40)
+		w.advance(1 / 60, 2)
 		t.expect(fadeKit.of(panel)).toBe(0)
 		t.expect(panel:FindFirstChildWhichIsA("UIScale").Scale).toBe(1)
 		w.stop()

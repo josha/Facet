@@ -18,7 +18,7 @@ local function world()
 	local UI = Facet.controls(runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = true,
+		motionLevel = "none",
 	})
 	return engine, runtime, root, UI, input, gui
 end
@@ -73,6 +73,14 @@ t.describe("native stress invariants", function()
 		connection:Disconnect()
 		sameCensus(engine, baseline, "cleaned")
 	end)
+
+	t.it(
+		"collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them",
+		function()
+			local result = process.exec("lune", { "run", "tests/lib/motion_level_leak" })
+			t.expect(result.stdout).toBe("retained 0\npublished 0 contexts 0\n")
+		end
+	)
 
 	t.it("lets a disposed runtime's engine be collected", function()
 		local result = process.exec("lune", { "run", "tests/lib/disposed_engine" })

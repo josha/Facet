@@ -140,7 +140,7 @@ local function clear(case: string, button: any, markName: string, edge: string)
 end
 
 local function sheetFor(w: any, package: any, options: { [string]: any }?): any
-	local settings: { [string]: any } = { types = w.engine.types, preferredTransparency = 1, reducedMotion = false }
+	local settings: { [string]: any } = { types = w.engine.types, preferredTransparency = 1, motionLevel = "normal" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end

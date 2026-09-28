@@ -156,7 +156,7 @@ t.describe("native press sweep: Virtual Monitors", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local pressedTotal = 0
 			for _, name in { "Discover", "Avatar", "Chat" } do

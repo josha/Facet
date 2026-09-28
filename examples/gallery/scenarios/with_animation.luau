@@ -13,7 +13,15 @@ return {
 			viewport = ctx.viewport,
 			guiService = ctx.guiService,
 			inputParent = ctx.inputTarget,
-			reducedMotion = effectiveReduced,
+			motionLevel = function(use)
+				if use(reduced) then
+					return "none"
+				end
+				if ctx.motionLevel then
+					return use(ctx.motionLevel)
+				end
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else nil
+			end,
 		})
 		local order = Compose.cell({ "Alpha", "Bravo", "Charlie" })
 		local flight = runtime.spring(function(use)

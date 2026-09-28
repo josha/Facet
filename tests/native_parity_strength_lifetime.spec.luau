@@ -81,7 +81,9 @@ local function controlsFor(ctx: any): any
 			viewport = ctx.viewport,
 			guiService = ctx.guiService,
 			services = { GuiService = ctx.guiService },
-			reducedMotion = ctx.reducedMotion,
+			motionLevel = Compose.formula(function(use)
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+			end),
 		} :: any
 	)
 	return ctx
@@ -153,7 +155,7 @@ local function radialWorld(animated: boolean): any
 		{
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
-			reducedMotion = not animated,
+			motionLevel = if not animated then "none" else "normal",
 		} :: any
 	)
 	return {
@@ -199,7 +201,7 @@ local function controlWorld(options: { [string]: any }?): any
 		services = { GuiService = gui, UserInputService = input },
 		userInputService = input,
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -861,7 +863,7 @@ t.describe("lifetime parity strength", function()
 
 	t.it("releases RowActions observers through twenty engaged branch removals", function()
 		inspected(function()
-			local w = controlWorld({ reducedMotion = false })
+			local w = controlWorld({ motionLevel = "normal" })
 			local before = census(w.engine)
 			local shown, open, invoked = Compose.cell(false), Compose.cell(nil :: string?), 0
 			local stop, node = w.runtime.mount(function()
@@ -969,7 +971,7 @@ t.describe("lifetime parity strength", function()
 
 	t.it("returns a list row to its closed shape after every RowActions engagement", function()
 		inspected(function()
-			local w = controlWorld({ reducedMotion = false })
+			local w = controlWorld({ motionLevel = "normal" })
 			local before = census(w.engine)
 			local opens = {}
 			local stop, node = w.runtime.mount(function()
@@ -1354,7 +1356,7 @@ t.describe("lifetime parity strength", function()
 	t.it("releases several pending exits at once when the runtime shuts down", function()
 		for _, reduced in { false, true } do
 			inspected(function()
-				local w = controlWorld({ reducedMotion = reduced })
+				local w = controlWorld({ motionLevel = if reduced then "none" else "normal" })
 				local before = census(w.engine)
 				local leaving, staying, present = Compose.cell(true), Compose.cell(true), Compose.cell(true)
 				local cleaned = {}
@@ -1510,7 +1512,7 @@ t.describe("lifetime parity strength", function()
 	t.it("releases every NavigationStack page when disposal lands mid-transition", function()
 		for _, reduced in { false, true } do
 			inspected(function()
-				local w = controlWorld({ reducedMotion = reduced })
+				local w = controlWorld({ motionLevel = if reduced then "none" else "normal" })
 				local before = census(w.engine)
 				local path, built, disposed = Compose.cell({}), 0, 0
 				local stop, node = w.runtime.mount(function()
@@ -1598,7 +1600,7 @@ t.describe("lifetime parity strength", function()
 	t.it("disposes icon-only vertical indicated segmented pickers to the registry baseline after switching", function()
 		for _, indicator in { "pill", "underline" } do
 			inspected(function()
-				local w = controlWorld({ reducedMotion = false })
+				local w = controlWorld({ motionLevel = "normal" })
 				local before = census(w.engine)
 				local selected, changes = Compose.cell("grid"), 0
 				local stop, node = w.runtime.mount(function()
@@ -1691,7 +1693,7 @@ t.describe("lifetime parity strength", function()
 
 	t.it("reopens a bound Sheet with fresh content and disposes it to baseline", function()
 		inspected(function()
-			local w = controlWorld({ reducedMotion = false })
+			local w = controlWorld({ motionLevel = "normal" })
 			local before = census(w.engine)
 			local shown, detent, live, visits = Compose.cell(false), Compose.cell("medium"), 0, 0
 			local stop = w.runtime.mount(function()

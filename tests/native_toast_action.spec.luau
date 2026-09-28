@@ -63,7 +63,7 @@ local function mount(list: { Entry }, options: any?): any
 				return Host.Frame({ Name = "Holder", table.unpack(nodes) })
 			end),
 		})
-	end, { size = o.size or Vector2.new(390, 844), reducedMotion = o.reducedMotion ~= false })
+	end, { size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none" })
 	w.gate = gate
 	w.rows = function(): number
 		return #w.findAll("Snack")
@@ -232,7 +232,7 @@ t.describe("native Toast with an action: an art theme's panel carve", function()
 					}
 				end),
 			})
-		end, { theme = package, reducedMotion = true })
+		end, { theme = package, motionLevel = "none" })
 		local row = w.find("Snack")
 		local padding = row:FindFirstChildWhichIsA("UIPadding")
 		t.expect(padding.PaddingLeft.Offset).toBe(20)
@@ -443,7 +443,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 	t.it("a visible row reserves its bottom rectangle, and releases it after it has slid out", function()
 		local a = caller()
 		a.shown:set(true)
-		local w = mount({ { c = a } }, { reducedMotion = false })
+		local w = mount({ { c = a } }, { motionLevel = "normal" })
 		local row = w.find("Snack")
 		row.AbsolutePosition = Vector2.new(16, 844 - 16 - 60)
 		row.AbsoluteSize = Vector2.new(358, 60)
@@ -498,7 +498,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 				},
 				UI.Alert { isPresented = modal, title = "Hold" },
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		modal:set(true)
 		frames(w, 5)
 		t.expect(#a.changes).toBe(0)
@@ -569,7 +569,7 @@ t.describe("native Toast with an action: admission and lifetime", function()
 					error("proposal bug")
 				end,
 			}
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local ok, failure = pcall(w.find("Close").Activated.fire)
 		t.expect(ok).toBe(false)
 		t.expect(string.find(tostring(failure), "proposal bug", 1, true) ~= nil).toBe(true)
@@ -735,7 +735,7 @@ t.describe("native Toast with an action: without a binding", function()
 					})
 				end),
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		frames(w, 30)
 		t.expect(w.find("A"):GetAttribute("ToastVisible")).toBe(true)
 		t.expect(w.find("B"):GetAttribute("ToastQueued")).toBe(true)
@@ -759,7 +759,7 @@ t.describe("native Toast with an action: without a binding", function()
 					table.insert(reasons, reason)
 				end,
 			}
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		frames(w, 2.2)
 		t.expect(#reasons).toBe(0)
 		frames(w, 0.6)

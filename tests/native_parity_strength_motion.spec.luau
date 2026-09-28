@@ -106,7 +106,7 @@ end
 
 t.describe("indeterminate progress lifetime", function()
 	t.it("an indeterminate bar keeps travelling in its third second and stops dead with its owner", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen = w.mount(function(UI)
 			return UI.ProgressView({})
 		end)
@@ -134,7 +134,7 @@ t.describe("indeterminate progress lifetime", function()
 	end)
 
 	t.it("an indeterminate view built under an owner and never presented stops with that owner", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local view
 		local root = Compose.createRootOwner(function()
 			view = w.UI.ProgressView({})
@@ -155,7 +155,7 @@ t.describe("indeterminate progress lifetime", function()
 
 	t.it("unmounting and disposing the runtime are safe in either order", function()
 		for _, unmountFirst in { true, false } do
-			local w = world({ reducedMotion = false })
+			local w = world({ motionLevel = "normal" })
 			local stop, screen = w.mount(function(UI)
 				return UI.ProgressView({ presentation = "spinner" })
 			end)
@@ -180,7 +180,7 @@ t.describe("indeterminate progress lifetime", function()
 
 	t.it("a plain determinate bar starts no cycle under either motion policy", function()
 		for _, reduced in { false, true } do
-			local w = world({ reducedMotion = reduced })
+			local w = world({ motionLevel = if reduced then "none" else "normal" })
 			local value = Compose.cell(0.4)
 			local stop, screen = w.mount(function(UI)
 				return UI.ProgressView({ value = value })
@@ -201,7 +201,7 @@ t.describe("indeterminate progress lifetime", function()
 	end)
 
 	t.it("an indeterminate view under reduced motion still runs its cycle and says Loading", function()
-		local w = world({ reducedMotion = true })
+		local w = world({ motionLevel = "none" })
 		local stop, screen = w.mount(function(UI, Host)
 			return Host.Frame({
 				UI.ProgressView({ presentation = "spinner" }),
@@ -223,7 +223,7 @@ end)
 t.describe("spinner paint", function()
 	t.it("draws eight fixed square dots at the theme dot size and no bar", function()
 		local package = Compose.cell(themes.neutralPackage())
-		local w2 = world({ reducedMotion = false, theme = package })
+		local w2 = world({ motionLevel = "normal", theme = package })
 		local stop, screen = w2.mount(function(UI)
 			return UI.ProgressView({ presentation = "spinner" })
 		end)
@@ -256,7 +256,7 @@ t.describe("spinner paint", function()
 	end)
 
 	t.it("moves the brightest dot around the ring while every dot stays visible", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen = w.mount(function(UI)
 			return UI.ProgressView({ presentation = "spinner" })
 		end)
@@ -283,7 +283,11 @@ t.describe("spinner paint", function()
 
 	t.it("writes the spinner on full-motion frames and quantizes a mid-run switch without restarting", function()
 		local reduced = Compose.cell(false)
-		local w = world({ reducedMotion = reduced })
+		local w = world({
+			motionLevel = Compose.formula(function(use)
+				return if use(reduced) then "none" else "normal"
+			end),
+		})
 		local stop, screen = w.mount(function(UI)
 			return UI.ProgressView({ presentation = "spinner" })
 		end)
@@ -324,7 +328,7 @@ end)
 
 t.describe("circular progress motion", function()
 	t.it("travels the indeterminate head while the sweep stays a fixed quarter turn", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen = w.mount(function(UI)
 			return UI.ProgressView({ presentation = "circular", diameter = 100 })
 		end)
@@ -350,7 +354,7 @@ t.describe("circular progress motion", function()
 
 	t.it("keeps the reduced-motion ring travelling in a few visible poses each second", function()
 		local function poses(reducedMotion: boolean, frames: number, dt: number): (number, any)
-			local w = world({ reducedMotion = reducedMotion })
+			local w = world({ motionLevel = if reducedMotion then "none" else "normal" })
 			local stop, screen = w.mount(function(UI)
 				return UI.ProgressView({ presentation = "circular", diameter = 100 })
 			end)
@@ -369,7 +373,7 @@ t.describe("circular progress motion", function()
 			w.close()
 			return count, arc
 		end
-		local w = world({ reducedMotion = true })
+		local w = world({ motionLevel = "none" })
 		local stop, screen = w.mount(function(UI)
 			return UI.ProgressView({ presentation = "circular", diameter = 100 })
 		end)
@@ -390,7 +394,7 @@ t.describe("circular progress motion", function()
 	end)
 
 	t.it("ends a quarter value at three o'clock and closes the ring at the full value", function()
-		local w = world({ reducedMotion = true })
+		local w = world({ motionLevel = "none" })
 		local value = Compose.cell(0.25)
 		local stop, screen = w.mount(function(UI)
 			return UI.ProgressView({ presentation = "circular", value = value, diameter = 100, thickness = 10 })
@@ -492,8 +496,8 @@ t.describe("skeleton clock sharing", function()
 			local engine: any = engineLib.new()
 			local runtimeA = Facet.Roblox.createRuntime(engine)
 			local runtimeB = Facet.Roblox.createRuntime(engine)
-			local UIA = Facet.controls(runtimeA, { types = engine.types, reducedMotion = false } :: any)
-			local UIB = Facet.controls(runtimeB, { types = engine.types, reducedMotion = false } :: any)
+			local UIA = Facet.controls(runtimeA, { types = engine.types, motionLevel = "normal" } :: any)
+			local UIB = Facet.controls(runtimeB, { types = engine.types, motionLevel = "normal" } :: any)
 			t.expect(engine.heartbeat.count()).toBe(0)
 			local stopA1, a1 = runtimeA.mount(function()
 				return UIA.Skeleton({ form = "line", lines = 2 })
@@ -554,7 +558,7 @@ end
 
 t.describe("radial retirement motion", function()
 	t.it("reopening mid-exit continues from the painted opacity and keeps every node", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local opened = Compose.cell(true)
 		local stop, screen = w.mount(function(UI)
 			return UI.RadialMenu({
@@ -597,7 +601,7 @@ t.describe("radial retirement motion", function()
 	end)
 
 	t.it("a retiring branch keeps its geometry, leaves the focus order and then releases", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen = w.mount(function(UI)
 			return UI.RadialMenu({
 				isPresented = Compose.cell(true),
@@ -653,12 +657,12 @@ t.describe("radial retirement motion", function()
 		local package = themes.neutralPackage()
 		package.assets.search = { content = "rbxassetid://77" }
 		package.icons["facet:search"] = { default = "search" }
-		local w = world({ reducedMotion = false, theme = package })
+		local w = world({ theme = package })
 		w.gui.ReducedMotionEnabled = true
 		local opened = Compose.cell(false)
 		local stop, screen = w.mount(function(UI, Host)
 			return Host.Frame({
-				themes.createStyleSheet(w.runtime, package, { types = w.engine.types, reducedMotion = true }),
+				themes.createStyleSheet(w.runtime, package, { types = w.engine.types, motionLevel = "none" }),
 				UI.RadialMenu({
 					isPresented = opened,
 					distribution = "even",
@@ -701,7 +705,7 @@ end)
 
 t.describe("presented surface motion", function()
 	t.it("fades an alert in from transparent, fades it out over the declared time and then removes it", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
 		local stop, screen = w.mount(function(UI)
 			return UI.Alert({
@@ -752,7 +756,7 @@ t.describe("presented surface motion", function()
 	end)
 
 	t.it("presents and removes an alert immediately without a transition", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
 		local stop, screen = w.mount(function(UI)
 			return UI.Alert({
@@ -775,7 +779,7 @@ t.describe("presented surface motion", function()
 	end)
 
 	t.it("a dismissed alert returns selection and refuses input the moment its fade begins", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
 		local cancels = 0
 		local stop, screen = w.mount(function(UI, Host)
@@ -824,7 +828,7 @@ t.describe("presented surface motion", function()
 	end)
 
 	t.it("a departing tab layer and a retiring radial slot stop taking input while they fade", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local selection = Compose.cell("a")
 		local opened = Compose.cell(true)
 		local stop, screen = w.mount(function(UI, Host)
@@ -875,7 +879,7 @@ t.describe("presented surface motion", function()
 	end)
 
 	t.it("a sheet reversed mid-flight holds its painted height and returns, and reduced motion settles it", function()
-		local w = world({ reducedMotion = false })
+		local w = world({})
 		local detent, shown = Compose.cell("medium"), Compose.cell(true)
 		local stop, screen = w.mount(function(UI)
 			return UI.Sheet({
@@ -960,7 +964,7 @@ t.describe("tab content transition", function()
 	end
 
 	t.it("crossfades only the content layers and never the strip", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen, selection = tabs(w, { seconds = 0.2 })
 		w.step(0.3)
 		local strip = find(screen, "Tabs")
@@ -991,7 +995,7 @@ t.describe("tab content transition", function()
 	end)
 
 	t.it("groups the pages only while they fade and leaves no CanvasGroup once the fade settles", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen, selection = tabs(w, { seconds = 0.2 })
 		w.step(0.3)
 		t.expect(fadeKit.groups(screen)).toBe(0)
@@ -1008,7 +1012,7 @@ t.describe("tab content transition", function()
 	end)
 
 	t.it("keeps a departing layer mounted until its fade ends when only the top page is retained", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local stop, screen, selection = tabs(w, { seconds = 0.2 }, "top")
 		w.step(0.3)
 		local layerA = fadeKit.layer(find(screen, "AContent"))
@@ -1025,7 +1029,7 @@ t.describe("tab content transition", function()
 
 	t.it("switches without a fade when the transition is absent or false and refuses other spellings", function()
 		for _, transition in { false :: any, nil } do
-			local w = world({ reducedMotion = false })
+			local w = world({ motionLevel = "normal" })
 			local stop, screen, selection = tabs(w, transition)
 			local layerA = fadeKit.layer(find(screen, "AContent"))
 			t.expect(layerA.ClassName).toBe("Frame")
@@ -1037,7 +1041,7 @@ t.describe("tab content transition", function()
 			w.close()
 		end
 		for _, bad in { "fade" :: any, { enter = "fade" }, { fade = true }, { seconds = 0.2, class = "container" } } do
-			local w = world({ reducedMotion = false })
+			local w = world({ motionLevel = "normal" })
 			local ok, err = pcall(tabs, w, bad)
 			t.expect(ok).toBe(false)
 			t.expect(string.find(tostring(err), "Compose tween options", 1, true) ~= nil).toBe(true)
@@ -1048,7 +1052,7 @@ end)
 
 t.describe("row action reveal motion", function()
 	local function row(reduced: boolean): (any, () -> (), any, any)
-		local w = world({ reducedMotion = reduced })
+		local w = world({ motionLevel = if reduced then "none" else "normal" })
 		local open = Compose.cell(nil :: string?)
 		local stop, screen = w.mount(function(UI)
 			return UI.RowActions({
@@ -1160,7 +1164,7 @@ local function ruleFor(sheet: any, selector: string): any
 end
 
 t.describe("reduced motion preference", function()
-	t.it("the player preference stops control motion live and the sheet transitions agree", function()
+	t.it("the player preference stops control motion live and the sheet keeps its colour fades (limited)", function()
 		local w = world({})
 		withGame(w.gui, function()
 			local presses = 0
@@ -1199,7 +1203,7 @@ t.describe("reduced motion preference", function()
 			t.expect(scale.Scale ~= 1).toBe(true)
 			w.gui.ReducedMotionEnabled = true
 			t.expect(scale.Scale).toBe(1)
-			t.expect(sheetReduced()).toBe(true)
+			t.expect(sheetReduced()).toBe(false)
 			t.expect(pressMoves()).toBe(false)
 			w.gui.ReducedMotionEnabled = false
 			t.expect(sheetReduced()).toBe(false)
@@ -1224,7 +1228,7 @@ t.describe("reduced motion preference", function()
 					UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end }),
 				})
 			end)
-			t.expect(transitionOf(ruleFor(sheet, ".facet-surface"), "BackgroundColor3").Time).toBe(0)
+			t.expect(transitionOf(ruleFor(sheet, ".facet-surface"), "BackgroundColor3").Time).toBe(0.2)
 			local scale = find(find(screen, "Go"), "Pop")
 			find(screen, "Go").Activated.fire()
 			for _ = 1, 10 do
@@ -1239,7 +1243,11 @@ end)
 
 t.describe("invalid entry feedback", function()
 	local function field(reduced: any): (any, () -> (), any, any)
-		local w = world({ reducedMotion = reduced })
+		local w = world({
+			motionLevel = Compose.formula(function(use)
+				return if if type(reduced) == "table" then use(reduced) else reduced then "none" else "normal"
+			end),
+		})
 		local invalid = Compose.cell(false)
 		local stop, screen = w.mount(function(UI)
 			return UI.TextInput({ Name = "Name", value = Compose.cell("ready"), invalid = invalid })
@@ -1415,7 +1423,11 @@ t.describe("control motion policy and lifetime", function()
 		"a live reduced-motion switch lands decorative motion on its terminus while progress keeps stepping",
 		function()
 			local reduced = Compose.cell(false)
-			local w = world({ reducedMotion = reduced })
+			local w = world({
+				motionLevel = Compose.formula(function(use)
+					return if use(reduced) then "none" else "normal"
+				end),
+			})
 			local state = newState()
 			local stop, screen = w.mount(function(UI, Host)
 				return motionScene(UI, Host, state)
@@ -1491,7 +1503,7 @@ t.describe("control motion policy and lifetime", function()
 	)
 
 	t.it("fifty animated mount, flight and unmount cycles return the census to its baseline", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local target = w.engine.new("Folder")
 		local function cycle()
 			local state = newState()
@@ -1528,7 +1540,7 @@ t.describe("control motion policy and lifetime", function()
 	end)
 
 	t.it("motion refuses to start outside an owner and a disposed owner cannot restart its clock", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local okTimeline, timelineError = pcall(function()
 			return w.runtime.timeline({ duration = 1 })
 		end)
@@ -1568,7 +1580,7 @@ t.describe("control motion policy and lifetime", function()
 	end)
 
 	t.it("a row reveal reversed mid-flight continues from its painted offset", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local open = Compose.cell(nil :: string?)
 		local stop, screen = w.mount(function(UI)
 			return UI.RowActions({
@@ -1601,7 +1613,7 @@ t.describe("control motion policy and lifetime", function()
 	end)
 
 	t.it("an alert reopened mid-exit continues from its painted opacity", function()
-		local w = world({ reducedMotion = false })
+		local w = world({ motionLevel = "normal" })
 		local shown = Compose.cell(false)
 		local stop, screen = w.mount(function(UI)
 			return UI.Alert({ isPresented = shown, title = "Again", transition = { seconds = 0.2 } })
@@ -1661,12 +1673,15 @@ t.describe("theme paint transitions", function()
 			local normal = m.normal
 			local press = math.min(m.press or 0.08, normal)
 			local hover = math.min(m.hover or 0.15, normal)
-			for _, mode in { "full", "reduced", "off" } do
+			for _, mode in { "full", "limited", "reduced", "off" } do
 				local w = world({})
 				local stop, sheet = w.runtime.mount(function()
 					return themes.createStyleSheet(w.runtime, package, {
 						types = w.engine.types,
-						reducedMotion = mode == "reduced",
+						motionLevel = if mode == "reduced"
+							then "none"
+							elseif mode == "limited" then "limited"
+							else "normal",
 						transition = if mode == "off" then false else nil,
 					})
 				end, w.engine.new("Folder"))
@@ -1677,7 +1692,7 @@ t.describe("theme paint transitions", function()
 							then "press"
 							elseif string.find(rule.Selector, ":Hover", 1, true) then "hover"
 							else "base"
-						local want = if mode ~= "full"
+						local want = if mode == "reduced" or mode == "off"
 							then 0
 							elseif kind == "press" then press
 							elseif kind == "hover" then hover
@@ -1751,7 +1766,13 @@ t.describe("match3 cascade order and input lock", function()
 			gallery.configure(ctx)
 			ctx.UI = Facet.controls(
 				runtime,
-				{ types = engine.types, viewport = viewport, reducedMotion = ctx.reducedMotion } :: any
+				{
+					types = engine.types,
+					viewport = viewport,
+					motionLevel = Compose.formula(function(use)
+						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+					end),
+				} :: any
 			)
 			game = match3.build(ctx)
 			return ctx.Host.ScreenGui "GameScreen" { game.screen() }
@@ -1913,7 +1934,9 @@ t.describe("gallery motion setting", function()
 					inputParent = target,
 					services = { GuiService = gui, UserInputService = input },
 					theme = ctx.theme,
-					reducedMotion = ctx.reducedMotion,
+					motionLevel = Compose.formula(function(use)
+						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+					end),
 				} :: any
 			)
 			ctx.demos = { { id = "first", title = "First", kind = "fixture", module = "first" } }
@@ -1939,17 +1962,20 @@ t.describe("gallery motion setting", function()
 		t.expect(sheet ~= nil).toBe(true)
 		local picker = find(sheet, "Motion")
 		t.expect(picker ~= nil).toBe(true)
-		local full, reduced = find(picker, "full"), find(picker, "reduced")
-		t.expect(full ~= nil and reduced ~= nil).toBe(true)
+		local device, full, limited, reduced =
+			find(picker, "device"), find(picker, "normal"), find(picker, "limited"), find(picker, "none")
+		t.expect(device ~= nil and full ~= nil and limited ~= nil and reduced ~= nil).toBe(true)
 		local optionCount = 0
 		for _, node in picker:GetDescendants() do
 			if node:IsA("TextButton") and node:GetAttribute("label") ~= nil then
 				optionCount += 1
 			end
 		end
-		t.expect(optionCount).toBe(2)
-		t.expect(full:GetAttribute("label")).toBe("Full")
-		t.expect(reduced:GetAttribute("label")).toBe("Reduced")
+		t.expect(optionCount).toBe(4)
+		t.expect(device:GetAttribute("label")).toBe("Device")
+		t.expect(full:GetAttribute("label")).toBe("Game: Normal")
+		t.expect(limited:GetAttribute("label")).toBe("Game: Limited")
+		t.expect(reduced:GetAttribute("label")).toBe("Game: None")
 		local wording: { string } = {}
 		for _, node in sheet:GetDescendants() do
 			local ok, text = pcall(function()
@@ -1971,23 +1997,26 @@ t.describe("gallery motion setting", function()
 					.toBe(`{text} matches {banned}: false`)
 			end
 		end
-		t.expect(full:GetAttribute("selected")).toBe(true)
+		t.expect(device:GetAttribute("selected")).toBe(true)
 		reduced.Activated.fire()
-		t.expect(ctx.reducedMotion:peek()).toBe(true)
-		t.expect(ctx.motionMode:peek()).toBe("reduced")
+		t.expect(ctx.motionLevel:peek()).toBe("none")
+		t.expect(ctx.motionMode:peek()).toBe("none")
 		t.expect(reduced:GetAttribute("selected")).toBe(true)
 		full.Activated.fire()
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		t.expect(full:GetAttribute("selected")).toBe(true)
 		gui.ReducedMotionEnabled = true
 		t.expect(ctx.reducedMotion:peek()).toBe(true)
-		t.expect(reduced:GetAttribute("selected")).toBe(true)
-		full.Activated.fire()
-		t.expect(ctx.reducedMotion:peek()).toBe(true)
-		t.expect(ctx.motionMode:peek()).toBe("reduced")
+		t.expect(ctx.motionLevel:peek()).toBe("limited")
+		device.Activated.fire()
+		t.expect(ctx.motionLevel:peek()).toBe("limited")
+		t.expect(device:GetAttribute("selected")).toBe(true)
+		limited.Activated.fire()
+		t.expect(ctx.motionMode:peek()).toBe("limited")
 		gui.ReducedMotionEnabled = false
+		t.expect(ctx.motionLevel:peek()).toBe("limited")
+		device.Activated.fire()
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
-		t.expect(full:GetAttribute("selected")).toBe(true)
 		stop()
 		runtime:dispose()
 	end)
@@ -2088,7 +2117,7 @@ t.describe("performance lab motion flight", function()
 	)
 
 	t.it("the segmented selection fill never reaches past the strip, so it cannot widen it", function()
-		local w = world({ reducedMotion = true })
+		local w = world({ motionLevel = "none" })
 		local _, screen = w.mount(function(UI)
 			return UI.Picker "Mode" {
 				style = "segmented",
@@ -2109,7 +2138,7 @@ t.describe("performance lab motion flight", function()
 	t.it(
 		"the segmented selection fill is placed in the strip's padded content box, so it cannot grow the strip",
 		function()
-			local w = world({ reducedMotion = true })
+			local w = world({ motionLevel = "none" })
 			local _, screen = w.mount(function(UI)
 				return UI.Picker "Mode" {
 					style = "segmented",
@@ -2138,7 +2167,7 @@ t.describe("performance lab motion flight", function()
 	)
 
 	t.it("a stale segment position cannot place the selection fill past the laid-out segments", function()
-		local w = world({ reducedMotion = true })
+		local w = world({ motionLevel = "none" })
 		local _, screen = w.mount(function(UI)
 			return UI.Picker "Mode" {
 				style = "segmented",
@@ -2172,7 +2201,7 @@ t.describe("performance lab motion flight", function()
 	end)
 
 	t.it("the segmented selection fill sits on a segment that wrapped to the next line, inside the strip", function()
-		local w = world({ reducedMotion = true })
+		local w = world({ motionLevel = "none" })
 		local selected = Compose.cell("b")
 		local _, screen = w.mount(function(UI)
 			return UI.Picker "Mode" {
@@ -2201,7 +2230,7 @@ t.describe("performance lab motion flight", function()
 		"the segmented selection fill slides between segments laid out from their sizes and snaps under reduced motion",
 		function()
 			local function run(reduced: boolean): (any, any, any)
-				local w = world({ reducedMotion = reduced })
+				local w = world({ motionLevel = if reduced then "none" else "normal" })
 				local selected = Compose.cell("a")
 				local _, screen = w.mount(function(UI)
 					return UI.Picker "Mode" {

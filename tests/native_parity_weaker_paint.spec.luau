@@ -33,7 +33,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -88,7 +88,7 @@ end
 local function sheetFor(package: any, options: { [string]: any }?): (any, any, () -> ())
 	local engine: any = engineLib.new()
 	local runtime = Facet.Roblox.createRuntime(engine)
-	local settings: { [string]: any } = { types = engine.types, preferredTransparency = 1, reducedMotion = true }
+	local settings: { [string]: any } = { types = engine.types, preferredTransparency = 1, motionLevel = "none" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
@@ -541,7 +541,7 @@ t.describe("native parity weaker paint", function()
 				parent = playerGui,
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any)
 			local _, screen = app.mount(function()
 				return app.UI.TabView {
@@ -673,7 +673,7 @@ t.describe("native parity weaker paint", function()
 			local theme = Compose.cell(themes.neutralPackage())
 			local sheet
 			local world = setup(function(UI, Host, engine, runtime)
-				sheet = themes.createStyleSheet(runtime, theme, { types = engine.types, reducedMotion = true } :: any)
+				sheet = themes.createStyleSheet(runtime, theme, { types = engine.types, motionLevel = "none" } :: any)
 				return Host.Frame {
 					sheet,
 					UI.Toggle "Music" {

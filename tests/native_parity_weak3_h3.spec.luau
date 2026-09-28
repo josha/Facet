@@ -27,7 +27,7 @@ local function world(build: (any, any) -> any, options: { [string]: any }?): Wor
 	local config: { [string]: any } = {
 		types = engine.types,
 		guiService = gui,
-		reducedMotion = true,
+		motionLevel = "none",
 		services = { GuiService = gui, UserInputService = input },
 	}
 	for key, value in (options or {}) :: { [string]: any } do
@@ -109,7 +109,7 @@ t.describe("weak3 RowActions outside tap", function()
 					end,
 				},
 			}
-		end, { reducedMotion = reducedMotion })
+		end, { motionLevel = if reducedMotion then "none" else "normal" })
 		local V2 = w.engine.types.Vector2
 		local a, b, boost = find(w.screen, "a"), find(w.screen, "b"), find(w.screen, "Boost")
 		a.AbsolutePosition, a.AbsoluteSize = V2.new(0, 0), V2.new(300, 44)

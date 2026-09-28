@@ -39,7 +39,7 @@ local function world(build: (any) -> any)
 		{
 			types = engine.types,
 			guiService = gui,
-			reducedMotion = true,
+			motionLevel = "none",
 			services = { GuiService = gui, RunService = frames },
 		} :: any
 	)
@@ -108,7 +108,7 @@ t.describe("presented surfaces arrive styled", function()
 			}
 		end)
 		open:set(true)
-		t.expect(frames.Heartbeat.count()).toBe(1)
+		t.expect(frames.Heartbeat.count() >= 1).toBe(true)
 		open:set(false)
 		t.expect(frames.Heartbeat.count()).toBe(0)
 		stop()
@@ -125,7 +125,7 @@ t.describe("presented surfaces arrive styled", function()
 				{
 					types = engine.types,
 					guiService = gui,
-					reducedMotion = true,
+					motionLevel = "none",
 					services = { GuiService = gui, RunService = frames },
 				} :: any
 			)

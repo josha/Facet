@@ -34,7 +34,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		types = engine.types,
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		if key == "preferredInput" then
@@ -651,7 +651,7 @@ t.describe("native parity weaker scrolling", function()
 			t.expect(reduced.node.CanvasPosition.Y).toBe(100)
 			reduced.stop()
 
-			local moving = snapList(20, 300, nil, { reducedMotion = false })
+			local moving = snapList(20, 300, nil, { motionLevel = "normal" })
 			moving.advance(1)
 			scroll(moving, 77)
 			moving.advance(10 / 60)
@@ -752,7 +752,7 @@ t.describe("native parity weaker scrolling", function()
 	)
 
 	t.it("apps-231 snap travel yields to native scrolling and never resumes toward its old target", function()
-		local world = snapList(20, 300, nil, { reducedMotion = false })
+		local world = snapList(20, 300, nil, { motionLevel = "normal" })
 		world.advance(1)
 		scroll(world, 77)
 		world.advance(10 / 60)
@@ -807,7 +807,7 @@ t.describe("native parity weaker scrolling", function()
 							types = types,
 							services = { GuiService = gui, UserInputService = input },
 							spatial = spatial,
-							reducedMotion = true,
+							motionLevel = "none",
 						})
 						local stop, root = runtime.mount(views[application], target)
 						root.AbsoluteSize = types.Vector2.new(width, 640)

@@ -100,7 +100,7 @@ and these fields:
   `ScreenInsets` or a reactive `Enabled`. They replace the defaults
   (`Name` from `name`, `ResetOnSpawn = false`, `ZIndexBehavior = Sibling`).
 - `sheet`: `createStyleSheet` options, such as `theme` for the palette or
-  `transition`. The app adds `types` and `reducedMotion` when you do not set
+  `transition`. The app adds `types` and `motionLevel` when you do not set
   them.
 
 The app gives `theme` to the controls and to the StyleSheet, so you set the
@@ -225,9 +225,15 @@ document their own write-then-notify behavior below.
   pointer makes the ladder follow a change at once. Without one, the controls
   take the distance when `Facet.controls` runs. `Screen` overscan follows the
   live fact.
-- `reducedMotion` and `icons`: these can also be reactive. Control motion also
-  follows `GuiService.ReducedMotionEnabled`. Motion is reduced when either one
-  is true.
+- `motionLevel` and `icons`: these can also be reactive. `motionLevel` is
+  `"normal"` (full motion), `"limited"` or `"none"` (see Motion). If you omit
+  it, motion follows the device: `GuiService.ReducedMotionEnabled` gives
+  `"limited"`, otherwise `"normal"`. The effective level is the stronger of
+  yours and the device's (`"normal"` < `"limited"` < `"none"`): a game can add
+  reduction but never remove a player's Reduce Motion. An unknown value given
+  when the controls are made is an error, and so is the removed
+  `reducedMotion` option; an unknown value that a readable delivers later
+  (such as a stale saved setting) follows the device level with one warning.
 - `pressHaptic`: a native `HapticEffect` or a feedback kind (`"selection"`,
   `"impact"`, `"success"`, `"warning"` or `"error"`). Only a control that
   changes a state or a value plays it. See [Haptics](#haptics).
@@ -271,7 +277,7 @@ easing, spring, scale and distance below is a token in the theme package's
 |---|---|---|
 | NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent (`distances.parallax`) to the leading edge and dims by 0.1 (`distances.dim`). Critically damped spring with a 0.3 second period (`springs.move`), visually complete in approximately 0.35 seconds. | Pop is the reverse. |
 | TabView page change | Crossfade, 0.2 seconds (`durations.tabFade`), Quad Out (`easing.fade`). | The same. |
-| Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. A detent change, a released drag and a side sheet's released pull settle on one critically damped spring (`springs.sheet`, a 0.4 second period, visually complete in about 0.45 seconds) that starts from the finger's release velocity; a detent change retargeted mid-flight keeps its velocity. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
+| Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. A detent change, a released drag and a side sheet's released pull settle on one critically damped spring (`springs.sheet`, a 0.4 second period, visually complete in about 0.45 seconds) that starts from the finger's release velocity; a detent change retargeted mid-flight keeps its velocity. A release faster than 800 pixels per second (`fling.bounceSpeed`) settles on `springs.flick` (0.3 second period, damping 0.8), so it passes its detent by under 2 percent once and comes back. While you drag or pull a sheet that can be dismissed, the scrim lightens in proportion to how far the sheet has moved toward dismissal. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
 | Alert, Dialog | Scales from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
 | Popover | Scales from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
 | Callout | Scales from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
@@ -283,7 +289,7 @@ easing, spring, scale and distance below is a token in the theme package's
 | DisclosureGroup | The content height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out, and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 90 degrees with it. | The height closes in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
 | CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds (`reveal.enter`), Cubic Out (`easing.present`), and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
 | Notice | The height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds (`reveal.exit`). Then `onDismiss` runs. |
-| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Reduced motion places the slot at once. | The slot keeps its position and fades out, 0.12 seconds (`radial.exit`). |
+| RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Back folds the level into its item and re-opens the parent around it: each parent slot starts at that item's angle and band and sweeps to its place. A ring that opens again starts from the centre. Reduced motion places the slot at once. | The slot fades out, 0.12 seconds (`radial.exit`). A submenu slot left by Back folds along the ring into the item it came from as it fades. |
 | NavBar | No motion. | No motion. |
 
 - A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
@@ -301,14 +307,37 @@ easing, spring, scale and distance below is a token in the theme package's
   the same style pass, so the outline fades with the fill and the content. A
   game rule on `S::UIStroke` gets the same twin. `FindFirstChildWhichIsA("UIStroke")`
   on a faded node returns `FadeStroke`.
-- An Alert, a Popover, a Menu (and each Menu level), a Callout and a Button `help` plate measure themselves
-  at rest before the entrance: each waits, invisible and at scale 1, until its
-  size holds for one frame, at most the theme's `motion.restLimit` (0.25
-  seconds by default). The placement then reads that rested size for the whole
-  entrance and exit, so the scale never moves the plate or its tail. Reduced
-  motion skips the wait.
-- Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
-  all of this motion. The change is immediate.
+- A presentation's fade leads its travel. An Alert, Dialog, Popover, Menu,
+  Callout, Button `help` plate and Sheet (its scrim) is fully opaque once 60
+  percent of its entrance time has run (`presentFadeIn`) and fully clear once
+  half of its exit time has run (`presentFadeOut`); the scale, slide or rise
+  runs its whole time. The scrim and a tail fade with the panel. A presentation
+  reversed mid-entrance or mid-exit continues its fade from where it is.
+- An Alert, a Dialog, a Popover, a Menu (and each Menu level), a Callout and
+  a Button `help` plate measure themselves at rest before the entrance: each
+  waits, invisible and at scale 1, until its size holds for one frame, at most
+  the theme's `motion.restLimit` (0.25 seconds by default). The placement then
+  reads that rested size for the whole entrance and exit, so the scale never
+  moves the plate or its tail, and a Dialog, Callout or help plate holds that
+  size as a fixed box while it scales. The wait applies at every motion level,
+  so a presentation never grows after it shows.
+- The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
+  `"limited"`) changes this motion:
+  - `"normal"`: the motion above.
+  - `"limited"`: no travel, scale or slide. An Alert, Dialog, Popover, Menu
+    (pointer and sheet form), Callout, Button `help` plate and Sheet
+    cross-fade in and out over `reducedFade` (0.15 seconds, `easing.fade`);
+    a Sheet's panel fades with its scrim. A Toast fades in place over
+    `reducedFade` (even with `fade = false`), a TabView page cross-fades
+    over `reducedFade`, a NavigationStack push fades the new page in over
+    `reducedFade` with no slide (a pop is immediate), and a DisclosureGroup
+    or CollapsibleView lands its height at once and fades its content over
+    `reducedFade`, and so does a Notice when it arrives and when its close
+    button is pressed (`onDismiss` runs after the fade). A NavigationStack pop
+    is a known gap: it is immediate. A custom `transition` keeps its own timing. Paint
+    transitions keep their timing.
+  - `"none"`: every presentation appears and leaves at once, and paint
+    transitions are instant.
 - A presentation that has not drawn a frame, or whose anchor is no longer
   available, leaves immediately.
 - If you present a control again during its exit, the exit reverses.
@@ -567,8 +596,7 @@ ancestor.
 
 Both calls tween `CanvasPosition` with `TweenService` for 0.25 seconds. A new
 call cancels the tween that runs on the same frame. The move is instant when
-`options.animated` is `false`, when the factory `reducedMotion` is `true` or
-when `GuiService.ReducedMotionEnabled` is `true`. Call them from an event, for
+`options.animated` is `false` or when the motion level is not `"normal"`. Call them from an event, for
 example a button that goes back to the top of a page.
 
 ### Grid
@@ -949,6 +977,11 @@ options apply.
 `controlSize` also sizes the switch. The track is the rung `iconSize` plus 4
 pixels high, its width scales 38 by 24 to that height, and the knob is 6 pixels
 smaller than the track. Without `controlSize`, the switch is 38 by 24 pixels.
+
+A switch Toggle's knob glides between its ends on a critically damped spring
+(`motion.springs.control`, a 0.25 second period) while the track colour
+fades, and a change mid-flight turns it without a jump. Below motion level
+`"normal"` the knob lands at once.
 
 A switch or checkbox Toggle paints no plate and takes no `control` art from a
 theme package. A settings row (a Toggle with `row`, `hint` or `icon`) has the
@@ -1967,7 +2000,8 @@ page. Up and Down leave the pages.
 
 The native `UIPageLayout` moves between pages over 0.3 seconds, Cubic Out, with
 no overshoot, for Previous, Next, a dot and the arrow keys. A swipe released
-faster than 1200 pixels a second settles with the `Back` overshoot instead.
+faster than 1200 pixels a second settles with Quint Out (`styles.fling`)
+instead, which decelerates harder and never overshoots.
 
 ### Pagination
 
@@ -3339,7 +3373,10 @@ weight. The derived role keeps the family, style, size and line height.
   - `theme`: the selected palette, as a name or a readable.
   - `name`: the native name.
   - `transition`: a native TweenInfo, a readable, or `false`.
-  - `reducedMotion`: a boolean or a readable.
+  - `motionLevel`: `"normal"`, `"limited"` or `"none"`, or a readable. If you
+    omit it, the sheet uses the `motionLevel` given to `Facet.controls` on the
+    same runtime. Paint transitions are instant only at `"none"`; the device's
+    Reduce Motion (`"limited"`) keeps them.
   - `preferredTransparency`: a number or a readable. The value multiplies the
     scrim transparency. Other rules keep their authored transparency. A value
     that is not a number has no effect. If you omit it, the sheet follows
@@ -3845,7 +3882,8 @@ environment keeps the last real size.
 | `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
 | `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
-| `reducedMotion` | The factory `reducedMotion` option or `GuiService.ReducedMotionEnabled`. |
+| `motionLevel` | The stronger of the factory `motionLevel` option and the device level (`"limited"` when `GuiService.ReducedMotionEnabled` is true, otherwise `"normal"`). |
+| `reducedMotion` | `true` when `motionLevel` is not `"normal"`. |
 
 ```luau
 local function Apps(tabs, selection)

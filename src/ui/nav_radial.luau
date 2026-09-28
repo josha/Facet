@@ -1,6 +1,6 @@
 --!strict
 local layoutKit = require("./layout_kit")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local geometry = require("./nav_radial_geometry")
 local adaptive = require("./adaptive")
 local Types = require("./types")
@@ -137,6 +137,16 @@ return function(
 		local path: ComposeTypes.Cell<{ string }> = Compose.cell({})
 		local candidate: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
 		local branchOrigin: { path: string, shape: Radial.SectorShape }? = nil
+		local origins: { [string]: Radial.SectorShape } = {}
+		local function jump(entries: { string })
+			branchOrigin = nil
+			path:set(entries)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if not use(opened) then
+				branchOrigin = nil
+			end
+		end)
 		local interacting = Compose.cell(false)
 		local naming = Compose.cell(false)
 		local holding = runtime.timeline({ duration = HOLD, autoplay = false })
@@ -176,7 +186,7 @@ return function(
 				return
 			end
 			opened:set(false)
-			path:set({})
+			jump({})
 			cancel()
 			if spec.onClose then
 				spec.onClose()
@@ -201,7 +211,10 @@ return function(
 			if #entries == 0 then
 				close()
 			else
+				local leaving = table.concat(path:peek(), "/")
 				local popped = table.remove(entries)
+				local shape = origins[leaving]
+				branchOrigin = if shape then { path = table.concat(entries, "/"), shape = shape } else nil
 				local function change()
 					path:set(entries)
 					candidate:set(nil)
@@ -229,7 +242,9 @@ return function(
 			if item.children then
 				local entries = table.clone(sector.path)
 				table.insert(entries, item.id)
-				branchOrigin = { path = table.concat(entries, "/"), shape = sector :: Radial.SectorShape }
+				local key = table.concat(entries, "/")
+				branchOrigin = { path = key, shape = sector :: Radial.SectorShape }
+				origins[key] = sector :: Radial.SectorShape
 				local function change()
 					path:set(entries)
 					candidate:set(nil)
@@ -248,7 +263,7 @@ return function(
 			if completion == "close" then
 				close()
 			elseif completion == "root" then
-				path:set({})
+				jump({})
 			elseif completion == "back" then
 				back()
 			end
@@ -895,7 +910,10 @@ return function(
 										shape: Radial.SectorShape
 									): Radial.SectorShape
 										local parent = assert(branch)
-										local p = ctx.motionEase("present", use)(use(arrival))
+										local present = ctx.motionEase("present", use)
+										local p = if use(branchPhase.exiting)
+											then 1 - present(1 - use(opacity))
+											else present(use(arrival))
 										local start = ctx.metric("motion.unfoldStart", use)
 										local factor = start + (1 - start) * p
 										local middle = (parent.inner + parent.outer) / 2
@@ -1225,7 +1243,7 @@ return function(
 					if navigating() or spec.center == nil or spec.center == "back" then
 						back()
 					elseif spec.center == "root" then
-						path:set({})
+						jump({})
 					else
 						close()
 					end
@@ -1656,7 +1674,7 @@ return function(
 					local entries = use(sectors)
 					local validPath = use(layout).path
 					if #validPath < #path:peek() then
-						path:set(validPath)
+						jump(validPath)
 					end
 					local wanted, found = candidate:peek(), false
 					for _, sector in entries do

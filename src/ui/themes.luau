@@ -6,6 +6,7 @@ local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local adaptive = require("./adaptive")
+local motionLevels = require("./motion")
 local preferredInput = require("./preferred_input")
 local themeDistance = require("./theme_distance")
 export type ThemePackage = ThemeTypes.ThemePackage
@@ -175,7 +176,10 @@ local neutral: ThemeTypes.ThemePackage = {
 			normal = 0.2,
 			press = 0.08,
 			hover = 0.15,
+			reducedFade = 0.15,
 			revealFadeShare = 0.5,
+			presentFadeIn = 0.6,
+			presentFadeOut = 0.5,
 			unfoldStart = 0.25,
 			restLimit = 0.25,
 			popover = { enter = 0.15, exit = 0.1 },
@@ -208,6 +212,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				control = { period = 0.25, damping = 1 },
 				move = { period = 0.3, damping = 1 },
 				sheet = { period = 0.4, damping = 1 },
+				flick = { period = 0.3, damping = 0.8 },
 			},
 			materialize = {
 				anchored = 0.9,
@@ -221,8 +226,8 @@ local neutral: ThemeTypes.ThemePackage = {
 			},
 			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
 			easing = { present = "outCubic", fade = "outQuad" },
-			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Back", pulse = "Sine" },
-			fling = { friction = 3, maxSpeed = 4000, projection = 0.08 },
+			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Quint", pulse = "Sine" },
+			fling = { friction = 3, maxSpeed = 4000, projection = 0.08, bounceSpeed = 800 },
 		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
@@ -451,10 +456,13 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 				check(group .. "." .. tostring(key), value)
 			end
 		end
-		for _, key in { "fast", "normal", "press", "hover", "reducedFade" } do
+		for _, key in { "fast", "normal", "press", "hover" } do
 			if tokens[key] ~= nil then
 				number(key, tokens[key], 0, 10)
 			end
+		end
+		if tokens.reducedFade ~= nil then
+			number("reducedFade", tokens.reducedFade, 0, 10, true)
 		end
 		for _, key in { "revealFadeShare", "unfoldStart" } do
 			if tokens[key] ~= nil then
@@ -463,6 +471,11 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 		end
 		if tokens.restLimit ~= nil then
 			number("restLimit", tokens.restLimit, 0, 1)
+		end
+		for _, key in { "presentFadeIn", "presentFadeOut" } do
+			if tokens[key] ~= nil then
+				number(key, tokens[key], 0, 1, true)
+			end
 		end
 		for _, role in { "popover", "dialog", "reveal", "sheet", "toast", "radial" } do
 			each(role, function(path: string, value: unknown)
@@ -1714,20 +1727,21 @@ local function createStyleSheet(
 	local settings: ThemeTypes.ThemeOptions = options or {}
 	local types = typesFor(settings)
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
-	local reducedMotion = settings.reducedMotion
-	if reducedMotion == nil then
-		local globals = getfenv(0)
-		local gui = globals.game and globals.game:GetService("GuiService")
-		if gui then
-			local source = Compose.cell(gui.ReducedMotionEnabled)
-			reducedMotion = source
-			local connection = gui:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
-				source:set(gui.ReducedMotionEnabled)
-			end)
-			Compose.cleanup(function()
-				connection:Disconnect()
-			end)
+	assert(
+		((settings :: unknown) :: { [string]: unknown }).reducedMotion == nil,
+		'Facet createStyleSheet: the reducedMotion option is gone; set motionLevel = "normal", "limited" or "none"'
+	)
+	local function snaps(use: ComposeTypes.Use): boolean
+		local sources: { unknown } = if settings.motionLevel ~= nil
+			then { settings.motionLevel }
+			else motionLevels.published(runtime)
+		for _, source in sources do
+			local chosen = read(source :: any, use)
+			if chosen ~= nil and motionLevels.resolve(chosen, false) == "none" then
+				return true
+			end
 		end
+		return false
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
@@ -1846,7 +1860,7 @@ local function createStyleSheet(
 		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
 		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
-		if read(reducedMotion, use) == true or explicit == false then
+		if snaps(use) or explicit == false then
 			seconds = 0
 		elseif explicit ~= nil then
 			return explicit :: TweenInfo

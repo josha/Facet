@@ -1,6 +1,7 @@
 --!strict
 local Shared = require("./types")
 local Env = require("./environment_types")
+local motion = require("./motion")
 
 type Playback = { Play: (Playback) -> (), Cancel: (Playback) -> () }
 type Tweens = { Create: (Tweens, Instance, TweenInfo, { [string]: unknown }) -> Playback }
@@ -13,17 +14,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local running: { [Instance]: Playback } = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Playback }
 
 	local function reduced(): boolean
-		if ctx.read(config.reducedMotion) == true then
-			return true
-		end
 		local gui = config.guiService
-		if gui == nil then
-			return false
-		end
 		local ok, value = pcall(function()
-			return gui.ReducedMotionEnabled
+			return gui ~= nil and gui.ReducedMotionEnabled
 		end)
-		return ok and value == true
+		return motion.resolve(ctx.read(config.motionLevel), ok and value == true) ~= "normal"
 	end
 
 	local function limit(frame: ScrollingFrame): Vector2

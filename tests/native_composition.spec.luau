@@ -219,7 +219,7 @@ t.describe("Composition", function()
 
 	t.it("pops an arriving form unless motion is reduced, and holds its measurement while it pops", function()
 		for _, reduced in { false, true } do
-			local root, engine, forms, _, stop = mount({ reducedMotion = reduced })
+			local root, engine, forms, _, stop = mount({ motionLevel = if reduced then "none" else "normal" })
 			local box = root:FindFirstChild("Zones")
 			sized(engine, box, 844, 330)
 			local rail = root:FindFirstChild("Rail", true)

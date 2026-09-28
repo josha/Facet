@@ -44,7 +44,7 @@ local function mount(h: Harness, build: () -> any): (any, () -> ())
 end
 
 local function sheetFor(h: Harness, package: any, options: { [string]: any }?): (any, () -> ())
-	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, reducedMotion = false }
+	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, motionLevel = "normal" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
@@ -1387,7 +1387,7 @@ t.describe("native parity paint", function()
 					guiService = gui,
 					services = { GuiService = gui },
 					theme = theme,
-					reducedMotion = true,
+					motionLevel = "none",
 				} :: any
 			),
 		}

@@ -123,7 +123,9 @@ t.describe("native parity classb themes", function()
 				UI.Skeleton("Box")({ form = "box" }),
 				UI.Skeleton("Lines")({ form = "line", lines = 2 }),
 			})
-		end, { reducedMotion = reduced })
+		end, { motionLevel = Compose.formula(function(use)
+			return if use(reduced) then "none" else "normal"
+		end) })
 		local circle = find(find(world.screen, "Circle"), "Placeholder1")
 		local box = find(find(world.screen, "Box"), "Placeholder1")
 		local lines = placeholders(find(world.screen, "Lines"))
@@ -172,7 +174,7 @@ t.describe("native parity classb themes", function()
 					end,
 				}),
 			})
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 		local root = find(world.screen, "A")
 		local plate = find(root, "Placeholder1")
 		local sweep = find(plate, "Shimmer")

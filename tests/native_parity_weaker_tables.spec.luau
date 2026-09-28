@@ -39,7 +39,7 @@ local function stage(build: (any, any) -> any, config: { [string]: any }?): Stag
 		guiService = gui,
 		userInputService = input,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in config or {} do
 		options[key] = value
@@ -209,7 +209,7 @@ local function playlist(): Playlist
 				userInputService = input,
 				services = { GuiService = gui, UserInputService = input },
 				inputParent = target,
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any
 		),
 	}
@@ -475,7 +475,7 @@ t.describe("native parity weaker tables", function()
 					guiService = gui,
 					userInputService = input,
 					services = { GuiService = gui, UserInputService = input },
-					reducedMotion = true,
+					motionLevel = "none",
 				} :: any
 			)
 			local V2 = engine.types.Vector2
@@ -706,7 +706,7 @@ t.describe("native parity weaker tables", function()
 					guiService = gui,
 					userInputService = input,
 					services = { GuiService = gui, UserInputService = input },
-					reducedMotion = true,
+					motionLevel = "none",
 				} :: any
 			)
 			local V2 = engine.types.Vector2

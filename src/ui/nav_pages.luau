@@ -6,7 +6,8 @@ local Media = require("./media_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
-local reducedMotion = require("./motion")
+local motion = require("./motion")
+local reducedMotion = motion.reduced
 local adaptive = require("./adaptive")
 local segmentMetrics = require("./segment_metrics")
 local reservations = require("./reservations")
@@ -71,13 +72,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		checkTransition(transition)
 		local mounted = Compose.cell(false)
-		local gui = surfaces.service("GuiService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
+		local level = motion.level(ctx)
 		local opacity = runtime.tween(function(use: ComposeTypes.Use)
 			return if (immediate or use(mounted)) and use(state).top then 1 else 0
 		end, transition)
 		local function still(use: ComposeTypes.Use): boolean
-			return use(reduced) or read(ctx.config.reducedMotion, use) == true
+			return level(use) == "none"
 		end
 		properties.GroupTransparency = function(use: ComposeTypes.Use)
 			return if still(use) then 0 else 1 - use(opacity)
@@ -95,7 +95,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end)
 		if hidden then
 			Compose.watch(function(use: ComposeTypes.Use)
-				if not use(state).top and (use(reduced) or use(opacity) == 0) then
+				if not use(state).top and (still(use) or use(opacity) == 0) then
 					hidden()
 				end
 			end)
@@ -125,6 +125,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"TabView.retention uses Compose all or top"
 		)
 		local depth = tabDepth
+		local tabLevel = motion.level(ctx)
 		local nested = Compose.cell(depth > 0)
 		local statuses: { [string]: boolean } = {
 			neutral = true,
@@ -1010,7 +1011,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						},
 						state,
 						if spec.transition == nil
-							then { seconds = ctx.metric("motion.durations.tabFade"), ease = ctx.motionEase("fade") }
+							then {
+								seconds = function(): number
+									return if tabLevel() == "limited"
+										then ctx.metric("motion.reducedFade")
+										else ctx.metric("motion.durations.tabFade")
+								end,
+								ease = ctx.motionEase("fade"),
+							}
 							else spec.transition,
 						if spec.retention == "top"
 							then function()
@@ -1330,6 +1338,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local errorText: ComposeTypes.Cell<string?> = Compose.cell(nil :: string?)
 		local accepted = { rootEntry }
 		local reduce = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local timing: Nav.Transition? = if type(spec.transition) == "table" then spec.transition else nil
 		local animated = spec.transition == nil
 		local function validate(path: { Nav.NavigationEntry<P> }): { Nav.NavigationEntry<P> }
@@ -1453,6 +1462,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						})
 						else Compose.cell(0)
 					entering:set(false)
+					local fading = Compose.cell(stackReady and animated and level() == "limited")
+					local arrival = runtime.tween(function(use: ComposeTypes.Use): number
+						return if use(fading) then 0 else 1
+					end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
+					fading:set(false)
 					local function offset(use: ComposeTypes.Use?): number
 						if not animated or reduce(use) then
 							return if read(role, use) == "exiting" then 1 else 0
@@ -1556,7 +1570,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							destinationFrame,
 						}, state, timing)
 					else
-						panel = Host.Frame(entry.id)({
+						panel = ctx.fade({
+							Name = entry.id,
+							GroupTransparency = function(use: ComposeTypes.Use)
+								return if level(use) == "limited" then 1 - use(arrival) else 0
+							end,
 							BackgroundTransparency = function(use: ComposeTypes.Use)
 								return if use(moving)
 										and use(backdrop) ~= nil
@@ -1700,13 +1718,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			+ (if spec.indicators ~= false then 48 else 0)
 			+ (if spec.controls ~= false then 48 else 0)
 		local pageNodes: { [string]: Frame } = {}
-		local gui = surfaces.service("GuiService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
+		local reduced = reducedMotion(ctx)
 		local fling = Compose.cell(false)
 		local flingStyle, pageStyle = ctx.motionStyle("fling"), ctx.motionStyle("page")
 		local layout = Host.UIPageLayout "PagesLayout" {
 			Animated = function(use: ComposeTypes.Use)
-				return read(ctx.config.reducedMotion, use) ~= true and not use(reduced)
+				return not reduced(use)
 			end,
 			EasingStyle = function(use: ComposeTypes.Use)
 				return if use(fling) then flingStyle else pageStyle

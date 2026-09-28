@@ -28,7 +28,7 @@ local function nativeContext()
 			guiService = guiService,
 			services = { GuiService = guiService },
 			inputParent = target,
-			reducedMotion = true,
+			motionLevel = "none",
 		}),
 	}
 	return ctx, engine, target

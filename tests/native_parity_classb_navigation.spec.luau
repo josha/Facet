@@ -90,7 +90,7 @@ end
 
 local function sheetFor(engine: any, runtime: any, package: any): (any, () -> ())
 	local stop, sheet = runtime.mount(function()
-		return themes.createStyleSheet(runtime, package, { types = engine.types, reducedMotion = true } :: any)
+		return themes.createStyleSheet(runtime, package, { types = engine.types, motionLevel = "none" } :: any)
 	end, engine.new("Folder"))
 	return sheet, stop
 end

@@ -33,7 +33,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -598,6 +598,9 @@ t.describe("native parity controls", function()
 		t.expect(mark:HasTag("facet-skinned")).toBe(true)
 		local skinnedOff = geometry()
 		value:set(true)
+		for _ = 1, 60 do
+			engine.heartbeat.fire(1 / 60)
+		end
 		local skinnedOn = geometry()
 		t.expect(skinnedOn[1] ~= skinnedOff[1]).toBe(true)
 		theme:set(Facet.themes.neutralPackage())
@@ -606,6 +609,9 @@ t.describe("native parity controls", function()
 		t.expect(indicator:HasTag("facet-toggle-indicator")).toBe(true)
 		t.expect(geometry()).toEqual(skinnedOn)
 		value:set(false)
+		for _ = 1, 60 do
+			engine.heartbeat.fire(1 / 60)
+		end
 		t.expect(geometry()).toEqual(skinnedOff)
 		theme:set(skinned)
 		t.expect(indicator:HasTag("facet-skinned")).toBe(true)
@@ -908,7 +914,7 @@ t.describe("native parity controls", function()
 					trailing = { { id = "Save", label = "Save" } },
 				}),
 			})
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 		local a, b = find(world.node, "A"), find(world.node, "B")
 		a.AbsoluteSize = V2(world, 300, 40)
 		b.AbsoluteSize = V2(world, 300, 40)
@@ -1401,7 +1407,7 @@ t.describe("native parity controls", function()
 			worldTarget = engine.new("Folder"),
 			guiService = gui,
 			runService = { Heartbeat = engine.heartbeat },
-			UI = Facet.controls(runtime, { types = engine.types, guiService = gui, reducedMotion = true } :: any),
+			UI = Facet.controls(runtime, { types = engine.types, guiService = gui, motionLevel = "none" } :: any),
 		}
 		local built
 		local stop, screen = runtime.mount(function()

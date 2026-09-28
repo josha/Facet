@@ -6,7 +6,7 @@ local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
 local parts = require("./overlay_parts")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }

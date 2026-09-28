@@ -7,6 +7,7 @@ local layoutKit = require("./layout_kit")
 local selection = require("./selection")
 local adaptive = require("./adaptive")
 local preferredInput = require("./preferred_input")
+local motion = require("./motion")
 
 type ModalPortal = { node: Instance, anchor: Instance }
 type ActionSettings = {
@@ -21,6 +22,14 @@ type ActionSettings = {
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	assert(runtime.host.name == "roblox", "Facet.controls requires a Compose Roblox runtime")
 	local config: Shared.Config = if options then table.clone(options) else {}
+	assert(
+		((config :: unknown) :: { [string]: unknown }).reducedMotion == nil,
+		'Facet: the reducedMotion option is gone; set motionLevel = "normal", "limited" or "none"'
+	)
+	if type(config.motionLevel) == "string" then
+		motion.check(config.motionLevel)
+	end
+	motion.publish(Compose, runtime, config.motionLevel)
 	local types: Shared.RobloxTypes = config.types
 		or {
 			UDim = UDim,

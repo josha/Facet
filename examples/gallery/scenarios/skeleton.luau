@@ -26,7 +26,7 @@ return {
 		end
 		local function motion(value)
 			if ctx.motionPreference then
-				ctx.motionPreference:set(value)
+				ctx.motionPreference:set(if value then "none" else "normal")
 			end
 			return report()
 		end

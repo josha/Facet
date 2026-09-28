@@ -53,7 +53,7 @@ local function mount(h: Harness, build: () -> any): (any, () -> ())
 end
 
 local function sheetFor(h: Harness, package: any, options: { [string]: any }?): (any, () -> ())
-	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, reducedMotion = false }
+	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, motionLevel = "normal" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
@@ -756,7 +756,7 @@ t.describe("native paint strength: button content", function()
 	t.it("keeps the radial button plate by default and omits it for every item when the surface is none", function()
 		local colors, extra = neutralColors()
 		for _, surface in { "native", "none" } do
-			local h = harness({ reducedMotion = true })
+			local h = harness({ motionLevel = "none" })
 			local sheet, stopSheet = sheetFor(h, themes.neutralPackage())
 			local items = {}
 			for _, id in { "N", "E", "S", "W" } do
@@ -803,7 +803,7 @@ t.describe("native paint strength: button content", function()
 			stopSheet()
 			h.dispose()
 		end
-		local h = harness({ reducedMotion = true })
+		local h = harness({ motionLevel = "none" })
 		local root, stop = mount(h, function()
 			return h.UI.RadialMenu({
 				isPresented = Compose.cell(true),
@@ -815,7 +815,7 @@ t.describe("native paint strength: button content", function()
 		stop()
 		h.dispose()
 		t.expect(function()
-			local bad = harness({ reducedMotion = true })
+			local bad = harness({ motionLevel = "none" })
 			mount(bad, function()
 				return bad.UI.RadialMenu({
 					isPresented = Compose.cell(true),
@@ -828,7 +828,7 @@ t.describe("native paint strength: button content", function()
 
 	t.it("draws each wedge item as plate-less content inside its own wedge, even in a skinned package", function()
 		for _, package in { themes.neutralPackage(), (shipped("pixel_quest")), (shipped("fantasy_ornate")) } do
-			local h = harness({ reducedMotion = true, theme = package })
+			local h = harness({ motionLevel = "none", theme = package })
 			local items = {}
 			for index = 1, 12 do
 				table.insert(items, {
@@ -869,7 +869,7 @@ t.describe("native paint strength: button content", function()
 		end
 		for _, package in packages do
 			for _, palette in package.style.themes do
-				local h = harness({ reducedMotion = true })
+				local h = harness({ motionLevel = "none" })
 				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
 				local root, stop = mount(h, function()
 					return h.UI.RadialMenu({
@@ -899,7 +899,7 @@ t.describe("native paint strength: button content", function()
 		end
 		for _, package in packages do
 			for _, palette in package.style.themes do
-				local h = harness({ reducedMotion = true })
+				local h = harness({ motionLevel = "none" })
 				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
 				local root, stop = mount(h, function()
 					return h.UI.RadialMenu({
@@ -1605,55 +1605,57 @@ local function countWrites(sheet: any): { [any]: number }
 end
 
 t.describe("native paint strength: theme sheets", function()
-	t.it("falls back to GuiService for reduced motion and to a 0.2 second paint transition", function()
-		local h = harness()
-		local environment = (getfenv :: any)(0)
-		local gui = h.engine.new("GuiService")
-		gui.ReducedMotionEnabled = false
-		gui.PreferredTransparency = 0.5
-		local requested = {}
-		environment.game = {
-			GetService = function(_, name: string)
-				table.insert(requested, name)
-				return gui
-			end,
-		}
-		local package = themes.neutralPackage()
-		package.metrics.motion = nil
-		local stop, sheet = h.runtime.mount(function()
-			return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
-		end, h.engine.new("Folder"))
-		environment.game = nil
-		t.expect(requested)
-			.toEqual({ "GuiService", "GuiService", "UserInputService", "GuiService", "UserInputService" })
-		local text = ruleNode(sheet, ".facet-text")
-		local timing = transitionOf(text, "TextColor3")
-		t.expect(timing.Time).toBe(0.2)
-		t.expect(timing.EasingStyle).toBe(h.engine.types.Enum.EasingStyle.Quad)
-		t.expect(timing.EasingDirection).toBe(h.engine.types.Enum.EasingDirection.Out)
-		t.expect(transitionOf(ruleNode(sheet, ".facet-surface"), "BackgroundTransparency")).toBe(timing)
-		t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55 * 0.5)
-		gui.ReducedMotionEnabled = true
-		t.expect(transitionOf(text, "TextColor3").Time).toBe(0)
-		gui.ReducedMotionEnabled = false
-		t.expect(transitionOf(text, "TextColor3").Time).toBe(0.2)
-		gui.PreferredTransparency = 1
-		t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55)
-		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(1)
-		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
-		stop()
-		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
-		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
-		local halfDeclared = themes.neutralPackage()
-		halfDeclared.metrics.motion = { fast = 0.1 }
-		local second, stopSecond = sheetFor(h, halfDeclared)
-		t.expect(transitionOf(ruleNode(second, ".facet-text"), "TextColor3").Time).toBe(0.2)
-		stopSecond()
-		local headless, stopHeadless = sheetFor(h, themes.neutralPackage(), { reducedMotion = nil })
-		t.expect(transitionOf(ruleNode(headless, ".facet-text"), "TextColor3").Time).toBe(0.2)
-		stopHeadless()
-		h.dispose()
-	end)
+	t.it(
+		"falls back to GuiService transparency and a 0.2 second paint transition that the engine's Reduce Motion (limited) keeps",
+		function()
+			local h = harness()
+			local environment = (getfenv :: any)(0)
+			local gui = h.engine.new("GuiService")
+			gui.ReducedMotionEnabled = false
+			gui.PreferredTransparency = 0.5
+			local requested = {}
+			environment.game = {
+				GetService = function(_, name: string)
+					table.insert(requested, name)
+					return gui
+				end,
+			}
+			local package = themes.neutralPackage()
+			package.metrics.motion = nil
+			local stop, sheet = h.runtime.mount(function()
+				return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
+			end, h.engine.new("Folder"))
+			environment.game = nil
+			t.expect(requested).toEqual({ "GuiService", "UserInputService", "GuiService", "UserInputService" })
+			local text = ruleNode(sheet, ".facet-text")
+			local timing = transitionOf(text, "TextColor3")
+			t.expect(timing.Time).toBe(0.2)
+			t.expect(timing.EasingStyle).toBe(h.engine.types.Enum.EasingStyle.Quad)
+			t.expect(timing.EasingDirection).toBe(h.engine.types.Enum.EasingDirection.Out)
+			t.expect(transitionOf(ruleNode(sheet, ".facet-surface"), "BackgroundTransparency")).toBe(timing)
+			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55 * 0.5)
+			gui.ReducedMotionEnabled = true
+			t.expect(transitionOf(text, "TextColor3").Time).toBe(0.2)
+			gui.ReducedMotionEnabled = false
+			t.expect(transitionOf(text, "TextColor3").Time).toBe(0.2)
+			gui.PreferredTransparency = 1
+			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55)
+			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
+			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
+			stop()
+			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
+			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
+			local halfDeclared = themes.neutralPackage()
+			halfDeclared.metrics.motion = { fast = 0.1 }
+			local second, stopSecond = sheetFor(h, halfDeclared)
+			t.expect(transitionOf(ruleNode(second, ".facet-text"), "TextColor3").Time).toBe(0.2)
+			stopSecond()
+			local headless, stopHeadless = sheetFor(h, themes.neutralPackage(), { reducedMotion = nil })
+			t.expect(transitionOf(ruleNode(headless, ".facet-text"), "TextColor3").Time).toBe(0.2)
+			stopHeadless()
+			h.dispose()
+		end
+	)
 
 	t.it("writes per-side button insets to the padding rules and costs no writes when nothing changes", function()
 		local h = harness()
@@ -2272,7 +2274,7 @@ t.describe("native paint strength: theme sheets", function()
 	end)
 
 	t.it("composes the sheet scrim and the full-screen backdrop from the same clamped preference", function()
-		local h = harness({ reducedMotion = true })
+		local h = harness({ motionLevel = "none" })
 		local preference = Compose.cell(1 :: any)
 		local sheet, stopSheet = sheetFor(h, themes.neutralPackage(), { preferredTransparency = preference })
 		local base = 1 - 0.45

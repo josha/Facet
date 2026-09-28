@@ -7,6 +7,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local release = require("./sheet_release")
 local settle = require("./settle")
+local motion = require("./motion")
+local reducedMotion = motion.reduced
 local freeze = require("./freeze")
 
 type Controls = {
@@ -176,14 +178,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local edge = spec.edge or "right"
 		local gui = surfaces.service("GuiService")
 		local input = surfaces.service("UserInputService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
 		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 				and input.GetPropertyChangedSignal
 			then ctx.observe.PreferredInput(input)
 			else nil
-		local function reduce(use: ComposeTypes.Use?): boolean
-			return read(ctx.config.reducedMotion, use) == true or read(reduced, use) == true
-		end
+		local reduce = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local keyboard: (ComposeTypes.Use) -> number = function()
 			return 0
 		end
@@ -447,7 +447,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				return
 			end
-			launch(height, speed)
+			launch(
+				height,
+				speed,
+				if math.abs(speed) > ctx.metric("motion.fling.bounceSpeed") then ctx.motionSpring("flick") else nil
+			)
 			endSession()
 			select(choice)
 		end
@@ -944,7 +948,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
 		local function travel(use: ComposeTypes.Use): (number, number)
-			local rest = 1 - shown(use)
+			local rest = 1 - shown.travel(use)
 			if rest <= 0 then
 				return if use(placed) == "side" then toward() * pulled(use) else 0, 0
 			end
@@ -968,7 +972,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if layout then
 			layout.Padding = ctx.types.UDim.new(0, 8)
 		end
-		local panelProps: Types.FrameNativeProps = {
+		local panelProps: Types.CanvasGroupNativeProps = {
 			Name = "SheetPanel",
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
@@ -986,11 +990,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = function(use: ComposeTypes.Use)
 				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
+			GroupTransparency = function(use: ComposeTypes.Use)
+				return if level(use) == "limited" then 1 - shown.opacity(use) else 0
+			end,
 		}
 		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			table.insert(panelProps, child)
 		end
-		local panel = Host.Frame(panelProps)
+		local panel = ctx.fade(panelProps)
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {
@@ -1026,7 +1033,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				interactive("outside")
 			end,
 			exiting = if phase then phase.exiting else nil,
-			appearance = shown,
+			appearance = function(use: ComposeTypes.Use?): number
+				local base = shown.opacity(use)
+				if not canDismiss(use) then
+					return base
+				end
+				if readSource(placed, use) == "side" then
+					local width = readSource(panelWidth, use)
+					return if width > 0 then base * math.clamp(1 - pulled(use) / width, 0, 1) else base
+				end
+				local rest = lowest(use)
+				return if rest > 0 then base * math.clamp(painted(use) / rest, 0, 1) else base
+			end,
 		})
 		local size = ctx.observe.AbsoluteSize(overlay)
 		local measured = Compose.cell(false)

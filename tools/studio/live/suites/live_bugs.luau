@@ -75,7 +75,7 @@ add("mail-row-grip", { "collections-101" }, function(t)
 			list = true,
 		})
 		return value.built.screen()
-	end, { frames = 20, reducedMotion = false })
+	end, { frames = 20, motionLevel = "normal" })
 	local function read(): { [string]: boolean }
 		return value.built.report().read
 	end
@@ -150,7 +150,7 @@ add("mail-row-touch-pan", { "collections-101" }, function(t)
 			list = true,
 		})
 		return value.built.screen()
-	end, { frames = 20, reducedMotion = false })
+	end, { frames = 20, motionLevel = "normal" })
 	local function read(): { [string]: boolean }
 		return value.built.report().read
 	end

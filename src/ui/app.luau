@@ -18,7 +18,7 @@ export type AppOptions = {
 	controlSize: Types.Value<Types.ControlSize>?,
 	theme: Types.Value<ThemeTypes.ThemePackage>?,
 	icons: Types.Value<{ [string]: ThemeTypes.IconEntry }>?,
-	reducedMotion: Types.Value<boolean>?,
+	motionLevel: Types.Value<Types.MotionLevel>?,
 	environment: Types.EnvironmentPreview?,
 	keyboardNavigation: boolean?,
 	pressHaptic: (HapticEffect | Types.HapticKind)?,
@@ -103,8 +103,8 @@ return function(
 			if sheetOptions.types == nil then
 				sheetOptions.types = settings.types
 			end
-			if sheetOptions.reducedMotion == nil then
-				sheetOptions.reducedMotion = settings.reducedMotion
+			if sheetOptions.motionLevel == nil then
+				sheetOptions.motionLevel = settings.motionLevel
 			end
 			if sheetOptions.tenFoot == nil then
 				sheetOptions.tenFoot = UI.environment().isTenFoot

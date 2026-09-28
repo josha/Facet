@@ -35,7 +35,7 @@ local function setup(build: (any) -> any, animated: boolean): World
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = input },
 			inputParent = root,
-			reducedMotion = not animated,
+			motionLevel = if not animated then "none" else "normal",
 		} :: any
 	)
 	local stop = runtime.mount(function()

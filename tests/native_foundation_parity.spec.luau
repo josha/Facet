@@ -134,7 +134,7 @@ local function sheetOf(package: any): (any, () -> ())
 		return themes.createStyleSheet(
 			runtime,
 			package,
-			{ types = engine.types, preferredTransparency = 1, reducedMotion = false } :: any
+			{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" } :: any
 		)
 	end, engine.new("Folder"))
 	return sheet, function()
@@ -173,7 +173,7 @@ end
 local function screen(package: any?, build: (any, any) -> any): any
 	return worlds.new(function(UI, Host)
 		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), build(UI, Host) })
-	end, { reducedMotion = true, theme = package })
+	end, { motionLevel = "none", theme = package })
 end
 
 t.describe("native optional palette roles", function()
@@ -368,7 +368,7 @@ t.describe("native strong divider, pane and utility outline", function()
 			return themes.createStyleSheet(
 				runtime,
 				themes.neutralPackage(),
-				{ types = engine2.types, preferredTransparency = 0.5, reducedMotion = true } :: any
+				{ types = engine2.types, preferredTransparency = 0.5, motionLevel = "none" } :: any
 			)
 		end, engine2.new("Folder"))
 		t.expect(math.abs(resolve(dimmed, rule, "BackgroundTransparency") - 0.76) < 1e-9).toBe(true)
@@ -400,7 +400,7 @@ t.describe("native strong divider, pane and utility outline", function()
 				return themes.createStyleSheet(
 					runtime,
 					themes.neutralPackage(),
-					{ types = engine.types, preferredTransparency = preference, reducedMotion = true } :: any
+					{ types = engine.types, preferredTransparency = preference, motionLevel = "none" } :: any
 				)
 			end, engine.new("Folder"))
 			for _, node in sheet:GetDescendants() do
@@ -609,7 +609,7 @@ t.describe("native dense pointer rows", function()
 					},
 				}),
 			})
-		end, { reducedMotion = true, theme = package })
+		end, { motionLevel = "none", theme = package })
 		world.input.MouseEnabled, world.input.TouchEnabled, world.input.GamepadEnabled = true, false, false
 		world.find("Trigger").Activated.fire()
 		local function pitch(): { string }
@@ -660,7 +660,7 @@ t.describe("native dense pointer rows", function()
 					},
 				}),
 			})
-		end, { reducedMotion = true, theme = package })
+		end, { motionLevel = "none", theme = package })
 		world.input.MouseEnabled = true
 		world.find("Trigger").Activated.fire()
 		local panel = world.find("MenuPanel", world.screen.Parent)
@@ -852,7 +852,7 @@ t.describe("native Sheet adaptive placement", function()
 					return Host.Frame({ Name = "Copy" })
 				end,
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		w.input.MouseEnabled, w.input.TouchEnabled = true, touch
 		w.find("Modal").AbsoluteSize = Vector2.new(width, 800)
 		w.advance(1 / 300, 2)

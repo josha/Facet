@@ -7,7 +7,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Theme = require("./theme_types")
 local parts = require("./overlay_parts")
 local reservations = require("./reservations")
-local reducedMotion = require("./motion")
+local motion = require("./motion")
 local freeze = require("./freeze")
 
 type Controls = {
@@ -107,7 +107,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local actions: { Overlay.Action } = spec.actions or {}
 		parts.checkActions(ctx, where, spec.actions, 2, { "Link", "Close" })
-		local reduce = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local reveal = ctx.motionTiming("reveal")
 		local present = Compose.cell(false)
 		local leaving = Compose.cell(false)
@@ -119,8 +119,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end,
 			ease = ctx.motionEase("present"),
 		})
+		local shade = runtime.tween(function(use: ComposeTypes.Use): number
+			return if use(present) then 1 else 0
+		end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
 		local function progress(use: ComposeTypes.Use?): number
-			if reduce(use) then
+			local current = level(use)
+			if current == "limited" then
+				return 1
+			elseif current == "none" then
 				return if read(present, use) then 1 else 0
 			end
 			return read(travel, use)
@@ -279,8 +285,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end)
 			table.insert(bodyChildren, row)
 		end
-		local bodyProps: Types.FrameNativeProps = {
+		local bodyProps: Types.CanvasGroupNativeProps = {
 			Name = "Body",
+			GroupTransparency = function(use: ComposeTypes.Use)
+				return if level(use) == "limited" then 1 - use(shade) else 0
+			end,
 			BackgroundTransparency = 1,
 			Size = D2.new(0, 0, 0, 0),
 			AutomaticSize = E.AutomaticSize.Y,
@@ -312,7 +321,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			table.insert(rowChildren, mark)
 		end
-		local body = Host.Frame(bodyProps)
+		local body = ctx.fade(bodyProps)
 		table.insert(rowChildren, body)
 		local gui = surfaces.service("GuiService")
 		local frames = runtime.host.frames
@@ -338,7 +347,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					present:set(true)
 				end
 			end
-			if frames == nil or reduce() or progress() <= 0 then
+			if frames == nil or level() == "none" or progress() <= 0 then
 				finish()
 				return
 			end
@@ -348,7 +357,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end
 			present:set(false)
 			stopWaiting = frames.onFrame(function()
-				if progress() > 0 and not reduce() then
+				local current = level()
+				if (current == "normal" and progress() > 0) or (current == "limited" and shade:peek() > 0) then
 					return
 				end
 				stopWatching()

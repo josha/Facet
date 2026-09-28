@@ -107,7 +107,7 @@ local function progressReader(presentation: string, root: any): () -> number
 end
 
 local function distinctReadings(presentation: string, reduced: boolean, step: number, count: number): number
-	local engine, runtime, UI = make({ reducedMotion = reduced })
+	local engine, runtime, UI = make({ motionLevel = if reduced then "none" else "normal" })
 	local stop, root = mount(engine, runtime, function()
 		return UI.ProgressView({ presentation = presentation })
 	end)
@@ -167,7 +167,7 @@ t.describe("native parity media", function()
 		end)
 
 		t.it("holds a reduced-motion indeterminate bar within a quarter and then steps", function()
-			local engine, runtime, UI = make({ reducedMotion = true })
+			local engine, runtime, UI = make({ motionLevel = "none" })
 			local stop, root = mount(engine, runtime, function()
 				return UI.ProgressView({})
 			end)
@@ -199,7 +199,11 @@ t.describe("native parity media", function()
 
 		t.it("steps from the running phase when reduced motion turns on mid-cycle instead of restarting", function()
 			local reduced = Compose.cell(false)
-			local engine, runtime, UI = make({ reducedMotion = reduced })
+			local engine, runtime, UI = make({
+				motionLevel = Compose.formula(function(use)
+					return if use(reduced) then "none" else "normal"
+				end),
+			})
 			local stop, root = mount(engine, runtime, function()
 				return UI.ProgressView({})
 			end)

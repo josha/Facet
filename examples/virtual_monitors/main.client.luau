@@ -38,6 +38,9 @@ local lifetime = Compose.createRootOwner(function()
 	local motionPolicy = Compose.formula(function(use)
 		return if use(reducedMotion) then "reduced" else "full"
 	end)
+	local motionLevel = Compose.formula(function(use)
+		return if use(reducedMotion) then "limited" else "normal"
+	end)
 	local pressHaptic = Host.HapticEffect "PressHaptic" { Type = Enum.HapticEffectType.UIClick }
 	pressHaptic.Parent = players.LocalPlayer:WaitForChild("PlayerGui")
 	Compose.cleanup(function()
@@ -237,7 +240,7 @@ local lifetime = Compose.createRootOwner(function()
 			spatial = spatial,
 			theme = package,
 			player = players.LocalPlayer,
-			reducedMotion = reducedMotion,
+			motionLevel = motionLevel,
 			pressHaptic = pressHaptic,
 		}
 		local function active(use)
@@ -274,7 +277,7 @@ local lifetime = Compose.createRootOwner(function()
 		runtime.mount(function()
 			local package = Facet.themes.forDistance(theme.create(Facet, name), "near")
 			local sheet = Facet.themes.createStyleSheet(runtime, package, {
-				reducedMotion = reducedMotion,
+				motionLevel = motionLevel,
 				tenFoot = false,
 				theme = function(use)
 					return theme.paletteName(use(model.palette), use(dark))
@@ -311,7 +314,7 @@ local lifetime = Compose.createRootOwner(function()
 	end
 	runtime.mount(function()
 		local sheet = Facet.themes.createStyleSheet(runtime, desktopPackage, {
-			reducedMotion = reducedMotion,
+			motionLevel = motionLevel,
 			theme = palette,
 		})
 		local backdrop = Host.Frame "Backdrop" {
@@ -337,7 +340,7 @@ local lifetime = Compose.createRootOwner(function()
 		runtime = runtime,
 		name = "VirtualMonitorsDesktop",
 		theme = desktopPackage,
-		reducedMotion = reducedMotion,
+		motionLevel = motionLevel,
 		pressHaptic = pressHaptic,
 		sheet = { theme = palette },
 		screen = {

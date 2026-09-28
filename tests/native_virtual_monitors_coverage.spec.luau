@@ -155,7 +155,7 @@ t.describe("native virtual monitors coverage", function()
 					model = model,
 					types = engine.types,
 					services = { GuiService = gui, UserInputService = input },
-					reducedMotion = true,
+					motionLevel = "none",
 					spatial = spatial,
 					theme = theme.create(tracked, name),
 				}

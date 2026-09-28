@@ -208,7 +208,7 @@ local function world()
 		services = { GuiService = gui },
 		inputParent = root,
 		overlayParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	})
 	return engine, runtime, root, UI
 end
@@ -239,7 +239,9 @@ local function galleryContext()
 			guiService = guiService,
 			services = { GuiService = guiService },
 			inputParent = target,
-			reducedMotion = reducedMotion,
+			motionLevel = Compose.formula(function(use)
+				return if use(reducedMotion) then "none" else "normal"
+			end),
 		}),
 	}
 	return ctx, engine, target

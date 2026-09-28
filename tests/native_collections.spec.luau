@@ -22,7 +22,7 @@ local function setup(options)
 		guiService = gui,
 		services = { GuiService = gui },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for field, value in options or {} do
 		if field ~= "engine" then
@@ -660,7 +660,7 @@ t.describe("Compose native collections", function()
 
 	t.it("glides the rows that follow a deleted row into place and snaps under reduced motion", function()
 		for _, reduced in { false, true } do
-			local engine, runtime, UI, target = setup({ reducedMotion = reduced })
+			local engine, runtime, UI, target = setup({ motionLevel = if reduced then "none" else "normal" })
 			local source = Compose.cell(records(5))
 			local stop, node = runtime.mount(function()
 				return UI.VirtualList({
@@ -1788,7 +1788,7 @@ t.describe("Compose native collections", function()
 	end)
 
 	t.it("commits a destructive action once after Compose departure and cancels on disposal", function()
-		local engine, runtime, UI, target = setup({ reducedMotion = false })
+		local engine, runtime, UI, target = setup({ motionLevel = "normal" })
 		local invoked = 0
 		local function mount()
 			return runtime.mount(function()
@@ -2400,7 +2400,7 @@ t.describe("Compose native collections", function()
 			clock = function()
 				return now
 			end,
-			reducedMotion = false,
+			motionLevel = "normal",
 		})
 		local function advance(seconds)
 			for _ = 1, math.ceil(seconds * 60) do
@@ -2500,7 +2500,7 @@ t.describe("Compose native collections", function()
 			clock = function()
 				return now
 			end,
-			reducedMotion = true,
+			motionLevel = "none",
 		})
 		local stop, node = runtime.mount(function()
 			return UI.VirtualList({
@@ -2531,7 +2531,7 @@ t.describe("Compose native collections", function()
 			clock = function()
 				return now
 			end,
-			reducedMotion = false,
+			motionLevel = "normal",
 		})
 		local stop, node = runtime.mount(function()
 			return UI.VirtualList({
@@ -2909,7 +2909,7 @@ end)
 
 t.describe("Table keyed reorder motion", function()
 	t.it("a Table glides its rows to a reversed order like VirtualList", function()
-		local engine, runtime, UI, target = setup({ reducedMotion = false })
+		local engine, runtime, UI, target = setup({ motionLevel = "normal" })
 		local rows = Compose.cell({ { id = 1, name = "A" }, { id = 2, name = "B" }, { id = 3, name = "C" } })
 		local stop, node = runtime.mount(function()
 			return UI.Table({ from = rows, key = key, itemSize = 40, columns = { { id = "name", label = "Name" } } })

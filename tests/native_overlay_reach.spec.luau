@@ -35,7 +35,7 @@ local function menuNotes(items: { any }): { string }
 			Size = UDim2.fromOffset(800, 600),
 			UI.Menu { label = "Options", items = items, controls = controls },
 		})
-	end, { reducedMotion = true })
+	end, { motionLevel = "none" })
 	local notes = controls.diagnostics()
 	world.stop()
 	return notes
@@ -94,7 +94,7 @@ t.describe("help reachability: every input class can open every help", function(
 					end,
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		place(w.find("Post"))
 		return w, count
 	end
@@ -141,7 +141,7 @@ t.describe("full-value disclosure of truncated text", function()
 	local function label(spec: { [string]: any }): any
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		place(w.find("Name"))
 		return w
 	end
@@ -200,7 +200,7 @@ t.describe("full-value disclosure of truncated text", function()
 					UI.Text "Name" { text = LONG, truncate = "end", disclose = true },
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		place(w.find("Name"))
 		w.find("Name").TextFits = false
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -216,7 +216,7 @@ t.describe("full-value disclosure of truncated text", function()
 				Name = "Screen",
 				UI.Button "Post" { label = LONG, disclose = true, help = "Posts it" },
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local post = w.find("Post")
 		place(post)
 		post.TextFits = false
@@ -259,7 +259,7 @@ t.describe("full-value disclosure of truncated text", function()
 						hint = case.hint,
 					},
 				})
-			end, { reducedMotion = true })
+			end, { motionLevel = "none" })
 			local music = w.find("Music")
 			place(music)
 			local title = music:FindFirstChild("Title", true)
@@ -290,7 +290,7 @@ t.describe("full-value disclosure of truncated text", function()
 				},
 				UI.Button "Post" { label = LONG, disclose = true, Size = UDim2.fromOffset(120, 44) },
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		for _, name in { "Music", "Post" } do
 			local node = w.find(name)
 			t.expect(`{name}: {node.TextTruncate.Name} {node.TextWrapped}`).toBe(`{name}: AtEnd false`)
@@ -313,7 +313,7 @@ t.describe("auto reveal of truncated text (restored from 0.11)", function()
 				table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" }))
 			end
 			return Host.Frame({ Name = "Screen", table.unpack(children) })
-		end, { reducedMotion = reduced })
+		end, { motionLevel = if reduced then "none" else "normal" })
 		for index = 1, count do
 			local name = w.find("Name" .. index)
 			place(name)
@@ -380,7 +380,7 @@ t.describe("auto reveal of truncated text (restored from 0.11)", function()
 				overlay
 					.new(function(UI, Host)
 						return Host.Frame({ UI.Text "Name"(bad) })
-					end, { reducedMotion = true })
+					end, { motionLevel = "none" })
 					.stop()
 			end)).toBe(false)
 		end

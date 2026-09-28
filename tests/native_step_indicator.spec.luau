@@ -74,7 +74,7 @@ t.describe("native StepIndicator", function()
 					current:set(id)
 				end
 			end,
-		}, 900, { reducedMotion = true })
+		}, 900, { motionLevel = "none" })
 		local strip = world.find("Strip")
 		strip.AbsolutePosition = world.V2(10, 0)
 		world.resize(strip, 900, 80)
@@ -104,7 +104,7 @@ t.describe("native StepIndicator", function()
 	end)
 
 	t.it("draws the underline on its step under an ancestor UIScale", function()
-		local world = mount({ steps = workflow(), current = "ship" }, 1200, { reducedMotion = true })
+		local world = mount({ steps = workflow(), current = "ship" }, 1200, { motionLevel = "none" })
 		local strip = world.find("Strip")
 		strip.AbsolutePosition = world.V2(12, 0)
 		world.resize(strip, 1204.7, 96)

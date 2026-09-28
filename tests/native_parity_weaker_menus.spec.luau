@@ -37,7 +37,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -248,7 +248,7 @@ t.describe("native parity weaker menus", function()
 					types = engine.types,
 					guiService = gui,
 					services = { GuiService = gui, UserInputService = input },
-					reducedMotion = false,
+					motionLevel = "normal",
 				} :: any
 			)
 			local stop, screen = runtime.mount(function()
@@ -317,7 +317,7 @@ t.describe("native parity weaker menus", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local stop, avatar = runtime.mount(views.Avatar, target)
 			avatar.AbsoluteSize = engine.types.Vector2.new(393, 852)
@@ -969,7 +969,7 @@ t.describe("native parity weaker menus", function()
 					},
 				},
 			}
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 		local row = find(world.root, "Row")
 		row.AbsoluteSize = V2(world, 300, 44)
 		world.gui.SelectedObject = find(row, "Body")
@@ -1195,7 +1195,7 @@ t.describe("native parity weaker menus", function()
 					types = engine.types,
 					guiService = gui,
 					services = { GuiService = gui, UserInputService = input },
-					reducedMotion = true,
+					motionLevel = "none",
 				} :: any
 			),
 		}

@@ -42,6 +42,7 @@ export type Environment = {
 	safeInsets: Types.Readable<SafeInsets>,
 	preferredTextSize: Types.Readable<string>,
 	reducedMotion: Types.Readable<boolean>,
+	motionLevel: Types.Readable<Types.MotionLevel>,
 }
 export type EnvironmentSource = Camera | GuiBase2d
 export type WorldTarget = BasePart | Model | Player
