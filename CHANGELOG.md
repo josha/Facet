@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A value control at a limit passes the selection on only for a D-pad, arrow or stick press toward that limit; L1, R1, Comma and Period at the limit keep the selection. The pass follows the game's own `NextSelection*` link from the control when it has one (as `UI.focusQuery` reports), and the stick, like the D-pad, changes nothing while the control is under a non-interactable or hidden ancestor, and only the first gamepad's stick adjusts.
 - A D-pad move reaches a multi-line TextInput with `visibleLines` that is still below the screen. The engine skips a control inside a scroll container whose window is off the screen, so the last field on a scrolling page could not be selected; its `Viewport` is now selectable and passes the selection to the field.
 - `UI.focusQuery` ranks moves out of the beam the way the engine does. With no candidate overlapping on the cross axis, the engine takes a candidate whose centre lies within 45 degrees of the move by its centre offset, even when a nearer one sits at a steeper angle; the query ranked them by gap plus twice the centre offset. A candidate that starts past the selected control's centre now counts as ahead (a control inside a row is ahead of the row), and a control in a nested scroll container whose window is off the screen is not a target from outside it.
 - One D-pad press takes one step in a RadialMenu. With engine navigation off while a ring is open, the press reached the ring's direction action twice (the input action and the selection fallback), so a corner ring skipped its middle item.

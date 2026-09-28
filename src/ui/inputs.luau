@@ -274,12 +274,17 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							return if direction < 0 then value > minimum else value < maximum
 						end
 					end
-					local function start(token: unknown, direction: number, holding: () -> boolean)
+					local function start(
+						token: unknown,
+						direction: number,
+						holding: () -> boolean,
+						directional: boolean?
+					)
 						stopRepeat()
 						local can = movable(direction)
 						if not can() then
 							local gui = ctx.config.guiService
-							if gui and minimum ~= nil and maximum ~= nil and active(peekUse :: any) then
+							if directional and gui and minimum ~= nil and maximum ~= nil and active(peekUse :: any) then
 								local way: Shared.FocusDirection = if adjust.vertical
 									then (if direction < 0 then "Down" else "Up")
 									else (if direction < 0 then "Left" else "Right")
@@ -322,7 +327,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							local engaged = state ~= nil and state(action) == true
 							start(action, direction, function(): boolean
 								return not engaged or (state :: (InputAction) -> unknown)(action) == true
-							end)
+							end, arrow)
 						end, {
 							priority = 250,
 							capture = true,
@@ -353,7 +358,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						local settling = stickHeld()
 						local stickInput = ctx.config.services.UserInputService
 						local function lean(event: InputObject, ended: boolean)
-							if event.KeyCode ~= E.KeyCode.Thumbstick1 then
+							if
+								event.KeyCode ~= E.KeyCode.Thumbstick1
+								or event.UserInputType ~= E.UserInputType.Gamepad1
+							then
 								return
 							end
 							local x, y = if ended then 0 else event.Position.X, if ended then 0 else event.Position.Y
@@ -379,10 +387,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								if held == "stick" then
 									stopRepeat()
 								end
-							else
+							elseif ctx.available(node) then
 								start("stick", direction, function(): boolean
 									return leaning == direction
-								end)
+								end, true)
 							end
 						end
 						if stickInput then

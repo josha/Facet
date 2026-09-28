@@ -1225,6 +1225,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		parent: ComposeTypes.Cell<Instance?>,
 		available: ComposeTypes.Cell<boolean>,
 	}
+	local selected: selection.Selection
 	local actionGroups: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } } = setmetatable(
 		{},
 		{ __mode = "k" }
@@ -1489,6 +1490,10 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						if nextSelection(target, direction) == target then
 							setNextSelection(target, direction, previous[direction])
 						end
+						local authored = selected.pinned[target]
+						if authored and nextSelection(target, direction) ~= target then
+							authored[direction] = nil
+						end
 					end
 				end
 				pinned = nil
@@ -1502,8 +1507,13 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				release()
 				if target then
 					pinned = target
+					local authored = selected.pinned[target] or {}
+					selected.pinned[target] = authored
 					for _, direction in directions do
 						previous[direction] = nextSelection(target, direction)
+						if previous[direction] ~= target then
+							authored[direction] = previous[direction]
+						end
 						setNextSelection(target, direction, target)
 					end
 				end
@@ -1587,7 +1597,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		return dispose, art :: GuiObject?
 	end
 
-	local selected: selection.Selection
 	function ctx.responder(root: Instance, options: Shared.ResponderOptions?): Shared.Responder
 		return selected.responder(root, options)
 	end

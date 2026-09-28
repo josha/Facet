@@ -14,6 +14,7 @@ export type Selection = {
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
 	query: (GuiObject?, boolean?) -> Env.FocusQuery,
 	past: (GuiObject, Env.FocusDirection) -> GuiObject?,
+	pinned: { [GuiObject]: { [string]: GuiObject? } },
 }
 
 local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
@@ -32,6 +33,9 @@ return function(ctx: Shared.Context): Selection
 	local registry = (
 		setmetatable({} :: { [Instance]: boolean }, { __mode = "k" }) :: unknown
 	) :: { [Instance]: boolean }
+	local pinned = (
+		setmetatable({} :: { [GuiObject]: { [string]: GuiObject? } }, { __mode = "k" }) :: unknown
+	) :: { [GuiObject]: { [string]: GuiObject? } }
 	local directionKeys = { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight }
 
 	local function ordered(parent: Instance): { Instance }
@@ -339,10 +343,12 @@ return function(ctx: Shared.Context): Selection
 			return if target == origin then nil else target
 		end
 		for _, direction in DIRECTIONS do
-			local link = (origin :: any)["NextSelection" .. direction] :: GuiObject?
-			if past or (capturedAxis(origin, direction) and atLimit(origin, direction)) then
-				link = if link == origin then nil else link
-			elseif link == origin or capturedAxis(origin, direction) then
+			local live = (origin :: any)["NextSelection" .. direction] :: GuiObject?
+			local authored = pinned[origin]
+			local link = if live ~= origin then live elseif authored then authored[direction] else nil
+			if not past and not (capturedAxis(origin, direction) and atLimit(origin, direction))
+				and (live == origin or capturedAxis(origin, direction))
+			then
 				result[direction] = table.freeze({ target = origin, rule = "capture" })
 				continue
 			end
@@ -868,5 +874,6 @@ return function(ctx: Shared.Context): Selection
 		past = function(origin: GuiObject, direction: Env.FocusDirection): GuiObject?
 			return query(origin, true)[direction].target
 		end,
+		pinned = pinned,
 	}
 end

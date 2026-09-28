@@ -149,6 +149,81 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
+	local function pair(w: any, extra: any?): (any, any)
+		local V = w.engine.types.Vector2
+		local a, b = w.find("A"), w.find("B")
+		a.AbsolutePosition, a.AbsoluteSize = V.new(0, 0), V.new(200, 44)
+		b.AbsolutePosition, b.AbsoluteSize = V.new(220, 0), V.new(200, 44)
+		return a, b
+	end
+
+	t.it("R1 and Period at the maximum keep the selection and the value; only a direction passes on", function()
+		local left, right = Compose.cell(10), Compose.cell(3)
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Stepper("A")({ value = left, max = 10 }),
+				UI.Stepper("B")({ value = right, max = 10 }),
+			})
+		end)
+		local a = pair(w)
+		w.gui.SelectedObject = a
+		t.expect(w.action("Increase")).toBe(true)
+		t.expect(w.gui.SelectedObject).toBe(a)
+		t.expect(left:peek()).toBe(10)
+		t.expect(right:peek()).toBe(3)
+		w.stop()
+	end)
+
+	t.it("at a limit the hand-off follows the game's own NextSelection link, as focusQuery reports", function()
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Stepper("A")({ value = Compose.cell(10), max = 10 }),
+				UI.Stepper("B")({ value = Compose.cell(3), max = 10 }),
+				UI.Button("C")({ label = "C" }),
+			})
+		end)
+		local a = pair(w)
+		local c = w.find("C")
+		c.AbsolutePosition, c.AbsoluteSize = w.engine.types.Vector2.new(0, 300), w.engine.types.Vector2.new(200, 44)
+		a.NextSelectionRight = c
+		w.gui.SelectedObject = a
+		t.expect(w.UI.focusQuery(a).Right.target).toBe(c)
+		w.press("DPadRight")
+		t.expect(w.gui.SelectedObject).toBe(c)
+		t.expect(a.NextSelectionRight).toBe(c)
+		w.stop()
+	end)
+
+	t.it("the stick, like the D-pad, leaves a stop under a non-interactable ancestor alone", function()
+		local value = Compose.cell(3)
+		local w = setup(function(UI, Host)
+			return Host.Frame "Holder" { UI.Stepper("A")({ value = value, max = 10 }) }
+		end)
+		w.gui.SelectedObject = w.find("A")
+		w.find("Holder").Interactable = false
+		w.press("DPadRight")
+		w.stick(1, 0)
+		t.expect(value:peek()).toBe(3)
+		w.stop()
+	end)
+
+	t.it("only the first gamepad's stick adjusts the selection", function()
+		local value = Compose.cell(3)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("A")({ value = value, max = 10 }) })
+		end)
+		w.gui.SelectedObject = w.find("A")
+		w.input.InputChanged.fire({
+			KeyCode = w.engine.types.Enum.KeyCode.Thumbstick1,
+			UserInputType = w.engine.types.Enum.UserInputType.Gamepad2,
+			Position = w.engine.types.Vector3.new(1, 0, 0),
+		}, true)
+		t.expect(value:peek()).toBe(3)
+		w.stick(1, 0)
+		t.expect(value:peek()).toBe(4)
+		w.stop()
+	end)
+
 	t.it("keeps the axis at a bound: Left at the minimum stays and changes nothing", function()
 		local value = Compose.cell(0)
 		local w = setup(function(UI, Host)
