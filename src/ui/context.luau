@@ -1547,6 +1547,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
 		return selected.spaceActivates(node)
 	end
+	function ctx.focusQuery(from: GuiObject?): Shared.FocusQuery
+		return selected.query(from)
+	end
 	selected = selection(ctx)
 	track = selected.track
 	return ctx

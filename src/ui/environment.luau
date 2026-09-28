@@ -576,6 +576,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	end
 
 	UI.responder = ctx.responder
+	UI.focusQuery = ctx.focusQuery
 	local SECTION_KEYS = { entry = true, preferred = true, focusOnAppear = true, returnFocus = true }
 	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")

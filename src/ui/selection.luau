@@ -12,6 +12,7 @@ export type Selection = {
 	track: (Instance) -> (),
 	responder: (Instance, Env.ResponderOptions?) -> Env.Responder,
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
+	query: (GuiObject?) -> Env.FocusQuery,
 }
 
 local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
@@ -160,6 +161,87 @@ return function(ctx: Shared.Context): Selection
 			end
 		end
 		return {}
+	end
+
+	local DIRECTIONS: { Env.FocusDirection } = { "Up", "Down", "Left", "Right" }
+
+	local function visibleOnScreen(node: GuiObject): boolean
+		local collector = collectorOf(node)
+		local view = if collector and collector:IsA("GuiBase2d") then (collector :: GuiBase2d).AbsoluteSize else nil
+		local at, size = node.AbsolutePosition, node.AbsoluteSize
+		if view and view.X > 0 and view.Y > 0 then
+			if at.X + size.X <= 0 or at.Y + size.Y <= 0 or at.X >= view.X or at.Y >= view.Y then
+				return false
+			end
+		end
+		return true
+	end
+
+	local function groupOf(node: GuiObject): GuiObject?
+		local at = node.Parent
+		while at and at:IsA("GuiObject") do
+			if (at :: GuiObject).SelectionGroup then
+				return at :: GuiObject
+			end
+			at = at.Parent
+		end
+		return nil
+	end
+
+	local function query(from: GuiObject?): Env.FocusQuery
+		local origin = from or (if gui then gui.SelectedObject else nil)
+		local result: { [string]: Env.FocusMove } = {}
+		if origin == nil then
+			for _, direction in DIRECTIONS do
+				result[direction] = table.freeze({ target = nil, rule = "none" })
+			end
+			return table.freeze(result) :: any
+		end
+		local pool: { GuiObject } = {}
+		for _, candidate in scopeOf(origin) do
+			if candidate ~= origin and not candidate:IsA("ScrollingFrame") and visibleOnScreen(candidate) then
+				table.insert(pool, candidate)
+			end
+		end
+		local group = groupOf(origin)
+		local function pick(list: { GuiObject }, direction: string): GuiObject?
+			local rects = table.create(#list)
+			for index, node in list do
+				rects[index] = rectOf(node)
+			end
+			local index = FocusBeam.neighbor(rectOf(origin), rects, string.lower(direction) :: FocusBeam.Direction)
+			return if index then list[index] else nil
+		end
+		for _, direction in DIRECTIONS do
+			local link = (origin :: any)["NextSelection" .. direction] :: GuiObject?
+			if link then
+				result[direction] = table.freeze({ target = link, rule = if link == origin then "capture" else "link" })
+				continue
+			end
+			local target: GuiObject? = nil
+			local rule = "beam"
+			if group then
+				local inside = {}
+				for _, node in pool do
+					if node:IsDescendantOf(group) then
+						table.insert(inside, node)
+					end
+				end
+				target = pick(inside, direction)
+				if target == nil and (group :: any)["SelectionBehavior" .. direction] == E.SelectionBehavior.Stop then
+					rule = "stop"
+				elseif target == nil then
+					target = pick(pool, direction)
+				end
+			else
+				target = pick(pool, direction)
+			end
+			result[direction] = table.freeze({
+				target = target,
+				rule = if target then rule elseif rule == "stop" then "stop" else "none",
+			})
+		end
+		return table.freeze(result) :: any
 	end
 
 	local function wraps(node: Instance): boolean
@@ -706,5 +788,5 @@ return function(ctx: Shared.Context): Selection
 		end
 	end
 
-	return { track = track, responder = responder, spaceActivates = spaceActivates }
+	return { track = track, responder = responder, spaceActivates = spaceActivates, query = query }
 end

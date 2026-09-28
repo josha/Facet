@@ -190,6 +190,9 @@ export type SkinStateOptions = {
 export type ResponderOptions = { passive: boolean?, gameplayGuard: boolean?, traversalWrap: boolean? }
 export type ResponderState = "passive" | "engaged"
 export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
+export type FocusDirection = "Up" | "Down" | "Left" | "Right"
+export type FocusMove = { target: GuiObject?, rule: string }
+export type FocusQuery = { Up: FocusMove, Down: FocusMove, Left: FocusMove, Right: FocusMove }
 export type Context = {
 	runtime: Runtime,
 	Host: Host,
@@ -252,6 +255,7 @@ export type Context = {
 	skin: (GuiObject, string, SkinStateOptions?) -> (Dispose?, GuiObject?),
 	responder: (Instance, ResponderOptions?) -> Responder,
 	spaceActivates: (Instance) -> (Use) -> boolean,
+	focusQuery: (GuiObject?) -> FocusQuery,
 	layoutKit: unknown?,
 	showHelp: unknown?,
 	reducedMotion: unknown?,
