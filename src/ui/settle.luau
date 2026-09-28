@@ -3,18 +3,14 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local reducedMotion = require("./motion").reduced
 
+export type Spring = { period: number, damping: number }
 export type Settle = {
 	value: ComposeTypes.Readable<number?>,
-	launch: (from: number, velocity: number) -> boolean,
+	launch: (from: number, velocity: number, spring: Spring?) -> boolean,
 	halt: () -> (),
 }
 
-return function(
-	ctx: Types.Context,
-	target: () -> number,
-	spring: { period: number, damping: number },
-	reduced: (() -> boolean)?
-): Settle
+return function(ctx: Types.Context, target: () -> number, spring: Spring, reduced: (() -> boolean)?): Settle
 	local Compose = ctx.Compose
 	local frames = ctx.runtime.host.frames
 	local fallback = reducedMotion(ctx)
@@ -32,8 +28,10 @@ return function(
 		end
 		value:set(nil)
 	end
-	local function launch(from: number, velocity: number): boolean
+	local function launch(from: number, velocity: number, override: Spring?): boolean
 		halt()
+		local chosen = override or spring
+		local crossing = chosen.damping >= 1
 		if disposed or frames == nil or reduce() then
 			return false
 		end
@@ -48,12 +46,12 @@ return function(
 			end
 			local goal = target()
 			local before = state.position[1]
-			Compose.stepSpring(state, { goal }, delta, spring.period, spring.damping)
+			Compose.stepSpring(state, { goal }, delta, chosen.period, chosen.damping)
 			local now = state.position[1]
 			if
 				now ~= now
 				or math.abs(now) == math.huge
-				or (now - goal) * (before - goal) < 0
+				or (crossing and (now - goal) * (before - goal) < 0)
 				or (math.abs(now - goal) < 0.5 and math.abs(state.velocity[1]) < 5)
 			then
 				halt()

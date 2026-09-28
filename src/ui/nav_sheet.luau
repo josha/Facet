@@ -447,7 +447,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				return
 			end
-			launch(height, speed)
+			launch(
+				height,
+				speed,
+				if math.abs(speed) > ctx.metric("motion.fling.bounceSpeed") then ctx.motionSpring("flick") else nil
+			)
 			endSession()
 			select(choice)
 		end
@@ -1029,7 +1033,18 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				interactive("outside")
 			end,
 			exiting = if phase then phase.exiting else nil,
-			appearance = shown.opacity,
+			appearance = function(use: ComposeTypes.Use?): number
+				local base = shown.opacity(use)
+				if not canDismiss(use) then
+					return base
+				end
+				if readSource(placed, use) == "side" then
+					local width = readSource(panelWidth, use)
+					return if width > 0 then base * math.clamp(1 - pulled(use) / width, 0, 1) else base
+				end
+				local rest = heightOf(selected(use), use)
+				return if rest > 0 then base * math.clamp(painted(use) / rest, 0, 1) else base
+			end,
 		})
 		local size = ctx.observe.AbsoluteSize(overlay)
 		local measured = Compose.cell(false)

@@ -212,6 +212,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				control = { period = 0.25, damping = 1 },
 				move = { period = 0.3, damping = 1 },
 				sheet = { period = 0.4, damping = 1 },
+				flick = { period = 0.3, damping = 0.8 },
 			},
 			materialize = {
 				anchored = 0.9,
@@ -226,7 +227,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
 			easing = { present = "outCubic", fade = "outQuad" },
 			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Back", pulse = "Sine" },
-			fling = { friction = 3, maxSpeed = 4000, projection = 0.08 },
+			fling = { friction = 3, maxSpeed = 4000, projection = 0.08, bounceSpeed = 800 },
 		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {

@@ -230,3 +230,75 @@ t.describe("settle: the primitive", function()
 		stop()
 	end)
 end)
+
+t.describe("settle: the sheet follows the finger", function()
+	local function scrimAlpha(w: any): number
+		return w.find("ScrimFade").Transparency.Keypoints[1].Value
+	end
+
+	t.it("the scrim lightens with the drag toward dismissal", function()
+		local w = sheet()
+		local rest = scrimAlpha(w)
+		local drag = w.find("UIDragDetector")
+		drag.DragStart.fire(w.Vector2.new(0, 0))
+		w.tick(0.2)
+		drag.DragContinue.fire(w.Vector2.new(0, 150))
+		local half = scrimAlpha(w)
+		t.expect(half > rest).toBe(true)
+		drag.DragContinue.fire(w.Vector2.new(0, 250))
+		t.expect(scrimAlpha(w) > half).toBe(true)
+		w.stop()
+	end)
+
+	t.it("a dismissal-disabled sheet keeps its scrim while dragged", function()
+		local w = sheet({ interactiveDismissDisabled = true })
+		local rest = scrimAlpha(w)
+		local drag = w.find("UIDragDetector")
+		drag.DragStart.fire(w.Vector2.new(0, 0))
+		w.tick(0.2)
+		drag.DragContinue.fire(w.Vector2.new(0, 150))
+		t.expect(scrimAlpha(w)).toBe(rest)
+		w.stop()
+	end)
+
+	t.it("a fast flick settles past its detent once and comes back; a slow release never overshoots", function()
+		for _, fast in { true, false } do
+			local w = sheet()
+			local panel = w.find("SheetPanel")
+			local drag = w.find("UIDragDetector")
+			drag.DragStart.fire(w.Vector2.new(0, 0))
+			if fast then
+				w.tick(0.01)
+				drag.DragContinue.fire(w.Vector2.new(0, -20))
+				w.tick(0.01)
+				drag.DragContinue.fire(w.Vector2.new(0, -40))
+			else
+				w.tick(0.1)
+				drag.DragContinue.fire(w.Vector2.new(0, -20))
+				w.tick(0.1)
+				drag.DragContinue.fire(w.Vector2.new(0, -40))
+			end
+			local released = panel.Size.Y.Offset
+			drag.DragEnd.fire()
+			local heights = {}
+			for _ = 1, 90 do
+				w.advance(FRAME)
+				table.insert(heights, panel.Size.Y.Offset)
+			end
+			local goal = heights[#heights]
+			local toward = if goal > released then 1 else -1
+			local beyond = 0
+			for _, height in heights do
+				beyond = math.max(beyond, (height - goal) * toward)
+			end
+			if fast then
+				t.expect(toward).toBe(1)
+				t.expect(beyond > 0).toBe(true)
+				t.expect(beyond < goal * 0.02 + 1).toBe(true)
+			else
+				t.expect(beyond).toBe(0)
+			end
+			w.stop()
+		end
+	end)
+end)
