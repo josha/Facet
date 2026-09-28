@@ -1986,7 +1986,8 @@ page. Up and Down leave the pages.
 
 The native `UIPageLayout` moves between pages over 0.3 seconds, Cubic Out, with
 no overshoot, for Previous, Next, a dot and the arrow keys. A swipe released
-faster than 1200 pixels a second settles with the `Back` overshoot instead.
+faster than 1200 pixels a second settles with Quint Out (`styles.fling`)
+instead, which decelerates harder and never overshoots.
 
 ### Pagination
 

@@ -226,7 +226,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			},
 			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
 			easing = { present = "outCubic", fade = "outQuad" },
-			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Back", pulse = "Sine" },
+			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Quint", pulse = "Sine" },
 			fling = { friction = 3, maxSpeed = 4000, projection = 0.08, bounceSpeed = 800 },
 		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
