@@ -409,9 +409,21 @@ end
 local catalogue = require("../examples/gallery/client/demo_picker")
 local gallery = require("../examples/gallery/client/screen")
 
+local VALUE_CONTROL_TAGS = { "facet-slider", "facet-stepper", "facet-rating", "facet-level-picker" }
+
+local census = 0
+
 local function offenders(root: any): { string }
 	local bad = {}
 	for _, node in root:GetDescendants() do
+		for _, tag in VALUE_CONTROL_TAGS do
+			if node:HasTag(tag) then
+				census += 1
+				if not node:HasTag("facet-adjustable") then
+					table.insert(bad, `{node:GetFullName()} is a {tag} without facet-adjustable`)
+				end
+			end
+		end
 		if node:HasTag("facet-adjustable") and node.Interactable ~= false then
 			if not node.Selectable then
 				table.insert(bad, `{node:GetFullName()} is not a stop`)
@@ -439,7 +451,11 @@ t.describe("every Showcase value control is one stop", function()
 				end
 				return built.screen()
 			end, target)
+			local before = census
 			t.expect(offenders(node)).toEqual({})
+			if string.find(label, "inputs/basics", 1, true) then
+				t.expect(census - before >= 4).toBe(true)
+			end
 			stop()
 			ctx.runtime:dispose()
 		end)
