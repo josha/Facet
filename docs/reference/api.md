@@ -432,7 +432,9 @@ these rules:
   collection that is row order (each row's `LayoutOrder` is its index), even
   after scrolling has recycled the row containers.
   Shift+Tab selects the previous control. The walk wraps at both ends. It
-  stays inside an open modal. It skips hidden, disabled and removed controls.
+  stays inside an open modal. It skips hidden, disabled and removed controls,
+  and scroll containers, except one that is itself a documented stop (an
+  overflowing Dialog body, a Collection or Pagination root).
   The native `SelectionOrder` of a control is its traversal tier: a lower
   value comes first, and within a tier layout order wins (the `tabindex`
   model). The `FacetTraversal` input context is a child of `inputParent`, or
@@ -3759,7 +3761,7 @@ by the smallest centre offset plus 0.028 times the distance along the move;
 then the rest, by centre offset over the distance along the move to the power
 0.15),
 `"stop"` (a `SelectionGroup` with `SelectionBehavior` `Stop`) or `"none"`. The
-candidates are the ones Tab visits, minus zero-size objects, objects outside
+candidates are the ones Tab visits plus every selectable scroll container, minus zero-size objects, objects outside
 the screen, and children of a scroll container that does not hold `from` where
 its window is clipped or off the screen; a selectable scrolling frame ranks by its own rectangle like a
 control, and the query reports the control it passes the selection to; enclosing `SelectionGroup`s are searched from

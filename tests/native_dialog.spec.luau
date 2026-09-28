@@ -660,6 +660,33 @@ t.describe("native Dialog: a plain overflowing body is one pad stop that scrolls
 		w.stop()
 	end)
 
+	t.it("Tab and Shift+Tab stop on the overflowing body", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true })
+		w.size(w.find("Header"), 400, 44)
+		w.size(w.find("Actions"), 400, 44)
+		local body = w.find("Body")
+		w.size(overlay.find(body, "Content"), 400, 1500)
+		body.AbsoluteWindowSize = Vector2.new(400, 400)
+		body.AbsoluteCanvasSize = Vector2.new(400, 1500)
+		w.input.KeyboardEnabled = true
+		local traverse
+		for _, node in w.screen.Parent:GetDescendants() do
+			if node:IsA("InputAction") and node.Name == "Traverse" then
+				traverse = node
+			end
+		end
+		t.expect(traverse ~= nil).toBe(true)
+		local visited = {}
+		for _ = 1, 8 do
+			traverse.Pressed.fire()
+			traverse.Released.fire()
+			visited[w.gui.SelectedObject] = true
+		end
+		t.expect(visited[body]).toBe(true)
+		w.stop()
+	end)
+
 	t.it("a body that fits offers no stop, and contentSelectable = false never does", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change))

@@ -400,7 +400,7 @@ return function(ctx: Shared.Context): Selection
 		local selected = gui.SelectedObject
 		local list = {}
 		for _, node in scopeOf(selected) do
-			if not node:IsA("ScrollingFrame") then
+			if not node:IsA("ScrollingFrame") or node:GetAttribute("FacetSelectionOwner") == true then
 				table.insert(list, node)
 			end
 		end
