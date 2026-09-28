@@ -242,26 +242,28 @@ t.describe("UI.focusQuery", function()
 		w.stop()
 	end)
 
-	t.it("a move the engine gives to a scroll container reports the control the container passes it to", function()
+	t.it("a scroll container is a target only when no control lies in that direction", function()
 		local w = world(function(UI, Host)
 			return Host.Frame({
-				UI.Button("Tab")({ label = "Tab" }),
-				Host.ScrollingFrame("Body")({
+				UI.Button("Above")({ label = "Above" }),
+				UI.Button("Right")({ label = "Right" }),
+				Host.ScrollingFrame("Scroller")({
 					Selectable = true,
-					UI.Button("Wide")({ label = "Wide" }),
-					UI.Button("Side")({ label = "Side" }),
+					UI.Button("Clipped")({ label = "Clipped" }),
 				}),
 			})
 		end)
-		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1542, 1000)
-		local tab = w.place("Tab", 584, 108, 68, 44)
-		w.place("Body", 0, 160, 1542, 789)
-		w.place("Wide", 16, 217, 741, 44)
-		local side = w.place("Side", 781, 217, 76, 40)
-		local down = w.UI.focusQuery(tab).Down
-		t.expect(down.target).toBe(side)
+		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 800)
+		local above = w.place("Above", 100, 20, 300, 44)
+		local right = w.place("Right", 600, 120, 100, 44)
+		w.place("Scroller", 100, 100, 320, 200)
+		local clipped = w.place("Clipped", 100, 350, 300, 44)
+		local down = w.UI.focusQuery(above).Down
+		t.expect(down.target).toBe(right)
+		right.Visible = false
+		down = w.UI.focusQuery(above).Down
+		t.expect(down.target).toBe(clipped)
 		t.expect(down.rule).toBe("beam")
-		t.expect(w.UI.focusQuery(side).Right.rule).toBe("none")
 		w.stop()
 	end)
 

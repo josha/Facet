@@ -316,14 +316,25 @@ return function(ctx: Shared.Context): Selection
 			end
 		end
 		local groups = groupsOf(origin)
-		local function pick(list: { GuiObject }, direction: string): GuiObject?
+		local function nearest(list: { GuiObject }, direction: string): GuiObject?
 			local rects = table.create(#list)
 			for index, node in list do
 				rects[index] = rectOf(node)
 			end
 			local index = FocusBeam.neighbor(rectOf(origin), rects, string.lower(direction) :: FocusBeam.Direction)
-			local target = if index then list[index] else nil
-			if target and target:IsA("ScrollingFrame") and target:GetAttribute("FacetSelectionOwner") ~= true then
+			return if index then list[index] else nil
+		end
+		local function pick(list: { GuiObject }, direction: string): GuiObject?
+			local controls, containers = {}, {}
+			for _, node in list do
+				table.insert(if node:IsA("ScrollingFrame") then containers else controls, node)
+			end
+			local target = nearest(controls, direction)
+			if target then
+				return target
+			end
+			target = nearest(containers, direction)
+			if target and target:GetAttribute("FacetSelectionOwner") ~= true then
 				target = entryOf(target, origin)
 			end
 			return if target == origin then nil else target
