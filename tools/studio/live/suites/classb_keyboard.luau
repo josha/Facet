@@ -646,7 +646,12 @@ add("form-geometry-identical-under-reduced-motion", { "apps-249" }, function(t)
 			for _, reduced in { false, true } do
 				local stage = t.mount(function(UI, _, Compose)
 					return formScreen(UI, Compose)
-				end, { size = viewport, theme = package, reducedMotion = reduced, frames = 16 })
+				end, {
+					size = viewport,
+					theme = package,
+					motionLevel = if reduced then "none" else "normal",
+					frames = 16,
+				})
 				t.stable(t.find(stage, "Later"))
 				t.settle(30)
 				local lines = {}

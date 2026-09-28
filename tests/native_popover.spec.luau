@@ -454,7 +454,7 @@ t.describe("native Popover: sources, anchor loss and bounds", function()
 					return content(UI, Host)
 				end,
 			}
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local flow, panel = w.find("Flow"), w.find("Panel")
 		flow.AbsoluteSize = Vector2.new(180, 60)
 		w.advance(1 / 60)
@@ -611,7 +611,7 @@ t.describe("native Popover: the compact sheet and the live route switch", functi
 
 	t.it("a refused drag on the compact sheet goes back to the accepted detent", function()
 		local open, log, change = caller(false)
-		local w = mount(standard(open, log, change), { reducedMotion = true })
+		local w = mount(standard(open, log, change), { motionLevel = "none" })
 		w.input.PreferredInput = w.Enum.PreferredInput.Touch
 		w.screen.AbsoluteSize = Vector2.new(390, 800)
 		open:set(true)
@@ -864,7 +864,7 @@ t.describe("app.presentAnchored", function()
 			types = engine.types,
 			parent = target,
 			services = { GuiService = gui, UserInputService = input },
-			reducedMotion = true,
+			motionLevel = "none",
 		} :: any),
 			target
 	end

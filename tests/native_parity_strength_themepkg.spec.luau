@@ -33,7 +33,7 @@ local function world(options: { [string]: any }?): (any, any, any, any)
 		return nil
 	end
 	local config: { [string]: any } =
-		{ types = engine.types, reducedMotion = true, services = { GuiService = gui, UserInputService = input } }
+		{ types = engine.types, motionLevel = "none", services = { GuiService = gui, UserInputService = input } }
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
 	end
@@ -42,7 +42,7 @@ local function world(options: { [string]: any }?): (any, any, any, any)
 end
 
 local function sheetFor(engine: any, runtime: any, package: any, options: { [string]: any }?): (any, () -> ())
-	local settings: { [string]: any } = { types = engine.types, preferredTransparency = 1, reducedMotion = true }
+	local settings: { [string]: any } = { types = engine.types, preferredTransparency = 1, motionLevel = "none" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
@@ -1640,7 +1640,7 @@ t.describe("theme package install and swap", function()
 		local sheet, button, field, scroller
 		local stop, root = runtime.mount(function()
 			setups += 1
-			sheet = themes.createStyleSheet(runtime, theme, { types = T, reducedMotion = true })
+			sheet = themes.createStyleSheet(runtime, theme, { types = T, motionLevel = "none" })
 			button = UI.Button({ label = "Save" })
 			field = UI.TextInput({ value = text })
 			scroller = Host.ScrollingFrame({ CanvasSize = T.UDim2.fromOffset(0, 2000) })
@@ -1826,7 +1826,9 @@ local function galleryWorld(refused: { [string]: () -> (any, any) }): any
 			inputParent = target,
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
-			reducedMotion = ctx.reducedMotion,
+			motionLevel = Compose.formula(function(use)
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+			end),
 		})
 		sheet = themes.createStyleSheet(runtime, ctx.theme, { types = engine.types, theme = ctx.themeMode })
 		return ctx.Host.ScreenGui "GalleryTest" {

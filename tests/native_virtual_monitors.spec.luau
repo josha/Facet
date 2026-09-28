@@ -86,7 +86,7 @@ local function withScreens(body, options)
 			model = model,
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
-			reducedMotion = true,
+			motionLevel = "none",
 		}
 		for key, value in options or {} do
 			config[key] = value
@@ -262,7 +262,7 @@ t.describe("native virtual monitors", function()
 			local views = screens.create(
 				Facet,
 				runtime,
-				{ model = model, types = engine.types, spatial = true, reducedMotion = true }
+				{ model = model, types = engine.types, spatial = true, motionLevel = "none" }
 			)
 			local _, discovery = runtime.mount(views.Discover, target)
 			local _, avatar = runtime.mount(views.Avatar, target)
@@ -1434,7 +1434,7 @@ t.describe("native virtual monitors", function()
 			t.expect(card.isDestroyed()).toBe(false)
 			t.expect(grid.CanvasPosition).toBe(position)
 			t.expect(world.gui.SelectedObject).toBe(open)
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 	end)
 
 	t.it("NVM-13 desktop tab transitions reclaim interrupted content and release departing owners", function()
@@ -1548,7 +1548,7 @@ t.describe("native virtual monitors", function()
 			local views = screens.create(
 				require("../src"),
 				world.runtime,
-				{ model = model, types = types, spatial = false, reducedMotion = true }
+				{ model = model, types = types, spatial = false, motionLevel = "none" }
 			)
 			local stop, desktop = world.runtime.mount(views.Discover, world.target)
 			local flat = find(desktop, "Games")
@@ -1612,7 +1612,7 @@ t.describe("native virtual monitors", function()
 			local stop = world.runtime.mount(function()
 				sheet = Facet.themes.createStyleSheet(world.runtime, package, {
 					types = types,
-					reducedMotion = true,
+					motionLevel = "none",
 					theme = function(use)
 						return theme.paletteName(use(model.palette), use(model.dark))
 					end,

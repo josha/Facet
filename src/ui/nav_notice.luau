@@ -7,7 +7,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Theme = require("./theme_types")
 local parts = require("./overlay_parts")
 local reservations = require("./reservations")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local freeze = require("./freeze")
 
 type Controls = {

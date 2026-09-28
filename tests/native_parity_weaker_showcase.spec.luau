@@ -74,7 +74,7 @@ local function referenceWorld(module: any, preferred: string): World
 					types = engine.types,
 					guiService = gui,
 					inputParent = parent,
-					reducedMotion = Compose.cell(true),
+					motionLevel = "none",
 					services = { GuiService = gui, UserInputService = input },
 				} :: any
 			),
@@ -170,7 +170,9 @@ local function galleryWorld(configure: ((any) -> ())?): any
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				reducedMotion = ctx.reducedMotion,
+				motionLevel = Compose.formula(function(use)
+					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+				end),
 			} :: any
 		)
 		return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -266,7 +268,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 	local gallery = require("../examples/gallery/client/screen")
 	local stop, root = runtime.mount(function()
 		gallery.configure(ctx)
-		ctx.motionPreference:set(true)
+		ctx.motionPreference:set("none")
 		ctx.UI = Facet.controls(
 			runtime,
 			{
@@ -277,7 +279,7 @@ local function scenarioWorld(name: string, options: any?): (any, any, any)
 				inputParent = parent,
 				services = { GuiService = gui, UserInputService = service },
 				theme = theme,
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any
 		)
 		local sheet = Facet.themes.createStyleSheet(runtime, theme, { types = engine.types })

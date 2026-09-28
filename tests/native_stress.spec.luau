@@ -18,7 +18,7 @@ local function world()
 	local UI = Facet.controls(runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = true,
+		motionLevel = "none",
 	})
 	return engine, runtime, root, UI, input, gui
 end

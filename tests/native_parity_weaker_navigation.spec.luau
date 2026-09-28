@@ -131,7 +131,9 @@ local function galleryFixture(build: (any) -> any): (any, any, () -> (), any)
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				theme = ctx.theme,
-				reducedMotion = ctx.reducedMotion,
+				motionLevel = Compose.formula(function(use)
+					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+				end),
 			} :: any
 		)
 		return ctx.Host.ScreenGui("GalleryTest")({ build(ctx) })
@@ -189,7 +191,9 @@ local function journeyFixture(theme: any, input: string): (any, any, any, () -> 
 			guiService = gui,
 			services = { GuiService = gui, UserInputService = service },
 			inputParent = target,
-			reducedMotion = ctx.reducedMotion,
+			motionLevel = Compose.formula(function(use)
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+			end),
 			theme = theme,
 		} :: any
 	)
@@ -226,7 +230,7 @@ t.describe("native parity weaker navigation", function()
 					{ id = "W", slot = "W", label = "W" },
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local centre = find(world.screen, "Center")
 		t.expect(centre == nil or centre.Visible == false).toBe(true)
 		local north, south = find(world.screen, "N", "TextButton"), find(world.screen, "S", "TextButton")
@@ -255,7 +259,7 @@ t.describe("native parity weaker navigation", function()
 					{ id = "Map", label = "Map" },
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		t.expect(find(world.screen, "$navigation", "TextButton")).toBeNil()
 		local gear, map = find(world.screen, "Gear", "TextButton"), find(world.screen, "Map", "TextButton")
 		local hub = find(world.screen, "Center", "TextButton")
@@ -297,7 +301,7 @@ t.describe("native parity weaker navigation", function()
 						{ id = "Map", label = "Map" },
 					},
 				})
-			end, { reducedMotion = true })
+			end, { motionLevel = "none" })
 			world.gui.SelectedObject = find(world.screen, "Gear", "TextButton")
 			find(world.screen, "Gear", "TextButton").Activated.fire()
 			world.gui.SelectedObject = find(world.screen, "Tools", "TextButton")
@@ -1596,7 +1600,7 @@ t.describe("native parity weaker navigation", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			runtime.mount(views.Discover, target)
 			local function rows()

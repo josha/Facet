@@ -6,7 +6,7 @@ local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 export type Editor<V, K> = {
 	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
 	overlay: (boolean?) -> Frame,

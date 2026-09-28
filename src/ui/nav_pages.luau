@@ -6,7 +6,7 @@ local Media = require("./media_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local adaptive = require("./adaptive")
 local segmentMetrics = require("./segment_metrics")
 local reservations = require("./reservations")
@@ -71,13 +71,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		checkTransition(transition)
 		local mounted = Compose.cell(false)
-		local gui = surfaces.service("GuiService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
+		local reduced = reducedMotion(ctx)
 		local opacity = runtime.tween(function(use: ComposeTypes.Use)
 			return if (immediate or use(mounted)) and use(state).top then 1 else 0
 		end, transition)
 		local function still(use: ComposeTypes.Use): boolean
-			return use(reduced) or read(ctx.config.reducedMotion, use) == true
+			return reduced(use)
 		end
 		properties.GroupTransparency = function(use: ComposeTypes.Use)
 			return if still(use) then 0 else 1 - use(opacity)
@@ -95,7 +94,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end)
 		if hidden then
 			Compose.watch(function(use: ComposeTypes.Use)
-				if not use(state).top and (use(reduced) or use(opacity) == 0) then
+				if not use(state).top and (reduced(use) or use(opacity) == 0) then
 					hidden()
 				end
 			end)
@@ -1700,13 +1699,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			+ (if spec.indicators ~= false then 48 else 0)
 			+ (if spec.controls ~= false then 48 else 0)
 		local pageNodes: { [string]: Frame } = {}
-		local gui = surfaces.service("GuiService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
+		local reduced = reducedMotion(ctx)
 		local fling = Compose.cell(false)
 		local flingStyle, pageStyle = ctx.motionStyle("fling"), ctx.motionStyle("page")
 		local layout = Host.UIPageLayout "PagesLayout" {
 			Animated = function(use: ComposeTypes.Use)
-				return read(ctx.config.reducedMotion, use) ~= true and not use(reduced)
+				return not reduced(use)
 			end,
 			EasingStyle = function(use: ComposeTypes.Use)
 				return if use(fling) then flingStyle else pageStyle

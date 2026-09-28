@@ -54,10 +54,13 @@ local function mountGame(ctx, definition)
 	local game
 	local stop, node = ctx.runtime.mount(function()
 		gallery.configure(ctx)
-		ctx.UI = Facet.controls(
-			ctx.runtime,
-			{ types = ctx.types, viewport = ctx.viewport, reducedMotion = ctx.reducedMotion }
-		)
+		ctx.UI = Facet.controls(ctx.runtime, {
+			types = ctx.types,
+			viewport = ctx.viewport,
+			motionLevel = Compose.formula(function(use)
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+			end),
+		})
 		game = definition.build(ctx)
 		return ctx.Host.ScreenGui "GameScreen" { game.screen() }
 	end, ctx.target)

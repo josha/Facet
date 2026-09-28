@@ -56,14 +56,9 @@ return function(ctx)
 			path,
 		}
 	end
+	local motion = UI.environment().reducedMotion
 	local function reduced(use)
-		local value = ctx.actions.reducedMotion
-		if Compose.isReadable(value) then
-			return use(value)
-		elseif type(value) == "function" then
-			return value(use)
-		end
-		return value == true
+		return use(motion)
 	end
 	local spin = runtime.timeline({ duration = 1.6, repeats = math.huge, autoplay = false })
 	Compose.watch(function(use)

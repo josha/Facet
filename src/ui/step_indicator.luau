@@ -6,7 +6,7 @@ local Nav = require("./navigation_types")
 local ThemeTypes = require("./theme_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 
 type Snapshot = { steps: { Content.Step }, current: string?, index: { [string]: number } }
 

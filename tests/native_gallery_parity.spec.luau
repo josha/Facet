@@ -39,7 +39,9 @@ local function mount(name)
 		guiService = gui,
 		services = { GuiService = gui },
 		inputParent = target,
-		reducedMotion = ctx.reducedMotion,
+		motionLevel = Compose.formula(function(use)
+			return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+		end),
 	})
 	local built
 	local stop, node = runtime.mount(function()

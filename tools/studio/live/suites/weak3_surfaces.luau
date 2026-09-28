@@ -917,7 +917,7 @@ add("sheet-adaptive-side-edge", { "post-port26-024" }, function(t)
 					end,
 				},
 			}
-		end, { size = size, reducedMotion = reduced, frames = 2 })
+		end, { size = size, motionLevel = if reduced then "none" else "normal", frames = 2 })
 		return stage, nil
 	end
 	local stage = sheet(Vector2.new(1200, 800), false)

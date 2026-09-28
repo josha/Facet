@@ -1,7 +1,7 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 
 export type Settle = {
 	value: ComposeTypes.Readable<number?>,

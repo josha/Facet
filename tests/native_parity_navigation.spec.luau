@@ -140,7 +140,7 @@ local function showcase(): (any, any, any, any, () -> ())
 				viewport = viewport,
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any
 		),
 	}
@@ -1770,7 +1770,7 @@ t.describe("native parity navigation", function()
 		local opened, detent = Compose.cell(true), Compose.cell("medium")
 		local world = setup(function(UI, Host)
 			return UI.Sheet({ isPresented = opened, detent = detent, title = "Sheet", content = page(Host, "sheet") })
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		find(world.screen, "Modal").AbsoluteSize = V2(world, 390, 720)
 		local panel = find(world.screen, "SheetPanel")
 		t.expect(panel.Size.Y.Offset).toBe(360)
@@ -2192,7 +2192,7 @@ t.describe("native parity navigation", function()
 						types = engine.types,
 						guiService = gui,
 						services = { GuiService = gui, UserInputService = input },
-						reducedMotion = true,
+						motionLevel = "none",
 					} :: any
 				),
 			}
@@ -2292,7 +2292,7 @@ t.describe("native parity navigation", function()
 					types = engine.types,
 					guiService = gui,
 					services = { GuiService = gui },
-					reducedMotion = true,
+					motionLevel = "none",
 				} :: any
 			),
 		}

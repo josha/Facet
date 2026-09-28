@@ -6,7 +6,7 @@ local help = require("./help")
 local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
 local parts = require("./overlay_parts")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local rest = require("./rest")
 local scrollLock = require("./scroll_lock")
 

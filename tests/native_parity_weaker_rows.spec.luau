@@ -34,7 +34,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		services = { GuiService = gui, UserInputService = input },
 		userInputService = input,
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for field, value in (options or {}) :: { [string]: any } do
 		config[field] = value
@@ -178,7 +178,7 @@ local function mountGallery(path: string): (any, any, World)
 				services = { GuiService = gui, UserInputService = input },
 				userInputService = input,
 				inputParent = target,
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any
 		),
 	}
@@ -284,7 +284,7 @@ t.describe("native parity weaker rows", function()
 					content = UI.Button("Action")({ label = "Row" }),
 					trailing = { { id = "Save", label = "Save" } },
 				})
-			end, { reducedMotion = false })
+			end, { motionLevel = "normal" })
 			local row = world.node
 			row.AbsoluteSize = V2(world, 300, 40)
 			world.engine.heartbeat.fire(1)
@@ -464,7 +464,7 @@ t.describe("native parity weaker rows", function()
 					},
 				},
 			})
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 		local row = world.node
 		row.AbsoluteSize = V2(world, 300, 40)
 		world.engine.heartbeat.fire(1)
@@ -1102,7 +1102,7 @@ t.describe("native parity weaker rows", function()
 					guiService = guiService,
 					services = { GuiService = guiService },
 					inputParent = target,
-					reducedMotion = true,
+					motionLevel = "none",
 				} :: any
 			),
 		}
@@ -1201,7 +1201,7 @@ t.describe("native parity weaker rows", function()
 						})
 					end,
 				})
-			end, { reducedMotion = false })
+			end, { motionLevel = "normal" })
 			world.node.AbsoluteWindowSize = V2(world, 300, 200)
 			local function row(rowKey: number): any
 				local node = rowActionsIn(world.node:FindFirstChild(tostring(rowKey), true))
@@ -1352,7 +1352,7 @@ t.describe("native parity weaker rows", function()
 						})
 					end,
 				})
-			end, { reducedMotion = false })
+			end, { motionLevel = "normal" })
 			world.node.AbsoluteWindowSize = V2(world, 300, 200)
 			local function row(rowKey: number): any
 				local node = rowActionsIn(world.node:FindFirstChild(tostring(rowKey), true))
@@ -1652,7 +1652,7 @@ t.describe("native parity weaker rows", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local _, chat = runtime.mount(views.Chat, target)
 			local send = find(chat, "Send")

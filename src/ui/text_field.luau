@@ -1,5 +1,5 @@
 --!strict
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local arithmetic = require("./arithmetic")
 local fieldChrome = require("./field_chrome")
 local textPress = require("./text_press")

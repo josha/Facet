@@ -27,7 +27,7 @@ local function radialWorld(spec: any): any
 		{
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
-			reducedMotion = true,
+			motionLevel = "none",
 		} :: any
 	)
 	spec.isPresented = spec.isPresented or Compose.cell(true)
@@ -262,7 +262,7 @@ t.describe("native parity weak3 h2: virtual monitors saved shelf", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local _, discover = runtime.mount(views.Discover, target)
 			local body = findNamed(discover, "DiscoverBody")
@@ -440,7 +440,7 @@ t.describe("native parity weak3 h2: RowActions own-row tap", function()
 			{
 				types = engine.types,
 				guiService = gui,
-				reducedMotion = true,
+				motionLevel = "none",
 				services = { GuiService = gui, UserInputService = input },
 			} :: any
 		)

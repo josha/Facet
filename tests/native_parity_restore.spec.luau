@@ -30,7 +30,7 @@ local function world(build: (any, any, any) -> any, options: { [string]: any }?,
 	local config: { [string]: any } = {
 		types = engine.types,
 		guiService = gui,
-		reducedMotion = true,
+		motionLevel = "none",
 		services = { GuiService = gui, UserInputService = input },
 	}
 	for key, value in (options or {}) :: { [string]: any } do
@@ -674,7 +674,7 @@ t.describe("native parity restore: RowActions outside tap", function()
 					end,
 				},
 			}
-		end, { reducedMotion = settings.reducedMotion ~= false })
+		end, { motionLevel = settings.motionLevel or "none" })
 		local V2 = w.engine.types.Vector2
 		local a, b = find(w.screen, "a"), find(w.screen, "b")
 		a.AbsolutePosition, a.AbsoluteSize = V2.new(0, 0), V2.new(300, 44)
@@ -746,7 +746,7 @@ t.describe("native parity restore: RowActions outside tap", function()
 	end)
 
 	t.it("lets a commit in flight finish once when an outside tap arrives", function()
-		local w, state = rowsWorld({ role = "destructive", reducedMotion = false })
+		local w, state = rowsWorld({ role = "destructive", motionLevel = "normal" })
 		state.open.a:set("trailing")
 		w.engine.heartbeat.fire(0.3)
 		find(find(w.screen, "a"), "Delete").Activated.fire()

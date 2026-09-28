@@ -6,6 +6,7 @@ local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local adaptive = require("./adaptive")
+local motionLevels = require("./motion")
 local preferredInput = require("./preferred_input")
 local themeDistance = require("./theme_distance")
 export type ThemePackage = ThemeTypes.ThemePackage
@@ -1721,13 +1722,17 @@ local function createStyleSheet(
 	local settings: ThemeTypes.ThemeOptions = options or {}
 	local types = typesFor(settings)
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
-	local reducedMotion = settings.reducedMotion
-	if reducedMotion == nil then
+	assert(
+		((settings :: unknown) :: { [string]: unknown }).reducedMotion == nil,
+		'Facet createStyleSheet: the reducedMotion option is gone; set motionLevel = "normal", "limited" or "none"'
+	)
+	local engineReduced: ComposeTypes.Readable<boolean>? = nil
+	do
 		local globals = getfenv(0)
 		local gui = globals.game and globals.game:GetService("GuiService")
 		if gui then
 			local source = Compose.cell(gui.ReducedMotionEnabled)
-			reducedMotion = source
+			engineReduced = source
 			local connection = gui:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
 				source:set(gui.ReducedMotionEnabled)
 			end)
@@ -1735,6 +1740,9 @@ local function createStyleSheet(
 				connection:Disconnect()
 			end)
 		end
+	end
+	local function snaps(use: ComposeTypes.Use): boolean
+		return motionLevels.resolve(read(settings.motionLevel, use), read(engineReduced, use) == true) ~= "normal"
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
@@ -1853,7 +1861,7 @@ local function createStyleSheet(
 		local motion = ((package.metrics or {}) :: { motion: ThemeTypes.MotionMetrics? }).motion
 		local normal = if motion and motion.normal then motion.normal else neutral.metrics.motion.normal
 		local seconds
-		if read(reducedMotion, use) == true or explicit == false then
+		if snaps(use) or explicit == false then
 			seconds = 0
 		elseif explicit ~= nil then
 			return explicit :: TweenInfo

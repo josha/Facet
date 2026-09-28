@@ -100,7 +100,7 @@ and these fields:
   `ScreenInsets` or a reactive `Enabled`. They replace the defaults
   (`Name` from `name`, `ResetOnSpawn = false`, `ZIndexBehavior = Sibling`).
 - `sheet`: `createStyleSheet` options, such as `theme` for the palette or
-  `transition`. The app adds `types` and `reducedMotion` when you do not set
+  `transition`. The app adds `types` and `motionLevel` when you do not set
   them.
 
 The app gives `theme` to the controls and to the StyleSheet, so you set the
@@ -225,9 +225,11 @@ document their own write-then-notify behavior below.
   pointer makes the ladder follow a change at once. Without one, the controls
   take the distance when `Facet.controls` runs. `Screen` overscan follows the
   live fact.
-- `reducedMotion` and `icons`: these can also be reactive. Control motion also
-  follows `GuiService.ReducedMotionEnabled`. Motion is reduced when either one
-  is true.
+- `motionLevel` and `icons`: these can also be reactive. `motionLevel` is
+  `"normal"` (full motion), `"limited"` or `"none"` (see Motion). If you omit
+  it, motion follows the device: `GuiService.ReducedMotionEnabled` gives
+  `"limited"`, otherwise `"normal"`. A level you set wins over the device. Any
+  other value is an error, and so is the removed `reducedMotion` option.
 - `pressHaptic`: a native `HapticEffect` or a feedback kind (`"selection"`,
   `"impact"`, `"success"`, `"warning"` or `"error"`). Only a control that
   changes a state or a value plays it. See [Haptics](#haptics).
@@ -312,8 +314,9 @@ easing, spring, scale and distance below is a token in the theme package's
   seconds by default). The placement then reads that rested size for the whole
   entrance and exit, so the scale never moves the plate or its tail. Reduced
   motion skips the wait.
-- Reduced motion (`reducedMotion` or `GuiService.ReducedMotionEnabled`) removes
-  all of this motion. The change is immediate.
+- The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
+  `"limited"`) removes all of this motion at `"limited"` and `"none"`. The
+  change is immediate.
 - A presentation that has not drawn a frame, or whose anchor is no longer
   available, leaves immediately.
 - If you present a control again during its exit, the exit reverses.
@@ -572,8 +575,7 @@ ancestor.
 
 Both calls tween `CanvasPosition` with `TweenService` for 0.25 seconds. A new
 call cancels the tween that runs on the same frame. The move is instant when
-`options.animated` is `false`, when the factory `reducedMotion` is `true` or
-when `GuiService.ReducedMotionEnabled` is `true`. Call them from an event, for
+`options.animated` is `false` or when the motion level is not `"normal"`. Call them from an event, for
 example a button that goes back to the top of a page.
 
 ### Grid
@@ -3344,7 +3346,8 @@ weight. The derived role keeps the family, style, size and line height.
   - `theme`: the selected palette, as a name or a readable.
   - `name`: the native name.
   - `transition`: a native TweenInfo, a readable, or `false`.
-  - `reducedMotion`: a boolean or a readable.
+  - `motionLevel`: `"normal"`, `"limited"` or `"none"`, or a readable. If you
+    omit it, the sheet follows `GuiService.ReducedMotionEnabled` (`"limited"`).
   - `preferredTransparency`: a number or a readable. The value multiplies the
     scrim transparency. Other rules keep their authored transparency. A value
     that is not a number has no effect. If you omit it, the sheet follows
@@ -3850,7 +3853,8 @@ environment keeps the last real size.
 | `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
 | `preferredTextSize` | The name of `GuiService.PreferredTextSize`, for example `"Medium"` or `"Largest"`. The engine applies the text size. |
-| `reducedMotion` | The factory `reducedMotion` option or `GuiService.ReducedMotionEnabled`. |
+| `motionLevel` | The factory `motionLevel` option, or `"limited"` when `GuiService.ReducedMotionEnabled` is true, otherwise `"normal"`. |
+| `reducedMotion` | `true` when `motionLevel` is not `"normal"`. |
 
 ```luau
 local function Apps(tabs, selection)

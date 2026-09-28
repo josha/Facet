@@ -341,7 +341,7 @@ t.describe("native constructor conformance", function()
 			for _, named in { false, true } do
 				local engine = engineLib.new({ cacheDefaults = true })
 				local runtime = Facet.Roblox.createRuntime(engine)
-				local UI = Facet.controls(runtime, { types = engine.types, reducedMotion = true })
+				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 				local root = engine.new("ScreenGui")
 				local baseline = engine.census()
 				local zIndex, calls, reference, refCalls = Compose.cell(7), 0, nil, 0

@@ -592,7 +592,7 @@ end
 
 t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 	t.it("writes a programmatic position and the canvas limits clamp it", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 1000))
 		t.expect(w.UI.scrollTo(frame, Roblox.Vector2.new(0, 250))).toBe(true)
 		t.expect(frame.CanvasPosition).toBe(Roblox.Vector2.new(0, 250))
@@ -640,7 +640,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 	t.it("moves both axes of an xy host to bring a node beyond both edges into view", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local frame = scroller(w, "Board", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(1000, 1000))
 		frame.ScrollingDirection = w.engine.types.Enum.ScrollingDirection.XY
 		local far = box(w, frame, Roblox.Vector2.new(260, 150), Roblox.Vector2.new(40, 30))
@@ -649,7 +649,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 	t.it("scrolls the minimum distance to bring a node below or above the viewport into view", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 1000))
 		local below = box(w, frame, Roblox.Vector2.new(0, 150), Roblox.Vector2.new(200, 30))
 		t.expect(w.UI.scrollToVisible(below)).toBe(true)
@@ -664,7 +664,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 	t.it("aligns a span taller than the band to its top and clamps to the extent", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local frame = scroller(w, "List", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(200, 300))
 		local tall = box(w, frame, Roblox.Vector2.new(0, 50), Roblox.Vector2.new(200, 400))
 		t.expect(w.UI.scrollToVisible(tall)).toBe(true)
@@ -680,7 +680,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 	t.it("walks every scroll ancestor inner to outer, not just a direct parent", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local outer = scroller(w, "Page", Roblox.Vector2.new(300, 200), Roblox.Vector2.new(300, 1000))
 		local inner =
 			scroller(w, "Rail", Roblox.Vector2.new(300, 100), Roblox.Vector2.new(300, 600), Roblox.Vector2.new(0, 400))
@@ -696,7 +696,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 	t.it("works on the horizontal axis and leaves a locked axis alone", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local E = w.Enum
 		local frame = scroller(w, "Rail", Roblox.Vector2.new(200, 100), Roblox.Vector2.new(1000, 400))
 		frame.ScrollingDirection = E.ScrollingDirection.X
@@ -706,7 +706,7 @@ t.describe("scrollTo and scrollToVisible over native ScrollingFrame", function()
 		w.stop()
 	end)
 	t.it("scrolls a mounted ScrollView and animates with the view", function()
-		local w = world(nil, { reducedMotion = true })
+		local w = world(nil, { motionLevel = "none" })
 		local UI = w.UI
 		local node: any
 		local stop, root = w.runtime.mount(function()
@@ -1290,7 +1290,9 @@ t.describe("focus ring: the engine draws the theme's focus look", function()
 			}
 			local w = world({ TweenService = tweens }, {
 				theme = package,
-				reducedMotion = motionOff,
+				motionLevel = Compose.formula(function(use)
+					return if use(motionOff) then "none" else "normal"
+				end),
 				environment = { preferredInput = "Gamepad" },
 			})
 			local playerGui = w.engine.new("PlayerGui")

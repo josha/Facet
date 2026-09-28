@@ -10,7 +10,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		types = types,
 		services = actions.services,
 		theme = actions.theme,
-		reducedMotion = actions.reducedMotion,
+		motionLevel = actions.motionLevel,
 		pressHaptic = actions.pressHaptic,
 		environment = if actions.spatial then { viewingDistance = "near" } else nil,
 	})

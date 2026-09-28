@@ -11,7 +11,7 @@ local function mountAndDispose()
 	local UI = Facet.controls(runtime, {
 		types = engine.types,
 		services = { GuiService = gui },
-		reducedMotion = true,
+		motionLevel = "none",
 	})
 	local stop = runtime.mount(function()
 		return UI.VStack({

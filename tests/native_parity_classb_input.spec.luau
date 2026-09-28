@@ -373,7 +373,7 @@ t.describe("native parity classb input", function()
 				UI.RadialMenu("Ring")({ isPresented = opened, distribution = "compass", items = items }),
 				UI.Button("Outside")({ label = "Outside" }),
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local Enum = world.engine.types.Enum
 		local V2 = world.engine.types.Vector2.new
 		world.input.PreferredInput = Enum.PreferredInput.Gamepad

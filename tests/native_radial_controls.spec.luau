@@ -21,7 +21,7 @@ local function setup(spec, animated, environment)
 	local UI = controls(Compose, runtime, {
 		types = engine.types,
 		services = { GuiService = gui, UserInputService = input },
-		reducedMotion = not animated,
+		motionLevel = if not animated then "none" else "normal",
 		environment = environment,
 	})
 	local opened = spec.isPresented or Compose.cell(true)
@@ -594,7 +594,7 @@ t.describe("native radial interaction policies", function()
 			UI = controls(
 				Compose,
 				runtime,
-				{ types = engine.types, services = { GuiService = engine.new("GuiService") }, reducedMotion = true }
+				{ types = engine.types, services = { GuiService = engine.new("GuiService") }, motionLevel = "none" }
 			),
 		}
 		local built

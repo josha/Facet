@@ -80,7 +80,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end
 		local env = UI.environment()
 		local far = ctx.tenFoot()
-		local reduced = motion(ctx)
+		local reduced = motion.reduced(ctx)
 		local package = Compose.formula(function(use: ComposeTypes.Use): ThemeTypes.ThemePackage?
 			return ctx.read(config.theme, use)
 		end)
@@ -469,7 +469,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local size = use(viewportSize)
 			return adaptive.overscanInsets(size.X, size.Y)
 		end)
-		local reduced = motion(ctx)
+		local level = motion.level(ctx)
 		local isTenFoot = derived(function(use): boolean
 			return tenFoot(use)
 		end)
@@ -530,8 +530,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			safeInsets = safeInsets,
 			preferredTextSize = preferredTextSize,
 			reducedMotion = derived(function(use): boolean
-				return reduced(use)
+				return level(use) ~= "normal"
 			end),
+			motionLevel = (derived(function(use): Shared.MotionLevel
+				return level(use)
+			end) :: unknown) :: ComposeTypes.Readable<Shared.MotionLevel>,
 		})
 		return environment
 	end

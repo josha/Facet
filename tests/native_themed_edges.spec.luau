@@ -35,7 +35,7 @@ local function sheetOf(package: any, palette: string?): (any, () -> ())
 		return themes.createStyleSheet(
 			runtime,
 			package,
-			{ types = engine.types, theme = palette, preferredTransparency = 1, reducedMotion = false } :: any
+			{ types = engine.types, theme = palette, preferredTransparency = 1, motionLevel = "normal" } :: any
 		)
 	end, engine.new("Folder"))
 	return sheet, function()
@@ -350,7 +350,7 @@ t.describe("themed edges, plates and gutters", function()
 					},
 				},
 			})
-		end, { reducedMotion = true, theme = parchment })
+		end, { motionLevel = "none", theme = parchment })
 		world.find("Body").AbsoluteWindowSize = world.V2(400, 300)
 		local rows = {}
 		for _, node in world.screen:GetDescendants() do
@@ -376,7 +376,7 @@ t.describe("themed edges, plates and gutters", function()
 					{ id = "two", title = "Two", content = Host.Frame({}) },
 				},
 			})
-		end, { reducedMotion = true, theme = parchment })
+		end, { motionLevel = "none", theme = parchment })
 		local dots = world.find("Indicators")
 		for _, dot in dots:GetChildren() do
 			if dot:IsA("GuiButton") then

@@ -156,7 +156,7 @@ t.describe("rest tracker", function()
 	t.it("reduced motion is at rest at once and never waits", function()
 		local w = overlay.new(function(UI, Host)
 			return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local post = w.find("Post")
 		w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 		w.gui.SelectedObject = post

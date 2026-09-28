@@ -53,7 +53,7 @@ local function mount(h: Harness, build: () -> any): (any, () -> ())
 end
 
 local function sheetFor(h: Harness, package: any, options: { [string]: any }?): (any, () -> ())
-	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, reducedMotion = false }
+	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, motionLevel = "normal" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
@@ -756,7 +756,7 @@ t.describe("native paint strength: button content", function()
 	t.it("keeps the radial button plate by default and omits it for every item when the surface is none", function()
 		local colors, extra = neutralColors()
 		for _, surface in { "native", "none" } do
-			local h = harness({ reducedMotion = true })
+			local h = harness({ motionLevel = "none" })
 			local sheet, stopSheet = sheetFor(h, themes.neutralPackage())
 			local items = {}
 			for _, id in { "N", "E", "S", "W" } do
@@ -803,7 +803,7 @@ t.describe("native paint strength: button content", function()
 			stopSheet()
 			h.dispose()
 		end
-		local h = harness({ reducedMotion = true })
+		local h = harness({ motionLevel = "none" })
 		local root, stop = mount(h, function()
 			return h.UI.RadialMenu({
 				isPresented = Compose.cell(true),
@@ -815,7 +815,7 @@ t.describe("native paint strength: button content", function()
 		stop()
 		h.dispose()
 		t.expect(function()
-			local bad = harness({ reducedMotion = true })
+			local bad = harness({ motionLevel = "none" })
 			mount(bad, function()
 				return bad.UI.RadialMenu({
 					isPresented = Compose.cell(true),
@@ -828,7 +828,7 @@ t.describe("native paint strength: button content", function()
 
 	t.it("draws each wedge item as plate-less content inside its own wedge, even in a skinned package", function()
 		for _, package in { themes.neutralPackage(), (shipped("pixel_quest")), (shipped("fantasy_ornate")) } do
-			local h = harness({ reducedMotion = true, theme = package })
+			local h = harness({ motionLevel = "none", theme = package })
 			local items = {}
 			for index = 1, 12 do
 				table.insert(items, {
@@ -869,7 +869,7 @@ t.describe("native paint strength: button content", function()
 		end
 		for _, package in packages do
 			for _, palette in package.style.themes do
-				local h = harness({ reducedMotion = true })
+				local h = harness({ motionLevel = "none" })
 				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
 				local root, stop = mount(h, function()
 					return h.UI.RadialMenu({
@@ -899,7 +899,7 @@ t.describe("native paint strength: button content", function()
 		end
 		for _, package in packages do
 			for _, palette in package.style.themes do
-				local h = harness({ reducedMotion = true })
+				local h = harness({ motionLevel = "none" })
 				local sheet, stopSheet = sheetFor(h, package, { theme = palette.name })
 				local root, stop = mount(h, function()
 					return h.UI.RadialMenu({
@@ -2272,7 +2272,7 @@ t.describe("native paint strength: theme sheets", function()
 	end)
 
 	t.it("composes the sheet scrim and the full-screen backdrop from the same clamped preference", function()
-		local h = harness({ reducedMotion = true })
+		local h = harness({ motionLevel = "none" })
 		local preference = Compose.cell(1 :: any)
 		local sheet, stopSheet = sheetFor(h, themes.neutralPackage(), { preferredTransparency = preference })
 		local base = 1 - 0.45

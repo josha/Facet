@@ -66,6 +66,7 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 			RunService = if o.runService then { Heartbeat = engine.heartbeat } else nil,
 		},
 		theme = o.theme,
+		motionLevel = o.motionLevel,
 		reducedMotion = o.reducedMotion,
 		controlSize = o.controlSize,
 		onError = o.onError,

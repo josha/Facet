@@ -1,6 +1,6 @@
 --!strict
 local layoutKit = require("./layout_kit")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local decoration = require("./native_decoration")
 local richText = require("./rich_text")
 local help = require("./help")

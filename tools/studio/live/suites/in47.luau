@@ -1166,7 +1166,13 @@ local function monitors(t: any, size: Vector2?, app: string): any
 		local model = modelModule.new(Compose)
 		Compose.cleanup(model.dispose)
 		value.model = model
-		local actions = { model = model, spatial = false, theme = package, reducedMotion = Compose.cell(true) }
+		local actions = {
+			model = model,
+			spatial = false,
+			theme = package,
+			reducedMotion = Compose.cell(true),
+			motionLevel = "none",
+		}
 		local views = screens.create(t.Facet, env.runtime, actions)
 		model.selectedTab:set(app)
 		return views[app]()

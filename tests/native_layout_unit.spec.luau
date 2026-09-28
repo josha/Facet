@@ -232,7 +232,7 @@ t.describe("layout decisions under a preview UIScale", function()
 						message = "Saved to garage",
 						action = { label = "Undo", onActivate = function() end },
 					}
-				end, { size = Vector2.new(390 * factor, 844 * factor), reducedMotion = true })
+				end, { size = Vector2.new(390 * factor, 844 * factor), motionLevel = "none" })
 				for _, node in w.screen:GetDescendants() do
 					if node.Name == "LayoutUnit" then
 						node.AbsoluteSize = w.Vector2.new(100 * factor, factor)

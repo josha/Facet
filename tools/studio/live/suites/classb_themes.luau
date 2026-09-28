@@ -40,7 +40,7 @@ add("skeleton-circle-round-sweep", { "themes-P1-87" }, function(t)
 			BackgroundTransparency = 1,
 			UI.Skeleton "Circle" { form = "circle" },
 		}
-	end, { size = Vector2.new(400, 400), reducedMotion = false })
+	end, { size = Vector2.new(400, 400), motionLevel = "normal" })
 	local plate = t.find(stage, "Circle"):FindFirstChild("Placeholder1")
 	local size = plate.AbsoluteSize
 	t.near("the circle placeholder is square", size.X, size.Y, 0.01)
@@ -70,7 +70,7 @@ add("skeleton-band-contained", { "themes-P1-88" }, function(t)
 				end,
 			},
 		}
-	end, { size = Vector2.new(600, 400), reducedMotion = false })
+	end, { size = Vector2.new(600, 400), motionLevel = "normal" })
 	local offer = t.find(stage, "Offer")
 	local root = t.find(stage, "A")
 	local plate = root:FindFirstChild("Placeholder1")

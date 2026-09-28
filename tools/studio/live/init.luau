@@ -191,7 +191,7 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any })
 			local UI = Facet.controls(runtime, {
 				viewport = viewport,
 				theme = theme,
-				reducedMotion = config.reducedMotion ~= false,
+				motionLevel = config.motionLevel or "none",
 				overlayParent = overlay,
 			})
 			local sheet = Facet.themes.createStyleSheet(runtime, theme, { theme = palette, transition = false })

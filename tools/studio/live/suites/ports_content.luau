@@ -82,7 +82,7 @@ local function scenario(t: any, name: string, options: { [string]: any }?): (any
 	local stage = t.mount(function(UI: any, Host: any, Compose: any, env: any)
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
 		return if type(built) == "function" then built() else built.screen()
-	end, { size = config.size, reducedMotion = config.reducedMotion, frames = config.frames or 20 })
+	end, { size = config.size, motionLevel = config.motionLevel, frames = config.frames or 20 })
 	return stage, built
 end
 
@@ -583,7 +583,7 @@ local function underlineCheck(t: any, where: string, indicator: any, id: string)
 end
 
 add("steps-underline-follows-and-springs", { "post-step-02", "post-step-03", "post-step-07" }, function(t)
-	local stage, built = scenario(t, "steps", { size = Vector2.new(1280, 720), reducedMotion = false })
+	local stage, built = scenario(t, "steps", { size = Vector2.new(1280, 720), motionLevel = "normal" })
 	local indicator = t.find(stage, "Checkout")
 	t.check("the Checkout indicator mounts", indicator ~= nil)
 	if not indicator then
@@ -1002,8 +1002,11 @@ add("vote-targets-separate", { "post-vote-08" }, function(t)
 end)
 
 local function cardsMount(t: any, reducedMotion: boolean?): (any, any, any)
-	local stage, built =
-		scenario(t, "cards", { size = Vector2.new(1280, 720), reducedMotion = reducedMotion, frames = 30 })
+	local stage, built = scenario(
+		t,
+		"cards",
+		{ size = Vector2.new(1280, 720), motionLevel = if reducedMotion == false then "normal" else nil, frames = 30 }
+	)
 	local games = t.find(stage, "Games")
 	if games then
 		t.stable(games)

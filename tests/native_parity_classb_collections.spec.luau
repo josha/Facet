@@ -35,7 +35,7 @@ local function setup(build: (any, any, any) -> any, options: { [string]: any }?)
 		services = { GuiService = gui, UserInputService = input },
 		userInputService = input,
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for field, value in (options or {}) :: { [string]: any } do
 		config[field] = value
@@ -125,7 +125,7 @@ local function sheetFor(world: World, package: any): any
 		return themes.createStyleSheet(
 			world.runtime,
 			package,
-			{ types = world.engine.types, preferredTransparency = 1, reducedMotion = false } :: any
+			{ types = world.engine.types, preferredTransparency = 1, motionLevel = "normal" } :: any
 		)
 	end, world.engine.new("Folder"))
 	return sheet
@@ -429,7 +429,7 @@ t.describe("native parity classb collections", function()
 				content = UI.Text({ text = "Row" }),
 				trailing = { { id = "flag", label = "Flag" } },
 			})
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 		local row = world.node
 		row.AbsoluteSize = V2(world, 600, 44)
 		frames(world, 1)
@@ -480,7 +480,7 @@ t.describe("native parity classb collections", function()
 						leading = if edge == "leading" then { destructive } else nil,
 						trailing = if edge == "trailing" then { destructive } else nil,
 					})
-				end, { reducedMotion = false })
+				end, { motionLevel = "normal" })
 				local row = world.node
 				row.AbsoluteSize = V2(world, 300, 44)
 				frames(world, 1)

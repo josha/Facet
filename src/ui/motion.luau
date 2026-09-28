@@ -3,8 +3,21 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
 type Acquire = () -> ComposeTypes.Cell<boolean>
+export type Level = Shared.MotionLevel
 
-return function(ctx: Shared.Context): (ComposeTypes.Use?) -> boolean
+local LEVELS = { normal = true, limited = true, none = true }
+
+local function resolve(chosen: unknown, engineReduced: boolean): Level
+	if chosen == nil then
+		return if engineReduced then "limited" else "normal"
+	end
+	if type(chosen) ~= "string" or not LEVELS[chosen :: string] then
+		error(`Facet motionLevel must be "normal", "limited" or "none", got {tostring(chosen)}`, 0)
+	end
+	return chosen :: Level
+end
+
+local function level(ctx: Shared.Context): (ComposeTypes.Use?) -> Level
 	local config = ctx.config
 	local gui = config.guiService
 	local native: ComposeTypes.Cell<boolean>? = nil
@@ -16,13 +29,20 @@ return function(ctx: Shared.Context): (ComposeTypes.Use?) -> boolean
 		ctx.reducedMotion = acquire
 		native = acquire()
 	end
-	return function(use: ComposeTypes.Use?): boolean
-		if ctx.read(config.reducedMotion, use) == true then
-			return true
+	return function(use: ComposeTypes.Use?): Level
+		local chosen = ctx.read(config.motionLevel, use)
+		if chosen ~= nil then
+			return resolve(chosen, false)
 		end
-		if native == nil then
-			return false
-		end
-		return (if use then use(native) else native:peek()) == true
+		return resolve(nil, native ~= nil and (if use then use(native) else native:peek()) == true)
 	end
 end
+
+local function reduced(ctx: Shared.Context): (ComposeTypes.Use?) -> boolean
+	local current = level(ctx)
+	return function(use: ComposeTypes.Use?): boolean
+		return current(use) ~= "normal"
+	end
+end
+
+return { level = level, reduced = reduced, resolve = resolve }

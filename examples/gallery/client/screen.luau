@@ -115,12 +115,15 @@ function screen.configure(ctx)
 			connection:Disconnect()
 		end)
 	end
-	ctx.reducedMotion = Compose.formula(function(use)
-		return use(nativeReduced) or use(ctx.motionPreference) == true
+	ctx.motionLevel = Compose.formula(function(use)
+		return use(ctx.motionPreference) or (if use(nativeReduced) then "limited" else "normal")
 	end)
-	ctx.motionMode = Compose.cell("full")
+	ctx.reducedMotion = Compose.formula(function(use)
+		return use(ctx.motionLevel) ~= "normal"
+	end)
+	ctx.motionMode = Compose.cell("device")
 	Compose.watch(function(use)
-		ctx.motionMode:set(if use(ctx.reducedMotion) then "reduced" else "full")
+		ctx.motionMode:set(use(ctx.motionPreference) or "device")
 	end)
 end
 
@@ -315,7 +318,7 @@ function screen.build(ctx: any)
 		Gamepad = "Gamepad",
 		resetAll = "Reset everything to Automatic",
 		previewNote = "Phone and tablet layouts fit within this window. Automatic input follows the preview device, or your current device in Automatic preview.",
-		motionNote = "Reduced removes decorative travel. Informational motion keeps running, in 250 ms steps.",
+		motionNote = "Limited fades instead of moving. None snaps. Device follows the Reduce Motion setting. Informational motion keeps running, in 250 ms steps.",
 	}
 	local function options(values)
 		local list = {}
@@ -412,10 +415,14 @@ function screen.build(ctx: any)
 					label = "Motion",
 					style = "segmented",
 					selected = ctx.motionMode,
-					options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
+					options = {
+						{ value = "device", label = "Device" },
+						{ value = "normal", label = "Normal" },
+						{ value = "limited", label = "Limited" },
+						{ value = "none", label = "None" },
+					},
 					onChange = function(value)
-						ctx.motionPreference:set(value == "reduced")
-						ctx.motionMode:set(if ctx.reducedMotion:peek() then "reduced" else "full")
+						ctx.motionPreference:set(if value == "device" then nil else value)
 					end,
 				},
 				note("MotionNote", COPY.motionNote),

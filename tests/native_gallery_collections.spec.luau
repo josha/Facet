@@ -46,7 +46,7 @@ local function mount(name, size)
 			guiService = guiService,
 			services = { GuiService = guiService, UserInputService = inputService },
 			inputParent = target,
-			reducedMotion = true,
+			motionLevel = "none",
 		}),
 	}
 	local built

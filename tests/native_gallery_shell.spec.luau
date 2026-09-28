@@ -81,7 +81,9 @@ local function fixture(build)
 			inputParent = target,
 			services = { GuiService = gui, UserInputService = input },
 			theme = ctx.theme,
-			reducedMotion = ctx.reducedMotion,
+			motionLevel = Compose.formula(function(use)
+				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+			end),
 			environment = ctx.environment,
 		})
 		return ctx.Host.ScreenGui "GalleryTest" { build(ctx) }
@@ -388,14 +390,17 @@ t.describe("native gallery shell parity", function()
 			return context.Host.Frame "MotionTest" {}
 		end)
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
-		ctx.motionPreference:set(true)
+		ctx.motionPreference:set("none")
 		t.expect(ctx.reducedMotion:peek()).toBe(true)
+		t.expect(ctx.motionLevel:peek()).toBe("none")
 		ctx.motionPreference:set(nil)
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		ctx.guiService.ReducedMotionEnabled = true
 		t.expect(ctx.reducedMotion:peek()).toBe(true)
-		ctx.motionPreference:set(false)
-		t.expect(ctx.reducedMotion:peek()).toBe(true)
+		t.expect(ctx.motionLevel:peek()).toBe("limited")
+		ctx.motionPreference:set("normal")
+		t.expect(ctx.reducedMotion:peek()).toBe(false)
+		ctx.motionPreference:set(nil)
 		ctx.guiService.ReducedMotionEnabled = false
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		stop()

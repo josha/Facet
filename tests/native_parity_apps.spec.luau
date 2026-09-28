@@ -1864,7 +1864,9 @@ t.describe("native parity reference applications", function()
 						types = engine.types,
 						viewport = ctx.viewport,
 						guiService = ctx.guiService,
-						reducedMotion = ctx.reducedMotion,
+						motionLevel = Compose.formula(function(use)
+							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						end),
 					} :: any
 				)
 				built = (require :: any)("../examples/gallery/" .. path .. name).build(ctx)
@@ -2175,7 +2177,9 @@ t.describe("native parity reference applications", function()
 						inputParent = target,
 						services = { GuiService = gui, UserInputService = input },
 						theme = ctx.theme,
-						reducedMotion = ctx.reducedMotion,
+						motionLevel = Compose.formula(function(use)
+							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						end),
 					} :: any
 				)
 				return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }
@@ -2296,17 +2300,17 @@ t.describe("native parity reference applications", function()
 			press(root, "Showcase")
 			press(assert(find(root, "Section")), "settings")
 			local motion = assert(find(root, "Motion"))
-			press(motion, "reduced")
+			press(motion, "limited")
 			t.expect(ctx.reducedMotion:peek()).toBe(true)
-			t.expect(ctx.motionMode:peek()).toBe("reduced")
-			t.expect(find(motion, "reduced"):GetAttribute("selected")).toBe(true)
+			t.expect(ctx.motionMode:peek()).toBe("limited")
+			t.expect(find(motion, "limited"):GetAttribute("selected")).toBe(true)
 			gallery.dispatch(ctx, "show", "second")
 			t.expect(ctx.active:peek()).toBe("second")
 			t.expect(ctx.reducedMotion:peek()).toBe(true)
 			t.expect(pages.second.reducedMotion:peek()).toBe(true)
-			t.expect(ctx.motionMode:peek()).toBe("reduced")
-			t.expect(find(motion, "reduced"):GetAttribute("selected")).toBe(true)
-			press(motion, "full")
+			t.expect(ctx.motionMode:peek()).toBe("limited")
+			t.expect(find(motion, "limited"):GetAttribute("selected")).toBe(true)
+			press(motion, "normal")
 			t.expect(ctx.reducedMotion:peek()).toBe(false)
 			t.expect(pages.second.reducedMotion:peek()).toBe(false)
 			stop()
@@ -2440,7 +2444,9 @@ t.describe("native parity reference applications", function()
 						viewport = ctx.viewport,
 						guiService = gui,
 						services = { GuiService = gui, UserInputService = input },
-						reducedMotion = ctx.reducedMotion,
+						motionLevel = Compose.formula(function(use)
+							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						end),
 					} :: any
 				)
 				built = (require :: any)("../examples/gallery/scenarios/" .. name).build(ctx)
@@ -3079,7 +3085,7 @@ t.describe("native parity reference applications", function()
 				guiService = gui,
 				services = { GuiService = gui, UserInputService = input },
 				inputParent = target,
-				reducedMotion = true,
+				motionLevel = "none",
 			}
 			if extra then
 				for key, value in extra do

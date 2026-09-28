@@ -48,7 +48,7 @@ local function labelled(spec: { [string]: any }, options: { [string]: any }?): a
 	end
 	return worlds.new(function(UI, Host)
 		return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(fields) })
-	end, options or { reducedMotion = true })
+	end, options or { motionLevel = "none" })
 end
 
 local function panelOf(world: any): any
@@ -118,7 +118,7 @@ t.describe("native menu parity with main", function()
 				items = items(2, ran),
 			})
 			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), returned })
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		t.expect(returned).toBe(authored)
 		t.expect(authored.Parent.Name).toBe("S")
 		t.expect(authored.Name).toBe("Opener")
@@ -133,7 +133,7 @@ t.describe("native menu parity with main", function()
 			return Host.Frame({
 				UI.Menu "Actions" { trigger = UI.Button "Opener" { label = "More" }, items = items(1) },
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		t.expect(named.find("Actions").ClassName).toBe("TextButton")
 		t.expect(named.find("Opener")).toBeNil()
 		named.stop()
@@ -156,7 +156,7 @@ t.describe("native menu parity with main", function()
 					},
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		world.find("Opener").Activated.fire()
 		local panel = panelOf(world)
 		for _, id in { "plain", "deeper" } do
@@ -180,7 +180,7 @@ t.describe("native menu parity with main", function()
 						items = { { id = "one", label = "One", onSelect = function() end } },
 					},
 				})
-			end, { reducedMotion = true })
+			end, { motionLevel = "none" })
 			world.find("Opener").Activated.fire()
 			local catcher = world.find("DismissOutside")
 			t.expect(`{case[1]}: {catcher.BackgroundTransparency < 1}`).toBe(`{case[1]}: {case[2]}`)
@@ -345,7 +345,7 @@ t.describe("native menu parity with main", function()
 
 	t.it("insets an open ancestor level by the current theme's space.xs, following a theme swap", function()
 		local theme = Compose.cell(themes.neutralPackage())
-		local world = labelled({ presentation = "menu", items = NESTED }, { reducedMotion = true, theme = theme })
+		local world = labelled({ presentation = "menu", items = NESTED }, { motionLevel = "none", theme = theme })
 		local panel = open(world)
 		world.find("adjust", panel).Activated.fire()
 		local parent = world.find("AncestorMenu", world.screen.Parent)
@@ -781,7 +781,10 @@ t.describe("native menu parity with main", function()
 
 	for _, reduced in { false, true } do
 		t.it(`slides sheet submenus forward on entry and backward on Back; reduced={reduced}`, function()
-			local world = labelled({ presentation = "sheet", items = NESTED }, { reducedMotion = reduced })
+			local world = labelled(
+				{ presentation = "sheet", items = NESTED },
+				{ motionLevel = if reduced then "none" else "normal" }
+			)
 			local panel = open(world)
 			lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(776, 200))
 			for _ = 1, 30 do

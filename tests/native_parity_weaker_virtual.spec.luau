@@ -21,7 +21,7 @@ local function setup(options: any?): (any, any, any, any, any)
 		guiService = gui,
 		services = { GuiService = gui },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 		theme = settings.theme,
 	}
 	local UI: any = Facet.controls(runtime, config)
@@ -181,7 +181,7 @@ local function gallery(name: string): (any, any, () -> (), any)
 				guiService = guiService,
 				services = { GuiService = guiService },
 				inputParent = target,
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any
 		),
 	}

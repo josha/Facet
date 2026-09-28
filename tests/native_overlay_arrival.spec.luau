@@ -39,7 +39,7 @@ local function world(build: (any) -> any)
 		{
 			types = engine.types,
 			guiService = gui,
-			reducedMotion = true,
+			motionLevel = "none",
 			services = { GuiService = gui, RunService = frames },
 		} :: any
 	)
@@ -125,7 +125,7 @@ t.describe("presented surfaces arrive styled", function()
 				{
 					types = engine.types,
 					guiService = gui,
-					reducedMotion = true,
+					motionLevel = "none",
 					services = { GuiService = gui, RunService = frames },
 				} :: any
 			)

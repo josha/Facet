@@ -95,7 +95,9 @@ t.describe("native themes and media", function()
 			return themes.createStyleSheet(runtime, package, {
 				types = engine.types,
 				theme = selection,
-				reducedMotion = reduced,
+				motionLevel = Compose.formula(function(use)
+					return if use(reduced) then "none" else "normal"
+				end),
 				transition = explicit,
 			})
 		end, engine.new("Folder"))
@@ -412,7 +414,12 @@ t.describe("native themes and media", function()
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
 		local reduced = Compose.cell(false)
-		local UI = media(context(Compose, runtime, { types = engine.types, reducedMotion = reduced }))
+		local UI = media(context(Compose, runtime, {
+			types = engine.types,
+			motionLevel = Compose.formula(function(use)
+				return if use(reduced) then "none" else "normal"
+			end),
+		}))
 		local first, one = runtime.mount(function()
 			return UI.Skeleton({ form = "line", lines = 3 })
 		end, engine.new("Folder"))
@@ -445,7 +452,7 @@ t.describe("native themes and media", function()
 	t.it("keeps indeterminate progress stepping and trails determinate decreases", function()
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
-		local UI = media(context(Compose, runtime, { types = engine.types, reducedMotion = true }))
+		local UI = media(context(Compose, runtime, { types = engine.types, motionLevel = "none" }))
 		local value, bar, busy = Compose.cell(0.8), nil, nil
 		local stop = runtime.mount(function()
 			bar = UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.4 } })
@@ -1176,7 +1183,12 @@ t.describe("native themes and media", function()
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
 		local reduced, value = Compose.cell(false), Compose.cell(1)
-		local UI = media(context(Compose, runtime, { types = engine.types, reducedMotion = reduced }))
+		local UI = media(context(Compose, runtime, {
+			types = engine.types,
+			motionLevel = Compose.formula(function(use)
+				return if use(reduced) then "none" else "normal"
+			end),
+		}))
 		local stop, meter = runtime.mount(function()
 			return UI.ProgressView({ value = value, trail = { delay = 0.2, duration = 0.3 } })
 		end, engine.new("Folder"))
@@ -1338,7 +1350,13 @@ t.describe("native themes and media", function()
 		local engine = engineLib.new()
 		local runtime = Roblox.createRuntime(engine)
 		local reduced, package = Compose.cell(false), Compose.cell(themes.neutralPackage())
-		local UI = media(context(Compose, runtime, { types = engine.types, theme = package, reducedMotion = reduced }))
+		local UI = media(context(Compose, runtime, {
+			types = engine.types,
+			theme = package,
+			motionLevel = Compose.formula(function(use)
+				return if use(reduced) then "none" else "normal"
+			end),
+		}))
 		local sheet, meter
 		local stop = runtime.mount(function()
 			sheet = themes.createStyleSheet(runtime, package, { types = engine.types })

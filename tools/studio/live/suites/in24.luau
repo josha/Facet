@@ -1233,7 +1233,7 @@ add("feedback-motion-is-paint-only", { "mech2-70" }, function(t)
 				end,
 			},
 		}
-	end, { frames = 20, reducedMotion = false })
+	end, { frames = 20, motionLevel = "normal" })
 	local above, pop, middle, field, lower, group =
 		t.find(stage, "Above"),
 		t.find(stage, "Pop"),
@@ -1328,7 +1328,7 @@ add("radial-lift-is-paint-only", { "mech2-70" }, function(t)
 			table.insert(items, { id = id, slot = id, label = id, completion = "stay", onSelect = function() end })
 		end
 		return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
-	end, { size = Vector2.new(800, 600), frames = 60, reducedMotion = false })
+	end, { size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local panel = visibleNamed(t, gui, "RadialPanel")
 	t.check("the ring presents", panel ~= nil)
@@ -1634,7 +1634,7 @@ add("stack-pop-retires-until-motion-ends", { "apps-260" }, function(t)
 				},
 			},
 		}
-	end, { size = Vector2.new(900, 600), frames = 20, reducedMotion = false })
+	end, { size = Vector2.new(900, 600), frames = 20, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	io.click(centre(visibleNamed(t, gui, "Next")))
 	t.settle(60)

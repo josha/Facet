@@ -7,6 +7,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local release = require("./sheet_release")
 local settle = require("./settle")
+local reducedMotion = require("./motion").reduced
 local freeze = require("./freeze")
 
 type Controls = {
@@ -176,14 +177,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local edge = spec.edge or "right"
 		local gui = surfaces.service("GuiService")
 		local input = surfaces.service("UserInputService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
 		local preferred: ComposeTypes.Readable<Enum.PreferredInput>? = if input
 				and input.GetPropertyChangedSignal
 			then ctx.observe.PreferredInput(input)
 			else nil
-		local function reduce(use: ComposeTypes.Use?): boolean
-			return read(ctx.config.reducedMotion, use) == true or read(reduced, use) == true
-		end
+		local reduce = reducedMotion(ctx)
 		local keyboard: (ComposeTypes.Use) -> number = function()
 			return 0
 		end

@@ -1,7 +1,7 @@
 --!strict
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local settling = require("./settle")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")

@@ -65,11 +65,11 @@ colors on screen. Layout and typography changes apply immediately.
 
 ```luau
 local selectedPalette = Compose.cell("dark")
-local reducedMotion = Compose.cell(false)
+local motionLevel = Compose.cell("normal")
 local sheet = Facet.themes.createStyleSheet(runtime, package, {
     theme = selectedPalette,
     transition = TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    reducedMotion = reducedMotion,
+    motionLevel = motionLevel,
 })
 return Host.ScreenGui {
     sheet,

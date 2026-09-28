@@ -809,7 +809,7 @@ t.describe("native parity weaker focus", function()
 		local opened = Compose.cell(false)
 		local world = setup(function(UI)
 			return UI.RadialMenu({ isPresented = opened, holdAction = hold, items = items })
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		hold.Pressed.fire()
 		t.expect(opened:peek()).toBe(true)
 		local axis = action(world.screen, "RadialAim")
@@ -1321,7 +1321,7 @@ t.describe("native parity weaker focus", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local stop, avatar = runtime.mount(views.Avatar, target)
 			local summary = find(find(avatar, "SummaryActions"), "Summary")
@@ -1369,7 +1369,7 @@ t.describe("native parity weaker focus", function()
 			end
 			local world = setup(function(UI, Host)
 				return Host.Frame({ wheel(UI, a), wheel(UI, b) })
-			end, { reducedMotion = true })
+			end, { motionLevel = "none" })
 			world.gui.GuiNavigationEnabled = true
 			a:set(true)
 			t.expect(world.gui.GuiNavigationEnabled).toBe(false)
@@ -1420,7 +1420,7 @@ t.describe("native parity weaker focus", function()
 					item("West"),
 				},
 			})
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		world.gui.GuiNavigationEnabled = true
 		hold.Pressed.fire()
 
@@ -1517,7 +1517,7 @@ t.describe("native parity weaker focus", function()
 						}
 						else { recorder("Pin") },
 				})
-			end, { reducedMotion = true })
+			end, { motionLevel = "none" })
 			world.gui.SelectedObject = find(world.screen, "Action")
 			local deletes = contexts(world.screen, "RowActionsDelete")
 			t.expect(#deletes).toBe(1)

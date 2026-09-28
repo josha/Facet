@@ -269,7 +269,7 @@ export type ThemeOptions = {
 	types: Engine.RobloxTypes?,
 	name: string?,
 	theme: Engine.ValueString?,
-	reducedMotion: Engine.ValueBoolean?,
+	motionLevel: Engine.Value<"normal" | "limited" | "none">?,
 	preferredTransparency: Engine.ValueNumber?,
 	hover: Engine.ValueBoolean?,
 	tenFoot: Engine.ValueBoolean?,

@@ -149,7 +149,9 @@ local function mountExample(name: string, folder: string?): (World, any)
 				types = engine.types,
 				viewport = ctx.viewport,
 				guiService = gui,
-				reducedMotion = ctx.reducedMotion,
+				motionLevel = Compose.formula(function(use)
+					return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+				end),
 				inputParent = parent,
 				services = { GuiService = gui, UserInputService = input },
 			} :: any

@@ -70,7 +70,7 @@ local function setup(build: (any, any, any, any, any) -> any, options: { [string
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
 		overlayParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in settings.config or {} do
 		config[key] = value
@@ -202,7 +202,13 @@ t.describe("pointer, touch and drag strength", function()
 				gallery.configure(ctx)
 				ctx.UI = Facet.controls(
 					runtime,
-					{ types = engine.types, viewport = viewport, reducedMotion = ctx.reducedMotion } :: any
+					{
+						types = engine.types,
+						viewport = viewport,
+						motionLevel = Compose.formula(function(use)
+							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						end),
+					} :: any
 				)
 				game = match3.build(ctx)
 				return ctx.Host.ScreenGui("GameScreen")({ game.screen() })
@@ -1112,7 +1118,7 @@ t.describe("adaptive environment strength", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local stop, discover: any = runtime.mount(views.Discover, target)
 			discover.AbsoluteSize = engine.types.Vector2.new(920, 690)
@@ -1533,7 +1539,7 @@ t.describe("adaptive environment strength", function()
 				explicit = Facet.themes.createStyleSheet(
 					runtime,
 					Facet.themes.neutralPackage(),
-					{ types = engine.types, preferredTransparency = 1, reducedMotion = false }
+					{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" }
 				)
 				return runtime.constructors.Folder({ explicit })
 			end, engine.new("Folder"))

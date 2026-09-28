@@ -38,7 +38,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in o do
 		if key ~= "preferred" then

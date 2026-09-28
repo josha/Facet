@@ -515,7 +515,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 				Host.Frame(list),
 			}
 		return host
-	end, { size = Vector2.new(900, 400), theme = entry.package, reducedMotion = false, frames = 30 })
+	end, { size = Vector2.new(900, 400), theme = entry.package, motionLevel = "normal", frames = 30 })
 	local where = `{entry.name} {edge} scroll={scroll}`
 	local row = t.find(stage, "Row")
 	local nextFrame = t.find(stage, "Next")
@@ -623,7 +623,7 @@ add("plate-decoration-stays-inside-the-band", { "collections-98" }, function(t)
 					{ id = "delete", label = "Delete", role = "destructive" },
 				},
 			}
-		end, { size = Vector2.new(700, 300), theme = entry.package, reducedMotion = false, frames = 20 })
+		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
 		local row = t.find(stage, "Row")
 		local tray = row:FindFirstChild("trailing")
 		local worst, narrowest, sampled, overhang = 0, math.huge, 0, 0

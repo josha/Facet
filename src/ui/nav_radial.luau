@@ -1,6 +1,6 @@
 --!strict
 local layoutKit = require("./layout_kit")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local geometry = require("./nav_radial_geometry")
 local adaptive = require("./adaptive")
 local Types = require("./types")

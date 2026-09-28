@@ -62,7 +62,7 @@ local function sheetOf(package: any): (any, () -> ())
 		return themes.createStyleSheet(
 			runtime,
 			package,
-			{ types = engine.types, preferredTransparency = 1, reducedMotion = false } :: any
+			{ types = engine.types, preferredTransparency = 1, motionLevel = "normal" } :: any
 		)
 	end, engine.new("Folder"))
 	return sheet, function()

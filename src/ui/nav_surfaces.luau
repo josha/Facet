@@ -6,7 +6,7 @@ local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 
 type Controls = {
 	DisclosureGroup: Types.Constructor<Nav.DisclosureGroupSpec, Frame>,
@@ -491,11 +491,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				)
 			end
 		end
-		local gui = surfaces.service("GuiService")
-		local reduced = if gui then ctx.observe.ReducedMotionEnabled(gui) else Compose.cell(false)
-		local function reduce(use: ComposeTypes.Use?): boolean
-			return read(reduced, use) or read(ctx.config.reducedMotion, use) == true
-		end
+		local reduce = reducedMotion(ctx)
 		local condition = presented(spec)
 		local lastItem: P? = nil
 		local generation = 0

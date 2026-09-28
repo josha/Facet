@@ -3,7 +3,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
-local reducedMotion = require("./motion")
+local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
 
 type Declared = {

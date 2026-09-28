@@ -43,7 +43,7 @@ local function setup(build: (any, any, any, any) -> any, prepare: ((any, any) ->
 			userInputService = input,
 			services = { GuiService = gui, UserInputService = input },
 			inputParent = root,
-			reducedMotion = true,
+			motionLevel = "none",
 		} :: any
 	)
 	local Host = runtime.constructors

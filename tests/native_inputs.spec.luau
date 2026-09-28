@@ -764,7 +764,11 @@ t.describe("native input controls", function()
 		local node, stop, engine = world(function(UI)
 			return UI.Button({ label = "Pop", pop = true, onActivate = function() end })
 		end, function()
-			return { reducedMotion = reduced }
+			return {
+				motionLevel = Compose.formula(function(use)
+					return if use(reduced) then "none" else "normal"
+				end),
+			}
 		end)
 		local scale = find(node, "Pop")
 		t.expect(scale.Scale).toBe(1)
@@ -1270,7 +1274,11 @@ t.describe("native input controls", function()
 		local node, stop, engine = world(function(UI)
 			return UI.TextInput({ value = value, numericValue = number, presentation = "number", min = 1, max = 10 })
 		end, function()
-			return { reducedMotion = reduced }
+			return {
+				motionLevel = Compose.formula(function(use)
+					return if use(reduced) then "none" else "normal"
+				end),
+			}
 		end)
 		node.TextBounds = engine.types.Vector2.new(20, 20)
 		local label = find(node, "ValidationMessage")

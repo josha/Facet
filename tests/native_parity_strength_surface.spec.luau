@@ -32,7 +32,7 @@ local function world(options: { [string]: any }?): (any, any, any, any)
 		return nil
 	end
 	local config: { [string]: any } =
-		{ types = engine.types, reducedMotion = true, services = { GuiService = gui, UserInputService = input } }
+		{ types = engine.types, motionLevel = "none", services = { GuiService = gui, UserInputService = input } }
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
 	end
@@ -1251,7 +1251,9 @@ t.describe("contained failures", function()
 						inputParent = target,
 						services = { GuiService = gui, UserInputService = input },
 						theme = ctx.theme,
-						reducedMotion = ctx.reducedMotion,
+						motionLevel = Compose.formula(function(use)
+							return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+						end),
 					} :: any
 				)
 				return ctx.Host.ScreenGui "GalleryTest" { gallery.build(ctx) }

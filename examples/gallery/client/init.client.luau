@@ -81,12 +81,12 @@ local owner = Compose.createRootOwner(function()
 	context.UI = Facet.controls(runtime, {
 		viewport = viewport,
 		theme = theme,
-		reducedMotion = context.reducedMotion,
+		motionLevel = context.motionPreference,
 		environment = context.environment,
 	})
 	local sheet = Facet.themes.createStyleSheet(runtime, theme, {
 		theme = selectedTheme,
-		reducedMotion = context.reducedMotion,
+		motionLevel = context.motionPreference,
 		hover = context.hoverPreview,
 		tenFoot = context.UI.environment().isTenFoot,
 	})

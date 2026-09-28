@@ -66,7 +66,13 @@ local function monitors(t: any, size: Vector2, app: string, options: { [string]:
 		local model = modelModule.new(Compose)
 		Compose.cleanup(model.dispose)
 		value.model = model
-		local actions = { model = model, spatial = false, theme = package, reducedMotion = Compose.cell(true) }
+		local actions = {
+			model = model,
+			spatial = false,
+			theme = package,
+			reducedMotion = Compose.cell(true),
+			motionLevel = "none",
+		}
 		local views = screens.create(t.Facet, env.runtime, actions)
 		if app == "Desktop" then
 			value.progress = Compose.cell(config.progress or 1)

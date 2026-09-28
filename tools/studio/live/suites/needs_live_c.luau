@@ -427,7 +427,7 @@ add("radial-retiring-branch-refuses-selection", { "apps2-186" }, function(t)
 				{ id = "Other", label = "Other", completion = "stay" },
 			},
 		})
-	end, { size = Vector2.new(900, 700), reducedMotion = false, frames = 30 })
+	end, { size = Vector2.new(900, 700), motionLevel = "normal", frames = 30 })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local retiring = visibleNamed(t, gui, "Sector-Branch")
 	local button = retiring and retiring:FindFirstChild("Branch", true)

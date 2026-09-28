@@ -61,7 +61,7 @@ local function mount(h: Harness, build: () -> any): (any, () -> ())
 end
 
 local function sheetFor(h: Harness, package: any, options: { [string]: any }?): (any, () -> ())
-	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, reducedMotion = false }
+	local settings: { [string]: any } = { types = h.engine.types, preferredTransparency = 1, motionLevel = "normal" }
 	for key, value in (options or {}) :: { [string]: any } do
 		settings[key] = value
 	end
@@ -958,7 +958,9 @@ t.describe("native parity themes", function()
 					inputParent = target,
 					services = { GuiService = gui, UserInputService = input },
 					theme = ctx.theme,
-					reducedMotion = ctx.reducedMotion,
+					motionLevel = Compose.formula(function(use)
+						return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
+					end),
 				} :: any
 			)
 			Compose.watch(function(use)

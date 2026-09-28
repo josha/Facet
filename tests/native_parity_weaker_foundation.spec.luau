@@ -50,7 +50,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = value
@@ -181,7 +181,7 @@ local function sheetOf(theme: any, preference: number?): (any, () -> ())
 		return themes.createStyleSheet(
 			runtime,
 			theme,
-			{ types = engine.types, preferredTransparency = preference or 1, reducedMotion = true } :: any
+			{ types = engine.types, preferredTransparency = preference or 1, motionLevel = "none" } :: any
 		)
 	end, engine.new("Folder"))
 	return sheet, function()

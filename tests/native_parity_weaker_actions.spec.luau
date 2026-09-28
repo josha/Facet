@@ -33,7 +33,7 @@ local function setup(build: (any, any, any, any) -> any, options: { [string]: an
 		guiService = gui,
 		services = { GuiService = gui, UserInputService = input },
 		inputParent = root,
-		reducedMotion = true,
+		motionLevel = "none",
 	}
 	for key, value in (options or {}) :: { [string]: any } do
 		config[key] = if type(value) == "function" and key ~= "onError" then value(engine) else value
@@ -166,7 +166,7 @@ local function galleryContext(): (any, any, any)
 				guiService = guiService,
 				services = { GuiService = guiService, UserInputService = input },
 				inputParent = target,
-				reducedMotion = true,
+				motionLevel = "none",
 			} :: any
 		),
 	}
@@ -547,7 +547,7 @@ t.describe("native parity weaker actions", function()
 				model = model,
 				types = engine.types,
 				services = { GuiService = gui, UserInputService = input },
-				reducedMotion = true,
+				motionLevel = "none",
 			})
 			local _, discover = runtime.mount(views.Discover, target)
 			find(discover, "DiscoverBody").AbsoluteSize = engine.types.Vector2.new(1000, 800)
@@ -788,7 +788,7 @@ t.describe("native parity weaker actions", function()
 					actions += 1
 				end,
 			}
-		end, { reducedMotion = false })
+		end, { motionLevel = "normal" })
 		local node = find(world.node, "Loading")
 		t.expect(find(node, "Busy") ~= nil).toBe(true)
 		t.expect(find(node, "Dot3") ~= nil).toBe(true)
@@ -1046,7 +1046,7 @@ t.describe("native parity weaker actions", function()
 				Host.UIScale "Authored" { Scale = 0.8 },
 				UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
 			}
-		end, { reducedMotion = false, theme = package })
+		end, { motionLevel = "normal", theme = package })
 		local E = world.engine.types.Enum
 		local node = find(world.node, "Pop")
 		local authored = find(world.node, "Authored")

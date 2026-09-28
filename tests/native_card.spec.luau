@@ -51,7 +51,7 @@ local function mount(
 			UI.Card("C")(spec),
 			UI.Button({ Name = "Next", label = "Next" }),
 		})
-	end, options or { reducedMotion = true })
+	end, options or { motionLevel = "none" })
 	if touch then
 		world.input.TouchEnabled = true
 	end
@@ -169,7 +169,7 @@ local function gridWorld(count: number, twoGrids: boolean?, reduced: boolean?): 
 			table.insert(children, grid("B"))
 		end
 		return Host.Frame({ Name = "Page", table.unpack(children) })
-	end, { reducedMotion = reduced ~= false })
+	end, { motionLevel = if reduced ~= false then "none" else "normal" })
 	for _, name in (if twoGrids then { "A", "B" } else { "A" }) :: { string } do
 		local node = world.find(name)
 		node.AbsoluteWindowSize = world.V2(900, 600)
@@ -246,7 +246,7 @@ t.describe("native Card", function()
 					table.insert(inputs, input or "none")
 				end,
 			}
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local artwork = world.find("Artwork")
 		local live = artwork:FindFirstChild("Preview")
 		t.expect(artwork.Image).toBe("")
@@ -465,7 +465,7 @@ t.describe("native Card", function()
 	end)
 
 	t.it("retargets the fade from where it is on a rapid reversal", function()
-		local world, root = mount(cardSpec({}), { reducedMotion = false })
+		local world, root = mount(cardSpec({}), { motionLevel = "normal" })
 		local reveal = plate(world)
 		local function alpha(): number
 			return 1 - fadeKit.of(reveal)
@@ -541,7 +541,7 @@ t.describe("native Card", function()
 	end)
 
 	t.it("grows a lifted card evenly around its centre", function()
-		local world, root = mount(cardSpec({}), { reducedMotion = false })
+		local world, root = mount(cardSpec({}), { motionLevel = "normal" })
 		root.AbsoluteSize = world.engine.types.Vector2.new(300, 200)
 		t.expect(root.Position).toBe(world.engine.types.UDim2.fromOffset(0, 0))
 		hover(root, true)
@@ -552,7 +552,7 @@ t.describe("native Card", function()
 	end)
 
 	t.it("lifts the card with a raised shadow for hover, selection and a held press and lands it after", function()
-		local world, root = mount(cardSpec({}), { reducedMotion = false })
+		local world, root = mount(cardSpec({}), { motionLevel = "normal" })
 		t.expect(lift(root)).toBe("scale 1 shadow false")
 		hover(root, true)
 		settle(world, 1)
@@ -576,7 +576,7 @@ t.describe("native Card", function()
 	end)
 
 	t.it("does not lift for touch presses or its menu, and lifts again for gamepad selection", function()
-		local world, root, controls = mount(cardSpec({}), { reducedMotion = false }, true)
+		local world, root, controls = mount(cardSpec({}), { motionLevel = "normal" }, true)
 		local Enum = world.engine.types.Enum
 		world.input.PreferredInput = Enum.PreferredInput.Touch
 		local body = world.find("Body")
@@ -606,7 +606,7 @@ t.describe("native Card", function()
 	end)
 
 	t.it("sizes its artwork from the unlifted width, so the lift never changes the layout", function()
-		local world, root = mount(cardSpec({}), { reducedMotion = false })
+		local world, root = mount(cardSpec({}), { motionLevel = "normal" })
 		world.resize(root, 300, 262)
 		local artwork = world.find("Artwork")
 		local resting = artwork.Size
@@ -621,7 +621,7 @@ t.describe("native Card", function()
 	t.it("lifts a card with no body action without a shadow", function()
 		local spec = cardSpec({})
 		spec.onActivate = nil
-		local world, root = mount(spec, { reducedMotion = false })
+		local world, root = mount(spec, { motionLevel = "normal" })
 		hover(root, true)
 		settle(world, 1)
 		t.expect(lift(root)).toBe("scale 1.04 shadow false")
@@ -629,7 +629,7 @@ t.describe("native Card", function()
 	end)
 
 	t.it("keeps only the raised shadow under reduced motion", function()
-		local world, root = mount(cardSpec({}), { reducedMotion = true })
+		local world, root = mount(cardSpec({}), { motionLevel = "none" })
 		hover(root, true)
 		settle(world, 1)
 		t.expect(lift(root)).toBe("scale 1 shadow true")
@@ -746,7 +746,7 @@ t.describe("native Card", function()
 				viewport = Compose.cell({ width = 1280, height = 720 }),
 			})
 			return built.screen()
-		end, { reducedMotion = true })
+		end, { motionLevel = "none" })
 		local grid = world.find("Games")
 		grid.AbsoluteWindowSize = world.V2(1248, 640)
 		local columns, crossGap, gap =
