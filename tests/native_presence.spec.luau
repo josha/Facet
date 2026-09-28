@@ -46,6 +46,45 @@ t.describe("presence: opacity leads travel", function()
 	end)
 end)
 
+t.describe("presence: the fades take their share of the time, not of the eased travel", function()
+	t.it("a dialog fades in over several frames and is opaque while it still scales", function()
+		local shown = Compose.cell(true)
+		local w = dialog(shown)
+		local panel = w.find("Panel")
+		local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+		local partial, elapsed = 0, 0
+		while fadeKit.of(panel) > 0 and elapsed < 1 do
+			w.advance(1 / 120)
+			elapsed += 1 / 120
+			if fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1 then
+				partial += 1
+			end
+		end
+		t.expect(partial >= 10).toBe(true)
+		t.expect(scale.Scale < 1).toBe(true)
+		w.stop()
+	end)
+
+	t.it("a dialog fades out over several frames, not the first eased step", function()
+		local shown = Compose.cell(true)
+		local w = dialog(shown)
+		local panel = w.find("Panel")
+		w.advance(0.3, 18)
+		shown:set(false)
+		local partial, elapsed = 0, 0
+		while panel.Parent and fadeKit.of(panel) < 1 and elapsed < 1 do
+			w.advance(1 / 120)
+			elapsed += 1 / 120
+			if fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1 then
+				partial += 1
+			end
+		end
+		t.expect(partial >= 6).toBe(true)
+		t.expect(elapsed >= 0.06 and elapsed <= 0.09).toBe(true)
+		w.stop()
+	end)
+end)
+
 t.describe("presence: motion level limited cross-fades", function()
 	t.it("under limited a dialog never scales and fades in and out over motion.reducedFade", function()
 		local shown = Compose.cell(true)

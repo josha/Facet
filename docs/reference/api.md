@@ -305,9 +305,9 @@ easing, spring, scale and distance below is a token in the theme package's
   on a faded node returns `FadeStroke`.
 - A presentation's fade leads its travel. An Alert, Dialog, Popover, Menu,
   Callout, Button `help` plate and Sheet (its scrim) is fully opaque once 60
-  percent of its entrance travel has run (`presentFadeIn`) and fully clear
-  once half of its exit travel has run (`presentFadeOut`); the scale, slide or
-  rise runs its whole time. The scrim and a tail fade with the panel.
+  percent of its entrance time has run (`presentFadeIn`) and fully clear once
+  half of its exit time has run (`presentFadeOut`); the scale, slide or rise
+  runs its whole time. The scrim and a tail fade with the panel.
 - An Alert, a Popover, a Menu (and each Menu level), a Callout and a Button `help` plate measure themselves
   at rest before the entrance: each waits, invisible and at scale 1, until its
   size holds for one frame, at most the theme's `motion.restLimit` (0.25

@@ -166,9 +166,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 			if level(use) ~= "normal" then
 				return p
 			end
-			return if ctx.read(exiting, use)
-				then math.clamp((p - 1 + fadeOut) / fadeOut, 0, 1)
-				else math.clamp(p / fadeIn, 0, 1)
+			if ctx.read(exiting, use) then
+				local cleared = 1 - present(fadeOut)
+				return math.clamp((p - cleared) / math.max(1 - cleared, 1e-3), 0, 1)
+			end
+			return math.clamp(p / math.max(present(fadeIn), 1e-3), 0, 1)
 		end
 		return { opacity = opacity, travel = travel }
 	end
