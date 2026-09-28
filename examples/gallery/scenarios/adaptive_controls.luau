@@ -227,14 +227,20 @@ return {
 			return Host.Frame "AdaptiveScreen" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
+				Host.UIListLayout({
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					HorizontalAlignment = Enum.HorizontalAlignment.Center,
+					Padding = UDim.new(0, 16),
+				}),
 				UI.ScrollView "BodyScroll" {
+					LayoutOrder = 1,
 					padding = 16,
-					Size = UDim2.new(1, 0, 1, -60),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					ScrollBarThickness = 4,
 					ScrollBarImageTransparency = 0.4,
 					VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+					UI.fill(),
 					Host.Frame "Body" {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -539,19 +545,21 @@ return {
 					},
 				},
 				Host.Frame "Actions" {
-					AnchorPoint = Vector2.new(0.5, 1),
-					Position = UDim2.fromScale(0.5, 1),
-					Size = UDim2.new(1, 0, 0, 44),
+					LayoutOrder = 2,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UISizeConstraint({ MaxSize = Vector2.new(620, 44) }),
-					Host.UIGridLayout({
+					Host.UISizeConstraint({ MaxSize = Vector2.new(620, math.huge) }),
+					Host.UIListLayout({
 						SortOrder = Enum.SortOrder.LayoutOrder,
-						CellSize = UDim2.new(1 / 3, -6, 1, 0),
-						CellPadding = UDim2.fromOffset(8, 0),
+						FillDirection = Enum.FillDirection.Horizontal,
+						Padding = UDim.new(0, 8),
 					}),
 					UI.Button({
 						LayoutOrder = 1,
 						Name = "Save",
+						Size = UDim2.new(1 / 3, -6, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						label = "Save changes",
 						compactLabel = "Save",
 						onActivate = function()
@@ -561,6 +569,8 @@ return {
 					UI.Button({
 						LayoutOrder = 2,
 						Name = "Reset",
+						Size = UDim2.new(1 / 3, -6, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						label = "Reset to defaults",
 						compactLabel = "Reset",
 						role = "cancel",
@@ -569,6 +579,8 @@ return {
 					UI.Button({
 						LayoutOrder = 3,
 						Name = "Delete",
+						Size = UDim2.new(1 / 3, -6, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						label = "Delete profile",
 						compactLabel = "Delete",
 						role = "destructive",
