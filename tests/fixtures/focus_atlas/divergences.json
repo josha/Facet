@@ -349,7 +349,7 @@
   "key": "reach",
   "engine": "none",
   "query": "none",
-  "reason": "OPEN: side-by-side value controls (D2) leave this stop without a D-pad path"
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
  },
  {
   "page": "all-controls/indicators/levels",
@@ -373,7 +373,7 @@
   "key": "reach",
   "engine": "none",
   "query": "none",
-  "reason": "OPEN: side-by-side value controls (D2) leave this stop without a D-pad path"
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
  },
  {
   "page": "all-controls/indicators/levels",
@@ -389,7 +389,7 @@
   "key": "reach",
   "engine": "none",
   "query": "none",
-  "reason": "OPEN: side-by-side value controls (D2) leave this stop without a D-pad path"
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
  },
  {
   "page": "all-controls/indicators/levels",
@@ -397,7 +397,7 @@
   "key": "reach",
   "engine": "none",
   "query": "none",
-  "reason": "OPEN: side-by-side value controls (D2) leave this stop without a D-pad path"
+  "reason": "OPEN: the atlas predates the D2 limit pass-over (9718d020); the live check reached this stop; re-walk owed"
  },
  {
   "page": "all-controls/indicators/progress",
@@ -461,7 +461,7 @@
   "key": "DPadLeft",
   "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/Actions/Save",
   "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/basics/AdaptiveScreen/BodyScroll/Body/Settings/Quality/Presentation/Options/fidelity",
-  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained; not E2: the stick agrees with the D-pad"
  },
  {
   "page": "all-controls/inputs/basics",
@@ -733,7 +733,7 @@
   "key": "DPadLeft",
   "engine": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Readout/Head/Format/hsv",
   "query": "Gallery/Demos/Content/all-controls/AllControls/Categories/Content/inputs/inputs/Content/pickers/PickersScreen/Content/Pickers/Fog/Panel/Body/Technique/ShowSliders/Sliders/Brightness",
-  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained; not E2: the stick agrees with the D-pad"
  },
  {
   "page": "all-controls/inputs/pickers",
@@ -2413,7 +2413,7 @@
   "key": "DPadRight",
   "engine": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/rating/Sort",
   "query": "Gallery/Demos/Content/ex02/Playlist/Page/Tracks/Header/artist/Resize",
-  "reason": "OPEN: in the lane, the replayed page state (sort order, scroll offsets) differs from the engine's at the move; not explained"
+  "reason": "E2: the D-pad ranks the wired Sort button first; the stick, which ignores wiring, takes Resize as the query does"
  },
  {
   "page": "ex02",

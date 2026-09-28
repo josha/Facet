@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A ColorPicker's saturation and brightness plane listens for `SelectionGained`, so the engine's D-pad ranks it with buttons instead of after all of them.
 - Tab and Shift+Tab skip scroll containers, except one that is itself a selection stop: an overflowing Dialog body, a Collection or a Pagination root. A plain scroll container around the selected control swallowed the Tab and the walk stopped.
 - `UI.focusQuery` finds a `SelectionGroup` or a scroll container above the control when a Folder sits between them (the engine does).
 - A value control at a limit passes the selection on only for a D-pad, arrow or stick press toward that limit; L1, R1, Comma and Period at the limit keep the selection. The pass follows the game's own `NextSelection*` link from the control when it has one (as `UI.focusQuery` reports), and the stick, like the D-pad, changes nothing while the control is under a non-interactable or hidden ancestor, and only the first gamepad's stick adjusts.

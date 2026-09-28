@@ -839,6 +839,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				},
 			}
 			surface:SetAttribute("AccessibleLabel", "Saturation and brightness")
+			runtime.connect(surface, "SelectionGained", function() end)
 			plane = Host.Frame "Plane" {
 				Size = D2.new(1, 0, 0, 4 * CELL),
 				BackgroundTransparency = 1,

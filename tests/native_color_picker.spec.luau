@@ -742,6 +742,12 @@ t.describe("native ColorPicker spectrum plane", function()
 		w.stop()
 	end)
 
+	t.it("the plane listens for SelectionGained, so the engine's D-pad ranks it with buttons", function()
+		local w = spectrum()
+		expect(w.find("Plane/Surface").SelectionGained.count() > 0).toBe(true)
+		w.stop()
+	end)
+
 	t.it("a gamepad A on the selected plane is not a drag: the colour stays until the stick steers", function()
 		local w, _, commits = spectrum({ preferred = (require("@lune/roblox") :: any).Enum.PreferredInput.Gamepad })
 		local before = w.hsv()

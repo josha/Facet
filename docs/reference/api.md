@@ -428,6 +428,11 @@ these rules:
 - Presentation. A modal presented while a control is selected, or while a
   gamepad is the preferred input, selects its first control. It waits until
   the surface is shown, so it never selects a hidden control.
+- Leaving. A Facet presenter hands the selection back to its anchor or opener
+  as it starts to leave. A game's own panel is not a presenter: when its
+  buttons stop being selectable before it is gone, the engine moves the
+  selection to another control on the page. Set `SelectedObject` yourself
+  first, or present the panel through `UI.responder` or a modal.
 - Tab and Shift+Tab. Tab selects the next control in layout order. In a
   collection that is row order (each row's `LayoutOrder` is its index), even
   after scrolling has recycled the row containers.
