@@ -599,7 +599,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 					end,
 					Host.UIDragDetector({
 						Enabled = function(use: ComposeTypes.Use)
-							return swipeable(use) and not touchFirst(use)
+							return swipeable(use)
+								and not touchFirst(use)
+								and not (preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Gamepad)
 						end,
 						DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 						DragAxis = V2.new(1, 0),

@@ -298,6 +298,24 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		end
 	)
 
+	t.it("a row's swipe detector switches off while the gamepad is the preferred input", function()
+		local w = setup(function(UI, Host)
+			return UI.RowActions({
+				content = Host.TextLabel({ Text = "Row" }),
+				trailing = { { id = "Save", label = "Save", onActivate = function() end } },
+			})
+		end)
+		local detector = w.screen:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+		local E = w.engine.types.Enum
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(detector.Enabled).toBe(true)
+		w.input.PreferredInput = E.PreferredInput.Gamepad
+		t.expect(detector.Enabled).toBe(false)
+		w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+		t.expect(detector.Enabled).toBe(true)
+		w.stop()
+	end)
+
 	t.it("slider drag detectors switch off while the gamepad is the preferred input", function()
 		local w = setup(function(UI, Host)
 			return Host.Frame({
