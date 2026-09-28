@@ -155,6 +155,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		options: Adjust?
 	): ()
 		local adjust: Adjust = options or {}
+		node:AddTag("facet-adjustable")
 		local landing = false
 		local function arrowHeld(): boolean
 			local input = ctx.config.services.UserInputService
@@ -179,12 +180,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		end
 		local guiService = ctx.config.services.GuiService
 		local target = guiService and guiService.SelectedObject
-		local selected = Compose.cell(target ~= nil and (target == node or target:IsDescendantOf(node)))
+		local selected = Compose.cell(target ~= nil and target == node)
 		if guiService then
 			local nativeSelection = ctx.observe.SelectedObject(guiService)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local target = use(nativeSelection)
-				local inside = target ~= nil and (target == node or target:IsDescendantOf(node))
+				local inside = target ~= nil and target == node
 				if selected:peek() and not inside and cancel then
 					cancel()
 				end
@@ -210,11 +211,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		runtime.mountFragment(function()
 			return {
 				Compose.show(active, function()
-					local heldAction: InputAction?
-					local heldArrow = Compose.cell(0)
+					local held: unknown = nil
 					local stopFrame: (() -> ())?
 					local function stopRepeat()
-						heldAction = nil
+						held = nil
 						if stopFrame then
 							stopFrame()
 							stopFrame = nil
@@ -226,67 +226,78 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							stopRepeat()
 						end
 					end)
-					local function bind(
-						name: string,
-						keys: Shared.ActionBindings,
-						source: Shared.Value<boolean>,
-						direction: number,
-						arrow: boolean?
-					)
+					local function peekUse(source: any): any
+						return read(source)
+					end
+					local function movable(direction: number): () -> boolean
+						return function(): boolean
+							if not active(peekUse :: any) then
+								return false
+							end
+							if adjust.arrows then
+								return adjust.arrows(peekUse :: any, direction)
+							end
+							if minimum == nil or maximum == nil then
+								return true
+							end
+							local value = read(spec.value)
+							return if direction < 0 then value > minimum else value < maximum
+						end
+					end
+					local function start(token: unknown, direction: number, holding: () -> boolean)
+						stopRepeat()
+						local can = movable(direction)
+						if not can() then
+							return
+						end
+						apply(direction)
+						held = token
+						if runtime.host.frames and not adjust.once then
+							local timing = (spec :: unknown) :: { repeatDelay: number?, repeatInterval: number? }
+							stopFrame = repeatHeld(
+								runtime.host.frames,
+								timing.repeatDelay or REPEAT_DELAY,
+								timing.repeatInterval or REPEAT_INTERVAL,
+								function(): boolean
+									if held ~= token or not can() or not ctx.available(node) or not holding() then
+										stopRepeat()
+										return false
+									end
+									return true
+								end,
+								function()
+									apply(direction)
+								end
+							)
+						end
+					end
+					local function bind(name: string, keys: Shared.ActionBindings, direction: number, arrow: boolean?)
 						local action: InputAction
-						action = ctx.action(node, name, keys, source, function()
+						action = ctx.action(node, name, keys, active, function()
 							if arrow and landing then
 								return
 							end
-							stopRepeat()
-							if arrow then
-								heldArrow:set(direction)
-							end
-							apply(direction)
-							heldAction = action
 							local probe = (action :: unknown) :: { GetState: ((InputAction) -> unknown)? }
 							local state = probe.GetState
 							local engaged = state ~= nil and state(action) == true
-							if runtime.host.frames and not adjust.once then
-								local timing = (spec :: unknown) :: { repeatDelay: number?, repeatInterval: number? }
-								stopFrame = repeatHeld(
-									runtime.host.frames,
-									timing.repeatDelay or REPEAT_DELAY,
-									timing.repeatInterval or REPEAT_INTERVAL,
-									function(): boolean
-										if
-											not read(source)
-											or not ctx.available(node)
-											or (engaged and state and state(action) ~= true)
-										then
-											stopRepeat()
-											return false
-										end
-										return true
-									end,
-									function()
-										apply(direction)
-									end
-								)
-							end
+							start(action, direction, function(): boolean
+								return not engaged or (state :: (InputAction) -> unknown)(action) == true
+							end)
 						end, {
 							priority = 250,
 							capture = true,
 							onReleased = function()
 								if arrow then
 									landing = false
-									if heldArrow:peek() == direction then
-										heldArrow:set(0)
-									end
 								end
-								if heldAction == action then
+								if held == action then
 									stopRepeat()
 								end
 							end,
 						})
 					end
-					bind("Decrease", { E.KeyCode.Comma, E.KeyCode.ButtonL1 }, active, -1)
-					bind("Increase", { E.KeyCode.Period, E.KeyCode.ButtonR1 }, active, 1)
+					bind("Decrease", { E.KeyCode.Comma, E.KeyCode.ButtonL1 }, -1)
+					bind("Increase", { E.KeyCode.Period, E.KeyCode.ButtonR1 }, 1)
 					if minimum ~= nil and maximum ~= nil then
 						for _, direction in { -1, 1 } do
 							local keys = if adjust.vertical
@@ -296,23 +307,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								else (if direction < 0
 									then { E.KeyCode.Left, E.KeyCode.DPadLeft }
 									else { E.KeyCode.Right, E.KeyCode.DPadRight })
-							bind(
-								if direction < 0 then "DecreaseArrow" else "IncreaseArrow",
-								keys,
-								function(use: ComposeTypes.Use)
-									if use(heldArrow) == direction then
-										return active(use)
-									end
-									local arrows = adjust.arrows
-									if arrows then
-										return active(use) and arrows(use, direction)
-									end
-									local value = read(spec.value, use)
-									return active(use) and (if direction < 0 then value > minimum else value < maximum)
-								end,
-								direction,
-								true
-							)
+							bind(if direction < 0 then "DecreaseArrow" else "IncreaseArrow", keys, direction, true)
 						end
 					end
 					if adjust.extra then

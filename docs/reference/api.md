@@ -461,7 +461,9 @@ these rules:
   strip gives the selected tab. A container that has no controls passes the
   selection to the next control in the direction of travel.
 - Value controls. While a Slider, Stepper, Rating, table column grip or a
-  reorder move has the selection, Left and Right change the value. A Menu row
+  reorder move has the selection, Left and Right change the value at every
+  value; a press at a limit does nothing. The control claims the axis only
+  while it is the selected object itself, never while a part inside it is. A Menu row
   with a submenu opens it on Right, and Left returns to the parent row. Up and
   Down still move the selection.
 
@@ -3751,7 +3753,7 @@ the owner ends. `node` or a descendant must be selectable.
 | `onAdjust(direction)` | Required. `direction` is -1 or 1. |
 | `axis` | `"horizontal"` (the default) takes Left and Right, `"vertical"` takes Up and Down, `"none"` takes no arrows and leaves only the shoulders. |
 | `repeats` | `true`: a held key or button adjusts again after 0.4 seconds, then every 0.1 seconds, like the built-in value controls. The default is `false`: one step for each press. |
-| `canAdjust(direction, use?)` | Optional. `false` gives that arrow back to navigation, for example at a limit. |
+| `canAdjust(direction, use?)` | Optional. `false` makes a press of that arrow do nothing, for example at a limit; the arrow still belongs to the node while it is selected. |
 | `enabled`, `disabled`, `busy` | Values or readables. A disabled control takes no keys. |
 
 The actions have the priority of the built-in value controls, so a higher

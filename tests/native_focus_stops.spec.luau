@@ -76,6 +76,43 @@ local function selectableInside(root: any): { string }
 	return found
 end
 
+t.describe("an adjustable claims its axis on its own stop only", function()
+	t.it("a selected child of a Stepper does not pin its own links", function()
+		local value = Compose.cell(6)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
+		end)
+		local stepper = w.find("Volume")
+		t.expect(stepper:HasTag("facet-adjustable")).toBe(true)
+		local plus = w.find("Increase", stepper)
+		w.gui.SelectedObject = plus
+		t.expect(plus.NextSelectionLeft).toBe(nil)
+		t.expect(plus.NextSelectionRight).toBe(nil)
+		w.press("DPadLeft")
+		t.expect(value:peek()).toBe(6)
+		w.stop()
+	end)
+
+	t.it("keeps the axis at a bound: Left at the minimum stays and changes nothing", function()
+		local value = Compose.cell(0)
+		local w = setup(function(UI, Host)
+			return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
+		end)
+		local stepper = w.find("Volume")
+		w.gui.SelectedObject = stepper
+		t.expect(stepper.NextSelectionLeft).toBe(stepper)
+		t.expect(stepper.NextSelectionRight).toBe(stepper)
+		t.expect(stepper.NextSelectionUp).toBe(nil)
+		w.press("DPadLeft")
+		t.expect(value:peek()).toBe(0)
+		w.press("DPadRight")
+		t.expect(value:peek()).toBe(1)
+		w.gui.SelectedObject = nil
+		t.expect(stepper.NextSelectionLeft).toBe(nil)
+		w.stop()
+	end)
+end)
+
 t.describe("focus ring part", function()
 	t.it("draws on FacetFocusPart and follows it", function()
 		local w = setup(function(_, Host)
@@ -130,6 +167,7 @@ t.describe("the Slider is one stop", function()
 				local slider = w.find("S")
 				t.expect(slider.Selectable).toBe(true)
 				t.expect(selectableInside(slider)).toEqual({})
+				t.expect(slider:HasTag("facet-adjustable")).toBe(true)
 				local part = slider:GetAttribute("FacetFocusPart")
 				t.expect(type(part)).toBe("string")
 				w.gui.SelectedObject = slider
