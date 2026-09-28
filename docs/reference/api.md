@@ -3653,7 +3653,10 @@ recipe with `corner = "square"` or `corner = "pill"` keeps that shape
 everywhere. The colour is the recipe `color`, or `accent`. A selected object
 with a number attribute `FacetFocusHeight` gets a look that many times its own
 height, measured down from its top edge (a Card uses this to ring the whole
-card from its body).
+card from its body). A selected object with a string attribute
+`FacetFocusPart` (a path of child names such as `"Track/Thumb"`) gets the look
+on that part instead, sized to it and shaped by its `UICorner`; a Slider uses
+this so the look stays on its thumb while the whole Slider is the stop.
 
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,
