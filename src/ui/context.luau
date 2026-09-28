@@ -1226,6 +1226,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		available: ComposeTypes.Cell<boolean>,
 	}
 	local selected: selection.Selection
+	function ctx.navigationGamepads(): { Enum.UserInputType }
+		local service = config.userInputService
+		local probe = (service :: unknown) :: { GetNavigationGamepads: ((any) -> { Enum.UserInputType })? }
+		if service and probe.GetNavigationGamepads then
+			local pads = (service :: any):GetNavigationGamepads()
+			if #pads > 0 then
+				return pads
+			end
+		end
+		return { Enum.UserInputType.Gamepad1 }
+	end
 	local actionGroups: { [ComposeTypes.Owner]: { [Instance]: { [string]: ActionGroup } } } = setmetatable(
 		{},
 		{ __mode = "k" }
@@ -1388,10 +1399,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 						else binding
 					if typeof(code) == "EnumItem" or type(code) == "table" then
 						local key = code :: Enum.KeyCode
-						if
-							probe.IsGamepadButtonDown and keyInput:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, key)
-						then
-							return true
+						if probe.IsGamepadButtonDown then
+							for _, pad in ctx.navigationGamepads() do
+								if keyInput:IsGamepadButtonDown(pad, key) then
+									return true
+								end
+							end
 						end
 						if probe.IsKeyDown and keyInput:IsKeyDown(key) then
 							return true
@@ -1405,9 +1418,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				local on = use(enabled)
 				if on and not wasOn then
 					stale = held()
-				end
-				if on ~= wasOn then
-					viaAction, viaInput = false, false
 				end
 				wasOn = on
 			end)

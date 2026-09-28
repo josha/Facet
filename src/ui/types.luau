@@ -244,6 +244,7 @@ export type Context = {
 	modalPortals: Cell<{ ModalPortal }>,
 	modalPortal: (Instance, Instance) -> (),
 	available: (Instance, Use?) -> boolean,
+	navigationGamepads: () -> { Enum.UserInputType },
 	action: (
 		Instance,
 		string,

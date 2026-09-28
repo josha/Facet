@@ -207,20 +207,48 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		w.stop()
 	end)
 
-	t.it("only the first gamepad's stick adjusts the selection", function()
+	t.it("a press whose release was lost does not block the D-pad after the action switches off and on", function()
+		local value = Compose.cell(3)
+		local w = setup(function(UI, Host)
+			return Host.Frame "Holder" { UI.Stepper("A")({ value = value, max = 10 }) }
+		end)
+		w.gui.SelectedObject = w.find("A")
+		t.expect(w.action("IncreaseArrow")).toBe(true)
+		t.expect(value:peek()).toBe(4)
+		w.find("Holder").Interactable = false
+		w.find("Holder").Interactable = true
+		w.press("DPadRight")
+		t.expect(value:peek()).toBe(5)
+		w.stop()
+	end)
+
+	t.it("only a navigation gamepad's stick adjusts the selection", function()
 		local value = Compose.cell(3)
 		local w = setup(function(UI, Host)
 			return Host.Frame({ UI.Stepper("A")({ value = value, max = 10 }) })
 		end)
+		local E = w.engine.types.Enum
+		local function push(pad: any, x: number)
+			w.input.InputChanged.fire({
+				KeyCode = E.KeyCode.Thumbstick1,
+				UserInputType = pad,
+				Position = w.engine.types.Vector3.new(x, 0, 0),
+			}, true)
+		end
 		w.gui.SelectedObject = w.find("A")
-		w.input.InputChanged.fire({
-			KeyCode = w.engine.types.Enum.KeyCode.Thumbstick1,
-			UserInputType = w.engine.types.Enum.UserInputType.Gamepad2,
-			Position = w.engine.types.Vector3.new(1, 0, 0),
-		}, true)
+		push(E.UserInputType.Gamepad2, 1)
 		t.expect(value:peek()).toBe(3)
 		w.stick(1, 0)
 		t.expect(value:peek()).toBe(4)
+		w.stickEnded()
+		w.input.GetNavigationGamepads = function()
+			return { E.UserInputType.Gamepad2 }
+		end
+		w.stick(1, 0)
+		t.expect(value:peek()).toBe(4)
+		push(E.UserInputType.Gamepad2, 0)
+		push(E.UserInputType.Gamepad2, 1)
+		t.expect(value:peek()).toBe(5)
 		w.stop()
 	end)
 

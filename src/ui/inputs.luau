@@ -188,9 +188,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					return true
 				end
 			end
-			for _, key in { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight } do
-				if probe.IsGamepadButtonDown and input:IsGamepadButtonDown(E.UserInputType.Gamepad1, key) then
-					return true
+			if probe.IsGamepadButtonDown then
+				for _, pad in ctx.navigationGamepads() do
+					for _, key in { E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight } do
+						if input:IsGamepadButtonDown(pad, key) then
+							return true
+						end
+					end
 				end
 			end
 			return false
@@ -201,9 +205,11 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			if service == nil or probe.GetGamepadState == nil then
 				return false
 			end
-			for _, state in (service :: any):GetGamepadState(E.UserInputType.Gamepad1) do
-				if state.KeyCode == E.KeyCode.Thumbstick1 and state.Position.Magnitude >= STICK_PRESS then
-					return true
+			for _, pad in ctx.navigationGamepads() do
+				for _, state in (service :: any):GetGamepadState(pad) do
+					if state.KeyCode == E.KeyCode.Thumbstick1 and state.Position.Magnitude >= STICK_PRESS then
+						return true
+					end
 				end
 			end
 			return false
@@ -360,7 +366,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						local function lean(event: InputObject, ended: boolean)
 							if
 								event.KeyCode ~= E.KeyCode.Thumbstick1
-								or event.UserInputType ~= E.UserInputType.Gamepad1
+								or not table.find(ctx.navigationGamepads(), event.UserInputType)
 							then
 								return
 							end

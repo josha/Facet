@@ -416,6 +416,16 @@ theme package source. `Facet.app` does this for you.
 Ordinary Roblox consumers use the ambient services and datatypes. The runtime
 that you supply must use the Compose Roblox host.
 
+### Instances you hand to a presenter
+
+A Sheet (`content`, `header`, `hero.content`), DisclosureGroup, CollapsibleView,
+Callout and NavigationStack destination accept an Instance as well as a
+factory. The presenter parents that Instance while it is shown and detaches it
+(`Parent = nil`) before the surface is destroyed, also on the final unmount, so
+the same Instance can be shown again. The game owns it: destroy it, and
+disconnect what you connected to it, when you no longer need it. A factory
+builds a fresh Instance each time and needs nothing.
+
 ### Selection
 
 The controls use `GuiService.SelectedObject` for keyboard and gamepad focus.
@@ -474,7 +484,9 @@ these rules:
   toward a limit the value is already at moves the selection to the next control
   that way, if there is one (the control's own `NextSelection*` link in that
   direction when it has one). L1, R1, Comma and Period also change the value
-  and never move the selection. Only the first gamepad's stick adjusts. The control claims the
+  and never move the selection. Only a navigation gamepad's stick adjusts
+  (`UserInputService:GetNavigationGamepads`; restrict it with
+  `SetNavigationGamepad`). The control claims the
   axis only while it is the selected object itself, never while a part inside
   it is. Its root has the tag `facet-adjustable`, the attribute `axis`
   (`horizontal` or `vertical`) and the attribute `disabled`. A disabled value
