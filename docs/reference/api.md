@@ -472,7 +472,9 @@ these rules:
   vertical control; the D-pad, the arrow keys and the left stick) change the
   value. A held or repeating press stops at the minimum or maximum; a new press
   toward a limit the value is already at moves the selection to the next control
-  that way, if there is one. The control claims the
+  that way, if there is one (the control's own `NextSelection*` link in that
+  direction when it has one). L1, R1, Comma and Period also change the value
+  and never move the selection. Only the first gamepad's stick adjusts. The control claims the
   axis only while it is the selected object itself, never while a part inside
   it is. Its root has the tag `facet-adjustable`, the attribute `axis`
   (`horizontal` or `vertical`) and the attribute `disabled`. A disabled value
