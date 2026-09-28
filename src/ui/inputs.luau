@@ -157,6 +157,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 	): ()
 		local adjust: Adjust = options or {}
 		node:AddTag("facet-adjustable")
+		if minimum ~= nil and maximum ~= nil then
+			node:SetAttribute("axis", if adjust.vertical then "vertical" else "horizontal")
+		end
 		local landing = false
 		local function arrowHeld(): boolean
 			local input = ctx.config.services.UserInputService

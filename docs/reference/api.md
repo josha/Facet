@@ -464,7 +464,9 @@ these rules:
   reorder move has the selection, Left and Right (the D-pad, the arrow keys
   and the left stick) change the value at every
   value; a press at a limit does nothing. The control claims the axis only
-  while it is the selected object itself, never while a part inside it is. A Menu row
+  while it is the selected object itself, never while a part inside it is. Its
+  root has the tag `facet-adjustable` and the attribute `axis` (`horizontal` or
+  `vertical`). A Menu row
   with a submenu opens it on Right, and Left returns to the parent row. Up and
   Down still move the selection.
 

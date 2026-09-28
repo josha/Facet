@@ -217,6 +217,7 @@ t.describe("the Slider is one stop", function()
 				t.expect(slider.Selectable).toBe(true)
 				t.expect(selectableInside(slider)).toEqual({})
 				t.expect(slider:HasTag("facet-adjustable")).toBe(true)
+				t.expect(slider:GetAttribute("axis")).toBe(if variant.axis == "y" then "vertical" else "horizontal")
 				local part = slider:GetAttribute("FacetFocusPart")
 				t.expect(type(part)).toBe("string")
 				w.gui.SelectedObject = slider
