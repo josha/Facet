@@ -1164,7 +1164,7 @@ local function ruleFor(sheet: any, selector: string): any
 end
 
 t.describe("reduced motion preference", function()
-	t.it("the player preference stops control motion live and the sheet transitions agree", function()
+	t.it("the player preference stops control motion live and the sheet keeps its colour fades (limited)", function()
 		local w = world({})
 		withGame(w.gui, function()
 			local presses = 0
@@ -1203,7 +1203,7 @@ t.describe("reduced motion preference", function()
 			t.expect(scale.Scale ~= 1).toBe(true)
 			w.gui.ReducedMotionEnabled = true
 			t.expect(scale.Scale).toBe(1)
-			t.expect(sheetReduced()).toBe(true)
+			t.expect(sheetReduced()).toBe(false)
 			t.expect(pressMoves()).toBe(false)
 			w.gui.ReducedMotionEnabled = false
 			t.expect(sheetReduced()).toBe(false)
@@ -1228,7 +1228,7 @@ t.describe("reduced motion preference", function()
 					UI.Button({ Name = "Go", label = "Go", pop = true, onActivate = function() end }),
 				})
 			end)
-			t.expect(transitionOf(ruleFor(sheet, ".facet-surface"), "BackgroundColor3").Time).toBe(0)
+			t.expect(transitionOf(ruleFor(sheet, ".facet-surface"), "BackgroundColor3").Time).toBe(0.2)
 			local scale = find(find(screen, "Go"), "Pop")
 			find(screen, "Go").Activated.fire()
 			for _ = 1, 10 do
@@ -1673,12 +1673,15 @@ t.describe("theme paint transitions", function()
 			local normal = m.normal
 			local press = math.min(m.press or 0.08, normal)
 			local hover = math.min(m.hover or 0.15, normal)
-			for _, mode in { "full", "reduced", "off" } do
+			for _, mode in { "full", "limited", "reduced", "off" } do
 				local w = world({})
 				local stop, sheet = w.runtime.mount(function()
 					return themes.createStyleSheet(w.runtime, package, {
 						types = w.engine.types,
-						motionLevel = if mode == "reduced" then "none" else "normal",
+						motionLevel = if mode == "reduced"
+							then "none"
+							elseif mode == "limited" then "limited"
+							else "normal",
 						transition = if mode == "off" then false else nil,
 					})
 				end, w.engine.new("Folder"))
@@ -1689,7 +1692,7 @@ t.describe("theme paint transitions", function()
 							then "press"
 							elseif string.find(rule.Selector, ":Hover", 1, true) then "hover"
 							else "base"
-						local want = if mode ~= "full"
+						local want = if mode == "reduced" or mode == "off"
 							then 0
 							elseif kind == "press" then press
 							elseif kind == "hover" then hover

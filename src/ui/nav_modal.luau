@@ -6,7 +6,7 @@ local help = require("./help")
 local Inputs = require("./input_types")
 local placement = require("./overlay_placement")
 local parts = require("./overlay_parts")
-local reducedMotion = require("./motion").reduced
+local motion = require("./motion")
 local rest = require("./rest")
 local scrollLock = require("./scroll_lock")
 
@@ -130,31 +130,40 @@ return function(ctx: Types.Context): Nav.Surfaces
 		timing: Nav.MotionTiming,
 		ready: ComposeTypes.Readable<boolean>?
 	): Nav.Presence
-		local reduce = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local exiting: ComposeTypes.Readable<boolean> = if phase then phase.exiting else Compose.cell(false)
 		local shown = Compose.cell(false)
 		local fadeIn, fadeOut = ctx.metric("motion.presentFadeIn"), ctx.metric("motion.presentFadeOut")
+		local present, fade = ctx.motionEase("present"), ctx.motionEase("fade")
 		local progress = runtime.tween(function(use: ComposeTypes.Use): number
 			return if use(exiting) or not use(shown) or (ready ~= nil and not use(ready)) then 0 else 1
 		end, {
 			seconds = function(_: ComposeTypes.Use): number
+				if level() == "limited" then
+					return ctx.metric("motion.reducedFade")
+				end
 				return if exiting:peek() then timing.exit else timing.enter
 			end,
-			ease = ctx.motionEase("present"),
+			ease = function(t: number): number
+				return if level() == "limited" then fade(t) else present(t)
+			end,
 		})
 		shown:set(true)
+		local function raw(use: ComposeTypes.Use?): number
+			if ready ~= nil and not ctx.read(ready, use) then
+				return 0
+			end
+			return if level(use) == "none" then 1 else ctx.read(progress, use)
+		end
 		local function travel(use: ComposeTypes.Use?): number
 			if ready ~= nil and not ctx.read(ready, use) then
 				return 0
 			end
-			if reduce(use) then
-				return 1
-			end
-			return ctx.read(progress, use)
+			return if level(use) == "normal" then ctx.read(progress, use) else 1
 		end
 		local function opacity(use: ComposeTypes.Use?): number
-			local p = travel(use)
-			if reduce(use) then
+			local p = raw(use)
+			if level(use) ~= "normal" then
 				return p
 			end
 			return if ctx.read(exiting, use)
@@ -266,7 +275,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		anchor: GuiObject,
 		shown: () -> boolean
 	): ComposeTypes.PresenceOptions
-		local reduce = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local owner = assert(Compose.currentOwner())
 		type Pending = {
 			completed: ComposeTypes.Readable<boolean>,
@@ -298,12 +307,15 @@ return function(ctx: Types.Context): Nav.Surfaces
 		end
 		return {
 			exit = function()
-				if not shown() or not attached(anchor) or reduce() then
+				local current = level()
+				if not shown() or not attached(anchor) or current == "none" then
 					return begin(Compose.cell(true), nil)
 				end
 				local scope = owner.createChild()
 				local timeline = Compose.withOwner(scope, function()
-					return runtime.timeline({ duration = timing.exit })
+					return runtime.timeline({
+						duration = if current == "limited" then ctx.metric("motion.reducedFade") else timing.exit,
+					})
 				end)
 				return begin(timeline.completed, scope)
 			end,

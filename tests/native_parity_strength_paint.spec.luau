@@ -1605,55 +1605,57 @@ local function countWrites(sheet: any): { [any]: number }
 end
 
 t.describe("native paint strength: theme sheets", function()
-	t.it("falls back to GuiService for reduced motion and to a 0.2 second paint transition", function()
-		local h = harness()
-		local environment = (getfenv :: any)(0)
-		local gui = h.engine.new("GuiService")
-		gui.ReducedMotionEnabled = false
-		gui.PreferredTransparency = 0.5
-		local requested = {}
-		environment.game = {
-			GetService = function(_, name: string)
-				table.insert(requested, name)
-				return gui
-			end,
-		}
-		local package = themes.neutralPackage()
-		package.metrics.motion = nil
-		local stop, sheet = h.runtime.mount(function()
-			return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
-		end, h.engine.new("Folder"))
-		environment.game = nil
-		t.expect(requested)
-			.toEqual({ "GuiService", "GuiService", "UserInputService", "GuiService", "UserInputService" })
-		local text = ruleNode(sheet, ".facet-text")
-		local timing = transitionOf(text, "TextColor3")
-		t.expect(timing.Time).toBe(0.2)
-		t.expect(timing.EasingStyle).toBe(h.engine.types.Enum.EasingStyle.Quad)
-		t.expect(timing.EasingDirection).toBe(h.engine.types.Enum.EasingDirection.Out)
-		t.expect(transitionOf(ruleNode(sheet, ".facet-surface"), "BackgroundTransparency")).toBe(timing)
-		t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55 * 0.5)
-		gui.ReducedMotionEnabled = true
-		t.expect(transitionOf(text, "TextColor3").Time).toBe(0)
-		gui.ReducedMotionEnabled = false
-		t.expect(transitionOf(text, "TextColor3").Time).toBe(0.2)
-		gui.PreferredTransparency = 1
-		t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55)
-		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(1)
-		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
-		stop()
-		t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
-		t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
-		local halfDeclared = themes.neutralPackage()
-		halfDeclared.metrics.motion = { fast = 0.1 }
-		local second, stopSecond = sheetFor(h, halfDeclared)
-		t.expect(transitionOf(ruleNode(second, ".facet-text"), "TextColor3").Time).toBe(0.2)
-		stopSecond()
-		local headless, stopHeadless = sheetFor(h, themes.neutralPackage(), { reducedMotion = nil })
-		t.expect(transitionOf(ruleNode(headless, ".facet-text"), "TextColor3").Time).toBe(0.2)
-		stopHeadless()
-		h.dispose()
-	end)
+	t.it(
+		"falls back to GuiService transparency and a 0.2 second paint transition that the engine's Reduce Motion (limited) keeps",
+		function()
+			local h = harness()
+			local environment = (getfenv :: any)(0)
+			local gui = h.engine.new("GuiService")
+			gui.ReducedMotionEnabled = false
+			gui.PreferredTransparency = 0.5
+			local requested = {}
+			environment.game = {
+				GetService = function(_, name: string)
+					table.insert(requested, name)
+					return gui
+				end,
+			}
+			local package = themes.neutralPackage()
+			package.metrics.motion = nil
+			local stop, sheet = h.runtime.mount(function()
+				return themes.createStyleSheet(h.runtime, package, { types = h.engine.types })
+			end, h.engine.new("Folder"))
+			environment.game = nil
+			t.expect(requested).toEqual({ "GuiService", "UserInputService", "GuiService", "UserInputService" })
+			local text = ruleNode(sheet, ".facet-text")
+			local timing = transitionOf(text, "TextColor3")
+			t.expect(timing.Time).toBe(0.2)
+			t.expect(timing.EasingStyle).toBe(h.engine.types.Enum.EasingStyle.Quad)
+			t.expect(timing.EasingDirection).toBe(h.engine.types.Enum.EasingDirection.Out)
+			t.expect(transitionOf(ruleNode(sheet, ".facet-surface"), "BackgroundTransparency")).toBe(timing)
+			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55 * 0.5)
+			gui.ReducedMotionEnabled = true
+			t.expect(transitionOf(text, "TextColor3").Time).toBe(0.2)
+			gui.ReducedMotionEnabled = false
+			t.expect(transitionOf(text, "TextColor3").Time).toBe(0.2)
+			gui.PreferredTransparency = 1
+			t.expect(style(sheet, ".facet-scrim").BackgroundTransparency).toBeCloseTo(0.55)
+			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
+			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(1)
+			stop()
+			t.expect(gui:GetPropertyChangedSignal("ReducedMotionEnabled").count()).toBe(0)
+			t.expect(gui:GetPropertyChangedSignal("PreferredTransparency").count()).toBe(0)
+			local halfDeclared = themes.neutralPackage()
+			halfDeclared.metrics.motion = { fast = 0.1 }
+			local second, stopSecond = sheetFor(h, halfDeclared)
+			t.expect(transitionOf(ruleNode(second, ".facet-text"), "TextColor3").Time).toBe(0.2)
+			stopSecond()
+			local headless, stopHeadless = sheetFor(h, themes.neutralPackage(), { reducedMotion = nil })
+			t.expect(transitionOf(ruleNode(headless, ".facet-text"), "TextColor3").Time).toBe(0.2)
+			stopHeadless()
+			h.dispose()
+		end
+	)
 
 	t.it("writes per-side button insets to the padding rules and costs no writes when nothing changes", function()
 		local h = harness()

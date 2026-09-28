@@ -7,7 +7,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local release = require("./sheet_release")
 local settle = require("./settle")
-local reducedMotion = require("./motion").reduced
+local motion = require("./motion")
+local reducedMotion = motion.reduced
 local freeze = require("./freeze")
 
 type Controls = {
@@ -182,6 +183,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			then ctx.observe.PreferredInput(input)
 			else nil
 		local reduce = reducedMotion(ctx)
+		local level = motion.level(ctx)
 		local keyboard: (ComposeTypes.Use) -> number = function()
 			return 0
 		end
@@ -966,7 +968,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		if layout then
 			layout.Padding = ctx.types.UDim.new(0, 8)
 		end
-		local panelProps: Types.FrameNativeProps = {
+		local panelProps: Types.CanvasGroupNativeProps = {
 			Name = "SheetPanel",
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
@@ -984,11 +986,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			Size = function(use: ComposeTypes.Use)
 				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
+			GroupTransparency = function(use: ComposeTypes.Use)
+				return if level(use) == "limited" then 1 - shown.opacity(use) else 0
+			end,
 		}
 		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			table.insert(panelProps, child)
 		end
-		local panel = Host.Frame(panelProps)
+		local panel = ctx.fade(panelProps)
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {

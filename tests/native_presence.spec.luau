@@ -45,3 +45,70 @@ t.describe("presence: opacity leads travel", function()
 		w.stop()
 	end)
 end)
+
+t.describe("presence: motion level limited cross-fades", function()
+	t.it("under limited a dialog never scales and fades in and out over motion.reducedFade", function()
+		local shown = Compose.cell(true)
+		local w = dialog(shown, { motionLevel = "limited" })
+		local panel = w.find("Panel")
+		local scale = panel:FindFirstChildWhichIsA("UIScale", true)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(fadeKit.of(panel) > 0).toBe(true)
+		w.advance(1 / 60)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1).toBe(true)
+		w.advance(0.2, 12)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		shown:set(false)
+		w.advance(1 / 60)
+		t.expect(panel.Parent ~= nil).toBe(true)
+		t.expect(scale.Scale).toBe(1)
+		t.expect(fadeKit.of(panel) > 0).toBe(true)
+		w.advance(0.2, 12)
+		t.expect(w.find("Panel")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("under none a dialog is whole on its first frame and leaves at once", function()
+		local shown = Compose.cell(true)
+		local w = dialog(shown, { motionLevel = "none" })
+		local panel = w.find("Panel")
+		t.expect(panel:FindFirstChildWhichIsA("UIScale", true).Scale).toBe(1)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		shown:set(false)
+		w.advance(1 / 60)
+		t.expect(w.find("Panel")).toBeNil()
+		w.stop()
+	end)
+
+	t.it("under limited a sheet never slides and its panel fades in over motion.reducedFade", function()
+		local shown = Compose.cell(true)
+		local w = overlay.new(function(UI, Host)
+			return UI.Sheet "S" {
+				isPresented = shown,
+				detent = Compose.cell("medium"),
+				title = "Race details",
+				content = function()
+					return Host.TextLabel "Copy" { Text = "Lap times" }
+				end,
+			}
+		end, { motionLevel = "limited" })
+		w.find("Modal").AbsoluteSize = w.Vector2.new(800, 600)
+		local panel = w.find("SheetPanel")
+		local at = nil
+		local sawFading = false
+		for _ = 1, 12 do
+			w.advance(1 / 60)
+			local fade = fadeKit.of(panel)
+			if fade < 1 then
+				at = at or panel.Position
+				t.expect(panel.Position).toBe(at)
+			end
+			sawFading = sawFading or (fade > 0 and fade < 1)
+		end
+		t.expect(at and at.Y.Offset).toBe(0)
+		t.expect(sawFading).toBe(true)
+		t.expect(fadeKit.of(panel)).toBe(0)
+		w.stop()
+	end)
+end)

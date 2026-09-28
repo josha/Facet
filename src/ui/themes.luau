@@ -176,6 +176,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			normal = 0.2,
 			press = 0.08,
 			hover = 0.15,
+			reducedFade = 0.15,
 			revealFadeShare = 0.5,
 			presentFadeIn = 0.6,
 			presentFadeOut = 0.5,
@@ -454,10 +455,13 @@ function themes.define(definition: ThemeTypes.ThemeDefinition): (ThemeTypes.Them
 				check(group .. "." .. tostring(key), value)
 			end
 		end
-		for _, key in { "fast", "normal", "press", "hover", "reducedFade" } do
+		for _, key in { "fast", "normal", "press", "hover" } do
 			if tokens[key] ~= nil then
 				number(key, tokens[key], 0, 10)
 			end
+		end
+		if tokens.reducedFade ~= nil then
+			number("reducedFade", tokens.reducedFade, 0, 10, true)
 		end
 		for _, key in { "revealFadeShare", "unfoldStart" } do
 			if tokens[key] ~= nil then
@@ -1726,23 +1730,9 @@ local function createStyleSheet(
 		((settings :: unknown) :: { [string]: unknown }).reducedMotion == nil,
 		'Facet createStyleSheet: the reducedMotion option is gone; set motionLevel = "normal", "limited" or "none"'
 	)
-	local engineReduced: ComposeTypes.Readable<boolean>? = nil
-	do
-		local globals = getfenv(0)
-		local gui = globals.game and globals.game:GetService("GuiService")
-		if gui then
-			local source = Compose.cell(gui.ReducedMotionEnabled)
-			engineReduced = source
-			local connection = gui:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
-				source:set(gui.ReducedMotionEnabled)
-			end)
-			Compose.cleanup(function()
-				connection:Disconnect()
-			end)
-		end
-	end
 	local function snaps(use: ComposeTypes.Use): boolean
-		return motionLevels.resolve(read(settings.motionLevel, use), read(engineReduced, use) == true) ~= "normal"
+		local chosen = read(settings.motionLevel, use)
+		return chosen ~= nil and motionLevels.resolve(chosen, false) == "none"
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then

@@ -315,8 +315,15 @@ easing, spring, scale and distance below is a token in the theme package's
   entrance and exit, so the scale never moves the plate or its tail. Reduced
   motion skips the wait.
 - The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
-  `"limited"`) removes all of this motion at `"limited"` and `"none"`. The
-  change is immediate.
+  `"limited"`) changes this motion:
+  - `"normal"`: the motion above.
+  - `"limited"`: no travel, scale or slide. An Alert, Dialog, Popover, Menu
+    (pointer and sheet form), Callout, Button `help` plate and Sheet
+    cross-fade in and out over `reducedFade` (0.15 seconds, `easing.fade`);
+    a Sheet's panel fades with its scrim. Paint transitions keep their
+    timing.
+  - `"none"`: every presentation appears and leaves at once, and paint
+    transitions are instant.
 - A presentation that has not drawn a frame, or whose anchor is no longer
   available, leaves immediately.
 - If you present a control again during its exit, the exit reverses.
