@@ -5,6 +5,7 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local selection = require("./selection")
+local reservedKeys = require("./reserved_keys")
 local adaptive = require("./adaptive")
 local preferredInput = require("./preferred_input")
 local motion = require("./motion")
@@ -1226,83 +1227,28 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		available: ComposeTypes.Cell<boolean>,
 	}
 	local selected: selection.Selection
-	local RESERVED_KEYS = table.freeze({ Tab = true, Escape = true })
-	local reserved: { Shared.ReservedKeyHandler } = {}
-	local reservedOrder: { [Shared.ReservedKeyHandler]: number } = {}
-	local reservedCount = 0
-	local listenReserved = Compose.createSharedResource(function(): (nil, (() -> ())?)
+	function ctx.reserveKeys(handler: Shared.ReservedKeyHandler): ()
 		local input = config.userInputService
 		if input == nil then
-			return nil, nil
+			return
 		end
-		local probe = (input :: unknown) :: { GetFocusedTextBox: ((UserInputService) -> TextBox?)? }
-		local ending: { [string]: RBXScriptConnection } = {}
-		runtime.connect(input, "InputBegan", function(event: InputObject)
-			local name = if event.KeyCode then event.KeyCode.Name else nil
-			if name == nil or not RESERVED_KEYS[name] then
-				return
-			end
-			if ending[name] == nil then
-				local connection: RBXScriptConnection
-				connection = input.InputEnded:Connect(function(ended: InputObject)
-					if ended.KeyCode == event.KeyCode then
-						connection:Disconnect()
-						ending[name] = nil
-						for _, handler in table.clone(reserved) do
-							if handler.keys[name] then
-								handler.release()
-							end
-						end
-					end
-				end)
-				ending[name] = connection
-			end
-			local editing = probe.GetFocusedTextBox ~= nil and input:GetFocusedTextBox() ~= nil
-			local ordered = table.clone(reserved)
-			table.sort(ordered, function(a: Shared.ReservedKeyHandler, b: Shared.ReservedKeyHandler): boolean
-				if a.priority ~= b.priority then
-					return a.priority > b.priority
-				end
-				return reservedOrder[a] > reservedOrder[b]
-			end)
-			for _, handler in ordered do
-				if handler.keys[name] and (handler.editing or not editing) and handler.enabled() then
-					handler.press()
-					if handler.sink then
-						return
-					end
-				end
-			end
-		end)
-		Compose.cleanup(function()
-			for _, connection in ending do
-				connection:Disconnect()
-			end
-			table.clear(ending)
-		end)
-		return nil, nil
-	end)
-	function ctx.reserveKeys(handler: Shared.ReservedKeyHandler): ()
-		listenReserved()
-		reservedCount += 1
-		reservedOrder[handler] = reservedCount
-		table.insert(reserved, handler)
-		Compose.cleanup(function()
-			local index = table.find(reserved, handler)
-			if index then
-				table.remove(reserved, index)
-			end
-			reservedOrder[handler] = nil
-		end)
+		Compose.cleanup(reservedKeys.add(input, (Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }, handler))
 	end
 	function ctx.navigationGamepads(): { Enum.UserInputType }
 		local service = config.userInputService
-		local probe = (service :: unknown) :: { GetNavigationGamepads: ((any) -> { Enum.UserInputType })? }
+		local probe = (service :: unknown) :: {
+			GetNavigationGamepads: ((any) -> { Enum.UserInputType })?,
+			GetLastInputType: ((any) -> Enum.UserInputType)?,
+		}
 		if service and probe.GetNavigationGamepads then
 			local pads = (service :: any):GetNavigationGamepads()
 			if #pads > 0 then
 				return pads
 			end
+		end
+		local last = if service and probe.GetLastInputType then (service :: any):GetLastInputType() else nil
+		if last and string.find(last.Name, "^Gamepad") then
+			return { last }
 		end
 		return { Enum.UserInputType.Gamepad1 }
 	end
@@ -1458,7 +1404,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				elseif type(binding) == "table" then (binding :: Shared.InputBindingNativeProps).KeyCode
 				else binding
 			local codeName = if code ~= nil then (code :: Enum.KeyCode).Name else nil
-			if codeName and RESERVED_KEYS[codeName] then
+			if codeName and reservedKeys.KEYS[codeName] then
 				reservedBound[codeName] = true
 			end
 		end
@@ -1467,6 +1413,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				keys = reservedBound,
 				priority = settings.priority or 2000,
 				sink = settings.sink ~= false,
+				node = node,
+				gui = config.guiService,
 				enabled = function(): boolean
 					return enabled:peek()
 				end,

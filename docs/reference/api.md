@@ -459,8 +459,14 @@ these rules:
   reads both keys from `UserInputService.InputBegan` and runs the one enabled
   Facet action with the highest priority for each press (Tab: traversal;
   Escape: the top modal's Back). A real Escape still opens the Roblox menu as
-  well; the engine reserves it. Escape does nothing in Facet while a TextBox
-  has the keyboard. The factory option `keyboardNavigation = false` disables it for a
+  well; the engine reserves it. Closing Facet's top modal on the same press is
+  deliberate, and an Escape while the Roblox menu is already open closes
+  nothing in Facet. Escape does nothing in Facet while a TextBox has the
+  keyboard, and Tab leaves only a Facet text field (a game's own box or the
+  chat keeps it). Tab with Ctrl, Alt or Meta held does nothing. With several
+  `Facet.controls` sets on one `UserInputService`, one press runs one action
+  across all of them: the highest priority, then the one whose control holds
+  the selection, then the newest. The factory option `keyboardNavigation = false` disables it for a
   HUD over live gameplay, where Tab belongs to the game. A passive
   [responder](#responder) binds it only while it is engaged, and one with
   `traversalWrap = false` stops the walk at its ends.

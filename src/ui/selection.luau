@@ -696,7 +696,8 @@ return function(ctx: Shared.Context): Selection
 				keys = { Tab = true },
 				priority = 1500,
 				sink = true,
-				editing = true,
+				editing = ownedByFacet,
+				gui = service,
 				enabled = function(): boolean
 					return traversable:peek()
 				end,

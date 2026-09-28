@@ -249,6 +249,15 @@ t.describe("an adjustable claims its axis on its own stop only", function()
 		push(E.UserInputType.Gamepad2, 0)
 		push(E.UserInputType.Gamepad2, 1)
 		t.expect(value:peek()).toBe(5)
+		push(E.UserInputType.Gamepad2, 0)
+		w.input.GetNavigationGamepads = function()
+			return {}
+		end
+		w.input.GetLastInputType = function()
+			return E.UserInputType.Gamepad2
+		end
+		push(E.UserInputType.Gamepad2, 1)
+		t.expect(value:peek()).toBe(6)
 		w.stop()
 	end)
 

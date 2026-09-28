@@ -3,6 +3,7 @@ local t = require("./lib/testkit")
 local Compose = require("../src/vendor/compose/core")
 local overlay = require("./lib/overlay_world")
 local parts = require("../src/ui/overlay_parts")
+local controls = require("../src/ui")
 local Vector2 = require("@lune/roblox").Vector2
 
 type Log = { changes: { boolean }, dismissed: { string }, pressed: { string } }
@@ -134,6 +135,98 @@ t.describe("native Dialog: Tab and Escape arrive through UserInputService", func
 		traverse.Pressed.fire()
 		t.expect(w.gui.SelectedObject ~= second).toBe(true)
 		traverse.Released.fire()
+		w.stop()
+	end)
+
+	t.it("one Escape closes only the top of two stacked dialogs", function()
+		local outerOpen, outerLog, outerChange = caller()
+		local innerOpen, innerLog, innerChange = caller()
+		local w = overlay.new(function(UI, Host, _, gui)
+			local opener = UI.Button "Opener" { label = "Open" }
+			gui.SelectedObject = opener
+			return Host.Frame({
+				opener,
+				UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+				UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
+			})
+		end, { inputs = true, motionLevel = "none" })
+		w.advance(0.1)
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(`{innerOpen:peek()} {outerOpen:peek()}`).toBe("false true")
+		w.stop()
+	end)
+
+	t.it("an Escape while the Roblox menu is open closes nothing", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true, motionLevel = "none" })
+		w.advance(0.1)
+		w.gui.MenuIsOpen = true
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(true)
+		w.gui.MenuIsOpen = false
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(open:peek()).toBe(false)
+		w.stop()
+	end)
+
+	t.it("with two Facet control sets, one Escape closes only the dialog that holds the selection", function()
+		local firstOpen, firstLog, firstChange = caller()
+		local secondOpen, secondLog, secondChange = caller()
+		local w = mount(standard(firstOpen, firstLog, firstChange), { inputs = true, motionLevel = "none" })
+		local target = w.engine.new("Folder")
+		local other = controls(Compose, w.runtime, {
+			types = w.engine.types,
+			inputParent = target,
+			services = { GuiService = w.gui, UserInputService = w.input },
+			motionLevel = "none",
+		})
+		local stop = w.runtime.mount(function()
+			return w.runtime.constructors.ScreenGui({
+				other.Dialog "Second"(standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)),
+			})
+		end, target)
+		w.advance(0.1)
+		local panel = overlay.find(target, "Actions")
+		w.gui.SelectedObject = overlay.find(panel, "Stay")
+		key(w, "Escape", true)
+		key(w, "Escape", false)
+		t.expect(`{firstOpen:peek()} {secondOpen:peek()}`).toBe("true false")
+		stop()
+		w.stop()
+	end)
+
+	t.it("Tab leaves only a Facet text field, and never with Ctrl, Alt or Meta held", function()
+		local open, log, change = caller()
+		local w = mount(standard(open, log, change), { inputs = true })
+		w.input.KeyboardEnabled = true
+		local start = w.gui.SelectedObject
+		local foreign = w.engine.new("TextBox")
+		w.input.GetFocusedTextBox = function()
+			return foreign
+		end
+		key(w, "Tab", true)
+		key(w, "Tab", false)
+		t.expect(w.gui.SelectedObject).toBe(start)
+		w.input.GetFocusedTextBox = function()
+			return nil
+		end
+		local down = {}
+		w.input.IsKeyDown = function(_, code)
+			return down[code.Name] == true
+		end
+		for _, modifier in { "LeftControl", "RightAlt", "LeftMeta" } do
+			down[modifier] = true
+			key(w, "Tab", true)
+			key(w, "Tab", false)
+			t.expect(w.gui.SelectedObject).toBe(start)
+			down[modifier] = nil
+		end
+		key(w, "Tab", true)
+		key(w, "Tab", false)
+		t.expect(w.gui.SelectedObject ~= start).toBe(true)
 		w.stop()
 	end)
 
