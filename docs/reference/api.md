@@ -460,15 +460,23 @@ these rules:
   one, the selection moves to the child nearest to the entry edge. A TabView
   strip gives the selected tab. A container that has no controls passes the
   selection to the next control in the direction of travel.
-- Value controls. While a Slider, Stepper, Rating, table column grip or a
-  reorder move has the selection, Left and Right (the D-pad, the arrow keys
-  and the left stick) change the value at every
-  value; a press at a limit does nothing. The control claims the axis only
-  while it is the selected object itself, never while a part inside it is. Its
-  root has the tag `facet-adjustable` and the attribute `axis` (`horizontal` or
-  `vertical`). A Menu row
-  with a submenu opens it on Right, and Left returns to the parent row. Up and
-  Down still move the selection.
+- Value controls. While a Slider, Stepper, Rating, LevelPicker or
+  `UI.adjustable` node has the selection, Left and Right (Up and Down for a
+  vertical control; the D-pad, the arrow keys and the left stick) change the
+  value at every value; a press at a limit does nothing. The control claims the
+  axis only while it is the selected object itself, never while a part inside
+  it is. Its root has the tag `facet-adjustable` and the attribute `axis`
+  (`horizontal` or `vertical`). A table column grip and a reorder move also
+  take Left and Right (Up and Down for a vertical list) while they have the
+  selection, from the D-pad and the arrow keys only. A Menu row with a submenu
+  opens it on Right, and Left returns to the parent row. The other axis still
+  moves the selection.
+- Known limit: because a value control keeps its axis at its limits, a
+  horizontal value control with no control above or below it (for example
+  `[Back] [Stepper] [Next]` alone in a row) can be left only with Tab on a
+  keyboard; a gamepad cannot move the selection off it. A vertical one with
+  nothing beside it is the same. Give such a control a neighbour on its other
+  axis.
 
 A control that restores its own selection sets the `FacetSelectionOwner`
 attribute on its root. The removal and scroll-container rules do not change
