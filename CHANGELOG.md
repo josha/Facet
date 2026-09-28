@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dismissing a Callout from inside its plate (Got it, an action, the close control, B or Escape) hands the selection to the callout's anchor at once. The plate's buttons stop being selectable as it leaves, and the engine had already moved the selection to another control on the page before the plate was gone.
 - A Sheet whose `hero.content` is an Instance presents again after it is dismissed. The dismissal destroyed that Instance with the hero, so the next presentation failed (`FacetError` on the Sheet) and closed at once; the Instance is now taken out of the hero before the hero goes.
 - A D-pad move with nothing in its direction no longer jumps to the first control of the page. The engine selected the scroll container around the selected control, and Facet passed the selection to the container's first control; it now keeps the selected control.
 - `UI.focusQuery` follows the engine on scroll containers: a control clipped out of its scroll container's window is not a target from outside that container (from inside it, it still is), and a selectable scroll container is a target only when no control lies in that direction (the engine ranks it after every control), reporting the control the container passes the selection to.

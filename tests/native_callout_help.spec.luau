@@ -144,6 +144,19 @@ t.describe("native Callout: callbacks during a show never strand or double-close
 		return w, reports, gate
 	end
 
+	t.it("dismissing from inside the plate hands the selection to the anchor at once", function()
+		local w = mount(function(_, Host)
+			return { content = tip(Host) }
+		end)
+		w.advance(0.5)
+		local dismiss = w.find("Dismiss")
+		t.expect(dismiss ~= nil).toBe(true)
+		w.gui.SelectedObject = dismiss
+		dismiss.Activated.fire()
+		t.expect(w.gui.SelectedObject).toBe(w.find("Plus"))
+		w.stop()
+	end)
+
 	t.it("a retirement inside onShow retires once and takes the plate down", function()
 		local w, reports = pair(function(state)
 			state.used:set(true)

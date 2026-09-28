@@ -1091,9 +1091,22 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			"actions",
 			"closeButton",
 		}, "Callout")
+		local plate: Instance? = nil
 		local function retire(reason: Nav.CalloutRetirement): ()
 			if retired:peek() or calloutOwner.isDisposed() then
 				return
+			end
+			local gui = ctx.config.guiService
+			local current = if gui then gui.SelectedObject else nil
+			if
+				gui
+				and plate
+				and current
+				and current:IsDescendantOf(plate)
+				and spec.anchor.Selectable
+				and spec.anchor.Parent
+			then
+				gui.SelectedObject = spec.anchor
 			end
 			retired:set(true)
 			spec.onRetire(reason)
@@ -1381,6 +1394,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					end)
 				end
 				local gui = ctx.config.guiService
+				plate = panel
 				if gui then
 					local anchor = spec.anchor
 					local selection = ctx.observe.SelectedObject(gui)
