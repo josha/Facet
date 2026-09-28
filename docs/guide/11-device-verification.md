@@ -131,7 +131,10 @@ in `notes.pressedSelections`.
 - DPadUp cannot be sent through VirtualInput. The emulator maps it to the key
   1, and VirtualInput refuses that key. Post the key to Studio's process with
   the `pad_key` helper in `tools/studio/capture/`; its usage text lists the key
-  codes for the D-pad and the left stick. Studio does not need to be in front.
+  codes for the D-pad and the left stick. Studio does not need to be in front,
+  but the game view must have the keyboard focus: until one real click lands
+  in the game view, Studio drops every posted key. `pid_click` on an empty
+  spot of the game view gives it.
   The engine moves the stick selection by a different geometry than the D-pad,
   so `StickUp` can choose another neighbour than D-pad Up.
 - Before any capture or posted input, check the desktop session with the
@@ -139,11 +142,44 @@ in `notes.pressedSelections`.
   A locked session drops posted input while window captures keep working.
 - To click Studio's own UI (for example the Virtual Controller check box), take
   the coordinates from a capture of the Studio window only (the `window_id`
-  helper gives the window id), and post the click to Studio's process with the
-  `pid_click` helper, in screen points. Never capture the whole screen.
+  helper gives the window id), and click with the `pid_click` helper, in
+  screen points. Studio ignores clicks posted to its process, so the helper
+  sends a real click and refuses unless Studio is in front. Never capture the
+  whole screen.
+- While the Controller Emulator is on it takes every keyboard key, mapped or
+  not: arrow keys, Return and text never reach the game. Turn it off for a
+  keyboard pass.
 - Do not send the keys U and Q. They are ButtonStart and ButtonSelect. They
   open the Roblox menu or take the keyboard focus, and after that VirtualInput
   refuses every key until the playtest restarts.
+
+### Run the focus walk
+
+The `focus_walk` live suite opens every Showcase page (and every tab of a
+tabbed fixture), rests every ScrollingFrame at the top, and records a focus
+atlas: each stop's rectangle, links, value-control axis, and the chain of
+SelectionGroups and ScrollingFrames around it. It then selects each stop and
+presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
+recording where the engine moved the selection and the scroll offsets at the
+moment of the press. Options go in `shared.FacetFocusWalk`:
+
+- `only`: a substring of the page name;
+- `up`: seconds to wait for D-pad Up per stop. The suite writes
+  `focus-upstream` "on" to the live artifacts while it waits; a loop that posts
+  key 1 with `pad_key` while that file reads "on" supplies the presses;
+- `keys = true`: the arrow-key pass instead (Controller Emulator off), saved
+  beside the atlas as `<page>--keys.json`;
+- `stick = false`: skip the stick pass;
+- `device`: a Showcase device preview (`tv`, `phone`); its atlases get the
+  device name as a prefix.
+
+Atlases save to `tests/fixtures/focus_atlas`. The headless spec
+`native_focus_walk` replays each atlas through `UI.focusQuery` with the recorded
+scroll offsets and fails on an unreachable stop, a dead end, or a D-pad or
+arrow move where the engine and the query disagree. A known engine difference
+is listed in `divergences.json` with its fact id from the input guide.
+`FACET_FOCUS_ATLAS` points the spec at another atlas directory, and
+`FACET_FOCUS_WALK_REPORT` names a directory for a JSON report per failing page.
 
 ### Limits of the harness
 

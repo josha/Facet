@@ -3688,6 +3688,9 @@ this so the look stays on its thumb while the whole Slider is the stop. The
 part's place and size are kept as shares of the selected object, so a parent
 `UIScale` moves and sizes the look with the part. A part that is itself rotated
 relative to the selected object gets an unrotated look around its unrotated box.
+Known limit: when the selected object itself is rotated, the engine turns the
+look with it about the look's own centre, so a look on a part off the object's
+centre sits beside the part.
 
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,

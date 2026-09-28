@@ -33,12 +33,15 @@ table.insert(cases, {
 	id = "focus-walk",
 	contracts = {},
 	run = function(t: any)
+		local live = (require :: any)(storage.FacetLive)
 		local focus = (require :: any)(storage.FacetLive.focus)
 		local layer = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
-		local only = shared.FacetFocusWalkOnly
-		for _, page in pages() do
+		local options = shared.FacetFocusWalk or {}
+		local prefix = if options.device then `{options.device}--` else ""
+		api("device", options.device or "automatic")
+		for index, page in pages() do
 			local name = if page.tab then `{page.id}/{page.tab}` else page.id
-			if only and not string.find(name, only, 1, true) then
+			if (options.only and not string.find(name, options.only, 1, true)) or index < (options.start or 1) then
 				continue
 			end
 			api("show", page.id)
@@ -52,14 +55,42 @@ table.insert(cases, {
 			end
 			local lint = focus.lint(layer)
 			t.check(`{name} lint`, #lint == 0, lint)
-			local atlas = focus.atlas(layer, name)
+			focus.rest(layer)
 			local stops = focus.stops(layer)
-			atlas.moves.dpad = focus.walk(layer, stops, { "DPadDown", "DPadLeft", "DPadRight" })
-			atlas.moves.stick = focus.walk(layer, stops, { "StickUp", "StickDown", "StickLeft", "StickRight" })
-			atlas.moves.keys = focus.walk(layer, stops, { "Up", "Down", "Left", "Right" })
-			local file = string
-				.gsub(name, "/", "__")(require :: any)(storage.FacetLive)
-				.save(file, HttpService:JSONEncode(atlas), "atlas")
+			local paths = focus.paths(layer, stops)
+			local atlas = focus.atlas(layer, name, stops, paths)
+			local file = prefix .. string.gsub(name, "[^%w%-]", "_")
+			local function merge(family: string, moves: any, offsets: any)
+				atlas.moves[family] = atlas.moves[family] or {}
+				atlas.offsets[family] = atlas.offsets[family] or {}
+				for path, row in moves do
+					atlas.moves[family][path] = row
+					atlas.offsets[family][path] = offsets[path]
+				end
+			end
+			if options.keys then
+				merge("keys", focus.walk(layer, stops, paths, { "Up", "Down", "Left", "Right" }))
+				file ..= "--keys"
+			else
+				merge("dpad", focus.walk(layer, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }))
+				if options.stick ~= false then
+					merge(
+						"stick",
+						focus.walk(layer, stops, paths, { "StickUp", "StickDown", "StickLeft", "StickRight" })
+					)
+				end
+				if options.up then
+					live.save("focus-upstream", '"on"')
+					local moves, offsets = focus.walkUp(layer, stops, paths, options.up)
+					live.save("focus-upstream", '"off"')
+					for path, target in moves do
+						atlas.moves.dpad[path] = atlas.moves.dpad[path] or {}
+						atlas.moves.dpad[path].DPadUp = target
+						atlas.offsets.dpad[path].DPadUp = offsets[path]
+					end
+				end
+			end
+			live.save(file, HttpService:JSONEncode(atlas), "atlas")
 			t.note(`{name} stops`, #stops)
 		end
 	end,

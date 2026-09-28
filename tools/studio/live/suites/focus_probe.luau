@@ -259,6 +259,103 @@ add("F10-l1-r1-with-selection", function(t)
 	GuiService.SelectedObject = nil
 end)
 
+add("E1-input-actions-while-selected", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "A", 300, 100, 100, 44),
+		})
+	end, { size = Vector2.new(800, 600) })
+	local a = t.find(world, "A")
+	a.NextSelectionLeft = a
+	local heard = {}
+	local context = Instance.new("InputContext")
+	context.Priority = 10000
+	context.Sink = true
+	for _, key in { Enum.KeyCode.Thumbstick1, Enum.KeyCode.DPadLeft, Enum.KeyCode.ButtonL1 } do
+		local action = Instance.new("InputAction")
+		action.Type = if key == Enum.KeyCode.Thumbstick1
+			then Enum.InputActionType.Direction2D
+			else Enum.InputActionType.Bool
+		local binding = Instance.new("InputBinding")
+		binding.KeyCode = key
+		binding.Parent = action
+		action.StateChanged:Connect(function()
+			heard[key.Name] = (heard[key.Name] or 0) + 1
+		end)
+		action.Parent = context
+	end
+	context.Parent = game:GetService("Players").LocalPlayer.PlayerGui
+	for _, key in { "StickLeft", "DPadLeft", "ButtonL1" } do
+		move(t, a, key)
+	end
+	t.note("selected: action events by key", heard)
+	table.clear(heard)
+	GuiService.SelectedObject = nil
+	t.settle(3)
+	live().press({ "StickLeft", "DPadLeft" })
+	t.note("nothing selected: action events by key", heard)
+	context:Destroy()
+	GuiService.SelectedObject = nil
+end)
+
+add("E2-wired-candidates-first", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "A", 16, 100, 741, 44),
+			box(Host, "B", 16, 154, 741, 44),
+			box(Host, "X", 1100, 242, 62, 50),
+		})
+	end, { size = Vector2.new(1200, 800) })
+	local a, x = t.find(world, "A"), t.find(world, "X")
+	t.note("plain: Down from A", move(t, a, "DPadDown"))
+	for _, signal in { "SelectionGained", "SelectionLost", "SelectionChanged", "InputBegan" } do
+		local connection = (x :: any)[signal]:Connect(function() end)
+		t.note(`X has {signal}: Down from A`, move(t, a, "DPadDown"))
+		t.note(`X has {signal}: stick Down from A`, move(t, a, "StickDown"))
+		connection:Disconnect()
+	end
+	GuiService.SelectedObject = nil
+end)
+
+add("F12-out-of-beam-alignment", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "S", 100, 500, 100, 44),
+			box(Host, "Near", 430, 250, 40, 44),
+			box(Host, "Aligned", 1030, 200, 40, 44),
+		})
+	end, { size = Vector2.new(1200, 800) })
+	t.note("Right from S: Near (40 deg) or Aligned (18 deg)", move(t, t.find(world, "S"), "DPadRight"))
+	GuiService.SelectedObject = nil
+end)
+
+add("F6b-clipped-scroll-child-from-outside", function(t)
+	local world = t.mount(function(_, Host)
+		return Host.Frame({
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			box(Host, "Above", 100, 20, 300, 44),
+			Host.ScrollingFrame({
+				Name = "Scroller",
+				Position = UDim2.fromOffset(100, 100),
+				Size = UDim2.fromOffset(320, 200),
+				CanvasSize = UDim2.fromOffset(0, 800),
+				Selectable = false,
+				box(Host, "Clipped", 0, 250, 300, 44),
+			}),
+			box(Host, "Far", 100, 700, 300, 44),
+		})
+	end, { size = Vector2.new(800, 800) })
+	t.note("Down from Above (Clipped below the window, Far visible)", move(t, t.find(world, "Above"), "DPadDown"))
+	GuiService.SelectedObject = nil
+end)
+
 add("F11-selection-image-part", function(t)
 	local world = t.mount(function(_, Host)
 		return Host.Frame({

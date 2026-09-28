@@ -13,7 +13,7 @@ function relay.start(base: string): string
 	created.Name = "FacetLiveRelay"
 	local parts: { [string]: { string } } = {}
 	created.OnServerEvent:Connect(function(_, name: string, index: number, count: number, text: string, dir: string?)
-		local folder = if dir == "perf" then "perf" else "live"
+		local folder = if dir == "perf" or dir == "atlas" then dir else "live"
 		if not string.match(name, "^[%w%-_]+$") then
 			return
 		end
