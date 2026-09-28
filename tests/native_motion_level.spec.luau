@@ -80,23 +80,27 @@ t.describe("motion levels", function()
 		w.stop()
 	end)
 
-	t.it("a theme sheet on the same runtime zeroes paint under the controls' none", function()
-		local themes = require("../src").themes
-		local transition = require("./lib/transition")
-		local sheet
-		local w = overlay.new(function(UI, Host, engine, _, runtime)
-			sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-			return Host.Frame({ sheet })
-		end, { motionLevel = "none" })
-		local rule
-		for _, child in sheet:GetChildren() do
-			if child.ClassName == "StyleRule" and child.Selector == ".facet-text" then
-				rule = child
+	t.it(
+		"a theme sheet on the same runtime zeroes paint under the controls' none, even beside controls with no level",
+		function()
+			local themes = require("../src").themes
+			local transition = require("./lib/transition")
+			local sheet
+			local w = overlay.new(function(UI, Host, engine, _, runtime)
+				require("../src").controls(runtime, { types = engine.types } :: any)
+				sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				return Host.Frame({ sheet })
+			end, { motionLevel = "none" })
+			local rule
+			for _, child in sheet:GetChildren() do
+				if child.ClassName == "StyleRule" and child.Selector == ".facet-text" then
+					rule = child
+				end
 			end
+			t.expect(transition(rule, "TextColor3").Time).toBe(0)
+			w.stop()
 		end
-		t.expect(transition(rule, "TextColor3").Time).toBe(0)
-		w.stop()
-	end)
+	)
 
 	t.it("refuses the removed reducedMotion option and an unknown level", function()
 		local ok, message = pcall(levelWorld, { reducedMotion = true })

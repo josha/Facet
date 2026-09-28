@@ -7,7 +7,7 @@ export type Level = Shared.MotionLevel
 
 local RANK = { normal = 0, limited = 1, none = 2 }
 local warned: { [string]: boolean } = {}
-local published: { [unknown]: unknown } = setmetatable({}, { __mode = "k" }) :: any
+local PUBLISHED = {}
 
 local function check(value: unknown)
 	if value ~= nil and (type(value) ~= "string" or RANK[value :: string] == nil) then
@@ -32,11 +32,17 @@ local function resolve(chosen: unknown, engineReduced: boolean): Level
 end
 
 local function publish(runtime: unknown, value: unknown)
-	published[runtime] = value
+	if value == nil then
+		return
+	end
+	local owner = runtime :: { [unknown]: { unknown }? }
+	local list = owner[PUBLISHED] or {}
+	owner[PUBLISHED] = list
+	table.insert(list, value)
 end
 
-local function publishedFor(runtime: unknown): unknown
-	return published[runtime]
+local function publishedFor(runtime: unknown): { unknown }
+	return (runtime :: { [unknown]: { unknown }? })[PUBLISHED] or {}
 end
 
 local function level(ctx: Shared.Context): (ComposeTypes.Use?) -> Level
