@@ -1348,10 +1348,51 @@ t.describe("native parity controls", function()
 		fire("Radial-right")
 		t.expect(world.gui.SelectedObject.Name).toBe("E")
 		local E = world.engine.types.Enum
-		world.input.InputBegan.fire({ KeyCode = E.KeyCode.DPadLeft, UserInputType = E.UserInputType.Gamepad1 }, true)
-		fire("Radial-left")
+		local down: { [string]: boolean } = {}
+		world.input.IsKeyDown = function(_, key)
+			return down[key.Name] == true
+		end
+		local function action(name: string): any
+			for _, node in world.root:GetDescendants() do
+				if node:IsA("InputContext") and node.Enabled and node:FindFirstChild(name) then
+					return node:FindFirstChild(name)
+				end
+			end
+			error("no enabled " .. name)
+		end
+		local function key(began: boolean)
+			down.DPadLeft = began or nil
+			local event = { KeyCode = E.KeyCode.DPadLeft, UserInputType = E.UserInputType.Gamepad1 }
+			if began then
+				world.input.InputBegan.fire(event, true)
+			else
+				world.input.InputEnded.fire(event, true)
+			end
+		end
+		local left = action("Radial-left")
+		key(true)
+		left.Pressed.fire()
 		t.expect(world.gui.SelectedObject.Name).toBe("Center")
-		world.input.InputEnded.fire({ KeyCode = E.KeyCode.DPadLeft, UserInputType = E.UserInputType.Gamepad1 }, true)
+		key(false)
+		left.Released.fire()
+		fire("Radial-right")
+		action("Radial-right").Released.fire()
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		down.DPadLeft = true
+		left.Pressed.fire()
+		key(true)
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		left.Released.fire()
+		key(false)
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		left.Pressed.fire()
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		fire("Radial-right")
+		t.expect(world.gui.SelectedObject.Name).toBe("E")
+		key(true)
+		t.expect(world.gui.SelectedObject.Name).toBe("Center")
+		key(false)
 		world.stop()
 		local arc, press = radial({
 			isPresented = Compose.cell(true),

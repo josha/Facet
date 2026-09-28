@@ -1362,7 +1362,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			)
 		end
 		local action = Host.InputAction(p)
-		local function enabled(use: ComposeTypes.Use): boolean
+		local enabled = Compose.formula(function(use: ComposeTypes.Use): boolean
 			if selection then
 				use(selection)
 			end
@@ -1370,14 +1370,17 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				and use(available)
 				and ctx.read(enabledSource, use) ~= false
 				and ctx.available(node, use)
-		end
+		end)
 		local keyInput = config.userInputService
+		local held = function(): boolean
+			return false
+		end
 		if keyInput then
 			local probe = (keyInput :: unknown) :: {
 				IsKeyDown: ((UserInputService, Enum.KeyCode) -> boolean)?,
 				IsGamepadButtonDown: ((UserInputService, Enum.UserInputType, Enum.KeyCode) -> boolean)?,
 			}
-			local function held(): boolean
+			function held(): boolean
 				for _, binding in keyCodes :: { Shared.ActionBinding } do
 					local code: unknown = if type(binding) == "string"
 						then ((Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[binding]
@@ -1399,9 +1402,12 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end
 			local wasOn = false
 			Compose.watch(function(use: ComposeTypes.Use)
-				local on = enabled(use)
+				local on = use(enabled)
 				if on and not wasOn then
 					stale = held()
+				end
+				if on ~= wasOn then
+					viaAction, viaInput = false, false
 				end
 				wasOn = on
 			end)
@@ -1458,7 +1464,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				end
 			end
 			local steerable = Compose.formula(function(use: ComposeTypes.Use): boolean
-				return enabled(use) and use(selection) ~= nil
+				return use(enabled) and use(selection) ~= nil
 			end)
 			local function nextSelection(target: GuiObject, direction: string): GuiObject?
 				if direction == "Up" then
@@ -1504,6 +1510,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				if target == pinned then
 					return
 				end
+				if not held() then
+					viaAction, viaInput = false, false
+				end
 				release()
 				if target then
 					pinned = target
@@ -1530,7 +1539,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			local released = settings.onReleased
 			runtime.connect(inputService, "InputEnded", function(event: InputObject)
 				if event.KeyCode and steering[event.KeyCode.Name] then
-					viaInput = false
+					viaAction, viaInput = false, false
 					if released then
 						released()
 					end
