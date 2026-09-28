@@ -304,7 +304,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 								if arrow then
 									landing = false
 								end
-								if held == action then
+								if held == (action :: unknown) then
 									stopRepeat()
 								end
 							end,

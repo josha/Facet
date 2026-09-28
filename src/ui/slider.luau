@@ -849,7 +849,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			end, cancel, model.min, model.max, { vertical = vertical, guard = true })
 		end
 		if isRange then
-			local adjusting = Compose.cell("lower" :: Thumb)
+			local adjusting: ComposeTypes.Cell<Thumb> = Compose.cell("lower" :: Thumb)
 			if selection then
 				local observed = selection
 				Compose.watch(function(use: ComposeTypes.Use)
@@ -859,7 +859,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				end)
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
-				local thumb = use(adjusting) :: Thumb
+				local thumb: Thumb = if use(adjusting) == "upper" then "upper" else "lower"
 				node:SetAttribute("adjusting", thumb)
 				node:SetAttribute("FacetFocusPart", relative(handles[thumb]))
 			end)
@@ -874,7 +874,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				node,
 				(spec :: unknown) :: NumberSpec,
 				function(direction)
-					local thumb = adjusting:peek() :: Thumb
+					local thumb: Thumb = adjusting:peek()
 					local current = pair()
 					local base = if thumb == "lower" then current.lower else current.upper
 					if moveThumb(thumb, model.stepped(base, direction)) then
@@ -889,7 +889,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					guard = true,
 					arrows = function(use: ComposeTypes.Use, direction: number): boolean
 						local current = pair(use)
-						local thumb = use(adjusting) :: Thumb
+						local thumb: Thumb = if use(adjusting) == "upper" then "upper" else "lower"
 						local base = if thumb == "lower" then current.lower else current.upper
 						return if direction < 0 then base > model.min else base < model.max
 					end,
@@ -900,7 +900,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 					end,
 				}
 			)
-			for _, thumb in { "lower", "upper" } :: { Thumb } do
+			for index = 1, 2 do
+				local thumb: Thumb = if index == 1 then "lower" else "upper"
 				h.attributes(handles[thumb], {
 					AccessibleLabel = function(use: ComposeTypes.Use): string
 						local named = read(spec.label, use)
