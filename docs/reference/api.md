@@ -3751,11 +3751,12 @@ responder.engage()
 ### adjustable
 
 `UI.adjustable(node, options)` gives a game control the keyboard and gamepad
-adjustment of the Slider and the Stepper. While the selection is on `node` or
-inside it, Comma and Period and L1 and R1 call `onAdjust(-1)` and
-`onAdjust(1)`, and the arrows of `axis` do too. The other axis keeps moving
-the selection. Call it inside a component or a Compose owner; it stops when
-the owner ends. `node` or a descendant must be selectable.
+adjustment of the Slider and the Stepper. `UI.adjustable` makes `node` the
+selection stop; give it no selectable descendants. While the selection is on
+`node`, Comma and Period and L1 and R1 call `onAdjust(-1)` and `onAdjust(1)`,
+and the arrows and the left stick on `axis` do too. The other axis keeps
+moving the selection. Call it inside a component or a Compose owner; it stops
+when the owner ends.
 
 | Option | Effect |
 |---|---|

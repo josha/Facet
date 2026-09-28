@@ -287,4 +287,42 @@ t.describe("the range Slider is one stop", function()
 	end)
 end)
 
+t.describe("other adjustables are one stop", function()
+	t.it("Rating and LevelPicker hold no selectable part", function()
+		local w = setup(function(UI, Host)
+			return Host.Frame({
+				UI.Rating("Stars")({ value = Compose.cell(2), count = 5 }),
+				UI.LevelPicker("Level")({ value = Compose.cell(1), count = 4 }),
+			})
+		end)
+		for _, name in { "Stars", "Level" } do
+			local root = w.find(name)
+			t.expect(root.Selectable).toBe(true)
+			t.expect(selectableInside(root)).toEqual({})
+		end
+		w.stop()
+	end)
+
+	t.it("UI.adjustable makes its node the stop", function()
+		local steps = {}
+		local w = setup(function(UI, Host)
+			local node = Host.Frame({ Name = "Dial" })
+			UI.adjustable(node, {
+				onAdjust = function(direction)
+					table.insert(steps, direction)
+				end,
+			})
+			return node
+		end)
+		local dial = w.find("Dial")
+		t.expect(dial.Selectable).toBe(true)
+		w.gui.SelectedObject = dial
+		w.press("DPadLeft")
+		w.stick(1, 0)
+		w.stick(0, 0)
+		t.expect(steps).toEqual({ -1, 1 })
+		w.stop()
+	end)
+end)
+
 return nil

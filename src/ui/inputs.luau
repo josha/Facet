@@ -1993,6 +1993,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		)
 		local canAdjust = options.canAdjust
 		local bound = if axis == "none" then nil else math.huge
+		runtime.decorate(node, { Selectable = true })
 		adjustment(node, options :: any, options.onAdjust, nil, if bound then -bound else nil :: any, bound :: any, {
 			vertical = axis == "vertical",
 			once = options.repeats ~= true,

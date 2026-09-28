@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking: `UI.adjustable` makes its node the one selection stop** (it sets `Selectable = true` on the node) and adjusts only while the node itself is selected, not a descendant. Give the node no selectable descendants.
 - **Breaking: a range Slider is one stop, and A (gamepad) or Return (keyboard) switches the handle that Left and Right move.** The selection always lands on the lower handle; the focus look is drawn on the handle being moved, and the Slider's `adjusting` attribute and accessible label name it. The gamepad "press A to engage a handle" mode is gone and Tab no longer visits each handle. Touch and mouse still drag either handle. A game that selected `HandleLower` or `HandleUpper` selects the Slider instead.
 - **Breaking: a Stepper is one gamepad and keyboard stop.** Its − and + buttons are no longer selectable (they still respond to touch and the mouse); the Stepper itself takes the selection, Left and Right change the value, and Up and Down leave it. A game that selected `Decrease` or `Increase` by name selects the Stepper instead.
 - The left thumbstick changes a selected Slider, Stepper, Rating, LevelPicker or `UI.adjustable` like the D-pad: a push past half-way along the control's axis steps once, holding repeats, and a push on the other axis still moves the selection. A stick already pushed when the selection lands waits for a release first.
