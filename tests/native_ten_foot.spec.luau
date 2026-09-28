@@ -125,6 +125,24 @@ t.describe("ten-foot controls follow the distance fact", function()
 		t.expect(distant:FindFirstChildWhichIsA("TextButton").Size.Y.Offset).toBe(66)
 		bare.runtime:dispose()
 	end)
+	t.it("floors a width-only Button at the control height, near and at ten feet", function()
+		for _, distant in { false, true } do
+			local w = world(nil, distant)
+			local D2 = w.T.UDim2
+			local root = w.mount(function()
+				return w.UI.VStack {
+					w.UI.Button "Zero" { label = "Play", Size = D2.new(1, 0, 0, 0) },
+					w.UI.Button "Thirds" { label = "Play", Size = D2.new(1 / 3, -6, 0, 0) },
+				}
+			end)
+			local floor = if distant then 66 else 44
+			for _, name in { "Zero", "Thirds" } do
+				local button = root:FindFirstChild(name)
+				t.expect(`{name} {button.Size.Y.Offset} {button.AutomaticSize.Name}`).toBe(`{name} {floor} Y`)
+			end
+			w.runtime:dispose()
+		end
+	end)
 	t.it("an authored viewingDistance scales a mouse desktop and keeps a console near", function()
 		local distance = Compose.cell("ten-foot")
 		local w = world({
