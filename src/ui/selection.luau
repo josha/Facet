@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Env = require("./environment_types")
+local FocusBeam = require("./focus_beam")
 
 type Level = { child: Instance, parent: Instance, siblings: { Instance } }
 type Snapshot = { node: GuiObject, levels: { Level }, modal: boolean }
@@ -124,6 +125,11 @@ return function(ctx: Shared.Context): Selection
 			return left > right
 		end)
 		return list
+	end
+
+	local function rectOf(node: GuiObject): FocusBeam.Rect
+		local at, size = node.AbsolutePosition, node.AbsoluteSize
+		return { x = at.X, y = at.Y, width = size.X, height = size.Y }
 	end
 
 	local function scopeOf(selected: Instance?): { GuiObject }
@@ -393,8 +399,10 @@ return function(ctx: Shared.Context): Selection
 			local dx = (cp.X + cs.X / 2) - (fp.X + fs.X / 2)
 			local dy = (cp.Y + cs.Y / 2) - (fp.Y + fs.Y / 2)
 			local vertical = cp.Y >= fp.Y + fs.Y or cp.Y + cs.Y <= fp.Y or math.abs(dy) >= math.abs(dx)
-			local sign = if vertical then (if dy >= 0 then 1 else -1) else (if dx >= 0 then 1 else -1)
-			local best, target = math.huge, nil
+			local direction: FocusBeam.Direction = if vertical
+				then (if dy >= 0 then "down" else "up")
+				else (if dx >= 0 then "right" else "left")
+			local pool, rects = {}, {}
 			for _, candidate in scopeOf(from) do
 				if
 					candidate ~= from
@@ -402,26 +410,12 @@ return function(ctx: Shared.Context): Selection
 					and not candidate:IsA("ScrollingFrame")
 					and not candidate:IsDescendantOf(container)
 				then
-					local at, extent = candidate.AbsolutePosition, candidate.AbsoluteSize
-					local gap, across, overlap
-					if vertical then
-						gap = if sign > 0 then at.Y - (fp.Y + fs.Y) else fp.Y - (at.Y + extent.Y)
-						across = math.abs(at.X + extent.X / 2 - (fp.X + fs.X / 2))
-						overlap = at.X < fp.X + fs.X and fp.X < at.X + extent.X
-					else
-						gap = if sign > 0 then at.X - (fp.X + fs.X) else fp.X - (at.X + extent.X)
-						across = math.abs(at.Y + extent.Y / 2 - (fp.Y + fs.Y / 2))
-						overlap = at.Y < fp.Y + fs.Y and fp.Y < at.Y + extent.Y
-					end
-					if gap >= -1 then
-						local score = gap + 2 * across + (if overlap then 0 else 100000)
-						if score < best then
-							best, target = score, candidate
-						end
-					end
+					table.insert(pool, candidate)
+					table.insert(rects, rectOf(candidate))
 				end
 			end
-			return target
+			local index = FocusBeam.neighbor(rectOf(from), rects, direction)
+			return if index then pool[index] else nil
 		end
 		local function forward(container: ScrollingFrame): boolean
 			if container:GetAttribute("FacetSelectionOwner") == true then
