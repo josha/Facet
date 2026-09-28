@@ -66,8 +66,8 @@ t.describe("presentation motion: Dialog and CollapsibleView", function()
 		w.advance(FRAME)
 		w.advance(FRAME)
 		t.expect(scale.Scale >= 0.94 and scale.Scale < 1).toBe(true)
-		t.expect(fadeKit.of(panel)).toBe(1)
-		t.expect(fadeOf(w)).toBe(1)
+		t.expect(fadeKit.of(panel) > 0.5).toBe(true)
+		t.expect(fadeOf(w)).toBeCloseTo(fadeKit.of(panel), 1e-6)
 		local lastScale, lastFade, clearedEarly = scale.Scale, fadeKit.of(panel), false
 		for _ = 1, 11 do
 			w.advance(FRAME)

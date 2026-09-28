@@ -5,16 +5,38 @@ local Shared = require("./types")
 type Acquire = () -> ComposeTypes.Cell<boolean>
 export type Level = Shared.MotionLevel
 
-local LEVELS = { normal = true, limited = true, none = true }
+local RANK = { normal = 0, limited = 1, none = 2 }
+local warned: { [string]: boolean } = {}
+local published: { [unknown]: unknown } = setmetatable({}, { __mode = "k" }) :: any
+
+local function check(value: unknown)
+	if value ~= nil and (type(value) ~= "string" or RANK[value :: string] == nil) then
+		error(`Facet motionLevel must be "normal", "limited" or "none", got {tostring(value)}`, 0)
+	end
+end
 
 local function resolve(chosen: unknown, engineReduced: boolean): Level
+	local device: Level = if engineReduced then "limited" else "normal"
 	if chosen == nil then
-		return if engineReduced then "limited" else "normal"
+		return device
 	end
-	if type(chosen) ~= "string" or not LEVELS[chosen :: string] then
-		error(`Facet motionLevel must be "normal", "limited" or "none", got {tostring(chosen)}`, 0)
+	if type(chosen) ~= "string" or RANK[chosen :: string] == nil then
+		local key = tostring(chosen)
+		if not warned[key] then
+			warned[key] = true
+			warn(`Facet motionLevel must be "normal", "limited" or "none", got {key}; following the device`)
+		end
+		return device
 	end
-	return chosen :: Level
+	return if RANK[chosen :: string] > RANK[device] then chosen :: Level else device
+end
+
+local function publish(runtime: unknown, value: unknown)
+	published[runtime] = value
+end
+
+local function publishedFor(runtime: unknown): unknown
+	return published[runtime]
 end
 
 local function level(ctx: Shared.Context): (ComposeTypes.Use?) -> Level
@@ -30,11 +52,10 @@ local function level(ctx: Shared.Context): (ComposeTypes.Use?) -> Level
 		native = acquire()
 	end
 	return function(use: ComposeTypes.Use?): Level
-		local chosen = ctx.read(config.motionLevel, use)
-		if chosen ~= nil then
-			return resolve(chosen, false)
-		end
-		return resolve(nil, native ~= nil and (if use then use(native) else native:peek()) == true)
+		return resolve(
+			ctx.read(config.motionLevel, use),
+			native ~= nil and (if use then use(native) else native:peek()) == true
+		)
 	end
 end
 
@@ -45,4 +66,11 @@ local function reduced(ctx: Shared.Context): (ComposeTypes.Use?) -> boolean
 	end
 end
 
-return { level = level, reduced = reduced, resolve = resolve }
+return {
+	level = level,
+	reduced = reduced,
+	resolve = resolve,
+	check = check,
+	publish = publish,
+	published = publishedFor,
+}

@@ -1371,6 +1371,34 @@ t.describe("RadialMenu centre and corner controls (restored from 0.11)", functio
 		plain.stop()
 		world.stop()
 	end)
+	t.it("Back re-opens the parent around the item's current place after the ring re-lays out", function()
+		local function leaf(id: string): any
+			return { id = id, label = id, onSelect = function() end }
+		end
+		local gear = { id = "gear", label = "Gear", children = { leaf("x"), leaf("y") } }
+		local items = Compose.cell({ leaf("a"), gear })
+		local world = setup({ distribution = "even", items = items }, true)
+		local function at(id: string): any
+			local node = world.find(id)
+			return world.engine.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+		end
+		world.step(0.5)
+		local before = at("gear")
+		world.find("gear").Activated.fire()
+		world.step(0.5)
+		items:set({ leaf("a"), gear, leaf("c"), leaf("d") })
+		world.step(0.2)
+		local nav = world.find("$navigation")
+		local centre = world.find("Center")
+		assert(nav or centre).Activated.fire()
+		world.step(1 / 60)
+		local early = at("a")
+		world.step(0.5)
+		local after = at("gear")
+		t.expect((after - before).Magnitude > 20).toBe(true)
+		t.expect((early - after).Magnitude < (early - before).Magnitude).toBe(true)
+		world.stop()
+	end)
 	t.it("a long press names an item without acting; the release does nothing and a second tap acts", function()
 		local picked = 0
 		local world = setup({

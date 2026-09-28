@@ -1732,7 +1732,7 @@ local function createStyleSheet(
 		'Facet createStyleSheet: the reducedMotion option is gone; set motionLevel = "normal", "limited" or "none"'
 	)
 	local function snaps(use: ComposeTypes.Use): boolean
-		local chosen = read(settings.motionLevel, use)
+		local chosen = read(settings.motionLevel or motionLevels.published(runtime) :: any, use)
 		return chosen ~= nil and motionLevels.resolve(chosen, false) == "none"
 	end
 	local preferredTransparency = settings.preferredTransparency

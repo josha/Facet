@@ -115,8 +115,11 @@ function screen.configure(ctx)
 			connection:Disconnect()
 		end)
 	end
+	local rank = { normal = 0, limited = 1, none = 2 }
 	ctx.motionLevel = Compose.formula(function(use)
-		return use(ctx.motionPreference) or (if use(nativeReduced) then "limited" else "normal")
+		local device = if use(nativeReduced) then "limited" else "normal"
+		local chosen = use(ctx.motionPreference)
+		return if chosen and (rank[chosen] or 0) > rank[device] then chosen else device
 	end)
 	ctx.reducedMotion = Compose.formula(function(use)
 		return use(ctx.motionLevel) ~= "normal"
@@ -318,7 +321,7 @@ function screen.build(ctx: any)
 		Gamepad = "Gamepad",
 		resetAll = "Reset everything to Automatic",
 		previewNote = "Phone and tablet layouts fit within this window. Automatic input follows the preview device, or your current device in Automatic preview.",
-		motionNote = "Limited fades instead of moving. None snaps. Device follows the Reduce Motion setting. Informational motion keeps running, in 250 ms steps.",
+		motionNote = "Limited fades instead of moving. None snaps. The device's Reduce Motion still applies on top of the game's choice. Informational motion keeps running, in 250 ms steps.",
 	}
 	local function options(values)
 		local list = {}
@@ -417,9 +420,9 @@ function screen.build(ctx: any)
 					selected = ctx.motionMode,
 					options = {
 						{ value = "device", label = "Device" },
-						{ value = "normal", label = "Normal" },
-						{ value = "limited", label = "Limited" },
-						{ value = "none", label = "None" },
+						{ value = "normal", label = "Game: Normal" },
+						{ value = "limited", label = "Game: Limited" },
+						{ value = "none", label = "Game: None" },
 					},
 					onChange = function(value)
 						ctx.motionPreference:set(if value == "device" then nil else value)

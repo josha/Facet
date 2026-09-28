@@ -27,8 +27,9 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		'Facet: the reducedMotion option is gone; set motionLevel = "normal", "limited" or "none"'
 	)
 	if type(config.motionLevel) == "string" then
-		motion.resolve(config.motionLevel, false)
+		motion.check(config.motionLevel)
 	end
+	motion.publish(runtime, config.motionLevel)
 	local types: Shared.RobloxTypes = config.types
 		or {
 			UDim = UDim,

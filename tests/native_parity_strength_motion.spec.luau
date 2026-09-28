@@ -1973,9 +1973,9 @@ t.describe("gallery motion setting", function()
 		end
 		t.expect(optionCount).toBe(4)
 		t.expect(device:GetAttribute("label")).toBe("Device")
-		t.expect(full:GetAttribute("label")).toBe("Normal")
-		t.expect(limited:GetAttribute("label")).toBe("Limited")
-		t.expect(reduced:GetAttribute("label")).toBe("None")
+		t.expect(full:GetAttribute("label")).toBe("Game: Normal")
+		t.expect(limited:GetAttribute("label")).toBe("Game: Limited")
+		t.expect(reduced:GetAttribute("label")).toBe("Game: None")
 		local wording: { string } = {}
 		for _, node in sheet:GetDescendants() do
 			local ok, text = pcall(function()
@@ -2006,7 +2006,8 @@ t.describe("gallery motion setting", function()
 		t.expect(ctx.reducedMotion:peek()).toBe(false)
 		t.expect(full:GetAttribute("selected")).toBe(true)
 		gui.ReducedMotionEnabled = true
-		t.expect(ctx.reducedMotion:peek()).toBe(false)
+		t.expect(ctx.reducedMotion:peek()).toBe(true)
+		t.expect(ctx.motionLevel:peek()).toBe("limited")
 		device.Activated.fire()
 		t.expect(ctx.motionLevel:peek()).toBe("limited")
 		t.expect(device:GetAttribute("selected")).toBe(true)
