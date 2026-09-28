@@ -163,6 +163,76 @@ return function(ctx: Shared.Context): Selection
 		return {}
 	end
 
+	local function beyond(container: GuiObject, from: GuiObject): GuiObject?
+		local fp, fs = from.AbsolutePosition, from.AbsoluteSize
+		local cp, cs = container.AbsolutePosition, container.AbsoluteSize
+		local dx = (cp.X + cs.X / 2) - (fp.X + fs.X / 2)
+		local dy = (cp.Y + cs.Y / 2) - (fp.Y + fs.Y / 2)
+		local vertical = cp.Y >= fp.Y + fs.Y or cp.Y + cs.Y <= fp.Y or math.abs(dy) >= math.abs(dx)
+		local direction: FocusBeam.Direction = if vertical
+			then (if dy >= 0 then "down" else "up")
+			else (if dx >= 0 then "right" else "left")
+		local pool, rects = {}, {}
+		for _, candidate in scopeOf(from) do
+			if
+				candidate ~= from
+				and candidate ~= container
+				and not candidate:IsA("ScrollingFrame")
+				and not candidate:IsDescendantOf(container)
+			then
+				table.insert(pool, candidate)
+				table.insert(rects, rectOf(candidate))
+			end
+		end
+		local index = FocusBeam.neighbor(rectOf(from), rects, direction)
+		return if index then pool[index] else nil
+	end
+
+	local function entryOf(container: GuiObject, from: GuiObject?): GuiObject?
+		local list = candidates(container)
+		if list[1] == container then
+			table.remove(list, 1)
+		end
+		if #list == 0 then
+			if from == nil or not shown(from) or from:IsDescendantOf(container) then
+				return nil
+			end
+			return beyond(container, from) or from
+		end
+		if from and table.find(list, from) then
+			return from
+		end
+		local entry = container:GetAttribute("FacetEntry")
+		if type(entry) == "string" then
+			for _, candidate in list do
+				if candidate.Name == entry then
+					return candidate
+				end
+			end
+		end
+		local target = list[1]
+		if from and from ~= container and not from:IsDescendantOf(container) then
+			local source = from.AbsolutePosition + from.AbsoluteSize / 2
+			local box, window = container.AbsolutePosition, container.AbsoluteSize
+			local vertical = source.Y <= box.Y or source.Y >= box.Y + window.Y
+			local best = math.huge
+			for _, candidate in list do
+				local at, extent = candidate.AbsolutePosition, candidate.AbsoluteSize
+				local edge = if vertical
+					then (if source.Y <= box.Y then at.Y - box.Y else box.Y + window.Y - at.Y - extent.Y)
+					else (if source.X <= box.X then at.X - box.X else box.X + window.X - at.X - extent.X)
+				local across = if vertical
+					then math.abs(at.X + extent.X / 2 - source.X)
+					else math.abs(at.Y + extent.Y / 2 - source.Y)
+				local score = math.max(edge, 0) * 100000 + across
+				if score < best then
+					best, target = score, candidate
+				end
+			end
+		end
+		return target
+	end
+
 	local DIRECTIONS: { Env.FocusDirection } = { "Up", "Down", "Left", "Right" }
 
 	local function visibleOnScreen(node: GuiObject): boolean
@@ -175,6 +245,29 @@ return function(ctx: Shared.Context): Selection
 			end
 		end
 		return true
+	end
+
+	local function inView(origin: GuiObject, candidate: GuiObject): boolean
+		local at, size = candidate.AbsolutePosition, candidate.AbsoluteSize
+		local parent = candidate.Parent
+		while parent and parent:IsA("GuiObject") do
+			if parent:IsA("ScrollingFrame") then
+				if origin:IsDescendantOf(parent) then
+					return true
+				end
+				local box, window = parent.AbsolutePosition, parent.AbsoluteSize
+				if
+					at.X + size.X <= box.X
+					or at.Y + size.Y <= box.Y
+					or at.X >= box.X + window.X
+					or at.Y >= box.Y + window.Y
+				then
+					return false
+				end
+			end
+			parent = parent.Parent
+		end
+		return visibleOnScreen(candidate)
 	end
 
 	local function groupsOf(node: GuiObject): { GuiObject }
@@ -214,10 +307,10 @@ return function(ctx: Shared.Context): Selection
 			local size = candidate.AbsoluteSize
 			if
 				candidate ~= origin
-				and not candidate:IsA("ScrollingFrame")
+				and not (candidate:IsA("ScrollingFrame") and origin:IsDescendantOf(candidate))
 				and size.X > 0
 				and size.Y > 0
-				and visibleOnScreen(candidate)
+				and inView(origin, candidate)
 			then
 				table.insert(pool, candidate)
 			end
@@ -229,7 +322,11 @@ return function(ctx: Shared.Context): Selection
 				rects[index] = rectOf(node)
 			end
 			local index = FocusBeam.neighbor(rectOf(origin), rects, string.lower(direction) :: FocusBeam.Direction)
-			return if index then list[index] else nil
+			local target = if index then list[index] else nil
+			if target and target:IsA("ScrollingFrame") and target:GetAttribute("FacetSelectionOwner") ~= true then
+				target = entryOf(target, origin)
+			end
+			return if target == origin then nil else target
 		end
 		for _, direction in DIRECTIONS do
 			local link = (origin :: any)["NextSelection" .. direction] :: GuiObject?
@@ -498,78 +595,13 @@ return function(ctx: Shared.Context): Selection
 				end)
 			end)
 		end
-		local function beyond(container: GuiObject, from: GuiObject): GuiObject?
-			local fp, fs = from.AbsolutePosition, from.AbsoluteSize
-			local cp, cs = container.AbsolutePosition, container.AbsoluteSize
-			local dx = (cp.X + cs.X / 2) - (fp.X + fs.X / 2)
-			local dy = (cp.Y + cs.Y / 2) - (fp.Y + fs.Y / 2)
-			local vertical = cp.Y >= fp.Y + fs.Y or cp.Y + cs.Y <= fp.Y or math.abs(dy) >= math.abs(dx)
-			local direction: FocusBeam.Direction = if vertical
-				then (if dy >= 0 then "down" else "up")
-				else (if dx >= 0 then "right" else "left")
-			local pool, rects = {}, {}
-			for _, candidate in scopeOf(from) do
-				if
-					candidate ~= from
-					and candidate ~= container
-					and not candidate:IsA("ScrollingFrame")
-					and not candidate:IsDescendantOf(container)
-				then
-					table.insert(pool, candidate)
-					table.insert(rects, rectOf(candidate))
-				end
-			end
-			local index = FocusBeam.neighbor(rectOf(from), rects, direction)
-			return if index then pool[index] else nil
-		end
 		local function forward(container: ScrollingFrame): boolean
 			if container:GetAttribute("FacetSelectionOwner") == true then
 				return false
 			end
-			local list = candidates(container)
-			if list[1] == container then
-				table.remove(list, 1)
-			end
-			if #list == 0 then
-				local from = if record then record.node else nil
-				if from == nil or not shown(from) or from:IsDescendantOf(container) then
-					return false
-				end
-				service.SelectedObject = beyond(container, from) or from
-				return true
-			end
-			local from = if record then record.node else nil
-			local target = list[1]
-			local entry = container:GetAttribute("FacetEntry")
-			local preferred: GuiObject? = nil
-			if type(entry) == "string" then
-				for _, candidate in list do
-					if candidate.Name == entry then
-						preferred = candidate
-						break
-					end
-				end
-			end
-			if preferred then
-				target = preferred
-			elseif from and from ~= container and not from:IsDescendantOf(container) then
-				local source = from.AbsolutePosition + from.AbsoluteSize / 2
-				local box, window = container.AbsolutePosition, container.AbsoluteSize
-				local vertical = source.Y <= box.Y or source.Y >= box.Y + window.Y
-				local best = math.huge
-				for _, candidate in list do
-					local at, extent = candidate.AbsolutePosition, candidate.AbsoluteSize
-					local edge = if vertical
-						then (if source.Y <= box.Y then at.Y - box.Y else box.Y + window.Y - at.Y - extent.Y)
-						else (if source.X <= box.X then at.X - box.X else box.X + window.X - at.X - extent.X)
-					local across = if vertical
-						then math.abs(at.X + extent.X / 2 - source.X)
-						else math.abs(at.Y + extent.Y / 2 - source.Y)
-					local score = math.max(edge, 0) * 100000 + across
-					if score < best then
-						best, target = score, candidate
-					end
-				end
+			local target = entryOf(container, if record then record.node else nil)
+			if target == nil then
+				return false
 			end
 			service.SelectedObject = target
 			return true

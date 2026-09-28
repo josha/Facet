@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A D-pad move with nothing in its direction no longer jumps to the first control of the page. The engine selected the scroll container around the selected control, and Facet passed the selection to the container's first control; it now keeps the selected control.
+- `UI.focusQuery` follows the engine on scroll containers: a control clipped out of its scroll container's window is not a target from outside that container (from inside it, it still is), and a move the engine gives to a selectable scroll container reports the control the container passes it to.
 - A D-pad move reaches a Slider, Stepper, Rating, LevelPicker or `UI.adjustable` again. The engine's D-pad search ranks every candidate that has a `SelectionGained`, `SelectionLost`, `Activated` or `MouseButton1Click` listener ahead of those without one, so from a Slider it jumped past the value controls to the nearest button in that direction (Up from the bottom Slider on a form landed on a toolbar button). Each value control's stop now listens for `SelectionGained`.
 - A Slider's drag detectors switch off while the gamepad is the preferred input and back on at the next touch or mouse input. An enabled `UIDragDetector` made its track a D-pad and stick target although the track is not selectable.
 - A disabled Stepper or `UI.adjustable` node is no longer a selection stop; it becomes one again when enabled (a Slider already worked this way). A busy `UI.adjustable` stays a stop and ignores presses until it is idle. Value control roots carry a `disabled` attribute. The Slider's and the Stepper's accessible label is on the control itself, the object that takes the selection (a Slider without a label announces its value); `Track` and `ThumbStop` no longer carry it.

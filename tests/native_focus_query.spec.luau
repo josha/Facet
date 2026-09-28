@@ -217,6 +217,54 @@ t.describe("UI.focusQuery", function()
 		w.stop()
 	end)
 
+	t.it("a scroll child is a candidate off its window only from inside the same scroll container", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Above")({ label = "Above" }),
+				Host.ScrollingFrame("Scroller")({
+					Selectable = false,
+					UI.Button("Row1")({ label = "Row1" }),
+					UI.Button("Row2")({ label = "Row2" }),
+				}),
+				UI.Button("Far")({ label = "Far" }),
+			})
+		end)
+		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1000, 800)
+		local above = w.place("Above", 100, 20, 300, 44)
+		w.place("Scroller", 100, 100, 320, 200)
+		local row1 = w.place("Row1", 100, -150, 300, 44)
+		local row2 = w.place("Row2", 100, 350, 300, 44)
+		w.place("Far", 100, 700, 300, 44)
+		t.expect(w.UI.focusQuery(above).Down.target.Name).toBe("Far")
+		t.expect(w.UI.focusQuery(row2).Up.target).toBe(row1)
+		w.place("Row2", 100, 280, 300, 44)
+		t.expect(w.UI.focusQuery(above).Down.target).toBe(row2)
+		w.stop()
+	end)
+
+	t.it("a move the engine gives to a scroll container reports the control the container passes it to", function()
+		local w = world(function(UI, Host)
+			return Host.Frame({
+				UI.Button("Tab")({ label = "Tab" }),
+				Host.ScrollingFrame("Body")({
+					Selectable = true,
+					UI.Button("Wide")({ label = "Wide" }),
+					UI.Button("Side")({ label = "Side" }),
+				}),
+			})
+		end)
+		w.screen.AbsoluteSize = w.engine.types.Vector2.new(1542, 1000)
+		local tab = w.place("Tab", 584, 108, 68, 44)
+		w.place("Body", 0, 160, 1542, 789)
+		w.place("Wide", 16, 217, 741, 44)
+		local side = w.place("Side", 781, 217, 76, 40)
+		local down = w.UI.focusQuery(tab).Down
+		t.expect(down.target).toBe(side)
+		t.expect(down.rule).toBe("beam")
+		t.expect(w.UI.focusQuery(side).Right.rule).toBe("none")
+		w.stop()
+	end)
+
 	t.it("adds no per-frame work", function()
 		local w = world(function(UI, Host)
 			return Host.Frame({ UI.Button("A")({ label = "A" }), UI.Button("B")({ label = "B" }) })

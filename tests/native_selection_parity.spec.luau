@@ -505,4 +505,17 @@ t.describe("native selection parity with the main focus graph", function()
 		t.expect(selected(world)).toBe("Inside")
 		world.stop()
 	end)
+
+	t.it("a move that lands on the scroll container around the selection keeps the selection", function()
+		local world = setup(function(UI, Host)
+			return Host.ScrollingFrame("Page")({
+				UI.Button("First")({ label = "First" }),
+				UI.Button("Edge")({ label = "Edge" }),
+			})
+		end)
+		world.gui.SelectedObject = find(world.screen, "Edge")
+		world.gui.SelectedObject = find(world.screen, "Page")
+		t.expect(selected(world)).toBe("Edge")
+		world.stop()
+	end)
 end)
