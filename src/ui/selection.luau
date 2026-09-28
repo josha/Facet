@@ -346,7 +346,9 @@ return function(ctx: Shared.Context): Selection
 			local live = (origin :: any)["NextSelection" .. direction] :: GuiObject?
 			local authored = pinned[origin]
 			local link = if live ~= origin then live elseif authored then authored[direction] else nil
-			if not past and not (capturedAxis(origin, direction) and atLimit(origin, direction))
+			if
+				not past
+				and not (capturedAxis(origin, direction) and atLimit(origin, direction))
 				and (live == origin or capturedAxis(origin, direction))
 			then
 				result[direction] = table.freeze({ target = origin, rule = "capture" })

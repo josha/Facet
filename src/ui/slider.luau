@@ -490,11 +490,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 			dragging:set(false)
 			commit(active.thumb)
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			if not pointerDrag(use) then
-				finish()
-			end
-		end)
 		local function nearest(position: Vector2 | Vector3): Thumb
 			local point, length = travelAt(track, position, vertical, degrees())
 			local current = pair()

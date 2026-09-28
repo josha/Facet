@@ -1450,7 +1450,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						retire("dismissed")
 					end, { priority = 2000 })
 				end
-				local overlayRoot = if arrow then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] } else panel :: Instance
+				local overlayRoot = if arrow
+					then Host.Folder "CalloutOverlay" { panel :: Instance, arrow[1] }
+					else panel :: Instance
 				surfaces.keep(spec.content)
 				return overlayRoot
 			end, { motion = timing }),
