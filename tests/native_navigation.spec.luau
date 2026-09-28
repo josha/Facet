@@ -938,6 +938,23 @@ t.describe("native navigation controls", function()
 		world.stop()
 	end)
 
+	t.it("a disclosure given an Instance as content shows it again after a collapse", function()
+		local expanded = Compose.cell(true)
+		local inside
+		local world = setup(function(UI, Host)
+			inside = Host.TextLabel "Inside" { Text = "Inside" }
+			return UI.DisclosureGroup({ expanded = expanded, label = "Details", content = inside })
+		end)
+		world.gui.ReducedMotionEnabled = true
+		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
+		expanded:set(false)
+		world.engine.heartbeat.fire(1)
+		t.expect(inside.isDestroyed()).toBe(false)
+		expanded:set(true)
+		t.expect(inside:IsDescendantOf(world.screen)).toBe(true)
+		world.stop()
+	end)
+
 	t.it("returns disclosure focus before unmounting its content", function()
 		local expanded = Compose.cell(true)
 		local world = setup(function(UI)

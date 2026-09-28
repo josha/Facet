@@ -29,6 +29,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local function body(content: Nav.Content): Instance
 		return if type(content) == "function" then content() else content
 	end
+	local function keep(content: Nav.Content): ()
+		if type(content) ~= "function" then
+			Compose.cleanup(function()
+				(content :: Instance).Parent = nil
+			end)
+		end
+	end
 	local function empty(spec: Types.FrameProps, keys: { string }, name: string): Frame
 		return Host.Frame(
 			ctx.props(spec, keys, { Name = name, BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
@@ -241,6 +248,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						end
 					end)
 					Compose.cleanup(handBack)
+					keep(spec.content)
 					return reveal
 				end, {
 					exit = function()
@@ -426,7 +434,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						chrome:set(outer - inner)
 					end
 				end)
-				return surfaces.modal(
+				local modal = surfaces.modal(
 					function()
 						return plate
 					end,
@@ -439,6 +447,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						appearance = progress,
 					}
 				)
+				keep(spec.content)
+				return modal
 			end, {
 				presence = {
 					exit = function(): ComposeTypes.Exiting

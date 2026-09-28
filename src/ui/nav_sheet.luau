@@ -774,11 +774,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						table.unpack(children),
 					},
 				})
-				if type(content) ~= "function" then
-					frame.Destroying:Connect(function()
-						node.Parent = nil
-					end)
-				end
 			end
 			if overHero then
 				local close = closeControl()
@@ -1123,6 +1118,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ready:set(true)
 				end
 				previous = signature
+			end)
+		end
+		local heroContent = spec.hero and spec.hero.content
+		if heroContent and type(heroContent) ~= "function" then
+			Compose.cleanup(function()
+				(heroContent :: Instance).Parent = nil
 			end)
 		end
 		return overlay
