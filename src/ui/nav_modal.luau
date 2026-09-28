@@ -161,17 +161,34 @@ return function(ctx: Types.Context): Nav.Surfaces
 			end
 			return if level(use) == "normal" then ctx.read(progress, use) else 1
 		end
+		local last = 0
+		type Anchor = { p: number, o: number }
+		local anchor: ComposeTypes.Cell<Anchor> = Compose.cell({ p = 0, o = 0 } :: Anchor)
 		local function opacity(use: ComposeTypes.Use?): number
 			local p = raw(use)
 			if level(use) ~= "normal" then
+				last = p
 				return p
 			end
+			local from: Anchor = if use then use(anchor) else anchor:peek()
+			local value
 			if ctx.read(exiting, use) then
 				local cleared = 1 - present(fadeOut)
-				return math.clamp((p - cleared) / math.max(1 - cleared, 1e-3), 0, 1)
+				value = if from.p > cleared
+					then from.o * math.clamp((p - cleared) / (from.p - cleared), 0, 1)
+					elseif from.p > 0 then from.o * math.clamp(p / from.p, 0, 1)
+					else 0
+			else
+				local opaque = math.max(present(fadeIn), from.p + 1e-3)
+				value = from.o + (1 - from.o) * math.clamp((p - from.p) / (opaque - from.p), 0, 1)
 			end
-			return math.clamp(p / math.max(present(fadeIn), 1e-3), 0, 1)
+			last = value
+			return value
 		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(exiting)
+			anchor:set({ p = raw(), o = last })
+		end)
 		return { opacity = opacity, travel = travel }
 	end
 	local function atRest(

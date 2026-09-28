@@ -311,7 +311,8 @@ easing, spring, scale and distance below is a token in the theme package's
   Callout, Button `help` plate and Sheet (its scrim) is fully opaque once 60
   percent of its entrance time has run (`presentFadeIn`) and fully clear once
   half of its exit time has run (`presentFadeOut`); the scale, slide or rise
-  runs its whole time. The scrim and a tail fade with the panel.
+  runs its whole time. The scrim and a tail fade with the panel. A presentation
+  reversed mid-entrance or mid-exit continues its fade from where it is.
 - An Alert, a Dialog, a Popover, a Menu (and each Menu level), a Callout and
   a Button `help` plate measure themselves at rest before the entrance: each
   waits, invisible and at scale 1, until its size holds for one frame, at most
@@ -331,7 +332,9 @@ easing, spring, scale and distance below is a token in the theme package's
     over `reducedFade`, a NavigationStack push fades the new page in over
     `reducedFade` with no slide (a pop is immediate), and a DisclosureGroup
     or CollapsibleView lands its height at once and fades its content over
-    `reducedFade`. A custom `transition` keeps its own timing. Paint
+    `reducedFade`, and so does a Notice when it arrives and when its close
+    button is pressed (`onDismiss` runs after the fade). A NavigationStack pop
+    is a known gap: it is immediate. A custom `transition` keeps its own timing. Paint
     transitions keep their timing.
   - `"none"`: every presentation appears and leaves at once, and paint
     transitions are instant.

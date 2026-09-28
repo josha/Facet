@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- At motion level `limited` a Notice lands its height at once and fades its content in over `reducedFade`, and a close fades it out before `onDismiss` runs (it cut in and out). A presentation reversed mid-entrance or mid-exit continues its fade from its current opacity instead of stepping for a frame.
 - **Breaking: a Dialog is measured at rest like an Alert**, and the rest wait now runs at every motion level (it was skipped under reduced motion). A Dialog waits invisible at scale 1 until its size holds for one frame (normally two frames, at most `motion.restLimit`), then scales in from that size and holds it as a fixed box until it lands, so it no longer grows 4 pixels (or 21 at motion level `none`) after it shows. At `limited` and `none` every rest-gated presentation now appears up to two frames later, whole.
 - **Breaking: a switch Toggle's knob glides** with its track colour on `motion.springs.control` instead of teleporting between its ends; a change mid-flight turns it smoothly, and it lands at once below motion level `normal`.
 - **Breaking: a PageView fling decelerates without overshoot** (`metrics.motion.styles.fling` is `Quint`, was `Back`); the page still turns on the native `UIPageLayout`.
